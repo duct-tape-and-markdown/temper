@@ -1,4 +1,4 @@
-//! `author check` — the lint engine core.
+//! `temper check` — the lint engine core.
 //!
 //! Implements the `check` gate (`specs/20-surface.md`, "CLI surface" — the verb
 //! that validates against the active contract) over the contract model of
@@ -80,7 +80,7 @@ impl Workspace {
 pub enum WorkspaceError {
     /// The workspace `skills/` directory could not be enumerated.
     #[error("failed to read workspace directory {path}")]
-    #[diagnostic(code(author::check::read_dir))]
+    #[diagnostic(code(temper::check::read_dir))]
     ReadDir {
         /// The directory whose listing failed.
         path: PathBuf,
@@ -197,7 +197,7 @@ impl miette::Diagnostic for Diagnostic {
 /// A lint rule: examines the whole [`Workspace`] and emits zero or more findings.
 ///
 /// Taking `&Workspace` (not a single artifact) is load-bearing — the cross-artifact
-/// rules that are `author`'s differentiator need to see every artifact at once,
+/// rules that are `temper`'s differentiator need to see every artifact at once,
 /// and slot in here without a signature change.
 pub trait Rule {
     /// Run this rule over the workspace, returning every finding it produces.

@@ -1,7 +1,7 @@
 # Contracts — the two-layer model
 
 A `Contract` is an author-declared, decidable description of structure that a
-harness (or one artifact in it) must satisfy. `author check` validates the
+harness (or one artifact in it) must satisfy. `temper check` validates the
 imported surface against the active contract and reports conformance. This is the
 type checker; the contract is the types. (`00-intent.md` laws 2–3.)
 
@@ -11,7 +11,7 @@ There are not "two kinds of contract." There is one engine over the primitive
 algebra (below), and every contract is an **instance** expressed in it. The
 distinctions are compositional, not built-in:
 
-| Instance | Declares | `author` checks | Analogy |
+| Instance | Declares | `temper` checks | Analogy |
 | -------- | -------- | --------------- | ------- |
 | **Artifact contract** | the shape of one artifact kind | each artifact conforms | a **type** |
 | **Harness contract** | required roles + relations + verifiers across a harness | the roster is filled and wired | an **interface / trait** |
@@ -45,7 +45,7 @@ hatch (law 3). The primitives:
 - **role** (harness layer) — a component filling role R is `present`,
   `conforms-to` contract C, and is selected by `match` (see Roles).
 - **verified_by** (the delegation seam) — names an external verifier for the
-  behavioral part. `author` checks the verifier is *declared and wired*; it does
+  behavioral part. `temper` checks the verifier is *declared and wired*; it does
   **not** run it or judge the behavior (law 3, honest bound).
 
 Every primitive is decidable: given the surface, each clause is unambiguously
@@ -74,7 +74,7 @@ conformance error, reported precisely.
 
 ## Severity is declared, not baked
 
-`author` does not decide what is an error vs a warning. **The contract author
+`temper` does not decide what is an error vs a warning. **The contract author
 marks each clause `required` (gate-blocking) or `advisory` (reported, non-
 blocking).** This replaces the tool-baked error/warn split: `--deny-advisories`
 promotes advisories to blocking for a strict CI policy (the `-D warnings`
@@ -104,9 +104,9 @@ contract    = { required = ["description"], must_define = ["executable"] }
 verified_by = "tests/release.rs"   # author checks this is wired; CI runs it
 ```
 
-`author` guarantees the slot is filled and the judge is present and wired. The
+`temper` guarantees the slot is filled and the judge is present and wired. The
 judge (a test, a CI job, an eval) guarantees the behavior, at runtime. Neither
-guesses; neither is `author`.
+guesses; neither is `temper`.
 
 ## Decision: kill the heuristic rule registry
 

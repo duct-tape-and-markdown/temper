@@ -1,11 +1,11 @@
 //! End-to-end CLI acceptance for slice 1 (`spec/RELEASE-v0.1.md`, "Surface").
 //!
-//! Spawns the built `author` binary via `CARGO_BIN_EXE_author` and drives the
-//! documented round trip — `author import <harness> --into <tmp>` then
-//! `author check <tmp>` — asserting the exit semantics: zero on a clean skill,
+//! Spawns the built `temper` binary via `CARGO_BIN_EXE_author` and drives the
+//! documented round trip — `temper import <harness> --into <tmp>` then
+//! `temper check <tmp>` — asserting the exit semantics: zero on a clean skill,
 //! non-zero once an `error`-severity rule fires. A third case pins the default
 //! workspace: with `--into` / the `check` argument omitted, both resolve to
-//! `./.author` under the process's working directory.
+//! `./.temper` under the process's working directory.
 //!
 //! These checks live here (not in a `src` unit test) precisely because the exit
 //! code is observable only across a real process boundary — `process::ExitCode`
@@ -63,7 +63,7 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
 
-/// Run `author import <harness> --into <into>` and assert it succeeded.
+/// Run `temper import <harness> --into <into>` and assert it succeeded.
 fn import(harness: &Path, into: &Path) {
     let status = Command::new(BIN)
         .arg("import")
@@ -75,7 +75,7 @@ fn import(harness: &Path, into: &Path) {
     assert!(status.success(), "import should succeed: {status}");
 }
 
-/// Run `author check <workspace>` and return whether it exited zero.
+/// Run `temper check <workspace>` and return whether it exited zero.
 fn check_succeeds(workspace: &Path) -> bool {
     Command::new(BIN)
         .arg("check")
@@ -115,7 +115,7 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
 
 #[test]
 fn into_and_workspace_default_to_dot_author() {
-    // With `--into` omitted, import writes to `./.author` relative to the
+    // With `--into` omitted, import writes to `./.temper` relative to the
     // process CWD; with the `check` argument omitted, check reads the same path.
     let cwd = tmpdir("default-cwd");
     let harness = tmpdir("default-src");
@@ -132,11 +132,11 @@ fn into_and_workspace_default_to_dot_author() {
         "default-into import should succeed"
     );
 
-    // The default surface landed under `<cwd>/.author`.
-    let default_ws = cwd.join(".author");
+    // The default surface landed under `<cwd>/.temper`.
+    let default_ws = cwd.join(".temper");
     assert!(
         default_ws.join("author.toml").is_file(),
-        "import without --into must resolve to ./.author"
+        "import without --into must resolve to ./.temper"
     );
     assert!(
         default_ws
@@ -146,7 +146,7 @@ fn into_and_workspace_default_to_dot_author() {
             .is_file()
     );
 
-    // `check` with no argument reads that same `./.author` and finds it clean.
+    // `check` with no argument reads that same `./.temper` and finds it clean.
     let check_status = Command::new(BIN)
         .current_dir(&cwd)
         .arg("check")
@@ -154,6 +154,6 @@ fn into_and_workspace_default_to_dot_author() {
         .unwrap();
     assert!(
         check_status.success(),
-        "check without an argument must lint ./.author and exit zero"
+        "check without an argument must lint ./.temper and exit zero"
     );
 }

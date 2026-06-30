@@ -205,12 +205,12 @@ const build: Phase = {
   },
 };
 
-const authorChain: Chain = {
+const temperChain: Chain = {
   phases: [plan, build],
   humanOnly: [], // no spec phase; the specs/ corpus is authored in-session, never by a phase
 };
 
-export default authorChain;
+export default temperChain;
 
 /**
  * Foundations governor (CHAIN-AUTHORING §6). A pending entry may declare

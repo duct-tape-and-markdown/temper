@@ -1,7 +1,7 @@
-//! `author import` — scan a Claude Code harness into the typed config surface.
+//! `temper import` — scan a Claude Code harness into the typed config surface.
 //!
 //! Implements `import` per `specs/20-surface.md` (the "CLI surface" verb
-//! `author import` — scan → surface + provenance lock): discover
+//! `temper import` — scan → surface + provenance lock): discover
 //! every skill under `<harness>` (a `skills/*/SKILL.md` layout, plus a bare
 //! `<harness>` that is itself a skill directory), and for each one write the
 //! surface tree `<into>/skills/<name>/` — a typed `meta.toml` header projected
@@ -36,7 +36,7 @@ pub enum ImportError {
 
     /// The harness `skills/` directory could not be enumerated.
     #[error("failed to read harness directory {path}")]
-    #[diagnostic(code(author::import::read_dir))]
+    #[diagnostic(code(temper::import::read_dir))]
     ReadDir {
         /// The directory whose listing failed.
         path: PathBuf,
@@ -47,7 +47,7 @@ pub enum ImportError {
 
     /// A surface file or directory could not be written.
     #[error("failed to write {path}")]
-    #[diagnostic(code(author::import::write))]
+    #[diagnostic(code(temper::import::write))]
     Write {
         /// The destination path that failed.
         path: PathBuf,

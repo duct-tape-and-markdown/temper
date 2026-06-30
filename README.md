@@ -1,15 +1,15 @@
-# author
+# temper
 
 A typed maintenance surface for the Claude Code harness.
 
-`author` treats your Claude Code customization — skills, commands, agents, hooks,
+`temper` treats your Claude Code customization — skills, commands, agents, hooks,
 MCP/LSP servers, `CLAUDE.md` rules, plugin & marketplace manifests, settings — as
 a **typed codebase you compile**. It imports the whole harness into one validated
 config surface, lints it against the documented schemas and best practices, lets
 you reorganize and compose it, and writes changes back with drift-aware `apply`.
 
 > Positioning: tools like `rulesync` make your harness *portable* across
-> assistants. `author` makes your harness *good* — quality, composition,
+> assistants. `temper` makes your harness *good* — quality, composition,
 > maintenance, in a Claude-Code-native object model.
 
 - **North star:** [`specs/00-intent.md`](specs/00-intent.md)

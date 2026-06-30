@@ -17,10 +17,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use author::check::{self, Diagnostic, Severity, Workspace};
-use author::import;
-use author::rules::all_rules;
-use author::skill::Skill;
+use temper::check::{self, Diagnostic, Severity, Workspace};
+use temper::import;
+use temper::rules::all_rules;
+use temper::skill::Skill;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 

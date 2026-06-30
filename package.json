@@ -1,8 +1,8 @@
 {
-  "name": "author-flume-harness",
+  "name": "temper-flume-harness",
   "version": "0.0.0",
   "private": true,
-  "description": "flume control plane for building author. The product is Rust (see Cargo.toml); this manifest exists only to run the build harness.",
+  "description": "flume control plane for building temper. The product is Rust (see Cargo.toml); this manifest exists only to run the build harness.",
   "type": "module",
   "scripts": {
     "flume": "flume",

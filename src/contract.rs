@@ -51,7 +51,7 @@ pub struct Contract {
 }
 
 /// One clause: a decidable [`Predicate`] plus the [`Severity`] its author
-/// declared for it. Pairing the two here is the whole point — `author` never
+/// declared for it. Pairing the two here is the whole point — `temper` never
 /// decides error-vs-warning; the contract does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Clause {
@@ -184,7 +184,7 @@ impl Charset {
 pub enum ContractError {
     /// The contract file could not be read.
     #[error("failed to read contract {path}")]
-    #[diagnostic(code(author::contract::io))]
+    #[diagnostic(code(temper::contract::io))]
     Io {
         /// The path that failed to read.
         path: PathBuf,
@@ -195,7 +195,7 @@ pub enum ContractError {
 
     /// The contract file is not valid TOML.
     #[error("failed to parse {path} as TOML")]
-    #[diagnostic(code(author::contract::toml))]
+    #[diagnostic(code(temper::contract::toml))]
     Toml {
         /// The contract that failed to parse.
         path: PathBuf,
@@ -206,7 +206,7 @@ pub enum ContractError {
 
     /// The top-level `name` key is absent or not a string.
     #[error("{path}: contract is missing required field `name`")]
-    #[diagnostic(code(author::contract::missing_name))]
+    #[diagnostic(code(temper::contract::missing_name))]
     MissingName {
         /// The contract whose header is incomplete.
         path: PathBuf,
@@ -214,7 +214,7 @@ pub enum ContractError {
 
     /// `clause` is present but is not an array of tables (`[[clause]]`).
     #[error("{path}: `clause` must be an array of tables (`[[clause]]`)")]
-    #[diagnostic(code(author::contract::clause_not_array))]
+    #[diagnostic(code(temper::contract::clause_not_array))]
     ClauseNotArray {
         /// The malformed contract.
         path: PathBuf,
@@ -222,7 +222,7 @@ pub enum ContractError {
 
     /// A clause is missing a key its predicate requires.
     #[error("{path}: clause {index} is missing required key `{param}`")]
-    #[diagnostic(code(author::contract::missing_param))]
+    #[diagnostic(code(temper::contract::missing_param))]
     MissingParam {
         /// The contract the clause lives in.
         path: PathBuf,
@@ -234,7 +234,7 @@ pub enum ContractError {
 
     /// A clause key has the wrong TOML type.
     #[error("{path}: clause {index} key `{param}` must be {expected}")]
-    #[diagnostic(code(author::contract::wrong_type))]
+    #[diagnostic(code(temper::contract::wrong_type))]
     WrongType {
         /// The contract the clause lives in.
         path: PathBuf,
@@ -250,7 +250,7 @@ pub enum ContractError {
     #[error(
         "{path}: clause {index} has unknown severity `{value}` (expected `required` or `advisory`)"
     )]
-    #[diagnostic(code(author::contract::unknown_severity))]
+    #[diagnostic(code(temper::contract::unknown_severity))]
     UnknownSeverity {
         /// The contract the clause lives in.
         path: PathBuf,
@@ -264,7 +264,7 @@ pub enum ContractError {
     /// trapdoor the closed algebra exists to keep shut — rejected, never skipped.
     #[error("{path}: clause {index} names unknown predicate `{predicate}`")]
     #[diagnostic(
-        code(author::contract::unknown_predicate),
+        code(temper::contract::unknown_predicate),
         help(
             "a contract is closed-vocabulary data, not an escape hatch — extend the algebra deliberately, never per-contract"
         )
@@ -280,7 +280,7 @@ pub enum ContractError {
 
     /// An `allowed_chars` range is not a `<lo>-<hi>` pair with `lo <= hi`.
     #[error("{path}: clause {index} has an invalid charset range `{value}` (expected `<lo>-<hi>`)")]
-    #[diagnostic(code(author::contract::invalid_range))]
+    #[diagnostic(code(temper::contract::invalid_range))]
     InvalidRange {
         /// The contract the clause lives in.
         path: PathBuf,

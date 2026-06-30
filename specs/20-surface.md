@@ -1,6 +1,6 @@
 # The config surface — import, IR, round-trip, drift
 
-The surface is `author`'s in-memory and on-disk projection of a harness: the
+The surface is `temper`'s in-memory and on-disk projection of a harness: the
 typed thing the contract engine validates and the human reshapes. Built and
 proven for skills in slice 1; the shape generalizes to every artifact kind.
 
@@ -64,12 +64,12 @@ class direction, because humans also edit the harness directly. (Open: the
 
 ## CLI surface
 
-- `author import <harness-path> [--into <workspace>]` — scan → surface + lock.
-- `author check [<workspace>]` — validate against the active contract; exit
+- `temper import <harness-path> [--into <workspace>]` — scan → surface + lock.
+- `temper check [<workspace>]` — validate against the active contract; exit
   non-zero on a `required`-clause violation (`--deny-advisories` to also block on
   advisory). The gate.
-- `author diff` / `apply` / `re-add` — the drift engine (future).
-- `author bundle` — compose into a publishable plugin + `marketplace.json`
+- `temper diff` / `apply` / `re-add` — the drift engine (future).
+- `temper bundle` — compose into a publishable plugin + `marketplace.json`
   (future; the composition verb).
 
 Logic lives in the library; `main` is a thin `clap` dispatch that maps results to

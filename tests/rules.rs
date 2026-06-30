@@ -15,9 +15,9 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use author::check::{Diagnostic, Severity, Workspace, run};
-use author::rules::all_rules;
-use author::skill::Skill;
+use temper::check::{Diagnostic, Severity, Workspace, run};
+use temper::rules::all_rules;
+use temper::skill::Skill;
 
 /// Load a fixture skill directory and run the full rule set over it.
 fn diagnostics_for(fixture: &str) -> Vec<Diagnostic> {

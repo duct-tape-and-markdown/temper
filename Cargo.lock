@@ -101,23 +101,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d902e3d592a523def97af8f317b08ce16b7ab854c1985a0c671e6f15cebc236"
 
 [[package]]
-name = "author"
-version = "0.1.0"
-dependencies = [
- "clap",
- "gray_matter",
- "insta",
- "miette",
- "regex",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "toml_edit",
- "walkdir",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -667,6 +650,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "temper"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "gray_matter",
+ "insta",
+ "miette",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "toml_edit",
+ "walkdir",
 ]
 
 [[package]]

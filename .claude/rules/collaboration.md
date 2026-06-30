@@ -1,6 +1,6 @@
 # Collaboration — pushback is the point
 
-`author` is a design-led project. The harness enforces *mechanics*; judgment is
+`temper` is a design-led project. The harness enforces *mechanics*; judgment is
 yours. The most useful thing you do is surface what's wrong or undecided — not
 fill it silently.
 

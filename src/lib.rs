@@ -1,6 +1,6 @@
-//! `author` — a typed maintenance surface for the Claude Code harness.
+//! `temper` — a typed maintenance surface for the Claude Code harness.
 //!
-//! `author` imports the whole Claude Code harness (skills, commands, agents,
+//! `temper` imports the whole Claude Code harness (skills, commands, agents,
 //! hooks, MCP/LSP servers, `CLAUDE.md` rules, plugin & marketplace manifests,
 //! settings) into a single typed, validated config surface, lets a human
 //! reorganize it, lints it against the documented schemas + best practices,

@@ -71,7 +71,7 @@ pub struct Provenance {
 pub enum SkillError {
     /// A file under the skill directory could not be read.
     #[error("failed to read {path}")]
-    #[diagnostic(code(author::skill::io))]
+    #[diagnostic(code(temper::skill::io))]
     Io {
         /// The path that failed to read.
         path: PathBuf,
@@ -82,7 +82,7 @@ pub enum SkillError {
 
     /// `SKILL.md` is not valid UTF-8, so its body cannot be modelled as text.
     #[error("{path} is not valid UTF-8")]
-    #[diagnostic(code(author::skill::not_utf8))]
+    #[diagnostic(code(temper::skill::not_utf8))]
     NotUtf8 {
         /// The offending file.
         path: PathBuf,
@@ -94,7 +94,7 @@ pub enum SkillError {
     /// The source `SKILL.md` has no leading `---` delimited YAML frontmatter.
     #[error("{path} has no YAML frontmatter")]
     #[diagnostic(
-        code(author::skill::no_frontmatter),
+        code(temper::skill::no_frontmatter),
         help("a skill must begin with a `---` delimited YAML block")
     )]
     NoFrontmatter {
@@ -104,7 +104,7 @@ pub enum SkillError {
 
     /// A required frontmatter field is absent or not a scalar value.
     #[error("{path}: frontmatter is missing required field `{field}`")]
-    #[diagnostic(code(author::skill::missing_field))]
+    #[diagnostic(code(temper::skill::missing_field))]
     MissingField {
         /// The file whose header is incomplete.
         path: PathBuf,
@@ -114,7 +114,7 @@ pub enum SkillError {
 
     /// `meta.toml` could not be parsed as TOML.
     #[error("failed to parse {path} as TOML")]
-    #[diagnostic(code(author::skill::bad_toml))]
+    #[diagnostic(code(temper::skill::bad_toml))]
     Toml {
         /// The surface header that failed to parse.
         path: PathBuf,

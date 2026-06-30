@@ -29,7 +29,7 @@ This repo carries **two** harnesses with different owners:
 1. **The flume harness** (`.flume/`) — the build pipeline. Authored by humans;
    never edited by the `build` phase.
 2. **The Claude Code harness** (`.claude/`, `CLAUDE.md`) — the *product domain*:
-   the very artifacts `author` is built to project. It is also `author`'s first
+   the very artifacts `temper` is built to project. It is also `temper`'s first
    dogfood fixture and the environment the build agents themselves run inside, so
    it is hand-curated to an exemplary standard. The `build` phase never edits it;
    changes flow through human `chore(harness):` commits.

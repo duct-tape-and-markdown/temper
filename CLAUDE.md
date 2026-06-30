@@ -1,13 +1,13 @@
-# author
+# temper
 
 ## Identity
 
-- **Project:** `author` — a typed maintenance surface for the Claude Code
+- **Project:** `temper` — a typed maintenance surface for the Claude Code
   harness. Import the whole harness (skills, commands, agents, hooks, MCP/LSP,
   `CLAUDE.md` rules, plugin & marketplace manifests, settings) into one typed,
   validated config surface; lint it against the documented schemas + best
   practices; compose into publishable bundles; write back with drift-aware
-  `apply`. Positioning: `rulesync` makes a harness portable; `author` makes it
+  `apply`. Positioning: `rulesync` makes a harness portable; `temper` makes it
   *good*.
 
 ## Source of truth
@@ -26,10 +26,10 @@ This repo carries **two distinct harnesses**; do not conflate them:
 1. **`.flume/`** — the flume build pipeline (plan → build, gated commits). Human
    territory; the `build` phase never edits it.
 2. **`.claude/` + this `CLAUDE.md`** — the Claude Code harness. It is the *product
-   domain*: the exact artifact kinds `author` is built to project. It is also
-   `author`'s first dogfood fixture and the environment you (and the flume build
+   domain*: the exact artifact kinds `temper` is built to project. It is also
+   `temper`'s first dogfood fixture and the environment you (and the flume build
    agents) run inside. It is hand-curated to an exemplary standard on purpose —
-   when you touch it, hold it to the bar `author` will one day lint. Changes flow
+   when you touch it, hold it to the bar `temper` will one day lint. Changes flow
    through human `chore(harness):` commits, never `build:` ticks.
 
 ## Tech stack

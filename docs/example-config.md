@@ -1,22 +1,22 @@
-# Example config — `author` governing itself (illustrative)
+# Example config — `temper` governing itself (illustrative)
 
 > **Status: illustrative north-star, not normative and not the live config.** The
 > contract engine isn't built yet (the flume loop is building toward it). This is
-> a worked example of what `author`'s *own* config could look like once the
+> a worked example of what `temper`'s *own* config could look like once the
 > engine exists — a target the build can aim at, and a concrete read on the model
 > in `specs/`. Every clause here is consistent with `specs/10-contracts.md` and
 > `specs/30-landscapes.md`. When the engine lands, the real config supersedes
 > this; until then, treat it as a picture, not a promise.
 
-The point of the picture: `author` governs *itself*. The harness it manages, the
+The point of the picture: `temper` governs *itself*. The harness it manages, the
 specs it's defined by, and (eventually) its own code are all landscapes under one
-engine. Below, watch the gate fail on `author`'s own specs for a true reason —
+engine. Below, watch the gate fail on `temper`'s own specs for a true reason —
 that's what self-hosting should feel like.
 
 ## Layout
 
 ```
-.author/
+.temper/
   contracts/
     skill.toml      # artifact contract — instance of the engine
     rule.toml       # artifact contract — .claude/rules/*
@@ -27,7 +27,7 @@ that's what self-hosting should feel like.
 ```
 
 The `contracts/` and `model/` files are the *config* — the author-declared
-intent. The imported surface (`.author/skills/...`, `author.toml`) is the
+intent. The imported surface (`.temper/skills/...`, `author.toml`) is the
 *subject* the contracts are checked against (`specs/20-surface.md`).
 
 ## An artifact contract (skills) — `contracts/skill.toml`
@@ -159,7 +159,7 @@ A spec binds with one minimal marker — *declared, not a template* (this resolv
 ## The graph in practice — blast radius (tier-1, no LLM)
 
 ```
-$ author graph --blast Primitive
+$ temper graph --blast Primitive
 
 Primitive            specs/10-contracts.md
 └─ Contract          specs/10-contracts.md        (depends_on Primitive)
@@ -172,10 +172,10 @@ Primitive            specs/10-contracts.md
 Delete a load-bearing concept and you see the wreckage before you cause it.
 Deterministic, no model call.
 
-## `author check` — the three tiers, live
+## `temper check` — the three tiers, live
 
 ```
-$ author check
+$ temper check
 
 contracts/rule.toml
   ✓ .claude/rules/rust.md          (paths defined, no Cursor keys)
@@ -202,12 +202,12 @@ spec.toml :: specs/
 What each line *is*:
 
 - the harness rows = the **harness contract** (roles filled + conforming);
-- `⊘ verified_by … not run` = the **delegation seam** — `author` proves the judge
+- `⊘ verified_by … not run` = the **delegation seam** — `temper` proves the judge
   is *wired*, never runs it (`specs/10-contracts.md`, `verified_by`);
 - `✗ coverage: VerdictTier …` = a real **tier-1 catch** — and it's catching a
   naming slip in the live corpus: `VerdictTier` is named in `00-intent.md` but
   bound to no spec. "Name the same concept the same way," now structural;
 - `⊘ fidelity … DEFERRED` = tier-2, visibly **not pretending to be a gate**.
 
-The punchline: the gate **fails on `author`'s own specs, for a true reason.**
+The punchline: the gate **fails on `temper`'s own specs, for a true reason.**
 That's self-hosting — the tool unimpressed with its authors.

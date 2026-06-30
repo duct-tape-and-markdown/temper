@@ -1,13 +1,13 @@
-# Spec system — how `author` is specified
+# Spec system — how `temper` is specified
 
 Orientation file, not a contract spec. Adapted from cascade's spec system. The
-`specs/` corpus is the evergreen source of truth for `author`'s intent and
+`specs/` corpus is the evergreen source of truth for `temper`'s intent and
 contract; code is the truth below the line it draws.
 
 This file is itself the prose ancestor of a **spec-landscape contract**
 (`30-landscapes.md`): the conventions below are what a declared spec contract for
-`author`'s own corpus would encode (placement, length, decisions-name-
-alternatives, references resolve). The final dogfood is `author` checking
+`temper`'s own corpus would encode (placement, length, decisions-name-
+alternatives, references resolve). The final dogfood is `temper` checking
 `specs/` against that contract — the tool eating the rules it was written under.
 Until then these stay prose discipline.
 
@@ -17,7 +17,7 @@ Until then these stay prose discipline.
   them every iteration. If spec and code disagree on intent, the spec wins — fix
   the code, or refine the spec if intent has shifted.
 - **Prose.** Paragraphs, lists, tables, decisions. No frontmatter, no schema, no
-  template to fill. (Note the irony and hold it: `author` validates *other*
+  template to fill. (Note the irony and hold it: `temper` validates *other*
   harnesses against declared contracts, but its own *design intent* is prose —
   because intent is the undecidable layer that contracts delegate, not encode.)
 - **One topic per file**, filename is the topic handle. Target under ~150 lines.
