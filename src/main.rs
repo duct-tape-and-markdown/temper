@@ -23,6 +23,7 @@ use temper::contract::Contract;
 use temper::engine;
 use temper::extract;
 use temper::import;
+use temper::roster;
 
 /// The surface workspace default for `--into` / the `check` argument: a `.temper`
 /// directory under the current working directory (`specs/20-surface.md`).
@@ -122,6 +123,21 @@ fn main() -> miette::Result<ExitCode> {
             diagnostics.extend(engine::admissibility(&rule_contract));
             diagnostics.extend(engine::validate(&skill_contract, &skill_features));
             diagnostics.extend(engine::validate(&rule_contract, &rule_features));
+
+            // The harness-contract tier: run role match-selection over the parsed
+            // roster, gating each `required` single-filler role on being filled by
+            // exactly one artifact of its kind (`specs/10-contracts.md`, "Roles and
+            // matching"). Absent `temper.toml` ⇒ no layer ⇒ this adds nothing, so
+            // the floor-only path stays byte-for-byte unchanged.
+            if let Some(layer) = layer.as_ref() {
+                let by_kind: std::collections::BTreeMap<&str, &[extract::Features]> =
+                    std::collections::BTreeMap::from([
+                        ("skill", skill_features.as_slice()),
+                        ("rule", rule_features.as_slice()),
+                    ]);
+                diagnostics.extend(roster::check(layer.roles(), &by_kind));
+            }
+
             print!("{}", check::render(&diagnostics));
 
             // A `required` violation always fails the run; `--deny-advisories`
