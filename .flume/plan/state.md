@@ -1,26 +1,18 @@
 # Plan state
 
-- **Phase:** contract-engine cutover — `engine::validate` is shipped and the
-  bundled skill template is authored; remaining work pins the template, wires
-  `check` onto the engine, and retires the dead heuristic registry. **Blocked on
-  a newly-surfaced fork** (see below).
-- **Last shipped:** `contracts/skill.anthropic.toml` authored as human territory
-  (6e0af11); before it LIBDOC-EVERGREEN + DOCS-EVERGREEN scrubbed the stale
-  `RELEASE-v0.1` crate-doc cites.
+- **Phase:** contract-engine cutover — `engine::validate` and the bundled skill
+  template are shipped; the `(contract-name-field)` fork is RESOLVED, so the
+  chain to wire `check` onto the engine and retire the heuristic registry is now
+  fully unblocked.
+- **Last shipped:** spec resolution of `(contract-name-field)` — a contract is
+  identified by path/role, not an internal name (eea1054); before it the curated
+  `contracts/skill.anthropic.toml` was authored as human territory (6e0af11).
 - **In flight:** nothing.
-- **Blocker surfaced:** the shipped template carries no top-level `name`, which
-  `Contract::parse` requires (`src/contract.rs` → `MissingName`), so it will not
-  load — `include_str!` in CHECK-CUTOVER and the SKILL-CONTRACT-TEMPLATE test
-  both error at parse. Filed as `(contract-name-field)`; both entries now declare
-  `dependsOnForks: ["contract-name-field"]`. Inbox drained (its note —
-  reconcile SKILL-CONTRACT-TEMPLATE to test-only since the data file is
-  human-authored/embedded-not-written — is applied).
-- **Next:** human resolves `(contract-name-field)` — add `name = "skill"` to the
-  template (human edit to `contracts/`), or relax `Contract.name` to optional (a
-  code entry to file once chosen). Then SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER →
-  RETIRE-HEURISTICS; afterward reconcile the then-callerless `check::Rule`/`check::run`.
+- **Next:** CONTRACT-NAME-OPTIONAL (gate `open`, pickable now) relaxes
+  `Contract.name` to `Option<String>` and drops `MissingName`, after which
+  SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER → RETIRE-HEURISTICS run in order;
+  afterward reconcile the then-callerless `check::Rule`/`check::run`.
 
-Plan continues: no — queue reconciled and the inbox drained; the only actionable
-next step is the human `(contract-name-field)` decision, not more plan work.
-Nothing is pickable until that fork resolves (the `open` entry is fork-held), so
+Plan continues: no — queue reconciled, inbox drained, and a pickable `open`
+entry (CONTRACT-NAME-OPTIONAL) leads the chain. Building is how the queue drains;
 re-planning would just re-emit this queue.

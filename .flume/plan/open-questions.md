@@ -10,13 +10,12 @@ path — not the contract-engine chain, which ships the in-crate decidable subse
 and embeds the bundled skill template as the default.
 
 - `(contract-name-field)` — RESOLVED, option B (`specs/10-contracts.md` Decision:
-  "a contract is identified by its path/role, not an internal name"). The curated
-  `contracts/skill.anthropic.toml` rightly carries no `name`; the `Contract`
-  model's required top-level `name` is code drift. Fix: relax `Contract.name` to
-  optional, deriving a display label from the file stem for diagnostics. Plan:
-  file this as a code entry (e.g. `CONTRACT-NAME-OPTIONAL`, gate `open`) ahead of
-  SKILL-CONTRACT-TEMPLATE; the chain then unblocks (SKILL-CONTRACT-TEMPLATE →
-  CHECK-CUTOVER → RETIRE-HEURISTICS).
+  "a contract is identified by its path/role, not an internal name"), and now
+  FILED: `CONTRACT-NAME-OPTIONAL` (gate `open`) relaxes `Contract.name` to
+  `Option<String>`, drops `MissingName`, and derives a display label from the
+  file stem; it leads the chain (CONTRACT-NAME-OPTIONAL → SKILL-CONTRACT-TEMPLATE
+  → CHECK-CUTOVER → RETIRE-HEURISTICS), which is no longer fork-held. Kept here
+  as the decision record; no dependent still waits on it.
 
 - `(regex-crate)` — The primitive algebra lists `pattern` (regex), but `regex` is
   not in the sanctioned crate set and the codebase deliberately avoids it. Add
