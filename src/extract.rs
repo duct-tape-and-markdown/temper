@@ -6,7 +6,8 @@
 //! generic contract engine reads. A contract clause is sound only because the
 //! feature it names is **deterministically extractable** — so [`Features`]
 //! admits *only* surface-decidable facts (a field's value, a key's presence, a
-//! body's line count, the directory a unit sits under) and never inferred
+//! body's line count, the body's ATX headings, the directory a unit sits under)
+//! and never inferred
 //! prose meaning ("is this fact duplicated," "does this paragraph mean X"). That
 //! restraint is what makes a violation a true positive, which is what earns the
 //! hard gate.
@@ -65,6 +66,10 @@ pub struct Features {
     pub fields: BTreeMap<String, FeatureValue>,
     /// The artifact body's line count (for `max_lines`).
     pub body_lines: usize,
+    /// The ATX headings (`#`..`######`) in the body, in document order, with the
+    /// `#` run and any closing `#` run trimmed (for `require_sections`). A `#`
+    /// inside a fenced code block is not a heading.
+    pub headings: Vec<String>,
     /// The name of the directory the unit was imported from, off provenance
     /// (for `name-matches-dir`). `None` when the source path has no parent.
     pub source_dir: Option<String>,
@@ -116,6 +121,7 @@ pub fn skill_features(skill: &Skill) -> Features {
         id: skill.name.clone(),
         fields,
         body_lines: skill.body.lines().count(),
+        headings: body_headings(&skill.body),
         source_dir: source_dir_name(&skill.provenance.source_path),
         companions: skill
             .companions
@@ -148,9 +154,88 @@ pub fn rule_features(rule: &Rule) -> Features {
         id: rule.name.clone(),
         fields,
         body_lines: rule.body.lines().count(),
+        headings: body_headings(&rule.body),
         source_dir: source_dir_name(&rule.provenance.source_path),
         companions: Vec::new(),
     }
+}
+
+/// Extract the ATX headings (`#`..`######`) from a byte-faithful markdown body,
+/// in document order. A `#` inside a fenced code block (```` ``` ```` or `~~~`)
+/// is not a heading — that exclusion is what keeps the feature deterministic
+/// rather than a guess. Each returned string is the heading text with its
+/// leading `#` run, the required separating space, and any closing `#` run
+/// trimmed off.
+fn body_headings(body: &str) -> Vec<String> {
+    let mut headings = Vec::new();
+    // The open fence's char and run length, while inside a fenced code block.
+    let mut fence: Option<(char, usize)> = None;
+    for line in body.lines() {
+        if let Some((fence_char, fence_len)) = fence_marker(line) {
+            match fence {
+                // A closing fence matches the opener's char and is at least as
+                // long; anything else inside a fence is just content.
+                Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
+                    fence = None;
+                }
+                Some(_) => {}
+                None => fence = Some((fence_char, fence_len)),
+            }
+            continue;
+        }
+        if fence.is_none()
+            && let Some(text) = atx_heading_text(line)
+        {
+            headings.push(text);
+        }
+    }
+    headings
+}
+
+/// The fence marker a line carries, if any: the fence character (`` ` `` or
+/// `~`) and its run length (≥3). Up to three leading spaces are allowed before
+/// the run; four or more is an indented code block, not a fence.
+fn fence_marker(line: &str) -> Option<(char, usize)> {
+    let rest = line.trim_start_matches(' ');
+    if line.len() - rest.len() >= 4 {
+        return None;
+    }
+    let fence_char = rest.chars().next().filter(|&c| c == '`' || c == '~')?;
+    let len = rest.chars().take_while(|&c| c == fence_char).count();
+    (len >= 3).then_some((fence_char, len))
+}
+
+/// The text of an ATX heading on this line, or `None` if it is not one. A
+/// heading is up to three leading spaces, a `#`..`######` run, then a space/tab
+/// (or end of line); the returned text has the markers and an optional closing
+/// `#` run stripped.
+fn atx_heading_text(line: &str) -> Option<String> {
+    let rest = line.trim_start_matches(' ');
+    if line.len() - rest.len() >= 4 {
+        return None;
+    }
+    let level = rest.chars().take_while(|&c| c == '#').count();
+    if level == 0 || level > 6 {
+        return None;
+    }
+    let after = &rest[level..];
+    // The `#` run must be followed by whitespace or end the line, else the `#`s
+    // are content (e.g. `#tag`), not a heading marker.
+    if !after.is_empty() && !after.starts_with([' ', '\t']) {
+        return None;
+    }
+    let text = after.trim();
+    // A trailing `#` run is a closing sequence only when whitespace separates it
+    // from the text (CommonMark); a `#` glued to a word stays content.
+    let stripped = text.trim_end_matches('#');
+    let text = if stripped.is_empty() {
+        ""
+    } else if stripped.len() != text.len() && stripped.ends_with([' ', '\t']) {
+        stripped.trim_end()
+    } else {
+        text
+    };
+    Some(text.to_string())
 }
 
 /// The name of the directory the artifact was imported from (the folder Claude
@@ -274,6 +359,9 @@ Body line three.";
         // Body line count and the imported directory name, off provenance.
         assert_eq!(features.body_lines, 4);
         assert_eq!(features.source_dir.as_deref(), Some("demo"));
+
+        // The body's ATX heading is exposed deterministically.
+        assert_eq!(features.headings, vec!["Demo".to_string()]);
     }
 
     #[test]
@@ -364,8 +452,58 @@ Body line three.",
         // Body line count, and the folder the rule was discovered under.
         assert_eq!(features.body_lines, 4);
         assert_eq!(features.source_dir.as_deref(), Some("rules"));
+        // The rule body's heading is exposed the same way a skill's is.
+        assert_eq!(features.headings, vec!["Rust".to_string()]);
         // A rule has no companions.
         assert!(features.companions.is_empty());
+    }
+
+    #[test]
+    fn headings_skip_fenced_code_and_yield_empty_for_a_bodyless_artifact() {
+        let parent = tmpdir("headings");
+
+        // Multiple ATX levels are captured in order; a `#` inside a fenced block
+        // (and a `#tag` with no separating space) is not a heading.
+        let skill = skill_in(
+            &parent,
+            "fenced",
+            "---\n\
+name: fenced\n\
+description: Use when checking heading extraction.\n\
+---\n\
+# Title\n\
+\n\
+## Usage\n\
+\n\
+```sh\n\
+# not a heading, just a shell comment\n\
+```\n\
+\n\
+#tag is not a heading either\n\
+\n\
+### Examples ###\n",
+        );
+        let features = skill_features(&skill);
+        assert_eq!(
+            features.headings,
+            vec![
+                "Title".to_string(),
+                "Usage".to_string(),
+                "Examples".to_string(),
+            ]
+        );
+
+        // A body with no headings yields an empty list, not a phantom entry.
+        let plain = skill_in(
+            &parent,
+            "plain",
+            "---\n\
+name: plain\n\
+description: Use when there is nothing but prose.\n\
+---\n\
+Just a paragraph, no headings at all.\n",
+        );
+        assert!(skill_features(&plain).headings.is_empty());
     }
 
     #[test]

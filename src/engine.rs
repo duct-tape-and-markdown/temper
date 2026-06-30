@@ -22,13 +22,14 @@
 //!
 //! ## The honest bound (`verified_by` philosophy)
 //!
-//! Two predicates in the vocabulary — `require_sections` and `dependency-exists`
-//! — name facts the current [`Features`] projection does not carry (the body's
-//! text; a declared-dependency model). The engine does **not** fabricate a pass
-//! for them: their arms are marked [`Outcome::Indeterminate`], so growing the
-//! extractor later lights them up with no engine change. The decidable members
-//! the spec keeps — name format, lengths, forbidden keys, required fields,
-//! `name-matches-dir`, body `max_lines` — are evaluated here in full.
+//! One predicate in the vocabulary — `dependency-exists` — names a fact the
+//! current [`Features`] projection does not carry (a declared-dependency model).
+//! The engine does **not** fabricate a pass for it: its arm is marked
+//! [`Outcome::Indeterminate`], so growing the extractor later lights it up with
+//! no engine change. The decidable members the spec keeps — name format,
+//! lengths, forbidden keys, required fields, `name-matches-dir`, body
+//! `max_lines`, and `require_sections` over the extracted headings — are
+//! evaluated here in full.
 //!
 //! [`Error`]: check::Severity::Error
 //! [`Warn`]: check::Severity::Warn
@@ -185,10 +186,20 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             format!("body is {} lines (max {max})", features.body_lines)
         }),
 
-        // `require_sections` names headings *in the body text*, which the
-        // current `Features` projection does not carry (only `body_lines`).
-        // Indeterminate, not a silent pass — it decides once extraction grows.
-        Predicate::RequireSections { .. } => Outcome::Indeterminate,
+        // `require_sections` decides over the extracted body headings: one
+        // finding per named section with no matching heading.
+        Predicate::RequireSections { sections } => {
+            let missing: Vec<String> = sections
+                .iter()
+                .filter(|section| !features.headings.iter().any(|h| h == *section))
+                .map(|section| format!("required section `{section}` is absent from the body"))
+                .collect();
+            if missing.is_empty() {
+                Outcome::Holds
+            } else {
+                Outcome::Violated(missing)
+            }
+        }
 
         // `must_define` over a frontmatter marker (e.g. `disable-model-invocation`)
         // is decidable as field presence.
@@ -285,9 +296,18 @@ mod tests {
             id: id.to_string(),
             fields,
             body_lines,
+            headings: Vec::new(),
             source_dir: source_dir.map(str::to_string),
             companions: Vec::new(),
         }
+    }
+
+    /// `features` with the given body headings — for the `require_sections`
+    /// tests, which decide over headings rather than fields.
+    fn features_with_headings(id: &str, headings: &[&str]) -> Features {
+        let mut f = features(id, &[], 1, None);
+        f.headings = headings.iter().map(|h| (*h).to_string()).collect();
+        f
     }
 
     /// A scalar field value.
@@ -513,19 +533,29 @@ mod tests {
     }
 
     #[test]
-    fn indeterminate_predicates_neither_pass_nor_fire() {
-        // The projection carries no body text / dependency model, so these
-        // clauses cannot be decided here — and must not fabricate a finding.
+    fn require_sections_fires_per_missing_heading_and_is_silent_when_all_present() {
+        let predicate = || Predicate::RequireSections {
+            sections: vec!["Usage".to_string(), "Examples".to_string()],
+        };
+
+        // One finding per named section with no matching heading.
+        let missing = features_with_headings("demo", &["Usage"]);
+        let diags = run(predicate(), missing);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "require_sections");
+        assert_eq!(diags[0].artifact, "demo");
+        assert!(diags[0].message.contains("Examples"));
+
+        // Every named heading present (order and extras are irrelevant): silent.
+        let complete = features_with_headings("demo", &["Examples", "Intro", "Usage"]);
+        assert!(run(predicate(), complete).is_empty());
+    }
+
+    #[test]
+    fn dependency_exists_neither_passes_nor_fires() {
+        // The projection carries no dependency model, so this clause cannot be
+        // decided here — and must not fabricate a finding.
         let any = features("demo", &[("name", scalar("demo"))], 1, None);
-        assert!(
-            run(
-                Predicate::RequireSections {
-                    sections: vec!["Usage".to_string()]
-                },
-                any.clone()
-            )
-            .is_empty()
-        );
         assert!(run(Predicate::DependencyExists, any).is_empty());
     }
 
