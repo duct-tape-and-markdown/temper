@@ -4,6 +4,13 @@ Orientation file, not a contract spec. Adapted from cascade's spec system. The
 `specs/` corpus is the evergreen source of truth for `author`'s intent and
 contract; code is the truth below the line it draws.
 
+This file is itself the prose ancestor of a **spec-landscape contract**
+(`30-landscapes.md`): the conventions below are what a declared spec contract for
+`author`'s own corpus would encode (placement, length, decisions-name-
+alternatives, references resolve). The final dogfood is `author` checking
+`specs/` against that contract — the tool eating the rules it was written under.
+Until then these stay prose discipline.
+
 ## What a spec is
 
 - The source of truth for **intent and contract**. The loop and humans re-read

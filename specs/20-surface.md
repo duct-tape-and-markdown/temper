@@ -34,6 +34,12 @@ paths, and provenance. Skills are modelled and shipped (`src/skill.rs`); the
 `disable-model-invocation` field is load-bearing (Pocock's invocation axis) and
 must be in the IR.
 
+The IR generalizes to a per-kind **extractor** (`30-landscapes.md`): parse a unit
+into the structured features the contract engine validates. For a skill that is
+frontmatter + body; for a spec it is headings, bindings, and declared model
+elements. Extraction is the soundness boundary — it surfaces only
+deterministically-decidable features, never inferred meaning.
+
 ## Provenance and round-trip discipline (law 5)
 
 - `provenance = { source_path, import_hash }`; `import_hash` is the SHA-256 of

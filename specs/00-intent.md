@@ -63,6 +63,44 @@ These bind every part of the tool and every change to it.
    "work with the config surface, reshape and organize" goal. Empty without the
    drift/round-trip engine, so that engine is core, not optional.
 
+## One engine, every layer an instance
+
+There is one **contract engine** built from a fixed algebra of decidable
+primitives (`10-contracts.md`). It knows nothing domain-specific. The harness is
+not a special case — it is the *first instance* expressed in those primitives.
+The spec corpus is *another instance*. Code (its types checked by its compiler)
+is a third. `author` governs a **landscape** — any corpus of authored artifacts —
+by validating it against a contract declared in the primitives (`30-landscapes.md`).
+"One source of truth across all dimensions" = one engine over N landscapes, with
+the seams between them (a spec entity ⟷ a code symbol) checkable as cross-
+landscape relations. The slice-1 heuristic registry is unrepresentable here:
+there is no `if` to hide an opinion in — every opinion is declared data.
+
+## Three verdict tiers — the floor is not flat
+
+A check resolves at one of three tiers; never blur them (blurring is how the
+heuristic swamp returns through an expensive door):
+
+1. **Structural / declared — sound, deterministic → the hard gate** (rustc). The
+   declared model is coherent; the artifact conforms; references resolve.
+2. **Judged fidelity — cheap LLM judge over *atomized* questions, non-
+   deterministic → advisory / voted, never the hard gate** (no Rust analogue).
+   Unlocked only by the declared dependency graph, which shrinks a global "is
+   this faithful?" into local, context-complete atoms a small model can judge
+   reliably *once calibrated per question-class*. **Deferred — not a now thing.**
+3. **Intent fidelity / prose surplus — undecidable → human** (`verified_by`). The
+   meaning prose adds beyond its declared model. Declaration shrinks this to its
+   minimum; it never eliminates it.
+
+## The graph — fearless refactoring with teeth
+
+Declaring the model yields a **dependency graph of intent** that is prose today.
+Its standing payoff needs no LLM and is the near build: remove a load-bearing
+entity and the graph lights up every spec, binding, and code symbol that depended
+on it — the blast radius, deterministically. This is law 6 (fearless refactoring)
+made literal, and it is tier-1 sound. (The judged tier rents space *on* this
+graph later; build the graph first.)
+
 ## Positioning
 
 `rulesync` makes a harness *portable* across assistants. `skills`/marketplaces

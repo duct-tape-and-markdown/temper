@@ -5,15 +5,23 @@ harness (or one artifact in it) must satisfy. `author check` validates the
 imported surface against the active contract and reports conformance. This is the
 type checker; the contract is the types. (`00-intent.md` laws 2–3.)
 
-## Two layers
+## The engine is generic; everything is an instance
 
-| Layer | Declares | `author` checks | Analogy |
-| ----- | -------- | --------------- | ------- |
-| **Artifact contract** | the shape of one artifact kind (a skill, a rule, a hook) | each artifact of that kind conforms | a **type** |
-| **Harness contract** | required roles + relations + verifiers across the whole harness | the roster is filled and wired | an **interface / trait** the harness implements |
+There are not "two kinds of contract." There is one engine over the primitive
+algebra (below), and every contract is an **instance** expressed in it. The
+distinctions are compositional, not built-in:
 
-The artifact contract is the leaf; the harness contract composes leaves into a
-declaration of *"what my harness must be."* An author may use either alone.
+| Instance | Declares | `author` checks | Analogy |
+| -------- | -------- | --------------- | ------- |
+| **Artifact contract** | the shape of one artifact kind | each artifact conforms | a **type** |
+| **Harness contract** | required roles + relations + verifiers across a harness | the roster is filled and wired | an **interface / trait** |
+| **Spec contract** | the declared domain model + how prose binds to it (`30-landscapes.md`) | the model is coherent; prose binds; the graph resolves | a **schema / ontology** |
+
+The engine knows none of these names — it validates primitive clauses over
+extracted features. A new landscape is a new instance, never new engine code.
+This is the structural reason the project cannot rot into heuristics (`00-intent.md`
+law: one engine, every layer an instance): there is nowhere to hardcode an
+opinion.
 
 ## The primitive algebra (decidable only)
 
