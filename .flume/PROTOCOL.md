@@ -6,13 +6,13 @@ config doesn't encode.
 
 ## The chain
 
-`spec/RELEASE-*.md` → `.flume/plan/` → `src/` (+ `tests/`, `Cargo.toml`, docs) → git log
+`specs/` (evergreen) → `.flume/plan/` → `src/` (+ `tests/`, `Cargo.toml`, docs) → git log
 
-The spec corpus — `spec/RELEASE-*.md` — is the human-directed ship-readiness
-target, edited only in interactive sessions under explicit direction, never by an
-autonomous phase. The newest release file is the active plan target; earlier ones
-are frozen once shipped. `SPEC.md` (repo root) and `docs/INTENT.md` carry the
-longer-range design; a `RELEASE-*.md` is the concrete, testable slice.
+The `specs/` corpus is the evergreen source of truth (`specs/90-spec-system.md`),
+authored only in interactive sessions under explicit direction, never by an
+autonomous phase. It is **not** a release line: plan reconciles code against the
+living corpus every tick — there is no frozen ship target. `specs/00-intent.md`
+is the north star.
 
 | Layer | Author | Phase | Commit prefix  |
 | ----- | ------ | ----- | -------------- |

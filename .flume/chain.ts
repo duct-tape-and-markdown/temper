@@ -2,9 +2,9 @@
  * author's flume chain — plan → build, for a Rust/cargo project.
  *
  * Loaded by the flume CLI from `.flume/chain.ts`; the default export is the
- * Chain. Two phases, no spec phase: the spec corpus (`spec/RELEASE-*.md`) is
- * human-directed, never phase-written. Plan derives `pending.json` from the
- * spec + current `src/` state; build ships entries to the trunk.
+ * Chain. Two phases, no spec phase: the evergreen `specs/` corpus is human-
+ * authored, never phase-written. Plan reconciles `pending.json` against the
+ * corpus + current `src/` state; build ships entries to the trunk.
  *
  * This chain imports the runtime from the published `@dtmd/flume` package
  * (not `../src/` — that's flume's own dogfood). The gates are the one place
@@ -110,7 +110,7 @@ const testGate = shellGate({
 const plan: Phase = {
   name: "plan",
   description:
-    "Re-derive .flume/plan/{pending.json,state.md,open-questions.md} from spec/ + current src state; drain .flume/inbox.md.",
+    "Reconcile .flume/plan/{pending.json,state.md,open-questions.md} against specs/ + current src state; drain .flume/inbox.md.",
   promptPath: "prompts/plan.md",
   concurrency: "singleton",
   writablePaths: [
@@ -118,7 +118,7 @@ const plan: Phase = {
     ".flume/plan/state.md",
     ".flume/plan/open-questions.md",
     ".flume/inbox.md",
-    // Plan does NOT touch spec/ (human-curated) or src/ (build's territory).
+    // Plan does NOT touch specs/ (human-authored) or src/ (build's territory).
   ],
   gates: [pendingParseGate],
   promptArgs() {
@@ -177,8 +177,8 @@ const build: Phase = {
 
     // NOTE: build does NOT touch .flume/** (harness territory), .claude/** or
     // CLAUDE.md (the hand-curated CC harness — also author's dogfood fixture,
-    // edited by humans), or spec/** (human-curated). If a build entry needs
-    // spec clarification, it should be blocked and an open question surfaced.
+    // edited by humans), or specs/** (the evergreen human-authored corpus). If a
+    // build entry needs spec clarification, block it and surface an open question.
     // The harness writes the post-merge ship commit to pending.json itself.
   ],
   gates: [fmtGate, clippyGate, testGate],
@@ -205,7 +205,7 @@ const build: Phase = {
 
 const authorChain: Chain = {
   phases: [plan, build],
-  humanOnly: [], // no spec phase; spec corpus is edited in-session, never by a phase
+  humanOnly: [], // no spec phase; the specs/ corpus is authored in-session, never by a phase
 };
 
 export default authorChain;

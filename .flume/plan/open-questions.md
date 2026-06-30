@@ -11,13 +11,13 @@ workspace-location decisions stay deferred.
 - `(workspace-scope)` — Does the config surface target a per-project `.claude/`,
   a managed mirror of the global `~/.claude`, or both? Slice 1 sidesteps this by
   importing from an explicit path argument, but `apply` write-back needs it
-  decided. See SPEC §9.
+  decided. See `specs/20-surface.md`.
 
 - `(yaml-writeback)` — Source frontmatter is YAML; the surface header is TOML. On
   write-back, re-emit YAML (normalizing — no comment-preserving YAML editor
   exists in Rust) or patch only changed fields? Leaning patch-only. Blocks
-  anything in the `apply` path, not `import`/`check`. See SPEC §9.
+  anything in the `apply` path, not `import`/`check`. See `specs/20-surface.md`.
 
 - `(surface-authority)` — Is the surface the source of truth (with `re-add` for
   drift) or a lens over canonical on-disk files? MVP treats it as source of
-  truth; revisit if direct-harness editing proves the common path. See SPEC §9.
+  truth; revisit if direct-harness editing proves the common path. See `specs/20-surface.md`.

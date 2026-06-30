@@ -12,11 +12,12 @@
 
 ## Source of truth
 
-**Read `SPEC.md` (root) first** — the canonical design. `spec/RELEASE-*.md` are
-the concrete, testable ship targets; the newest is the active plan target,
-earlier ones frozen. `docs/INTENT.md` holds the longer-range invariants. Plan
-derives the work breakdown against whatever changed in `spec/`; build executes
-one entry at a time against the cited section.
+**Read `specs/00-intent.md` (the north star) first**, then the rest of the
+evergreen `specs/` corpus — the source of truth for intent and contract
+(`specs/90-spec-system.md` says how specs work). It is not a release line: plan
+reconciles code against the living corpus every tick; build executes one entry
+at a time against its cited spec section. Intent is human-authored, never written
+by a phase.
 
 ## The recursive dogfood — read this
 
@@ -34,7 +35,7 @@ This repo carries **two distinct harnesses**; do not conflate them:
 ## Tech stack
 
 - **Rust**, edition 2024, toolchain 1.96+. `cargo` is the build/test/lint driver.
-- Key crates (sanctioned set, SPEC §7): `clap`, `miette` + `thiserror`, `serde`,
+- Key crates (sanctioned set; see Cargo.toml): `clap`, `miette` + `thiserror`, `serde`,
   `toml_edit` (format-preserving round-trip keystone), `gray_matter`, `walkdir`,
   `sha2`, `insta` (snapshot tests).
 - **flume** control plane (`.flume/`) runs on Node via `@dtmd/flume` (pnpm).
@@ -47,7 +48,7 @@ loads unconditionally.
 
 Two autonomous phases share one dispatcher. Chain config in `.flume/chain.ts`;
 prompts in `.flume/prompts/{plan,build}.md`; conventions in `.flume/PROTOCOL.md`.
-Plan derives `.flume/plan/pending.json` from `spec/`; build ships entries to the
+Plan reconciles `.flume/plan/pending.json` against `specs/`; build ships entries to the
 trunk one validated commit at a time. State is on disk; each tick is a fresh
 `claude -p`. Loops are autonomous — no slash command invokes them.
 

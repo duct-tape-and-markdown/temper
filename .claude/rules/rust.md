@@ -34,7 +34,7 @@ are flume gates, so a violation reverts the commit.
 - Keep `main.rs` a thin `clap` dispatch; logic lives in the library crate so
   `tests/` can drive it.
 - Public items carry doc comments. Module headers state the artifact/schema they
-  model and cite the `SPEC.md`/`RELEASE` section.
+  model and cite the `specs/` section.
 
 ## Round-trip discipline (the core invariant)
 

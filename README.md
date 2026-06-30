@@ -12,9 +12,10 @@ you reorganize and compose it, and writes changes back with drift-aware `apply`.
 > assistants. `author` makes your harness *good* — quality, composition,
 > maintenance, in a Claude-Code-native object model.
 
-- **Design:** [`SPEC.md`](SPEC.md)
-- **Active ship target:** [`spec/RELEASE-v0.1.md`](spec/RELEASE-v0.1.md)
-- **Long-range intent:** [`docs/INTENT.md`](docs/INTENT.md)
+- **North star:** [`specs/00-intent.md`](specs/00-intent.md)
+- **The contract model:** [`specs/10-contracts.md`](specs/10-contracts.md)
+- **The config surface:** [`specs/20-surface.md`](specs/20-surface.md)
+- **How specs work:** [`specs/90-spec-system.md`](specs/90-spec-system.md)
 
 ## Status
 
