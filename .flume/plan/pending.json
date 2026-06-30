@@ -7,16 +7,20 @@
       "section": "Surface"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LINT-RULES"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
-      "new": [],
+      "new": [
+        {
+          "path": "tests/cli.rs",
+          "description": "Integration test spawning the built binary via env!(\"CARGO_BIN_EXE_author\"): import a fixture then check, asserting exit zero on a clean skill and non-zero when an error-severity rule fires; assert --into / workspace defaults resolve to ./.author."
+        }
+      ],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Import { harness_path: PathBuf, --into <workspace> default ./.author }; Check { workspace: Option<PathBuf> default ./.author }. Dispatch: Import -> import::run; Check -> Workspace::load, check::run(&ws, &rules::all_rules()), check::render diagnostics, exit non-zero via check::any_error. Keep main a thin clap dispatch (logic stays in lib)."
+          "description": "Import { harness_path: PathBuf, --into <workspace> default ./.author }; Check { workspace: Option<PathBuf> default ./.author }. Dispatch: Import -> import::run; Check -> Workspace::load, check::run(&ws, &rules::all_rules()), print check::render diagnostics, exit non-zero (process::exit) when check::any_error. Keep main a thin clap dispatch (logic stays in lib)."
         }
       ],
       "retire": []
@@ -29,7 +33,7 @@
       }
     ],
     "acceptance": "`author import <fixture> --into <tmp>` then `author check <tmp>` runs end to end with the documented exit semantics.",
-    "notes": "import::run + check::{run,render,any_error} + Workspace::load are all on disk; CLI is the rule-registration site, so engine and rules stay decoupled. No new dep; drive lib functions (assert_cmd optional, would need a Cargo edit)."
+    "notes": "import::run + check::{run,render,any_error} + Workspace::load + rules::all_rules are all on disk; CLI is the rule-registration site, so engine and rules stay decoupled. Exit-code test spawns the binary via CARGO_BIN_EXE_author + std::process::Command — no new dep needed."
   },
   {
     "tag": "ACCEPTANCE",

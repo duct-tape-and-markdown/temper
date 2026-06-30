@@ -1,9 +1,9 @@
 # Plan state
 
-- **Phase:** slice-1 build in progress — `RELEASE-v0.1.md` (Skill import + check); 3 entries pending.
-- **Last shipped:** `LINT-ENGINE` — `src/check.rs` carries `Workspace::load`, the `Rule` trait (takes the whole workspace), `Diagnostic`/`Severity`, and `run`/`render`/`any_error`; `lib.rs` exports `check`. Tested.
+- **Phase:** slice-1 build in progress — `RELEASE-v0.1.md` (Skill import + check); 2 entries pending.
+- **Last shipped:** `LINT-RULES` — `src/rules.rs` carries `all_rules()` (the ten slice-1 skill checks) over the `Skill` IR via the `Rule` trait; `tests/rules.rs` proves each fires. Tested, gates green.
 - **In flight:** nothing.
-- **This tick:** reconciled against disk — LINT-ENGINE confirmed shipped (`src/check.rs` present, `cargo test` green), so promoted `LINT-RULES` from `blockedBy LINT-ENGINE` to `open`. CLI/ACCEPTANCE cites still valid (`import::run`, `check::run` on disk). Inbox empty; gates green.
-- **Next:** `LINT-RULES` is the only `open` entry; then the linear chain `CLI` → `ACCEPTANCE` to the slice acceptance.
+- **This tick:** reconciled against disk — LINT-RULES confirmed shipped (`src/rules.rs::all_rules` present with all ten rules, `tests/rules.rs` present, `cargo test` builds green), so promoted `CLI` from `blockedBy LINT-RULES` to `open`. `main.rs` is still stubs; every fn CLI/ACCEPTANCE drive (`import::run`, `Workspace::load`, `check::{run,render,any_error}`, `rules::all_rules`, `Skill::*`) is on disk. Inbox empty; no clippy/test failures.
+- **Next:** `CLI` (sole open entry — wire the clap dispatch + exit semantics), then `ACCEPTANCE` to close the slice.
 
 Plan continues: no
