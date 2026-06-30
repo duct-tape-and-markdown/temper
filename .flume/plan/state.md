@@ -1,9 +1,9 @@
 # Plan state
 
-- **Phase:** slice-1 (`RELEASE-v0.1.md` — Skill import + check) **complete**; pending empty.
-- **Last shipped:** `ACCEPTANCE` — `tests/acceptance.rs` (byte-stable import, diagnostic-set reproduction, import→check→re-import no-diff) plus both insta snapshots; verified on disk, not log.
+- **Phase:** contract-engine pivot — replacing the heuristic rule registry with the generic validator (`30-landscapes.md` build order, step 1). 6 entries queued; pending was empty.
+- **Last shipped:** the slice-1 vertical (`import`/`check` CLI, `Skill` IR, `author.toml` roll-up, acceptance) — verified on disk: `cargo test` green, `clippy -D warnings` clean.
 - **In flight:** nothing.
-- **This tick:** reconciled against disk — corrected the stale state that called ACCEPTANCE unshipped. Every RELEASE-v0.1 requirement is implemented: `import`/`check` CLI, `Skill` IR, `author.toml` roll-up w/ provenance+body_hash, all 10 lint rules, acceptance tests. `cargo test` green (9 pass), `cargo clippy --all-targets -D warnings` clean. Inbox empty; no failures to file.
-- **Next:** no slice-2 `RELEASE-*.md` exists yet — a human must author the next ship target (apply/write-back gated on the three open forks, or cross-artifact rules). Until then nothing is plannable.
+- **This tick:** reconciled `src/` against the rewritten evergreen corpus (commits 2240636, f9dd05c). The corpus now *rejects* `src/rules.rs`'s `all_rules()` registry (`10-contracts.md` "Decision: kill the heuristic rule registry") — the stale state calling slice-1 "complete, nothing plannable" was wrong. Filed the registry→engine replacement as a disjoint chain: CONTRACT-MODEL + SKILL-EXTRACTOR → CONTRACT-ENGINE → SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER → RETIRE-HEURISTICS. Decidable members (name format/length/deny, forbidden_keys, name-matches-dir, body max_lines) survive as template clauses; the five heuristics (trigger, anti-trigger, third-person, prose-grep companion-refs, refs-depth) are dropped per the Decision. Three new forks opened: (regex-crate), (contract-selection), (skill-ref-syntax). Inbox empty.
+- **Next:** after the engine lands — the harness-contract layer (`10-contracts.md` "Roles and matching" + `verified_by`), then `30-landscapes.md` build-order step 2 (declared model + dependency graph / blast radius). Step 2's model-declaration *format* is unsettled and must be authored before it can be filed.
 
-Plan continues: no
+Plan continues: yes — only the artifact-contract engine (step 1) is filed; the harness-contract/roles layer and the step-2 declared-model + dependency-graph work remain to plan once the engine ships and the model format is settled.
