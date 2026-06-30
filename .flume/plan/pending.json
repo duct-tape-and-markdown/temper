@@ -1,1 +1,43 @@
-[]
+[
+  {
+    "tag": "TEMPER-TOML-LAYER",
+    "summary": "Layer an optional project-root `temper.toml` (adopt + extend/override + severity flips) over the by-kind built-in floor contracts in `check`.",
+    "per": {
+      "path": "specs/40-composition.md",
+      "section": "Decision: the author-declared contract lives in `temper.toml`, layered"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        {
+          "path": "src/compose.rs",
+          "description": "Parse an optional `temper.toml` into the author-declared layer — per-kind adoptions, override clauses, and severity flips (`required` ⟷ `advisory`) — and produce the effective per-kind `Contract` by layering it onto the embedded floor. Optional file: absent ⇒ the floor is returned unchanged. Closed-vocabulary: an override clause naming an unknown predicate is a load error, exactly as a bare contract's is."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod compose;` (the foundation entry owns the module line)."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "Expose a minimal seam so `compose` can parse an inline `[[clause]]` array from a `temper.toml` `[kind.<k>]` table into typed `Clause`s, reusing the existing closed-vocabulary parser rather than duplicating it."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`check` discovers an optional `temper.toml` at the project root (the invocation dir), layers it over the embedded `BUILTIN_SKILL_CONTRACT`/`BUILTIN_RULE_CONTRACT` per kind, then runs admissibility + conformance on the *effective* contract; absent `temper.toml` reproduces today's floor-only path verbatim."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "A `temper.toml` flipping a skill clause `required`→`advisory` turns a violating skill from blocking to non-blocking; an override that adds a clause makes a previously-clean artifact fire; an inline override naming an unknown predicate is a load error; an inadmissible override (e.g. an empty `enum`) fails admissibility on the effective contract; absent `temper.toml` leaves the floor outcome byte-for-byte unchanged."
+      }
+    ],
+    "acceptance": "`check` loads an optional project-root `temper.toml`, layers its per-kind adoptions / overrides / severity-flips over the embedded by-kind floor, runs both greens (admissibility + conformance) on the effective contract, and maps the result to the exit code; with no `temper.toml` every existing test stays green (floor unchanged).",
+    "notes": "Scope is the committed `temper.toml` adopt/extend-override/severity tier only. Follow-ons (next plan ticks): the role + `verified_by` roster — the interface/trait tier that no built-in can carry — and the gitignored `temper-local.toml` second layer. `(harness-contract-provisioning)` home/selection half is RESOLVED (this file is its `temper.toml` home), so no fork dependency. Module name `compose` is a suggestion; build owns it."
+  }
+]
