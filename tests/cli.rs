@@ -85,6 +85,35 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
 
+/// A rule that trips no `required` clause: `paths:`-only frontmatter (Claude
+/// Code's real scoping key) and a short body — the clean shape of `rust.md`.
+const CLEAN_RULE: &str = "---\n\
+paths:\n\
+  - \"src/**/*.rs\"\n\
+---\n\
+# Rust conventions\n\
+\n\
+Prefer a clone over a lifetime fight.\n";
+
+/// A rule that violates the `forbidden_keys` clause: a Cursor `.mdc` key
+/// (`globs`) Claude Code silently ignores — the exact mistake the rule contract
+/// exists to catch. That clause is `required` ⇒ a non-zero exit.
+const FORBIDDEN_KEY_RULE: &str = "---\n\
+globs: \"**/*.rs\"\n\
+alwaysApply: true\n\
+---\n\
+# Rust conventions\n\
+\n\
+This frontmatter loads nothing in Claude Code.\n";
+
+/// Write a one-rule harness at `<root>/.claude/rules/<name>.md` — the location
+/// `import` scans for the rule kind (`specs/20-surface.md`).
+fn write_rule_harness(root: &Path, name: &str, rule_md: &str) {
+    let dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join(format!("{name}.md")), rule_md).unwrap();
+}
+
 /// Run `temper import <harness> --into <into>` and assert it succeeded.
 fn import(harness: &Path, into: &Path) {
     let status = Command::new(BIN)
@@ -158,6 +187,46 @@ fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
     assert!(
         !run_check(&into, &["--deny-advisories"]),
         "an advisory-only violation must exit non-zero under --deny-advisories"
+    );
+}
+
+#[test]
+fn import_then_check_dispatches_the_rule_kind_to_the_rule_contract() {
+    // A clean rule (`paths:`-only) trips no `required` clause ⇒ check is zero.
+    let clean_src = tmpdir("rule-clean-src");
+    write_rule_harness(&clean_src, "rust", CLEAN_RULE);
+    let clean_into = tmpdir("rule-clean-into");
+    import(&clean_src, &clean_into);
+    assert!(
+        check_succeeds(&clean_into),
+        "a clean rule must exit zero — the rule contract has no `required` violation"
+    );
+
+    // A forbidden Cursor key (`globs`/`alwaysApply`) trips the `forbidden_keys`
+    // clause, which is `required` ⇒ check is non-zero. This proves `check`
+    // dispatches the rule kind to the rule contract, not the skill one.
+    let forbidden_src = tmpdir("rule-forbidden-src");
+    write_rule_harness(&forbidden_src, "rust", FORBIDDEN_KEY_RULE);
+    let forbidden_into = tmpdir("rule-forbidden-into");
+    import(&forbidden_src, &forbidden_into);
+    assert!(
+        !check_succeeds(&forbidden_into),
+        "a forbidden-key rule must exit non-zero (the rule contract's required clause)"
+    );
+}
+
+#[test]
+fn self_host_check_is_clean_over_tempers_own_rules() {
+    // The bootstrap proof (`specs/00-intent.md`): import `temper`'s OWN repo —
+    // whose `.claude/rules/` carries `rust.md` (`paths:`) and `collaboration.md`
+    // (no frontmatter) — and `check` its own house clean. `CARGO_MANIFEST_DIR` is
+    // the crate root, the harness root `import` scans for `.claude/rules/`.
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let into = tmpdir("self-host-into");
+    import(repo_root, &into);
+    assert!(
+        check_succeeds(&into),
+        "temper must lint its own .claude/rules/ clean — the self-hosting finish line"
     );
 }
 

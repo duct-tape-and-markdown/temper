@@ -29,6 +29,12 @@ const DEFAULT_WORKSPACE: &str = "./.temper";
 /// contract to validate against without any on-disk configuration.
 const BUILTIN_SKILL_CONTRACT: &str = include_str!("../contracts/skill.anthropic.toml");
 
+/// The built-in rule contract — the curated default for the `rule` artifact kind
+/// (`contracts/rule.toml`), embedded beside the skill one so `check` validates
+/// each artifact against the contract for *its* kind without any on-disk config
+/// (`specs/20-surface.md`, "contract selection is by artifact kind").
+const BUILTIN_RULE_CONTRACT: &str = include_str!("../contracts/rule.toml");
+
 /// A typed maintenance surface for the Claude Code harness.
 #[derive(Parser)]
 #[command(name = "temper", version, about, long_about = None)]
@@ -71,14 +77,23 @@ fn main() -> miette::Result<ExitCode> {
             let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
             let ws = Workspace::load(&workspace)?;
 
-            // Project every skill into the engine's feature view, then validate
-            // the whole set against the built-in contract — the generic engine
-            // holds no per-rule opinion; the contract carries the clauses.
-            let features: Vec<extract::Features> =
+            // Dispatch by artifact kind: each kind's features are validated
+            // against the built-in contract for *its* kind, and the findings are
+            // merged into one diagnostic set (`specs/20-surface.md`, "contract
+            // selection is by artifact kind"). The generic engine holds no
+            // per-kind opinion — each contract carries its own clauses, so a
+            // mixed harness (skills *and* rules) is judged correctly in one run.
+            let skill_features: Vec<extract::Features> =
                 ws.skills.iter().map(extract::skill_features).collect();
-            let contract =
+            let skill_contract =
                 Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?;
-            let diagnostics = engine::validate(&contract, &features);
+
+            let rule_features: Vec<extract::Features> =
+                ws.rules.iter().map(extract::rule_features).collect();
+            let rule_contract = Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?;
+
+            let mut diagnostics = engine::validate(&skill_contract, &skill_features);
+            diagnostics.extend(engine::validate(&rule_contract, &rule_features));
             print!("{}", check::render(&diagnostics));
 
             // A `required` violation always fails the run; `--deny-advisories`
