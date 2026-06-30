@@ -1,78 +1,5 @@
 [
   {
-    "tag": "RULE-IR",
-    "summary": "Add the `rule` artifact IR (`.claude/rules/*.md` — optional `paths` frontmatter + byte-faithful body) and its `extract::rule_features` projection into the engine's `Features` view.",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Artifact kinds & contract selection"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [
-        {
-          "path": "src/rule.rs",
-          "description": "The `rule` artifact IR (one artifact kind per module, `.claude/rules/rust.md`), mirroring `src/skill.rs`. Parse a `.claude/rules/<name>.md` source into a typed `Rule`: an OPTIONAL `paths` frontmatter sequence (rules may carry NO frontmatter at all — collaboration.md has none, rust.md has `paths:` — unlike a skill, which errors without frontmatter), unknown frontmatter keys preserved verbatim in an `extra` map (so a `forbidden_keys` clause can later resolve `description`/`globs`/`alwaysApply`), a byte-faithful body, and provenance (`source_path` + SHA-256 `import_hash`); the name derives from the file stem. Ship the surface round-trip too — `from_source_dir` plus `from_surface_dir`/`to_meta_document` (header carries `paths` if present + `[provenance]`) — so RULE-IMPORT can write and `Workspace::load` reconstruct it. The split-frontmatter/sha256 helpers may be lifted from or duplicated off `skill.rs` (code's choice — clarity over a lifetime fight, `.claude/rules/rust.md`)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "add `pub mod rule;` in alphabetical position (after `pub mod import;` lib.rs:22, before `pub mod skill;` lib.rs:23). This entry is the sole owner of the lib.rs line for the rule kind — no sibling entry co-edits it."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "add `pub fn rule_features(&Rule) -> Features` mirroring `skill_features` (extract.rs:94): `id` = the rule name (file stem), the `paths` value as a `FeatureValue::List`, every `extra` frontmatter key folded into `fields` (so `forbidden_keys` resolves by name like it does for skills), `body_lines` from the byte-faithful body; `source_dir`/`companions` populated as for skills (uniformity — the rule contract names neither). Add a unit test exercising a `paths`-only rule and a no-frontmatter rule."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/rule.rs",
-        "asserts": "a rule with `paths:` frontmatter parses its list; a rule with no frontmatter parses to an empty header + byte-faithful body; an `extra` key (e.g. `description`) is preserved; the source/surface round-trip is identity"
-      },
-      {
-        "path": "src/extract.rs",
-        "asserts": "`rule_features` exposes `paths` as a list, folds `extra` keys into `fields` so `has_field(\"description\")` is true when present, and counts body lines"
-      }
-    ],
-    "acceptance": "`temper::rule::Rule` parses both the frontmatter and no-frontmatter rule shapes with a byte-faithful body + provenance; `extract::rule_features` projects it into `Features`; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Foundation of the rule slice (inbox NEW SLICE). `(contract-selection)` is RESOLVED, so no fork blocks this. Surface topology for rules (the `rules/<name>/` layout, body filename) is code-owned mechanism (`90-spec-system.md` depth rule) within law 5's invariants — RULE-IMPORT pins it."
-  },
-  {
-    "tag": "RULE-CONTRACT-TEST",
-    "summary": "Pin the shipped `contracts/rule.toml` template's clause vector, mirroring `tests/contract_template.rs` for the skill template.",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Templates — best practices as data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [
-        {
-          "path": "tests/rule_contract.rs",
-          "description": "Mirror `tests/contract_template.rs`: load `contracts/rule.toml` (human-authored, already on disk) via `Contract::load` off `CARGO_MANIFEST_DIR` and assert the exact typed clause vector — `optional` on `paths` (advisory), `forbidden_keys = [\"description\", \"globs\", \"alwaysApply\"]` (required), `max_lines = 200` (advisory) — at their declared severities, with the display label derived to `rule` from the file stem. A second test asserts only decidable predicates appear (the kind set), documenting that the rule template, like the skill one, carries no semantic guess."
-        }
-      ],
-      "edit": [],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/rule_contract.rs",
-        "asserts": "`contracts/rule.toml` loads into exactly the optional-paths / forbidden-keys / max-lines clause vector at the declared severities; label derives to `rule`"
-      }
-    ],
-    "acceptance": "The shipped rule template round-trips into the typed `Contract` clause vector; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Independent and immediately pickable — depends only on `contracts/rule.toml` (shipped a6497ec) and `contract::Contract` (shipped). Build EMBEDS rule.toml later (RULE-CHECK); contracts/ stays human territory."
-  },
-  {
     "tag": "RULE-IMPORT",
     "summary": "Teach `import` to scan `<harness>/.claude/rules/*.md` and write the rule surface (header + byte-faithful body + `[[rule]]` roll-up); `Workspace` gains `rules` and reconstructs them on load.",
     "per": {
@@ -83,6 +10,7 @@
       "kind": "blockedBy",
       "tag": "RULE-IR"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -122,6 +50,7 @@
       "kind": "blockedBy",
       "tag": "RULE-IMPORT"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
