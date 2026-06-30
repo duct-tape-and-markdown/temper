@@ -1,0 +1,626 @@
+//! The generic contract engine — evaluate a [`Contract`]'s clauses over
+//! extracted [`Features`].
+//!
+//! Implements `specs/10-contracts.md` ("Decision: kill the heuristic rule
+//! registry"): rules no longer live in a hardcoded `all_rules()` registry with
+//! the tool's opinions buried in `if` statements. Instead an author-declared
+//! contract (a closed set of decidable clauses) is validated by *this* one
+//! generic engine. The engine knows no artifact kind and no rule name — it reads
+//! only the declared clauses and the deterministically-extracted features, so
+//! there is nowhere to hardcode an opinion (`00-intent.md`: one engine, every
+//! layer an instance).
+//!
+//! For each artifact's [`Features`], [`validate`] evaluates every clause as a
+//! decidable predicate and, on a false predicate, emits a [`check::Diagnostic`]:
+//!
+//! - **severity** is the clause's *declared* weight — `required` ⇒ [`Error`],
+//!   `advisory` ⇒ [`Warn`] — never a tool-baked split (`specs/10-contracts.md`,
+//!   "Severity is declared, not baked").
+//! - **rule** is the clause key (the predicate's TOML discriminator, e.g.
+//!   `max_len`), so a finding names the clause that produced it.
+//! - **artifact** is the features' `id`.
+//!
+//! ## The honest bound (`verified_by` philosophy)
+//!
+//! Two predicates in the vocabulary — `require_sections` and `dependency-exists`
+//! — name facts the current [`Features`] projection does not carry (the body's
+//! text; a declared-dependency model). The engine does **not** fabricate a pass
+//! for them: their arms are marked [`Outcome::Indeterminate`], so growing the
+//! extractor later lights them up with no engine change. The decidable members
+//! the spec keeps — name format, lengths, forbidden keys, required fields,
+//! `name-matches-dir`, body `max_lines` — are evaluated here in full.
+//!
+//! [`Error`]: check::Severity::Error
+//! [`Warn`]: check::Severity::Warn
+
+use std::collections::BTreeSet;
+
+use crate::check::{self, Diagnostic};
+use crate::contract::{self, Contract, Predicate};
+use crate::extract::{FeatureValue, Features};
+
+/// Validate every artifact's [`Features`] against the contract's clauses,
+/// collecting a [`Diagnostic`] per violation at the clause's declared severity.
+///
+/// The artifact slice is passed whole because cross-artifact clauses (e.g.
+/// `unique-name`) decide over the set, not one unit — mirroring the
+/// `Rule`-takes-the-whole-workspace shape in [`crate::check`].
+#[must_use]
+pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for features in artifacts {
+        for clause in &contract.clauses {
+            for message in evaluate(&clause.predicate, features, artifacts) {
+                diagnostics.push(Diagnostic::new(
+                    severity_of(clause.severity),
+                    predicate_key(&clause.predicate),
+                    &features.id,
+                    message,
+                ));
+            }
+        }
+    }
+    diagnostics
+}
+
+/// Evaluate one predicate over one artifact's features, returning a message per
+/// violation (empty ⇒ the clause holds, or could not be decided over this
+/// projection — see [`Outcome`]).
+fn evaluate(predicate: &Predicate, features: &Features, all: &[Features]) -> Vec<String> {
+    match decide(predicate, features, all) {
+        Outcome::Holds | Outcome::Indeterminate => Vec::new(),
+        Outcome::Violated(messages) => messages,
+    }
+}
+
+/// The result of testing a predicate against features. `Indeterminate` is the
+/// honest third state for a clause whose backing feature the current projection
+/// does not carry — distinct from `Holds`, so the engine never *claims* to have
+/// checked what it could not.
+enum Outcome {
+    /// The predicate is true of the features.
+    Holds,
+    /// The predicate is false; each string is one violation to report.
+    Violated(Vec<String>),
+    /// The feature this predicate names is absent from the projection, so the
+    /// clause cannot be decided here (no pass, no finding).
+    Indeterminate,
+}
+
+impl Outcome {
+    /// A single-message violation.
+    fn violated(message: String) -> Self {
+        Outcome::Violated(vec![message])
+    }
+
+    /// `Holds` when `ok`, else a single-message violation.
+    fn check(ok: bool, message: impl FnOnce() -> String) -> Self {
+        if ok {
+            Outcome::Holds
+        } else {
+            Outcome::violated(message())
+        }
+    }
+}
+
+/// The decision table — one arm per primitive. Every arm is decidable *given the
+/// feature it names*; the two whose feature the projection omits return
+/// [`Outcome::Indeterminate`] rather than a fabricated pass.
+fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outcome {
+    match predicate {
+        // A value/presence predicate is the *only* owner of its field's
+        // presence; the other field predicates stay silent when the field is
+        // absent so one missing field yields one finding, not a cascade.
+        Predicate::Required { field } => Outcome::check(features.has_field(field), || {
+            format!("required field `{field}` is absent")
+        }),
+
+        // `optional` records that a key is part of the declared schema; it is
+        // always satisfied — its presence or absence is never a violation.
+        Predicate::Optional { .. } => Outcome::Holds,
+
+        Predicate::MinLen { field, min } => match scalar(features, field) {
+            None => Outcome::Holds,
+            Some(value) => {
+                let len = value.chars().count();
+                Outcome::check(len >= *min, || {
+                    format!("field `{field}` is {len} characters (min {min})")
+                })
+            }
+        },
+
+        Predicate::MaxLen { field, max } => match scalar(features, field) {
+            None => Outcome::Holds,
+            Some(value) => {
+                let len = value.chars().count();
+                Outcome::check(len <= *max, || {
+                    format!("field `{field}` is {len} characters (max {max})")
+                })
+            }
+        },
+
+        Predicate::Enum { field, values } => match scalar(features, field) {
+            None => Outcome::Holds,
+            Some(value) => Outcome::check(values.iter().any(|v| v == value), || {
+                format!(
+                    "field `{field}` value `{value}` is not one of [{}]",
+                    values.join(", ")
+                )
+            }),
+        },
+
+        Predicate::Deny { field, values } => match scalar(features, field) {
+            None => Outcome::Holds,
+            Some(value) => Outcome::check(!values.iter().any(|v| v == value), || {
+                format!("field `{field}` value `{value}` is denied")
+            }),
+        },
+
+        // One finding per offending key, so each forbidden key points at itself.
+        Predicate::ForbiddenKeys { keys } => {
+            let present: Vec<String> = keys
+                .iter()
+                .filter(|key| features.has_field(key))
+                .map(|key| format!("forbidden key `{key}` is present"))
+                .collect();
+            if present.is_empty() {
+                Outcome::Holds
+            } else {
+                Outcome::Violated(present)
+            }
+        }
+
+        Predicate::AllowedChars { field, charset } => match scalar(features, field) {
+            None => Outcome::Holds,
+            Some(value) => {
+                let bad: BTreeSet<char> = value.chars().filter(|&c| !charset.allows(c)).collect();
+                Outcome::check(bad.is_empty(), || {
+                    let rendered: String = bad.iter().collect();
+                    format!("field `{field}` has characters outside the allowed set: {rendered}")
+                })
+            }
+        },
+
+        Predicate::MaxLines { max } => Outcome::check(features.body_lines <= *max, || {
+            format!("body is {} lines (max {max})", features.body_lines)
+        }),
+
+        // `require_sections` names headings *in the body text*, which the
+        // current `Features` projection does not carry (only `body_lines`).
+        // Indeterminate, not a silent pass — it decides once extraction grows.
+        Predicate::RequireSections { .. } => Outcome::Indeterminate,
+
+        // `must_define` over a frontmatter marker (e.g. `disable-model-invocation`)
+        // is decidable as field presence.
+        Predicate::MustDefine { marker } => Outcome::check(features.has_field(marker), || {
+            format!("marker `{marker}` is not defined")
+        }),
+
+        Predicate::NameMatchesDir => {
+            match (scalar(features, "name"), features.source_dir.as_deref()) {
+                (Some(name), Some(dir)) => Outcome::check(name == dir, || {
+                    format!("name `{name}` does not match its directory `{dir}`")
+                }),
+                // No name field, or no known source directory: nothing to compare.
+                _ => Outcome::Holds,
+            }
+        }
+
+        Predicate::UniqueName => {
+            let shared = all.iter().filter(|other| other.id == features.id).count();
+            Outcome::check(shared <= 1, || {
+                format!(
+                    "name `{}` is not unique ({shared} artifacts share it)",
+                    features.id
+                )
+            })
+        }
+
+        // `dependency-exists` resolves a declared dependency, a relation the
+        // current projection does not extract. Indeterminate until it does.
+        Predicate::DependencyExists => Outcome::Indeterminate,
+    }
+}
+
+/// The scalar text of a named field, or `None` if it is absent or a list — the
+/// generic accessor every value predicate (`min_len`, `enum`, …) reads through.
+fn scalar<'a>(features: &'a Features, field: &str) -> Option<&'a str> {
+    features.field(field).and_then(FeatureValue::as_scalar)
+}
+
+/// Map a clause's *declared* severity onto the engine's diagnostic severity:
+/// `required` blocks (`Error`), `advisory` reports (`Warn`). The engine never
+/// chooses — it only translates what the author declared.
+fn severity_of(severity: contract::Severity) -> check::Severity {
+    match severity {
+        contract::Severity::Required => check::Severity::Error,
+        contract::Severity::Advisory => check::Severity::Warn,
+    }
+}
+
+/// The clause key for a predicate — its TOML discriminator, reused verbatim as
+/// the diagnostic `rule` id so a finding names the clause that produced it. This
+/// is mechanical translation, not an opinion: the strings match the ones
+/// [`crate::contract`] parses.
+fn predicate_key(predicate: &Predicate) -> &'static str {
+    match predicate {
+        Predicate::Required { .. } => "required",
+        Predicate::Optional { .. } => "optional",
+        Predicate::MinLen { .. } => "min_len",
+        Predicate::MaxLen { .. } => "max_len",
+        Predicate::Enum { .. } => "enum",
+        Predicate::Deny { .. } => "deny",
+        Predicate::ForbiddenKeys { .. } => "forbidden_keys",
+        Predicate::AllowedChars { .. } => "allowed_chars",
+        Predicate::MaxLines { .. } => "max_lines",
+        Predicate::RequireSections { .. } => "require_sections",
+        Predicate::MustDefine { .. } => "must_define",
+        Predicate::NameMatchesDir => "name-matches-dir",
+        Predicate::UniqueName => "unique-name",
+        Predicate::DependencyExists => "dependency-exists",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    use crate::check::{Severity, any_error};
+    use crate::contract::{Charset, Clause, Severity as ClauseSeverity};
+
+    /// Build a `Features` with the given name-keyed scalar fields, body line
+    /// count, and source directory — companions are unused by these clauses.
+    fn features(
+        id: &str,
+        fields: &[(&str, FeatureValue)],
+        body_lines: usize,
+        source_dir: Option<&str>,
+    ) -> Features {
+        let fields = fields
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect::<BTreeMap<_, _>>();
+        Features {
+            id: id.to_string(),
+            fields,
+            body_lines,
+            source_dir: source_dir.map(str::to_string),
+            companions: Vec::new(),
+        }
+    }
+
+    /// A scalar field value.
+    fn scalar(text: &str) -> FeatureValue {
+        FeatureValue::Scalar(text.to_string())
+    }
+
+    /// A one-clause contract carrying `predicate` at `severity`.
+    fn contract(severity: ClauseSeverity, predicate: Predicate) -> Contract {
+        Contract {
+            name: "skill".to_string(),
+            clauses: vec![Clause {
+                severity,
+                predicate,
+            }],
+        }
+    }
+
+    /// The `[a-z0-9-]` charset, the `allowed_chars` workhorse.
+    fn slug_charset() -> Charset {
+        Charset {
+            ranges: vec![('a', 'z'), ('0', '9')],
+            chars: BTreeSet::from(['-']),
+        }
+    }
+
+    /// Validate a single artifact against a single required clause and return the
+    /// diagnostics — the common shape of the per-primitive tests below.
+    fn run(predicate: Predicate, artifact: Features) -> Vec<Diagnostic> {
+        validate(
+            &contract(ClauseSeverity::Required, predicate),
+            std::slice::from_ref(&artifact),
+        )
+    }
+
+    #[test]
+    fn required_fires_on_an_absent_field_and_is_silent_when_present() {
+        let absent = features("demo", &[], 1, None);
+        let diags = run(
+            Predicate::Required {
+                field: "name".to_string(),
+            },
+            absent,
+        );
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "required");
+        assert_eq!(diags[0].artifact, "demo");
+
+        let present = features("demo", &[("name", scalar("demo"))], 1, None);
+        assert!(
+            run(
+                Predicate::Required {
+                    field: "name".to_string()
+                },
+                present
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn optional_never_fires() {
+        let any = features("demo", &[], 1, None);
+        assert!(
+            run(
+                Predicate::Optional {
+                    field: "version".to_string()
+                },
+                any
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn max_len_fires_only_past_the_bound() {
+        let predicate = || Predicate::MaxLen {
+            field: "name".to_string(),
+            max: 3,
+        };
+        let over = features("demo", &[("name", scalar("toolong"))], 1, None);
+        let diags = run(predicate(), over);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "max_len");
+
+        let within = features("demo", &[("name", scalar("ok"))], 1, None);
+        assert!(run(predicate(), within).is_empty());
+        // An absent field is the `required` clause's concern, not this one's.
+        let absent = features("demo", &[], 1, None);
+        assert!(run(predicate(), absent).is_empty());
+    }
+
+    #[test]
+    fn min_len_fires_only_below_the_bound() {
+        let predicate = || Predicate::MinLen {
+            field: "description".to_string(),
+            min: 5,
+        };
+        let under = features("demo", &[("description", scalar("hi"))], 1, None);
+        assert_eq!(run(predicate(), under).len(), 1);
+
+        let ok = features("demo", &[("description", scalar("plenty"))], 1, None);
+        assert!(run(predicate(), ok).is_empty());
+    }
+
+    #[test]
+    fn enum_fires_off_the_permitted_set() {
+        let predicate = || Predicate::Enum {
+            field: "status".to_string(),
+            values: vec!["draft".to_string(), "active".to_string()],
+        };
+        let bad = features("demo", &[("status", scalar("retired"))], 1, None);
+        assert_eq!(run(predicate(), bad).len(), 1);
+
+        let good = features("demo", &[("status", scalar("active"))], 1, None);
+        assert!(run(predicate(), good).is_empty());
+    }
+
+    #[test]
+    fn deny_fires_on_a_forbidden_value() {
+        let predicate = || Predicate::Deny {
+            field: "name".to_string(),
+            values: vec!["anthropic".to_string(), "claude".to_string()],
+        };
+        let reserved = features("claude", &[("name", scalar("claude"))], 1, None);
+        assert_eq!(run(predicate(), reserved).len(), 1);
+
+        let fine = features("demo", &[("name", scalar("demo"))], 1, None);
+        assert!(run(predicate(), fine).is_empty());
+    }
+
+    #[test]
+    fn forbidden_keys_fire_once_per_present_key() {
+        let predicate = || Predicate::ForbiddenKeys {
+            keys: vec!["globs".to_string(), "alwaysApply".to_string()],
+        };
+        let legacy = features(
+            "legacy",
+            &[
+                ("globs", scalar("**/*.rs")),
+                ("alwaysApply", scalar("true")),
+            ],
+            1,
+            None,
+        );
+        let diags = run(predicate(), legacy);
+        assert_eq!(diags.len(), 2);
+        assert!(diags.iter().all(|d| d.rule == "forbidden_keys"));
+
+        let clean = features("clean", &[("name", scalar("clean"))], 1, None);
+        assert!(run(predicate(), clean).is_empty());
+    }
+
+    #[test]
+    fn allowed_chars_fires_on_a_character_outside_the_set() {
+        let predicate = || Predicate::AllowedChars {
+            field: "name".to_string(),
+            charset: slug_charset(),
+        };
+        let shouty = features("Demo_1", &[("name", scalar("Demo_1"))], 1, None);
+        let diags = run(predicate(), shouty);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "allowed_chars");
+        // The offending characters, deduped and sorted, ride in the message.
+        assert!(diags[0].message.contains('D'));
+        assert!(diags[0].message.contains('_'));
+
+        let slug = features("demo-1", &[("name", scalar("demo-1"))], 1, None);
+        assert!(run(predicate(), slug).is_empty());
+    }
+
+    #[test]
+    fn max_lines_fires_only_past_the_budget() {
+        let predicate = || Predicate::MaxLines { max: 500 };
+        let long = features("demo", &[], 501, None);
+        assert_eq!(run(predicate(), long).len(), 1);
+
+        // Exactly at the bound is "at most max" — it holds.
+        let at_bound = features("demo", &[], 500, None);
+        assert!(run(predicate(), at_bound).is_empty());
+    }
+
+    #[test]
+    fn must_define_fires_when_the_marker_is_absent() {
+        let predicate = || Predicate::MustDefine {
+            marker: "disable-model-invocation".to_string(),
+        };
+        let missing = features("demo", &[("name", scalar("demo"))], 1, None);
+        assert_eq!(run(predicate(), missing).len(), 1);
+
+        let defined = features(
+            "demo",
+            &[("disable-model-invocation", scalar("true"))],
+            1,
+            None,
+        );
+        assert!(run(predicate(), defined).is_empty());
+    }
+
+    #[test]
+    fn name_matches_dir_fires_on_a_mismatch() {
+        let mismatch = features("demo", &[("name", scalar("demo"))], 1, Some("other"));
+        let diags = run(Predicate::NameMatchesDir, mismatch);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "name-matches-dir");
+
+        let aligned = features("demo", &[("name", scalar("demo"))], 1, Some("demo"));
+        assert!(run(Predicate::NameMatchesDir, aligned).is_empty());
+    }
+
+    #[test]
+    fn unique_name_fires_for_each_colliding_artifact() {
+        let a = features("dup", &[("name", scalar("dup"))], 1, None);
+        let b = features("dup", &[("name", scalar("dup"))], 1, None);
+        let c = features("solo", &[("name", scalar("solo"))], 1, None);
+        let diags = validate(
+            &contract(ClauseSeverity::Required, Predicate::UniqueName),
+            &[a, b, c],
+        );
+        // Both `dup` artifacts report; `solo` does not.
+        assert_eq!(diags.len(), 2);
+        assert!(diags.iter().all(|d| d.artifact == "dup"));
+    }
+
+    #[test]
+    fn indeterminate_predicates_neither_pass_nor_fire() {
+        // The projection carries no body text / dependency model, so these
+        // clauses cannot be decided here — and must not fabricate a finding.
+        let any = features("demo", &[("name", scalar("demo"))], 1, None);
+        assert!(
+            run(
+                Predicate::RequireSections {
+                    sections: vec!["Usage".to_string()]
+                },
+                any.clone()
+            )
+            .is_empty()
+        );
+        assert!(run(Predicate::DependencyExists, any).is_empty());
+    }
+
+    #[test]
+    fn declared_severity_maps_required_to_error_and_advisory_to_warn() {
+        let violating = features("demo", &[], 1, None);
+        let predicate = || Predicate::Required {
+            field: "name".to_string(),
+        };
+
+        let required = validate(
+            &contract(ClauseSeverity::Required, predicate()),
+            std::slice::from_ref(&violating),
+        );
+        assert_eq!(required[0].severity, Severity::Error);
+
+        let advisory = validate(
+            &contract(ClauseSeverity::Advisory, predicate()),
+            std::slice::from_ref(&violating),
+        );
+        assert_eq!(advisory[0].severity, Severity::Warn);
+    }
+
+    #[test]
+    fn an_all_advisory_run_yields_no_error() {
+        // Every clause advisory; the artifact violates all of them.
+        let clauses = vec![
+            Clause {
+                severity: ClauseSeverity::Advisory,
+                predicate: Predicate::Required {
+                    field: "name".to_string(),
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Advisory,
+                predicate: Predicate::MaxLines { max: 10 },
+            },
+        ];
+        let contract = Contract {
+            name: "skill".to_string(),
+            clauses,
+        };
+        let violating = features("demo", &[], 99, None);
+
+        let diags = validate(&contract, std::slice::from_ref(&violating));
+        assert_eq!(diags.len(), 2);
+        assert!(diags.iter().all(|d| d.severity == Severity::Warn));
+        // The whole point of `advisory`: it reports without blocking the gate.
+        assert!(!any_error(&diags));
+    }
+
+    #[test]
+    fn a_conforming_artifact_against_a_multi_clause_contract_is_clean() {
+        let clauses = vec![
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::Required {
+                    field: "name".to_string(),
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::MaxLen {
+                    field: "name".to_string(),
+                    max: 64,
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::AllowedChars {
+                    field: "name".to_string(),
+                    charset: slug_charset(),
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::ForbiddenKeys {
+                    keys: vec!["globs".to_string()],
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Advisory,
+                predicate: Predicate::MaxLines { max: 500 },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::NameMatchesDir,
+            },
+        ];
+        let contract = Contract {
+            name: "skill".to_string(),
+            clauses,
+        };
+        let conforming = features("demo", &[("name", scalar("demo"))], 12, Some("demo"));
+
+        assert!(validate(&contract, std::slice::from_ref(&conforming)).is_empty());
+    }
+}
