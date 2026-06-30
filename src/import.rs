@@ -1,6 +1,7 @@
 //! `author import` — scan a Claude Code harness into the typed config surface.
 //!
-//! Implements the "Import behavior" section of `spec/RELEASE-v0.1.md`: discover
+//! Implements `import` per `specs/20-surface.md` (the "CLI surface" verb
+//! `author import` — scan → surface + provenance lock): discover
 //! every skill under `<harness>` (a `skills/*/SKILL.md` layout, plus a bare
 //! `<harness>` that is itself a skill directory), and for each one write the
 //! surface tree `<into>/skills/<name>/` — a typed `meta.toml` header projected

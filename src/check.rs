@@ -1,7 +1,8 @@
 //! `author check` — the lint engine core.
 //!
-//! Implements the "Check behavior (the lint engine)" section of
-//! `spec/RELEASE-v0.1.md`: load the typed config surface into a [`Workspace`],
+//! Implements the `check` gate (`specs/20-surface.md`, "CLI surface" — the verb
+//! that validates against the active contract) over the contract model of
+//! `specs/10-contracts.md`: load the typed config surface into a [`Workspace`],
 //! run a set of [`Rule`]s over it, and collect the [`Diagnostic`]s they produce.
 //! `check` parses the workspace IR and runs rules, each emitting zero or more
 //! diagnostics rendered with `miette`; the process exits non-zero when any

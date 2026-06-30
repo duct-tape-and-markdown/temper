@@ -1,7 +1,7 @@
 //! The `Skill` artifact — the typed IR for `~/.claude/skills/<name>/SKILL.md`.
 //!
-//! Models the slice-1 subset of the IR in `spec/RELEASE-v0.1.md` ("The IR
-//! (slice 1 subset)") and SPEC §3. A skill is read from source with
+//! Models the skill instance of the IR in `specs/20-surface.md` ("The IR" —
+//! one typed value per artifact kind). A skill is read from source with
 //! [`Skill::from_source_dir`] (split YAML frontmatter, scan companions, hash the
 //! original bytes for provenance), projected to the typed surface header with
 //! [`Skill::to_meta_document`], and reloaded from that surface with
