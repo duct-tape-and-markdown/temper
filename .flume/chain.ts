@@ -175,6 +175,11 @@ const build: Phase = {
     // CI
     ".github/**",
 
+    // Vendored distribution surface — the plugin temper publishes (skill, hooks,
+    // manifest). A generated surface administered via spec, built here (and later
+    // by `temper bundle`), NOT hand-curated like the territories below.
+    "plugin/**",
+
     // NOTE: build does NOT touch .flume/** (harness territory), .claude/** or
     // CLAUDE.md (the hand-curated CC harness — also a dogfood fixture, edited by
     // humans), specs/** (the evergreen human-authored corpus), or contracts/**
