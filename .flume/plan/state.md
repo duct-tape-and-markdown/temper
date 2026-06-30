@@ -4,17 +4,17 @@
   with a generic validator over an author-declared contract (`10-contracts.md`
   "Decision: kill the heuristic rule registry"). 7 entries queued; none built.
 - **Last shipped:** slice-1 vertical — `import`/`check` CLI, `Skill` IR,
-  `author.toml` roll-up, the `all_rules()` registry, acceptance snapshots.
+  `author.toml` roll-up, the `all_rules()` heuristic registry, acceptance snapshots.
 - **In flight:** nothing. Verified on disk this tick: `src/` = {check, import,
   lib, main, rules, skill}; no `contract`/`extract`/`engine`, no `contracts/`;
-  `main.rs:57` calls `rules::all_rules()`; `main.rs:4,20` + `lib.rs:10` cite the
+  `main.rs:57` calls `rules::all_rules()`; `lib.rs:10` + `main.rs:4,20` cite the
   absent `SPEC.md`/`spec/RELEASE-v0.1.md`; `rules.rs` still holds the 5 rejected
   heuristics (third-person, has-trigger, has-anti-trigger, companion-refs, refs-
-  one-level-deep); all RETIRE-HEURISTICS fixtures present; `cargo check` clean.
-  Corpus unchanged; all 7 `per` cites resolve; inbox empty; no forks moved.
+  one-level-deep) and all their fixtures; `cargo check` clean. Corpus unchanged;
+  all 6 `per` cites resolve; inbox empty; no forks moved.
 - **Next:** ship CONTRACT-MODEL + SKILL-EXTRACTOR → CONTRACT-ENGINE →
   SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER → RETIRE-HEURISTICS top-down
-  (LIBDOC-EVERGREEN ships anytime, disjoint `lib.rs` region). Then plan the
+  (LIBDOC-EVERGREEN ships anytime — disjoint `lib.rs` region). Then plan the
   harness-contract/roles layer (`10-contracts.md` "Roles and matching" +
   `verified_by`) and the declared-model/dependency-graph work — the latter held
   on the `(model-declaration-format)` fork, a human intent gap.
