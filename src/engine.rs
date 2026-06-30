@@ -38,7 +38,7 @@ use std::collections::BTreeSet;
 
 use crate::check::{self, Diagnostic};
 use crate::contract::{self, Contract, Predicate};
-use crate::extract::{FeatureValue, Features};
+use crate::extract::{FeatureValue, Features, Kind};
 
 /// Validate every artifact's [`Features`] against the contract's clauses,
 /// collecting a [`Diagnostic`] per violation at the clause's declared severity.
@@ -118,6 +118,14 @@ fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
         }
         Predicate::RequireSections { sections } if sections.is_empty() => {
             vec!["`require_sections` clause lists no sections".to_string()]
+        }
+        // An inverted bound (`min > max`) admits no value at all — a vacuous
+        // clause the author cannot have meant, so the contract carrying it fails
+        // admissibility (`specs/45-governance.md`, "reject min>max").
+        Predicate::Range { field, min, max } if min > max => {
+            vec![format!(
+                "`range` clause on field `{field}` has min {min} greater than max {max}"
+            )]
         }
         _ => Vec::new(),
     }
@@ -211,6 +219,26 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
                     format!("field `{field}` is {len} characters (max {max})")
                 })
             }
+        },
+
+        // `range` bounds a *numeric* field to `[min, max]`. It fires only when the
+        // field is present, parsed as `integer`/`number`, and falls outside the
+        // bound; it stays silent on absence (the `required` clause's concern) and
+        // on a non-numeric kind (a `type` clause owns that mismatch) so one wrong
+        // field yields one finding, not a cascade.
+        Predicate::Range { field, min, max } => match features.field(field) {
+            Some(value) if matches!(value.kind(), Kind::Integer | Kind::Number) => {
+                match value.as_scalar().and_then(|text| text.parse::<f64>().ok()) {
+                    Some(n) => Outcome::check((*min..=*max).contains(&n), || {
+                        format!("field `{field}` value {n} is outside the range [{min}, {max}]")
+                    }),
+                    // Kind says numeric but the text would not parse — don't
+                    // fabricate a finding over a value we cannot read.
+                    None => Outcome::Holds,
+                }
+            }
+            // Absent, or a non-numeric kind: not this predicate's concern.
+            _ => Outcome::Holds,
         },
 
         Predicate::Enum { field, values } => match scalar(features, field) {
@@ -499,6 +527,103 @@ mod tests {
         // An absent field is the `required` clause's concern, not this one's.
         let absent = features("demo", &[], 1, None);
         assert!(run(predicate(), absent).is_empty());
+    }
+
+    #[test]
+    fn range_fires_only_when_a_numeric_field_falls_outside_the_bound() {
+        let predicate = || Predicate::Range {
+            field: "score".to_string(),
+            min: 0.0,
+            max: 100.0,
+        };
+
+        // A numeric field past the upper bound fires once, naming the clause.
+        let over = features(
+            "demo",
+            &[("score", FeatureValue::scalar(Kind::Integer, "150"))],
+            1,
+            None,
+        );
+        let diags = run(predicate(), over);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "range");
+
+        // Below the lower bound fires too — a fractional `number` is in scope.
+        let under = features(
+            "demo",
+            &[("score", FeatureValue::scalar(Kind::Number, "-0.5"))],
+            1,
+            None,
+        );
+        assert_eq!(run(predicate(), under).len(), 1);
+
+        // Within the inclusive bound (and exactly on each edge): silent.
+        let within = features(
+            "demo",
+            &[("score", FeatureValue::scalar(Kind::Integer, "42"))],
+            1,
+            None,
+        );
+        assert!(run(predicate(), within).is_empty());
+        for edge in ["0", "100"] {
+            let at_edge = features(
+                "demo",
+                &[("score", FeatureValue::scalar(Kind::Integer, edge))],
+                1,
+                None,
+            );
+            assert!(run(predicate(), at_edge).is_empty(), "edge {edge} holds");
+        }
+
+        // An absent field is the `required` clause's concern, not this one's.
+        let absent = features("demo", &[], 1, None);
+        assert!(run(predicate(), absent).is_empty());
+
+        // A non-numeric kind is a `type` clause's concern: `range` stays silent
+        // rather than fire on a value it does not own — no cascade.
+        let non_numeric = features(
+            "demo",
+            &[("score", FeatureValue::scalar(Kind::String, "150"))],
+            1,
+            None,
+        );
+        assert!(run(predicate(), non_numeric).is_empty());
+    }
+
+    #[test]
+    fn an_inverted_range_is_inadmissible() {
+        // A `min > max` bound admits no value — vacuous, so the contract carrying
+        // it fails admissibility (an error, exit non-zero).
+        let inverted = contract(
+            ClauseSeverity::Required,
+            Predicate::Range {
+                field: "score".to_string(),
+                min: 100.0,
+                max: 0.0,
+            },
+        );
+        let diags = admissibility(&inverted);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "range");
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].artifact, "skill");
+        assert!(any_error(&diags));
+
+        // A well-formed `min <= max` bound (equal endpoints included) is admissible.
+        for (min, max) in [(0.0, 100.0), (5.0, 5.0)] {
+            let ok = contract(
+                ClauseSeverity::Required,
+                Predicate::Range {
+                    field: "score".to_string(),
+                    min,
+                    max,
+                },
+            );
+            assert!(
+                admissibility(&ok).is_empty(),
+                "[{min}, {max}] is admissible"
+            );
+        }
     }
 
     #[test]

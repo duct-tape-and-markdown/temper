@@ -151,6 +151,7 @@ fn template_encodes_only_decidable_clauses() {
             Predicate::Type { .. } => "type",
             Predicate::MinLen { .. } => "min_len",
             Predicate::MaxLen { .. } => "max_len",
+            Predicate::Range { .. } => "range",
             Predicate::Enum { .. } => "enum",
             Predicate::Deny { .. } => "deny",
             Predicate::ForbiddenKeys { .. } => "forbidden_keys",

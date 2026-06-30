@@ -43,7 +43,11 @@ use crate::extract::Kind;
 
 /// A named set of clauses over the decidable primitive algebra — the type a
 /// harness (or one artifact in it) is checked against.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Not `Eq`: the `range` predicate carries `f64` bounds (`specs/45-governance.md`),
+/// and `f64` is only `PartialEq`. Equality is still derived (the tests compare
+/// whole contracts), just not the reflexive marker.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Contract {
     /// Display label for diagnostics — an explicit top-level `name` if present,
     /// else the file stem. A contract's *identity* is its path/role, not this
@@ -57,7 +61,9 @@ pub struct Contract {
 /// One clause: a decidable [`Predicate`] plus the [`Severity`] its author
 /// declared for it. Pairing the two here is the whole point — `temper` never
 /// decides error-vs-warning; the contract does.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Not `Eq` — its [`Predicate`] may carry `f64` `range` bounds; see [`Contract`].
+#[derive(Debug, Clone, PartialEq)]
 pub struct Clause {
     /// Whether a violation of this clause blocks the gate or is merely reported.
     pub severity: Severity,
@@ -80,7 +86,9 @@ pub enum Severity {
 /// A single decidable predicate from the closed vocabulary. Given the surface,
 /// every variant is unambiguously true or false — so a violation is always a
 /// true positive, which is what earns the hard gate.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Not `Eq`: [`Predicate::Range`] carries `f64` bounds (only `PartialEq`).
+#[derive(Debug, Clone, PartialEq)]
 pub enum Predicate {
     /// `required`: the named field must be present.
     Required {
@@ -116,6 +124,21 @@ pub enum Predicate {
         field: String,
         /// The inclusive upper bound, in characters.
         max: usize,
+    },
+    /// `range`: the field's numeric value lies within the inclusive `[min, max]`
+    /// bound. The corpus's own narrow named escape for a genuine *value* bound
+    /// over `integer`/`number` fields (`specs/45-governance.md`, "Also in
+    /// scope") — admitted after the `type` lattice rejected JSON-Schema ranges
+    /// (`specs/10-contracts.md`). Bounds are `f64` so a single predicate spans
+    /// both integer and fractional fields; an inverted `min > max` bound is
+    /// rejected as inadmissible (`crate::engine`).
+    Range {
+        /// The field measured.
+        field: String,
+        /// The inclusive lower bound.
+        min: f64,
+        /// The inclusive upper bound.
+        max: f64,
     },
     /// `enum`: the field's value is one of `values`.
     Enum {
@@ -183,6 +206,7 @@ impl Predicate {
             Predicate::Type { .. } => "type",
             Predicate::MinLen { .. } => "min_len",
             Predicate::MaxLen { .. } => "max_len",
+            Predicate::Range { .. } => "range",
             Predicate::Enum { .. } => "enum",
             Predicate::Deny { .. } => "deny",
             Predicate::ForbiddenKeys { .. } => "forbidden_keys",
@@ -211,6 +235,7 @@ impl Predicate {
             | Predicate::Type { field, .. }
             | Predicate::MinLen { field, .. }
             | Predicate::MaxLen { field, .. }
+            | Predicate::Range { field, .. }
             | Predicate::Enum { field, .. }
             | Predicate::Deny { field, .. }
             | Predicate::AllowedChars { field, .. } => Some(field),
@@ -490,6 +515,11 @@ fn parse_predicate(table: &Table, index: usize, path: &Path) -> Result<Predicate
             field: str_param(table, "field", index, path)?,
             max: usize_param(table, "max", index, path)?,
         },
+        "range" => Predicate::Range {
+            field: str_param(table, "field", index, path)?,
+            min: f64_param(table, "min", index, path)?,
+            max: f64_param(table, "max", index, path)?,
+        },
         "enum" => Predicate::Enum {
             field: str_param(table, "field", index, path)?,
             values: str_list(table, "values", index, path)?,
@@ -614,6 +644,35 @@ fn usize_param(
     })
 }
 
+/// Read a required numeric clause key (a TOML integer or float) as an `f64` —
+/// the bound the `range` predicate ranges over `integer`/`number` fields with.
+/// An integer literal (`min = 0`) is accepted alongside a float (`min = 0.5`) so
+/// a whole-number bound need not be written with a decimal point.
+fn f64_param(
+    table: &Table,
+    key: &'static str,
+    index: usize,
+    path: &Path,
+) -> Result<f64, ContractError> {
+    let item = table.get(key).ok_or(ContractError::MissingParam {
+        path: path.to_path_buf(),
+        index,
+        param: key,
+    })?;
+    if let Some(float) = item.as_float() {
+        Ok(float)
+    } else if let Some(int) = item.as_integer() {
+        Ok(int as f64)
+    } else {
+        Err(ContractError::WrongType {
+            path: path.to_path_buf(),
+            index,
+            param: key,
+            expected: "a number",
+        })
+    }
+}
+
 /// Read a required array-of-strings clause key.
 fn str_list(
     table: &Table,
@@ -693,6 +752,13 @@ severity = "required"
 predicate = "max_len"
 field = "name"
 max = 64
+
+[[clause]]
+severity = "advisory"
+predicate = "range"
+field = "priority"
+min = 0
+max = 9
 
 [[clause]]
 severity = "advisory"
@@ -782,6 +848,14 @@ type = "string"
                     predicate: Predicate::MaxLen {
                         field: "name".to_string(),
                         max: 64,
+                    },
+                },
+                Clause {
+                    severity: Severity::Advisory,
+                    predicate: Predicate::Range {
+                        field: "priority".to_string(),
+                        min: 0.0,
+                        max: 9.0,
                     },
                 },
                 Clause {
@@ -950,6 +1024,46 @@ type = "int"
             err,
             ContractError::UnknownType { ref declared, index: 0, .. } if declared == "int"
         ));
+    }
+
+    #[test]
+    fn a_range_clause_accepts_integer_and_float_bounds() {
+        // The `range` bound spans `integer`/`number` fields, so a whole-number
+        // bound may be written without a decimal point and a fractional one with.
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "range"
+field = "score"
+min = 0
+max = 1.5
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                severity: Severity::Required,
+                predicate: Predicate::Range {
+                    field: "score".to_string(),
+                    min: 0.0,
+                    max: 1.5,
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_non_numeric_range_bound_is_a_load_error() {
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "range"
+field = "score"
+min = 0
+max = "ten"
+"#;
+        let err = Contract::parse(toml, Path::new("c.toml")).unwrap_err();
+        assert!(matches!(err, ContractError::WrongType { param: "max", .. }));
     }
 
     #[test]

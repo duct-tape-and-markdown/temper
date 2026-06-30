@@ -87,7 +87,11 @@ pub struct AuthorLayer {
 /// checks a filler is `present`, `conforms-to` the role's contract, and is picked
 /// by its `match` selector — but this tier only *parses* the declaration into
 /// typed values; none of those checks run here.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Not `Eq`: its [`RoleContract`] may carry inline clauses with `f64` `range`
+/// bounds (see [`crate::contract::Contract`]); equality stays derived as
+/// `PartialEq`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Role {
     /// The role's name — the `[role.<name>]` table key.
     pub name: String,
@@ -114,7 +118,10 @@ pub struct Role {
 /// template named by path, or inline clauses declared under the role
 /// (`[[role.<name>.clause]]`) over the same closed vocabulary a bare contract
 /// carries (`specs/10-contracts.md`, "Roles and matching").
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Not `Eq` — its inline [`Clause`]s may carry `f64` `range` bounds; equality
+/// stays derived as `PartialEq`.
+#[derive(Debug, Clone, PartialEq)]
 pub enum RoleContract {
     /// A template adopted by path (`contract = "contracts/skill.anthropic.toml"`).
     /// Stored verbatim; whether the path resolves is a follow-on admissibility
