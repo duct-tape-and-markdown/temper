@@ -25,11 +25,11 @@ and embeds the bundled skill template as the default.
   template's `[a-z0-9-]`)? Blocks only the full `pattern` clause, not the engine.
   See `specs/10-contracts.md`.
 
-- `(contract-selection)` — `check [<workspace>]` validates "against the active
-  contract", but the corpus doesn't pin how `check` *locates* it: a CLI flag, a
-  `contracts/` directory convention, or a field in `author.toml`? CHECK-CUTOVER
-  defaults to the embedded built-in skill template; the override/selection
-  mechanism waits on this. See `specs/20-surface.md`.
+- `(contract-selection)` — RESOLVED (`specs/20-surface.md` Decision: "contract
+  selection is by artifact kind"). `check` maps each artifact to the built-in
+  contract for its kind (skill → `contracts/skill.anthropic.toml`, rule →
+  `contracts/rule.toml`), embedded as defaults. A per-workspace override is a
+  later extension, not the default. Unblocks the rule artifact kind.
 
 - `(skill-ref-syntax)` — The rejected `companion-refs` rule grepped prose, which
   is unsound (`10-contracts.md` referential clause: admissible *only* over a

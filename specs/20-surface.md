@@ -40,6 +40,29 @@ frontmatter + body; for a spec it is headings, bindings, and declared model
 elements. Extraction is the soundness boundary — it surfaces only
 deterministically-decidable features, never inferred meaning.
 
+## Artifact kinds & contract selection
+
+Each artifact kind has an extractor and a built-in contract. Slice 1 shipped
+**skill**; the next kind is **rule** (`.claude/rules/*.md`): frontmatter `paths`
+(optional — the real Claude Code scoping key) plus a byte-faithful body. Its
+decidable clauses forbid the Cursor keys Claude Code ignores (`description`,
+`globs`, `alwaysApply`) — the exact mistake that motivated the project (a rule
+authored with `.mdc` frontmatter loads nothing). `import` scans every kind it
+knows (`skills/*/SKILL.md`, `.claude/rules/*.md`); `check` dispatches each
+artifact to the built-in contract for its kind. This is the path to self-hosting:
+`temper`'s own `.claude/` is rules, so once the rule kind exists, `temper check`
+can run on its own house.
+
+### Decision: contract selection is by artifact kind
+
+**Chosen:** `check` maps each artifact to the built-in contract for its kind
+(skill → `contracts/skill.anthropic.toml`, rule → `contracts/rule.toml`),
+embedded as defaults. **Rejected (for now):** a single active contract, or a CLI
+flag to pick one — neither generalizes to a mixed harness (skills *and* rules in
+one import). A per-workspace override (a `contracts/` dir convention or an
+`author.toml` field) is a later extension, not the default. (Resolves
+`(contract-selection)`.)
+
 ## Provenance and round-trip discipline (law 5)
 
 - `provenance = { source_path, import_hash }`; `import_hash` is the SHA-256 of
