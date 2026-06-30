@@ -1,40 +1,5 @@
 [
   {
-    "tag": "TYPED-EXTRACTION",
-    "summary": "Preserve each field's parsed scalar/container kind (string/integer/number/boolean/list/map/null) in the projection — the precondition a sound `type` check needs.",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: the `type` vocabulary is a closed scalar/container lattice"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "Stop collapsing every scalar to a bare string for kind purposes: extend the projection so each field records its source kind off the parsed YAML/JSON value (`json_scalar_string` currently flattens bool/number/string alike). Keep `FeatureValue::as_scalar` yielding the comparison text the scalar predicates (`min_len`/`max_len`/`enum`/`deny`/`allowed_chars`) read unchanged. Tests: an integer, boolean, string, and list field each project with their source kind preserved while `as_scalar` still returns the field text."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Update `FeatureValue` construction sites in the engine's unit-test helpers if the variant shape changes (the scalar-text path in `scalar()` is unchanged — every existing scalar predicate keeps reading text). Edit only as needed to keep the engine tests green."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/extract.rs",
-        "asserts": "a field's source kind is preserved in the projection; as_scalar still yields the field text for the existing scalar predicates"
-      }
-    ],
-    "acceptance": "the projection records each field's source kind (string/integer/number/boolean/list/map/null); scalar predicates still read field text unchanged; existing extract + engine tests pass.",
-    "notes": "The spec names this exact correction: stringifying every scalar (the slice-1 shortcut, extract.rs) makes `type` undecidable and is corrected before the primitive ships. Foundation only — no new predicate here; TYPE-PRIMITIVE adds the clause. FeatureValue's enum shape may change (Scalar(String) carrying a kind), which ripples to engine.rs test construction — hence engine.rs is in the blast radius."
-  },
-  {
     "tag": "TYPE-PRIMITIVE",
     "summary": "Add the `type` field primitive over the closed scalar/container lattice — `Predicate::Type`, parsed and decided against the preserved source kind.",
     "per": {
