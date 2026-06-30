@@ -1,25 +1,137 @@
 [
   {
-    "tag": "CHECK-CUTOVER",
-    "summary": "Wire `temper check` to load the built-in skill contract and run the generic engine over extracted Features; add `--deny-advisories` to promote advisories to blocking.",
+    "tag": "RULE-IR",
+    "summary": "Add the `rule` artifact IR (`.claude/rules/*.md` — optional `paths` frontmatter + byte-faithful body) and its `extract::rule_features` projection into the engine's `Features` view.",
     "per": {
       "path": "specs/20-surface.md",
-      "section": "CLI surface"
+      "section": "Artifact kinds & contract selection"
     },
     "gate": {
       "kind": "open"
     },
-    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "src/rule.rs",
+          "description": "The `rule` artifact IR (one artifact kind per module, `.claude/rules/rust.md`), mirroring `src/skill.rs`. Parse a `.claude/rules/<name>.md` source into a typed `Rule`: an OPTIONAL `paths` frontmatter sequence (rules may carry NO frontmatter at all — collaboration.md has none, rust.md has `paths:` — unlike a skill, which errors without frontmatter), unknown frontmatter keys preserved verbatim in an `extra` map (so a `forbidden_keys` clause can later resolve `description`/`globs`/`alwaysApply`), a byte-faithful body, and provenance (`source_path` + SHA-256 `import_hash`); the name derives from the file stem. Ship the surface round-trip too — `from_source_dir` plus `from_surface_dir`/`to_meta_document` (header carries `paths` if present + `[provenance]`) — so RULE-IMPORT can write and `Workspace::load` reconstruct it. The split-frontmatter/sha256 helpers may be lifted from or duplicated off `skill.rs` (code's choice — clarity over a lifetime fight, `.claude/rules/rust.md`)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "add `pub mod rule;` in alphabetical position (after `pub mod import;` lib.rs:22, before `pub mod skill;` lib.rs:23). This entry is the sole owner of the lib.rs line for the rule kind — no sibling entry co-edits it."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "add `pub fn rule_features(&Rule) -> Features` mirroring `skill_features` (extract.rs:94): `id` = the rule name (file stem), the `paths` value as a `FeatureValue::List`, every `extra` frontmatter key folded into `fields` (so `forbidden_keys` resolves by name like it does for skills), `body_lines` from the byte-faithful body; `source_dir`/`companions` populated as for skills (uniformity — the rule contract names neither). Add a unit test exercising a `paths`-only rule and a no-frontmatter rule."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/rule.rs",
+        "asserts": "a rule with `paths:` frontmatter parses its list; a rule with no frontmatter parses to an empty header + byte-faithful body; an `extra` key (e.g. `description`) is preserved; the source/surface round-trip is identity"
+      },
+      {
+        "path": "src/extract.rs",
+        "asserts": "`rule_features` exposes `paths` as a list, folds `extra` keys into `fields` so `has_field(\"description\")` is true when present, and counts body lines"
+      }
+    ],
+    "acceptance": "`temper::rule::Rule` parses both the frontmatter and no-frontmatter rule shapes with a byte-faithful body + provenance; `extract::rule_features` projects it into `Features`; `cargo test`/`clippy -D warnings` green.",
+    "notes": "Foundation of the rule slice (inbox NEW SLICE). `(contract-selection)` is RESOLVED, so no fork blocks this. Surface topology for rules (the `rules/<name>/` layout, body filename) is code-owned mechanism (`90-spec-system.md` depth rule) within law 5's invariants — RULE-IMPORT pins it."
+  },
+  {
+    "tag": "RULE-CONTRACT-TEST",
+    "summary": "Pin the shipped `contracts/rule.toml` template's clause vector, mirroring `tests/contract_template.rs` for the skill template.",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Templates — best practices as data"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [
+        {
+          "path": "tests/rule_contract.rs",
+          "description": "Mirror `tests/contract_template.rs`: load `contracts/rule.toml` (human-authored, already on disk) via `Contract::load` off `CARGO_MANIFEST_DIR` and assert the exact typed clause vector — `optional` on `paths` (advisory), `forbidden_keys = [\"description\", \"globs\", \"alwaysApply\"]` (required), `max_lines = 200` (advisory) — at their declared severities, with the display label derived to `rule` from the file stem. A second test asserts only decidable predicates appear (the kind set), documenting that the rule template, like the skill one, carries no semantic guess."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/rule_contract.rs",
+        "asserts": "`contracts/rule.toml` loads into exactly the optional-paths / forbidden-keys / max-lines clause vector at the declared severities; label derives to `rule`"
+      }
+    ],
+    "acceptance": "The shipped rule template round-trips into the typed `Contract` clause vector; `cargo test`/`clippy -D warnings` green.",
+    "notes": "Independent and immediately pickable — depends only on `contracts/rule.toml` (shipped a6497ec) and `contract::Contract` (shipped). Build EMBEDS rule.toml later (RULE-CHECK); contracts/ stays human territory."
+  },
+  {
+    "tag": "RULE-IMPORT",
+    "summary": "Teach `import` to scan `<harness>/.claude/rules/*.md` and write the rule surface (header + byte-faithful body + `[[rule]]` roll-up); `Workspace` gains `rules` and reconstructs them on load.",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Artifact kinds & contract selection"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "RULE-IR"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Extend discovery + write to the rule kind. Scan `<harness>/.claude/rules/*.md` (today `discover_skill_dirs` scans only `<harness>/skills/`, import.rs:97), and for each rule write the surface mirroring skills (`run` import.rs:78, `import_skill` import.rs:131): a format-preserving header (optional `paths` + `[provenance]`, via `Rule::to_meta_document`) and the byte-faithful body under a `rules/<name>/` tree, plus a `[[rule]]` row in `author.toml` beside `[[skill]]` (`write_rollup` import.rs:170). Keep the keystone idempotence invariant (import.rs:12)."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "`Workspace` gains `rules: Vec<Rule>` (struct check.rs:34) and `Workspace::load` reconstructs them from `<workspace>/rules/*/` via `Rule::from_surface_dir`, name-sorted, mirroring the skill load (check.rs:47-74). Update the `Workspace { skills: Vec::new() }` test literal (check.rs:334) for the new field."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/import.rs",
+        "asserts": "a harness with `.claude/rules/*.md` writes a rule surface + a `[[rule]]` roll-up row; re-import is byte-identical (idempotent); skills and rules coexist in one import"
+      },
+      {
+        "path": "src/check.rs",
+        "asserts": "`Workspace::load` reconstructs rules (name-sorted) from the written surface alongside skills"
+      }
+    ],
+    "acceptance": "`temper import` over a harness carrying rules produces a round-trippable rule surface + roll-up, and `Workspace::load` reads it back; `cargo test`/`clippy -D warnings` green.",
+    "notes": "Rules scan at `<harness>/.claude/rules/*.md` per the spec literal — note the root asymmetry with skills (`<harness>/skills/`); self-host (RULE-CHECK) therefore points `import` at the repo root, where `.claude/rules/` lives. Surface topology (the `rules/<name>/` tree, body filename) is code's faithful generalization of the skill layout under law 5."
+  },
+  {
+    "tag": "RULE-CHECK",
+    "summary": "Dispatch `check` by artifact kind — embed `contracts/rule.toml`, validate `ws.rules` against it, merge with skill diagnostics; prove self-host on `temper`'s own `.claude/rules/`.",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Decision: contract selection is by artifact kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "RULE-IMPORT"
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Check loads the workspace, extracts `extract::skill_features` over each `ws.skills` entry into a `Vec<Features>`, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract::parse`) via `engine::validate`, renders via `check::render`, and exits non-zero when `check::any_error` (a required-clause violation) fires; add a `--deny-advisories` flag so advisory (`Warn`) violations also fail. Stop calling `rules::all_rules` and drop the `use temper::rules;` import (main.rs:17,57). While rewriting dispatch, refresh the now-inaccurate module doc: the header (main.rs:1-9) narrates the rule-registration step this entry removes and cites the absent `spec/RELEASE-v0.1.md` (main.rs:4), and the `DEFAULT_WORKSPACE` doc comment cites it again (main.rs:20-21) — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of the lib.rs doc scrub."
+          "description": "Dispatch `check` by kind. Embed the rule contract beside the skill one: `const BUILTIN_RULE_CONTRACT: &str = include_str!(\"../contracts/rule.toml\");` (next to `BUILTIN_SKILL_CONTRACT` main.rs:30). In the `Check` arm (main.rs:77-82), project `ws.rules` via `extract::rule_features`, validate them against the rule contract parsed by `Contract::parse`, and merge the rule diagnostics with the skill diagnostics before `check::render` / the `any_error` + `--deny-advisories` gate (main.rs:84-94) — both contracts run, each artifact judged by the contract for its kind."
         },
         {
           "path": "tests/cli.rs",
-          "description": "keep the clean/error-exit cases (name-format + name-matches-dir still fire as required-clause errors); add a `--deny-advisories` case where an advisory-only workspace exits non-zero with the flag and zero without it. While editing, repoint this file's stale module-doc header (cli.rs:1, citing the absent `spec/RELEASE-v0.1.md`) to the evergreen `specs/` corpus."
+          "description": "Add a rule-kind case: a harness whose `.claude/rules/` holds a clean rule (e.g. `paths:`-only) checks clean, and one holding a forbidden Cursor key (`description`/`globs`/`alwaysApply`) exits non-zero. Add the self-host case: `temper import <repo-root>` (off `CARGO_MANIFEST_DIR`) then `temper check` over `temper`'s OWN `.claude/rules/*.md` (rust.md carries `paths:`, collaboration.md none) exits zero — the bootstrap proof."
         }
       ],
       "retire": []
@@ -28,55 +140,10 @@
     "tests": [
       {
         "path": "tests/cli.rs",
-        "asserts": "import->check exits 0 on a clean skill, non-zero on an uppercase/mismatched name; `--deny-advisories` flips an advisory-only run to non-zero"
+        "asserts": "import->check over a harness with rules exits zero on a clean rule, non-zero on a forbidden-key rule; self-host: import the repo root then check exits zero over temper's own `.claude/rules/`"
       }
     ],
-    "acceptance": "The gate now runs the declared contract, not the registry; default blocks on `required` only, `--deny-advisories` also blocks on advisory; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Depends on SKILL-EXTRACTOR + CONTRACT-ENGINE (both shipped) + SKILL-CONTRACT-TEMPLATE (the include_str! target). Embeds the bundled template as the default; override/selection is the (contract-selection) fork. Leaves `rules.rs` + `check::Rule`/`check::run` in place (still public, no dead-code warning) for RETIRE-HEURISTICS."
-  },
-  {
-    "tag": "RETIRE-HEURISTICS",
-    "summary": "Delete the rejected heuristic rule registry and its dead fixtures/tests; move the acceptance snapshot onto the contract-engine path.",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: kill the heuristic rule registry"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "CHECK-CUTOVER"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "remove `pub mod rules;` (lib.rs:23, this entry's line only)"
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "drive `engine::validate` against the built-in skill contract instead of `all_rules()`; regenerate the diagnostic-set snapshot to the reduced surviving-clause set (import surface snapshot unchanged). While rewriting, repoint the stale module-doc header (acceptance.rs:1) citing the absent `spec/RELEASE-v0.1.md` to the evergreen `specs/` corpus."
-        }
-      ],
-      "retire": [
-        "src/rules.rs",
-        "tests/rules.rs",
-        "tests/fixtures/rules/description-third-person",
-        "tests/fixtures/rules/description-has-trigger",
-        "tests/fixtures/rules/description-has-anti-trigger",
-        "tests/fixtures/rules/companion-refs-resolve",
-        "tests/fixtures/rules/refs-one-level-deep",
-        "tests/snapshots/acceptance__rules_check_diagnostics.snap"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/acceptance.rs",
-        "asserts": "import->validate->re-import over the contract path reproduces the surviving diagnostics with no surface diff; the dropped heuristics no longer appear"
-      }
-    ],
-    "acceptance": "`src/rules.rs`, `tests/rules.rs`, and the five dropped-heuristic fixtures are gone; `lib.rs` has no `rules` module; acceptance runs on the engine; regenerated snapshot reflects the decidable clauses only; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Scope honesty: this removes shipped behavior (third-person, has-trigger, has-anti-trigger, prose-grep companion-refs, refs-one-level-deep) — mandated by the corpus, which names trigger + companion-refs as false-positive sources. The decidable members survive as template clauses, not code. Leaves the now-callerless `check::Rule`/`check::run` for a follow-up tick to reconcile."
+    "acceptance": "`temper check` validates skills against the skill contract and rules against the rule contract in one run; `temper check` runs green on temper's own `.claude/` (`specs/00-intent.md` self-hosting proof); `cargo test`/`clippy -D warnings` green.",
+    "notes": "Closes the inbox NEW SLICE. The merged-diagnostics gate keeps `--deny-advisories`/`any_error` semantics unchanged. Self-host is the first real bite of `00-intent.md`'s bootstrap finish line; the SessionStart gate that refuses to start on a failing harness is later work."
   }
 ]
