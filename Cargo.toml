@@ -1,0 +1,31 @@
+[package]
+name = "author"
+version = "0.1.0"
+edition = "2024"
+description = "A typed maintenance surface for the Claude Code harness — import, lint, compose, and apply skills, hooks, rules, agents, and plugin/marketplace manifests."
+license = "MIT"
+readme = "README.md"
+keywords = ["claude", "claude-code", "harness", "skills", "linter"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Diagnostics & errors (the linter UX surface — see .claude/rules/rust.md)
+miette = { version = "7", features = ["fancy"] }
+thiserror = "2"
+
+# Serialization. toml_edit is the format-preserving round-trip keystone (SPEC §4).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml_edit = "0.22"
+
+# Artifact parsing: frontmatter split + filesystem walk + provenance hashing.
+gray_matter = "0.2"
+walkdir = "2"
+sha2 = "0.10"
+
+[dev-dependencies]
+# Golden import/apply fixtures (SPEC §7).
+insta = "1"

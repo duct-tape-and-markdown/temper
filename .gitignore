@@ -1,0 +1,12 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Node (flume harness control plane only)
+/node_modules
+
+# Flume harness-managed state (not authored, not committed)
+/.flume/worktrees/
+/.flume/sessions/
+/.flume/awake/
+/.flume/prior-attempts/

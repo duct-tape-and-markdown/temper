@@ -1,0 +1,2 @@
+# Keep pnpm from hoisting into parent dirs; this manifest is the flume control plane only.
+packages: []
