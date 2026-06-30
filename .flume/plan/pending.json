@@ -7,8 +7,7 @@
       "section": "Tests / acceptance"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CLI"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,6 +32,6 @@
       }
     ],
     "acceptance": "The slice acceptance from the spec passes: import <fixture> --into <tmp>, check <tmp> reproduces the expected diagnostics, and re-import produces no diff; `cargo test` green.",
-    "notes": "Drives the lib import/check functions (logic lives in lib per rust.md) so no binary harness/dep is needed. Trimmed fixture only — do not copy the full ~/.claude/skills/coordinate."
+    "notes": "Drives the lib import/check functions (logic lives in lib per rust.md) so no binary harness/dep is needed. Trimmed fixture only — do not copy the full ~/.claude/skills/coordinate. The check-diagnostics snapshot can reuse the existing tests/fixtures/rules/* tree (already on disk); only the coordinate import fixture is new."
   }
 ]
