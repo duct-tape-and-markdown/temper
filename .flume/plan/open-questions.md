@@ -4,27 +4,19 @@ Product/architecture forks not yet settled. Each is keyed with a `(slug)` so a
 pending entry can declare `dependsOnForks: ["slug"]` and be held until resolved.
 Mark a line `RESOLVED` (and record the decision) to unblock its dependents.
 
-`(contract-name-field)` is the live blocker on the contract-engine chain (see
-below). The rest gate *extensions* (a full regex predicate, a contract-selection
+The forks below gate *extensions* (a full regex predicate, a contract-selection
 override, a declared skill-reference clause) and the later `apply` write-back
-path — not the chain, which ships the in-crate decidable subset and embeds the
-bundled skill template as the default.
+path — not the contract-engine chain, which ships the in-crate decidable subset
+and embeds the bundled skill template as the default.
 
-- `(contract-name-field)` — The shipped, human-authored
-  `contracts/skill.anthropic.toml` (6e0af11) carries **no top-level `name`**, but
-  the `Contract` model requires one (`src/contract.rs` `Contract::parse` →
-  `MissingName`). So the template will not load: SKILL-CONTRACT-TEMPLATE's test
-  and CHECK-CUTOVER's `include_str!` default both error at parse. The corpus does
-  not settle this — `10-contracts.md`'s own contract examples identify a contract
-  by *path* (`contract = "contracts/skill.anthropic.toml"`) or *inline*
-  (`contract = { required = [...] }`), and neither carries an internal `name`,
-  which suggests the model's required-`name` may itself be the drift. Two
-  resolutions: (A) add `name = "skill"` to the template (a human edit to
-  `contracts/`, which is human territory); or (B) relax `Contract` to make `name`
-  optional, deriving identity from the file stem for diagnostics (a code change,
-  filed as a pending entry once chosen). Blocks SKILL-CONTRACT-TEMPLATE +
-  CHECK-CUTOVER. See `specs/10-contracts.md`, "Templates — best practices as
-  data" and "Roles and matching".
+- `(contract-name-field)` — RESOLVED, option B (`specs/10-contracts.md` Decision:
+  "a contract is identified by its path/role, not an internal name"). The curated
+  `contracts/skill.anthropic.toml` rightly carries no `name`; the `Contract`
+  model's required top-level `name` is code drift. Fix: relax `Contract.name` to
+  optional, deriving a display label from the file stem for diagnostics. Plan:
+  file this as a code entry (e.g. `CONTRACT-NAME-OPTIONAL`, gate `open`) ahead of
+  SKILL-CONTRACT-TEMPLATE; the chain then unblocks (SKILL-CONTRACT-TEMPLATE →
+  CHECK-CUTOVER → RETIRE-HEURISTICS).
 
 - `(regex-crate)` — The primitive algebra lists `pattern` (regex), but `regex` is
   not in the sanctioned crate set and the codebase deliberately avoids it. Add

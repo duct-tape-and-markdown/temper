@@ -139,3 +139,16 @@ diagnostics, and diagnostics are the product (`00-intent.md`). The benefit of
 building is not more power — it is *less power*: a language too weak to lie.
 Adopt libraries for the solved mechanics; build the vocabulary, the diagnostics,
 and the gate.
+
+## Decision: a contract is identified by its path/role, not an internal name
+
+**Chosen:** a `Contract` carries **no required internal `name`**. Its identity is
+*where it lives* — the file path a role binds (`contract = "contracts/skill.anthropic.toml"`)
+or the inline block under a role. A display label for diagnostics derives from the
+file stem (`skill.anthropic`). **Rejected:** a required top-level `name` field on
+every contract. The contract examples above (Roles and matching; Templates)
+identify contracts by path or inline binding and carry no internal name — a
+required name is redundant with the path and forces ceremony into a data file
+that is otherwise pure clauses. (This resolves the `(contract-name-field)` fork:
+the curated `contracts/skill.anthropic.toml` rightly has no `name`; the model's
+required-`name` was code drift — relax it to optional, derived from the stem.)
