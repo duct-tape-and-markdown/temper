@@ -7,8 +7,7 @@
       "section": "The set scope (the roster) — predicates over a matched set"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GOV-RANGE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "A `[role.X]` declaring `count = { min, max }` gates the cardinality of the matched set (`|artifacts matching S| ∈ [min, max]`) at error severity; an inverted bound fails admissibility — the cascade harness-economy 'at most N agents' template becomes expressible.",
-    "notes": "The first set-scope governance predicate, lifting the role selector from 'fill one slot' to 'quantify over the matched set' (45). Disjoint from GOV-RANGE (artifact-scope, contract.rs/engine.rs); this is the roster scope (compose.rs/roster.rs). Membership/typed-reference/unique remain unfiled; degree/acyclic await an edge-extraction + graph foundation (45 'The harness is a graph too')."
+    "notes": "The first set-scope governance predicate, lifting the role selector from 'fill one slot' to 'quantify over the matched set' (45). GOV-RANGE (artifact-scope `range`, contract.rs/engine.rs) shipped at 498589d, clearing the blocker; the two are file-disjoint (this is the roster scope, compose.rs/roster.rs). Membership/typed-reference/unique remain unfiled (next after this ships); degree/acyclic await an edge-extraction + graph foundation (45 'The harness is a graph too')."
   },
   {
     "tag": "SPEC-KIND-GATE",
@@ -65,6 +64,6 @@
       }
     ],
     "acceptance": "`temper check` over an imported corpus runs the spec contract — flagging the over-length specs at advisory severity and exiting 0 (non-blocking) absent `--deny-advisories`.",
-    "notes": "Build-order: needs SPEC-FEATURES (the extractor, shipped) on disk plus a human to commit the untracked `contracts/spec.toml`. Runs only spec.toml's active `max_lines` clause; its two commented clauses (decisions-name-alternatives, references-resolve) await `(decision-marker-predicate)` and the references-resolve frontier — both also downstream of that spec.toml commit."
+    "notes": "Build-order: needs SPEC-FEATURES (the extractor, shipped — `extract::spec_features` on disk) plus a human to commit the untracked `contracts/spec.toml`. Runs only spec.toml's active `max_lines` clause; its two commented clauses (decisions-name-alternatives, references-resolve) await `(decision-marker-predicate)` and the references-resolve frontier — both also downstream of that spec.toml commit."
   }
 ]
