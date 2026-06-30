@@ -69,7 +69,9 @@ without rejected alternatives is incomplete — future readers can't audit it.
 ## The corpus
 
 - `00-intent.md` — north star: the thesis, the law, positioning, self-hosting.
+- `05-model.md` — the domain model: temper's concepts and how they relate.
 - `10-contracts.md` — the contract model, the decidable algebra, admissibility.
+- `15-kinds.md` — the kind system: the extraction algebra, built-in vs custom kinds.
 - `20-surface.md` — the composition write surface: compose, import, project, drift.
 - `30-landscapes.md` — landscapes: engine instances, the spec model, the seams.
 - `40-composition.md` — authoring the harness: the author-declared contract.
