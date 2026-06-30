@@ -1,42 +1,5 @@
 [
   {
-    "tag": "GOV-UNIQUE",
-    "summary": "Add the set-scope `unique` roster predicate — a declared field must be unique across a role's matched set.",
-    "per": {
-      "path": "specs/45-governance.md",
-      "section": "The set scope (the roster) — predicates over a matched set"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Add an optional `unique: Vec<String>` (declared field names) to `Role`; parse a `unique = [\"field\", …]` array in `parse_role`, folding any malformation (not an array, a non-string element) into a new `ComposeError::RoleBadUnique` variant; absent ⇒ empty vec. Add the `unique: Vec::new()` field to the `Role { … }` struct literals in this module's unit tests, and add a parse unit test."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "Extend `check` (already wired in `main.rs`): after the count/required arm, for each declared `unique` field group the role's matched fillers by that field's extracted scalar value (`Features::field` + `as_scalar`) and emit one error `Diagnostic` per duplicated value under a new `ROLE_UNIQUE_RULE` (`role.unique`), naming the role, field, shared value, and colliding fillers. Add unit tests covering a collision firing, distinct values staying silent, and a missing field being no collision."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/roster.rs",
-        "asserts": "A role declaring `unique = [\"model\"]` fires an error-severity `role.unique` finding when two matched fillers share a `model` value, names the colliding fillers, and is silent when every matched filler's value differs."
-      },
-      {
-        "path": "src/compose.rs",
-        "asserts": "`unique = [\"model\"]` parses into `Role.unique`; an absent `unique` defaults to an empty vec; a non-array or non-string-element `unique` is a `RoleBadUnique` load error."
-      }
-    ],
-    "acceptance": "A `temper.toml` role declaring `unique = [\"model\"]` reports an error when two matched fillers share a `model` value and is silent when all differ; a malformed `unique` is a load error.",
-    "notes": "Set-scope `unique` generalizes the kind-wide `unique-name` engine predicate (`Predicate::UniqueName`, name-only, over a whole kind) to an arbitrary field over a *role's* matched subset — a roster-tier check, not an engine one. Folds into the existing `roster::check` call so it needs no `main.rs` edit, keeping it disjoint from the parked SPEC-KIND-GATE (main.rs). Decidable: exact equality grouping over extracted scalars, a true positive every time (`00-intent.md` law 3)."
-  },
-  {
     "tag": "SPEC-KIND-GATE",
     "summary": "Dispatch `check` over specs: embed `contracts/spec.toml`, project `ws.specs` via `spec_features`, and run admissibility + `engine::validate` (the advisory `max_lines` clause) over the spec features.",
     "per": {
