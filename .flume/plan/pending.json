@@ -1,41 +1,5 @@
 [
   {
-    "tag": "SKILL-EXTRACTOR",
-    "summary": "Deterministic Features view of a skill — the surface-decidable feature set the generic engine reads, never inferred meaning (the soundness boundary).",
-    "per": {
-      "path": "specs/30-landscapes.md",
-      "section": "Extraction is the soundness boundary"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/extract.rs",
-          "description": "`Features` — an artifact's deterministically-extracted features keyed for generic clause lookup: scalar/list frontmatter fields by name (including `extra` keys, for `forbidden_keys`), body line count, source directory name (off provenance, for `name-matches-dir`), companion paths, and the artifact id used in diagnostics. Plus `pub fn skill_features(&Skill) -> Features` so `skill.rs` stays untouched. Admits only surface-decidable features — no prose-meaning inference."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "add `pub mod extract;` (this entry's module line only)"
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/extract.rs",
-        "asserts": "`skill_features` exposes name/description/version/unknown keys, the body line count, and the source dir name; field lookup is by name so a clause can resolve `name`/`description` generically"
-      }
-    ],
-    "acceptance": "A skill projects to a `Features` map the engine can resolve clause field-references against; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Independent of contract.rs (no `Contract` import). The generic field-name lookup is what lets the engine carry no hardcoded `skill.name` opinion."
-  },
-  {
     "tag": "CONTRACT-ENGINE",
     "summary": "The generic validator: evaluate a Contract's decidable clauses over extracted Features, emitting a Diagnostic per violation at the clause's declared severity — replaces the heuristic Rule registry.",
     "per": {
