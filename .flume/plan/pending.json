@@ -7,15 +7,14 @@
       "section": "Decision: kill the heuristic rule registry"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SKILL-EXTRACTOR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/engine.rs",
-          "description": "`validate(&Contract, &[Features]) -> Vec<Diagnostic>`: for each artifact's features, evaluate every clause as a decidable predicate and, on a false predicate, push a `check::Diagnostic` whose severity is the clause's declared `required`->Error / `advisory`->Warn and whose `rule` id is the clause key. No `if`-buried opinion: the engine reads only declared clauses. Reuses `check::{Diagnostic, Severity}` and `contract::{Contract, Clause, Predicate, Severity}`."
+          "description": "`validate(&Contract, &[Features]) -> Vec<Diagnostic>`: for each artifact's features, evaluate every clause as a decidable predicate and, on a false predicate, push a `check::Diagnostic` whose severity is the clause's declared `required`->Error / `advisory`->Warn and whose `rule` id is the clause key. No `if`-buried opinion: the engine reads only declared clauses. Reuses `check::{Diagnostic, Severity}`, `contract::{Contract, Clause, Predicate, Severity}`, and `extract::{Features, FeatureValue}`."
         }
       ],
       "edit": [
@@ -34,7 +33,7 @@
       }
     ],
     "acceptance": "Given a hand-built Contract + Features, `validate` reproduces the surviving decidable findings (name-format, name-matches-dir, lengths, forbidden_keys, body max_lines) with correct severities; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Primary import `contract::Contract` already shipped (CONTRACT-MODEL). blockedBy names SKILL-EXTRACTOR because it consumes `extract::Features`. Does NOT re-introduce the rejected heuristics — there is no clause for trigger/anti-trigger/third-person/prose-grep refs."
+    "notes": "Both imports shipped: `contract::Contract` (CONTRACT-MODEL) and `extract::Features` (SKILL-EXTRACTOR), so this is unblocked. Does NOT re-introduce the rejected heuristics — there is no clause for trigger/anti-trigger/third-person/prose-grep refs."
   },
   {
     "tag": "SKILL-CONTRACT-TEMPLATE",
@@ -88,7 +87,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Check loads the workspace, extracts `Features` per skill, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract`), renders via `check::render`, and exits non-zero on any required-clause violation; add `--deny-advisories` so advisory violations also fail. Stop calling `rules::all_rules` (main.rs:57). While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header (main.rs:1-9) narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment, main.rs:4,20) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
+          "description": "Check loads the workspace, extracts `Features` per skill, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract`), renders via `check::render`, and exits non-zero on any required-clause violation; add `--deny-advisories` so advisory violations also fail. Stop calling `rules::all_rules` (main.rs:57). While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header (main.rs:1-9) narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment, main.rs:5,20) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
         },
         {
           "path": "tests/cli.rs",
@@ -105,7 +104,7 @@
       }
     ],
     "acceptance": "The gate now runs the declared contract, not the registry; default blocks on `required` only, `--deny-advisories` also blocks on advisory; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Also depends on SKILL-EXTRACTOR + SKILL-CONTRACT-TEMPLATE (ordered above). Embeds the bundled template as the default; the override/selection mechanism is the (contract-selection) fork, deferred. Leaves `rules.rs` in place (still public, no dead-code warning) for RETIRE-HEURISTICS to remove."
+    "notes": "Also depends on SKILL-EXTRACTOR (shipped) + SKILL-CONTRACT-TEMPLATE (ordered above). Embeds the bundled template as the default; the override/selection mechanism is the (contract-selection) fork, deferred. Leaves `rules.rs` in place (still public, no dead-code warning) for RETIRE-HEURISTICS to remove."
   },
   {
     "tag": "RETIRE-HEURISTICS",
@@ -168,7 +167,7 @@
       "edit": [
         {
           "path": "src/lib.rs",
-          "description": "rewrite only the `//!` crate-doc header: replace the `See SPEC.md ... spec/RELEASE-v0.1.md for the active ship target` sentence with a pointer to the evergreen `specs/` corpus (`specs/00-intent.md` north star, continuously reconciled). Touch the doc block only — leave the `pub mod`/`pub const` lines to the engine-chain entries."
+          "description": "rewrite only the `//!` crate-doc header (lib.rs:10-12): replace the `See SPEC.md ... spec/RELEASE-v0.1.md for the active ship target` sentence with a pointer to the evergreen `specs/` corpus (`specs/00-intent.md` north star, continuously reconciled). Touch the doc block only — leave the `pub mod`/`pub const` lines to the engine-chain entries."
         }
       ],
       "retire": []
