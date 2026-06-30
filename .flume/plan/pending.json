@@ -7,8 +7,7 @@
       "section": "Artifact kinds & contract selection"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "RULE-IR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
