@@ -55,6 +55,43 @@ pub enum Kind {
     Map,
 }
 
+impl Kind {
+    /// The lattice name of this kind — the declared-type spelling a `type`
+    /// clause uses and the form diagnostics render. The inverse of
+    /// [`Kind::from_name`].
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Kind::String => "string",
+            Kind::Integer => "integer",
+            Kind::Number => "number",
+            Kind::Boolean => "boolean",
+            Kind::Null => "null",
+            Kind::List => "list",
+            Kind::Map => "map",
+        }
+    }
+
+    /// Parse a declared type name into its [`Kind`], or `None` if it is not one
+    /// of the closed lattice's names. This is the single home of the lattice's
+    /// name table (`specs/10-contracts.md`, "Decision: the `type` vocabulary is
+    /// a closed scalar/container lattice"); the contract parser maps a declared
+    /// `type` through here rather than duplicating the spelling.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Kind> {
+        match name {
+            "string" => Some(Kind::String),
+            "integer" => Some(Kind::Integer),
+            "number" => Some(Kind::Number),
+            "boolean" => Some(Kind::Boolean),
+            "null" => Some(Kind::Null),
+            "list" => Some(Kind::List),
+            "map" => Some(Kind::Map),
+            _ => None,
+        }
+    }
+}
+
 /// One extracted feature value: a scalar field (carrying its parsed source
 /// [`Kind`] alongside its comparison text), a list field (e.g. a YAML sequence
 /// like `allowed-tools`), or a map field. Scalar predicates (`min_len`, `enum`,
@@ -664,6 +701,32 @@ description: Use when there is nothing but prose.\n\
 Just a paragraph, no headings at all.\n",
         );
         assert!(skill_features(&plain).headings.is_empty());
+    }
+
+    #[test]
+    fn each_lattice_name_round_trips_and_an_unknown_name_is_rejected() {
+        // Every name in the closed lattice maps to its `Kind` and renders back to
+        // the same spelling — the single name table a `type` clause goes through.
+        for kind in [
+            Kind::String,
+            Kind::Integer,
+            Kind::Number,
+            Kind::Boolean,
+            Kind::Null,
+            Kind::List,
+            Kind::Map,
+        ] {
+            assert_eq!(Kind::from_name(kind.name()), Some(kind));
+        }
+        // The spellings are exactly the lattice's, nothing more.
+        assert_eq!(Kind::String.name(), "string");
+        assert_eq!(Kind::from_name("map"), Some(Kind::Map));
+
+        // A name outside the lattice yields `None` (the load-error signal a
+        // `type` clause rejects on), never a silent default.
+        assert_eq!(Kind::from_name("array"), None);
+        assert_eq!(Kind::from_name("int"), None);
+        assert_eq!(Kind::from_name(""), None);
     }
 
     #[test]

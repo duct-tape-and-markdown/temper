@@ -39,6 +39,8 @@ use std::path::{Path, PathBuf};
 
 use toml_edit::{DocumentMut, Item, Table};
 
+use crate::extract::Kind;
+
 /// A named set of clauses over the decidable primitive algebra — the type a
 /// harness (or one artifact in it) is checked against.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,6 +92,16 @@ pub enum Predicate {
     Optional {
         /// The field that is permitted.
         field: String,
+    },
+    /// `type`: the field's preserved source kind is the declared [`Kind`] over
+    /// the closed scalar/container lattice (`string`/`integer`/`number`/
+    /// `boolean`/`list`/`map`/`null`). Unlike `min_len`/`enum`/`pattern`, which
+    /// refine *within* a scalar type, `type` only fixes the kind.
+    Type {
+        /// The field constrained.
+        field: String,
+        /// The declared source kind the field must carry.
+        kind: Kind,
     },
     /// `min_len`: the field's value is at least `min` characters long.
     MinLen {
@@ -272,6 +284,22 @@ pub enum ContractError {
         predicate: String,
     },
 
+    /// A `type` clause declares a type outside the closed scalar/container
+    /// lattice. Mirrors [`ContractError::UnknownPredicate`]: an out-of-vocabulary
+    /// type is rejected at load, never silently coerced.
+    #[error(
+        "{path}: clause {index} declares unknown type `{declared}` (expected one of string, integer, number, boolean, list, map, null)"
+    )]
+    #[diagnostic(code(temper::contract::unknown_type))]
+    UnknownType {
+        /// The contract the clause lives in.
+        path: PathBuf,
+        /// The zero-based clause index.
+        index: usize,
+        /// The unrecognized declared type name.
+        declared: String,
+    },
+
     /// An `allowed_chars` range is not a `<lo>-<hi>` pair with `lo <= hi`.
     #[error("{path}: clause {index} has an invalid charset range `{value}` (expected `<lo>-<hi>`)")]
     #[diagnostic(code(temper::contract::invalid_range))]
@@ -380,6 +408,18 @@ fn parse_predicate(table: &Table, index: usize, path: &Path) -> Result<Predicate
         "optional" => Predicate::Optional {
             field: str_param(table, "field", index, path)?,
         },
+        "type" => {
+            let field = str_param(table, "field", index, path)?;
+            let declared = str_param(table, "type", index, path)?;
+            // The lattice's name table lives in `extract.rs`; an out-of-vocabulary
+            // type is a load error, mirroring how an unknown predicate key is.
+            let kind = Kind::from_name(&declared).ok_or(ContractError::UnknownType {
+                path: path.to_path_buf(),
+                index,
+                declared,
+            })?;
+            Predicate::Type { field, kind }
+        }
         "min_len" => Predicate::MinLen {
             field: str_param(table, "field", index, path)?,
             min: usize_param(table, "min", index, path)?,
@@ -642,6 +682,12 @@ predicate = "unique-name"
 [[clause]]
 severity = "advisory"
 predicate = "dependency-exists"
+
+[[clause]]
+severity = "required"
+predicate = "type"
+field = "name"
+type = "string"
 "#;
 
     /// The typed model `REP` must deserialize into — every primitive in the
@@ -738,6 +784,13 @@ predicate = "dependency-exists"
                     severity: Severity::Advisory,
                     predicate: Predicate::DependencyExists,
                 },
+                Clause {
+                    severity: Severity::Required,
+                    predicate: Predicate::Type {
+                        field: "name".to_string(),
+                        kind: Kind::String,
+                    },
+                },
             ],
         }
     }
@@ -794,6 +847,46 @@ field = "description"
         assert!(matches!(
             err,
             ContractError::UnknownPredicate { ref predicate, index: 0, .. } if predicate == "word_count"
+        ));
+    }
+
+    #[test]
+    fn a_type_clause_parses_into_the_closed_lattice() {
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "type"
+field = "count"
+type = "integer"
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                severity: Severity::Required,
+                predicate: Predicate::Type {
+                    field: "count".to_string(),
+                    kind: Kind::Integer,
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn an_unknown_declared_type_is_a_load_error() {
+        // A declared type outside the lattice is rejected at load, exactly as an
+        // out-of-vocabulary predicate key is — no silent coercion.
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "type"
+field = "count"
+type = "int"
+"#;
+        let err = Contract::parse(toml, Path::new("c.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::UnknownType { ref declared, index: 0, .. } if declared == "int"
         ));
     }
 

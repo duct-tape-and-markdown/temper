@@ -94,6 +94,7 @@ fn template_encodes_only_decidable_clauses() {
         .map(|clause| match &clause.predicate {
             Predicate::Required { .. } => "required",
             Predicate::Optional { .. } => "optional",
+            Predicate::Type { .. } => "type",
             Predicate::MinLen { .. } => "min_len",
             Predicate::MaxLen { .. } => "max_len",
             Predicate::Enum { .. } => "enum",

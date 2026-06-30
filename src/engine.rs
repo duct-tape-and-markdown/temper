@@ -179,6 +179,20 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         // always satisfied — its presence or absence is never a violation.
         Predicate::Optional { .. } => Outcome::Holds,
 
+        // `type` compares the field's *preserved source kind* to the declared
+        // one. An absent field is the `required` clause's concern, so `type`
+        // stays silent on absence (like the other field predicates).
+        Predicate::Type { field, kind } => match features.field(field).map(FeatureValue::kind) {
+            None => Outcome::Holds,
+            Some(actual) => Outcome::check(actual == *kind, || {
+                format!(
+                    "field `{field}` is `{}` but the contract declares `{}`",
+                    actual.name(),
+                    kind.name()
+                )
+            }),
+        },
+
         Predicate::MinLen { field, min } => match scalar(features, field) {
             None => Outcome::Holds,
             Some(value) => {
@@ -316,6 +330,7 @@ fn predicate_key(predicate: &Predicate) -> &'static str {
     match predicate {
         Predicate::Required { .. } => "required",
         Predicate::Optional { .. } => "optional",
+        Predicate::Type { .. } => "type",
         Predicate::MinLen { .. } => "min_len",
         Predicate::MaxLen { .. } => "max_len",
         Predicate::Enum { .. } => "enum",
@@ -441,6 +456,55 @@ mod tests {
             )
             .is_empty()
         );
+    }
+
+    #[test]
+    fn type_fires_on_a_kind_mismatch_and_is_silent_on_match_and_absence() {
+        let predicate = || Predicate::Type {
+            field: "count".to_string(),
+            kind: Kind::Integer,
+        };
+
+        // The field's preserved source kind differs from the declared one: fires.
+        let mismatch = features(
+            "demo",
+            &[("count", FeatureValue::scalar(Kind::String, "7"))],
+            1,
+            None,
+        );
+        let diags = run(predicate(), mismatch);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "type");
+        // The message names both the actual and the declared lattice kind.
+        assert!(diags[0].message.contains("string"));
+        assert!(diags[0].message.contains("integer"));
+
+        // The kind matches the declaration: silent.
+        let matched = features(
+            "demo",
+            &[("count", FeatureValue::scalar(Kind::Integer, "7"))],
+            1,
+            None,
+        );
+        assert!(run(predicate(), matched).is_empty());
+
+        // An absent field is the `required` clause's concern, not `type`'s.
+        let absent = features("demo", &[], 1, None);
+        assert!(run(predicate(), absent).is_empty());
+
+        // A container kind is decided the same way — a list where a map is
+        // declared fires.
+        let container = Predicate::Type {
+            field: "tags".to_string(),
+            kind: Kind::Map,
+        };
+        let as_list = features(
+            "demo",
+            &[("tags", FeatureValue::List(vec!["a".to_string()]))],
+            1,
+            None,
+        );
+        assert_eq!(run(container, as_list).len(), 1);
     }
 
     #[test]
