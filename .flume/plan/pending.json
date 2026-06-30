@@ -1,44 +1,5 @@
 [
   {
-    "tag": "RULE-IMPORT",
-    "summary": "Teach `import` to scan `<harness>/.claude/rules/*.md` and write the rule surface (header + byte-faithful body + `[[rule]]` roll-up); `Workspace` gains `rules` and reconstructs them on load.",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Artifact kinds & contract selection"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Extend discovery + write to the rule kind. Scan `<harness>/.claude/rules/*.md` (today `discover_skill_dirs` scans only `<harness>/skills/`, import.rs:97), and for each rule write the surface mirroring skills (`run` import.rs:78, `import_skill` import.rs:131): a format-preserving header (optional `paths` + `[provenance]`, via `Rule::to_meta_document`) and the byte-faithful body under a `rules/<name>/` tree, plus a `[[rule]]` row in `author.toml` beside `[[skill]]` (`write_rollup` import.rs:170). Keep the keystone idempotence invariant (import.rs:12)."
-        },
-        {
-          "path": "src/check.rs",
-          "description": "`Workspace` gains `rules: Vec<Rule>` (struct check.rs:34) and `Workspace::load` reconstructs them from `<workspace>/rules/*/` via `Rule::from_surface_dir`, name-sorted, mirroring the skill load (check.rs:47-74). Update the `Workspace { skills: Vec::new() }` test literal (check.rs:334) for the new field."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "a harness with `.claude/rules/*.md` writes a rule surface + a `[[rule]]` roll-up row; re-import is byte-identical (idempotent); skills and rules coexist in one import"
-      },
-      {
-        "path": "src/check.rs",
-        "asserts": "`Workspace::load` reconstructs rules (name-sorted) from the written surface alongside skills"
-      }
-    ],
-    "acceptance": "`temper import` over a harness carrying rules produces a round-trippable rule surface + roll-up, and `Workspace::load` reads it back; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Rules scan at `<harness>/.claude/rules/*.md` per the spec literal — note the root asymmetry with skills (`<harness>/skills/`); self-host (RULE-CHECK) therefore points `import` at the repo root, where `.claude/rules/` lives. Surface topology (the `rules/<name>/` tree, body filename) is code's faithful generalization of the skill layout under law 5."
-  },
-  {
     "tag": "RULE-CHECK",
     "summary": "Dispatch `check` by artifact kind — embed `contracts/rule.toml`, validate `ws.rules` against it, merge with skill diagnostics; prove self-host on `temper`'s own `.claude/rules/`.",
     "per": {
