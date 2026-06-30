@@ -6,7 +6,9 @@
       "path": "specs/45-governance.md",
       "section": "Also in scope"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
@@ -38,7 +40,10 @@
       "path": "specs/45-governance.md",
       "section": "The set scope (the roster) — predicates over a matched set"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GOV-RANGE"
+    },
     "files": {
       "new": [],
       "edit": [

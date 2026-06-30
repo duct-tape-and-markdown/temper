@@ -52,6 +52,17 @@ wins.
    Scope `files` to the truthful **blast radius** — include existing tests/snapshots
    a change will break — so build reaches green inside the planned scope instead
    of discovering the ripple mid-tick.
+   **Disjoint, or serialized — never both `open` over a shared file.** Build fans
+   out every pickable entry *in parallel worktrees* and merges the wave together;
+   if two `open` entries edit the **same file** (even different regions — touching
+   the same struct/enum/`match` is enough), the merge **conflicts**, the whole wave
+   reverts, and the queue spins forever re-filing work that can never land. Before
+   you leave entries `open`, diff their `files` blast radii: if any path appears in
+   two of them, they are **not** parallel-safe. Make them genuinely disjoint, or
+   **serialize** them — give the later one `gate: { kind: "blockedBy", tag:
+   "FIRST-TAG" }` so build picks them one at a time. A shared file is the signal;
+   `blockedBy` is the mechanism. (Real failure: GOV-RANGE and GOV-COUNT both edited
+   `src/compose.rs` and spun the loop to a standstill.)
    Honor the law in `specs/00-intent.md`: only decidable contract clauses become
    checks; behavior is delegated, never guessed. Do not re-introduce heuristic
    rules the corpus rejected.
