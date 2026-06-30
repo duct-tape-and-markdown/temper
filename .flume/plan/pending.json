@@ -1,41 +1,5 @@
 [
   {
-    "tag": "LINT-ENGINE",
-    "summary": "Lint core: Workspace loader, Diagnostic/Severity types, whole-workspace Rule trait, runner + miette rendering, error-severity drives non-zero exit.",
-    "per": {
-      "path": "spec/RELEASE-v0.1.md",
-      "section": "Check behavior (the lint engine)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/check.rs",
-          "description": "Workspace { skills: Vec<Skill> } + Workspace::load(dir) walking <ws>/skills/* via Skill::from_surface_dir; Severity { Error, Warn }; Diagnostic { severity, rule, artifact, message, span: Option<...> } (miette Diagnostic); trait Rule { fn check(&self, ws: &Workspace) -> Vec<Diagnostic>; } taking the WHOLE workspace; run(ws, rules: &[Box<dyn Rule>]) -> Vec<Diagnostic> rendered with miette; helper reporting whether any Error fired (for exit code)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod check;` alongside the existing `import`/`skill` exports."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/check.rs",
-        "asserts": "Workspace::load reconstructs skills from a written surface; run with an empty rule set yields no diagnostics; a synthetic error-severity Diagnostic makes the any-error helper return true while warn-only does not."
-      }
-    ],
-    "acceptance": "Engine loads a workspace and runs an injectable rule set; clippy + fmt clean.",
-    "notes": "Unblocked: SKILL-IR + IMPORT both shipped (Skill::from_surface_dir on disk; the surface workspace import writes). Rule trait takes &Workspace (not a single artifact) so slice-2 cross-artifact rules slot in with no signature change (rust.md). Runner takes rules as a slice so rule registration lives in the CLI, keeping engine and rules disjoint modules."
-  },
-  {
     "tag": "LINT-RULES",
     "summary": "The 10 slice-1 skill rules (mechanical string/structure checks) + one deliberately-broken fixture per rule.",
     "per": {
