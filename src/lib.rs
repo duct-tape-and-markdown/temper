@@ -15,6 +15,7 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod check;
+pub mod contract;
 pub mod import;
 pub mod rules;
 pub mod skill;
