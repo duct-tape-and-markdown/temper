@@ -1,5 +1,38 @@
 [
   {
+    "tag": "GOV-MEMBERSHIP",
+    "summary": "Add the set-scope `membership` roster predicate — a declared field on each matched artifact must lie in the feature-set drawn from a second matched set, not a static `enum`.",
+    "per": {
+      "path": "specs/45-governance.md",
+      "section": "The set scope (the roster) — predicates over a matched set"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Add a `Membership` declaration (the constrained field F on the role's matched set S₁, plus a source clause naming S₂: an artifact kind, a `match` selector, and the source feature G) and an optional `membership` field on `Role`; parse it off the `[role.<name>]` table (mirroring `parse_count`/`parse_unique`) with a `RoleBadMembership` malformation error variant. Keep it orthogonal to `count`/`unique`/`required`."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Decide membership in `check`: for each role carrying a `membership` clause, build the allowed set from feature G over the S₂-matching artifacts (the `by_kind` map already in scope carries every kind, so S₂ may be a different kind — no signature change), then emit one `Diagnostic::error` per S₁ filler whose field-F scalar value is absent from that set. Add a `ROLE_MEMBERSHIP_RULE` id and a helper mirroring `duplicates`/`out_of_band`, with unit tests; a filler missing F carries no value to check and is skipped."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/role_roster.rs",
+        "asserts": "An imported corpus with a `membership` role fires when a filler's field value is outside the S₂-derived set and is clean when every filler's value is drawn from it; unit coverage of the parse + decide lives in `src/compose.rs`/`src/roster.rs`."
+      }
+    ],
+    "acceptance": "`temper check` over an imported corpus runs a `membership` roster clause — flagging every matched artifact whose declared field falls outside the set derived from the second selector's matched artifacts, and staying silent when all are members.",
+    "notes": "Two-selector: S₁ is the role's own `match`; S₂ is a second selector + kind + source feature G — the allowed set is corpus-*derived*, unlike the static field `enum`. `roster::check` already holds the full `by_kind` map, so an S₂ over another kind needs no signature change. Disjoint from parked SPEC-KIND-GATE (main.rs). Follow-on: `(typed-reference)`, where S₂ is 'kind K conforming-to contract C'."
+  },
+  {
     "tag": "SPEC-KIND-GATE",
     "summary": "Dispatch `check` over specs: embed `contracts/spec.toml`, project `ws.specs` via `spec_features`, and run admissibility + `engine::validate` (the advisory `max_lines` clause) over the spec features.",
     "per": {
