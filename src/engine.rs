@@ -64,6 +64,65 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
     diagnostics
 }
 
+/// Validate a contract against **the definition** — the closed algebra itself —
+/// returning an error-severity [`Diagnostic`] per inadmissible clause. This is
+/// *admissibility* (`specs/10-contracts.md`, "Decision: the contract is itself
+/// checked — admissibility"): the contract earns trust the way a harness does,
+/// by passing a check, before it is used to check anything.
+///
+/// Admissibility composes *on top* of loading, never re-doing it. Closed-
+/// vocabulary rejection (an unknown predicate) and charset-range validity are
+/// already enforced as load errors in [`crate::contract`]; a [`Contract`] that
+/// reached this engine has cleared both. The only admissibility clause decidable
+/// today over the current algebra is **list non-emptiness**: an `enum` or `deny`
+/// with no values, or a `forbidden_keys` / `require_sections` with no entries, is
+/// a vacuous clause that can never decide anything — inadmissible. (The
+/// `pattern`-compiles, role-`match`-resolves, and `verified_by`-resolves clauses
+/// the spec also names extend this same pass when those primitives land.)
+///
+/// Every finding is [`check::Severity::Error`]: an inadmissible contract must
+/// fail the run, exactly as a `required` conformance violation does — there is no
+/// "advisory" admissibility, because a contract that cannot be trusted cannot be
+/// used. The diagnostic's `artifact` is the contract's display label so a finding
+/// names the contract it indicts.
+#[must_use]
+pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for clause in &contract.clauses {
+        for message in inadmissibilities(&clause.predicate) {
+            diagnostics.push(Diagnostic::error(
+                predicate_key(&clause.predicate),
+                &contract.name,
+                message,
+            ));
+        }
+    }
+    diagnostics
+}
+
+/// The admissibility violations of a single clause's predicate — empty when the
+/// clause is well-formed over the definition. Today the sole decidable check is
+/// that a value/key list is non-empty: a list-bearing predicate with an empty
+/// list is vacuous (an `enum` over no values admits nothing; `forbidden_keys`
+/// over no keys forbids nothing), which the author cannot have meant.
+fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
+    match predicate {
+        Predicate::Enum { field, values } if values.is_empty() => {
+            vec![format!("`enum` clause on field `{field}` lists no values")]
+        }
+        Predicate::Deny { field, values } if values.is_empty() => {
+            vec![format!("`deny` clause on field `{field}` lists no values")]
+        }
+        Predicate::ForbiddenKeys { keys } if keys.is_empty() => {
+            vec!["`forbidden_keys` clause lists no keys".to_string()]
+        }
+        Predicate::RequireSections { sections } if sections.is_empty() => {
+            vec!["`require_sections` clause lists no sections".to_string()]
+        }
+        _ => Vec::new(),
+    }
+}
+
 /// Evaluate one predicate over one artifact's features, returning a message per
 /// violation (empty ⇒ the clause holds, or could not be decided over this
 /// projection — see [`Outcome`]).
@@ -557,6 +616,105 @@ mod tests {
         // decided here — and must not fabricate a finding.
         let any = features("demo", &[("name", scalar("demo"))], 1, None);
         assert!(run(Predicate::DependencyExists, any).is_empty());
+    }
+
+    #[test]
+    fn an_empty_enum_clause_is_inadmissible() {
+        // A clause that lists no values can never decide anything — vacuous, so
+        // the contract carrying it fails admissibility (an error, exit non-zero).
+        let empty_enum = contract(
+            ClauseSeverity::Required,
+            Predicate::Enum {
+                field: "status".to_string(),
+                values: Vec::new(),
+            },
+        );
+        let diags = admissibility(&empty_enum);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "enum");
+        assert_eq!(diags[0].severity, Severity::Error);
+        // The finding names the contract it indicts.
+        assert_eq!(diags[0].artifact, "skill");
+        assert!(any_error(&diags));
+    }
+
+    #[test]
+    fn an_empty_list_clause_of_every_list_kind_is_inadmissible() {
+        // Each list-bearing predicate is inadmissible when its list is empty; the
+        // finding's `rule` names the offending clause.
+        for (predicate, key) in [
+            (
+                Predicate::Deny {
+                    field: "name".to_string(),
+                    values: Vec::new(),
+                },
+                "deny",
+            ),
+            (
+                Predicate::ForbiddenKeys { keys: Vec::new() },
+                "forbidden_keys",
+            ),
+            (
+                Predicate::RequireSections {
+                    sections: Vec::new(),
+                },
+                "require_sections",
+            ),
+        ] {
+            let diags = admissibility(&contract(ClauseSeverity::Required, predicate));
+            assert_eq!(diags.len(), 1, "{key} with an empty list should fire once");
+            assert_eq!(diags[0].rule, key);
+            assert_eq!(diags[0].severity, Severity::Error);
+        }
+    }
+
+    #[test]
+    fn a_well_formed_contract_is_admissible() {
+        // Non-empty lists, and the non-list primitives, carry nothing for
+        // admissibility to reject — the multi-clause representative is admissible.
+        let clauses = vec![
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::Enum {
+                    field: "status".to_string(),
+                    values: vec!["draft".to_string(), "active".to_string()],
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::Deny {
+                    field: "name".to_string(),
+                    values: vec!["claude".to_string()],
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::ForbiddenKeys {
+                    keys: vec!["globs".to_string()],
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Advisory,
+                predicate: Predicate::RequireSections {
+                    sections: vec!["Usage".to_string()],
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::Required {
+                    field: "name".to_string(),
+                },
+            },
+            Clause {
+                severity: ClauseSeverity::Required,
+                predicate: Predicate::NameMatchesDir,
+            },
+        ];
+        let contract = Contract {
+            name: "skill".to_string(),
+            clauses,
+        };
+        assert!(admissibility(&contract).is_empty());
     }
 
     #[test]

@@ -2,11 +2,14 @@
 //!
 //! Thin command dispatch over the [`temper`] library. The subcommands mirror the
 //! surface in `specs/20-surface.md` ("CLI surface"): `import` scans a harness
-//! into the typed config surface, `check` validates that surface against the
-//! active contract and exits non-zero when a `required`-severity clause is
-//! violated. All logic lives in the library — `main` only parses args, projects
-//! the workspace into the engine's [`Features`] view, runs the generic contract
-//! engine (`specs/10-contracts.md`), and maps the result to an exit code.
+//! into the typed config surface, `check` runs **both greens** of
+//! `specs/10-contracts.md` — *admissibility* (each built-in contract is itself
+//! valid against the definition) and *conformance* (each artifact satisfies its
+//! contract) — and exits non-zero when either an inadmissible contract or a
+//! `required`-severity conformance clause is violated. All logic lives in the
+//! library — `main` only parses args, projects the workspace into the engine's
+//! [`Features`] view, runs the generic contract engine (`specs/10-contracts.md`),
+//! and maps the result to an exit code.
 //!
 //! [`Features`]: temper::extract::Features
 
@@ -92,7 +95,16 @@ fn main() -> miette::Result<ExitCode> {
                 ws.rules.iter().map(extract::rule_features).collect();
             let rule_contract = Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?;
 
-            let mut diagnostics = engine::validate(&skill_contract, &skill_features);
+            // Two greens, not one (`specs/10-contracts.md`, both-greens finish
+            // line). **Admissibility** first: each built-in contract is itself
+            // validated against the definition before it is trusted to judge a
+            // harness — an inadmissible contract fails the run exactly as a
+            // `required` conformance violation does. **Conformance** second: each
+            // artifact is checked against the contract for its kind. Both sets of
+            // findings merge into one rendered diagnostic stream.
+            let mut diagnostics = engine::admissibility(&skill_contract);
+            diagnostics.extend(engine::admissibility(&rule_contract));
+            diagnostics.extend(engine::validate(&skill_contract, &skill_features));
             diagnostics.extend(engine::validate(&rule_contract, &rule_features));
             print!("{}", check::render(&diagnostics));
 

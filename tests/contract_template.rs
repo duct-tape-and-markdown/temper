@@ -19,6 +19,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use temper::contract::{Charset, Clause, Contract, Predicate, Severity};
+use temper::engine;
 
 /// The typed model `contracts/skill.anthropic.toml` must deserialize into — the
 /// surviving decidable clauses, in declaration order, each at the severity the
@@ -108,10 +109,15 @@ fn expected_template() -> Contract {
     }
 }
 
-/// The path to the shipped template, resolved off the crate root so the test is
+/// A shipped contract path, resolved off the crate root so the test is
 /// cwd-independent (`.claude/rules/rust.md`, mirroring `tests/rules.rs`).
+fn contract_path(relative: &str) -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(relative)
+}
+
+/// The path to the shipped skill template.
 fn template_path() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts/skill.anthropic.toml")
+    contract_path("contracts/skill.anthropic.toml")
 }
 
 /// The shipped template loads into the Contract model carrying exactly the
@@ -171,4 +177,22 @@ fn template_encodes_only_decidable_clauses() {
         ]),
         "the template must carry only its declared decidable predicates",
     );
+}
+
+/// Both curated built-in contracts are themselves admissible — they pass the
+/// second green (`specs/10-contracts.md`, "Decision: the contract is itself
+/// checked — admissibility"). They load without error (closed vocabulary +
+/// charset ranges are enforced there) and carry no vacuous list clause, so
+/// `engine::admissibility` returns no findings.
+#[test]
+fn the_shipped_built_in_contracts_are_admissible() {
+    for relative in ["contracts/skill.anthropic.toml", "contracts/rule.toml"] {
+        let contract =
+            Contract::load(&contract_path(relative)).expect("the shipped contract should load");
+        let diagnostics = engine::admissibility(&contract);
+        assert!(
+            diagnostics.is_empty(),
+            "{relative} should be admissible, got: {diagnostics:?}",
+        );
+    }
 }
