@@ -1,45 +1,5 @@
 [
   {
-    "tag": "LINT-RULES",
-    "summary": "The 10 slice-1 skill rules (mechanical string/structure checks) + one deliberately-broken fixture per rule.",
-    "per": {
-      "path": "spec/RELEASE-v0.1.md",
-      "section": "Check behavior (the lint engine)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/rules.rs",
-          "description": "Impl the table's 10 rules as Rule structs: frontmatter-valid, name-format, name-matches-dir, description-length (errors); description-third-person, description-has-trigger, description-has-anti-trigger, body-length, refs-one-level-deep (warns); companion-refs-resolve (error). Export all_rules() -> Vec<Box<dyn Rule>>."
-        },
-        {
-          "path": "tests/fixtures/rules/",
-          "description": "One minimal broken skill per rule (and a clean control) that trips exactly its target rule."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod rules;`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/rules.rs",
-        "asserts": "each rule fires on its broken fixture and does NOT fire on clean input; severities match the spec table; companion-refs-resolve reports an error for a body referencing a missing file."
-      }
-    ],
-    "acceptance": "Each of the 10 rules has a fixture proving it fires and a clean case proving it stays silent.",
-    "notes": "Consumes the shipped check.rs Rule trait (check(&self, &Workspace) -> Vec<Diagnostic>) + Diagnostic::error/warn helpers. All checks are std string/char/path ops over the byte-faithful body + frontmatter — no regex/comrak (outside the sanctioned set). Reserved words for name-format: anthropic, claude. Deferred heuristic rules (gerund naming, no-op, Leitwort, ToC) are out of slice 1 per the spec — do not add them."
-  },
-  {
     "tag": "CLI",
     "summary": "Make the import/check subcommand stubs real: clap args, defaults, dispatch into import::run and check::run with all_rules(), error-driven exit code.",
     "per": {
