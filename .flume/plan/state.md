@@ -3,10 +3,8 @@
 - **Phase:** contract-engine cutover. The `Contract` model, the decidable
   primitive algebra, `engine::validate`, the skill extractor, and the bundled
   Anthropic skill template are all shipped; `(contract-name-field)` is RESOLVED.
-  The four-entry chain to relax the model, pin the template, wire `check` onto the
-  engine, and retire the heuristic registry is queued and unblocked.
-- **Last shipped:** plan reconcile re-verifying the engine-cutover chain against
-  disk and refreshing state (b46aa33).
+- **Last shipped:** plan reconcile refreshing the stale last-shipped pointer and
+  handing the engine-cutover chain to build (ea01913).
 - **In flight:** nothing. (Working tree carries an uncommitted `M src/main.rs`;
   on-disk `main.rs` still calls `rules::all_rules()` and cites the absent
   `spec/RELEASE-v0.1.md` — both targeted by CHECK-CUTOVER. Plan does not touch
@@ -18,7 +16,6 @@
   `check::Rule`/`check::run`.
 
 Plan continues: no — queue re-verified against disk (every cited site present and
-unchanged: contract.rs name/MissingName/missing_name test, engine.rs construction
-sites, lib.rs/main.rs heuristic wiring, the shipped template + extractor + check
-surface), inbox empty, open-questions current, and a pickable `open` entry leads
-the chain. Building is how the queue drains.
+unchanged), inbox empty, open-questions current, and a pickable `open` entry leads
+the chain. Reconciliation produced no queue change; re-planning it again is the
+failure mode. Build drains the queue.
