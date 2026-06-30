@@ -55,6 +55,9 @@ wins.
    Honor the law in `specs/00-intent.md`: only decidable contract clauses become
    checks; behavior is delegated, never guessed. Do not re-introduce heuristic
    rules the corpus rejected.
+   Keep `summary` a **terse one-liner** — the *what*, not the *how*. It is hard-
+   capped (see the footgun below); the file-by-file mechanics belong in
+   `files[].description`, `acceptance`, and `notes`, never crammed into `summary`.
 
 3. **Drain `.flume/inbox.md`.** Route each line into pending (with a `per` cite),
    open-questions (no clean cite, or a product fork), or accepted debt (noted in
@@ -85,6 +88,15 @@ an open question; never silently fill it.
 One commit prefixed `plan:`. Write `.flume/plan/{pending.json,state.md,open-questions.md}`
 and drain `.flume/inbox.md`. The harness rejects the commit if `pending.json`
 doesn't parse or you modify anything outside the phase's writable paths.
+
+**Field-length footgun — this reverts the whole tick.** The schema caps every
+field, and the cap is enforced *after* you commit: if **any** entry violates a
+bound, the gate reverts the **entire** commit and **all** your reconciliation
+work this tick is lost — not just the offending entry. The cap that bites most is
+`summary` (**≤200 chars, hard**); `notes` is ≤500. Before you finish: re-read
+every `summary` and confirm each is under 200 characters. A summary near the
+limit is a smell — shorten it and move the detail into `files[].description` /
+`acceptance` / `notes`. One long line should never cost the tick.
 
 <schema>
 {{PENDING_SCHEMA}}
