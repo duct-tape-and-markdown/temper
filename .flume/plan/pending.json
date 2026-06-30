@@ -1,7 +1,7 @@
 [
   {
     "tag": "SKILL-CONTRACT-TEMPLATE",
-    "summary": "The Anthropic skill contract template as data — the decidable best-practice clauses that survive the registry kill, adopted by reference, never hardcoded.",
+    "summary": "Pin the shipped Anthropic skill template (contracts/skill.anthropic.toml, now human-authored) by loading it through `contract::Contract` and asserting its surviving decidable clause vector.",
     "per": {
       "path": "specs/10-contracts.md",
       "section": "Templates — best practices as data"
@@ -9,16 +9,14 @@
     "gate": {
       "kind": "open"
     },
-    "dependsOnForks": [],
+    "dependsOnForks": [
+      "contract-name-field"
+    ],
     "files": {
       "new": [
         {
-          "path": "contracts/skill.anthropic.toml",
-          "description": "Declarative skill contract: `name`/`description` required + min_len 1; `name` allowed_chars `[a-z0-9-]`, max_len 64, deny `[anthropic, claude]`; `description` max_len 1024; body max_lines 500 (advisory); forbidden_keys `[globs, alwaysApply]` (Cursor keys Claude Code ignores); `name-matches-dir`. Every clause decidable and in-crate — no `pattern`/regex, no trigger/no-op judgment."
-        },
-        {
           "path": "tests/contract_template.rs",
-          "description": "Load `contracts/skill.anthropic.toml` through `contract::Contract` and assert it parses and carries exactly the surviving decidable clauses at their declared severities."
+          "description": "Load the bundled `contracts/skill.anthropic.toml` through `contract::Contract::load` (or `include_str!` + `Contract::parse`) and assert it parses into the model carrying exactly the surviving decidable clauses at their declared severities: `name` required + min_len 1 + allowed_chars `[a-z0-9-]` + max_len 64 + deny `[anthropic, claude]`; `name-matches-dir`; `description` required + min_len 1 + max_len 1024; body `max_lines` 500 (advisory); `forbidden_keys` `[globs, alwaysApply]`. No dropped heuristic (third-person/trigger/companion-refs) appears."
         }
       ],
       "edit": [],
@@ -28,11 +26,11 @@
     "tests": [
       {
         "path": "tests/contract_template.rs",
-        "asserts": "the shipped template deserializes into the model and declares the expected clause set (name format/length/deny, description length, body max_lines advisory, forbidden_keys, name-matches-dir)"
+        "asserts": "the shipped template deserializes into the Contract model and declares the expected clause set (name format/length/deny, description length, body max_lines advisory, forbidden_keys, name-matches-dir) at the right severities"
       }
     ],
     "acceptance": "`contracts/skill.anthropic.toml` loads into the Contract model and encodes only the decidable surviving clauses; the dropped heuristics are absent; `cargo test` green.",
-    "notes": "Data, not code (law 2). `contract::Contract` (CONTRACT-MODEL) already shipped, so this is unblocked. This is the std-lib type an author adopts; it is what CHECK-CUTOVER embeds as the built-in default."
+    "notes": "Data file is DONE — human-authored as curated guidance (6e0af11); build EMBEDS contracts/, never writes it. Test-only now. Held on (contract-name-field): the shipped template carries no top-level `name`, which `Contract::parse` requires (contract.rs:319 MissingName), so it will not load until that fork resolves."
   },
   {
     "tag": "CHECK-CUTOVER",
@@ -45,17 +43,19 @@
       "kind": "blockedBy",
       "tag": "SKILL-CONTRACT-TEMPLATE"
     },
-    "dependsOnForks": [],
+    "dependsOnForks": [
+      "contract-name-field"
+    ],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Check loads the workspace, extracts `extract::skill_features` per skill into a `Vec<Features>`, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract::parse`) via `engine::validate`, renders via `check::render`, and exits non-zero when `check::any_error` (a required-clause violation) fires; add `--deny-advisories` so advisory (`Warn`) violations also fail. Stop calling `rules::all_rules` (main.rs:57). While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header (main.rs:1-9) narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment, main.rs:5,20) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
+          "description": "Check loads the workspace, extracts `extract::skill_features` over each `ws.skills` entry into a `Vec<Features>`, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract::parse`) via `engine::validate`, renders via `check::render`, and exits non-zero when `check::any_error` (a required-clause violation) fires; add a `--deny-advisories` flag so advisory (`Warn`) violations also fail. Stop calling `rules::all_rules` and drop the `use author::rules;` import (main.rs:16,57). While rewriting dispatch, refresh the now-inaccurate module doc: the header (main.rs:1-9) narrates the rule-registration step this entry removes and cites the absent `spec/RELEASE-v0.1.md` (main.rs:4), and the `DEFAULT_WORKSPACE` doc comment cites it again (main.rs:19-21) — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
         },
         {
           "path": "tests/cli.rs",
-          "description": "keep the clean/error-exit cases (name-format + name-matches-dir still fire as errors); add a `--deny-advisories` case where an advisory-only workspace exits non-zero with the flag and zero without it. While editing, repoint this file's stale module-doc header (cli.rs:1, citing the absent `spec/RELEASE-v0.1.md`) to the evergreen `specs/` corpus."
+          "description": "keep the clean/error-exit cases (name-format + name-matches-dir still fire as required-clause errors); add a `--deny-advisories` case where an advisory-only workspace exits non-zero with the flag and zero without it. While editing, repoint this file's stale module-doc header (cli.rs:1, citing the absent `spec/RELEASE-v0.1.md`) to the evergreen `specs/` corpus."
         }
       ],
       "retire": []
@@ -68,7 +68,7 @@
       }
     ],
     "acceptance": "The gate now runs the declared contract, not the registry; default blocks on `required` only, `--deny-advisories` also blocks on advisory; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Depends on SKILL-EXTRACTOR + CONTRACT-ENGINE (both shipped) + SKILL-CONTRACT-TEMPLATE (the include_str! target — the only open blocker, gating this entry). Embeds the bundled template as the default; the override/selection mechanism is the (contract-selection) fork, deferred. Leaves `rules.rs` + `check::Rule`/`check::run` in place (still public, no dead-code warning) for RETIRE-HEURISTICS to remove."
+    "notes": "Depends on SKILL-EXTRACTOR + CONTRACT-ENGINE (both shipped) + SKILL-CONTRACT-TEMPLATE (the include_str! target). Also held on (contract-name-field): parsing the embedded template errors until it carries the `name` the model requires. Embeds the bundled template as the default; override/selection is the (contract-selection) fork. Leaves `rules.rs` + `check::Rule`/`check::run` in place (still public, no dead-code warning) for RETIRE-HEURISTICS."
   },
   {
     "tag": "RETIRE-HEURISTICS",

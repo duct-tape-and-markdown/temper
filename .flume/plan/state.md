@@ -1,26 +1,26 @@
 # Plan state
 
-- **Phase:** contract-engine cutover — the generic `engine::validate` is shipped;
-  remaining work ships the bundled skill template, wires `check` onto the engine,
-  and retires the dead heuristic registry (`10-contracts.md` "Decision: kill the
-  heuristic rule registry").
-- **Last shipped:** LIBDOC-EVERGREEN + DOCS-EVERGREEN — repointed the stale
-  `spec/RELEASE-v0.1.md`/`SPEC.md` crate-doc citations in `lib.rs`, `check.rs`,
-  `import.rs`, `skill.rs` at the evergreen `specs/` corpus.
-- **In flight:** nothing. Verified on disk: no `contracts/` dir; `main.rs:57`
-  still calls `rules::all_rules()`; `rules.rs`/`tests/rules.rs`/the 5 dropped-
-  heuristic fixtures + `acceptance__rules_check_diagnostics.snap` all present;
-  `lib.rs` still has `pub mod rules`; `Contract::parse`, `engine::validate`,
-  `extract::skill_features`, `check::render`/`any_error` all present; stale
-  `RELEASE-v0.1` cites remain only in `main.rs`/`cli.rs` (CHECK-CUTOVER scope) and
-  `acceptance.rs` (RETIRE-HEURISTICS scope), bundled into those behavioral entries.
-  `cargo check` clean.
-- **Next:** build ships SKILL-CONTRACT-TEMPLATE (`open`) → CHECK-CUTOVER →
-  RETIRE-HEURISTICS. After the cutover lands: reconcile the then-callerless
-  `check::Rule`/`check::run`, and plan the roles + declared-model/dependency-graph
-  layer once the `(model-declaration-format)` and `(contract-selection)` forks
-  resolve.
+- **Phase:** contract-engine cutover — `engine::validate` is shipped and the
+  bundled skill template is authored; remaining work pins the template, wires
+  `check` onto the engine, and retires the dead heuristic registry. **Blocked on
+  a newly-surfaced fork** (see below).
+- **Last shipped:** `contracts/skill.anthropic.toml` authored as human territory
+  (6e0af11); before it LIBDOC-EVERGREEN + DOCS-EVERGREEN scrubbed the stale
+  `RELEASE-v0.1` crate-doc cites.
+- **In flight:** nothing.
+- **Blocker surfaced:** the shipped template carries no top-level `name`, which
+  `Contract::parse` requires (`src/contract.rs` → `MissingName`), so it will not
+  load — `include_str!` in CHECK-CUTOVER and the SKILL-CONTRACT-TEMPLATE test
+  both error at parse. Filed as `(contract-name-field)`; both entries now declare
+  `dependsOnForks: ["contract-name-field"]`. Inbox drained (its note —
+  reconcile SKILL-CONTRACT-TEMPLATE to test-only since the data file is
+  human-authored/embedded-not-written — is applied).
+- **Next:** human resolves `(contract-name-field)` — add `name = "skill"` to the
+  template (human edit to `contracts/`), or relax `Contract.name` to optional (a
+  code entry to file once chosen). Then SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER →
+  RETIRE-HEURISTICS; afterward reconcile the then-callerless `check::Rule`/`check::run`.
 
-Plan continues: no — queue reconciled against an unchanged corpus, nothing
-shipped from the three entries, inbox empty; SKILL-CONTRACT-TEMPLATE is `open` and
-pickable, so building drains the queue.
+Plan continues: no — queue reconciled and the inbox drained; the only actionable
+next step is the human `(contract-name-field)` decision, not more plan work.
+Nothing is pickable until that fork resolves (the `open` entry is fork-held), so
+re-planning would just re-emit this queue.
