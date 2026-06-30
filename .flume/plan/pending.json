@@ -7,8 +7,7 @@
       "section": "Check behavior (the lint engine)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LINT-ENGINE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -38,7 +37,7 @@
       }
     ],
     "acceptance": "Each of the 10 rules has a fixture proving it fires and a clean case proving it stays silent.",
-    "notes": "All checks are std string/char/path ops over the byte-faithful body + frontmatter — no regex/comrak (outside the CLAUDE.md sanctioned set). Reserved words for name-format: anthropic, claude. Deferred heuristic rules (gerund naming, no-op detection, Leitwort, ToC) are out of slice 1 per the spec — do not add them."
+    "notes": "Consumes the shipped check.rs Rule trait (check(&self, &Workspace) -> Vec<Diagnostic>) + Diagnostic::error/warn helpers. All checks are std string/char/path ops over the byte-faithful body + frontmatter — no regex/comrak (outside the sanctioned set). Reserved words for name-format: anthropic, claude. Deferred heuristic rules (gerund naming, no-op, Leitwort, ToC) are out of slice 1 per the spec — do not add them."
   },
   {
     "tag": "CLI",
@@ -57,7 +56,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Import { harness_path: PathBuf, --into <workspace> default ./.author }; Check { workspace: Option<PathBuf> default ./.author }. Dispatch: Import -> import::run; Check -> load Workspace, check::run(ws, &rules::all_rules()), render diagnostics, exit non-zero if any error-severity fired. Keep main a thin clap dispatch (logic stays in lib)."
+          "description": "Import { harness_path: PathBuf, --into <workspace> default ./.author }; Check { workspace: Option<PathBuf> default ./.author }. Dispatch: Import -> import::run; Check -> Workspace::load, check::run(&ws, &rules::all_rules()), check::render diagnostics, exit non-zero via check::any_error. Keep main a thin clap dispatch (logic stays in lib)."
         }
       ],
       "retire": []
@@ -70,7 +69,7 @@
       }
     ],
     "acceptance": "`author import <fixture> --into <tmp>` then `author check <tmp>` runs end to end with the documented exit semantics.",
-    "notes": "IMPORT is on disk; this depends on LINT-ENGINE + LINT-RULES too (blockedBy names LINT-RULES, the last upstream). CLI is the rule-registration site, so engine and rules stay decoupled. No new dep; drive lib functions (assert_cmd optional, would need a Cargo edit)."
+    "notes": "import::run + check::{run,render,any_error} + Workspace::load are all on disk; CLI is the rule-registration site, so engine and rules stay decoupled. No new dep; drive lib functions (assert_cmd optional, would need a Cargo edit)."
   },
   {
     "tag": "ACCEPTANCE",
