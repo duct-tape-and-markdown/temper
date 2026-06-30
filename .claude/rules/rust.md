@@ -1,7 +1,8 @@
 ---
-description: Rust conventions for author's src/ and tests/. Read before writing or reviewing Rust in this repo.
-globs: ["src/**/*.rs", "tests/**/*.rs", "benches/**/*.rs"]
-alwaysApply: false
+paths:
+  - "src/**/*.rs"
+  - "tests/**/*.rs"
+  - "benches/**/*.rs"
 ---
 
 # Rust conventions — author

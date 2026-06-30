@@ -55,20 +55,39 @@ never dropped.
 `Diagnostic { severity, rule, artifact, message, span? }`, rendered with
 `miette`. Exit non-zero if any `error`-severity diagnostic fires.
 
-Slice-1 rules:
+Slice-1 rules. These encode the documented Claude Code skill best practices
+(Anthropic's hard mechanics + Matt Pocock's precision heuristics — see Sources);
+all are mechanical string/structure checks, no judgment calls:
 
-| Rule id | Severity | Asserts |
-| ------- | -------- | ------- |
-| `skill.frontmatter-valid` | error | frontmatter parses; `name` + `description` present |
-| `skill.name-matches-dir` | error | `name` equals the containing directory name |
-| `skill.description-has-trigger` | warn | description states *when to use* (cites a trigger, not just what it does) |
-| `skill.description-has-anti-trigger` | warn | description states when **NOT** to use it |
-| `skill.companion-refs-resolve` | error | every companion path referenced in the body exists on disk |
-| `skill.description-budget` | warn | description within a sane length budget |
+| Rule id | Severity | Asserts | Source |
+| ------- | -------- | ------- | ------ |
+| `skill.frontmatter-valid` | error | frontmatter parses; required `name` + `description` present and non-empty | Anthropic spec |
+| `skill.name-format` | error | `name` ≤ 64 chars, `[a-z0-9-]` only, not a reserved word (`anthropic`, `claude`) | Anthropic spec |
+| `skill.name-matches-dir` | error | `name` equals the containing directory name | CC discovery |
+| `skill.description-length` | error | `description` ≤ 1024 chars | Anthropic spec |
+| `skill.description-third-person` | warn | description is third person — no `I`/`you can…` (it is injected into the system prompt) | Anthropic |
+| `skill.description-has-trigger` | warn | description states *when to use* (a trigger/context), not only what it does | Anthropic + Pocock |
+| `skill.description-has-anti-trigger` | warn | description states when **not** to use it (branch precision) | Pocock |
+| `skill.body-length` | warn | SKILL.md body < 500 lines (else split via progressive disclosure) | Anthropic |
+| `skill.companion-refs-resolve` | error | every companion path referenced in the body exists on disk | — |
+| `skill.refs-one-level-deep` | warn | referenced files sit ≤ 1 level from SKILL.md (deeper risks partial `head` reads) | Anthropic |
 
 Cross-artifact rules (the differentiator) are out of scope for slice 1 but the
 `Rule` trait must take the whole workspace, not a single artifact, so they slot
 in later without a signature change.
+
+**Deferred to a later release** (these need heuristics/judgment, not a slice-1
+mechanical check): gerund-naming preference; **no-op detection** (a line the
+model already obeys by default — Pocock); **leading-word / Leitwort** reuse;
+table-of-contents required for reference files > 100 lines; the pushy-recall vs
+prune-precision reconciliation in descriptions. Tracked as open design, not
+silently dropped.
+
+### Sources (the lint rules trace to these)
+
+- Anthropic — Skill authoring best practices: <https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices>
+- Anthropic — `skill-creator`: <https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md>
+- Matt Pocock — `writing-great-skills`: <https://github.com/mattpocock/skills> (`skills/productivity/writing-great-skills/SKILL.md`)
 
 ## Tests / acceptance
 

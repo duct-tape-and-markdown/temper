@@ -1,9 +1,3 @@
----
-description: How to collaborate in this repo — pushback, spec gaps, and investigation discipline. Read when planning, building, or reviewing.
-globs: ["**/*"]
-alwaysApply: true
----
-
 # Collaboration — pushback is the point
 
 `author` is a design-led project. The harness enforces *mechanics*; judgment is

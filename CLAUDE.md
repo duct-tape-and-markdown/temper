@@ -39,7 +39,9 @@ This repo carries **two distinct harnesses**; do not conflate them:
   `sha2`, `insta` (snapshot tests).
 - **flume** control plane (`.flume/`) runs on Node via `@dtmd/flume` (pnpm).
 
-Stack-specific conventions live in `.claude/rules/<area>.md`, path-scoped.
+Conventions live in `.claude/rules/*.md`, auto-loaded by Claude Code at launch
+(no import needed): `rust.md` is `paths:`-scoped to Rust files; `collaboration.md`
+loads unconditionally.
 
 ## Workflow: flume drives the build
 
@@ -71,5 +73,5 @@ Gates (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`) validate every tic
 - NEVER force-push, amend pushed commits, or `--no-verify`.
 - NEVER modify files when asked to investigate — investigate and report.
 - Search the codebase before implementing — don't assume not implemented.
-- **Never silently fill a spec/product gap — challenge it.** See
-  `.claude/rules/collaboration.md`.
+- **Never silently fill a spec/product gap — challenge it** (see the
+  auto-loaded `collaboration` rule).
