@@ -7,21 +7,20 @@
       "section": "Import behavior"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SKILL-IR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/import.rs",
-          "description": "run(harness_path, into) -> miette::Result<()>: walkdir over <harness>/skills/*/SKILL.md (plus a bare <harness> that is itself a skill dir), skip non-skill files; per skill write <into>/skills/<name>/{meta.toml via Skill::to_meta_document, SKILL.md + every companion copied byte-for-byte}; write <into>/author.toml roll-up ([[skill]] with name, source_path, import_hash, body_hash) via toml_edit. Idempotent: unchanged harness -> identical workspace."
+          "description": "run(harness_path, into) -> miette::Result<()>: walkdir over <harness>/skills/*/SKILL.md (plus a bare <harness> that is itself a skill dir), skip non-skill files; per skill read with Skill::from_source_dir then write <into>/skills/<name>/{meta.toml via Skill::to_meta_document, SKILL.md + every companion copied byte-for-byte}; write <into>/author.toml roll-up ([[skill]] with name, source_path, import_hash, body_hash) via toml_edit. Idempotent: unchanged harness -> identical workspace."
         }
       ],
       "edit": [
         {
           "path": "src/lib.rs",
-          "description": "Add `pub mod import;`."
+          "description": "Add `pub mod import;`. (Also touched by LINT-ENGINE — the two share this file, so the fanout partition serializes them.)"
         }
       ],
       "retire": []
@@ -34,7 +33,7 @@
       }
     ],
     "acceptance": "`import <fixture> --into <tmp>` produces the surface tree; a second run yields zero diff.",
-    "notes": "author.toml is write-only in slice 1 (check walks skills/ directly; the index drives later cross-artifact views). Uses Skill::to_meta_document from SKILL-IR for the format-preserving header — no lossy serialize."
+    "notes": "Unblocked: SKILL-IR shipped (src/skill.rs on disk). Uses Skill::to_meta_document for the format-preserving header — no lossy serialize. author.toml is write-only in slice 1 (check walks skills/ directly; the index drives later cross-artifact views). body_hash = SHA-256 of the byte-faithful body (spec names the field but not its input — default is the body bytes)."
   },
   {
     "tag": "LINT-ENGINE",
@@ -44,8 +43,7 @@
       "section": "Check behavior (the lint engine)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SKILL-IR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -58,7 +56,7 @@
       "edit": [
         {
           "path": "src/lib.rs",
-          "description": "Add `pub mod check;`."
+          "description": "Add `pub mod check;`. (Also touched by IMPORT — the two share this file, so the fanout partition serializes them.)"
         }
       ],
       "retire": []
@@ -71,7 +69,7 @@
       }
     ],
     "acceptance": "Engine loads a workspace and runs an injectable rule set; clippy + fmt clean.",
-    "notes": "Rule trait takes &Workspace (not a single artifact) so slice-2 cross-artifact rules slot in with no signature change (rust.md). Runner takes rules as a slice so rule registration lives in the CLI, keeping engine and rules disjoint modules."
+    "notes": "Unblocked: SKILL-IR shipped (Skill::from_surface_dir on disk). Rule trait takes &Workspace (not a single artifact) so slice-2 cross-artifact rules slot in with no signature change (rust.md). Runner takes rules as a slice so rule registration lives in the CLI, keeping engine and rules disjoint modules."
   },
   {
     "tag": "LINT-RULES",
