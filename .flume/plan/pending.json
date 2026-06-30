@@ -1,1 +1,34 @@
-[]
+[
+  {
+    "tag": "ROSTER-ADMISSIBILITY",
+    "summary": "Check the harness roster against the definition: every role's selector resolves, a required single-filler role is satisfiable, its contract is admissible, and its verified_by resolves.",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: the contract is itself checked — admissibility"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/roster.rs",
+          "description": "Add `pub fn admissibility(roles, kinds, base_dir) -> Vec<Diagnostic>` (Error-severity, like engine::admissibility): for each role, (a) the `match` selector resolves — a `Role` marker is non-empty (a `Name` glob is always well-formed under the current matcher; note that); (b) a `required` single-filler role is *satisfiable* — `role.artifact` names a known kind, else it can never be filled; (c) its contract resolves — `RoleContract::resolve` succeeds (a non-resolving template path is the inadmissibility this pass owns, the case `conformance` skips) and the resolved Contract passes `engine::admissibility`; (d) any `verified_by` resolves — the named path exists relative to base_dir (the referential clause; dangling ⇒ inadmissible). Findings name the role they indict."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "In the `check` arm's `if let Some(layer)` block, call `roster::admissibility(layer.roles(), &by_kind, base_dir)` alongside the existing engine::admissibility calls (admissibility before conformance). Absent `temper.toml` ⇒ no layer ⇒ adds nothing; the floor-only path stays byte-for-byte unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/role_roster.rs",
+        "asserts": "A role naming an unknown artifact kind is inadmissible (can never be filled); a role whose `contract` template path does not resolve is inadmissible; a role with an inline contract carrying an empty `enum` is inadmissible (engine::admissibility runs on role contracts); a role with a dangling `verified_by` path is inadmissible; a roster whose selectors, templates, and verifiers all resolve passes admissibility and the floor-only (absent temper.toml) path is byte-for-byte unchanged."
+      }
+    ],
+    "acceptance": "`temper check` exits non-zero with an Error naming the role when the roster is inadmissible — unknown artifact kind, non-resolving template, inadmissible role contract, or dangling `verified_by`; a fully-resolving roster passes; absent-`temper.toml` output is unchanged.",
+    "notes": "The roster-admissibility follow-on the ROLE-CONFORMS-TO commit (b676a02) and roster.rs:20 explicitly deferred. `Role.verified_by` and `RoleContract::resolve` are already `pub` (compose.rs:110,141) — no compose.rs edit needed. Scope honesty: `verified_by` resolution ships the decidable path-exists subset (the spec's `tests/release.rs` form); resolving an abstract CI-job name beyond path existence is a later extension, not this entry."
+  }
+]

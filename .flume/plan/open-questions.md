@@ -97,3 +97,22 @@ and embeds the bundled skill template as the default.
   a single bespoke installer and the assume-globally-PATH'd-binary route were rejected.
   Fail-loud is intrinsic — a missing platform binary is an install error, never a
   silent skip. Kept as the decision record; gates packaging work, not the engine.
+
+- `(spec-landscape-kind)` — An untracked, human-authored `contracts/spec.toml`
+  composes a contract for the **spec corpus as an artifact kind** (max_lines plus
+  two clauses it cannot yet express). It surfaces a real intent gap the corpus does
+  not yet authorize, on three fronts: (1) `20-surface.md` "Artifact kinds & contract
+  selection" names only `skill` and `rule`, and `import.rs` scans only those — is
+  `spec` (`specs/*.md`) a checked artifact kind, and does `import` scan it? (2) the
+  file needs a `section_contains { heading, marker }` primitive (every `## Decision`
+  carries a `Rejected` block — named decidable in `30-landscapes.md`, but NOT in the
+  closed algebra `10-contracts.md` enumerates; adding it is "a deliberate language
+  change," law 3 — human to author). (3) it needs a **referential** `references-resolve`
+  clause over a *declared* reference syntax (the de-facto backtick-wrapped `` `NN-name.md` ``);
+  `10-contracts.md` blesses referential clauses only over a declared syntax, but no
+  referential primitive ships and the spec landscape's reference syntax is not in the
+  corpus. Distinct from `(model-declaration-format)`: this is the *flat artifact-kind*
+  contract for specs (structural clauses over spec files), not the declared-model
+  graph. Until the human authors these into the corpus, none of the three ships — plan
+  surfaces, does not fill (`00-intent.md` law 4). `contracts/spec.toml` is human
+  territory; plan neither writes nor commits it.
