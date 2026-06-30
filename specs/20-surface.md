@@ -92,8 +92,7 @@ surface), the **last-applied fingerprint**, and **real on-disk** — so it can
 distinguish "the human edited the surface" from "the world drifted" and merge
 rather than clobber. Drift surfaces a choice (diff · overwrite · skip · re-add);
 `apply` is idempotent and dry-runnable. `re-add` (on-disk → surface) is a first-
-class direction, because humans also edit the harness directly. (Open: the
-`yaml-writeback` and `workspace-scope` forks in `.flume/plan/open-questions.md`.)
+class direction, because humans also edit the harness directly.
 
 ### Decision: the surface is the source of truth
 
@@ -104,6 +103,25 @@ canonical on-disk files. The lens framing contradicts law 7 — you cannot *comp
 a harness you only mirror — and strands fearless refactoring (law 6), which needs a
 surface the author authors. `re-add` keeps direct-on-disk editing first-class
 without demoting the surface. (Resolves `(surface-authority)`.)
+
+### Decision: the workspace is per-project
+
+**Chosen:** the surface targets a **per-project** harness — the `.claude/` and
+co-located artifacts of one project, located by the explicit path `import` / `check`
+already take. **Rejected (for now):** managing a mirror of the global `~/.claude`,
+or both at once. The per-project harness is the unit a contract gates and a session
+loads; the global config is a later extension the same engine handles as another
+landscape root (`30-landscapes.md`), not a redesign. (Resolves `(workspace-scope)`.)
+
+### Decision: write-back patches changed fields, never re-emits
+
+**Chosen:** `apply` **patches only the fields that changed**, in place — TOML
+headers via `toml_edit`, YAML frontmatter by surgical field patch — leaving every
+untouched byte (comments, key order, whitespace) exactly as the human wrote it.
+**Rejected:** re-emitting a header by serializing it from scratch. No comment-
+preserving YAML editor exists in Rust, so a full re-emit would normalize the
+frontmatter and clobber human edits — the lossy round-trip law 5 forbids on
+anything a human authors. (Resolves `(yaml-writeback)`.)
 
 ## CLI surface
 
