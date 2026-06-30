@@ -126,6 +126,29 @@ pub enum RoleContract {
     Inline(Vec<Clause>),
 }
 
+impl RoleContract {
+    /// Resolve this reference into the concrete [`Contract`] the engine validates
+    /// a role's filler against (`specs/10-contracts.md`, "Roles and matching":
+    /// the `role` primitive's `conforms-to` half). `Inline` wraps its already-
+    /// parsed clauses directly, labelled `label` (the role name) for diagnostics;
+    /// `Template` loads its path **relative to `base_dir`** — the `temper.toml`
+    /// directory — and parses it through [`Contract::load`].
+    ///
+    /// A non-resolving or malformed template path is an *admissibility* concern
+    /// (the template-resolve clause of the roster-admissibility follow-on entry),
+    /// bubbled here as the [`ContractError`] so the caller can skip the
+    /// conformance check rather than double-report what admissibility owns.
+    pub fn resolve(&self, base_dir: &Path, label: &str) -> Result<Contract, ContractError> {
+        match self {
+            RoleContract::Inline(clauses) => Ok(Contract {
+                name: label.to_string(),
+                clauses: clauses.clone(),
+            }),
+            RoleContract::Template(rel) => Contract::load(&base_dir.join(rel)),
+        }
+    }
+}
+
 /// The decidable `match` selector picking a role's filler — a closed set
 /// (`specs/10-contracts.md`, "Roles and matching"). The pattern is stored
 /// *verbatim* and never matched here; resolving it against artifacts is a

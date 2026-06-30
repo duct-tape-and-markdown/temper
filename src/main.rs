@@ -136,6 +136,18 @@ fn main() -> miette::Result<ExitCode> {
                         ("rule", rule_features.as_slice()),
                     ]);
                 diagnostics.extend(roster::check(layer.roles(), &by_kind));
+
+                // The `conforms-to` half of the same tier: each role's selected
+                // filler(s) are validated against the role's resolved contract —
+                // its inline clauses, or a template path taken relative to the
+                // `temper.toml` directory — with findings retagged under
+                // `role.conforms-to` (`specs/10-contracts.md`, the `role`
+                // primitive). A non-resolving template is the roster-admissibility
+                // entry's finding, skipped here rather than double-reported.
+                let base_dir = Path::new(TEMPER_TOML)
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."));
+                diagnostics.extend(roster::conformance(layer.roles(), &by_kind, base_dir));
             }
 
             print!("{}", check::render(&diagnostics));

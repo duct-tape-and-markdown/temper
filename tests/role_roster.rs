@@ -195,6 +195,102 @@ fn a_non_required_unfilled_role_is_silent() {
     );
 }
 
+/// A `temper.toml` declaring one `required`, name-glob, single-filler role whose
+/// **inline** contract caps the filler's `name` at `max` characters.
+fn inline_maxlen_role_toml(glob: &str, max: usize) -> String {
+    format!(
+        "[role.planner]\n\
+         artifact = \"skill\"\n\
+         match = {{ name = \"{glob}\" }}\n\
+         required = true\n\
+         [[role.planner.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = {max}\n"
+    )
+}
+
+#[test]
+fn a_filler_violating_an_inline_role_contract_reports_a_finding() {
+    let root = tmpdir("inline-bad");
+    // One floor-clean filler matching `plan*`; the inline contract caps `name` at
+    // 3 chars, which `plan-tasks` (10) breaks. Selection is clean (one filler), so
+    // the only finding is the conformance one.
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks", None));
+    write_temper_toml(&root, &inline_maxlen_role_toml("plan*", 3));
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a filler that breaks its role's inline contract must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("does not conform")
+            && run.output.contains("plan-tasks")
+            && run.output.contains("planner"),
+        "the finding names the conformance violation, the filler, and the role, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_filler_violating_an_adopted_template_contract_reports_a_finding() {
+    let root = tmpdir("template-bad");
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks", None));
+
+    // A template contract on disk, resolved relative to the temper.toml dir,
+    // capping `name` at 3 chars — `plan-tasks` (10) breaks it.
+    let contracts = root.join("contracts");
+    fs::create_dir_all(&contracts).unwrap();
+    fs::write(
+        contracts.join("role-skill.toml"),
+        "[[clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = 3\n",
+    )
+    .unwrap();
+    write_temper_toml(
+        &root,
+        "[role.planner]\n\
+         artifact = \"skill\"\n\
+         contract = \"contracts/role-skill.toml\"\n\
+         match = { name = \"plan*\" }\n\
+         required = true\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a filler that breaks its role's adopted template must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("does not conform")
+            && run.output.contains("plan-tasks")
+            && run.output.contains("planner"),
+        "the finding names the conformance violation, the filler, and the role, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_filler_conforming_to_its_role_contract_is_clean() {
+    let root = tmpdir("inline-ok");
+    // The same single filler, but the inline contract's cap (64) is one the filler
+    // stays within — so conformance adds nothing and the run is clean.
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks", None));
+    write_temper_toml(&root, &inline_maxlen_role_toml("plan*", 64));
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a filler within its role's contract passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
 #[test]
 fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     let root = tmpdir("no-roster");

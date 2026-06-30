@@ -40,15 +40,22 @@
 //! unfilled required role is a true violation, not a reason to stay silent.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use crate::check::Diagnostic;
 use crate::compose::{MatchSelector, Role};
+use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
 /// The diagnostic `rule` id every roster finding reports under — the role
 /// match-selection "clause", the harness-contract analogue of the artifact-clause
 /// keys [`crate::engine`] emits.
 const ROLE_RULE: &str = "role";
+
+/// The diagnostic `rule` id every role-conformance finding reports under — the
+/// `conforms-to` clause of the `role` primitive (`specs/10-contracts.md`: a
+/// filler is `present`, `conforms-to` contract C, and is selected by `match`).
+const ROLE_CONFORMS_TO_RULE: &str = "role.conforms-to";
 
 /// Run role match-selection over the parsed roster, returning an error-severity
 /// [`Diagnostic`] per `required` single-filler role that is filled by zero or by
@@ -87,6 +94,65 @@ pub fn check(
         }
     }
     diagnostics
+}
+
+/// Run the `conforms-to` half of the `role` primitive over the parsed roster
+/// (`specs/10-contracts.md`, "Roles and matching"): for each role, validate the
+/// artifact(s) its selector picks against the role's resolved contract, retagging
+/// every conformance finding under [`ROLE_CONFORMS_TO_RULE`] and naming the role
+/// the filler broke.
+///
+/// `base_dir` is the `temper.toml` directory a template-path contract resolves
+/// against; `by_kind` is the same workspace-features map [`check`] reads. A role
+/// whose contract does not resolve — a missing or malformed template — is skipped
+/// here rather than reported: a non-resolving template is the roster-admissibility
+/// follow-on entry's finding, and double-reporting it would be noise.
+///
+/// Conformance and selection decide *independently*: this pass validates whichever
+/// artifacts match (zero, one, or many), so a filler that violates the contract is
+/// reported even when the same role also trips its single-filler gate in [`check`].
+/// A role over a kind absent from `by_kind` finds no fillers, so [`engine::validate`]
+/// over the empty set is silent — nothing to conform.
+#[must_use]
+pub fn conformance(
+    roles: &BTreeMap<String, Role>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    base_dir: &Path,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for role in roles.values() {
+        // A non-resolving/malformed template is admissibility's to report, not
+        // ours — skip the conformance check rather than double-report it.
+        let Ok(contract) = role.contract.resolve(base_dir, &role.name) else {
+            continue;
+        };
+        let candidates = by_kind.get(role.artifact.as_str()).copied().unwrap_or(&[]);
+        let fillers: Vec<Features> = candidates
+            .iter()
+            .filter(|features| matches(&role.selector, features))
+            .cloned()
+            .collect();
+        for finding in engine::validate(&contract, &fillers) {
+            diagnostics.push(conformance_finding(role, &finding));
+        }
+    }
+    diagnostics
+}
+
+/// Recast one [`engine::validate`] finding as a role-conformance finding: the
+/// filler artifact and the clause's declared severity carry over unchanged, the
+/// `rule` becomes [`ROLE_CONFORMS_TO_RULE`], and the message names the role whose
+/// contract the filler broke so a reader knows which role indicted it.
+fn conformance_finding(role: &Role, finding: &Diagnostic) -> Diagnostic {
+    Diagnostic::new(
+        finding.severity,
+        ROLE_CONFORMS_TO_RULE,
+        finding.artifact.as_str(),
+        format!(
+            "filler `{}` does not conform to role `{}`: {}",
+            finding.artifact, role.name, finding.message
+        ),
+    )
 }
 
 /// The names of the artifacts that fill `role`'s selector, in candidate order. A
@@ -343,6 +409,94 @@ mod tests {
             )
             .is_empty()
         );
+    }
+
+    /// A role carrying an inline `max_len` contract on `name`, capped at `max`.
+    fn inline_maxlen_role(max: usize) -> Role {
+        role(
+            &format!(
+                "[role.planner]\n\
+                 artifact = \"skill\"\n\
+                 match = {{ name = \"plan*\" }}\n\
+                 required = true\n\
+                 [[role.planner.clause]]\n\
+                 severity = \"required\"\n\
+                 predicate = \"max_len\"\n\
+                 field = \"name\"\n\
+                 max = {max}\n"
+            ),
+            "planner",
+        )
+    }
+
+    /// `features` with a `name` scalar field equal to its id — the field the
+    /// inline `max_len` contract measures (the engine validates extracted *fields*,
+    /// not the bare diagnostic id).
+    fn named_skill(name: &str) -> Features {
+        let mut f = features(name, None);
+        f.fields
+            .insert("name".to_string(), FeatureValue::scalar(Kind::String, name));
+        f
+    }
+
+    /// Pack a roster of one role and skill candidates and run the conformance pass
+    /// — the inline-contract path needs no `base_dir`, so an empty one suffices.
+    fn run_conformance(role: Role, skills: &[Features]) -> Vec<Diagnostic> {
+        let mut roles = BTreeMap::new();
+        roles.insert(role.name.clone(), role);
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", skills)]);
+        conformance(&roles, &by_kind, Path::new(""))
+    }
+
+    #[test]
+    fn an_inline_role_contract_validates_its_selected_filler_only() {
+        // The inline contract caps `name` at 3 chars; the matching filler
+        // `plan-tasks` (10) breaks it, while the non-matching `lint-rust` is never
+        // validated against the role's contract.
+        let diags = run_conformance(
+            inline_maxlen_role(3),
+            &[named_skill("plan-tasks"), named_skill("lint-rust")],
+        );
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, ROLE_CONFORMS_TO_RULE);
+        assert_eq!(diags[0].artifact, "plan-tasks");
+        // The message names the role whose contract the filler broke.
+        assert!(diags[0].message.contains("planner"));
+        assert!(diags[0].message.contains("does not conform"));
+    }
+
+    #[test]
+    fn an_inline_role_contract_is_silent_when_the_filler_conforms() {
+        // The same shape, but a generous cap the filler stays within ⇒ clean.
+        assert!(run_conformance(inline_maxlen_role(64), &[named_skill("plan-tasks")]).is_empty());
+    }
+
+    #[test]
+    fn conformance_and_selection_decide_independently() {
+        // Two fillers — `check` would flag the single-filler overfill — and *both*
+        // break the inline cap. Conformance reports each, regardless of the count.
+        let diags = run_conformance(
+            inline_maxlen_role(3),
+            &[named_skill("plan-tasks"), named_skill("plan-sprints")],
+        );
+        assert_eq!(diags.len(), 2);
+        assert!(diags.iter().all(|d| d.rule == ROLE_CONFORMS_TO_RULE));
+    }
+
+    #[test]
+    fn a_role_whose_template_does_not_resolve_is_skipped_not_reported() {
+        // The template path resolves to no file under this base dir: conformance
+        // skips it (a non-resolving template is admissibility's finding), so
+        // nothing fires even though a filler matches.
+        let role = required_name_role("plan*"); // contract = a template path
+        let skills = [features("plan-tasks", None)];
+        let mut roles = BTreeMap::new();
+        roles.insert(role.name.clone(), role);
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        // A base dir with no `contracts/` tree, so the template cannot load.
+        let diags = conformance(&roles, &by_kind, Path::new("/no-such-temper-base-dir"));
+        assert!(diags.is_empty());
     }
 
     #[test]
