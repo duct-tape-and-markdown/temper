@@ -1,28 +1,27 @@
 # Plan state
 
-- **Phase:** both greens hold locally — the contract engine ships **skill + rule**
-  *conformance* and contract *admissibility*; `check` runs both passes (`main.rs`,
-  `engine.rs::admissibility`). The next move is the `type` field primitive.
-- **Last shipped:** ADMISSIBILITY (ce4ccf1) — `check` now validates each contract
-  against the definition (empty-list clauses inadmissible), surfacing the second
-  green. Verified on disk: `extract.rs` still stringifies every scalar
-  (`json_scalar_string` flattens bool/number/string), so `type` is undecidable until
-  the extractor preserves source kind.
+- **Phase:** both greens hold — `check` runs conformance (skill + rule) and
+  contract admissibility. The type-pair precondition is now on disk, so the `type`
+  field primitive is unblocked and pickable.
+- **Last shipped:** TYPED-EXTRACTION (604bf63) — the extractor preserves each
+  field's parsed source `Kind` in `FeatureValue` (`extract.rs`: scalar carries
+  kind+text, `FeatureValue::kind`); the `extract.rs` stringify shortcut is gone.
 - **In flight:** nothing; tree clean.
-- **Next (filed, fork-free — `(field-type-lattice)` RESOLVED):** TYPED-EXTRACTION
-  (preserve each field's parsed kind in the projection — the precondition), then
-  TYPE-PRIMITIVE (add `Predicate::Type` over the closed lattice), which it blocks.
-- **Frontier (fork-free, unfiled — for follow-on plan ticks):** the harness-contract
-  layer (`temper.toml` + roles + `verified_by`, 40-composition); `temper schema`; the
-  advisory session-start gate + `claude-session-start` reporter; the plugin/`bundle`
-  tree; GitHub/SARIF reporters. **Still fork-blocked:** `apply`/`install`
-  (`(yaml-writeback)`, `(workspace-scope)`); the declared model + dependency graph +
-  cross-landscape seam (`(model-declaration-format)`); full `pattern` (`(regex-crate)`);
-  the skill referential clause (`(skill-ref-syntax)`).
+- **Next (filed, `open`, fork-free):** TYPE-PRIMITIVE — add `Predicate::Type` over
+  the closed lattice, parsed in `contract.rs`, decided in `engine.rs` against the
+  preserved kind, with the name⇄`Kind` mapping homed in `extract.rs`. Verified
+  unshipped on disk: no `Predicate::Type` arm exists.
+- **Frontier (fork-free, unfiled — deferred to a follow-on plan tick, decomposed
+  once the type primitive lands):** the harness-contract layer (`temper.toml` +
+  roles + `verified_by`, 40-composition); `temper schema`; the advisory
+  session-start gate + `claude-session-start` reporter; the plugin/`bundle` tree;
+  GitHub/SARIF reporters. **Still fork-blocked:** `apply`/`install`
+  (`(yaml-writeback)`, `(workspace-scope)`); the model + dependency graph +
+  cross-landscape seam (`(model-declaration-format)`); full `pattern`
+  (`(regex-crate)`); the skill referential clause (`(skill-ref-syntax)`).
 
-Plan continues: no — the queue is reconciled (both type-pair entries verified
-unshipped and accurate; ADMISSIBILITY already dropped), the inbox is empty, and a
-pickable `open` entry (TYPED-EXTRACTION) exists. Build runs; it drains the queue.
-The harness-contract / schema / distribution frontier is fork-free but deferred to
-follow-on plan ticks so each is decomposed into small disjoint entries once the type
-pair lands — filing that chain now would be speculative over-filing.
+Plan continues: no — the queue is reconciled (TYPED-EXTRACTION dropped as shipped,
+TYPE-PRIMITIVE unblocked to `open` and verified unshipped), the inbox is empty, and
+a pickable entry exists. Build runs and drains it. The harness-contract / schema /
+distribution frontier is fork-free but deferred to a follow-on tick so each lands as
+small disjoint entries once the type primitive ships — filing it now is speculative.

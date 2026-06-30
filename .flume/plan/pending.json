@@ -6,27 +6,31 @@
       "path": "specs/10-contracts.md",
       "section": "Decision: the `type` vocabulary is a closed scalar/container lattice"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "TYPED-EXTRACTION"
-    },
-    "dependsOnForks": [],
+    "gate": { "kind": "open" },
     "files": {
       "new": [],
       "edit": [
         {
+          "path": "src/extract.rs",
+          "description": "Give `Kind` a string⇄kind mapping: parse a declared type name (`string`/`integer`/`number`/`boolean`/`list`/`map`/`null`) into a `Kind`, and render a `Kind` back to that name for diagnostics. This is the home of the lattice (TYPED-EXTRACTION), so the name table lives here, not duplicated in the contract parser. Test: each lattice name round-trips; an unknown name yields `None`."
+        },
+        {
           "path": "src/contract.rs",
-          "description": "Add `Predicate::Type { field, kind }` to the closed vocabulary; parse the `type` clause (the declared type must be one of the closed lattice string/integer/number/boolean/list/map/null — an unknown type is a load error, mirroring UnknownPredicate); add the `type` arm to `predicate_key`. Tests: a `type` clause parses; an unknown declared type is a load error."
+          "description": "Add `Predicate::Type { field, kind }` to the closed `Predicate` vocabulary (`kind: extract::Kind`); add a `type` arm to `parse_predicate` that reads `field` plus a `type` key and maps it through the `extract.rs` name table — an unknown declared type is a load error (a new `ContractError` variant, mirroring how `UnknownPredicate` rejects an out-of-vocabulary key). Tests: a `type` clause parses into the lattice; an unknown declared type is a load error."
         },
         {
           "path": "src/engine.rs",
-          "description": "Add the `Predicate::Type` arm to `decide`: compare the field's preserved source kind (from TYPED-EXTRACTION) to the declared kind; an absent field is the `required` clause's concern (Holds), so `type` stays silent on absence. Tests: fires on a kind mismatch, silent on a match and on an absent field."
+          "description": "Add the `Predicate::Type` arm to both exhaustive matches: `decide` (compare the field's preserved source kind — `features.field(field).map(FeatureValue::kind)` — to the declared kind; an absent field is the `required` clause's concern, so `type` stays silent on absence) and `predicate_key` (returns `\"type\"`). Tests: fires on a kind mismatch, silent on a match and on an absent field."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
+      {
+        "path": "src/extract.rs",
+        "asserts": "each lattice name maps to its `Kind` and back; an unknown type name is rejected"
+      },
       {
         "path": "src/contract.rs",
         "asserts": "a `type` clause parses into the closed lattice and rejects an unknown declared type at load"
@@ -37,6 +41,6 @@
       }
     ],
     "acceptance": "a `type` clause parses over the closed lattice, rejects an unknown type at load, and fires exactly when a field's preserved source kind differs from the declared kind.",
-    "notes": "Closed lattice only (string/integer/number/boolean/list/map/null) — no formats, unions, nested schemas, or numeric ranges; those are the JSON-Schema unsound-proxy surface the bespoke-closed-algebra Decision rejects. `min_len`/`max_len`/`enum`/`pattern` refine within a scalar type; `type` only fixes the kind."
+    "notes": "Closed lattice only (string/integer/number/boolean/list/map/null) — no formats, unions, nested schemas, or numeric ranges; those are the JSON-Schema unsound-proxy surface the bespoke-closed-algebra Decision rejects. `min_len`/`max_len`/`enum`/`pattern` refine within a scalar type; `type` only fixes the kind. Admissibility needs no new arm — `type` carries no list, so `inadmissibilities`' catch-all covers it."
   }
 ]
