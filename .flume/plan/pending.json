@@ -1,39 +1,5 @@
 [
   {
-    "tag": "GOV-RANGE",
-    "summary": "Add the numeric `range {min, max}` predicate over `integer`/`number` fields — parse in `contract.rs`, decide in `engine.rs`, reject min>max in admissibility.",
-    "per": {
-      "path": "specs/45-governance.md",
-      "section": "Also in scope"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "Add `Predicate::Range { field, min, max }` (f64 bounds) to the closed algebra; parse a `range = { field, min, max }` clause in `parse_predicate`; reject `min > max` via the inadmissibility path. Covers integer/number fields only."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Decide `Range` in `decide`: pull the field's parsed scalar, fire when it is numeric and falls outside `[min, max]`, hold on absence and on a non-numeric kind (a `type` clause owns that). Add the `min > max` case to `inadmissibilities`. Add unit tests mirroring `max_len_fires_only_past_the_bound`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "`range` fires only when a numeric field falls outside `[min, max]`, is silent within bounds and on an absent field; a `min > max` range is reported inadmissible."
-      }
-    ],
-    "acceptance": "A contract clause `range = { field, min, max }` checks a numeric field stays within `[min, max]` at its declared severity; an inverted range fails admissibility.",
-    "notes": "The corpus's own narrow named escape for a genuine value bound, explicitly admitted by 45's `Also in scope` after the `type` lattice (`10-contracts.md`) rejected JSON-Schema ranges. Self-contained: a field-scope predicate, no roster or graph machinery — distinct from the roster/model governance predicates (count, membership, degree, acyclic), which await their own entries."
-  },
-  {
     "tag": "GOV-COUNT",
     "summary": "Add the set-scope `count {min,max}` roster predicate — quantify the matched-set cardinality on a role in compose.rs/roster.rs, reject min>max in admissibility.",
     "per": {
@@ -44,6 +10,7 @@
       "kind": "blockedBy",
       "tag": "GOV-RANGE"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
