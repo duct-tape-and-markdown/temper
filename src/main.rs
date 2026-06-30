@@ -20,6 +20,7 @@ use clap::{Parser, Subcommand};
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
 use temper::contract::Contract;
+use temper::drift;
 use temper::engine;
 use temper::extract;
 use temper::import;
@@ -72,6 +73,14 @@ enum Command {
         /// `required` ones — the strict CI policy from `specs/10-contracts.md`.
         #[arg(long)]
         deny_advisories: bool,
+    },
+    /// Report on-disk drift of a harness against the surface's import baseline.
+    Diff {
+        /// The harness to re-scan and compare against the import baseline.
+        harness_path: PathBuf,
+        /// The surface workspace holding the baseline (defaults to `./.temper`).
+        #[arg(long, default_value = DEFAULT_WORKSPACE)]
+        into: PathBuf,
     },
 }
 
@@ -176,6 +185,17 @@ fn main() -> miette::Result<ExitCode> {
             } else {
                 ExitCode::SUCCESS
             })
+        }
+        Command::Diff { harness_path, into } => {
+            // Drift is a report, not a gate (`specs/20-surface.md`, CLI surface):
+            // load the surface, compare it against the live harness, print the
+            // four-state report, and exit zero regardless of what it finds. The
+            // engine writes nothing — this is the read-only on-disk-vs-baseline
+            // slice; `apply`/`re-add` own write-back.
+            let ws = Workspace::load(&into)?;
+            let report = drift::diff(&ws, &harness_path)?;
+            print!("{}", drift::render(&report));
+            Ok(ExitCode::SUCCESS)
         }
     }
 }

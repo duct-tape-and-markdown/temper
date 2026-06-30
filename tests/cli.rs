@@ -230,6 +230,102 @@ fn self_host_check_is_clean_over_tempers_own_rules() {
     );
 }
 
+/// Run `temper diff <harness> --into <ws>` and return `(exit-zero, stdout)`.
+fn run_diff(harness: &Path, into: &Path) -> (bool, String) {
+    let output = Command::new(BIN)
+        .arg("diff")
+        .arg(harness)
+        .arg("--into")
+        .arg(into)
+        .output()
+        .unwrap();
+    (
+        output.status.success(),
+        String::from_utf8(output.stdout).unwrap(),
+    )
+}
+
+/// A recursive snapshot of every file under `dir` as relative-path -> bytes, so a
+/// read-only command can be proven to leave the tree untouched.
+fn snapshot(dir: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
+    let mut out = std::collections::BTreeMap::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        for entry in fs::read_dir(&current).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                stack.push(path);
+            } else {
+                let rel = path.strip_prefix(dir).unwrap().to_path_buf();
+                out.insert(rel, fs::read(&path).unwrap());
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn diff_reports_the_four_states_and_writes_nothing() {
+    // A harness with two skills and a rule, freshly imported into the surface.
+    // Each skill's frontmatter `name` matches its directory (and the two differ),
+    // so they project to distinct surface artifacts.
+    let review_skill = CLEAN_SKILL.replacen("coordinate", "review", 1);
+    let harness = tmpdir("diff-src");
+    write_harness(&harness, "coordinate", CLEAN_SKILL);
+    write_harness(&harness, "review", &review_skill);
+    write_rule_harness(&harness, "rust", CLEAN_RULE);
+    let into = tmpdir("diff-into");
+    import(&harness, &into);
+
+    // Unchanged, freshly-imported harness: every artifact is in-sync.
+    let (ok, stdout) = run_diff(&harness, &into);
+    assert!(ok, "diff over a clean harness must exit zero");
+    assert!(
+        stdout.lines().all(|line| line.contains("in-sync")),
+        "every line should report in-sync, got:\n{stdout}"
+    );
+    assert_eq!(stdout.lines().count(), 3, "one line per imported artifact");
+
+    // Mutate the harness three ways: edit one source, add a new one, delete one.
+    let coordinate_md = harness.join("skills").join("coordinate").join("SKILL.md");
+    let edited = fs::read_to_string(&coordinate_md).unwrap() + "\nAn extra line.\n";
+    fs::write(&coordinate_md, edited).unwrap();
+    write_rule_harness(&harness, "extra", CLEAN_RULE);
+    fs::remove_dir_all(harness.join("skills").join("review")).unwrap();
+
+    // The surface is unchanged, so the report reflects each on-disk mutation.
+    let before = snapshot(&into);
+    let (ok, stdout) = run_diff(&harness, &into);
+    assert!(ok, "diff is read-only — it always exits zero");
+
+    let line_for = |name: &str| -> String {
+        stdout
+            .lines()
+            .find(|line| line.split_whitespace().nth(2) == Some(name))
+            .unwrap_or_else(|| panic!("no line for {name} in:\n{stdout}"))
+            .to_string()
+    };
+    assert!(
+        line_for("coordinate").contains("drifted"),
+        "edited source drifts"
+    );
+    assert!(
+        line_for("rust").contains("in-sync"),
+        "untouched source stays in-sync"
+    );
+    assert!(
+        line_for("extra").contains("added"),
+        "a new on-disk source is added"
+    );
+    assert!(
+        line_for("review").contains("removed"),
+        "a deleted source is removed"
+    );
+
+    // Read-only: not a byte of the surface workspace changed.
+    assert_eq!(before, snapshot(&into), "diff must write nothing");
+}
+
 #[test]
 fn into_and_workspace_default_to_dot_author() {
     // With `--into` omitted, import writes to `./.temper` relative to the

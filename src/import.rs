@@ -135,7 +135,11 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
 /// Find the skill directories under `harness`: a bare `<harness>` that is itself
 /// a skill dir (has `SKILL.md`), followed by each immediate `skills/<name>/`
 /// child that has one. Non-skill files and dirs are skipped.
-fn discover_skill_dirs(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
+///
+/// `pub(crate)` so the drift engine can re-run the same per-kind scan against a
+/// live harness without duplicating the discovery rules (`specs/20-surface.md`,
+/// the drift "added" axis).
+pub(crate) fn discover_skill_dirs(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
     let mut dirs = Vec::new();
 
     if harness.join("SKILL.md").is_file() {
@@ -171,7 +175,10 @@ fn discover_skill_dirs(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
 /// `*.md` child. Non-markdown files and subdirectories are skipped. Note the root
 /// asymmetry with skills — rules live under `.claude/rules/`, not at the harness
 /// root — which is the spec literal (`specs/20-surface.md`).
-fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
+///
+/// `pub(crate)` for the same reason as [`discover_skill_dirs`]: drift re-scans
+/// the harness through the identical discovery the import used.
+pub(crate) fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
     let rules_root = harness.join(".claude").join("rules");
     if !rules_root.is_dir() {
         return Ok(Vec::new());
@@ -201,7 +208,10 @@ fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
 /// child. Non-markdown files and subdirectories are skipped. The root is plain
 /// `specs/` (no `.claude/` prefix) — a spec is temper's own custom kind, sourced
 /// from its evergreen corpus (`90-spec-system.md`), not a Claude Code artifact.
-fn discover_spec_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
+///
+/// `pub(crate)` for the same reason as [`discover_skill_dirs`]: drift re-scans
+/// the harness through the identical discovery the import used.
+pub(crate) fn discover_spec_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
     let specs_root = harness.join("specs");
     if !specs_root.is_dir() {
         return Ok(Vec::new());
