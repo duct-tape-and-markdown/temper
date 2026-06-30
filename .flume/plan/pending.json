@@ -7,8 +7,7 @@
       "section": "CLI surface"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SKILL-CONTRACT-TEMPLATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
