@@ -1,35 +1,5 @@
 [
   {
-    "tag": "SKILL-CONTRACT-TEMPLATE",
-    "summary": "Pin the shipped Anthropic skill template (contracts/skill.anthropic.toml, human-authored) by loading it through `contract::Contract` and asserting its surviving decidable clause vector.",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Templates — best practices as data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [
-        {
-          "path": "tests/contract_template.rs",
-          "description": "Load the bundled `contracts/skill.anthropic.toml` through `contract::Contract::load` (or `include_str!` + `Contract::parse`) and assert it parses into the model carrying exactly the surviving decidable clauses at their declared severities: `name` required + min_len 1 + allowed_chars `[a-z0-9-]` + max_len 64 + deny `[anthropic, claude]`; `name-matches-dir`; `description` required + min_len 1 + max_len 1024; body `max_lines` 500 (advisory); `forbidden_keys` `[globs, alwaysApply]`. The data file declares no internal `name`, so assert the parsed `Contract.name` derives to `\"skill.anthropic\"` from the file stem (CONTRACT-NAME-OPTIONAL shipped this shape: identity is the path; `name` is a display label defaulting to the stem). No dropped heuristic (third-person/trigger/companion-refs) appears."
-        }
-      ],
-      "edit": [],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/contract_template.rs",
-        "asserts": "the shipped template deserializes into the Contract model with `name` derived to `skill.anthropic` from the stem and declares the expected clause set (name format/length/deny, description length, body max_lines advisory, forbidden_keys, name-matches-dir) at the right severities"
-      }
-    ],
-    "acceptance": "`contracts/skill.anthropic.toml` loads into the Contract model (display label `skill.anthropic` from the stem) and encodes only the decidable surviving clauses; the dropped heuristics are absent; `cargo test` green.",
-    "notes": "Data file is DONE — human-authored as curated guidance (6e0af11); build EMBEDS contracts/, never writes it. Test-only now. Was fork-held on (contract-name-field); CONTRACT-NAME-OPTIONAL (88246bf) removed `MissingName` and made `name` default to the file stem, so the nameless template loads and this is now `open`."
-  },
-  {
     "tag": "CHECK-CUTOVER",
     "summary": "Wire `temper check` to load the built-in skill contract and run the generic engine over extracted Features; add `--deny-advisories` to promote advisories to blocking.",
     "per": {
@@ -40,6 +10,7 @@
       "kind": "blockedBy",
       "tag": "SKILL-CONTRACT-TEMPLATE"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
