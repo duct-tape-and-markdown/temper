@@ -28,8 +28,22 @@
 //!   flip (`required` ⟷ `advisory`) and a parameter change are both expressed — or,
 //!   when no floor clause shares that identity, **extends** the floor with it.
 //!
-//! Binding the harness (roles, `verified_by`) — the interface/trait tier no
-//! built-in can carry — is the next layer, deliberately out of this entry's scope.
+//! ## The role roster (parse-only)
+//!
+//! A `temper.toml` may also carry top-level `[role.<name>]` tables — the
+//! harness-contract tier (`specs/10-contracts.md`, "Roles and matching"): an
+//! abstract role bound to whichever concrete artifact fills it. Each parses into
+//! a typed [`Role`] — its artifact kind, the contract the filler must conform to
+//! (a template path or inline `[[clause]]`s, the latter through the same
+//! [`contract::parse_clauses`]), a decidable [`MatchSelector`] (a name glob or a
+//! `role` marker, stored *verbatim* — never matched here), an optional `required`
+//! flag (absent ⇒ false; `temper` never fabricates a gate the author did not
+//! declare, `00-intent.md` law 4), and an optional `verified_by` verifier.
+//!
+//! This tier is **parse only**: the roster loads into typed values and a
+//! malformed role is a load error, but no selection, single-filler conformance,
+//! or admissibility (does `match` resolve, does `verified_by` resolve) runs yet —
+//! those are separate follow-on entries.
 //!
 //! ## Closed vocabulary, end to end
 //!
@@ -61,6 +75,74 @@ pub struct AuthorLayer {
     /// The per-kind layers, keyed by artifact kind (`skill`, `rule`, …). A kind
     /// the author did not name falls through to the floor unchanged.
     kinds: BTreeMap<String, KindLayer>,
+    /// The harness-contract roles parsed from `[role.<name>]` tables, keyed by
+    /// role name. Empty when the `temper.toml` declares none. Parse-only in this
+    /// tier — selection, required-filling, and admissibility are follow-on
+    /// entries.
+    roles: BTreeMap<String, Role>,
+}
+
+/// A harness-contract **role**: an abstract slot bound to whichever concrete
+/// artifact fills it (`specs/10-contracts.md`, "Roles and matching"). The engine
+/// checks a filler is `present`, `conforms-to` the role's contract, and is picked
+/// by its `match` selector — but this tier only *parses* the declaration into
+/// typed values; none of those checks run here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Role {
+    /// The role's name — the `[role.<name>]` table key.
+    pub name: String,
+    /// The artifact kind expected to fill the role (`skill`, `command`, …),
+    /// stored verbatim. Not validated against a closed kind set in this tier.
+    pub artifact: String,
+    /// The contract the filling artifact must conform to: an adopted template
+    /// named by path, or inline clauses over the closed vocabulary.
+    pub contract: RoleContract,
+    /// The decidable selector that picks the filling artifact. Stored verbatim —
+    /// the glob/marker is *not* evaluated against any surface in this tier.
+    pub selector: MatchSelector,
+    /// Whether an absent filler is a conformance violation. Absent in source ⇒
+    /// `false`: `temper` never fabricates a gate the author did not declare
+    /// (`00-intent.md` law 4).
+    pub required: bool,
+    /// An optional external verifier for the behavioral remainder (`verified_by`).
+    /// Stored verbatim; whether it *resolves* is an admissibility check left to a
+    /// follow-on entry.
+    pub verified_by: Option<String>,
+}
+
+/// A role's contract reference: the filler's contract is either an adopted
+/// template named by path, or inline clauses declared under the role
+/// (`[[role.<name>.clause]]`) over the same closed vocabulary a bare contract
+/// carries (`specs/10-contracts.md`, "Roles and matching").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RoleContract {
+    /// A template adopted by path (`contract = "contracts/skill.anthropic.toml"`).
+    /// Stored verbatim; whether the path resolves is a follow-on admissibility
+    /// check.
+    Template(String),
+    /// Inline clauses declared under the role, parsed by the shared
+    /// [`contract::parse_clauses`] so an unknown predicate is rejected exactly as
+    /// in a bare contract.
+    Inline(Vec<Clause>),
+}
+
+/// The decidable `match` selector picking a role's filler — a closed set
+/// (`specs/10-contracts.md`, "Roles and matching"). The pattern is stored
+/// *verbatim* and never matched here; resolving it against artifacts is a
+/// follow-on entry, so no glob crate enters at this tier.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MatchSelector {
+    /// By artifact name glob (`match = { name = "plan*" }`).
+    Name {
+        /// The glob, stored verbatim — not compiled or matched in this tier.
+        glob: String,
+    },
+    /// By an explicit role marker the artifact declares / opts into
+    /// (`match = { role = "task-planning" }`) — the "artifact opts in" option.
+    Role {
+        /// The marker the filling artifact must declare, stored verbatim.
+        marker: String,
+    },
 }
 
 /// One kind's customization: an optional adopted template and the clauses to layer
@@ -151,9 +233,103 @@ pub enum ComposeError {
         expected: String,
     },
 
+    /// The top-level `role` key is present but is not a table of role definitions.
+    #[error("{path}: `role` must be a table of harness-contract roles")]
+    #[diagnostic(code(temper::compose::role_root_not_table))]
+    RoleRootNotTable {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+    },
+
+    /// A `[role.<name>]` entry is present but is not a table.
+    #[error("{path}: `[role.{role}]` must be a table")]
+    #[diagnostic(code(temper::compose::role_not_table))]
+    RoleNotTable {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role whose definition is malformed.
+        role: String,
+    },
+
+    /// A `[role.<name>]` is missing its required `artifact` kind.
+    #[error("{path}: `[role.{role}]` is missing required key `artifact`")]
+    #[diagnostic(code(temper::compose::role_missing_artifact))]
+    RoleMissingArtifact {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role missing its artifact kind.
+        role: String,
+    },
+
+    /// A `[role.<name>]` is missing its required `match` selector.
+    #[error("{path}: `[role.{role}]` is missing required key `match`")]
+    #[diagnostic(code(temper::compose::role_missing_match))]
+    RoleMissingMatch {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role missing its selector.
+        role: String,
+    },
+
+    /// A `[role.<name>]` key has the wrong TOML type.
+    #[error("{path}: `[role.{role}]` key `{key}` must be {expected}")]
+    #[diagnostic(code(temper::compose::role_wrong_type))]
+    RoleWrongType {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role whose key is mistyped.
+        role: String,
+        /// The mistyped key.
+        key: &'static str,
+        /// The type that was expected, for the message.
+        expected: &'static str,
+    },
+
+    /// A `[role.<name>]` declares neither a `contract` template path nor inline
+    /// `[[clause]]`s — a role with no contract names no shape for its filler to
+    /// conform to.
+    #[error(
+        "{path}: `[role.{role}]` must declare a contract — a `contract` template path or inline `[[clause]]`s"
+    )]
+    #[diagnostic(code(temper::compose::role_no_contract))]
+    RoleNoContract {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role missing a contract.
+        role: String,
+    },
+
+    /// A `[role.<name>]` declares *both* a `contract` template path and inline
+    /// `[[clause]]`s — the reference is ambiguous; exactly one is admissible.
+    #[error(
+        "{path}: `[role.{role}]` declares both a `contract` template path and inline `[[clause]]`s; choose one"
+    )]
+    #[diagnostic(code(temper::compose::role_ambiguous_contract))]
+    RoleAmbiguousContract {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role with a doubly-declared contract.
+        role: String,
+    },
+
+    /// A `[role.<name>]`'s `match` selector is not exactly one of the closed set
+    /// (a `name` glob or a `role` marker). Zero, many, or an unknown key all land
+    /// here — matching is a decidable selector, never an open guess.
+    #[error(
+        "{path}: `[role.{role}]` `match` must name exactly one decidable selector (`name` glob or `role` marker)"
+    )]
+    #[diagnostic(code(temper::compose::role_bad_match))]
+    RoleBadMatch {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role with the malformed selector.
+        role: String,
+    },
+
     /// A layered clause is outside the closed vocabulary (or otherwise malformed).
     /// Bubbled verbatim from [`crate::contract`] so the author layer's clauses are
-    /// held to the exact same closed-vocabulary contract as a bare one's.
+    /// held to the exact same closed-vocabulary contract as a bare one's. Covers a
+    /// role's inline `[[clause]]`s too, since they reuse [`contract::parse_clauses`].
     #[error(transparent)]
     #[diagnostic(transparent)]
     Contract(#[from] ContractError),
@@ -202,10 +378,35 @@ impl AuthorLayer {
             }
         }
 
+        let mut roles = BTreeMap::new();
+        if let Some(item) = doc.as_table().get("role") {
+            let role_table = item
+                .as_table()
+                .ok_or_else(|| ComposeError::RoleRootNotTable {
+                    path: path.to_path_buf(),
+                })?;
+            for (name, item) in role_table.iter() {
+                let table = item.as_table().ok_or_else(|| ComposeError::RoleNotTable {
+                    path: path.to_path_buf(),
+                    role: name.to_string(),
+                })?;
+                roles.insert(name.to_string(), parse_role(table, name, path)?);
+            }
+        }
+
         Ok(Self {
             path: path.to_path_buf(),
             kinds,
+            roles,
         })
+    }
+
+    /// The parsed role roster, keyed by role name. Empty when the `temper.toml`
+    /// declares no `[role.<name>]` tables — a kind-only (or empty) layer carries
+    /// an empty roster. Parse-only in this tier.
+    #[must_use]
+    pub fn roles(&self) -> &BTreeMap<String, Role> {
+        &self.roles
     }
 
     /// The effective contract for `kind`: this layer's clauses for that kind
@@ -283,6 +484,150 @@ fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer,
     };
     let clauses = contract::parse_clauses(table, path)?;
     Ok(KindLayer { adopt, clauses })
+}
+
+/// Parse one `[role.<name>]` table into a typed [`Role`]: the required `artifact`
+/// kind and `match` selector, the contract reference (a `contract` path string or
+/// an inline `[[clause]]` array — exactly one), the optional `required` flag
+/// (absent ⇒ `false`), and the optional `verified_by` verifier. Each malformed
+/// field is a load error, mirroring `[kind.<k>]` parsing.
+fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeError> {
+    let artifact = role_str(table, "artifact", role, path)?.ok_or_else(|| {
+        ComposeError::RoleMissingArtifact {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+        }
+    })?;
+    let contract = parse_role_contract(table, role, path)?;
+    let selector = parse_match(table, role, path)?;
+    let required = parse_role_required(table, role, path)?;
+    let verified_by = role_str(table, "verified_by", role, path)?;
+
+    Ok(Role {
+        name: role.to_string(),
+        artifact,
+        contract,
+        selector,
+        required,
+        verified_by,
+    })
+}
+
+/// The role's contract reference — exactly one of a `contract` template path or
+/// an inline `[[role.<name>.clause]]` array. Declaring neither names no shape;
+/// declaring both is ambiguous; both are load errors. Inline clauses go through
+/// the shared [`contract::parse_clauses`], so an unknown predicate is rejected
+/// just as in a bare contract.
+fn parse_role_contract(
+    table: &Table,
+    role: &str,
+    path: &Path,
+) -> Result<RoleContract, ComposeError> {
+    let template = role_str(table, "contract", role, path)?;
+    let has_clauses = table.contains_key("clause");
+    match (template, has_clauses) {
+        (Some(_), true) => Err(ComposeError::RoleAmbiguousContract {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+        }),
+        (Some(template), false) => Ok(RoleContract::Template(template)),
+        (None, true) => Ok(RoleContract::Inline(contract::parse_clauses(table, path)?)),
+        (None, false) => Err(ComposeError::RoleNoContract {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+        }),
+    }
+}
+
+/// The role's `match` selector: the inline `match` table must name exactly one of
+/// the closed set — a `name` glob or a `role` marker — whose value is a string.
+/// Absent ⇒ [`ComposeError::RoleMissingMatch`]; zero/many/unknown keys ⇒
+/// [`ComposeError::RoleBadMatch`]. The pattern is stored verbatim, never matched.
+fn parse_match(table: &Table, role: &str, path: &Path) -> Result<MatchSelector, ComposeError> {
+    let item = table
+        .get("match")
+        .ok_or_else(|| ComposeError::RoleMissingMatch {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+        })?;
+    let selector_table = item
+        .as_table_like()
+        .ok_or_else(|| ComposeError::RoleWrongType {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+            key: "match",
+            expected: "an inline table",
+        })?;
+
+    let bad_match = || ComposeError::RoleBadMatch {
+        path: path.to_path_buf(),
+        role: role.to_string(),
+    };
+
+    let mut selector = None;
+    for (key, value) in selector_table.iter() {
+        if selector.is_some() {
+            // A second selector key — `match` must name exactly one.
+            return Err(bad_match());
+        }
+        let pattern = value.as_str().ok_or_else(|| ComposeError::RoleWrongType {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+            key: "match",
+            expected: "a string selector value",
+        })?;
+        selector = Some(match key {
+            "name" => MatchSelector::Name {
+                glob: pattern.to_string(),
+            },
+            "role" => MatchSelector::Role {
+                marker: pattern.to_string(),
+            },
+            _ => return Err(bad_match()),
+        });
+    }
+    selector.ok_or_else(bad_match)
+}
+
+/// The role's optional `required` flag: absent ⇒ `false` (`temper` never
+/// fabricates a gate the author did not declare); present-but-not-a-boolean ⇒ a
+/// load error.
+fn parse_role_required(table: &Table, role: &str, path: &Path) -> Result<bool, ComposeError> {
+    match table.get("required") {
+        None => Ok(false),
+        Some(item) => item.as_bool().ok_or_else(|| ComposeError::RoleWrongType {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+            key: "required",
+            expected: "a boolean",
+        }),
+    }
+}
+
+/// Read an optional string key off a `[role.<name>]` table: absent ⇒ `None`,
+/// present-but-not-a-string ⇒ [`ComposeError::RoleWrongType`].
+fn role_str(
+    table: &Table,
+    key: &'static str,
+    role: &str,
+    path: &Path,
+) -> Result<Option<String>, ComposeError> {
+    match table.get(key) {
+        None => Ok(None),
+        Some(item) => {
+            Some(
+                item.as_str()
+                    .map(str::to_string)
+                    .ok_or_else(|| ComposeError::RoleWrongType {
+                        path: path.to_path_buf(),
+                        role: role.to_string(),
+                        key,
+                        expected: "a string",
+                    }),
+            )
+            .transpose()
+        }
+    }
 }
 
 /// Whether two clauses address the same thing — the same predicate key and the
@@ -508,5 +853,251 @@ adopt = "skill.cursor"
     fn a_non_table_kind_entry_is_a_load_error() {
         let err = AuthorLayer::parse("kind = 7\n", Path::new("temper.toml")).unwrap_err();
         assert!(matches!(err, ComposeError::KindRootNotTable { .. }));
+    }
+
+    // ---- role roster (parse-only) -----------------------------------------
+
+    #[test]
+    fn a_full_role_table_parses_into_a_typed_role() {
+        // Every field present: artifact kind, a path-string contract, a name-glob
+        // selector, an explicit `required`, and a `verified_by` verifier.
+        let toml = r#"
+[role.task-planning]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "plan*" }
+required = true
+verified_by = "tests/plan.rs"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer
+            .roles()
+            .get("task-planning")
+            .expect("the role parses into the roster");
+        assert_eq!(
+            role,
+            &Role {
+                name: "task-planning".to_string(),
+                artifact: "skill".to_string(),
+                contract: RoleContract::Template("contracts/skill.anthropic.toml".to_string()),
+                selector: MatchSelector::Name {
+                    glob: "plan*".to_string(),
+                },
+                required: true,
+                verified_by: Some("tests/plan.rs".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn an_inline_clause_contract_parses_via_the_shared_parser() {
+        // No `contract` path: the role's contract is inline `[[clause]]`s, parsed
+        // by the same closed-vocabulary parser a bare contract uses. The selector
+        // is the opt-in `role` marker form.
+        let toml = r#"
+[role.release-tool]
+artifact = "command"
+match = { role = "release" }
+[[role.release-tool.clause]]
+severity = "required"
+predicate = "required"
+field = "description"
+[[role.release-tool.clause]]
+severity = "required"
+predicate = "must_define"
+marker = "executable"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("release-tool").expect("the role parses");
+        assert_eq!(
+            role.selector,
+            MatchSelector::Role {
+                marker: "release".to_string(),
+            }
+        );
+        assert_eq!(
+            role.contract,
+            RoleContract::Inline(vec![
+                Clause {
+                    severity: Severity::Required,
+                    predicate: Predicate::Required {
+                        field: "description".to_string(),
+                    },
+                },
+                Clause {
+                    severity: Severity::Required,
+                    predicate: Predicate::MustDefine {
+                        marker: "executable".to_string(),
+                    },
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn an_absent_required_flag_defaults_to_false() {
+        // `temper` never fabricates a gate the author did not declare: an absent
+        // `required` is `false`, not `true`.
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("linter").expect("the role parses");
+        assert!(!role.required);
+        assert_eq!(role.verified_by, None);
+    }
+
+    #[test]
+    fn an_unknown_predicate_in_an_inline_role_contract_is_a_load_error() {
+        // The shared parser rejects an out-of-vocabulary predicate in a role's
+        // inline clauses exactly as it does in a bare contract — no escape hatch.
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+match = { name = "lint*" }
+[[role.linter.clause]]
+severity = "required"
+predicate = "word_count"
+field = "description"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::Contract(ContractError::UnknownPredicate { ref predicate, .. })
+                if predicate == "word_count"
+        ));
+    }
+
+    #[test]
+    fn a_role_missing_its_artifact_kind_is_a_load_error() {
+        let toml = r#"
+[role.linter]
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*" }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleMissingArtifact { ref role, .. } if role == "linter"
+        ));
+    }
+
+    #[test]
+    fn a_role_with_neither_a_contract_nor_inline_clauses_is_a_load_error() {
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+match = { name = "lint*" }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleNoContract { ref role, .. } if role == "linter"
+        ));
+    }
+
+    #[test]
+    fn a_role_with_both_a_contract_and_inline_clauses_is_a_load_error() {
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*" }
+[[role.linter.clause]]
+severity = "required"
+predicate = "required"
+field = "name"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleAmbiguousContract { ref role, .. } if role == "linter"
+        ));
+    }
+
+    #[test]
+    fn a_role_missing_its_match_selector_is_a_load_error() {
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleMissingMatch { ref role, .. } if role == "linter"
+        ));
+    }
+
+    #[test]
+    fn a_match_with_an_unknown_selector_key_is_a_load_error() {
+        // `path` is not in the closed selector set {name, role}.
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { path = "skills/lint" }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleBadMatch { ref role, .. } if role == "linter"
+        ));
+    }
+
+    #[test]
+    fn a_match_naming_two_selectors_is_a_load_error() {
+        // Exactly one selector — `name` and `role` together is ambiguous.
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*", role = "lint" }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleBadMatch { .. }));
+    }
+
+    #[test]
+    fn a_non_boolean_required_flag_is_a_load_error() {
+        let toml = r#"
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*" }
+required = "yes"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleWrongType {
+                key: "required",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn a_non_table_role_root_is_a_load_error() {
+        let err = AuthorLayer::parse("role = 7\n", Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleRootNotTable { .. }));
+    }
+
+    #[test]
+    fn a_kind_only_temper_toml_carries_an_empty_roster() {
+        // Customizing only `[kind.*]` leaves the role roster empty — and the kind
+        // layer still works exactly as before.
+        let toml = r#"
+[kind.skill]
+[[kind.skill.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 100
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        assert!(layer.roles().is_empty());
     }
 }
