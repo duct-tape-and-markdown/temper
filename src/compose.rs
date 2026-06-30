@@ -106,12 +106,33 @@ pub struct Role {
     pub selector: MatchSelector,
     /// Whether an absent filler is a conformance violation. Absent in source ⇒
     /// `false`: `temper` never fabricates a gate the author did not declare
-    /// (`00-intent.md` law 4).
+    /// (`00-intent.md` law 4). Mutually exclusive with [`Role::count`]: `required`
+    /// is the single-filler shorthand, `count` the general cardinality form.
     pub required: bool,
+    /// An optional bound on the matched-set cardinality — the set-scope `count`
+    /// predicate (`specs/45-governance.md`, "The set scope (the roster)"): the
+    /// number of artifacts matching the selector must land in `[min, max]`. Absent
+    /// ⇒ `None` (no cardinality gate beyond `required`'s single-filler one). The
+    /// general form of `required`; the two are mutually exclusive.
+    pub count: Option<CountBound>,
     /// An optional external verifier for the behavioral remainder (`verified_by`).
     /// Stored verbatim; whether it *resolves* is an admissibility check left to a
     /// follow-on entry.
     pub verified_by: Option<String>,
+}
+
+/// An inclusive bound on the cardinality of a role's matched set — the set-scope
+/// `count` predicate (`specs/45-governance.md`, "The set scope (the roster)"). The
+/// number of artifacts the role's selector matches must land in `[min, max]`;
+/// "at most N agents" is `{ min = 0, max = N }`, "exactly one planner" is
+/// `{ min = 1, max = 1 }`. An inverted `min > max` bound admits no cardinality and
+/// is rejected as inadmissible (`crate::roster`), mirroring `range`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CountBound {
+    /// The inclusive lower bound on the matched-set size.
+    pub min: usize,
+    /// The inclusive upper bound on the matched-set size.
+    pub max: usize,
 }
 
 /// A role's contract reference: the filler's contract is either an adopted
@@ -356,6 +377,35 @@ pub enum ComposeError {
         role: String,
     },
 
+    /// A `[role.<name>]`'s `count` bound is malformed — not an inline table, or its
+    /// `min`/`max` are missing, non-integer, or negative. The matched-set
+    /// cardinality bound is a pair of `usize` counts, never an open guess; zero,
+    /// missing, mistyped, or negative bounds all land here.
+    #[error(
+        "{path}: `[role.{role}]` `count` must be an inline table with non-negative integer `min` and `max` bounds"
+    )]
+    #[diagnostic(code(temper::compose::role_bad_count))]
+    RoleBadCount {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role with the malformed count bound.
+        role: String,
+    },
+
+    /// A `[role.<name>]` declares *both* `required` and a `count` bound. The two
+    /// are mutually exclusive: `required` is the single-filler shorthand, `count`
+    /// the general cardinality form, so declaring both is ambiguous.
+    #[error(
+        "{path}: `[role.{role}]` declares both `required` and `count`; they are mutually exclusive (`count` is the general form of `required`'s single-filler bound)"
+    )]
+    #[diagnostic(code(temper::compose::role_count_and_required))]
+    RoleCountAndRequired {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role declaring both.
+        role: String,
+    },
+
     /// A layered clause is outside the closed vocabulary (or otherwise malformed).
     /// Bubbled verbatim from [`crate::contract`] so the author layer's clauses are
     /// held to the exact same closed-vocabulary contract as a bare one's. Covers a
@@ -530,7 +580,16 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
     })?;
     let contract = parse_role_contract(table, role, path)?;
     let selector = parse_match(table, role, path)?;
+    // `required` and `count` are two ways to express the same dimension (matched-set
+    // cardinality), so declaring both is ambiguous — reject it before parsing either.
+    if table.contains_key("required") && table.contains_key("count") {
+        return Err(ComposeError::RoleCountAndRequired {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+        });
+    }
     let required = parse_role_required(table, role, path)?;
+    let count = parse_count(table, role, path)?;
     let verified_by = role_str(table, "verified_by", role, path)?;
 
     Ok(Role {
@@ -539,8 +598,40 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
         contract,
         selector,
         required,
+        count,
         verified_by,
     })
+}
+
+/// The role's optional `count` bound: an inline `count = { min, max }` table whose
+/// `min` and `max` are non-negative integers (`usize`). Absent ⇒ `None`. Any
+/// malformation — not a table, a missing/mistyped/negative bound — collapses to
+/// [`ComposeError::RoleBadCount`], the way [`parse_match`] folds its malformations
+/// into one error. The bound is stored verbatim; whether `min > max` (an
+/// unsatisfiable bound) is an *admissibility* concern, checked in [`crate::roster`].
+fn parse_count(table: &Table, role: &str, path: &Path) -> Result<Option<CountBound>, ComposeError> {
+    let Some(item) = table.get("count") else {
+        return Ok(None);
+    };
+    let bad_count = || ComposeError::RoleBadCount {
+        path: path.to_path_buf(),
+        role: role.to_string(),
+    };
+    let count_table = item.as_table_like().ok_or_else(bad_count)?;
+    let min = count_bound(count_table, "min").ok_or_else(bad_count)?;
+    let max = count_bound(count_table, "max").ok_or_else(bad_count)?;
+    Ok(Some(CountBound { min, max }))
+}
+
+/// Read one `count` bound (`min`/`max`) off the inline table as a `usize`: present,
+/// a TOML integer, and non-negative. Any miss — absent, a non-integer, or a
+/// negative value (`usize` cannot hold one) — is `None`, which [`parse_count`]
+/// reports as a single [`ComposeError::RoleBadCount`].
+fn count_bound(table: &dyn toml_edit::TableLike, key: &str) -> Option<usize> {
+    table
+        .get(key)?
+        .as_integer()
+        .and_then(|n| usize::try_from(n).ok())
 }
 
 /// The role's contract reference — exactly one of a `contract` template path or
@@ -914,6 +1005,7 @@ verified_by = "tests/plan.rs"
                     glob: "plan*".to_string(),
                 },
                 required: true,
+                count: None,
                 verified_by: Some("tests/plan.rs".to_string()),
             }
         );
@@ -1114,6 +1206,103 @@ required = "yes"
     fn a_non_table_role_root_is_a_load_error() {
         let err = AuthorLayer::parse("role = 7\n", Path::new("temper.toml")).unwrap_err();
         assert!(matches!(err, ComposeError::RoleRootNotTable { .. }));
+    }
+
+    #[test]
+    fn a_count_bound_parses_into_a_typed_role() {
+        // The set-scope `count` predicate: an inline `{ min, max }` table parses
+        // into a `CountBound`, and (being the general form of `required`) no
+        // `required` flag rides alongside it.
+        let toml = r#"
+[role.agents]
+artifact = "agent"
+contract = "contracts/agent.toml"
+match = { name = "agent-*" }
+count = { min = 0, max = 3 }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert_eq!(role.count, Some(CountBound { min: 0, max: 3 }));
+        assert!(!role.required);
+    }
+
+    #[test]
+    fn a_non_table_count_is_a_load_error() {
+        let toml = r#"
+[role.agents]
+artifact = "agent"
+contract = "contracts/agent.toml"
+match = { name = "agent-*" }
+count = 3
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleBadCount { ref role, .. } if role == "agents"
+        ));
+    }
+
+    #[test]
+    fn a_count_with_a_non_integer_bound_is_a_load_error() {
+        // A `max` that is not a non-negative integer collapses to `RoleBadCount`,
+        // the way a malformed `match` collapses to `RoleBadMatch`.
+        let toml = r#"
+[role.agents]
+artifact = "agent"
+contract = "contracts/agent.toml"
+match = { name = "agent-*" }
+count = { min = 0, max = "three" }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleBadCount { .. }));
+    }
+
+    #[test]
+    fn a_count_missing_a_bound_is_a_load_error() {
+        // Both `min` and `max` are required — the bound is a closed pair, never a
+        // half-open guess.
+        let toml = r#"
+[role.agents]
+artifact = "agent"
+contract = "contracts/agent.toml"
+match = { name = "agent-*" }
+count = { max = 3 }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleBadCount { .. }));
+    }
+
+    #[test]
+    fn a_negative_count_bound_is_a_load_error() {
+        // A negative `min` cannot be a `usize` cardinality — rejected, not floored.
+        let toml = r#"
+[role.agents]
+artifact = "agent"
+contract = "contracts/agent.toml"
+match = { name = "agent-*" }
+count = { min = -1, max = 3 }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleBadCount { .. }));
+    }
+
+    #[test]
+    fn declaring_both_required_and_count_is_a_load_error() {
+        // The two express the same dimension (matched-set cardinality); declaring
+        // both is ambiguous, so it is rejected before either is read.
+        let toml = r#"
+[role.agents]
+artifact = "agent"
+contract = "contracts/agent.toml"
+match = { name = "agent-*" }
+required = true
+count = { min = 0, max = 3 }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleCountAndRequired { ref role, .. } if role == "agents"
+        ));
     }
 
     #[test]

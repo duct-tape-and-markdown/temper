@@ -54,7 +54,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::check::Diagnostic;
-use crate::compose::{MatchSelector, Role};
+use crate::compose::{CountBound, MatchSelector, Role};
 use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
@@ -97,18 +97,32 @@ pub fn check(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for role in roles.values() {
-        // `temper` never fabricates a gate the author did not declare: a
-        // non-`required` role's filler count is not a violation in this tier.
-        if !role.required {
-            continue;
-        }
         let candidates = by_kind.get(role.artifact.as_str()).copied().unwrap_or(&[]);
         let fillers = fillers(&role.selector, candidates);
-        match fillers.as_slice() {
-            // Exactly one filler — the single-filler role is satisfied.
-            [_] => {}
-            [] => diagnostics.push(unfilled(role)),
-            many => diagnostics.push(overfilled(role, many)),
+        match &role.count {
+            // A declared `count` bound quantifies over the matched set: the
+            // cardinality must land in `[min, max]`, generalizing the single-filler
+            // zero/one/many arms below (`specs/45-governance.md`, "The set scope").
+            // `count` is itself an author-declared gate, so it fires regardless of
+            // `required` (which it is mutually exclusive with).
+            Some(bound) => {
+                if !(bound.min..=bound.max).contains(&fillers.len()) {
+                    diagnostics.push(out_of_band(role, bound, &fillers));
+                }
+            }
+            // No `count`: the single-filler form. `temper` never fabricates a gate
+            // the author did not declare, so a non-`required` role's filler count is
+            // not a violation; a `required` one needs exactly one filler.
+            None => {
+                if !role.required {
+                    continue;
+                }
+                match fillers.as_slice() {
+                    [_] => {}
+                    [] => diagnostics.push(unfilled(role)),
+                    many => diagnostics.push(overfilled(role, many)),
+                }
+            }
         }
     }
     diagnostics
@@ -164,7 +178,7 @@ pub fn conformance(
 /// [`Diagnostic::error`] (an inadmissible role cannot be trusted, so it must fail
 /// the run) and names the role it indicts.
 ///
-/// Four decidable clauses, mirroring the spec's admissibility list for the role
+/// Five decidable clauses, mirroring the spec's admissibility list for the role
 /// primitive:
 ///
 /// - **(a) the `match` selector resolves** — a [`MatchSelector::Role`] marker is
@@ -186,6 +200,9 @@ pub fn conformance(
 /// - **(d) any `verified_by` resolves** — the named path exists relative to
 ///   `base_dir` (the referential clause; a dangling verifier is a silent no-op,
 ///   the very failure `00-intent.md` law 1 forbids).
+/// - **(e) a declared `count` bound is satisfiable** — `min <= max`; an inverted
+///   bound admits no cardinality at all, so the role's definition is inadmissible,
+///   mirroring `range`'s `min > max` rejection (`specs/45-governance.md`).
 ///
 /// `by_kind` is the same workspace-features map [`check`] and [`conformance`] read
 /// — admissibility uses only its *keys* (the modeled kinds), never the fillers.
@@ -261,6 +278,23 @@ pub fn admissibility(
                 format!(
                     "role `{}` names verifier `{verifier}`, which does not resolve to a path under the project — a dangling verifier is a silent no-op",
                     role.name
+                ),
+            ));
+        }
+
+        // (e) A declared `count` bound is satisfiable: `min <= max`. An inverted
+        // bound admits no cardinality at all — a vacuous clause the author cannot
+        // have meant — so the role's definition is inadmissible, mirroring `range`'s
+        // `min > max` rejection (`specs/45-governance.md`, "reject min>max").
+        if let Some(bound) = &role.count
+            && bound.min > bound.max
+        {
+            diagnostics.push(Diagnostic::error(
+                ROLE_ADMISSIBILITY_RULE,
+                &role.name,
+                format!(
+                    "role `{}` declares an inverted count bound (min {} greater than max {}), which no matched set can satisfy",
+                    role.name, bound.min, bound.max
                 ),
             ));
         }
@@ -372,6 +406,29 @@ fn overfilled(role: &Role, fillers: &[&str]) -> Diagnostic {
             fillers.len(),
             role.artifact,
             fillers.join(", ")
+        ),
+    )
+}
+
+/// The finding for a role whose matched-set cardinality falls outside its declared
+/// `count` bound — naming the role, the count, the kind, the colliding fillers, and
+/// the `[min, max]` bound it missed (`specs/45-governance.md`, "The set scope").
+fn out_of_band(role: &Role, bound: &CountBound, fillers: &[&str]) -> Diagnostic {
+    let listed = if fillers.is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", fillers.join(", "))
+    };
+    Diagnostic::error(
+        ROLE_RULE,
+        &role.name,
+        format!(
+            "role `{}` is filled by {} `{}` artifact(s){listed}, outside its declared count bound [{}, {}]",
+            role.name,
+            fillers.len(),
+            role.artifact,
+            bound.min,
+            bound.max
         ),
     )
 }
@@ -538,6 +595,57 @@ mod tests {
             )
             .is_empty()
         );
+    }
+
+    /// A `count = { min, max }` band role over the `skill` kind — the set-scope
+    /// predicate, mutually exclusive with `required`.
+    fn count_band_role(min: usize, max: usize) -> Role {
+        role(
+            &format!(
+                "[role.agents]\n\
+                 artifact = \"skill\"\n\
+                 contract = \"contracts/skill.anthropic.toml\"\n\
+                 match = {{ name = \"agent-*\" }}\n\
+                 count = {{ min = {min}, max = {max} }}\n"
+            ),
+            "agents",
+        )
+    }
+
+    #[test]
+    fn a_count_band_is_clean_inside_and_fires_outside() {
+        // A `[1, 2]` band: one or two matching skills are clean, zero or three fire.
+        let role = count_band_role(1, 2);
+        let agent = |n: u8| features(&format!("agent-{n}"), None);
+
+        // In band (one filler, and two fillers) ⇒ clean.
+        assert!(run(role.clone(), &[agent(1)]).is_empty());
+        assert!(run(role.clone(), &[agent(1), agent(2)]).is_empty());
+
+        // Below the band (zero fillers — the non-matching skill is ignored) ⇒ fires.
+        let below = run(role.clone(), &[features("lint-rust", None)]);
+        assert_eq!(below.len(), 1);
+        assert_eq!(below[0].severity, Severity::Error);
+        assert_eq!(below[0].rule, ROLE_RULE);
+        assert_eq!(below[0].artifact, "agents");
+        assert!(below[0].message.contains("[1, 2]"));
+
+        // Above the band (three fillers) ⇒ fires, naming the colliding fillers.
+        let above = run(role, &[agent(1), agent(2), agent(3)]);
+        assert_eq!(above.len(), 1);
+        assert!(above[0].message.contains("agent-1"));
+        assert!(above[0].message.contains("agent-3"));
+        assert!(above[0].message.contains("[1, 2]"));
+    }
+
+    #[test]
+    fn a_count_role_fires_without_a_required_flag() {
+        // `count` is an author-declared gate, so it fires independent of `required`
+        // (with which it is mutually exclusive) — a `{ min = 2, max = 4 }` role with
+        // one filler is out of band.
+        let one = run(count_band_role(2, 4), &[features("agent-1", None)]);
+        assert_eq!(one.len(), 1);
+        assert_eq!(one[0].rule, ROLE_RULE);
     }
 
     /// A role carrying an inline `max_len` contract on `name`, capped at `max`.
@@ -793,6 +901,50 @@ mod tests {
         // A modeled kind, a well-formed name glob, an admissible inline contract,
         // and no verifier — nothing for admissibility to reject.
         let role = inline_maxlen_role(64);
+        assert!(run_admissibility(role, Path::new("")).is_empty());
+    }
+
+    #[test]
+    fn an_inverted_count_bound_is_inadmissible() {
+        // `min > max` admits no cardinality at all — a vacuous bound the author
+        // cannot have meant, so the role's definition fails admissibility (mirroring
+        // `range`'s `min > max` rejection).
+        let role = role(
+            "[role.agents]\n\
+             artifact = \"skill\"\n\
+             match = { name = \"agent-*\" }\n\
+             count = { min = 3, max = 1 }\n\
+             [[role.agents.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "agents",
+        );
+        let diags = run_admissibility(role, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].artifact, "agents");
+        assert!(diags[0].message.contains("inverted count bound"));
+    }
+
+    #[test]
+    fn a_well_ordered_count_bound_is_admissible() {
+        // `min <= max` (including a degenerate exactly-one `[1, 1]` band) is a
+        // satisfiable bound — nothing for admissibility to reject.
+        let role = role(
+            "[role.agents]\n\
+             artifact = \"skill\"\n\
+             match = { name = \"agent-*\" }\n\
+             count = { min = 1, max = 1 }\n\
+             [[role.agents.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "agents",
+        );
         assert!(run_admissibility(role, Path::new("")).is_empty());
     }
 
