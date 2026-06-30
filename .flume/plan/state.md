@@ -1,25 +1,25 @@
 # Plan state
 
-- **Phase:** reconcile after SPEC-KIND-IR shipped. The corpus also gained a new
-  human spec, `specs/05-model.md` ("The domain model") — a consolidation/orientation
-  file that owns the *relationships* between temper's entities (every entity delegates
-  detail to its owning spec). It authorizes no new buildable mechanism; it only
-  touches `(model-declaration-format)` (its reflexive model is prose, no format yet).
-- **Last shipped:** SPEC-KIND-IR (7befdf9 / a1b67c3). Verified on disk: `src/spec.rs`
-  is the full prose-only `Spec` IR (`from_source_file`, `from_surface_dir`,
-  `to_meta_document`, provenance + SHA-256), and `pub mod spec;` is wired in `lib.rs`.
-- **In flight:** nothing; build drained SPEC-KIND-IR. Tree clean apart from untracked
-  human artifacts — `specs/{05-model,15-kinds}.md` and `contracts/spec.toml`.
-- **Next (filed):** SPEC-KIND-IMPORT (`open`) — unblocked, IR shipped; then
-  SPEC-KIND-WORKSPACE (`open`, disjoint, check.rs only); then SPEC-KIND-GATE
-  (`parked` — a human must first commit the untracked, curated `contracts/spec.toml`
-  the gate embeds via `include_str!`).
-- **Reconciled this tick:** confirmed on disk that `import.rs`/`check.rs`/`extract.rs`/
-  `main.rs` carry no spec handling yet — IMPORT/WORKSPACE/GATE all unshipped. Flipped
-  IMPORT + WORKSPACE from `blockedBy SPEC-KIND-IR` to `open` (IR now on disk). GATE
-  stays `parked`. Inbox empty; `05-model.md` reconciled (no new entry/fork). Forks
-  unchanged.
+- **Phase:** reconcile after SPEC-KIND-IMPORT + SPEC-KIND-WORKSPACE shipped. Verified
+  on disk that two adjacent frontiers are *also* fully shipped: the `type` primitive
+  (`Predicate::Type` in `contract.rs` + `engine.rs`) and the whole
+  `temper.toml`/roster/`verified_by` layer (`compose.rs` layering + `roster.rs`
+  selection/conformance/admissibility, wired into `check` in `main.rs`).
+- **Last shipped:** SPEC-KIND-IMPORT + SPEC-KIND-WORKSPACE (2f08210). On disk:
+  `import.rs` scans `<harness>/specs/*.md` into `<into>/specs/<name>/`, and
+  `check.rs`'s `Workspace` carries `pub specs: Vec<Spec>`.
+- **In flight:** nothing; tree clean apart from untracked human artifacts
+  (`specs/{05-model,15-kinds}.md`, `contracts/spec.toml`).
+- **The gap reconciled:** `check` validates skills + rules + the roster but **never
+  the specs** — `ws.specs` is loaded yet never extracted or checked. That gap is the
+  spec-kind gate, now split into SPEC-FEATURES (the pure extractor, `open`/pickable)
+  and SPEC-KIND-GATE (the `check` dispatch + `contracts/spec.toml` embed, still
+  `parked` — a human must commit the untracked spec.toml the gate embeds via
+  `include_str!`). Closed the resolved forks whose dependents shipped:
+  `(field-type-lattice)` and `(harness-contract-provisioning)` are now build-done
+  (notes updated in open-questions). Inbox empty; no new fork.
 
-Plan continues: no — the queue is reconciled (IR confirmed shipped on disk; the
-remaining spec-kind build-out unshipped, with IMPORT now immediately pickable and
-fork-free), `05-model.md` reconciled, inbox empty. Build runs and drains SPEC-KIND-IMPORT.
+Plan continues: no — the queue is reconciled and SPEC-FEATURES is `open` and
+immediately pickable (fork-free, extract.rs only). Hand to build; the parked GATE and
+the references-resolve / decisions-name-alternatives clauses all wait on the human
+committing `contracts/spec.toml`, not on more planning.

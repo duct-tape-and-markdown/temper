@@ -79,8 +79,10 @@ and embeds the bundled skill template as the default.
   `null` — taken from the source scalar's *parsed* type; a richer type language
   (formats, unions, ranges) was rejected as the JSON-Schema unsound-proxy surface.
   Requires the extractor to preserve the source scalar type first (the `extract.rs`
-  stringify shortcut is corrected before the primitive ships). Dependents filed:
-  TYPED-EXTRACTION → TYPE-PRIMITIVE (pending.json).
+  stringify shortcut is corrected before the primitive ships). SHIPPED: on disk the
+  `type` predicate is parsed in `contract.rs` (with the `UnknownType` reject) and
+  decided in `engine.rs` over the kind-preserving `FeatureValue` — TYPED-EXTRACTION →
+  TYPE-PRIMITIVE both drained. Kept as the decision record; no dependent still waits.
 
 - `(harness-contract-provisioning)` — RESOLVED, both halves.
   *Home/selection* (`specs/40-composition.md` Decision: "the author-declared contract
@@ -91,8 +93,11 @@ and embeds the bundled skill template as the default.
   "`verified_by` — where behavior goes"): "wired" is a **referential** clause — the
   named verifier must *resolve* (test target / CI job / path exists) or admissibility
   fails; a string-present check was rejected (a dangling verifier is a silent no-op).
-  The whole role/`verified_by`/`temper.toml` layer is now fork-free — frontier in
-  `state.md`, to be decomposed into entries by a follow-on plan tick.
+  SHIPPED: the whole role/`verified_by`/`temper.toml` layer is on disk — `compose.rs`
+  layers an optional `temper.toml` (adopt / extend / override / severity-flip) over the
+  by-kind floor and parses the `[role.*]` roster; `roster.rs` runs selection +
+  `conforms-to` + admissibility (including `verified_by` resolving to a real path); all
+  wired into `check` in `main.rs`. Kept as the decision record; no dependent still waits.
 
 - `(binary-bootstrap)` — RESOLVED (`specs/50-distribution.md` Decision: "acquisition
   rides the ecosystem's package managers"). Ship the prebuilt binary through npm with
@@ -108,11 +113,14 @@ and embeds the bundled skill template as the default.
   `15-kinds.md` makes `spec` a *custom* kind (provenance: author-defined, not a harness
   format) governing `specs/*.md`, with a worked-example extraction (ATX headings, `## Decision`
   blocks, backtick-filename refs) and contract (max_lines + two clauses). The `spec`-kind
-  build-out is filed: SPEC-KIND-IR → IMPORT → WORKSPACE → GATE (pending.json). **(3)** the
-  **referential `references-resolve` clause** — RESOLVED: `15-kinds.md` *declares* the spec
-  landscape's reference syntax (the backtick-wrapped `` `NN-name.md` ``), the precondition
-  `10-contracts.md`'s referential primitive needed; references-resolve is now fork-free
-  build work (state.md frontier). **(2)** the `section_contains` / decisions-name-alternatives
+  build-out: SPEC-KIND-IR → IMPORT → WORKSPACE all SHIPPED on disk; the gate splits into
+  SPEC-FEATURES (`open`, the extractor) and SPEC-KIND-GATE (`parked` on the spec.toml
+  commit). **(3)** the **referential `references-resolve` clause** — RESOLVED as intent:
+  `15-kinds.md` *declares* the spec landscape's reference syntax (the backtick-wrapped
+  `` `NN-name.md` ``), the precondition `10-contracts.md`'s referential primitive needed.
+  Fork-free, but its build is *downstream of the spec.toml commit* — the clause lives
+  commented in the untracked `contracts/spec.toml`, so it ships only once a human commits
+  and uncomments it (same gate as GATE). **(2)** the `section_contains` / decisions-name-alternatives
   **predicate** is NOT resolved — carved out as `(decision-marker-predicate)` below.
   `contracts/spec.toml` remains untracked human territory; plan neither writes nor commits
   it (the GATE entry is `parked` until a human commits it).
