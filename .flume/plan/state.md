@@ -1,20 +1,23 @@
 # Plan state
 
-- **Phase:** the **rule** artifact kind — second instance of the engine, toward
-  self-hosting (`specs/20-surface.md`, "Artifact kinds & contract selection").
-- **Last shipped:** RULE-IMPORT (208e2cc / 7751c16). Verified on disk: `import`
-  discovers `.claude/rules/*.md` and writes `<into>/rules/<name>/{meta.toml,
-  RULE.md}` + `[[rule]]` roll-up rows (import.rs:101-114, 214-233); `Workspace`
-  now carries `rules` loaded name-sorted (check.rs:39, 57-60); `extract::
-  rule_features` projects them (extract.rs:136).
-- **In flight:** nothing committed; working tree clean. `check` still validates
-  *only* the skill contract — `main.rs` projects `ws.skills` against
-  `BUILTIN_SKILL_CONTRACT` and never touches `ws.rules` (main.rs:77-94).
-- **Next:** RULE-CHECK is now pickable (`open` — its RULE-IMPORT gate landed):
-  embed `contracts/rule.toml`, validate `ws.rules` against it, merge with the
-  skill diagnostics, and land the self-host proof (`temper check` green over
-  temper's own `.claude/rules/` — rust.md/collaboration.md are both clean).
+- **Phase:** the contract engine is feature-complete for the decidable in-crate
+  algebra across the **skill** and **rule** kinds, and self-host is green. The
+  frontier is the spec landscape (declared model + dependency graph,
+  `specs/30-landscapes.md`), gated on the `(model-declaration-format)` human fork.
+- **Last shipped:** RULE-CHECK (6a1a5d8 / 82db54c). Verified on disk: `check`
+  dispatches each artifact to the contract for *its* kind and merges the
+  diagnostics (`main.rs:86-96`), embedding `contracts/rule.toml`
+  (`main.rs:36`); the self-host proof is green — `temper` lints its own
+  `.claude/rules/` clean (`tests/cli.rs:218`).
+- **In flight:** nothing committed; working tree clean. The engine stubs
+  `require_sections` to `Outcome::Indeterminate` (`engine.rs:191`) because
+  `Features` carries `body_lines` but no headings (`extract.rs:59`) — a declared
+  clause that silently neither passes nor fails.
+- **Next:** REQUIRE-SECTIONS is pickable (`open`, fork-free) — extract body
+  headings and decide the clause, closing that gap. The two larger in-scope items
+  (declared model, dependency graph) and `dependency-exists` stay blocked on
+  `(model-declaration-format)`; the full `pattern` primitive on `(regex-crate)`.
 
-Plan continues: no — RULE-IMPORT shipped, the lone reconciliation was flipping
-RULE-CHECK to `open`, inbox is empty, no fork moved, and a pickable `open` entry
-leads the chain. Build drains from here.
+Plan continues: no — pending was empty and the stale `state.md` is reconciled
+(RULE-CHECK shipped); one pickable `open` entry is filed, the inbox is empty, and
+no fork moved. Build drains from here.
