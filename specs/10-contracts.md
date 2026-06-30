@@ -40,9 +40,11 @@ decidable predicates. There is no arbitrary-code clause. Adding a predicate to
 the vocabulary is a deliberate language change, never a per-contract escape
 hatch (law 3). The primitives:
 
-- **field** — `required` / `optional`; `type`; `pattern` (regex); `max_len` /
-  `min_len`; `enum`; `deny` (forbidden values); `forbidden_keys` (e.g. the
-  Cursor `globs`/`alwaysApply` keys Claude Code ignores).
+- **field** — `required` / `optional`; `type`; `allowed_chars` (a declared
+  character class, e.g. `[a-z0-9-]`); `max_len` / `min_len`; `enum`; `deny`
+  (forbidden values); `forbidden_keys` (e.g. the Cursor `globs`/`alwaysApply` keys
+  Claude Code ignores). The full `pattern` (arbitrary regex) clause is **held
+  back** — see the `allowed_chars` Decision below.
 - **structural** — `max_lines`; `require_sections` (named headings present);
   `must_define` (a field/marker exists, e.g. `disable-model-invocation`).
 - **referential** — a reference resolves — *only over a precisely declared
@@ -163,6 +165,23 @@ building is not more power — it is *less power*: a language too weak to lie.
 Adopt libraries for the solved mechanics; build the vocabulary, the diagnostics,
 and the gate.
 
+## Decision: `allowed_chars`, not a general `pattern` clause
+
+**Chosen:** the exposed field-charset predicate is `allowed_chars` — a declared
+character class (`ranges` + `chars`, e.g. `[a-z0-9-]`): decidable, and **too weak
+to encode a proxy** — it can say *which characters*, never *which shape*.
+**Rejected:** a general `pattern = "<regex>"` clause. An arbitrary regex is
+decidable (it matches or it does not), so it would pass admissibility — but it is
+expressive enough to be an **unsound proxy** (`pattern = "(when to use|use this
+when)"` as a has-a-trigger check; a regex standing in for "third person"), the very
+escape hatch the bespoke-algebra Decision closed against OPA/CUE/JSON-Schema,
+walking back in through `regex`. `regex` stays sanctioned for *solved mechanics*,
+but the author-facing vocabulary caps at `allowed_chars`. If a genuine **format**
+need appears — a version or date field a charset cannot shape — add a **narrow
+named predicate** for it, never a general regex clause; the vocabulary stays too
+weak to lie. (Resolves `(regex-crate)`: regex was already sanctioned — the live
+decision is to *not* expose an arbitrary-`pattern` clause.)
+
 ## Decision: a contract is identified by its path/role, not an internal name
 
 **Chosen:** a `Contract` carries **no required internal `name`**. Its identity is
@@ -193,7 +212,8 @@ decidable, therefore sound:
   `companion-refs` unsound);
 - every role's `match` selector **resolves**, and a `required` single-filler role
   is satisfiable;
-- every `pattern` **compiles**; every `enum` is non-empty;
+- every regex-backed clause **compiles** (none today — `pattern` is held, above);
+  every `enum` is non-empty;
 - every `verified_by` **resolves** to a declared verifier (above).
 
 Admissibility never *detects* an unsound proxy — that would be the swamp again.
@@ -213,5 +233,5 @@ slice-1 shortcut, `extract.rs`) makes `type` undecidable and is corrected before
 the primitive ships. **Rejected:** a richer type language (formats, unions, nested
 schemas, numeric ranges) — that drifts toward JSON-Schema, whose expressiveness is
 exactly the unsound-proxy surface the "bespoke closed algebra" Decision rejects.
-`min_len`/`max_len`/`enum`/`pattern` already refine *within* a scalar type; `type`
+`min_len`/`max_len`/`enum`/`allowed_chars` already refine *within* a scalar type; `type`
 only fixes the kind. (Resolves `(field-type-lattice)`.)
