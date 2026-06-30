@@ -1,19 +1,25 @@
 //! `temper import` — scan a Claude Code harness into the typed config surface.
 //!
-//! Implements `import` per `specs/20-surface.md` (the "CLI surface" verb
-//! `temper import` — scan → surface + provenance lock): discover
-//! every skill under `<harness>` (a `skills/*/SKILL.md` layout, plus a bare
-//! `<harness>` that is itself a skill directory), and for each one write the
-//! surface tree `<into>/skills/<name>/` — a typed `meta.toml` header projected
-//! with [`Skill::to_meta_document`] alongside the byte-faithful `SKILL.md` body
-//! and every companion copied byte-for-byte. A roll-up index `<into>/author.toml`
-//! records one `[[skill]]` entry per skill with its provenance and a `body_hash`.
+//! Implements `import` per `specs/20-surface.md` ("Artifact kinds & contract
+//! selection" — `import` scans every kind it knows: `skills/*/SKILL.md` and
+//! `.claude/rules/*.md`). For each skill it writes the surface tree
+//! `<into>/skills/<name>/` — a typed `meta.toml` header projected with
+//! [`Skill::to_meta_document`] alongside the byte-faithful `SKILL.md` body and
+//! every companion copied byte-for-byte. For each rule it writes the parallel
+//! tree `<into>/rules/<name>/` — a `meta.toml` header projected with
+//! [`Rule::to_meta_document`] (the optional `paths` + `[provenance]`) alongside
+//! the byte-faithful `RULE.md` body. A roll-up index `<into>/author.toml` records
+//! one `[[skill]]`/`[[rule]]` entry per artifact with its provenance and a
+//! `body_hash`.
+//!
+//! Note the root asymmetry the spec literal carries: skills live at
+//! `<harness>/skills/`, rules at `<harness>/.claude/rules/`.
 //!
 //! The keystone invariant (`.claude/rules/rust.md`) is idempotence: re-importing
 //! an unchanged harness yields an identical workspace. It holds because every
 //! written artifact is content-derived — `to_meta_document` renders the same
 //! header deterministically, bodies and companions are copied verbatim, and the
-//! roll-up is built from the skills in a fixed (name-sorted) order — and each
+//! roll-up is built from the artifacts in a fixed (name-sorted) order — and each
 //! write overwrites in place rather than appending.
 
 use std::fs;
@@ -22,6 +28,7 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
+use crate::rule::{Rule, RuleError};
 use crate::skill::{Skill, SkillError};
 
 /// Errors raised while importing a harness. Distinct from a [`SkillError`]
@@ -33,6 +40,11 @@ pub enum ImportError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Skill(#[from] SkillError),
+
+    /// A source rule could not be read or projected.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Rule(#[from] RuleError),
 
     /// The harness `skills/` directory could not be enumerated.
     #[error("failed to read harness directory {path}")]
@@ -57,36 +69,46 @@ pub enum ImportError {
     },
 }
 
-/// One row of the `author.toml` roll-up index: a skill's identity, its source
-/// provenance, and the hash of its byte-faithful body.
+/// One row of the `author.toml` roll-up index: an artifact's identity, its source
+/// provenance, and the hash of its byte-faithful body. Shared by both kinds — a
+/// skill `[[skill]]` row and a rule `[[rule]]` row carry the same four columns.
 struct RollupEntry {
-    /// Skill name (and the `skills/<name>/` surface directory).
+    /// Artifact name (and its `<kind>/<name>/` surface directory).
     name: String,
-    /// Path to the original `SKILL.md`, as given relative to the harness arg.
+    /// Path to the original source file, as given relative to the harness arg.
     source_path: String,
-    /// SHA-256 of the original `SKILL.md` bytes (the drift anchor).
+    /// SHA-256 of the original source bytes (the drift anchor).
     import_hash: String,
     /// SHA-256 of the byte-faithful body (frontmatter stripped).
     body_hash: String,
 }
 
-/// Import every skill under `harness_path` into the surface workspace `into`.
+/// Import every skill and rule under `harness_path` into the surface workspace
+/// `into`.
 ///
-/// Writes `<into>/skills/<name>/{meta.toml, SKILL.md, ...companions}` per skill
-/// and the `<into>/author.toml` roll-up index. Idempotent over an unchanged
-/// harness. See the module header for the discovery rules and the invariant.
+/// Writes `<into>/skills/<name>/{meta.toml, SKILL.md, ...companions}` per skill,
+/// `<into>/rules/<name>/{meta.toml, RULE.md}` per rule, and the
+/// `<into>/author.toml` roll-up index (one `[[skill]]`/`[[rule]]` row each).
+/// Idempotent over an unchanged harness. See the module header for the discovery
+/// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
-    let dirs = discover_skill_dirs(harness_path)?;
+    let skill_dirs = discover_skill_dirs(harness_path)?;
+    let mut skills = Vec::with_capacity(skill_dirs.len());
+    for dir in &skill_dirs {
+        skills.push(import_skill(dir, into)?);
+    }
 
-    let mut rollup = Vec::with_capacity(dirs.len());
-    for dir in &dirs {
-        rollup.push(import_skill(dir, into)?);
+    let rule_files = discover_rule_files(harness_path)?;
+    let mut rules = Vec::with_capacity(rule_files.len());
+    for file in &rule_files {
+        rules.push(import_rule(file, into)?);
     }
 
     // Sort by name so the roll-up — and thus the whole workspace — is stable
     // regardless of filesystem listing order.
-    rollup.sort_by(|a, b| a.name.cmp(&b.name));
-    write_rollup(into, &rollup)?;
+    skills.sort_by(|a, b| a.name.cmp(&b.name));
+    rules.sort_by(|a, b| a.name.cmp(&b.name));
+    write_rollup(into, &skills, &rules)?;
 
     Ok(())
 }
@@ -126,6 +148,36 @@ fn discover_skill_dirs(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
     Ok(dirs)
 }
 
+/// Find the rule source files under `<harness>/.claude/rules/`: every immediate
+/// `*.md` child. Non-markdown files and subdirectories are skipped. Note the root
+/// asymmetry with skills — rules live under `.claude/rules/`, not at the harness
+/// root — which is the spec literal (`specs/20-surface.md`).
+fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
+    let rules_root = harness.join(".claude").join("rules");
+    if !rules_root.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let listing = fs::read_dir(&rules_root).map_err(|source| ImportError::ReadDir {
+        path: rules_root.clone(),
+        source,
+    })?;
+    let mut files = Vec::new();
+    for entry in listing {
+        let entry = entry.map_err(|source| ImportError::ReadDir {
+            path: rules_root.clone(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
+            files.push(path);
+        }
+    }
+    // `read_dir` order is unspecified; sort for deterministic processing.
+    files.sort();
+    Ok(files)
+}
+
 /// Read one source skill and write its surface tree under `<into>/skills/<name>/`,
 /// returning the roll-up row for the index.
 fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
@@ -153,6 +205,33 @@ fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportErr
     })
 }
 
+/// Read one source rule and write its surface tree under `<into>/rules/<name>/`,
+/// returning the roll-up row for the index.
+///
+/// Mirrors [`import_skill`] for the rule kind: a format-preserving `meta.toml`
+/// header (the optional `paths` + `[provenance]`) and the byte-faithful body as
+/// `RULE.md`. A rule carries no companions, so there is nothing else to copy.
+fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
+    let rule = Rule::from_source_file(source_file)?;
+    let out_dir = into.join("rules").join(&rule.name);
+    create_dir_all(&out_dir)?;
+
+    // Typed header via the format-preserving writer — never a lossy re-serialize.
+    write_bytes(
+        &out_dir.join("meta.toml"),
+        rule.to_meta_document().to_string().as_bytes(),
+    )?;
+    // The surface `RULE.md` is the body alone (no frontmatter), byte-faithful.
+    write_bytes(&out_dir.join("RULE.md"), rule.body.as_bytes())?;
+
+    Ok(RollupEntry {
+        name: rule.name,
+        source_path: rule.provenance.source_path.to_string_lossy().into_owned(),
+        import_hash: rule.provenance.import_hash,
+        body_hash: sha256_hex(rule.body.as_bytes()),
+    })
+}
+
 /// Copy a single companion from the source dir to the surface dir, byte-for-byte,
 /// creating any intermediate directories.
 fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<(), ImportError> {
@@ -166,8 +245,27 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 }
 
 /// Write the `<into>/author.toml` roll-up: one `[[skill]]` table per imported
-/// skill with `name`, `source_path`, `import_hash`, and `body_hash`.
-fn write_rollup(into: &Path, rollup: &[RollupEntry]) -> Result<(), ImportError> {
+/// skill, then one `[[rule]]` table per imported rule, each with `name`,
+/// `source_path`, `import_hash`, and `body_hash`.
+///
+/// An empty kind renders to no bytes (an empty `ArrayOfTables` emits nothing), so
+/// a skill-only or rule-only harness yields exactly the rows it has.
+fn write_rollup(
+    into: &Path,
+    skills: &[RollupEntry],
+    rules: &[RollupEntry],
+) -> Result<(), ImportError> {
+    let mut doc = DocumentMut::new();
+    doc["skill"] = Item::ArrayOfTables(rollup_tables(skills));
+    doc["rule"] = Item::ArrayOfTables(rollup_tables(rules));
+
+    create_dir_all(into)?;
+    write_bytes(&into.join("author.toml"), doc.to_string().as_bytes())
+}
+
+/// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
+/// in a fixed order, one table per entry.
+fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
     let mut tables = ArrayOfTables::new();
     for entry in rollup {
         let mut table = Table::new();
@@ -177,12 +275,7 @@ fn write_rollup(into: &Path, rollup: &[RollupEntry]) -> Result<(), ImportError> 
         table["body_hash"] = value(entry.body_hash.clone());
         tables.push(table);
     }
-
-    let mut doc = DocumentMut::new();
-    doc["skill"] = Item::ArrayOfTables(tables);
-
-    create_dir_all(into)?;
-    write_bytes(&into.join("author.toml"), doc.to_string().as_bytes())
+    tables
 }
 
 /// `fs::create_dir_all`, mapping failure to an [`ImportError::Write`].
@@ -256,8 +349,24 @@ description: A second skill so the roll-up carries more than one entry.\n\
     const PLAYBOOK: &[u8] = b"# Playbook\n\nStep one.\n\x00binary-ish\xff tail\n";
     const SCRIPT: &[u8] = b"#!/bin/sh\necho coordinating\n";
 
-    /// Build a harness with two skills under `skills/`; `coordinate` carries a
-    /// companion markdown file and a nested script.
+    /// A rule with `paths:` frontmatter and an unknown Cursor key, plus a body
+    /// whose trailing bytes must survive intact.
+    const RUST_RULE: &str = "---\n\
+paths:\n\
+  - \"src/**/*.rs\"\n\
+description: A Cursor key Claude Code ignores — preserved, not dropped.\n\
+---\n\
+# Rust conventions\n\
+\n\
+Prefer a clone over a lifetime fight.   \n\
+Last line, no newline.";
+
+    /// A rule with no frontmatter at all — the `collaboration.md` shape.
+    const COLLAB_RULE: &str = "# Collaboration\n\nPushback is the point.\n";
+
+    /// Build a harness with two skills under `skills/` and two rules under
+    /// `.claude/rules/`; `coordinate` carries a companion markdown file and a
+    /// nested script. The two kinds coexist so one import covers both.
     fn write_fixture_harness(root: &Path) {
         let coordinate = root.join("skills").join("coordinate");
         fs::create_dir_all(coordinate.join("scripts")).unwrap();
@@ -268,6 +377,11 @@ description: A second skill so the roll-up carries more than one entry.\n\
         let demo = root.join("skills").join("demo");
         fs::create_dir_all(&demo).unwrap();
         fs::write(demo.join("SKILL.md"), DEMO).unwrap();
+
+        let rules = root.join(".claude").join("rules");
+        fs::create_dir_all(&rules).unwrap();
+        fs::write(rules.join("rust.md"), RUST_RULE).unwrap();
+        fs::write(rules.join("collaboration.md"), COLLAB_RULE).unwrap();
     }
 
     /// Snapshot every file under `dir` as a sorted map of relative path -> bytes,
@@ -372,6 +486,61 @@ description: A second skill so the roll-up carries more than one entry.\n\
         let second = tree_bytes(&into);
 
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn writes_a_rule_surface_and_rollup_row() {
+        let harness = tmpdir("rule-src");
+        write_fixture_harness(&harness);
+        let into = tmpdir("rule-into");
+
+        run(&harness, &into).unwrap();
+
+        // The rule surface mirrors a skill: a `rules/<name>/` dir with a typed
+        // header and the body alone under `RULE.md`.
+        let rust = into.join("rules").join("rust");
+        assert!(rust.join("meta.toml").is_file());
+        let body = fs::read_to_string(rust.join("RULE.md")).unwrap();
+        assert_eq!(
+            body,
+            "# Rust conventions\n\nPrefer a clone over a lifetime fight.   \nLast line, no newline."
+        );
+
+        // The typed header round-trips back to the source rule (paths + the
+        // preserved Cursor key).
+        let reloaded = Rule::from_surface_dir(&rust).unwrap();
+        assert_eq!(reloaded.name, "rust");
+        assert_eq!(
+            reloaded.paths.as_deref(),
+            Some(&["src/**/*.rs".to_string()][..])
+        );
+        assert!(reloaded.extra.contains_key("description"));
+
+        // A no-frontmatter rule writes its whole body byte-faithful.
+        let collab = into.join("rules").join("collaboration");
+        assert_eq!(
+            fs::read_to_string(collab.join("RULE.md")).unwrap(),
+            COLLAB_RULE
+        );
+
+        // The roll-up carries a `[[rule]]` row per rule, name-sorted, alongside
+        // the `[[skill]]` rows — both kinds coexist in one import.
+        let doc = fs::read_to_string(into.join("author.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        let skills = doc["skill"].as_array_of_tables().unwrap();
+        let skill_names: Vec<&str> = skills.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(skill_names, vec!["coordinate", "demo"]);
+
+        let rules = doc["rule"].as_array_of_tables().unwrap();
+        let rule_names: Vec<&str> = rules.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(rule_names, vec!["collaboration", "rust"]);
+        for table in rules.iter() {
+            assert_eq!(table["import_hash"].as_str().unwrap().len(), 64);
+            assert_eq!(table["body_hash"].as_str().unwrap().len(), 64);
+            assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
+        }
     }
 
     #[test]

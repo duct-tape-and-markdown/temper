@@ -25,60 +25,77 @@ use std::path::{Path, PathBuf};
 
 use miette::{GraphicalReportHandler, LabeledSpan, SourceSpan};
 
+use crate::rule::{Rule as RuleArtifact, RuleError};
 use crate::skill::{Skill, SkillError};
 
-/// The loaded config surface: every artifact `check` lints. Slice 1 carries only
-/// skills; later artifact kinds (hooks, agents, rules, …) extend this struct so a
+/// The loaded config surface: every artifact `check` lints. Carries skills and
+/// rules; later artifact kinds (hooks, agents, …) extend this struct so a
 /// cross-artifact [`Rule`] can reach the whole harness at once.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Workspace {
     /// The skills reconstructed from `<workspace>/skills/<name>/`.
     pub skills: Vec<Skill>,
+    /// The rules reconstructed from `<workspace>/rules/<name>/`.
+    pub rules: Vec<RuleArtifact>,
 }
 
 impl Workspace {
     /// Load a workspace from its surface directory by reconstructing every skill
-    /// under `<dir>/skills/*` via [`Skill::from_surface_dir`].
+    /// under `<dir>/skills/*` via [`Skill::from_surface_dir`] and every rule under
+    /// `<dir>/rules/*` via [`RuleArtifact::from_surface_dir`].
     ///
-    /// A child is treated as a skill surface only when it holds a `meta.toml`, so
-    /// stray files and partial directories are skipped rather than erroring.
-    /// Skills are returned name-sorted (the directory listing order is
+    /// A child is treated as an artifact surface only when it holds a `meta.toml`,
+    /// so stray files and partial directories are skipped rather than erroring.
+    /// Each kind is returned name-sorted (the directory listing order is
     /// unspecified) so the diagnostic set is stable across runs.
     pub fn load(dir: &Path) -> Result<Self, WorkspaceError> {
-        let skills_root = dir.join("skills");
-        let mut skill_dirs = Vec::new();
-        if skills_root.is_dir() {
-            let listing = fs::read_dir(&skills_root).map_err(|source| WorkspaceError::ReadDir {
-                path: skills_root.clone(),
-                source,
-            })?;
-            for entry in listing {
-                let entry = entry.map_err(|source| WorkspaceError::ReadDir {
-                    path: skills_root.clone(),
-                    source,
-                })?;
-                let path = entry.path();
-                if path.is_dir() && path.join("meta.toml").is_file() {
-                    skill_dirs.push(path);
-                }
-            }
-        }
-        skill_dirs.sort();
-
-        let mut skills = Vec::with_capacity(skill_dirs.len());
-        for skill_dir in &skill_dirs {
+        let mut skills = Vec::new();
+        for skill_dir in &surface_dirs(&dir.join("skills"))? {
             skills.push(Skill::from_surface_dir(skill_dir)?);
         }
 
-        Ok(Self { skills })
+        let mut rules = Vec::new();
+        for rule_dir in &surface_dirs(&dir.join("rules"))? {
+            rules.push(RuleArtifact::from_surface_dir(rule_dir)?);
+        }
+
+        Ok(Self { skills, rules })
     }
+}
+
+/// Enumerate the artifact surface directories under `root` — the immediate
+/// children that hold a `meta.toml` — name-sorted for a stable load order. A
+/// missing `root` yields an empty list (a workspace need not carry every kind).
+fn surface_dirs(root: &Path) -> Result<Vec<PathBuf>, WorkspaceError> {
+    if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let listing = fs::read_dir(root).map_err(|source| WorkspaceError::ReadDir {
+        path: root.to_path_buf(),
+        source,
+    })?;
+    let mut dirs = Vec::new();
+    for entry in listing {
+        let entry = entry.map_err(|source| WorkspaceError::ReadDir {
+            path: root.to_path_buf(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_dir() && path.join("meta.toml").is_file() {
+            dirs.push(path);
+        }
+    }
+    dirs.sort();
+    Ok(dirs)
 }
 
 /// Errors raised while loading a [`Workspace`]. A hard failure (the surface is
 /// unreadable or malformed) — not a lint finding, which is a [`Diagnostic`].
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum WorkspaceError {
-    /// The workspace `skills/` directory could not be enumerated.
+    /// A workspace artifact directory (`skills/`, `rules/`) could not be
+    /// enumerated.
     #[error("failed to read workspace directory {path}")]
     #[diagnostic(code(temper::check::read_dir))]
     ReadDir {
@@ -93,6 +110,11 @@ pub enum WorkspaceError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Skill(#[from] SkillError),
+
+    /// A rule surface under the workspace could not be reconstructed.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Rule(#[from] RuleError),
 }
 
 /// The severity of a [`Diagnostic`]. Only `error` raises the process exit code;
@@ -283,6 +305,28 @@ Body.\n";
         fs::write(dir.join("SKILL.md"), &skill.body).unwrap();
     }
 
+    const RULE_SRC: &str = "---\n\
+paths:\n\
+  - \"src/**/*.rs\"\n\
+---\n\
+# Rust conventions\n\
+\n\
+Prefer a clone.\n";
+
+    /// Write a one-rule surface (`meta.toml` + body) under `<ws>/rules/<name>/`,
+    /// projecting it from a source rule file exactly as `import` would.
+    fn write_surface_rule(ws: &Path, name: &str, rule_md: &str) {
+        let src = tmpdir(&format!("rule-src-{name}"));
+        let path = src.join(format!("{name}.md"));
+        fs::write(&path, rule_md).unwrap();
+        let rule = RuleArtifact::from_source_file(&path).unwrap();
+
+        let dir = ws.join("rules").join(name);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("meta.toml"), rule.to_meta_document().to_string()).unwrap();
+        fs::write(dir.join("RULE.md"), &rule.body).unwrap();
+    }
+
     /// A rule that fires one error per skill — an injectable stand-in proving the
     /// runner wires arbitrary rules to the loaded workspace.
     struct OneErrorPerSkill;
@@ -305,6 +349,27 @@ Body.\n";
         assert_eq!(loaded.skills.len(), 1);
         assert_eq!(loaded.skills[0].name, "demo");
         assert_eq!(loaded.skills[0].version.as_deref(), Some("1.0.0"));
+    }
+
+    #[test]
+    fn load_reconstructs_rules_sorted_alongside_skills() {
+        let ws = tmpdir("load-rules");
+        write_surface_skill(&ws, "demo", DEMO);
+        write_surface_rule(&ws, "rust", RULE_SRC);
+        write_surface_rule(&ws, "collaboration", "# Collaboration\n\nPushback.\n");
+
+        let loaded = Workspace::load(&ws).unwrap();
+
+        // Skills load as before, and rules load name-sorted beside them.
+        assert_eq!(loaded.skills.len(), 1);
+        let rule_names: Vec<&str> = loaded.rules.iter().map(|r| r.name.as_str()).collect();
+        assert_eq!(rule_names, vec!["collaboration", "rust"]);
+        assert_eq!(
+            loaded.rules[1].paths.as_deref(),
+            Some(&["src/**/*.rs".to_string()][..])
+        );
+        // The no-frontmatter rule carries no `paths`.
+        assert!(loaded.rules[0].paths.is_none());
     }
 
     #[test]
@@ -331,7 +396,10 @@ Body.\n";
 
     #[test]
     fn run_with_an_empty_rule_set_yields_no_diagnostics() {
-        let ws = Workspace { skills: Vec::new() };
+        let ws = Workspace {
+            skills: Vec::new(),
+            rules: Vec::new(),
+        };
         let rules: Vec<Box<dyn Rule>> = Vec::new();
         assert!(run(&ws, &rules).is_empty());
     }
