@@ -1,34 +1,5 @@
 [
   {
-    "tag": "SPEC-FEATURES",
-    "summary": "Add `spec_features(&Spec) -> Features` to extract.rs, mirroring `rule_features`: id = name, `body_lines`, ATX `headings`, `source_dir`; no fields, no companions.",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Worked example: `spec`, temper's own custom kind"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "Add `pub fn spec_features(spec: &Spec) -> Features` mirroring `rule_features` — id from `spec.name`, `body_lines` from `spec.body.lines().count()`, `headings` via the existing `body_headings`, `source_dir` via `source_dir_name(&spec.provenance.source_path)`, empty `fields`/`companions`. Import `crate::spec::Spec`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/extract.rs",
-        "asserts": "`spec_features` exposes the spec id (file stem), body line count, ATX headings (skipping fenced `#`), and `source_dir`, with empty `fields` and `companions`."
-      }
-    ],
-    "acceptance": "`spec_features` projects a `Spec` into `Features` carrying its name, body line count, ATX headings, and source dir (no frontmatter fields, no companions) — the read-side the spec contract will validate.",
-    "notes": "Split out of SPEC-KIND-GATE: this extraction half is pure and fork-free (reuses `body_headings`/`source_dir_name`). The GATE's `check` dispatch + the `contracts/spec.toml` embed stay parked on a human committing that untracked file."
-  },
-  {
     "tag": "SPEC-KIND-GATE",
     "summary": "Dispatch `check` over specs: embed `contracts/spec.toml`, project `ws.specs` via `spec_features`, and run admissibility + `engine::validate` (the advisory `max_lines` clause) over the spec features.",
     "per": {
