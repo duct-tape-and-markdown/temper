@@ -1,41 +1,5 @@
 [
   {
-    "tag": "CONTRACT-ENGINE",
-    "summary": "The generic validator: evaluate a Contract's decidable clauses over extracted Features, emitting a Diagnostic per violation at the clause's declared severity — replaces the heuristic Rule registry.",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: kill the heuristic rule registry"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/engine.rs",
-          "description": "`validate(&Contract, &[Features]) -> Vec<Diagnostic>`: for each artifact's features, evaluate every clause as a decidable predicate and, on a false predicate, push a `check::Diagnostic` whose severity is the clause's declared `required`->Error / `advisory`->Warn and whose `rule` id is the clause key. No `if`-buried opinion: the engine reads only declared clauses. Reuses `check::{Diagnostic, Severity}`, `contract::{Contract, Clause, Predicate, Severity}`, and `extract::{Features, FeatureValue}`."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "add `pub mod engine;` (this entry's module line only)"
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "each primitive clause fires exactly on a violating feature set and stays silent on a conforming one; declared severity maps required->Error / advisory->Warn; an all-advisory run yields no Error"
-      }
-    ],
-    "acceptance": "Given a hand-built Contract + Features, `validate` reproduces the surviving decidable findings (name-format, name-matches-dir, lengths, forbidden_keys, body max_lines) with correct severities; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Both imports shipped: `contract::Contract` (CONTRACT-MODEL) and `extract::Features` (SKILL-EXTRACTOR), so this is unblocked. Does NOT re-introduce the rejected heuristics — there is no clause for trigger/anti-trigger/third-person/prose-grep refs."
-  },
-  {
     "tag": "SKILL-CONTRACT-TEMPLATE",
     "summary": "The Anthropic skill contract template as data — the decidable best-practice clauses that survive the registry kill, adopted by reference, never hardcoded.",
     "per": {
