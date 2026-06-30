@@ -22,9 +22,11 @@
 //! not clauses.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use serde_json::Value as JsonValue;
 
+use crate::rule::Rule;
 use crate::skill::Skill;
 
 /// One extracted feature value: a scalar field, or a list field (e.g. a YAML
@@ -114,7 +116,7 @@ pub fn skill_features(skill: &Skill) -> Features {
         id: skill.name.clone(),
         fields,
         body_lines: skill.body.lines().count(),
-        source_dir: source_dir_name(skill),
+        source_dir: source_dir_name(&skill.provenance.source_path),
         companions: skill
             .companions
             .iter()
@@ -123,14 +125,40 @@ pub fn skill_features(skill: &Skill) -> Features {
     }
 }
 
-/// The name of the directory the skill was imported from (the folder Claude Code
-/// discovers it under), off `provenance.source_path`.
-fn source_dir_name(skill: &Skill) -> Option<String> {
-    skill
-        .provenance
-        .source_path
+/// Project a [`Rule`] into its [`Features`]. Mirrors [`skill_features`]: `paths`
+/// is exposed as a list, every `extra` frontmatter key is folded into the same
+/// name-keyed map (so a `forbidden_keys` clause resolves `description`/`globs`/
+/// `alwaysApply` exactly as it does for a skill), and `body_lines` counts the
+/// byte-faithful body. A rule has no companions; `source_dir` is the folder it
+/// was discovered under (uniform with skills, even though the rule contract names
+/// neither).
+#[must_use]
+pub fn rule_features(rule: &Rule) -> Features {
+    let mut fields = BTreeMap::new();
+    if let Some(paths) = &rule.paths {
+        fields.insert("paths".to_string(), FeatureValue::List(paths.clone()));
+    }
+    // Unknown frontmatter keys join the same name-keyed map, so `forbidden_keys`
+    // and value predicates see them exactly as they see the typed `paths`.
+    for (key, value) in &rule.extra {
+        fields.insert(key.clone(), json_to_feature(value));
+    }
+
+    Features {
+        id: rule.name.clone(),
+        fields,
+        body_lines: rule.body.lines().count(),
+        source_dir: source_dir_name(&rule.provenance.source_path),
+        companions: Vec::new(),
+    }
+}
+
+/// The name of the directory the artifact was imported from (the folder Claude
+/// Code discovers it under), off its `provenance.source_path`.
+fn source_dir_name(source_path: &Path) -> Option<String> {
+    source_path
         .parent()
-        .and_then(std::path::Path::file_name)
+        .and_then(Path::file_name)
         .and_then(|name| name.to_str())
         .map(str::to_string)
 }
@@ -284,5 +312,73 @@ alwaysApply: true\n\
         }
         // Companions are forward-slash normalized (none here, but the shape holds).
         assert!(features.companions.is_empty());
+    }
+
+    /// Parse a rule from a file `<parent>/rules/<stem>.md`, so the rule name is
+    /// the stem and `source_dir` is the discovered `rules` folder.
+    fn rule_in(parent: &std::path::Path, stem: &str, rule_md: &str) -> Rule {
+        let rules_dir = parent.join("rules");
+        fs::create_dir_all(&rules_dir).unwrap();
+        let path = rules_dir.join(format!("{stem}.md"));
+        fs::write(&path, rule_md).unwrap();
+        Rule::from_source_file(&path).unwrap()
+    }
+
+    #[test]
+    fn rule_features_expose_paths_unknown_keys_and_body_lines() {
+        let parent = tmpdir("rule-paths");
+        let rule = rule_in(
+            &parent,
+            "rust",
+            "---\n\
+paths:\n\
+  - \"src/**/*.rs\"\n\
+  - \"tests/**/*.rs\"\n\
+globs: \"**/*.rs\"\n\
+---\n\
+# Rust\n\
+\n\
+Body line two.\n\
+Body line three.",
+        );
+
+        let features = rule_features(&rule);
+
+        // The artifact id is the rule name (file stem).
+        assert_eq!(features.id, "rust");
+
+        // `paths` is exposed as a list.
+        assert_eq!(
+            features.field("paths"),
+            Some(&FeatureValue::List(vec![
+                "src/**/*.rs".to_string(),
+                "tests/**/*.rs".to_string(),
+            ]))
+        );
+
+        // An `extra` key is folded into `fields`, so a `forbidden_keys` clause can
+        // resolve the Cursor keys Claude Code ignores.
+        assert!(features.has_field("globs"));
+        assert!(!features.has_field("alwaysApply"));
+
+        // Body line count, and the folder the rule was discovered under.
+        assert_eq!(features.body_lines, 4);
+        assert_eq!(features.source_dir.as_deref(), Some("rules"));
+        // A rule has no companions.
+        assert!(features.companions.is_empty());
+    }
+
+    #[test]
+    fn rule_features_handle_a_no_frontmatter_rule() {
+        let parent = tmpdir("rule-nofm");
+        let rule = rule_in(&parent, "collaboration", "# Collaboration\n\nPushback.\n");
+
+        let features = rule_features(&rule);
+
+        assert_eq!(features.id, "collaboration");
+        // No frontmatter: no `paths`, no fields at all.
+        assert!(features.field("paths").is_none());
+        assert!(features.fields.is_empty());
+        assert_eq!(features.body_lines, 3);
     }
 }
