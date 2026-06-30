@@ -1,40 +1,5 @@
 [
   {
-    "tag": "GOV-COUNT",
-    "summary": "Add the set-scope `count {min,max}` roster predicate — quantify the matched-set cardinality on a role in compose.rs/roster.rs, reject min>max in admissibility.",
-    "per": {
-      "path": "specs/45-governance.md",
-      "section": "The set scope (the roster) — predicates over a matched set"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Add an optional `count = { min, max }` (usize bounds) to `Role` — a `count: Option<CountBound>` field with a `{min,max}` struct — and parse it in `parse_role` alongside `required`/`match`. Reject a non-table/non-integer `count` with a `ComposeError` mirroring the existing `parse_match`/`parse_role_required` errors. `required` keeps its exactly-one meaning when no `count` is declared (the two are mutually exclusive — a declared `count` is the general form)."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "In `check`, when a role declares a `count` bound, fire an error-severity finding (under `ROLE_RULE`) when `|fillers| ∉ [min, max]`, naming the bound, the count, and the kind — generalizing the single-filler zero/one/many arms. In `admissibility`, add a `min > max` clause (an unsatisfiable bound is inadmissible, mirroring `range`). Add unit tests mirroring `zero_one_and_many_map_to_error_clean_error_for_a_required_role` for the `[min,max]` band and a `min > max` inadmissibility test."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/roster.rs",
-        "asserts": "a role with `count = {min,max}` is clean when the matched-set size lands in `[min,max]` and fires below/above it; a `min > max` count is reported inadmissible."
-      }
-    ],
-    "acceptance": "A `[role.X]` declaring `count = { min, max }` gates the cardinality of the matched set (`|artifacts matching S| ∈ [min, max]`) at error severity; an inverted bound fails admissibility — the cascade harness-economy 'at most N agents' template becomes expressible.",
-    "notes": "The first set-scope governance predicate, lifting the role selector from 'fill one slot' to 'quantify over the matched set' (45). GOV-RANGE (artifact-scope `range`, contract.rs/engine.rs) shipped at 498589d, clearing the blocker; the two are file-disjoint (this is the roster scope, compose.rs/roster.rs). Membership/typed-reference/unique remain unfiled (next after this ships); degree/acyclic await an edge-extraction + graph foundation (45 'The harness is a graph too')."
-  },
-  {
     "tag": "SPEC-KIND-GATE",
     "summary": "Dispatch `check` over specs: embed `contracts/spec.toml`, project `ws.specs` via `spec_features`, and run admissibility + `engine::validate` (the advisory `max_lines` clause) over the spec features.",
     "per": {
