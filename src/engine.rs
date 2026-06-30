@@ -338,6 +338,7 @@ mod tests {
 
     use crate::check::{Severity, any_error};
     use crate::contract::{Charset, Clause, Severity as ClauseSeverity};
+    use crate::extract::Kind;
 
     /// Build a `Features` with the given name-keyed scalar fields, body line
     /// count, and source directory — companions are unused by these clauses.
@@ -369,9 +370,10 @@ mod tests {
         f
     }
 
-    /// A scalar field value.
+    /// A scalar field value (kind `string`; the existing scalar predicates read
+    /// only the text, so the kind is incidental to these tests).
     fn scalar(text: &str) -> FeatureValue {
-        FeatureValue::Scalar(text.to_string())
+        FeatureValue::scalar(Kind::String, text)
     }
 
     /// A one-clause contract carrying `predicate` at `severity`.

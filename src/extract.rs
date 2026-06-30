@@ -30,26 +30,86 @@ use serde_json::Value as JsonValue;
 use crate::rule::Rule;
 use crate::skill::Skill;
 
-/// One extracted feature value: a scalar field, or a list field (e.g. a YAML
-/// sequence like `allowed-tools`). The two shapes the decidable predicates need
-/// — scalar predicates (`min_len`, `enum`, `deny`, `allowed_chars`) read the
-/// scalar; presence predicates (`required`, `forbidden_keys`) need only the key.
+/// A field's parsed source kind — the closed scalar/container lattice the `type`
+/// primitive ranges over (`specs/10-contracts.md`, "Decision: the `type`
+/// vocabulary is a closed scalar/container lattice"). Taken from the *parsed*
+/// YAML/JSON value, not its stringified form: a sound `type` check needs the
+/// extractor to preserve the source kind rather than collapse every scalar to a
+/// bare string (the slice-1 shortcut this entry corrects). The five scalar kinds
+/// answer [`FeatureValue::as_scalar`]; the two container kinds do not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// A textual scalar.
+    String,
+    /// A whole-number scalar (no fractional part).
+    Integer,
+    /// A fractional/floating-point scalar.
+    Number,
+    /// A boolean scalar.
+    Boolean,
+    /// A null scalar.
+    Null,
+    /// A sequence/array container.
+    List,
+    /// A mapping/object container.
+    Map,
+}
+
+/// One extracted feature value: a scalar field (carrying its parsed source
+/// [`Kind`] alongside its comparison text), a list field (e.g. a YAML sequence
+/// like `allowed-tools`), or a map field. Scalar predicates (`min_len`, `enum`,
+/// `deny`, `allowed_chars`) read the scalar text; presence predicates
+/// (`required`, `forbidden_keys`) need only the key; the `type` primitive
+/// (forthcoming) reads [`FeatureValue::kind`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FeatureValue {
-    /// A single scalar value, stringified (the YAML/JSON scalar as text).
-    Scalar(String),
-    /// A sequence of scalar values, stringified element-wise.
+    /// A single scalar value: its parsed source kind (one of the scalar kinds —
+    /// `string`/`integer`/`number`/`boolean`/`null`) and its stringified text,
+    /// the comparison text the scalar predicates read.
+    Scalar {
+        /// The parsed source kind of the scalar.
+        kind: Kind,
+        /// The scalar as text (the YAML/JSON scalar stringified).
+        text: String,
+    },
+    /// A sequence of scalar values, stringified element-wise (kind `list`).
     List(Vec<String>),
+    /// A mapping/object value (kind `map`). Only its kind is projected — no
+    /// predicate reads a map's contents — so it carries no payload.
+    Map,
 }
 
 impl FeatureValue {
-    /// The scalar text of this value, or `None` if it is a list. Lets a
-    /// scalar-oriented clause (`min_len`, `enum`, …) read the value generically.
+    /// A scalar feature of the given kind and text — the construction helper the
+    /// extractor and tests share.
+    #[must_use]
+    pub fn scalar(kind: Kind, text: impl Into<String>) -> Self {
+        FeatureValue::Scalar {
+            kind,
+            text: text.into(),
+        }
+    }
+
+    /// The scalar text of this value, or `None` if it is a container (list or
+    /// map). Lets a scalar-oriented clause (`min_len`, `enum`, …) read the value
+    /// generically — unchanged by the kind now riding alongside the text.
     #[must_use]
     pub fn as_scalar(&self) -> Option<&str> {
         match self {
-            FeatureValue::Scalar(s) => Some(s),
-            FeatureValue::List(_) => None,
+            FeatureValue::Scalar { text, .. } => Some(text),
+            FeatureValue::List(_) | FeatureValue::Map => None,
+        }
+    }
+
+    /// This value's parsed source kind — the fact the `type` primitive decides
+    /// over. A list is always [`Kind::List`] and a map [`Kind::Map`]; a scalar
+    /// reports the kind it was parsed as.
+    #[must_use]
+    pub fn kind(&self) -> Kind {
+        match self {
+            FeatureValue::Scalar { kind, .. } => *kind,
+            FeatureValue::List(_) => Kind::List,
+            FeatureValue::Map => Kind::Map,
         }
     }
 }
@@ -100,16 +160,27 @@ impl Features {
 #[must_use]
 pub fn skill_features(skill: &Skill) -> Features {
     let mut fields = BTreeMap::new();
-    fields.insert("name".to_string(), FeatureValue::Scalar(skill.name.clone()));
+    // The typed fields are always parsed as strings (the IR stringifies them at
+    // load), so their source kind is `string`.
+    fields.insert(
+        "name".to_string(),
+        FeatureValue::scalar(Kind::String, skill.name.clone()),
+    );
     fields.insert(
         "description".to_string(),
-        FeatureValue::Scalar(skill.description.clone()),
+        FeatureValue::scalar(Kind::String, skill.description.clone()),
     );
     if let Some(version) = &skill.version {
-        fields.insert("version".to_string(), FeatureValue::Scalar(version.clone()));
+        fields.insert(
+            "version".to_string(),
+            FeatureValue::scalar(Kind::String, version.clone()),
+        );
     }
     if let Some(license) = &skill.license {
-        fields.insert("license".to_string(), FeatureValue::Scalar(license.clone()));
+        fields.insert(
+            "license".to_string(),
+            FeatureValue::scalar(Kind::String, license.clone()),
+        );
     }
     // Unknown frontmatter keys join the same name-keyed map, so `forbidden_keys`
     // and value predicates see them exactly as they see the typed fields.
@@ -248,19 +319,38 @@ fn source_dir_name(source_path: &Path) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Convert an `extra` frontmatter value into a [`FeatureValue`]: arrays become a
-/// list of stringified scalars, everything else a single stringified scalar.
+/// Project an `extra` frontmatter value into a [`FeatureValue`], preserving its
+/// parsed source [`Kind`]: arrays become a list, objects a map, and each scalar
+/// keeps the kind it parsed as (`string`/`integer`/`number`/`boolean`/`null`)
+/// alongside its text. Stringifying every scalar to a bare string — the slice-1
+/// shortcut — would make a `type` check undecidable; recording the kind here is
+/// the precondition that check needs (`specs/10-contracts.md`, the `type`
+/// lattice Decision).
 fn json_to_feature(value: &JsonValue) -> FeatureValue {
     match value {
         JsonValue::Array(items) => {
             FeatureValue::List(items.iter().map(json_scalar_string).collect())
         }
-        other => FeatureValue::Scalar(json_scalar_string(other)),
+        JsonValue::Object(_) => FeatureValue::Map,
+        JsonValue::Null => FeatureValue::scalar(Kind::Null, "null"),
+        JsonValue::Bool(b) => FeatureValue::scalar(Kind::Boolean, b.to_string()),
+        JsonValue::Number(n) => FeatureValue::scalar(number_kind(n), n.to_string()),
+        JsonValue::String(s) => FeatureValue::scalar(Kind::String, s.clone()),
+    }
+}
+
+/// The source kind of a JSON number: `integer` when it parsed as a whole number
+/// (`i64`/`u64`), else `number` (a floating-point value).
+fn number_kind(n: &serde_json::Number) -> Kind {
+    if n.is_i64() || n.is_u64() {
+        Kind::Integer
+    } else {
+        Kind::Number
     }
 }
 
 /// Stringify a JSON scalar to its plain text form (no surrounding quotes for
-/// strings); non-scalars fall back to their JSON text so the feature stays a
+/// strings); non-scalars fall back to their JSON text so a list element stays a
 /// deterministic, comparable string.
 fn json_scalar_string(value: &JsonValue) -> String {
     match value {
@@ -362,6 +452,76 @@ Body line three.";
 
         // The body's ATX heading is exposed deterministically.
         assert_eq!(features.headings, vec!["Demo".to_string()]);
+    }
+
+    #[test]
+    fn each_field_preserves_its_parsed_source_kind_while_as_scalar_still_reads_text() {
+        let parent = tmpdir("kinds");
+        // A field of each parsed kind: a string, an integer, a float, a boolean,
+        // and a list — the precondition a sound `type` check needs.
+        let skill = skill_in(
+            &parent,
+            "kinds",
+            "---\n\
+name: kinds\n\
+description: Use when checking that source kinds survive projection.\n\
+count: 7\n\
+ratio: 1.5\n\
+enabled: true\n\
+tags: [\"a\", \"b\"]\n\
+---\nbody\n",
+        );
+        let features = skill_features(&skill);
+
+        // The typed `name` field is parsed as a string.
+        assert_eq!(
+            features.field("name").map(FeatureValue::kind),
+            Some(Kind::String)
+        );
+
+        // An integer keeps `integer`, a float `number`, a boolean `boolean` —
+        // none is flattened to `string` (the slice-1 shortcut this entry kills).
+        assert_eq!(
+            features.field("count").map(FeatureValue::kind),
+            Some(Kind::Integer)
+        );
+        assert_eq!(
+            features.field("ratio").map(FeatureValue::kind),
+            Some(Kind::Number)
+        );
+        assert_eq!(
+            features.field("enabled").map(FeatureValue::kind),
+            Some(Kind::Boolean)
+        );
+        // A list keeps `list`.
+        assert_eq!(
+            features.field("tags").map(FeatureValue::kind),
+            Some(Kind::List)
+        );
+
+        // Yet `as_scalar` still yields each scalar's comparison text unchanged,
+        // so the existing scalar predicates (`min_len`/`enum`/…) read on as before.
+        assert_eq!(
+            features.field("name").and_then(FeatureValue::as_scalar),
+            Some("kinds")
+        );
+        assert_eq!(
+            features.field("count").and_then(FeatureValue::as_scalar),
+            Some("7")
+        );
+        assert_eq!(
+            features.field("ratio").and_then(FeatureValue::as_scalar),
+            Some("1.5")
+        );
+        assert_eq!(
+            features.field("enabled").and_then(FeatureValue::as_scalar),
+            Some("true")
+        );
+        // A list is a container, not a scalar — `as_scalar` stays `None`.
+        assert_eq!(
+            features.field("tags").and_then(FeatureValue::as_scalar),
+            None
+        );
     }
 
     #[test]
