@@ -13,7 +13,8 @@
   (third-person, has-trigger, has-anti-trigger, companion-refs, refs-one-level-
   deep); all 8 RETIRE-HEURISTICS paths exist (`src/rules.rs`, `tests/rules.rs`,
   5 fixtures, the diagnostics snapshot); `cargo check` clean. Corpus unchanged;
-  all 6 distinct `per` cites resolve; inbox empty; no forks moved.
+  all 7 entries' `per` cites resolve (6 distinct sections); inbox empty; no
+  forks moved.
 - **Next:** ship CONTRACT-MODEL + SKILL-EXTRACTOR → CONTRACT-ENGINE →
   SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER → RETIRE-HEURISTICS top-down
   (LIBDOC-EVERGREEN ships anytime, disjoint `lib.rs` region). Then plan the
