@@ -1,6 +1,6 @@
 //! End-to-end CLI acceptance for slice 1 (`spec/RELEASE-v0.1.md`, "Surface").
 //!
-//! Spawns the built `temper` binary via `CARGO_BIN_EXE_author` and drives the
+//! Spawns the built `temper` binary via `CARGO_BIN_EXE_temper` and drives the
 //! documented round trip — `temper import <harness> --into <tmp>` then
 //! `temper check <tmp>` — asserting the exit semantics: zero on a clean skill,
 //! non-zero once an `error`-severity rule fires. A third case pins the default
@@ -17,7 +17,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_author");
+const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
