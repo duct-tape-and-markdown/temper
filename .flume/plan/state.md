@@ -7,13 +7,13 @@
   `author.toml` roll-up, the `all_rules()` registry, acceptance snapshots.
 - **In flight:** nothing. Verified on disk this tick: `src/` = {check, import,
   lib, main, rules, skill}; no `contract`/`extract`/`engine`, no `contracts/`;
-  `main.rs:57` calls `rules::all_rules()`; `lib.rs:10` + `main.rs:4,20,21` cite
-  the absent `spec/RELEASE-v0.1.md`; `rules.rs` holds all 10 `impl Rule` structs
-  incl. the 5 rejected heuristics (third-person, has-trigger, has-anti-trigger,
-  companion-refs, refs-one-level-deep); all 8 RETIRE-HEURISTICS paths exist
-  (`src/rules.rs`, `tests/rules.rs`, 5 fixtures, the diagnostics snapshot);
-  `cargo check` clean. Corpus unchanged; all 7 `per` cites resolve; inbox empty;
-  no forks moved.
+  `main.rs:57` calls `rules::all_rules()`; `lib.rs:10` cites the absent `SPEC.md`
+  + `spec/RELEASE-v0.1.md`; `main.rs:4,20` cite the absent `spec/RELEASE-v0.1.md`;
+  `rules.rs` holds all 10 `impl Rule` structs incl. the 5 rejected heuristics
+  (third-person, has-trigger, has-anti-trigger, companion-refs, refs-one-level-
+  deep); all 8 RETIRE-HEURISTICS paths exist (`src/rules.rs`, `tests/rules.rs`,
+  5 fixtures, the diagnostics snapshot); `cargo check` clean. Corpus unchanged;
+  all 6 distinct `per` cites resolve; inbox empty; no forks moved.
 - **Next:** ship CONTRACT-MODEL + SKILL-EXTRACTOR → CONTRACT-ENGINE →
   SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER → RETIRE-HEURISTICS top-down
   (LIBDOC-EVERGREEN ships anytime, disjoint `lib.rs` region). Then plan the
