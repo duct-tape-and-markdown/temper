@@ -27,5 +27,6 @@ walkdir = "2"
 sha2 = "0.10"
 
 [dev-dependencies]
-# Golden import/apply fixtures (SPEC §7).
-insta = "1"
+# Golden import/apply fixtures (SPEC §7). `filters` redacts the per-machine
+# absolute source path from the import-surface snapshot.
+insta = { version = "1", features = ["filters"] }

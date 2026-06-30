@@ -1,0 +1,40 @@
+---
+source: tests/acceptance.rs
+expression: first
+---
+--- author.toml ---
+[[skill]]
+name = "coordinate"
+source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
+import_hash = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
+body_hash = "a068e2892cc83c0bb02525b465b700da482586612547e08a24ca40fb095750a0"
+--- skills/coordinate/PLAYBOOK.md ---
+# Coordinate — playbook
+
+The long-form reference for the coordinate skill, kept out of `SKILL.md` so the
+trigger surface stays small (progressive disclosure).
+
+## Phases
+
+1. **Fan out.** Spawn one explorer per independent axis.
+2. **Converge.** Fold every finding into the shared artifact.
+3. **Gate.** Run an adversarial reviewer before shipping.
+--- skills/coordinate/SKILL.md ---
+# Coordinate
+
+Drive a complex task through a team of agents. See [the playbook](PLAYBOOK.md)
+for the full reference on phases, fan-out, and the reviewer gate.
+
+## When to use
+
+Parallel exploration across three or more independent axes, converging on a
+shared artifact, with an adversarial reviewer gate before shipping.
+--- skills/coordinate/meta.toml ---
+name = "coordinate"
+description = "Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work."
+version = "0.3.0"
+allowed-tools = ["Task", "Read", "Edit"]
+
+[provenance]
+source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
+import_hash = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
