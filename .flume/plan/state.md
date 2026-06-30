@@ -1,14 +1,14 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk this tick: `contract.rs` has no `Range`
-  predicate and `engine.rs` no `Range` arm in `decide`/`inadmissibilities` —
-  governance (`45`) still unbuilt; `contracts/` holds only `rule.toml` +
-  `skill.anthropic.toml` (`spec.toml` still absent).
-- **Last shipped:** DRIFT-DIFF (c63d238 / 22b3425) — no `build:` since.
-- **In flight:** nothing; tree clean.
-- **The gap reconciled:** queue unchanged. GOV-RANGE (numeric `range {min,max}`,
-  `45` "Also in scope") stays `open` and pickable — contract.rs + engine.rs only.
-  SPEC-KIND-GATE stays `parked` on a human committing the untracked
-  `contracts/spec.toml`. Inbox empty; no new fork.
+- **Phase:** reconcile. Verified on disk: `contract.rs`'s only `Range` is the
+  `allowed_chars` charset-range error (`a-z`), not the numeric predicate;
+  `engine.rs` has no `Range` arm in `decide`/`inadmissibilities`. Governance
+  (`45`) unbuilt. `contracts/` holds `rule.toml` + `skill.anthropic.toml`;
+  `spec.toml` still absent.
+- **Last shipped:** DRIFT-DIFF (c63d238 / 22b3425). No `build:` since.
+- **In flight:** nothing; tree clean. Inbox empty; no new fork.
+- **Queue (unchanged, both entries accurate):** GOV-RANGE (`open`, pickable —
+  numeric `range {min,max}` over contract.rs + engine.rs, `45` "Also in scope").
+  SPEC-KIND-GATE (`parked` on a human committing untracked `contracts/spec.toml`).
 
 Plan continues: no — GOV-RANGE is `open` and immediately pickable; hand to build.
