@@ -176,10 +176,12 @@ const build: Phase = {
     ".github/**",
 
     // NOTE: build does NOT touch .flume/** (harness territory), .claude/** or
-    // CLAUDE.md (the hand-curated CC harness — also author's dogfood fixture,
-    // edited by humans), or specs/** (the evergreen human-authored corpus). If a
-    // build entry needs spec clarification, block it and surface an open question.
-    // The harness writes the post-merge ship commit to pending.json itself.
+    // CLAUDE.md (the hand-curated CC harness — also a dogfood fixture, edited by
+    // humans), specs/** (the evergreen human-authored corpus), or contracts/**
+    // (the curated packaged guidance — the tool's sourced opinions; build EMBEDS
+    // these, e.g. via include_str!, but never writes them). Three curated
+    // territories. If a build entry needs to change one, block it and surface the
+    // question. The harness writes the post-merge ship commit to pending.json itself.
   ],
   gates: [fmtGate, clippyGate, testGate],
   promptArgs(ctx: TickContext) {
