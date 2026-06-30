@@ -14,4 +14,5 @@
 /// Crate version, surfaced by the CLI's `--version`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub mod import;
 pub mod skill;
