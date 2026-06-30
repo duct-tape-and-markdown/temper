@@ -1,41 +1,5 @@
 [
   {
-    "tag": "CLI",
-    "summary": "Make the import/check subcommand stubs real: clap args, defaults, dispatch into import::run and check::run with all_rules(), error-driven exit code.",
-    "per": {
-      "path": "spec/RELEASE-v0.1.md",
-      "section": "Surface"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/cli.rs",
-          "description": "Integration test spawning the built binary via env!(\"CARGO_BIN_EXE_author\"): import a fixture then check, asserting exit zero on a clean skill and non-zero when an error-severity rule fires; assert --into / workspace defaults resolve to ./.author."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Import { harness_path: PathBuf, --into <workspace> default ./.author }; Check { workspace: Option<PathBuf> default ./.author }. Dispatch: Import -> import::run; Check -> Workspace::load, check::run(&ws, &rules::all_rules()), print check::render diagnostics, exit non-zero (process::exit) when check::any_error. Keep main a thin clap dispatch (logic stays in lib)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "import then check over a fixture exits zero on a clean skill and non-zero when an error-severity rule fires; --into / workspace defaults resolve to ./.author."
-      }
-    ],
-    "acceptance": "`author import <fixture> --into <tmp>` then `author check <tmp>` runs end to end with the documented exit semantics.",
-    "notes": "import::run + check::{run,render,any_error} + Workspace::load + rules::all_rules are all on disk; CLI is the rule-registration site, so engine and rules stay decoupled. Exit-code test spawns the binary via CARGO_BIN_EXE_author + std::process::Command — no new dep needed."
-  },
-  {
     "tag": "ACCEPTANCE",
     "summary": "Slice-1 acceptance: insta snapshots of import + check over a trimmed coordinate fixture, plus the import-idempotence (no-diff) check.",
     "per": {
