@@ -7,8 +7,7 @@
       "section": "Decision: contract selection is by artifact kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "RULE-IMPORT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
