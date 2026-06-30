@@ -45,8 +45,12 @@ and embeds the bundled skill template as the default.
   the **declaration format**: a dedicated `model.toml`, frontmatter
   `owns:`/`binds:` markers per spec, or something else? The graph and the
   cross-landscape seam (spec ⟷ code) can't be filed until this is authored.
-  Intent gap — human to author into the spec, not plan to invent. See
-  `specs/30-landscapes.md`.
+  Intent gap — human to author into the spec, not plan to invent.
+  `specs/05-model.md` (new this tick) supplies the corpus's model *content* in
+  prose (entities + relationships, each with an owning spec) and calls it "the
+  model temper's own `spec` kind would declare" — but it is prose, not a declared
+  *structured* model temper extracts, so it confirms the gap rather than closing
+  it: the declaration format is still unpinned. See `specs/30-landscapes.md`.
 
 - `(workspace-scope)` — RESOLVED (`specs/20-surface.md` Decision: "the workspace is
   per-project"). The surface targets a **per-project** harness — the `.claude/` +

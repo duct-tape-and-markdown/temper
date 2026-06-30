@@ -7,8 +7,7 @@
       "section": "Worked example: `spec`, temper's own custom kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SPEC-KIND-IR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -29,7 +28,7 @@
       }
     ],
     "acceptance": "Importing a harness with `specs/*.md` writes a `specs/<name>/` surface per spec plus `[[spec]]` roll-up rows; re-import produces no diff.",
-    "notes": "An empty `ArrayOfTables` emits nothing (the existing `[[rule]]` behavior), so the `acceptance__coordinate_import_surface` snapshot and `tests/cli.rs` over skill-only fixtures stay byte-stable — no integration-test blast radius."
+    "notes": "SPEC-KIND-IR shipped (7befdf9; `src/spec.rs` + `pub mod spec` on disk), so this is now `open`. An empty `ArrayOfTables` emits nothing (the existing `[[rule]]` behavior), so the `acceptance__coordinate_import_surface` snapshot and `tests/cli.rs` over skill-only fixtures stay byte-stable — no integration-test blast radius."
   },
   {
     "tag": "SPEC-KIND-WORKSPACE",
@@ -39,8 +38,7 @@
       "section": "Worked example: `spec`, temper's own custom kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SPEC-KIND-IR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -48,7 +46,7 @@
       "edit": [
         {
           "path": "src/check.rs",
-          "description": "Add `specs: Vec<Spec>` to `Workspace`, load it from `<dir>/specs/*` in `Workspace::load` via the existing `surface_dirs` helper, add a `WorkspaceError::Spec(#[from] SpecError)` variant, and fix the one `Workspace { .. }` literal (the test at ~line 399) to carry `specs: Vec::new()`."
+          "description": "Add `specs: Vec<Spec>` to `Workspace`, load it from `<dir>/specs/*` in `Workspace::load` via the existing `surface_dirs` helper, add a `WorkspaceError::Spec(#[from] SpecError)` variant, and fix the one `Workspace { .. }` literal (the test at src/check.rs:399) to carry `specs: Vec::new()`."
         }
       ],
       "retire": []
@@ -61,7 +59,7 @@
       }
     ],
     "acceptance": "`Workspace::load` reconstructs the spec artifacts from a written specs surface; existing skill/rule load tests stay green.",
-    "notes": "The only `Workspace { .. }` literal is `src/check.rs:399` (its own test); `tests/acceptance.rs` uses `Workspace::load`, so the blast radius is check.rs alone. Disjoint from the import.rs edit."
+    "notes": "SPEC-KIND-IR shipped, so this is now `open`. The only `Workspace { .. }` literal is `src/check.rs:399` (its own test); `tests/acceptance.rs` uses `Workspace::load`, so the blast radius is check.rs alone. Disjoint from the import.rs edit."
   },
   {
     "tag": "SPEC-KIND-GATE",
