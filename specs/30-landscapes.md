@@ -50,11 +50,11 @@ pays little; one reconciled against code pays the modeling tax and is repaid in
 coherence (`00-intent.md` honest bound: this buys coherence, never correctness —
 a contract-clean spec can still model the wrong domain).
 
-## The dependency graph — the near, sound payoff
+## The dependency graph — the sound payoff
 
 Declaring entities + relationships yields a **dependency graph of intent**. Its
-tier-1 (sound, no LLM) payoff is the build target: given the graph, removing a
-load-bearing entity surfaces its **blast radius** — every spec, binding, and
+tier-1 payoff is sound and needs no LLM: given the graph, removing a load-bearing
+entity surfaces its **blast radius** — every spec, binding, and
 (via the seam) code symbol that depended on it — deterministically. This is
 "fearless refactoring" (`00-intent.md` law 6) with teeth, and it is the standing
 value of the whole modeling exercise independent of any judge.
@@ -76,11 +76,15 @@ corresponding code symbol; the contract checks the correspondence resolves both
 directions. This is flume's spec↔code equality made a *checked relation* rather
 than aspirational prose-vs-types — the structural backbone the spec layer lacked.
 
-## Build order (so plan does not overreach)
+## Scope (not sequencing)
 
-1. **Engine + the harness instance** — replace the heuristic registry with the
-   generic validator over declared contracts (`10-contracts.md` decision).
-2. **Declared model + dependency graph (tier-1 / Prize A)** — the sound, now-ish
-   value: model declaration, prose binding, blast-radius queries.
-3. **Cross-landscape seam** — spec ⟷ code correspondence.
-4. **Judged fidelity (tier-2 / Prize B)** — deferred; advisory; calibrated.
+The spec owns dependencies and scope; the **order** of work is the plan phase's
+to derive from those dependencies + current code state — the spec does not dictate
+a build order (depth rule, `90-spec-system.md`). The dependencies are stated
+above as facts: the graph derives from the declared model; the seam relates two
+landscapes; the judged tier rents the graph.
+
+In scope now: the generic engine + the harness instance (replacing the heuristic
+registry, `10-contracts.md` decision), the declared model, and the dependency
+graph. **Out of current scope:** the judged fidelity tier (tier-2) — deferred,
+advisory, and to be calibrated before it is trusted.

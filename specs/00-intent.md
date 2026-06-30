@@ -95,11 +95,11 @@ heuristic swamp returns through an expensive door):
 ## The graph — fearless refactoring with teeth
 
 Declaring the model yields a **dependency graph of intent** that is prose today.
-Its standing payoff needs no LLM and is the near build: remove a load-bearing
-entity and the graph lights up every spec, binding, and code symbol that depended
-on it — the blast radius, deterministically. This is law 6 (fearless refactoring)
-made literal, and it is tier-1 sound. (The judged tier rents space *on* this
-graph later; build the graph first.)
+Its standing payoff needs no LLM: remove a load-bearing entity and the graph
+lights up every spec, binding, and code symbol that depended on it — the blast
+radius, deterministically. This is law 6 (fearless refactoring) made literal, and
+it is tier-1 sound. (The judged tier rents space *on* this graph; the graph
+stands on its own without it.)
 
 ## Positioning
 
