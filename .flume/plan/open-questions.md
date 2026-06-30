@@ -58,27 +58,38 @@ and embeds the bundled skill template as the default.
   exists in Rust) or patch only changed fields? Leaning patch-only. Blocks
   anything in the `apply` path, not `import`/`check`. See `specs/20-surface.md`.
 
-- `(surface-authority)` — Is the surface the source of truth (with `re-add` for
-  drift) or a lens over canonical on-disk files? MVP treats it as source of
-  truth; revisit if direct-harness editing proves the common path. See `specs/20-surface.md`.
+- `(surface-authority)` — RESOLVED (`specs/20-surface.md` Decision: "the surface is
+  the source of truth"). The composition surface is canonical; `.claude/` + `specs/`
+  are a projection of it (`apply`), and direct on-disk edits are reconciled back with
+  `re-add`. The read-only-lens framing was rejected (it contradicts law 7 and strands
+  fearless refactoring). Does **not** unblock `apply` on its own — that path still
+  waits on `(yaml-writeback)` + `(workspace-scope)`.
 
-- `(field-type-lattice)` — The field-primitive algebra (`10-contracts.md`, "The
-  primitive algebra (decidable only)") lists `type` alongside
-  `required`/`optional`/`pattern`, but the corpus never declares the **type
-  vocabulary** the predicate ranges over (string? integer? boolean? list?) nor how
-  a YAML/JSON scalar's source type maps onto it. The extractor also stringifies
-  every scalar today (`extract.rs:265`), so a *sound* `type` check additionally
-  needs the projection to preserve the source scalar type. Implementing requires
-  inventing the lattice — an intent gap, human to author. Blocks only the `type`
-  primitive; nothing shipped depends on it. See `specs/10-contracts.md`.
+- `(field-type-lattice)` — RESOLVED (`specs/10-contracts.md` Decision: "the `type`
+  vocabulary is a closed scalar/container lattice"). The `type` primitive ranges over
+  a fixed closed set — `string`, `integer`, `number`, `boolean`, `list`, `map`,
+  `null` — taken from the source scalar's *parsed* type; a richer type language
+  (formats, unions, ranges) was rejected as the JSON-Schema unsound-proxy surface.
+  Requires the extractor to preserve the source scalar type first (the `extract.rs`
+  stringify shortcut is corrected before the primitive ships). Dependents filed:
+  TYPED-EXTRACTION → TYPE-PRIMITIVE (pending.json).
 
-- `(harness-contract-provisioning)` — The harness-contract instance
-  (`10-contracts.md`, "Roles and matching" + "`verified_by` — where behavior
-  goes") binds author-named roles to artifacts. Unlike the per-kind artifact
-  contracts (built-in defaults, `(contract-selection)` RESOLVED), a harness
-  contract is *specific to one harness* and cannot be a built-in — so `check` must
-  load an author-declared contract from a place the corpus never names (an
-  `author.toml` field? a `contracts/` convention?). Also under-specified: what
-  "the verifier is declared and *wired*" decides (the path exists? a referential
-  resolve?). Blocks the entire role/`verified_by` layer; the artifact algebra
-  ships without it. See `specs/10-contracts.md`.
+- `(harness-contract-provisioning)` — RESOLVED, both halves.
+  *Home/selection* (`specs/40-composition.md` Decision: "the author-declared contract
+  lives in `temper.toml`, layered"): an optional `temper.toml` at the project root
+  layers over the by-kind built-in floor and holds adoptions, overrides, and the
+  harness roster — rejected alternatives: a field in the *generated* `author.toml`,
+  or the shipped templates as the author's home. *`verified_by`* (`specs/10-contracts.md`,
+  "`verified_by` — where behavior goes"): "wired" is a **referential** clause — the
+  named verifier must *resolve* (test target / CI job / path exists) or admissibility
+  fails; a string-present check was rejected (a dangling verifier is a silent no-op).
+  The whole role/`verified_by`/`temper.toml` layer is now fork-free — frontier in
+  `state.md`, to be decomposed into entries by a follow-on plan tick.
+
+- `(binary-bootstrap)` — RESOLVED (`specs/50-distribution.md` Decision: "acquisition
+  rides the ecosystem's package managers"). Ship the prebuilt binary through npm with
+  platform-specific `optionalDependencies` (the common `.claude/`-project route), plus
+  standalone release binaries, Homebrew, and `cargo install`, channel auto-detected;
+  a single bespoke installer and the assume-globally-PATH'd-binary route were rejected.
+  Fail-loud is intrinsic — a missing platform binary is an install error, never a
+  silent skip. Kept as the decision record; gates packaging work, not the engine.

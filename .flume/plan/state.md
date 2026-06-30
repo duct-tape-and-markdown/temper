@@ -1,23 +1,29 @@
 # Plan state
 
-- **Phase:** the contract engine is feature-complete for the decidable in-crate
-  algebra across every kind with a consuming contract (**skill**, **rule**), and
-  self-host is green. With REQUIRE-SECTIONS shipped, the queue holds no pickable
-  fork-free work: every remaining in-scope item rests on an unsettled human fork.
-- **Last shipped:** REQUIRE-SECTIONS (827f5c3). Verified on disk: the extractor
-  emits body ATX headings (`extract.rs:69,169`) and the engine decides
-  `require_sections` over them — one finding per absent heading (`engine.rs:191`),
-  the prior `Indeterminate` stub gone. `dependency-exists` is now the lone
-  `Indeterminate` arm (`engine.rs:232`), awaiting the declared model.
-- **In flight:** nothing; working tree clean, pending empty.
-- **Next (all fork-blocked):** the spec landscape — declared model + dependency
-  graph + `dependency-exists` — on `(model-declaration-format)`; the full
-  `pattern` primitive on `(regex-crate)`; the `type` primitive on the newly-filed
-  `(field-type-lattice)`; the harness-contract/role layer on the newly-filed
-  `(harness-contract-provisioning)`; `apply` on the write-back forks.
+- **Phase:** the in-crate decidable artifact algebra ships for **skill** + **rule**
+  and self-host *conformance* is green. The corpus **grew since the last plan tick**
+  (b2dbf16): two new spec files (40-composition, 50-distribution) and Decisions that
+  RESOLVED four forks — the prior `state.md` (written pre-b2dbf16) wrongly called the
+  fork-free queue exhausted.
+- **Last shipped:** REQUIRE-SECTIONS (827f5c3). Since then the human authored new
+  intent (b2dbf16) and made `plugin/**` a build-writable surface (d422925, still
+  empty). Verified on disk: `check` runs **conformance only** — no admissibility pass
+  (`main.rs`); `extract.rs` still stringifies every scalar (`json_scalar_string`).
+- **In flight:** nothing; tree clean, pending was empty.
+- **Next (filed, all fork-free):** ADMISSIBILITY (the second green `check` is missing
+  — finish line), then the `type` primitive pair TYPED-EXTRACTION → TYPE-PRIMITIVE
+  (`(field-type-lattice)` now RESOLVED).
+- **Frontier (now fork-free, unfiled — for the next plan ticks to decompose):** the
+  harness-contract layer — `temper.toml` + roles + `verified_by` (40-composition,
+  `(harness-contract-provisioning)` RESOLVED both halves); `temper schema`; the
+  advisory session-start gate + `claude-session-start` reporter; the plugin/`bundle`
+  tree; GitHub/SARIF reporters. **Still fork-blocked:** `apply`/`install`
+  (`(yaml-writeback)`, `(workspace-scope)`); the declared model + dependency graph +
+  `dependency-exists` + cross-landscape seam (`(model-declaration-format)`); full
+  `pattern` (`(regex-crate)`); the skill referential clause (`(skill-ref-syntax)`).
 
-Plan continues: no — the queue is reconciled (REQUIRE-SECTIONS shipped, the prior
-`state.md` was stale) and pending is empty by necessity: no fork-free,
-fully-specified increment remains. Two under-specified gaps are surfaced as open
-questions; the frontier is parked until a human resolves a fork. Re-planning would
-only re-emit this.
+Plan continues: no — the queue is reconciled against the grown corpus and three
+fork-free entries are filed; build runs. The harness-contract / schema / distribution
+frontier is fork-free but deferred to follow-on plan ticks so each is decomposed into
+small disjoint entries once ADMISSIBILITY and the type pair land — filing that whole
+chain now would be speculative over-filing.

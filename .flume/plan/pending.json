@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "tag": "ADMISSIBILITY",
+    "summary": "`check` validates each built-in contract against the definition (admissibility) and surfaces the second green; exit non-zero on an inadmissible contract.",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: the contract is itself checked — admissibility"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        { "path": "src/engine.rs", "description": "Add `admissibility(contract) -> Vec<Diagnostic>`: validate a parsed contract against the definition over the current algebra — every `enum`/`deny` value list non-empty, every `forbidden_keys`/`require_sections` list non-empty (closed-vocabulary rejection and charset-range validity are already enforced at load, so admissibility composes on top, never re-does them). Unit tests: an empty-`enum` contract is inadmissible; a well-formed one is admissible." },
+        { "path": "src/main.rs", "description": "In `check`, run `engine::admissibility` over each built-in kind contract before conformance; merge into the same rendered diagnostic set; an admissibility error fails the run (exit non-zero) exactly as a `required` conformance violation does. `check` now reports both greens — conformance AND admissibility — matching `specs/20-surface.md` CLI surface." },
+        { "path": "tests/contract_template.rs", "description": "Assert the curated built-in `skill.anthropic.toml` and `rule.toml` are admissible (engine::admissibility returns no error-severity diagnostics)." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/engine.rs", "asserts": "an empty-`enum` (or empty list) clause is inadmissible; a non-empty one is admissible" },
+      { "path": "tests/contract_template.rs", "asserts": "both shipped built-in contracts pass admissibility" }
+    ],
+    "acceptance": "`temper check` runs admissibility over each built-in contract and conformance over each artifact; a contract carrying an empty `enum` fails admissibility (exit non-zero), the curated built-ins pass both — the finish line's second green now surfaced.",
+    "notes": "Thin today by necessity: closed-vocabulary rejection (UnknownPredicate) and charset-range validity (InvalidRange) are already enforced at load, so the only new decidable admissibility clause is list-non-emptiness. The value is the seam + the second green: `pattern`-compiles, role-`match`-resolves, and `verified_by`-resolves admissibility extend this same pass when those land. Lives in engine.rs (already imports check + contract); introduces no contract.rs->check.rs dependency."
+  },
+  {
+    "tag": "TYPED-EXTRACTION",
+    "summary": "Preserve each field's parsed scalar/container kind (string/integer/number/boolean/list/map/null) in the projection — the precondition a sound `type` check needs.",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: the `type` vocabulary is a closed scalar/container lattice"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        { "path": "src/extract.rs", "description": "Stop collapsing every scalar to a bare string for kind purposes: extend the projection so each field records its source kind off the parsed YAML/JSON value (`json_scalar_string` currently flattens bool/number/string alike). Keep `FeatureValue::as_scalar` yielding the comparison text the scalar predicates (`min_len`/`max_len`/`enum`/`deny`/`allowed_chars`) read unchanged. Tests: an integer, boolean, string, and list field each project with their source kind preserved while `as_scalar` still returns the field text." },
+        { "path": "src/engine.rs", "description": "Update `FeatureValue` construction sites in the engine's unit-test helpers if the variant shape changes (the scalar-text path in `scalar()` is unchanged — every existing scalar predicate keeps reading text). Edit only as needed to keep the engine tests green." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/extract.rs", "asserts": "a field's source kind is preserved in the projection; as_scalar still yields the field text for the existing scalar predicates" }
+    ],
+    "acceptance": "the projection records each field's source kind (string/integer/number/boolean/list/map/null); scalar predicates still read field text unchanged; existing extract + engine tests pass.",
+    "notes": "The spec names this exact correction: stringifying every scalar (the slice-1 shortcut, extract.rs) makes `type` undecidable and is corrected before the primitive ships. Foundation only — no new predicate here; TYPE-PRIMITIVE adds the clause. FeatureValue's enum shape may change (Scalar(String) carrying a kind), which ripples to engine.rs test construction — hence engine.rs is in the blast radius."
+  },
+  {
+    "tag": "TYPE-PRIMITIVE",
+    "summary": "Add the `type` field primitive over the closed scalar/container lattice — `Predicate::Type`, parsed and decided against the preserved source kind.",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: the `type` vocabulary is a closed scalar/container lattice"
+    },
+    "gate": { "kind": "blockedBy", "tag": "TYPED-EXTRACTION" },
+    "files": {
+      "new": [],
+      "edit": [
+        { "path": "src/contract.rs", "description": "Add `Predicate::Type { field, kind }` to the closed vocabulary; parse the `type` clause (the declared type must be one of the closed lattice string/integer/number/boolean/list/map/null — an unknown type is a load error, mirroring UnknownPredicate); add the `type` arm to `predicate_key`. Tests: a `type` clause parses; an unknown declared type is a load error." },
+        { "path": "src/engine.rs", "description": "Add the `Predicate::Type` arm to `decide`: compare the field's preserved source kind (from TYPED-EXTRACTION) to the declared kind; an absent field is the `required` clause's concern (Holds), so `type` stays silent on absence. Tests: fires on a kind mismatch, silent on a match and on an absent field." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/contract.rs", "asserts": "a `type` clause parses into the closed lattice and rejects an unknown declared type at load" },
+      { "path": "src/engine.rs", "asserts": "`type` fires exactly when a field's source kind differs from the declared kind, silent on match/absence" }
+    ],
+    "acceptance": "a `type` clause parses over the closed lattice, rejects an unknown type at load, and fires exactly when a field's preserved source kind differs from the declared kind.",
+    "notes": "Closed lattice only (string/integer/number/boolean/list/map/null) — no formats, unions, nested schemas, or numeric ranges; those are the JSON-Schema unsound-proxy surface the bespoke-closed-algebra Decision rejects. `min_len`/`max_len`/`enum`/`pattern` refine within a scalar type; `type` only fixes the kind."
+  }
+]
