@@ -9,13 +9,14 @@ override, a declared skill-reference clause) and the later `apply` write-back
 path — not the contract-engine chain, which ships the in-crate decidable subset
 and embeds the bundled skill template as the default.
 
-- `(contract-name-field)` — RESOLVED, option B (`specs/10-contracts.md` Decision:
-  "a contract is identified by its path/role, not an internal name"), and now
-  FILED: `CONTRACT-NAME-OPTIONAL` (gate `open`) relaxes `Contract.name` to
-  `Option<String>`, drops `MissingName`, and derives a display label from the
-  file stem; it leads the chain (CONTRACT-NAME-OPTIONAL → SKILL-CONTRACT-TEMPLATE
-  → CHECK-CUTOVER → RETIRE-HEURISTICS), which is no longer fork-held. Kept here
-  as the decision record; no dependent still waits on it.
+- `(contract-name-field)` — RESOLVED + SHIPPED (88246bf). Option B
+  (`specs/10-contracts.md` Decision: "a contract is identified by its path/role,
+  not an internal name"). The hand-applied chore dropped `MissingName` and made
+  `Contract.name` default to the file stem when the data file declares none
+  (kept as `String`, not `Option`, since a display label always exists) — the
+  curated nameless `contracts/skill.anthropic.toml` now loads as `skill.anthropic`.
+  Chain head SKILL-CONTRACT-TEMPLATE is now `open`. Kept as the decision record;
+  no dependent still waits on it.
 
 - `(regex-crate)` — The primitive algebra lists `pattern` (regex), but `regex` is
   not in the sanctioned crate set and the codebase deliberately avoids it. Add

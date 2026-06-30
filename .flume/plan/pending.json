@@ -1,43 +1,5 @@
 [
   {
-    "tag": "CONTRACT-NAME-OPTIONAL",
-    "summary": "Relax the `Contract` model's required internal `name` to optional, drop the `MissingName` error path, and derive a display label from the contract file stem — resolving (contract-name-field).",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: a contract is identified by its path/role, not an internal name"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "A contract's identity is its path/role, not an internal name (spec Decision). Relax `Contract.name` from `String` to `Option<String>` (`None` when the file declares none — the curated template's case, contract.rs:46-47). Remove the `MissingName` variant (contract.rs:207-213) and the parse-time required-`name` check that raises it (contract.rs:315-321), so a nameless contract loads. Provide a display label for diagnostics derived from the contract file stem (the path is already threaded into `parse`, contract.rs:306) — e.g. `skill.anthropic` for `contracts/skill.anthropic.toml`. Update the in-module unit tests: drop `missing_name_is_a_load_error` (contract.rs:866-875), and adjust `rep_expected`/`a_contract_with_no_clauses_is_vacuously_valid`/the REP fixture's `name` expectation to the new optional shape."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Test-only: repoint the `#[cfg(test)]` `Contract { name: ... }` construction sites to the new optional-name shape — the `contract()` helper (engine.rs:299-307) and the two inline `Contract { name: \"skill\".to_string(), clauses }` literals (~engine.rs:567, ~engine.rs:618). No engine behavior change; `validate` already reads only `contract.clauses`, never `name`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/contract.rs",
-        "asserts": "a contract declaring no `name` parses (no `MissingName`); `Contract.name` is `Option<String>`; the REP fixture and vacuous-contract tests reflect the optional shape; a display label derives from the file stem"
-      },
-      {
-        "path": "src/engine.rs",
-        "asserts": "the engine's unit suite still passes against the optional-name `Contract` (construction sites only — no decision-table change)"
-      }
-    ],
-    "acceptance": "`Contract.name` is `Option<String>`; `Contract::parse` no longer errors on an absent `name` (the curated `contracts/skill.anthropic.toml` would load); the `MissingName` variant is gone; a diagnostic display label derives from the contract file stem; `cargo test` / `clippy -D warnings` green.",
-    "notes": "Resolves (contract-name-field) option B — the model's required `name` was code drift; the spec identifies a contract by its path/role. Unblocks SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER (both `include_str!`/parse the nameless template). Touches contract.rs (model + its tests) and engine.rs test construction sites only; disjoint from the downstream entries."
-  },
-  {
     "tag": "SKILL-CONTRACT-TEMPLATE",
     "summary": "Pin the shipped Anthropic skill template (contracts/skill.anthropic.toml, human-authored) by loading it through `contract::Contract` and asserting its surviving decidable clause vector.",
     "per": {
@@ -45,14 +7,13 @@
       "section": "Templates — best practices as data"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CONTRACT-NAME-OPTIONAL"
+      "kind": "open"
     },
     "files": {
       "new": [
         {
           "path": "tests/contract_template.rs",
-          "description": "Load the bundled `contracts/skill.anthropic.toml` through `contract::Contract::load` (or `include_str!` + `Contract::parse`) and assert it parses into the model carrying exactly the surviving decidable clauses at their declared severities: `name` required + min_len 1 + allowed_chars `[a-z0-9-]` + max_len 64 + deny `[anthropic, claude]`; `name-matches-dir`; `description` required + min_len 1 + max_len 1024; body `max_lines` 500 (advisory); `forbidden_keys` `[globs, alwaysApply]`. Assert the contract carries no internal `name` (identity is its path; display label derives from the `skill.anthropic` stem). No dropped heuristic (third-person/trigger/companion-refs) appears."
+          "description": "Load the bundled `contracts/skill.anthropic.toml` through `contract::Contract::load` (or `include_str!` + `Contract::parse`) and assert it parses into the model carrying exactly the surviving decidable clauses at their declared severities: `name` required + min_len 1 + allowed_chars `[a-z0-9-]` + max_len 64 + deny `[anthropic, claude]`; `name-matches-dir`; `description` required + min_len 1 + max_len 1024; body `max_lines` 500 (advisory); `forbidden_keys` `[globs, alwaysApply]`. The data file declares no internal `name`, so assert the parsed `Contract.name` derives to `\"skill.anthropic\"` from the file stem (CONTRACT-NAME-OPTIONAL shipped this shape: identity is the path; `name` is a display label defaulting to the stem). No dropped heuristic (third-person/trigger/companion-refs) appears."
         }
       ],
       "edit": [],
@@ -62,11 +23,11 @@
     "tests": [
       {
         "path": "tests/contract_template.rs",
-        "asserts": "the shipped template deserializes into the Contract model with no internal `name` and declares the expected clause set (name format/length/deny, description length, body max_lines advisory, forbidden_keys, name-matches-dir) at the right severities"
+        "asserts": "the shipped template deserializes into the Contract model with `name` derived to `skill.anthropic` from the stem and declares the expected clause set (name format/length/deny, description length, body max_lines advisory, forbidden_keys, name-matches-dir) at the right severities"
       }
     ],
-    "acceptance": "`contracts/skill.anthropic.toml` loads into the Contract model and encodes only the decidable surviving clauses; the dropped heuristics are absent; `cargo test` green.",
-    "notes": "Data file is DONE — human-authored as curated guidance (6e0af11); build EMBEDS contracts/, never writes it. Test-only now. Was fork-held on (contract-name-field) because the nameless template tripped the old `MissingName`; CONTRACT-NAME-OPTIONAL removes that, so this is now an ordinary blockedBy."
+    "acceptance": "`contracts/skill.anthropic.toml` loads into the Contract model (display label `skill.anthropic` from the stem) and encodes only the decidable surviving clauses; the dropped heuristics are absent; `cargo test` green.",
+    "notes": "Data file is DONE — human-authored as curated guidance (6e0af11); build EMBEDS contracts/, never writes it. Test-only now. Was fork-held on (contract-name-field); CONTRACT-NAME-OPTIONAL (88246bf) removed `MissingName` and made `name` default to the file stem, so the nameless template loads and this is now `open`."
   },
   {
     "tag": "CHECK-CUTOVER",
@@ -84,7 +45,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Check loads the workspace, extracts `extract::skill_features` over each `ws.skills` entry into a `Vec<Features>`, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract::parse`) via `engine::validate`, renders via `check::render`, and exits non-zero when `check::any_error` (a required-clause violation) fires; add a `--deny-advisories` flag so advisory (`Warn`) violations also fail. Stop calling `rules::all_rules` and drop the `use temper::rules;` import (main.rs:16,57). While rewriting dispatch, refresh the now-inaccurate module doc: the header (main.rs:1-9) narrates the rule-registration step this entry removes and cites the absent `spec/RELEASE-v0.1.md` (main.rs:4), and the `DEFAULT_WORKSPACE` doc comment cites it again (main.rs:19-21) — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of the lib.rs doc scrub."
+          "description": "Check loads the workspace, extracts `extract::skill_features` over each `ws.skills` entry into a `Vec<Features>`, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract::parse`) via `engine::validate`, renders via `check::render`, and exits non-zero when `check::any_error` (a required-clause violation) fires; add a `--deny-advisories` flag so advisory (`Warn`) violations also fail. Stop calling `rules::all_rules` and drop the `use temper::rules;` import (main.rs:16,57). While rewriting dispatch, refresh the now-inaccurate module doc: the header (main.rs:1-9) narrates the rule-registration step this entry removes and cites the absent `spec/RELEASE-v0.1.md` (main.rs:4), and the `DEFAULT_WORKSPACE` doc comment cites it again (main.rs:20-21) — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of the lib.rs doc scrub."
         },
         {
           "path": "tests/cli.rs",
