@@ -1,25 +1,36 @@
-//! Roster conformance — role match-selection over the parsed harness contract.
+//! Roster checks — selection, conformance, and admissibility over the parsed
+//! harness contract.
 //!
-//! Implements the selection half of `specs/10-contracts.md` ("Roles and
-//! matching"): a harness contract binds an abstract **role** to whichever
-//! concrete artifact fills it, and *which* artifact is itself a decidable
-//! selector, never a guess. The roster — the `[role.<name>]` tables parsed onto
+//! Implements the role tier of `specs/10-contracts.md` ("Roles and matching"): a
+//! harness contract binds an abstract **role** to whichever concrete artifact
+//! fills it, and *which* artifact is itself a decidable selector, never a guess.
+//! The roster — the `[role.<name>]` tables parsed onto
 //! [`AuthorLayer`](crate::compose::AuthorLayer) by the shipped parse foundation —
-//! reaches this pass as typed [`Role`]s; here each role's [`MatchSelector`] is
-//! evaluated against the workspace artifacts of the role's `artifact` kind, and a
-//! **`required` single-filler role filled by zero or by many artifacts is a
-//! conformance error**, reported precisely (`specs/10-contracts.md`: "When zero or
-//! many artifacts match a `required` single-filler role, that is a conformance
-//! error").
+//! reaches this module as typed [`Role`]s.
 //!
-//! ## Selection only — `conforms-to` and admissibility stay frontier
+//! ## Three passes over one roster
 //!
-//! This tier decides *which* artifacts fill a role and whether a `required`
-//! single-filler role is satisfiably filled — nothing more. The `role` primitive
-//! also asks that the filler `conforms-to` the role's contract, and admissibility
-//! asks that the `match` selector and any `verified_by` *resolve*; both are
-//! follow-on entries. A non-`required` role never fires here: `temper` never
-//! fabricates a gate the author did not declare (`00-intent.md` law 4).
+//! Three decidable passes read the same parsed roster, each owning one clause of
+//! the `role` primitive:
+//!
+//! - [`check`] — **selection**: each role's [`MatchSelector`] is evaluated against
+//!   the workspace artifacts of the role's `artifact` kind, and a **`required`
+//!   single-filler role filled by zero or by many artifacts is a conformance
+//!   error**, reported precisely (`specs/10-contracts.md`: "When zero or many
+//!   artifacts match a `required` single-filler role, that is a conformance
+//!   error").
+//! - [`conformance`] — **`conforms-to`**: each selected filler is validated against
+//!   the role's resolved contract.
+//! - [`admissibility`] — **the contract is itself checked** (`specs/10-contracts.md`,
+//!   "Decision: the contract is itself checked — admissibility"): before the roster
+//!   is trusted to judge a harness, each role's own definition is held to the
+//!   definition — its `match` selector resolves, a `required` role's artifact kind
+//!   is satisfiable, its contract resolves and is itself admissible, and any
+//!   `verified_by` resolves to a real path.
+//!
+//! A non-`required` role never fires a *selection* gate (`temper` never fabricates
+//! a gate the author did not declare, `00-intent.md` law 4), but every role's
+//! definition is held to admissibility regardless.
 //!
 //! ## The two decidable selectors
 //!
@@ -56,6 +67,13 @@ const ROLE_RULE: &str = "role";
 /// `conforms-to` clause of the `role` primitive (`specs/10-contracts.md`: a
 /// filler is `present`, `conforms-to` contract C, and is selected by `match`).
 const ROLE_CONFORMS_TO_RULE: &str = "role.conforms-to";
+
+/// The diagnostic `rule` id every roster-admissibility finding reports under — the
+/// admissibility clause of the `role` primitive (`specs/10-contracts.md`,
+/// "Decision: the contract is itself checked — admissibility"): the role's own
+/// definition is well-formed against the definition, before the roster is trusted
+/// to judge a harness.
+const ROLE_ADMISSIBILITY_RULE: &str = "role.admissibility";
 
 /// Run role match-selection over the parsed roster, returning an error-severity
 /// [`Diagnostic`] per `required` single-filler role that is filled by zero or by
@@ -134,6 +152,117 @@ pub fn conformance(
             .collect();
         for finding in engine::validate(&contract, &fillers) {
             diagnostics.push(conformance_finding(role, &finding));
+        }
+    }
+    diagnostics
+}
+
+/// Validate the harness roster against **the definition** — admissibility
+/// (`specs/10-contracts.md`, "Decision: the contract is itself checked —
+/// admissibility"). Each role earns trust the way a harness does, by passing a
+/// check, *before* the roster is used to judge anything; every finding is
+/// [`Diagnostic::error`] (an inadmissible role cannot be trusted, so it must fail
+/// the run) and names the role it indicts.
+///
+/// Four decidable clauses, mirroring the spec's admissibility list for the role
+/// primitive:
+///
+/// - **(a) the `match` selector resolves** — a [`MatchSelector::Role`] marker is
+///   non-empty (an empty marker no artifact can declare admits nothing). A
+///   [`MatchSelector::Name`] glob is always well-formed under the in-crate matcher
+///   ([`glob_matches`] accepts any pattern), so it never fails here.
+/// - **(b) a `required` single-filler role is satisfiable** — `role.artifact`
+///   names a kind `temper` models (a key of `by_kind`); a required role over an
+///   unmodeled kind can *never* be filled, so its definition is inadmissible
+///   regardless of the surface. A non-`required` role over an unmodeled kind is
+///   merely never filled, which the author may have meant — so this clause gates
+///   on `required`.
+/// - **(c) its contract resolves and is itself admissible** —
+///   [`RoleContract::resolve`](crate::compose::RoleContract::resolve)
+///   succeeds (a non-resolving template path is the inadmissibility this pass owns,
+///   the case [`conformance`] skips) and the resolved [`Contract`](crate::contract::Contract)
+///   passes [`engine::admissibility`] (so an empty `enum` in a role's inline
+///   contract is caught here, exactly as in a floor contract).
+/// - **(d) any `verified_by` resolves** — the named path exists relative to
+///   `base_dir` (the referential clause; a dangling verifier is a silent no-op,
+///   the very failure `00-intent.md` law 1 forbids).
+///
+/// `by_kind` is the same workspace-features map [`check`] and [`conformance`] read
+/// — admissibility uses only its *keys* (the modeled kinds), never the fillers.
+/// `base_dir` is the `temper.toml` directory a template path or `verified_by` path
+/// resolves against.
+#[must_use]
+pub fn admissibility(
+    roles: &BTreeMap<String, Role>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    base_dir: &Path,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for role in roles.values() {
+        // (a) The `match` selector resolves. Only a `role` marker can be vacuous:
+        // an empty marker is one no artifact can opt into.
+        if let MatchSelector::Role { marker } = &role.selector
+            && marker.is_empty()
+        {
+            diagnostics.push(Diagnostic::error(
+                ROLE_ADMISSIBILITY_RULE,
+                &role.name,
+                format!(
+                    "role `{}` selects by an empty `role` marker, which no artifact can declare",
+                    role.name
+                ),
+            ));
+        }
+
+        // (b) A `required` single-filler role is satisfiable: its artifact kind is
+        // one `temper` models, else no artifact of that kind can ever fill it.
+        if role.required && !by_kind.contains_key(role.artifact.as_str()) {
+            diagnostics.push(Diagnostic::error(
+                ROLE_ADMISSIBILITY_RULE,
+                &role.name,
+                format!(
+                    "required role `{}` names artifact kind `{}`, which `temper` does not model — it can never be filled",
+                    role.name, role.artifact
+                ),
+            ));
+        }
+
+        // (c) The role's contract resolves, and the resolved contract is itself
+        // admissible. A non-resolving template is this pass's finding (the case
+        // `conformance` skips to avoid double-reporting).
+        match role.contract.resolve(base_dir, &role.name) {
+            Err(error) => diagnostics.push(Diagnostic::error(
+                ROLE_ADMISSIBILITY_RULE,
+                &role.name,
+                format!("role `{}` contract does not resolve: {error}", role.name),
+            )),
+            Ok(contract) => {
+                for finding in engine::admissibility(&contract) {
+                    diagnostics.push(Diagnostic::error(
+                        ROLE_ADMISSIBILITY_RULE,
+                        &role.name,
+                        format!(
+                            "role `{}` contract is inadmissible: {}",
+                            role.name, finding.message
+                        ),
+                    ));
+                }
+            }
+        }
+
+        // (d) Any `verified_by` resolves to a real path under the project — a
+        // dangling verifier is a silent no-op.
+        if let Some(verifier) = &role.verified_by
+            && !base_dir.join(verifier).exists()
+        {
+            diagnostics.push(Diagnostic::error(
+                ROLE_ADMISSIBILITY_RULE,
+                &role.name,
+                format!(
+                    "role `{}` names verifier `{verifier}`, which does not resolve to a path under the project — a dangling verifier is a silent no-op",
+                    role.name
+                ),
+            ));
         }
     }
     diagnostics
@@ -519,5 +648,170 @@ mod tests {
         let diags = check(&roles, &by_kind);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("no `command` artifact"));
+    }
+
+    // ---- admissibility ----------------------------------------------------
+
+    /// Run the admissibility pass over a one-role roster against a `skill`-only
+    /// `by_kind` (the modeled kinds are its keys; admissibility reads no fillers).
+    fn run_admissibility(role: Role, base_dir: &Path) -> Vec<Diagnostic> {
+        let mut roles = BTreeMap::new();
+        roles.insert(role.name.clone(), role);
+        let skills: [Features; 0] = [];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        admissibility(&roles, &by_kind, base_dir)
+    }
+
+    #[test]
+    fn a_required_role_over_an_unmodeled_kind_is_inadmissible() {
+        // `command` is not a kind `temper` models (only `skill` is in `by_kind`),
+        // so a required role over it can never be filled — inadmissible. The inline
+        // contract resolves, so the only finding is the satisfiability one.
+        let role = role(
+            "[role.releaser]\n\
+             artifact = \"command\"\n\
+             match = { name = \"release*\" }\n\
+             required = true\n\
+             [[role.releaser.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "releaser",
+        );
+        let diags = run_admissibility(role, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].artifact, "releaser");
+        assert!(diags[0].message.contains("command"));
+        assert!(diags[0].message.contains("never be filled"));
+    }
+
+    #[test]
+    fn a_non_resolving_template_contract_is_inadmissible() {
+        // The template path resolves to no file under this base dir — the
+        // inadmissibility this pass owns (the case `conformance` skips).
+        let role = required_name_role("plan*"); // contract = a template path
+        let diags = run_admissibility(role, Path::new("/no-such-temper-base-dir"));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].artifact, "planner");
+        assert!(diags[0].message.contains("does not resolve"));
+    }
+
+    #[test]
+    fn an_inline_role_contract_with_an_empty_enum_is_inadmissible() {
+        // `engine::admissibility` runs on the resolved role contract, so a vacuous
+        // `enum` clause is caught here exactly as in a floor contract.
+        let role = role(
+            "[role.planner]\n\
+             artifact = \"skill\"\n\
+             match = { name = \"plan*\" }\n\
+             required = true\n\
+             [[role.planner.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"enum\"\n\
+             field = \"status\"\n\
+             values = []\n",
+            "planner",
+        );
+        let diags = run_admissibility(role, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].artifact, "planner");
+        assert!(diags[0].message.contains("inadmissible"));
+        assert!(diags[0].message.contains("enum"));
+    }
+
+    #[test]
+    fn a_dangling_verified_by_is_inadmissible() {
+        // The `verified_by` path does not exist under the base dir — a dangling
+        // verifier is a silent no-op, so it fails admissibility.
+        let role = role(
+            "[role.planner]\n\
+             artifact = \"skill\"\n\
+             match = { name = \"plan*\" }\n\
+             required = true\n\
+             verified_by = \"tests/nope.rs\"\n\
+             [[role.planner.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "planner",
+        );
+        let diags = run_admissibility(role, Path::new("/no-such-temper-base-dir"));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert!(diags[0].message.contains("verifier"));
+        assert!(diags[0].message.contains("tests/nope.rs"));
+    }
+
+    #[test]
+    fn an_empty_role_marker_selector_is_inadmissible() {
+        // A `role` marker no artifact can declare (the empty string) admits
+        // nothing, so the selector does not resolve.
+        let role = role(
+            "[role.planner]\n\
+             artifact = \"skill\"\n\
+             match = { role = \"\" }\n\
+             [[role.planner.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "planner",
+        );
+        let diags = run_admissibility(role, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert!(diags[0].message.contains("empty"));
+    }
+
+    #[test]
+    fn a_name_glob_selector_is_always_admissible() {
+        // A `name` glob is well-formed under the in-crate matcher for any pattern —
+        // even a bare `*` — so the selector clause never fires for it.
+        let role = role(
+            "[role.planner]\n\
+             artifact = \"skill\"\n\
+             match = { name = \"*\" }\n\
+             required = true\n\
+             [[role.planner.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "planner",
+        );
+        assert!(run_admissibility(role, Path::new("")).is_empty());
+    }
+
+    #[test]
+    fn a_fully_resolving_roster_is_admissible() {
+        // A modeled kind, a well-formed name glob, an admissible inline contract,
+        // and no verifier — nothing for admissibility to reject.
+        let role = inline_maxlen_role(64);
+        assert!(run_admissibility(role, Path::new("")).is_empty());
+    }
+
+    #[test]
+    fn a_non_required_role_over_an_unmodeled_kind_is_admissible() {
+        // Satisfiability gates on `required`: a non-required role over an unmodeled
+        // kind is merely never filled, which the author may have meant — not an
+        // inadmissibility.
+        let role = role(
+            "[role.releaser]\n\
+             artifact = \"command\"\n\
+             match = { name = \"release*\" }\n\
+             [[role.releaser.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "releaser",
+        );
+        assert!(run_admissibility(role, Path::new("")).is_empty());
     }
 }

@@ -103,14 +103,20 @@ fn write_temper_toml(root: &Path, contents: &str) {
 }
 
 /// A `temper.toml` declaring one `required`, name-glob, single-filler role over
-/// the `skill` kind.
+/// the `skill` kind. The contract is an admissible inline clause (a generous `name`
+/// cap any clean filler stays within) so these selection cases isolate the
+/// single-filler gate — the roster itself passes admissibility.
 fn required_role_toml(glob: &str) -> String {
     format!(
         "[role.planner]\n\
          artifact = \"skill\"\n\
-         contract = \"contracts/skill.anthropic.toml\"\n\
          match = {{ name = \"{glob}\" }}\n\
-         required = true\n"
+         required = true\n\
+         [[role.planner.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = 64\n"
     )
 }
 
@@ -183,8 +189,12 @@ fn a_non_required_unfilled_role_is_silent() {
         &root,
         "[role.planner]\n\
          artifact = \"skill\"\n\
-         contract = \"contracts/skill.anthropic.toml\"\n\
-         match = { name = \"plan*\" }\n",
+         match = { name = \"plan*\" }\n\
+         [[role.planner.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = 64\n",
     );
 
     let run = check_in(&root);
@@ -287,6 +297,172 @@ fn a_filler_conforming_to_its_role_contract_is_clean() {
     assert!(
         run.ok,
         "a filler within its role's contract passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+// ---- admissibility: the roster is itself checked --------------------------
+
+#[test]
+fn a_role_naming_an_unknown_artifact_kind_is_inadmissible() {
+    let root = tmpdir("admit-unknown-kind");
+    // A floor-clean skill is present, but the role names `command` — a kind
+    // `temper` does not model — so a required role over it can never be filled.
+    import_skill(&root, "lint-rust", &clean_skill("lint-rust", None));
+    write_temper_toml(
+        &root,
+        "[role.releaser]\n\
+         artifact = \"command\"\n\
+         match = { name = \"release*\" }\n\
+         required = true\n\
+         [[role.releaser.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = 64\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a required role over an unmodeled kind must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("releaser")
+            && run.output.contains("command")
+            && run.output.contains("never be filled"),
+        "the finding names the role, the kind, and that it can never be filled, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_role_whose_template_does_not_resolve_is_inadmissible() {
+    let root = tmpdir("admit-bad-template");
+    // The single matching filler keeps selection clean; the only fault is the
+    // `contract` template path resolving to no file under the temper.toml dir.
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks", None));
+    write_temper_toml(
+        &root,
+        "[role.planner]\n\
+         artifact = \"skill\"\n\
+         contract = \"contracts/does-not-exist.toml\"\n\
+         match = { name = \"plan*\" }\n\
+         required = true\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a role whose contract template does not resolve must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("planner") && run.output.contains("does not resolve"),
+        "the finding names the role and that its contract does not resolve, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_role_with_an_inline_empty_enum_contract_is_inadmissible() {
+    let root = tmpdir("admit-empty-enum");
+    // One matching filler (selection clean); the inline contract carries an `enum`
+    // clause listing no values — vacuous, so `engine::admissibility` rejects it.
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks", None));
+    write_temper_toml(
+        &root,
+        "[role.planner]\n\
+         artifact = \"skill\"\n\
+         match = { name = \"plan*\" }\n\
+         required = true\n\
+         [[role.planner.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"enum\"\n\
+         field = \"status\"\n\
+         values = []\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a role whose inline contract is inadmissible must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("planner")
+            && run.output.contains("inadmissible")
+            && run.output.contains("enum"),
+        "the finding names the role and the vacuous `enum` clause, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_role_with_a_dangling_verified_by_is_inadmissible() {
+    let root = tmpdir("admit-dangling-verifier");
+    // Selection and conformance are clean (one filler, a generous inline cap); the
+    // sole fault is `verified_by` naming a path that does not exist under the root.
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks", None));
+    write_temper_toml(
+        &root,
+        "[role.planner]\n\
+         artifact = \"skill\"\n\
+         match = { name = \"plan*\" }\n\
+         required = true\n\
+         verified_by = \"tests/does-not-exist.rs\"\n\
+         [[role.planner.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = 64\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a role with a dangling `verified_by` must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("planner")
+            && run.output.contains("verifier")
+            && run.output.contains("tests/does-not-exist.rs"),
+        "the finding names the role and the dangling verifier path, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_roster_whose_selectors_templates_and_verifiers_all_resolve_passes() {
+    let root = tmpdir("admit-clean");
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks", None));
+
+    // An admissible template contract on disk (a generous `name` cap the filler
+    // stays within), and a `verified_by` path that exists under the root.
+    let contracts = root.join("contracts");
+    fs::create_dir_all(&contracts).unwrap();
+    fs::write(
+        contracts.join("role-skill.toml"),
+        "[[clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = 64\n",
+    )
+    .unwrap();
+    fs::write(root.join("plan.rs"), "// a present verifier\n").unwrap();
+    write_temper_toml(
+        &root,
+        "[role.planner]\n\
+         artifact = \"skill\"\n\
+         contract = \"contracts/role-skill.toml\"\n\
+         match = { name = \"plan*\" }\n\
+         required = true\n\
+         verified_by = \"plan.rs\"\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a fully-resolving roster passes admissibility ⇒ zero, got:\n{}",
         run.output
     );
 }

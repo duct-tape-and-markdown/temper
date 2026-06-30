@@ -135,6 +135,22 @@ fn main() -> miette::Result<ExitCode> {
                         ("skill", skill_features.as_slice()),
                         ("rule", rule_features.as_slice()),
                     ]);
+                let base_dir = Path::new(TEMPER_TOML)
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."));
+
+                // Admissibility before conformance, here too: each role's own
+                // definition is validated against the definition — its `match`
+                // selector resolves, a `required` role's artifact kind is
+                // satisfiable, its contract resolves and is itself admissible, and
+                // any `verified_by` resolves — before the roster is trusted to
+                // judge the harness (`specs/10-contracts.md`, "Decision: the
+                // contract is itself checked — admissibility").
+                diagnostics.extend(roster::admissibility(layer.roles(), &by_kind, base_dir));
+
+                // Selection: each `required` single-filler role is filled by
+                // exactly one artifact of its kind (`specs/10-contracts.md`, "Roles
+                // and matching").
                 diagnostics.extend(roster::check(layer.roles(), &by_kind));
 
                 // The `conforms-to` half of the same tier: each role's selected
@@ -142,11 +158,8 @@ fn main() -> miette::Result<ExitCode> {
                 // its inline clauses, or a template path taken relative to the
                 // `temper.toml` directory — with findings retagged under
                 // `role.conforms-to` (`specs/10-contracts.md`, the `role`
-                // primitive). A non-resolving template is the roster-admissibility
-                // entry's finding, skipped here rather than double-reported.
-                let base_dir = Path::new(TEMPER_TOML)
-                    .parent()
-                    .unwrap_or_else(|| Path::new("."));
+                // primitive). A non-resolving template is admissibility's finding
+                // above, skipped here rather than double-reported.
                 diagnostics.extend(roster::conformance(layer.roles(), &by_kind, base_dir));
             }
 
