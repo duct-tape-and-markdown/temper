@@ -1,1 +1,144 @@
-[]
+[
+  {
+    "tag": "SKILL-IR",
+    "summary": "Typed Skill IR + Provenance: parse a skill dir from source, build/read the meta.toml surface header, sha256 import_hash.",
+    "per": {
+      "path": "spec/RELEASE-v0.1.md",
+      "section": "The IR (slice 1 subset)"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        { "path": "src/skill.rs", "description": "Skill { name, description, version, license, body, companions, provenance } + Provenance { source_path, import_hash }; from_source_dir (gray_matter YAML split, companion scan, sha256 of SKILL.md bytes); to_meta_document (toml_edit) preserving unknown frontmatter keys verbatim; from_surface_dir (read meta.toml + SKILL.md back, byte-faithful body)." }
+      ],
+      "edit": [
+        { "path": "src/lib.rs", "description": "Add `pub mod skill;`." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/skill.rs", "asserts": "from_source_dir parses required name/description, keeps version/license + unknown keys; import_hash is stable across re-parse; from_surface_dir round-trips a to_meta_document output; body is byte-faithful (trailing bytes preserved)." }
+    ],
+    "acceptance": "`Skill` parses a fixture SKILL.md from source and reloads identically from a written meta.toml + SKILL.md; clippy + fmt clean.",
+    "notes": "Foundation for import + check; both depend on this module read-only. Companions = all sibling files/dirs recursively except SKILL.md and meta.toml (spec: 'sibling files, e.g. PLAYBOOK.md, scripts/**'). No new deps: gray_matter + sha2 + toml_edit are present."
+  },
+  {
+    "tag": "IMPORT",
+    "summary": "author import: walk <harness-path> skills, write per-skill meta.toml + byte-faithful bodies/companions, emit author.toml roll-up index; idempotent.",
+    "per": {
+      "path": "spec/RELEASE-v0.1.md",
+      "section": "Import behavior"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SKILL-IR" },
+    "files": {
+      "new": [
+        { "path": "src/import.rs", "description": "run(harness_path, into) -> miette::Result<()>: walkdir over <harness>/skills/*/SKILL.md (plus a bare <harness> that is itself a skill dir), skip non-skill files; per skill write <into>/skills/<name>/{meta.toml via Skill::to_meta_document, SKILL.md + every companion copied byte-for-byte}; write <into>/author.toml roll-up ([[skill]] with name, source_path, import_hash, body_hash) via toml_edit. Idempotent: unchanged harness -> identical workspace." }
+      ],
+      "edit": [
+        { "path": "src/lib.rs", "description": "Add `pub mod import;`." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/import.rs", "asserts": "import over a fixture harness writes the expected tree; running import twice into the same workspace produces no byte diff (idempotence); companion files copied byte-for-byte; author.toml lists one entry per skill with both hashes." }
+    ],
+    "acceptance": "`import <fixture> --into <tmp>` produces the surface tree; a second run yields zero diff.",
+    "notes": "author.toml is write-only in slice 1 (check walks skills/ directly; the index drives later cross-artifact views). Uses Skill::to_meta_document from SKILL-IR for the format-preserving header — no lossy serialize."
+  },
+  {
+    "tag": "LINT-ENGINE",
+    "summary": "Lint core: Workspace loader, Diagnostic/Severity types, whole-workspace Rule trait, runner + miette rendering, error-severity drives non-zero exit.",
+    "per": {
+      "path": "spec/RELEASE-v0.1.md",
+      "section": "Check behavior (the lint engine)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SKILL-IR" },
+    "files": {
+      "new": [
+        { "path": "src/check.rs", "description": "Workspace { skills: Vec<Skill> } + Workspace::load(dir) walking <ws>/skills/* via Skill::from_surface_dir; Severity { Error, Warn }; Diagnostic { severity, rule, artifact, message, span: Option<...> } (miette Diagnostic); trait Rule { fn check(&self, ws: &Workspace) -> Vec<Diagnostic>; } taking the WHOLE workspace; run(ws, rules: &[Box<dyn Rule>]) -> Vec<Diagnostic> rendered with miette; helper reporting whether any Error fired (for exit code)." }
+      ],
+      "edit": [
+        { "path": "src/lib.rs", "description": "Add `pub mod check;`." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/check.rs", "asserts": "Workspace::load reconstructs skills from a written surface; run with an empty rule set yields no diagnostics; a synthetic error-severity Diagnostic makes the any-error helper return true while warn-only does not." }
+    ],
+    "acceptance": "Engine loads a workspace and runs an injectable rule set; clippy + fmt clean.",
+    "notes": "Rule trait takes &Workspace (not a single artifact) so slice-2 cross-artifact rules slot in with no signature change (rust.md). Runner takes rules as a slice so rule registration lives in the CLI, keeping engine and rules disjoint modules."
+  },
+  {
+    "tag": "LINT-RULES",
+    "summary": "The 10 slice-1 skill rules (mechanical string/structure checks) + one deliberately-broken fixture per rule.",
+    "per": {
+      "path": "spec/RELEASE-v0.1.md",
+      "section": "Check behavior (the lint engine)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "LINT-ENGINE" },
+    "files": {
+      "new": [
+        { "path": "src/rules.rs", "description": "Impl the table's 10 rules as Rule structs: frontmatter-valid, name-format, name-matches-dir, description-length (errors); description-third-person, description-has-trigger, description-has-anti-trigger, body-length, refs-one-level-deep (warns); companion-refs-resolve (error). Export all_rules() -> Vec<Box<dyn Rule>>." },
+        { "path": "tests/fixtures/rules/", "description": "One minimal broken skill per rule (and a clean control) that trips exactly its target rule." }
+      ],
+      "edit": [
+        { "path": "src/lib.rs", "description": "Add `pub mod rules;`." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/rules.rs", "asserts": "each rule fires on its broken fixture and does NOT fire on clean input; severities match the spec table; companion-refs-resolve reports an error for a body referencing a missing file." }
+    ],
+    "acceptance": "Each of the 10 rules has a fixture proving it fires and a clean case proving it stays silent.",
+    "notes": "All checks are std string/char/path ops over the byte-faithful body + frontmatter — no regex/comrak (outside the CLAUDE.md sanctioned set). Reserved words for name-format: anthropic, claude. Deferred heuristic rules (gerund naming, no-op detection, Leitwort, ToC) are out of slice 1 per the spec — do not add them."
+  },
+  {
+    "tag": "CLI",
+    "summary": "Make the import/check subcommand stubs real: clap args, defaults, dispatch into import::run and check::run with all_rules(), error-driven exit code.",
+    "per": {
+      "path": "spec/RELEASE-v0.1.md",
+      "section": "Surface"
+    },
+    "gate": { "kind": "blockedBy", "tag": "LINT-RULES" },
+    "files": {
+      "new": [],
+      "edit": [
+        { "path": "src/main.rs", "description": "Import { harness_path: PathBuf, --into <workspace> default ./.author }; Check { workspace: Option<PathBuf> default ./.author }. Dispatch: Import -> import::run; Check -> load Workspace, check::run(ws, &rules::all_rules()), render diagnostics, exit non-zero if any error-severity fired. Keep main a thin clap dispatch (logic stays in lib)." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/cli.rs", "asserts": "import then check over a fixture exits zero on a clean skill and non-zero when an error-severity rule fires; --into / workspace defaults resolve to ./.author." }
+    ],
+    "acceptance": "`author import <fixture> --into <tmp>` then `author check <tmp>` runs end to end with the documented exit semantics.",
+    "notes": "Depends on IMPORT, LINT-ENGINE and LINT-RULES all present (blockedBy names LINT-RULES, the last upstream). CLI is the rule-registration site, so engine and rules stay decoupled. No new dep; drive lib functions (assert_cmd optional, would need a Cargo edit)."
+  },
+  {
+    "tag": "ACCEPTANCE",
+    "summary": "Slice-1 acceptance: insta snapshots of import + check over a trimmed coordinate fixture, plus the import-idempotence (no-diff) check.",
+    "per": {
+      "path": "spec/RELEASE-v0.1.md",
+      "section": "Tests / acceptance"
+    },
+    "gate": { "kind": "blockedBy", "tag": "CLI" },
+    "files": {
+      "new": [
+        { "path": "tests/acceptance.rs", "description": "insta snapshot of the import surface over a trimmed copy of the coordinate skill (stable across re-runs); insta snapshot of check diagnostics over the rules fixtures (the expected diagnostic set); assert re-running import yields no diff." },
+        { "path": "tests/fixtures/coordinate/", "description": "Trimmed real-shaped coordinate skill (SKILL.md + a companion) used as the import golden fixture." }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/acceptance.rs", "asserts": "import surface snapshot is byte-stable across two runs; check over the fixtures reproduces the expected diagnostic set; import-then-import produces no diff." }
+    ],
+    "acceptance": "The slice acceptance from the spec passes: import <fixture> --into <tmp>, check <tmp> reproduces the expected diagnostics, and re-import produces no diff; `cargo test` green.",
+    "notes": "Drives the lib import/check functions (logic lives in lib per rust.md) so no binary harness/dep is needed. Trimmed fixture only — do not copy the full ~/.claude/skills/coordinate."
+  }
+]
