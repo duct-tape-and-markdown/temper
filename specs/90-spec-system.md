@@ -75,5 +75,6 @@ without rejected alternatives is incomplete — future readers can't audit it.
 - `20-surface.md` — the composition write surface: compose, import, project, drift.
 - `30-landscapes.md` — landscapes: engine instances, the spec model, the seams.
 - `40-composition.md` — authoring the harness: the author-declared contract.
+- `45-governance.md` — powering up the wider scopes: corpus-wide, fact-only predicates.
 - `50-distribution.md` — delivering the gate: plugin, CI, the fail-loud invariant.
 - `90-spec-system.md` — this file.
