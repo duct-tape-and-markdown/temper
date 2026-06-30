@@ -8,9 +8,9 @@
 - **In flight:** nothing. Verified on disk this tick: `src/` = {check, import,
   lib, main, rules, skill}; no `contract`/`extract`/`engine`, no `contracts/`;
   `main.rs:57` calls `rules::all_rules()`; `lib.rs:10` + `main.rs:4,20` cite the
-  absent `SPEC.md`/`spec/RELEASE-v0.1.md`; `rules.rs` still holds the 5 rejected
-  heuristics (third-person, has-trigger, has-anti-trigger, companion-refs, refs-
-  one-level-deep) and all their fixtures; `cargo check` clean. Corpus unchanged;
+  absent `SPEC.md`/`spec/RELEASE-v0.1.md`; `rules.rs` + its fixtures still hold
+  the 5 rejected heuristics (third-person, has-trigger, has-anti-trigger,
+  companion-refs, refs-one-level-deep); `cargo check` clean. Corpus unchanged;
   all 6 `per` cites resolve; inbox empty; no forks moved.
 - **Next:** ship CONTRACT-MODEL + SKILL-EXTRACTOR → CONTRACT-ENGINE →
   SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER → RETIRE-HEURISTICS top-down
