@@ -1,41 +1,5 @@
 [
   {
-    "tag": "IMPORT",
-    "summary": "author import: walk <harness-path> skills, write per-skill meta.toml + byte-faithful bodies/companions, emit author.toml roll-up index; idempotent.",
-    "per": {
-      "path": "spec/RELEASE-v0.1.md",
-      "section": "Import behavior"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/import.rs",
-          "description": "run(harness_path, into) -> miette::Result<()>: walkdir over <harness>/skills/*/SKILL.md (plus a bare <harness> that is itself a skill dir), skip non-skill files; per skill read with Skill::from_source_dir then write <into>/skills/<name>/{meta.toml via Skill::to_meta_document, SKILL.md + every companion copied byte-for-byte}; write <into>/author.toml roll-up ([[skill]] with name, source_path, import_hash, body_hash) via toml_edit. Idempotent: unchanged harness -> identical workspace."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod import;`. (Also touched by LINT-ENGINE — the two share this file, so the fanout partition serializes them.)"
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "import over a fixture harness writes the expected tree; running import twice into the same workspace produces no byte diff (idempotence); companion files copied byte-for-byte; author.toml lists one entry per skill with both hashes."
-      }
-    ],
-    "acceptance": "`import <fixture> --into <tmp>` produces the surface tree; a second run yields zero diff.",
-    "notes": "Unblocked: SKILL-IR shipped (src/skill.rs on disk). Uses Skill::to_meta_document for the format-preserving header — no lossy serialize. author.toml is write-only in slice 1 (check walks skills/ directly; the index drives later cross-artifact views). body_hash = SHA-256 of the byte-faithful body (spec names the field but not its input — default is the body bytes)."
-  },
-  {
     "tag": "LINT-ENGINE",
     "summary": "Lint core: Workspace loader, Diagnostic/Severity types, whole-workspace Rule trait, runner + miette rendering, error-severity drives non-zero exit.",
     "per": {
