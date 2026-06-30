@@ -1,48 +1,36 @@
 [
   {
-    "tag": "CONTRACT-MODEL",
-    "summary": "Typed Contract + the decidable artifact-clause algebra, loaded from a TOML contract file (the type system the engine checks against).",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "The primitive algebra (decidable only)"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        { "path": "src/contract.rs", "description": "`Contract` = a named set of clauses over the decidable primitive algebra, each clause marked `required` (gate-blocking) or `advisory`; clause enum covering the artifact-level primitives implementable in-crate: field `required`/`optional`, `min_len`/`max_len`, `enum`, `deny`, `forbidden_keys`, an in-crate `allowed_chars` charset predicate (the `[a-z0-9-]` case); structural `max_lines`, `require_sections`, `must_define`; cross-artifact `name-matches-dir`, `unique-name`, `dependency-exists`. Deserialize from TOML via `toml_edit`/`serde`. Reject an unknown predicate key (a contract is closed-vocabulary data, not an escape hatch)." }
-      ],
-      "edit": [
-        { "path": "src/lib.rs", "description": "add `pub mod contract;` (this entry's module line only)" }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "src/contract.rs", "asserts": "a representative contract TOML deserializes into the typed model; each primitive round-trips; an unknown predicate key is a load error, not a silent skip" }
-    ],
-    "acceptance": "`Contract::load` parses a multi-clause TOML into the typed clause algebra with per-clause severity; unknown predicates are rejected; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Scope = the decidable artifact-contract primitives buildable without a new crate. Full `pattern` (regex) is held behind the (regex-crate) fork; the `role`/`verified_by` harness-contract primitives are deferred to the harness-contract layer, not this entry."
-  },
-  {
     "tag": "SKILL-EXTRACTOR",
     "summary": "Deterministic Features view of a skill — the surface-decidable feature set the generic engine reads, never inferred meaning (the soundness boundary).",
     "per": {
       "path": "specs/30-landscapes.md",
       "section": "Extraction is the soundness boundary"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": "src/extract.rs", "description": "`Features` — an artifact's deterministically-extracted features keyed for generic clause lookup: scalar/list frontmatter fields by name (including `extra` keys, for `forbidden_keys`), body line count, source directory name (off provenance, for `name-matches-dir`), companion paths, and the artifact id used in diagnostics. Plus `pub fn skill_features(&Skill) -> Features` so `skill.rs` stays untouched. Admits only surface-decidable features — no prose-meaning inference." }
+        {
+          "path": "src/extract.rs",
+          "description": "`Features` — an artifact's deterministically-extracted features keyed for generic clause lookup: scalar/list frontmatter fields by name (including `extra` keys, for `forbidden_keys`), body line count, source directory name (off provenance, for `name-matches-dir`), companion paths, and the artifact id used in diagnostics. Plus `pub fn skill_features(&Skill) -> Features` so `skill.rs` stays untouched. Admits only surface-decidable features — no prose-meaning inference."
+        }
       ],
       "edit": [
-        { "path": "src/lib.rs", "description": "add `pub mod extract;` (this entry's module line only)" }
+        {
+          "path": "src/lib.rs",
+          "description": "add `pub mod extract;` (this entry's module line only)"
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "src/extract.rs", "asserts": "`skill_features` exposes name/description/version/unknown keys, the body line count, and the source dir name; field lookup is by name so a clause can resolve `name`/`description` generically" }
+      {
+        "path": "src/extract.rs",
+        "asserts": "`skill_features` exposes name/description/version/unknown keys, the body line count, and the source dir name; field lookup is by name so a clause can resolve `name`/`description` generically"
+      }
     ],
     "acceptance": "A skill projects to a `Features` map the engine can resolve clause field-references against; `cargo test`/`clippy -D warnings` green.",
     "notes": "Independent of CONTRACT-MODEL (no `Contract` import). The generic field-name lookup is what lets the engine carry no hardcoded `skill.name` opinion."
@@ -54,19 +42,32 @@
       "path": "specs/10-contracts.md",
       "section": "Decision: kill the heuristic rule registry"
     },
-    "gate": { "kind": "blockedBy", "tag": "CONTRACT-MODEL" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-MODEL"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": "src/engine.rs", "description": "`validate(&Contract, &[Features]) -> Vec<Diagnostic>`: for each artifact's features, evaluate every clause as a decidable predicate and, on a false predicate, push a `check::Diagnostic` whose severity is the clause's declared `required`->Error / `advisory`->Warn and whose `rule` id is the clause key. No `if`-buried opinion: the engine reads only declared clauses. Reuses `check::{Diagnostic, Severity}`." }
+        {
+          "path": "src/engine.rs",
+          "description": "`validate(&Contract, &[Features]) -> Vec<Diagnostic>`: for each artifact's features, evaluate every clause as a decidable predicate and, on a false predicate, push a `check::Diagnostic` whose severity is the clause's declared `required`->Error / `advisory`->Warn and whose `rule` id is the clause key. No `if`-buried opinion: the engine reads only declared clauses. Reuses `check::{Diagnostic, Severity}`."
+        }
       ],
       "edit": [
-        { "path": "src/lib.rs", "description": "add `pub mod engine;` (this entry's module line only)" }
+        {
+          "path": "src/lib.rs",
+          "description": "add `pub mod engine;` (this entry's module line only)"
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "src/engine.rs", "asserts": "each primitive clause fires exactly on a violating feature set and stays silent on a conforming one; declared severity maps required->Error / advisory->Warn; an all-advisory run yields no Error" }
+      {
+        "path": "src/engine.rs",
+        "asserts": "each primitive clause fires exactly on a violating feature set and stays silent on a conforming one; declared severity maps required->Error / advisory->Warn; an all-advisory run yields no Error"
+      }
     ],
     "acceptance": "Given a hand-built Contract + Features, `validate` reproduces the surviving decidable findings (name-format, name-matches-dir, lengths, forbidden_keys, body max_lines) with correct severities; `cargo test`/`clippy -D warnings` green.",
     "notes": "Also consumes `extract::Features` (SKILL-EXTRACTOR, ordered above). blockedBy names CONTRACT-MODEL (primary import). Does NOT re-introduce the rejected heuristics — there is no clause for trigger/anti-trigger/third-person/prose-grep refs."
@@ -78,18 +79,31 @@
       "path": "specs/10-contracts.md",
       "section": "Templates — best practices as data"
     },
-    "gate": { "kind": "blockedBy", "tag": "CONTRACT-MODEL" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-MODEL"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": "contracts/skill.anthropic.toml", "description": "Declarative skill contract: `name`/`description` required + min_len 1; `name` allowed_chars `[a-z0-9-]`, max_len 64, deny `[anthropic, claude]`; `description` max_len 1024; body max_lines 500 (advisory); forbidden_keys `[globs, alwaysApply]` (Cursor keys Claude Code ignores); `name-matches-dir`. Every clause decidable and in-crate — no `pattern`/regex, no trigger/no-op judgment." },
-        { "path": "tests/contract_template.rs", "description": "Load `contracts/skill.anthropic.toml` through `contract::Contract` and assert it parses and carries exactly the surviving decidable clauses at their declared severities." }
+        {
+          "path": "contracts/skill.anthropic.toml",
+          "description": "Declarative skill contract: `name`/`description` required + min_len 1; `name` allowed_chars `[a-z0-9-]`, max_len 64, deny `[anthropic, claude]`; `description` max_len 1024; body max_lines 500 (advisory); forbidden_keys `[globs, alwaysApply]` (Cursor keys Claude Code ignores); `name-matches-dir`. Every clause decidable and in-crate — no `pattern`/regex, no trigger/no-op judgment."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Load `contracts/skill.anthropic.toml` through `contract::Contract` and assert it parses and carries exactly the surviving decidable clauses at their declared severities."
+        }
       ],
       "edit": [],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/contract_template.rs", "asserts": "the shipped template deserializes into the model and declares the expected clause set (name format/length/deny, description length, body max_lines advisory, forbidden_keys, name-matches-dir)" }
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "the shipped template deserializes into the model and declares the expected clause set (name format/length/deny, description length, body max_lines advisory, forbidden_keys, name-matches-dir)"
+      }
     ],
     "acceptance": "`contracts/skill.anthropic.toml` loads into the Contract model and encodes only the decidable surviving clauses; the dropped heuristics are absent; `cargo test` green.",
     "notes": "Data, not code (law 2). This is the std-lib type an author adopts; it is what CHECK-CUTOVER embeds as the built-in default."
@@ -101,18 +115,31 @@
       "path": "specs/20-surface.md",
       "section": "CLI surface"
     },
-    "gate": { "kind": "blockedBy", "tag": "CONTRACT-ENGINE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-ENGINE"
+    },
+    "dependsOnForks": [],
     "files": {
-      "edit": [
-        { "path": "src/main.rs", "description": "Check loads the workspace, extracts `Features` per skill, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract`), renders via `check::render`, and exits non-zero on any required-clause violation; add `--deny-advisories` so advisory violations also fail. Stop calling `rules::all_rules`. While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub." },
-        { "path": "tests/cli.rs", "description": "keep the clean/error-exit cases (name-format + name-matches-dir still fire as errors); add a `--deny-advisories` case where an advisory-only workspace exits non-zero with the flag and zero without it." }
-      ],
       "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Check loads the workspace, extracts `Features` per skill, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract`), renders via `check::render`, and exits non-zero on any required-clause violation; add `--deny-advisories` so advisory violations also fail. Stop calling `rules::all_rules`. While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "keep the clean/error-exit cases (name-format + name-matches-dir still fire as errors); add a `--deny-advisories` case where an advisory-only workspace exits non-zero with the flag and zero without it."
+        }
+      ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/cli.rs", "asserts": "import->check exits 0 on a clean skill, non-zero on an uppercase/mismatched name; `--deny-advisories` flips an advisory-only run to non-zero" }
+      {
+        "path": "tests/cli.rs",
+        "asserts": "import->check exits 0 on a clean skill, non-zero on an uppercase/mismatched name; `--deny-advisories` flips an advisory-only run to non-zero"
+      }
     ],
     "acceptance": "The gate now runs the declared contract, not the registry; default blocks on `required` only, `--deny-advisories` also blocks on advisory; `cargo test`/`clippy -D warnings` green.",
     "notes": "Also depends on SKILL-EXTRACTOR + SKILL-CONTRACT-TEMPLATE (ordered above). Embeds the bundled template as the default; the override/selection mechanism is the (contract-selection) fork, deferred. Leaves `rules.rs` in place (still public, no dead-code warning) for RETIRE-HEURISTICS to remove."
@@ -124,13 +151,23 @@
       "path": "specs/10-contracts.md",
       "section": "Decision: kill the heuristic rule registry"
     },
-    "gate": { "kind": "blockedBy", "tag": "CHECK-CUTOVER" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CHECK-CUTOVER"
+    },
+    "dependsOnForks": [],
     "files": {
-      "edit": [
-        { "path": "src/lib.rs", "description": "remove `pub mod rules;` (this entry's line only)" },
-        { "path": "tests/acceptance.rs", "description": "drive `engine::validate` against the built-in skill contract instead of `all_rules()`; regenerate the diagnostic-set snapshot to the reduced surviving-clause set (import surface snapshot unchanged)" }
-      ],
       "new": [],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "remove `pub mod rules;` (this entry's line only)"
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "drive `engine::validate` against the built-in skill contract instead of `all_rules()`; regenerate the diagnostic-set snapshot to the reduced surviving-clause set (import surface snapshot unchanged)"
+        }
+      ],
       "retire": [
         "src/rules.rs",
         "tests/rules.rs",
@@ -144,7 +181,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/acceptance.rs", "asserts": "import->validate->re-import over the contract path reproduces the surviving diagnostics with no surface diff; the dropped heuristics no longer appear" }
+      {
+        "path": "tests/acceptance.rs",
+        "asserts": "import->validate->re-import over the contract path reproduces the surviving diagnostics with no surface diff; the dropped heuristics no longer appear"
+      }
     ],
     "acceptance": "`src/rules.rs`, `tests/rules.rs`, and the five dropped-heuristic fixtures are gone; `lib.rs` has no `rules` module; acceptance runs on the engine; regenerated snapshot reflects the decidable clauses only; `cargo test`/`clippy -D warnings` green.",
     "notes": "Scope honesty: this removes shipped behavior (third-person, has-trigger, has-anti-trigger, prose-grep companion-refs, refs-one-level-deep) — mandated by the corpus, which names trigger + companion-refs as false-positive sources. The decidable members survive as template clauses, not code."
@@ -156,12 +196,18 @@
       "path": "specs/00-intent.md",
       "section": "Decision: evergreen spec, not release lines"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
-      "edit": [
-        { "path": "src/lib.rs", "description": "rewrite only the `//!` crate-doc header: replace the `See SPEC.md ... spec/RELEASE-v0.1.md for the active ship target` sentence with a pointer to the evergreen `specs/` corpus (`specs/00-intent.md` north star, continuously reconciled). Touch the doc block only — leave the `pub mod`/`pub const` lines to the engine-chain entries." }
-      ],
       "new": [],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "rewrite only the `//!` crate-doc header: replace the `See SPEC.md ... spec/RELEASE-v0.1.md for the active ship target` sentence with a pointer to the evergreen `specs/` corpus (`specs/00-intent.md` north star, continuously reconciled). Touch the doc block only — leave the `pub mod`/`pub const` lines to the engine-chain entries."
+        }
+      ],
       "retire": []
     },
     "schemaDelta": "none",
