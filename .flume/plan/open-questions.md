@@ -98,21 +98,32 @@ and embeds the bundled skill template as the default.
   Fail-loud is intrinsic — a missing platform binary is an install error, never a
   silent skip. Kept as the decision record; gates packaging work, not the engine.
 
-- `(spec-landscape-kind)` — An untracked, human-authored `contracts/spec.toml`
-  composes a contract for the **spec corpus as an artifact kind** (max_lines plus
-  two clauses it cannot yet express). It surfaces a real intent gap the corpus does
-  not yet authorize, on three fronts: (1) `20-surface.md` "Artifact kinds & contract
-  selection" names only `skill` and `rule`, and `import.rs` scans only those — is
-  `spec` (`specs/*.md`) a checked artifact kind, and does `import` scan it? (2) the
-  file needs a `section_contains { heading, marker }` primitive (every `## Decision`
-  carries a `Rejected` block — named decidable in `30-landscapes.md`, but NOT in the
-  closed algebra `10-contracts.md` enumerates; adding it is "a deliberate language
-  change," law 3 — human to author). (3) it needs a **referential** `references-resolve`
-  clause over a *declared* reference syntax (the de-facto backtick-wrapped `` `NN-name.md` ``);
-  `10-contracts.md` blesses referential clauses only over a declared syntax, but no
-  referential primitive ships and the spec landscape's reference syntax is not in the
-  corpus. Distinct from `(model-declaration-format)`: this is the *flat artifact-kind*
-  contract for specs (structural clauses over spec files), not the declared-model
-  graph. Until the human authors these into the corpus, none of the three ships — plan
-  surfaces, does not fill (`00-intent.md` law 4). `contracts/spec.toml` is human
-  territory; plan neither writes nor commits it.
+- `(spec-landscape-kind)` — RESOLVED (mostly), by the human authoring `specs/15-kinds.md`
+  ("Kinds — the extraction algebra and the kind system"). Of the three original fronts:
+  **(1)** is the **spec corpus a checked artifact kind, scanned by `import`?** — RESOLVED:
+  `15-kinds.md` makes `spec` a *custom* kind (provenance: author-defined, not a harness
+  format) governing `specs/*.md`, with a worked-example extraction (ATX headings, `## Decision`
+  blocks, backtick-filename refs) and contract (max_lines + two clauses). The `spec`-kind
+  build-out is filed: SPEC-KIND-IR → IMPORT → WORKSPACE → GATE (pending.json). **(3)** the
+  **referential `references-resolve` clause** — RESOLVED: `15-kinds.md` *declares* the spec
+  landscape's reference syntax (the backtick-wrapped `` `NN-name.md` ``), the precondition
+  `10-contracts.md`'s referential primitive needed; references-resolve is now fork-free
+  build work (state.md frontier). **(2)** the `section_contains` / decisions-name-alternatives
+  **predicate** is NOT resolved — carved out as `(decision-marker-predicate)` below.
+  `contracts/spec.toml` remains untracked human territory; plan neither writes nor commits
+  it (the GATE entry is `parked` until a human commits it).
+
+- `(decision-marker-predicate)` — The spec contract's **decisions-name-alternatives**
+  clause (`15-kinds.md` worked example, `contracts/spec.toml`: every `## Decision` carries
+  a `Rejected` marker) rests on a predicate `10-contracts.md`'s closed *predicate* algebra
+  does not enumerate — a "a section matching a heading pattern contains a marker" primitive
+  (`section_contains { heading, marker }`). `15-kinds.md` adds the matching *extraction*
+  primitive (the `## Decision` block, heading + body) and names the clause, but explicitly
+  defers a missing predicate to a "deliberate vocabulary addition (`10-contracts.md`)" —
+  and `10-contracts.md`'s algebra (the predicate-vocabulary owner, per DRY/`90-spec-system.md`)
+  still lists only `max_lines` / `require_sections` / `must_define` structurally. So the
+  predicate is authorized to *exist* but is not yet *enumerated in its home spec*. Law 3:
+  adding a predicate is a deliberate language change — human to enumerate `section_contains`
+  in `10-contracts.md`'s primitive algebra. Until then decisions-name-alternatives does not
+  ship (the `max_lines` spec clause ships without it). Distinct from references-resolve,
+  whose predicate *category* `10-contracts.md` already enumerates (referential).

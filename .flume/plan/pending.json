@@ -1,1 +1,78 @@
-[]
+[
+  {
+    "tag": "SPEC-KIND-IR",
+    "summary": "Add the `spec` artifact-kind IR (`src/spec.rs`): a frontmatter-free `specs/*.md` body (name = file stem) + provenance; from_source_file / to_meta_document / from_surface_dir.",
+    "per": { "path": "specs/15-kinds.md", "section": "Worked example: `spec`, temper's own custom kind" },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        { "path": "src/spec.rs", "description": "The `Spec` IR: name (file stem), byte-faithful body, `Provenance { source_path, import_hash }`. `from_source_file` reads the whole file as the body (a spec carries NO frontmatter — `90-spec-system.md`), `to_meta_document` emits a provenance-only `meta.toml`, `from_surface_dir` reloads body + provenance with name from the dir. Mirror the no-frontmatter `Rule` path but simpler (no `paths`, no `extra`)." }
+      ],
+      "edit": [
+        { "path": "src/lib.rs", "description": "Add `pub mod spec;` beside the other artifact-kind modules." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/spec.rs", "asserts": "a `specs/*.md` file parses to name = stem and a byte-faithful body (trailing bytes intact); `import_hash` is a stable 64-char hex; `to_meta_document` + `from_surface_dir` round-trip the spec exactly." }
+    ],
+    "acceptance": "`Spec::from_source_file` reads a spec markdown file body byte-faithfully with name = stem and provenance; the surface round-trip via `to_meta_document` + `from_surface_dir` reconstructs an identical `Spec`; `cargo test` + clippy green.",
+    "notes": "A spec is pure prose — no frontmatter ever (`90-spec-system.md`: \"No frontmatter, no schema\"), so this is the no-frontmatter `Rule` shape minus `paths`/`extra`. One artifact kind per module (`.claude/rules/rust.md`)."
+  },
+  {
+    "tag": "SPEC-KIND-IMPORT",
+    "summary": "`import` scans `<harness>/specs/*.md` into `<into>/specs/<name>/` (meta.toml + SPEC.md) and adds `[[spec]]` roll-up rows alongside skills and rules.",
+    "per": { "path": "specs/15-kinds.md", "section": "Worked example: `spec`, temper's own custom kind" },
+    "gate": { "kind": "blockedBy", "tag": "SPEC-KIND-IR" },
+    "files": {
+      "edit": [
+        { "path": "src/import.rs", "description": "Add `discover_spec_files` (immediate `<harness>/specs/*.md`), `import_spec` (write `<into>/specs/<name>/{meta.toml, SPEC.md}` byte-faithful), thread a third `specs` vec through `run`, and extend `write_rollup` with `doc[\"spec\"] = rollup_tables(specs)`. Add an `ImportError::Spec(#[from] SpecError)` variant." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/import.rs", "asserts": "a harness carrying `specs/*.md` yields per-spec surface dirs and name-sorted `[[spec]]` roll-up rows; re-import is byte-identical (idempotent); a skill/rule-only harness emits no `[[spec]]` bytes." }
+    ],
+    "acceptance": "Importing a harness with `specs/*.md` writes a `specs/<name>/` surface per spec plus `[[spec]]` roll-up rows; re-import produces no diff.",
+    "notes": "An empty `ArrayOfTables` emits nothing (the existing `[[rule]]` behavior), so the `acceptance__coordinate_import_surface` snapshot and `tests/cli.rs` over skill-only fixtures stay byte-stable — no integration-test blast radius."
+  },
+  {
+    "tag": "SPEC-KIND-WORKSPACE",
+    "summary": "`Workspace` carries `specs`, loaded from `<dir>/specs/*` via `Spec::from_surface_dir`, name-sorted beside skills and rules.",
+    "per": { "path": "specs/15-kinds.md", "section": "Worked example: `spec`, temper's own custom kind" },
+    "gate": { "kind": "blockedBy", "tag": "SPEC-KIND-IR" },
+    "files": {
+      "edit": [
+        { "path": "src/check.rs", "description": "Add `specs: Vec<Spec>` to `Workspace`, load it from `<dir>/specs/*` in `Workspace::load` via the existing `surface_dirs` helper, add a `WorkspaceError::Spec(#[from] SpecError)` variant, and fix the one `Workspace { .. }` literal (the test at ~line 399) to carry `specs: Vec::new()`." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/check.rs", "asserts": "`Workspace::load` reconstructs spec artifacts from a written specs surface, name-sorted, alongside skills and rules; a workspace with no `specs/` dir loads an empty spec set." }
+    ],
+    "acceptance": "`Workspace::load` reconstructs the spec artifacts from a written specs surface; existing skill/rule load tests stay green.",
+    "notes": "The only `Workspace { .. }` literal is `src/check.rs:399` (its own test); `tests/acceptance.rs` uses `Workspace::load`, so the blast radius is check.rs alone. Disjoint from the import.rs edit."
+  },
+  {
+    "tag": "SPEC-KIND-GATE",
+    "summary": "Dispatch `check` over specs: a `spec_features` extractor + embed `contracts/spec.toml`, running admissibility and `engine::validate` (the advisory `max_lines` clause) over the spec features.",
+    "per": { "path": "specs/15-kinds.md", "section": "Worked example: `spec`, temper's own custom kind" },
+    "gate": { "kind": "parked", "reason": "the untracked `contracts/spec.toml` is curated human territory (build embeds via `include_str!` but never writes/adds it); a human must commit it before the gate can embed it cleanly" },
+    "files": {
+      "edit": [
+        { "path": "src/extract.rs", "description": "Add `spec_features(&Spec) -> Features` mirroring `rule_features` (id = name, `body_lines`, `headings`, `source_dir`; no fields/companions)." },
+        { "path": "src/main.rs", "description": "Add `BUILTIN_SPEC_CONTRACT = include_str!(\"../contracts/spec.toml\")`; in the `Check` arm project `ws.specs` to spec features, parse the spec floor, run `engine::admissibility` + `engine::validate` over them, and merge into the diagnostic stream." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/extract.rs", "asserts": "`spec_features` exposes the spec id, body line count, and ATX headings; the `max_lines` clause fires (advisory) on an over-length spec and stays silent within budget." }
+    ],
+    "acceptance": "`temper check` over an imported corpus runs the spec contract — flagging the over-length specs (00, 10) at advisory severity and exiting 0 (non-blocking) absent `--deny-advisories`.",
+    "notes": "Build-order: also requires SPEC-KIND-WORKSPACE (for `Workspace.specs`); `spec_features` is added here. Runs `contracts/spec.toml`'s active `max_lines` clause only — its two commented clauses (decisions-name-alternatives, references-resolve) await separate predicates (see `(decision-marker-predicate)` and the references-resolve frontier)."
+  }
+]
