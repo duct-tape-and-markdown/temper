@@ -43,7 +43,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "CONTRACT-ENGINE"
+      "tag": "SKILL-CONTRACT-TEMPLATE"
     },
     "dependsOnForks": [],
     "files": {
@@ -51,11 +51,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Check loads the workspace, extracts `Features` per skill, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract`), renders via `check::render`, and exits non-zero on any required-clause violation; add `--deny-advisories` so advisory violations also fail. Stop calling `rules::all_rules` (main.rs:57). While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header (main.rs:1-9) narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment, main.rs:5,20) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
+          "description": "Check loads the workspace, extracts `extract::skill_features` per skill into a `Vec<Features>`, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract::parse`) via `engine::validate`, renders via `check::render`, and exits non-zero when `check::any_error` (a required-clause violation) fires; add `--deny-advisories` so advisory (`Warn`) violations also fail. Stop calling `rules::all_rules` (main.rs:57). While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header (main.rs:1-9) narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment, main.rs:5,20) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
         },
         {
           "path": "tests/cli.rs",
-          "description": "keep the clean/error-exit cases (name-format + name-matches-dir still fire as errors); add a `--deny-advisories` case where an advisory-only workspace exits non-zero with the flag and zero without it."
+          "description": "keep the clean/error-exit cases (name-format + name-matches-dir still fire as errors); add a `--deny-advisories` case where an advisory-only workspace exits non-zero with the flag and zero without it. While editing, repoint this file's stale module-doc header (cli.rs:1, citing the absent `spec/RELEASE-v0.1.md`) to the evergreen `specs/` corpus."
         }
       ],
       "retire": []
@@ -68,7 +68,7 @@
       }
     ],
     "acceptance": "The gate now runs the declared contract, not the registry; default blocks on `required` only, `--deny-advisories` also blocks on advisory; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Also depends on SKILL-EXTRACTOR (shipped) + SKILL-CONTRACT-TEMPLATE (ordered above). Embeds the bundled template as the default; the override/selection mechanism is the (contract-selection) fork, deferred. Leaves `rules.rs` in place (still public, no dead-code warning) for RETIRE-HEURISTICS to remove."
+    "notes": "Depends on SKILL-EXTRACTOR + CONTRACT-ENGINE (both shipped) + SKILL-CONTRACT-TEMPLATE (the include_str! target — the only open blocker, gating this entry). Embeds the bundled template as the default; the override/selection mechanism is the (contract-selection) fork, deferred. Leaves `rules.rs` + `check::Rule`/`check::run` in place (still public, no dead-code warning) for RETIRE-HEURISTICS to remove."
   },
   {
     "tag": "RETIRE-HEURISTICS",
@@ -91,7 +91,7 @@
         },
         {
           "path": "tests/acceptance.rs",
-          "description": "drive `engine::validate` against the built-in skill contract instead of `all_rules()`; regenerate the diagnostic-set snapshot to the reduced surviving-clause set (import surface snapshot unchanged)"
+          "description": "drive `engine::validate` against the built-in skill contract instead of `all_rules()`; regenerate the diagnostic-set snapshot to the reduced surviving-clause set (import surface snapshot unchanged). While rewriting, repoint the stale module-doc header (acceptance.rs:1) citing the absent `spec/RELEASE-v0.1.md` to the evergreen `specs/` corpus."
         }
       ],
       "retire": [
@@ -113,7 +113,7 @@
       }
     ],
     "acceptance": "`src/rules.rs`, `tests/rules.rs`, and the five dropped-heuristic fixtures are gone; `lib.rs` has no `rules` module; acceptance runs on the engine; regenerated snapshot reflects the decidable clauses only; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Scope honesty: this removes shipped behavior (third-person, has-trigger, has-anti-trigger, prose-grep companion-refs, refs-one-level-deep) — mandated by the corpus, which names trigger + companion-refs as false-positive sources. The decidable members survive as template clauses, not code."
+    "notes": "Scope honesty: this removes shipped behavior (third-person, has-trigger, has-anti-trigger, prose-grep companion-refs, refs-one-level-deep) — mandated by the corpus, which names trigger + companion-refs as false-positive sources. The decidable members survive as template clauses, not code. Leaves the now-callerless `check::Rule`/`check::run` for a follow-up tick to reconcile."
   },
   {
     "tag": "LIBDOC-EVERGREEN",
@@ -140,5 +140,39 @@
     "tests": [],
     "acceptance": "`src/lib.rs`'s crate doc no longer cites `SPEC.md` or `spec/RELEASE-v0.1.md` (both absent) and points at the evergreen `specs/` corpus; `cargo build`/`clippy -D warnings` green.",
     "notes": "Pure doc-comment reconciliation — code↔corpus drift, no behavior change. Disjoint region from the module-list edits the engine-chain entries make to lib.rs; low priority, ordered last."
+  },
+  {
+    "tag": "DOCS-EVERGREEN",
+    "summary": "Scrub the stale `spec/RELEASE-v0.1.md` citations from the module docs of src/import.rs, src/check.rs, src/skill.rs — files no behavioral entry rewrites — repointing each to its evergreen specs/ owner.",
+    "per": {
+      "path": "specs/00-intent.md",
+      "section": "Decision: evergreen spec, not release lines"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "rewrite only the `//!` module-doc header (import.rs:3): replace `Implements the \"Import behavior\" section of spec/RELEASE-v0.1.md` with the evergreen owner `specs/20-surface.md` (import → surface + provenance lock). Doc block only; no behavior change."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "rewrite only the `//!` module-doc header (check.rs:1-19): replace the `spec/RELEASE-v0.1.md` \"Check behavior (the lint engine)\" citation with the evergreen owners `specs/20-surface.md` (\"CLI surface\", the check gate) + `specs/10-contracts.md`. Doc block only; leave the `Workspace`/`Diagnostic`/`Rule` types untouched."
+        },
+        {
+          "path": "src/skill.rs",
+          "description": "rewrite only the `//!` module-doc header (skill.rs:3): replace `slice-1 subset of the IR in spec/RELEASE-v0.1.md` with `specs/20-surface.md` (\"The IR\"). Doc block only; no behavior change."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "No `spec/RELEASE-v0.1.md`/`SPEC.md` citation remains in src/import.rs, src/check.rs, or src/skill.rs; each module doc points at its evergreen `specs/` owner; `cargo build`/`clippy -D warnings` green.",
+    "notes": "Pure doc-comment reconciliation, the sibling of LIBDOC-EVERGREEN (lib.rs) and CHECK-CUTOVER's main.rs scrub. Covers only the source files no other entry rewrites; the cli.rs/acceptance.rs citations fold into their owning entries and the rules.rs/tests-rules ones vanish with RETIRE-HEURISTICS. Disjoint file set; low priority."
   }
 ]
