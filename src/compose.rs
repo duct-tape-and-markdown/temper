@@ -115,6 +115,13 @@ pub struct Role {
     /// ⇒ `None` (no cardinality gate beyond `required`'s single-filler one). The
     /// general form of `required`; the two are mutually exclusive.
     pub count: Option<CountBound>,
+    /// The declared field names held unique across the role's matched set — the
+    /// set-scope `unique` predicate (`specs/45-governance.md`, "The set scope (the
+    /// roster)"): each named field's extracted scalar must not repeat across the
+    /// role's matched fillers. Absent ⇒ empty (no uniqueness gate). Generalizes the
+    /// kind-wide `unique-name` engine predicate from name-only over a whole kind to
+    /// an arbitrary field over a role's matched subset. Checked in [`crate::roster`].
+    pub unique: Vec<String>,
     /// An optional external verifier for the behavioral remainder (`verified_by`).
     /// Stored verbatim; whether it *resolves* is an admissibility check left to a
     /// follow-on entry.
@@ -392,6 +399,19 @@ pub enum ComposeError {
         role: String,
     },
 
+    /// A `[role.<name>]`'s `unique` declaration is malformed — not an array, or an
+    /// element that is not a string. The set-scope `unique` predicate names a list
+    /// of declared field names, never an open guess; a non-array or a non-string
+    /// element lands here.
+    #[error("{path}: `[role.{role}]` `unique` must be an array of declared field-name strings")]
+    #[diagnostic(code(temper::compose::role_bad_unique))]
+    RoleBadUnique {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role with the malformed `unique` declaration.
+        role: String,
+    },
+
     /// A `[role.<name>]` declares *both* `required` and a `count` bound. The two
     /// are mutually exclusive: `required` is the single-filler shorthand, `count`
     /// the general cardinality form, so declaring both is ambiguous.
@@ -590,6 +610,7 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
     }
     let required = parse_role_required(table, role, path)?;
     let count = parse_count(table, role, path)?;
+    let unique = parse_unique(table, role, path)?;
     let verified_by = role_str(table, "verified_by", role, path)?;
 
     Ok(Role {
@@ -599,6 +620,7 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
         selector,
         required,
         count,
+        unique,
         verified_by,
     })
 }
@@ -632,6 +654,29 @@ fn count_bound(table: &dyn toml_edit::TableLike, key: &str) -> Option<usize> {
         .get(key)?
         .as_integer()
         .and_then(|n| usize::try_from(n).ok())
+}
+
+/// The role's optional `unique` field list: a `unique = ["field", …]` array of
+/// declared field names, each held unique across the role's matched set by the
+/// roster check (`specs/45-governance.md`, "The set scope (the roster)"). Absent ⇒
+/// an empty vec (no uniqueness gate). Any malformation — not an array, or a
+/// non-string element — collapses to [`ComposeError::RoleBadUnique`], the way
+/// [`parse_count`] folds its malformations into one error. The names are stored
+/// verbatim; grouping the matched fillers by each is left to [`crate::roster`].
+fn parse_unique(table: &Table, role: &str, path: &Path) -> Result<Vec<String>, ComposeError> {
+    let Some(item) = table.get("unique") else {
+        return Ok(Vec::new());
+    };
+    let bad_unique = || ComposeError::RoleBadUnique {
+        path: path.to_path_buf(),
+        role: role.to_string(),
+    };
+    let array = item.as_array().ok_or_else(bad_unique)?;
+    let mut fields = Vec::new();
+    for value in array.iter() {
+        fields.push(value.as_str().ok_or_else(bad_unique)?.to_string());
+    }
+    Ok(fields)
 }
 
 /// The role's contract reference — exactly one of a `contract` template path or
@@ -1006,6 +1051,7 @@ verified_by = "tests/plan.rs"
                 },
                 required: true,
                 count: None,
+                unique: Vec::new(),
                 verified_by: Some("tests/plan.rs".to_string()),
             }
         );
@@ -1303,6 +1349,68 @@ count = { min = 0, max = 3 }
             err,
             ComposeError::RoleCountAndRequired { ref role, .. } if role == "agents"
         ));
+    }
+
+    #[test]
+    fn a_unique_field_list_parses_into_a_typed_role() {
+        // The set-scope `unique` predicate: a `unique = ["model"]` array parses into
+        // `Role.unique`, the declared fields the roster holds unique across the set.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+unique = ["model"]
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert_eq!(role.unique, vec!["model".to_string()]);
+    }
+
+    #[test]
+    fn an_absent_unique_defaults_to_an_empty_vec() {
+        // `temper` never fabricates a gate the author did not declare: an absent
+        // `unique` is no uniqueness gate, an empty vec.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert!(role.unique.is_empty());
+    }
+
+    #[test]
+    fn a_non_array_unique_is_a_load_error() {
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+unique = "model"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleBadUnique { ref role, .. } if role == "agents"
+        ));
+    }
+
+    #[test]
+    fn a_unique_with_a_non_string_element_is_a_load_error() {
+        // A non-string element collapses to `RoleBadUnique`, the way a malformed
+        // `count` bound collapses to `RoleBadCount`.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+unique = ["model", 7]
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleBadUnique { .. }));
     }
 
     #[test]

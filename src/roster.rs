@@ -75,6 +75,11 @@ const ROLE_CONFORMS_TO_RULE: &str = "role.conforms-to";
 /// to judge a harness.
 const ROLE_ADMISSIBILITY_RULE: &str = "role.admissibility";
 
+/// The diagnostic `rule` id every set-scope uniqueness finding reports under — the
+/// `unique` predicate of the roster scope (`specs/45-governance.md`, "The set scope
+/// (the roster)"): a declared field must not repeat across a role's matched set.
+const ROLE_UNIQUE_RULE: &str = "role.unique";
+
 /// Run role match-selection over the parsed roster, returning an error-severity
 /// [`Diagnostic`] per `required` single-filler role that is filled by zero or by
 /// many artifacts.
@@ -114,15 +119,22 @@ pub fn check(
             // the author did not declare, so a non-`required` role's filler count is
             // not a violation; a `required` one needs exactly one filler.
             None => {
-                if !role.required {
-                    continue;
-                }
-                match fillers.as_slice() {
-                    [_] => {}
-                    [] => diagnostics.push(unfilled(role)),
-                    many => diagnostics.push(overfilled(role, many)),
+                if role.required {
+                    match fillers.as_slice() {
+                        [_] => {}
+                        [] => diagnostics.push(unfilled(role)),
+                        many => diagnostics.push(overfilled(role, many)),
+                    }
                 }
             }
+        }
+
+        // The set-scope `unique` predicate (`specs/45-governance.md`, "The set
+        // scope"): each declared field must not repeat across the role's matched
+        // set. Author-declared and orthogonal to the cardinality bound above, so it
+        // fires regardless of `count`/`required`.
+        for field in &role.unique {
+            diagnostics.extend(duplicates(role, field, candidates));
         }
     }
     diagnostics
@@ -433,6 +445,47 @@ fn out_of_band(role: &Role, bound: &CountBound, fillers: &[&str]) -> Diagnostic 
     )
 }
 
+/// The set-scope `unique` findings for one declared `field` over `role`'s matched
+/// set (`specs/45-governance.md`, "The set scope"): group the matched fillers by
+/// the field's extracted scalar value and emit one error per value two or more
+/// fillers share. A filler missing the field carries no value to collide on, so it
+/// is silently skipped — a missing field is no collision. Values are grouped in a
+/// [`BTreeMap`] so the finding set is stable across runs.
+fn duplicates(role: &Role, field: &str, candidates: &[Features]) -> Vec<Diagnostic> {
+    let mut by_value: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for features in candidates
+        .iter()
+        .filter(|features| matches(&role.selector, features))
+    {
+        if let Some(value) = features.field(field).and_then(FeatureValue::as_scalar) {
+            by_value
+                .entry(value)
+                .or_default()
+                .push(features.id.as_str());
+        }
+    }
+    by_value
+        .into_iter()
+        .filter(|(_, fillers)| fillers.len() > 1)
+        .map(|(value, fillers)| duplicate(role, field, value, &fillers))
+        .collect()
+}
+
+/// The finding for a `unique` field two or more matched fillers share — naming the
+/// role, the field, the shared value, and the colliding fillers.
+fn duplicate(role: &Role, field: &str, value: &str, fillers: &[&str]) -> Diagnostic {
+    Diagnostic::error(
+        ROLE_UNIQUE_RULE,
+        &role.name,
+        format!(
+            "role `{}` requires `{field}` unique across its matched set, but {} fillers share `{field}` = `{value}` ({})",
+            role.name,
+            fillers.len(),
+            fillers.join(", ")
+        ),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -646,6 +699,96 @@ mod tests {
         let one = run(count_band_role(2, 4), &[features("agent-1", None)]);
         assert_eq!(one.len(), 1);
         assert_eq!(one[0].rule, ROLE_RULE);
+    }
+
+    /// A role declaring `unique = ["model"]` over the `skill` kind — the set-scope
+    /// uniqueness predicate over the matched fillers' `model` field.
+    fn unique_model_role() -> Role {
+        role(
+            "[role.agents]\n\
+             artifact = \"skill\"\n\
+             contract = \"contracts/skill.anthropic.toml\"\n\
+             match = { name = \"agent-*\" }\n\
+             unique = [\"model\"]\n",
+            "agents",
+        )
+    }
+
+    /// A `Features` carrying a name and an optional `model:` scalar field — the
+    /// field the `unique` predicate groups the matched set by.
+    fn skill_with_model(name: &str, model: Option<&str>) -> Features {
+        let mut f = features(name, None);
+        if let Some(model) = model {
+            f.fields.insert(
+                "model".to_string(),
+                FeatureValue::scalar(Kind::String, model),
+            );
+        }
+        f
+    }
+
+    #[test]
+    fn a_unique_field_fires_on_a_shared_value_and_is_silent_when_distinct() {
+        let role = unique_model_role();
+
+        // Two matched fillers sharing a `model` value ⇒ one error naming the field,
+        // the shared value, and the colliding fillers.
+        let collide = run(
+            role.clone(),
+            &[
+                skill_with_model("agent-1", Some("opus")),
+                skill_with_model("agent-2", Some("opus")),
+            ],
+        );
+        assert_eq!(collide.len(), 1);
+        assert_eq!(collide[0].severity, Severity::Error);
+        assert_eq!(collide[0].rule, ROLE_UNIQUE_RULE);
+        assert_eq!(collide[0].artifact, "agents");
+        assert!(collide[0].message.contains("model"));
+        assert!(collide[0].message.contains("opus"));
+        assert!(collide[0].message.contains("agent-1"));
+        assert!(collide[0].message.contains("agent-2"));
+
+        // Every matched filler's `model` differs ⇒ silent.
+        let distinct = run(
+            role,
+            &[
+                skill_with_model("agent-1", Some("opus")),
+                skill_with_model("agent-2", Some("sonnet")),
+            ],
+        );
+        assert!(distinct.is_empty());
+    }
+
+    #[test]
+    fn a_unique_field_missing_from_the_fillers_is_no_collision() {
+        // Neither matched filler declares `model` — no extracted value to share, so
+        // a missing field is no collision.
+        let role = unique_model_role();
+        let diags = run(
+            role,
+            &[
+                skill_with_model("agent-1", None),
+                skill_with_model("agent-2", None),
+            ],
+        );
+        assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn unique_groups_only_the_matched_fillers() {
+        // The non-matching `lint-rust` shares `model` with nothing in the matched
+        // set, and only `agent-*` fillers are grouped — so a lone matched filler is
+        // silent even though an out-of-set artifact carries the same `model`.
+        let role = unique_model_role();
+        let diags = run(
+            role,
+            &[
+                skill_with_model("agent-1", Some("opus")),
+                skill_with_model("lint-rust", Some("opus")),
+            ],
+        );
+        assert!(diags.is_empty());
     }
 
     /// A role carrying an inline `max_len` contract on `name`, capped at `max`.
