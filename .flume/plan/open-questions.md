@@ -29,6 +29,16 @@ declared skill-reference clause) and the later `apply` write-back path.
   explicit `@path`, a fenced block)? Until declared, no companion-ref check
   ships. See `specs/10-contracts.md`.
 
+- `(model-declaration-format)` — `30-landscapes.md` ("The spec landscape: a
+  declared model + bound prose") says the author *declares the domain model* —
+  entities, relationships, invariants — as structure, and the dependency graph /
+  blast radius (build-order step 2) derives from it. But the corpus never pins
+  the **declaration format**: a dedicated `model.toml`, frontmatter
+  `owns:`/`binds:` markers per spec, or something else? The graph and the
+  cross-landscape seam (spec ⟷ code) can't be filed until this is authored.
+  Intent gap — human to author into the spec, not plan to invent. See
+  `specs/30-landscapes.md`.
+
 - `(workspace-scope)` — Does the config surface target a per-project `.claude/`,
   a managed mirror of the global `~/.claude`, or both? `import`/`check` sidestep
   this by importing from an explicit path argument, but `apply` write-back needs
