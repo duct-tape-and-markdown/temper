@@ -1,9 +1,12 @@
-//! End-to-end CLI acceptance for slice 1 (`spec/RELEASE-v0.1.md`, "Surface").
+//! End-to-end CLI acceptance over the documented surface (`specs/20-surface.md`,
+//! "CLI surface"; `specs/10-contracts.md`, the contract engine `check` runs).
 //!
 //! Spawns the built `temper` binary via `CARGO_BIN_EXE_temper` and drives the
 //! documented round trip — `temper import <harness> --into <tmp>` then
 //! `temper check <tmp>` — asserting the exit semantics: zero on a clean skill,
-//! non-zero once an `error`-severity rule fires. A third case pins the default
+//! non-zero once a `required`-severity contract clause is violated. A
+//! `--deny-advisories` case pins the strict policy: an advisory-only run exits
+//! zero by default but non-zero under the flag. A final case pins the default
 //! workspace: with `--into` / the `check` argument omitted, both resolve to
 //! `./.temper` under the process's working directory.
 //!
@@ -46,8 +49,9 @@ description: Use when coordinating agents across axes; not for single-axis work.
 \n\
 Drive the team through the playbook.\n";
 
-/// A skill that trips `error` rules: the uppercase `name` is outside `[a-z0-9-]`
-/// (`skill.name-format`) and no longer equals its directory (`skill.name-matches-dir`).
+/// A skill that violates `required` clauses: the uppercase `name` is outside
+/// `[a-z0-9-]` (the `allowed_chars` clause) and no longer equals its directory
+/// (the `name-matches-dir` clause). Both are required ⇒ a non-zero exit.
 const ERROR_SKILL: &str = "---\n\
 name: Coordinate\n\
 description: Use when coordinating agents across axes; not for single-axis work.\n\
@@ -55,6 +59,24 @@ description: Use when coordinating agents across axes; not for single-axis work.
 # Coordinate\n\
 \n\
 Drive the team through the playbook.\n";
+
+/// A skill clean but for its over-budget body: every `required` clause holds
+/// (lowercase `name` matching its directory, a present short description, no
+/// forbidden keys), and the only violation is the advisory `max_lines` budget
+/// (warn). That isolates the `--deny-advisories` promotion.
+fn advisory_only_skill() -> String {
+    let mut body = String::from("# Coordinate\n");
+    for line in 1..=600 {
+        body.push_str(&format!("Line {line} of an over-budget body.\n"));
+    }
+    format!(
+        "---\n\
+name: coordinate\n\
+description: Use when coordinating agents across axes; not for single-axis work.\n\
+---\n\
+{body}"
+    )
+}
 
 /// Write a one-skill harness at `<root>/skills/<name>/SKILL.md`.
 fn write_harness(root: &Path, name: &str, skill_md: &str) {
@@ -75,14 +97,20 @@ fn import(harness: &Path, into: &Path) {
     assert!(status.success(), "import should succeed: {status}");
 }
 
-/// Run `temper check <workspace>` and return whether it exited zero.
-fn check_succeeds(workspace: &Path) -> bool {
+/// Run `temper check <workspace> [extra…]` and return whether it exited zero.
+fn run_check(workspace: &Path, extra: &[&str]) -> bool {
     Command::new(BIN)
         .arg("check")
         .arg(workspace)
+        .args(extra)
         .status()
         .unwrap()
         .success()
+}
+
+/// Run `temper check <workspace>` and return whether it exited zero.
+fn check_succeeds(workspace: &Path) -> bool {
+    run_check(workspace, &[])
 }
 
 #[test]
@@ -110,6 +138,26 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
     assert!(
         !check_succeeds(&into),
         "an error-severity diagnostic must make check exit non-zero"
+    );
+}
+
+#[test]
+fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
+    let harness = tmpdir("advisory-src");
+    // The only clause this skill violates is the advisory `max_lines` budget.
+    write_harness(&harness, "coordinate", &advisory_only_skill());
+    let into = tmpdir("advisory-into");
+
+    import(&harness, &into);
+    // Default policy: an advisory-only run is clean — warn does not gate.
+    assert!(
+        check_succeeds(&into),
+        "an advisory-only violation must exit zero without --deny-advisories"
+    );
+    // Strict policy: --deny-advisories promotes the warn to a blocking failure.
+    assert!(
+        !run_check(&into, &["--deny-advisories"]),
+        "an advisory-only violation must exit non-zero under --deny-advisories"
     );
 }
 

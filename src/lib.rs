@@ -20,5 +20,4 @@ pub mod contract;
 pub mod engine;
 pub mod extract;
 pub mod import;
-pub mod rules;
 pub mod skill;

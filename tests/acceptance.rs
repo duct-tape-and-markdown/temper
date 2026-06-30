@@ -1,15 +1,17 @@
-//! Slice-1 acceptance (`spec/RELEASE-v0.1.md`, "Tests / acceptance").
+//! Acceptance over the documented round trip (`specs/20-surface.md`, "CLI
+//! surface"; `specs/10-contracts.md`, the contract engine).
 //!
-//! Pins the whole vertical slice — typed IR, sidecar topology, lint engine,
-//! diagnostics UX — against the documented round trip, driving the library
-//! `import`/`check` functions directly (logic lives in the lib per
-//! `.claude/rules/rust.md`, so no binary harness is needed):
+//! Pins the whole vertical slice — typed IR, sidecar topology, contract engine,
+//! diagnostics UX — driving the library `import` plus the generic
+//! `engine::validate` directly (logic lives in the lib per `.claude/rules/rust.md`,
+//! so no binary harness is needed):
 //!
 //! - an `insta` snapshot of the **import surface** over a trimmed, real-shaped
 //!   copy of the `coordinate` skill, asserted byte-stable across a re-import;
-//! - an `insta` snapshot of the **check diagnostics** over the deliberately
-//!   broken `tests/fixtures/rules/*` tree — the expected diagnostic set;
-//! - the slice acceptance end to end: `import <fixture>` then `check` reproduces
+//! - an `insta` snapshot of the **check diagnostics** the built-in skill contract
+//!   produces over the deliberately broken `tests/fixtures/rules/*` tree — the
+//!   reduced, decidable-only surviving-clause set;
+//! - the slice acceptance end to end: `import <fixture>` then validate reproduces
 //!   the expected diagnostics, and re-running `import` produces no diff.
 
 use std::collections::BTreeMap;
@@ -18,9 +20,19 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::check::{self, Diagnostic, Severity, Workspace};
+use temper::contract::Contract;
+use temper::engine;
+use temper::extract::{self, Features};
 use temper::import;
-use temper::rules::all_rules;
 use temper::skill::Skill;
+
+/// Load the built-in Anthropic skill contract off the crate root (the real
+/// on-disk template `check` embeds), so the acceptance path validates against the
+/// same clauses the shipped tool does.
+fn builtin_skill_contract() -> Contract {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts/skill.anthropic.toml");
+    Contract::load(&path).expect("the shipped skill contract should load")
+}
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -127,9 +139,10 @@ fn import_surface_is_byte_stable() {
     assert_eq!(first, second, "re-import must produce no diff");
 }
 
-/// Loading the deliberately-broken `tests/fixtures/rules/*` tree and running the
-/// full rule set reproduces the expected diagnostic set — every rule firing on
-/// its own fixture, the `clean` control silent.
+/// Loading the deliberately-broken `tests/fixtures/rules/*` tree and validating
+/// each fixture against the built-in skill contract reproduces the expected
+/// diagnostic set — the reduced, decidable-only surviving-clause findings, the
+/// `clean` control silent.
 #[test]
 fn check_reproduces_the_expected_diagnostic_set() {
     let rules_root = fixture("rules");
@@ -140,15 +153,13 @@ fn check_reproduces_the_expected_diagnostic_set() {
         .collect();
     fixtures.sort();
 
+    let contract = builtin_skill_contract();
     let mut report = String::new();
-    let rules = all_rules();
     for dir in &fixtures {
         let name = dir.file_name().unwrap().to_string_lossy();
         let skill = Skill::from_source_dir(dir).expect("fixture skill should parse");
-        let ws = Workspace {
-            skills: vec![skill],
-        };
-        let diagnostics = check::run(&ws, &rules);
+        let features = extract::skill_features(&skill);
+        let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
         report.push_str(&format!("## {name}\n"));
         report.push_str(&render_diagnostics(&diagnostics));
         report.push('\n');
@@ -157,7 +168,7 @@ fn check_reproduces_the_expected_diagnostic_set() {
     insta::assert_snapshot!("rules_check_diagnostics", report);
 }
 
-/// The slice acceptance, end to end: `import <fixture>` then `check` over the
+/// The slice acceptance, end to end: `import <fixture>` then validate over the
 /// written surface reproduces the expected diagnostics (the well-formed
 /// `coordinate` skill is clean), and a second `import` produces no diff.
 #[test]
@@ -168,9 +179,10 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
     import::run(&fixture("coordinate"), &into).unwrap();
     let first = render_surface(&into);
 
-    // check <tmp> — a well-formed skill trips no rule, so the run is clean.
+    // check <tmp> — a well-formed skill trips no contract clause, so it is clean.
     let ws = Workspace::load(&into).unwrap();
-    let diagnostics = check::run(&ws, &all_rules());
+    let features: Vec<Features> = ws.skills.iter().map(extract::skill_features).collect();
+    let diagnostics = engine::validate(&builtin_skill_contract(), &features);
     assert!(
         diagnostics.is_empty(),
         "the trimmed coordinate skill must check clean, got {diagnostics:?}",

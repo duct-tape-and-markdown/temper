@@ -1,24 +1,33 @@
 //! `temper` CLI entry point.
 //!
 //! Thin command dispatch over the [`temper`] library. The subcommands mirror the
-//! slice-1 surface in `spec/RELEASE-v0.1.md` ("Surface"): `import` scans a harness
-//! into the typed config surface, `check` lints that surface and exits non-zero
-//! when any `error`-severity diagnostic fires. All logic lives in the library —
-//! `main` only parses args, registers the rule set, and maps the result to an
-//! exit code (the one place rule *registration* lives, keeping the engine
-//! disjoint from the rules it runs).
+//! surface in `specs/20-surface.md` ("CLI surface"): `import` scans a harness
+//! into the typed config surface, `check` validates that surface against the
+//! active contract and exits non-zero when a `required`-severity clause is
+//! violated. All logic lives in the library — `main` only parses args, projects
+//! the workspace into the engine's [`Features`] view, runs the generic contract
+//! engine (`specs/10-contracts.md`), and maps the result to an exit code.
+//!
+//! [`Features`]: temper::extract::Features
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use temper::check::{self, Workspace};
-use temper::import;
-use temper::rules;
 use clap::{Parser, Subcommand};
+use temper::check::{self, Severity, Workspace};
+use temper::contract::Contract;
+use temper::engine;
+use temper::extract;
+use temper::import;
 
 /// The surface workspace default for `--into` / the `check` argument: a `.temper`
-/// directory under the current working directory (`spec/RELEASE-v0.1.md`).
+/// directory under the current working directory (`specs/20-surface.md`).
 const DEFAULT_WORKSPACE: &str = "./.temper";
+
+/// The built-in Anthropic skill contract — the curated "std-lib" default
+/// (`contracts/skill.anthropic.toml`), embedded at build time so `check` has a
+/// contract to validate against without any on-disk configuration.
+const BUILTIN_SKILL_CONTRACT: &str = include_str!("../contracts/skill.anthropic.toml");
 
 /// A typed maintenance surface for the Claude Code harness.
 #[derive(Parser)]
@@ -38,10 +47,14 @@ enum Command {
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
     },
-    /// Lint the config surface against schemas + best practices.
+    /// Lint the config surface against the active contract.
     Check {
         /// The surface workspace to lint (defaults to `./.temper`).
         workspace: Option<PathBuf>,
+        /// Also fail the run on `advisory` (warn-severity) violations, not just
+        /// `required` ones — the strict CI policy from `specs/10-contracts.md`.
+        #[arg(long)]
+        deny_advisories: bool,
     },
 }
 
@@ -51,13 +64,30 @@ fn main() -> miette::Result<ExitCode> {
             import::run(&harness_path, &into)?;
             Ok(ExitCode::SUCCESS)
         }
-        Command::Check { workspace } => {
+        Command::Check {
+            workspace,
+            deny_advisories,
+        } => {
             let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
             let ws = Workspace::load(&workspace)?;
-            let diagnostics = check::run(&ws, &rules::all_rules());
+
+            // Project every skill into the engine's feature view, then validate
+            // the whole set against the built-in contract — the generic engine
+            // holds no per-rule opinion; the contract carries the clauses.
+            let features: Vec<extract::Features> =
+                ws.skills.iter().map(extract::skill_features).collect();
+            let contract =
+                Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?;
+            let diagnostics = engine::validate(&contract, &features);
             print!("{}", check::render(&diagnostics));
-            // Any error-severity finding fails the run; warn-only is clean.
-            Ok(if check::any_error(&diagnostics) {
+
+            // A `required` violation always fails the run; `--deny-advisories`
+            // additionally promotes `advisory` (warn) violations to blocking.
+            let advisory_blocks = deny_advisories
+                && diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.severity == Severity::Warn);
+            Ok(if check::any_error(&diagnostics) || advisory_blocks {
                 ExitCode::FAILURE
             } else {
                 ExitCode::SUCCESS

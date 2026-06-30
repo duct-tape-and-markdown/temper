@@ -3,34 +3,19 @@ source: tests/acceptance.rs
 expression: report
 ---
 ## Name-Format
-error skill.name-format: name has characters outside [a-z0-9-]: FN
+error allowed_chars: field `name` has characters outside the allowed set: FN
 
 ## body-length
-warn skill.body-length: body is 505 lines (keep it under 500)
+warn max_lines: body is 505 lines (max 500)
 
 ## clean
 (no diagnostics)
 
-## companion-refs-resolve
-error skill.companion-refs-resolve: body references `MISSING.md`, which is not on disk
-
-## description-has-anti-trigger
-warn skill.description-has-anti-trigger: description does not state when NOT to use the skill
-
-## description-has-trigger
-warn skill.description-has-trigger: description states what the skill does but not when to use it
-
 ## description-length
-error skill.description-length: description is 1199 characters (max 1024)
-
-## description-third-person
-warn skill.description-third-person: description uses a first/second-person pronoun; write it in the third person
+error max_len: field `description` is 1199 characters (max 1024)
 
 ## frontmatter-valid
-error skill.frontmatter-valid: frontmatter field `description` is empty
+error min_len: field `description` is 0 characters (min 1)
 
 ## name-matches-dir
-error skill.name-matches-dir: name `mismatched` does not match its directory `name-matches-dir`
-
-## refs-one-level-deep
-warn skill.refs-one-level-deep: body references `scripts/deep/tool.sh`, more than one level deep
+error name-matches-dir: name `mismatched` does not match its directory `name-matches-dir`
