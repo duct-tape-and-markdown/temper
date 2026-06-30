@@ -100,14 +100,16 @@ One commit prefixed `plan:`. Write `.flume/plan/{pending.json,state.md,open-ques
 and drain `.flume/inbox.md`. The harness rejects the commit if `pending.json`
 doesn't parse or you modify anything outside the phase's writable paths.
 
-**Field-length footgun — this reverts the whole tick.** The schema caps every
-field, and the cap is enforced *after* you commit: if **any** entry violates a
-bound, the gate reverts the **entire** commit and **all** your reconciliation
-work this tick is lost — not just the offending entry. The cap that bites most is
-`summary` (**≤200 chars, hard**); `notes` is ≤500. Before you finish: re-read
-every `summary` and confirm each is under 200 characters. A summary near the
-limit is a smell — shorten it and move the detail into `files[].description` /
-`acceptance` / `notes`. One long line should never cost the tick.
+**Field-length footgun — this reverts the whole tick.** Two fields have a hard
+upper bound, enforced *after* you commit: **`summary` ≤200 chars** and **`notes`
+≤500 chars**. If **any** entry violates either, the gate reverts the **entire**
+commit and **all** your reconciliation work this tick is lost — not just the
+offending entry, and not just the offending field. Before you finish, re-read
+**every `summary` (≤200) AND every `notes` (≤500)** and confirm each is under its
+cap. A field near its limit is a smell — shorten it and push detail into the
+*unbounded* fields (`files[].description`, `acceptance`, `tests[].asserts`). One
+long string should never cost the tick. (Real failures: a 200+ `summary`, then
+later a 500+ `notes`, each silently nuked a full plan tick.)
 
 <schema>
 {{PENDING_SCHEMA}}
