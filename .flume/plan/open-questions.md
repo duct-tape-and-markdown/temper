@@ -61,3 +61,24 @@ and embeds the bundled skill template as the default.
 - `(surface-authority)` — Is the surface the source of truth (with `re-add` for
   drift) or a lens over canonical on-disk files? MVP treats it as source of
   truth; revisit if direct-harness editing proves the common path. See `specs/20-surface.md`.
+
+- `(field-type-lattice)` — The field-primitive algebra (`10-contracts.md`, "The
+  primitive algebra (decidable only)") lists `type` alongside
+  `required`/`optional`/`pattern`, but the corpus never declares the **type
+  vocabulary** the predicate ranges over (string? integer? boolean? list?) nor how
+  a YAML/JSON scalar's source type maps onto it. The extractor also stringifies
+  every scalar today (`extract.rs:265`), so a *sound* `type` check additionally
+  needs the projection to preserve the source scalar type. Implementing requires
+  inventing the lattice — an intent gap, human to author. Blocks only the `type`
+  primitive; nothing shipped depends on it. See `specs/10-contracts.md`.
+
+- `(harness-contract-provisioning)` — The harness-contract instance
+  (`10-contracts.md`, "Roles and matching" + "`verified_by` — where behavior
+  goes") binds author-named roles to artifacts. Unlike the per-kind artifact
+  contracts (built-in defaults, `(contract-selection)` RESOLVED), a harness
+  contract is *specific to one harness* and cannot be a built-in — so `check` must
+  load an author-declared contract from a place the corpus never names (an
+  `author.toml` field? a `contracts/` convention?). Also under-specified: what
+  "the verifier is declared and *wired*" decides (the path exists? a referential
+  resolve?). Blocks the entire role/`verified_by` layer; the artifact algebra
+  ships without it. See `specs/10-contracts.md`.
