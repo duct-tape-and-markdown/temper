@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "tag": "ROLE-CONFORMS-TO",
+    "summary": "After selection, validate each filled role's artifact against the role's contract (inline clauses or adopted template) via engine::validate.",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Roles and matching"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Resolve a `RoleContract` to a `Contract`: `Inline` wraps its clauses directly; `Template` loads the path (relative to the temper.toml dir) and `Contract::parse`s it."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Extend the roster pass: for each role, run its selected filler(s)' Features through `engine::validate` against the role's resolved contract and emit conformance diagnostics under a `role.conforms-to` clause id."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Wire the conforms-to pass beside selection in the Check arm, resolving each role's template path relative to the temper.toml directory."
+        },
+        {
+          "path": "tests/role_roster.rs",
+          "description": "Assert a filler that violates the role's contract (inline clauses and adopted template) reports a finding, and a conforming filler is clean."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/role_roster.rs",
+        "asserts": "a role's selected filler that violates the role contract reports a conformance finding (inline and template forms); a conforming filler is clean; the floor-only (no temper.toml) path is unchanged."
+      }
+    ],
+    "acceptance": "temper check runs each role's selected filler(s) through the role's contract and reports a finding when a filler does not conform; the absent-temper.toml path stays byte-for-byte unchanged.",
+    "notes": "Builds on the shipped selection pass (roster.rs). Reuse engine::validate over the fillers selection already picks; `Contract { name, clauses }` is public so an Inline role wraps directly. A non-resolving template path is the follow-on roster-admissibility entry's finding — skip it here, don't double-report. Frontier (unfiled, fork-free): roster admissibility (match/verified_by/template resolve, required satisfiable)."
+  }
+]

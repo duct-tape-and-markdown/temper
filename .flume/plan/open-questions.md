@@ -48,22 +48,26 @@ and embeds the bundled skill template as the default.
   Intent gap — human to author into the spec, not plan to invent. See
   `specs/30-landscapes.md`.
 
-- `(workspace-scope)` — Does the config surface target a per-project `.claude/`,
-  a managed mirror of the global `~/.claude`, or both? `import`/`check` sidestep
-  this by importing from an explicit path argument, but `apply` write-back needs
-  it decided. See `specs/20-surface.md`.
+- `(workspace-scope)` — RESOLVED (`specs/20-surface.md` Decision: "the workspace is
+  per-project"). The surface targets a **per-project** harness — the `.claude/` +
+  co-located artifacts of one project, located by the explicit path `import`/`check`
+  already take. Rejected (for now): mirroring the global `~/.claude`, or both; the
+  global config is a later landscape root, not a redesign. Was the last fork gating
+  the `apply`/`install` write-back path — now fork-free.
 
-- `(yaml-writeback)` — Source frontmatter is YAML; the surface header is TOML. On
-  write-back, re-emit YAML (normalizing — no comment-preserving YAML editor
-  exists in Rust) or patch only changed fields? Leaning patch-only. Blocks
-  anything in the `apply` path, not `import`/`check`. See `specs/20-surface.md`.
+- `(yaml-writeback)` — RESOLVED (`specs/20-surface.md` Decision: "write-back patches
+  changed fields, never re-emits"). `apply` patches only the changed fields in place
+  (TOML via `toml_edit`, YAML frontmatter by surgical field patch), leaving every
+  untouched byte exactly as written. Rejected: re-emitting a header from scratch —
+  no comment-preserving YAML editor exists in Rust, so a full re-emit is the lossy
+  round-trip law 5 forbids. Unblocks the `apply` path.
 
 - `(surface-authority)` — RESOLVED (`specs/20-surface.md` Decision: "the surface is
   the source of truth"). The composition surface is canonical; `.claude/` + `specs/`
   are a projection of it (`apply`), and direct on-disk edits are reconciled back with
   `re-add`. The read-only-lens framing was rejected (it contradicts law 7 and strands
-  fearless refactoring). Does **not** unblock `apply` on its own — that path still
-  waits on `(yaml-writeback)` + `(workspace-scope)`.
+  fearless refactoring). With `(yaml-writeback)` + `(workspace-scope)` now both
+  RESOLVED, the `apply` path is fork-free.
 
 - `(field-type-lattice)` — RESOLVED (`specs/10-contracts.md` Decision: "the `type`
   vocabulary is a closed scalar/container lattice"). The `type` primitive ranges over
