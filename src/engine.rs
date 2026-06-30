@@ -54,7 +54,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
             for message in evaluate(&clause.predicate, features, artifacts) {
                 diagnostics.push(Diagnostic::new(
                     severity_of(clause.severity),
-                    predicate_key(&clause.predicate),
+                    clause.predicate.key(),
                     &features.id,
                     message,
                 ));
@@ -91,7 +91,7 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
     for clause in &contract.clauses {
         for message in inadmissibilities(&clause.predicate) {
             diagnostics.push(Diagnostic::error(
-                predicate_key(&clause.predicate),
+                clause.predicate.key(),
                 &contract.name,
                 message,
             ));
@@ -319,30 +319,6 @@ fn severity_of(severity: contract::Severity) -> check::Severity {
     match severity {
         contract::Severity::Required => check::Severity::Error,
         contract::Severity::Advisory => check::Severity::Warn,
-    }
-}
-
-/// The clause key for a predicate — its TOML discriminator, reused verbatim as
-/// the diagnostic `rule` id so a finding names the clause that produced it. This
-/// is mechanical translation, not an opinion: the strings match the ones
-/// [`crate::contract`] parses.
-fn predicate_key(predicate: &Predicate) -> &'static str {
-    match predicate {
-        Predicate::Required { .. } => "required",
-        Predicate::Optional { .. } => "optional",
-        Predicate::Type { .. } => "type",
-        Predicate::MinLen { .. } => "min_len",
-        Predicate::MaxLen { .. } => "max_len",
-        Predicate::Enum { .. } => "enum",
-        Predicate::Deny { .. } => "deny",
-        Predicate::ForbiddenKeys { .. } => "forbidden_keys",
-        Predicate::AllowedChars { .. } => "allowed_chars",
-        Predicate::MaxLines { .. } => "max_lines",
-        Predicate::RequireSections { .. } => "require_sections",
-        Predicate::MustDefine { .. } => "must_define",
-        Predicate::NameMatchesDir => "name-matches-dir",
-        Predicate::UniqueName => "unique-name",
-        Predicate::DependencyExists => "dependency-exists",
     }
 }
 

@@ -1,0 +1,265 @@
+//! End-to-end acceptance over the author-declared `temper.toml` layer
+//! (`specs/40-composition.md`, "Decision: the author-declared contract lives in
+//! `temper.toml`, layered").
+//!
+//! Drives the built `temper` binary so the *whole* path is pinned — `temper.toml`
+//! discovery at the project root (the invocation dir), the layering of its
+//! per-kind overrides over the embedded floor, both greens (admissibility +
+//! conformance) on the *effective* contract, and the exit code. Each case sets the
+//! process working directory to a project root that may or may not carry a
+//! `temper.toml`, exactly as a real invocation would.
+//!
+//! The cases mirror the entry's acceptance:
+//! - a severity flip (`required`→`advisory`) turns a violating skill from blocking
+//!   to non-blocking;
+//! - an override that *adds* a clause makes a previously-clean skill fire;
+//! - a layered clause naming an unknown predicate is a load error;
+//! - an inadmissible override (an empty `enum`) fails admissibility on the
+//!   effective contract;
+//! - an absent `temper.toml` leaves the floor outcome byte-for-byte unchanged
+//!   (here: identical to a present-but-empty one, toggled over one workspace).
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::atomic::{AtomicU32, Ordering};
+
+/// The binary under test, located by Cargo at compile time.
+const BIN: &str = env!("CARGO_BIN_EXE_temper");
+
+static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+/// A fresh, empty temp directory unique to this test run.
+fn tmpdir(label: &str) -> PathBuf {
+    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "author-temper-toml-{}-{}-{}",
+        std::process::id(),
+        id,
+        label
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// A skill that trips no `required` clause: lowercase `name` matching its
+/// directory, a present short description, no forbidden keys. Clean against the
+/// floor.
+const CLEAN_SKILL: &str = "---\n\
+name: coordinate\n\
+description: Use when coordinating agents across axes; not for single-axis work.\n\
+---\n\
+# Coordinate\n\
+\n\
+Drive the team through the playbook.\n";
+
+/// A skill clean but for a Cursor `globs` key Claude Code ignores — it trips the
+/// floor's `required` `forbidden_keys` clause and nothing else, so it is the
+/// isolated subject for a severity flip.
+const FORBIDDEN_GLOBS_SKILL: &str = "---\n\
+name: coordinate\n\
+description: Use when coordinating agents across axes; not for single-axis work.\n\
+globs: \"**/*.rs\"\n\
+---\n\
+# Coordinate\n\
+\n\
+Drive the team through the playbook.\n";
+
+/// A skill that violates two `required` floor clauses (uppercase `name` is outside
+/// `[a-z0-9-]` and no longer equals its directory) — a non-trivial diagnostic set
+/// for the byte-stability case.
+const ERROR_SKILL: &str = "---\n\
+name: Coordinate\n\
+description: Use when coordinating agents across axes; not for single-axis work.\n\
+---\n\
+# Coordinate\n\
+\n\
+Drive the team through the playbook.\n";
+
+/// Project a one-skill harness into `<root>/.temper` via the real `import` verb, so
+/// the workspace `check` reads is built exactly as a user's would be.
+fn import_skill(root: &Path, name: &str, skill_md: &str) {
+    let harness = tmpdir("harness");
+    let dir = harness.join("skills").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
+
+    let status = Command::new(BIN)
+        .arg("import")
+        .arg(&harness)
+        .arg("--into")
+        .arg(root.join(".temper"))
+        .status()
+        .unwrap();
+    assert!(status.success(), "import should succeed: {status}");
+}
+
+/// The outcome of a `check` run: whether it exited zero and its combined
+/// stdout+stderr (diagnostics render to stdout, a load error to stderr).
+struct CheckRun {
+    ok: bool,
+    output: String,
+}
+
+/// Run `temper check` from `root` (so a `temper.toml` there is discovered) against
+/// the default `./.temper` workspace, capturing the result.
+fn check_in(root: &Path) -> CheckRun {
+    let out = Command::new(BIN)
+        .current_dir(root)
+        .arg("check")
+        .output()
+        .unwrap();
+    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    output.push_str(&String::from_utf8_lossy(&out.stderr));
+    CheckRun {
+        ok: out.status.success(),
+        output,
+    }
+}
+
+/// Write `<root>/temper.toml`.
+fn write_temper_toml(root: &Path, contents: &str) {
+    fs::write(root.join("temper.toml"), contents).unwrap();
+}
+
+#[test]
+fn a_severity_flip_turns_a_violating_skill_from_blocking_to_non_blocking() {
+    let root = tmpdir("flip");
+    import_skill(&root, "coordinate", FORBIDDEN_GLOBS_SKILL);
+
+    // No `temper.toml`: the floor's `required` `forbidden_keys` blocks.
+    assert!(
+        !check_in(&root).ok,
+        "the forbidden `globs` key trips the floor's required clause ⇒ non-zero"
+    );
+
+    // Flip that clause to `advisory` (same identity ⇒ override in place): the same
+    // violation now only warns, so the run is non-blocking.
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"advisory\"\n\
+predicate = \"forbidden_keys\"\n\
+keys = [\"globs\", \"alwaysApply\"]\n",
+    );
+    assert!(
+        check_in(&root).ok,
+        "flipping the clause to advisory must make the run non-blocking ⇒ zero"
+    );
+}
+
+#[test]
+fn an_override_that_adds_a_clause_makes_a_previously_clean_skill_fire() {
+    let root = tmpdir("extend");
+    import_skill(&root, "coordinate", CLEAN_SKILL);
+
+    // No `temper.toml`: a clean skill passes the floor.
+    assert!(
+        check_in(&root).ok,
+        "the clean skill passes the floor ⇒ zero"
+    );
+
+    // Extend the floor with a `required` section the skill's body lacks (it has a
+    // `Coordinate` heading, no `Usage`): a new identity appends, and now it fires.
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"required\"\n\
+predicate = \"require_sections\"\n\
+sections = [\"Usage\"]\n",
+    );
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "the added required clause must make the previously-clean skill fire ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("require_sections"),
+        "the finding names the added clause, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_layered_clause_naming_an_unknown_predicate_is_a_load_error() {
+    let root = tmpdir("unknown-predicate");
+    import_skill(&root, "coordinate", CLEAN_SKILL);
+
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"required\"\n\
+predicate = \"word_count\"\n\
+field = \"description\"\n",
+    );
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a layered clause outside the closed vocabulary must fail the load ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("unknown predicate"),
+        "the load error names the unknown predicate, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn an_inadmissible_override_fails_admissibility_on_the_effective_contract() {
+    let root = tmpdir("inadmissible");
+    import_skill(&root, "coordinate", CLEAN_SKILL);
+
+    // An `enum` with no values is vacuous — it parses, but admissibility on the
+    // *effective* contract (floor ⊕ layer) rejects it, even though the floor alone
+    // is clean.
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"required\"\n\
+predicate = \"enum\"\n\
+field = \"status\"\n\
+values = []\n",
+    );
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "an inadmissible layered clause must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("lists no values"),
+        "admissibility names the vacuous clause, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn an_absent_temper_toml_leaves_the_floor_outcome_byte_for_byte_unchanged() {
+    let root = tmpdir("absent");
+    import_skill(&root, "coordinate", ERROR_SKILL);
+
+    // Same workspace, toggling only `temper.toml`. Absent ⇒ the floor runs.
+    let absent = check_in(&root);
+    assert!(
+        !absent.ok,
+        "the floor blocks the violating skill ⇒ non-zero"
+    );
+
+    // A present-but-empty `temper.toml` declares no kind, so every kind still falls
+    // through to the floor — the result must be byte-for-byte identical.
+    write_temper_toml(&root, "# this temper.toml declares nothing\n");
+    let empty = check_in(&root);
+
+    assert!(
+        !empty.ok,
+        "an empty temper.toml changes nothing ⇒ still non-zero"
+    );
+    assert_eq!(
+        absent.output, empty.output,
+        "an absent and a declares-nothing temper.toml must produce identical output"
+    );
+}

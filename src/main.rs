@@ -18,6 +18,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use temper::check::{self, Severity, Workspace};
+use temper::compose;
 use temper::contract::Contract;
 use temper::engine;
 use temper::extract;
@@ -26,6 +27,12 @@ use temper::import;
 /// The surface workspace default for `--into` / the `check` argument: a `.temper`
 /// directory under the current working directory (`specs/20-surface.md`).
 const DEFAULT_WORKSPACE: &str = "./.temper";
+
+/// The optional author-declared contract layer, discovered at the project root —
+/// the invocation directory, beside the harness it governs (`specs/40-composition.md`,
+/// "The author-declared contract — `temper.toml`"). Absent ⇒ the by-kind floor
+/// runs unchanged.
+const TEMPER_TOML: &str = "temper.toml";
 
 /// The built-in Anthropic skill contract — the curated "std-lib" default
 /// (`contracts/skill.anthropic.toml`), embedded at build time so `check` has a
@@ -80,20 +87,29 @@ fn main() -> miette::Result<ExitCode> {
             let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
             let ws = Workspace::load(&workspace)?;
 
+            // The optional author-declared layer at the project root. Absent ⇒
+            // `None` and the floor runs verbatim (every existing test's path);
+            // present ⇒ it layers over the by-kind floor per kind below
+            // (`specs/40-composition.md`, the `temper.toml` Decision).
+            let layer = compose::AuthorLayer::load(Path::new(TEMPER_TOML))?;
+
             // Dispatch by artifact kind: each kind's features are validated
-            // against the built-in contract for *its* kind, and the findings are
-            // merged into one diagnostic set (`specs/20-surface.md`, "contract
-            // selection is by artifact kind"). The generic engine holds no
-            // per-kind opinion — each contract carries its own clauses, so a
-            // mixed harness (skills *and* rules) is judged correctly in one run.
+            // against the *effective* contract for its kind — the embedded floor
+            // with the author layer applied — and the findings are merged into one
+            // diagnostic set (`specs/20-surface.md`, "contract selection is by
+            // artifact kind"). The generic engine holds no per-kind opinion — each
+            // contract carries its own clauses, so a mixed harness (skills *and*
+            // rules) is judged correctly in one run.
             let skill_features: Vec<extract::Features> =
                 ws.skills.iter().map(extract::skill_features).collect();
-            let skill_contract =
+            let skill_floor =
                 Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?;
+            let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor)?;
 
             let rule_features: Vec<extract::Features> =
                 ws.rules.iter().map(extract::rule_features).collect();
-            let rule_contract = Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?;
+            let rule_floor = Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?;
+            let rule_contract = compose::effective(layer.as_ref(), "rule", rule_floor)?;
 
             // Two greens, not one (`specs/10-contracts.md`, both-greens finish
             // line). **Admissibility** first: each built-in contract is itself

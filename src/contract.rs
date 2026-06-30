@@ -170,6 +170,61 @@ pub enum Predicate {
     DependencyExists,
 }
 
+impl Predicate {
+    /// This predicate's clause key — the TOML `predicate` discriminator it is
+    /// parsed from, reused verbatim as the diagnostic `rule` id a finding reports
+    /// under (`crate::engine`). It is also half a clause's *layering identity*
+    /// (`crate::compose`): the key plus [`Predicate::target`].
+    #[must_use]
+    pub fn key(&self) -> &'static str {
+        match self {
+            Predicate::Required { .. } => "required",
+            Predicate::Optional { .. } => "optional",
+            Predicate::Type { .. } => "type",
+            Predicate::MinLen { .. } => "min_len",
+            Predicate::MaxLen { .. } => "max_len",
+            Predicate::Enum { .. } => "enum",
+            Predicate::Deny { .. } => "deny",
+            Predicate::ForbiddenKeys { .. } => "forbidden_keys",
+            Predicate::AllowedChars { .. } => "allowed_chars",
+            Predicate::MaxLines { .. } => "max_lines",
+            Predicate::RequireSections { .. } => "require_sections",
+            Predicate::MustDefine { .. } => "must_define",
+            Predicate::NameMatchesDir => "name-matches-dir",
+            Predicate::UniqueName => "unique-name",
+            Predicate::DependencyExists => "dependency-exists",
+        }
+    }
+
+    /// The field (or marker) this predicate constrains, or `None` for the
+    /// artifact- and cross-artifact-level predicates that name no single field
+    /// (`forbidden_keys`, `max_lines`, `require_sections`, `name-matches-dir`,
+    /// `unique-name`, `dependency-exists`). With [`Predicate::key`] it identifies
+    /// a clause for layering (`crate::compose`): a layered clause sharing both
+    /// *overrides* the floor clause (a severity flip or parameter change), while a
+    /// new (key, target) pair *extends* the floor with a fresh clause.
+    #[must_use]
+    pub fn target(&self) -> Option<&str> {
+        match self {
+            Predicate::Required { field }
+            | Predicate::Optional { field }
+            | Predicate::Type { field, .. }
+            | Predicate::MinLen { field, .. }
+            | Predicate::MaxLen { field, .. }
+            | Predicate::Enum { field, .. }
+            | Predicate::Deny { field, .. }
+            | Predicate::AllowedChars { field, .. } => Some(field),
+            Predicate::MustDefine { marker } => Some(marker),
+            Predicate::ForbiddenKeys { .. }
+            | Predicate::MaxLines { .. }
+            | Predicate::RequireSections { .. }
+            | Predicate::NameMatchesDir
+            | Predicate::UniqueName
+            | Predicate::DependencyExists => None,
+        }
+    }
+}
+
 /// The in-crate character set for [`Predicate::AllowedChars`]. A character is
 /// permitted iff it falls within one of `ranges` or appears in `chars`. This is
 /// the deliberately weak, decidable substitute for a regex character class — it
@@ -353,9 +408,16 @@ impl Contract {
     }
 }
 
-/// Parse the `[[clause]]` array of tables, in declaration order. Absent ⇒ no
-/// clauses; present-but-not-an-array-of-tables ⇒ [`ContractError::ClauseNotArray`].
-fn parse_clauses(table: &Table, path: &Path) -> Result<Vec<Clause>, ContractError> {
+/// Parse a `[[clause]]` array of tables off `table`, in declaration order. Absent
+/// ⇒ no clauses; present-but-not-an-array-of-tables ⇒
+/// [`ContractError::ClauseNotArray`].
+///
+/// Public because the author layer (`crate::compose`) reuses *this* closed-
+/// vocabulary parser over a `temper.toml` `[kind.<k>]` table's inline
+/// `[[kind.<k>.clause]]` array rather than duplicating it — so a layered clause
+/// naming an unknown predicate is rejected at load exactly as a bare contract's
+/// is.
+pub fn parse_clauses(table: &Table, path: &Path) -> Result<Vec<Clause>, ContractError> {
     let array = match table.get("clause") {
         None => return Ok(Vec::new()),
         Some(Item::ArrayOfTables(array)) => array,
