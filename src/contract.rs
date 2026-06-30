@@ -43,7 +43,9 @@ use toml_edit::{DocumentMut, Item, Table};
 /// harness (or one artifact in it) is checked against.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contract {
-    /// The contract's name (e.g. `skill`), the identity other layers reference.
+    /// Display label for diagnostics — an explicit top-level `name` if present,
+    /// else the file stem. A contract's *identity* is its path/role, not this
+    /// field (specs/10-contracts.md), so `name` is never a required input.
     pub name: String,
     /// The clauses, in declaration order. An empty set is a valid (vacuous)
     /// contract — a named shape that asserts nothing.
@@ -204,14 +206,6 @@ pub enum ContractError {
         source: toml_edit::TomlError,
     },
 
-    /// The top-level `name` key is absent or not a string.
-    #[error("{path}: contract is missing required field `name`")]
-    #[diagnostic(code(temper::contract::missing_name))]
-    MissingName {
-        /// The contract whose header is incomplete.
-        path: PathBuf,
-    },
-
     /// `clause` is present but is not an array of tables (`[[clause]]`).
     #[error("{path}: `clause` must be an array of tables (`[[clause]]`)")]
     #[diagnostic(code(temper::contract::clause_not_array))]
@@ -312,13 +306,19 @@ impl Contract {
             })?;
         let table = doc.as_table();
 
+        // Identity is the contract's path/role, not a required internal name
+        // (specs/10-contracts.md). Honor an explicit `name`; otherwise derive a
+        // display label from the file stem.
         let name = table
             .get("name")
             .and_then(Item::as_str)
             .map(str::to_string)
-            .ok_or_else(|| ContractError::MissingName {
-                path: path.to_path_buf(),
-            })?;
+            .unwrap_or_else(|| {
+                path.file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .unwrap_or("contract")
+                    .to_string()
+            });
 
         let clauses = parse_clauses(table, path)?;
         Ok(Self { name, clauses })
@@ -864,14 +864,16 @@ ranges = ["a..z"]
     }
 
     #[test]
-    fn missing_name_is_a_load_error() {
+    fn name_absent_derives_from_file_stem() {
         let toml = r#"
 [[clause]]
 severity = "required"
 predicate = "name-matches-dir"
 "#;
-        let err = Contract::parse(toml, Path::new("c.toml")).unwrap_err();
-        assert!(matches!(err, ContractError::MissingName { .. }));
+        // No top-level `name`: identity is the path, label derives from the stem.
+        let contract = Contract::parse(toml, Path::new("skill.anthropic.toml")).unwrap();
+        assert_eq!(contract.name, "skill.anthropic");
+        assert_eq!(contract.clauses.len(), 1);
     }
 
     #[test]
