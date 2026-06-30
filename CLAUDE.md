@@ -37,7 +37,7 @@ This repo carries **two distinct harnesses**; do not conflate them:
 - **Rust**, edition 2024, toolchain 1.96+. `cargo` is the build/test/lint driver.
 - Key crates (sanctioned set; see Cargo.toml): `clap`, `miette` + `thiserror`, `serde`,
   `toml_edit` (format-preserving round-trip keystone), `gray_matter`, `walkdir`,
-  `sha2`, `insta` (snapshot tests).
+  `sha2`, `regex` (the `pattern` primitive), `insta` (snapshot tests).
 - **flume** control plane (`.flume/`) runs on Node via `@dtmd/flume` (pnpm).
 
 Conventions live in `.claude/rules/*.md`, auto-loaded by Claude Code at launch

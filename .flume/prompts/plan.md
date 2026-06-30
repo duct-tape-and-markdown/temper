@@ -65,7 +65,14 @@ wins.
    each with a `(slug)` so entries can declare `dependsOnForks: ["slug"]`.
 
 6. **Continuation marker.** End `state.md` with `Plan continues: yes — <reason>`
-   if the delta exceeds one good tick, else `Plan continues: no`.
+   ONLY if there is concrete *additional plan work* left this turn (an undrained
+   inbox, unreconciled drift, entries still to rewrite). Otherwise `Plan
+   continues: no`. **Bias hard toward `no`:** once the queue is reconciled and any
+   `open` entry exists, hand to build — building is how the queue drains. Never
+   re-emit a queue identical to the last `plan:` commit and continue; if your
+   reconciliation produced no change and pickable work exists, you are done —
+   write `Plan continues: no` and let build run. Re-planning an unchanged queue
+   is the failure mode, not diligence.
 
 You do NOT write `specs/` — intent is human-authored. Surface spec ambiguity as
 an open question; never silently fill it.

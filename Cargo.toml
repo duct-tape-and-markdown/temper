@@ -26,6 +26,10 @@ gray_matter = "0.2"
 walkdir = "2"
 sha2 = "0.10"
 
+# Contract engine: the `pattern` primitive (adopt the solved mechanic — never
+# hand-roll regex; specs/10-contracts.md "bespoke closed algebra" decision).
+regex = "1"
+
 [dev-dependencies]
 # Golden import/apply fixtures (specs/20-surface.md). `filters` redacts the per-machine
 # absolute source path from the import-surface snapshot.

@@ -119,3 +119,23 @@ user-invoked reference skill). The decidable members (name format, length,
 forbidden keys, required fields) survive — as contract *clauses*, not code. The
 slice-1 pipeline (import → IR → check → diagnostics → gate) stays; only the
 source of rules changes.
+
+## Decision: a bespoke closed algebra, not a general policy engine
+
+**Chosen:** a small, hand-built, **closed** vocabulary of decidable primitives
+(above), with diagnostics owned in-crate (`miette`), sitting on mature libraries
+for the solved hard mechanics — `regex` for `pattern`, a graph crate for the
+dependency graph, `toml`/`serde` for parsing. **Rejected:** wrapping a general
+policy/validation engine — OPA/Rego, CUE, or JSON Schema.
+
+Those engines are mature and good, but they are *expressive enough to let an
+author write an **unsound proxy*** — a deterministic rule that stands in for a
+semantic judgment it cannot actually decide (e.g. `word_count(description) < 10`
+as a "vagueness" check: it runs, it is deterministic, and it is wrong constantly).
+That is precisely the heuristic escape hatch `00-intent.md` law 3 exists to close.
+A deliberately weak, closed vocabulary makes the unsound proxy **unsayable by
+construction** — there is no syntax for it. Secondary: generic engines emit poor
+diagnostics, and diagnostics are the product (`00-intent.md`). The benefit of
+building is not more power — it is *less power*: a language too weak to lie.
+Adopt libraries for the solved mechanics; build the vocabulary, the diagnostics,
+and the gate.

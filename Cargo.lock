@@ -108,6 +108,7 @@ dependencies = [
  "gray_matter",
  "insta",
  "miette",
+ "regex",
  "serde",
  "serde_json",
  "sha2",
