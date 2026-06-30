@@ -28,7 +28,12 @@ the file below. The rest of the spec is context for intent, not scope.
 Execute the assigned entry — entry `{{TAG}}`. Implement it completely: no
 placeholders, no `todo!()`, no stubbed function bodies.
 
-- Touch only the files declared in `entry.files`. Anything else reverts the commit.
+- `entry.files` is the *planned* scope, not a cage. The real boundary is the
+  writable paths in the `<harness>` block — staying inside those never reverts.
+  **If reaching green needs a file `entry.files` didn't list — almost always an
+  existing test your change breaks — edit it.** An under-scoped `entry.files` is a
+  planning miss; shipping red, or bailing with no commit, is worse. Only writes
+  *outside the harness writable paths* revert.
 - The acceptance criterion (`entry.acceptance`) must hold.
 - Search before assuming "not implemented" (`rg`, `grep`) — the surface may
   already exist under a different module.
@@ -49,8 +54,16 @@ body explains *why*, not a restatement of the spec.
 
 Gates run automatically after your commit: `cargo fmt --check` (afterCommit),
 then `cargo clippy -D warnings` and `cargo test` (afterMerge). A gate failure
-reverts your commit and the entry returns to pending — so run
-`cargo fmt --all && cargo clippy --all-targets -- -D warnings && cargo test`
-yourself before committing.
+reverts your commit and the entry returns to pending.
+
+**Iterate to green before you commit — this is the job, not an afterthought.**
+Loop: make the change → `cargo fmt --all && cargo clippy --all-targets -- -D warnings && cargo test`
+→ if anything is red (including an *existing* test your change broke), fix it and
+run again. Repeat until fully green, then commit. **Never commit red. Never end
+the tick with no commit just because the change rippled into other tests — repair
+them; that ripple is part of the entry.** If you genuinely cannot reach green
+(a real blocker, not just more work), do NOT bail silently: state in your final
+message exactly what blocked you and what you tried, so plan can re-scope or a
+human can step in. A silent no-commit is the one outcome to avoid.
 
 Do NOT touch `.flume/plan/pending.json` — the harness updates it post-merge.

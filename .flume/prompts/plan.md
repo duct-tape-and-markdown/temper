@@ -49,6 +49,9 @@ wins.
    truthful `files` (the partition reads `files.edit[].path` — keep entries small
    and disjoint; a Rust entry that creates a new module should also add its
    `pub mod` line in the foundation entry, not co-edit `lib.rs` from two entries).
+   Scope `files` to the truthful **blast radius** — include existing tests/snapshots
+   a change will break — so build reaches green inside the planned scope instead
+   of discovering the ripple mid-tick.
    Honor the law in `specs/00-intent.md`: only decidable contract clauses become
    checks; behavior is delegated, never guessed. Do not re-introduce heuristic
    rules the corpus rejected.
