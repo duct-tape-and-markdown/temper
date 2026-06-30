@@ -33,7 +33,7 @@
       }
     ],
     "acceptance": "A skill projects to a `Features` map the engine can resolve clause field-references against; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Independent of CONTRACT-MODEL (no `Contract` import). The generic field-name lookup is what lets the engine carry no hardcoded `skill.name` opinion."
+    "notes": "Independent of contract.rs (no `Contract` import). The generic field-name lookup is what lets the engine carry no hardcoded `skill.name` opinion."
   },
   {
     "tag": "CONTRACT-ENGINE",
@@ -44,14 +44,14 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "CONTRACT-MODEL"
+      "tag": "SKILL-EXTRACTOR"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/engine.rs",
-          "description": "`validate(&Contract, &[Features]) -> Vec<Diagnostic>`: for each artifact's features, evaluate every clause as a decidable predicate and, on a false predicate, push a `check::Diagnostic` whose severity is the clause's declared `required`->Error / `advisory`->Warn and whose `rule` id is the clause key. No `if`-buried opinion: the engine reads only declared clauses. Reuses `check::{Diagnostic, Severity}`."
+          "description": "`validate(&Contract, &[Features]) -> Vec<Diagnostic>`: for each artifact's features, evaluate every clause as a decidable predicate and, on a false predicate, push a `check::Diagnostic` whose severity is the clause's declared `required`->Error / `advisory`->Warn and whose `rule` id is the clause key. No `if`-buried opinion: the engine reads only declared clauses. Reuses `check::{Diagnostic, Severity}` and `contract::{Contract, Clause, Predicate, Severity}`."
         }
       ],
       "edit": [
@@ -70,7 +70,7 @@
       }
     ],
     "acceptance": "Given a hand-built Contract + Features, `validate` reproduces the surviving decidable findings (name-format, name-matches-dir, lengths, forbidden_keys, body max_lines) with correct severities; `cargo test`/`clippy -D warnings` green.",
-    "notes": "Also consumes `extract::Features` (SKILL-EXTRACTOR, ordered above). blockedBy names CONTRACT-MODEL (primary import). Does NOT re-introduce the rejected heuristics — there is no clause for trigger/anti-trigger/third-person/prose-grep refs."
+    "notes": "Primary import `contract::Contract` already shipped (CONTRACT-MODEL). blockedBy names SKILL-EXTRACTOR because it consumes `extract::Features`. Does NOT re-introduce the rejected heuristics — there is no clause for trigger/anti-trigger/third-person/prose-grep refs."
   },
   {
     "tag": "SKILL-CONTRACT-TEMPLATE",
@@ -80,8 +80,7 @@
       "section": "Templates — best practices as data"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CONTRACT-MODEL"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -106,7 +105,7 @@
       }
     ],
     "acceptance": "`contracts/skill.anthropic.toml` loads into the Contract model and encodes only the decidable surviving clauses; the dropped heuristics are absent; `cargo test` green.",
-    "notes": "Data, not code (law 2). This is the std-lib type an author adopts; it is what CHECK-CUTOVER embeds as the built-in default."
+    "notes": "Data, not code (law 2). `contract::Contract` (CONTRACT-MODEL) already shipped, so this is unblocked. This is the std-lib type an author adopts; it is what CHECK-CUTOVER embeds as the built-in default."
   },
   {
     "tag": "CHECK-CUTOVER",
@@ -125,7 +124,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Check loads the workspace, extracts `Features` per skill, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract`), renders via `check::render`, and exits non-zero on any required-clause violation; add `--deny-advisories` so advisory violations also fail. Stop calling `rules::all_rules`. While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
+          "description": "Check loads the workspace, extracts `Features` per skill, validates against the built-in skill contract (`include_str!(\"../contracts/skill.anthropic.toml\")` parsed by `contract::Contract`), renders via `check::render`, and exits non-zero on any required-clause violation; add `--deny-advisories` so advisory violations also fail. Stop calling `rules::all_rules` (main.rs:57). While rewriting the dispatch, refresh the stale module doc it makes inaccurate: the header (main.rs:1-9) narrates the rule-registration step this entry removes and (with the `DEFAULT_WORKSPACE` comment, main.rs:4,20) cites the absent `spec/RELEASE-v0.1.md` — repoint both to the evergreen `specs/` corpus (`00-intent.md` evergreen-spec decision), the main.rs twin of LIBDOC-EVERGREEN's lib.rs scrub."
         },
         {
           "path": "tests/cli.rs",

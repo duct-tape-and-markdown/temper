@@ -2,21 +2,21 @@
 
 - **Phase:** contract-engine pivot — replace the heuristic `all_rules()` registry
   with a generic validator over an author-declared contract (`10-contracts.md`
-  "Decision: kill the heuristic rule registry"). 7 entries queued; none built.
-- **Last shipped:** slice-1 vertical — `import`/`check` CLI, `Skill` IR,
-  `author.toml` roll-up, the `all_rules()` heuristic registry, acceptance snapshots.
-- **In flight:** nothing. Verified on disk this tick: `src/` = {check, import, lib,
-  main, rules, skill}; no `contract`/`extract`/`engine`, no `contracts/`;
-  `main.rs:57` still calls `rules::all_rules()`; `main.rs:4,20`+`lib.rs:10` still
-  cite the absent `SPEC.md`/`spec/RELEASE-v0.1.md`; `rules.rs` + fixtures still hold
-  the 5 rejected heuristics; `cargo check` clean. Corpus unchanged; all 7 `per`
-  cites resolve; inbox empty; no forks moved.
-- **Next:** build ships CONTRACT-MODEL + SKILL-EXTRACTOR → CONTRACT-ENGINE →
-  SKILL-CONTRACT-TEMPLATE → CHECK-CUTOVER → RETIRE-HEURISTICS top-down
-  (LIBDOC-EVERGREEN anytime — disjoint `lib.rs` doc region). The roles layer and
-  declared-model/dependency-graph work get planned once the engine ships and the
-  `(model-declaration-format)` intent gap is authored.
+  "Decision: kill the heuristic rule registry"). 6 entries queued.
+- **Last shipped:** CONTRACT-MODEL — `src/contract.rs` (Contract, Clause, Severity,
+  Predicate, Charset, ContractError, load/parse), `pub mod contract;` in lib.rs.
+- **In flight:** nothing. Verified on disk this tick: `src/` = {check, contract,
+  import, lib, main, rules, skill}; no `extract`/`engine`, no `contracts/` dir;
+  `main.rs:57` still calls `rules::all_rules()`; `main.rs:4,20` + `lib.rs` still
+  cite the absent `spec/RELEASE-v0.1.md`/`SPEC.md`; `cargo check` clean. Corpus
+  unchanged; all 6 `per` cites resolve; inbox empty; no forks moved. Repointed two
+  stale `blockedBy: CONTRACT-MODEL` gates now that it shipped (CONTRACT-ENGINE →
+  blockedBy SKILL-EXTRACTOR for `extract::Features`; SKILL-CONTRACT-TEMPLATE → open).
+- **Next:** build ships SKILL-EXTRACTOR (open) → CONTRACT-ENGINE → CHECK-CUTOVER →
+  RETIRE-HEURISTICS; SKILL-CONTRACT-TEMPLATE + LIBDOC-EVERGREEN are open/disjoint and
+  pickable anytime. Roles layer + declared-model/dependency-graph work get planned
+  once the engine ships and the `(model-declaration-format)` intent gap is authored.
 
-Plan continues: no — queue is reconciled and faithful to an unchanged corpus, and
-three `open` entries (CONTRACT-MODEL, SKILL-EXTRACTOR, LIBDOC-EVERGREEN) are
-pickable; building drains the queue.
+Plan continues: no — queue reconciled against an unchanged corpus, two dangling
+gates repointed, and three `open` entries (SKILL-EXTRACTOR, SKILL-CONTRACT-TEMPLATE,
+LIBDOC-EVERGREEN) are pickable; building drains the queue.
