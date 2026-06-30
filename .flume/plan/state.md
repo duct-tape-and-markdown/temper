@@ -1,17 +1,14 @@
 # Plan state
 
-- **Phase:** reconcile after DRIFT-DIFF shipped. Verified on disk: `src/drift.rs`
-  + the `Diff` arm in `main.rs` give read-only `temper diff` over the import
-  baseline. Governance (`45-governance.md`) is entirely unbuilt — `engine.rs` has
-  no `range`/`count`/`degree`/`acyclic` predicate.
-- **Last shipped:** DRIFT-DIFF (c63d238 / 22b3425).
-- **In flight:** nothing; tree clean (`contracts/spec.toml` still absent — never
-  committed by a human).
-- **The gap reconciled:** DRIFT-DIFF already off-queue (shipped). SPEC-KIND-GATE
-  stays `parked` on a human committing `contracts/spec.toml`. Filed GOV-RANGE —
-  the numeric `range {min, max}` predicate from `45`'s `Also in scope`, fork-free
-  and self-contained (a field-scope clause, no roster/graph machinery), the
-  cleanest next governance slice. Inbox empty; no new fork.
+- **Phase:** reconcile. Verified on disk this tick: `contract.rs` has no `Range`
+  predicate and `engine.rs` no `Range` arm in `decide`/`inadmissibilities` —
+  governance (`45`) still unbuilt; `contracts/` holds only `rule.toml` +
+  `skill.anthropic.toml` (`spec.toml` still absent).
+- **Last shipped:** DRIFT-DIFF (c63d238 / 22b3425) — no `build:` since.
+- **In flight:** nothing; tree clean.
+- **The gap reconciled:** queue unchanged. GOV-RANGE (numeric `range {min,max}`,
+  `45` "Also in scope") stays `open` and pickable — contract.rs + engine.rs only.
+  SPEC-KIND-GATE stays `parked` on a human committing the untracked
+  `contracts/spec.toml`. Inbox empty; no new fork.
 
-Plan continues: no — GOV-RANGE is `open` and immediately pickable (contract.rs +
-engine.rs only). SPEC-KIND-GATE waits on a human, not on planning. Hand to build.
+Plan continues: no — GOV-RANGE is `open` and immediately pickable; hand to build.
