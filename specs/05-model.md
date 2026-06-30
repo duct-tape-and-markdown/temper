@@ -21,8 +21,8 @@ features. So extraction is the **soundness boundary** — the predicate algebra 
 only require what extraction can decidably read.
 
 A kind and its **artifact-scope contract** together are a **type** — the narrowest,
-sharpest pairing. Widen the contract's scope and it stops being a type (the three
-scopes below).
+sharpest pairing. Widen what the contract quantifies over and it stops being a type
+(the three arities below).
 
 ```
    EXTRACTION algebra                  PREDICATE algebra
@@ -88,17 +88,21 @@ The vocabulary; the **owning spec** carries the detail.
   conforms / a roster is filled + wired / a model resolves); **admissibility** = a
   contract ⊨ the definition (the algebras + structural rules). Two greens (`00`).
 
-## Contract has three scopes — one engine, a widening lens
+## Contract scope is quantification arity — one engine, a widening lens
 
-The three instances of `10-contracts.md` are the same engine over a wider scope.
-Only the artifact scope is a *type* (a kind's dual); the wider scopes are other
-instances of the engine, not types.
+The three instances of `10-contracts.md` are the same engine widening only in *what
+each predicate ranges over* — its **arity** — never in the landscape it runs in.
+Only the narrowest (over one artifact) is a *type* (a kind's dual); the wider arities
+are the same engine, not types. **Arity is not a landscape:** harness, spec, and code
+(`30-landscapes.md`) each draw on whichever arities their contract needs — a harness
+is itself a graph (`45-governance.md`) and uses all three; no landscape *owns* a
+scope. `type` / `interface` / `schema` are how each arity *reads*, not what it *is*.
 
-| Scope | over | reads as |
+| Scope (arity) | predicate ranges over | reads as |
 |---|---|---|
-| **artifact contract** | one artifact's features | a **type** |
-| **harness contract** | a landscape's **roles** | an **interface / trait** |
-| **spec contract** | a corpus's **entities** | a **schema / ontology** |
+| **artifact** | one matched artifact's features | a **type** |
+| **set** (the roster) | a matched *set* of artifacts — count, membership, unique | an **interface / trait** |
+| **graph** (the model) | a relation graph of declared edges — degree, acyclic | a **schema / ontology** |
 
 ## The two cross-cutting axes
 

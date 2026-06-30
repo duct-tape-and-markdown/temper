@@ -1,15 +1,17 @@
 # Governance — powering up the wider contract scopes
 
-A contract has three scopes (`05-model.md`): artifact, harness/roster, spec/model.
-The artifact scope has a rich predicate set (`10-contracts.md`); the **roster** and
-**model** scopes have almost none — just `role` and a descriptive graph. But
-*governing* an environment is corpus-wide and quantified — "every agent…", "at most
-N…", "no cycles" — which lives at exactly those two scopes. This file gives them
-their predicates. Every one is a **decidable fact**, never a guess, so the gate
-never cries wolf (`00-intent.md` law 3): the wider scopes gain *quantification*, not
-*fuzziness*.
+A contract has three scopes by **arity** (`05-model.md`) — over one artifact, over a
+matched **set**, over the **relation graph** — not three landscapes; a single harness
+draws on all three (it is itself a graph, below). The per-artifact scope has a rich
+predicate set (`10-contracts.md`); the **set** scope (the roster of roles) and the
+**graph** scope (the model's entities + edges) have almost none — just `role` and a
+descriptive graph. But *governing* an environment is corpus-wide and quantified —
+"every agent…", "at most N…", "no cycles" — which lives at exactly those two scopes.
+This file gives them their predicates. Every one is a **decidable fact**, never a
+guess, so the gate never cries wolf (`00-intent.md` law 3): the wider scopes gain
+*quantification*, not *fuzziness*.
 
-## The roster scope — predicates over a matched set
+## The set scope (the roster) — predicates over a matched set
 
 A role already selects artifacts by a decidable `match` (`10-contracts.md`). Lift
 the selector from "fill one slot" to "quantify over the matched set," and the roster
@@ -28,7 +30,7 @@ scope gains its predicates:
 Each is exact membership/count over deterministically-extracted features of a finite
 corpus — decidable, a fact, a true positive every time.
 
-## The model scope — predicates over the graph
+## The graph scope (the model) — predicates over the relation graph
 
 The dependency graph (`15-kinds.md`) is *descriptive*: it yields blast-radius.
 Governance makes it *prescriptive*:
