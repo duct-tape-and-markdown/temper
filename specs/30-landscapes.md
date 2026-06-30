@@ -6,58 +6,35 @@ another; code is a third. This file specifies how a landscape is declared and th
 two that matter beyond the harness: the spec landscape (a declared model + bound
 prose) and the cross-landscape seam.
 
-## Extraction is the soundness boundary
+## Kinds read landscapes — see `15-kinds.md`
 
-Every landscape needs a per-kind **extractor**: parse a unit into structured
-features the engine validates (`20-surface.md` generalizes the skill IR to this).
-A contract clause is sound only if its feature is **deterministically
-extractable**. For structured artifacts (JSON, frontmatter) that is trivial. For
-prose it is the dividing line:
+Every landscape is read by a **kind**: an extractor (the soundness boundary) plus a
+contract. The extraction algebra, the built-in/custom split, and the entity-graph
+capability are the kind system (`15-kinds.md`). A landscape beyond the harness is
+just another kind — the **spec corpus** is governed by a custom `spec` kind; **code**
+is a third landscape with its own kind.
 
-- **Deterministically extractable → may be a clause:** a heading is present, a
-  `[link](path)` resolves, a `## Decision` carries a `Rejected:` block, a file is
-  ≤ N lines, a file sits under a declared directory, a declared binding marker
-  exists.
-- **Semantic → never a clause:** "is this fact duplicated," "is the same concept
-  named the same way," "does this paragraph mean X." These require interpreting
-  meaning and are tier-2/tier-3 (`00-intent.md`), not the hard gate.
+## The spec landscape
 
-The engine is sound because the extractor is deterministic. Garbage extraction
-would forge false positives, so extractors admit only surface-decidable features.
+The **spec corpus** is a landscape governed by a custom `spec` kind (`15-kinds.md`).
+A spec is not free prose the engine guesses about: the kind declares the
+**entities, relationships, and invariants** the prose is about, and the prose
+**binds** to them. Declaring the model makes the otherwise-undecidable structural —
+each entity has one declared home (DRY), bindings resolve to declared names (naming
+consistency), every declared entity has an owning spec (coverage). The model is
+**declared, not templated**; a corpus with a small model pays little, one reconciled
+against code pays the modeling tax and is repaid in coherence (`00-intent.md` honest
+bound — coherence, never correctness; a contract-clean spec can still model the
+wrong domain).
 
-## The spec landscape: a declared model + bound prose
+## The dependency graph
 
-A spec is not free prose the engine guesses about. The author **declares the
-domain model** — entities, relationships, invariants — as structure, and the
-prose specs **bind** to it. This is the hard, valuable part of speccing (the
-grain): making the model the prose represents coherent *before* the prose flows.
-It is `10-contracts.md`'s spec-contract instance.
-
-What that makes deterministic — properties that are undecidable if *inferred*
-from prose become structural once the model is *declared*:
-
-- **DRY / one home** — each entity is declared once; each spec declares the
-  entity it `owns`; the contract checks every entity has exactly one owner.
-- **Naming consistency** — bindings resolve to declared entity names or they do
-  not. (Free prose between bindings is not policed — see the seam below.)
-- **Coverage** — every declared entity has an owning spec; a declared
-  relationship with no spec is a violation.
-
-The model is **declared, not imposed as a template.** The author writes prose
-freely; what they additionally declare is the *model their prose is about* — the
-essential modeling work, not ceremony. A spec landscape with a small or no model
-pays little; one reconciled against code pays the modeling tax and is repaid in
-coherence (`00-intent.md` honest bound: this buys coherence, never correctness —
-a contract-clean spec can still model the wrong domain).
-
-## The dependency graph — the sound payoff
-
-Declaring entities + relationships yields a **dependency graph of intent**. Its
-tier-1 payoff is sound and needs no LLM: given the graph, removing a load-bearing
-entity surfaces its **blast radius** — every spec, binding, and
-(via the seam) code symbol that depended on it — deterministically. This is
-"fearless refactoring" (`00-intent.md` law 6) with teeth, and it is the standing
-value of the whole modeling exercise independent of any judge.
+The declared entities + relationships yield a **dependency graph of intent** — the
+kind capability in `15-kinds.md`, and the substrate the governance predicates act on
+(`45-governance.md`). Its tier-1 payoff needs no LLM: removing a load-bearing entity
+surfaces its **blast radius** across every spec, binding, and — via the seam below —
+code symbol, deterministically. Fearless refactoring (`00-intent.md` law 6) with
+teeth, the standing value of the modeling exercise independent of any judge.
 
 ## The fidelity seam — where prose exceeds its model
 

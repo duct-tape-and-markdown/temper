@@ -28,7 +28,7 @@ unchanged. Present, it **layers over** that floor — and a gitignored
 `temper-local.toml` layers over *it* for personal overrides (the committed-plus-
 local split Lefthook proves); it never replaces the by-kind dispatch (which
 `(contract-selection)` settled — no global active-contract, no `--contract` flag).
-It does three things:
+It does four things:
 
 - **Adopt** — name a shipped template as a kind's contract explicitly (the
   default made visible), so no one writes a contract from scratch.
@@ -37,6 +37,10 @@ It does three things:
 - **Bind the harness** — declare roles: which artifact fills role R, by a decidable
   `match`, `required` or not, with its `verified_by` (`10-contracts.md`, "Roles and
   matching"). This is the interface/trait tier, the part no built-in can carry.
+- **Define a custom kind** — for a project-specific artifact (its specs, ADRs,
+  playbooks), declare a new kind: its extraction (from the algebra) + its contract
+  (`15-kinds.md`). Built-in harness kinds are adopted; custom kinds are authored
+  here.
 
 The active contract — floor ⊕ `temper.toml` — is also the single source of the
 editor schema `temper` emits (`50-distribution.md`): the same declaration that
@@ -74,8 +78,8 @@ is what law 7 ("compose everything; gate the decidable") looks like in use.
 ## Scope boundary
 
 This file provisions the **harness contract** (roles / `verified_by` over the
-Claude Code harness). The **spec-landscape model** — entities, `owns` / `binds`,
-invariants (`30-landscapes.md`) — is the *same altitude*, but its declaration
-**format is still open** (`(model-declaration-format)`); whether `temper.toml` also
-hosts it is that fork's to settle, not this file's to assume. Surfacing the seam,
-not filling it (`00-intent.md` law 4).
+Claude Code harness). The **spec-landscape model** is a **custom kind**
+(`15-kinds.md`) — its entities are declared by the kind's extraction, its
+relationships by declared edges (`45-governance.md`), and a custom kind is declared
+in `temper.toml` (above). This resolves the old `(model-declaration-format)` fork:
+there is no bespoke spec-model format — a spec is a kind like any other.

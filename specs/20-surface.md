@@ -47,7 +47,9 @@ deterministically-decidable features, never inferred meaning.
 
 ## Artifact kinds & contract selection
 
-Each artifact kind has an extractor and a built-in contract. Slice 1 shipped
+The kind *system* — the extraction algebra and the built-in/custom split — is
+`15-kinds.md`; these are the **built-in harness kinds** the surface ships and how
+`check` dispatches them. Each artifact kind has an extractor and a built-in contract. Slice 1 shipped
 **skill**; the next kind is **rule** (`.claude/rules/*.md`): frontmatter `paths`
 (optional — the real Claude Code scoping key) plus a byte-faithful body. Its
 decidable clauses forbid the Cursor keys Claude Code ignores (`description`,
