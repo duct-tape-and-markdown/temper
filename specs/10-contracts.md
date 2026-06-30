@@ -5,6 +5,16 @@ harness (or one artifact in it) must satisfy. `temper check` validates the
 imported surface against the active contract and reports conformance. This is the
 type checker; the contract is the types. (`00-intent.md` laws 2–3.)
 
+`temper` runs **two checks**, not one. **Conformance** — the harness satisfies its
+contract (the type checker above). **Admissibility** — the contract itself
+satisfies *the definition*: the closed algebra below is both the vocabulary a
+contract is written in *and* the contract a contract must satisfy. A type system
+checks values against types *and* checks the types are well-formed; `temper`
+checks harness-against-contract *and* contract-against-definition (`00-intent.md`
+finish line — both greens). Admissibility is what lets an author *declare* a
+contract (`40-composition.md`) without re-opening the heuristic swamp by the front
+door (Decision below).
+
 ## The engine is generic; everything is an instance
 
 There are not "two kinds of contract." There is one engine over the primitive
@@ -80,6 +90,11 @@ blocking).** This replaces the tool-baked error/warn split: `--deny-advisories`
 promotes advisories to blocking for a strict CI policy (the `-D warnings`
 analogue). The default gate blocks on `required` clauses only.
 
+The gate's **delivery posture** is declared the same way (`50-distribution.md`):
+how firmly a failing contract is enforced at each placement — a hard block in CI,
+an advisory notify-and-approve at session start — is the author's to set, not the
+tool's to bake.
+
 ## Templates — best practices as data
 
 The documented best practices (Anthropic skill mechanics, Pocock's invocation
@@ -89,7 +104,9 @@ are the std-lib types and the on-ramp so nobody writes a contract from scratch;
 they are never hardcoded checks. A template admits a clause only if it is
 decidable — so "name ≤ 64 chars, `[a-z0-9-]`" is in; "description triggers well"
 and "no-op detection" are **out** (undecidable), and stay as prose guidance, not
-checks.
+checks. Emitted as a JSON Schema (`50-distribution.md`), a template delivers its
+decidable clauses as keystroke validation and that prose guidance as hover docs —
+best-practices-as-data reaching the editor without ever becoming a check.
 
 ## `verified_by` — where behavior goes
 
@@ -107,6 +124,12 @@ verified_by = "tests/release.rs"   # author checks this is wired; CI runs it
 `temper` guarantees the slot is filled and the judge is present and wired. The
 judge (a test, a CI job, an eval) guarantees the behavior, at runtime. Neither
 guesses; neither is `temper`.
+
+"Wired" is a **referential** clause (above), not a string-present check: the named
+verifier must *resolve* — the test target, CI job, or path exists in the surface —
+or the `verified_by` fails admissibility. A dangling verifier is a silent no-op,
+the very failure law 1 forbids. (Resolves the `verified_by` half of
+`(harness-contract-provisioning)`.)
 
 ## Decision: kill the heuristic rule registry
 
@@ -152,3 +175,43 @@ required name is redundant with the path and forces ceremony into a data file
 that is otherwise pure clauses. (This resolves the `(contract-name-field)` fork:
 the curated `contracts/skill.anthropic.toml` rightly has no `name`; the model's
 required-`name` was code drift — relax it to optional, derived from the stem.)
+
+## Decision: the contract is itself checked — admissibility
+
+**Chosen:** a contract is an artifact like any other, validated against **the
+definition** (the closed algebra + the structural rules below) by the same engine,
+*before* it is used to check a harness. This is **admissibility**. The author-
+declared contract earns trust the way the harness does — by passing a check — not
+by the author's say-so. **Rejected:** trusting an author-declared contract on
+faith. The built-in templates are first-party and curated, but the moment an
+author writes or forks a contract (`40-composition.md`), "the author declared it"
+would become the heuristic escape hatch law 3 exists to close. Admissibility is
+decidable, therefore sound:
+
+- every clause names a predicate in the **closed vocabulary** (unknown ⇒ rejected);
+- every referential clause **names its reference syntax** (the hole that made
+  `companion-refs` unsound);
+- every role's `match` selector **resolves**, and a `required` single-filler role
+  is satisfiable;
+- every `pattern` **compiles**; every `enum` is non-empty;
+- every `verified_by` **resolves** to a declared verifier (above).
+
+Admissibility never *detects* an unsound proxy — that would be the swamp again.
+The closed algebra makes the unsound proxy **unsayable** (the "language too weak to
+lie" Decision); admissibility only enforces that nothing outside the algebra
+slipped in. It bottoms out at the hand-built algebra — the axiom, validated by
+code, not by a further contract. No regress.
+
+## Decision: the `type` vocabulary is a closed scalar/container lattice
+
+**Chosen:** the `type` primitive ranges over a fixed, closed set matching what
+YAML frontmatter and JSON actually carry — `string`, `integer`, `number`,
+`boolean`, `list`, `map`, `null` — taken from the source scalar's *parsed* type.
+A sound `type` check therefore requires the extractor to **preserve the source
+scalar type** in projection (`20-surface.md`); stringifying every scalar (the
+slice-1 shortcut, `extract.rs`) makes `type` undecidable and is corrected before
+the primitive ships. **Rejected:** a richer type language (formats, unions, nested
+schemas, numeric ranges) — that drifts toward JSON-Schema, whose expressiveness is
+exactly the unsound-proxy surface the "bespoke closed algebra" Decision rejects.
+`min_len`/`max_len`/`enum`/`pattern` already refine *within* a scalar type; `type`
+only fixes the kind. (Resolves `(field-type-lattice)`.)

@@ -1,8 +1,13 @@
-# The config surface — import, IR, round-trip, drift
+# The config surface — compose, import, project, drift
 
-The surface is `temper`'s in-memory and on-disk projection of a harness: the
-typed thing the contract engine validates and the human reshapes. Built and
-proven for skills in slice 1; the shape generalizes to every artifact kind.
+The surface is `temper`'s **composition write surface**: the typed thing the
+author *composes* the harness in, the contract engine validates, and `temper`
+**projects** into the project. It is the source of truth — `.claude/` and `specs/`
+are projected from it, not the reverse (`00-intent.md` law 7; Decision below).
+`import` is the on-ramp (an existing harness → surface), `re-add` reconciles direct
+edits, and the write direction (`apply`) projects the surface back out. Built and
+proven for skills in slice 1; the shape generalizes to every artifact kind and
+every landscape (`30-landscapes.md`).
 
 ## Topology: structured-index + markdown sidecars
 
@@ -73,6 +78,11 @@ one import). A per-workspace override (a `contracts/` dir convention or an
   lossy serialize-from-scratch on anything a human edits is forbidden.
 - `import` is **idempotent**: re-importing an unchanged harness yields an
   identical workspace (asserted by snapshot).
+- The author may **compose** prose in the surface — it is the write surface (law
+  7) — but `temper` never **synthesizes** it. Prose is stored and projected
+  byte-faithfully whether it arrived by `import` or by authoring; the invariant is
+  *authored, never synthesized*, not *structure only*. A composed prose body is as
+  byte-faithful on projection as an imported one.
 
 ## Drift / apply — three states, never two (the hard core)
 
@@ -85,15 +95,30 @@ rather than clobber. Drift surfaces a choice (diff · overwrite · skip · re-ad
 class direction, because humans also edit the harness directly. (Open: the
 `yaml-writeback` and `workspace-scope` forks in `.flume/plan/open-questions.md`.)
 
+### Decision: the surface is the source of truth
+
+**Chosen:** the composition surface is canonical; `.claude/` + `specs/` are a
+**projection** of it (`apply`), and direct on-disk edits are reconciled back with
+`re-add` (drift, above). **Rejected:** the surface as a read-only *lens* over
+canonical on-disk files. The lens framing contradicts law 7 — you cannot *compose*
+a harness you only mirror — and strands fearless refactoring (law 6), which needs a
+surface the author authors. `re-add` keeps direct-on-disk editing first-class
+without demoting the surface. (Resolves `(surface-authority)`.)
+
 ## CLI surface
 
 - `temper import <harness-path> [--into <workspace>]` — scan → surface + lock.
-- `temper check [<workspace>]` — validate against the active contract; exit
-  non-zero on a `required`-clause violation (`--deny-advisories` to also block on
-  advisory). The gate.
+- `temper check [<workspace>]` — the gate: validate **conformance** (each artifact
+  against the contract for its kind, `10-contracts.md`) and **admissibility** (each
+  contract against the definition); exit non-zero on a `required`-clause violation
+  (`--deny-advisories` to also block on advisory).
 - `temper diff` / `apply` / `re-add` — the drift engine (future).
 - `temper bundle` — compose into a publishable plugin + `marketplace.json`
-  (future; the composition verb).
+  (future; the publish verb — `50-distribution.md`).
+- `temper install` — project the gate's wiring (`SessionStart` hook, CI job, schema
+  modeline) into the harness, drift-synced (future; `50-distribution.md`).
+- `temper schema [--kind <kind>]` — emit the active contract as an editor JSON
+  Schema for keystroke validation (future; `50-distribution.md`).
 
 Logic lives in the library; `main` is a thin `clap` dispatch that maps results to
 an exit code (`.claude/rules/rust.md`).

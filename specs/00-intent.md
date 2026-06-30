@@ -28,9 +28,13 @@ front-loads that to author-time.
 These bind every part of the tool and every change to it.
 
 1. **Gate, don't lint.** `temper` is a gate you pass, not a linter you maybe run.
-   The end state: *you do not start an agent on a harness that fails its
-   contract* — enforced by a `SessionStart` gate (the harness checking itself
-   before the agent loads). "Complete" means *fills its declared contract*.
+   Where blocking is cheap — CI, the author's terminal, the keystroke schema — a
+   failing contract **hard-fails**. At **session start**, where a hard block would
+   be hostile to a live session, the gate is **advisory**: the harness checks
+   itself and *surfaces* the verdict, instructing the agent to notify the user and
+   get approval before continuing. Failure is never *silently* passed; the
+   enforcement **posture at each placement is author-declared** (`10-contracts.md`),
+   not baked. "Complete" means *fills its declared contract*.
 
 2. **Determinism comes from the author's declaration, not the tool's opinion.**
    `temper` ships no built-in judgment about what a good skill/rule/harness is.
@@ -62,6 +66,15 @@ These bind every part of the tool and every change to it.
    can reshape, dedupe, and compose the harness and re-verify — the original
    "work with the config surface, reshape and organize" goal. Empty without the
    drift/round-trip engine, so that engine is core, not optional.
+
+7. **Compose everything; gate the decidable.** The write surface is total: the
+   author composes the whole harness at `temper`'s altitude — structure *and*
+   prose — and `temper` **projects** it into the project. The gate is narrow: it
+   blocks only on the decidable tier and on whether each `verified_by` is wired.
+   `temper` never synthesizes prose and never adjudicates it — prose is the human
+   **behavioral contract** (tier 3, below), enforced by its wired verifier, never
+   by the tool's taste. Write-total, check-bounded: the editor writes all your
+   code; the type checker only checks its types. (`20-surface.md`.)
 
 ## One engine, every layer an instance
 
@@ -121,9 +134,13 @@ work?) is delegated to verifiers the contract requires to be *wired*, and whose
 
 `temper` is built — right now — by an agentic harness (flume) reading a harness
 we are still correcting, because `temper` doesn't yet exist to check it. The
-classic compiler bootstrap. The finish line: `temper check` runs green on its
-own `.claude/`, then the next flume loop refuses to run until it does. When
-`temper` governs its own builder, the thesis stops being a slogan.
+classic compiler bootstrap. The finish line is two greens on `temper`'s own
+surface, projected to its own `.claude/`: the harness **conforms** to its
+contract and that contract is **admissible** against the definition
+(`10-contracts.md`). Then the next flume loop refuses to run until both hold. Consumption is the same
+two greens aimed outward — the plugin a stranger installs to gate their harness is
+the one that gates ours (`50-distribution.md`); there is no separate external
+finish line. When `temper` governs its own builder, the thesis stops being a slogan.
 
 ## Decision: evergreen spec, not release lines
 
@@ -133,3 +150,14 @@ they frame the work as a sequence of finished targets, but `temper` is a design
 in motion whose contract model is still deepening; a frozen release target would
 lie about that. Plan reconciles code↔specs every tick; there is no "done with a
 release," only "code conforms to current intent, or it doesn't."
+
+## Decision: a composition write surface, not a downstream linter
+
+**Chosen:** `temper` is the surface the author *composes the harness from* — model
+at `temper`'s altitude across every landscape, project into the project, gate the
+result (`20-surface.md`, `40-composition.md`). **Rejected:** the downstream-linter
+framing — author `.claude/` by hand elsewhere, `temper` only reads and grades it.
+The linter framing makes `temper` optional and external to the work and strands
+law 6 (you cannot fearlessly refactor a surface you do not author); the
+composition framing makes `temper` the place the harness *lives*. The checker is
+one face of that surface, never the whole tool.

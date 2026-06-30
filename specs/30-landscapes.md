@@ -62,9 +62,11 @@ value of the whole modeling exercise independent of any judge.
 ## The fidelity seam — where prose exceeds its model
 
 Prose earns its place by saying *more* than the declared model: rationale,
-nuance, edge cases. That surplus is **fidelity** — does this paragraph faithfully
-describe the entity it binds? — and it is undecidable, so it is `verified_by`
-(tier 3, human). The declared graph shrinks fidelity into atomic, context-local
+nuance, edge cases. That surplus is the **behavioral contract** (`00-intent.md`
+law 7) — the human tier-3 layer promising what the structure cannot state. The
+question asked of it is **fidelity**: does this paragraph faithfully describe the
+entity it binds? Fidelity is undecidable, so the behavioral contract is enforced
+by `verified_by` (tier 3, human), never adjudicated by `temper`. The declared graph shrinks fidelity into atomic, context-local
 questions (chunk + its declared neighborhood) that a cheap model could judge once
 calibrated per question-class (`00-intent.md` tier 2). That judged shelf is
 **deferred — not a now thing** — and is forever advisory, never the hard gate.
