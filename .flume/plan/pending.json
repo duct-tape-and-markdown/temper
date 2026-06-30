@@ -1,39 +1,5 @@
 [
   {
-    "tag": "DRIFT-DIFF",
-    "summary": "Add `temper diff <harness>`: re-scan the on-disk harness, compare each artifact's source hash to the surface's import baseline, and report in-sync / drifted / added / removed. Read-only.",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Drift / apply — three states, never two (the hard core)"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        {
-          "path": "src/drift.rs",
-          "description": "A `diff` that loads the surface `Workspace` and re-reads each artifact's `provenance.source_path` from disk, recomputing its SHA-256 and classifying it against the stored `import_hash`: in-sync, drifted (source changed since import), or removed (source gone). A fresh per-kind scan of the harness surfaces added (on disk, absent from the surface). Returns a typed report; renders nothing itself."
-        }
-      ],
-      "edit": [
-        { "path": "src/lib.rs", "description": "Add `pub mod drift;`." },
-        {
-          "path": "src/main.rs",
-          "description": "Add a `Diff { harness_path, into }` subcommand mirroring `Check`'s workspace default; load the surface, run `drift::diff` against the harness path, print the report, and exit 0 (read-only — drift is a report, not a gate)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "`temper diff` over an unchanged, freshly-imported harness reports every artifact in-sync; editing one source file flips it to drifted; a new on-disk artifact shows as added and a deleted source as removed; the command writes nothing and exits 0."
-      }
-    ],
-    "acceptance": "`temper diff <harness> --into <ws>` re-reads the on-disk harness, compares each artifact against the imported baseline (`import_hash`), and prints in-sync / drifted / added / removed without writing anything.",
-    "notes": "First, read-only slice of the three-state drift engine — the real-on-disk vs import-baseline axis only. The surface-edit and post-apply-fingerprint axes arrive with `apply`/`re-add` (both future in the CLI surface). Reuses import's per-kind scan and the per-artifact `provenance.import_hash`; no write-back. Fork-free: `(surface-authority)`/`(yaml-writeback)`/`(workspace-scope)` all RESOLVED."
-  },
-  {
     "tag": "SPEC-KIND-GATE",
     "summary": "Dispatch `check` over specs: embed `contracts/spec.toml`, project `ws.specs` via `spec_features`, and run admissibility + `engine::validate` (the advisory `max_lines` clause) over the spec features.",
     "per": {
