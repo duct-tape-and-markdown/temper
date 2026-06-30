@@ -1,19 +1,24 @@
 //! `temper import` — scan a Claude Code harness into the typed config surface.
 //!
 //! Implements `import` per `specs/20-surface.md` ("Artifact kinds & contract
-//! selection" — `import` scans every kind it knows: `skills/*/SKILL.md` and
-//! `.claude/rules/*.md`). For each skill it writes the surface tree
-//! `<into>/skills/<name>/` — a typed `meta.toml` header projected with
+//! selection" — `import` scans every kind it knows: `skills/*/SKILL.md`,
+//! `.claude/rules/*.md`, and `specs/*.md`). For each skill it writes the surface
+//! tree `<into>/skills/<name>/` — a typed `meta.toml` header projected with
 //! [`Skill::to_meta_document`] alongside the byte-faithful `SKILL.md` body and
 //! every companion copied byte-for-byte. For each rule it writes the parallel
 //! tree `<into>/rules/<name>/` — a `meta.toml` header projected with
 //! [`Rule::to_meta_document`] (the optional `paths` + `[provenance]`) alongside
-//! the byte-faithful `RULE.md` body. A roll-up index `<into>/author.toml` records
-//! one `[[skill]]`/`[[rule]]` entry per artifact with its provenance and a
+//! the byte-faithful `RULE.md` body. For each spec — temper's own custom kind
+//! (`90-spec-system.md`) — it writes `<into>/specs/<name>/` with a
+//! provenance-only `meta.toml` ([`Spec::to_meta_document`]) and the byte-faithful
+//! whole file as `SPEC.md`. A roll-up index `<into>/author.toml` records one
+//! `[[skill]]`/`[[rule]]`/`[[spec]]` entry per artifact with its provenance and a
 //! `body_hash`.
 //!
 //! Note the root asymmetry the spec literal carries: skills live at
-//! `<harness>/skills/`, rules at `<harness>/.claude/rules/`.
+//! `<harness>/skills/`, rules at `<harness>/.claude/rules/`, and specs at the
+//! plain `<harness>/specs/` (no `.claude/` prefix — they are temper's own corpus,
+//! not a Claude Code artifact).
 //!
 //! The keystone invariant (`.claude/rules/rust.md`) is idempotence: re-importing
 //! an unchanged harness yields an identical workspace. It holds because every
@@ -30,6 +35,7 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::rule::{Rule, RuleError};
 use crate::skill::{Skill, SkillError};
+use crate::spec::{Spec, SpecError};
 
 /// Errors raised while importing a harness. Distinct from a [`SkillError`]
 /// (which a malformed source skill produces) by also covering the surface-write
@@ -45,6 +51,11 @@ pub enum ImportError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Rule(#[from] RuleError),
+
+    /// A source spec could not be read or projected.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Spec(#[from] SpecError),
 
     /// The harness `skills/` directory could not be enumerated.
     #[error("failed to read harness directory {path}")]
@@ -70,8 +81,8 @@ pub enum ImportError {
 }
 
 /// One row of the `author.toml` roll-up index: an artifact's identity, its source
-/// provenance, and the hash of its byte-faithful body. Shared by both kinds — a
-/// skill `[[skill]]` row and a rule `[[rule]]` row carry the same four columns.
+/// provenance, and the hash of its byte-faithful body. Shared by every kind — a
+/// `[[skill]]`, `[[rule]]`, and `[[spec]]` row all carry the same four columns.
 struct RollupEntry {
     /// Artifact name (and its `<kind>/<name>/` surface directory).
     name: String,
@@ -83,14 +94,15 @@ struct RollupEntry {
     body_hash: String,
 }
 
-/// Import every skill and rule under `harness_path` into the surface workspace
-/// `into`.
+/// Import every skill, rule, and spec under `harness_path` into the surface
+/// workspace `into`.
 ///
 /// Writes `<into>/skills/<name>/{meta.toml, SKILL.md, ...companions}` per skill,
-/// `<into>/rules/<name>/{meta.toml, RULE.md}` per rule, and the
-/// `<into>/author.toml` roll-up index (one `[[skill]]`/`[[rule]]` row each).
-/// Idempotent over an unchanged harness. See the module header for the discovery
-/// rules and the invariant.
+/// `<into>/rules/<name>/{meta.toml, RULE.md}` per rule,
+/// `<into>/specs/<name>/{meta.toml, SPEC.md}` per spec, and the
+/// `<into>/author.toml` roll-up index (one `[[skill]]`/`[[rule]]`/`[[spec]]` row
+/// each). Idempotent over an unchanged harness. See the module header for the
+/// discovery rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
     let skill_dirs = discover_skill_dirs(harness_path)?;
     let mut skills = Vec::with_capacity(skill_dirs.len());
@@ -104,11 +116,18 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
         rules.push(import_rule(file, into)?);
     }
 
+    let spec_files = discover_spec_files(harness_path)?;
+    let mut specs = Vec::with_capacity(spec_files.len());
+    for file in &spec_files {
+        specs.push(import_spec(file, into)?);
+    }
+
     // Sort by name so the roll-up — and thus the whole workspace — is stable
     // regardless of filesystem listing order.
     skills.sort_by(|a, b| a.name.cmp(&b.name));
     rules.sort_by(|a, b| a.name.cmp(&b.name));
-    write_rollup(into, &skills, &rules)?;
+    specs.sort_by(|a, b| a.name.cmp(&b.name));
+    write_rollup(into, &skills, &rules, &specs)?;
 
     Ok(())
 }
@@ -178,6 +197,36 @@ fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
     Ok(files)
 }
 
+/// Find the spec source files under `<harness>/specs/`: every immediate `*.md`
+/// child. Non-markdown files and subdirectories are skipped. The root is plain
+/// `specs/` (no `.claude/` prefix) — a spec is temper's own custom kind, sourced
+/// from its evergreen corpus (`90-spec-system.md`), not a Claude Code artifact.
+fn discover_spec_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
+    let specs_root = harness.join("specs");
+    if !specs_root.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let listing = fs::read_dir(&specs_root).map_err(|source| ImportError::ReadDir {
+        path: specs_root.clone(),
+        source,
+    })?;
+    let mut files = Vec::new();
+    for entry in listing {
+        let entry = entry.map_err(|source| ImportError::ReadDir {
+            path: specs_root.clone(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
+            files.push(path);
+        }
+    }
+    // `read_dir` order is unspecified; sort for deterministic processing.
+    files.sort();
+    Ok(files)
+}
+
 /// Read one source skill and write its surface tree under `<into>/skills/<name>/`,
 /// returning the roll-up row for the index.
 fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
@@ -232,6 +281,35 @@ fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportErr
     })
 }
 
+/// Read one source spec and write its surface tree under `<into>/specs/<name>/`,
+/// returning the roll-up row for the index.
+///
+/// Mirrors [`import_rule`] for the spec kind: a format-preserving `meta.toml`
+/// header (provenance-only — a spec carries no frontmatter, `90-spec-system.md`)
+/// alongside the byte-faithful body as `SPEC.md`. Like a rule, a spec has no
+/// companions, so there is nothing else to copy.
+fn import_spec(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
+    let spec = Spec::from_source_file(source_file)?;
+    let out_dir = into.join("specs").join(&spec.name);
+    create_dir_all(&out_dir)?;
+
+    // Typed header via the format-preserving writer — never a lossy re-serialize.
+    write_bytes(
+        &out_dir.join("meta.toml"),
+        spec.to_meta_document().to_string().as_bytes(),
+    )?;
+    // The surface `SPEC.md` is the whole spec body, byte-faithful (a spec has no
+    // frontmatter to strip — the entire source file is the body).
+    write_bytes(&out_dir.join("SPEC.md"), spec.body.as_bytes())?;
+
+    Ok(RollupEntry {
+        name: spec.name,
+        source_path: spec.provenance.source_path.to_string_lossy().into_owned(),
+        import_hash: spec.provenance.import_hash,
+        body_hash: sha256_hex(spec.body.as_bytes()),
+    })
+}
+
 /// Copy a single companion from the source dir to the surface dir, byte-for-byte,
 /// creating any intermediate directories.
 fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<(), ImportError> {
@@ -245,19 +323,23 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 }
 
 /// Write the `<into>/author.toml` roll-up: one `[[skill]]` table per imported
-/// skill, then one `[[rule]]` table per imported rule, each with `name`,
-/// `source_path`, `import_hash`, and `body_hash`.
+/// skill, then one `[[rule]]` table per imported rule, then one `[[spec]]` table
+/// per imported spec, each with `name`, `source_path`, `import_hash`, and
+/// `body_hash`.
 ///
 /// An empty kind renders to no bytes (an empty `ArrayOfTables` emits nothing), so
-/// a skill-only or rule-only harness yields exactly the rows it has.
+/// a harness with only some kinds yields exactly the rows it has — a skill-only
+/// harness emits no `[[spec]]` bytes at all.
 fn write_rollup(
     into: &Path,
     skills: &[RollupEntry],
     rules: &[RollupEntry],
+    specs: &[RollupEntry],
 ) -> Result<(), ImportError> {
     let mut doc = DocumentMut::new();
     doc["skill"] = Item::ArrayOfTables(rollup_tables(skills));
     doc["rule"] = Item::ArrayOfTables(rollup_tables(rules));
+    doc["spec"] = Item::ArrayOfTables(rollup_tables(specs));
 
     create_dir_all(into)?;
     write_bytes(&into.join("author.toml"), doc.to_string().as_bytes())
@@ -364,6 +446,18 @@ Last line, no newline.";
     /// A rule with no frontmatter at all — the `collaboration.md` shape.
     const COLLAB_RULE: &str = "# Collaboration\n\nPushback is the point.\n";
 
+    /// A spec body whose leading `---` is prose (a spec has no frontmatter) and
+    /// whose missing final newline must survive intact.
+    const SURFACE_SPEC: &str = "# The config surface\n\
+\n\
+---\n\
+\n\
+The surface is temper's composition write surface, no trailing newline.";
+
+    /// A second spec so the roll-up carries more than one row and name-sorting is
+    /// observable (`00-intent` sorts before `20-surface`).
+    const INTENT_SPEC: &str = "# Intent\n\nThe north star.\n";
+
     /// Build a harness with two skills under `skills/` and two rules under
     /// `.claude/rules/`; `coordinate` carries a companion markdown file and a
     /// nested script. The two kinds coexist so one import covers both.
@@ -382,6 +476,18 @@ Last line, no newline.";
         fs::create_dir_all(&rules).unwrap();
         fs::write(rules.join("rust.md"), RUST_RULE).unwrap();
         fs::write(rules.join("collaboration.md"), COLLAB_RULE).unwrap();
+    }
+
+    /// Add a `specs/` corpus to an existing harness root: two spec files plus a
+    /// non-markdown loose file and a subdirectory, both of which discovery skips.
+    fn write_specs(root: &Path) {
+        let specs = root.join("specs");
+        fs::create_dir_all(specs.join("notes")).unwrap();
+        fs::write(specs.join("20-surface.md"), SURFACE_SPEC).unwrap();
+        fs::write(specs.join("00-intent.md"), INTENT_SPEC).unwrap();
+        // Noise that must be ignored: a non-`.md` file and a subdirectory.
+        fs::write(specs.join("README.txt"), "not a spec\n").unwrap();
+        fs::write(specs.join("notes").join("scratch.md"), "nested, skipped\n").unwrap();
     }
 
     /// Snapshot every file under `dir` as a sorted map of relative path -> bytes,
@@ -577,5 +683,71 @@ Last line, no newline.";
             .unwrap();
         assert_eq!(doc["skill"].as_array_of_tables().unwrap().len(), 2);
         assert!(!into.join("skills").join("empty").exists());
+    }
+
+    #[test]
+    fn writes_a_spec_surface_and_rollup_row() {
+        let harness = tmpdir("spec-src");
+        write_fixture_harness(&harness);
+        write_specs(&harness);
+        let into = tmpdir("spec-into");
+
+        run(&harness, &into).unwrap();
+
+        // The spec surface mirrors a rule: a `specs/<name>/` dir with a
+        // provenance-only header and the whole file alone under `SPEC.md`.
+        let surface = into.join("specs").join("20-surface");
+        assert!(surface.join("meta.toml").is_file());
+        // The body is the *entire* source — a spec has no frontmatter, so the
+        // leading `---` is prose and the missing final newline is preserved.
+        assert_eq!(
+            fs::read_to_string(surface.join("SPEC.md")).unwrap(),
+            SURFACE_SPEC
+        );
+
+        // The typed header round-trips back to the source spec (provenance only).
+        let reloaded = Spec::from_surface_dir(&surface).unwrap();
+        assert_eq!(reloaded.name, "20-surface");
+        assert_eq!(reloaded.body, SURFACE_SPEC);
+
+        // The roll-up carries a `[[spec]]` row per spec, name-sorted, alongside
+        // the skill and rule rows — all three kinds coexist in one import. The
+        // `notes/` subdir and `README.txt` are skipped (immediate `*.md` only).
+        let doc = fs::read_to_string(into.join("author.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        let specs = doc["spec"].as_array_of_tables().unwrap();
+        let spec_names: Vec<&str> = specs.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(spec_names, vec!["00-intent", "20-surface"]);
+        for table in specs.iter() {
+            assert_eq!(table["import_hash"].as_str().unwrap().len(), 64);
+            assert_eq!(table["body_hash"].as_str().unwrap().len(), 64);
+            assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
+        }
+
+        // A second import into the same workspace must not change a single byte.
+        let first = tree_bytes(&into);
+        run(&harness, &into).unwrap();
+        assert_eq!(first, tree_bytes(&into));
+    }
+
+    #[test]
+    fn skill_and_rule_only_harness_emits_no_spec_bytes() {
+        // The base fixture carries skills and rules but no `specs/` corpus.
+        let harness = tmpdir("nospec-src");
+        write_fixture_harness(&harness);
+        let into = tmpdir("nospec-into");
+
+        run(&harness, &into).unwrap();
+
+        // No spec surfaces are written, and an empty `[[spec]]` array renders to
+        // no bytes — the roll-up stays exactly the skill + rule rows it has.
+        assert!(!into.join("specs").exists());
+        let author = fs::read_to_string(into.join("author.toml")).unwrap();
+        assert!(!author.contains("[[spec]]"));
+        // An empty `ArrayOfTables` emits no bytes, so the key is absent on reparse.
+        let doc = author.parse::<DocumentMut>().unwrap();
+        assert!(doc.get("spec").is_none());
     }
 }
