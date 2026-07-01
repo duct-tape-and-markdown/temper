@@ -7,8 +7,7 @@
       "section": "Decision: the member is one document in the surface language"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REQUIREMENT-PACKAGE-TYPING"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -68,7 +67,7 @@
       }
     ],
     "acceptance": "`.temper/<kind-dir>/<name>/` holds one authored document per member — exactly the `20-surface.md` topology; no meta.toml is written or read; import→check→drift round-trips green; cargo fmt/clippy -D warnings/test green.",
-    "notes": "ATOMIC and the chain's largest tick — write and read sides must flip together (import writes what check/drift/re-add consume); stay green, re-record insta deliberately. The inbox's representation hold is lifted: the human authored this model into `20-surface.md` (9aed8cc) after routing the hold, and the resolved sequencing fork directs plan to reconcile against that corpus."
+    "notes": "OPEN now: REQUIREMENT-PACKAGE-TYPING shipped (afe6f48/134a27f). ATOMIC and the chain's largest tick — write and read sides must flip together (import writes what check/drift/re-add consume); stay green, re-record insta deliberately. The `+++`-fenced document primitive (`src/document.rs`) foundation already exists to build the header emit/parse on."
   },
   {
     "tag": "KIND-AUTHORED-ARTIFACT",
