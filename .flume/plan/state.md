@@ -1,22 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk: **APPLY-WRITEBACK shipped** — `drift.rs`
-  carries the three-state write direction (`apply` + `project_one`, patch-not-re-emit,
-  the Applied/Unchanged/Conflicted merge), wired as `Command::Apply` (`main.rs:334`);
-  the lock's `last_applied` fingerprint is written at import and reconciled on apply.
-  The custom-kind (KIND-*) tier is also on disk — `import` discovers custom kinds from
-  `temper.toml` and `check` runs each through its own composed extractor + contract.
-- **Last shipped:** APPLY-WRITEBACK (`4a7db52`). Queue was empty; APPLY dropped as shipped.
-- **Filed / pickable (1):** **RE-ADD** (`open`) — `temper re-add`, the third drift
-  direction (on-disk→surface), reusing `diff`'s classification + `import`'s writers over
-  the built-in kinds. Serialized behind it: **SESSION-START-GATE** (`blockedBy RE-ADD`) —
-  the advisory session-start reporter/verb; both touch `main.rs`, so one at a time.
-- **Frontier:** `bundle`/`install`, the SARIF + GitHub-annotation reporters, and more
-  built-in harness kinds (agent/hook/command/MCP/settings/plugin) are the unbuilt areas —
-  each touches `main.rs` (and most `import.rs`), so all serialize on that shared surface,
-  not filed `open` now. Spec-kind `references-resolve` waits on `(reference-id-normalization)`
-  (custom-kind features never join `by_kind` at `main.rs:168`, so spec edges find no sources);
-  `decisions-name-alternatives` waits on `(decision-marker-predicate)`.
+- **Phase:** reconcile. Verified on disk: **RE-ADD shipped** — `drift::re_add` +
+  `Command::ReAdd` (`main.rs:362`), the third drift direction (on-disk→surface)
+  over `tests/readd.rs`. All three drift directions (`apply` / `diff` / `re-add`)
+  now on disk.
+- **Last shipped:** RE-ADD (`62380c8`). Its dependent SESSION-START-GATE unblocked.
+- **Filed / pickable (1):** **SESSION-START-GATE** (`open`) — the advisory
+  session-start gate: a new `src/reporter.rs` (`claude-session-start` payload) + a
+  one-shot check verb in `main.rs` that imports a harness path internally, runs the
+  same by-kind gate `check` runs, and emits the SessionStart JSON (advisory, exit 0).
+  Verified unshipped: no `src/reporter.rs`, no `tests/session_start.rs`.
+- **Frontier:** the SARIF + GitHub-annotation reporters (sibling on the new reporter
+  family), `bundle`/`install`, and more built-in harness kinds
+  (agent/hook/command/MCP/settings/plugin) are the unbuilt areas — each touches
+  `main.rs` (+ `reporter.rs` or `import.rs`), so all serialize on that shared surface,
+  not filed `open` now. Spec-kind `references-resolve` waits on
+  `(reference-id-normalization)`; `decisions-name-alternatives` on `(decision-marker-predicate)`.
 - **Inbox:** empty (nothing to drain). Open questions unchanged (no fork resolved this tick).
 
-Plan continues: no — queue reconciled, APPLY-WRITEBACK dropped as shipped, RE-ADD filed and pickable with SESSION-START-GATE serialized behind it, inbox empty; hand to build.
+Plan continues: no — queue reconciled, RE-ADD dropped as shipped, SESSION-START-GATE
+unblocked to `open` and pickable, inbox empty; hand to build.

@@ -7,8 +7,7 @@
       "section": "Decision: the session-start gate is advisory, not blocking"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "RE-ADD"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -29,7 +28,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "Add a session-start check verb that takes a harness path, imports it internally (one-shot, not the two-step author check), runs the same by-kind gate `check` runs, and emits the reporter payload on stdout; advisory — exit 0 regardless. The hook IS the binary (exec-form), so no shell wrapper."
+          "description": "Add a session-start check verb that takes a harness path, imports it internally (one-shot, not the two-step author check), runs the same by-kind gate `check` runs (the inline logic in `Command::Check`, main.rs:131), and emits the reporter payload on stdout; advisory — exit 0 regardless. The hook IS the binary (exec-form), so no shell wrapper. Factor the shared gate logic if it eases reuse; keep the existing `Command::Check` path byte-identical."
         }
       ],
       "retire": []
@@ -42,6 +41,6 @@
       }
     ],
     "acceptance": "`temper` produces the SessionStart hook payload for a harness path via the claude-session-start reporter; the gate is advisory (never blocks).",
-    "notes": "50-distribution.md: the hook is the temper binary itself, one-shot over a harness path (import-internally). Fail-loud (a hook that cannot run temper) is a separate concern. SARIF + GitHub-annotation reporters are sibling follow-ons on the same reporter family. Serialized behind RE-ADD only because both touch main.rs."
+    "notes": "50-distribution.md: the hook is the temper binary itself, one-shot over a harness path (import-internally). Fail-loud (a hook that cannot run temper) is a separate concern. SARIF + GitHub-annotation reporters are sibling follow-ons on the same reporter family (they will serialize on this reporter.rs + main.rs)."
   }
 ]
