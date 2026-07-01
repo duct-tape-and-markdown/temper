@@ -123,17 +123,16 @@ and embeds the bundled skill template as the default.
   `section_contains` / decisions-name-alternatives **predicate** remains carved out as
   `(decision-marker-predicate)` below. Kept as the decision record; no dependent waits.
 
-- `(rollup-index-rename)` — The generated roll-up index is written to `author.toml`
-  (`src/import.rs` `write_rollup`), but `20-surface.md` ("The surface is stratified:
-  schema + instances") establishes the *authored* schema stratum as `temper.toml`, and
-  the two names collide in intent — `author.toml` is generated ledger/provenance
-  machinery (neither stratum), while `temper.toml` is authored schema. The spec flags
-  the rename as "open" ("a rename to reflect its generated-ledger role is open"). The new
-  name is a **human naming decision** — plan does not invent it. A pending entry renaming
-  the roll-up file declares `dependsOnForks: ["rollup-index-rename"]` and waits. Blast
-  radius when chosen: `src/import.rs` (`write_rollup`), `src/check.rs`/`src/drift.rs` if
-  they read it, and their tests. Distinct from any code behavior — purely the on-disk
-  filename + the docstrings/comments naming it.
+- `(rollup-index-rename)` — RESOLVED (inbox decision, spec-confirmed). The generated
+  roll-up index is renamed `author.toml` → **`lock.toml`** — the contents' generated
+  *state-of-record* (provenance + drift/apply fingerprints), a lock (Cargo.lock
+  analogy), not an authored index. `specs/20-surface.md` now names it `lock.toml`
+  ("The surface: a contract over its contents"; the topology diagram), superseding the
+  `author.toml`↔`temper.toml` name collision. Filed as RENAME-ROLLUP-LOCK — filename
+  plus the docstrings/comments naming it; only `src/import.rs` writes it and nothing
+  reads it back outside import's own tests, so no behavior change and no `.temper/`
+  topology move (the `<into>` dir is the `.temper/` contents root, so `<into>/lock.toml`
+  *is* `.temper/lock.toml`). Kept as the decision record; no dependent still waits.
 
 - `(decision-marker-predicate)` — The spec contract's **decisions-name-alternatives**
   clause (`15-kinds.md` worked example, `contracts/spec.toml`: every `## Decision` carries
