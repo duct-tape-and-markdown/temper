@@ -7,8 +7,7 @@
       "section": "The entity graph is a kind capability"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-RETIRE-BUILTIN-SPEC"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -45,6 +44,6 @@
       }
     ],
     "acceptance": "A reference is declared under its owning kind's `[kind.<name>.relationships]` (over that kind's declared reference syntax) rather than a standalone `[[edge]]` table; the harness graph, route resolution, and edge-admissibility behavior are preserved.",
-    "notes": "Note (d) of the reconciliation. The graph foundation shipped soundly (`src/graph.rs`) over `AuthorLayer::edges`; this aligns the edge-declaration *shape* with the specced kind capability (15-kinds 'The entity graph is a kind capability'; 40-composition's `.relationships` surface). File-disjoint from the retirement but serialized behind it for review clarity. `degree`/`acyclic` and the spec kind's references-resolve clause read the same relationships and follow as later entries."
+    "notes": "Note (d) of the reconciliation. The graph foundation shipped soundly (`src/graph.rs`) over `AuthorLayer::edges`; this aligns the edge-declaration *shape* with the specced kind capability (15-kinds 'The entity graph is a kind capability'; 40-composition's `.relationships` surface). Blocker KIND-RETIRE-BUILTIN-SPEC shipped (de491e7); now open. `degree`/`acyclic` and the spec kind's references-resolve clause read the same relationships and follow as later entries."
   }
 ]
