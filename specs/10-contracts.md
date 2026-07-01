@@ -24,7 +24,7 @@ distinctions are compositional, not built-in:
 | Instance | Declares | `temper` checks | Analogy |
 | -------- | -------- | --------------- | ------- |
 | **Artifact contract** | the shape of one artifact kind | each artifact conforms | a **type** |
-| **Harness contract** | required roles + relations + verifiers across a harness | the roster is filled and wired | an **interface / trait** |
+| **Harness contract** | required requirements + relations + verifiers across a harness | each requirement is filled and wired | an **interface / trait** |
 | **Spec contract** | the declared domain model + how prose binds to it (`30-landscapes.md`) | the model is coherent; prose binds; the graph resolves | a **schema / ontology** |
 
 The engine knows none of these names — it validates primitive clauses over
@@ -54,8 +54,9 @@ hatch (law 3). The primitives:
   see Decision below).
 - **cross-artifact** — names unique within a kind; a declared dependency exists;
   `name-matches-dir`.
-- **role** (harness layer) — a component filling role R is `present`,
-  `conforms-to` contract C, and is selected by `match` (see Roles).
+- **requirement** (harness layer) — a named obligation is *filled*: a filler is
+  `present`, `conforms-to` its typing, selected by opt-in `satisfies` or `match`
+  (see Requirements).
 - **verified_by** (the delegation seam) — names an external verifier for the
   behavioral part. `temper` checks the verifier is *declared and wired*; it does
   **not** run it or judge the behavior (law 3, honest bound).
@@ -64,111 +65,79 @@ Every primitive is decidable: given the surface, each clause is unambiguously
 true or false. A violation is therefore always a true positive — which is what
 earns the hard gate.
 
-## Roles and matching
+## Requirements — the harness's named obligations
 
-A harness contract binds an abstract **role** to whichever concrete artifact
-fills it. The open question is *which* artifact: matching is itself a decidable
-selector, never a guess.
-
-```toml
-[role.task-planning]
-artifact = "skill"
-contract = "contracts/skill.anthropic.toml"   # adopt a template, or inline clauses
-match    = { name = "plan*" }                  # decidable selector picks the filler
-required = true                                 # absent filler ⇒ contract violation
-```
-
-Matching options (all decidable): by `name`/glob, by an explicit `role:` marker
-the artifact declares, or — preferred for clarity — by the artifact *opting in*
-(declaring the role it fills) rather than the contract reaching out to guess.
-When zero or many artifacts match a `required` single-filler role, that is a
-conformance error, reported precisely.
-
-## Requirements and `satisfies` — the meaningful contract
-
-A **requirement** is a named **semantic intent** the harness must fill — declared in
-`temper.toml`, stated in *meaning*, not in predicates:
+A **requirement** is a named obligation on the harness: *something must be present to
+fill it.* It is the harness-layer (set-arity) concept — the interface/trait a concrete
+artifact implements. **One** concept carries every facet. An earlier draft split it
+into a structural `role` and a semantic `requirement` bridged by `filled_by`; that was
+path-dependence, and the Decision below retires it. There is one requirement.
 
 ```toml
 [requirement.dev-standards]
-means    = "the harness has a skill that maintains development standards"
+means    = "the harness maintains development standards"  # the why — human, never judged
+required = true                                           # gate-blocking vs advisory
+```
+
+A requirement declares — all facets optional except its name:
+
+- **`means`** — the authored *intent*, the why. `temper` **never interprets it** (no
+  proxy; law 3); the surface carries and organizes it (`20-surface.md`).
+- **fill** — how the obligation is met. *Preferred:* an artifact **opts in** from its
+  own representation with a `satisfies` link — the artifact declaring what it fills,
+  not the contract reaching out to guess. *Alternative:* a contract-side `match`
+  selector (`name` / glob) for artifacts that haven't opted in — the on-ramp for a
+  freshly imported harness.
+- **typing** — `kind` and/or `contract`: constrain *what* may fill it. Absent ⇒
+  **kind-blind**: any artifact that opts in fills it.
+- **multiplicity** — a single filler (≥1, the default) or a predicate over the filler
+  *set* (`count` / `membership` / `unique`, `45-governance.md`).
+- **`verified_by`** — wire an external judge for the behavioral remainder (below).
+
+```toml
+# opt-in fill, kind-blind — the intent path
+# .temper/skills/dev-standards/  →  satisfies = ["dev-standards"]
+
+# typed fill — the structural path (what a `role` was):
+[requirement.linter]
+kind     = "rule"                    # only a rule may fill it
+match    = { name = "lint*" }        # contract-side selector, or a rule opts in via satisfies
 required = true
 ```
 
-temper **never interprets `means`** — it is authored intent the surface carries and
-organizes, never a thing the engine judges (no proxy; law 3). An artifact fills a
-requirement by **opting in** from its own representation (`20-surface.md`):
+### Coverage — the one referential check
 
-```toml
-# .temper/skills/dev-standards/  →
-satisfies = ["dev-standards"]
-```
+`check` gates **coverage**: every `required` requirement resolves to its filler(s).
+An **unfilled** requirement (nothing opts in or matches, or the multiplicity is
+violated) and a **dangling** `satisfies` (naming no declared requirement) are precise
+diagnostics. This is the **referential primitive** (above) — decidable, a true
+positive every time. It is the same referential resolution the graph runs over its
+edges (`30-landscapes.md`), one arity down: a requirement and its fillers.
 
-What `check` gates is the **decidable shadow**: every `required` requirement is
-satisfied by **≥1 artifact whose representation declares — and resolves — a
-`satisfies` link** to it. An unfilled requirement, or a `satisfies` naming no
-declared requirement, is a precise diagnostic. This is a **referential coverage**
-check (the referential primitive, above) — decidable, a true positive every time.
+So a requirement reads as *intent* ("the harness must maintain dev standards") while
+the gate stays *weak* ("does that obligation have a resolving filler?"). The meaning
+is human; coverage is checked; `temper` does **not** judge whether the filler *truly*
+fulfils `means` — that is the author's attestation (the `satisfies` / `match`),
+optionally backed by a wired `verified_by`.
 
-So the contract reads as *intent* ("the harness must maintain dev standards") while
-the gate stays *weak* ("does that intent have a resolving home?"). The meaning is
-human; coverage is checked; temper does **not** judge whether `dev-standards`
-*actually* maintains standards — that is the author's attestation (the `satisfies`
-link), optionally backed by a wired `verified_by`.
+### Decision: role and requirement are one concept
 
-`satisfies` is the **opt-in binding** this file already calls preferred (Roles,
-above: "the artifact opting in rather than the contract reaching out to guess"),
-made first-class and meaning-carrying. A `role` fills a slot by a decidable `match`;
-a `requirement` is filled by a declared `satisfies` and carries the *why*.
-
-### Two fill paths: opt-in `satisfies`, or `filled_by` a role
-
-A requirement is **kind-blind by default**: any artifact whose representation declares
-a resolving `satisfies` covers it. That is the pure-intent path — meaning + coverage,
-no structural constraint on the filler. When a requirement needs its filler *typed*
-(a specific kind, a conforming contract, a wired verifier), it does **not** re-declare
-that machinery — it **composes over a role**:
-
-```toml
-[requirement.dev-standards]
-means     = "the harness maintains development standards"
-required  = true
-filled_by = { role = "linter" }   # met by whatever fills role `linter`
-
-[role.linter]
-artifact = "rule"                  # the typed slot: kind + contract + match live here
-match    = { marker = "role:linter" }
-```
-
-`filled_by = { role = R }` is the **trait-bound** form: the requirement is the named
-*why*, the role is the typed interface it binds. Coverage delegates — the requirement
-is covered iff role `R`'s required filler is present (reusing role `match`, still
-referential and decidable) — so the requirement adds the intent layer roles lack
-(`means` + rationale) without duplicating their typing. This is what `role` composed
-*with* a requirement looks like; the role remains the sole place kind-typing is
-declared (Decision below).
-
-**One fill path per requirement.** A requirement is filled *either* by bare
-`satisfies` opt-in (kind-blind) *or* by `filled_by = { role }` (structural) — never
-both, so coverage never has two competing definitions. There is deliberately **no
-`filled_by = { kind }`**: typing a filler by kind is what a `role` already does
-(`role.artifact`), and a second spelling would split that one concept in two.
-
-### Decision: a requirement carries meaning, gates coverage — never judged
-
-**Chosen:** a requirement declares semantic intent (`means`) and is satisfied either
-by an artifact's opt-in, resolving `satisfies` link, or by `filled_by = { role }`
-delegating coverage to a typed role; `check` gates **coverage** — every required
-requirement filled, every link resolves — a referential, decidable check. Coverage is
-**kind-blind by design**: a `satisfies`-filled requirement accepts any kind (`means`
-is human, law 3); when the filler must be typed, that constraint lives on the bound
-**role**, not on a `filled_by = { kind }` (which would duplicate `role.artifact`).
-**Rejected:** temper assessing whether the artifact *truly* fulfils the meaning. That
-is undecidable — the judged tier (`00-intent.md` tier 2) is delegated and advisory,
-never this gate; behavioral truth goes to a wired `verified_by` (above). The
-requirement is how intent becomes a *checkable-for-coverage* contract without the
-engine ever judging meaning — meaningful contract, weak gate. (`requirement.` is its
-own namespace — distinct from the `rule` artifact kind.)
+**Chosen:** a single **requirement** — a named obligation with optional `means`,
+optional typing (`kind` / `contract`), a fill declaration (opt-in `satisfies`,
+preferred, or `match`), optional multiplicity, and optional `verified_by`; `check`
+gates **coverage** (every required requirement's filler resolves) — one referential,
+decidable check. **Rejected:** the earlier split into a structural `role` and a
+semantic `requirement` bridged by `filled_by`. That split was path-dependence — `role`
+shipped first (the harness slice); `requirement` was added *beside* it in the intent
+reframe rather than *absorbing* it — and every rule it forced (`filled_by`, "one fill
+path per requirement", "kind-typing lives on the role") was ceremony patching a seam
+between two halves of one idea. Unifying **deletes** those rules — the tell that the
+split was artificial. Kind-typing is a facet (`kind` / `contract`), not a rival
+concept; there is no `filled_by`, because there are not two things to bridge.
+**Rejected also:** temper assessing whether a filler *truly* fulfils `means` — that is
+undecidable; the judged tier (`00-intent.md` tier 2) is advisory and delegated, and
+behavioral truth goes to a wired `verified_by`. Meaningful obligation, weak gate.
+(`requirement.` is its own namespace — distinct from the `rule` artifact kind.)
 
 ## Severity is declared, not baked
 
@@ -203,13 +172,13 @@ wiring a verifier, exactly as a Rust trait declares signatures while tests prove
 behavior:
 
 ```toml
-[role.release-tool]
-artifact    = "command"
+[requirement.release-tool]
+kind        = "command"
 contract    = { required = ["description"], must_define = ["executable"] }
 verified_by = "tests/release.rs"   # author checks this is wired; CI runs it
 ```
 
-`temper` guarantees the slot is filled and the judge is present and wired. The
+`temper` guarantees the requirement is filled and the judge is present and wired. The
 judge (a test, a CI job, an eval) guarantees the behavior, at runtime. Neither
 guesses; neither is `temper`.
 
@@ -268,13 +237,13 @@ named predicate** for it, never a general regex clause; the vocabulary stays too
 weak to lie. (Resolves `(regex-crate)`: regex was already sanctioned — the live
 decision is to *not* expose an arbitrary-`pattern` clause.)
 
-## Decision: a contract is identified by its path/role, not an internal name
+## Decision: a contract is identified by its path/binding, not an internal name
 
 **Chosen:** a `Contract` carries **no required internal `name`**. Its identity is
-*where it lives* — the file path a role binds (`contract = "contracts/skill.anthropic.toml"`)
-or the inline block under a role. A display label for diagnostics derives from the
-file stem (`skill.anthropic`). **Rejected:** a required top-level `name` field on
-every contract. The contract examples above (Roles and matching; Templates)
+*where it lives* — the file path a requirement binds (`contract = "contracts/skill.anthropic.toml"`)
+or the inline block under a requirement. A display label for diagnostics derives from
+the file stem (`skill.anthropic`). **Rejected:** a required top-level `name` field on
+every contract. The contract examples above (Requirements; Templates)
 identify contracts by path or inline binding and carry no internal name — a
 required name is redundant with the path and forces ceremony into a data file
 that is otherwise pure clauses. (This resolves the `(contract-name-field)` fork:
@@ -296,8 +265,9 @@ decidable, therefore sound:
 - every clause names a predicate in the **closed vocabulary** (unknown ⇒ rejected);
 - every referential clause **names its reference syntax** (the hole that made
   `companion-refs` unsound);
-- every role's `match` selector **resolves**, and a `required` single-filler role
-  is satisfiable;
+- every requirement's fill **resolves** — a `match` selector resolves, a typed
+  `kind`/`contract` names a real kind/contract — and a `required` single-filler
+  requirement is satisfiable;
 - every regex-backed clause **compiles** (none today — `pattern` is held, above);
   every `enum` is non-empty;
 - every `verified_by` **resolves** to a declared verifier (above).
@@ -310,12 +280,12 @@ code, not by a further contract. No regress.
 
 ### Decision: unknown keys are rejected, not ignored
 
-**Chosen:** every parsed table in `temper.toml` — `[requirement.*]`, `[role.*]`,
-`[kind.*]`, a predicate clause — **rejects an unrecognized key** at parse rather than
-silently dropping it. A misspelled `requird = true` must fail loudly, not degrade to
+**Chosen:** every parsed table in `temper.toml` — `[requirement.*]`, `[kind.*]`, a
+predicate clause — **rejects an unrecognized key** at parse rather than silently
+dropping it. A misspelled `requird = true` must fail loudly, not degrade to
 `required = false` and quietly disable the gate it was meant to arm. **Rejected:**
-lenient parsing that ignores stray keys (the prior behavior across
-`parse_role`/`parse_predicate`/requirement parsing). A typo that weakens a contract is
+lenient parsing that ignores stray keys (the prior behavior across the requirement /
+predicate parsers). A typo that weakens a contract is
 exactly the failure temper exists to catch — so temper must not commit it in its own
 parser; this is the anti-silent-gap non-negotiable (`collaboration` rule) applied to
 the config surface itself. Unknown *contract* keys join the closed vocabulary as an

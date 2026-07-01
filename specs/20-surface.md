@@ -14,7 +14,7 @@ every landscape (`30-landscapes.md`).
 The surface has two parts in a **contract → contents** relation:
 
 - **`temper.toml`** (project root, top-level config) is the **contract** — the schema
-  (kinds, roles, contracts), the *types*.
+  (kinds, requirements, contracts), the *types*.
 - **`.temper/`** holds the **contents** — the composed artifacts (a skill's header +
   body, a rule, a spec), the *instances* that must **satisfy** the contract.
 

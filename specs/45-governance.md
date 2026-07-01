@@ -3,9 +3,10 @@
 A contract has three scopes by **arity** (`05-model.md`) — over one artifact, over a
 matched **set**, over the **relation graph** — not three landscapes; a single harness
 draws on all three (it is itself a graph, below). The per-artifact scope has a rich
-predicate set (`10-contracts.md`); the **set** scope (the roster of roles) and the
-**graph** scope (the model's entities + edges) have almost none — just `role` and a
-descriptive graph. But *governing* an environment is corpus-wide and quantified —
+predicate set (`10-contracts.md`); the **set** scope (the roster of requirements) and
+the **graph** scope (the model's entities + edges) have almost none — just a
+requirement's presence and a descriptive graph. But *governing* an environment is
+corpus-wide and quantified —
 "every agent…", "at most N…", "no cycles" — which lives at exactly those two scopes.
 This file gives them their predicates. Every one is a **decidable fact**, never a
 guess, so the gate never cries wolf (`00-intent.md` law 3): the wider scopes gain
@@ -13,9 +14,9 @@ guess, so the gate never cries wolf (`00-intent.md` law 3): the wider scopes gai
 
 ## The set scope (the roster) — predicates over a matched set
 
-A role already selects artifacts by a decidable `match` (`10-contracts.md`). Lift
-the selector from "fill one slot" to "quantify over the matched set," and the roster
-scope gains its predicates:
+A requirement already selects its filler(s) by a decidable `match`/`satisfies`
+(`10-contracts.md`). Lift the selector from "fill one slot" to "quantify over the
+matched set," and the roster scope gains its predicates:
 
 - **count** — `|artifacts matching S| ∈ [min, max]` ("at most N agents," "exactly
   one planner"). This also makes the cascade harness-economy template — cited in
@@ -72,8 +73,8 @@ A project distinguishes two activation patterns and wants to enforce them:
 - a **routed** artifact is reached by being pointed at and must be reachable →
   `degree(incoming) ≥ 1`, and every route **resolves**.
 
-The author declares which pattern each role follows; temper checks the harness graph
-matches. All three are counts over declared edges — sound.
+The author declares which pattern each artifact follows; temper checks the harness
+graph matches. All three are counts over declared edges — sound.
 
 ## Also in scope
 

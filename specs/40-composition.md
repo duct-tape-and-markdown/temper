@@ -15,8 +15,8 @@ data) made into a workflow, and it closes the home-and-selection half of
 kind** (`20-surface.md`, "contract selection is by artifact kind"). That is the
 floor: it needs no author input and is what makes self-host green today. But a
 built-in artifact contract is `temper`'s curated default, and a *harness* contract
-— roles, rosters, the `verified_by` seam (`10-contracts.md`) — is **specific to one
-harness and cannot be a built-in**. Until the author can declare on top of the
+— requirements, rosters, the `verified_by` seam (`10-contracts.md`) — is **specific to
+one harness and cannot be a built-in**. Until the author can declare on top of the
 floor, law 2 is only half-real: the contracts are data, but the consumer cannot
 adopt, fork, or extend them. The author-declared contract is what completes it.
 
@@ -34,9 +34,10 @@ It does four things:
   default made visible), so no one writes a contract from scratch.
 - **Extend / override** — add clauses to a kind's contract, flip a clause's
   severity (`required` ⟷ `advisory`), or fork the template for a kind.
-- **Bind the harness** — declare roles: which artifact fills role R, by a decidable
-  `match`, `required` or not, with its `verified_by` (`10-contracts.md`, "Roles and
-  matching"). This is the interface/trait tier, the part no built-in can carry.
+- **Bind the harness** — declare requirements: named obligations a filler meets by
+  opt-in `satisfies` or a decidable `match`, `required` or not, optionally typed and
+  `verified_by`-wired (`10-contracts.md`, "Requirements"). This is the interface/trait
+  tier, the part no built-in can carry.
 - **Define a custom kind** — declare a project-specific artifact kind (specs, ADRs,
   playbooks) in full — extraction + entities/relationships + contract — under
   `[kind.<name>]` (see *Declaring a custom kind* below). Built-in kinds are adopted;
@@ -62,7 +63,8 @@ honest. (Resolves the home/selection half of `(harness-contract-provisioning)`.)
 ## `temper.toml` is the contract over the contents
 
 `temper.toml` is the **top-level config, and it is the contract**: the schema — kinds,
-roles, contracts — that the `.temper/` contents must satisfy (`20-surface.md`). That
+requirements, contracts — that the `.temper/` contents must satisfy (`20-surface.md`).
+That
 dual role — authored by you, *and* the contract the contents satisfy — is
 **stratification, not contradiction** (a `trait` is authored *and* is the contract its
 `impl`s meet). So `temper.toml` is checked for **admissibility** (well-formed against
@@ -113,7 +115,7 @@ Composition is one loop, all of it on the write surface:
 
 1. **Adopt** a template for each kind (or take the floor).
 2. **Extend / override** to fit the harness.
-3. **Bind** roles and **wire** their verifiers.
+3. **Bind** requirements and **wire** their verifiers.
 4. **Check** — `conformance` *and* `admissibility` (`10-contracts.md`): the harness
    fills the contract, and the `temper.toml` itself stands up to the definition. An
    author-declared contract is checked before it is trusted to gate.
@@ -125,7 +127,7 @@ is what law 7 ("compose everything; gate the decidable") looks like in use.
 
 ## Scope boundary
 
-This file provisions the **harness contract** (roles / `verified_by` over the
+This file provisions the **harness contract** (requirements / `verified_by` over the
 Claude Code harness). The **spec-landscape model** is a **custom kind**
 (`15-kinds.md`) — its entities are declared by the kind's extraction, its
 relationships by declared edges (`45-governance.md`), and a custom kind is declared

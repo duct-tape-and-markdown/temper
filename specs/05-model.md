@@ -37,7 +37,7 @@ sharpest pairing. Widen what the contract quantifies over and it stops being a t
    SURFACE ── compose, then project ──► LANDSCAPE (.claude/, specs/, code)
    (authored source of truth)          a corpus of ARTIFACTs (≥1 kinds),
         ▲ import / re-add              governed by a contract via
-        └────────────────────────────  ROLES (roster) · ENTITIES (graph)
+        └────────────────────────────  REQUIREMENTS (roster) · ENTITIES (graph)
 ```
 
 ## The concepts
@@ -56,9 +56,8 @@ The vocabulary; the **owning spec** carries the detail.
 | **landscape** | a corpus of artifacts (≥1 kinds) governed by a contract | `30-landscapes.md` |
 | **surface** | the authored source of truth; projects to the landscape | `20-surface.md` |
 | projection | the on-disk landscape `apply` writes from the surface | `20-surface.md` |
-| **role** | an abstract slot a matched artifact fills | `10-contracts.md` |
-| **requirement** | a named semantic intent the harness must fill (`means`); filled by a `satisfies` link or by `filled_by` a typed role, coverage-gated, never judged | `10-contracts.md` |
-| **satisfies** | an artifact's opt-in declaration (in its representation) that it fills a requirement — the decidable binding | `10-contracts.md` |
+| **requirement** | the harness's named obligation (the interface/trait a filler implements): optional `means` (the why), optional typing (`kind`/`contract`), optional multiplicity; filled by opt-in `satisfies` or a `match` selector, coverage-gated, never judged | `10-contracts.md` |
+| **satisfies** | an artifact's opt-in declaration (in its representation) that it fills a requirement — the preferred, decidable fill | `10-contracts.md` |
 | entity / relationship | nodes / edges of a kind's dependency graph | `15` / `30` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
 | verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |
@@ -75,8 +74,8 @@ The vocabulary; the **owning spec** carries the detail.
 - a **landscape** is governed by the **active contract** — the by-kind built-in
   floor layered with the author's `temper.toml` (`base ∪ custom`, `40-composition.md`)
   — which dispatches a per-kind **artifact contract** to each artifact, and may
-  declare **roles** (a roster) and, when a kind opts in, **entities + relationships**
-  (the graph).
+  declare **requirements** (named obligations, the roster) and, when a kind opts in,
+  **entities + relationships** (the graph).
 - an author *adopts / extends / forks* a **template** into the active contract, and
   declares **custom kinds** in `temper.toml` (`40-composition.md`).
 - a **surface** is the authored source; `apply` **projects** it to the landscape on
@@ -84,8 +83,8 @@ The vocabulary; the **owning spec** carries the detail.
 - landscapes reference each other: a declared **entity** in one may require a
   corresponding entity/symbol in another — the **cross-landscape seam** (spec ⟷
   code), checked both directions (`30-landscapes.md`).
-- a **verifier** is named by a `verified_by` clause on a **role**; temper checks it
-  **resolves and is wired**, never runs it (`10-contracts.md`).
+- a **verifier** is named by a `verified_by` clause on a **requirement**; temper checks
+  it **resolves and is wired**, never runs it (`10-contracts.md`).
 - two checks: **conformance** = a landscape satisfies its contract (an artifact
   conforms / a roster is filled + wired / a model resolves); **admissibility** = a
   contract ⊨ the definition (the algebras + structural rules). Two greens (`00`).
@@ -103,7 +102,7 @@ scope. `type` / `interface` / `schema` are how each arity *reads*, not what it *
 | Scope (arity) | predicate ranges over | reads as |
 |---|---|---|
 | **artifact** | one matched artifact's features | a **type** |
-| **set** (the roster) | a matched *set* of artifacts — count, membership, unique | an **interface / trait** |
+| **set** (a requirement's fillers) | the *set* of artifacts filling a requirement — count, membership, unique | an **interface / trait** |
 | **graph** (the model) | a relation graph of declared edges — degree, acyclic | a **schema / ontology** |
 
 ## The two cross-cutting axes

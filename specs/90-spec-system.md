@@ -57,7 +57,8 @@ the other lies.
 ## Naming consistency — the one hard rule
 
 Name the same concept the same way in every file and in the code. One concept,
-one name. `Contract`, `artifact contract`, `harness contract`, `role`,
+one name. `Contract`, `artifact contract`, `harness contract`, `requirement`
+(the harness's named obligation — the retired `role` folded into it), `satisfies`,
 `verified_by`, `decidable`, `surface`, `provenance`, `drift` are load-bearing
 terms — search before coining a new one.
 
