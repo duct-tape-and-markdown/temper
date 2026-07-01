@@ -32,9 +32,16 @@
 //!   [`check`], so a single unsound declaration does not forge a route finding on
 //!   every source artifact.
 //!
+//! - [`acyclic`] — **the reference graph has no cycle** (`specs/45-governance.md`,
+//!   "The graph scope (the model)"): resolve the same declared edges into an
+//!   artifact-level graph and DFS for a cycle. A circular import loads nothing, so a
+//!   cycle is a true positive that earns the hard gate. Like route resolution it is
+//!   intrinsic to the declared edges — always-on over `layer.edges()`, no opt-in.
+//!
 //! Nodes are the artifacts across every kind (their [`Features::id`]); the edges are
-//! the declared references between them. `degree`/`acyclic` (`specs/45-governance.md`)
-//! are the next graph-scope predicates — they read the same edges this tier assembles.
+//! the declared references between them. `degree` (`specs/45-governance.md`, opt-in,
+//! per-role) is the next graph-scope predicate — it reads the same edges this tier
+//! assembles.
 //!
 //! ## Only declared fields, never grepped prose
 //!
@@ -60,6 +67,18 @@ const GRAPH_ROUTE_RULE: &str = "graph.route";
 /// edge declaration is itself checked (`specs/10-contracts.md`, "Decision: the
 /// contract is itself checked — admissibility") before the graph judges the harness.
 const GRAPH_ADMISSIBILITY_RULE: &str = "graph.admissibility";
+
+/// The diagnostic `rule` id the acyclicity finding reports under — the graph-scope
+/// `acyclic` predicate (`specs/45-governance.md`, "The graph scope (the model)"): the
+/// reference graph has no cycle (a circular import loads nothing).
+const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
+
+/// A node in the artifact-level reference graph: `(kind, id)`. An artifact id is
+/// unique only *within* a kind (a rule and a skill may share a name), and an edge
+/// resolves only within its target kind, so the kind is part of the identity —
+/// otherwise a same-named rule and skill would collapse into one node and forge or
+/// mask a cycle.
+type Node = (String, String);
 
 /// Build the harness reference graph and check **route resolution** over it
 /// (`specs/45-governance.md`, "The harness is a graph too"): for each declared
@@ -158,6 +177,165 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
         }
     }
     diagnostics
+}
+
+/// Check **acyclicity** over the harness reference graph (`specs/45-governance.md`,
+/// "The graph scope (the model)"): build the artifact-level directed graph by
+/// resolving each declared [`Edge`]'s reference field to real target ids — the same
+/// arc resolution [`check`] performs — and return an error-severity [`Diagnostic`]
+/// naming a cycle if the reference graph is not acyclic.
+///
+/// A cycle among declared references is a circular import that loads nothing, so the
+/// finding is a true positive that earns the hard gate. `acyclic` is *intrinsic* to
+/// the declared edges — it runs always-on over `layer.edges()`, no per-role opt-in,
+/// exactly like route resolution.
+///
+/// Only **resolved** arcs enter the graph: an [`is_admissible`]-failing edge is
+/// skipped (as in [`check`]), and a dangling reference (one naming no artifact of the
+/// target kind) loads nothing, so it contributes no arc — it can neither forge a
+/// cycle nor mask one, leaving that dangling finding to [`check`]. Nodes are keyed by
+/// `(kind, id)` so a same-named artifact of a different kind is a distinct node.
+///
+/// At most one finding is returned — a cycle is a fatal structural fault, and naming
+/// one closed chain suffices to fail the run and orient the author. The chain is
+/// canonicalized (rotated to start at its least node) so the finding is stable
+/// regardless of which node the traversal happened to enter from.
+#[must_use]
+pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
+    // Build adjacency over resolved reference arcs. Each admissible edge contributes,
+    // for every source artifact of its `from` kind, an arc to each named target that
+    // resolves to a real artifact of its `to` kind.
+    let mut adjacency: BTreeMap<Node, BTreeSet<Node>> = BTreeMap::new();
+    for edge in edges {
+        if !is_admissible(edge, by_kind) {
+            continue;
+        }
+        let targets: BTreeSet<&str> = by_kind
+            .get(edge.to.as_str())
+            .copied()
+            .unwrap_or(&[])
+            .iter()
+            .map(|features| features.id.as_str())
+            .collect();
+        let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
+        for source in sources {
+            for target in edge_targets(source, &edge.field) {
+                // A dangling reference loads nothing — no arc, so it neither forges
+                // nor masks a cycle (route resolution owns the dangling finding).
+                if targets.contains(target) {
+                    adjacency
+                        .entry((edge.from.clone(), source.id.clone()))
+                        .or_default()
+                        .insert((edge.to.clone(), target.to_string()));
+                }
+            }
+        }
+    }
+
+    // A three-color DFS: a back edge to a node still on the current path (`Gray`)
+    // closes a cycle. Roots iterate in sorted node order (BTreeMap keys), and each
+    // node's neighbours in sorted order (BTreeSet), so the first cycle found is
+    // deterministic across runs.
+    let mut color: BTreeMap<Node, Color> = BTreeMap::new();
+    let mut path: Vec<Node> = Vec::new();
+    for root in adjacency.keys() {
+        if color.get(root).copied().unwrap_or(Color::White) != Color::White {
+            continue;
+        }
+        if let Some(cycle) = find_cycle(root, &adjacency, &mut color, &mut path) {
+            return vec![cycle_diagnostic(&canonical_cycle(&cycle))];
+        }
+    }
+    Vec::new()
+}
+
+/// DFS coloring for cycle detection: `White` unvisited, `Gray` on the current path,
+/// `Black` fully explored (no cycle reachable through it).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Color {
+    White,
+    Gray,
+    Black,
+}
+
+/// Depth-first search from `node` for a back edge. On finding a neighbour still
+/// `Gray` (on the current path), returns the closed cycle: the path suffix from that
+/// neighbour to `node`, plus the neighbour again to close the ring. Returns `None`
+/// when the subtree rooted at `node` holds no cycle.
+fn find_cycle(
+    node: &Node,
+    adjacency: &BTreeMap<Node, BTreeSet<Node>>,
+    color: &mut BTreeMap<Node, Color>,
+    path: &mut Vec<Node>,
+) -> Option<Vec<Node>> {
+    color.insert(node.clone(), Color::Gray);
+    path.push(node.clone());
+    if let Some(neighbours) = adjacency.get(node) {
+        for next in neighbours {
+            match color.get(next).copied().unwrap_or(Color::White) {
+                Color::White => {
+                    if let Some(cycle) = find_cycle(next, adjacency, color, path) {
+                        return Some(cycle);
+                    }
+                }
+                Color::Gray => {
+                    // A back edge to a node on the current path closes a cycle. The
+                    // node is on `path` by the invariant that `Gray` ⇔ on the path.
+                    let start = path
+                        .iter()
+                        .position(|n| n == next)
+                        .expect("a Gray node is on the current DFS path");
+                    let mut cycle = path[start..].to_vec();
+                    cycle.push(next.clone());
+                    return Some(cycle);
+                }
+                Color::Black => {}
+            }
+        }
+    }
+    path.pop();
+    color.insert(node.clone(), Color::Black);
+    None
+}
+
+/// Canonicalize a closed cycle (`[a, …, a]`) so its rendering is stable regardless of
+/// which node the traversal entered from: drop the closing repeat, rotate the ring to
+/// begin at its least node, then re-close it.
+fn canonical_cycle(cycle: &[Node]) -> Vec<Node> {
+    // `cycle` is closed: its last element repeats its first. The ring is the rest.
+    let ring = &cycle[..cycle.len().saturating_sub(1)];
+    let pivot = ring
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.cmp(b))
+        .map_or(0, |(index, _)| index);
+    let mut rotated: Vec<Node> = ring[pivot..]
+        .iter()
+        .chain(&ring[..pivot])
+        .cloned()
+        .collect();
+    if let Some(first) = rotated.first().cloned() {
+        rotated.push(first);
+    }
+    rotated
+}
+
+/// The finding for a cyclic reference graph — naming the closed chain of `<kind>
+/// \`<id>\`` nodes so the author can see exactly which references form the circle.
+fn cycle_diagnostic(cycle: &[Node]) -> Diagnostic {
+    let chain = cycle
+        .iter()
+        .map(|(kind, id)| format!("{kind} `{id}`"))
+        .collect::<Vec<_>>()
+        .join(" → ");
+    // Name the finding after the ring's least node — the same node the chain starts
+    // at — so the `artifact` is stable and points into the cycle.
+    let artifact = cycle.first().map_or_else(String::new, |(_, id)| id.clone());
+    Diagnostic::error(
+        GRAPH_ACYCLIC_RULE,
+        artifact,
+        format!("the harness reference graph contains a cycle: {chain}"),
+    )
 }
 
 /// Whether an [`Edge`] is admissible: its reference field is named (non-empty) and
@@ -386,5 +564,116 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         assert!(admissibility(&edges, &by_kind).is_empty());
         assert!(check(&edges, &by_kind).is_empty());
+    }
+
+    /// A `routes_to` edge from `skill` back to `rule` — the return arc that closes a
+    /// `rule → skill → rule` cycle.
+    fn skill_to_rule_edge() -> Edge {
+        Edge {
+            field: "routes_to".to_string(),
+            from: "skill".to_string(),
+            to: "rule".to_string(),
+        }
+    }
+
+    #[test]
+    fn an_acyclic_reference_graph_is_clean() {
+        // `rule style → skill standards`, with no return arc — a DAG, so `acyclic`
+        // has nothing to report.
+        let edges = [routes_to_edge()];
+        let rules = [node("style", Some("standards"))];
+        let skills = [node("standards", None)];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        assert!(acyclic(&edges, &by_kind).is_empty());
+    }
+
+    #[test]
+    fn a_self_loop_fires_an_acyclic_error() {
+        // A `rule → rule` edge whose source routes to itself: the shortest cycle. It
+        // fires an error naming the artifact under the `graph.acyclic` rule.
+        let edges = [Edge {
+            field: "routes_to".to_string(),
+            from: "rule".to_string(),
+            to: "rule".to_string(),
+        }];
+        let rules = [node("style", Some("style"))];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        let diags = acyclic(&edges, &by_kind);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
+        assert_eq!(diags[0].artifact, "style");
+        assert!(diags[0].message.contains("cycle"));
+        assert!(diags[0].message.contains("style"));
+    }
+
+    #[test]
+    fn a_multi_node_cycle_fires_an_acyclic_error() {
+        // `rule style → skill standards → rule style`: two edges close a circle across
+        // two kinds. One finding naming the whole chain.
+        let edges = [routes_to_edge(), skill_to_rule_edge()];
+        let rules = [node("style", Some("standards"))];
+        let skills = [node("standards", Some("style"))];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        let diags = acyclic(&edges, &by_kind);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
+        assert!(diags[0].message.contains("cycle"));
+        assert!(diags[0].message.contains("style"));
+        assert!(diags[0].message.contains("standards"));
+    }
+
+    #[test]
+    fn a_dangling_reference_does_not_forge_a_cycle() {
+        // `rule style` routes to two skills: `standards` resolves, `absent` dangles.
+        // The dangling arc loads nothing, and the resolving arc is acyclic — clean.
+        // (Route resolution owns the dangling `absent` finding, not `acyclic`.)
+        let mut style = node("style", None);
+        style.fields.insert(
+            "routes_to".to_string(),
+            FeatureValue::List(vec!["standards".to_string(), "absent".to_string()]),
+        );
+        let edges = [routes_to_edge()];
+        let rules = [style];
+        let skills = [node("standards", None)];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        assert!(acyclic(&edges, &by_kind).is_empty());
+    }
+
+    #[test]
+    fn a_dangling_reference_does_not_mask_a_real_cycle() {
+        // `rule style` routes to `standards` (resolves) and `absent` (dangles), and
+        // `skill standards` routes back to `style` — a real `style → standards →
+        // style` cycle. The dangling arc must not suppress it.
+        let mut style = node("style", None);
+        style.fields.insert(
+            "routes_to".to_string(),
+            FeatureValue::List(vec!["standards".to_string(), "absent".to_string()]),
+        );
+        let edges = [routes_to_edge(), skill_to_rule_edge()];
+        let rules = [style];
+        let skills = [node("standards", Some("style"))];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        let diags = acyclic(&edges, &by_kind);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
+        assert!(diags[0].message.contains("style"));
+        assert!(diags[0].message.contains("standards"));
+    }
+
+    #[test]
+    fn an_inadmissible_edge_is_skipped_by_acyclic() {
+        // The target kind `agent` is not modeled — the edge is inadmissible, so
+        // `acyclic` skips it exactly as `check` does. Even a self-naming source over
+        // it forges no cycle, because the arc never resolves.
+        let edge = edge("[[kind.rule.relationships]]\nfield = \"routes_to\"\nto = \"agent\"\n");
+        let rules = [node("style", Some("style"))];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        assert!(acyclic(std::slice::from_ref(&edge), &by_kind).is_empty());
     }
 }

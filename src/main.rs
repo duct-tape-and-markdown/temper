@@ -189,6 +189,14 @@ fn main() -> miette::Result<ExitCode> {
                 diagnostics.extend(graph::admissibility(layer.edges(), &by_kind));
                 diagnostics.extend(graph::check(layer.edges(), &by_kind));
 
+                // The graph-scope `acyclic` predicate (`specs/45-governance.md`, "The
+                // graph scope (the model)"): the resolved reference graph must contain
+                // no cycle — a circular import loads nothing, so every finding is a
+                // true positive. Intrinsic to the declared edges, so always-on over
+                // `layer.edges()` like route resolution above; no `temper.toml` ⇒ no
+                // edges ⇒ this adds nothing, so the floor-only path is unchanged.
+                diagnostics.extend(graph::acyclic(layer.edges(), &by_kind));
+
                 // The custom-kind tier: each custom kind the layer declares
                 // (`specs/15-kinds.md`, "A kind definition — one composed object")
                 // is checked through its **own composed extractor** and **own

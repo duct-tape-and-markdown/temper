@@ -120,6 +120,32 @@ fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
 }
 
+/// A floor-clean skill carrying a `routes_to` reference field. A skill preserves
+/// unknown frontmatter keys under `extra`, so `routes_to` rides along as a declared
+/// edge — the skill→rule return arc a cycle needs — without tripping the floor.
+fn routing_skill(name: &str, routes_to: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         routes_to: {routes_to}\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// A `temper.toml` declaring `routes_to` on *both* the `rule` and `skill` kinds, so
+/// the reference graph can carry a `rule → skill → rule` circle — the acyclic cases
+/// build on these two edges.
+const MUTUAL_ROUTES_EDGES: &str = "[[kind.rule.relationships]]\n\
+     field = \"routes_to\"\n\
+     to = \"skill\"\n\
+     [[kind.skill.relationships]]\n\
+     field = \"routes_to\"\n\
+     to = \"rule\"\n";
+
 /// A `temper.toml` declaring one `routes_to` relationship on the `rule` kind
 /// (its owning kind the edge source), targeting skills — the harness reference
 /// graph the cases build. A reference is a kind capability, declared under the
@@ -212,5 +238,57 @@ fn absent_temper_toml_runs_no_graph() {
     assert_eq!(
         absent.output, no_edge.output,
         "a temper.toml declaring no edge must produce identical output to none"
+    );
+}
+
+#[test]
+fn an_acyclic_reference_graph_passes() {
+    let root = tmpdir("acyclic");
+    // `rule style → skill standards`, but the skill routes nowhere — even with both
+    // edge kinds declared, the graph is a DAG, so `acyclic` is clean.
+    import_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &clean_skill("standards"),
+    );
+    write_temper_toml(&root, MUTUAL_ROUTES_EDGES);
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "an acyclic reference graph passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_cyclic_reference_graph_fails_the_run() {
+    let root = tmpdir("cyclic");
+    // `rule style → skill standards → rule style`: the rule routes to the skill and
+    // the skill routes back to the rule. Both routes resolve, so the only finding is
+    // the cycle — which must fail the run.
+    import_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &routing_skill("standards", "style"),
+    );
+    write_temper_toml(&root, MUTUAL_ROUTES_EDGES);
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a cycle in the reference graph must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("cycle")
+            && run.output.contains("style")
+            && run.output.contains("standards"),
+        "the finding names the cycle and the artifacts forming it, got:\n{}",
+        run.output
     );
 }
