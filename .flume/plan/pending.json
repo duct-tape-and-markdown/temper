@@ -1,40 +1,5 @@
 [
   {
-    "tag": "KIND-CUSTOM-UNIT-LOADER",
-    "summary": "Read a custom kind's units in `check` from a generic surface loader keyed on each kind's `governs.root`, replacing the `root == \"specs\"` special case that reads `Workspace.specs`.",
-    "per": {
-      "path": "specs/40-composition.md",
-      "section": "Declaring a custom kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add `Unit::from_surface_dir(dir)` — reload a written custom-unit surface (`<root>/<name>/{meta.toml, <BODY>.md}`) into a raw `Unit`: id = the surface dir name, body = the lone non-`meta.toml` `.md` sibling (byte-faithful), `source_path` read back from the `[provenance]` table. The generic reader the `check` custom-kind path uses in place of the built-in `Spec::from_surface_dir`; an unknown/malformed surface surfaces as a `KindError`."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Rewrite `custom_units` to load each declared custom kind's units generically from the workspace directory at its `governs.root` (each surface dir → `Unit` via `Unit::from_surface_dir`), instead of the `root == \"specs\"` special case reading `ws.specs`. Delete `spec_unit` and drop `use temper::spec::Spec` — the check path stops depending on the built-in `Spec` IR. Closes the 'extend the loader to every custom root' follow-on the special case flagged, so a custom kind rooted anywhere (not just `specs/`) is read."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "`Unit::from_surface_dir` reloads a written custom-unit surface into a raw `Unit` (id, byte-faithful body, provenance) for any `governs.root`, and the custom-kind `check` path reads its units through it rather than the built-in `Workspace.specs`."
-      }
-    ],
-    "acceptance": "The custom-kind `check` path loads its units generically from the workspace at each kind's `governs.root` via `Unit::from_surface_dir`; `main.rs::custom_units` no longer reads `Workspace.specs` or the built-in `Spec` IR, a custom kind rooted outside `specs/` is now read, and the suite is green.",
-    "notes": "Splits the built-in-spec retirement into disjoint, low-risk ticks: the generic reader ships first — green while `Spec`/`Workspace.specs` still exist but go unread by `check` (drift still reads them until RETIRE) — leaving RETIRE near-pure deletion. Realizes 40-composition's 'temper reads its own `specs/` because its `temper.toml` declares the kind, not because anything is hardwired.'"
-  },
-  {
     "tag": "KIND-RETIRE-BUILTIN-SPEC",
     "summary": "Retire the built-in `spec` kind (`src/spec.rs`, `extract::spec_features`, `Workspace.specs`, `discover_spec_files`, drift's spec axis) — the data-declared `spec` kind now covers it.",
     "per": {
