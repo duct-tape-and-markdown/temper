@@ -113,22 +113,27 @@ pub enum ImportError {
 /// fingerprint** the drift/apply merge stands on. Shared by every kind — a
 /// `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
 /// five columns.
-struct RollupEntry {
+///
+/// `pub(crate)` so the `re-add` drift direction can take the row a per-kind writer
+/// produced and fold it straight into the lock — reusing `import`'s single
+/// round-trip write path rather than re-deriving the fingerprints
+/// (`specs/20-surface.md`, "Drift / apply — three states").
+pub(crate) struct RollupEntry {
     /// Artifact name (and its `<kind>/<name>/` surface directory).
-    name: String,
+    pub(crate) name: String,
     /// Path to the original source file, as given relative to the harness arg.
-    source_path: String,
+    pub(crate) source_path: String,
     /// SHA-256 of the original source bytes (the drift anchor).
-    import_hash: String,
+    pub(crate) import_hash: String,
     /// SHA-256 of the byte-faithful body (frontmatter stripped).
-    body_hash: String,
+    pub(crate) body_hash: String,
     /// The fingerprint of the source as it was when `temper` last projected the
     /// surface onto it — the **third state** the three-state merge needs, beside
     /// desired (the surface) and real (on-disk). It lets `apply` tell a surface
     /// edit from a world drift (`specs/20-surface.md`, "three states, never two").
     /// At import it equals `import_hash`: import writes a complete baseline, so the
     /// last thing applied to the source *is* the source as imported.
-    last_applied: String,
+    pub(crate) last_applied: String,
 }
 
 /// Import every built-in artifact plus every declared custom-kind unit under
@@ -259,7 +264,12 @@ pub(crate) fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, Import
 
 /// Read one source skill and write its surface tree under `<into>/skills/<name>/`,
 /// returning the roll-up row for the index.
-fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
+///
+/// `pub(crate)` so `re-add` reuses this single round-trip write path — the typed
+/// `meta.toml` via [`Skill::to_meta_document`] plus the byte-faithful body — when
+/// it pulls a drifted or added on-disk skill back into the surface, rather than
+/// re-implementing the projection (`specs/20-surface.md`, "Drift / apply").
+pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
     let skill = Skill::from_source_dir(source_dir)?;
     let out_dir = into.join("skills").join(&skill.name);
     create_dir_all(&out_dir)?;
@@ -293,7 +303,10 @@ fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportErr
 /// Mirrors [`import_skill`] for the rule kind: a format-preserving `meta.toml`
 /// header (the optional `paths` + `[provenance]`) and the byte-faithful body as
 /// `RULE.md`. A rule carries no companions, so there is nothing else to copy.
-fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
+///
+/// `pub(crate)` for the same reason as [`import_skill`]: `re-add` reuses this exact
+/// write path to reconcile a drifted or added on-disk rule into the surface.
+pub(crate) fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
     let rule = Rule::from_source_file(source_file)?;
     let out_dir = into.join("rules").join(&rule.name);
     create_dir_all(&out_dir)?;

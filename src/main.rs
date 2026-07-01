@@ -108,6 +108,18 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Reconcile direct on-disk harness edits back into the surface — the third
+    /// drift direction (`specs/20-surface.md`, the hard core). Drifted and added
+    /// sources are pulled into the surface tree and the lock is refreshed; an
+    /// in-sync harness is a no-op. A reconcile, not a gate — it exits zero.
+    ReAdd {
+        /// The harness to re-scan for drifted / added on-disk sources.
+        harness_path: PathBuf,
+        /// The surface workspace to reconcile into (defaults to `./.temper`). Its
+        /// lock is refreshed to the current source bytes.
+        #[arg(long, default_value = DEFAULT_WORKSPACE)]
+        into: PathBuf,
+    },
 }
 
 fn main() -> miette::Result<ExitCode> {
@@ -345,6 +357,19 @@ fn main() -> miette::Result<ExitCode> {
                 println!("dry run — no files written");
             }
             print!("{}", drift::render_apply(&report));
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::ReAdd { harness_path, into } => {
+            // The on-disk -> surface reconcile (`specs/20-surface.md`, "the surface
+            // is the source of truth" — `re-add` keeps direct on-disk editing
+            // first-class). Load the surface + its lock, pull every drifted / added
+            // harness source back into the surface, refresh the lock, and print the
+            // reconciled/added/unchanged report. A reconcile, not a gate: exit zero
+            // regardless. Unlike `apply`, this re-scans the live harness (like
+            // `diff`), so it takes the harness path as well as the surface.
+            let ws = Workspace::load(&into)?;
+            let report = drift::re_add(&ws, &into, &harness_path)?;
+            print!("{}", drift::render_readd(&report));
             Ok(ExitCode::SUCCESS)
         }
     }

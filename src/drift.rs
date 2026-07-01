@@ -49,8 +49,25 @@
 //!   writes nothing and leaves the fingerprint untouched.
 //!
 //! A `--dry-run` computes every outcome but writes neither the sources nor the
-//! updated lock. Like `diff`, `apply` covers the built-in kinds (skill, rule);
-//! generic custom-kind write-back and the `re-add` direction are follow-on work.
+//! updated lock. Like `diff`, `apply` covers the built-in kinds (skill, rule).
+//!
+//! ## [`re_add`] — the on-disk → surface direction
+//!
+//! [`re_add`] is the third drift direction and the one that keeps direct on-disk
+//! editing first-class (`specs/20-surface.md`, "the surface is the source of
+//! truth" — `re-add` reconciles the harness edits a human made outside the
+//! surface). Where `apply` pushes the surface *out*, `re_add` pulls the harness
+//! *in*: it runs [`diff`]'s four-state classification, then for every **drifted**
+//! or **added** built-in artifact it re-parses the live source through the
+//! skill/rule loaders and re-projects it into the surface tree via `import`'s own
+//! per-kind writers ([`import::import_skill`]/[`import::import_rule`]) — the single
+//! round-trip write path, never a second implementation. Each written artifact's
+//! lock row is refreshed to the current source bytes (its `import_hash`,
+//! `body_hash`, and `last_applied` fingerprint), an **added** source gaining a
+//! brand-new row. An **in-sync** artifact is left untouched (a no-op), and a
+//! **removed** one is skipped — `re_add` only pulls in what is actually on disk;
+//! reconciling a deletion is a different direction. Like the other two, it covers
+//! the built-in kinds; generic custom-kind re-add is follow-on work.
 
 use std::collections::HashSet;
 use std::fs;
@@ -60,7 +77,7 @@ use gray_matter::Pod;
 use gray_matter::engine::{Engine, YAML};
 use serde_json::Value as JsonValue;
 use sha2::{Digest, Sha256};
-use toml_edit::{DocumentMut, Item, value};
+use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::check::Workspace;
 use crate::import;
@@ -841,6 +858,226 @@ pub fn render_apply(report: &ApplyReport) -> String {
     }
     out.push_str(&format!(
         "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted\n"
+    ));
+    out
+}
+
+// ---------------------------------------------------------------------------
+// re-add — the on-disk -> surface direction (`specs/20-surface.md`, the hard core)
+// ---------------------------------------------------------------------------
+
+/// One artifact's outcome from a [`re_add`]: how its live on-disk source was
+/// reconciled back into the surface.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReAddOutcome {
+    /// A **drifted** source was pulled into an existing surface artifact — its
+    /// `meta.toml` header and body rewritten, and its lock row's fingerprints
+    /// refreshed to the current source bytes.
+    Reconciled,
+    /// An **added** on-disk source the surface did not carry became a new surface
+    /// artifact and gained a new lock row.
+    Added,
+    /// The source still hashes to the import baseline — nothing to pull in.
+    Unchanged,
+}
+
+impl ReAddOutcome {
+    /// The lower-case label used in the rendered report and stable for tests.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            ReAddOutcome::Reconciled => "reconciled",
+            ReAddOutcome::Added => "added",
+            ReAddOutcome::Unchanged => "unchanged",
+        }
+    }
+}
+
+/// One row of a [`ReAddReport`]: which artifact, of which kind, located where, and
+/// what `re_add` did with its on-disk source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReAddEntry {
+    /// The artifact kind — `"skill"` or `"rule"`.
+    pub kind: &'static str,
+    /// The artifact name — the name the freshly parsed source carries for a
+    /// reconciled/added artifact, or its surface name for an unchanged one.
+    pub name: String,
+    /// The on-disk source path that was pulled into the surface.
+    pub source_path: PathBuf,
+    /// What `re_add` did for this artifact.
+    pub outcome: ReAddOutcome,
+}
+
+/// The typed result of a [`re_add`]: every classified artifact's outcome, in the
+/// [`diff`] report's stable order. Renders nothing itself — [`render_readd`] turns
+/// it into text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReAddReport {
+    /// Every reconciled, added, or unchanged artifact, across the built-in kinds.
+    pub entries: Vec<ReAddEntry>,
+}
+
+/// Reconcile the live `harness` on disk back into the loaded `workspace` surface,
+/// pulling every drifted or added built-in source into the surface tree and
+/// refreshing the lock.
+///
+/// `workspace_dir` is the surface root — where the artifact trees and the lock
+/// (`lock.toml`) live. The classification is [`diff`]'s own (so "what's on disk"
+/// is answered by the exact scan `import` used); the write is `import`'s own
+/// per-kind projection. A drifted or added source is re-parsed and re-projected;
+/// an in-sync source is a no-op; a removed source is skipped (there is nothing on
+/// disk to pull in). Writes only when something changed — an all-in-sync harness
+/// leaves every surface byte identical.
+pub fn re_add(
+    workspace: &Workspace,
+    workspace_dir: &Path,
+    harness: &Path,
+) -> miette::Result<ReAddReport> {
+    let classification = diff(workspace, harness)?;
+
+    let mut entries = Vec::new();
+    // The rows to fold into the lock, tagged with their kind's array-of-tables key.
+    let mut updates: Vec<(&'static str, import::RollupEntry)> = Vec::new();
+
+    for entry in &classification.entries {
+        // A removed source has nothing on disk to reconcile in — skip it entirely
+        // (pruning the orphaned surface artifact is a separate direction).
+        if entry.state == DriftState::Removed {
+            continue;
+        }
+        if entry.state == DriftState::InSync {
+            entries.push(ReAddEntry {
+                kind: entry.kind,
+                name: entry.name.clone(),
+                source_path: entry.source_path.clone(),
+                outcome: ReAddOutcome::Unchanged,
+            });
+            continue;
+        }
+
+        // Drifted or added: re-project the live source through `import`'s writer for
+        // its kind. A skill's source is the `SKILL.md`, so its surface directory is
+        // that file's parent (which the discovery scan always yields).
+        let rollup = match entry.kind {
+            "skill" => {
+                let dir = entry.source_path.parent().unwrap_or_else(|| Path::new("."));
+                import::import_skill(dir, workspace_dir)?
+            }
+            "rule" => import::import_rule(&entry.source_path, workspace_dir)?,
+            // No other built-in kind has a drift axis today (mirrors `apply`).
+            _ => continue,
+        };
+
+        let outcome = if entry.state == DriftState::Drifted {
+            ReAddOutcome::Reconciled
+        } else {
+            ReAddOutcome::Added
+        };
+        entries.push(ReAddEntry {
+            kind: entry.kind,
+            // The name the parsed source carries — for a skill this is its
+            // frontmatter `name`, which is what the surface directory was written
+            // under, not necessarily the structural name `diff` inferred.
+            name: rollup.name.clone(),
+            source_path: entry.source_path.clone(),
+            outcome,
+        });
+        updates.push((entry.kind, rollup));
+    }
+
+    if !updates.is_empty() {
+        rewrite_lock_rows(workspace_dir, &updates)?;
+    }
+
+    Ok(ReAddReport { entries })
+}
+
+/// Fold the reconciled/added `updates` into `<workspace_dir>/lock.toml`,
+/// format-preserving via `toml_edit`: an existing row (matched by `source_path`
+/// within its kind's `[[<kind>]]` array) has its `import_hash`, `body_hash`, and
+/// `last_applied` refreshed in place; an added source with no row yet is appended
+/// as a fresh table carrying all five columns.
+fn rewrite_lock_rows(
+    workspace_dir: &Path,
+    updates: &[(&'static str, import::RollupEntry)],
+) -> Result<(), DriftError> {
+    let path = workspace_dir.join("lock.toml");
+    let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
+        path: path.clone(),
+        source,
+    })?;
+    let mut doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse {
+            path: path.clone(),
+            source,
+        })?;
+
+    for (kind, row) in updates {
+        let kind = *kind;
+        // An added kind may have no array yet (an empty `ArrayOfTables` emits no
+        // bytes, so a skill-only lock carries no `[[rule]]` key) — create it.
+        if doc.get(kind).and_then(Item::as_array_of_tables).is_none() {
+            doc[kind] = Item::ArrayOfTables(ArrayOfTables::new());
+        }
+        let Some(rows) = doc.get_mut(kind).and_then(Item::as_array_of_tables_mut) else {
+            // Only reachable if the lock holds a non-array under this key; leaving
+            // the row unwritten is safer than clobbering an unexpected shape.
+            continue;
+        };
+
+        // Match by source_path in an immutable pass first, so the mutable borrow
+        // for the in-place patch does not linger into the append arm.
+        let existing = rows.iter().position(|table| {
+            table.get("source_path").and_then(Item::as_str) == Some(&row.source_path)
+        });
+        match existing.and_then(|index| rows.get_mut(index)) {
+            Some(table) => {
+                table["import_hash"] = value(row.import_hash.clone());
+                table["body_hash"] = value(row.body_hash.clone());
+                table["last_applied"] = value(row.last_applied.clone());
+            }
+            None => rows.push(lock_table(row)),
+        }
+    }
+
+    fs::write(&path, doc.to_string()).map_err(|source| DriftError::Write { path, source })
+}
+
+/// Build a fresh `lock.toml` table for an added artifact — the five shared columns
+/// in the same fixed order `import` writes them, so an appended row reads
+/// identically to an imported one.
+fn lock_table(row: &import::RollupEntry) -> Table {
+    let mut table = Table::new();
+    table["name"] = value(row.name.clone());
+    table["source_path"] = value(row.source_path.clone());
+    table["import_hash"] = value(row.import_hash.clone());
+    table["body_hash"] = value(row.body_hash.clone());
+    table["last_applied"] = value(row.last_applied.clone());
+    table
+}
+
+/// Render a re-add report for the terminal: one `<outcome>  <kind>  <name>` line
+/// per entry in the report's stable order, then a one-line tally.
+#[must_use]
+pub fn render_readd(report: &ReAddReport) -> String {
+    let mut out = String::new();
+    let (mut reconciled, mut added, mut unchanged) = (0u32, 0u32, 0u32);
+    for entry in &report.entries {
+        match entry.outcome {
+            ReAddOutcome::Reconciled => reconciled += 1,
+            ReAddOutcome::Added => added += 1,
+            ReAddOutcome::Unchanged => unchanged += 1,
+        }
+        out.push_str(&format!(
+            "{:<10}  {:<5}  {}\n",
+            entry.outcome.label(),
+            entry.kind,
+            entry.name
+        ));
+    }
+    out.push_str(&format!(
+        "\n{reconciled} reconciled, {added} added, {unchanged} unchanged\n"
     ));
     out
 }
