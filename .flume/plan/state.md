@@ -1,23 +1,20 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk: **GOV-GRAPH-DEGREE shipped** — `graph::degree`
-  (per-role in/out edge-count bound over the resolved reference arcs) is in `src/graph.rs`,
-  wired opt-in at `main.rs:209`. The whole graph scope (route resolution, admissibility,
-  `acyclic`, `degree`) and the whole set scope (`count`, `unique`, `membership`, typed
-  reference) are on disk (`graph.rs`/`roster.rs`), plus custom-kind declaration + extraction
-  algebra (`kind.rs`/`compose.rs`) and the `spec` custom kind in `temper.toml`.
-- **Last shipped:** GOV-GRAPH-DEGREE (`be77947`). Queue was empty; state was stale (it still
-  listed DEGREE in flight).
-- **Filed this tick (2):** **SCHEMA-EMIT** (`open`, pickable) — `temper schema` emits the
-  active per-kind contract as an editor JSON Schema (validation channel; docs/hover deferred,
-  no guidance-prose source exists). **APPLY-WRITEBACK** (`blockedBy` SCHEMA-EMIT — both add a
-  `Command` variant to `main.rs`) — `temper apply`, the three-state write-back engine.
-- **Frontier:** distribution + drift write-back are the big unbuilt areas (`schema`, `apply`,
-  then `re-add`/`bundle`/`install`/reporters, all fork-free). Spec-kind `references-resolve`
-  is NOT a mere config task — the graph scope excludes custom kinds from `by_kind`, and the
-  filename-ref vs stem-id mismatch is a new soundness fork `(reference-id-normalization)`.
-  `decisions-name-alternatives` still waits on `(decision-marker-predicate)`. More built-in
-  harness kinds (agent/hook/command/MCP/settings/plugin) remain adapters to add.
-- **Inbox:** empty (no lines to drain). Added open question `(reference-id-normalization)`.
+- **Phase:** reconcile. Verified on disk: **SCHEMA-EMIT shipped** — `src/schema.rs`
+  emits the active per-kind contract as an editor JSON Schema, wired as `Command::Schema`
+  (`main.rs:84`, dispatch `main.rs:261`) over the same by-kind floor ⊕ `temper.toml` layer
+  `check` gates against (validation channel; docs/hover deferred).
+- **Last shipped:** SCHEMA-EMIT (`5e79663`). Queue held one blocked entry; SCHEMA-EMIT's
+  ship cleared the gate.
+- **In flight / pickable (1):** **APPLY-WRITEBACK** (`open`) — `temper apply`, the three-state
+  write-back engine (`drift.rs` today has read-only `diff` only; the lock `RollupEntry` carries
+  `import_hash`+`body_hash`, no last-applied fingerprint yet). All gating forks RESOLVED.
+- **Frontier:** `re-add` (on-disk→surface, sibling of apply) and `bundle`/`install`/reporters
+  are the unbuilt distribution/write-back areas; more built-in harness kinds
+  (agent/hook/command/MCP/settings/plugin) remain adapters to add — all touch `import.rs`+`main.rs`,
+  so each collides with APPLY's blast radius and is serialized behind it, not filed `open` now.
+  Spec-kind `references-resolve` waits on `(reference-id-normalization)`; `decisions-name-alternatives`
+  waits on `(decision-marker-predicate)`.
+- **Inbox:** empty (nothing to drain). Open questions unchanged (no fork resolved this tick).
 
-Plan continues: no — queue reconciled, SCHEMA-EMIT pickable and APPLY queued behind it, inbox empty; hand to build.
+Plan continues: no — queue reconciled, SCHEMA-EMIT dropped as shipped, APPLY-WRITEBACK unblocked and pickable, inbox empty; hand to build.

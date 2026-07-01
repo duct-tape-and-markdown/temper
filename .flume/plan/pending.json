@@ -7,8 +7,7 @@
       "section": "Drift / apply — three states, never two (the hard core)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SCHEMA-EMIT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,15 +20,15 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "Add the write direction beside the existing read-only `diff`: an `apply` fn that compares the three states — desired (the loaded surface), the last-applied fingerprint, and real on-disk — and projects the surface back to the harness, patching only changed fields (headers via toml_edit; bodies/companions byte-faithful, never re-rendered). Distinguish a surface edit from a world drift via the fingerprint; on genuine conflict surface diff/overwrite/skip/re-add rather than clobber. Support a dry-run mode. Reuse the existing hashing helpers."
+          "description": "Add the write direction beside the existing read-only `diff`: an `apply` fn that compares the three states — desired (the loaded surface), the last-applied fingerprint, and real on-disk — and projects the surface back to the harness, patching only changed fields (headers via toml_edit; bodies/companions byte-faithful, never re-rendered). Distinguish a surface edit from a world drift via the fingerprint; on genuine conflict surface diff/overwrite/skip/re-add rather than clobber. Support a dry-run mode. Reuse the existing `sha256_hex` helper and `classify` machinery."
         },
         {
           "path": "src/import.rs",
-          "description": "Extend the generated lock (lock.toml rollup) to record the last-applied fingerprint per artifact — the third state the merge needs (`three states, never two`). Additive to the RollupEntry writer; import still writes a complete baseline (last-applied == import at first import)."
+          "description": "Extend the generated lock (lock.toml rollup) to record the last-applied fingerprint per artifact — the third state the merge needs (`three states, never two`). Additive to the RollupEntry writer (which today carries `import_hash` + `body_hash`); import still writes a complete baseline (last-applied == import at first import)."
         },
         {
           "path": "src/main.rs",
-          "description": "Add an `Apply { harness_path, into, dry_run }` variant to `enum Command` and a dispatch arm calling drift::apply, printing the applied/skipped/conflicted report. (Serialized after SCHEMA-EMIT because both add a Command variant to the same enum/match.)"
+          "description": "Add an `Apply { harness_path, into, dry_run }` variant to `enum Command` and a dispatch arm calling drift::apply, printing the applied/skipped/conflicted report — mirroring the existing `Diff` variant/arm shape."
         }
       ],
       "retire": []
