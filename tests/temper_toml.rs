@@ -24,7 +24,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::compose::{AuthorLayer, ComposeError, DegreeBound, Edge, EdgeBound, Governs};
+use temper::compose::{
+    AuthorLayer, ComposeError, DegreeBound, Edge, EdgeBound, Governs, Requirement,
+};
 use temper::contract::{Clause, Predicate, Severity};
 use temper::kind::{KindError, Primitive};
 
@@ -549,4 +551,74 @@ degree = { incoming = { min = -1 } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
     assert!(matches!(err, ComposeError::RoleBadDegree { .. }));
+}
+
+#[test]
+fn a_requirement_parses_into_a_typed_value_with_means_verbatim() {
+    // `[requirement.<name>]` is the meaningful-contract namespace (`specs/10-contracts.md`,
+    // "Requirements and `satisfies`"): a required `means` string stated in meaning, and
+    // an optional `required` coverage flag. `means` is carried *verbatim* and never
+    // interpreted (law 3 — no proxy); `required = true` parses through as declared.
+    let means = "the harness has a skill that maintains development standards";
+    let toml = format!(
+        r#"
+[requirement.dev-standards]
+means = "{means}"
+required = true
+"#
+    );
+    let layer = AuthorLayer::parse(&toml, Path::new("temper.toml")).unwrap();
+
+    let requirement = layer
+        .requirements()
+        .get("dev-standards")
+        .expect("the requirement parses into the namespace");
+    assert_eq!(
+        requirement,
+        &Requirement {
+            means: means.to_string(),
+            required: true,
+        }
+    );
+    // The meaning is stored byte-for-byte — temper organizes it, never judges it.
+    assert_eq!(requirement.means, means);
+}
+
+#[test]
+fn an_absent_required_defaults_to_false() {
+    // `temper` never fabricates a gate the author did not declare (`00-intent.md` law
+    // 4): an omitted `required` is `false`, not a coverage gate.
+    let toml = r#"
+[requirement.dev-standards]
+means = "the harness maintains dev standards"
+"#;
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+    let requirement = layer.requirements().get("dev-standards").unwrap();
+    assert!(!requirement.required);
+}
+
+#[test]
+fn a_requirement_missing_means_is_a_load_error() {
+    // `means` is the requirement's whole content — the intent it states. Absent, the
+    // declaration carries no meaning, so it is a load error, never a silent default.
+    let toml = r#"
+[requirement.dev-standards]
+required = true
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(
+        err,
+        ComposeError::RequirementMissingMeans { ref name, .. } if name == "dev-standards"
+    ));
+}
+
+#[test]
+fn a_non_table_requirement_root_is_a_load_error() {
+    // `requirement` is its own namespace — a table of named requirements. A scalar in
+    // its place is malformed, rejected the way a non-table `role` root is.
+    let toml = r#"
+requirement = "dev-standards"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(err, ComposeError::RequirementRootNotTable { .. }));
 }

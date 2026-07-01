@@ -116,6 +116,13 @@ pub struct AuthorLayer {
     /// tier — selection, required-filling, and admissibility are follow-on
     /// entries.
     roles: BTreeMap<String, Role>,
+    /// The named requirements parsed from top-level `[requirement.<name>]` tables,
+    /// keyed by requirement name — the meaningful-contract namespace
+    /// (`specs/10-contracts.md`, "Requirements and `satisfies`"). Its own namespace,
+    /// distinct from the `kind`/`role` maps. Empty when the `temper.toml` declares
+    /// none. Parse-only in this tier — coverage over these requirements
+    /// (REQUIREMENT-COVERAGE) is a follow-on entry.
+    requirements: BTreeMap<String, Requirement>,
     /// The declared edge relationships gathered off every kind's
     /// `[[kind.<name>.relationships]]` array, in declaration order — the reference
     /// syntax the harness reference graph is built from (`specs/15-kinds.md`, "The
@@ -215,6 +222,31 @@ pub struct Governs {
     /// The filename glob that selects the kind's units under `root` (`*.md`,
     /// `[0-9][0-9]-*.md`), stored verbatim.
     pub glob: String,
+}
+
+/// A named **requirement** — a semantic intent the harness must fill, declared in
+/// a top-level `[requirement.<name>]` table (`specs/10-contracts.md`, "Requirements
+/// and `satisfies` — the meaningful contract"). Where a [`Role`] fills a slot by a
+/// decidable `match` selector, a requirement is filled by an artifact's opt-in,
+/// resolving `satisfies` link and carries the *why* in [`means`](Requirement::means).
+///
+/// `temper` **never interprets `means`** — it is authored intent the surface carries
+/// and organizes, never a thing the engine judges (no proxy; `00-intent.md` law 3).
+/// What `check` gates is the decidable shadow — coverage over the parsed
+/// requirements — but that is a follow-on entry (REQUIREMENT-COVERAGE); this tier is
+/// parse-only. `requirement.` is its own namespace, distinct from the `rule`
+/// artifact kind (the Decision's closing note).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Requirement {
+    /// The semantic intent the requirement states, in *meaning*, not predicates —
+    /// "the harness has a skill that maintains development standards". Carried
+    /// verbatim and **never interpreted**: `temper` organizes it, never judges it
+    /// (`00-intent.md` law 3).
+    pub means: String,
+    /// Whether an unfilled requirement is a coverage violation. Absent in source ⇒
+    /// `false`: `temper` never fabricates a gate the author did not declare
+    /// (`00-intent.md` law 4). Gating coverage over this flag is a follow-on entry.
+    pub required: bool,
 }
 
 /// A harness-contract **role**: an abstract slot bound to whichever concrete
@@ -694,6 +726,56 @@ pub enum ComposeError {
         role: String,
     },
 
+    /// The top-level `requirement` key is present but is not a table of requirement
+    /// definitions — its own namespace, distinct from `kind`/`role`.
+    #[error("{path}: `requirement` must be a table of named requirements")]
+    #[diagnostic(code(temper::compose::requirement_root_not_table))]
+    RequirementRootNotTable {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+    },
+
+    /// A `[requirement.<name>]` entry is present but is not a table.
+    #[error("{path}: `[requirement.{name}]` must be a table")]
+    #[diagnostic(code(temper::compose::requirement_not_table))]
+    RequirementNotTable {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The requirement whose definition is malformed.
+        name: String,
+    },
+
+    /// A `[requirement.<name>]` is missing its required `means` — a requirement with
+    /// no meaning states no intent for an artifact to fill.
+    #[error("{path}: `[requirement.{name}]` is missing required key `means`")]
+    #[diagnostic(
+        code(temper::compose::requirement_missing_means),
+        help(
+            "a requirement declares its semantic intent in `means` — the meaning the harness must fill"
+        )
+    )]
+    RequirementMissingMeans {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The requirement missing its meaning.
+        name: String,
+    },
+
+    /// A `[requirement.<name>]` key has the wrong TOML type — `means` not a string
+    /// or `required` not a boolean.
+    #[error("{path}: `[requirement.{name}]` key `{key}` must be {expected}")]
+    #[diagnostic(code(temper::compose::requirement_wrong_type))]
+    RequirementWrongType {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The requirement whose key is mistyped.
+        name: String,
+        /// The mistyped key.
+        key: &'static str,
+        /// The type that was expected, for the message.
+        expected: &'static str,
+    },
+
     /// A `[kind.<name>.relationships]` key is present but is not an array of
     /// `[[kind.<name>.relationships]]` reference tables.
     #[error(
@@ -846,10 +928,29 @@ impl AuthorLayer {
             }
         }
 
+        let mut requirements = BTreeMap::new();
+        if let Some(item) = doc.as_table().get("requirement") {
+            let requirement_table =
+                item.as_table()
+                    .ok_or_else(|| ComposeError::RequirementRootNotTable {
+                        path: path.to_path_buf(),
+                    })?;
+            for (name, item) in requirement_table.iter() {
+                let table = item
+                    .as_table()
+                    .ok_or_else(|| ComposeError::RequirementNotTable {
+                        path: path.to_path_buf(),
+                        name: name.to_string(),
+                    })?;
+                requirements.insert(name.to_string(), parse_requirement(table, name, path)?);
+            }
+        }
+
         Ok(Self {
             path: path.to_path_buf(),
             kinds,
             roles,
+            requirements,
             edges,
             custom_kinds,
         })
@@ -861,6 +962,16 @@ impl AuthorLayer {
     #[must_use]
     pub fn roles(&self) -> &BTreeMap<String, Role> {
         &self.roles
+    }
+
+    /// The parsed requirements, keyed by requirement name — the meaningful-contract
+    /// namespace (`specs/10-contracts.md`, "Requirements and `satisfies`"). Empty
+    /// when the `temper.toml` declares no `[requirement.<name>]` tables. Parse-only
+    /// in this tier: coverage over these requirements is a follow-on entry
+    /// (REQUIREMENT-COVERAGE).
+    #[must_use]
+    pub fn requirements(&self) -> &BTreeMap<String, Requirement> {
+        &self.requirements
     }
 
     /// The parsed edge relationships, in declaration order (by owning kind, then by
@@ -1077,6 +1188,43 @@ fn parse_relationship(
 /// single [`ComposeError::BadRelationship`]).
 fn relationship_str(table: &Table, key: &str) -> Option<String> {
     Some(table.get(key)?.as_str()?.to_string())
+}
+
+/// Parse one `[requirement.<name>]` table into a typed [`Requirement`]: the required
+/// `means` string (carried verbatim, never interpreted — `00-intent.md` law 3) and
+/// the optional `required` flag (absent ⇒ `false`; `temper` never fabricates a gate
+/// the author did not declare — law 4). A missing or non-string `means`, or a
+/// non-boolean `required`, is a load error, mirroring the `[role.<name>]` parse path.
+fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requirement, ComposeError> {
+    let means = match table.get("means") {
+        None => {
+            return Err(ComposeError::RequirementMissingMeans {
+                path: path.to_path_buf(),
+                name: name.to_string(),
+            });
+        }
+        Some(item) => item
+            .as_str()
+            .ok_or_else(|| ComposeError::RequirementWrongType {
+                path: path.to_path_buf(),
+                name: name.to_string(),
+                key: "means",
+                expected: "a string",
+            })?
+            .to_string(),
+    };
+    let required = match table.get("required") {
+        None => false,
+        Some(item) => item
+            .as_bool()
+            .ok_or_else(|| ComposeError::RequirementWrongType {
+                path: path.to_path_buf(),
+                name: name.to_string(),
+                key: "required",
+                expected: "a boolean",
+            })?,
+    };
+    Ok(Requirement { means, required })
 }
 
 /// Parse one `[role.<name>]` table into a typed [`Role`]: the required `artifact`
