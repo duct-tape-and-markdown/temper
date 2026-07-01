@@ -64,9 +64,11 @@
 //!
 //! This tier is **parse only**: custom kinds load into typed values off
 //! [`AuthorLayer::custom_kinds`], but discovering units at each kind's `governs`
-//! locus and running its extractor over them is a follow-on entry. The
-//! `[kind.<name>.entities]` capability is folded in elsewhere, not here; the
-//! `.relationships` capability *is* parsed here (below).
+//! locus and running its extractor over them is a follow-on entry. There is no
+//! separate `[kind.<name>.entities]` table — a kind's nodes derive from its
+//! `features.id` (`specs/15-kinds.md`), so a stray `entities` key is an unknown
+//! key, rejected like any other (below); the `.relationships` capability *is*
+//! parsed here (below).
 //!
 //! ## Relationships — a kind capability, not a standalone construct
 //!
@@ -575,6 +577,30 @@ pub enum ComposeError {
         key: String,
     },
 
+    /// A full custom-kind declaration carries a key outside its closed set
+    /// (`governs`, `extraction`, `clause`, `relationships`). A leftover
+    /// `[kind.<name>.entities]` subtable — there is no separate entities table, a
+    /// kind's nodes derive from its `features.id` — or a typo is rejected at parse
+    /// rather than silently dropped, mirroring [`ComposeError::KindUnknownKey`] on the
+    /// built-in-layer path (`specs/10-contracts.md`, "Decision: unknown keys are
+    /// rejected, not ignored"). Aligns both compose kind-parse paths: neither drops a
+    /// stray key.
+    #[error("{path}: custom kind `[kind.{kind}]` has unknown key `{key}`")]
+    #[diagnostic(
+        code(temper::compose::custom_kind_unknown_key),
+        help(
+            "a custom kind carries only `governs`, `extraction`, `clause`, and `relationships` — there is no `entities` table (nodes derive from `features.id`); a stray key is a typo, not an escape hatch"
+        )
+    )]
+    CustomKindUnknownKey {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The custom kind whose declaration carries the stray key.
+        kind: String,
+        /// The unrecognized key.
+        key: String,
+    },
+
     /// The top-level `requirement` key is present but is not a table of requirement
     /// definitions — its own namespace, distinct from the `kind` map.
     #[error("{path}: `requirement` must be a table of named requirements")]
@@ -1073,6 +1099,21 @@ fn is_custom_kind_declaration(table: &Table) -> bool {
 /// Each malformed part is a load error, mirroring `[kind.<k>]` layer and
 /// `[requirement.<name>]` parsing — a custom kind earns no escape hatch the floor lacks.
 fn parse_custom_kind(table: &Table, name: &str, path: &Path) -> Result<CustomKind, ComposeError> {
+    // A custom-kind declaration carries only `governs`, `extraction`, and `clause`
+    // (plus `relationships`, a kind capability gathered off every kind table before
+    // this point in `parse_relationships`). Anything else — a leftover
+    // `[kind.<name>.entities]` subtable, a typo — is a load error, not a silently
+    // dropped key, exactly as `parse_kind_layer` rejects an unknown built-in-layer key
+    // (`specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored").
+    for (key, _) in table.iter() {
+        if !matches!(key, "governs" | "extraction" | "clause" | "relationships") {
+            return Err(ComposeError::CustomKindUnknownKey {
+                path: path.to_path_buf(),
+                kind: name.to_string(),
+                key: key.to_string(),
+            });
+        }
+    }
     let governs = parse_governs(table, name, path)?;
     let extraction = Extraction::from_table(table, path)?;
     let clauses = contract::parse_clauses(table, path)?;

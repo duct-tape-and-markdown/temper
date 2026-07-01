@@ -435,6 +435,31 @@ primitive = "paragraph_meaning"
 }
 
 #[test]
+fn a_custom_kind_with_a_stray_key_is_a_load_error() {
+    // A custom-kind declaration carries only `governs`, `extraction`, `clause`, and
+    // `relationships`. A leftover `[kind.spec.entities]` subtable — there is no
+    // separate entities table, a kind's nodes derive from its `features.id` — must
+    // fail loudly, not be silently dropped, exactly as the built-in-layer path already
+    // rejects a stray key (`specs/10-contracts.md`, "Decision: unknown keys are
+    // rejected, not ignored").
+    let toml = r#"
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+[kind.spec.entities]
+id = "heading"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(
+            err,
+            ComposeError::CustomKindUnknownKey { ref key, ref kind, .. }
+                if key == "entities" && kind == "spec"
+        ),
+        "a stray custom-kind key must be a load error, got {err:?}"
+    );
+}
+
+#[test]
 fn a_degree_bound_parses_into_a_typed_requirement() {
     // The graph-scope `degree` predicate: an inline `{ incoming, outgoing }` table
     // with per-direction `{ min?, max? }` bounds parses onto the requirement. The two
