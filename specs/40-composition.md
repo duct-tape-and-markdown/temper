@@ -59,18 +59,18 @@ you adopt *from*, not where you declare. Three separate homes — authored
 (`temper.toml`), generated (`author.toml`), shipped (templates) — keep provenance
 honest. (Resolves the home/selection half of `(harness-contract-provisioning)`.)
 
-## `temper.toml` is the surface's schema stratum
+## `temper.toml` is the contract over the contents
 
-`temper.toml` is not config sitting *beside* the surface — it **is** the surface's
-**schema stratum** (`20-surface.md`): the types, authored alongside the artifact
-instances they govern. Hence its dual role — a member of the surface you author *and*
-the contract the instances satisfy — is **stratification, not contradiction** (a
-`trait` is authored *and* is the contract its `impl`s meet). Accordingly `temper.toml`
-is checked for **admissibility** (well-formed against the algebras, never against
-itself) while the artifacts are checked for **conformance**; and it layers floor ⊕
-`temper.toml` (adopt the std-lib, declare your own). This reframes the topology: the
-authoring surface is `temper.toml` + the artifacts as *one* thing, not a config file
-plus a separate `.temper/` workspace (`20-surface.md`).
+`temper.toml` is the **top-level config, and it is the contract**: the schema — kinds,
+roles, contracts — that the `.temper/` contents must satisfy (`20-surface.md`). That
+dual role — authored by you, *and* the contract the contents satisfy — is
+**stratification, not contradiction** (a `trait` is authored *and* is the contract its
+`impl`s meet). So `temper.toml` is checked for **admissibility** (well-formed against
+the algebras, never against itself) and the contents for **conformance**; and it layers
+floor ⊕ `temper.toml` (adopt the std-lib, declare your own). The root/`.temper/` split
+is the **contract-over-contents boundary** — `temper.toml` governs the contents, the
+same relation a contract has over one artifact, one scope up (`05-model.md`) — not a
+config file sitting incidentally beside a workspace.
 
 ## Declaring a custom kind
 

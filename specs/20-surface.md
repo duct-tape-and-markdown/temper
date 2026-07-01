@@ -9,29 +9,34 @@ edits, and the write direction (`apply`) projects the surface back out. Built an
 proven for skills in slice 1; the shape generalizes to every artifact kind and
 every landscape (`30-landscapes.md`).
 
-## The surface is stratified: schema + instances
+## The surface: a contract over its contents
 
-The surface is one authored thing with **two strata**, mirroring a typed codebase:
+The surface has two parts in a **contract → contents** relation:
 
-- a **schema stratum** — `temper.toml` (kinds, roles, contracts; `40-composition.md`),
-  the types;
-- an **instance stratum** — the composed artifacts (a skill's header + body, a rule,
-  a spec), the values.
+- **`temper.toml`** (project root, top-level config) is the **contract** — the schema
+  (kinds, roles, contracts), the *types*.
+- **`.temper/`** holds the **contents** — the composed artifacts (a skill's header +
+  body, a rule, a spec), the *instances* that must **satisfy** the contract.
 
-`temper.toml` is therefore *both* a member of the surface (authored like the rest)
-*and* the contract the instances satisfy — not a contradiction but **stratification**,
-exactly as a `trait` is authored code *and* the contract its `impl`s satisfy. The two
-greens (`00-intent.md`) are the two strata's checks: **admissibility** asks whether
-the schema stratum is *well-formed* (its extractors compose valid primitives, its
-edges name real kinds, its clauses don't contradict) — a schema is never checked
-"against itself"; **conformance** asks whether the instance stratum *satisfies* the
-schema. The schema stratum is itself layered — the shipped built-in floor (the
-std-lib you adopt) ⊕ `temper.toml` (your authored types; `40-composition.md`).
+Both are authored, but they play distinct roles — `temper.toml` *is* the contract,
+`.temper/` is what satisfies it — so the root/`.temper/` split is **meaningful**, not
+incidental: the contract governs the contents. `check` is that relation:
+**conformance** (the `.temper/` contents satisfy `temper.toml`) + **admissibility**
+(`temper.toml` is itself well-formed against the algebras — never checked against
+itself). Two greens (`00-intent.md`). The contract layers — the built-in floor (the
+std-lib you adopt) ⊕ `temper.toml` (your declarations; `40-composition.md`).
 
-`author.toml` (below) belongs to **neither** stratum: it is generated
-provenance/drift state — machinery the tool writes, never a thing you compose. The
-authoring surface is `temper.toml` + the artifacts; the `.temper/` directory and
-`author.toml` are storage and ledger, not the model.
+This is the **same relation as a contract over one artifact**, one scope up: an
+artifact-scope contract governs a single artifact's features (a *type*); `temper.toml`
+governs the whole corpus (the roster/graph scopes, `05-model.md`). Contract over
+subject, self-similar — and recursively, `temper.toml` is itself a subject the
+*definition* governs (that is what admissibility checks). One engine, every layer an
+instance (`00-intent.md`).
+
+The `.temper/` **lock** (`lock.toml`, below) is **neither** the contract nor a
+contract-satisfying artifact: it is the contents' generated **state-of-record** —
+provenance + drift/apply fingerprints — the baseline `diff`/`apply` stand on, written
+by the tool, never hand-composed.
 
 ## Topology: structured-index + markdown sidecars
 
@@ -42,14 +47,13 @@ one file:
 
 - **Prose bodies stay as real `.md`**, byte-faithful and `git mv`-able.
 - **Structured headers** are written format-preserving (`toml_edit`).
-- **A roll-up index** (`author.toml`) — **generated** machinery (not authored
-  surface, above): every artifact with hashes, powering cross-artifact views and
-  drift without loading every body. Its name predates `temper` and now collides with
-  the authored `temper.toml`; a rename to reflect its generated-ledger role is open.
+- **The lock** (`lock.toml`) — the contents' generated **state-of-record** (above):
+  every artifact with its provenance + drift/apply fingerprints, the baseline
+  `diff`/`apply` compare against. The tool writes it; you never compose it.
 
 ```
 <workspace>/
-  author.toml                 # roll-up index (name, source_path, import_hash, body_hash)
+  lock.toml                   # generated state-of-record (provenance + drift fingerprints)
   skills/<name>/
     meta.toml                 # typed header + [provenance]
     SKILL.md                  # body, byte-faithful
