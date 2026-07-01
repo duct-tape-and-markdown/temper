@@ -122,6 +122,14 @@ pub struct Role {
     /// kind-wide `unique-name` engine predicate from name-only over a whole kind to
     /// an arbitrary field over a role's matched subset. Checked in [`crate::roster`].
     pub unique: Vec<String>,
+    /// An optional set-scope `membership` predicate (`specs/45-governance.md`, "The
+    /// set scope (the roster)"): a declared field `F` of every artifact matching the
+    /// role's own selector (S₁) must lie in the feature-set drawn from a *second*
+    /// matched set (S₂) — "every agent's `model` is one of the approved set." Unlike
+    /// the static field `enum`, the allowed set is corpus-*derived*. Absent ⇒ `None`
+    /// (no membership gate). Orthogonal to `count`/`unique`/`required`; checked in
+    /// [`crate::roster`].
+    pub membership: Option<Membership>,
     /// An optional external verifier for the behavioral remainder (`verified_by`).
     /// Stored verbatim; whether it *resolves* is an admissibility check left to a
     /// follow-on entry.
@@ -140,6 +148,32 @@ pub struct CountBound {
     pub min: usize,
     /// The inclusive upper bound on the matched-set size.
     pub max: usize,
+}
+
+/// A set-scope `membership` predicate over a role's matched set (S₁) — the
+/// constraint that a declared field `F` of every artifact matching the role's own
+/// selector must lie in a *corpus-derived* set, not a static `enum`
+/// (`specs/45-governance.md`, "The set scope (the roster)"). The allowed set is the
+/// `source_feature` (G) extracted over the artifacts of `source_kind` matched by
+/// `source_selector` (S₂) — "every agent's `model` is one of the approved set;" "a
+/// hook's binary is one the manifest declares." S₂ may name a different artifact
+/// kind than the role's own, so the check ranges over the whole by-kind map. The
+/// field-name and selector are stored verbatim; deciding membership lives in
+/// [`crate::roster`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Membership {
+    /// The field `F` on each S₁ filler whose extracted scalar must be a member of
+    /// the source set. A filler missing `F` carries no value to check.
+    pub field: String,
+    /// The artifact kind S₂ ranges over (`skill`, `manifest`, …). May differ from
+    /// the role's own `artifact`, so the allowed set can be drawn from another kind.
+    pub source_kind: String,
+    /// The decidable selector picking S₂'s artifacts, stored verbatim — evaluated
+    /// against the `source_kind` candidates in [`crate::roster`].
+    pub source_selector: MatchSelector,
+    /// The feature `G` whose extracted scalars over the S₂ matches form the allowed
+    /// set. A source artifact missing `G` contributes nothing to the set.
+    pub source_feature: String,
 }
 
 /// A role's contract reference: the filler's contract is either an adopted
@@ -412,6 +446,22 @@ pub enum ComposeError {
         role: String,
     },
 
+    /// A `[role.<name>]`'s `membership` declaration is malformed — not an inline
+    /// table, or missing/mistyped one of its `field`, `kind`, `feature` strings or
+    /// its `match` selector. The set-scope `membership` predicate names a field, a
+    /// source kind, a source feature, and a decidable second selector; any miss
+    /// collapses here, the way [`parse_count`] folds its malformations into one error.
+    #[error(
+        "{path}: `[role.{role}]` `membership` must be an inline table with `field`, `kind`, `feature` strings and a decidable `match` selector"
+    )]
+    #[diagnostic(code(temper::compose::role_bad_membership))]
+    RoleBadMembership {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role with the malformed `membership` declaration.
+        role: String,
+    },
+
     /// A `[role.<name>]` declares *both* `required` and a `count` bound. The two
     /// are mutually exclusive: `required` is the single-filler shorthand, `count`
     /// the general cardinality form, so declaring both is ambiguous.
@@ -611,6 +661,7 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
     let required = parse_role_required(table, role, path)?;
     let count = parse_count(table, role, path)?;
     let unique = parse_unique(table, role, path)?;
+    let membership = parse_membership(table, role, path)?;
     let verified_by = role_str(table, "verified_by", role, path)?;
 
     Ok(Role {
@@ -621,6 +672,7 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
         required,
         count,
         unique,
+        membership,
         verified_by,
     })
 }
@@ -677,6 +729,78 @@ fn parse_unique(table: &Table, role: &str, path: &Path) -> Result<Vec<String>, C
         fields.push(value.as_str().ok_or_else(bad_unique)?.to_string());
     }
     Ok(fields)
+}
+
+/// The role's optional `membership` predicate: an inline `membership = { field,
+/// kind, match, feature }` table naming the constrained field `F` (on the role's
+/// own matched set), the source artifact kind and second selector `S₂`, and the
+/// source feature `G` whose values form the allowed set (`specs/45-governance.md`,
+/// "The set scope (the roster)"). Absent ⇒ `None`. Any malformation — not a table,
+/// a missing/mistyped string, or a malformed `match` selector — collapses to
+/// [`ComposeError::RoleBadMembership`], the way [`parse_count`] folds its
+/// malformations into one error. The field names and selector are stored verbatim;
+/// deciding membership against the corpus is left to [`crate::roster`].
+fn parse_membership(
+    table: &Table,
+    role: &str,
+    path: &Path,
+) -> Result<Option<Membership>, ComposeError> {
+    let Some(item) = table.get("membership") else {
+        return Ok(None);
+    };
+    let bad = || ComposeError::RoleBadMembership {
+        path: path.to_path_buf(),
+        role: role.to_string(),
+    };
+    let membership = item.as_table_like().ok_or_else(bad)?;
+    let field = membership_str(membership, "field").ok_or_else(bad)?;
+    let source_kind = membership_str(membership, "kind").ok_or_else(bad)?;
+    let source_feature = membership_str(membership, "feature").ok_or_else(bad)?;
+    let source_selector = membership
+        .get("match")
+        .and_then(selector_from)
+        .ok_or_else(bad)?;
+    Ok(Some(Membership {
+        field,
+        source_kind,
+        source_selector,
+        source_feature,
+    }))
+}
+
+/// Read one required string key off an inline table-like (a `membership` field):
+/// present and a TOML string ⇒ `Some`, else `None` (which [`parse_membership`]
+/// reports as a single [`ComposeError::RoleBadMembership`]).
+fn membership_str(table: &dyn toml_edit::TableLike, key: &str) -> Option<String> {
+    Some(table.get(key)?.as_str()?.to_string())
+}
+
+/// Parse a [`MatchSelector`] out of a `match` item that is itself an inline table
+/// naming exactly one decidable selector (a `name` glob or a `role` marker) with a
+/// string value. Returns `None` on any malformation — not a table, zero/many keys,
+/// an unknown key, or a non-string value — so a caller can collapse it into its own
+/// error (the membership `match` folds into [`ComposeError::RoleBadMembership`]).
+/// Mirrors the closed selector set [`parse_match`] enforces for a role's own `match`.
+fn selector_from(item: &toml_edit::Item) -> Option<MatchSelector> {
+    let table = item.as_table_like()?;
+    let mut selector = None;
+    for (key, value) in table.iter() {
+        if selector.is_some() {
+            // A second selector key — `match` must name exactly one.
+            return None;
+        }
+        let pattern = value.as_str()?;
+        selector = Some(match key {
+            "name" => MatchSelector::Name {
+                glob: pattern.to_string(),
+            },
+            "role" => MatchSelector::Role {
+                marker: pattern.to_string(),
+            },
+            _ => return None,
+        });
+    }
+    selector
 }
 
 /// The role's contract reference — exactly one of a `contract` template path or
@@ -1052,6 +1176,7 @@ verified_by = "tests/plan.rs"
                 required: true,
                 count: None,
                 unique: Vec::new(),
+                membership: None,
                 verified_by: Some("tests/plan.rs".to_string()),
             }
         );
@@ -1411,6 +1536,116 @@ unique = ["model", 7]
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(err, ComposeError::RoleBadUnique { .. }));
+    }
+
+    #[test]
+    fn a_membership_clause_parses_into_a_typed_role() {
+        // The set-scope `membership` predicate: an inline `{ field, kind, match,
+        // feature }` table parses into a `Membership`, naming the constrained field
+        // F, the source kind and second selector S₂, and the source feature G.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+membership = { field = "model", kind = "manifest", match = { name = "approved-models" }, feature = "model" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert_eq!(
+            role.membership,
+            Some(Membership {
+                field: "model".to_string(),
+                source_kind: "manifest".to_string(),
+                source_selector: MatchSelector::Name {
+                    glob: "approved-models".to_string(),
+                },
+                source_feature: "model".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn a_membership_with_a_role_marker_source_selector_parses() {
+        // S₂ may select by the opt-in `role` marker just as a role's own `match`
+        // can — the selector is the same closed set.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+membership = { field = "model", kind = "skill", match = { role = "approved" }, feature = "model" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert_eq!(
+            role.membership.as_ref().unwrap().source_selector,
+            MatchSelector::Role {
+                marker: "approved".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn an_absent_membership_defaults_to_none() {
+        // `temper` never fabricates a gate the author did not declare: an absent
+        // `membership` is no gate at all.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert!(role.membership.is_none());
+    }
+
+    #[test]
+    fn a_non_table_membership_is_a_load_error() {
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+membership = "model"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleBadMembership { ref role, .. } if role == "agents"
+        ));
+    }
+
+    #[test]
+    fn a_membership_missing_a_required_key_is_a_load_error() {
+        // `feature` (the source feature G) is required — its absence collapses to
+        // `RoleBadMembership`, the way a missing `count` bound collapses to
+        // `RoleBadCount`.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+membership = { field = "model", kind = "manifest", match = { name = "approved" } }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleBadMembership { .. }));
+    }
+
+    #[test]
+    fn a_membership_with_a_malformed_source_selector_is_a_load_error() {
+        // The source `match` must name exactly one decidable selector; `path` is not
+        // in the closed set {name, role}, so the whole clause is malformed.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+membership = { field = "model", kind = "manifest", match = { path = "x" }, feature = "model" }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::RoleBadMembership { .. }));
     }
 
     #[test]

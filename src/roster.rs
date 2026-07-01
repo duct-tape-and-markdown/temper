@@ -50,11 +50,11 @@
 //! a kind the surface does not model finds zero candidates and fails — honest: an
 //! unfilled required role is a true violation, not a reason to stay silent.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use crate::check::Diagnostic;
-use crate::compose::{CountBound, MatchSelector, Role};
+use crate::compose::{CountBound, MatchSelector, Membership, Role};
 use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
@@ -79,6 +79,12 @@ const ROLE_ADMISSIBILITY_RULE: &str = "role.admissibility";
 /// `unique` predicate of the roster scope (`specs/45-governance.md`, "The set scope
 /// (the roster)"): a declared field must not repeat across a role's matched set.
 const ROLE_UNIQUE_RULE: &str = "role.unique";
+
+/// The diagnostic `rule` id every set-scope membership finding reports under — the
+/// `membership` predicate of the roster scope (`specs/45-governance.md`, "The set
+/// scope (the roster)"): a declared field of every artifact matching the role's
+/// selector (S₁) must lie in the feature-set drawn from a second matched set (S₂).
+const ROLE_MEMBERSHIP_RULE: &str = "role.membership";
 
 /// Run role match-selection over the parsed roster, returning an error-severity
 /// [`Diagnostic`] per `required` single-filler role that is filled by zero or by
@@ -135,6 +141,16 @@ pub fn check(
         // fires regardless of `count`/`required`.
         for field in &role.unique {
             diagnostics.extend(duplicates(role, field, candidates));
+        }
+
+        // The set-scope `membership` predicate (`specs/45-governance.md`, "The set
+        // scope"): each S₁ filler's declared field must lie in the corpus-derived
+        // set drawn from the second selector's matched artifacts (S₂). The S₂ kind
+        // may differ from the role's own, so the allowed set is built off the full
+        // `by_kind` map, not the role's `candidates`. Author-declared and orthogonal
+        // to `count`/`unique`/`required`, so it fires regardless of them.
+        if let Some(membership) = &role.membership {
+            diagnostics.extend(out_of_set(role, membership, candidates, by_kind));
         }
     }
     diagnostics
@@ -486,6 +502,77 @@ fn duplicate(role: &Role, field: &str, value: &str, fillers: &[&str]) -> Diagnos
     )
 }
 
+/// The set-scope `membership` findings for one role over its matched set
+/// (`specs/45-governance.md`, "The set scope"): build the allowed set from the
+/// source feature `G` extracted over the `source_kind` artifacts the second
+/// selector (S₂) matches, then emit one error per S₁ filler whose declared field-`F`
+/// scalar is absent from that set. A filler missing `F` carries no value to check,
+/// so it is silently skipped — a missing field is no violation, the way a missing
+/// `unique` field is no collision. The allowed set is corpus-*derived*, so an S₂
+/// matching no artifacts (or whose matches all lack `G`) yields the empty set, under
+/// which every valued filler is genuinely a non-member.
+///
+/// `by_kind` is the full workspace map — S₂'s `source_kind` may differ from the
+/// role's own `artifact`, so the source candidates come from the map, not the S₁
+/// `candidates`. Findings follow `candidates` order, which is name-sorted, so the
+/// set is stable across runs.
+fn out_of_set(
+    role: &Role,
+    membership: &Membership,
+    candidates: &[Features],
+    by_kind: &BTreeMap<&str, &[Features]>,
+) -> Vec<Diagnostic> {
+    let source = by_kind
+        .get(membership.source_kind.as_str())
+        .copied()
+        .unwrap_or(&[]);
+    let allowed: BTreeSet<&str> = source
+        .iter()
+        .filter(|features| matches(&membership.source_selector, features))
+        .filter_map(|features| {
+            features
+                .field(&membership.source_feature)
+                .and_then(FeatureValue::as_scalar)
+        })
+        .collect();
+
+    candidates
+        .iter()
+        .filter(|features| matches(&role.selector, features))
+        .filter_map(|features| {
+            let value = features
+                .field(&membership.field)
+                .and_then(FeatureValue::as_scalar)?;
+            if allowed.contains(value) {
+                None
+            } else {
+                Some(not_member(role, membership, features.id.as_str(), value))
+            }
+        })
+        .collect()
+}
+
+/// The finding for an S₁ filler whose declared field falls outside the S₂-derived
+/// set — naming the role, the constrained field, the source feature and kind the
+/// allowed set is drawn from, the offending filler, and the value that is not a
+/// member.
+fn not_member(role: &Role, membership: &Membership, filler: &str, value: &str) -> Diagnostic {
+    Diagnostic::error(
+        ROLE_MEMBERSHIP_RULE,
+        &role.name,
+        format!(
+            "role `{}` requires `{}` of each filler drawn from the `{}` feature of matching `{}` artifacts, but filler `{}` declares `{}` = `{}`, which is not in that set",
+            role.name,
+            membership.field,
+            membership.source_feature,
+            membership.source_kind,
+            filler,
+            membership.field,
+            value
+        ),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -789,6 +876,114 @@ mod tests {
             ],
         );
         assert!(diags.is_empty());
+    }
+
+    /// A role declaring `membership` of its fillers' `model` field in the `model`
+    /// feature drawn from `source_kind` artifacts matching `approved-*` — the
+    /// set-scope membership predicate, with a corpus-derived allowed set.
+    fn membership_role(source_kind: &str) -> Role {
+        role(
+            &format!(
+                "[role.agents]\n\
+                 artifact = \"skill\"\n\
+                 contract = \"contracts/skill.anthropic.toml\"\n\
+                 match = {{ name = \"agent-*\" }}\n\
+                 membership = {{ field = \"model\", kind = \"{source_kind}\", match = {{ name = \"approved-*\" }}, feature = \"model\" }}\n"
+            ),
+            "agents",
+        )
+    }
+
+    /// Pack a roster of one role and a multi-kind candidate map into the shapes
+    /// [`check`] takes — the membership predicate's S₂ may name a different kind, so
+    /// the source artifacts live under their own key.
+    fn run_multi(role: Role, by_kind: BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
+        let mut roles = BTreeMap::new();
+        roles.insert(role.name.clone(), role);
+        check(&roles, &by_kind)
+    }
+
+    #[test]
+    fn a_membership_fires_outside_the_derived_set_and_is_silent_inside() {
+        // S₁ (`agent-*`) and S₂ (`approved-*`) are both skills here. The allowed set
+        // is { opus, sonnet } (the `model` of the two approved skills); `agent-2`'s
+        // `gpt` is outside it, `agent-1`'s `opus` is inside.
+        let role = membership_role("skill");
+        let skills = [
+            skill_with_model("agent-1", Some("opus")),
+            skill_with_model("agent-2", Some("gpt")),
+            skill_with_model("approved-a", Some("opus")),
+            skill_with_model("approved-b", Some("sonnet")),
+        ];
+        let diags = run(role.clone(), &skills);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, ROLE_MEMBERSHIP_RULE);
+        assert_eq!(diags[0].artifact, "agents");
+        assert!(diags[0].message.contains("agent-2"));
+        assert!(diags[0].message.contains("gpt"));
+        assert!(diags[0].message.contains("model"));
+
+        // Every matched filler's `model` is drawn from the approved set ⇒ silent.
+        let clean = [
+            skill_with_model("agent-1", Some("opus")),
+            skill_with_model("agent-2", Some("sonnet")),
+            skill_with_model("approved-a", Some("opus")),
+            skill_with_model("approved-b", Some("sonnet")),
+        ];
+        assert!(run(role, &clean).is_empty());
+    }
+
+    #[test]
+    fn a_membership_draws_its_set_from_a_second_kind() {
+        // S₂ names `manifest`, a kind other than the role's own `skill` — the allowed
+        // set is built off the full by-kind map, so no signature change is needed.
+        let role = membership_role("manifest");
+        let skills = [
+            skill_with_model("agent-1", Some("opus")),
+            skill_with_model("agent-2", Some("gpt")),
+        ];
+        let manifests = [
+            skill_with_model("approved-a", Some("opus")),
+            skill_with_model("approved-b", Some("sonnet")),
+        ];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("skill", &skills[..]), ("manifest", &manifests[..])]);
+        let diags = run_multi(role, by_kind);
+        // Only `agent-2` (`gpt`) is outside the manifest-derived { opus, sonnet }.
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_MEMBERSHIP_RULE);
+        assert!(diags[0].message.contains("agent-2"));
+        assert!(diags[0].message.contains("manifest"));
+    }
+
+    #[test]
+    fn a_membership_filler_missing_the_field_is_skipped() {
+        // `agent-2` declares no `model`, so it carries no value to check — a missing
+        // field is no membership violation. `agent-1`'s `opus` is in the set, so the
+        // run is clean.
+        let role = membership_role("skill");
+        let skills = [
+            skill_with_model("agent-1", Some("opus")),
+            skill_with_model("agent-2", None),
+            skill_with_model("approved-a", Some("opus")),
+        ];
+        assert!(run(role, &skills).is_empty());
+    }
+
+    #[test]
+    fn a_membership_with_an_empty_source_set_flags_every_valued_filler() {
+        // S₂ (`approved-*`) matches nothing, so the derived set is empty — every
+        // matched filler that declares `model` is genuinely a non-member, a true
+        // positive over the corpus-derived set.
+        let role = membership_role("skill");
+        let skills = [
+            skill_with_model("agent-1", Some("opus")),
+            skill_with_model("agent-2", Some("sonnet")),
+        ];
+        let diags = run(role, &skills);
+        assert_eq!(diags.len(), 2);
+        assert!(diags.iter().all(|d| d.rule == ROLE_MEMBERSHIP_RULE));
     }
 
     /// A role carrying an inline `max_len` contract on `name`, capped at `max`.

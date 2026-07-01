@@ -467,6 +467,90 @@ fn a_roster_whose_selectors_templates_and_verifiers_all_resolve_passes() {
     );
 }
 
+// ---- set scope: the `membership` roster predicate --------------------------
+
+/// A floor-clean skill named `name` carrying a `model:` frontmatter field — the
+/// field the `membership` predicate constrains on a filler and the source feature
+/// it draws the allowed set from. `model` is not a floor-forbidden key, so the
+/// skill stays clean and the only finding a case can produce is the membership one.
+fn model_skill(name: &str, model: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         model: {model}\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// A `temper.toml` whose `agents` role constrains each `agent-*` filler's `model`
+/// to the `model` feature drawn from the `approved-*` skills (S₂) — the set-scope
+/// `membership` predicate, with a corpus-derived allowed set. The inline `max_len`
+/// contract is generous so the roster passes admissibility and conformance, leaving
+/// membership the only gate these cases exercise.
+fn membership_role_toml() -> &'static str {
+    "[role.agents]\n\
+     artifact = \"skill\"\n\
+     match = { name = \"agent-*\" }\n\
+     membership = { field = \"model\", kind = \"skill\", match = { name = \"approved-*\" }, feature = \"model\" }\n\
+     [[role.agents.clause]]\n\
+     severity = \"required\"\n\
+     predicate = \"max_len\"\n\
+     field = \"name\"\n\
+     max = 64\n"
+}
+
+#[test]
+fn a_membership_role_fires_when_a_filler_is_outside_the_derived_set() {
+    let root = tmpdir("membership-bad");
+    // The approved set draws `{ opus }` from the lone `approved-*` skill; the
+    // `agent-gpt` filler declares `gpt`, which is not in it.
+    import_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
+    import_skill(
+        &root,
+        "approved-opus",
+        &model_skill("approved-opus", "opus"),
+    );
+    write_temper_toml(&root, membership_role_toml());
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a filler whose field falls outside the S₂-derived set must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("agents")
+            && run.output.contains("agent-gpt")
+            && run.output.contains("gpt"),
+        "the finding names the role, the offending filler, and the non-member value, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_membership_role_is_clean_when_every_filler_is_a_member() {
+    let root = tmpdir("membership-ok");
+    // The `agent-opus` filler's `model` is drawn from the approved set `{ opus }`,
+    // so membership is satisfied and the whole run is clean.
+    import_skill(&root, "agent-opus", &model_skill("agent-opus", "opus"));
+    import_skill(
+        &root,
+        "approved-opus",
+        &model_skill("approved-opus", "opus"),
+    );
+    write_temper_toml(&root, membership_role_toml());
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "every filler drawn from the derived set passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
 #[test]
 fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     let root = tmpdir("no-roster");
