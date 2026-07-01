@@ -32,7 +32,6 @@ use std::path::{Path, PathBuf};
 use gray_matter::Pod;
 use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use sha2::{Digest, Sha256};
 use toml_edit::{Array, DocumentMut, Item, Table, Value, value};
 
 /// The frontmatter keys projected to typed fields. Everything else is an
@@ -157,7 +156,7 @@ impl Rule {
             path: path.to_path_buf(),
             source,
         })?;
-        let import_hash = sha256_hex(&bytes);
+        let import_hash = crate::hash::sha256_hex(&bytes);
         let raw = String::from_utf8(bytes).map_err(|source| RuleError::NotUtf8 {
             path: path.to_path_buf(),
             source,
@@ -352,17 +351,6 @@ impl Rule {
 
         doc
     }
-}
-
-/// Lowercase hex SHA-256 of `bytes`.
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 /// Split a source `.md` file into its YAML frontmatter block and a byte-faithful

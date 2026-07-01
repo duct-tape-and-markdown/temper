@@ -24,6 +24,7 @@ pub mod drift;
 pub mod engine;
 pub mod extract;
 pub mod graph;
+pub(crate) mod hash;
 pub mod import;
 pub mod install;
 pub mod kind;

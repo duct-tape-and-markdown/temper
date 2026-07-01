@@ -46,7 +46,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use sha2::{Digest, Sha256};
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::compose::{AuthorLayer, CustomKind, Governs};
@@ -416,7 +415,7 @@ fn import_custom_unit(
         path: source_file.to_path_buf(),
         source,
     })?;
-    let import_hash = sha256_hex(&bytes);
+    let import_hash = crate::hash::sha256_hex(&bytes);
     let body = String::from_utf8(bytes).map_err(|source| ImportError::NotUtf8 {
         path: source_file.to_path_buf(),
         source,
@@ -480,8 +479,8 @@ fn provenance_document(source_path: &Path, import_hash: &str) -> DocumentMut {
 /// empty)" and every other character literally — the minimal in-crate wildcard a
 /// `governs` glob needs (`*.md`), short of pulling in a glob crate for one
 /// metacharacter. Mirrors the `name`-selector matcher in [`crate::roster`]; kept
-/// local so `import` stays self-contained, the way each module carries its own
-/// `sha256_hex` (`.claude/rules/rust.md`). A standard linear matcher with
+/// local so `import` stays self-contained (`.claude/rules/rust.md`). A standard
+/// linear matcher with
 /// single-star backtracking: on a mismatch it falls back to the most recent `*`,
 /// extending what that star consumed by one character.
 fn glob_matches(glob: &str, name: &str) -> bool {
@@ -584,17 +583,6 @@ fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), ImportError> {
         path: path.to_path_buf(),
         source,
     })
-}
-
-/// Lowercase hex SHA-256 of `bytes`.
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 #[cfg(test)]

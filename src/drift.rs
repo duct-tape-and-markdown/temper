@@ -76,10 +76,10 @@ use std::path::{Path, PathBuf};
 use gray_matter::Pod;
 use gray_matter::engine::{Engine, YAML};
 use serde_json::Value as JsonValue;
-use sha2::{Digest, Sha256};
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::check::Workspace;
+use crate::hash::sha256_hex;
 use crate::import;
 use crate::rule::Rule;
 use crate::skill::Skill;
@@ -314,19 +314,6 @@ pub fn render(report: &DriftReport) -> String {
         ));
     }
     out
-}
-
-/// Lowercase hex SHA-256 of `bytes` — the same digest `import` anchors provenance
-/// with, recomputed here over the live source to detect drift. Duplicated per the
-/// one-helper-per-module convention (`.claude/rules/rust.md`).
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 // ---------------------------------------------------------------------------

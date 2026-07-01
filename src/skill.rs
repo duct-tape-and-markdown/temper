@@ -21,7 +21,6 @@ use std::path::{Path, PathBuf};
 use gray_matter::Pod;
 use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use sha2::{Digest, Sha256};
 use toml_edit::{DocumentMut, Item, Table, Value, value};
 use walkdir::WalkDir;
 
@@ -150,7 +149,7 @@ impl Skill {
             path: source_path.clone(),
             source,
         })?;
-        let import_hash = sha256_hex(&bytes);
+        let import_hash = crate::hash::sha256_hex(&bytes);
         let raw = String::from_utf8(bytes).map_err(|source| SkillError::NotUtf8 {
             path: source_path.clone(),
             source,
@@ -344,17 +343,6 @@ impl Skill {
 
         doc
     }
-}
-
-/// Lowercase hex SHA-256 of `bytes`.
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 /// Split a source `SKILL.md` into its YAML frontmatter block and a byte-faithful
