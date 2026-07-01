@@ -87,7 +87,8 @@ impl DriftState {
 /// which state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DriftEntry {
-    /// The artifact kind — `"skill"`, `"rule"`, or `"spec"`.
+    /// The artifact kind — `"skill"` or `"rule"`. Only the built-in kinds have a
+    /// drift axis today; generic custom-kind drift is future work alongside `apply`.
     pub kind: &'static str,
     /// The artifact name (its surface name for a known artifact, or the name the
     /// path structurally implies for an `added` one).
@@ -151,18 +152,6 @@ pub fn diff(workspace: &Workspace, harness: &Path) -> miette::Result<DriftReport
     let rules_on_disk = import::discover_rule_files(harness)?;
     entries.extend(classify("rule", &rules, &rules_on_disk)?);
 
-    let specs = workspace
-        .specs
-        .iter()
-        .map(|spec| SurfaceArtifact {
-            name: spec.name.clone(),
-            source_path: spec.provenance.source_path.clone(),
-            import_hash: spec.provenance.import_hash.clone(),
-        })
-        .collect::<Vec<_>>();
-    let specs_on_disk = import::discover_spec_files(harness)?;
-    entries.extend(classify("spec", &specs, &specs_on_disk)?);
-
     Ok(DriftReport { entries })
 }
 
@@ -216,9 +205,9 @@ fn classify(
 }
 
 /// Derive a display name for an `added` source the surface has not parsed: a
-/// skill is named by its directory (the `SKILL.md`'s parent), a rule or spec by
-/// its file stem. A scan, not a parse — the structural name, not the frontmatter
-/// one (which only a full read would yield).
+/// skill is named by its directory (the `SKILL.md`'s parent), a rule by its file
+/// stem. A scan, not a parse — the structural name, not the frontmatter one
+/// (which only a full read would yield).
 fn added_name(kind: &str, source_path: &Path) -> String {
     let component = if kind == "skill" {
         source_path.parent().and_then(Path::file_name)

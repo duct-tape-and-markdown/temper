@@ -172,10 +172,10 @@ impl Unit {
     ///
     /// This is the **generic** inverse of that projection — keyed on the surface
     /// shape every custom kind shares (`meta.toml` + a lone body file), not on any
-    /// one kind's IR. It is the reader `check`'s custom-kind path uses in place of
-    /// the built-in [`Spec::from_surface_dir`](crate::spec::Spec::from_surface_dir),
-    /// so a custom kind rooted at *any* `governs.root` — not just `specs/` — is read
-    /// (`specs/40-composition.md`, "Declaring a custom kind").
+    /// one kind's IR. It is the sole reader `check`'s custom-kind path uses — there
+    /// is no bespoke per-kind loader (the built-in `spec` IR that once had one is
+    /// retired) — so a custom kind rooted at *any* `governs.root`, not just `specs/`,
+    /// is read (`specs/40-composition.md`, "Declaring a custom kind").
     ///
     /// The body file is found by extension, not by the kind's own upper-cased name,
     /// so one reader serves every custom kind. Frontmatter is left empty: a custom

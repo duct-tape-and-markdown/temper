@@ -27,19 +27,19 @@ use miette::{GraphicalReportHandler, LabeledSpan, SourceSpan};
 
 use crate::rule::{Rule as RuleArtifact, RuleError};
 use crate::skill::{Skill, SkillError};
-use crate::spec::{Spec, SpecError};
 
-/// The loaded config surface: every artifact `check` lints. Carries skills,
-/// rules, and specs; later artifact kinds (hooks, agents, …) extend this struct
-/// so a cross-artifact [`Rule`] can reach the whole harness at once.
+/// The loaded config surface: every built-in artifact `check` lints. Carries the
+/// skills and rules; later built-in artifact kinds (hooks, agents, …) extend this
+/// struct so a cross-artifact [`Rule`] can reach the whole harness at once. Custom
+/// project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are read
+/// generically through [`Unit::from_surface_dir`](crate::kind::Unit::from_surface_dir),
+/// not materialized as a field here.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Workspace {
     /// The skills reconstructed from `<workspace>/skills/<name>/`.
     pub skills: Vec<Skill>,
     /// The rules reconstructed from `<workspace>/rules/<name>/`.
     pub rules: Vec<RuleArtifact>,
-    /// The specs reconstructed from `<workspace>/specs/<name>/`.
-    pub specs: Vec<Spec>,
 }
 
 impl Workspace {
@@ -62,16 +62,7 @@ impl Workspace {
             rules.push(RuleArtifact::from_surface_dir(rule_dir)?);
         }
 
-        let mut specs = Vec::new();
-        for spec_dir in &surface_dirs(&dir.join("specs"))? {
-            specs.push(Spec::from_surface_dir(spec_dir)?);
-        }
-
-        Ok(Self {
-            skills,
-            rules,
-            specs,
-        })
+        Ok(Self { skills, rules })
     }
 }
 
@@ -106,8 +97,8 @@ fn surface_dirs(root: &Path) -> Result<Vec<PathBuf>, WorkspaceError> {
 /// unreadable or malformed) — not a lint finding, which is a [`Diagnostic`].
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum WorkspaceError {
-    /// A workspace artifact directory (`skills/`, `rules/`, `specs/`) could not
-    /// be enumerated.
+    /// A workspace artifact directory (`skills/`, `rules/`) could not be
+    /// enumerated.
     #[error("failed to read workspace directory {path}")]
     #[diagnostic(code(temper::check::read_dir))]
     ReadDir {
@@ -127,11 +118,6 @@ pub enum WorkspaceError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Rule(#[from] RuleError),
-
-    /// A spec surface under the workspace could not be reconstructed.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Spec(#[from] SpecError),
 }
 
 /// The severity of a [`Diagnostic`]. Only `error` raises the process exit code;
@@ -344,20 +330,6 @@ Prefer a clone.\n";
         fs::write(dir.join("RULE.md"), &rule.body).unwrap();
     }
 
-    /// Write a one-spec surface (`meta.toml` + body) under `<ws>/specs/<name>/`,
-    /// projecting it from a source `<name>.md` exactly as `import` would.
-    fn write_surface_spec(ws: &Path, name: &str, spec_md: &str) {
-        let src = tmpdir(&format!("spec-src-{name}"));
-        let path = src.join(format!("{name}.md"));
-        fs::write(&path, spec_md).unwrap();
-        let spec = Spec::from_source_file(&path).unwrap();
-
-        let dir = ws.join("specs").join(name);
-        fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("meta.toml"), spec.to_meta_document().to_string()).unwrap();
-        fs::write(dir.join("SPEC.md"), &spec.body).unwrap();
-    }
-
     /// A rule that fires one error per skill — an injectable stand-in proving the
     /// runner wires arbitrary rules to the loaded workspace.
     struct OneErrorPerSkill;
@@ -404,34 +376,6 @@ Prefer a clone.\n";
     }
 
     #[test]
-    fn load_reconstructs_specs_sorted_alongside_skills_and_rules() {
-        let ws = tmpdir("load-specs");
-        write_surface_skill(&ws, "demo", DEMO);
-        write_surface_rule(&ws, "rust", RULE_SRC);
-        // A spec is pure prose; the `---` line is body content, not frontmatter.
-        write_surface_spec(&ws, "20-surface", "# Surface\n\n---\n\nProse.\n");
-        write_surface_spec(&ws, "00-intent", "# Intent\n\nThe north star.\n");
-
-        let loaded = Workspace::load(&ws).unwrap();
-
-        // Skills and rules load as before, and specs load name-sorted beside them.
-        assert_eq!(loaded.skills.len(), 1);
-        assert_eq!(loaded.rules.len(), 1);
-        let spec_names: Vec<&str> = loaded.specs.iter().map(|s| s.name.as_str()).collect();
-        assert_eq!(spec_names, vec!["00-intent", "20-surface"]);
-        // The body is byte-faithful — the `---` survives as prose, not a split.
-        assert_eq!(loaded.specs[1].body, "# Surface\n\n---\n\nProse.\n");
-    }
-
-    #[test]
-    fn load_of_a_workspace_without_specs_dir_is_empty() {
-        let ws = tmpdir("nospecs");
-        write_surface_skill(&ws, "demo", DEMO);
-        let loaded = Workspace::load(&ws).unwrap();
-        assert!(loaded.specs.is_empty());
-    }
-
-    #[test]
     fn load_skips_non_skill_dirs_and_returns_skills_sorted() {
         let ws = tmpdir("sorted");
         write_surface_skill(&ws, "bravo", DEMO);
@@ -458,7 +402,6 @@ Prefer a clone.\n";
         let ws = Workspace {
             skills: Vec::new(),
             rules: Vec::new(),
-            specs: Vec::new(),
         };
         let rules: Vec<Box<dyn Rule>> = Vec::new();
         assert!(run(&ws, &rules).is_empty());

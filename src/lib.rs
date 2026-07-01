@@ -27,4 +27,3 @@ pub mod kind;
 pub mod roster;
 pub mod rule;
 pub mod skill;
-pub mod spec;

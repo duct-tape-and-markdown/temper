@@ -29,7 +29,6 @@ use serde_json::Value as JsonValue;
 
 use crate::rule::Rule;
 use crate::skill::Skill;
-use crate::spec::Spec;
 
 /// A field's parsed source kind — the closed scalar/container lattice the `type`
 /// primitive ranges over (`specs/10-contracts.md`, "Decision: the `type`
@@ -265,26 +264,6 @@ pub fn rule_features(rule: &Rule) -> Features {
         body_lines: body_line_count(&rule.body),
         headings: body_headings(&rule.body),
         source_dir: source_dir_name(&rule.provenance.source_path),
-        companions: Vec::new(),
-    }
-}
-
-/// Project a [`Spec`] into its [`Features`]. The read-side the `spec` custom kind's
-/// contract validates (`specs/15-kinds.md`, "Worked example: `spec`, temper's own
-/// custom kind"). A spec is pure prose (`90-spec-system.md`): no frontmatter, so no
-/// `fields`; no sidecars, so no `companions`. Only the surface-decidable trio a spec
-/// contract reads is projected — its id (the file stem), `body_lines` for the
-/// `max_lines` advisory, and the ATX `headings` over which `## Decision` blocks and
-/// section requirements are decided — plus the `source_dir` it was discovered under,
-/// uniform with skills and rules.
-#[must_use]
-pub fn spec_features(spec: &Spec) -> Features {
-    Features {
-        id: spec.name.clone(),
-        fields: BTreeMap::new(),
-        body_lines: body_line_count(&spec.body),
-        headings: body_headings(&spec.body),
-        source_dir: source_dir_name(&spec.provenance.source_path),
         companions: Vec::new(),
     }
 }
@@ -788,60 +767,5 @@ Just a paragraph, no headings at all.\n",
         assert!(features.field("paths").is_none());
         assert!(features.fields.is_empty());
         assert_eq!(features.body_lines, 3);
-    }
-
-    /// Parse a spec from a file `<parent>/specs/<stem>.md`, so the spec name is the
-    /// stem and `source_dir` is the discovered `specs` folder.
-    fn spec_in(parent: &std::path::Path, stem: &str, spec_md: &str) -> crate::spec::Spec {
-        let specs_dir = parent.join("specs");
-        fs::create_dir_all(&specs_dir).unwrap();
-        let path = specs_dir.join(format!("{stem}.md"));
-        fs::write(&path, spec_md).unwrap();
-        crate::spec::Spec::from_source_file(&path).unwrap()
-    }
-
-    #[test]
-    fn spec_features_expose_id_body_lines_headings_and_source_dir() {
-        let parent = tmpdir("spec");
-        // A spec is pure prose: no frontmatter. A leading `---` is body content
-        // here, and a `#` inside a fenced block is not a heading.
-        let spec = spec_in(
-            &parent,
-            "15-kinds",
-            "# Kinds\n\
-\n\
-## Decision: extraction is a closed algebra\n\
-\n\
-```text\n\
-# not a heading, just a fenced line\n\
-```\n\
-\n\
-## Worked example ##\n",
-        );
-
-        let features = spec_features(&spec);
-
-        // The artifact id is the spec name (file stem).
-        assert_eq!(features.id, "15-kinds");
-
-        // The body line count, and the folder the spec was discovered under.
-        assert_eq!(features.body_lines, 9);
-        assert_eq!(features.source_dir.as_deref(), Some("specs"));
-
-        // ATX headings are exposed in order, skipping the fenced `#` line, with a
-        // closing `#` run trimmed — the read-side `## Decision` blocks decide over.
-        assert_eq!(
-            features.headings,
-            vec![
-                "Kinds".to_string(),
-                "Decision: extraction is a closed algebra".to_string(),
-                "Worked example".to_string(),
-            ]
-        );
-
-        // A spec carries no frontmatter and no sidecars, so neither fields nor
-        // companions are ever projected.
-        assert!(features.fields.is_empty());
-        assert!(features.companions.is_empty());
     }
 }

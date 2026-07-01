@@ -244,39 +244,6 @@ pub(crate) fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, Import
     Ok(files)
 }
 
-/// Find the spec source files under `<harness>/specs/`: every immediate `*.md`
-/// child. Non-markdown files and subdirectories are skipped. The root is plain
-/// `specs/` (no `.claude/` prefix) — a spec is temper's own custom kind, sourced
-/// from its evergreen corpus (`90-spec-system.md`), not a Claude Code artifact.
-///
-/// `pub(crate)` for the same reason as [`discover_skill_dirs`]: drift re-scans
-/// the harness through the identical discovery the import used.
-pub(crate) fn discover_spec_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
-    let specs_root = harness.join("specs");
-    if !specs_root.is_dir() {
-        return Ok(Vec::new());
-    }
-
-    let listing = fs::read_dir(&specs_root).map_err(|source| ImportError::ReadDir {
-        path: specs_root.clone(),
-        source,
-    })?;
-    let mut files = Vec::new();
-    for entry in listing {
-        let entry = entry.map_err(|source| ImportError::ReadDir {
-            path: specs_root.clone(),
-            source,
-        })?;
-        let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
-            files.push(path);
-        }
-    }
-    // `read_dir` order is unspecified; sort for deterministic processing.
-    files.sort();
-    Ok(files)
-}
-
 /// Read one source skill and write its surface tree under `<into>/skills/<name>/`,
 /// returning the roll-up row for the index.
 fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
@@ -899,11 +866,12 @@ primitive = \"headings\"\n";
             SURFACE_SPEC
         );
 
-        // The generic custom-unit surface round-trips back through the spec IR
-        // (provenance only) — byte-identical to the old hardwired projection.
-        let reloaded = crate::spec::Spec::from_surface_dir(&surface).unwrap();
-        assert_eq!(reloaded.name, "20-surface");
-        assert_eq!(reloaded.body, SURFACE_SPEC);
+        // The generic custom-unit surface round-trips back through the generic
+        // unit loader (`crate::kind::Unit`) — a custom kind carries no bespoke IR,
+        // so `import`'s output is read by the same reader `check` uses.
+        let unit = crate::kind::Unit::from_surface_dir(&surface).unwrap();
+        assert_eq!(unit.id, "20-surface");
+        assert_eq!(unit.body, SURFACE_SPEC);
 
         // The roll-up carries a `[[spec]]` row per spec, name-sorted, alongside
         // the skill and rule rows — all three kinds coexist in one import. The
