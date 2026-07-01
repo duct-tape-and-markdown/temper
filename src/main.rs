@@ -17,7 +17,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
@@ -79,6 +79,11 @@ enum Command {
         /// `required` ones — the strict CI policy from `specs/10-contracts.md`.
         #[arg(long)]
         deny_advisories: bool,
+        /// The machine format for the diagnostic set (`specs/50-distribution.md`,
+        /// "Outward seams — Reporters"). Reporters reshape presentation only — the
+        /// exit-code verdict is identical whichever is chosen.
+        #[arg(long, value_enum, default_value_t = Reporter::Terminal)]
+        reporter: Reporter,
     },
     /// Emit the active per-kind contract as an editor JSON Schema (the keystroke
     /// gate — `specs/50-distribution.md`, "The gate at keystroke").
@@ -136,6 +141,21 @@ enum Command {
     },
 }
 
+/// The machine format `check` renders its diagnostic set in — the reporter family
+/// of `specs/50-distribution.md` ("Outward seams — Reporters"), one contract, many
+/// placements. Every variant reshapes *presentation only*; none re-judges the
+/// harness, so the exit-code verdict is identical across all three.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum Reporter {
+    /// The default: miette's graphical terminal render ([`check::render`]).
+    Terminal,
+    /// GitHub Actions `::error`/`::warning::` workflow-command annotations, inline
+    /// on the PR ([`reporter::github`]).
+    Github,
+    /// A SARIF 2.1.0 log for code-scanning ingestion ([`reporter::sarif`]).
+    Sarif,
+}
+
 fn main() -> miette::Result<ExitCode> {
     match Cli::parse().command {
         Command::Import { harness_path, into } => {
@@ -145,11 +165,19 @@ fn main() -> miette::Result<ExitCode> {
         Command::Check {
             workspace,
             deny_advisories,
+            reporter,
         } => {
             let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
             let diagnostics = gate(&workspace, Path::new(TEMPER_TOML))?;
 
-            print!("{}", check::render(&diagnostics));
+            // Reporters reshape presentation only — the same diagnostic set, a
+            // different machine format (`specs/50-distribution.md`, "Outward seams
+            // — Reporters"). The exit-code gate below is untouched by the choice.
+            match reporter {
+                Reporter::Terminal => print!("{}", check::render(&diagnostics)),
+                Reporter::Github => print!("{}", reporter::github(&diagnostics)),
+                Reporter::Sarif => println!("{}", reporter::sarif(&diagnostics)),
+            }
 
             // A `required` violation always fails the run; `--deny-advisories`
             // additionally promotes `advisory` (warn) violations to blocking.

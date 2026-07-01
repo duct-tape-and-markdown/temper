@@ -1,10 +1,21 @@
-//! The `claude-session-start` reporter — the gate's session-start placement.
+//! The reporter family — the gate's machine-format placements.
 //!
-//! Implements the `claude-session-start` reporter of `specs/50-distribution.md`
-//! ("Decision: the session-start gate is advisory, not blocking"; "Outward seams
-//! — Reporters"): one member of the reporter family that serializes the same
-//! merged diagnostic set every placement carries, here into the JSON payload a
-//! Claude Code `SessionStart` hook writes to stdout.
+//! Implements the reporters of `specs/50-distribution.md` ("Outward seams —
+//! Reporters"): **one reporter family, every placement**. Each member serializes
+//! the same merged `check::Diagnostic` set into a different machine format — it
+//! never re-judges the harness, so the gate's verdict is identical whichever
+//! reporter renders it:
+//!
+//! - [`github`] — GitHub Actions `::error`/`::warning::` workflow-command lines,
+//!   one per finding, so findings land as annotations inline on the PR;
+//! - [`sarif`] — a SARIF 2.1.0 log for code-scanning, so findings land in the
+//!   team's security review surface;
+//! - [`session_start`] — the `claude-session-start` reporter, the JSON payload a
+//!   Claude Code `SessionStart` hook writes to stdout (the gate above).
+//!
+//! Every member is built through `serde_json` (SARIF and the hook payload) or
+//! precise workflow-command escaping (`github`), so the output is well-formed by
+//! construction — the binary owns the output contract, no hand-escaping.
 //!
 //! The gate is **advisory, never blocking**. `SessionStart` cannot block, and a
 //! hostile gate gets disabled (law 3's UX-door failure mode), so the reporter
@@ -109,6 +120,108 @@ fn cap(text: &str) -> String {
     // Reserve one character for the ellipsis so the result is exactly the cap.
     let head: String = text.chars().take(ADDITIONAL_CONTEXT_CAP - 1).collect();
     format!("{head}…")
+}
+
+/// The SARIF version this reporter emits (`specs/50-distribution.md`, "Outward
+/// seams — Reporters": SARIF for code-scanning). 2.1.0 is the OASIS standard
+/// GitHub code-scanning and the wider ecosystem ingest.
+const SARIF_VERSION: &str = "2.1.0";
+
+/// Render the diagnostic set as GitHub Actions workflow-command lines — one
+/// `::error` / `::warning::` annotation per finding, so findings surface inline on
+/// the PR (`specs/50-distribution.md`, "Outward seams — Reporters").
+///
+/// Each line carries the rule as the annotation `title=` and the finding message
+/// as the command body; the [`Severity`] picks the command (`error` / `warning`).
+/// Data and property values are escaped per GitHub's workflow-command rules
+/// ([`escape_data`] / [`escape_property`]) so a message containing a newline,
+/// `%`, `:`, or `,` can never break out of its line. Purely a presentation of the
+/// shared diagnostic set — it re-judges nothing, so the gate's verdict is
+/// untouched.
+#[must_use]
+pub fn github(diagnostics: &[Diagnostic]) -> String {
+    let mut out = String::new();
+    for diagnostic in diagnostics {
+        let command = match diagnostic.severity {
+            Severity::Error => "error",
+            Severity::Warn => "warning",
+        };
+        // `title=` carries the rule (escaped as a property value); the artifact
+        // rides the body so the annotation names what it is about, then the
+        // message (both escaped as command data).
+        out.push_str(&format!(
+            "::{command} title={}::{}: {}\n",
+            escape_property(&diagnostic.rule),
+            escape_data(&diagnostic.artifact),
+            escape_data(&diagnostic.message),
+        ));
+    }
+    out
+}
+
+/// Render the diagnostic set as a SARIF 2.1.0 log for code-scanning ingestion
+/// (`specs/50-distribution.md`, "Outward seams — Reporters"): one run, driver
+/// `temper`, one `results` entry per diagnostic.
+///
+/// Each result maps the rule to `ruleId`, the message to `message.text`, the
+/// [`Severity`] to `level` (`error` / `warning`), and the artifact to a
+/// `locations` `artifactLocation.uri`. Built through `serde_json`, so every field
+/// is escaped correctly and the log is valid JSON by construction. Purely a
+/// presentation of the shared diagnostic set — it re-judges nothing, so the gate's
+/// verdict is untouched.
+#[must_use]
+pub fn sarif(diagnostics: &[Diagnostic]) -> String {
+    let results: Vec<serde_json::Value> = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            let level = match diagnostic.severity {
+                Severity::Error => "error",
+                Severity::Warn => "warning",
+            };
+            json!({
+                "ruleId": diagnostic.rule,
+                "level": level,
+                "message": { "text": diagnostic.message },
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": { "uri": diagnostic.artifact }
+                    }
+                }]
+            })
+        })
+        .collect();
+
+    let log = json!({
+        "version": SARIF_VERSION,
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "temper",
+                    "informationUri": "https://github.com/temper",
+                    "version": crate::VERSION,
+                }
+            },
+            "results": results,
+        }]
+    });
+    log.to_string()
+}
+
+/// Escape a string for use as GitHub workflow-command **data** (the message body
+/// after `::`). Per GitHub's rules, `%`, carriage return, and newline must be
+/// percent-encoded so multi-line data cannot spill past its command line.
+fn escape_data(text: &str) -> String {
+    text.replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
+}
+
+/// Escape a string for use as a GitHub workflow-command **property** value (e.g.
+/// `title=`). A property additionally escapes `:` and `,` — the command's
+/// property delimiters — on top of the data escapes.
+fn escape_property(text: &str) -> String {
+    escape_data(text).replace(':', "%3A").replace(',', "%2C")
 }
 
 #[cfg(test)]
