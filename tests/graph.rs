@@ -315,24 +315,19 @@ fn a_cyclic_reference_graph_fails_the_run() {
 }
 
 /// A `temper.toml` declaring the `rule → skill` `routes_to` edge plus the `gate`
-/// requirement carrying a `degree` bound (`clause`), over an inline `required`-`name`
-/// contract so the requirement is admissible and its satisfier conforms — the only
-/// finding a case can produce is the degree one. `art` picks which kind the bound's
-/// satisfier nodes come from; the node opts in via `satisfies = ["gate"]` (the case
-/// authors that with [`author_satisfies`]). `field` is the inline clause's required
-/// field (a `name` for a skill, a `routes_to` for the routing rule).
-fn degree_temper_toml(art: &str, field: &str, clause: &str) -> String {
+/// requirement carrying a `degree` bound (`clause`). The requirement binds no package —
+/// the degree check reads the edge graph, not a contract — so the only finding a case
+/// can produce is the degree one. `art` picks which kind the bound's satisfier nodes
+/// come from; the node opts in via `satisfies = ["gate"]` (the case authors that with
+/// [`author_satisfies`]).
+fn degree_temper_toml(art: &str, clause: &str) -> String {
     format!(
         "[[kind.rule.relationships]]\n\
          field = \"routes_to\"\n\
          to = \"skill\"\n\
          [requirement.gate]\n\
          kind = \"{art}\"\n\
-         degree = {{ {clause} }}\n\
-         [[requirement.gate.clause]]\n\
-         severity = \"required\"\n\
-         predicate = \"required\"\n\
-         field = \"{field}\"\n"
+         degree = {{ {clause} }}\n"
     )
 }
 
@@ -354,7 +349,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     author_satisfies(&root, "skills", "standards", &["gate"]);
     write_temper_toml(
         &root,
-        &degree_temper_toml("skill", "name", "incoming = { max = 0 }"),
+        &degree_temper_toml("skill", "incoming = { max = 0 }"),
     );
 
     let run = check_in(&root);
@@ -387,10 +382,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
     );
     // The rule `style` opts into `gate`, so the bound ranges over it.
     author_satisfies(&root, "rules", "style", &["gate"]);
-    write_temper_toml(
-        &root,
-        &degree_temper_toml("rule", "routes_to", "incoming = { max = 0 }"),
-    );
+    write_temper_toml(&root, &degree_temper_toml("rule", "incoming = { max = 0 }"));
 
     let run = check_in(&root);
     assert!(
@@ -416,7 +408,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
     author_satisfies(&root, "skills", "standards", &["gate"]);
     write_temper_toml(
         &root,
-        &degree_temper_toml("skill", "name", "incoming = { min = 1 }"),
+        &degree_temper_toml("skill", "incoming = { min = 1 }"),
     );
 
     let run = check_in(&root);
@@ -442,10 +434,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
     );
     // The rule `style` opts into `gate`, so the routed bound ranges over it.
     author_satisfies(&root, "rules", "style", &["gate"]);
-    write_temper_toml(
-        &root,
-        &degree_temper_toml("rule", "routes_to", "incoming = { min = 1 }"),
-    );
+    write_temper_toml(&root, &degree_temper_toml("rule", "incoming = { min = 1 }"));
 
     let run = check_in(&root);
     assert!(

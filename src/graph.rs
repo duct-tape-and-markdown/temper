@@ -864,19 +864,15 @@ mod tests {
     }
 
     /// A requirement whose satisfier nodes are the skills opting into `gate`, declaring
-    /// a `degree` bound `clause` (an inline `{ … }` body), over an inline contract so
-    /// it is admissible. The graph the degree check ranges over is the caller's
-    /// `edges`/`by_kind`; the satisfier nodes are the skills whose `satisfies` names
-    /// `gate`.
+    /// a `degree` bound `clause` (an inline `{ … }` body). The graph the degree check
+    /// ranges over is the caller's `edges`/`by_kind`; the satisfier nodes are the skills
+    /// whose `satisfies` names `gate`. No `package` is needed — the degree check reads
+    /// the edge graph, not a contract.
     fn degree_requirement(clause: &str) -> BTreeMap<String, crate::compose::Requirement> {
         requirements(&format!(
             "[requirement.gate]\n\
              kind = \"skill\"\n\
-             degree = {{ {clause} }}\n\
-             [[requirement.gate.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"required\"\n\
-             field = \"name\"\n"
+             degree = {{ {clause} }}\n"
         ))
     }
 
@@ -960,11 +956,7 @@ mod tests {
         let requirements = requirements(
             "[requirement.gate]\n\
              kind = \"rule\"\n\
-             degree = { outgoing = { max = 0 } }\n\
-             [[requirement.gate.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"required\"\n\
-             field = \"routes_to\"\n",
+             degree = { outgoing = { max = 0 } }\n",
         );
         let edges = [routes_to_edge()];
         let rules = [satisfying(node("style", Some("standards")), "gate")];
@@ -985,7 +977,7 @@ mod tests {
         let requirements = requirements(
             "[requirement.gate]\n\
              kind = \"skill\"\n\
-             contract = \"contracts/skill.toml\"\n",
+             package = \"skill.anthropic\"\n",
         );
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];

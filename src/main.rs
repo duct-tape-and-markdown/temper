@@ -453,11 +453,27 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     let skill_features: Vec<extract::Features> =
         ws.skills.iter().map(extract::skill_features).collect();
     let skill_floor = Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?;
-    let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor, &packages_dir)?;
 
     let rule_features: Vec<extract::Features> =
         ws.rules.iter().map(extract::rule_features).collect();
     let rule_floor = Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?;
+
+    // The built-in package set, keyed by name (`skill.anthropic`, `rule`) — the embedded
+    // floor a by-name `package` binding resolves against before `.temper/packages/`
+    // (PACKAGE-BINDING's order). A requirement's `package` typing and a `membership`
+    // `conforms_to` both resolve through this, so packages **compose**: a satisfier is
+    // checked by its kind's bound package *and* any package a requirement names
+    // (`specs/10-contracts.md`, the typing facet). Cloned before the floors are consumed
+    // by `effective` below.
+    let package_resolver = compose::PackageResolver::new(
+        std::collections::BTreeMap::from([
+            (skill_floor.name.clone(), skill_floor.clone()),
+            (rule_floor.name.clone(), rule_floor.clone()),
+        ]),
+        packages_dir.clone(),
+    );
+
+    let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor, &packages_dir)?;
     let rule_contract = compose::effective(layer.as_ref(), "rule", rule_floor, &packages_dir)?;
 
     // Two greens, not one (`specs/10-contracts.md`, both-greens finish line).
@@ -486,31 +502,36 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
 
         // Admissibility before conformance, here too: each requirement's own
         // definition is validated against the definition — a `required` typed
-        // requirement's kind is satisfiable, its contract resolves and is itself
-        // admissible, a `count` bound is well-ordered, a `membership` `conforms_to`
-        // resolves, and any `verified_by` resolves — before the roster is trusted to
-        // judge the harness (`specs/10-contracts.md`, "Decision: the contract is itself
-        // checked — admissibility").
+        // requirement's kind is satisfiable, its `package` names a real package and is
+        // itself admissible, a `count` bound is well-ordered, a `membership`
+        // `conforms_to` names a real package, and any `verified_by` resolves — before
+        // the roster is trusted to judge the harness (`specs/10-contracts.md`,
+        // "Decision: the contract is itself checked — admissibility").
         diagnostics.extend(roster::admissibility(
             layer.requirements(),
             &by_kind,
+            &package_resolver,
             base_dir,
         ));
 
         // The set-scope predicates: each requirement's `count` / `unique` / `membership`
         // gate quantified over its satisfier set — the artifacts opting in via
         // `satisfies` (`specs/45-governance.md`, "The set scope").
-        diagnostics.extend(roster::check(layer.requirements(), &by_kind, base_dir));
+        diagnostics.extend(roster::check(
+            layer.requirements(),
+            &by_kind,
+            &package_resolver,
+        ));
 
         // The `conforms-to` half of the same tier: each requirement's satisfiers are
-        // validated against its resolved contract — inline clauses, or a template path
-        // taken relative to the `temper.toml` directory — with findings retagged under
-        // `requirement.conforms-to`. A non-resolving template is admissibility's finding
-        // above, skipped here rather than double-reported.
+        // validated against its bound `package`'s contract — resolved by name through
+        // PACKAGE-BINDING's order — with findings retagged under `requirement.conforms-to`.
+        // A non-resolving package is admissibility's finding above, skipped here rather
+        // than double-reported.
         diagnostics.extend(roster::conformance(
             layer.requirements(),
             &by_kind,
-            base_dir,
+            &package_resolver,
         ));
 
         // The graph scope: build the harness reference graph over the edges

@@ -21,13 +21,15 @@
 //!   nothing here — the ≥1-satisfier presence of a `required` requirement is
 //!   [`crate::coverage`]'s referential gate, not this one's.
 //! - [`conformance`] — **`conforms-to`**: each satisfier is validated against the
-//!   requirement's resolved contract.
+//!   contract of the package the requirement binds **by name** (PACKAGE-BINDING's
+//!   order) — packages compose, so this is *in addition to* the satisfier's own kind.
 //! - [`admissibility`] — **the contract is itself checked** (`specs/10-contracts.md`,
 //!   "Decision: the contract is itself checked — admissibility"): before the roster
 //!   is trusted to judge a harness, each requirement's own definition is held to the
-//!   definition — a `required` typed requirement's kind is satisfiable, its contract
-//!   resolves and is itself admissible, a `count` bound is well-ordered, a
-//!   `membership` `conforms_to` resolves, and any `verified_by` resolves to a real path.
+//!   definition — a `required` typed requirement's kind is satisfiable, its `package`
+//!   names a real package and is itself admissible, a `count` bound is well-ordered, a
+//!   `membership` `conforms_to` names a real package, and any `verified_by` resolves to
+//!   a real path.
 //!
 //! ## The satisfier set
 //!
@@ -43,7 +45,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use crate::check::Diagnostic;
-use crate::compose::{CountBound, Membership, Requirement};
+use crate::compose::{CountBound, Membership, PackageResolver, Requirement};
 use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
@@ -138,16 +140,16 @@ fn kind_label(requirement: &Requirement) -> &str {
 /// This pass gates only the *predicates* the author declared. The ≥1-satisfier
 /// presence of a plain `required` requirement is [`crate::coverage`]'s referential
 /// gate, not this one's — `temper` never fabricates a gate the author did not declare.
-/// `conforms-to` the requirement's contract is a separate pass.
+/// `conforms-to` the requirement's bound package is a separate pass.
 ///
-/// `base_dir` is the `temper.toml` directory a `membership` `conforms_to` template
-/// path resolves against — the typed-reference constraint (`specs/45-governance.md`,
-/// "The set scope") needs it to load the contract that narrows the source set.
+/// `resolver` resolves a `membership` `conforms_to` package name to its contract — the
+/// typed-reference constraint (`specs/45-governance.md`, "The set scope") needs it to
+/// load the package that narrows the source set.
 #[must_use]
 pub fn check(
     requirements: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
-    base_dir: &Path,
+    resolver: &PackageResolver,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for requirement in requirements.values() {
@@ -182,7 +184,7 @@ pub fn check(
                 membership,
                 &satisfiers,
                 by_kind,
-                base_dir,
+                resolver,
             ));
         }
     }
@@ -190,33 +192,34 @@ pub fn check(
 }
 
 /// Run the `conforms-to` half of a requirement over the parsed roster
-/// (`specs/10-contracts.md`, the `contract` typing facet): for each requirement that
-/// declares a `contract`, validate its **satisfiers** — the `kind`-typed artifacts
-/// opting in via `satisfies` — against the resolved contract, retagging every
+/// (`specs/10-contracts.md`, the `package` typing facet): for each requirement that
+/// binds a `package`, validate its **satisfiers** — the `kind`-typed artifacts
+/// opting in via `satisfies` — against the resolved package's contract, retagging every
 /// conformance finding under [`REQUIREMENT_CONFORMS_TO_RULE`] and naming the
-/// requirement the satisfier broke.
+/// requirement the satisfier broke. Packages **compose**: this is *in addition to* the
+/// satisfier being checked by its own kind's bound package.
 ///
-/// A requirement with no `contract` imposes no shape (skipped). `base_dir` is the
-/// `temper.toml` directory a template-path contract resolves against; `by_kind` is the
-/// same workspace-features map [`check`] reads. A requirement whose contract does not
-/// resolve — a missing or malformed template — is skipped here rather than reported: a
-/// non-resolving template is admissibility's finding, and double-reporting would be
-/// noise.
+/// A requirement binding no `package` imposes no shape (skipped). `resolver` resolves a
+/// bound package name to its contract (PACKAGE-BINDING's order); `by_kind` is the same
+/// workspace-features map [`check`] reads. A requirement whose package does not resolve
+/// — no built-in, no project package — or fails to load is skipped here rather than
+/// reported: a non-resolving package is admissibility's finding, and double-reporting
+/// would be noise.
 #[must_use]
 pub fn conformance(
     requirements: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
-    base_dir: &Path,
+    resolver: &PackageResolver,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for requirement in requirements.values() {
-        // A requirement with no contract imposes no shape — nothing to conform.
-        let Some(contract_ref) = &requirement.contract else {
+        // A requirement binding no package imposes no shape — nothing to conform.
+        let Some(package) = &requirement.package else {
             continue;
         };
-        // A non-resolving/malformed template is admissibility's to report, not
+        // A non-resolving/malformed package is admissibility's to report, not
         // ours — skip the conformance check rather than double-report it.
-        let Ok(contract) = contract_ref.resolve(base_dir, &requirement.name) else {
+        let Ok(Some(contract)) = resolver.resolve(package) else {
             continue;
         };
         let satisfiers: Vec<Features> = satisfiers_for(requirement, by_kind)
@@ -245,29 +248,32 @@ pub fn conformance(
 ///   required requirement typed to an unmodeled kind can *never* be filled, so its
 ///   definition is inadmissible. A kind-blind requirement (no `kind`) is filled by
 ///   opt-in `satisfies`, so this clause gates on both `required` *and* a declared kind.
-/// - **(b) its contract resolves and is itself admissible** — when present,
-///   [`RequirementContract::resolve`](crate::compose::RequirementContract::resolve)
-///   succeeds (a non-resolving template path is the inadmissibility this pass owns,
-///   the case [`conformance`] skips) and the resolved [`Contract`](crate::contract::Contract)
-///   passes [`engine::admissibility`] (so an empty `enum` in an inline contract is
-///   caught here, exactly as in a floor contract).
+/// - **(b) its `package` names a real package and is itself admissible** — when the
+///   requirement binds a `package`, that name resolves through the [`PackageResolver`]
+///   (a name matching no built-in and no project package is the inadmissibility this
+///   pass owns — `names a real package` — the case [`conformance`] skips) and the
+///   resolved [`Contract`](crate::contract::Contract) passes [`engine::admissibility`]
+///   (so an empty `enum` in a bound package is caught here, exactly as in a floor
+///   contract). Whether the requirement is *filled* stays coverage's, never this pass's.
 /// - **(c) any `verified_by` resolves** — the named path exists relative to
 ///   `base_dir` (the referential clause; a dangling verifier is a silent no-op,
 ///   the very failure `00-intent.md` law 1 forbids).
 /// - **(d) a declared `count` bound is satisfiable** — `min <= max`; an inverted
 ///   bound admits no cardinality at all, so the definition is inadmissible, mirroring
 ///   `range`'s `min > max` rejection (`specs/45-governance.md`).
-/// - **(e) a `membership` `conforms_to` typed reference resolves and is itself
-///   admissible** — held to the same bar as the requirement's own contract in (b).
+/// - **(e) a `membership` `conforms_to` typed reference names a real package and is
+///   itself admissible** — held to the same bar as the requirement's own package in (b).
 ///
 /// `by_kind` is the same workspace-features map [`check`] and [`conformance`] read
 /// — admissibility uses only its *keys* (the modeled kinds), never the satisfiers.
-/// `base_dir` is the `temper.toml` directory a template path or `verified_by` path
-/// resolves against.
+/// `resolver` resolves a bound package name (a requirement's `package` or a
+/// `membership` `conforms_to`); `base_dir` is the `temper.toml` directory a
+/// `verified_by` path resolves against.
 #[must_use]
 pub fn admissibility(
     requirements: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
+    resolver: &PackageResolver,
     base_dir: &Path,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -291,23 +297,32 @@ pub fn admissibility(
             ));
         }
 
-        // (b) The requirement's contract resolves, and the resolved contract is
-        // itself admissible. A non-resolving template is this pass's finding (the case
-        // `conformance` skips to avoid double-reporting).
-        if let Some(contract_ref) = &requirement.contract {
-            match contract_ref.resolve(base_dir, name) {
+        // (b) The requirement's `package` names a real package, and the resolved
+        // package's contract is itself admissible. A name matching no built-in and no
+        // project package is this pass's finding — `names a real package` — the case
+        // `conformance` skips to avoid double-reporting. Whether the requirement is
+        // *filled* stays coverage's, never this pass's.
+        if let Some(package) = &requirement.package {
+            match resolver.resolve(package) {
+                Ok(None) => diagnostics.push(Diagnostic::error(
+                    REQUIREMENT_ADMISSIBILITY_RULE,
+                    name,
+                    format!(
+                        "requirement `{name}` binds package `{package}`, which does not resolve to a built-in or project package"
+                    ),
+                )),
                 Err(error) => diagnostics.push(Diagnostic::error(
                     REQUIREMENT_ADMISSIBILITY_RULE,
                     name,
-                    format!("requirement `{name}` contract does not resolve: {error}"),
+                    format!("requirement `{name}` package `{package}` does not load: {error}"),
                 )),
-                Ok(contract) => {
+                Ok(Some(contract)) => {
                     for finding in engine::admissibility(&contract) {
                         diagnostics.push(Diagnostic::error(
                             REQUIREMENT_ADMISSIBILITY_RULE,
                             name,
                             format!(
-                                "requirement `{name}` contract is inadmissible: {}",
+                                "requirement `{name}` package is inadmissible: {}",
                                 finding.message
                             ),
                         ));
@@ -347,25 +362,32 @@ pub fn admissibility(
             ));
         }
 
-        // (e) A `membership` `conforms_to` typed reference resolves and is itself
-        // admissible — held to the same bar as the requirement's own contract in (b).
-        // A `conforms_to` that never loads would otherwise silently drop the whole
-        // membership check (`out_of_set` skips a non-resolving one), so it must be
+        // (e) A `membership` `conforms_to` typed reference names a real package and is
+        // itself admissible — held to the same bar as the requirement's own package in
+        // (b). A `conforms_to` that never resolves would otherwise silently drop the
+        // whole membership check (`out_of_set` skips a non-resolving one), so it must be
         // reported here.
-        if let Some(source_contract) = requirement
+        if let Some(source_package) = requirement
             .membership
             .as_ref()
-            .and_then(|m| m.source_contract.as_ref())
+            .and_then(|m| m.source_package.as_ref())
         {
-            match source_contract.resolve(base_dir, name) {
+            match resolver.resolve(source_package) {
+                Ok(None) => diagnostics.push(Diagnostic::error(
+                    REQUIREMENT_ADMISSIBILITY_RULE,
+                    name,
+                    format!(
+                        "requirement `{name}` `membership` `conforms_to` binds package `{source_package}`, which does not resolve to a built-in or project package"
+                    ),
+                )),
                 Err(error) => diagnostics.push(Diagnostic::error(
                     REQUIREMENT_ADMISSIBILITY_RULE,
                     name,
                     format!(
-                        "requirement `{name}` `membership` `conforms_to` does not resolve: {error}"
+                        "requirement `{name}` `membership` `conforms_to` package `{source_package}` does not load: {error}"
                     ),
                 )),
-                Ok(contract) => {
+                Ok(Some(contract)) => {
                     for finding in engine::admissibility(&contract) {
                         diagnostics.push(Diagnostic::error(
                             REQUIREMENT_ADMISSIBILITY_RULE,
@@ -497,7 +519,7 @@ fn duplicate(
 ///
 /// When the membership carries a `conforms_to` **typed-reference** constraint
 /// (`specs/45-governance.md`, "The set scope"), S₂ is first narrowed to the source
-/// satisfiers that *also* conform to that contract — resolved against `base_dir` and
+/// satisfiers that *also* conform to that **package** — resolved through `resolver` and
 /// validated by [`engine::validate`], the same machinery [`conformance`] runs — so
 /// the allowed set is drawn only from the right *kind* of thing. A source that trips
 /// any finding is dropped before the set is built; a non-resolving `conforms_to` is
@@ -508,7 +530,7 @@ fn out_of_set(
     membership: &Membership,
     satisfiers: &[&Features],
     by_kind: &BTreeMap<&str, &[Features]>,
-    base_dir: &Path,
+    resolver: &PackageResolver,
 ) -> Vec<Diagnostic> {
     let source = by_kind
         .get(membership.source_kind.as_str())
@@ -528,8 +550,8 @@ fn out_of_set(
     // finding, not ours — skip the check rather than draw a set off an unconstrained
     // source (mirroring how `conformance` skips a requirement whose contract does not
     // resolve).
-    if let Some(source_contract) = &membership.source_contract {
-        let Ok(contract) = source_contract.resolve(base_dir, &requirement.name) else {
+    if let Some(source_package) = &membership.source_package {
+        let Ok(Some(contract)) = resolver.resolve(source_package) else {
             return Vec::new();
         };
         let owned: Vec<Features> = matched.iter().map(|features| (*features).clone()).collect();
@@ -600,11 +622,50 @@ fn not_member(
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+    use std::path::PathBuf;
 
     use crate::check::Severity;
-    use crate::compose::{AuthorLayer, Requirement};
+    use crate::compose::{AuthorLayer, PackageResolver, Requirement};
+    use crate::contract::Contract;
     use crate::extract::Kind;
-    use std::path::Path;
+
+    /// A resolver whose built-in set is the given named packages (no on-disk dir) — the
+    /// seam the roster resolves a requirement's `package` and a `membership`
+    /// `conforms_to` through (PACKAGE-BINDING's order), driven in-memory so a unit test
+    /// names its own packages without touching disk.
+    fn pkg_resolver(entries: &[(&str, Contract)]) -> PackageResolver {
+        PackageResolver::new(
+            entries
+                .iter()
+                .map(|(name, contract)| ((*name).to_string(), contract.clone()))
+                .collect(),
+            PathBuf::new(),
+        )
+    }
+
+    /// An empty resolver — every bound name resolves to nothing. The set-scope passes
+    /// (`count` / `unique` / plain `membership`) resolve no package, so they run against
+    /// this; a package-typed requirement checked against it is *skipped* by conformance
+    /// (a non-resolving package is admissibility's finding).
+    fn empty_resolver() -> PackageResolver {
+        PackageResolver::new(BTreeMap::new(), PathBuf::new())
+    }
+
+    /// A package contract capping a satisfier's `name` at `max` characters — the shape a
+    /// `package`-typed requirement binds in these tests, resolved by name.
+    fn maxlen_package(max: usize) -> Contract {
+        Contract::parse(
+            &format!(
+                "[[clause]]\n\
+                 severity = \"required\"\n\
+                 predicate = \"max_len\"\n\
+                 field = \"name\"\n\
+                 max = {max}\n"
+            ),
+            Path::new("shape.toml"),
+        )
+        .unwrap()
+    }
 
     /// A `Features` carrying a name (its `id`) and the requirements it opts into via
     /// `satisfies` — the facts the satisfier set is built from.
@@ -631,25 +692,26 @@ mod tests {
             .clone()
     }
 
-    /// A required, typed single-satisfier requirement over the `skill` kind (a template
-    /// contract, so admissibility can resolve it).
+    /// A required, typed single-satisfier requirement over the `skill` kind, binding the
+    /// built-in `skill.anthropic` package by name.
     fn required_requirement() -> Requirement {
         requirement(
             "[requirement.planner]\n\
              kind = \"skill\"\n\
-             contract = \"contracts/skill.anthropic.toml\"\n\
+             package = \"skill.anthropic\"\n\
              required = true\n",
             "planner",
         )
     }
 
     /// Pack a roster of one requirement and a skill candidate set into the shapes
-    /// [`check`] takes.
+    /// [`check`] takes. The set-scope passes resolve no package, so an empty resolver
+    /// suffices.
     fn run(req: Requirement, skills: &[Features]) -> Vec<Diagnostic> {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", skills)]);
-        check(&requirements, &by_kind, Path::new(""))
+        check(&requirements, &by_kind, &empty_resolver())
     }
 
     #[test]
@@ -694,7 +756,7 @@ mod tests {
             &format!(
                 "[requirement.agents]\n\
                  kind = \"skill\"\n\
-                 contract = \"contracts/skill.anthropic.toml\"\n\
+                 package = \"skill.anthropic\"\n\
                  count = {{ min = {min}, max = {max} }}\n"
             ),
             "agents",
@@ -747,7 +809,7 @@ mod tests {
         requirement(
             "[requirement.agents]\n\
              kind = \"skill\"\n\
-             contract = \"contracts/skill.anthropic.toml\"\n\
+             package = \"skill.anthropic\"\n\
              unique = [\"model\"]\n",
             "agents",
         )
@@ -844,7 +906,7 @@ mod tests {
             &format!(
                 "[requirement.agents]\n\
                  kind = \"skill\"\n\
-                 contract = \"contracts/skill.anthropic.toml\"\n\
+                 package = \"skill.anthropic\"\n\
                  membership = {{ field = \"model\", kind = \"{source_kind}\", source = \"approved-model\", feature = \"model\" }}\n"
             ),
             "agents",
@@ -857,7 +919,7 @@ mod tests {
     fn run_multi(req: Requirement, by_kind: BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
-        check(&requirements, &by_kind, Path::new(""))
+        check(&requirements, &by_kind, &empty_resolver())
     }
 
     #[test]
@@ -930,27 +992,30 @@ mod tests {
     }
 
     /// A requirement whose `membership` carries a `conforms_to` typed-reference
-    /// constraint (inline clauses, so no `base_dir` is needed): the source set is
+    /// constraint binding the `tier-required` package by name: the source set is
     /// narrowed to `approved-model` satisfiers that also declare a `tier` field before
     /// the allowed `model` set is drawn.
     fn typed_reference_requirement() -> Requirement {
         requirement(
             "[requirement.agents]\n\
              kind = \"skill\"\n\
-             contract = \"contracts/skill.anthropic.toml\"\n\
-             \n\
-             [requirement.agents.membership]\n\
-             field = \"model\"\n\
-             kind = \"skill\"\n\
-             feature = \"model\"\n\
-             source = \"approved-model\"\n\
-             \n\
-             [[requirement.agents.membership.conforms_to.clause]]\n\
+             package = \"skill.anthropic\"\n\
+             membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"tier-required\" }\n",
+            "agents",
+        )
+    }
+
+    /// The package a `typed_reference_requirement`'s `conforms_to` binds: a source
+    /// conforms iff it declares a `tier` field.
+    fn tier_required_package() -> Contract {
+        Contract::parse(
+            "[[clause]]\n\
              severity = \"required\"\n\
              predicate = \"required\"\n\
              field = \"tier\"\n",
-            "agents",
+            Path::new("tier-required.toml"),
         )
+        .unwrap()
     }
 
     /// A `skill_satisfying` also carrying a `tier:` scalar — the field the
@@ -988,8 +1053,10 @@ mod tests {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        // Inline `conforms_to` clauses need no template, so an empty base dir suffices.
-        let diags = check(&requirements, &by_kind, Path::new(""));
+        // The `conforms_to` binds the `tier-required` package by name, resolved through
+        // the in-memory resolver.
+        let resolver = pkg_resolver(&[("tier-required", tier_required_package())]);
+        let diags = check(&requirements, &by_kind, &resolver);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_MEMBERSHIP_RULE);
         assert!(diags[0].message.contains("agent-gpt"));
@@ -1019,7 +1086,8 @@ mod tests {
             typed_reference_requirement(),
         );
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &conforming[..])]);
-        assert!(check(&requirements, &by_kind, Path::new("")).is_empty());
+        let resolver = pkg_resolver(&[("tier-required", tier_required_package())]);
+        assert!(check(&requirements, &by_kind, &resolver).is_empty());
     }
 
     #[test]
@@ -1037,26 +1105,22 @@ mod tests {
         assert!(diags.iter().all(|d| d.rule == REQUIREMENT_MEMBERSHIP_RULE));
     }
 
-    /// A requirement carrying an inline `max_len` contract on `name`, capped at `max`.
-    fn inline_maxlen_requirement(max: usize) -> Requirement {
+    /// A requirement binding the `shape` package by name — the package a
+    /// [`maxlen_package`] resolver supplies with the `name`-cap contract these
+    /// conformance/admissibility cases exercise.
+    fn shape_requirement() -> Requirement {
         requirement(
-            &format!(
-                "[requirement.planner]\n\
-                 kind = \"skill\"\n\
-                 required = true\n\
-                 [[requirement.planner.clause]]\n\
-                 severity = \"required\"\n\
-                 predicate = \"max_len\"\n\
-                 field = \"name\"\n\
-                 max = {max}\n"
-            ),
+            "[requirement.planner]\n\
+             kind = \"skill\"\n\
+             package = \"shape\"\n\
+             required = true\n",
             "planner",
         )
     }
 
     /// `features` opting into `planner` with a `name` scalar field equal to its id —
-    /// the field the inline `max_len` contract measures (the engine validates extracted
-    /// *fields*, not the bare diagnostic id).
+    /// the field the `shape` package's `max_len` clause measures (the engine validates
+    /// extracted *fields*, not the bare diagnostic id).
     fn named_skill(name: &str) -> Features {
         let mut f = features(name, &["planner"]);
         f.fields
@@ -1065,101 +1129,108 @@ mod tests {
     }
 
     /// Pack a roster of one requirement and skill candidates and run the conformance
-    /// pass — the inline-contract path needs no `base_dir`, so an empty one suffices.
-    fn run_conformance(req: Requirement, skills: &[Features]) -> Vec<Diagnostic> {
+    /// pass, resolving the requirement's bound `package` through `resolver`.
+    fn run_conformance(
+        req: Requirement,
+        skills: &[Features],
+        resolver: &PackageResolver,
+    ) -> Vec<Diagnostic> {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", skills)]);
-        conformance(&requirements, &by_kind, Path::new(""))
+        conformance(&requirements, &by_kind, resolver)
     }
 
     #[test]
-    fn an_inline_contract_validates_its_satisfiers_only() {
-        // The inline contract caps `name` at 3 chars; the satisfier `plan-tasks` (10)
+    fn a_bound_package_validates_its_satisfiers_only() {
+        // The `shape` package caps `name` at 3 chars; the satisfier `plan-tasks` (10)
         // breaks it, while the non-opting `lint-rust` is never validated against the
-        // requirement's contract.
+        // requirement's package.
         let mut lint = named_skill("lint-rust");
         lint.satisfies.clear();
+        let resolver = pkg_resolver(&[("shape", maxlen_package(3))]);
         let diags = run_conformance(
-            inline_maxlen_requirement(3),
+            shape_requirement(),
             &[named_skill("plan-tasks"), lint],
+            &resolver,
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, REQUIREMENT_CONFORMS_TO_RULE);
         assert_eq!(diags[0].artifact, "plan-tasks");
-        // The message names the requirement whose contract the satisfier broke.
+        // The message names the requirement whose package the satisfier broke.
         assert!(diags[0].message.contains("planner"));
         assert!(diags[0].message.contains("does not conform"));
     }
 
     #[test]
-    fn an_inline_contract_is_silent_when_the_satisfier_conforms() {
+    fn a_bound_package_is_silent_when_the_satisfier_conforms() {
         // The same shape, but a generous cap the satisfier stays within ⇒ clean.
+        let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
         assert!(
-            run_conformance(inline_maxlen_requirement(64), &[named_skill("plan-tasks")]).is_empty()
+            run_conformance(shape_requirement(), &[named_skill("plan-tasks")], &resolver)
+                .is_empty()
         );
     }
 
     #[test]
     fn conformance_validates_every_satisfier() {
-        // Two satisfiers, both breaking the inline cap — conformance reports each.
+        // Two satisfiers, both breaking the package's cap — conformance reports each.
+        let resolver = pkg_resolver(&[("shape", maxlen_package(3))]);
         let diags = run_conformance(
-            inline_maxlen_requirement(3),
+            shape_requirement(),
             &[named_skill("plan-tasks"), named_skill("plan-sprints")],
+            &resolver,
         );
         assert_eq!(diags.len(), 2);
         assert!(diags.iter().all(|d| d.rule == REQUIREMENT_CONFORMS_TO_RULE));
     }
 
     #[test]
-    fn a_requirement_whose_template_does_not_resolve_is_skipped_not_reported() {
-        // The template path resolves to no file under this base dir: conformance
-        // skips it (a non-resolving template is admissibility's finding), so
-        // nothing fires even though a satisfier is present.
-        let req = required_requirement(); // contract = a template path
+    fn a_requirement_whose_package_does_not_resolve_is_skipped_not_reported() {
+        // The bound package resolves to nothing (an empty resolver): conformance skips
+        // it (a non-resolving package is admissibility's finding), so nothing fires even
+        // though a satisfier is present.
+        let req = shape_requirement(); // package = "shape", absent from the resolver
         let skills = [features("plan-tasks", &["planner"])];
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        // A base dir with no `contracts/` tree, so the template cannot load.
-        let diags = conformance(
-            &requirements,
-            &by_kind,
-            Path::new("/no-such-temper-base-dir"),
-        );
+        let diags = conformance(&requirements, &by_kind, &empty_resolver());
         assert!(diags.is_empty());
     }
 
     // ---- admissibility ----------------------------------------------------
 
     /// Run the admissibility pass over a one-requirement roster against a `skill`-only
-    /// `by_kind` (the modeled kinds are its keys; admissibility reads no satisfiers).
-    fn run_admissibility(req: Requirement, base_dir: &Path) -> Vec<Diagnostic> {
+    /// `by_kind` (the modeled kinds are its keys; admissibility reads no satisfiers),
+    /// resolving bound package names through `resolver`.
+    fn run_admissibility(
+        req: Requirement,
+        resolver: &PackageResolver,
+        base_dir: &Path,
+    ) -> Vec<Diagnostic> {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         let skills: [Features; 0] = [];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        admissibility(&requirements, &by_kind, base_dir)
+        admissibility(&requirements, &by_kind, resolver, base_dir)
     }
 
     #[test]
     fn a_required_requirement_over_an_unmodeled_kind_is_inadmissible() {
         // `command` is not a kind `temper` models (only `skill` is in `by_kind`),
         // so a required requirement over it can never be filled — inadmissible. The
-        // inline contract resolves, so the only finding is the satisfiability one.
+        // bound package resolves, so the only finding is the satisfiability one.
         let req = requirement(
             "[requirement.releaser]\n\
              kind = \"command\"\n\
-             required = true\n\
-             [[requirement.releaser.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
+             package = \"shape\"\n\
+             required = true\n",
             "releaser",
         );
-        let diags = run_admissibility(req, Path::new(""));
+        let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
+        let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
@@ -1169,33 +1240,47 @@ mod tests {
     }
 
     #[test]
-    fn a_non_resolving_template_contract_is_inadmissible() {
-        // The template path resolves to no file under this base dir — the
-        // inadmissibility this pass owns (the case `conformance` skips).
-        let req = required_requirement(); // contract = a template path
-        let diags = run_admissibility(req, Path::new("/no-such-temper-base-dir"));
+    fn a_non_resolving_package_is_inadmissible() {
+        // The bound package name matches no built-in and no project package (an empty
+        // resolver) — the inadmissibility this pass owns, `names a real package` (the
+        // case `conformance` skips).
+        let req = requirement(
+            "[requirement.planner]\n\
+             kind = \"skill\"\n\
+             package = \"no-such-package\"\n\
+             required = true\n",
+            "planner",
+        );
+        let diags = run_admissibility(req, &empty_resolver(), Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
         assert_eq!(diags[0].artifact, "planner");
+        assert!(diags[0].message.contains("no-such-package"));
         assert!(diags[0].message.contains("does not resolve"));
     }
 
     #[test]
-    fn an_inline_contract_with_an_empty_enum_is_inadmissible() {
-        // `engine::admissibility` runs on the resolved contract, so a vacuous
-        // `enum` clause is caught here exactly as in a floor contract.
-        let req = requirement(
-            "[requirement.planner]\n\
-             kind = \"skill\"\n\
-             required = true\n\
-             [[requirement.planner.clause]]\n\
+    fn a_bound_package_with_an_empty_enum_is_inadmissible() {
+        // `engine::admissibility` runs on the resolved package's contract, so a vacuous
+        // `enum` clause in a bound package is caught here exactly as in a floor contract.
+        let empty_enum = Contract::parse(
+            "[[clause]]\n\
              severity = \"required\"\n\
              predicate = \"enum\"\n\
              field = \"status\"\n\
              values = []\n",
+            Path::new("empty-enum.toml"),
+        )
+        .unwrap();
+        let req = requirement(
+            "[requirement.planner]\n\
+             kind = \"skill\"\n\
+             package = \"empty-enum\"\n\
+             required = true\n",
             "planner",
         );
-        let diags = run_admissibility(req, Path::new(""));
+        let resolver = pkg_resolver(&[("empty-enum", empty_enum)]);
+        let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
         assert_eq!(diags[0].artifact, "planner");
@@ -1210,16 +1295,13 @@ mod tests {
         let req = requirement(
             "[requirement.planner]\n\
              kind = \"skill\"\n\
+             package = \"shape\"\n\
              required = true\n\
-             verified_by = \"tests/nope.rs\"\n\
-             [[requirement.planner.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
+             verified_by = \"tests/nope.rs\"\n",
             "planner",
         );
-        let diags = run_admissibility(req, Path::new("/no-such-temper-base-dir"));
+        let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
+        let diags = run_admissibility(req, &resolver, Path::new("/no-such-temper-base-dir"));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
         assert!(diags[0].message.contains("verifier"));
@@ -1228,16 +1310,16 @@ mod tests {
 
     #[test]
     fn a_fully_resolving_roster_is_admissible() {
-        // A modeled kind, an admissible inline contract, and no verifier — nothing for
+        // A modeled kind, an admissible bound package, and no verifier — nothing for
         // admissibility to reject.
-        let req = inline_maxlen_requirement(64);
-        assert!(run_admissibility(req, Path::new("")).is_empty());
+        let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
+        assert!(run_admissibility(shape_requirement(), &resolver, Path::new("")).is_empty());
     }
 
     #[test]
     fn a_bare_requirement_is_admissible() {
         // A pure opt-in-coverage requirement (only `means` + `required`, no `kind` or
-        // `contract`) has no facet for admissibility to reject — coverage gates its
+        // `package`) has no facet for admissibility to reject — coverage gates its
         // fill, not the roster.
         let req = requirement(
             "[requirement.dev-standards]\n\
@@ -1245,7 +1327,7 @@ mod tests {
              required = true\n",
             "dev-standards",
         );
-        assert!(run_admissibility(req, Path::new("")).is_empty());
+        assert!(run_admissibility(req, &empty_resolver(), Path::new("")).is_empty());
     }
 
     #[test]
@@ -1256,15 +1338,12 @@ mod tests {
         let req = requirement(
             "[requirement.agents]\n\
              kind = \"skill\"\n\
-             count = { min = 3, max = 1 }\n\
-             [[requirement.agents.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
+             package = \"shape\"\n\
+             count = { min = 3, max = 1 }\n",
             "agents",
         );
-        let diags = run_admissibility(req, Path::new(""));
+        let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
+        let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
@@ -1279,35 +1358,27 @@ mod tests {
         let req = requirement(
             "[requirement.agents]\n\
              kind = \"skill\"\n\
-             count = { min = 1, max = 1 }\n\
-             [[requirement.agents.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
+             package = \"shape\"\n\
+             count = { min = 1, max = 1 }\n",
             "agents",
         );
-        assert!(run_admissibility(req, Path::new("")).is_empty());
+        let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
+        assert!(run_admissibility(req, &resolver, Path::new("")).is_empty());
     }
 
     #[test]
     fn a_membership_conforms_to_that_does_not_resolve_is_inadmissible() {
-        // The `membership` typed reference names a template path that resolves to no
-        // file — a `conforms_to` that never loads would silently drop the whole
-        // membership check, so admissibility reports it (clause (e)), mirroring the
-        // requirement's own contract-resolve clause.
+        // The `membership` typed reference binds a package name that resolves to nothing
+        // (an empty resolver) — a `conforms_to` that never resolves would silently drop
+        // the whole membership check, so admissibility reports it (clause (e)),
+        // mirroring the requirement's own package-resolve clause.
         let req = requirement(
             "[requirement.agents]\n\
              kind = \"skill\"\n\
-             membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"contracts/nope.toml\" }\n\
-             [[requirement.agents.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
+             membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"no-such-package\" }\n",
             "agents",
         );
-        let diags = run_admissibility(req, Path::new("/no-such-temper-base-dir"));
+        let diags = run_admissibility(req, &empty_resolver(), Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
         assert_eq!(diags[0].artifact, "agents");
@@ -1317,29 +1388,25 @@ mod tests {
 
     #[test]
     fn a_membership_conforms_to_with_an_empty_enum_is_inadmissible() {
-        // An inline `conforms_to` contract carrying a vacuous `enum` is held to the
-        // same admissibility bar as the requirement's own contract — caught by (e).
-        let req = requirement(
-            "[requirement.agents]\n\
-             kind = \"skill\"\n\
-             [requirement.agents.membership]\n\
-             field = \"model\"\n\
-             kind = \"skill\"\n\
-             feature = \"model\"\n\
-             source = \"approved-model\"\n\
-             [[requirement.agents.membership.conforms_to.clause]]\n\
+        // A bound `conforms_to` package carrying a vacuous `enum` is held to the same
+        // admissibility bar as the requirement's own package — caught by (e).
+        let empty_enum = Contract::parse(
+            "[[clause]]\n\
              severity = \"required\"\n\
              predicate = \"enum\"\n\
              field = \"tier\"\n\
-             values = []\n\
-             [[requirement.agents.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
+             values = []\n",
+            Path::new("empty-enum.toml"),
+        )
+        .unwrap();
+        let req = requirement(
+            "[requirement.agents]\n\
+             kind = \"skill\"\n\
+             membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"empty-enum\" }\n",
             "agents",
         );
-        let diags = run_admissibility(req, Path::new(""));
+        let resolver = pkg_resolver(&[("empty-enum", empty_enum)]);
+        let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
         assert!(diags[0].message.contains("conforms_to"));
@@ -1354,13 +1421,10 @@ mod tests {
         let req = requirement(
             "[requirement.releaser]\n\
              kind = \"command\"\n\
-             [[requirement.releaser.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
+             package = \"shape\"\n",
             "releaser",
         );
-        assert!(run_admissibility(req, Path::new("")).is_empty());
+        let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
+        assert!(run_admissibility(req, &resolver, Path::new("")).is_empty());
     }
 }

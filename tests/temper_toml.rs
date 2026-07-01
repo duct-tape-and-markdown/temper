@@ -557,7 +557,7 @@ fn a_degree_bound_parses_into_a_typed_requirement() {
     let toml = r#"
 [requirement.self-registering]
 kind = "skill"
-contract = "contracts/skill.toml"
+package = "skill.anthropic"
 degree = { incoming = { max = 0 }, outgoing = { min = 1, max = 3 } }
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -587,7 +587,7 @@ fn a_routed_degree_bound_leaves_the_upper_endpoint_open() {
     let toml = r#"
 [requirement.routed]
 kind = "skill"
-contract = "contracts/skill.toml"
+package = "skill.anthropic"
 degree = { incoming = { min = 1 } }
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -614,7 +614,7 @@ fn a_degree_naming_no_direction_is_a_load_error() {
     let toml = r#"
 [requirement.gate]
 kind = "skill"
-contract = "contracts/skill.toml"
+package = "skill.anthropic"
 degree = { }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -631,7 +631,7 @@ fn an_endpoint_less_degree_direction_is_a_load_error() {
     let toml = r#"
 [requirement.gate]
 kind = "skill"
-contract = "contracts/skill.toml"
+package = "skill.anthropic"
 degree = { incoming = { } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -645,7 +645,7 @@ fn an_inverted_degree_bound_is_a_load_error() {
     let toml = r#"
 [requirement.gate]
 kind = "skill"
-contract = "contracts/skill.toml"
+package = "skill.anthropic"
 degree = { outgoing = { min = 3, max = 1 } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -658,7 +658,7 @@ fn a_negative_degree_endpoint_is_a_load_error() {
     let toml = r#"
 [requirement.gate]
 kind = "skill"
-contract = "contracts/skill.toml"
+package = "skill.anthropic"
 degree = { incoming = { min = -1 } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -692,7 +692,7 @@ required = true
             name: "dev-standards".to_string(),
             means: Some(means.to_string()),
             kind: None,
-            contract: None,
+            package: None,
             required: true,
             count: None,
             unique: Vec::new(),
@@ -770,11 +770,11 @@ requird = true
 #[test]
 fn a_stray_key_in_a_requirement_with_facets_is_a_load_error() {
     // The unified requirement's allowlist spans the folded facet set — a stray key
-    // alongside `kind`/`contract` is still rejected, not silently dropped.
+    // alongside `kind`/`package` is still rejected, not silently dropped.
     let toml = r#"
 [requirement.linter]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 requird = true
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -793,7 +793,7 @@ fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
     let toml = r#"
 [requirement.planner]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 match = { name = "plan*" }
 required = true
 "#;
@@ -801,6 +801,59 @@ required = true
     assert!(
         matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "match" && name == "planner"),
         "a `match` key is now an unknown-key reject, got: {err:?}"
+    );
+}
+
+#[test]
+fn a_package_binding_parses_onto_a_requirement() {
+    // Requirement typing is `package = "<name>"` — a package named *by name*, resolved
+    // against the built-in packages ∪ `.temper/packages/` (PACKAGE-BINDING's order). It
+    // parses onto the requirement's `package` facet, stored verbatim.
+    let toml = r#"
+[requirement.linter]
+kind = "rule"
+package = "lint-standards"
+required = true
+"#;
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+    let requirement = layer.requirements().get("linter").unwrap();
+    assert_eq!(requirement.package, Some("lint-standards".to_string()));
+}
+
+#[test]
+fn the_retired_contract_bundle_key_on_a_requirement_is_an_unknown_key() {
+    // `contract = "<path>"` — a requirement adopting a contract bundle by path — retired
+    // into the by-name `package` facet (`specs/10-contracts.md`, the typing facet). A
+    // leftover `contract` key is rejected at parse, not silently dropped.
+    let toml = r#"
+[requirement.linter]
+kind = "skill"
+contract = "contracts/skill.anthropic.toml"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "contract" && name == "linter"),
+        "the retired `contract` bundle key is rejected as unknown, got: {err:?}"
+    );
+}
+
+#[test]
+fn inline_clauses_on_a_requirement_are_an_unknown_key() {
+    // Inline clauses under a requirement retired — clauses live only in packages
+    // (`specs/10-contracts.md`, the typing facet). A leftover `[[requirement.*.clause]]`
+    // array is an unknown `clause` key, rejected at parse.
+    let toml = r#"
+[requirement.linter]
+kind = "skill"
+[[requirement.linter.clause]]
+severity = "required"
+predicate = "required"
+field = "name"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "clause" && name == "linter"),
+        "inline `clause` on a requirement is rejected as unknown, got: {err:?}"
     );
 }
 
@@ -865,7 +918,7 @@ guidance = "keep skills skimmable"
 
 [requirement.linter]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 required = true
 verified_by = "tests/lint.rs"
 

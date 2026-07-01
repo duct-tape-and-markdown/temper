@@ -11,7 +11,7 @@
 //! requirement's `kind` whose `satisfies` names it.
 //!
 //! The cases mirror the entry's acceptance:
-//! - conformance validates the satisfiers against the requirement's contract;
+//! - conformance validates the satisfiers against the requirement's bound package;
 //! - the `count` cardinality bound quantifies over the satisfier set;
 //! - the `unique` predicate quantifies over the satisfier set;
 //! - the `membership` predicate (and its typed-reference `conforms_to`) draws its
@@ -127,17 +127,22 @@ fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
 }
 
-// ---- conformance: satisfiers validated against the requirement contract ----
+/// Write a project package at `<root>/.temper/packages/<name>/PACKAGE.md` — the
+/// resolution home a requirement's `package = "<name>"` (or a `membership`
+/// `conforms_to = "<name>"`) binding loads from (PACKAGE-BINDING's order). `clauses` is
+/// the fenced header body; a benign prose line follows so the document parses.
+fn write_package(root: &Path, name: &str, clauses: &str) {
+    let dir = root.join(".temper").join("packages").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    let doc = format!("+++\n{clauses}+++\n\n# {name} package\n\nProject package.\n");
+    fs::write(dir.join("PACKAGE.md"), doc).unwrap();
+}
 
-/// A `temper.toml` declaring one `required` requirement over the `skill` kind whose
-/// **inline** contract caps its satisfiers' `name` at `max` characters. Fill is by
-/// opt-in `satisfies` — the requirement carries no `match` selector.
-fn inline_maxlen_requirement_toml(max: usize) -> String {
+/// A package header whose sole clause caps a satisfier's `name` at `max` characters —
+/// the shape a `package`-typed requirement binds in these conformance cases.
+fn maxlen_package_clauses(max: usize) -> String {
     format!(
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         required = true\n\
-         [[requirement.planner.clause]]\n\
+        "[[clause]]\n\
          severity = \"required\"\n\
          predicate = \"max_len\"\n\
          field = \"name\"\n\
@@ -145,19 +150,34 @@ fn inline_maxlen_requirement_toml(max: usize) -> String {
     )
 }
 
+// ---- conformance: satisfiers validated against the requirement's package ----
+
+/// A `temper.toml` declaring one `required` requirement over the `skill` kind that binds
+/// the `skill-shape` package **by name** (resolved through PACKAGE-BINDING's order). Fill
+/// is by opt-in `satisfies` — the requirement carries no `match` selector, and its shape
+/// lives in the named package, never inline.
+fn package_typed_requirement_toml() -> &'static str {
+    "[requirement.planner]\n\
+     kind = \"skill\"\n\
+     package = \"skill-shape\"\n\
+     required = true\n"
+}
+
 #[test]
-fn a_satisfier_violating_an_inline_contract_reports_a_finding() {
-    let root = tmpdir("inline-bad");
-    // One floor-clean skill opts into `planner`; the inline contract caps `name` at
-    // 3 chars, which `plan-tasks` (10) breaks. The satisfier is the conformance subject.
+fn a_satisfier_violating_its_bound_package_reports_a_finding() {
+    let root = tmpdir("package-bad");
+    // One floor-clean skill opts into `planner`; the bound `skill-shape` package caps
+    // `name` at 3 chars, which `plan-tasks` (10) breaks. The satisfier is the
+    // conformance subject, checked against the package the requirement names.
     import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(&root, &inline_maxlen_requirement_toml(3));
+    write_package(&root, "skill-shape", &maxlen_package_clauses(3));
+    write_temper_toml(&root, package_typed_requirement_toml());
 
     let run = check_in(&root);
     assert!(
         !run.ok,
-        "a satisfier that breaks its requirement's inline contract must fail the run ⇒ non-zero"
+        "a satisfier that breaks its requirement's bound package must fail the run ⇒ non-zero"
     );
     assert!(
         run.output.contains("does not conform")
@@ -169,59 +189,44 @@ fn a_satisfier_violating_an_inline_contract_reports_a_finding() {
 }
 
 #[test]
-fn a_satisfier_violating_an_adopted_template_contract_reports_a_finding() {
-    let root = tmpdir("template-bad");
+fn a_satisfier_conforming_to_its_bound_package_is_clean() {
+    let root = tmpdir("package-ok");
+    // The same lone satisfier, but the bound package's cap (64) is one it stays
+    // within — so conformance adds nothing and the run is clean.
     import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
+    write_package(&root, "skill-shape", &maxlen_package_clauses(64));
+    write_temper_toml(&root, package_typed_requirement_toml());
 
-    // A template contract on disk, resolved relative to the temper.toml dir,
-    // capping `name` at 3 chars — `plan-tasks` (10) breaks it.
-    let contracts = root.join("contracts");
-    fs::create_dir_all(&contracts).unwrap();
-    fs::write(
-        contracts.join("skill-shape.toml"),
-        "[[clause]]\n\
-         severity = \"required\"\n\
-         predicate = \"max_len\"\n\
-         field = \"name\"\n\
-         max = 3\n",
-    )
-    .unwrap();
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a satisfier within its requirement's package passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_requirement_binding_a_builtin_package_by_name_composes() {
+    let root = tmpdir("package-builtin");
+    // A requirement may bind a *built-in* package by name — `skill.anthropic` — so its
+    // satisfiers are checked by that package's contract *in addition to* their own
+    // kind's floor. A floor-clean skill within `skill.anthropic` passes, proving the
+    // by-name built-in binding resolves and composes.
+    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    author_satisfies(&root, "plan-tasks", &["planner"]);
     write_temper_toml(
         &root,
         "[requirement.planner]\n\
          kind = \"skill\"\n\
-         contract = \"contracts/skill-shape.toml\"\n\
+         package = \"skill.anthropic\"\n\
          required = true\n",
     );
 
     let run = check_in(&root);
     assert!(
-        !run.ok,
-        "a satisfier that breaks its requirement's adopted template must fail the run ⇒ non-zero"
-    );
-    assert!(
-        run.output.contains("does not conform")
-            && run.output.contains("plan-tasks")
-            && run.output.contains("planner"),
-        "the finding names the conformance violation, the satisfier, and the requirement, got:\n{}",
-        run.output
-    );
-}
-
-#[test]
-fn a_satisfier_conforming_to_its_requirement_contract_is_clean() {
-    let root = tmpdir("inline-ok");
-    // The same lone satisfier, but the inline contract's cap (64) is one it stays
-    // within — so conformance adds nothing and the run is clean.
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
-    author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(&root, &inline_maxlen_requirement_toml(64));
-
-    let run = check_in(&root);
-    assert!(
         run.ok,
-        "a satisfier within its requirement's contract passes ⇒ zero, got:\n{}",
+        "a requirement binding the built-in `skill.anthropic` by name resolves and a clean satisfier passes ⇒ zero, got:\n{}",
         run.output
     );
 }
@@ -347,12 +352,7 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
         &root,
         "[requirement.releaser]\n\
          kind = \"command\"\n\
-         required = true\n\
-         [[requirement.releaser.clause]]\n\
-         severity = \"required\"\n\
-         predicate = \"max_len\"\n\
-         field = \"name\"\n\
-         max = 64\n",
+         required = true\n",
     );
 
     let run = check_in(&root);
@@ -370,55 +370,64 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
 }
 
 #[test]
-fn a_requirement_whose_template_does_not_resolve_is_inadmissible() {
-    let root = tmpdir("admit-bad-template");
-    // The satisfier keeps coverage clean; the only fault is the `contract` template
-    // path resolving to no file under the temper.toml dir.
+fn a_requirement_binding_an_unresolvable_package_is_inadmissible() {
+    let root = tmpdir("admit-bad-package");
+    // The satisfier keeps coverage clean; the only fault is the bound `package` name
+    // matching no built-in and no `.temper/packages/` project package — `names a real
+    // package`, admissibility's finding.
     import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
     write_temper_toml(
         &root,
         "[requirement.planner]\n\
          kind = \"skill\"\n\
-         contract = \"contracts/does-not-exist.toml\"\n\
+         package = \"does-not-exist\"\n\
          required = true\n",
     );
 
     let run = check_in(&root);
     assert!(
         !run.ok,
-        "a requirement whose contract template does not resolve must fail the run ⇒ non-zero"
+        "a requirement whose bound package does not resolve must fail the run ⇒ non-zero"
     );
     assert!(
-        run.output.contains("planner") && run.output.contains("does not resolve"),
-        "the finding names the requirement and that its contract does not resolve, got:\n{}",
+        run.output.contains("planner")
+            && run.output.contains("does-not-exist")
+            && run.output.contains("does not resolve"),
+        "the finding names the requirement and that its package does not resolve, got:\n{}",
         run.output
     );
 }
 
 #[test]
-fn a_requirement_with_an_inline_empty_enum_contract_is_inadmissible() {
+fn a_requirement_binding_an_inadmissible_package_is_inadmissible() {
     let root = tmpdir("admit-empty-enum");
-    // A satisfier keeps coverage clean; the inline contract carries an `enum` clause
-    // listing no values — vacuous, so `engine::admissibility` rejects it.
+    // A satisfier keeps coverage clean; the bound package carries an `enum` clause
+    // listing no values — vacuous, so `engine::admissibility` rejects the package it
+    // resolves to.
     import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(
+    write_package(
         &root,
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         required = true\n\
-         [[requirement.planner.clause]]\n\
+        "empty-enum",
+        "[[clause]]\n\
          severity = \"required\"\n\
          predicate = \"enum\"\n\
          field = \"status\"\n\
          values = []\n",
     );
+    write_temper_toml(
+        &root,
+        "[requirement.planner]\n\
+         kind = \"skill\"\n\
+         package = \"empty-enum\"\n\
+         required = true\n",
+    );
 
     let run = check_in(&root);
     assert!(
         !run.ok,
-        "a requirement whose inline contract is inadmissible must fail the run ⇒ non-zero"
+        "a requirement whose bound package is inadmissible must fail the run ⇒ non-zero"
     );
     assert!(
         run.output.contains("planner")
@@ -432,8 +441,8 @@ fn a_requirement_with_an_inline_empty_enum_contract_is_inadmissible() {
 #[test]
 fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
     let root = tmpdir("admit-dangling-verifier");
-    // Coverage and conformance are clean (a satisfier, a generous inline cap); the
-    // sole fault is `verified_by` naming a path that does not exist under the root.
+    // Coverage and conformance are clean (a satisfier, no package shape); the sole
+    // fault is `verified_by` naming a path that does not exist under the root.
     import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
     write_temper_toml(
@@ -441,12 +450,7 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
         "[requirement.planner]\n\
          kind = \"skill\"\n\
          required = true\n\
-         verified_by = \"tests/does-not-exist.rs\"\n\
-         [[requirement.planner.clause]]\n\
-         severity = \"required\"\n\
-         predicate = \"max_len\"\n\
-         field = \"name\"\n\
-         max = 64\n",
+         verified_by = \"tests/does-not-exist.rs\"\n",
     );
 
     let run = check_in(&root);
@@ -464,30 +468,20 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
 }
 
 #[test]
-fn a_roster_whose_contracts_and_verifiers_all_resolve_passes() {
+fn a_roster_whose_packages_and_verifiers_all_resolve_passes() {
     let root = tmpdir("admit-clean");
     import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
 
-    // An admissible template contract on disk (a generous `name` cap the satisfier
-    // stays within), and a `verified_by` path that exists under the root.
-    let contracts = root.join("contracts");
-    fs::create_dir_all(&contracts).unwrap();
-    fs::write(
-        contracts.join("skill-shape.toml"),
-        "[[clause]]\n\
-         severity = \"required\"\n\
-         predicate = \"max_len\"\n\
-         field = \"name\"\n\
-         max = 64\n",
-    )
-    .unwrap();
+    // An admissible bound package (a generous `name` cap the satisfier stays within),
+    // and a `verified_by` path that exists under the root.
+    write_package(&root, "skill-shape", &maxlen_package_clauses(64));
     fs::write(root.join("plan.rs"), "// a present verifier\n").unwrap();
     write_temper_toml(
         &root,
         "[requirement.planner]\n\
          kind = \"skill\"\n\
-         contract = \"contracts/skill-shape.toml\"\n\
+         package = \"skill-shape\"\n\
          required = true\n\
          verified_by = \"plan.rs\"\n",
     );
@@ -506,17 +500,12 @@ fn a_roster_whose_contracts_and_verifiers_all_resolve_passes() {
 /// the `model` feature drawn from the `approved-model` satisfier set (S₂) — the
 /// set-scope `membership` predicate, with a corpus-derived allowed set. The `source`
 /// names a *declared* requirement (below), so the approved skills' `satisfies` link
-/// resolves. The inline `max_len` contract is generous so admissibility and
-/// conformance pass, leaving membership the only gate these cases exercise.
+/// resolves. The `agents` requirement binds no package (no shape gate), leaving
+/// membership the only gate these cases exercise.
 fn membership_requirement_toml() -> &'static str {
     "[requirement.agents]\n\
      kind = \"skill\"\n\
      membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\" }\n\
-     [[requirement.agents.clause]]\n\
-     severity = \"required\"\n\
-     predicate = \"max_len\"\n\
-     field = \"name\"\n\
-     max = 64\n\
      \n\
      [requirement.approved-model]\n\
      kind = \"skill\"\n\
@@ -625,29 +614,22 @@ fn a_typed_reference_flags_a_satisfier_whose_value_comes_only_from_a_nonconformi
     author_satisfies(&root, "agent-gpt", &["agents"]);
     import_tiered_sources(&root);
 
-    // The typed reference: a template contract requiring the source's `tier` be
-    // `official`, resolved relative to the temper.toml dir.
-    let contracts = root.join("contracts");
-    fs::create_dir_all(&contracts).unwrap();
-    fs::write(
-        contracts.join("approved.toml"),
+    // The typed reference: a package (named by name) requiring the source's `tier` be
+    // `official`, resolved through PACKAGE-BINDING's order.
+    write_package(
+        &root,
+        "approved-source",
         "[[clause]]\n\
          severity = \"required\"\n\
          predicate = \"enum\"\n\
          field = \"tier\"\n\
          values = [\"official\"]\n",
-    )
-    .unwrap();
+    );
     write_temper_toml(
         &root,
         "[requirement.agents]\n\
          kind = \"skill\"\n\
-         membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"contracts/approved.toml\" }\n\
-         [[requirement.agents.clause]]\n\
-         severity = \"required\"\n\
-         predicate = \"max_len\"\n\
-         field = \"name\"\n\
-         max = 64\n\
+         membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"approved-source\" }\n\
          \n\
          [requirement.approved-model]\n\
          kind = \"skill\"\n\

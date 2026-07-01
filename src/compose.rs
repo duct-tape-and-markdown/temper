@@ -35,7 +35,7 @@
 //! harness-contract tier (`specs/10-contracts.md`, "Requirements — the harness's
 //! named obligations"; "Decision: role and requirement are one concept"). A
 //! **requirement** is the harness's named obligation, one concept carrying every
-//! facet: an optional authored `means`, optional typing (`kind` / `contract`), an
+//! facet: an optional authored `means`, optional typing (`kind` / `package`), an
 //! optional `required` flag, the set-scope predicates (`count` / `unique` /
 //! `membership`), an optional graph-scope `degree` bound, and an optional
 //! `verified_by` verifier. Each parses into a typed [`Requirement`]; **every facet
@@ -233,7 +233,7 @@ pub struct Governs {
 /// (`specs/10-contracts.md`, "Requirements — the harness's named obligations";
 /// "Decision: role and requirement are one concept"). The earlier split into a
 /// structural slot and a semantic obligation bridged by `filled_by` is retired:
-/// kind-typing is a facet (`kind` / `contract`), not a rival concept, and there is
+/// kind-typing is a facet (`kind` / `package`), not a rival concept, and there is
 /// no `filled_by` because there are not two things to bridge. Fill is the artifact's
 /// opt-in `satisfies` alone — there is **no name-`match` selector** (a name pattern is
 /// the contract guessing, eradicated). **Every facet is optional except the name**
@@ -247,10 +247,6 @@ pub struct Governs {
 /// requirement's **satisfier set** (the artifacts of its `kind` that opt in via
 /// `satisfies`). `requirement.` is its own namespace, distinct from the `rule`
 /// artifact kind (the Decision's closing note).
-///
-/// Not `Eq`: its [`contract`](Requirement::contract) may carry inline clauses with
-/// `f64` `range` bounds (see [`crate::contract::Contract`]); equality stays derived
-/// as `PartialEq`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Requirement {
     /// The requirement's name — the `[requirement.<name>]` table key.
@@ -264,10 +260,15 @@ pub struct Requirement {
     /// stored verbatim — the `kind` typing facet. Absent ⇒ **kind-blind**: any
     /// artifact that opts in fills it (`specs/10-contracts.md`, the typing facet).
     pub kind: Option<String>,
-    /// The contract the filling artifact must conform to — the `contract` typing
-    /// facet: an adopted template named by path, or inline clauses over the closed
-    /// vocabulary. Absent ⇒ no shape constraint on the filler.
-    pub contract: Option<RequirementContract>,
+    /// The package the filling artifact must conform to — the `package` typing facet
+    /// (`specs/10-contracts.md`, the typing facet). A package named **by name**,
+    /// resolved against the built-in packages ∪ `.temper/packages/` (PACKAGE-BINDING's
+    /// order via [`PackageResolver`]) — never inline clauses (clauses live only in
+    /// packages). Composes with `kind`: the filler is checked by its own kind's bound
+    /// package (conformance) *and* this named one, as a type implements several traits.
+    /// Absent ⇒ no package constraint on the filler. Stored verbatim; whether it
+    /// resolves is an admissibility check (`names a real package`).
+    pub package: Option<String>,
     /// Whether an unfilled requirement is a gate-blocking violation. Absent in
     /// source ⇒ `false`: `temper` never fabricates a gate the author did not declare
     /// (`00-intent.md` law 4). Mutually exclusive with [`count`](Requirement::count):
@@ -377,9 +378,6 @@ impl EdgeBound {
 /// names and source requirement are stored verbatim; deciding membership lives in
 /// [`crate::roster`].
 ///
-/// Not `Eq` — its optional [`source_contract`](Membership::source_contract) may
-/// carry inline clauses with `f64` `range` bounds (see [`RequirementContract`]);
-/// equality stays derived as `PartialEq`, as it is for [`Requirement`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Membership {
     /// The field `F` on each S₁ satisfier whose extracted scalar must be a member of
@@ -398,56 +396,66 @@ pub struct Membership {
     pub source_feature: String,
     /// An optional **typed reference** constraint (`conforms_to`,
     /// `specs/45-governance.md`, "The set scope (the roster)"): when set, S₂ is
-    /// narrowed to the source artifacts that *also* conform to this contract, so the
+    /// narrowed to the source artifacts that *also* conform to this **package**, so the
     /// reference resolves to the right *kind* of thing — "a reference to an agent of
-    /// kind K conforming to contract C." The same [`RequirementContract`] a
-    /// requirement's `contract` takes (a template path or inline clauses). Absent ⇒
-    /// `None`: plain membership over every S₂ satisfier, unchanged. Deciding
-    /// conformance lives in [`crate::roster`], reusing the resolve + validate
+    /// kind K conforming to package P." A package named **by name**, resolved through
+    /// the same [`PackageResolver`] a requirement's own `package` is — never inline
+    /// clauses. Absent ⇒ `None`: plain membership over every S₂ satisfier, unchanged.
+    /// Deciding conformance lives in [`crate::roster`], reusing the resolve + validate
     /// machinery `conformance` runs.
-    pub source_contract: Option<RequirementContract>,
+    pub source_package: Option<String>,
 }
 
-/// A requirement's contract reference: the filler's contract is either an adopted
-/// template named by path, or inline clauses declared under the requirement
-/// (`[[requirement.<name>.clause]]`) over the same closed vocabulary a bare contract
-/// carries (`specs/10-contracts.md`, the `contract` typing facet).
-///
-/// Not `Eq` — its inline [`Clause`]s may carry `f64` `range` bounds; equality
-/// stays derived as `PartialEq`.
-#[derive(Debug, Clone, PartialEq)]
-pub enum RequirementContract {
-    /// A template adopted by path (`contract = "contracts/skill.anthropic.toml"`).
-    /// Stored verbatim; whether the path resolves is an admissibility check.
-    Template(String),
-    /// Inline clauses declared under the requirement, parsed by the shared
-    /// [`contract::parse_clauses`] so an unknown predicate is rejected exactly as
-    /// in a bare contract.
-    Inline(Vec<Clause>),
+/// Resolves a **bound package name** to its [`Contract`] in PACKAGE-BINDING's order
+/// (`specs/20-surface.md`, "Decision: package binding is by artifact kind"): a
+/// built-in package name resolves from the embedded set first; any other name loads
+/// `<packages_dir>/<name>/PACKAGE.md`. It is the single order every by-name binding is
+/// resolved through — a requirement's `package` typing facet and a `membership`'s
+/// `conforms_to` typed reference — so packages **compose**: a filler is checked by its
+/// kind's bound package *and* any package a requirement names.
+#[derive(Debug, Clone)]
+pub struct PackageResolver {
+    /// The built-in packages, keyed by name (`skill.anthropic`, `rule`) — the embedded
+    /// floor set a bound name resolves against before the on-disk one, matching
+    /// [`AuthorLayer::layer_over`]'s kind-binding order.
+    builtins: BTreeMap<String, Contract>,
+    /// The `.temper/packages/` directory a non-built-in name loads its
+    /// `<name>/PACKAGE.md` from.
+    packages_dir: PathBuf,
 }
 
-impl RequirementContract {
-    /// Resolve this reference into the concrete [`Contract`] the engine validates
-    /// a requirement's filler against (`specs/10-contracts.md`, the `contract`
-    /// typing facet's `conforms-to` half). `Inline` wraps its already-parsed clauses
-    /// directly, labelled `label` (the requirement name) for diagnostics; `Template`
-    /// loads its path **relative to `base_dir`** — the `temper.toml` directory — and
-    /// parses it through [`Contract::load`].
-    ///
-    /// A non-resolving or malformed template path is an *admissibility* concern
-    /// (the template-resolve clause of roster admissibility), bubbled here as the
-    /// [`ContractError`] so the caller can skip the conformance check rather than
-    /// double-report what admissibility owns.
-    pub fn resolve(&self, base_dir: &Path, label: &str) -> Result<Contract, ContractError> {
-        match self {
-            RequirementContract::Inline(clauses) => Ok(Contract {
-                name: label.to_string(),
-                clauses: clauses.clone(),
-                // Inline clauses carry no document body, so no package guidance.
-                guidance: None,
-            }),
-            RequirementContract::Template(rel) => Contract::load(&base_dir.join(rel)),
+impl PackageResolver {
+    /// Assemble a resolver over the built-in package set (keyed by name) and the
+    /// on-disk `.temper/packages/` directory a project-authored name resolves against.
+    #[must_use]
+    pub fn new(builtins: BTreeMap<String, Contract>, packages_dir: PathBuf) -> Self {
+        Self {
+            builtins,
+            packages_dir,
         }
+    }
+
+    /// Resolve a bound package `name` to the [`Contract`] the engine validates a
+    /// requirement's filler against (`specs/10-contracts.md`, the `package` typing
+    /// facet's `conforms-to` half):
+    ///
+    /// - `Ok(Some)` — the name is a built-in package, or an on-disk
+    ///   `<packages_dir>/<name>/PACKAGE.md`; built-ins win, matching the kind-binding
+    ///   order.
+    /// - `Ok(None)` — the name resolves to *neither*: a non-resolving binding, which is
+    ///   admissibility's finding (`names a real package`), never a thrown error, so the
+    ///   caller can skip conformance rather than double-report.
+    /// - `Err` — an on-disk package exists but fails to load, bubbled as the
+    ///   [`ContractError`].
+    pub fn resolve(&self, name: &str) -> Result<Option<Contract>, ContractError> {
+        if let Some(contract) = self.builtins.get(name) {
+            return Ok(Some(contract.clone()));
+        }
+        let path = self.packages_dir.join(name).join("PACKAGE.md");
+        if path.is_file() {
+            return Ok(Some(Contract::load_package(&path)?));
+        }
+        Ok(None)
     }
 }
 
@@ -652,19 +660,6 @@ pub enum ComposeError {
         expected: &'static str,
     },
 
-    /// A `[requirement.<name>]` declares *both* a `contract` template path and
-    /// inline `[[clause]]`s — the reference is ambiguous; at most one is admissible.
-    #[error(
-        "{path}: `[requirement.{name}]` declares both a `contract` template path and inline `[[clause]]`s; choose one"
-    )]
-    #[diagnostic(code(temper::compose::requirement_ambiguous_contract))]
-    RequirementAmbiguousContract {
-        /// The malformed `temper.toml`.
-        path: PathBuf,
-        /// The requirement with a doubly-declared contract.
-        name: String,
-    },
-
     /// A `[requirement.<name>]`'s `count` bound is malformed — not an inline table,
     /// or its `min`/`max` are missing, non-integer, or negative. The matched-set
     /// cardinality bound is a pair of `usize` counts, never an open guess.
@@ -751,7 +746,7 @@ pub enum ComposeError {
     #[diagnostic(
         code(temper::compose::requirement_unknown_key),
         help(
-            "a requirement carries only `means`, `kind`, `contract`, `clause`, `required`, `count`, `unique`, `membership`, `degree`, and `verified_by` — a stray key is a typo, not an escape hatch"
+            "a requirement carries only `means`, `kind`, `package`, `required`, `count`, `unique`, `membership`, `degree`, and `verified_by` — a stray key is a typo, not an escape hatch (inline clauses retired: clauses live only in packages)"
         )
     )]
     RequirementUnknownKey {
@@ -1278,25 +1273,28 @@ fn relationship_str(table: &Table, key: &str) -> Option<String> {
 /// Parse one `[requirement.<name>]` table into the unified typed [`Requirement`]
 /// (`specs/10-contracts.md`, "Decision: role and requirement are one concept"). Every
 /// facet is optional except the name: an authored `means` (carried verbatim, never
-/// interpreted — `00-intent.md` law 3), the typing facets (`kind` / `contract`), the
+/// interpreted — `00-intent.md` law 3), the typing facets (`kind` / `package`), the
 /// optional `required` flag (absent ⇒ `false`; `temper` never fabricates a gate the
 /// author did not declare — law 4), the set-scope predicates (`count` / `unique` /
 /// `membership`), the graph-scope `degree` bound, and the `verified_by` verifier.
-/// Fill is by opt-in `satisfies` alone — there is no `match` key (a `match = {…}` is
-/// now an unknown-key reject, below). Each malformed facet is a load error, mirroring
-/// `[kind.<k>]` parsing.
+/// Typing is `kind`/`package` **by name** — never inline clauses (clauses live only in
+/// packages); a `contract = "<path>"` or a `[[requirement.<name>.clause]]` array is now
+/// an unknown-key reject (below), the require-side vocabulary migration. Fill is by
+/// opt-in `satisfies` alone — there is no `match` key. Each malformed facet is a load
+/// error, mirroring `[kind.<k>]` parsing.
 fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requirement, ComposeError> {
     // A requirement carries only the closed facet set below; a stray key (a misspelled
     // `mean`, a `requird`) is a typo that would silently drop the meaning or disable a
     // gate it was meant to arm, so it is rejected at parse, never ignored
-    // (`specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored").
+    // (`specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored"). The
+    // retired `contract`-as-bundle key and inline `clause` array fall here too — typing
+    // is by-name `package`, and clauses live only in packages.
     for (key, _) in table.iter() {
         if !matches!(
             key,
             "means"
                 | "kind"
-                | "contract"
-                | "clause"
+                | "package"
                 | "required"
                 | "count"
                 | "unique"
@@ -1314,7 +1312,7 @@ fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requireme
 
     let means = requirement_str(table, "means", name, path)?;
     let kind = requirement_str(table, "kind", name, path)?;
-    let contract = parse_requirement_contract(table, name, path)?;
+    let package = requirement_str(table, "package", name, path)?;
     // `required` and `count` are two ways to express the same dimension (satisfier-set
     // cardinality), so declaring both is ambiguous — reject it before parsing either.
     if table.contains_key("required") && table.contains_key("count") {
@@ -1334,7 +1332,7 @@ fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requireme
         name: name.to_string(),
         means,
         kind,
-        contract,
+        package,
         required,
         count,
         unique,
@@ -1517,51 +1515,39 @@ fn parse_membership(
     let source_kind = membership_str(membership, "kind").ok_or_else(bad)?;
     let source = membership_str(membership, "source").ok_or_else(bad)?;
     let source_feature = membership_str(membership, "feature").ok_or_else(bad)?;
-    let source_contract = parse_conforms_to(membership, name, path)?;
+    let source_package = parse_conforms_to(membership, name, path)?;
     Ok(Some(Membership {
         field,
         source,
         source_kind,
         source_feature,
-        source_contract,
+        source_package,
     }))
 }
 
 /// The optional `conforms_to` constraint on a `membership`'s source set — the
-/// **typed reference** (`specs/45-governance.md`, "The set scope (the roster)"):
-/// the same [`RequirementContract`] a requirement's `contract` takes, either a
-/// template path string (`conforms_to = "contracts/…​.toml"`) or an inline
-/// `[[…​.conforms_to.clause]]` array parsed by the shared [`contract::parse_clauses`]
-/// — so an out-of-vocabulary predicate is rejected exactly as in a requirement's own
-/// inline contract, no escape hatch. Absent ⇒ `None` (plain membership). A
-/// structurally malformed value — neither a string nor a clause-bearing sub-table —
-/// folds into [`ComposeError::RequirementBadMembership`], the way every other
-/// membership miss does.
+/// **typed reference** (`specs/45-governance.md`, "The set scope (the roster)"): a
+/// package named **by name** (`conforms_to = "<package>"`), resolved through the same
+/// [`PackageResolver`] a requirement's own `package` is — so S₂ is narrowed to the
+/// source artifacts that also conform to that package. Never inline clauses (clauses
+/// live only in packages, the require-side vocabulary migration). Absent ⇒ `None`
+/// (plain membership). A non-string value folds into
+/// [`ComposeError::RequirementBadMembership`], the way every other membership miss does.
 fn parse_conforms_to(
     table: &dyn toml_edit::TableLike,
     name: &str,
     path: &Path,
-) -> Result<Option<RequirementContract>, ComposeError> {
+) -> Result<Option<String>, ComposeError> {
     let Some(item) = table.get("conforms_to") else {
         return Ok(None);
     };
-    if let Some(template) = item.as_str() {
-        return Ok(Some(RequirementContract::Template(template.to_string())));
-    }
-    // A clause-bearing sub-table (`[requirement.<name>.membership.conforms_to]` with
-    // its own `[[…​.clause]]` array) reuses the shared closed-vocabulary parser, so a
-    // vocabulary error bubbles as the `ContractError` exactly as a requirement's inline
-    // clauses do. Anything else — a number, a bare inline table with no clauses —
-    // is a malformed `membership`.
-    let sub = item
-        .as_table()
+    let package = item
+        .as_str()
         .ok_or_else(|| ComposeError::RequirementBadMembership {
             path: path.to_path_buf(),
             name: name.to_string(),
         })?;
-    Ok(Some(RequirementContract::Inline(contract::parse_clauses(
-        sub, path,
-    )?)))
+    Ok(Some(package.to_string()))
 }
 
 /// Read one required string key off an inline table-like (a `membership` field):
@@ -1569,32 +1555,6 @@ fn parse_conforms_to(
 /// reports as a single [`ComposeError::RequirementBadMembership`]).
 fn membership_str(table: &dyn toml_edit::TableLike, key: &str) -> Option<String> {
     Some(table.get(key)?.as_str()?.to_string())
-}
-
-/// The requirement's optional contract reference — at most one of a `contract`
-/// template path or an inline `[[requirement.<name>.clause]]` array. Declaring both
-/// is ambiguous (a load error); declaring neither is `None` (the requirement is
-/// kind-blind / imposes no shape on its filler). Inline clauses go through the shared
-/// [`contract::parse_clauses`], so an unknown predicate is rejected just as in a bare
-/// contract.
-fn parse_requirement_contract(
-    table: &Table,
-    name: &str,
-    path: &Path,
-) -> Result<Option<RequirementContract>, ComposeError> {
-    let template = requirement_str(table, "contract", name, path)?;
-    let has_clauses = table.contains_key("clause");
-    match (template, has_clauses) {
-        (Some(_), true) => Err(ComposeError::RequirementAmbiguousContract {
-            path: path.to_path_buf(),
-            name: name.to_string(),
-        }),
-        (Some(template), false) => Ok(Some(RequirementContract::Template(template))),
-        (None, true) => Ok(Some(RequirementContract::Inline(contract::parse_clauses(
-            table, path,
-        )?))),
-        (None, false) => Ok(None),
-    }
 }
 
 /// The requirement's optional `required` flag: absent ⇒ `false` (`temper` never
@@ -2015,14 +1975,14 @@ max = 120
 
     #[test]
     fn a_full_requirement_table_parses_into_a_typed_requirement() {
-        // Every facet present: a `means`, a `kind`, a path-string contract, an
+        // Every facet present: a `means`, a `kind`, a by-name `package` binding, an
         // explicit `required`, and a `verified_by` verifier. Fill is by opt-in
         // `satisfies` — there is no `match` selector facet.
         let toml = r#"
 [requirement.task-planning]
 means = "the harness plans tasks"
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 required = true
 verified_by = "tests/plan.rs"
 "#;
@@ -2037,9 +1997,7 @@ verified_by = "tests/plan.rs"
                 name: "task-planning".to_string(),
                 means: Some("the harness plans tasks".to_string()),
                 kind: Some("skill".to_string()),
-                contract: Some(RequirementContract::Template(
-                    "contracts/skill.anthropic.toml".to_string()
-                )),
+                package: Some("skill.anthropic".to_string()),
                 required: true,
                 count: None,
                 unique: Vec::new(),
@@ -2066,7 +2024,7 @@ means = "the harness maintains dev standards"
                 name: "dev-standards".to_string(),
                 means: Some("the harness maintains dev standards".to_string()),
                 kind: None,
-                contract: None,
+                package: None,
                 required: false,
                 count: None,
                 unique: Vec::new(),
@@ -2093,9 +2051,30 @@ required = true
     }
 
     #[test]
-    fn an_inline_clause_contract_parses_via_the_shared_parser() {
-        // No `contract` path: the requirement's contract is inline `[[clause]]`s,
-        // parsed by the same closed-vocabulary parser a bare contract uses.
+    fn a_package_binding_parses_onto_the_requirement() {
+        // Typing is `package` **by name**: the filler must conform to the named package,
+        // resolved by name through `PackageResolver` (never inline clauses — clauses
+        // live only in packages). The name is stored verbatim; whether it resolves is an
+        // admissibility check.
+        let toml = r#"
+[requirement.release-tool]
+kind = "command"
+package = "release-command"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let requirement = layer
+            .requirements()
+            .get("release-tool")
+            .expect("the requirement parses");
+        assert_eq!(requirement.package, Some("release-command".to_string()));
+    }
+
+    #[test]
+    fn an_inline_clause_array_on_a_requirement_is_an_unknown_key() {
+        // Inline clauses under a requirement retired — clauses live only in packages
+        // (`specs/10-contracts.md`, the typing facet). A leftover `[[requirement.*.clause]]`
+        // array is no longer a facet but an unknown `clause` key, rejected at parse
+        // rather than silently dropped.
         let toml = r#"
 [requirement.release-tool]
 kind = "command"
@@ -2103,35 +2082,13 @@ kind = "command"
 severity = "required"
 predicate = "required"
 field = "description"
-[[requirement.release-tool.clause]]
-severity = "required"
-predicate = "must_define"
-marker = "executable"
 "#;
-        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        let requirement = layer
-            .requirements()
-            .get("release-tool")
-            .expect("the requirement parses");
-        assert_eq!(
-            requirement.contract,
-            Some(RequirementContract::Inline(vec![
-                Clause {
-                    severity: Severity::Required,
-                    guidance: None,
-                    predicate: Predicate::Required {
-                        field: "description".to_string(),
-                    },
-                },
-                Clause {
-                    severity: Severity::Required,
-                    guidance: None,
-                    predicate: Predicate::MustDefine {
-                        marker: "executable".to_string(),
-                    },
-                },
-            ]))
-        );
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RequirementUnknownKey { ref key, ref name, .. }
+                if key == "clause" && name == "release-tool"
+        ));
     }
 
     #[test]
@@ -2141,7 +2098,7 @@ marker = "executable"
         let toml = r#"
 [requirement.linter]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("linter").unwrap();
@@ -2150,40 +2107,21 @@ contract = "contracts/skill.anthropic.toml"
     }
 
     #[test]
-    fn an_unknown_predicate_in_an_inline_contract_is_a_load_error() {
-        // The shared parser rejects an out-of-vocabulary predicate in a requirement's
-        // inline clauses exactly as it does in a bare contract — no escape hatch.
-        let toml = r#"
-[requirement.linter]
-kind = "skill"
-[[requirement.linter.clause]]
-severity = "required"
-predicate = "word_count"
-field = "description"
-"#;
-        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-        assert!(matches!(
-            err,
-            ComposeError::Contract(ContractError::UnknownPredicate { ref predicate, .. })
-                if predicate == "word_count"
-        ));
-    }
-
-    #[test]
-    fn a_requirement_with_both_a_contract_and_inline_clauses_is_a_load_error() {
+    fn the_retired_contract_bundle_key_is_an_unknown_key() {
+        // `contract = "<path>"` — a requirement adopting a contract bundle by path —
+        // retired: typing is `package` by name (`specs/10-contracts.md`, the typing
+        // facet). A leftover `contract` key is rejected at parse rather than silently
+        // dropped, the require-side vocabulary migration.
         let toml = r#"
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-[[requirement.linter.clause]]
-severity = "required"
-predicate = "required"
-field = "name"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(
             err,
-            ComposeError::RequirementAmbiguousContract { ref name, .. } if name == "linter"
+            ComposeError::RequirementUnknownKey { ref key, ref name, .. }
+                if key == "contract" && name == "linter"
         ));
     }
 
@@ -2196,7 +2134,7 @@ field = "name"
         let toml = r#"
 [requirement.linter]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 match = { name = "lint*" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2212,7 +2150,7 @@ match = { name = "lint*" }
         let toml = r#"
 [requirement.linter]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 required = "yes"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2239,7 +2177,7 @@ required = "yes"
         let toml = r#"
 [requirement.agents]
 kind = "agent"
-contract = "contracts/agent.toml"
+package = "skill.anthropic"
 count = { min = 0, max = 3 }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2253,7 +2191,7 @@ count = { min = 0, max = 3 }
         let toml = r#"
 [requirement.agents]
 kind = "agent"
-contract = "contracts/agent.toml"
+package = "skill.anthropic"
 count = 3
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2270,7 +2208,7 @@ count = 3
         let toml = r#"
 [requirement.agents]
 kind = "agent"
-contract = "contracts/agent.toml"
+package = "skill.anthropic"
 count = { min = 0, max = "three" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2284,7 +2222,7 @@ count = { min = 0, max = "three" }
         let toml = r#"
 [requirement.agents]
 kind = "agent"
-contract = "contracts/agent.toml"
+package = "skill.anthropic"
 count = { max = 3 }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2297,7 +2235,7 @@ count = { max = 3 }
         let toml = r#"
 [requirement.agents]
 kind = "agent"
-contract = "contracts/agent.toml"
+package = "skill.anthropic"
 count = { min = -1, max = 3 }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2311,7 +2249,7 @@ count = { min = -1, max = 3 }
         let toml = r#"
 [requirement.agents]
 kind = "agent"
-contract = "contracts/agent.toml"
+package = "skill.anthropic"
 required = true
 count = { min = 0, max = 3 }
 "#;
@@ -2329,7 +2267,7 @@ count = { min = 0, max = 3 }
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 unique = ["model"]
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2344,7 +2282,7 @@ unique = ["model"]
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
@@ -2356,7 +2294,7 @@ contract = "contracts/skill.anthropic.toml"
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 unique = "model"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2373,7 +2311,7 @@ unique = "model"
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 unique = ["model", 7]
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2389,7 +2327,7 @@ unique = ["model", 7]
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 membership = { field = "model", kind = "manifest", source = "approved-models", feature = "model" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2401,43 +2339,41 @@ membership = { field = "model", kind = "manifest", source = "approved-models", f
                 source: "approved-models".to_string(),
                 source_kind: "manifest".to_string(),
                 source_feature: "model".to_string(),
-                source_contract: None,
+                source_package: None,
             })
         );
     }
 
     #[test]
-    fn a_membership_with_a_conforms_to_template_path_parses() {
-        // The typed-reference form: `conforms_to` names a template path, so S₂ is
-        // narrowed to sources conforming to that contract. It parses into
-        // `source_contract: Some(Template(..))`, the same `RequirementContract` a
-        // requirement's own `contract` takes.
+    fn a_membership_with_a_conforms_to_package_parses() {
+        // The typed-reference form: `conforms_to` names a package **by name**, so S₂ is
+        // narrowed to sources conforming to that package. It parses into
+        // `source_package: Some(..)`, resolved through the same `PackageResolver` a
+        // requirement's own `package` is — never inline clauses.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
-membership = { field = "model", kind = "manifest", source = "approved-model", feature = "model", conforms_to = "contracts/approved.toml" }
+package = "skill.anthropic"
+membership = { field = "model", kind = "manifest", source = "approved-model", feature = "model", conforms_to = "approved-manifest" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
         assert_eq!(
-            requirement.membership.as_ref().unwrap().source_contract,
-            Some(RequirementContract::Template(
-                "contracts/approved.toml".to_string()
-            ))
+            requirement.membership.as_ref().unwrap().source_package,
+            Some("approved-manifest".to_string())
         );
     }
 
     #[test]
-    fn a_membership_with_inline_conforms_to_clauses_parses() {
-        // The typed-reference form can also carry inline clauses, declared under a
-        // `[requirement.<name>.membership.conforms_to]` sub-table with its own
-        // `[[clause]]` array — parsed by the shared closed-vocabulary parser into
-        // `source_contract: Some(Inline(..))`.
+    fn an_inline_conforms_to_clause_sub_table_is_a_load_error() {
+        // Inline `conforms_to` clauses retired — `conforms_to` names a package by name,
+        // never a clause-bearing sub-table (clauses live only in packages). A leftover
+        // `[requirement.<name>.membership.conforms_to]` sub-table makes `conforms_to` a
+        // non-string, so it folds into `RequirementBadMembership`.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 
 [requirement.agents.membership]
 field = "model"
@@ -2450,57 +2386,21 @@ severity = "required"
 predicate = "required"
 field = "model"
 "#;
-        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        let requirement = layer.requirements().get("agents").unwrap();
-        assert_eq!(
-            requirement.membership.as_ref().unwrap().source_contract,
-            Some(RequirementContract::Inline(vec![Clause {
-                severity: Severity::Required,
-                guidance: None,
-                predicate: Predicate::Required {
-                    field: "model".to_string(),
-                },
-            }]))
-        );
-    }
-
-    #[test]
-    fn an_unknown_predicate_in_a_conforms_to_clause_is_a_load_error() {
-        // The `conforms_to` clauses go through the same closed-vocabulary parser a
-        // requirement's inline contract does — an out-of-vocabulary predicate is
-        // rejected at load, no escape hatch.
-        let toml = r#"
-[requirement.agents]
-kind = "skill"
-contract = "contracts/skill.anthropic.toml"
-
-[requirement.agents.membership]
-field = "model"
-kind = "manifest"
-feature = "model"
-source = "approved-model"
-
-[[requirement.agents.membership.conforms_to.clause]]
-severity = "required"
-predicate = "word_count"
-field = "model"
-"#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(
             err,
-            ComposeError::Contract(ContractError::UnknownPredicate { ref predicate, .. })
-                if predicate == "word_count"
+            ComposeError::RequirementBadMembership { ref name, .. } if name == "agents"
         ));
     }
 
     #[test]
     fn a_membership_with_a_malformed_conforms_to_is_a_load_error() {
-        // `conforms_to` must be a template-path string or a clause-bearing sub-table;
-        // a bare number is neither, so it folds into `RequirementBadMembership`.
+        // `conforms_to` must be a package-name string; a bare number is not, so it
+        // folds into `RequirementBadMembership`.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 membership = { field = "model", kind = "manifest", source = "approved-model", feature = "model", conforms_to = 7 }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2517,7 +2417,7 @@ membership = { field = "model", kind = "manifest", source = "approved-model", fe
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 membership = { field = "model", kind = "skill", source = "approved-model", feature = "model" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2535,7 +2435,7 @@ membership = { field = "model", kind = "skill", source = "approved-model", featu
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
@@ -2547,7 +2447,7 @@ contract = "contracts/skill.anthropic.toml"
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 membership = "model"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2565,7 +2465,7 @@ membership = "model"
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 membership = { field = "model", kind = "manifest", source = "approved-model" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2579,7 +2479,7 @@ membership = { field = "model", kind = "manifest", source = "approved-model" }
         let toml = r#"
 [requirement.agents]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 membership = { field = "model", kind = "manifest", source = 7, feature = "model" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2686,7 +2586,7 @@ to = "skill"
         let toml = r#"
 [requirement.planner]
 kind = "skill"
-contract = "contracts/skill.anthropic.toml"
+package = "skill.anthropic"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         assert!(layer.edges().is_empty());

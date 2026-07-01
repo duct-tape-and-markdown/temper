@@ -161,7 +161,7 @@ mod tests {
             name: name.to_string(),
             means: means.map(str::to_string),
             kind: None,
-            contract: None,
+            package: None,
             required,
             count: None,
             unique: Vec::new(),
