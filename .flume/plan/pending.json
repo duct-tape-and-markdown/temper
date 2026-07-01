@@ -7,8 +7,8 @@
       "section": "Two fill paths: opt-in `satisfies`, or `filled_by` a role"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "UNKNOWN-KEY-REJECT"
+      "kind": "deferred",
+      "reason": "KILLED by spec 0784d00 — `filled_by` is retired; role+requirement are now one concept, so there is nothing to bridge. Do NOT build. Plan removes this entry on its next reconcile (see inbox consolidation note); gated deferred now only to stop a build pick during the reconcile lag."
     },
     "dependsOnForks": [],
     "files": {
