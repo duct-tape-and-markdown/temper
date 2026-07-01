@@ -1,142 +1,16 @@
 [
   {
-    "tag": "CHECK-CLEANUP",
-    "summary": "Delete check.rs's dead pre-engine lint scaffold — `trait Rule`/`run`/`OneErrorPerSkill` and the unused diagnostic-span channel; fix the false module header",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: kill the heuristic rule registry"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "Delete the dead pre-engine lint architecture `engine.rs` superseded: `trait Rule` (~227), `fn run` (~237), the test-only `OneErrorPerSkill` (~335) and its two `run` tests; and the never-used diagnostic-span channel — `Diagnostic::span` (~154), `with_span` (~194, zero callers), the `labels()` override (~216, always None), and the now-unused `SourceSpan`/`LabeledSpan` imports (~26). Rewrite the false module header (~11-17) that still sells `Rule::check`/`run` as the architecture. KEEP `Workspace`/`Diagnostic` struct/`Severity`/`render`/`any_error` — zero production edits."
-        }
-      ],
-      "retire": ["trait Rule", "check::run", "OneErrorPerSkill", "Diagnostic::span", "Diagnostic::with_span"]
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "check.rs carries only the live surface (Workspace/Diagnostic/Severity/render/any_error); the dead Rule registry and the always-None span channel are gone; the module header describes the engine, not the retired registry; no production behavior change; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox CHECK-CLEANUP (D1+D3). engine.rs replaced the heuristic registry (specs/10-contracts.md); the trait/run/OneErrorPerSkill scaffold and the diagnostic-span plumbing are pure dead code. check.rs-only — fully disjoint from the rest of the wave."
-  },
-  {
-    "tag": "KIND-ENTITIES-RECONCILE",
-    "summary": "Reject `[kind.*.entities]` uniformly in both compose kind-parse paths (custom-kind silently drops it today) and fix the false `folded in elsewhere` comment",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: unknown keys are rejected, not ignored"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Spec 2bc1013 dropped the phantom `[kind.<name>.entities]` table. Make `parse_custom_kind` (~1075) reject unknown keys the way `parse_kind_layer` (~1031) already does — iterate the table, allow only `governs`/`extraction`/`clause`/`relationships`, and reject any stray key (a leftover `[kind.*.entities]`, a typo) as a load error rather than silently dropping it. Fix the false comment (~68, `[kind.<name>.entities] ... folded in elsewhere`): nodes derive from `features.id`; there is no separate entities table."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "a custom-kind `[kind.<name>]` declaration carrying a stray subtable/key (e.g. `entities`) is a load error, exactly as `parse_kind_layer` already rejects it."
-      }
-    ],
-    "acceptance": "Both compose kind-parse paths reject an unrecognized key on a `[kind.<name>]` table uniformly; a leftover `[kind.*.entities]` fails loudly instead of being silently dropped; the stale `folded in elsewhere` comment is corrected; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox KIND-ENTITIES-RECONCILE (R1). Today `parse_kind_layer` rejects unknown keys but `parse_custom_kind` pulls only its known parts and drops the rest — align them (anti-silent-gap, specs/10-contracts.md unknown-key decision). Consolidation shipped (19333aa); compose.rs-only. MATCHSELECTOR-ROLE-DROP serializes after this (shared compose.rs)."
-  },
-  {
-    "tag": "BODY-HASH-DROP",
-    "summary": "Remove the write-only `RollupEntry.body_hash` — no production reader; law-5 provenance is `{source_path, import_hash}` only",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Provenance and round-trip discipline (law 5)"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Drop the `RollupEntry.body_hash` field (~129), its three `sha256_hex` computations (~306/345/460), and its emit into the lock row (~573); rewrite the `five-column row` doc (~541) to the four columns production actually uses (`source_path`/`import_hash`/`last_applied`)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Drop the two `re_add` rewrites of `body_hash` (~1037/1055) and the doc mentions (~66/997) — nothing reads it back."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "Regenerate the `coordinate_import_surface` insta snapshot (tests/snapshots/acceptance__coordinate_import_surface.snap) — the emitted lock row loses its `body_hash` column."
-        }
-      ],
-      "retire": ["import::RollupEntry::body_hash"]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/acceptance.rs",
-        "asserts": "the generated lock (lock.toml) row carries four columns — source_path/import_hash/last_applied — with body_hash gone; the snapshot is regenerated."
-      }
-    ],
-    "acceptance": "`RollupEntry` carries no `body_hash`; the lock emits the four columns production reads; `re_add` no longer rewrites it; the `coordinate_import_surface` snapshot is updated; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox BODY-HASH-DROP (D2). Write-only field, no production reader; law-5 provenance is {source_path, import_hash} (specs/20-surface.md). Touches import.rs + drift.rs + the acceptance snapshot. SHA256-HOIST serializes after (shared import.rs/drift.rs)."
-  },
-  {
-    "tag": "FEATURES-COMPANIONS-DROP",
-    "summary": "Remove the never-read `Features.companions` projection (its sole consumer companion-refs was killed as unsound); keep `Skill::companions` for the byte-faithful copy",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: kill the heuristic rule registry"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "Remove the `Features.companions` field (~175), its population in `skill_features` (~243-247), the `rule_features` placeholder (~279), and the two `assert!(features.companions.is_empty())` test asserts (~640/696)."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Remove the `companions: Vec::new()` test-helper placeholder (~380) and the stale `companions are unused by these clauses` comment (~363)."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "Remove the `companions: Vec::new()` placeholder in the `features()` test helper (~749)."
-        },
-        {
-          "path": "src/coverage.rs",
-          "description": "Remove the `companions: Vec::new()` test-helper placeholder (~160)."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Remove the `companions: Vec::new()` test-helper placeholder (~583)."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "Remove the `companions: Vec::new()` placeholder in the composed-Unit `Features` (~451)."
-        }
-      ],
-      "retire": ["extract::Features::companions"]
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`Features` has no `companions` field; every constructor across extract/engine/roster/coverage/graph/kind is updated; `Skill::companions` is retained (import.rs byte-faithful copy); cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox FEATURES-COMPANIONS-DROP (D4). companion-refs was killed as unsound → a companion-reference clause is inadmissible (specs/10-contracts.md), so the feature projection is dead. Field + ~6 Vec::new() placeholders. KEEP Skill::companions (byte-faithful copy). Shares engine.rs with DEPENDENCY-EXISTS-FENCE and roster.rs with MATCHSELECTOR-ROLE-DROP — both serialize after."
-  },
-  {
     "tag": "DEPENDENCY-EXISTS-FENCE",
     "summary": "Reject `Predicate::DependencyExists` in admissibility so a hand-authored clause fails loud, not a silent `Indeterminate` no-op the spec fenced",
     "per": {
       "path": "specs/10-contracts.md",
       "section": "The primitive algebra (decidable only)"
     },
-    "gate": { "kind": "blockedBy", "tag": "FEATURES-COMPANIONS-DROP" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "FEATURES-COMPANIONS-DROP"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -168,7 +42,11 @@
       "path": "specs/20-surface.md",
       "section": "Provenance and round-trip discipline (law 5)"
     },
-    "gate": { "kind": "blockedBy", "tag": "BODY-HASH-DROP" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BODY-HASH-DROP"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -181,12 +59,29 @@
           "path": "src/lib.rs",
           "description": "Add `pub(crate) mod hash;` beside the other modules — this entry owns the `mod` line."
         },
-        { "path": "src/skill.rs", "description": "Delete the local `sha256_hex` (~350); call `crate::hash::sha256_hex`." },
-        { "path": "src/rule.rs", "description": "Delete the local `sha256_hex` (~358); call `crate::hash::sha256_hex`." },
-        { "path": "src/import.rs", "description": "Delete the local `sha256_hex` (~597); call `crate::hash::sha256_hex`." },
-        { "path": "src/drift.rs", "description": "Delete the local `sha256_hex` (~322); call `crate::hash::sha256_hex`." }
+        {
+          "path": "src/skill.rs",
+          "description": "Delete the local `sha256_hex` (~350); call `crate::hash::sha256_hex`."
+        },
+        {
+          "path": "src/rule.rs",
+          "description": "Delete the local `sha256_hex` (~358); call `crate::hash::sha256_hex`."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Delete the local `sha256_hex` (~597); call `crate::hash::sha256_hex`."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Delete the local `sha256_hex` (~322); call `crate::hash::sha256_hex`."
+        }
       ],
-      "retire": ["skill::sha256_hex", "rule::sha256_hex", "import::sha256_hex", "drift::sha256_hex"]
+      "retire": [
+        "skill::sha256_hex",
+        "rule::sha256_hex",
+        "import::sha256_hex",
+        "drift::sha256_hex"
+      ]
     },
     "schemaDelta": "none",
     "tests": [],
@@ -200,7 +95,11 @@
       "path": "specs/10-contracts.md",
       "section": "Requirements — the harness's named obligations"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-ENTITIES-RECONCILE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-ENTITIES-RECONCILE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -217,7 +116,9 @@
           "description": "Remove/adjust the role-marker roster tests — fill is now `satisfies` opt-in or a `match` name/glob selector only."
         }
       ],
-      "retire": ["compose::MatchSelector::Role"]
+      "retire": [
+        "compose::MatchSelector::Role"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
