@@ -101,10 +101,15 @@ const ROLE_MEMBERSHIP_RULE: &str = "role.membership";
 /// which artifacts fill a role and whether a `required` single-filler role is
 /// satisfiably filled. `conforms-to` the role's contract and `verified_by`
 /// admissibility are follow-on passes; a non-`required` role never fires here.
+///
+/// `base_dir` is the `temper.toml` directory a `membership` `conforms_to` template
+/// path resolves against — the typed-reference constraint (`specs/45-governance.md`,
+/// "The set scope") needs it to load the contract that narrows the source set.
 #[must_use]
 pub fn check(
     roles: &BTreeMap<String, Role>,
     by_kind: &BTreeMap<&str, &[Features]>,
+    base_dir: &Path,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for role in roles.values() {
@@ -150,7 +155,7 @@ pub fn check(
         // `by_kind` map, not the role's `candidates`. Author-declared and orthogonal
         // to `count`/`unique`/`required`, so it fires regardless of them.
         if let Some(membership) = &role.membership {
-            diagnostics.extend(out_of_set(role, membership, candidates, by_kind));
+            diagnostics.extend(out_of_set(role, membership, candidates, by_kind, base_dir));
         }
     }
     diagnostics
@@ -231,6 +236,12 @@ pub fn conformance(
 /// - **(e) a declared `count` bound is satisfiable** — `min <= max`; an inverted
 ///   bound admits no cardinality at all, so the role's definition is inadmissible,
 ///   mirroring `range`'s `min > max` rejection (`specs/45-governance.md`).
+/// - **(f) a `membership` `conforms_to` typed reference resolves and is itself
+///   admissible** — the constraint that narrows the source set
+///   (`specs/45-governance.md`, "The set scope") is held to the same bar as the
+///   role's own contract in (c): a non-resolving template or an inadmissible inline
+///   contract is caught here, so a `conforms_to` that never loads is a reported
+///   inadmissibility, not a silent no-op that quietly drops the membership check.
 ///
 /// `by_kind` is the same workspace-features map [`check`] and [`conformance`] read
 /// — admissibility uses only its *keys* (the modeled kinds), never the fillers.
@@ -325,6 +336,40 @@ pub fn admissibility(
                     role.name, bound.min, bound.max
                 ),
             ));
+        }
+
+        // (f) A `membership` `conforms_to` typed reference resolves and is itself
+        // admissible — held to the same bar as the role's own contract in (c). A
+        // `conforms_to` that never loads would otherwise silently drop the whole
+        // membership check (`out_of_set` skips a non-resolving one), so it must be
+        // reported here.
+        if let Some(source_contract) = role
+            .membership
+            .as_ref()
+            .and_then(|m| m.source_contract.as_ref())
+        {
+            match source_contract.resolve(base_dir, &role.name) {
+                Err(error) => diagnostics.push(Diagnostic::error(
+                    ROLE_ADMISSIBILITY_RULE,
+                    &role.name,
+                    format!(
+                        "role `{}` `membership` `conforms_to` does not resolve: {error}",
+                        role.name
+                    ),
+                )),
+                Ok(contract) => {
+                    for finding in engine::admissibility(&contract) {
+                        diagnostics.push(Diagnostic::error(
+                            ROLE_ADMISSIBILITY_RULE,
+                            &role.name,
+                            format!(
+                                "role `{}` `membership` `conforms_to` is inadmissible: {}",
+                                role.name, finding.message
+                            ),
+                        ));
+                    }
+                }
+            }
         }
     }
     diagnostics
@@ -516,19 +561,50 @@ fn duplicate(role: &Role, field: &str, value: &str, fillers: &[&str]) -> Diagnos
 /// role's own `artifact`, so the source candidates come from the map, not the S₁
 /// `candidates`. Findings follow `candidates` order, which is name-sorted, so the
 /// set is stable across runs.
+///
+/// When the membership carries a `conforms_to` **typed-reference** constraint
+/// (`specs/45-governance.md`, "The set scope"), S₂ is first narrowed to the matching
+/// sources that *also* conform to that contract — resolved against `base_dir` and
+/// validated by [`engine::validate`], the same machinery [`conformance`] runs — so
+/// the allowed set is drawn only from the right *kind* of thing. A source that trips
+/// any finding is dropped before the set is built; a non-resolving `conforms_to` is
+/// admissibility's to report (like [`conformance`]'s skip), so the membership check
+/// is skipped rather than run against an unconstrained source.
 fn out_of_set(
     role: &Role,
     membership: &Membership,
     candidates: &[Features],
     by_kind: &BTreeMap<&str, &[Features]>,
+    base_dir: &Path,
 ) -> Vec<Diagnostic> {
     let source = by_kind
         .get(membership.source_kind.as_str())
         .copied()
         .unwrap_or(&[]);
-    let allowed: BTreeSet<&str> = source
+    let mut matched: Vec<&Features> = source
         .iter()
         .filter(|features| matches(&membership.source_selector, features))
+        .collect();
+
+    // A typed reference constrains S₂ to sources conforming to contract C: keep only
+    // the matched sources that validate clean against it, reusing `conformance`'s
+    // resolve + validate machinery. A non-resolving `conforms_to` is admissibility's
+    // finding, not ours — skip the check rather than draw a set off an unconstrained
+    // source (mirroring how `conformance` skips a role whose contract does not resolve).
+    if let Some(source_contract) = &membership.source_contract {
+        let Ok(contract) = source_contract.resolve(base_dir, &role.name) else {
+            return Vec::new();
+        };
+        let owned: Vec<Features> = matched.iter().map(|features| (*features).clone()).collect();
+        let nonconforming: BTreeSet<String> = engine::validate(&contract, &owned)
+            .into_iter()
+            .map(|finding| finding.artifact)
+            .collect();
+        matched.retain(|features| !nonconforming.contains(features.id.as_str()));
+    }
+
+    let allowed: BTreeSet<&str> = matched
+        .iter()
         .filter_map(|features| {
             features
                 .field(&membership.source_feature)
@@ -634,7 +710,7 @@ mod tests {
         let mut roles = BTreeMap::new();
         roles.insert(role.name.clone(), role);
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", skills)]);
-        check(&roles, &by_kind)
+        check(&roles, &by_kind, Path::new(""))
     }
 
     #[test]
@@ -900,7 +976,7 @@ mod tests {
     fn run_multi(role: Role, by_kind: BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
         let mut roles = BTreeMap::new();
         roles.insert(role.name.clone(), role);
-        check(&roles, &by_kind)
+        check(&roles, &by_kind, Path::new(""))
     }
 
     #[test]
@@ -969,6 +1045,77 @@ mod tests {
             skill_with_model("approved-a", Some("opus")),
         ];
         assert!(run(role, &skills).is_empty());
+    }
+
+    /// A role whose `membership` carries a `conforms_to` typed-reference constraint
+    /// (inline clauses, so no `base_dir` is needed): the source set is narrowed to
+    /// `approved-*` skills that also declare a `tier` field before the allowed
+    /// `model` set is drawn.
+    fn typed_reference_role() -> Role {
+        role(
+            "[role.agents]\n\
+             artifact = \"skill\"\n\
+             contract = \"contracts/skill.anthropic.toml\"\n\
+             match = { name = \"agent-*\" }\n\
+             \n\
+             [role.agents.membership]\n\
+             field = \"model\"\n\
+             kind = \"skill\"\n\
+             feature = \"model\"\n\
+             match = { name = \"approved-*\" }\n\
+             \n\
+             [[role.agents.membership.conforms_to.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"required\"\n\
+             field = \"tier\"\n",
+            "agents",
+        )
+    }
+
+    /// A `skill_with_model` also carrying a `tier:` scalar — the field the
+    /// typed-reference `conforms_to` contract requires of a conforming source.
+    fn skill_with_model_and_tier(name: &str, model: Option<&str>, tier: Option<&str>) -> Features {
+        let mut f = skill_with_model(name, model);
+        if let Some(tier) = tier {
+            f.fields
+                .insert("tier".to_string(), FeatureValue::scalar(Kind::String, tier));
+        }
+        f
+    }
+
+    #[test]
+    fn a_typed_reference_draws_its_set_only_from_conforming_sources() {
+        // `approved-a` conforms (it declares `tier`) and contributes `opus`;
+        // `approved-b` does not (no `tier`) and is dropped, so its `gpt` never enters
+        // the allowed set. The `agent-gpt` filler's `gpt` is therefore a non-member.
+        let role = typed_reference_role();
+        let skills = [
+            skill_with_model_and_tier("agent-gpt", Some("gpt"), None),
+            skill_with_model_and_tier("approved-a", Some("opus"), Some("official")),
+            skill_with_model_and_tier("approved-b", Some("gpt"), None),
+        ];
+        let mut roles = BTreeMap::new();
+        roles.insert(role.name.clone(), role);
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        // Inline `conforms_to` clauses need no template, so an empty base dir suffices.
+        let diags = check(&roles, &by_kind, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_MEMBERSHIP_RULE);
+        assert!(diags[0].message.contains("agent-gpt"));
+        assert!(diags[0].message.contains("gpt"));
+
+        // Give `approved-b` a `tier` so it conforms too: now `gpt` is in the derived
+        // set and the same filler is silent — the constraint was the only thing
+        // excluding it.
+        let conforming = [
+            skill_with_model_and_tier("agent-gpt", Some("gpt"), None),
+            skill_with_model_and_tier("approved-a", Some("opus"), Some("official")),
+            skill_with_model_and_tier("approved-b", Some("gpt"), Some("official")),
+        ];
+        let mut roles = BTreeMap::new();
+        roles.insert(typed_reference_role().name.clone(), typed_reference_role());
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &conforming[..])]);
+        assert!(check(&roles, &by_kind, Path::new("")).is_empty());
     }
 
     #[test]
@@ -1091,7 +1238,7 @@ mod tests {
         // Only `skill` candidates are present; `command` is absent.
         let skills = [features("release-it", None)];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let diags = check(&roles, &by_kind);
+        let diags = check(&roles, &by_kind, Path::new(""));
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("no `command` artifact"));
     }
@@ -1284,6 +1431,64 @@ mod tests {
             "agents",
         );
         assert!(run_admissibility(role, Path::new("")).is_empty());
+    }
+
+    #[test]
+    fn a_membership_conforms_to_that_does_not_resolve_is_inadmissible() {
+        // The `membership` typed reference names a template path that resolves to no
+        // file — a `conforms_to` that never loads would silently drop the whole
+        // membership check, so admissibility reports it (clause (f)), mirroring the
+        // role's own contract-resolve clause.
+        let role = role(
+            "[role.agents]\n\
+             artifact = \"skill\"\n\
+             match = { name = \"agent-*\" }\n\
+             membership = { field = \"model\", kind = \"skill\", match = { name = \"approved-*\" }, feature = \"model\", conforms_to = \"contracts/nope.toml\" }\n\
+             [[role.agents.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "agents",
+        );
+        let diags = run_admissibility(role, Path::new("/no-such-temper-base-dir"));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].artifact, "agents");
+        assert!(diags[0].message.contains("conforms_to"));
+        assert!(diags[0].message.contains("does not resolve"));
+    }
+
+    #[test]
+    fn a_membership_conforms_to_with_an_empty_enum_is_inadmissible() {
+        // An inline `conforms_to` contract carrying a vacuous `enum` is held to the
+        // same admissibility bar as the role's own contract — caught by clause (f).
+        let role = role(
+            "[role.agents]\n\
+             artifact = \"skill\"\n\
+             match = { name = \"agent-*\" }\n\
+             [role.agents.membership]\n\
+             field = \"model\"\n\
+             kind = \"skill\"\n\
+             feature = \"model\"\n\
+             match = { name = \"approved-*\" }\n\
+             [[role.agents.membership.conforms_to.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"enum\"\n\
+             field = \"tier\"\n\
+             values = []\n\
+             [[role.agents.clause]]\n\
+             severity = \"required\"\n\
+             predicate = \"max_len\"\n\
+             field = \"name\"\n\
+             max = 64\n",
+            "agents",
+        );
+        let diags = run_admissibility(role, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, ROLE_ADMISSIBILITY_RULE);
+        assert!(diags[0].message.contains("conforms_to"));
+        assert!(diags[0].message.contains("inadmissible"));
     }
 
     #[test]

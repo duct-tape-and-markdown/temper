@@ -160,7 +160,11 @@ pub struct CountBound {
 /// kind than the role's own, so the check ranges over the whole by-kind map. The
 /// field-name and selector are stored verbatim; deciding membership lives in
 /// [`crate::roster`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Not `Eq` — its optional [`source_contract`](Membership::source_contract) may
+/// carry inline clauses with `f64` `range` bounds (see [`RoleContract`]); equality
+/// stays derived as `PartialEq`, as it is for [`Role`].
+#[derive(Debug, Clone, PartialEq)]
 pub struct Membership {
     /// The field `F` on each S₁ filler whose extracted scalar must be a member of
     /// the source set. A filler missing `F` carries no value to check.
@@ -174,6 +178,15 @@ pub struct Membership {
     /// The feature `G` whose extracted scalars over the S₂ matches form the allowed
     /// set. A source artifact missing `G` contributes nothing to the set.
     pub source_feature: String,
+    /// An optional **typed reference** constraint (`conforms_to`,
+    /// `specs/45-governance.md`, "The set scope (the roster)"): when set, S₂ is
+    /// narrowed to the source artifacts that *also* conform to this contract, so the
+    /// reference resolves to the right *kind* of thing — "a reference to an agent of
+    /// kind K conforming to contract C." The same [`RoleContract`] a role's `contract`
+    /// takes (a template path or inline clauses). Absent ⇒ `None`: plain membership
+    /// over every matching source, unchanged. Deciding conformance lives in
+    /// [`crate::roster`], reusing the resolve + validate machinery `conformance` runs.
+    pub source_contract: Option<RoleContract>,
 }
 
 /// A role's contract reference: the filler's contract is either an adopted
@@ -760,12 +773,50 @@ fn parse_membership(
         .get("match")
         .and_then(selector_from)
         .ok_or_else(bad)?;
+    let source_contract = parse_conforms_to(membership, role, path)?;
     Ok(Some(Membership {
         field,
         source_kind,
         source_selector,
         source_feature,
+        source_contract,
     }))
+}
+
+/// The optional `conforms_to` constraint on a `membership`'s source set — the
+/// **typed reference** (`specs/45-governance.md`, "The set scope (the roster)"):
+/// the same [`RoleContract`] a role's `contract` takes, either a template path
+/// string (`conforms_to = "contracts/…​.toml"`) or an inline `[[…​.conforms_to.clause]]`
+/// array parsed by the shared [`contract::parse_clauses`] — so an out-of-vocabulary
+/// predicate is rejected exactly as in a role's own inline contract, no escape
+/// hatch. Absent ⇒ `None` (plain membership). A structurally malformed value —
+/// neither a string nor a clause-bearing sub-table — folds into
+/// [`ComposeError::RoleBadMembership`], the way every other membership miss does.
+fn parse_conforms_to(
+    table: &dyn toml_edit::TableLike,
+    role: &str,
+    path: &Path,
+) -> Result<Option<RoleContract>, ComposeError> {
+    let Some(item) = table.get("conforms_to") else {
+        return Ok(None);
+    };
+    if let Some(template) = item.as_str() {
+        return Ok(Some(RoleContract::Template(template.to_string())));
+    }
+    // A clause-bearing sub-table (`[role.<name>.membership.conforms_to]` with its
+    // own `[[…​.clause]]` array) reuses the shared closed-vocabulary parser, so a
+    // vocabulary error bubbles as the `ContractError` exactly as a role's inline
+    // clauses do. Anything else — a number, a bare inline table with no clauses —
+    // is a malformed `membership`.
+    let sub = item
+        .as_table()
+        .ok_or_else(|| ComposeError::RoleBadMembership {
+            path: path.to_path_buf(),
+            role: role.to_string(),
+        })?;
+    Ok(Some(RoleContract::Inline(contract::parse_clauses(
+        sub, path,
+    )?)))
 }
 
 /// Read one required string key off an inline table-like (a `membership` field):
@@ -1561,8 +1612,116 @@ membership = { field = "model", kind = "manifest", match = { name = "approved-mo
                     glob: "approved-models".to_string(),
                 },
                 source_feature: "model".to_string(),
+                source_contract: None,
             })
         );
+    }
+
+    #[test]
+    fn a_membership_with_a_conforms_to_template_path_parses() {
+        // The typed-reference form: `conforms_to` names a template path, so S₂ is
+        // narrowed to sources conforming to that contract. It parses into
+        // `source_contract: Some(Template(..))`, the same `RoleContract` a role's
+        // own `contract` takes.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+membership = { field = "model", kind = "manifest", match = { name = "approved-*" }, feature = "model", conforms_to = "contracts/approved.toml" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert_eq!(
+            role.membership.as_ref().unwrap().source_contract,
+            Some(RoleContract::Template(
+                "contracts/approved.toml".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn a_membership_with_inline_conforms_to_clauses_parses() {
+        // The typed-reference form can also carry inline clauses, declared under a
+        // `[role.<name>.membership.conforms_to]` sub-table with its own `[[clause]]`
+        // array — parsed by the shared closed-vocabulary parser into
+        // `source_contract: Some(Inline(..))`.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+
+[role.agents.membership]
+field = "model"
+kind = "manifest"
+feature = "model"
+match = { name = "approved-*" }
+
+[[role.agents.membership.conforms_to.clause]]
+severity = "required"
+predicate = "required"
+field = "model"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let role = layer.roles().get("agents").expect("the role parses");
+        assert_eq!(
+            role.membership.as_ref().unwrap().source_contract,
+            Some(RoleContract::Inline(vec![Clause {
+                severity: Severity::Required,
+                predicate: Predicate::Required {
+                    field: "model".to_string(),
+                },
+            }]))
+        );
+    }
+
+    #[test]
+    fn an_unknown_predicate_in_a_conforms_to_clause_is_a_load_error() {
+        // The `conforms_to` clauses go through the same closed-vocabulary parser a
+        // role's inline contract does — an out-of-vocabulary predicate is rejected at
+        // load, no escape hatch.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+
+[role.agents.membership]
+field = "model"
+kind = "manifest"
+feature = "model"
+match = { name = "approved-*" }
+
+[[role.agents.membership.conforms_to.clause]]
+severity = "required"
+predicate = "word_count"
+field = "model"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::Contract(ContractError::UnknownPredicate { ref predicate, .. })
+                if predicate == "word_count"
+        ));
+    }
+
+    #[test]
+    fn a_membership_with_a_malformed_conforms_to_is_a_load_error() {
+        // `conforms_to` must be a template-path string or a clause-bearing sub-table;
+        // a bare number is neither, so it folds into `RoleBadMembership`.
+        let toml = r#"
+[role.agents]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "agent-*" }
+membership = { field = "model", kind = "manifest", match = { name = "approved-*" }, feature = "model", conforms_to = 7 }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RoleBadMembership { ref role, .. } if role == "agents"
+        ));
     }
 
     #[test]

@@ -551,6 +551,111 @@ fn a_membership_role_is_clean_when_every_filler_is_a_member() {
     );
 }
 
+// ---- set scope: the `membership` typed-reference (`conforms_to`) -----------
+
+/// A floor-clean skill carrying both a `model:` and a `tier:` field. `model` is the
+/// membership feature drawn into the allowed set; `tier` is what a `conforms_to`
+/// contract discriminates on. Neither key is floor-forbidden, so the skill stays
+/// clean and the only finding a case produces is the membership one.
+fn tiered_skill(name: &str, model: &str, tier: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         model: {model}\n\
+         tier: {tier}\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// Import the two `approved-*` sources both membership cases share: an `official`
+/// source carrying `opus` and a `draft` source carrying `gpt`. Under a `conforms_to`
+/// = official constraint only the first is a member-contributing source, so `gpt`
+/// comes *solely* from a non-conforming source.
+fn import_tiered_sources(root: &Path) {
+    import_skill(
+        root,
+        "approved-opus",
+        &tiered_skill("approved-opus", "opus", "official"),
+    );
+    import_skill(
+        root,
+        "approved-gpt",
+        &tiered_skill("approved-gpt", "gpt", "draft"),
+    );
+}
+
+#[test]
+fn a_typed_reference_flags_a_filler_whose_value_comes_only_from_a_nonconforming_source() {
+    let root = tmpdir("typed-ref-bad");
+    // The `agent-gpt` filler declares `gpt`. `gpt` is carried only by `approved-gpt`,
+    // whose `tier` is `draft` — so under a `conforms_to = official` constraint that
+    // source is dropped and `gpt` is not in the derived set.
+    import_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
+    import_tiered_sources(&root);
+
+    // The typed reference: a template contract requiring the source's `tier` be
+    // `official`, resolved relative to the temper.toml dir.
+    let contracts = root.join("contracts");
+    fs::create_dir_all(&contracts).unwrap();
+    fs::write(
+        contracts.join("approved.toml"),
+        "[[clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"enum\"\n\
+         field = \"tier\"\n\
+         values = [\"official\"]\n",
+    )
+    .unwrap();
+    write_temper_toml(
+        &root,
+        "[role.agents]\n\
+         artifact = \"skill\"\n\
+         match = { name = \"agent-*\" }\n\
+         membership = { field = \"model\", kind = \"skill\", match = { name = \"approved-*\" }, feature = \"model\", conforms_to = \"contracts/approved.toml\" }\n\
+         [[role.agents.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"max_len\"\n\
+         field = \"name\"\n\
+         max = 64\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a filler whose value comes only from a non-conforming source must fail ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("agents")
+            && run.output.contains("agent-gpt")
+            && run.output.contains("gpt"),
+        "the finding names the role, the offending filler, and the non-member value, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn dropping_the_conforms_to_puts_the_same_value_back_in_the_set() {
+    let root = tmpdir("typed-ref-dropped");
+    // The exact same corpus, but the membership carries no `conforms_to`: now the
+    // non-conforming `approved-gpt` source contributes `gpt` to the derived set, so
+    // `agent-gpt` is in-set and the run is silent — the constraint was the only gate.
+    import_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
+    import_tiered_sources(&root);
+    write_temper_toml(&root, membership_role_toml());
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "without the `conforms_to` constraint the same value is in-set ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
 #[test]
 fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     let root = tmpdir("no-roster");

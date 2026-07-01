@@ -160,7 +160,7 @@ fn main() -> miette::Result<ExitCode> {
                 // Selection: each `required` single-filler role is filled by
                 // exactly one artifact of its kind (`specs/10-contracts.md`, "Roles
                 // and matching").
-                diagnostics.extend(roster::check(layer.roles(), &by_kind));
+                diagnostics.extend(roster::check(layer.roles(), &by_kind, base_dir));
 
                 // The `conforms-to` half of the same tier: each role's selected
                 // filler(s) are validated against the role's resolved contract —
