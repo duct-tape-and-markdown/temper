@@ -35,6 +35,13 @@ are flume gates, so a violation reverts the commit.
   `tests/` can drive it.
 - Public items carry doc comments. Module headers state the artifact/schema they
   model and cite the `specs/` section.
+- **Cite, don't restate.** A comment carries the spec pointer plus only what the
+  code *adds*: an invariant the code can't show (`BTreeMap` for stable output), a
+  deliberate narrowing ("parse-only tier; discovery is a follow-on entry"), a
+  deviation. Spec narrative lives in the spec — a paraphrased model in a module
+  header is a second, unchecked home for intent that silently drifts when the
+  spec moves (the exact failure this tool hunts). Compliance narration ("this
+  matches §X because…") belongs in the commit message, not the file.
 
 ## Round-trip discipline (the core invariant)
 
