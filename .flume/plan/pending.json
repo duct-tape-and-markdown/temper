@@ -1,55 +1,5 @@
 [
   {
-    "tag": "REQUIREMENT-PACKAGE-TYPING",
-    "summary": "Requirement typing migrates to `package = \"<name>\"` — the `contract` facet (template path / inline clauses) retires; satisfiers validate against the named package",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Requirements — the harness's named obligations"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "`RequirementContract` (Template path | inline clauses) becomes a by-name package binding: `package = \"<name>\"` on `[requirement.*]`. Inline clauses under a requirement retire — `10-contracts.md` typing is `kind`/`package`, 'never inline clauses (clauses live only in packages)'; the unknown-key reject catches stragglers."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "Conformance validates a requirement's satisfiers against the named package (resolved via PACKAGE-BINDING's order); admissibility's clause becomes 'names a real kind/package' — a non-resolving name is admissibility's finding, whether it is *filled* stays coverage's. `template` vocabulary sweep in docs/messages."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "Typed-requirement fixtures migrate from `contract = \"contracts/*.toml\"` / inline clauses to `package = \"<name>\"` over package fixtures; admissibility cases (non-resolving name) updated."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "Requirement parse fixtures: the `contract`/inline forms are now unknown-key rejects; `package` parses."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "Any requirement-side template-path case migrates to the by-name binding."
-        }
-      ],
-      "retire": [
-        "RequirementContract::Template(path) and the inline-clauses variant",
-        "the `contract =` requirement key"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs, tests/temper_toml.rs",
-        "asserts": "a requirement typed `package = \"<name>\"` validates its satisfiers against that package (findings retagged per satisfier); a non-resolving name fails admissibility; `contract =` and inline clauses are rejected keys."
-      }
-    ],
-    "acceptance": "Requirement typing is `kind`/`package` exactly as `10-contracts.md` declares — by-name, exact, never inline; packages compose (a satisfier is checked by its kind's bound package and any requirement-named package); cargo fmt/clippy -D warnings/test green.",
-    "notes": "Completes the require-side vocabulary migration: after this no `template`/`contract`-as-bundle usage remains in src (`contract` stays as the clause-set a package carries, per `90-spec-system.md` naming). Serialized — shares compose.rs/roster.rs with the entries above."
-  },
-  {
     "tag": "MEMBER-DOCUMENT-IMPORT",
     "summary": "A member is one document — import projects a `+++` clause-module header ([clause.*], [satisfies.*], [edge.*], [provenance]) over the body; the meta.toml+body split retires",
     "per": {
