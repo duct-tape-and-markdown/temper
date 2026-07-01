@@ -180,6 +180,21 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   `query` verb. Fileable as build work **after** the surface-language migration,
   once coverage + graph data exist to read. Kept as the decision record.
 
+- `(eval-capability)` — OPEN, strategic, parked past launch. The platform is
+  unusually pre-positioned to offer **harness evals** — answering the question one
+  level up from the wedge: not "did the rule load" (tier 1 answers) but "does the
+  rule *do* anything" (nobody answers today). The assembly is already an eval
+  spec: every requirement carries `means` (declared intent) and every `satisfies`
+  a rationale — each edge is a testable behavioral claim, and the graph gives
+  eval *selection* for free (blast radius → which evals a change must re-run).
+  The model already holds the seat: an eval runner is a **`verified_by` verifier
+  type** (`verified_by = "eval:<case>"` — the "wired → wired and gating" loose
+  end, `45-governance.md`) and/or tier 2 made concrete (judged, calibrated,
+  forever advisory, `00-intent.md`). Hard constraint if ever built: an eval is
+  probabilistic and can NEVER enter tier 1 or the hard gate (law 3) — it arrives
+  as a verifier/advisory tier only, no new concepts. Human fork on scope and
+  timing; no dependents; do not let it near the launch wedge.
+
 - `(kind-harness-axis)` — OPEN. Kind identity has no harness axis: bare
   `skill`/`rule` works while Claude Code is the only harness, but a second
   harness's artifact classes collide — Cursor's "rule" is a different format
