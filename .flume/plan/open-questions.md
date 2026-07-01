@@ -170,47 +170,39 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   package exists (downstream of the surface-language/package-model machinery).
   Kept as the decision record.
 
-- `(read-verbs)` — The traversal payoff `00-intent.md` promises as prose ("remove a
-  load-bearing entity and the graph lights up every … — the blast radius") and the
-  inbox's proposed `temper why <artifact>` (forward `satisfies → means` + rationale)
-  and `temper requirements` (reverse `requirement → satisfiers` = blast radius) are
-  READ verbs over post-coverage/graph data — high payoff, read-only, no engine change.
-  But `20-surface.md`'s **CLI surface** enumerates only `import`/`check`/`diff`/`apply`/
-  `re-add`/`bundle`/`install`/`schema` — it does *not* list `why`/`requirements`.
-  Adding a CLI verb the CLI-surface spec does not name is inventing surface
-  (`collaboration` rule). Human to decide whether the CLI surface gains read/traversal
-  verbs and exactly what each exposes; until then they are not fileable as build work.
+- `(read-verbs)` — RESOLVED (`specs/20-surface.md` Decision: "the CLI gains a read
+  family — `why` and `requirements`"). Two **read-only traversal verbs** over data
+  `check` already computes: `temper why <member>` walks the requirement↔`satisfies`
+  edge forward (requirements filled + rationale, governing package, edges);
+  `temper requirements [<name>]` walks it in reverse (satisfier set, coverage state,
+  blast radius of a removal). Projections, never gates — no new engine semantics, no
+  non-zero exit on findings. Rejected: `check` flags as a query surface; a general
+  `query` verb. Fileable as build work **after** the surface-language migration,
+  once coverage + graph data exist to read. Kept as the decision record.
 
-- `(kind-artifact-format)` — The concrete authored shape of a **custom kind
-  definition** under `.temper/kinds/<name>/` is unspecified. `specs/20-surface.md`
-  names the member documents (`SKILL.md`, `RULE.md`, `SPEC.md`) and the package
-  document (`PACKAGE.md`) explicitly, but the topology line for `kinds/<name>/`
-  names no file; `40-composition.md` says *what* the definition carries (governs
-  locus, composed extraction, relationships, its bound package) but not its
-  syntax — a `+++`-fenced document like every other artifact (then what is its
-  body, when a kind definition is pure structure?), a plain TOML file, and what
-  the file is called (`KIND.md`? `kind.toml`?). Naming it in code would be
-  inventing surface (`collaboration` rule). Human to name the file and its
-  dialect; until then KIND-AUTHORED-ARTIFACT holds (`dependsOnForks`), while the
-  inline `[kind.<name>]` scaffold keeps working.
+- `(kind-artifact-format)` — RESOLVED (`specs/20-surface.md` Decision: "a kind
+  definition is `KIND.md` — one document, same medium"). A custom kind is authored
+  as `.temper/kinds/<name>/KIND.md`, a surface-language document like every other
+  artifact: the TOML-fenced header carries the definition (`governs`, composed
+  extraction, entities/relationships); the body is the kind's own prose — what the
+  artifact class *is*, for the authors of its members (a kind definition is not
+  "pure structure" in an authoring medium). Rejected: a bare `kind.toml` (a second
+  dialect, strands the prose); overloading another document name. The uppercase
+  document-per-directory convention (`SKILL.md`, `PACKAGE.md`, `KIND.md`) names the
+  role the directory plays. Un-gates KIND-AUTHORED-ARTIFACT. Kept as the decision
+  record.
 
-- `(reference-id-normalization)` — The spec kind's **references-resolve** clause
-  (`15-kinds.md` worked example) is the graph-scope frontier, but it does not yet run:
-  the graph scope (`graph::check`/`acyclic`/`degree`) ranges only over the `by_kind`
-  map `main.rs` assembles from `skill`+`rule` — custom-kind features are computed in a
-  separate loop and never added, so a `[[kind.spec.relationships]]` edge (`from = "spec"`)
-  finds no sources and is inert. Wiring custom-kind features into `by_kind` is clear engine
-  work — but it exposes a *soundness* fork: a spec reference is filename-shaped
-  (`` `15-kinds.md` `` — the declared syntax, extracted with the extension) while a spec
-  artifact's id is the file **stem** (`15-kinds`, per `import::import_custom_unit`). Exact-
-  string resolution (what `graph` does for `routes_to`) would dangle *every* spec reference —
-  a false positive on clean input, the exact failure law 3 forbids. So resolution needs a
-  rule mapping `NN-name.md` → the `NN-name` id, and *which* rule is a real decision: strip a
-  trailing `.md` only, strip any single extension, or match `id == value || id + ".md" ==
-  value`? A too-loose fallback could **mask** a genuine dangling reference (e.g. collapse
-  `standards.md` onto skill `standards`), and masking a true positive is as unsound as
-  forging one. Law 3: this is a deliberate resolution-semantics choice a human settles, not a
-  phase-invented normalization. Until then references-resolve does not ship (the `spec` kind's
-  `max_lines` clause ships without it, as it does today in `temper.toml`). Distinct from
-  `(decision-marker-predicate)`, which is a missing *predicate*; this is a missing *resolution
-  rule* for a predicate category (`referential`) `10-contracts.md` already enumerates.
+- `(reference-id-normalization)` — RESOLVED (`specs/15-kinds.md` Decision:
+  "reference resolution is declared by the kind, never guessed by the engine").
+  The kind's declared reference syntax carries its own **normalization** — the
+  deterministic mapping from extracted reference value to member id, declared
+  data beside the syntax it belongs to. The spec kind's backtick-filename syntax
+  declares `strip_suffix = ".md"` (`` `15-kinds.md` `` → `15-kinds`); the engine
+  applies exactly the declared rule, then demands an **exact** id match.
+  Rejected: an engine-global normalization (a baked-in guess, wrong for the next
+  kind's syntax); fallback multi-matching (`id == value || id + ".md" == value` —
+  a loose fallback can *mask* a genuine dangling reference, and masking a true
+  positive is as unsound as forging one). The engine work this fork was holding —
+  wiring custom-kind features into the graph's `by_kind` map so declared edges
+  find their sources — is now fileable, with references-resolve downstream of it.
+  Kept as the decision record.
