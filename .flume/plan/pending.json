@@ -7,8 +7,7 @@
       "section": "Requirements — the harness's named obligations"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PACKAGE-BINDING"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
