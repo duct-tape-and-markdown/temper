@@ -1,47 +1,5 @@
 [
   {
-    "tag": "GOV-GRAPH",
-    "summary": "Build the harness reference graph — parse a declared edge field in `temper.toml`, assemble a directed graph over the corpus, and flag any route resolving to no artifact.",
-    "per": {
-      "path": "specs/45-governance.md",
-      "section": "The harness is a graph too — and references are declared edges"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/graph.rs",
-          "description": "The harness reference graph (`specs/45-governance.md`). Read a declared edge field from each artifact's `Features` (surfaced via the `extra` catch-all, `extract.rs`) into edges (source id → target name), assemble the directed graph over the whole corpus (nodes = artifacts across kinds), and emit a `Diagnostic` for any edge whose target names no artifact — the referential decidable check (`specs/10-contracts.md`, the referential primitive: a reference resolves *over a declared syntax*, never prose-grep). Plus `admissibility`: a declared edge relationship must name its reference field + target kind (the reference syntax the referential clause requires)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod graph;` — the foundation entry owns the new module declaration (no other entry co-edits `lib.rs`)."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Parse a declared edge relationship from `temper.toml` into the `AuthorLayer` — the reference field name, its owning kind, and the target kind — the declared reference syntax the harness graph is built from (`(skill-ref-syntax)` RESOLVED: a declared field, never grepped prose). Fold malformations into a single `ComposeError` the way `parse_count`/`parse_membership` do."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "In the `Check` arm, after the roster tier and gated on the `temper.toml` layer being present, build the harness graph over the by-kind `Features` and extend the diagnostic stream with `graph::check` (+ its admissibility). The floor-only (no `temper.toml`) path stays byte-for-byte unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "A `temper.toml` declaring a `routes_to` edge from rules to skills: a rule whose `routes_to` names a real skill is clean; one naming an absent skill trips a `required` route-resolution diagnostic and fails the run; absent `temper.toml`, no graph runs."
-      }
-    ],
-    "acceptance": "`temper check` over a corpus with a `temper.toml`-declared edge field builds the harness reference graph and reports any declared route that resolves to no artifact — a dangling route fails the run, a resolving one is clean; the floor-only (no `temper.toml`) path is unchanged.",
-    "notes": "Foundation for the graph scope — `degree`/`acyclic` (`45-governance.md`) follow next tick once this lands. Edges are declared fields, never grepped prose (`(skill-ref-syntax)` RESOLVED); route-resolution is the referential primitive (`10-contracts.md`). The `temper.toml` edge-declaration shape is code's within the kind-declares-relationships intent (`15-kinds.md`). Harness graph only; the `spec` references-resolve clause is the separate spec.toml-parked frontier."
-  },
-  {
     "tag": "SPEC-KIND-GATE",
     "summary": "Dispatch `check` over specs: embed `contracts/spec.toml`, project `ws.specs` via `spec_features`, and run admissibility + `engine::validate` (the advisory `max_lines` clause) over the spec features.",
     "per": {
