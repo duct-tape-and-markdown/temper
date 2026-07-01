@@ -360,7 +360,7 @@ mod tests {
     use crate::extract::Kind;
 
     /// Build a `Features` with the given name-keyed scalar fields, body line
-    /// count, and source directory — companions are unused by these clauses.
+    /// count, and source directory.
     fn features(
         id: &str,
         fields: &[(&str, FeatureValue)],
@@ -377,7 +377,6 @@ mod tests {
             body_lines,
             headings: Vec::new(),
             source_dir: source_dir.map(str::to_string),
-            companions: Vec::new(),
             satisfies: Vec::new(),
         }
     }

@@ -157,7 +157,6 @@ mod tests {
             body_lines: 0,
             headings: Vec::new(),
             source_dir: None,
-            companions: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
         }
     }

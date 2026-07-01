@@ -448,7 +448,6 @@ impl Extraction {
             body_lines: 0,
             headings: Vec::new(),
             source_dir: None,
-            companions: Vec::new(),
             // Custom-kind `satisfies` is a later follow-on: no extraction
             // primitive yields it yet, so a composed Unit's representation
             // bindings stay empty until that lands.

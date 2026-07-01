@@ -580,7 +580,6 @@ mod tests {
             body_lines: 1,
             headings: Vec::new(),
             source_dir: Some(name.to_string()),
-            companions: Vec::new(),
             satisfies: Vec::new(),
         }
     }

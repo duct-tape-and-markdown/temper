@@ -170,9 +170,6 @@ pub struct Features {
     /// The name of the directory the unit was imported from, off provenance
     /// (for `name-matches-dir`). `None` when the source path has no parent.
     pub source_dir: Option<String>,
-    /// Companion paths relative to the artifact, forward-slash normalized so the
-    /// comparison is platform-stable.
-    pub companions: Vec<String>,
     /// The requirements this artifact opts into filling — the authored
     /// `[representation].satisfies` bindings, surfaced for the coverage check
     /// (`specs/20-surface.md`, "Each artifact directory is a representation, not
@@ -240,11 +237,6 @@ pub fn skill_features(skill: &Skill) -> Features {
         body_lines: body_line_count(&skill.body),
         headings: body_headings(&skill.body),
         source_dir: source_dir_name(&skill.provenance.source_path),
-        companions: skill
-            .companions
-            .iter()
-            .map(|path| path.to_string_lossy().replace('\\', "/"))
-            .collect(),
         // The authored representation binding the coverage check resolves —
         // distinct from the frontmatter `fields` above.
         satisfies: skill.satisfies.clone(),
@@ -255,9 +247,8 @@ pub fn skill_features(skill: &Skill) -> Features {
 /// is exposed as a list, every `extra` frontmatter key is folded into the same
 /// name-keyed map (so a `forbidden_keys` clause resolves `description`/`globs`/
 /// `alwaysApply` exactly as it does for a skill), and `body_lines` counts the
-/// byte-faithful body. A rule has no companions; `source_dir` is the folder it
-/// was discovered under (uniform with skills, even though the rule contract names
-/// neither).
+/// byte-faithful body. `source_dir` is the folder it was discovered under
+/// (uniform with skills, even though the rule contract names neither).
 #[must_use]
 pub fn rule_features(rule: &Rule) -> Features {
     let mut fields = BTreeMap::new();
@@ -276,7 +267,6 @@ pub fn rule_features(rule: &Rule) -> Features {
         body_lines: body_line_count(&rule.body),
         headings: body_headings(&rule.body),
         source_dir: source_dir_name(&rule.provenance.source_path),
-        companions: Vec::new(),
         // The authored representation binding the coverage check resolves —
         // distinct from the frontmatter `fields` above.
         satisfies: rule.satisfies.clone(),
@@ -636,8 +626,6 @@ alwaysApply: true\n\
         for name in ["name", "description", "version"] {
             assert!(features.field(name).is_some(), "field `{name}` resolves");
         }
-        // Companions are forward-slash normalized (none here, but the shape holds).
-        assert!(features.companions.is_empty());
     }
 
     /// Parse a rule from a file `<parent>/rules/<stem>.md`, so the rule name is
@@ -692,8 +680,6 @@ Body line three.",
         assert_eq!(features.source_dir.as_deref(), Some("rules"));
         // The rule body's heading is exposed the same way a skill's is.
         assert_eq!(features.headings, vec!["Rust".to_string()]);
-        // A rule has no companions.
-        assert!(features.companions.is_empty());
     }
 
     #[test]
