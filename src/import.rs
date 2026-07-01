@@ -270,8 +270,18 @@ pub(crate) fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, Import
 /// it pulls a drifted or added on-disk skill back into the surface, rather than
 /// re-implementing the projection (`specs/20-surface.md`, "Drift / apply").
 pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
-    let skill = Skill::from_source_dir(source_dir)?;
+    let mut skill = Skill::from_source_dir(source_dir)?;
     let out_dir = into.join("skills").join(&skill.name);
+
+    // Merge, never clobber: the source carries no `[representation]` (it is
+    // surface-only authored state), so a re-import or drifted-body `re-add`
+    // rebuilds `meta.toml` from source and would wipe the authored
+    // `satisfies`/`rationale`. Carry any existing surface representation forward
+    // before writing (`specs/20-surface.md`, "three states, never two").
+    if let Some(existing) = existing_surface_skill(&out_dir) {
+        skill.carry_representation(&existing);
+    }
+
     create_dir_all(&out_dir)?;
 
     // Typed header via the format-preserving writer — never a lossy re-serialize.
@@ -307,8 +317,15 @@ pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry
 /// `pub(crate)` for the same reason as [`import_skill`]: `re-add` reuses this exact
 /// write path to reconcile a drifted or added on-disk rule into the surface.
 pub(crate) fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
-    let rule = Rule::from_source_file(source_file)?;
+    let mut rule = Rule::from_source_file(source_file)?;
     let out_dir = into.join("rules").join(&rule.name);
+
+    // Merge, never clobber — see `import_skill`. Carry the surface's authored
+    // representation forward so a body-only drift re-add never wipes it.
+    if let Some(existing) = existing_surface_rule(&out_dir) {
+        rule.carry_representation(&existing);
+    }
+
     create_dir_all(&out_dir)?;
 
     // Typed header via the format-preserving writer — never a lossy re-serialize.
@@ -327,6 +344,27 @@ pub(crate) fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry
         import_hash: rule.provenance.import_hash,
         body_hash: sha256_hex(rule.body.as_bytes()),
     })
+}
+
+/// Load an already-written surface skill from `out_dir` if one is there — the
+/// carrier of the authored `[representation]` a re-import / `re-add` must preserve.
+/// `None` on a first import (the directory does not exist yet) or if the surface
+/// is unreadable, so a missing or malformed prior surface degrades to "nothing to
+/// carry" rather than failing the write.
+fn existing_surface_skill(out_dir: &Path) -> Option<Skill> {
+    if !out_dir.join("meta.toml").is_file() {
+        return None;
+    }
+    Skill::from_surface_dir(out_dir).ok()
+}
+
+/// Rule equivalent of [`existing_surface_skill`]: the prior surface rule whose
+/// authored representation is carried forward before the header is rewritten.
+fn existing_surface_rule(out_dir: &Path) -> Option<Rule> {
+    if !out_dir.join("meta.toml").is_file() {
+        return None;
+    }
+    Rule::from_surface_dir(out_dir).ok()
 }
 
 /// Discover a custom kind's units under `<harness>/<governs.root>/`: every

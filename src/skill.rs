@@ -276,6 +276,24 @@ impl Skill {
         })
     }
 
+    /// Carry the authored `[representation]` layer (`satisfies` + `rationale`)
+    /// from an already-written surface artifact forward into this freshly-parsed
+    /// source skill.
+    ///
+    /// The source `SKILL.md` never carries representation — it is surface-only
+    /// authored state (`specs/20-surface.md`, "Each artifact directory is a
+    /// representation" — header/`satisfies`/rationale are *authored*, the body is
+    /// merely carried). So a re-import or a drifted-body `re-add`, which rebuilds
+    /// `meta.toml` from source, would otherwise clobber it. This is the authored
+    /// layer's half of the three-state law: **merge rather than clobber** — the
+    /// caller loads the existing surface, carries its representation onto the
+    /// re-parsed source, then writes, so a body edit on disk never erases the
+    /// authored `satisfies`/`rationale`.
+    pub fn carry_representation(&mut self, existing: &Skill) {
+        self.satisfies = existing.satisfies.clone();
+        self.rationale = existing.rationale.clone();
+    }
+
     /// Project the typed header to a format-preserving `toml_edit` document:
     /// the known fields in canonical order, every unknown frontmatter key
     /// (written as TOML values, sorted), then the `[provenance]` table last.

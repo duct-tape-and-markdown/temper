@@ -267,6 +267,122 @@ An edited rule body.\n";
 }
 
 #[test]
+fn a_drifted_body_readd_preserves_authored_representation() {
+    let (harness, into) = imported("rep-preserve");
+
+    // Author the surface-only representation layer on both kinds — `satisfies`
+    // and `rationale` the source files never carry.
+    let skill_surface = into.join("skills").join("coordinate");
+    let mut skill = Skill::from_surface_dir(&skill_surface).unwrap();
+    skill.satisfies = vec!["req.coordinate".to_string()];
+    skill.rationale = Some("Fills the coordination requirement.".to_string());
+    fs::write(
+        skill_surface.join("meta.toml"),
+        skill.to_meta_document().to_string(),
+    )
+    .unwrap();
+
+    let rule_surface = into.join("rules").join("rust");
+    let mut rule = Rule::from_surface_dir(&rule_surface).unwrap();
+    rule.satisfies = vec!["req.rust-style".to_string()];
+    rule.rationale = Some("Encodes the Rust conventions the gate enforces.".to_string());
+    fs::write(
+        rule_surface.join("meta.toml"),
+        rule.to_meta_document().to_string(),
+    )
+    .unwrap();
+
+    // Drift only the bodies on disk, so `re-add` genuinely rebuilds `meta.toml`
+    // from source — the path that clobbers representation today.
+    fs::write(
+        skill_source(&harness),
+        "---\n\
+name: coordinate\n\
+description: Use when coordinating agents across axes.\n\
+version: \"0.3.0\"\n\
+---\n\
+# Coordinate\n\
+\n\
+An edited body, straight on disk.\n",
+    )
+    .unwrap();
+    fs::write(
+        rule_source(&harness),
+        "---\n\
+paths:\n\
+  - \"src/**/*.rs\"\n\
+---\n\
+# Rust conventions\n\
+\n\
+An edited rule body.\n",
+    )
+    .unwrap();
+
+    let ws = Workspace::load(&into).unwrap();
+    let report = drift::re_add(&ws, &into, &harness).unwrap();
+    assert_eq!(outcome(&report, "coordinate"), ReAddOutcome::Reconciled);
+    assert_eq!(outcome(&report, "rust"), ReAddOutcome::Reconciled);
+
+    // The authored representation survived the body-drift re-add — the data-loss
+    // this entry fixes (both fields are wiped without the carry).
+    let skill = Skill::from_surface_dir(&skill_surface).unwrap();
+    assert_eq!(skill.satisfies, vec!["req.coordinate"]);
+    assert_eq!(
+        skill.rationale.as_deref(),
+        Some("Fills the coordination requirement.")
+    );
+    // ...and the drifted body was still pulled in byte-faithfully.
+    assert_eq!(
+        fs::read_to_string(skill_surface.join("SKILL.md")).unwrap(),
+        "# Coordinate\n\nAn edited body, straight on disk.\n"
+    );
+
+    let rule = Rule::from_surface_dir(&rule_surface).unwrap();
+    assert_eq!(rule.satisfies, vec!["req.rust-style"]);
+    assert_eq!(
+        rule.rationale.as_deref(),
+        Some("Encodes the Rust conventions the gate enforces.")
+    );
+    assert_eq!(
+        fs::read_to_string(rule_surface.join("RULE.md")).unwrap(),
+        "# Rust conventions\n\nAn edited rule body.\n"
+    );
+}
+
+#[test]
+fn a_reimport_of_an_authored_surface_preserves_representation_and_is_idempotent() {
+    let (harness, into) = imported("rep-reimport");
+
+    // Author representation on the surface, then re-import the *unchanged* harness.
+    let skill_surface = into.join("skills").join("coordinate");
+    let mut skill = Skill::from_surface_dir(&skill_surface).unwrap();
+    skill.satisfies = vec!["req.coordinate".to_string()];
+    skill.rationale = Some("Fills the coordination requirement.".to_string());
+    fs::write(
+        skill_surface.join("meta.toml"),
+        skill.to_meta_document().to_string(),
+    )
+    .unwrap();
+
+    let before = tree_bytes(&into);
+    // A re-import rebuilds every `meta.toml` from source; carrying the surface's
+    // authored representation forward keeps it — and the workspace byte-identical.
+    import::run(&harness, &into).unwrap();
+
+    assert_eq!(
+        before,
+        tree_bytes(&into),
+        "re-importing an authored, unchanged surface must not change a byte"
+    );
+    let skill = Skill::from_surface_dir(&skill_surface).unwrap();
+    assert_eq!(skill.satisfies, vec!["req.coordinate"]);
+    assert_eq!(
+        skill.rationale.as_deref(),
+        Some("Fills the coordination requirement.")
+    );
+}
+
+#[test]
 fn an_added_source_becomes_a_new_surface_artifact_and_lock_row() {
     let (harness, into) = imported("added");
 
