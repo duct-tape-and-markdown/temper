@@ -1082,6 +1082,98 @@ pub fn render_readd(report: &ReAddReport) -> String {
     out
 }
 
+// ---------------------------------------------------------------------------
+// place — the whole-file direction (`specs/50-distribution.md`, `install`)
+// ---------------------------------------------------------------------------
+
+/// Project `desired` onto `path` under the three-state merge — the whole-file
+/// sibling of [`apply`]'s per-field patch, for artifacts temper *places* rather
+/// than round-trips (`specs/50-distribution.md`, the `install` gate wiring). It
+/// reuses the engine's own [`ApplyOutcome`] and [`DriftError`] so `install` builds
+/// on this write-back direction rather than re-emitting one.
+///
+/// The three states are the engine's own: **desired** (the caller's bytes),
+/// **last-applied** (the fingerprint of the file as temper last wrote it, from
+/// `last_applied`), and **real on-disk**. The merge:
+///
+/// - target **absent** ⇒ [`ApplyOutcome::Applied`] — the placement is *created*
+///   (an `install` onto a harness that does not carry it yet, or a re-add of one a
+///   human deleted). This is the one divergence from [`apply`], where an absent
+///   source is a world-deletion conflict: a placement has no prior on-disk source
+///   to have been deleted, so writing it is the whole point.
+/// - real **equals** desired ⇒ [`ApplyOutcome::Unchanged`] (the idempotent no-op).
+/// - real **differs**, and either no baseline is recorded (`last_applied` is
+///   `None`) or real still hashes to it ⇒ [`ApplyOutcome::Applied`], desired
+///   written.
+/// - real **differs** and has drifted from a recorded baseline ⇒
+///   [`ApplyOutcome::Conflicted`]: a human changed the placement out from under
+///   temper, so the merge surfaces the choice and writes nothing.
+///
+/// A `None` `last_applied` is the *idempotent-placement* mode: when `desired` is a
+/// pure function of the current file (temper's own gate wiring merged into it),
+/// temper keeps no fingerprint of its own — re-running re-derives the invariant —
+/// so a present-but-different file is a clean merge target, never a conflict. A
+/// caller that records a fingerprint gets full conflict detection by passing
+/// `Some`. Nothing is written under `dry_run`; the outcome is computed all the same.
+pub fn place(
+    path: &Path,
+    desired: &str,
+    last_applied: Option<&str>,
+    dry_run: bool,
+) -> Result<ApplyOutcome, DriftError> {
+    let real = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            // Absent: create it (fresh install / re-add). There is nothing on disk
+            // to conflict with, so the placement is always written.
+            if !dry_run {
+                write_placement(path, desired)?;
+            }
+            return Ok(ApplyOutcome::Applied);
+        }
+        Err(source) => {
+            return Err(DriftError::Read {
+                path: path.to_path_buf(),
+                source,
+            });
+        }
+    };
+
+    if real == desired.as_bytes() {
+        return Ok(ApplyOutcome::Unchanged);
+    }
+
+    // The file differs from desired. With no recorded baseline the merge trusts the
+    // projection (an idempotent placement); with one, a drift away from it is a
+    // human edit the merge must surface rather than clobber.
+    let drifted_from_baseline = last_applied.is_some_and(|baseline| sha256_hex(&real) != baseline);
+    if drifted_from_baseline {
+        return Ok(ApplyOutcome::Conflicted);
+    }
+
+    if !dry_run {
+        write_placement(path, desired)?;
+    }
+    Ok(ApplyOutcome::Applied)
+}
+
+/// Write a placement's bytes to `path`, creating any missing parent directories.
+/// Both failures surface as [`DriftError::Write`] so a placement that cannot be
+/// written **errors loudly** rather than silently skipping
+/// (`specs/50-distribution.md`, "Fail-loud delivery").
+fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|source| DriftError::Write {
+            path: parent.to_path_buf(),
+            source,
+        })?;
+    }
+    fs::write(path, desired.as_bytes()).map_err(|source| DriftError::Write {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1227,5 +1319,53 @@ Prefer a clone over a lifetime fight.\n";
         assert!(rendered.contains("coordinate"));
         assert!(rendered.contains("in-sync"));
         assert!(rendered.contains("rust"));
+    }
+
+    #[test]
+    fn place_creates_an_absent_target() {
+        let dir = tmpdir("place-absent");
+        let target = dir.join("nested").join("settings.json");
+
+        // Absent target: written (creating parent dirs) and reported Applied.
+        let outcome = place(&target, "{}\n", None, false).unwrap();
+        assert_eq!(outcome, ApplyOutcome::Applied);
+        assert_eq!(fs::read_to_string(&target).unwrap(), "{}\n");
+    }
+
+    #[test]
+    fn place_is_idempotent_and_dry_run_writes_nothing() {
+        let dir = tmpdir("place-idem");
+        let target = dir.join("workflow.yml");
+        place(&target, "name: temper\n", None, false).unwrap();
+
+        // A re-place of the same bytes is the idempotent no-op.
+        assert_eq!(
+            place(&target, "name: temper\n", None, false).unwrap(),
+            ApplyOutcome::Unchanged
+        );
+
+        // A dry run of a differing projection reports Applied but writes nothing.
+        let outcome = place(&target, "name: changed\n", None, true).unwrap();
+        assert_eq!(outcome, ApplyOutcome::Applied);
+        assert_eq!(fs::read_to_string(&target).unwrap(), "name: temper\n");
+    }
+
+    #[test]
+    fn place_conflicts_only_against_a_recorded_baseline() {
+        let dir = tmpdir("place-conflict");
+        let target = dir.join("file.txt");
+        fs::write(&target, "human wrote this").unwrap();
+        let baseline = sha256_hex(b"temper last wrote this");
+
+        // The on-disk bytes no longer hash to the recorded baseline, and desired
+        // differs too: a genuine world drift, surfaced rather than clobbered.
+        let outcome = place(&target, "temper wants this", Some(&baseline), false).unwrap();
+        assert_eq!(outcome, ApplyOutcome::Conflicted);
+        assert_eq!(fs::read_to_string(&target).unwrap(), "human wrote this");
+
+        // With no baseline the same differing projection is a clean merge target.
+        let outcome = place(&target, "temper wants this", None, false).unwrap();
+        assert_eq!(outcome, ApplyOutcome::Applied);
+        assert_eq!(fs::read_to_string(&target).unwrap(), "temper wants this");
     }
 }

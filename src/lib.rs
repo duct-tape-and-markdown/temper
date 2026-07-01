@@ -24,6 +24,7 @@ pub mod engine;
 pub mod extract;
 pub mod graph;
 pub mod import;
+pub mod install;
 pub mod kind;
 pub mod reporter;
 pub mod roster;

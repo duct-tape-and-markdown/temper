@@ -28,6 +28,7 @@ use temper::engine;
 use temper::extract;
 use temper::graph;
 use temper::import;
+use temper::install;
 use temper::kind::{KindError, Unit};
 use temper::reporter;
 use temper::roster;
@@ -139,6 +140,21 @@ enum Command {
         /// The harness to check: the same tree `import` scans (a `skills/*` tree,
         /// a bare skill dir, `.claude/rules/*`, plus any `temper.toml` kinds).
         harness_path: PathBuf,
+    },
+    /// Project temper's own gate wiring into the harness (`specs/50-distribution.md`,
+    /// "Decision: `install` projects the gate's wiring"): the `SessionStart` hook
+    /// into `.claude/settings.json`, the CI job into `.github/`, and the schema
+    /// modeline into each artifact's frontmatter — all as artifacts under the
+    /// three-state drift engine, so re-running is idempotent and re-adds anything a
+    /// human deleted. `check` then verifies its own gate stays installed.
+    Install {
+        /// The project root to wire the gate into (defaults to the current
+        /// directory, beside the `.claude/` and `.github/` the placements land in).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Compute and report every placement without writing a single byte.
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -307,6 +323,18 @@ fn main() -> miette::Result<ExitCode> {
             println!("{}", reporter::session_start(&diagnostics));
             Ok(ExitCode::SUCCESS)
         }
+        Command::Install { path, dry_run } => {
+            // Project the gate wiring into the harness under the three-state drift
+            // engine (`specs/50-distribution.md`, "Decision: `install` projects the
+            // gate's wiring"). Idempotent and re-add-able; `--dry-run` reports every
+            // placement's outcome without writing a byte.
+            let report = install::run(&path, dry_run)?;
+            if dry_run {
+                println!("dry run — no files written");
+            }
+            print!("{}", install::render(&report));
+            Ok(ExitCode::SUCCESS)
+        }
     }
 }
 
@@ -465,6 +493,20 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
             diagnostics.extend(engine::validate(&contract, &features));
         }
     }
+
+    // The install self-verify: temper checking that its *own* gate is wired
+    // (`specs/50-distribution.md`, "the harness checking that its self-check is
+    // wired"). The gate wiring lives at the project root — beside the `temper.toml`
+    // that governs the harness — so the placements are read relative to its parent
+    // (the process CWD for `check`, the harness path for the session-start gate).
+    // Advisory (warn) only: a not-yet-installed gate nudges without failing the run,
+    // and the session-start reporter ignores warn severity, so the floor-only path's
+    // exit verdict is unchanged.
+    let root = temper_toml
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    diagnostics.extend(install::gate_installed(root));
 
     Ok(diagnostics)
 }
