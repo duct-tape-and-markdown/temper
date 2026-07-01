@@ -7,8 +7,7 @@
       "section": "The graph scope (the model) — predicates over the relation graph"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GOV-GRAPH-ACYCLIC"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -45,6 +44,6 @@
       }
     ],
     "acceptance": "a role declaring an in/out degree bound checks each matched artifact's edge count in the harness graph; violations fire an error-severity diagnostic; matching graphs pass; gates green.",
-    "notes": "Worked example \"self-registering vs routed\": a role declares its pattern — incoming=0 (self-registering, must not be pointed at) or incoming>=1 (routed, must be reachable). Degree is declared on the role (set scope) but ranges over the edge graph; reuse the resolved-edge arcs graph::check builds. Exact TOML key is code's; the role-declared in/out-bound intent is spec-fixed. Blocked on ACYCLIC only for file overlap (graph.rs, main.rs, tests/graph.rs)."
+    "notes": "Worked example \"self-registering vs routed\": a role declares incoming=0 (self-registering, must not be pointed at) or incoming>=1 (routed, must be reachable). Degree is declared on the role (set scope) but ranges over the edge graph; reuse the resolved-edge arcs the graph::acyclic/check build assembles. Exact TOML key is code's; the role-declared in/out-bound intent is spec-fixed. Blocker ACYCLIC shipped (498ab1c) — now the sole open entry."
   }
 ]
