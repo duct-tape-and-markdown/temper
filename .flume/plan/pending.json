@@ -1,76 +1,16 @@
 [
   {
-    "tag": "MATCH-ERADICATE",
-    "summary": "Eradicate the name-`match` selector — opt-in `satisfies` is the sole fill; requirements quantify over kind-typed satisfier sets across compose/roster/graph/coverage",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Requirements — the harness's named obligations"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Drop `MatchSelector` (enum + parse/selector_from), the `match` key from the requirement allowlist (it becomes an unknown-key reject), `Requirement.selector`, and any Match* ComposeError variants. Membership's S₂ set: replace `source_selector` with a named source requirement whose satisfier set (over `source_kind`) supplies the allowed values — `specs/45-governance.md`, 'each set an opt-in satisfier set'."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "The set a requirement quantifies over becomes its satisfier set — artifacts of the requirement's `kind` whose features `satisfies` it. Set-scope predicates (count/membership/unique) range over satisfiers; `conformance` validates the satisfiers against the requirement's typing; drop `fillers()`, `matches()`, the glob matcher, and the `selector.is_none() → skip` branch. Whole-kind population constraints quantify over the `kind` (all artifacts of it); intent subsets over the satisfier set."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "`degree` selects its node set by the requirement's `kind` + satisfiers, not `roster::matches` — doc comments citing the shared selector update with it."
-        },
-        {
-          "path": "src/coverage.rs",
-          "description": "Already satisfies-based: remove the now-moot 'requirement with a selector is left to the roster' branch (coverage.rs:104) and its unit test (coverage.rs:287) — coverage gates every requirement's satisfier presence + dangling `satisfies`."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Doc-comment sweep only: the admissibility summary at engine.rs:84 names a 'requirement-`match`-resolves' clause that no longer exists."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "Fixtures define sets via `kind` + `satisfies` (representation), not `match = { name }`; assert a `match` key is rejected as an unknown key; selector-named tests renamed to satisfier vocabulary."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "Same fixture migration (the `match = { name = \"*\" }` sites) plus a parse-level assertion that `match` is now an unknown-key reject."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "The `degree` fixtures select nodes by `kind` + `satisfies` instead of the `match` glob."
-        },
-        {
-          "path": "tests/coverage.rs",
-          "description": "Any selector-dependent fixture migrates to satisfies-only; coverage asserts every requirement is gated (no roster-deferral path remains)."
-        }
-      ],
-      "retire": [
-        "MatchSelector (compose.rs)",
-        "roster::fillers / roster::matches / the glob matcher",
-        "coverage's requirement-with-selector skip branch"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs, tests/temper_toml.rs, tests/graph.rs, tests/coverage.rs",
-        "asserts": "set-scope predicates (count/membership/unique/degree) and conformance quantify over kind-typed satisfier sets; a `match = {...}` key is rejected as an unknown key; coverage gates every requirement; insta snapshots re-recorded deliberately."
-      }
-    ],
-    "acceptance": "`match` is gone from the config surface (an unknown-key reject, per the unknown-keys Decision); every set/graph-scope predicate and requirement conformance range over satisfier sets; coverage checks every requirement's satisfier presence + dangling; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox-routed (spec 01d4f59). ATOMIC — ripples compose→roster→graph→coverage in one commit; sole `open` entry, no parallel wave. Membership's S₂: `45-governance.md` makes each set an opt-in satisfier set, so `source_selector` is replaced by a named source requirement's satisfiers. The parked temper.toml dogfood (cb52cc3) is already satisfies-only — the dogfood is the target."
-  },
-  {
     "tag": "SURFACE-DOCUMENT-FORMAT",
     "summary": "The surface-language document primitive — parse/emit one authored document: `+++` TOML-fenced header over a markdown body, format-preserving (toml_edit), deterministic round-trip",
     "per": {
       "path": "specs/20-surface.md",
       "section": "The member document — the surface language"
     },
-    "gate": { "kind": "blockedBy", "tag": "MATCH-ERADICATE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MATCH-ERADICATE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -103,7 +43,11 @@
       "path": "specs/10-contracts.md",
       "section": "Packages — the reusable, bindable unit of a contract"
     },
-    "gate": { "kind": "blockedBy", "tag": "SURFACE-DOCUMENT-FORMAT" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SURFACE-DOCUMENT-FORMAT"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -140,7 +84,11 @@
       "path": "specs/20-surface.md",
       "section": "Decision: package binding is by artifact kind"
     },
-    "gate": { "kind": "blockedBy", "tag": "PACKAGE-DOCUMENT" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "PACKAGE-DOCUMENT"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -165,7 +113,10 @@
           "description": "Snapshot churn from the renamed vocabulary in the bundled skill/std-lib, re-accepted deliberately."
         }
       ],
-      "retire": ["the `adopt = \"<path>\"` binding key", "ComposeError::UnknownTemplate"]
+      "retire": [
+        "the `adopt = \"<path>\"` binding key",
+        "ComposeError::UnknownTemplate"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
@@ -184,7 +135,11 @@
       "path": "specs/10-contracts.md",
       "section": "Requirements — the harness's named obligations"
     },
-    "gate": { "kind": "blockedBy", "tag": "PACKAGE-BINDING" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "PACKAGE-BINDING"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -209,7 +164,10 @@
           "description": "Any requirement-side template-path case migrates to the by-name binding."
         }
       ],
-      "retire": ["RequirementContract::Template(path) and the inline-clauses variant", "the `contract =` requirement key"]
+      "retire": [
+        "RequirementContract::Template(path) and the inline-clauses variant",
+        "the `contract =` requirement key"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
@@ -228,7 +186,11 @@
       "path": "specs/20-surface.md",
       "section": "Decision: the member is one document in the surface language"
     },
-    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-PACKAGE-TYPING" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "REQUIREMENT-PACKAGE-TYPING"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -273,7 +235,10 @@
           "description": "The import fixpoint (re-importing the projection yields the surface back) asserted over the one-document layout."
         }
       ],
-      "retire": ["the meta.toml + body two-file member layout", "Skill::to_meta_document / the rule meta writer (become document emitters)"]
+      "retire": [
+        "the meta.toml + body two-file member layout",
+        "Skill::to_meta_document / the rule meta writer (become document emitters)"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
@@ -292,8 +257,13 @@
       "path": "specs/40-composition.md",
       "section": "Decision: a custom kind is an authored `.temper/` artifact, registered in the assembly"
     },
-    "gate": { "kind": "blockedBy", "tag": "MEMBER-DOCUMENT-IMPORT" },
-    "dependsOnForks": ["kind-artifact-format"],
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MEMBER-DOCUMENT-IMPORT"
+    },
+    "dependsOnForks": [
+      "kind-artifact-format"
+    ],
     "files": {
       "new": [],
       "edit": [
@@ -322,7 +292,9 @@
           "description": "Relationship fixtures declared in the authored kind definition."
         }
       ],
-      "retire": ["the fully-inline [kind.<name>] custom-kind definition (governs/extraction/clauses in temper.toml)"]
+      "retire": [
+        "the fully-inline [kind.<name>] custom-kind definition (governs/extraction/clauses in temper.toml)"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
@@ -345,6 +317,7 @@
       "kind": "parked",
       "reason": "the authored sources must exist first: a human un-parks the cb52cc3 self-application surface and authors `.temper/packages/{skill.anthropic,rule}/PACKAGE.md` on temper's own surface — the resolved `(package-surface-sequencing)` order (machinery first, dogfood as validation); also last in the chain (needs PACKAGE-DOCUMENT…KIND-AUTHORED-ARTIFACT shipped)"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -370,7 +343,11 @@
           "description": "Retire the TOML-file contract loader once nothing resolves through it."
         }
       ],
-      "retire": ["contracts/skill.anthropic.toml", "contracts/rule.toml", "the contracts/ embedded std-lib directory"]
+      "retire": [
+        "contracts/skill.anthropic.toml",
+        "contracts/rule.toml",
+        "the contracts/ embedded std-lib directory"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
@@ -393,6 +370,7 @@
       "kind": "deferred",
       "reason": "follow-on; no story yet demands custom-kind coverage participation, and it is downstream of MEMBER-DOCUMENT-IMPORT (the header its `satisfies` would be authored in) and KIND-AUTHORED-ARTIFACT — deferred on priority"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -428,6 +406,7 @@
       "kind": "parked",
       "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -459,6 +438,7 @@
       "kind": "deferred",
       "reason": "the reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind — and only after the surface-language chain (through MEMBER-DOCUMENT-IMPORT) reshapes how a kind's members and package land"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
