@@ -9,6 +9,30 @@ edits, and the write direction (`apply`) projects the surface back out. Built an
 proven for skills in slice 1; the shape generalizes to every artifact kind and
 every landscape (`30-landscapes.md`).
 
+## The surface is stratified: schema + instances
+
+The surface is one authored thing with **two strata**, mirroring a typed codebase:
+
+- a **schema stratum** — `temper.toml` (kinds, roles, contracts; `40-composition.md`),
+  the types;
+- an **instance stratum** — the composed artifacts (a skill's header + body, a rule,
+  a spec), the values.
+
+`temper.toml` is therefore *both* a member of the surface (authored like the rest)
+*and* the contract the instances satisfy — not a contradiction but **stratification**,
+exactly as a `trait` is authored code *and* the contract its `impl`s satisfy. The two
+greens (`00-intent.md`) are the two strata's checks: **admissibility** asks whether
+the schema stratum is *well-formed* (its extractors compose valid primitives, its
+edges name real kinds, its clauses don't contradict) — a schema is never checked
+"against itself"; **conformance** asks whether the instance stratum *satisfies* the
+schema. The schema stratum is itself layered — the shipped built-in floor (the
+std-lib you adopt) ⊕ `temper.toml` (your authored types; `40-composition.md`).
+
+`author.toml` (below) belongs to **neither** stratum: it is generated
+provenance/drift state — machinery the tool writes, never a thing you compose. The
+authoring surface is `temper.toml` + the artifacts; the `.temper/` directory and
+`author.toml` are storage and ledger, not the model.
+
 ## Topology: structured-index + markdown sidecars
 
 The harness is ~half prose-dominant (skills, agents, `CLAUDE.md` — small typed
@@ -18,8 +42,10 @@ one file:
 
 - **Prose bodies stay as real `.md`**, byte-faithful and `git mv`-able.
 - **Structured headers** are written format-preserving (`toml_edit`).
-- **A roll-up index** (`author.toml`) lists every artifact with hashes, powering
-  cross-artifact views and contract validation without loading every body.
+- **A roll-up index** (`author.toml`) — **generated** machinery (not authored
+  surface, above): every artifact with hashes, powering cross-artifact views and
+  drift without loading every body. Its name predates `temper` and now collides with
+  the authored `temper.toml`; a rename to reflect its generated-ledger role is open.
 
 ```
 <workspace>/
