@@ -140,13 +140,27 @@ the one documented launch-killer every postmortem shares. **Rejected:**
 launching on the README's promise ahead of the binary's reality — the offering
 inherits the gate's own law: fail loud, never wave through (`50-distribution.md`).
 
-## The name — an open wound, flagged
+## The name
 
-The working name collides on every registry that matters: the `temper` crate is
-taken and active, npm's `temper` is squatted-dead, and — the real exposure — a
-funded company ships a programming *language* named Temper in the same
-developer-tooling category, with the `temper-*` crate prefix already theirs.
-Naming is the author's (`(project-name)` in the fork ledger); what this spec
-holds is only the constraint: **the name question resolves before anything
-public carries the name** — registries, plugin manifests, the blog post. A
-rename before launch costs nothing; after launch it costs everything.
+The name collides on every registry that matters: the `temper` crate is taken
+and active, npm's `temper` is squatted-dead, and a funded company ships a
+programming *language* named Temper in the same developer-tooling category,
+with the `temper-*` crate prefix already theirs.
+
+### Decision: the name stays `temper`, carried on scoped registries
+
+**Chosen:** keep the name — a provisional keep, **reaffirmed at launch**, the
+last moment a rename is cheap. Public registry surfaces use uncontested forms:
+the crate publishes as `temper-cli` (the binary stays `temper`), npm is scoped
+(`@<org>/temper`) or prefixed, Homebrew rides the project's own tap. None of
+the contested entries are load-bearing for the audience, which installs via
+npm / brew / the plugin (`50-distribution.md`), not `cargo install`. The costs
+are accepted eyes-open: `cargo install temper` installs someone else's crate;
+search mindshare is shared with Temper-the-language; and the trademark
+exposure stands until checked — a USPTO screen (and ideally a non-objection
+from Temper Systems) remains the due-diligence item before launch.
+**Rejected (for now):** a pre-launch rename — the identity is worth more than
+the contested registries, and the audience discovers through the Claude Code
+ecosystem's channels, not crate search. Revisit only if the due-diligence item
+turns up a registered mark or confusion materializes. (Resolves
+`(project-name)`.)

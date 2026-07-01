@@ -180,22 +180,16 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   `query` verb. Fileable as build work **after** the surface-language migration,
   once coverage + graph data exist to read. Kept as the decision record.
 
-- `(project-name)` — OPEN, human-only. The working name "temper" is contested
-  everywhere public (`specs/55-offering.md`, "The name"): the crates.io `temper`
-  crate is **taken and active** (a game engine, v0.2.0 June 2026 — effectively
-  unrecoverable); npm `temper` is squatted-dead (2015; dispute possible, not
-  assured); and **Temper Systems, Inc.** ships an active, company-backed
-  programming language named Temper in the same dev-tooling category, already
-  owning the `temper-core`/`temper-std` crate prefix — common-law trademark
-  exposure plus a three-way search-mindshare split (their language + a family of
-  `temper` USB-thermometer drivers). Options, ranked by the audit: rename before
-  launch (clean, costs nothing now); keep the name with scoped/prefixed registry
-  entries (`temper-cli` crate is free, `@<org>/temper` on npm, own Homebrew tap)
-  — mechanically workable but `cargo install temper` installs someone else's
-  engine and the trademark exposure stands; keep + npm dispute (fixes the least
-  important surface). Constraint held by the spec: **resolves before anything
-  public carries the name** — registries, the plugin manifest, the launch post.
-  Gates PACKAGING-CHANNELS' name-bearing halves and all launch work.
+- `(project-name)` — RESOLVED, provisionally (`specs/55-offering.md` Decision:
+  "the name stays `temper`, carried on scoped registries"). Keep the name; the
+  contested registries are routed around: crate `temper-cli` (binary stays
+  `temper`), npm scoped/prefixed, own Homebrew tap — the audience installs via
+  npm/brew/plugin, never `cargo install`. Costs accepted eyes-open (someone
+  else's `temper` crate; search mindshare shared with Temper-the-language).
+  Two riders: the keep is **reaffirmed at launch** (the last cheap rename
+  moment), and a **USPTO screen / Temper Systems non-objection** is the
+  human due-diligence item before launch. PACKAGING-CHANNELS uses the scoped
+  names. Kept as the decision record.
 
 - `(kind-artifact-format)` — RESOLVED (`specs/20-surface.md` Decision: "a kind
   definition is `KIND.md` — one document, same medium"). A custom kind is authored
