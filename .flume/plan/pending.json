@@ -1,51 +1,36 @@
 [
   {
-    "tag": "KIND-EXTRACTION-ALGEBRA",
-    "summary": "Compose a custom kind's extractor from a closed algebra of deterministic extraction primitives declared as data — the read-side soundness boundary.",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "The extraction algebra — the soundness boundary, as data"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        {
-          "path": "src/kind.rs",
-          "description": "The extraction-primitive vocabulary as data: parse a `[kind.<name>.extraction]` table into a composed set of deterministic extractors (structured field, ATX heading, line count, file placement/glob, backtick-filename reference) and run the composed extractor over a raw markdown unit into `crate::extract::Features`. An out-of-vocabulary primitive is a load error — the closed vocabulary makes unsound extraction unsayable, exactly as the predicate algebra is too weak to lie."
-        }
-      ],
-      "edit": [
-        { "path": "src/lib.rs", "description": "Add `pub mod kind;` beside the existing artifact-kind modules." },
-        { "path": "src/extract.rs", "description": "Expose the shared surface extractors (`body_headings`, line count, `source_dir_name`) as `pub(crate)` so the data-driven composer reuses them rather than reimplementing the ATX/heading logic. No behavior change to the existing per-kind `*_features` projectors." }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "src/kind.rs", "asserts": "A declared `[kind.<name>.extraction]` composes into a deterministic extractor that reads a raw markdown unit into `Features` (line count, ATX headings, file placement); re-running is byte-identical; an unknown extraction primitive is a load error." }
-    ],
-    "acceptance": "A `[kind.<name>.extraction]` declaration composes from the closed extraction algebra into a deterministic extractor that reads a raw markdown unit into `crate::extract::Features`; an out-of-vocabulary extraction primitive is rejected at load.",
-    "notes": "Foundation for the kind-declaration mechanism (`15-kinds.md` Decision \"a custom kind is declared data, never engine code\"). Built-in harness kinds keep their engine-code extractors (external, evolving formats); only custom kinds compose from this data algebra. The `## Decision`-block primitive (heading+body) waits on `(decision-marker-predicate)` — ship the primitives the spec kind's `max_lines`/references clauses need now."
-  },
-  {
     "tag": "KIND-DECLARATION-PARSE",
     "summary": "Parse `[kind.<name>]` custom-kind declarations in `temper.toml` — governs + extraction + clause — distinct from a built-in contract layer.",
     "per": {
       "path": "specs/40-composition.md",
       "section": "Declaring a custom kind"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-EXTRACTION-ALGEBRA" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-EXTRACTION-ALGEBRA"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
-        { "path": "src/compose.rs", "description": "Parse a `[kind.<name>]` table carrying `governs` (root+glob locus) and `[kind.<name>.extraction]` into a typed custom-kind definition (composing the extraction algebra from KIND-EXTRACTION-ALGEBRA with the existing `[[kind.<name>.clause]]` contract parser), stored off `AuthorLayer`. Disambiguate a full custom-kind declaration (has `governs`/`extraction`) from the existing built-in contract layer (adopt/clause-only over a shipped kind); a malformed declaration is a load error." },
-        { "path": "tests/temper_toml.rs", "description": "Assert a `[kind.spec]` declaration with `governs`, `[kind.spec.extraction]`, and a `[[kind.spec.clause]]` parses into a custom-kind definition distinct from a built-in layer; a malformed one is a load error." }
+        {
+          "path": "src/compose.rs",
+          "description": "Parse a `[kind.<name>]` table carrying `governs` (root+glob locus) and `[kind.<name>.extraction]` into a typed custom-kind definition (composing the extraction algebra from KIND-EXTRACTION-ALGEBRA with the existing `[[kind.<name>.clause]]` contract parser), stored off `AuthorLayer`. Disambiguate a full custom-kind declaration (has `governs`/`extraction`) from the existing built-in contract layer (adopt/clause-only over a shipped kind); a malformed declaration is a load error."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Assert a `[kind.spec]` declaration with `governs`, `[kind.spec.extraction]`, and a `[[kind.spec.clause]]` parses into a custom-kind definition distinct from a built-in layer; a malformed one is a load error."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/temper_toml.rs", "asserts": "`AuthorLayer` parses a `[kind.<name>]` custom-kind declaration (governs + extraction + clause), distinct from a built-in contract layer; malformed declarations are load errors." }
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "`AuthorLayer` parses a `[kind.<name>]` custom-kind declaration (governs + extraction + clause), distinct from a built-in contract layer; malformed declarations are load errors."
+      }
     ],
     "acceptance": "`AuthorLayer` parses a `[kind.<name>]` custom-kind declaration — `governs` locus, `[kind.<name>.extraction]`, and `[[kind.<name>.clause]]` — into a typed definition, distinguished from an adopt/clause-only built-in contract layer.",
     "notes": "The `[kind.<name>]` key serves both a built-in contract layer (adopt/extend/flip over a shipped kind) and a full custom-kind declaration; `governs`/`extraction` presence disambiguates. `[kind.<name>.relationships]` (the edge capability) is folded in by KIND-EDGE-RELATIONSHIPS, not here."
@@ -57,17 +42,27 @@
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & contract selection"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-DECLARATION-PARSE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-DECLARATION-PARSE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
-        { "path": "src/import.rs", "description": "`import::run` loads the project-root `temper.toml` layer and scans, in addition to the built-in harness kinds, every custom kind it declares — each kind's `governs` locus discovered and projected to the surface via the data extractor (KIND-EXTRACTION-ALGEBRA). Replace the hardwired, unconditional `discover_spec_files`/`import_spec` spec path: spec discovery becomes data-driven like any custom kind. Absent a `temper.toml` custom kind ⇒ built-ins only." }
+        {
+          "path": "src/import.rs",
+          "description": "`import::run` loads the project-root `temper.toml` layer and scans, in addition to the built-in harness kinds, every custom kind it declares — each kind's `governs` locus discovered and projected to the surface via the data extractor (KIND-EXTRACTION-ALGEBRA). Replace the hardwired, unconditional `discover_spec_files`/`import_spec` spec path: spec discovery becomes data-driven like any custom kind. Absent a `temper.toml` custom kind ⇒ built-ins only."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "src/import.rs", "asserts": "A harness with a `temper.toml` declaring a custom kind imports that kind's `governs` units to the surface via the data extractor; a harness with no declared custom kind imports built-in kinds only (no phantom `specs/` scan)." }
+      {
+        "path": "src/import.rs",
+        "asserts": "A harness with a `temper.toml` declaring a custom kind imports that kind's `governs` units to the surface via the data extractor; a harness with no declared custom kind imports built-in kinds only (no phantom `specs/` scan)."
+      }
     ],
     "acceptance": "`import` scans the built-in harness kinds plus every custom kind the active `temper.toml` declares (its `governs` locus), projecting each declared unit through the data extractor; the hardwired unconditional `specs/*.md` scan is gone.",
     "notes": "\"temper reads its own `specs/` because its own `temper.toml` declares the `spec` kind, not because anything is hardwired\" (`40-composition.md`). drift's `discover_spec_files` caller and the built-in `Spec` IR are retired in KIND-RETIRE-BUILTIN-SPEC once check also runs custom kinds via data."
@@ -79,21 +74,40 @@
       "path": "specs/15-kinds.md",
       "section": "Worked example: `spec`, temper's own custom kind"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-IMPORT-DISCOVERY" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-IMPORT-DISCOVERY"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": "temper.toml", "description": "Declare temper's own `spec` custom kind via the mechanism: `governs = specs/*.md`, `[kind.spec.extraction]` (ATX headings, line count, placement, backtick-filename references), and a `[[kind.spec.clause]]` `max_lines` advisory (~150, per `90-spec-system.md`). The decisions-name-alternatives and references-resolve clauses are left out for now (see notes)." }
+        {
+          "path": "temper.toml",
+          "description": "Declare temper's own `spec` custom kind via the mechanism: `governs = specs/*.md`, `[kind.spec.extraction]` (ATX headings, line count, placement, backtick-filename references), and a `[[kind.spec.clause]]` `max_lines` advisory (~150, per `90-spec-system.md`). The decisions-name-alternatives and references-resolve clauses are left out for now (see notes)."
+        }
       ],
       "edit": [
-        { "path": "src/main.rs", "description": "In the `Check` arm, for each custom kind the active `temper.toml` declares, extract its artifacts via the declared data extraction and extend the diagnostic stream with `engine::admissibility` + `engine::validate` over the kind's contract — the same two greens the built-in kinds run." },
-        { "path": "tests/acceptance.rs", "description": "Assert `temper check` over an imported corpus with a spec-declaring `temper.toml` runs the spec contract: over-length specs trip `max_lines` at advisory severity, exit 0 absent `--deny-advisories`." },
-        { "path": "tests/cli.rs", "description": "Reconcile any end-to-end `check` assertion affected by a repo-root `temper.toml` now being present at the binary's cwd (the new spec kind participates)." }
+        {
+          "path": "src/main.rs",
+          "description": "In the `Check` arm, for each custom kind the active `temper.toml` declares, extract its artifacts via the declared data extraction and extend the diagnostic stream with `engine::admissibility` + `engine::validate` over the kind's contract — the same two greens the built-in kinds run."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "Assert `temper check` over an imported corpus with a spec-declaring `temper.toml` runs the spec contract: over-length specs trip `max_lines` at advisory severity, exit 0 absent `--deny-advisories`."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Reconcile any end-to-end `check` assertion affected by a repo-root `temper.toml` now being present at the binary's cwd (the new spec kind participates)."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/acceptance.rs", "asserts": "With a `temper.toml` declaring the `spec` custom kind, `temper check` extracts each spec via the declared extraction and runs admissibility + validate — over-length specs trip `max_lines` at advisory severity and the run exits 0 absent `--deny-advisories`." }
+      {
+        "path": "tests/acceptance.rs",
+        "asserts": "With a `temper.toml` declaring the `spec` custom kind, `temper check` extracts each spec via the declared extraction and runs admissibility + validate — over-length specs trip `max_lines` at advisory severity and the run exits 0 absent `--deny-advisories`."
+      }
     ],
     "acceptance": "`temper check` over a corpus whose `temper.toml` declares the `spec` custom kind runs that kind's contract through the data extractor — flagging the over-length specs at advisory severity and exiting 0 absent `--deny-advisories`.",
     "notes": "Supersedes the dropped SPEC-KIND-GATE — no embedded `contracts/spec.toml`, the clause lives in `temper.toml`. Adding a repo-root `temper.toml` changes `temper check` cwd behavior for existing acceptance/cli runs, so those are in the blast radius. Only the `max_lines` clause ships; decisions-name-alternatives waits on `(decision-marker-predicate)`, references-resolve on KIND-EDGE-RELATIONSHIPS."
@@ -105,22 +119,50 @@
       "path": "specs/15-kinds.md",
       "section": "Decision: a custom kind is declared data, never engine code"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-CHECK-SPEC" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-CHECK-SPEC"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
-        { "path": "src/lib.rs", "description": "Drop `pub mod spec;`." },
-        { "path": "src/extract.rs", "description": "Drop `spec_features` and its unit tests — a custom kind extracts via the data algebra, not a bespoke projector." },
-        { "path": "src/import.rs", "description": "Drop the residual built-in spec plumbing (`import_spec`, any remaining `discover_spec_files` surface) not already removed by KIND-IMPORT-DISCOVERY." },
-        { "path": "src/check.rs", "description": "Remove the `Workspace.specs` field and the built-in `Spec::from_surface_dir` load path (and its tests); custom-kind surface loading is generic, not spec-special." },
-        { "path": "src/drift.rs", "description": "Remove the spec drift axis that reads `workspace.specs` + `discover_spec_files`; reconcile drift to the generic custom-kind path." },
-        { "path": "tests/cli.rs", "description": "Reconcile any end-to-end assertion referencing the built-in spec surface/IR." }
+        {
+          "path": "src/lib.rs",
+          "description": "Drop `pub mod spec;`."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Drop `spec_features` and its unit tests — a custom kind extracts via the data algebra, not a bespoke projector."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Drop the residual built-in spec plumbing (`import_spec`, any remaining `discover_spec_files` surface) not already removed by KIND-IMPORT-DISCOVERY."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Remove the `Workspace.specs` field and the built-in `Spec::from_surface_dir` load path (and its tests); custom-kind surface loading is generic, not spec-special."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Remove the spec drift axis that reads `workspace.specs` + `discover_spec_files`; reconcile drift to the generic custom-kind path."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Reconcile any end-to-end assertion referencing the built-in spec surface/IR."
+        }
       ],
-      "retire": [ "src/spec.rs", "extract::spec_features" ]
+      "retire": [
+        "src/spec.rs",
+        "extract::spec_features"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/cli.rs", "asserts": "`temper` reads `specs/` solely through the data-declared custom kind — the built-in `Spec` IR, `spec_features`, and the spec-special import/workspace/drift plumbing are gone and the suite stays green." }
+      {
+        "path": "tests/cli.rs",
+        "asserts": "`temper` reads `specs/` solely through the data-declared custom kind — the built-in `Spec` IR, `spec_features`, and the spec-special import/workspace/drift plumbing are gone and the suite stays green."
+      }
     ],
     "acceptance": "The built-in `spec` module and its bespoke plumbing (the `Spec` IR, `spec_features`, `import_spec`, `Workspace.specs`, drift's spec axis) are removed; `temper` reads `specs/` only through the data-declared custom kind; the whole suite is green.",
     "notes": "A custom kind shipped as a built-in breaks \"temper ships none of them\" — a stranger installing temper would inherit temper's `spec` kind. Cross-cutting: `Spec` is woven through import, check (`Workspace.specs`), drift (spec axis), extract, lib. Serialized last so specs stay discoverable + checkable via data throughout the chain; confirm no `check`/drift regression over `specs/`."
@@ -132,21 +174,43 @@
       "path": "specs/45-governance.md",
       "section": "The harness is a graph too — and references are declared edges"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-RETIRE-BUILTIN-SPEC" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-RETIRE-BUILTIN-SPEC"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
-        { "path": "src/compose.rs", "description": "Move edge parsing from the standalone top-level `[[edge]]` array to `[kind.<name>.relationships]` under the owning kind — an edge is the source kind's declared reference field over its declared reference syntax. Preserve the parsed `Edge` shape the graph consumes." },
-        { "path": "src/graph.rs", "description": "Read the declared relationships off the owning kind rather than a free-standing edge list; route resolution + admissibility behavior unchanged." },
-        { "path": "src/main.rs", "description": "Assemble the harness graph from the kinds' relationships instead of `AuthorLayer::edges`." },
-        { "path": "tests/graph.rs", "description": "Update the edge-construction fixtures to the `[kind.<name>.relationships]` shape." },
-        { "path": "tests/temper_toml.rs", "description": "Assert relationships parse under `[kind.<name>.relationships]`." }
+        {
+          "path": "src/compose.rs",
+          "description": "Move edge parsing from the standalone top-level `[[edge]]` array to `[kind.<name>.relationships]` under the owning kind — an edge is the source kind's declared reference field over its declared reference syntax. Preserve the parsed `Edge` shape the graph consumes."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Read the declared relationships off the owning kind rather than a free-standing edge list; route resolution + admissibility behavior unchanged."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Assemble the harness graph from the kinds' relationships instead of `AuthorLayer::edges`."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Update the edge-construction fixtures to the `[kind.<name>.relationships]` shape."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Assert relationships parse under `[kind.<name>.relationships]`."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/graph.rs", "asserts": "Edges declared under `[kind.<name>.relationships]` assemble the harness graph and drive route resolution + admissibility exactly as the standalone `[[edge]]` construct did." }
+      {
+        "path": "tests/graph.rs",
+        "asserts": "Edges declared under `[kind.<name>.relationships]` assemble the harness graph and drive route resolution + admissibility exactly as the standalone `[[edge]]` construct did."
+      }
     ],
     "acceptance": "A reference is declared under its owning kind's `[kind.<name>.relationships]` (over that kind's declared reference syntax) rather than a standalone `[[edge]]` table; the harness graph, route resolution, and edge-admissibility behavior are preserved.",
     "notes": "Note (d) of the reconciliation. The graph foundation shipped soundly (`src/graph.rs`, 54eb52f) over `AuthorLayer::edges`; this aligns the edge-declaration *shape* with the specced kind capability. `degree`/`acyclic` (the remaining graph-scope predicates) read the same relationships and follow as later entries; this also unlocks the spec kind's references-resolve clause (backtick-filename syntax)."
