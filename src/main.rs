@@ -174,14 +174,17 @@ fn main() -> miette::Result<ExitCode> {
                 // above, skipped here rather than double-reported.
                 diagnostics.extend(roster::conformance(layer.roles(), &by_kind, base_dir));
 
-                // The graph scope: build the harness reference graph over the
-                // declared edges and check route resolution — a declared reference
-                // (`routes_to: standards`) must resolve to a real artifact of the
-                // target kind (`specs/45-governance.md`, "The harness is a graph
-                // too"). Admissibility before conformance, here too: an edge that
-                // names no reference field or targets an unmodeled kind is reported
-                // once and skipped by the route check. Absent `temper.toml` ⇒ no
-                // layer ⇒ no edges ⇒ this adds nothing, so the floor-only path stays
+                // The graph scope: build the harness reference graph over the edges
+                // declared as each kind's `[[kind.<name>.relationships]]` — a
+                // reference is a kind capability, not a standalone construct
+                // (`specs/15-kinds.md`, "The entity graph is a kind capability") —
+                // and check route resolution: a declared reference (`routes_to:
+                // standards`) must resolve to a real artifact of the target kind
+                // (`specs/45-governance.md`, "The harness is a graph too").
+                // Admissibility before conformance, here too: an edge that names no
+                // reference field or targets an unmodeled kind is reported once and
+                // skipped by the route check. Absent `temper.toml` ⇒ no layer ⇒ no
+                // relationships ⇒ this adds nothing, so the floor-only path stays
                 // byte-for-byte unchanged.
                 diagnostics.extend(graph::admissibility(layer.edges(), &by_kind));
                 diagnostics.extend(graph::check(layer.edges(), &by_kind));

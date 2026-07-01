@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::compose::{AuthorLayer, ComposeError, Governs};
+use temper::compose::{AuthorLayer, ComposeError, Edge, Governs};
 use temper::contract::{Clause, Predicate, Severity};
 use temper::kind::{KindError, Primitive};
 
@@ -336,6 +336,50 @@ max = 400
             predicate: Predicate::MaxLines { max: 400 },
         }]
     );
+}
+
+#[test]
+fn relationships_parse_under_the_owning_kind_as_a_kind_capability() {
+    // A reference is a kind capability, not a standalone construct: it is declared
+    // under its owning kind's `[[kind.<name>.relationships]]` array (`specs/15-kinds.md`,
+    // "The entity graph is a kind capability"). The `[kind.spec]` custom kind declares
+    // one relationship, and `[kind.rule]` — a built-in layer, orthogonal to the split —
+    // declares another; both parse into edges whose `from` is the owning kind.
+    let toml = r#"
+[kind.rule]
+adopt = "rule"
+[[kind.rule.relationships]]
+field = "routes_to"
+to = "skill"
+
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+[[kind.spec.extraction]]
+primitive = "references"
+feature = "references"
+[[kind.spec.relationships]]
+field = "references"
+to = "spec"
+"#;
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+
+    // The custom kind still classifies as custom; the built-in layer does not —
+    // relationships change neither.
+    assert!(layer.custom_kinds().contains_key("spec"));
+    assert!(!layer.custom_kinds().contains_key("rule"));
+
+    // Both relationships are gathered as edges, each `from` its owning kind.
+    let edges: Vec<&Edge> = layer.edges().iter().collect();
+    assert!(edges.contains(&&Edge {
+        field: "routes_to".to_string(),
+        from: "rule".to_string(),
+        to: "skill".to_string(),
+    }));
+    assert!(edges.contains(&&Edge {
+        field: "references".to_string(),
+        from: "spec".to_string(),
+        to: "spec".to_string(),
+    }));
 }
 
 #[test]

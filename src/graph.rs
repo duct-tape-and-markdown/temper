@@ -241,7 +241,8 @@ mod tests {
     }
 
     /// Parse the first edge out of a `temper.toml` fragment — the parse foundation
-    /// is the only constructor for an [`Edge`], so the graph tests drive it.
+    /// (a kind's `[[kind.<name>.relationships]]` array) is the only constructor for
+    /// an [`Edge`], so the graph tests drive it.
     fn edge(toml: &str) -> Edge {
         AuthorLayer::parse(toml, Path::new("temper.toml"))
             .unwrap()
@@ -330,7 +331,7 @@ mod tests {
         // The target kind `agent` is not modeled (`by_kind` has only `rule`): every
         // route would dangle, so the fault is the declaration. Admissibility reports
         // it once, and `check` skips the edge rather than flag every source.
-        let edge = edge("[[edge]]\nfield = \"routes_to\"\nfrom = \"rule\"\nto = \"agent\"\n");
+        let edge = edge("[[kind.rule.relationships]]\nfield = \"routes_to\"\nto = \"agent\"\n");
         let rules = [node("style", Some("whatever"))];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
 

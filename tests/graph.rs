@@ -4,9 +4,9 @@
 //!
 //! Drives the built `temper` binary so the whole path is pinned: importing a
 //! harness of a rule (carrying a `routes_to` frontmatter field) and a skill,
-//! discovering `temper.toml` at the project root, parsing its `[[edge]]`
-//! declaration onto the author layer, building the graph over the imported
-//! corpus, and the exit code.
+//! discovering `temper.toml` at the project root, parsing its
+//! `[[kind.<name>.relationships]]` declaration onto the author layer, building the
+//! graph over the imported corpus, and the exit code.
 //!
 //! The cases mirror the entry's acceptance:
 //! - a rule whose `routes_to` names a real skill resolves and the run is clean;
@@ -120,11 +120,12 @@ fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
 }
 
-/// A `temper.toml` declaring one `routes_to` edge from rules to skills — the
-/// harness reference graph the cases build.
-const ROUTES_TO_EDGE: &str = "[[edge]]\n\
+/// A `temper.toml` declaring one `routes_to` relationship on the `rule` kind
+/// (its owning kind the edge source), targeting skills — the harness reference
+/// graph the cases build. A reference is a kind capability, declared under the
+/// owning kind's `[[kind.<name>.relationships]]` array (`specs/15-kinds.md`).
+const ROUTES_TO_EDGE: &str = "[[kind.rule.relationships]]\n\
      field = \"routes_to\"\n\
-     from = \"rule\"\n\
      to = \"skill\"\n";
 
 #[test]
@@ -199,8 +200,8 @@ fn absent_temper_toml_runs_no_graph() {
         absent.output
     );
 
-    // A `temper.toml` carrying a `[kind]` layer but no `[[edge]]` declares no graph
-    // either — the outcome is byte-for-byte the floor's.
+    // A `temper.toml` carrying a `[kind]` layer but no `relationships` declares no
+    // graph either — the outcome is byte-for-byte the floor's.
     write_temper_toml(
         &root,
         "[kind.skill]\n\

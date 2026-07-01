@@ -63,8 +63,22 @@
 //! This tier is **parse only**: custom kinds load into typed values off
 //! [`AuthorLayer::custom_kinds`], but discovering units at each kind's `governs`
 //! locus and running its extractor over them is a follow-on entry. The
-//! `[kind.<name>.entities]`/`.relationships` capabilities are folded in elsewhere
-//! (KIND-EDGE-RELATIONSHIPS), not here.
+//! `[kind.<name>.entities]` capability is folded in elsewhere, not here; the
+//! `.relationships` capability *is* parsed here (below).
+//!
+//! ## Relationships — a kind capability, not a standalone construct
+//!
+//! A reference is a **kind capability**, not a free-standing table: a kind declares
+//! which of its references are edges under its own `[[kind.<name>.relationships]]`
+//! array (`specs/15-kinds.md`, "The entity graph is a kind capability";
+//! `specs/40-composition.md`, the `.relationships` surface). The owning kind
+//! `<name>` is each edge's *source* (the implicit `from`); each relationship names
+//! its reference `field` and its target `to` kind. Relationships are orthogonal to
+//! the custom-vs-layer split — a built-in kind layer and a full custom kind declare
+//! them the same way — so they are gathered off *every* `[kind.<name>]` table,
+//! whichever home the rest of the declaration lands in. They parse into the same
+//! [`Edge`] shape [`crate::graph`] consumes; assembling the graph and checking
+//! route resolution live there.
 //!
 //! ## Closed vocabulary, end to end
 //!
@@ -102,12 +116,14 @@ pub struct AuthorLayer {
     /// tier — selection, required-filling, and admissibility are follow-on
     /// entries.
     roles: BTreeMap<String, Role>,
-    /// The declared edge relationships parsed from `[[edge]]` tables, in
-    /// declaration order — the reference syntax the harness reference graph is
-    /// built from (`specs/45-governance.md`, "The harness is a graph too — and
-    /// references are declared edges"). Empty when the `temper.toml` declares
-    /// none. Parse-only here; assembling the graph and checking route resolution
-    /// live in [`crate::graph`].
+    /// The declared edge relationships gathered off every kind's
+    /// `[[kind.<name>.relationships]]` array, in declaration order — the reference
+    /// syntax the harness reference graph is built from (`specs/15-kinds.md`, "The
+    /// entity graph is a kind capability"; `specs/45-governance.md`, "The harness is
+    /// a graph too — and references are declared edges"). Each edge's `from` is the
+    /// owning kind that declared it. Empty when no kind declares any. Parse-only
+    /// here; assembling the graph and checking route resolution live in
+    /// [`crate::graph`].
     edges: Vec<Edge>,
     /// The fully-declared custom kinds parsed from `[kind.<name>]` tables that
     /// carry a `governs` locus or an `[[kind.<name>.extraction]]` array — a
@@ -122,15 +138,17 @@ pub struct AuthorLayer {
     custom_kinds: BTreeMap<String, CustomKind>,
 }
 
-/// A declared **edge relationship** over the harness reference graph
-/// (`specs/45-governance.md`, "The harness is a graph too — and references are
-/// declared edges"): the reference is a *declared structured field on the
-/// surface*, never grepped from prose (`(skill-ref-syntax)` RESOLVED). The
-/// declaration names the reference field, the kind that owns it (the edge
-/// source), and the kind it resolves to (the edge target) — "a rule routes to a
-/// skill by a `routes_to` field." [`crate::graph`] reads the field off each
-/// source artifact's [`Features`](crate::extract::Features) into edges, then
-/// flags any route that resolves to no artifact of the target kind.
+/// A declared **edge relationship** — a kind capability, declared under its owning
+/// kind's `[[kind.<name>.relationships]]` array (`specs/15-kinds.md`, "The entity
+/// graph is a kind capability"; `specs/45-governance.md`, "The harness is a graph
+/// too — and references are declared edges"): the reference is a *declared
+/// structured field on the surface*, never grepped from prose (`(skill-ref-syntax)`
+/// RESOLVED). The owning kind is the edge *source* (the implicit `from`); the
+/// relationship names its reference `field` and the kind it resolves to (the edge
+/// `to` target) — "a rule routes to a skill by a `routes_to` field."
+/// [`crate::graph`] reads the field off each source artifact's
+/// [`Features`](crate::extract::Features) into edges, then flags any route that
+/// resolves to no artifact of the target kind.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edge {
     /// The reference field `F` read off each source artifact's frontmatter (via
@@ -138,8 +156,9 @@ pub struct Edge {
     /// scalar value (or each element of a list value) names the target artifact.
     pub field: String,
     /// The artifact kind that owns the reference field — the edge *source*
-    /// (`rule`). Stored verbatim; a `from` naming an unmodeled kind simply yields
-    /// no source artifacts, so the edge is inert (never a route to resolve).
+    /// (`rule`), the `[kind.<name>]` the relationship was declared under. Stored
+    /// verbatim; a `from` naming an unmodeled kind simply yields no source
+    /// artifacts, so the edge is inert (never a route to resolve).
     pub from: String,
     /// The artifact kind the reference resolves to — the edge *target* (`skill`).
     /// A route resolves when an artifact of this kind bears the named id; the
@@ -605,27 +624,34 @@ pub enum ComposeError {
         role: String,
     },
 
-    /// The top-level `edge` key is present but is not an array of `[[edge]]`
-    /// reference-relationship tables.
-    #[error("{path}: `edge` must be an array of `[[edge]]` reference-relationship tables")]
-    #[diagnostic(code(temper::compose::edge_root_not_array))]
-    EdgeRootNotArray {
+    /// A `[kind.<name>.relationships]` key is present but is not an array of
+    /// `[[kind.<name>.relationships]]` reference tables.
+    #[error(
+        "{path}: `[kind.{kind}.relationships]` must be an array of `[[kind.{kind}.relationships]]` reference tables"
+    )]
+    #[diagnostic(code(temper::compose::relationships_not_array))]
+    RelationshipsNotArray {
         /// The malformed `temper.toml`.
         path: PathBuf,
+        /// The kind whose relationships array is malformed.
+        kind: String,
     },
 
-    /// An `[[edge]]` declaration is malformed — missing or mistyped one of its
-    /// `field`, `from`, `to` strings. A declared edge relationship names a
-    /// reference field, an owning kind, and a target kind; any miss collapses
-    /// here, the way [`parse_count`] folds its malformations into one error.
+    /// A `[[kind.<name>.relationships]]` declaration is malformed — missing or
+    /// mistyped one of its `field`, `to` strings. A declared relationship names a
+    /// reference field and a target kind (its owning kind is the source); any miss
+    /// collapses here, the way [`parse_count`] folds its malformations into one
+    /// error.
     #[error(
-        "{path}: `[[edge]]` #{index} must name a reference `field`, a `from` kind, and a `to` kind, all strings"
+        "{path}: `[[kind.{kind}.relationships]]` #{index} must name a reference `field` and a `to` kind, both strings"
     )]
-    #[diagnostic(code(temper::compose::bad_edge))]
-    BadEdge {
+    #[diagnostic(code(temper::compose::bad_relationship))]
+    BadRelationship {
         /// The malformed `temper.toml`.
         path: PathBuf,
-        /// The zero-based position of the malformed `[[edge]]` in declaration order.
+        /// The kind that owns the malformed relationship.
+        kind: String,
+        /// The zero-based position of the malformed relationship in declaration order.
         index: usize,
     },
 
@@ -704,6 +730,7 @@ impl AuthorLayer {
 
         let mut kinds = BTreeMap::new();
         let mut custom_kinds = BTreeMap::new();
+        let mut edges = Vec::new();
         if let Some(item) = doc.as_table().get("kind") {
             let kind_table = item
                 .as_table()
@@ -717,6 +744,11 @@ impl AuthorLayer {
                         path: path.to_path_buf(),
                         kind: name.to_string(),
                     })?;
+                // Relationships are a kind capability orthogonal to the custom-vs-
+                // layer split (`specs/15-kinds.md`): gather them off *every* kind
+                // table, the owning `name` each edge's source, before the rest of the
+                // declaration lands in whichever home fits.
+                edges.extend(parse_relationships(table, name, path)?);
                 // A `governs` locus or an `extraction` array marks a full custom-kind
                 // declaration; anything else is a built-in contract layer. The two
                 // share the `[kind.<name>]` key but land in disjoint homes.
@@ -744,8 +776,6 @@ impl AuthorLayer {
             }
         }
 
-        let edges = parse_edges(&doc, path)?;
-
         Ok(Self {
             path: path.to_path_buf(),
             kinds,
@@ -763,10 +793,11 @@ impl AuthorLayer {
         &self.roles
     }
 
-    /// The parsed edge relationships, in declaration order. Empty when the
-    /// `temper.toml` declares no `[[edge]]` tables. The declared reference syntax
-    /// the harness reference graph is built from — [`crate::graph`] reads these
-    /// into a directed graph and checks route resolution.
+    /// The parsed edge relationships, in declaration order (by owning kind, then by
+    /// each kind's `[[kind.<name>.relationships]]` order). Empty when no kind
+    /// declares any. The declared reference syntax the harness reference graph is
+    /// built from — [`crate::graph`] reads these into a directed graph and checks
+    /// route resolution.
     #[must_use]
     pub fn edges(&self) -> &[Edge] {
         &self.edges
@@ -917,49 +948,64 @@ fn governs_str(table: &dyn toml_edit::TableLike, key: &str) -> Option<String> {
     Some(table.get(key)?.as_str()?.to_string())
 }
 
-/// Parse the top-level `[[edge]]` array into typed [`Edge`]s, in declaration
-/// order. Absent ⇒ an empty vec (no graph runs). The key must be an
-/// array-of-tables (`[[edge]]`); anything else is [`ComposeError::EdgeRootNotArray`].
-/// Each element parses through [`parse_edge`], so a malformed one is a single
-/// folded [`ComposeError::BadEdge`] naming its position.
-fn parse_edges(doc: &DocumentMut, path: &Path) -> Result<Vec<Edge>, ComposeError> {
-    let Some(item) = doc.as_table().get("edge") else {
+/// Parse one kind's `[[kind.<name>.relationships]]` array into typed [`Edge`]s, in
+/// declaration order — a reference is a **kind capability** declared under its owning
+/// kind, not a standalone construct (`specs/15-kinds.md`, "The entity graph is a kind
+/// capability"; `specs/40-composition.md`, the `.relationships` surface). The owning
+/// `kind` is each edge's source (the implicit `from`); each relationship names its
+/// reference `field` and target `to` kind. Absent ⇒ an empty vec (this kind declares
+/// no edges). The key must be an array-of-tables (`[[kind.<name>.relationships]]`);
+/// anything else is [`ComposeError::RelationshipsNotArray`]. Each element parses
+/// through [`parse_relationship`], so a malformed one is a single folded
+/// [`ComposeError::BadRelationship`] naming its position.
+fn parse_relationships(table: &Table, kind: &str, path: &Path) -> Result<Vec<Edge>, ComposeError> {
+    let Some(item) = table.get("relationships") else {
         return Ok(Vec::new());
     };
     let array = item
         .as_array_of_tables()
-        .ok_or_else(|| ComposeError::EdgeRootNotArray {
+        .ok_or_else(|| ComposeError::RelationshipsNotArray {
             path: path.to_path_buf(),
+            kind: kind.to_string(),
         })?;
     let mut edges = Vec::with_capacity(array.len());
-    for (index, table) in array.iter().enumerate() {
-        edges.push(parse_edge(table, index, path)?);
+    for (index, relationship) in array.iter().enumerate() {
+        edges.push(parse_relationship(relationship, kind, index, path)?);
     }
     Ok(edges)
 }
 
-/// Parse one `[[edge]]` table into a typed [`Edge`] — its required `field`
-/// (reference syntax), `from` (owning kind), and `to` (target kind), all
-/// strings. Any missing or mistyped key collapses to a single
-/// [`ComposeError::BadEdge`], the way [`parse_count`] folds its malformations.
-/// The three names are stored verbatim; whether they are *sound* (a non-empty
-/// field, a modeled target kind) is a graph-admissibility concern
-/// ([`crate::graph`]), not a parse one.
-fn parse_edge(table: &Table, index: usize, path: &Path) -> Result<Edge, ComposeError> {
-    let bad = || ComposeError::BadEdge {
+/// Parse one `[[kind.<name>.relationships]]` table into a typed [`Edge`] — its
+/// required `field` (reference syntax) and `to` (target kind), both strings, with
+/// the owning `kind` filled in as the edge's `from` source. Any missing or mistyped
+/// key collapses to a single [`ComposeError::BadRelationship`], the way
+/// [`parse_count`] folds its malformations. The names are stored verbatim; whether
+/// they are *sound* (a non-empty field, a modeled target kind) is a
+/// graph-admissibility concern ([`crate::graph`]), not a parse one.
+fn parse_relationship(
+    table: &Table,
+    kind: &str,
+    index: usize,
+    path: &Path,
+) -> Result<Edge, ComposeError> {
+    let bad = || ComposeError::BadRelationship {
         path: path.to_path_buf(),
+        kind: kind.to_string(),
         index,
     };
-    let field = edge_str(table, "field").ok_or_else(bad)?;
-    let from = edge_str(table, "from").ok_or_else(bad)?;
-    let to = edge_str(table, "to").ok_or_else(bad)?;
-    Ok(Edge { field, from, to })
+    let field = relationship_str(table, "field").ok_or_else(bad)?;
+    let to = relationship_str(table, "to").ok_or_else(bad)?;
+    Ok(Edge {
+        field,
+        from: kind.to_string(),
+        to,
+    })
 }
 
-/// Read one required string key off an `[[edge]]` table: present and a TOML
-/// string ⇒ `Some`, else `None` (which [`parse_edge`] reports as a single
-/// [`ComposeError::BadEdge`]).
-fn edge_str(table: &Table, key: &str) -> Option<String> {
+/// Read one required string key off a `[[kind.<name>.relationships]]` table: present
+/// and a TOML string ⇒ `Some`, else `None` (which [`parse_relationship`] reports as a
+/// single [`ComposeError::BadRelationship`]).
+fn relationship_str(table: &Table, key: &str) -> Option<String> {
     Some(table.get(key)?.as_str()?.to_string())
 }
 
@@ -2136,16 +2182,16 @@ max = 100
         assert!(layer.roles().is_empty());
     }
 
-    // ---- edge relationships (parse-only) ----------------------------------
+    // ---- edge relationships (a kind capability, parse-only) ----------------
 
     #[test]
-    fn an_edge_relationship_parses_into_a_typed_edge() {
-        // The declared reference syntax: a `[[edge]]` naming the reference field,
-        // the owning (source) kind, and the target kind parses into an `Edge`.
+    fn a_relationship_parses_into_a_typed_edge_with_the_owning_kind_as_source() {
+        // A reference is a kind capability: a `[[kind.rule.relationships]]` naming
+        // the reference field and the target kind parses into an `Edge` whose `from`
+        // is the owning kind `rule`.
         let toml = r#"
-[[edge]]
+[[kind.rule.relationships]]
 field = "routes_to"
-from = "rule"
 to = "skill"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2160,29 +2206,64 @@ to = "skill"
     }
 
     #[test]
-    fn multiple_edges_parse_in_declaration_order() {
-        // The graph is built from a whole array of declared relationships; they
-        // arrive in declaration order.
+    fn relationships_parse_alongside_a_built_in_layer_and_a_custom_kind() {
+        // Relationships are orthogonal to the custom-vs-layer split: they parse off a
+        // built-in kind layer (`[kind.rule]`, adopt/clause) and a full custom kind
+        // (`[kind.spec]`, with a `governs` locus) the same way, gathered off both.
         let toml = r#"
-[[edge]]
+[kind.rule]
+adopt = "rule"
+[[kind.rule.relationships]]
 field = "routes_to"
-from = "rule"
 to = "skill"
 
-[[edge]]
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+[[kind.spec.extraction]]
+primitive = "references"
+feature = "references"
+[[kind.spec.relationships]]
+field = "references"
+to = "spec"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        // The custom kind still lands in the custom-kind map; the built-in layer does
+        // not — the relationships change neither classification.
+        assert!(layer.custom_kinds().contains_key("spec"));
+        assert!(!layer.custom_kinds().contains_key("rule"));
+        // Both relationships are gathered as edges, each `from` its owning kind.
+        let edges: Vec<(&str, &str, &str)> = layer
+            .edges()
+            .iter()
+            .map(|e| (e.from.as_str(), e.field.as_str(), e.to.as_str()))
+            .collect();
+        assert!(edges.contains(&("rule", "routes_to", "skill")));
+        assert!(edges.contains(&("spec", "references", "spec")));
+    }
+
+    #[test]
+    fn multiple_relationships_on_one_kind_parse_in_declaration_order() {
+        // One kind may declare several relationships; they arrive in declaration
+        // order, each `from` the owning kind.
+        let toml = r#"
+[[kind.skill.relationships]]
+field = "routes_to"
+to = "skill"
+
+[[kind.skill.relationships]]
 field = "delegates_to"
-from = "skill"
 to = "skill"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let fields: Vec<&str> = layer.edges().iter().map(|e| e.field.as_str()).collect();
         assert_eq!(fields, vec!["routes_to", "delegates_to"]);
+        assert!(layer.edges().iter().all(|e| e.from == "skill"));
     }
 
     #[test]
-    fn an_absent_edge_array_yields_no_edges() {
-        // `temper` never fabricates a gate the author did not declare: absent
-        // `[[edge]]` ⇒ no graph runs.
+    fn a_kind_declaring_no_relationships_yields_no_edges() {
+        // `temper` never fabricates a gate the author did not declare: a kind with no
+        // `relationships` array declares no edges.
         let toml = r#"
 [role.planner]
 artifact = "skill"
@@ -2194,41 +2275,49 @@ match = { name = "plan*" }
     }
 
     #[test]
-    fn a_non_array_edge_root_is_a_load_error() {
-        let err = AuthorLayer::parse("edge = 7\n", Path::new("temper.toml")).unwrap_err();
-        assert!(matches!(err, ComposeError::EdgeRootNotArray { .. }));
+    fn a_non_array_relationships_key_is_a_load_error() {
+        let err = AuthorLayer::parse("[kind.rule]\nrelationships = 7\n", Path::new("temper.toml"))
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::RelationshipsNotArray { ref kind, .. } if kind == "rule"
+        ));
     }
 
     #[test]
-    fn an_edge_missing_a_required_key_is_a_load_error() {
-        // `to` (the target kind) is required — its absence collapses to `BadEdge`,
-        // the way a missing `count` bound collapses to `RoleBadCount`.
+    fn a_relationship_missing_a_required_key_is_a_load_error() {
+        // `to` (the target kind) is required — its absence collapses to
+        // `BadRelationship`, the way a missing `count` bound collapses to
+        // `RoleBadCount`.
         let toml = r#"
-[[edge]]
+[[kind.rule.relationships]]
 field = "routes_to"
-from = "rule"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-        assert!(matches!(err, ComposeError::BadEdge { index: 0, .. }));
+        assert!(matches!(
+            err,
+            ComposeError::BadRelationship { index: 0, ref kind, .. } if kind == "rule"
+        ));
     }
 
     #[test]
-    fn an_edge_with_a_mistyped_key_is_a_load_error() {
+    fn a_relationship_with_a_mistyped_key_is_a_load_error() {
         // A non-string `field` is not a reference syntax name — folded into
-        // `BadEdge`, with the index naming which `[[edge]]` was malformed.
+        // `BadRelationship`, the index naming which relationship was malformed.
         let toml = r#"
-[[edge]]
+[[kind.skill.relationships]]
 field = "routes_to"
-from = "rule"
 to = "skill"
 
-[[edge]]
+[[kind.skill.relationships]]
 field = 7
-from = "skill"
 to = "skill"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-        assert!(matches!(err, ComposeError::BadEdge { index: 1, .. }));
+        assert!(matches!(
+            err,
+            ComposeError::BadRelationship { index: 1, ref kind, .. } if kind == "skill"
+        ));
     }
 
     // ---- custom-kind declarations (parse-only) ----------------------------
