@@ -1,49 +1,5 @@
 [
   {
-    "tag": "KIND-CHECK-SPEC",
-    "summary": "`check` dispatches each declared custom-kind artifact through its data extractor + contract; declare temper's own `spec` kind in a repo-root `temper.toml`.",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Worked example: `spec`, temper's own custom kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "temper.toml",
-          "description": "Declare temper's own `spec` custom kind via the mechanism: `governs = specs/*.md`, `[kind.spec.extraction]` (ATX headings, line count, placement, backtick-filename references), and a `[[kind.spec.clause]]` `max_lines` advisory (~150, per `90-spec-system.md`). The decisions-name-alternatives and references-resolve clauses are left out for now (see notes)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "In the `Check` arm, for each custom kind the active `temper.toml` declares, extract its artifacts via the declared data extraction and extend the diagnostic stream with `engine::admissibility` + `engine::validate` over the kind's contract — the same two greens the built-in kinds run."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "Assert `temper check` over an imported corpus with a spec-declaring `temper.toml` runs the spec contract: over-length specs trip `max_lines` at advisory severity, exit 0 absent `--deny-advisories`."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Reconcile any end-to-end `check` assertion affected by a repo-root `temper.toml` now being present at the binary's cwd (the new spec kind participates)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/acceptance.rs",
-        "asserts": "With a `temper.toml` declaring the `spec` custom kind, `temper check` extracts each spec via the declared extraction and runs admissibility + validate — over-length specs trip `max_lines` at advisory severity and the run exits 0 absent `--deny-advisories`."
-      }
-    ],
-    "acceptance": "`temper check` over a corpus whose `temper.toml` declares the `spec` custom kind runs that kind's contract through the data extractor — flagging the over-length specs at advisory severity and exiting 0 absent `--deny-advisories`.",
-    "notes": "Supersedes the dropped SPEC-KIND-GATE — no embedded `contracts/spec.toml`, the clause lives in `temper.toml`. Adding a repo-root `temper.toml` changes `temper check` cwd behavior for existing acceptance/cli runs, so those are in the blast radius. Only the `max_lines` clause ships; decisions-name-alternatives waits on `(decision-marker-predicate)`, references-resolve on KIND-EDGE-RELATIONSHIPS."
-  },
-  {
     "tag": "KIND-RETIRE-BUILTIN-SPEC",
     "summary": "Retire the built-in `spec` kind — `src/spec.rs`, `extract::spec_features`, and its hardwired import/workspace/drift plumbing — now the data-declared `spec` kind covers it.",
     "per": {
