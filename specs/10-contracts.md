@@ -52,8 +52,11 @@ hatch (law 3). The primitives:
   prose. If the author can't name the reference syntax, the clause is not
   admissible (this is exactly what made the slice-1 `companion-refs` rule unsound;
   see Decision below).
-- **cross-artifact** — names unique within a kind; a declared dependency exists;
-  `name-matches-dir`.
+- **cross-artifact** — names unique within a kind; `name-matches-dir`. (A general
+  "a declared dependency exists" predicate is **held back** — like `pattern`, below —
+  until it names a decidable reference syntax and an extractor to resolve it. Without
+  one the engine can only return *indeterminate* — a silent no-op law 1 forbids — so
+  it is inadmissible, not a working clause.)
 - **requirement** (harness layer) — a named obligation is *filled*: a filler is
   `present`, `conforms-to` its typing, selected by opt-in `satisfies` or `match`
   (see Requirements).

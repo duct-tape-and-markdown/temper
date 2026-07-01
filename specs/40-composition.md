@@ -86,10 +86,11 @@ the algebras (`15-kinds.md`):
 - **`[kind.<name>.extraction]`** — the composed extractors, each a primitive at a
   locus naming the feature it yields (a frontmatter field, an ATX heading, a
   `## Decision` block, a backtick-filename reference, a line count).
-- **`[kind.<name>.entities]` / `.relationships`** (optional) — which features are
-  entity homes and which references are edges, over the declared reference syntax;
-  this is what yields the dependency graph the governance graph predicates act on
-  (`45-governance.md`, `30-landscapes.md`).
+- **`[kind.<name>.relationships]`** (optional) — which references are edges, over the
+  declared reference syntax. Each unit is itself a node (its id), and finer-grained
+  **entity homes** are named in `[kind.<name>.extraction]` (a marked heading) — not a
+  separate table — so `relationships` is all a kind adds to yield the dependency graph
+  the governance graph predicates act on (`45-governance.md`, `30-landscapes.md`).
 - **`[[kind.<name>.clause]]`** — the contract, over the extracted features.
 
 `import` discovers kinds from this declaration: it always scans the built-in harness
