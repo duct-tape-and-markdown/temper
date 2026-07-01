@@ -1,21 +1,59 @@
 [
   {
+    "tag": "REPRESENTATION-PRESERVE",
+    "summary": "Fix data-loss: `re-add`/`import` wipe authored `satisfies`/`rationale`; carry the existing surface `[representation]` forward before writing",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Drift / apply — three states, never two (the hard core)"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "In `import_skill`/`import_rule`, before writing `meta.toml`: if the target surface dir already holds a `[representation]` (load it via `Skill::from_surface_dir`/`Rule::from_surface_dir`, which already parse it), carry its `satisfies`/`rationale` forward into the freshly-parsed source artifact. Source files never carry representation (surface-only authored state), so a body edit on disk + `re-add` currently rebuilds `meta.toml` from source and drops it — the three-state 'merge rather than clobber' law. Factor a small shared merge helper."
+        },
+        {
+          "path": "src/skill.rs",
+          "description": "If the merge lives as a method on the IR, add a `carry_representation`-style helper on `Skill` (satisfies + rationale). Otherwise unchanged — reserved in blast radius."
+        },
+        {
+          "path": "src/rule.rs",
+          "description": "Rule equivalent of the skill carry helper, mirroring `src/skill.rs`. Otherwise unchanged — reserved in blast radius."
+        },
+        {
+          "path": "tests/readd.rs",
+          "description": "Round-trip test: author `satisfies`+`rationale` on the surface, drift the body on disk, `re-add`, assert both survive (they are wiped today)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/readd.rs",
+        "asserts": "authored satisfies/rationale survive a re-add that reconciles a drifted body; import of an unchanged surface stays idempotent."
+      }
+    ],
+    "acceptance": "A drifted-body `re-add` (and re-import) preserves the artifact's authored `[representation]` (`satisfies`/`rationale`) instead of clobbering it; a round-trip test proves survival; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox MUST-FIX (data-loss). Coverage flips a covered requirement to false UNFILLED when re-add wipes satisfies. Disjoint from the compose/coverage cluster (import/skill/rule/readd only) → parallel-safe with BUNDLE-PLUGIN, UNKNOWN-KEY-REJECT, COVERAGE-HARDEN. Must land before the human dogfoods root `[requirement.*]` so re-add won't erase it."
+  },
+  {
     "tag": "BUNDLE-PLUGIN",
     "summary": "Add `temper bundle` — compose the imported surface into a publishable Claude Code plugin + `marketplace.json`",
     "per": {
       "path": "specs/50-distribution.md",
-      "section": "Outward seams"
+      "section": "The plugin — the Claude-Code-native delivery"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "INSTALL-GATE-WIRING"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/bundle.rs",
-          "description": "The `bundle` verb: compose the imported surface into a publishable plugin tree — the bundled skill (how to operate the gate), the `SessionStart` hook in its own `hooks.json`, and the shipped contract templates embedded — plus a `marketplace.json` (`specs/50-distribution.md`, 'The plugin'). Reads the surface + contracts via existing public APIs (no compose.rs/contract.rs edits — those are SCHEMA-DOCS's). The plugin is a vendored, generated surface, itself an instance of what temper projects, so it is byte-faithful where it carries prose (law 5)."
+          "description": "The `bundle` verb: compose the imported surface into a publishable plugin tree — the bundled skill (how to operate the gate), the `SessionStart` hook in its own `hooks.json`, and the shipped contract templates embedded — plus a `marketplace.json` (`specs/50-distribution.md`, 'The plugin'). Reads the surface + contracts via existing public APIs (no compose.rs/contract.rs edits). The plugin is a vendored, generated surface, itself an instance of what temper projects, so it is byte-faithful where it carries prose (law 5)."
         },
         {
           "path": "tests/bundle.rs",
@@ -25,11 +63,11 @@
       "edit": [
         {
           "path": "src/lib.rs",
-          "description": "Add `pub mod bundle;` (serialized behind INSTALL-GATE-WIRING, which co-owns this file)."
+          "description": "Add `pub mod bundle;` beside the other verb modules."
         },
         {
           "path": "src/main.rs",
-          "description": "Add a `Bundle { path, out }` variant to the `Command` enum and a dispatch arm calling `bundle::run` (serialized behind INSTALL-GATE-WIRING, which co-owns main.rs)."
+          "description": "Add a `Bundle { path, out }` variant to the `Command` enum and a dispatch arm calling `bundle::run`."
         }
       ],
       "retire": []
@@ -42,7 +80,154 @@
       }
     ],
     "acceptance": "`temper bundle` composes the imported surface into a publishable plugin + `marketplace.json`, deterministically and byte-faithfully; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Serialized behind INSTALL-GATE-WIRING because both add a `Command` variant + `pub mod` line to main.rs/lib.rs — parallel `open` would conflict-revert the wave. Reads contracts/surface via existing APIs, so disjoint from SCHEMA-DOCS-CHANNEL's edits. `bundle` self-packaging temper's own plugin is the dogfood target."
+    "notes": "Unblocked: former blocker INSTALL-GATE-WIRING shipped (fbec06f, `src/install.rs`). Sole editor of main.rs/lib.rs in the open wave, so disjoint from REPRESENTATION-PRESERVE/UNKNOWN-KEY/COVERAGE-HARDEN. FILLED-BY-ROLE also needs main.rs, so it is held behind the wave. `bundle` self-packaging temper's own plugin is the dogfood target."
+  },
+  {
+    "tag": "UNKNOWN-KEY-REJECT",
+    "summary": "Reject unknown keys in `[role.*]`, `[requirement.*]`, `[kind.*]`, and predicate-clause tables at parse — admissibility, not silent drop",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: unknown keys are rejected, not ignored"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Make `parse_role`, `parse_requirement`, and `parse_kind_layer` reject any unrecognized key (iterate the table, error on a key outside the known set) instead of silently ignoring it — a misspelled `requird = true` must fail loudly, not degrade the gate. Mirror the reject posture `parse_match`/`parse_predicate` already have. New error variant(s) in the compose error enum."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "Make `parse_clause` reject stray keys beyond `severity`/`predicate`/`guidance` (per-predicate arg keys still allowed) — the same closed-vocabulary posture `parse_predicate` uses for the predicate name, one rung out to keys."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Fixtures: a stray/misspelled key in each of `[role.*]`, `[requirement.*]`, `[kind.*]`, and a clause table fails admissibility with a precise diagnostic; a clean table still parses."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "an unrecognized key in any parsed contract-surface table is an admissibility error, not a silent drop; clean tables parse unchanged."
+      }
+    ],
+    "acceptance": "Every parsed contract-surface table (`[role.*]`, `[requirement.*]`, `[kind.*]`, predicate clauses) rejects an unknown key at parse with a precise diagnostic; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox DECISION (iii), ratified in spec (e72c23c). Anti-silent-gap non-negotiable applied to temper's own parser. Edits compose.rs+contract.rs+temper_toml.rs — disjoint from BUNDLE/REPRESENTATION/COVERAGE-HARDEN. FILLED-BY-ROLE (also compose.rs) is serialized behind this and will add `filled_by` to the requirement key allowlist installed here."
+  },
+  {
+    "tag": "COVERAGE-HARDEN",
+    "summary": "Harden coverage: dedup `satisfies` in the dangling loop, add match-precision + duplicate fixtures, document the graph-check kinship",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Requirements and `satisfies` — the meaningful contract"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/coverage.rs",
+          "description": "(a) dedup each artifact's `satisfies` before the dangling loop (today `src/coverage.rs:89-102` iterates the raw vec, so a duplicated link naming no requirement emits TWO diagnostics — the unfilled side already dedups via a set). (b) Add a doc comment noting DANGLING mirrors `graph::check` route-resolution and UNFILLED mirrors `graph::degree` min-in-degree over a NON-artifact target set, and why unifying into `graph.rs` is rejected (avoids a fake `requirement` kind in `by_kind`). Exact-string match is already correct — no fold."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Fixtures: a typo in a `satisfies` link yields the paired UNFILLED+DANGLING (true positives, not spurious); a duplicated `satisfies` entry emits exactly ONE dangling diagnostic."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "a duplicated dangling `satisfies` emits one diagnostic; a mismatched link yields paired UNFILLED+DANGLING."
+      }
+    ],
+    "acceptance": "Coverage dedups `satisfies` before the dangling check (one diagnostic per duplicate), fixtures pin exact-string match precision, and the graph-check kinship is documented; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox HARDEN. Low priority. Exact-string match + unfilled dedup already shipped; only the dangling-loop dedup, fixtures, and the doc cross-ref remain. Edits coverage.rs+tests/coverage.rs — disjoint from BUNDLE/REPRESENTATION/UNKNOWN-KEY. FILLED-BY-ROLE also edits coverage.rs, so it is serialized behind the wave (blockedBy UNKNOWN-KEY-REJECT)."
+  },
+  {
+    "tag": "FILLED-BY-ROLE",
+    "summary": "Add `filled_by = { role }` — a requirement met by whatever fills a typed role; coverage delegates to that role's required filler",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Two fill paths: opt-in `satisfies`, or `filled_by` a role"
+    },
+    "gate": { "kind": "blockedBy", "tag": "UNKNOWN-KEY-REJECT" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Add an optional `filled_by: Option<{ role: String }>` to the `Requirement` struct and parse `filled_by = { role = \"...\" }` in `parse_requirement`; add `filled_by` to the requirement key allowlist UNKNOWN-KEY-REJECT installs. Enforce one fill path per requirement: EITHER bare `satisfies` opt-in OR `filled_by = { role }`, never both (reject at parse). There is deliberately no `filled_by = { kind }` — kind-typing lives on the role."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "For a requirement with `filled_by = { role = R }`, delegate coverage: it is covered iff role R's required filler is present (reuse role `match` selection over the matched set — still referential, decidable). A `filled_by` naming no declared role is a precise diagnostic."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Thread the role set (`layer.roles()`) and `by_kind` into the `coverage::check` call at ~`main.rs:472` so coverage can resolve `filled_by` role fillers (today it takes only requirements + features)."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "A `filled_by = { role }` requirement is covered when the role's required filler is present and UNFILLED when absent; a `filled_by` naming no role is a diagnostic; declaring both `satisfies` and `filled_by` is rejected."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "filled_by={role} coverage delegates to the role's filler; unknown role and dual fill-path are diagnostics."
+      }
+    ],
+    "acceptance": "A requirement declaring `filled_by = { role = R }` is covered iff role R's required filler is present; the bare-`satisfies` path is unchanged; one-fill-path-per-requirement is enforced; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox DECISION (i), resolved in spec (e72c23c) — role form only, no `filled_by={kind}`. Serialized behind UNKNOWN-KEY-REJECT: shares compose.rs (requirement parse/allowlist). Also touches main.rs (coverage call site — collides with BUNDLE) and coverage.rs (collides with COVERAGE-HARDEN), so it must not be `open` while the wave runs. Revive as `open` next tick once the wave lands and those files are free."
+  },
+  {
+    "tag": "COVERAGE-CUSTOM-KIND",
+    "summary": "Custom-kind units join coverage — read `[representation]` `satisfies` in `kind::Unit` instead of hardcoding it empty",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: a requirement carries meaning, gates coverage — never judged"
+    },
+    "gate": {
+      "kind": "deferred",
+      "reason": "follow-on; no story yet demands custom-kind coverage participation; verify the custom-kind projection emits a readable [representation] first"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (`src/kind.rs:452-455`), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "A custom-kind unit declaring `satisfies` covers a requirement, exactly as a skill/rule does."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "a custom-kind unit's `satisfies` participates in coverage (kind-blind)."
+      }
+    ],
+    "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox DEFER (1). kind::Unit hardcodes `satisfies=Vec::new()` today (`src/kind.rs:452-455`, with a comment acknowledging the gap). Coverage is kind-blind (spec Decision), so the seam is legitimate — deferred only on priority. Edits kind.rs (disjoint) + coverage tests. Revive when the dogfood needs the spec corpus in coverage."
   },
   {
     "tag": "PACKAGING-CHANNELS",

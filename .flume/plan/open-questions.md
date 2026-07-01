@@ -149,6 +149,17 @@ and embeds the bundled skill template as the default.
   ship (the `max_lines` spec clause ships without it). Distinct from references-resolve,
   whose predicate *category* `10-contracts.md` already enumerates (referential).
 
+- `(read-verbs)` — The traversal payoff `00-intent.md` promises as prose ("remove a
+  load-bearing entity and the graph lights up every … — the blast radius") and the
+  inbox's proposed `temper why <artifact>` (forward `satisfies → means` + rationale)
+  and `temper requirements` (reverse `requirement → satisfiers` = blast radius) are
+  READ verbs over post-coverage/graph data — high payoff, read-only, no engine change.
+  But `20-surface.md`'s **CLI surface** enumerates only `import`/`check`/`diff`/`apply`/
+  `re-add`/`bundle`/`install`/`schema` — it does *not* list `why`/`requirements`.
+  Adding a CLI verb the CLI-surface spec does not name is inventing surface
+  (`collaboration` rule). Human to decide whether the CLI surface gains read/traversal
+  verbs and exactly what each exposes; until then they are not fileable as build work.
+
 - `(reference-id-normalization)` — The spec kind's **references-resolve** clause
   (`15-kinds.md` worked example) is the graph-scope frontier, but it does not yet run:
   the graph scope (`graph::check`/`acyclic`/`degree`) ranges only over the `by_kind`
