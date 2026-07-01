@@ -499,12 +499,51 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // obligations"). Absent `temper.toml` ⇒ no layer ⇒ this adds nothing, so the
     // floor-only path stays byte-for-byte unchanged.
     if let Some(layer) = layer.as_ref() {
-        let by_kind: std::collections::BTreeMap<&str, &[extract::Features]> =
+        let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
+
+        // Load every registered custom kind and compute its features *before* the
+        // graph tier, so a custom-kind member joins the corpus graph exactly as a
+        // built-in kind's members do (`specs/15-kinds.md`, "The entity graph is a kind
+        // capability"). Each kind's authored definition loads from
+        // `.temper/kinds/<name>/KIND.md` and its imported units project through the
+        // kind's own composed extractor. Owned here so the feature slices outlive both
+        // the graph tier (which borrows them through `by_kind`) and the conformance
+        // loop below.
+        let mut custom_kinds: Vec<(&str, CustomKind, Vec<extract::Features>)> = Vec::new();
+        for name in layer.registered_kinds() {
+            if kind::BUILTIN_KINDS.contains(&name) {
+                continue;
+            }
+            let custom = CustomKind::load(&kinds_dir, name)?;
+            let units = custom_units(workspace, &custom)?;
+            let features: Vec<extract::Features> = units
+                .iter()
+                .map(|unit| custom.extraction.extract(unit))
+                .collect();
+            custom_kinds.push((name, custom, features));
+        }
+
+        // The by-kind corpus every set-scope and graph predicate ranges over: the
+        // built-in kinds plus each registered custom kind's features, so an edge to or
+        // from a custom-kind member resolves through the same generic graph functions a
+        // built-in kind's edge does.
+        let mut by_kind: std::collections::BTreeMap<&str, &[extract::Features]> =
             std::collections::BTreeMap::from([
                 ("skill", skill_features.as_slice()),
                 ("rule", rule_features.as_slice()),
             ]);
-        let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
+        for (name, _custom, features) in &custom_kinds {
+            by_kind.insert(*name, features.as_slice());
+        }
+
+        // The declared edge set the graph tier resolves: the built-in kinds'
+        // `[[kind.<name>.relationships]]` (`layer.edges()`) plus each custom kind's own
+        // `[[relationships]]` parsed onto `CustomKind` — a reference is a kind
+        // capability regardless of the owning kind's category (`specs/15-kinds.md`).
+        let mut edges: Vec<compose::Edge> = layer.edges().to_vec();
+        for (_name, custom, _features) in &custom_kinds {
+            edges.extend(custom.relationships.iter().cloned());
+        }
 
         // Admissibility before conformance, here too: each requirement's own
         // definition is validated against the definition — a `required` typed
@@ -551,16 +590,16 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // skipped by the route check. Absent `temper.toml` ⇒ no layer ⇒ no
         // relationships ⇒ this adds nothing, so the floor-only path stays
         // byte-for-byte unchanged.
-        diagnostics.extend(graph::admissibility(layer.edges(), &by_kind));
-        diagnostics.extend(graph::check(layer.edges(), &by_kind));
+        diagnostics.extend(graph::admissibility(&edges, &by_kind));
+        diagnostics.extend(graph::check(&edges, &by_kind));
 
         // The graph-scope `acyclic` predicate (`specs/45-governance.md`, "The graph
         // scope (the model)"): the resolved reference graph must contain no cycle —
         // a circular import loads nothing, so every finding is a true positive.
-        // Intrinsic to the declared edges, so always-on over `layer.edges()` like
+        // Intrinsic to the declared edges, so always-on over the whole edge set like
         // route resolution above; no `temper.toml` ⇒ no edges ⇒ this adds nothing,
         // so the floor-only path is unchanged.
-        diagnostics.extend(graph::acyclic(layer.edges(), &by_kind));
+        diagnostics.extend(graph::acyclic(&edges, &by_kind));
 
         // The graph-scope `degree` predicate (`specs/45-governance.md`, "The graph
         // scope (the model)"; the worked example "self-registering vs routed"): a
@@ -571,7 +610,7 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // resolution `acyclic`/`check` assemble. Opt-in, per-requirement: a roster
         // declaring no bound does no graph work here, so the floor-only path stays
         // byte-for-byte unchanged.
-        diagnostics.extend(graph::degree(layer.requirements(), layer.edges(), &by_kind));
+        diagnostics.extend(graph::degree(layer.requirements(), &edges, &by_kind));
 
         // The requirement-coverage tier (`specs/10-contracts.md`, "Requirements and
         // `satisfies` — the meaningful contract"): the referential shadow of the
@@ -589,40 +628,30 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
             .collect();
         diagnostics.extend(coverage::check(layer.requirements(), &all_features));
 
-        // The custom-kind tier: each custom kind the assembly *registers* (a
-        // `[kind.<name>]` whose name is not a built-in) is checked through its **own
-        // authored extractor** and its **bound package** — the same two greens the
-        // built-in kinds run above (`specs/15-kinds.md`, "A kind definition — one
-        // composed object"), but the definition is loaded from the authored
-        // `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`, "Decision: a custom
-        // kind is an authored `.temper/` artifact") and the require-side is a bound
-        // package, never inline clauses. For each, project its imported units into raw
-        // markdown units, run the composed extractor over each to yield features, then
-        // resolve its bound package (by name, defaulting to the kind's own name) and run
-        // admissibility + conformance over it. Absent a registered custom kind ⇒ the
-        // loop is empty, so the built-in-only path is byte-for-byte unchanged.
-        for name in layer.registered_kinds() {
-            if kind::BUILTIN_KINDS.contains(&name) {
-                continue;
-            }
-            let custom = CustomKind::load(&kinds_dir, name)?;
-            let units = custom_units(workspace, &custom)?;
-            let features: Vec<extract::Features> = units
-                .iter()
-                .map(|unit| custom.extraction.extract(unit))
-                .collect();
+        // The custom-kind conformance tier: each custom kind the assembly *registers*
+        // (a `[kind.<name>]` whose name is not a built-in) is checked through its **own
+        // authored extractor** (its features, computed above and shared with the graph
+        // tier) and its **bound package** — the same two greens the built-in kinds run
+        // above (`specs/15-kinds.md`, "A kind definition — one composed object"), but
+        // the definition is loaded from the authored `.temper/kinds/<name>/KIND.md`
+        // (`specs/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
+        // artifact") and the require-side is a bound package, never inline clauses. Its
+        // bound package resolves by name (defaulting to the kind's own name) and runs
+        // admissibility + conformance. Absent a registered custom kind ⇒ the loop is
+        // empty, so the built-in-only path is byte-for-byte unchanged.
+        for (name, _custom, features) in &custom_kinds {
             // The require-side is a bound package (uniform with a built-in kind),
             // resolved by name through the same order every binding uses — defaulting
             // to the kind's own name when the registration binds none explicitly.
-            let package_name = layer.kind_package(name).unwrap_or(name);
+            let package_name = layer.kind_package(name).unwrap_or(*name);
             match package_resolver.resolve(package_name)? {
                 Some(contract) => {
                     diagnostics.extend(engine::admissibility(&contract));
-                    diagnostics.extend(engine::validate(&contract, &features));
+                    diagnostics.extend(engine::validate(&contract, features));
                 }
                 None => diagnostics.push(check::Diagnostic::error(
                     format!("{name}.package"),
-                    name,
+                    *name,
                     format!(
                         "custom kind `{name}` binds unknown package `{package_name}` (author `.temper/packages/{package_name}/PACKAGE.md`)"
                     ),

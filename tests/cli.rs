@@ -572,3 +572,110 @@ fn into_and_workspace_default_to_dot_author() {
         "check without an argument must lint ./.temper and exit zero"
     );
 }
+
+/// Write a custom-kind member surface at `<root>/.temper/specs/<id>/SPEC.md` — a
+/// provenance-only `+++` header over the byte-faithful body, the shape `import`
+/// projects a custom unit into (`src/import.rs`). The member id is the surface
+/// directory name, which the backtick-filename reference syntax names exactly.
+fn write_spec_member(root: &Path, id: &str, body: &str) {
+    let dir = root.join(".temper").join("specs").join(id);
+    fs::create_dir_all(&dir).unwrap();
+    let document = format!(
+        "+++\n[provenance]\nsource_path = \"specs/{id}.md\"\nimport_hash = \"deadbeef\"\n+++\n{body}"
+    );
+    fs::write(dir.join("SPEC.md"), document).unwrap();
+}
+
+/// Author a fixture workspace registering a custom `spec` kind whose members
+/// reference one another, then run `temper check` over it from `root` (so the
+/// sibling `temper.toml` is discovered). `reference` is the backtick token
+/// `intro.spec`'s body cites — a real member id resolves, a bogus one dangles.
+/// Returns whether the run exited zero and its combined stdout+stderr.
+fn check_custom_spec_graph(label: &str, reference: &str) -> (bool, String) {
+    let root = tmpdir(label);
+
+    // The assembly registers the `spec` custom kind and binds its package by name.
+    fs::write(
+        root.join("temper.toml"),
+        "[kind.spec]\npackage = \"spec\"\n",
+    )
+    .unwrap();
+
+    // The authored kind definition: a `references` extractor feeding a `ref` feature,
+    // and a `[[relationships]]` edge declaring that `ref` resolves to another `spec`.
+    let kind_dir = root.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(
+        kind_dir.join("KIND.md"),
+        "+++\n\
+         governs = { root = \"specs\", glob = \"*.md\" }\n\
+         \n\
+         [[extraction]]\n\
+         primitive = \"references\"\n\
+         feature = \"ref\"\n\
+         \n\
+         [[relationships]]\n\
+         field = \"ref\"\n\
+         to = \"spec\"\n\
+         +++\n\
+         # The spec kind\n\
+         \n\
+         Specs reference one another by backtick filename.\n",
+    )
+    .unwrap();
+
+    // A trivial bound package: the kind's require-side must resolve for the run to be
+    // green, but this fixture exercises the graph, not the clause engine — so it
+    // carries no clauses.
+    let pkg_dir = root.join(".temper").join("packages").join("spec");
+    fs::create_dir_all(&pkg_dir).unwrap();
+    fs::write(
+        pkg_dir.join("PACKAGE.md"),
+        "+++\n+++\n# The spec package\n\nNo clauses — the graph tier is what this pins.\n",
+    )
+    .unwrap();
+
+    // Two members on the surface: a leaf `core.spec` and an `intro.spec` that cites
+    // `reference`. The declared `ref` edge resolves when the citation names a real id.
+    write_spec_member(&root, "core.spec", "# Core\n\nA leaf spec.\n");
+    write_spec_member(
+        &root,
+        "intro.spec",
+        &format!("# Intro\n\nSee `{reference}` for details.\n"),
+    );
+
+    let out = Command::new(BIN)
+        .current_dir(&root)
+        .arg("check")
+        .output()
+        .unwrap();
+    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    output.push_str(&String::from_utf8_lossy(&out.stderr));
+    (out.status.success(), output)
+}
+
+#[test]
+fn a_custom_kind_member_participates_in_the_reference_graph() {
+    // A declared edge from a custom-kind member to a real target resolves through the
+    // same generic graph the built-in kinds use ⇒ green; a dangling one is a finding
+    // ⇒ non-zero. This proves custom-kind members join the `by_kind` corpus and their
+    // `KIND.md` relationships reach the reference graph (`specs/15-kinds.md`, "The
+    // entity graph is a kind capability"). Reference-value normalization (stripping
+    // `.md`) is a separate downstream concern; here a citation names a member id
+    // exactly, so the graph's exact-match resolution applies uniformly to both kinds.
+    let (resolving_ok, resolving_out) = check_custom_spec_graph("graph-resolves", "core.spec");
+    assert!(
+        resolving_ok,
+        "a custom-kind member's edge to a real target must keep check green, got:\n{resolving_out}"
+    );
+
+    let (dangling_ok, dangling_out) = check_custom_spec_graph("graph-dangles", "missing.spec");
+    assert!(
+        !dangling_ok,
+        "a custom-kind member's dangling edge must fail the run ⇒ non-zero, got:\n{dangling_out}"
+    );
+    assert!(
+        dangling_out.contains("missing.spec") && dangling_out.contains("spec"),
+        "the finding names the dangling target and its target kind, got:\n{dangling_out}"
+    );
+}
