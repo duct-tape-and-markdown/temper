@@ -265,15 +265,25 @@ not a privileged mechanism"), and it has no soundness basis here — a contract 
 would make the author a tenant of temper's opinions rather than a composer of their
 own. temper's built-in packages become just the *first-party instances* of a unit
 every project authors and — via `bundle` (`50-distribution.md`) — publishes through
-the same channel. **The `contracts/` embedded std-lib retires:** a built-in package's
-authoritative home is `.temper/packages/<name>/` in temper's *own* repo (authored on
-temper's own surface — the deepest dogfood), and the build **embeds** those authored
-sources into the binary as the shipped std-lib. A consumer never carries a copy; the
-assembly binds the built-in *by name* and it resolves from the embedded set (a version
-pin will govern which format version — harness-version pinning is a held-back loose
-end, `45-governance.md`). So the *same* package is
-**authored** in temper's repo and **shipped** to a consumer — one artifact, two
-provenance roles, no duplication, no `contracts/` mirror.
+the same channel. **The `contracts/` embedded std-lib retires — into product
+source, not the dogfood:** a built-in package's authoritative home is
+`packages/<name>/PACKAGE.md` in a first-class tree of temper's repo — *product*
+territory, maintained from its cited upstream sources on the product's release
+cadence (the exact symmetry of a built-in kind's extraction being engine code:
+both faces of the harness adapter are the product's), validated by admissibility
+in the test suite, and **embedded** by the build as the shipped std-lib. The
+documents are still authored in the surface language — the medium is dogfooded —
+but they are **not** members of temper's own `.temper/` workspace: that surface
+is a *consumer instance*, and it binds the built-ins by name exactly as a
+stranger's assembly would. Conflating the two would make the dogfood workspace
+the std-lib's landlord — temper's project could never layer over a built-in
+without silently editing what everyone ships, and the self-check would gate
+product data as if it were project config. A consumer never carries a copy; the
+assembly binds the built-in *by name* and it resolves from the embedded set (a
+version pin will govern which format version — harness-version pinning is a
+held-back loose end, `45-governance.md`). So the *same* package is **authored**
+as product source and **shipped** to every consumer — including temper's own
+workspace — one artifact, no duplication, no `contracts/` mirror.
 
 ## `verified_by` — where behavior goes
 

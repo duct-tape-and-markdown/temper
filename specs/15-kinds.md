@@ -154,7 +154,8 @@ shipped as a harness adapter: its *extraction* is temper's engine code (it mirro
 external format the author cannot redefine), and it binds a *layerable built-in
 package*. A **custom** kind is the **author's, authored under `.temper/kinds/<name>/`** as its
 `KIND.md` (`20-surface.md`) — extraction and relationships composed from the algebra — and
-binds a package under `.temper/packages/`, exactly as a built-in does. **Every kind
+binds a package — a project-authored one under `.temper/packages/` — by the same
+by-name mechanism a built-in kind binds its embedded one (`10-contracts.md`). **Every kind
 binds a package; none carries its contract inline** (`40-composition.md`).
 
 ### Decision: a custom kind is declared data, never engine code

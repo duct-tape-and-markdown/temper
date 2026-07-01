@@ -27,7 +27,8 @@ plugin dogfood — the artifact kind `temper` exists to project.
 
 The plugin is a **vendored surface** — generated and checked in, **built by flume
 per spec** today and by `temper bundle` (self-packaging, below) in time; it is *not*
-hand-curated like `.claude/` or the `.temper/packages/` std-lib sources. Its files are
+hand-curated like `.claude/` or the `packages/` std-lib sources (product territory,
+`10-contracts.md`). Its files are
 an instance of what `temper` projects, so `temper check` will in time gate the plugin
 too. (Build's writable paths must include the plugin tree for the loop to author it.)
 
