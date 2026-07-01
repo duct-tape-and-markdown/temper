@@ -88,6 +88,18 @@ the surface is canonical, and `check` never ranges over generated output. A
 custom kind typically has no external format to adapt — its members are born on
 the surface, and its projection can be near-identity.
 
+The emit face also owns the **locus**: a member's projection target derives from
+the kind's locus plus the member's id — a built-in's locus is the harness's own
+convention (a skill loads from `.claude/skills/<name>/SKILL.md` or not at all),
+a custom kind's is its declared `governs` (`40-composition.md`), which thus
+serves both faces (the read face's scan root, the emit face's target). A member
+never sets its own destination — it declares *what it is*, and where it lands
+follows from what it is; `provenance.source_path` is a record of where an
+imported member came from, never a setting. Nor is import a lifecycle
+prerequisite: a member born on the surface projects identically, its drift
+baseline established by the lock at first `apply` rather than by an import
+hash.
+
 ## Extending a built-in kind
 
 A built-in's **extraction is temper's** — it mirrors the real harness format;
