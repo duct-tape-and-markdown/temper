@@ -4,8 +4,8 @@
 //! Proves the four properties the entry names:
 //!
 //! - **plugin tree** — one run over an imported surface produces the operate-the-gate
-//!   skill, the `SessionStart` hook in its own `hooks.json`, and the shipped contract
-//!   templates embedded byte-faithful;
+//!   skill, the `SessionStart` hook in its own `hooks.json`, and the shipped built-in
+//!   packages embedded byte-faithful;
 //! - **marketplace** — a well-formed `marketplace.json` listing the plugin;
 //! - **determinism** — a second run reproduces an identical tree, byte for byte
 //!   (an `insta` snapshot pins the shape);
@@ -121,7 +121,7 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
         "temper session-start ."
     );
 
-    // 3. The shipped contract templates, embedded byte-faithful.
+    // 3. The shipped built-in packages, embedded byte-faithful.
     let skill_contract = out.join("contracts").join("skill.anthropic.toml");
     let rule_contract = out.join("contracts").join("rule.toml");
     assert_eq!(

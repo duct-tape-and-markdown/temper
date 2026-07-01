@@ -8,11 +8,11 @@
 //! 1. the **skill** — how to *operate the gate* (`import` / `check`, read a
 //!    diagnostic, and when to challenge the contract versus fix the artifact). It is
 //!    mechanics, never taste (the Decision "the skill is mechanics, never taste"):
-//!    the opinions live in the contract templates, never in skill prose;
+//!    the opinions live in the packages, never in skill prose;
 //! 2. the **`SessionStart` hook**, in its own `hooks.json` — the advisory
 //!    session-start gate (`temper session-start .`, the exec-form command Claude
 //!    Code spawns);
-//! 3. the **shipped contract templates** — the std-lib, embedded byte-faithful, so
+//! 3. the **shipped built-in packages** — the std-lib, embedded byte-faithful, so
 //!    an installed `temper` has something to check against.
 //!
 //! Alongside the plugin tree it emits a `marketplace.json` listing the plugin, the
@@ -20,7 +20,7 @@
 //!
 //! The plugin is a **vendored, generated surface** — itself an instance of what
 //! `temper` projects, so it is **byte-faithful where it carries prose** (`00-intent.md`
-//! law 5): the skill body and the contract templates are copied verbatim from their
+//! law 5): the skill body and the built-in packages are copied verbatim from their
 //! embedded sources, never re-rendered. The structured manifests (`plugin.json`,
 //! `marketplace.json`, `hooks.json`) are built through `serde_json`, so they are
 //! well-formed by construction — the binary owns the output contract, no
@@ -50,10 +50,10 @@ use crate::check::Workspace;
 const PLUGIN_NAME: &str = "temper";
 
 /// The plugin/marketplace description — what the gate delivers, not what a good
-/// harness is (law 2: taste lives in the contract templates, never here).
+/// harness is (law 2: taste lives in the packages, never here).
 const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: import the harness into a typed \
      surface, check it against the active contract, and run the advisory \
-     session-start gate — with the std-lib contract templates embedded.";
+     session-start gate — with the std-lib packages embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
 /// itself, checking the project it is installed into (`specs/50-distribution.md`,
@@ -76,8 +76,8 @@ description: Use when operating the temper gate on a Claude Code harness — imp
 
 `temper` is one gate over a Claude Code harness, placed wherever the harness is
 authored, changed, or used. This skill is how to *operate* that gate. It carries no
-opinion about what a good harness is — that lives in the contract templates
-(`contracts/`), which are data you adopt, extend, or fork.
+opinion about what a good harness is — that lives in the packages
+(`contracts/`), which are data you bind, extend, or fork.
 
 ## Run the gate
 
@@ -115,13 +115,13 @@ Never paper over a gap. If the contract and the artifact disagree and you are un
 which is wrong, surface it rather than guessing which way to bend.
 ";
 
-/// The shipped skill contract template — the curated Anthropic std-lib default,
+/// The shipped skill package — the curated Anthropic std-lib default,
 /// embedded at build time and copied byte-faithful into the plugin's `contracts/`
-/// so an installed `temper` has a contract to check skills against
-/// (`specs/50-distribution.md`, "the shipped contract templates ... embedded").
+/// so an installed `temper` has a package to check skills against
+/// (`specs/50-distribution.md`, "the shipped built-in packages ... embedded").
 const SKILL_CONTRACT: &str = include_str!("../contracts/skill.anthropic.toml");
 
-/// The shipped rule contract template — the curated default for the `rule` kind,
+/// The shipped rule package — the curated default for the `rule` kind,
 /// embedded beside the skill one and copied byte-faithful into the plugin.
 const RULE_CONTRACT: &str = include_str!("../contracts/rule.toml");
 
@@ -163,7 +163,7 @@ pub struct BundleReport {
 ///
 /// Reads the surface via [`Workspace::load`] (fail-loud on a malformed one), then
 /// emits the plugin: the manifest, the operate-the-gate skill, the `SessionStart`
-/// hook in its own `hooks.json`, the embedded contract templates, and the
+/// hook in its own `hooks.json`, the embedded built-in packages, and the
 /// marketplace listing. See the module header for the byte-faithfulness and
 /// determinism guarantees.
 pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
@@ -204,7 +204,7 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
         &mut files,
     )?;
 
-    // The shipped contract templates (the std-lib), embedded byte-faithful.
+    // The shipped built-in packages (the std-lib), embedded byte-faithful.
     write_text(
         out,
         Path::new("contracts/skill.anthropic.toml"),

@@ -735,7 +735,7 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     write_temper_toml(
         &root,
         "[kind.skill]\n\
-         adopt = \"skill.anthropic\"\n",
+         package = \"skill.anthropic\"\n",
     );
     let no_roster = check_in(&root);
     assert!(no_roster.ok, "an empty roster changes nothing ⇒ still zero");

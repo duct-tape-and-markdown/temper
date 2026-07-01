@@ -252,7 +252,7 @@ fn absent_temper_toml_runs_no_graph() {
     write_temper_toml(
         &root,
         "[kind.skill]\n\
-         adopt = \"skill.anthropic\"\n",
+         package = \"skill.anthropic\"\n",
     );
     let no_edge = check_in(&root);
     assert!(no_edge.ok, "an empty graph changes nothing ⇒ still zero");

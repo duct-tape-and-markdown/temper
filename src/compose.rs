@@ -15,11 +15,12 @@
 //! A `temper.toml` carries a `[kind.<k>]` table per artifact kind it customizes.
 //! Each does up to two things, both settled here:
 //!
-//! - **Adopt** — name the kind's shipped template explicitly (`adopt = "..."`),
-//!   the default made visible. Today the sole shipped template per kind *is* the
-//!   embedded floor, so the only admissible name is the floor's own; adopting any
-//!   other is a load error — a template the tool does not ship cannot be selected.
-//!   Omitting `adopt` takes the floor implicitly.
+//! - **Bind** — name the kind's package explicitly (`package = "<name>"`), a
+//!   *name*, not a path. A built-in name (`skill.anthropic`, `rule`) resolves to
+//!   the embedded floor; any other name resolves to a project-authored package at
+//!   `.temper/packages/<name>/PACKAGE.md` (PACKAGE-DOCUMENT's loader). A name that
+//!   resolves to neither — no built-in, no project package — is a load error.
+//!   Omitting `package` takes the kind's built-in floor implicitly.
 //! - **Extend / override / flip** — an inline `[[kind.<k>.clause]]` array of the
 //!   *same* closed-vocabulary clauses a bare contract carries. Each layered clause
 //!   either **overrides** the floor clause with the same identity (its predicate
@@ -52,8 +53,8 @@
 //! ## The custom-kind declaration (parse-only)
 //!
 //! The `[kind.<name>]` key serves two authorings (`specs/40-composition.md`,
-//! "Declaring a custom kind"): a **built-in contract layer** (adopt a shipped kind
-//! and layer clauses over it, above) and a **full custom-kind declaration** — a
+//! "Declaring a custom kind"): a **built-in contract layer** (bind a shipped kind's
+//! package and layer clauses over it, above) and a **full custom-kind declaration** — a
 //! project's own artifact kind (its specs, ADRs, playbooks) authored in full. The
 //! two are disambiguated by structure: a declaration that carries a `governs`
 //! locus or an `[[kind.<name>.extraction]]` array — neither of which a built-in
@@ -108,11 +109,11 @@ use crate::contract::{self, Clause, Contract, ContractError};
 use crate::kind::{Extraction, KindError};
 
 /// The author-declared layer parsed from a project-root `temper.toml`: a per-kind
-/// set of adoptions and clause overrides to apply over the embedded floor.
+/// set of package bindings and clause overrides to apply over the bound package.
 #[derive(Debug, Clone)]
 pub struct AuthorLayer {
-    /// The source path, retained so a layering error (an unknown adopted
-    /// template) can name the file it came from.
+    /// The source path, retained so a layering error (a bound package that
+    /// resolves to nothing) can name the file it came from.
     path: PathBuf,
     /// The per-kind layers, keyed by artifact kind (`skill`, `rule`, …). A kind
     /// the author did not name falls through to the floor unchanged.
@@ -140,7 +141,7 @@ pub struct AuthorLayer {
     /// project's own artifact kinds (its specs, ADRs, playbooks), each composed
     /// from the closed algebras (`specs/40-composition.md`, "Declaring a custom
     /// kind"). Keyed by kind name, **disjoint** from the built-in-layer `kinds`
-    /// map: a `[kind.<name>]` is either a built-in contract layer (adopt/clause-
+    /// map: a `[kind.<name>]` is either a built-in contract layer (package/clause-
     /// only) or a full custom-kind declaration, never both. Parse-only in this tier
     /// —
     /// discovering units at the `governs` locus and running the extractor are
@@ -180,7 +181,7 @@ pub struct Edge {
 /// A fully-declared **custom kind** parsed from a `[kind.<name>]` table
 /// (`specs/40-composition.md`, "Declaring a custom kind"): the one home for a
 /// project's own artifact kind (its specs, ADRs, playbooks), composed from the
-/// closed algebras (`specs/15-kinds.md`). Where a **built-in** kind is *adopted* —
+/// closed algebras (`specs/15-kinds.md`). Where a **built-in** kind is *bound* —
 /// its extraction is temper's and only its contract is layered ([`KindLayer`]) — a
 /// **custom** kind is *authored in full*: it declares the file locus it reads
 /// ([`governs`](CustomKind::governs)), the composed [`Extraction`] that projects a
@@ -450,20 +451,21 @@ impl RequirementContract {
     }
 }
 
-/// One kind's customization: an optional adopted template and the clauses to layer
-/// over that kind's floor.
+/// One kind's customization: an optional bound package name and the clauses to layer
+/// over that package.
 #[derive(Debug, Clone)]
 struct KindLayer {
-    /// The explicitly adopted template, if the author named one. Validated against
-    /// the kind's floor at layering time (`AuthorLayer::layer_over`).
-    adopt: Option<String>,
+    /// The explicitly bound package name, if the author named one — a *name*, not a
+    /// path. Resolved against the built-in floor ∪ `.temper/packages/` at layering
+    /// time (`AuthorLayer::layer_over`); `None` takes the kind's built-in floor.
+    package: Option<String>,
     /// The override / extend clauses, in declaration order.
     clauses: Vec<Clause>,
 }
 
 /// Errors raised while loading or applying a `temper.toml`. Hard failures (an
-/// unreadable or malformed file, a layer that adopts a template the tool does not
-/// ship, a clause outside the closed vocabulary) — distinct from a lint finding,
+/// unreadable or malformed file, a layer that binds a package resolving to nothing,
+/// a clause outside the closed vocabulary) — distinct from a lint finding,
 /// which the check engine collects rather than throws.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ComposeError {
@@ -507,41 +509,50 @@ pub enum ComposeError {
         kind: String,
     },
 
-    /// A `[kind.<k>]` layer's `adopt` value is not a string.
-    #[error("{path}: `[kind.{kind}]` `adopt` must be a string")]
-    #[diagnostic(code(temper::compose::adopt_not_string))]
-    AdoptNotString {
+    /// A `[kind.<k>]` layer's `package` value is not a string.
+    #[error("{path}: `[kind.{kind}]` `package` must be a string")]
+    #[diagnostic(code(temper::compose::package_not_string))]
+    PackageNotString {
         /// The malformed `temper.toml`.
         path: PathBuf,
-        /// The artifact kind whose `adopt` is mistyped.
+        /// The artifact kind whose `package` is mistyped.
         kind: String,
     },
 
-    /// A `[kind.<k>]` layer adopts a template the tool does not ship. With only
-    /// the embedded floor shipped per kind, the sole admissible name is the floor's
-    /// own — selecting anything else is rejected, never silently ignored.
+    /// A `[kind.<k>]` layer binds a package name that resolves to nothing — neither
+    /// the kind's built-in package (the embedded floor) nor a project package under
+    /// `.temper/packages/`. A name is resolved against the union of those two sets
+    /// (`specs/20-surface.md`, "Decision: package binding is by artifact kind"), so a
+    /// name matching neither is rejected, never silently ignored.
     #[error(
-        "{path}: `[kind.{kind}]` adopts unknown template `{adopt}` (the only shipped `{kind}` template is `{expected}`)"
+        "{path}: `[kind.{kind}]` binds unknown package `{package}` (resolve the built-in `{builtin}` or a project package under `{packages_dir}`)"
     )]
     #[diagnostic(
-        code(temper::compose::unknown_template),
-        help("adopt the kind's shipped template by its name, or omit `adopt` to take the floor")
+        code(temper::compose::unknown_package),
+        help(
+            "bind the kind's built-in package by name, author `.temper/packages/<name>/PACKAGE.md`, or omit `package` to take the built-in floor"
+        )
     )]
-    UnknownTemplate {
-        /// The `temper.toml` that named the template.
+    UnknownPackage {
+        /// The `temper.toml` that named the package.
         path: PathBuf,
-        /// The artifact kind whose layer adopts it.
+        /// The artifact kind whose layer binds it.
         kind: String,
-        /// The unrecognized adopted template name.
-        adopt: String,
-        /// The kind's actual shipped (floor) template name.
-        expected: String,
+        /// The unresolved bound package name.
+        package: String,
+        /// The kind's built-in (floor) package name — the one embedded name the
+        /// binding could have taken.
+        builtin: String,
+        /// The `.temper/packages/` directory the project-authored names resolve
+        /// against — the other half of the resolution set, named so the author sees
+        /// where a package would live.
+        packages_dir: PathBuf,
     },
 
     /// A built-in `[kind.<k>]` contract layer carries a key outside its closed set
-    /// (`adopt`, `clause`, `relationships`). A misspelled `adpot` is rejected at
-    /// parse rather than silently ignored — a typo that quietly disables an
-    /// adoption or a clause is the silent gap temper exists to catch, applied to
+    /// (`package`, `clause`, `relationships`). A misspelled `pacakge` is rejected at
+    /// parse rather than silently ignored — a typo that quietly disables a binding
+    /// or a clause is the silent gap temper exists to catch, applied to
     /// temper's own parser (`specs/10-contracts.md`, "Decision: unknown keys are
     /// rejected, not ignored"). Mirrors the unknown-predicate reject one rung out to
     /// keys.
@@ -549,7 +560,7 @@ pub enum ComposeError {
     #[diagnostic(
         code(temper::compose::kind_unknown_key),
         help(
-            "a built-in kind layer carries only `adopt`, `clause`, and `relationships` — a stray key is a typo, not an escape hatch"
+            "a built-in kind layer carries only `package`, `clause`, and `relationships` — a stray key is a typo, not an escape hatch"
         )
     )]
     KindUnknownKey {
@@ -961,40 +972,62 @@ impl AuthorLayer {
         &self.custom_kinds
     }
 
-    /// The effective contract for `kind`: this layer's clauses for that kind
-    /// applied over `floor`. A kind the author did not name returns `floor`
-    /// unchanged, so a `temper.toml` that customizes only some kinds leaves the
-    /// rest exactly at the floor.
+    /// The effective contract for `kind`: this layer's clauses for that kind applied
+    /// over the **package it binds**. A kind the author did not name returns `floor`
+    /// unchanged, so a `temper.toml` that customizes only some kinds leaves the rest
+    /// exactly at the built-in floor.
     ///
-    /// Each layered clause **overrides** the floor clause sharing its identity (the
-    /// predicate key plus targeted field) — the severity flip and the parameter
-    /// change both land here — or, with a new identity, **extends** the floor by
-    /// appending. An `adopt` that names a template other than the kind's floor is a
-    /// load error: the floor is the only shipped template this tier can select.
-    pub fn layer_over(&self, kind: &str, floor: Contract) -> Result<Contract, ComposeError> {
+    /// The bound package resolves against `floor` ∪ `.temper/packages/`
+    /// (`specs/20-surface.md`, "Decision: package binding is by artifact kind"): an
+    /// omitted `package`, or a name matching the kind's built-in (the `floor.name`),
+    /// takes `floor`; any other name loads the project package at
+    /// `<packages_dir>/<name>/PACKAGE.md` via [`Contract::load_package`]. A name that
+    /// resolves to neither is a [`ComposeError::UnknownPackage`] load error.
+    ///
+    /// The layer's clauses then fold over that resolved base: each **overrides** the
+    /// base clause sharing its identity (the predicate key plus targeted field) — the
+    /// severity flip and the parameter change both land here — or, with a new
+    /// identity, **extends** the base by appending.
+    pub fn layer_over(
+        &self,
+        kind: &str,
+        floor: Contract,
+        packages_dir: &Path,
+    ) -> Result<Contract, ComposeError> {
         let Some(layer) = self.kinds.get(kind) else {
             return Ok(floor);
         };
 
-        if let Some(adopt) = &layer.adopt
-            && adopt != &floor.name
-        {
-            return Err(ComposeError::UnknownTemplate {
-                path: self.path.clone(),
-                kind: kind.to_string(),
-                adopt: adopt.clone(),
-                expected: floor.name.clone(),
-            });
-        }
+        // Resolve the bound package name to its base contract. An omitted name, or the
+        // kind's own built-in name, takes the embedded floor; any other name loads the
+        // project package under `.temper/packages/`. A name that names neither a
+        // built-in nor an on-disk project package is an unknown-package load error.
+        let base = match &layer.package {
+            None => floor,
+            Some(name) if name == &floor.name => floor,
+            Some(name) => {
+                let path = packages_dir.join(name).join("PACKAGE.md");
+                if !path.is_file() {
+                    return Err(ComposeError::UnknownPackage {
+                        path: self.path.clone(),
+                        kind: kind.to_string(),
+                        package: name.clone(),
+                        builtin: floor.name.clone(),
+                        packages_dir: packages_dir.to_path_buf(),
+                    });
+                }
+                Contract::load_package(&path)?
+            }
+        };
 
-        let mut clauses = floor.clauses;
+        let mut clauses = base.clauses;
         fold_clauses(&mut clauses, &layer.clauses);
         Ok(Contract {
-            name: floor.name,
+            name: base.name,
             clauses,
-            // Carry the floor's package guidance through the fold: layering
-            // clauses over a floor overrides predicates, not the floor's prose.
-            guidance: floor.guidance,
+            // Carry the base package's guidance through the fold: layering clauses
+            // over a package overrides predicates, not the package's prose.
+            guidance: base.guidance,
         })
     }
 
@@ -1015,17 +1048,17 @@ impl AuthorLayer {
     /// [`edges`](Self::edges), and [`custom_kinds`](Self::custom_kinds) pass through
     /// unchanged and any `local` carries of those are not merged here (a story that
     /// needs local requirements raises an open question, per the entry). A local
-    /// `adopt` overrides the base's for that kind, since it names the same
-    /// floor-selecting facet the clauses layer over.
+    /// `package` overrides the base's for that kind, since it names the same
+    /// package-selecting facet the clauses layer over.
     #[must_use]
     pub fn fold_local(mut self, local: AuthorLayer) -> AuthorLayer {
         for (kind, local_layer) in local.kinds {
             match self.kinds.get_mut(&kind) {
                 // The committed layer already customizes this kind: fold the local
-                // clauses over its own, and let a local `adopt` override the base's.
+                // clauses over its own, and let a local `package` override the base's.
                 Some(base) => {
-                    if local_layer.adopt.is_some() {
-                        base.adopt = local_layer.adopt;
+                    if local_layer.package.is_some() {
+                        base.package = local_layer.package;
                     }
                     fold_clauses(&mut base.clauses, &local_layer.clauses);
                 }
@@ -1062,27 +1095,30 @@ fn fold_clauses(base: &mut Vec<Clause>, overlay: &[Clause]) {
 /// The effective contract for `kind` given an *optional* author layer: `floor`
 /// unchanged when there is no layer, else [`AuthorLayer::layer_over`] applied. The
 /// `Option` seam keeps the absent-`temper.toml` path — every existing test's path —
-/// a verbatim pass-through of the floor.
+/// a verbatim pass-through of the floor. `packages_dir` is the `.temper/packages/`
+/// directory a bound project-package name resolves against; it is untouched when the
+/// layer binds no custom package (an omitted or built-in `package`).
 pub fn effective(
     layer: Option<&AuthorLayer>,
     kind: &str,
     floor: Contract,
+    packages_dir: &Path,
 ) -> Result<Contract, ComposeError> {
     match layer {
-        Some(layer) => layer.layer_over(kind, floor),
+        Some(layer) => layer.layer_over(kind, floor, packages_dir),
         None => Ok(floor),
     }
 }
 
-/// Parse one `[kind.<k>]` table into its [`KindLayer`] — the optional `adopt`
-/// template name and the inline `[[clause]]` array, the latter through the shared
+/// Parse one `[kind.<k>]` table into its [`KindLayer`] — the optional bound
+/// `package` name and the inline `[[clause]]` array, the latter through the shared
 /// closed-vocabulary parser ([`contract::parse_clauses`]).
 fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer, ComposeError> {
-    // A built-in layer carries only `adopt` and `clause`; `relationships` is a kind
+    // A built-in layer carries only `package` and `clause`; `relationships` is a kind
     // capability gathered off every kind table before this point (`parse_relationships`),
     // so it is admissible here too. Anything else is a typo, rejected — not dropped.
     for (key, _) in table.iter() {
-        if !matches!(key, "adopt" | "clause" | "relationships") {
+        if !matches!(key, "package" | "clause" | "relationships") {
             return Err(ComposeError::KindUnknownKey {
                 path: path.to_path_buf(),
                 kind: kind.to_string(),
@@ -1090,11 +1126,11 @@ fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer,
             });
         }
     }
-    let adopt = match table.get("adopt") {
+    let package = match table.get("package") {
         None => None,
         Some(item) => Some(
             item.as_str()
-                .ok_or_else(|| ComposeError::AdoptNotString {
+                .ok_or_else(|| ComposeError::PackageNotString {
                     path: path.to_path_buf(),
                     kind: kind.to_string(),
                 })?
@@ -1102,14 +1138,14 @@ fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer,
         ),
     };
     let clauses = contract::parse_clauses(table, path)?;
-    Ok(KindLayer { adopt, clauses })
+    Ok(KindLayer { package, clauses })
 }
 
 /// Whether a `[kind.<name>]` table is a **full custom-kind declaration** rather
 /// than a built-in contract layer. The two share the `[kind.<name>]` key
 /// (`specs/40-composition.md`, "Declaring a custom kind"): a custom kind authors a
-/// file locus and an extraction, while a built-in layer only adopts a shipped kind
-/// and layers clauses over it. The presence of a `governs` locus or an `extraction`
+/// file locus and an extraction, while a built-in layer only binds a shipped kind's
+/// package and layers clauses over it. The presence of a `governs` locus or an `extraction`
 /// array — neither of which a built-in layer carries — disambiguates the two.
 fn is_custom_kind_declaration(table: &Table) -> bool {
     table.contains_key("governs") || table.contains_key("extraction")
@@ -1635,6 +1671,12 @@ mod tests {
         dir
     }
 
+    /// A `.temper/packages/` directory for `layer_over` calls that bind no project
+    /// package (an omitted or built-in `package`), where the path is never read.
+    fn no_packages() -> &'static Path {
+        Path::new(".temper/packages")
+    }
+
     /// A small skill-shaped floor: a required `max_len` on `name`, a required
     /// `forbidden_keys`, and an advisory `max_lines`. Enough distinct identities to
     /// exercise override-vs-extend.
@@ -1678,7 +1720,10 @@ max = 100
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         // The layer names only `rule`; the `skill` floor passes through verbatim.
-        assert_eq!(layer.layer_over("skill", floor()).unwrap(), floor());
+        assert_eq!(
+            layer.layer_over("skill", floor(), no_packages()).unwrap(),
+            floor()
+        );
     }
 
     #[test]
@@ -1691,7 +1736,7 @@ predicate = "forbidden_keys"
 keys = ["globs"]
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        let effective = layer.layer_over("skill", floor()).unwrap();
+        let effective = layer.layer_over("skill", floor(), no_packages()).unwrap();
 
         // Same identity (key + no field) ⇒ override in place, not append: the
         // clause count is unchanged and the order is preserved.
@@ -1718,7 +1763,7 @@ field = "name"
 max = 32
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        let effective = layer.layer_over("skill", floor()).unwrap();
+        let effective = layer.layer_over("skill", floor(), no_packages()).unwrap();
 
         assert_eq!(effective.clauses.len(), floor().clauses.len());
         assert_eq!(
@@ -1743,7 +1788,7 @@ field = "name"
 min = 1
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        let effective = layer.layer_over("skill", floor()).unwrap();
+        let effective = layer.layer_over("skill", floor(), no_packages()).unwrap();
 
         assert_eq!(effective.clauses.len(), floor().clauses.len() + 1);
         // The original floor clauses are untouched and the new clause is last.
@@ -1785,7 +1830,7 @@ min = 1
 guidance = "a name is never empty"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        let effective = layer.layer_over("skill", floor).unwrap();
+        let effective = layer.layer_over("skill", floor, no_packages()).unwrap();
 
         // The override replaced the floor clause's guidance in place.
         assert_eq!(
@@ -1824,29 +1869,103 @@ field = "description"
     }
 
     #[test]
-    fn adopting_the_floor_template_by_name_is_the_default_made_explicit() {
-        // Naming the kind's own floor template is admissible and changes nothing.
+    fn binding_the_builtin_package_by_name_is_the_default_made_explicit() {
+        // Naming the kind's own built-in package resolves to the embedded floor and
+        // changes nothing — the implicit default made visible.
         let toml = r#"
 [kind.skill]
-adopt = "skill.anthropic"
+package = "skill.anthropic"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        assert_eq!(layer.layer_over("skill", floor()).unwrap(), floor());
+        assert_eq!(
+            layer.layer_over("skill", floor(), no_packages()).unwrap(),
+            floor()
+        );
     }
 
     #[test]
-    fn adopting_a_template_the_tool_does_not_ship_is_a_load_error() {
+    fn binding_a_package_that_resolves_to_nothing_is_a_load_error() {
+        // A name that is neither the kind's built-in nor a `.temper/packages/`
+        // project package resolves to nothing — an unknown-package load error naming
+        // the whole resolution set, never a silent fall-through to the floor.
         let toml = r#"
 [kind.skill]
-adopt = "skill.cursor"
+package = "skill.cursor"
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-        let err = layer.layer_over("skill", floor()).unwrap_err();
+        let err = layer
+            .layer_over("skill", floor(), no_packages())
+            .unwrap_err();
         assert!(matches!(
             err,
-            ComposeError::UnknownTemplate { ref adopt, ref expected, .. }
-                if adopt == "skill.cursor" && expected == "skill.anthropic"
+            ComposeError::UnknownPackage { ref package, ref builtin, .. }
+                if package == "skill.cursor" && builtin == "skill.anthropic"
         ));
+    }
+
+    #[test]
+    fn binding_a_project_package_resolves_it_from_the_packages_dir() {
+        // A non-built-in name resolves to `.temper/packages/<name>/PACKAGE.md`
+        // (PACKAGE-DOCUMENT's loader). The bound package *replaces* the floor as the
+        // base, so the effective contract carries the project package's clauses, and a
+        // layered clause still folds over that base.
+        let packages = tmpdir("packages");
+        let pkg_dir = packages.join("house-style");
+        fs::create_dir_all(&pkg_dir).unwrap();
+        fs::write(
+            pkg_dir.join("PACKAGE.md"),
+            "+++\n\
+[[clause]]\n\
+severity = \"required\"\n\
+predicate = \"min_len\"\n\
+field = \"description\"\n\
+min = 20\n\
++++\n\
+\n\
+# House style\n\
+\n\
+The project's own skill package.\n",
+        )
+        .unwrap();
+
+        let toml = r#"
+[kind.skill]
+package = "house-style"
+[[kind.skill.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 120
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let effective = layer.layer_over("skill", floor(), &packages).unwrap();
+
+        // Identity is the package's directory stem, not the floor's name.
+        assert_eq!(effective.name, "house-style");
+        // The base carries the project package's `min_len` clause — the floor's own
+        // clauses are gone, replaced wholesale by the bound package.
+        assert!(effective.clauses.iter().any(|c| matches!(
+            &c.predicate,
+            Predicate::MinLen { field, min: 20 } if field == "description"
+        )));
+        assert!(
+            !effective
+                .clauses
+                .iter()
+                .any(|c| matches!(c.predicate, Predicate::ForbiddenKeys { .. })),
+            "the floor's clauses must not survive binding a different package"
+        );
+        // The layered clause folds over the resolved package base.
+        assert!(
+            effective
+                .clauses
+                .iter()
+                .any(|c| matches!(c.predicate, Predicate::MaxLines { max: 120 }))
+        );
+        // The package body carries through as the effective contract's guidance.
+        assert_eq!(
+            effective.guidance.as_deref(),
+            Some("\n# House style\n\nThe project's own skill package.\n")
+        );
     }
 
     #[test]
@@ -1854,9 +1973,18 @@ adopt = "skill.cursor"
         // Present-but-declares-nothing parses to a layer with no kinds, so every
         // kind falls through to the floor — the same result as `effective(None,..)`.
         let layer = AuthorLayer::parse("# nothing here\n", Path::new("temper.toml")).unwrap();
-        assert_eq!(layer.layer_over("skill", floor()).unwrap(), floor());
-        assert_eq!(effective(None, "skill", floor()).unwrap(), floor());
-        assert_eq!(effective(Some(&layer), "skill", floor()).unwrap(), floor());
+        assert_eq!(
+            layer.layer_over("skill", floor(), no_packages()).unwrap(),
+            floor()
+        );
+        assert_eq!(
+            effective(None, "skill", floor(), no_packages()).unwrap(),
+            floor()
+        );
+        assert_eq!(
+            effective(Some(&layer), "skill", floor(), no_packages()).unwrap(),
+            floor()
+        );
     }
 
     #[test]
@@ -1867,11 +1995,14 @@ adopt = "skill.cursor"
         assert!(AuthorLayer::load(&path).unwrap().is_none());
 
         // Present ⇒ Some, parsed from disk.
-        fs::write(&path, "[kind.skill]\nadopt = \"skill.anthropic\"\n").unwrap();
+        fs::write(&path, "[kind.skill]\npackage = \"skill.anthropic\"\n").unwrap();
         let layer = AuthorLayer::load(&path)
             .unwrap()
             .expect("a present file loads");
-        assert_eq!(layer.layer_over("skill", floor()).unwrap(), floor());
+        assert_eq!(
+            layer.layer_over("skill", floor(), no_packages()).unwrap(),
+            floor()
+        );
     }
 
     #[test]
@@ -2496,11 +2627,11 @@ to = "skill"
     #[test]
     fn relationships_parse_alongside_a_built_in_layer_and_a_custom_kind() {
         // Relationships are orthogonal to the custom-vs-layer split: they parse off a
-        // built-in kind layer (`[kind.rule]`, adopt/clause) and a full custom kind
+        // built-in kind layer (`[kind.rule]`, package/clause) and a full custom kind
         // (`[kind.spec]`, with a `governs` locus) the same way, gathered off both.
         let toml = r#"
 [kind.rule]
-adopt = "rule"
+package = "rule"
 [[kind.rule.relationships]]
 field = "routes_to"
 to = "skill"
@@ -2665,12 +2796,12 @@ max = 400
 
     #[test]
     fn a_built_in_layer_and_a_custom_kind_land_in_disjoint_homes() {
-        // `[kind.skill]` adopts + layers over a shipped kind (a built-in contract
+        // `[kind.skill]` binds + layers over a shipped kind (a built-in contract
         // layer); `[kind.spec]` declares `governs` (a custom kind). The
         // `governs`/`extraction` presence routes each to its own home.
         let toml = r#"
 [kind.skill]
-adopt = "skill.anthropic"
+package = "skill.anthropic"
 [[kind.skill.clause]]
 severity = "advisory"
 predicate = "max_lines"
@@ -2691,7 +2822,7 @@ max = 400
 
         // The `skill` layer still applies over the floor exactly as before: its
         // advisory `max_lines` override lands in the effective contract.
-        let effective = layer.layer_over("skill", floor()).unwrap();
+        let effective = layer.layer_over("skill", floor(), no_packages()).unwrap();
         assert!(
             effective
                 .clauses

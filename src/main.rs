@@ -168,7 +168,7 @@ enum Command {
     /// Compose the imported surface into a publishable Claude Code plugin +
     /// `marketplace.json` (`specs/50-distribution.md`, "The plugin — the
     /// Claude-Code-native delivery"): the operate-the-gate skill, the `SessionStart`
-    /// hook in its own `hooks.json`, and the shipped contract templates embedded. The
+    /// hook in its own `hooks.json`, and the shipped built-in packages embedded. The
     /// vendored, generated plugin is byte-faithful where it carries prose and
     /// deterministic, so re-running reproduces an identical tree. `temper bundle` over
     /// temper's own surface self-packages temper's plugin — the dogfood target.
@@ -242,6 +242,13 @@ fn main() -> miette::Result<ExitCode> {
             // strictly disjoint (see `schema.rs`).
             let layer = load_layer(Path::new(TEMPER_TOML))?;
 
+            // A bound project package resolves from the default surface's
+            // `.temper/packages/` — the same resolution set `check` uses (built-in
+            // floor ∪ `.temper/packages/`, `specs/20-surface.md`, "Decision: package
+            // binding is by artifact kind"). The schema command takes no workspace, so
+            // it reads the default `./.temper/packages/`.
+            let packages_dir = Path::new(DEFAULT_WORKSPACE).join("packages");
+
             // The modeled by-kind floors, paired with the kind name the layer keys
             // on — the identical floors `check` composes above.
             let floors: Vec<(&str, Contract)> = vec![
@@ -266,14 +273,15 @@ fn main() -> miette::Result<ExitCode> {
                     let (name, floor) = floor.ok_or_else(|| {
                         miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
                     })?;
-                    let contract = compose::effective(layer.as_ref(), name, floor)?;
+                    let contract = compose::effective(layer.as_ref(), name, floor, &packages_dir)?;
                     schema::emit(&contract)
                 }
                 // No `--kind`: a JSON object mapping each modeled kind to its schema.
                 None => {
                     let mut map = serde_json::Map::new();
                     for (name, floor) in floors {
-                        let contract = compose::effective(layer.as_ref(), name, floor)?;
+                        let contract =
+                            compose::effective(layer.as_ref(), name, floor, &packages_dir)?;
                         map.insert(name.to_string(), schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -426,22 +434,31 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // (`specs/40-composition.md`, the `temper.toml` Decision).
     let layer = load_layer(temper_toml)?;
 
+    // Where a bound project package resolves from: the surface's own `.temper/packages/`
+    // directory. A `[kind.<k>] package = "<name>"` binding resolves a name against the
+    // built-in floor ∪ this directory (`specs/20-surface.md`, "Decision: package
+    // binding is by artifact kind"): the built-in name (`skill.anthropic`, `rule`)
+    // resolves from the embedded floor below, any other name from
+    // `<packages_dir>/<name>/PACKAGE.md` via PACKAGE-DOCUMENT's loader. Absent binding ⇒
+    // the floor, so this directory is never consulted on the floor-only path.
+    let packages_dir = workspace.join("packages");
+
     // Dispatch by artifact kind: each kind's features are validated against the
-    // *effective* contract for its kind — the embedded floor with the author layer
-    // applied — and the findings are merged into one diagnostic set
-    // (`specs/20-surface.md`, "contract selection is by artifact kind"). The
-    // generic engine holds no per-kind opinion — each contract carries its own
-    // clauses, so a mixed harness (skills *and* rules) is judged correctly in one
-    // run.
+    // *effective* contract for its kind — the package the kind binds (the embedded
+    // floor by default) with the author layer's clauses folded over it — and the
+    // findings are merged into one diagnostic set (`specs/20-surface.md`, "Decision:
+    // package binding is by artifact kind"). The generic engine holds no per-kind
+    // opinion — each contract carries its own clauses, so a mixed harness (skills
+    // *and* rules) is judged correctly in one run.
     let skill_features: Vec<extract::Features> =
         ws.skills.iter().map(extract::skill_features).collect();
     let skill_floor = Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?;
-    let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor)?;
+    let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor, &packages_dir)?;
 
     let rule_features: Vec<extract::Features> =
         ws.rules.iter().map(extract::rule_features).collect();
     let rule_floor = Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?;
-    let rule_contract = compose::effective(layer.as_ref(), "rule", rule_floor)?;
+    let rule_contract = compose::effective(layer.as_ref(), "rule", rule_floor, &packages_dir)?;
 
     // Two greens, not one (`specs/10-contracts.md`, both-greens finish line).
     // **Admissibility** first: each built-in contract is itself validated against

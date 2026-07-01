@@ -370,10 +370,10 @@ fn a_custom_kind_declaration_parses_distinct_from_a_built_in_layer() {
     // `[kind.spec]` carries a `governs` locus, an `[[kind.spec.extraction]]` array,
     // and a `[[kind.spec.clause]]` contract — a *full* custom-kind declaration. It
     // parses into a typed `CustomKind` in the custom-kind map, while `[kind.skill]`
-    // (adopt/clause-only, no `governs`/`extraction`) stays a built-in layer.
+    // (package/clause-only, no `governs`/`extraction`) stays a built-in layer.
     let toml = r#"
 [kind.skill]
-adopt = "skill.anthropic"
+package = "skill.anthropic"
 [[kind.skill.clause]]
 severity = "advisory"
 predicate = "max_lines"
@@ -439,7 +439,7 @@ fn relationships_parse_under_the_owning_kind_as_a_kind_capability() {
     // declares another; both parse into edges whose `from` is the owning kind.
     let toml = r#"
 [kind.rule]
-adopt = "rule"
+package = "rule"
 [[kind.rule.relationships]]
 field = "routes_to"
 to = "skill"
@@ -806,15 +806,15 @@ required = true
 
 #[test]
 fn a_stray_key_in_a_kind_layer_is_a_load_error() {
-    // A misspelled `adpot` would silently take the floor instead of the named
-    // template — a stray key on a built-in layer, rejected at parse.
+    // A misspelled `pacakge` would silently take the floor instead of the named
+    // package — a stray key on a built-in layer, rejected at parse.
     let toml = r#"
 [kind.skill]
-adpot = "skill.anthropic"
+pacakge = "skill.anthropic"
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
     assert!(
-        matches!(err, ComposeError::KindUnknownKey { ref key, ref kind, .. } if key == "adpot" && kind == "skill"),
+        matches!(err, ComposeError::KindUnknownKey { ref key, ref kind, .. } if key == "pacakge" && kind == "skill"),
         "a stray kind-layer key names itself precisely, got: {err:?}"
     );
 }
@@ -856,7 +856,7 @@ fn clean_contract_surface_tables_still_parse_unchanged() {
     // on the closed vocabulary itself.
     let toml = r#"
 [kind.skill]
-adopt = "skill.anthropic"
+package = "skill.anthropic"
 [[kind.skill.clause]]
 severity = "advisory"
 predicate = "max_lines"
@@ -877,4 +877,119 @@ required = true
         .expect("clean contract-surface tables parse without a stray-key error");
     assert!(layer.requirements().contains_key("linter"));
     assert!(layer.requirements().contains_key("dev-standards"));
+}
+
+// ---- package binding by name ------------------------------------------------
+//
+// `[kind.<k>] package = "<name>"` binds a kind to a package by *name*, resolved
+// against the built-in floor ∪ `.temper/packages/` (`specs/20-surface.md`,
+// "Decision: package binding is by artifact kind"). The retired `adopt = "<path>"`
+// key is now a stray key, and an unresolvable name is a precise load error.
+
+/// Write a project package at `<root>/.temper/packages/<name>/PACKAGE.md` — the
+/// resolution home a non-built-in bound name loads from (PACKAGE-DOCUMENT's loader).
+fn write_package(root: &Path, name: &str, package_md: &str) {
+    let dir = root.join(".temper").join("packages").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("PACKAGE.md"), package_md).unwrap();
+}
+
+#[test]
+fn the_retired_adopt_key_is_now_an_unknown_key() {
+    // `adopt = "<path>"` is gone: binding is `package = "<name>"`. A leftover `adopt`
+    // is a stray key on a built-in layer, rejected at parse rather than silently
+    // taking the floor — the very silent gap temper exists to catch.
+    let toml = r#"
+[kind.skill]
+adopt = "skill.anthropic"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::KindUnknownKey { ref key, ref kind, .. } if key == "adopt" && kind == "skill"),
+        "the retired `adopt` key is rejected as unknown, got: {err:?}"
+    );
+}
+
+#[test]
+fn binding_a_builtin_package_by_name_is_the_default_made_explicit() {
+    // `package = "skill.anthropic"` names the kind's built-in package, resolving to
+    // the embedded floor — byte-for-byte the floor-only outcome.
+    let root = tmpdir("bind-builtin");
+    import_skill(&root, "coordinate", FORBIDDEN_GLOBS_SKILL);
+
+    let absent = check_in(&root);
+    assert!(
+        !absent.ok,
+        "the forbidden `globs` key trips the floor ⇒ non-zero"
+    );
+
+    write_temper_toml(&root, "[kind.skill]\npackage = \"skill.anthropic\"\n");
+    let bound = check_in(&root);
+    assert_eq!(
+        absent.output, bound.output,
+        "binding the built-in package by name must match the implicit floor exactly"
+    );
+}
+
+#[test]
+fn binding_an_unresolvable_package_name_is_a_precise_load_error() {
+    // A name that is neither the built-in nor a `.temper/packages/` project package
+    // fails the load precisely, naming the offending package — never a silent
+    // fall-through to the floor.
+    let root = tmpdir("bind-unknown");
+    import_skill(&root, "coordinate", CLEAN_SKILL);
+
+    write_temper_toml(&root, "[kind.skill]\npackage = \"skill.cursor\"\n");
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "an unresolvable bound package must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("unknown package") && run.output.contains("skill.cursor"),
+        "the load error names the unresolved package precisely, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn binding_a_project_package_replaces_the_floor_wholesale() {
+    // A non-built-in name resolves from `.temper/packages/<name>/PACKAGE.md` and
+    // *replaces* the floor as the kind's package: a skill that trips the floor's
+    // `forbidden_keys` passes once bound to a project package that carries no such
+    // clause — proof the bound package, not the floor, governs.
+    let root = tmpdir("bind-project");
+    import_skill(&root, "coordinate", FORBIDDEN_GLOBS_SKILL);
+
+    // Under the floor, the forbidden `globs` key blocks.
+    assert!(
+        !check_in(&root).ok,
+        "the floor's forbidden_keys blocks ⇒ non-zero"
+    );
+
+    // A project package with a single benign required clause the skill satisfies and
+    // no `forbidden_keys` clause at all.
+    write_package(
+        &root,
+        "lax",
+        "+++\n\
+[[clause]]\n\
+severity = \"required\"\n\
+predicate = \"min_len\"\n\
+field = \"name\"\n\
+min = 1\n\
++++\n\
+\n\
+# Lax skill package\n\
+\n\
+The project's own permissive skill package.\n",
+    );
+    write_temper_toml(&root, "[kind.skill]\npackage = \"lax\"\n");
+
+    let bound = check_in(&root);
+    assert!(
+        bound.ok,
+        "binding the lax project package drops the floor's forbidden_keys ⇒ zero, got:\n{}",
+        bound.output
+    );
 }
