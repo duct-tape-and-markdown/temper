@@ -1,12 +1,125 @@
 [
   {
+    "tag": "REQUIREMENTS-PARSE",
+    "summary": "Parse `[requirement.<name>]` (`means`, `required`) in `temper.toml` — the meaningful-contract namespace, parse-only",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Requirements and `satisfies` — the meaningful contract"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Add a `Requirement { means: String, required: bool }` struct and a `requirements: BTreeMap<String, Requirement>` field on `AuthorLayer`, parsed from top-level `[requirement.<name>]` tables in `AuthorLayer::parse` — its own namespace, distinct from `kind`/`role` (`specs/10-contracts.md`, the Decision's closing note: \"`requirement.` is its own namespace — distinct from the `rule` artifact kind\"). `means` is a required string carried verbatim and NEVER interpreted (law 3 — no proxy); `required` is an optional bool (absent ⇒ false: temper never fabricates a gate the author did not declare, `00-intent.md` law 4). Mirror the `[role.<name>]` parse path: a `requirement` root that is not a table, a `[requirement.<name>]` that is not a table, and a missing/mistyped `means` are each a load error (new `ComposeError` variants: `RequirementRootNotTable`, `RequirementNotTable`, `RequirementMissingMeans`, `RequirementWrongType`). Add a `requirements(&self) -> &BTreeMap<String, Requirement>` accessor. Parse-only in this tier: coverage over the parsed requirements is a follow-on entry (REQUIREMENT-COVERAGE)."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Extend the acceptance suite with `AuthorLayer::parse` cases over the new namespace: a `[requirement.dev-standards]` with `means` + `required = true` parses to the typed `Requirement`; `means` is stored verbatim (never judged); an absent `required` defaults to false; a `[requirement.x]` missing `means`, or a non-table `requirement` root, is a load error. Import the new `Requirement` type from `temper::compose`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "`[requirement.<name>]` parses into a typed Requirement (means verbatim, required defaulting false); a missing `means` or malformed `requirement` table is a ComposeError load error."
+      }
+    ],
+    "acceptance": "`AuthorLayer` carries a name-keyed `requirements` map parsed from `[requirement.<name>]` tables (`means` required + verbatim, `required` optional), exposed via `requirements()`; malformed declarations are load errors; cargo fmt/clippy -D warnings/test green. No coverage check yet (that is REQUIREMENT-COVERAGE).",
+    "notes": "Foundation for the reframe (inbox, spec dacec45): a requirement carries meaning, not predicates — temper NEVER interprets `means` (law 3). Parse mirrors the existing `[role.<name>]` / `[kind.<name>]` paths already in compose.rs, so no new mechanism, just a new namespace + typed value. Disjoint from the representation + coverage entries that chain behind it."
+  },
+  {
+    "tag": "SATISFIES-REPRESENTATION",
+    "summary": "Carry `satisfies` + `rationale` on the artifact representation — extend the skill/rule IR + features so meta.toml holds them, round-tripped",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Each artifact directory is a representation, not a copy"
+    },
+    "gate": { "kind": "blockedBy", "tag": "REQUIREMENTS-PARSE" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/skill.rs",
+          "description": "Add representation-level fields to the `Skill` IR: `satisfies: Vec<String>` (the requirements this artifact opts into filling — the coverage-check binding) and `rationale: Option<String>` (the authored *why*, `00-intent.md` law 7). These are AUTHORED on the surface, NOT frontmatter that round-trips to the source `.claude/` file — so they live under a dedicated `[representation]` table in `meta.toml`, kept out of the frontmatter fields the contract engine ranges over. `from_source_dir` sets both empty/None (the source carries neither); `to_meta_document` emits `[representation]` with `satisfies`/`rationale` only when non-empty (so an unauthored skill's meta.toml is byte-identical to today — import idempotence holds); `from_surface_dir` reads them back and must skip `representation` when rebuilding `extra` (as it already skips `provenance`). Add in-module round-trip tests."
+        },
+        {
+          "path": "src/rule.rs",
+          "description": "Mirror the skill change on the `Rule` IR: `satisfies: Vec<String>` + `rationale: Option<String>` under a `[representation]` table in `meta.toml`, authored-not-imported, kept out of the frontmatter `extra` (skip `representation` alongside `provenance` in `from_surface_dir` and `KNOWN_KEYS` handling). `from_source_file` sets both empty/None; `to_meta_document` emits the table only when non-empty (a no-frontmatter rule with no representation stays byte-identical). Add in-module round-trip tests proving satisfies/rationale survive the surface round-trip and never leak into the reconstructed frontmatter."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Add `satisfies: Vec<String>` to `Features` (a representation binding the coverage check reads, distinct from the frontmatter `fields` map — a `satisfies` link is NOT a contract-checkable field, it is the referential edge coverage resolves). Populate it in `skill_features` (from `skill.satisfies`) and `rule_features` (from `rule.satisfies`). `rationale` is carried in the IR but NOT extracted — it is the human *why*, never a decidable feature. Update the in-module tests to assert `Features.satisfies` reflects the IR."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/skill.rs",
+        "asserts": "A skill authored with satisfies/rationale round-trips through the surface (meta.toml `[representation]` → from_surface_dir) identically, and neither leaks into the frontmatter fields; an unauthored skill's meta.toml is unchanged."
+      },
+      {
+        "path": "src/extract.rs",
+        "asserts": "skill_features/rule_features expose the IR's `satisfies` on Features.satisfies, and it stays out of the frontmatter `fields` map."
+      }
+    ],
+    "acceptance": "The skill and rule IRs carry authored `satisfies` + `rationale` under a `[representation]` meta.toml table, round-tripped byte-faithfully and kept out of the contract-checked frontmatter; `Features` exposes `satisfies` for the coverage check; import stays idempotent; cargo fmt/clippy -D warnings/test green.",
+    "notes": "The representation is an authoring space, not a lint target (`specs/20-surface.md`): header/satisfies/rationale authored, body carried, conformance derived. Scoped to the built-in skill+rule kinds; custom-kind Unit satisfies is a later follow-on (noted, not silently cut). Disjoint files from REQUIREMENTS-PARSE (compose.rs) and REQUIREMENT-COVERAGE (main/lib/coverage.rs); chained after parse so the coverage entry has one landed upstream."
+  },
+  {
+    "tag": "REQUIREMENT-COVERAGE",
+    "summary": "`check` gates referential coverage — every `required` requirement has a resolving `satisfies`; diagnose unfilled requirements and dangling links",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Requirements and `satisfies` — the meaningful contract"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SATISFIES-REPRESENTATION" },
+    "files": {
+      "new": [
+        {
+          "path": "src/coverage.rs",
+          "description": "The referential COVERAGE check (`specs/10-contracts.md`, \"What `check` gates is the decidable shadow\"): `pub fn check(requirements: &BTreeMap<String, Requirement>, artifacts: &[Features]) -> Vec<Diagnostic>`. Two decidable, true-positive diagnostics — (1) UNFILLED: every `required` requirement is satisfied by ≥1 artifact whose representation declares a resolving `satisfies` link naming it; a required requirement with no such artifact is an `error` finding. (2) DANGLING: every `satisfies` entry on any artifact names a declared requirement; a `satisfies` resolving to no requirement is an `error` finding on that artifact. This is the referential primitive — decidable coverage, a true positive every time — and temper NEVER judges whether the artifact *actually* fulfils `means` (that is the author's attestation, optionally a wired `verified_by`). Rule ids like `requirement.unfilled` / `requirement.dangling`."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Fixture-driven proof: a `required` requirement with a skill declaring a resolving `satisfies` stays silent; a `required` requirement with no satisfying artifact fires UNFILLED; a skill whose `satisfies` names no declared requirement fires DANGLING; a non-`required` requirement left unfilled does not block. An end-to-end case over the built binary (mirroring tests/temper_toml.rs) proving `temper check` exits non-zero on an unfilled required requirement and zero when covered."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod coverage;` beside the other engine modules (this entry owns the new module's `pub mod` line, so no other entry co-edits lib.rs)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Wire coverage into `gate()`, inside the existing `if let Some(layer)` block (requirements only exist with a `temper.toml`): assemble all artifact features (skill_features chained with rule_features), then `diagnostics.extend(coverage::check(layer.requirements(), &all_features))`. Coverage findings are `error` severity (a `required` requirement unfilled, or a dangling `satisfies`, blocks the gate) — the gate stays closed. Absent `temper.toml` ⇒ no layer ⇒ no requirements ⇒ this adds nothing, so the floor-only path is byte-for-byte unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "Unfilled required requirement and dangling satisfies each fire an error; a covered required requirement + resolving satisfies stays silent; a non-required unfilled requirement does not block; `temper check` exit code reflects the verdict."
+      }
+    ],
+    "acceptance": "`temper check` gates referential coverage — every `required` requirement resolves to ≥1 artifact's `satisfies`, and every `satisfies` resolves to a declared requirement — emitting precise unfilled/dangling diagnostics and exiting non-zero on a required violation; `means` is never judged; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Closes the reframe: the contract reads as *intent* (\"the harness must maintain dev standards\") while the gate stays *weak* (\"does that intent have a resolving home?\") — meaningful contract, weak gate (law 3). Ranges over skill+rule features (SATISFIES-REPRESENTATION's scope). Disjoint files (main/lib/coverage) from the two upstream entries; chained last so both upstreams have landed."
+  },
+  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md`, typed frontmatter + byte-faithful body, with its own decidable contract",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & contract selection"
     },
-    "gate": { "kind": "open" },
+    "gate": { "kind": "deferred", "reason": "reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind" },
     "files": {
       "new": [
         {
@@ -54,6 +167,6 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` artifacts to the embedded agent contract (conformance) and the agent contract passes admissibility; `temper import` scans, projects, and round-trips agents idempotently with `[[agent]]` lock rows; `temper schema --kind agent` emits the agent contract; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Mirrors the rule kind end-to-end (skill.rs/rule.rs pattern): built-in extraction mirrors the real Claude Code subagent format (temper's, not the author's to redefine); the contract is a decidable floor, layerable via temper.toml. Wide blast radius over the shared surface (lib/check/extract/import/main) but the ONLY open entry, so no parallel-merge conflict — the remaining kinds/verbs serialize behind it."
+    "notes": "Deferred under the requirements/satisfies reframe (inbox, spec dacec45): more built-in kinds is the wrong direction — the value is meaningful contracts + the representation surface. Revive only if a story demands the `agent` kind. Files/acceptance stay valid for that revival; mirrors the rule kind end-to-end. If revived, re-check its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
   }
 ]
