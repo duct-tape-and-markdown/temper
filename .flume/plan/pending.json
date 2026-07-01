@@ -7,8 +7,7 @@
       "section": "Packages — the reusable, bindable unit of a contract"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SURFACE-DOCUMENT-FORMAT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
