@@ -1,28 +1,26 @@
 # Plan state
 
-- **Phase:** reconcile. REQUIREMENT-PACKAGE-TYPING shipped (afe6f48 / 134a27f),
-  so the next rung of the serialized surface-language chain unblocks:
-  **MEMBER-DOCUMENT-IMPORT** flips from `blockedBy` to **open**. Verified on disk:
-  the require-side typing floor is live (`compose.rs` — `package` typing facet;
-  `contract =` / `[[requirement.*.clause]]` now rejected as unknown keys), while
-  the member read/write surface is still the retired pair — `Skill::to_meta_document`
-  writes `meta.toml` + body (`skill.rs`/`import.rs`), `satisfies: Vec::new()` at
-  `kind.rs`, `include_str!("../contracts/*.toml")` at `main.rs:59/65`. The
-  `+++`-fenced document primitive (`src/document.rs`) foundation exists to build on.
-- **Last shipped:** REQUIREMENT-PACKAGE-TYPING — requirements typed by package
-  name, the `contract` facet retired (afe6f48 / 134a27f).
+- **Phase:** reconcile. The serialized surface-language chain is **complete** —
+  both MEMBER-DOCUMENT-IMPORT (5aff1aa) and KIND-AUTHORED-ARTIFACT (0a510ce)
+  shipped. Verified on disk: a custom kind loads from `.temper/kinds/<name>/KIND.md`
+  and binds a package by name (`compose`/`kind`/`main`), members are one surface
+  document. KIND-AUTHORED-ARTIFACT left one deliberate narrowing — custom-kind
+  KIND.md relationships parse onto `CustomKind` but never reach the graph, and
+  `by_kind` (main.rs:502) carries only skill+rule. Filed as **GRAPH-CUSTOM-KIND**
+  (open), the machinery the resolved `(reference-id-normalization)` named "now
+  fileable."
+- **Last shipped:** KIND-AUTHORED-ARTIFACT — a custom kind is an authored
+  `.temper/` artifact, registered in the assembly (0a510ce / 90c9dd1).
 - **In flight:** none.
-- **Chain (serialized — shared import/skill/rule/kind/check files ⇒ one at a
-  time):** MEMBER-DOCUMENT-IMPORT (**open**) → KIND-AUTHORED-ARTIFACT →
-  EMBED-BUILTIN-PACKAGES (parked: human authors the `.temper/packages/` std-lib).
-- **Pickable now (1):** MEMBER-DOCUMENT-IMPORT. Everything else is blockedBy the
-  chain, parked (EMBED-BUILTIN-PACKAGES, PACKAGING-CHANNELS), or deferred
-  (COVERAGE-CUSTOM-KIND, AGENT-KIND).
-- **Inbox:** empty. **Forks:** all resolved except the human-only OPEN strategics
-  (`kind-harness-axis`, `multi-harness-projection`) and provisional `project-name`;
-  none gate the chain head.
+- **Pickable now (1):** GRAPH-CUSTOM-KIND (open, main.rs-only, buildable against
+  fixtures — no in-repo `temper.toml`/`.temper` yet). Everything else is parked
+  (EMBED-BUILTIN-PACKAGES — human authors `packages/` std-lib; PACKAGING-CHANNELS —
+  human release creds) or deferred on priority (COVERAGE-CUSTOM-KIND downstream of
+  GRAPH-CUSTOM-KIND; AGENT-KIND).
+- **Inbox:** empty. **Forks:** `(reference-id-normalization)` resolved (grounds
+  GRAPH-CUSTOM-KIND); only the human-only OPEN strategics and provisional
+  `project-name` remain — none gate the pickable head.
 
-Plan continues: no — the queue is reconciled to the corpus, the chain head is
-pickable (MEMBER-DOCUMENT-IMPORT open), and the inbox and fork frontier are clear;
-building drains it from here.
-</content>
+Plan continues: no — the queue is reconciled to the corpus, one open entry
+(GRAPH-CUSTOM-KIND) is pickable, the inbox is empty, and the fork frontier is
+clear. Building drains it from here.

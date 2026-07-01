@@ -1,21 +1,51 @@
 [
   {
+    "tag": "GRAPH-CUSTOM-KIND",
+    "summary": "Custom-kind members join the corpus graph — their features enter the by_kind map and their KIND.md relationships reach the reference graph, so declared edges resolve",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "The entity graph is a kind capability"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Reorder `gate`: compute every registered custom kind's features (the loop at main.rs:604-631) *before* the graph tier, merge those feature slices into the `by_kind` map (today skill+rule only, main.rs:502-506), and gather each custom kind's `custom.relationships` (the `[[relationships]]` edges parsed onto `CustomKind` by KIND-AUTHORED-ARTIFACT) into the edge set handed to `graph::admissibility`/`check`/`acyclic`/`degree` alongside `layer.edges()`. A declared edge to/from a custom-kind member then resolves through the same generic graph functions a built-in kind's edge does. Floor-only path (no `temper.toml` ⇒ no layer ⇒ no custom kinds) stays byte-for-byte unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "an end-to-end `temper check` over a fixture workspace registering a custom kind: a member's declared edge that resolves to a real target keeps check green; a dangling edge makes check exit non-zero — proving custom-kind members participate in the reference graph exactly as built-in kinds do."
+      }
+    ],
+    "acceptance": "A declared reference from or to a custom-kind member resolves through the harness graph exactly as a built-in kind's does; a dangling one is a finding; the floor-only and built-in-only paths are unchanged; cargo fmt/clippy -D warnings/test green.",
+    "notes": "KIND-AUTHORED-ARTIFACT's deliberate narrowing (90c9dd1): custom-kind KIND.md relationships parse and store on `CustomKind` but never reach the graph, and `by_kind` (main.rs:502) carries only skill+rule. This is the machinery the resolved (reference-id-normalization) named 'now fileable'; references-resolve (the spec kind's own clause) is downstream, needing the spec package. Builds against test fixtures — no in-repo temper.toml/.temper yet."
+  },
+  {
     "tag": "EMBED-BUILTIN-PACKAGES",
-    "summary": "Embed the built-in std-lib from temper's own `.temper/packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park that validates the reconciled machinery",
+    "summary": "Embed the built-in std-lib from temper's own `packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park that validates the reconciled machinery",
     "per": {
       "path": "specs/10-contracts.md",
       "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the authored sources must exist first: a human un-parks the cb52cc3 self-application surface and authors `.temper/packages/{skill.anthropic,rule}/PACKAGE.md` on temper's own surface — the resolved `(package-surface-sequencing)` order (machinery first, dogfood as validation); also last in the chain (needs PACKAGE-DOCUMENT…KIND-AUTHORED-ARTIFACT shipped)"
+      "reason": "the authored sources must exist first: a human authors the built-in `packages/{skill.anthropic,rule.anthropic}/PACKAGE.md` in temper's product tree (product source, not the dogfood workspace — b0cf244) — the resolved (package-surface-sequencing) order, machinery first / dogfood as validation; last in the chain, needs the surface-language chain (MEMBER-DOCUMENT-IMPORT…KIND-AUTHORED-ARTIFACT) shipped, which it now is"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
-          "path": ".temper/packages/skill.anthropic/PACKAGE.md, .temper/packages/rule/PACKAGE.md",
-          "description": "The authored built-in package sources on temper's own surface — human/dogfood territory; the embed target replacing `contracts/*.toml`."
+          "path": "packages/skill.anthropic/PACKAGE.md, packages/rule.anthropic/PACKAGE.md",
+          "description": "The authored built-in package sources in temper's product tree (`10-contracts.md` names the home as product source, not `.temper/`); the embed target replacing `contracts/*.toml`. The `rule` → `rule.anthropic` rename lands here (`specs/10-contracts.md`, built-ins named for their source)."
         },
         {
           "path": "build.rs (or include_dir wiring)",
@@ -29,7 +59,7 @@
         },
         {
           "path": "src/bundle.rs",
-          "description": "The plugin ships the embedded PACKAGE.md std-lib verbatim instead of the TOML files."
+          "description": "The plugin ships the embedded PACKAGE.md std-lib verbatim instead of the TOML files (bundle.rs:122/126, 210/216)."
         },
         {
           "path": "src/contract.rs",
@@ -49,8 +79,8 @@
         "asserts": "built-ins resolve from the embedded authored sources; the bundled plugin carries them; nothing references contracts/*.toml."
       }
     ],
-    "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored in temper's repo and shipped embedded; `contracts/` is gone; `temper check` runs green on temper's own `.temper/`; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The dogfood finish of the chain — un-parking `.temper/` is the *validation* step, never tangled into the machinery (resolved fork). Blocked on human authoring; the embedded `contracts/*.toml` floor persists until then by design."
+    "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves; cargo fmt/clippy -D warnings/test green.",
+    "notes": "The dogfood finish of the chain. Confirmed on disk: contracts/skill.anthropic.toml + contracts/rule.toml still exist, main.rs:59/65 and bundle.rs:122/126 still include_str! them, no packages/ product tree authored yet. Blocked on human authoring; the embedded contracts floor persists until then by design."
   },
   {
     "tag": "COVERAGE-CUSTOM-KIND",
@@ -61,7 +91,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it is downstream of MEMBER-DOCUMENT-IMPORT (the header its `satisfies` would be authored in) and KIND-AUTHORED-ARTIFACT — deferred on priority"
+      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it shares main.rs with GRAPH-CUSTOM-KIND (the custom features it chains into `all_features` are the ones GRAPH first joins to the corpus map) — deferred on priority, revive downstream of GRAPH-CUSTOM-KIND"
     },
     "dependsOnForks": [],
     "files": {
@@ -69,7 +99,11 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from the member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` (kind.rs:451-454, inside `Kind::extract`) — coverage is kind-blind by design, so temper's own `spec` corpus can opt into requirements. Likely a deliberate extraction-algebra addition (`specs/15-kinds.md`)."
+          "description": "Populate `Features.satisfies` for a custom-kind unit from the member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:730-746; the comment at 737-740 names it a later follow-on) — coverage is kind-blind by design, so temper's own `spec` corpus can opt into requirements. Likely a deliberate extraction-algebra addition (`specs/15-kinds.md`)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Chain the registered custom kinds' features into `all_features` (main.rs:585-590, today skill ⊕ rule only) so their authored `satisfies` reaches `coverage::check`. Downstream of GRAPH-CUSTOM-KIND, which computes those features up front and joins them to `by_kind`."
         },
         {
           "path": "tests/coverage.rs",
@@ -86,39 +120,7 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
-    "notes": "kind.rs:451-454 hardcodes `satisfies=Vec::new()` in `Kind::extract` (confirmed on disk). Under the surface-language model the read is from the member document's `[satisfies.*]` header modules (no meta.toml projection anymore). Re-scope on revival against the then-current chain state."
-  },
-  {
-    "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
-    "per": {
-      "path": "specs/50-distribution.md",
-      "section": "Decision: acquisition rides the ecosystem's package managers"
-    },
-    "gate": {
-      "kind": "parked",
-      "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": ".github/workflows/release.yml",
-          "description": "Build the per-target release binaries and publish them to the npm platform packages, GitHub release assets, and the Homebrew tap; channel auto-detected."
-        }
-      ],
-      "edit": [
-        {
-          "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`, confirmed on disk). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than blindly clobbering the harness manifest."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
+    "notes": "kind.rs:740 hardcodes `satisfies=Vec::new()` in `Kind::extract` (confirmed on disk). Under the surface-language model the read is from the member document's `[satisfies.*]` header modules (no meta.toml projection). Also needs custom features in `all_features` (main.rs:585) — downstream of GRAPH-CUSTOM-KIND. Re-scope on revival against the then-current chain state."
   },
   {
     "tag": "AGENT-KIND",
@@ -129,7 +131,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind — and only after the surface-language chain (through MEMBER-DOCUMENT-IMPORT) reshapes how a kind's members and package land"
+      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the surface-language chain it waited on (through KIND-AUTHORED-ARTIFACT, which reshaped how a kind's members and package land) has now shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
@@ -139,7 +141,7 @@
           "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
         },
         {
-          "path": ".temper/packages/agent/PACKAGE.md",
+          "path": "packages/agent/PACKAGE.md",
           "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
         },
         {
@@ -179,6 +181,38 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Rewritten to the surface-language shapes — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
+  },
+  {
+    "tag": "PACKAGING-CHANNELS",
+    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "Decision: acquisition rides the ecosystem's package managers"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": ".github/workflows/release.yml",
+          "description": "Build the per-target release binaries and publish them to the npm platform packages, GitHub release assets, and the Homebrew tap; channel auto-detected."
+        }
+      ],
+      "edit": [
+        {
+          "path": "package.json",
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`, confirmed on disk). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than blindly clobbering the harness manifest. Scoped/prefixed names per the resolved (project-name) fork."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
   }
 ]
