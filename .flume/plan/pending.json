@@ -1,78 +1,25 @@
 [
   {
-    "tag": "KIND-AUTHORED-ARTIFACT",
-    "summary": "A custom kind is authored under `.temper/kinds/<name>/` and registered in the assembly \u2014 the fully-inline `[kind.<name>]` definition retires; its require-side is a bound package",
-    "per": {
-      "path": "specs/40-composition.md",
-      "section": "Decision: a custom kind is an authored `.temper/` artifact, registered in the assembly"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "`[kind.<name>]` for a custom kind becomes a registration \u2014 a pointer to the authored definition under `.temper/kinds/<name>/` plus its `package = \"<name>\"` binding \u2014 never the inline `governs`/`[[extraction]]`/`[[clause]]` definition (the `CustomKind` parse moves to the artifact loader); a custom kind carries no clauses itself."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "Load the composed definition (governs locus, extraction primitives, relationships) from the authored `.temper/kinds/<name>/KIND.md` \u2014 the one-document, same-medium format the resolved `(kind-artifact-format)` fork settled (`20-surface.md`: header carries the definition, body the kind's prose)."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Discovery unchanged in principle (kinds come from the assembly's registrations) \u2014 re-point at the artifact-loaded definitions."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "Custom-kind fixtures move from inline `[kind.<name>]` definitions to `.temper/kinds/<name>/` fixtures + registrations; inline definition keys become rejects."
-        },
-        {
-          "path": "tests/coverage.rs",
-          "description": "Custom-kind fixtures follow the registration form."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "Relationship fixtures declared in the authored kind definition."
-        }
-      ],
-      "retire": [
-        "the fully-inline [kind.<name>] custom-kind definition (governs/extraction/clauses in temper.toml)"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs, tests/coverage.rs, tests/graph.rs",
-        "asserts": "a custom kind authored under `.temper/kinds/<name>/` and registered in the assembly extracts, checks against its bound package, and yields its declared relationships; an inline definition is rejected."
-      }
-    ],
-    "acceptance": "Custom kinds live as authored `.temper/kinds/<name>/` artifacts registered in the assembly, require-side always a bound package \u2014 uniform with built-ins; no inline kind definition parses; cargo fmt/clippy -D warnings/test green.",
-    "notes": "`(kind-artifact-format)` RESOLVED (7e462e7): a custom kind is authored as `.temper/kinds/<name>/KIND.md` \u2014 one document, same surface medium (`20-surface.md`, Decision). Downstream of MEMBER-DOCUMENT-IMPORT (the document medium it is authored in); serialized behind it on the shared compose.rs/import.rs surface."
-  },
-  {
     "tag": "EMBED-BUILTIN-PACKAGES",
-    "summary": "Embed the built-in std-lib from temper's own `.temper/packages/` PACKAGE.md sources and retire `contracts/*.toml` \u2014 the dogfood un-park that validates the reconciled machinery",
+    "summary": "Embed the built-in std-lib from temper's own `.temper/packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park that validates the reconciled machinery",
     "per": {
       "path": "specs/10-contracts.md",
-      "section": "Decision: a package is project-authorable, not vendor-privileged \u2014 and is itself a kind"
+      "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the authored sources must exist first: a human un-parks the cb52cc3 self-application surface and authors `.temper/packages/{skill.anthropic,rule}/PACKAGE.md` on temper's own surface \u2014 the resolved `(package-surface-sequencing)` order (machinery first, dogfood as validation); also last in the chain (needs PACKAGE-DOCUMENT\u2026KIND-AUTHORED-ARTIFACT shipped)"
+      "reason": "the authored sources must exist first: a human un-parks the cb52cc3 self-application surface and authors `.temper/packages/{skill.anthropic,rule}/PACKAGE.md` on temper's own surface — the resolved `(package-surface-sequencing)` order (machinery first, dogfood as validation); also last in the chain (needs PACKAGE-DOCUMENT…KIND-AUTHORED-ARTIFACT shipped)"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": ".temper/packages/skill.anthropic/PACKAGE.md, .temper/packages/rule/PACKAGE.md",
-          "description": "The authored built-in package sources on temper's own surface \u2014 human/dogfood territory; the embed target replacing `contracts/*.toml`."
+          "description": "The authored built-in package sources on temper's own surface — human/dogfood territory; the embed target replacing `contracts/*.toml`."
         },
         {
           "path": "build.rs (or include_dir wiring)",
-          "description": "Embed the authored package directories into the binary \u2014 a sanctioned-crate addition (include_dir / build.rs codegen), folded in per the resolved fork."
+          "description": "Embed the authored package directories into the binary — a sanctioned-crate addition (include_dir / build.rs codegen), folded in per the resolved fork."
         }
       ],
       "edit": [
@@ -103,18 +50,18 @@
       }
     ],
     "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored in temper's repo and shipped embedded; `contracts/` is gone; `temper check` runs green on temper's own `.temper/`; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The dogfood finish of the chain \u2014 un-parking `.temper/` is the *validation* step, never tangled into the machinery (resolved fork). Blocked on human authoring; the embedded `contracts/*.toml` floor persists until then by design."
+    "notes": "The dogfood finish of the chain — un-parking `.temper/` is the *validation* step, never tangled into the machinery (resolved fork). Blocked on human authoring; the embedded `contracts/*.toml` floor persists until then by design."
   },
   {
     "tag": "COVERAGE-CUSTOM-KIND",
-    "summary": "Custom-kind units join coverage \u2014 read authored `satisfies` from the member document instead of hardcoding it empty",
+    "summary": "Custom-kind units join coverage — read authored `satisfies` from the member document instead of hardcoding it empty",
     "per": {
       "path": "specs/10-contracts.md",
-      "section": "Coverage \u2014 the one referential check"
+      "section": "Coverage — the one referential check"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it is downstream of MEMBER-DOCUMENT-IMPORT (the header its `satisfies` would be authored in) and KIND-AUTHORED-ARTIFACT \u2014 deferred on priority"
+      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it is downstream of MEMBER-DOCUMENT-IMPORT (the header its `satisfies` would be authored in) and KIND-AUTHORED-ARTIFACT — deferred on priority"
     },
     "dependsOnForks": [],
     "files": {
@@ -122,7 +69,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from the member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` (kind.rs:451-454, inside `Kind::extract`) \u2014 coverage is kind-blind by design, so temper's own `spec` corpus can opt into requirements. Likely a deliberate extraction-algebra addition (`specs/15-kinds.md`)."
+          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from the member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` (kind.rs:451-454, inside `Kind::extract`) — coverage is kind-blind by design, so temper's own `spec` corpus can opt into requirements. Likely a deliberate extraction-algebra addition (`specs/15-kinds.md`)."
         },
         {
           "path": "tests/coverage.rs",
@@ -143,7 +90,7 @@
   },
   {
     "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship acquisition channels \u2014 npm optionalDependencies binary wrapper, Homebrew, cargo install \u2014 auto-detected, fail-loud on a missing platform binary",
+    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
     "per": {
       "path": "specs/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
@@ -171,29 +118,29 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest \u2014 reconcile or split, never blindly create a second. Parked until a human sets creds up."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
   },
   {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind \u2014 `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
+    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind \u2014 and only after the surface-language chain (through MEMBER-DOCUMENT-IMPORT) reshapes how a kind's members and package land"
+      "reason": "the reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind — and only after the surface-language chain (through MEMBER-DOCUMENT-IMPORT) reshapes how a kind's members and package land"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR \u2014 the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
+          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
         },
         {
           "path": ".temper/packages/agent/PACKAGE.md",
-          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model \u2014 NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
+          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
         },
         {
           "path": "tests/agent_contract.rs",
@@ -232,6 +179,6 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Rewritten to the surface-language shapes \u2014 one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Rewritten to the surface-language shapes — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
   }
 ]
