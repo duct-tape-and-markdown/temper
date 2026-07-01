@@ -63,7 +63,7 @@ The vocabulary; the **owning spec** carries the detail.
 | clause | one predicate application; carries severity + fact/opinion | `10` / `15` |
 | **package** | a reusable, bindable bundle of a kind's contract (decidable clauses) + guidance (prose, never gates), two separate channels; itself a kind, checked by the definition; shipped *or* project-authored (non-privileged) | `10-contracts.md` |
 | **assembly** | `temper.toml`: binds packages to kinds, declares requirements (the roster) + relationships-that-must-exist — the extensional set/graph-arity layer | `40-composition.md` |
-| **artifact** | an instance of a kind (typed fields, byte-faithful body, `extra` unknown-key catch-all, companions, provenance) | `20-surface.md` |
+| **artifact** | an instance of a kind (typed fields, content-faithful body, `extra` unknown-key catch-all, companions, provenance) | `20-surface.md` |
 | **member** | the role an instance artifact plays (a `skill`/`rule`/`spec`) vs a governing package/kind; a role, not a directory | `20-surface.md` |
 | **landscape** | a corpus of artifacts (≥1 kinds) governed by the assembly | `30-landscapes.md` |
 | **surface** | the authored source of truth; projects to the landscape | `20-surface.md` |
@@ -74,7 +74,7 @@ The vocabulary; the **owning spec** carries the detail.
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
 | verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |
 | behavioral contract | the prose surplus beyond the declared model (tier-3, human) | `00` / `30` |
-| harness / profile | the external, evolving format a built-in kind-group mirrors | `15` / `50` |
+| harness | the external, evolving format a built-in kind-group mirrors | `15` / `50` |
 | provenance | source path + import hash; the per-artifact drift anchor | `20-surface.md` |
 | diagnostic | a clause violation the engine reports | `10-contracts.md` |
 

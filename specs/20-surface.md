@@ -1,13 +1,15 @@
-# The config surface — compose, import, project, drift
+# The config surface — author, import, project, drift
 
-The surface is `temper`'s **composition write surface**: the typed thing the
-author *composes* the harness in, the contract engine validates, and `temper`
-**projects** into the project. It is the source of truth — `.claude/` and `specs/`
-are projected from it, not the reverse (`00-intent.md` law 7; Decision below).
-`import` is the on-ramp (an existing harness → surface), `re-add` reconciles direct
-edits, and the write direction (`apply`) projects the surface back out. Built and
-proven for skills in slice 1; the shape generalizes to every artifact kind and
-every landscape (`30-landscapes.md`).
+The surface is `temper`'s **composition write surface**: the medium the harness
+*lives in*. A member is authored here in the **surface language** (below) — a
+markdown dialect whose structure is the very structure its package's clauses
+range over — and `temper` **projects** it into the project. `.claude/` and
+`specs/` are compiled output — generated, deterministic, never the authored home
+(`00-intent.md` law 7; Decision below). `import` is the one-time on-ramp: it
+**migrates** an existing harness into the language (Decision below); `re-add`
+re-parses direct on-disk edits back in; `apply` projects the surface out. Built
+and proven for skills in slice 1; the shape generalizes to every artifact kind
+and every landscape (`30-landscapes.md`).
 
 ## The surface: the assembly over its contents
 
@@ -19,9 +21,9 @@ The surface has two homes (`05-model.md`), and only two:
   environment contains and how it connects. It does **not** inline contract clauses or
   kind definitions — those live as artifacts below.
 - **`.temper/`** holds the **authored-and-checked artifacts**, organized as kind-
-  directories: the **members** (`skill/`, `rule/`, `spec/` — header + byte-faithful
-  body), the **packages** (`package/` — the contract clauses + guidance each kind is
-  checked against), and any **custom kind** definitions. `package` is a peer kind, not
+  directories (pluralized kind names): the **members** (`skills/`, `rules/`, `specs/` —
+  one document each, header over body), the **packages** (`packages/` — the contract
+  clauses + guidance each kind is checked against), and any **custom kind** definitions. `package` is a peer kind, not
   a privileged path (`15-kinds.md`); there is no `member/` bucket — "member" is the
   role a non-governing artifact plays, and its kind name already says so.
 
@@ -39,15 +41,20 @@ conforming artifact: it is the contents' generated **state-of-record** —
 provenance + drift/apply fingerprints — the baseline `diff`/`apply` stand on, written
 by the tool, never hand-composed.
 
-## Topology: structured-index + markdown sidecars
+## Topology: one document per member
 
 The harness is ~half prose-dominant (skills, agents, `CLAUDE.md` — small typed
-header + large body) and ~half structured JSON (manifests, hooks, settings). No
-single inlined format serves both, so the surface is a **workspace tree**, not
-one file:
+header + large body) and ~half structured JSON (manifests, hooks, settings). The
+surface is a **workspace tree**, and its unit is the **member document**:
 
-- **Prose bodies stay as real `.md`**, byte-faithful and `git mv`-able.
-- **Structured headers** are written format-preserving (`toml_edit`).
+- **A member is one authored document** in the surface language: a TOML-fenced
+  structured header (the clause modules, below) over a markdown body, `git
+  mv`-able, beside its companions (copied byte-for-byte). Prose kinds author in
+  markdown; structured-JSON kinds (settings, hooks, manifests) author a
+  TOML-native document that projects to JSON — same model, per-kind-family
+  concrete syntax.
+- **The surface's own structured text** is written format-preserving
+  (`toml_edit`) whenever the tool touches it; the human authors it freely.
 - **The lock** (`lock.toml`) — the contents' generated **state-of-record** (above):
   every artifact with its provenance + drift/apply fingerprints, the baseline
   `diff`/`apply` compare against. The tool writes it; you never compose it.
@@ -57,19 +64,18 @@ temper.toml                   # the ASSEMBLY: package↔kind bindings, requireme
 .temper/
   lock.toml                   # generated state-of-record (provenance + drift fingerprints)
   skills/<name>/              # a MEMBER (kind-dir is the pluralized kind name)
-    meta.toml                 # clause modules (fields · satisfies · edges) + [provenance]
-    SKILL.md                  # body, byte-faithful
+    SKILL.md                  # ONE document: TOML-fenced header (clause modules) + body
     <companions…>             # copied byte-for-byte
-  rules/<name>/               # members
-  specs/<name>/               # members
-  packages/<name>/            # a PACKAGE (clauses + guidance) — a peer kind, checked by the definition
+  rules/<name>/               # members: RULE.md
+  specs/<name>/               # members: SPEC.md
+  packages/<name>/            # a PACKAGE: PACKAGE.md — same medium (10-contracts.md)
   kinds/<name>/               # a custom KIND definition (extraction + entities/relationships)
 ```
 
 ## The IR
 
 One typed value per artifact kind, behind an `Artifact` sum type. Each carries
-its typed fields, a byte-faithful body where it has one, an `extra` catch-all
+its typed fields, a content-faithful body where it has one, an `extra` catch-all
 that **preserves unknown frontmatter keys verbatim** (never dropped), companion
 paths, and provenance. Skills are modelled and shipped (`src/skill.rs`); the
 `disable-model-invocation` field is load-bearing (Pocock's invocation axis) and
@@ -79,37 +85,44 @@ The IR generalizes to a per-kind **extractor** (`30-landscapes.md`): parse a uni
 into the structured features the contract engine validates. For a skill that is
 frontmatter + body; for a spec it is headings, bindings, and declared model
 elements. Extraction is the soundness boundary — it surfaces only
-deterministically-decidable features, never inferred meaning.
+deterministically-decidable features, never inferred meaning. It ranges over the
+**member document**: the surface is canonical, and `check` never ranges over
+generated output (`15-kinds.md`, the adapter).
 
-## Each artifact directory is a representation, not a copy
+## The member document — the surface language
 
-`.temper/<kind>/<name>/` is not a mirror of the source file — it is the artifact's
-**representation in the harness model**: **every clause that governs this artifact,
-gathered per-artifact in one place**, with the byte-faithful body carried *alongside*.
+`.temper/<kind-dir>/<name>/` is not a mirror of a source file — it is where the
+member **lives**. Its document is the member's **representation in the harness
+model**: **every clause that governs this member, gathered in one place**, with
+the body authored below the header in the same file.
 
 A clause has two sides under one name (`10-contracts.md`): its **predicate** lives in
 the kind's **package** (clauses live only in packages), and what the member carries here
-is that clause's **value** for this artifact, filed under the same name (`[clause.name]`,
+is that clause's **value** for this member, filed under the same name (`[clause.name]`,
 `[clause.description]`). The package defines the check; the member shows its value for
-it — so the artifact is legible *through* its contract without duplicating the predicate.
+it — so the member is legible *through* its contract without duplicating the predicate.
 
-The representation is **clause-structured**, not a flat header. Each clause is its own
-**module** (a `[table]` in `meta.toml`), so the artifact is legible *through what its
-contract checks* — a clear per-clause breakdown, and a labeled home for each authored
-part rather than one undifferentiated blob:
+The header is **clause-structured**, not a flat blob. Each clause is its own
+**module** (a `[table]` in the TOML-fenced header), so the member is legible
+*through what its contract checks* — a labeled home for each authored part:
 
-- **field clauses** — `[clause.<field>]`, one per frontmatter field the contract reads
-  (`value = …`), format-preserving; the artifact's own typed fields.
-- **`satisfies` clauses** — `[satisfies.<requirement>]`, the requirements this artifact
+- **field clauses** — `[clause.<field>]`, one per structured field the contract reads
+  (`value = …`), format-preserving; the member's own typed fields.
+- **`satisfies` clauses** — `[satisfies.<requirement>]`, the requirements this member
   fills (`10-contracts.md`), each carrying its **rationale** (the authored *why*, law 7,
   first-class here rather than delegated and forgotten). The opt-in bindings coverage reads.
 - **edge clauses** — `[edge.<target>]`, the declared references/relationships to other
-  artifacts (`45-governance.md`), the graph's source — authored, never grepped from prose.
+  members (`45-governance.md`), the graph's source — authored, never grepped from prose.
 - **`[provenance]`** — generated: `source_path` + `import_hash` (the drift anchor).
-- **body** — `SKILL.md`/`RULE.md`/… copied byte-for-byte (law 5), never re-rendered.
+- **the body** — the member's prose, below the header. Not cargo: it is authored
+  *in the medium*, and a part no clause governs today is one declaration away from
+  contract — a required section, a length cap, an edge from a heading. Importing a
+  member is **recognizing** it: the author says what it is for and gains the power
+  to dictate the requirements and standards that hold it there.
 
-```toml
-# .temper/skills/dev-standards/meta.toml — every clause governing this artifact
+```markdown
++++
+# .temper/skills/dev-standards/SKILL.md — every clause governing this member
 [clause.name]
 value = "dev-standards"
 [clause.description]
@@ -124,14 +137,57 @@ relation = "depends-on"
 [provenance]                       # generated, not authored
 source_path = "./.claude/skills/dev-standards/SKILL.md"
 import_hash = "…"
++++
+
+# Dev standards
+
+<the body — the member's prose, authored here>
 ```
 
 Field / `satisfies` / edge clauses are **authored** (the intent-encoding); `provenance`
-is **generated**; the body is **carried**; conformance status is **derived** (a `check`
-output, never persisted into the representation — computed, not authored). This is what
-makes the surface an *authoring space* rather than a lint target: each artifact directory
-holds **all the clauses that define its meaning and role**, not just its contents
+is **generated**; conformance status is **derived** (a `check` output, never persisted
+into the document — computed, not authored). This is what makes the surface an
+*authoring space* rather than a lint target: the member document holds **all the
+clauses that define its meaning and role**, not just its contents
 (`40-composition.md`).
+
+### Decision: the member is one document in the surface language
+
+**Chosen:** a member is a single markdown document — a TOML-fenced header (the
+clause modules above) over the body — patched format-preserving (`toml_edit`)
+when the tool writes it, authored freely by the human always. **Rejected:** (a)
+a `meta.toml` + body-file split — the pipe model's residue: two files carrying
+one member invite incoherence, and framing the body as a byte-carried sidecar
+makes the surface a wrapper around cargo rather than the medium the member lives
+in. (b) YAML frontmatter on the surface — no format-preserving YAML editor
+exists in Rust; YAML belongs to the *generated* side only, where deterministic
+re-emission is the discipline (Decision below).
+
+### Decision: the header dialect is TOML
+
+**Chosen:** the surface language's structured text — member headers,
+`temper.toml`, `PACKAGE.md` headers — is TOML. The deciding constraint is
+**co-authorship**: the human, the agent, and the tool write the same file, so
+the medium needs a format-preserving editor (comments, order, whitespace survive
+a field patch) — `toml_edit` is the only mature one in the Rust ecosystem for
+any config dialect. Secondary: TOML parses unambiguously (no implicit-typing
+traps — a type checker whose own medium has ambiguous scalars would be
+self-satire); flat named tables diff line-by-line, where the surface is actually
+reviewed; and Taplo delivers the emitted schema (`50-distribution.md`) as
+keystroke validation in the authored medium. The familiarity objection (the
+Claude Code audience lives in YAML frontmatter) is softened twice: the
+projection they read stays native YAML, and the surface's **primary author is
+the agent** (`00-intent.md`, positioning), for whom dialect familiarity is no
+obstacle. **Not a one-way door:** the language's identity is the clause-module
+structure, not its spelling — import parses and projection re-emits, so swapping
+dialects later is a deterministic rewrite `temper` can run on its own surface.
+**Rejected:** YAML (no format-preserving Rust editor; ambiguous scalars);
+JSON/JSONC (comment-hostile; not an authoring medium); KDL (designed for
+exactly this and node-shaped — re-examine when its tooling matures; today the
+ecosystem is too thin to carry the medium); the programmable configs
+(CUE/Dhall/Nickel/Pkl — expressiveness in the medium is the same unsound-proxy
+door the algebra bolted); a bespoke dialect (a parser and an editor ecosystem
+owned forever, against "adopt libraries for solved mechanics").
 
 ## Artifact kinds & package binding
 
@@ -140,7 +196,7 @@ The kind *system* — the extraction algebra and the built-in/custom split — i
 `check` dispatches them. Each kind has an extractor and a **package** bound to it (its
 built-in package by default). Slice 1 shipped **skill**; the next kind is **rule**
 (`.claude/rules/*.md`): frontmatter `paths` (optional — the real Claude Code scoping
-key) plus a byte-faithful body. Its package's clauses forbid the Cursor keys Claude
+key) plus a content-faithful body. Its package's clauses forbid the Cursor keys Claude
 Code ignores (`description`, `globs`, `alwaysApply`) — the exact mistake that motivated
 the project (a rule authored with `.mdc` frontmatter loads nothing). `import` scans
 every built-in kind (`skills/*/SKILL.md`, `.claude/rules/*.md`) plus every custom kind
@@ -160,21 +216,28 @@ first-class project artifacts under `.temper/packages/` (`10-contracts.md`), bou
 the assembly exactly as built-ins are; there is no privileged embedded-only tier.
 (Resolves `(contract-selection)`.)
 
-## Provenance and round-trip discipline (law 5)
+## Content-faithful, deterministically projected (law 5)
 
+- **Content-faithful:** `temper` never rewords, synthesizes, or drops authored
+  prose — the words are the human's, whether composed on the surface or carried
+  in by `import`. The invariant is *authored, never synthesized*, not
+  *structure only*.
+- **Import normalizes once.** `import` is a *parse into the surface language*,
+  not a copy: framing, header layout, and file topology normalize to the
+  language; content carries verbatim. A migration may reformat — the source's
+  byte layout is not a contract, its content is (Decision below). The fixpoint
+  lives on the surface: re-importing the surface's own projection yields the
+  surface back, identically (asserted by snapshot).
+- **Projection re-emits, deterministically.** `apply` compiles the member
+  document to the harness format. Same surface in, same bytes out, idempotent —
+  generated output never churns, and the body lands in it byte-identical to the
+  surface's (content-faithful by construction). Companions are copied
+  byte-for-byte.
 - `provenance = { source_path, import_hash }`; `import_hash` is the SHA-256 of
-  the original source bytes — the drift anchor, computed at import so the lock is
-  complete before write-back exists.
-- Bodies and companions are **copied, never re-rendered.** Only the structured
-  header is written, via `toml_edit` (preserves comments/order/whitespace). A
-  lossy serialize-from-scratch on anything a human edits is forbidden.
-- `import` is **idempotent**: re-importing an unchanged harness yields an
-  identical workspace (asserted by snapshot).
-- The author may **compose** prose in the surface — it is the write surface (law
-  7) — but `temper` never **synthesizes** it. Prose is stored and projected
-  byte-faithfully whether it arrived by `import` or by authoring; the invariant is
-  *authored, never synthesized*, not *structure only*. A composed prose body is as
-  byte-faithful on projection as an imported one.
+  the source bytes at import — the drift anchor, computed at import so the lock
+  is complete before write-back exists.
+- The surface's own structured text is patched format-preserving (`toml_edit`);
+  a lossy serialize-from-scratch on anything a human authors is forbidden.
 
 ## Drift / apply — three states, never two (the hard core)
 
@@ -184,7 +247,9 @@ surface), the **last-applied fingerprint**, and **real on-disk** — so it can
 distinguish "the human edited the surface" from "the world drifted" and merge
 rather than clobber. Drift surfaces a choice (diff · overwrite · skip · re-add);
 `apply` is idempotent and dry-runnable. `re-add` (on-disk → surface) is a first-
-class direction, because humans also edit the harness directly.
+class direction, because humans and agents also edit the projection directly: it
+**re-parses** the edited output and lifts the change into the member document —
+a parse, not a byte-copy.
 
 ### Decision: the surface is the source of truth
 
@@ -205,15 +270,36 @@ or both at once. The per-project harness is the unit a contract gates and a sess
 loads; the global config is a later extension the same engine handles as another
 landscape root (`30-landscapes.md`), not a redesign. (Resolves `(workspace-scope)`.)
 
-### Decision: write-back patches changed fields, never re-emits
+### Decision: the projection is re-emitted; the surface is patched
 
-**Chosen:** `apply` **patches only the fields that changed**, in place — TOML
-headers via `toml_edit`, YAML frontmatter by surgical field patch — leaving every
-untouched byte (comments, key order, whitespace) exactly as the human wrote it.
-**Rejected:** re-emitting a header by serializing it from scratch. No comment-
-preserving YAML editor exists in Rust, so a full re-emit would normalize the
-frontmatter and clobber human edits — the lossy round-trip law 5 forbids on
-anything a human authors. (Resolves `(yaml-writeback)`.)
+**Chosen:** `apply` **re-emits the projection deterministically** from the
+member document — full-file, byte-stable, idempotent; the *surface's own*
+structured headers are patched format-preserving (`toml_edit`) when the tool
+writes them. **Supersedes** the earlier "patch only changed fields, never
+re-emit" rule (`(yaml-writeback)`): that rule was load-bearing when `.claude/`
+was a peer surface humans hand-curated — no comment-preserving YAML editor
+exists in Rust, so re-emission there was lossy. With the projection generated,
+there is nothing of the human's in it to lose: the content lives in the surface,
+and determinism replaces preservation as the guarantee (YAML now exists only on
+the generated side). **Rejected:** surgically patching the projection to
+preserve hand edits — that blurs authored-vs-derived; a direct edit to the
+projection is *drift*, and drift is `re-add`'s to lift into the surface, never
+`apply`'s to tiptoe around.
+
+### Decision: import is a migration, and recognition is incremental
+
+**Chosen:** `import` lifts an existing harness into the surface language
+**once** — mechanically: clause values populated by extraction, bodies carried
+content-faithful, provenance stamped. Members arrive **unrecognized** — governed
+by their kind's floor, fully functional — and **recognition** (the
+intent-encoding: `satisfies` + rationale, edges) accrues member-by-member
+afterward. The pressure to recognize comes from the author's own declared
+requirements failing coverage — the right instrument — never from import
+ceremony. **Rejected:** (a) byte-preserving import — a wrapper around an opaque
+blob condemns the surface to be a pipe, not a medium (law 5); the source's byte
+layout is not a contract, its content is. (b) import that demands recognition up
+front — a toll booth at the on-ramp; a 40-artifact harness must land governed by
+the floor on day one and earn its graph over time.
 
 ## CLI surface
 

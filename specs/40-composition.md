@@ -59,7 +59,7 @@ authoring aid.
 **Chosen:** an optional `temper.toml` at the project root, layered over the by-kind
 built-in floor, holds the author's package bindings, overrides, and harness roster —
 referencing the packages and custom kinds authored under `.temper/`. **Rejected:** (a)
-a field in `author.toml` — that file is *generated* (the import roll-up: hashes,
+a field in `author.toml` (since renamed `lock.toml`) — that file is *generated* (the import roll-up: hashes,
 provenance); authored intent in a regenerated file breaks round-trip (law 5) and blurs
 authored-vs-derived. (b) the shipped built-in packages as the author's home — those are
 the std-lib you adopt *from*, not where you declare. Three provenance classes —
@@ -140,8 +140,8 @@ Composition is one loop, all of it on the write surface:
 4. **Check** — `conformance` *and* `admissibility` (`10-contracts.md`): the members
    fill their bound packages, and the assembly + each package stand up to the
    definition. An author-declared package is checked before it is trusted to gate.
-5. **Project** — `apply` writes the surface into the project (`20-surface.md`),
-   structure format-preserving, prose byte-faithful.
+5. **Project** — `apply` projects the surface into the project (`20-surface.md`),
+   deterministic re-emission, prose content-faithful.
 
 Steps 1–3 are authoring; 4 is the gate over both checks; 5 is projection. The loop
 is what law 7 ("compose everything; gate the decidable") looks like in use.

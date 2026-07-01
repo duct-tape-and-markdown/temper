@@ -178,19 +178,46 @@ scratch. The documented best practices (Anthropic skill mechanics, Pocock's invo
 axis, the cascade harness-economy model) ship as **built-in packages**, adopted,
 extended, forked, or ignored — never hardcoded checks.
 
-A package carries **two physically separate channels**, and the split is load-bearing
-(`00-intent.md` law 2; `50-distribution.md`):
+A package is authored in the same medium as any member (`20-surface.md`): **one
+document** — `PACKAGE.md` — whose structured header carries the clauses and whose
+prose is the guidance. It carries **two semantically separate channels**, and the
+split is load-bearing (`00-intent.md` law 2; `50-distribution.md`) — enforced by
+the algebra, not the filesystem (Decision below):
 
-- **clauses** — decidable predicates only; a package admits a clause *iff* it is
-  decidable, so "name ≤ 64 chars, `[a-z0-9-]`" is in and "description triggers well" /
-  "no-op detection" are **out** (undecidable). These gate.
+- **clauses** — decidable predicates only, in the header; a package admits a
+  clause *iff* it is decidable, so "name ≤ 64 chars, `[a-z0-9-]`" is in and
+  "description triggers well" / "no-op detection" are **out** (undecidable).
+  These gate. A clause may carry a `guidance` key — the hover-sized why,
+  colocated with the clause it explains so it can never dangle from it.
 - **guidance** — the best-practice prose the clauses cannot encode (house style,
-  rationale). This never gates; it rides the docs channel only.
+  rationale): per-clause `guidance` text plus the document body. It never
+  gates — not because of where it sits, but because the engine has **no path
+  from prose to a predicate**: the closed vocabulary cannot say "check the
+  guidance." Its primary consumer is the **authoring agent** (`00-intent.md`,
+  positioning), and delivery is just-in-time: a failing clause's diagnostic
+  carries its colocated `guidance` — the violation is the teaching moment — and
+  the emitted schema serves the same text to humans as hover docs
+  (`50-distribution.md`).
 
 Emitted as a JSON Schema (`50-distribution.md`), a package delivers its clauses as
 keystroke validation and its guidance as hover docs — best-practices-as-data reaching
-the editor without either channel bleeding into the other. Taste cannot become a
-squiggle because the format keeps the two apart by construction.
+the editor without either channel bleeding into the other. (JSON Schema itself
+colocates `description` beside its constraints: colocated data, separated
+semantics — the exact pattern.) Taste cannot become a squiggle because the
+algebra has no syntax for it.
+
+### Decision: guidance is colocated; the channel split is semantic
+
+**Chosen:** clauses and guidance share one package document — per-clause
+guidance as a key on the clause, package-level guidance as the document body —
+and the guarantee "guidance never gates" is the **algebra's**: prose has no path
+into a predicate. **Rejected:** physically separate files with guidance bound to
+clauses by a heading convention. A heading binding is a *reference*, and
+references dangle: rename a clause and its guidance silently orphans — the exact
+silent-drift failure `temper` hunts, reintroduced into its own package format
+and needing its own referential check to stay sound. Physical separation was a
+physical proxy for a semantic invariant the algebra already enforces; colocation
+deletes the reference instead of checking it.
 
 ### Decision: a package is project-authorable, not vendor-privileged — and is itself a kind
 
@@ -212,7 +239,8 @@ authoritative home is `.temper/packages/<name>/` in temper's *own* repo (authore
 temper's own surface — the deepest dogfood), and the build **embeds** those authored
 sources into the binary as the shipped std-lib. A consumer never carries a copy; the
 assembly binds the built-in *by name* and it resolves from the embedded set (a version
-pin governs which format version — `45-governance.md`). So the *same* package is
+pin will govern which format version — harness-version pinning is a held-back loose
+end, `45-governance.md`). So the *same* package is
 **authored** in temper's repo and **shipped** to a consumer — one artifact, two
 provenance roles, no duplication, no `contracts/` mirror.
 
@@ -255,8 +283,9 @@ source of rules changes.
 
 **Chosen:** a small, hand-built, **closed** vocabulary of decidable primitives
 (above), with diagnostics owned in-crate (`miette`), sitting on mature libraries
-for the solved hard mechanics — `regex` for `pattern`, a graph crate for the
-dependency graph, `toml`/`serde` for parsing. **Rejected:** wrapping a general
+for the solved hard mechanics — `regex` for the charset matching behind
+`allowed_chars` (the general `pattern` clause is held back — Decision below), a
+graph crate for the dependency graph, `toml`/`serde` for parsing. **Rejected:** wrapping a general
 policy/validation engine — OPA/Rego, CUE, or JSON Schema.
 
 Those engines are mature and good, but they are *expressive enough to let an

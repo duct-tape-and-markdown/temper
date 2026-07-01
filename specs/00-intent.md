@@ -58,15 +58,19 @@ These bind every part of the tool and every change to it.
    harness is "missing" something the human didn't ask for — that is the human's
    to declare. Surface gaps; do not fill them. (Mirrors `collaboration` rule.)
 
-5. **Round-trip is byte-faithful; provenance is load-bearing.** Prose bodies are
-   copied, never re-rendered; only structured headers are rewritten (format-
-   preserving). Every imported artifact carries `source_path` + `import_hash`.
-   This is what makes drift detection and write-back possible. (`20-surface.md`.)
+5. **Content-faithful authorship; deterministic projection; provenance is
+   load-bearing.** `temper` never rewords, synthesizes, or drops authored prose —
+   the words are the human's, wherever they sit. Projection is byte-deterministic
+   and idempotent: the same surface emits the same landscape, every time. Import
+   is a one-time *parse into the surface language* — a migration, free to
+   normalize framing, never to alter content; after it the surface is the single
+   authored home. Every member carries `source_path` + `import_hash` — the drift
+   anchor. (`20-surface.md`.)
 
 6. **Fearless harness refactoring.** Because conformance is checkable, the author
    can reshape, dedupe, and compose the harness and re-verify — the original
    "work with the config surface, reshape and organize" goal. Empty without the
-   drift/round-trip engine, so that engine is core, not optional.
+   drift/projection engine, so that engine is core, not optional.
 
 7. **Compose everything; gate the decidable.** The write surface is total: the
    author composes the whole harness at `temper`'s altitude — structure *and*
@@ -132,6 +136,16 @@ guarantee is earned (`05-model.md`).
 *distribute* artifacts. `temper` makes a harness *correct* — a Claude-Code-native
 (then agent-agnostic) contract system on the maintenance/quality axis. Different
 layer; `temper` can sit downstream of the others, checking what you installed.
+
+The **primary author** of a harness is, increasingly, the agent itself — Claude
+maintaining its own skills, rules, and memory files. That is the audience the
+surface is designed for, and it sharpens both halves of the product: agents are
+demonstrably poor at self-authoring harness artifacts unprompted, so the **gate**
+catches the structural failures they most commonly commit, and a package's
+**guidance** channel delivers best practice just-in-time at the moment of
+authorship — to the author who needs it most and retains it least
+(`10-contracts.md`). The human sets the contract; the agent authors under it;
+`temper` holds the line between them.
 
 ## Honest bound on the analogy
 

@@ -77,6 +77,17 @@ package is just the one temper ships, and a project authors its own as a peer
 (`10-contracts.md`, "a package is project-authorable, not vendor-privileged"). One
 ownership axis cuts across both kinds and packages (`05-model.md`).
 
+## A built-in kind is an adapter — two faces
+
+A built-in kind mediates between its harness format and the surface language
+(`20-surface.md`): it **parses** the external format into the member document —
+the `import` on-ramp; drift detection and `re-add` reuse this face — and
+**emits** the member document back out (`apply`'s projection, deterministic).
+Extraction — the features clauses range over — reads the **member document**:
+the surface is canonical, and `check` never ranges over generated output. A
+custom kind typically has no external format to adapt — its members are born on
+the surface, and its projection can be near-identity.
+
 ## Extending a built-in kind
 
 A built-in's **extraction is temper's** — it mirrors the real harness format;

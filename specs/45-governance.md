@@ -52,8 +52,8 @@ each other. To govern its shape, temper needs the edges — and an edge is a
 **declared field on the surface**, never grepped from prose. A rule routes to a
 skill by a structured field (`routes_to: standards`), authored on the composition
 surface (`20-surface.md`) **alongside** the prose that says the same thing for the
-agent. temper builds the graph from the field; the prose rides along byte-faithful;
-`apply` projects both into the project.
+agent. temper builds the graph from the field; the prose rides along
+content-faithful; `apply` projects both into the project.
 
 So governance does not demand you rewrite your prose — it **adds the structure it
 needs and plants it.** This is why the write surface is load-bearing for

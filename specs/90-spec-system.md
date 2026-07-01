@@ -62,11 +62,14 @@ never the bundle), `package` (the reusable bundle carrying a kind's contract +
 guidance — the term that retired `template`), `assembly` (`temper.toml`: bindings +
 roster + relationships), `member` (an instance artifact; a role, not a directory),
 `requirement` (a named obligation — the retired `role` folded into it), `satisfies`,
-`match`, `verified_by`, `the definition` (the fixed engine axiom — reserved, never a
+`verified_by`, `the definition` (the fixed engine axiom — reserved, never a
 package's contents), `kind`, `decidable`, `surface`, `provenance`, `drift` are
 load-bearing terms — search before coining a new one. Note the recent migration:
 `template` → `package`; `temper.toml is the contract` → `temper.toml is the
-assembly`.
+assembly`; name-`match` retired (opt-in `satisfies` is the sole fill);
+`byte-faithful` narrowed to literal byte-for-byte copies (companions, the
+deterministic projection) — authored prose is **`content-faithful`** (law 5:
+never reworded, synthesized, or dropped).
 
 ## Decisions
 
