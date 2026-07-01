@@ -27,8 +27,8 @@
 //!
 //! A roll-up index `<into>/lock.toml` records one `[[skill]]`/`[[rule]]` entry
 //! per built-in artifact, then one `[[<kind>]]` entry per custom-kind unit, each
-//! with its provenance, a `body_hash`, and the `last_applied` fingerprint the
-//! three-state drift/apply merge stands on (at import: equal to `import_hash`).
+//! with its provenance and the `last_applied` fingerprint the three-state
+//! drift/apply merge stands on (at import: equal to `import_hash`).
 //!
 //! Note the root asymmetry the built-in kinds carry: skills live at
 //! `<harness>/skills/`, rules at `<harness>/.claude/rules/`. A custom kind sits
@@ -109,10 +109,9 @@ pub enum ImportError {
 }
 
 /// One row of the `lock.toml` roll-up index: an artifact's identity, its source
-/// provenance, the hash of its byte-faithful body, and the **last-applied
-/// fingerprint** the drift/apply merge stands on. Shared by every kind — a
-/// `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
-/// five columns.
+/// provenance, and the **last-applied fingerprint** the drift/apply merge stands
+/// on. Shared by every kind — a `[[skill]]`, `[[rule]]`, and every custom
+/// `[[<kind>]]` row all carry the same four columns.
 ///
 /// `pub(crate)` so the `re-add` drift direction can take the row a per-kind writer
 /// produced and fold it straight into the lock — reusing `import`'s single
@@ -125,8 +124,6 @@ pub(crate) struct RollupEntry {
     pub(crate) source_path: String,
     /// SHA-256 of the original source bytes (the drift anchor).
     pub(crate) import_hash: String,
-    /// SHA-256 of the byte-faithful body (frontmatter stripped).
-    pub(crate) body_hash: String,
     /// The fingerprint of the source as it was when `temper` last projected the
     /// surface onto it — the **third state** the three-state merge needs, beside
     /// desired (the surface) and real (on-disk). It lets `apply` tell a surface
@@ -303,7 +300,6 @@ pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry
         // it stands on disk is exactly what the surface was just derived from.
         last_applied: skill.provenance.import_hash.clone(),
         import_hash: skill.provenance.import_hash,
-        body_hash: sha256_hex(skill.body.as_bytes()),
     })
 }
 
@@ -342,7 +338,6 @@ pub(crate) fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry
         // At import the last-applied fingerprint is the import hash (see `import_skill`).
         last_applied: rule.provenance.import_hash.clone(),
         import_hash: rule.provenance.import_hash,
-        body_hash: sha256_hex(rule.body.as_bytes()),
     })
 }
 
@@ -457,7 +452,6 @@ fn import_custom_unit(
         // At import the last-applied fingerprint is the import hash (see `import_skill`).
         last_applied: import_hash.clone(),
         import_hash,
-        body_hash: sha256_hex(body.as_bytes()),
     })
 }
 
@@ -538,7 +532,7 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 /// Write the `<into>/lock.toml` roll-up: one `[[skill]]` table per imported
 /// skill, then one `[[rule]]` table per imported rule, then one `[[<kind>]]` table
 /// per imported custom-kind unit (custom kinds in name order), each with `name`,
-/// `source_path`, `import_hash`, `body_hash`, and the `last_applied` fingerprint.
+/// `source_path`, `import_hash`, and the `last_applied` fingerprint.
 ///
 /// An empty kind renders to no bytes (an empty `ArrayOfTables` emits nothing), so
 /// a harness with only some kinds yields exactly the rows it has — a skill-only
@@ -560,9 +554,9 @@ fn write_rollup(
     write_bytes(&into.join(LOCK_FILENAME), doc.to_string().as_bytes())
 }
 
-/// Build the `ArrayOfTables` for one kind's roll-up rows — the five shared columns
-/// in a fixed order, one table per entry. `last_applied` trails `body_hash` so the
-/// column addition is purely additive to an existing lock's layout.
+/// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
+/// (`name`, `source_path`, `import_hash`, `last_applied`) in a fixed order, one
+/// table per entry.
 fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
     let mut tables = ArrayOfTables::new();
     for entry in rollup {
@@ -570,7 +564,6 @@ fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
         table["name"] = value(entry.name.clone());
         table["source_path"] = value(entry.source_path.clone());
         table["import_hash"] = value(entry.import_hash.clone());
-        table["body_hash"] = value(entry.body_hash.clone());
         table["last_applied"] = value(entry.last_applied.clone());
         tables.push(table);
     }
@@ -782,7 +775,7 @@ primitive = \"headings\"\n";
     }
 
     #[test]
-    fn rollup_lists_one_entry_per_skill_with_both_hashes() {
+    fn rollup_lists_one_entry_per_skill_with_four_columns() {
         let harness = tmpdir("roll-src");
         write_fixture_harness(&harness);
         let into = tmpdir("roll-into");
@@ -795,19 +788,17 @@ primitive = \"headings\"\n";
             .unwrap();
         let skills = doc["skill"].as_array_of_tables().unwrap();
 
-        // One entry per skill, name-sorted, each carrying both hashes.
+        // One entry per skill, name-sorted, each carrying the four production columns.
         let names: Vec<&str> = skills.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert_eq!(names, vec!["coordinate", "demo"]);
 
         for table in skills.iter() {
             let import_hash = table["import_hash"].as_str().unwrap();
-            let body_hash = table["body_hash"].as_str().unwrap();
             let last_applied = table["last_applied"].as_str().unwrap();
             assert_eq!(import_hash.len(), 64);
-            assert_eq!(body_hash.len(), 64);
             assert!(table["source_path"].as_str().unwrap().ends_with("SKILL.md"));
-            // import_hash (whole source file) differs from body_hash (body only).
-            assert_ne!(import_hash, body_hash);
+            // The retired `body_hash` column is gone — no production reader.
+            assert!(table.get("body_hash").is_none());
             // The baseline: at import the last-applied fingerprint is the import
             // hash — the surface was just derived from the source as it stands.
             assert_eq!(last_applied, import_hash);
@@ -880,7 +871,7 @@ primitive = \"headings\"\n";
         assert_eq!(rule_names, vec!["collaboration", "rust"]);
         for table in rules.iter() {
             assert_eq!(table["import_hash"].as_str().unwrap().len(), 64);
-            assert_eq!(table["body_hash"].as_str().unwrap().len(), 64);
+            assert!(table.get("body_hash").is_none());
             assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
         }
     }
@@ -962,7 +953,7 @@ primitive = \"headings\"\n";
         assert_eq!(spec_names, vec!["00-intent", "20-surface"]);
         for table in specs.iter() {
             assert_eq!(table["import_hash"].as_str().unwrap().len(), 64);
-            assert_eq!(table["body_hash"].as_str().unwrap().len(), 64);
+            assert!(table.get("body_hash").is_none());
             assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
         }
 

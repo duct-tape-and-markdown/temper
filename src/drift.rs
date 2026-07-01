@@ -62,9 +62,9 @@
 //! skill/rule loaders and re-projects it into the surface tree via `import`'s own
 //! per-kind writers ([`import::import_skill`]/[`import::import_rule`]) — the single
 //! round-trip write path, never a second implementation. Each written artifact's
-//! lock row is refreshed to the current source bytes (its `import_hash`,
-//! `body_hash`, and `last_applied` fingerprint), an **added** source gaining a
-//! brand-new row. An **in-sync** artifact is left untouched (a no-op), and a
+//! lock row is refreshed to the current source bytes (its `import_hash` and
+//! `last_applied` fingerprint), an **added** source gaining a brand-new row. An
+//! **in-sync** artifact is left untouched (a no-op), and a
 //! **removed** one is skipped — `re_add` only pulls in what is actually on disk;
 //! reconciling a deletion is a different direction. Like the other two, it covers
 //! the built-in kinds; generic custom-kind re-add is follow-on work.
@@ -994,9 +994,9 @@ pub fn re_add(
 
 /// Fold the reconciled/added `updates` into `<workspace_dir>/lock.toml`,
 /// format-preserving via `toml_edit`: an existing row (matched by `source_path`
-/// within its kind's `[[<kind>]]` array) has its `import_hash`, `body_hash`, and
-/// `last_applied` refreshed in place; an added source with no row yet is appended
-/// as a fresh table carrying all five columns.
+/// within its kind's `[[<kind>]]` array) has its `import_hash` and `last_applied`
+/// refreshed in place; an added source with no row yet is appended as a fresh
+/// table carrying all four columns.
 fn rewrite_lock_rows(
     workspace_dir: &Path,
     updates: &[(&'static str, import::RollupEntry)],
@@ -1034,7 +1034,6 @@ fn rewrite_lock_rows(
         match existing.and_then(|index| rows.get_mut(index)) {
             Some(table) => {
                 table["import_hash"] = value(row.import_hash.clone());
-                table["body_hash"] = value(row.body_hash.clone());
                 table["last_applied"] = value(row.last_applied.clone());
             }
             None => rows.push(lock_table(row)),
@@ -1044,7 +1043,7 @@ fn rewrite_lock_rows(
     fs::write(&path, doc.to_string()).map_err(|source| DriftError::Write { path, source })
 }
 
-/// Build a fresh `lock.toml` table for an added artifact — the five shared columns
+/// Build a fresh `lock.toml` table for an added artifact — the four shared columns
 /// in the same fixed order `import` writes them, so an appended row reads
 /// identically to an imported one.
 fn lock_table(row: &import::RollupEntry) -> Table {
@@ -1052,7 +1051,6 @@ fn lock_table(row: &import::RollupEntry) -> Table {
     table["name"] = value(row.name.clone());
     table["source_path"] = value(row.source_path.clone());
     table["import_hash"] = value(row.import_hash.clone());
-    table["body_hash"] = value(row.body_hash.clone());
     table["last_applied"] = value(row.last_applied.clone());
     table
 }

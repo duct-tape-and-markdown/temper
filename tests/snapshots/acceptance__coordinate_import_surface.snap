@@ -7,7 +7,6 @@ expression: first
 name = "coordinate"
 source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
 import_hash = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
-body_hash = "a068e2892cc83c0bb02525b465b700da482586612547e08a24ca40fb095750a0"
 last_applied = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
 --- skills/coordinate/PLAYBOOK.md ---
 # Coordinate — playbook
