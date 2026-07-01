@@ -1,17 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile. SATISFIES-REPRESENTATION shipped, so the last link of the
-  requirements chain unblocks. Verified on disk: `satisfies`/`rationale`/
-  `[representation]` live on the skill+rule IR and `extract.rs` (`Features.satisfies`);
-  `compose.rs` carries `Requirement { means, required }` + `requirements()`;
-  `coverage.rs` still absent (REQUIREMENT-COVERAGE unshipped).
-- **Last shipped:** SATISFIES-REPRESENTATION (`79b0a44`); queue reconciled since.
+- **Phase:** reconcile. The whole requirements/satisfies/coverage chain is drained
+  and verified on disk (`coverage.rs` present + wired at `main.rs:442`, both
+  directions). The core engine is essentially spec-complete: contracts + admissibility,
+  the kind system (custom-kind declaration, extraction algebra, `src/spec.rs` retired
+  to `temper.toml` data), governance (count/membership/typed-ref/unique/role, degree/
+  acyclic/declared-edges, range), requirements coverage, drift (diff/apply/re-add),
+  and distribution's shipped half (schema validation channel, GitHub/SARIF/session-start
+  reporters, the session-start hook).
+- **Last shipped:** REQUIREMENT-COVERAGE (`0fdf80d`).
 - **In flight:** none.
-- **Pickable now (1):** **REQUIREMENT-COVERAGE** (`open`) — `check` gates referential
-  coverage (every `required` requirement resolves to a `satisfies`; every `satisfies`
-  resolves to a requirement). Sole open entry; the only `[requirement.*]` fixtures are
-  parse-only unit tests, so its blast radius (coverage/lib/main + tests) is disjoint.
-- **Deferred:** **AGENT-KIND** — deprioritized by the reframe; revive on demand.
+- **Pickable now (2, parallel-safe):** **INSTALL-GATE-WIRING** (`open`, install/main/lib)
+  and **SCHEMA-DOCS-CHANNEL** (`open`, contract/compose/schema/contracts) — disjoint file
+  sets. **BUNDLE-PLUGIN** is `blockedBy` INSTALL (shares main.rs+lib.rs). **PACKAGING-CHANNELS**
+  parked (needs human release creds). **AGENT-KIND** deferred.
+- **Blocked frontier (open questions, not fileable):** custom-kind graph wiring
+  (`reference-id-normalization`) and the spec contract's decision-marker clause
+  (`decision-marker-predicate`) — both await a human language/resolution decision.
 - **Inbox:** empty. Open questions unchanged (no fork resolved this tick).
 
-Plan continues: no — one gate flipped to `open`, one pickable entry, inbox empty; hand to build.
+Plan continues: no — queue reconciled, two disjoint `open` entries pickable, inbox empty; hand to build.

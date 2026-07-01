@@ -1,5 +1,166 @@
 [
   {
+    "tag": "INSTALL-GATE-WIRING",
+    "summary": "Add `temper install` — project the gate's wiring (SessionStart hook, CI job, schema modeline) into the harness under the three-state drift engine",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "Decision: `install` projects the gate's wiring; drift keeps it synced"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "src/install.rs",
+          "description": "The `install` verb: project temper's own gate integration points as ordinary artifacts under the existing drift engine (`src/drift.rs` public API — no re-implementation). Three placements: the `SessionStart` hook (the exec-form `temper session-start` command) into `.claude/settings.json`; the CI job into `.github/`; the `# yaml-language-server: $schema=…` modeline into artifact frontmatter headers. Each is written/merged through the same three-state (desired / last-applied / real-on-disk) logic drift already owns, so `install` is idempotent, dry-runnable, and re-add-able. Also expose a `gate_installed(&Workspace) -> Vec<Diagnostic>` helper reporting whether these placements are present and undrifted (the `temper check` self-verify below), so main.rs can fold it into the gate. Fail-loud: a placement that cannot be written errors, never silently skips (`specs/50-distribution.md`, 'Fail-loud delivery')."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Acceptance: `temper install` on a fixture harness writes the three placements; a second run lands `Unchanged` (idempotence); `--dry-run` writes nothing; a hand-drifted placement is detected by the self-verify helper. insta snapshots where output is stable."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod install;` beside the other modules (this entry owns the `pub mod` line)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add an `Install { path, dry_run }` variant to the `Command` enum and a dispatch arm calling `install::run`; and fold `install::gate_installed` into the `gate()` walkthrough so `temper check` reports its own gate is installed and undrifted (`specs/50-distribution.md`: 'the harness checking that its self-check is wired')."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "install projects the three placements; second run is Unchanged (idempotent); --dry-run writes nothing; drifted placement is flagged by the self-verify path."
+      }
+    ],
+    "acceptance": "`temper install` projects the SessionStart hook into `.claude/settings.json`, the CI job into `.github/`, and the schema modeline into artifact headers, all as artifacts under the three-state drift engine (idempotent, dry-runnable); `temper check` reports whether its own gate is installed and undrifted; a placement that cannot be written errors loudly; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Builds on drift's public API rather than re-emitting write-back logic (law 5). Disjoint from SCHEMA-DOCS-CHANNEL (that owns contract/compose/schema/contracts; this owns install/main/lib), so parallel-safe. BUNDLE-PLUGIN shares main.rs + lib.rs and is serialized behind it."
+  },
+  {
+    "tag": "SCHEMA-DOCS-CHANNEL",
+    "summary": "Emit the schema's docs/hover channel — per-field guidance prose carried on contract clauses, projected as JSON Schema `description`, never as validation",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "The gate at keystroke — the emitted schema"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Carry an optional per-clause `guidance` string on the parsed contract model — the best-practice text `specs/10-contracts.md` ('Templates') keeps *out of checks*, authored on the clause, never decided. Parse it (unknown-key admissibility must accept it); it is advisory-only and plays no part in conformance or admissibility beyond being present."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Thread `guidance` through contract layering (floor ⊕ temper.toml) so an adopted/extended clause keeps or overrides its guidance string, mirroring how severity/predicate already layer."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "Emit the docs channel: map each field clause's `guidance` to the corresponding JSON Schema property's `description` keyword (hover docs), strictly alongside — never mixed into — the existing validation keywords. Absent guidance ⇒ no `description`. The split is the on-law guarantee: taste can only ride `description`, never become a squiggle (`specs/50-distribution.md`)."
+        },
+        {
+          "path": "contracts/skill.anthropic.toml",
+          "description": "Author `guidance` prose on the decidable field clauses (the best-practice text that today lives only as spec prose), so the emitted schema carries real hover docs for the skill kind."
+        },
+        {
+          "path": "contracts/rule.toml",
+          "description": "Author `guidance` prose on the rule kind's field clauses, same as the skill contract."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Extend the schema/template tests: assert guidance parses and layers, and that `temper schema --kind skill` emits `description` for a clause carrying guidance and omits it for one that does not (insta snapshot); assert guidance never appears as a validation keyword."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "guidance parses + layers; `temper schema` emits it as JSON Schema `description` only; it never leaks into the validation channel; admissibility still passes with guidance present."
+      }
+    ],
+    "acceptance": "`temper schema [--kind <k>]` emits per-field guidance prose as JSON Schema `description` (the hover/docs channel) drawn from the contract, strictly separate from the decidable validation keywords; contracts parse and layer guidance without affecting conformance/admissibility; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Completes the two-channel schema `specs/50-distribution.md` mandates — validation (shipped) + docs (this). Guidance is authored, advisory, never checked (law 3): the medium enforces law 2. Disjoint from INSTALL-GATE-WIRING (contract/compose/schema/contracts vs install/main/lib), so parallel-safe."
+  },
+  {
+    "tag": "BUNDLE-PLUGIN",
+    "summary": "Add `temper bundle` — compose the imported surface into a publishable Claude Code plugin + `marketplace.json`",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "Outward seams"
+    },
+    "gate": { "kind": "blockedBy", "tag": "INSTALL-GATE-WIRING" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "src/bundle.rs",
+          "description": "The `bundle` verb: compose the imported surface into a publishable plugin tree — the bundled skill (how to operate the gate), the `SessionStart` hook in its own `hooks.json`, and the shipped contract templates embedded — plus a `marketplace.json` (`specs/50-distribution.md`, 'The plugin'). Reads the surface + contracts via existing public APIs (no compose.rs/contract.rs edits — those are SCHEMA-DOCS's). The plugin is a vendored, generated surface, itself an instance of what temper projects, so it is byte-faithful where it carries prose (law 5)."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "Acceptance: `temper bundle` on a fixture produces a plugin tree with the skill, `hooks.json`, embedded templates, and a well-formed `marketplace.json`; re-running is deterministic (insta snapshot)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod bundle;` (serialized behind INSTALL-GATE-WIRING, which co-owns this file)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add a `Bundle { path, out }` variant to the `Command` enum and a dispatch arm calling `bundle::run` (serialized behind INSTALL-GATE-WIRING, which co-owns main.rs)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "bundle emits a plugin tree (skill + hooks.json + embedded templates) and a well-formed marketplace.json; output is deterministic."
+      }
+    ],
+    "acceptance": "`temper bundle` composes the imported surface into a publishable plugin + `marketplace.json`, deterministically and byte-faithfully; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Serialized behind INSTALL-GATE-WIRING because both add a `Command` variant + `pub mod` line to main.rs/lib.rs — parallel `open` would conflict-revert the wave. Reads contracts/surface via existing APIs, so disjoint from SCHEMA-DOCS-CHANNEL's edits. `bundle` self-packaging temper's own plugin is the dogfood target."
+  },
+  {
+    "tag": "PACKAGING-CHANNELS",
+    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "Decision: acquisition rides the ecosystem's package managers"
+    },
+    "gate": { "kind": "parked", "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "package.json",
+          "description": "npm entry with platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's distribution pattern); a small launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/50-distribution.md`)."
+        },
+        {
+          "path": ".github/workflows/release.yml",
+          "description": "Build the per-target release binaries and publish them to the npm platform packages, GitHub release assets, and the Homebrew tap; channel auto-detected."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
+    "notes": "Release infrastructure, mostly outside `src/` — the flume cargo gates (fmt/clippy/test) can't validate npm/Homebrew publish, and channels need human-held creds (npm org, tap repo, signing). Parked until a human sets those up; the mechanical wrapper/launcher is buildable once they exist. `(binary-bootstrap)` is RESOLVED — this is execution, not a fork."
+  },
+  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md`, typed frontmatter + byte-faithful body, with its own decidable contract",
     "per": {
@@ -15,37 +176,37 @@
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs` end-to-end. Split YAML frontmatter into typed fields (`name`, `description`, optional `tools`/`model`) with every unknown key preserved verbatim in `extra` (never dropped), a byte-faithful markdown body, and `provenance { source_path, import_hash }` (SHA-256 of the source bytes). Ship `from_source_file` (parse + hash), `to_meta_document` (`toml_edit` header, comment/order preserving), and `from_surface_dir` (reload the written surface). Round-trip discipline: body copied byte-for-byte, only the header rewritten (`.claude/rules/rust.md`). The name is the file stem; identity is the path, not an internal field (`specs/10-contracts.md`)."
+          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs` end-to-end. Split YAML frontmatter into typed fields (`name`, `description`, optional `tools`/`model`) with every unknown key preserved verbatim in `extra`, a byte-faithful markdown body, and `provenance { source_path, import_hash }`. Ship `from_source_file`, `to_meta_document`, and `from_surface_dir`. Body copied byte-for-byte; only the header rewritten. Identity is the path (file stem), not an internal field (`specs/10-contracts.md`)."
         },
         {
           "path": "contracts/agent.toml",
-          "description": "The built-in decidable floor for the `agent` kind, embedded like `contracts/rule.toml` — decidable clauses only, identity by path not name. Clauses: `name` required + `allowed_chars` `[a-z0-9-]` (marked harness fact); `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores (`globs`/`alwaysApply`); an advisory `max_lines`. No heuristic/undecidable clause (`specs/00-intent.md` law 3) — extraction mirrors the real subagent format, the contract is a layerable template (`specs/40-composition.md`)."
+          "description": "The built-in decidable floor for the `agent` kind, embedded like `contracts/rule.toml`. Clauses: `name` required + `allowed_chars` `[a-z0-9-]` (harness fact); `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores (`globs`/`alwaysApply`); an advisory `max_lines`. No heuristic clause (`specs/00-intent.md` law 3)."
         },
         {
           "path": "tests/agent_contract.rs",
-          "description": "Fixture-driven proof mirroring `tests/rule_contract.rs`: one deliberately-broken agent per clause proving it fires (missing `description`, an inert `globs` key, an uppercase `name`) and a clean agent that trips nothing; an `insta` import round-trip proving re-importing an unchanged agent yields an identical surface (idempotence)."
+          "description": "Fixture-driven proof mirroring `tests/rule_contract.rs`: one broken agent per clause proving it fires, a clean agent that trips nothing, and an insta import round-trip proving idempotence."
         }
       ],
       "edit": [
         {
           "path": "src/lib.rs",
-          "description": "Add `pub mod agent;` beside the other artifact-kind modules (this foundation entry owns the `pub mod` line so no other entry co-edits `lib.rs`)."
+          "description": "Add `pub mod agent;` beside the other artifact-kind modules (this entry owns the `pub mod` line)."
         },
         {
           "path": "src/check.rs",
-          "description": "Extend `Workspace` with an `agents: Vec<Agent>` field and load it under `<dir>/agents/*` in `Workspace::load` (name-sorted via the existing `surface_dirs`), and add an `Agent(#[from] AgentError)` arm to `WorkspaceError`. Update the in-module load tests to construct/assert the new field."
+          "description": "Extend `Workspace` with `agents: Vec<Agent>` loaded under `<dir>/agents/*`, and add an `Agent(#[from] AgentError)` arm to `WorkspaceError`. Update the load tests."
         },
         {
           "path": "src/extract.rs",
-          "description": "Add `pub fn agent_features(&Agent) -> Features` mirroring `rule_features`: typed fields as `string` scalars, every `extra` key folded into the same name-keyed map so `forbidden_keys` resolves the ignored Cursor keys, `body_lines` over the byte-faithful body."
+          "description": "Add `pub fn agent_features(&Agent) -> Features` mirroring `rule_features`: typed fields as scalars, every `extra` key folded into the name-keyed map, `body_lines` over the byte-faithful body."
         },
         {
           "path": "src/import.rs",
-          "description": "Discover `.claude/agents/*.md`, project each to `<into>/agents/<name>/{meta.toml, AGENT.md}` via the Agent IR, and add a `[[agent]]` row per agent to the `lock.toml` roll-up — parallel to the existing rule discovery/import/lock path. Extend the import idempotence snapshot to cover an agents fixture."
+          "description": "Discover `.claude/agents/*.md`, project each to `<into>/agents/<name>/{meta.toml, AGENT.md}`, and add a `[[agent]]` lock row per agent — parallel to the rule path. Extend the idempotence snapshot to cover an agents fixture."
         },
         {
           "path": "src/main.rs",
-          "description": "Wire the `agent` kind into the shared `gate()`: add a `BUILTIN_AGENT_CONTRACT` embed, extract `agent_features` over `ws.agents`, compose the effective agent contract (floor ⊕ layer), extend the admissibility + conformance streams, add `\"agent\"` to the `by_kind` map, and add the agent floor to the `schema` command's `floors` vec."
+          "description": "Wire the `agent` kind into `gate()`: embed `BUILTIN_AGENT_CONTRACT`, extract `agent_features` over `ws.agents`, compose the effective contract (floor ⊕ layer), extend the admissibility + conformance streams, add `\"agent\"` to `by_kind`, and add the agent floor to `schema`'s `floors`."
         }
       ],
       "retire": []
@@ -57,7 +218,7 @@
         "asserts": "Each decidable clause of contracts/agent.toml fires on its broken fixture and stays silent on a clean agent; import of an unchanged agent is idempotent (insta snapshot)."
       }
     ],
-    "acceptance": "`temper check` dispatches `.claude/agents/*.md` artifacts to the embedded agent contract (conformance) and the agent contract passes admissibility; `temper import` scans, projects, and round-trips agents idempotently with `[[agent]]` lock rows; `temper schema --kind agent` emits the agent contract; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred under the requirements/satisfies reframe (inbox, spec dacec45): more built-in kinds is the wrong direction — the value is meaningful contracts + the representation surface. Revive only if a story demands the `agent` kind. Files/acceptance stay valid for that revival; mirrors the rule kind end-to-end. If revived, re-check its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
+    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the embedded agent contract (conformance) and the agent contract passes admissibility; `temper import` scans, projects, and round-trips agents idempotently with `[[agent]]` lock rows; `temper schema --kind agent` emits the agent contract; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction; value is meaningful contracts + the representation surface. Revive only if a story demands the `agent` kind — files/acceptance stay valid; mirrors the rule kind end-to-end. On revival re-check its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
   }
 ]
