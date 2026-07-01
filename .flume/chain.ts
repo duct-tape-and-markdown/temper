@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Chain, Phase, TickContext, Gate } from "@dtmd/flume";
+import type { Agent, Chain, Phase, TickContext, Gate } from "@dtmd/flume";
 import {
   claudeCode,
   withSessionCapture,
@@ -250,19 +250,42 @@ export const forkResolver = (repoRoot: string) => {
  * FLUME_DIR (the relocatable state root) so the whole footprint tears down with
  * one `rm`; the `?? CHAIN_DIR` fallback is defensive only.
  */
-export const agent = withTerminalRenderer(
-  withSessionCapture(
-    claudeCode({
-      outputFormat: "stream-json",
-      extraArgs: ["--exclude-dynamic-system-prompt-sections"],
-    }),
-    {
-      dir: resolve(process.env.FLUME_DIR ?? CHAIN_DIR, "sessions"),
-      filename: (inv) => {
-        const ts = new Date().toISOString().replace(/[:.]/g, "-");
-        const cwdName = inv.cwd.split("/").pop() ?? "tick";
-        return `${ts}-${cwdName}.jsonl`;
+const makeAgent = (model: string) =>
+  withTerminalRenderer(
+    withSessionCapture(
+      claudeCode({
+        outputFormat: "stream-json",
+        extraArgs: [
+          "--exclude-dynamic-system-prompt-sections",
+          "--model",
+          model,
+        ],
+      }),
+      {
+        dir: resolve(process.env.FLUME_DIR ?? CHAIN_DIR, "sessions"),
+        filename: (inv) => {
+          const ts = new Date().toISOString().replace(/[:.]/g, "-");
+          const cwdName = inv.cwd.split("/").pop() ?? "tick";
+          return `${ts}-${cwdName}.jsonl`;
+        },
       },
-    },
-  ),
-);
+    ),
+  );
+
+/**
+ * Model routing: plan reconciles the queue against the corpus (judgment) and
+ * runs on Opus; build executes one clearly-dictated entry under the cargo
+ * gates and runs on Sonnet. The runtime exposes one shared `agent` export for
+ * every phase, so route on the rendered prompt's first heading — `# ASSIGNED
+ * ENTRY` is build's (prompts/build.md); everything else is plan's.
+ */
+const planAgent = makeAgent("claude-opus-4-8");
+const buildAgent = makeAgent("claude-sonnet-5");
+
+export const agent: Agent = {
+  name: "phase-model-router",
+  invoke: (inv) =>
+    (inv.prompt.startsWith("# ASSIGNED ENTRY") ? buildAgent : planAgent).invoke(
+      inv,
+    ),
+};
