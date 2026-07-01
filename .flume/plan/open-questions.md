@@ -180,6 +180,34 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   `query` verb. Fileable as build work **after** the surface-language migration,
   once coverage + graph data exist to read. Kept as the decision record.
 
+- `(kind-harness-axis)` — OPEN. Kind identity has no harness axis: bare
+  `skill`/`rule` works while Claude Code is the only harness, but a second
+  harness's artifact classes collide — Cursor's "rule" is a different format
+  with a different adapter and a different sourced package than Claude Code's.
+  The corpus already stubs the axis (`05-model.md`'s harness/profile row;
+  `45-governance.md`'s harness-version-pinning loose end) without carrying it.
+  Options: harness-scoped kind names (`claude-code.rule`), a `profile`/harness
+  field on the kind definition with bare names resolving inside the active
+  profile, or defer wholesale. Package naming already scales without it
+  (`rule.anthropic` / `rule.cursor`, `10-contracts.md`); only *kind* identity
+  is open. No dependent today — becomes load-bearing with the first
+  non-Claude-Code adapter family. Human to settle when a second harness is
+  actually scheduled, not before.
+
+- `(multi-harness-projection)` — OPEN, strategic. The surface language is
+  harness-neutral and built-in kinds are two-faced adapters (`15-kinds.md`), so
+  one member could in principle project to N harnesses at once — `.claude/rules/`
+  *and* `.cursor/rules/` from one authored document: rulesync's portability
+  falling out of the architecture as a side effect, while keeping the quality
+  story rulesync lacks. But it is a real scope call with lossiness questions
+  the mirror-model reframe never had to answer: per-harness capability mismatch
+  (Claude Code `paths` scoping has no Cursor equivalent and vice versa), which
+  harness is authoritative when capabilities diverge, and whether a lossy
+  projection is a verdict or an error. The *read* face of foreign formats is
+  already decided (`50-distribution.md`, migrate-with-a-fix); only the write
+  face is open. Explicitly out of scope for the package-authoring session and
+  the launch wedge; human fork, no dependents filed.
+
 - `(project-name)` — RESOLVED, provisionally (`specs/55-offering.md` Decision:
   "the name stays `temper`, carried on scoped registries"). Keep the name; the
   contested registries are routed around: crate `temper-cli` (binary stays

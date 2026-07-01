@@ -225,7 +225,8 @@ house.
 ### Decision: package binding is by artifact kind
 
 **Chosen:** `check` binds each kind to a package — the built-in package by default
-(skill → `skill.anthropic`, rule → `rule`), overridable in the assembly. **Rejected
+(skill → `skill.anthropic`, rule → `rule.anthropic`; built-ins are named for
+their source, `10-contracts.md`), overridable in the assembly. **Rejected
 (for now):** a single active contract, or a CLI flag to pick one — neither generalizes
 to a mixed harness (skills *and* rules in one import). **Superseded:** the earlier
 deferral of project-authored packages to "a later extension" — packages are now

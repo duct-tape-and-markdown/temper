@@ -224,6 +224,32 @@ and needing its own referential check to stay sound. Physical separation was a
 physical proxy for a semantic invariant the algebra already enforces; colocation
 deletes the reference instead of checking it.
 
+### Decision: a built-in package is named for its source, and cited to it
+
+**Chosen:** a built-in package's name is `<kind>.<source>` — the suffix is
+**provenance of taste**, naming whose documented opinions the clauses encode:
+`skill.anthropic`, and `rule` is **renamed `rule.anthropic`** (its clauses are
+equally Anthropic-sourced — the `paths` scoping key, the lean-rule guidance;
+the bare name was slice-order accident, not design). Bare names belong to
+project-authored packages; the suffix scales to other sources and other
+harnesses (`rule.cursor` would be Cursor's opinions about Cursor's format) and
+keeps multiple packages per kind legible (`skill.anthropic` beside a project's
+`skill.yourteam`). And the sourcing is **data, not a file comment**: a clause
+may carry a `source` citation (URL + retrieved date) beside its `guidance`, and
+for a *built-in* package's clauses it is the expected posture — their whole
+legitimacy is *sourced* opinion. This is what makes "temper-maintained"
+auditable: when the upstream docs move, the update ritual is *walk the clauses,
+re-check their citations*, never *re-derive the package from memory*. It
+composes with the fact/opinion marking (`15-kinds.md`): facts drift when the
+harness's **behavior** changes, opinions when the **docs** change — different
+cadences, both now traceable. The rename lands when the built-in packages are
+authored on temper's own surface (the `contracts/` retirement, Decision below);
+the embedded `rule` floor persists only until then. **Rejected:** bare kind
+names for built-ins (hides whose taste it is, and collides with the
+project-package namespace); source attribution as file-header prose (what
+`contracts/*.toml` carries today — unauditable, and it drifts exactly like any
+uncited claim).
+
 ### Decision: a package is project-authorable, not vendor-privileged — and is itself a kind
 
 **Chosen:** a package is authored the same way regardless of origin; the only
