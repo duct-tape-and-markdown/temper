@@ -9,23 +9,26 @@ package/assembly/kind model — not the shipped contract engine, which today sti
 embeds the built-in contracts from `contracts/*.toml` under the retired
 vocabulary (`template`, requirement-typing `contract`) pending that migration.
 
-- `(package-surface-sequencing)` — The corpus reconciled to the package/assembly
-  model (`5b06eae`): a **package** is a reusable bundle authored under
-  `.temper/packages/<name>/` and embedded, the `contracts/` embedded std-lib
-  **retires** (`10-contracts.md` Decision "a package is project-authorable … and is
-  itself a kind"), and a **custom kind** is authored under `.temper/kinds/<name>/`,
-  not inlined in `[kind.*]` (`40-composition.md` Decision). The code still speaks the
-  retired vocabulary and embeds `contracts/*.toml` (main.rs:59/65). The knot: the
-  human **parked** temper's `.temper/` self-application surface at `cb52cc3` "pending
-  code reconciliation," yet the reconciled code must *embed authored package sources
-  from `.temper/packages/`* — which do not exist until that surface is un-parked. A
-  human settles the sequencing: un-park the surface first (author temper's own
-  `.temper/packages/` + `.temper/kinds/`) then reconcile code, or reconcile code
-  against test fixtures and un-park after; plus the embedding mechanism (a directory
-  of authored package sources needs `include_dir`/`build.rs` — a sanctioned-crate
-  addition, `CLAUDE.md`), and whether the migration lands as one wave or a serialized
-  chain. Until settled, PACKAGE-MODEL-RECONCILE stays parked; the code runs on the
-  embedded `contracts/` floor as it does today.
+- `(package-surface-sequencing)` — RESOLVED: **machinery first, dogfood after.**
+  The code reconciles to the model **against test fixtures**; temper's own
+  `.temper/` surface stays parked until the machinery it would be authored in
+  exists, then un-parks as a *validation* step (the dogfood proves the reconciled
+  code, it is not a prerequisite tangled into it). Same order one rung up: temper's
+  own `specs/` corpus migrates onto the surface (as `.temper/specs/` projecting to
+  `specs/`) only after the surface language ships — chicken before egg, machinery
+  before self-application. NB the model this reconciles *to* has deepened since the
+  fork was filed: the surface is now the **surface-language** model — a member is
+  **one authored document** (TOML-fenced clause-module header over the body, no
+  `meta.toml`+body split), a **package** is one `PACKAGE.md` in the same medium
+  (clauses in the header, guidance colocated), `import` is a one-time **migration**
+  with incremental recognition, and `apply` **re-emits the projection
+  deterministically** (the surgical-YAML-patch rule is superseded) — see the revised
+  `20-surface.md`, `15-kinds.md` (the two-faced adapter), `10-contracts.md`
+  (Packages). Plan reconciles the queue against *that* corpus, deriving the wave
+  shape from dependencies as usual; the embedding mechanism for the shipped std-lib
+  packages (`include_dir`/`build.rs` — a sanctioned-crate addition when reached)
+  lands when temper's own `.temper/packages/` exist to embed, and the embedded
+  `contracts/*.toml` floor persists only until then.
 
 - `(contract-name-field)` — RESOLVED + SHIPPED (88246bf). Option B
   (`specs/10-contracts.md` Decision: "a contract is identified by its path/role,
@@ -79,12 +82,14 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   global config is a later landscape root, not a redesign. Was the last fork gating
   the `apply`/`install` write-back path — now fork-free.
 
-- `(yaml-writeback)` — RESOLVED (`specs/20-surface.md` Decision: "write-back patches
-  changed fields, never re-emits"). `apply` patches only the changed fields in place
-  (TOML via `toml_edit`, YAML frontmatter by surgical field patch), leaving every
-  untouched byte exactly as written. Rejected: re-emitting a header from scratch —
-  no comment-preserving YAML editor exists in Rust, so a full re-emit is the lossy
-  round-trip law 5 forbids. Unblocks the `apply` path.
+- `(yaml-writeback)` — RESOLVED, then SUPERSEDED (`specs/20-surface.md` Decision:
+  "the projection is re-emitted; the surface is patched"). The original resolution
+  (patch changed YAML fields surgically, never re-emit) was load-bearing when
+  `.claude/` was a peer surface humans hand-curated. Under the surface-language
+  model the projection is *generated* output: `apply` re-emits it deterministically
+  (nothing of the human's in it to lose — content lives in the surface), and only
+  the surface's own TOML is patched format-preserving (`toml_edit`). YAML exists
+  only on the generated side. Kept as the decision record.
 
 - `(surface-authority)` — RESOLVED (`specs/20-surface.md` Decision: "the surface is
   the source of truth"). The composition surface is canonical; `.claude/` + `specs/`
