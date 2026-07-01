@@ -16,7 +16,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (the commented gap ~451-454), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
+          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (the commented gap at kind.rs:451-454, inside `Kind::extract`), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
         },
         {
           "path": "tests/coverage.rs",
@@ -33,7 +33,7 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "kind::Unit hardcodes `satisfies=Vec::new()` (kind.rs:451-454 commented gap, confirmed on disk). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. On revival: import_custom_unit writes provenance-only meta.toml (no `[representation]`), so add the projection first, then the read. Revive when the dogfood needs the spec corpus in coverage."
+    "notes": "kind.rs:451-454 hardcodes `satisfies=Vec::new()` in `Kind::extract` (confirmed on disk). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. On revival: import_custom_unit (import.rs:409) writes provenance-only meta.toml (no `[representation]`), so add the projection first, then the read. Revive when the dogfood needs the spec corpus in coverage."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -50,21 +50,22 @@
     "files": {
       "new": [
         {
-          "path": "package.json",
-          "description": "npm entry with platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's distribution pattern); a small launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/50-distribution.md`)."
-        },
-        {
           "path": ".github/workflows/release.yml",
           "description": "Build the per-target release binaries and publish them to the npm platform packages, GitHub release assets, and the Homebrew tap; channel auto-detected."
         }
       ],
-      "edit": [],
+      "edit": [
+        {
+          "path": "package.json",
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than blindly clobbering the harness manifest."
+        }
+      ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infrastructure, mostly outside `src/` — the flume cargo gates (fmt/clippy/test) can't validate npm/Homebrew publish, and channels need human-held creds (npm org, tap repo, signing). Parked until a human sets those up; the mechanical wrapper/launcher is buildable once they exist. `(binary-bootstrap)` is RESOLVED — this is execution, not a fork."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — the npm-distribution config must reconcile with or split from it, never blindly create a second. Parked until a human sets creds up. `(binary-bootstrap)` RESOLVED — execution, not a fork."
   },
   {
     "tag": "AGENT-KIND",

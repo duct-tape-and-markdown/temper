@@ -1,20 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk: wave 2 (DEPENDENCY-EXISTS-FENCE,
-  SHA256-HOIST, MATCHSELECTOR-ROLE-DROP) shipped at `d78cf65` — the `role:` marker
-  is gone from the fill vocabulary, the four sha256 defs are hoisted into `hash.rs`,
-  and `dependency-exists` is fenced at admissibility (engine.rs). One new gap filed:
-  the spec names a gitignored `temper-local.toml` (`40-composition.md`) but `main.rs`
-  loads only `temper.toml`. Everything else is either shipped or fork-blocked. Inbox empty.
-- **Last shipped:** DEPENDENCY-EXISTS-FENCE / SHA256-HOIST / MATCHSELECTOR-ROLE-DROP
-  (`d78cf65`).
+- **Phase:** reconcile. Verified on disk: TEMPER-LOCAL-LAYER shipped at `c45189a`
+  — `main.rs` folds a gitignored `temper-local.toml` over `temper.toml`
+  (`TEMPER_LOCAL_TOML`, main.rs:54/389; `compose.rs:1023`). Governance frontier is
+  complete on disk: count/membership/unique/degree/acyclic/range all present
+  (`roster.rs`, `graph.rs`, `contract.rs`). No new gap: the remaining spec frontier
+  (spec-kind references-resolve, decisions-name, read-verbs) is fork-blocked, not
+  buildable. Inbox empty.
+- **Last shipped:** TEMPER-LOCAL-LAYER (`c45189a`).
 - **In flight:** none.
-- **Pickable now (1):** TEMPER-LOCAL-LAYER — `main.rs` + `compose.rs` +
-  `tests/temper_toml.rs`. No other `open` entry, so no parallel-conflict risk.
-- **Carried:** COVERAGE-CUSTOM-KIND deferred (priority; kind.rs:451-454 gap confirmed),
-  PACKAGING-CHANNELS parked (human release creds), AGENT-KIND deferred (reframe).
+- **Pickable now (0):** every pending entry is deferred/parked. COVERAGE-CUSTOM-KIND
+  deferred (priority; kind.rs:451-454 gap confirmed), PACKAGING-CHANNELS parked
+  (human release creds; corrected — root `package.json` already exists as the private
+  flume manifest, so `edit` not `new`), AGENT-KIND deferred (reframe).
 - **Blocked frontier (open questions, unchanged):** `(reference-id-normalization)` +
   `(decision-marker-predicate)` gate the spec-kind references-resolve / decisions-name
   clauses; `(read-verbs)` gates `why`/`requirements` CLI verbs — all await a human decision.
 
-Plan continues: no — queue reconciled, one disjoint `open` entry pickable, inbox drained; hand to build.
+Plan continues: no — queue reconciled (3 carried entries confirmed still-valid gaps,
+PACKAGING-CHANNELS corrected), inbox empty, no buildable `open` entry. All remaining
+work is deferred/parked or fork-blocked; nothing for build to pick and nothing more to plan.
