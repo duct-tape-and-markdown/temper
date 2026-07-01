@@ -403,8 +403,10 @@ fn fillers<'a>(selector: &MatchSelector, candidates: &'a [Features]) -> Vec<&'a 
 }
 
 /// Whether one artifact's [`Features`] fills the role's selector — the decidable
-/// match at the heart of selection.
-fn matches(selector: &MatchSelector, features: &Features) -> bool {
+/// match at the heart of selection. `pub(crate)` so the graph-scope `degree` check
+/// ([`crate::graph`]) selects a role's matched nodes by the *same* decidable
+/// selector this roster scope uses, never a second matcher that could disagree.
+pub(crate) fn matches(selector: &MatchSelector, features: &Features) -> bool {
     match selector {
         MatchSelector::Name { glob } => glob_matches(glob, &features.id),
         // The artifact opts in by declaring the role in a `role:` frontmatter

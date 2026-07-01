@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::compose::{AuthorLayer, ComposeError, Edge, Governs};
+use temper::compose::{AuthorLayer, ComposeError, DegreeBound, Edge, EdgeBound, Governs};
 use temper::contract::{Clause, Predicate, Severity};
 use temper::kind::{KindError, Primitive};
 
@@ -429,4 +429,124 @@ primitive = "paragraph_meaning"
         ComposeError::Extraction(KindError::UnknownPrimitive { ref primitive, .. })
             if primitive == "paragraph_meaning"
     ));
+}
+
+#[test]
+fn a_degree_bound_parses_into_a_typed_role() {
+    // The graph-scope `degree` predicate: an inline `{ incoming, outgoing }` table
+    // with per-direction `{ min?, max? }` bounds parses onto the role. The two worked
+    // cases — "self-registering" `incoming = { max = 0 }` and a bounded outgoing —
+    // land as `EdgeBound`s with their open endpoints left `None`.
+    let toml = r#"
+[role.self-registering]
+artifact = "skill"
+contract = "contracts/skill.toml"
+match = { name = "*" }
+degree = { incoming = { max = 0 }, outgoing = { min = 1, max = 3 } }
+"#;
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+    let role = layer
+        .roles()
+        .get("self-registering")
+        .expect("the role parses");
+    assert_eq!(
+        role.degree,
+        Some(DegreeBound {
+            incoming: Some(EdgeBound {
+                min: None,
+                max: Some(0),
+            }),
+            outgoing: Some(EdgeBound {
+                min: Some(1),
+                max: Some(3),
+            }),
+        })
+    );
+}
+
+#[test]
+fn a_routed_degree_bound_leaves_the_upper_endpoint_open() {
+    // "Routed: at least one incoming" is `incoming = { min = 1 }` — an open-above
+    // bound, its `max` left `None` so any positive in-degree satisfies it.
+    let toml = r#"
+[role.routed]
+artifact = "skill"
+contract = "contracts/skill.toml"
+match = { name = "*" }
+degree = { incoming = { min = 1 } }
+"#;
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+    let role = layer.roles().get("routed").expect("the role parses");
+    assert_eq!(
+        role.degree,
+        Some(DegreeBound {
+            incoming: Some(EdgeBound {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: None,
+        })
+    );
+}
+
+#[test]
+fn a_degree_naming_no_direction_is_a_load_error() {
+    // A `degree` that names neither `incoming` nor `outgoing` constrains nothing —
+    // a vacuous clause the author cannot have meant, rejected at load.
+    let toml = r#"
+[role.gate]
+artifact = "skill"
+contract = "contracts/skill.toml"
+match = { name = "*" }
+degree = { }
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(
+        err,
+        ComposeError::RoleBadDegree { ref role, .. } if role == "gate"
+    ));
+}
+
+#[test]
+fn an_endpoint_less_degree_direction_is_a_load_error() {
+    // A direction bound with neither `min` nor `max` admits every degree — malformed,
+    // the way a `degree` naming no direction is.
+    let toml = r#"
+[role.gate]
+artifact = "skill"
+contract = "contracts/skill.toml"
+match = { name = "*" }
+degree = { incoming = { } }
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(err, ComposeError::RoleBadDegree { .. }));
+}
+
+#[test]
+fn an_inverted_degree_bound_is_a_load_error() {
+    // `min > max` admits no degree at all — a vacuous bound, rejected at load the way
+    // an inverted `count` bound is rejected as inadmissible.
+    let toml = r#"
+[role.gate]
+artifact = "skill"
+contract = "contracts/skill.toml"
+match = { name = "*" }
+degree = { outgoing = { min = 3, max = 1 } }
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(err, ComposeError::RoleBadDegree { .. }));
+}
+
+#[test]
+fn a_negative_degree_endpoint_is_a_load_error() {
+    // A negative endpoint cannot be a `usize` edge count — rejected, not floored.
+    let toml = r#"
+[role.gate]
+artifact = "skill"
+contract = "contracts/skill.toml"
+match = { name = "*" }
+degree = { incoming = { min = -1 } }
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(err, ComposeError::RoleBadDegree { .. }));
 }

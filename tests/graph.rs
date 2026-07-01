@@ -292,3 +292,142 @@ fn a_cyclic_reference_graph_fails_the_run() {
         run.output
     );
 }
+
+/// A `temper.toml` declaring the `rule → skill` `routes_to` edge plus a role
+/// carrying a `degree` bound (`clause`), over an inline `required`-`name` contract so
+/// the role is admissible and its skill filler conforms — the only finding a case can
+/// produce is the degree one. `art`/`sel` pick which kind and artifact the bound
+/// ranges over; `field` is the inline clause's required field (a `name` for a skill,
+/// a `routes_to` for the routing rule).
+fn degree_temper_toml(art: &str, sel: &str, field: &str, clause: &str) -> String {
+    format!(
+        "[[kind.rule.relationships]]\n\
+         field = \"routes_to\"\n\
+         to = \"skill\"\n\
+         [role.gate]\n\
+         artifact = \"{art}\"\n\
+         match = {{ name = \"{sel}\" }}\n\
+         degree = {{ {clause} }}\n\
+         [[role.gate.clause]]\n\
+         severity = \"required\"\n\
+         predicate = \"required\"\n\
+         field = \"{field}\"\n"
+    )
+}
+
+#[test]
+fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
+    let root = tmpdir("degree-self-reg-fires");
+    // The rule `style` routes to the skill `standards`, so `standards` has incoming
+    // degree 1. A role declaring the skill self-registering (`incoming = { max = 0 }`,
+    // "must not be pointed at") is violated — the run fails on the degree finding.
+    import_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &clean_skill("standards"),
+    );
+    write_temper_toml(
+        &root,
+        &degree_temper_toml("skill", "standards", "name", "incoming = { max = 0 }"),
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a self-registering skill that is pointed at must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("degree")
+            && run.output.contains("incoming")
+            && run.output.contains("standards"),
+        "the finding names the degree bound, the direction, and the over-connected artifact, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
+    let root = tmpdir("degree-self-reg-passes");
+    // Same edge and harness, but the bound ranges over the *rule* `style`: nothing
+    // points at the rule (the only edge is rule → skill), so its incoming degree is
+    // zero — inside `incoming = { max = 0 }`, and the run is clean.
+    import_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &clean_skill("standards"),
+    );
+    write_temper_toml(
+        &root,
+        &degree_temper_toml("rule", "style", "routes_to", "incoming = { max = 0 }"),
+    );
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a self-registering rule that nothing points at passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
+    let root = tmpdir("degree-routed-passes");
+    // The rule routes to `standards`, so the skill has incoming degree 1 — inside the
+    // open-above routed bound `incoming = { min = 1 }` ("must be reachable"). Clean.
+    import_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &clean_skill("standards"),
+    );
+    write_temper_toml(
+        &root,
+        &degree_temper_toml("skill", "standards", "name", "incoming = { min = 1 }"),
+    );
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a routed skill that a rule reaches passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
+    let root = tmpdir("degree-routed-fires");
+    // The bound ranges over the *rule* `style` and requires it reachable (`incoming =
+    // { min = 1 }`), but nothing points at the rule (the only edge is rule → skill),
+    // so its incoming degree is zero — outside the bound. The run fails on degree.
+    import_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &clean_skill("standards"),
+    );
+    write_temper_toml(
+        &root,
+        &degree_temper_toml("rule", "style", "routes_to", "incoming = { min = 1 }"),
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a routed rule nothing reaches must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("degree")
+            && run.output.contains("incoming")
+            && run.output.contains("style"),
+        "the finding names the degree bound, the direction, and the unreachable artifact, got:\n{}",
+        run.output
+    );
+}

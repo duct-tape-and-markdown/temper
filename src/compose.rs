@@ -265,6 +265,14 @@ pub struct Role {
     /// (no membership gate). Orthogonal to `count`/`unique`/`required`; checked in
     /// [`crate::roster`].
     pub membership: Option<Membership>,
+    /// An optional graph-scope `degree` bound (`specs/45-governance.md`, "The graph
+    /// scope (the model)"): the in/out edge count of every artifact the role's
+    /// selector matches must land in the declared bound over the harness reference
+    /// graph. Declared on the role (a set-scope home) but ranging over the *edge*
+    /// graph, so it is checked in [`crate::graph`] — reusing the resolved arcs route
+    /// resolution and `acyclic` assemble — not the set-scope [`crate::roster`].
+    /// Absent ⇒ `None` (no degree gate). Orthogonal to `count`/`unique`/`membership`.
+    pub degree: Option<DegreeBound>,
     /// An optional external verifier for the behavioral remainder (`verified_by`).
     /// Stored verbatim; whether it *resolves* is an admissibility check left to a
     /// follow-on entry.
@@ -283,6 +291,50 @@ pub struct CountBound {
     pub min: usize,
     /// The inclusive upper bound on the matched-set size.
     pub max: usize,
+}
+
+/// The graph-scope `degree` predicate declared on a role — an optional inclusive
+/// bound on the **incoming** and/or **outgoing** edge count of every artifact the
+/// role's `match` selects over the harness reference graph
+/// (`specs/45-governance.md`, "The graph scope (the model)"). Declared on the role
+/// (a set-scope home) but ranging over the *edge* graph: "self-registering
+/// artifact: zero incoming" is `degree = { incoming = { max = 0 } }`; "routed
+/// artifact: at least one incoming" is `degree = { incoming = { min = 1 } }`. At
+/// least one direction is present (an empty `degree` constrains nothing — rejected
+/// at parse). Deciding a matched node's degree against the resolved arcs lives in
+/// [`crate::graph`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DegreeBound {
+    /// The bound on a matched node's incoming edge count (how many nodes point at
+    /// it). Absent ⇒ `None` (incoming degree is unconstrained).
+    pub incoming: Option<EdgeBound>,
+    /// The bound on a matched node's outgoing edge count (how many nodes it points
+    /// at). Absent ⇒ `None` (outgoing degree is unconstrained).
+    pub outgoing: Option<EdgeBound>,
+}
+
+/// An inclusive `[min, max]` bound on a node's edge count in one direction, each
+/// endpoint optional so the single-sided cases the worked example needs are
+/// expressible: absent `min` ⇒ no lower bound (0), absent `max` ⇒ unbounded above
+/// (the routed "≥ 1" case). At least one endpoint is present — an endpoint-less
+/// bound admits every degree, and an inverted `min > max` admits none; both are
+/// vacuous clauses the author cannot have meant, so both are rejected at parse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EdgeBound {
+    /// The inclusive lower bound on the edge count. `None` ⇒ no lower bound.
+    pub min: Option<usize>,
+    /// The inclusive upper bound on the edge count. `None` ⇒ unbounded above.
+    pub max: Option<usize>,
+}
+
+impl EdgeBound {
+    /// Whether `degree` lands inside this inclusive bound — `min <= degree <= max`
+    /// with an absent endpoint imposing no limit on that side. The decidable core of
+    /// the graph-scope `degree` check (`specs/45-governance.md`).
+    #[must_use]
+    pub fn admits(self, degree: usize) -> bool {
+        self.min.is_none_or(|min| degree >= min) && self.max.is_none_or(|max| degree <= max)
+    }
 }
 
 /// A set-scope `membership` predicate over a role's matched set (S₁) — the
@@ -607,6 +659,24 @@ pub enum ComposeError {
         /// The malformed `temper.toml`.
         path: PathBuf,
         /// The role with the malformed `membership` declaration.
+        role: String,
+    },
+
+    /// A `[role.<name>]`'s `degree` declaration is malformed — not an inline table,
+    /// naming neither direction, or a direction whose bound is not a `{ min?, max? }`
+    /// table with non-negative integer, well-ordered endpoints. The graph-scope
+    /// `degree` predicate names an optional incoming/outgoing edge-count bound; an
+    /// empty declaration (constraining nothing) or an inverted `min > max` (satisfied
+    /// by no node) is as malformed as a mistyped bound. Any miss collapses here, the
+    /// way [`parse_count`] folds its malformations into one error.
+    #[error(
+        "{path}: `[role.{role}]` `degree` must be an inline table naming an `incoming` and/or `outgoing` bound, each a `{{ min?, max? }}` table of non-negative, well-ordered integers"
+    )]
+    #[diagnostic(code(temper::compose::role_bad_degree))]
+    RoleBadDegree {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role with the malformed `degree` declaration.
         role: String,
     },
 
@@ -1035,6 +1105,7 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
     let count = parse_count(table, role, path)?;
     let unique = parse_unique(table, role, path)?;
     let membership = parse_membership(table, role, path)?;
+    let degree = parse_degree(table, role, path)?;
     let verified_by = role_str(table, "verified_by", role, path)?;
 
     Ok(Role {
@@ -1046,6 +1117,7 @@ fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeErr
         count,
         unique,
         membership,
+        degree,
         verified_by,
     })
 }
@@ -1079,6 +1151,97 @@ fn count_bound(table: &dyn toml_edit::TableLike, key: &str) -> Option<usize> {
         .get(key)?
         .as_integer()
         .and_then(|n| usize::try_from(n).ok())
+}
+
+/// The role's optional `degree` bound: an inline `degree = { incoming = { min?,
+/// max? }, outgoing = { min?, max? } }` table naming a graph-scope in/out edge-count
+/// bound (`specs/45-governance.md`, "The graph scope (the model)"). Absent ⇒ `None`.
+/// At least one direction must be named, and each present direction is a `{ min?,
+/// max? }` table with at least one non-negative, well-ordered integer endpoint —
+/// "self-registering" is `{ incoming = { max = 0 } }`, "routed" is `{ incoming =
+/// { min = 1 } }`. Any malformation — not a table, naming no direction, a mistyped or
+/// negative endpoint, an endpoint-less or inverted bound — collapses to
+/// [`ComposeError::RoleBadDegree`], the way [`parse_count`] folds its malformations
+/// into one error. The bound is stored verbatim; deciding a matched node's degree
+/// against the resolved arcs lives in [`crate::graph`].
+fn parse_degree(
+    table: &Table,
+    role: &str,
+    path: &Path,
+) -> Result<Option<DegreeBound>, ComposeError> {
+    let Some(item) = table.get("degree") else {
+        return Ok(None);
+    };
+    let bad = || ComposeError::RoleBadDegree {
+        path: path.to_path_buf(),
+        role: role.to_string(),
+    };
+    let degree = item.as_table_like().ok_or_else(bad)?;
+    let incoming = parse_edge_bound(degree, "incoming", role, path)?;
+    let outgoing = parse_edge_bound(degree, "outgoing", role, path)?;
+    // A `degree` naming neither direction constrains nothing — malformed, the way an
+    // endpoint-less direction bound is.
+    if incoming.is_none() && outgoing.is_none() {
+        return Err(bad());
+    }
+    Ok(Some(DegreeBound { incoming, outgoing }))
+}
+
+/// Parse one direction (`incoming`/`outgoing`) of a `degree` bound: absent ⇒ `None`;
+/// present ⇒ a `{ min?, max? }` table with at least one non-negative integer
+/// endpoint and, if both, `min <= max`. An endpoint-less bound (admits every degree)
+/// and an inverted bound (admits none) are both vacuous, so both fold into
+/// [`ComposeError::RoleBadDegree`] — mirroring [`parse_count`]'s single folded error.
+fn parse_edge_bound(
+    table: &dyn toml_edit::TableLike,
+    direction: &str,
+    role: &str,
+    path: &Path,
+) -> Result<Option<EdgeBound>, ComposeError> {
+    let Some(item) = table.get(direction) else {
+        return Ok(None);
+    };
+    let bad = || ComposeError::RoleBadDegree {
+        path: path.to_path_buf(),
+        role: role.to_string(),
+    };
+    let bound = item.as_table_like().ok_or_else(bad)?;
+    let min = edge_endpoint(bound, "min", role, path)?;
+    let max = edge_endpoint(bound, "max", role, path)?;
+    match (min, max) {
+        // Neither endpoint: the bound admits every degree — meaningless, so malformed.
+        (None, None) => Err(bad()),
+        // An inverted bound admits no degree at all — the author cannot have meant it.
+        (Some(lo), Some(hi)) if lo > hi => Err(bad()),
+        _ => Ok(Some(EdgeBound { min, max })),
+    }
+}
+
+/// Read one optional `degree` endpoint (`min`/`max`) off a direction table as a
+/// `usize`: absent ⇒ `Ok(None)`; a non-negative TOML integer ⇒ `Ok(Some)`; anything
+/// else (a non-integer, or a negative value `usize` cannot hold) ⇒
+/// [`ComposeError::RoleBadDegree`]. Unlike [`count_bound`], absence is distinguished
+/// from malformation so an omitted endpoint means "unbounded on that side," not an
+/// error.
+fn edge_endpoint(
+    table: &dyn toml_edit::TableLike,
+    key: &str,
+    role: &str,
+    path: &Path,
+) -> Result<Option<usize>, ComposeError> {
+    match table.get(key) {
+        None => Ok(None),
+        Some(item) => {
+            let value = item
+                .as_integer()
+                .and_then(|n| usize::try_from(n).ok())
+                .ok_or_else(|| ComposeError::RoleBadDegree {
+                    path: path.to_path_buf(),
+                    role: role.to_string(),
+                })?;
+            Ok(Some(value))
+        }
+    }
 }
 
 /// The role's optional `unique` field list: a `unique = ["field", …]` array of
@@ -1588,6 +1751,7 @@ verified_by = "tests/plan.rs"
                 count: None,
                 unique: Vec::new(),
                 membership: None,
+                degree: None,
                 verified_by: Some("tests/plan.rs".to_string()),
             }
         );

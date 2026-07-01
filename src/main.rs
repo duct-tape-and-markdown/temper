@@ -197,6 +197,17 @@ fn main() -> miette::Result<ExitCode> {
                 // edges ⇒ this adds nothing, so the floor-only path is unchanged.
                 diagnostics.extend(graph::acyclic(layer.edges(), &by_kind));
 
+                // The graph-scope `degree` predicate (`specs/45-governance.md`, "The
+                // graph scope (the model)"; the worked example "self-registering vs
+                // routed"): a role declares an in/out edge-count bound and every
+                // artifact its `match` selects must have a degree inside it over the
+                // resolved reference arcs. Declared at the set scope (on the role) but
+                // ranging over the edge graph, so it takes the roles *and* the edges,
+                // reusing the arc resolution `acyclic`/`check` assemble. Opt-in,
+                // per-role: a roster declaring no bound does no graph work here, so the
+                // floor-only path stays byte-for-byte unchanged.
+                diagnostics.extend(graph::degree(layer.roles(), layer.edges(), &by_kind));
+
                 // The custom-kind tier: each custom kind the layer declares
                 // (`specs/15-kinds.md`, "A kind definition — one composed object")
                 // is checked through its **own composed extractor** and **own
