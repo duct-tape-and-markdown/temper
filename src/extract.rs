@@ -229,7 +229,7 @@ pub fn skill_features(skill: &Skill) -> Features {
     Features {
         id: skill.name.clone(),
         fields,
-        body_lines: skill.body.lines().count(),
+        body_lines: body_line_count(&skill.body),
         headings: body_headings(&skill.body),
         source_dir: source_dir_name(&skill.provenance.source_path),
         companions: skill
@@ -262,7 +262,7 @@ pub fn rule_features(rule: &Rule) -> Features {
     Features {
         id: rule.name.clone(),
         fields,
-        body_lines: rule.body.lines().count(),
+        body_lines: body_line_count(&rule.body),
         headings: body_headings(&rule.body),
         source_dir: source_dir_name(&rule.provenance.source_path),
         companions: Vec::new(),
@@ -282,11 +282,23 @@ pub fn spec_features(spec: &Spec) -> Features {
     Features {
         id: spec.name.clone(),
         fields: BTreeMap::new(),
-        body_lines: spec.body.lines().count(),
+        body_lines: body_line_count(&spec.body),
         headings: body_headings(&spec.body),
         source_dir: source_dir_name(&spec.provenance.source_path),
         companions: Vec::new(),
     }
+}
+
+/// The line count of a byte-faithful markdown body — the `max_lines` feature.
+/// A single home for the count so the per-kind projectors and the data-driven
+/// [`crate::kind`] composer read it the identical way rather than each writing
+/// `body.lines().count()` inline.
+///
+/// `pub(crate)` so the closed extraction algebra (`specs/15-kinds.md`, "The
+/// extraction algebra") composes the *same* deterministic extractor a built-in
+/// kind's engine code uses, never a second implementation that could drift.
+pub(crate) fn body_line_count(body: &str) -> usize {
+    body.lines().count()
 }
 
 /// Extract the ATX headings (`#`..`######`) from a byte-faithful markdown body,
@@ -295,7 +307,10 @@ pub fn spec_features(spec: &Spec) -> Features {
 /// rather than a guess. Each returned string is the heading text with its
 /// leading `#` run, the required separating space, and any closing `#` run
 /// trimmed off.
-fn body_headings(body: &str) -> Vec<String> {
+///
+/// `pub(crate)` so the data-driven [`crate::kind`] composer reuses this exact
+/// ATX/fence logic rather than reimplementing it (`specs/15-kinds.md`).
+pub(crate) fn body_headings(body: &str) -> Vec<String> {
     let mut headings = Vec::new();
     // The open fence's char and run length, while inside a fenced code block.
     let mut fence: Option<(char, usize)> = None;
@@ -324,7 +339,11 @@ fn body_headings(body: &str) -> Vec<String> {
 /// The fence marker a line carries, if any: the fence character (`` ` `` or
 /// `~`) and its run length (≥3). Up to three leading spaces are allowed before
 /// the run; four or more is an indented code block, not a fence.
-fn fence_marker(line: &str) -> Option<(char, usize)> {
+///
+/// `pub(crate)` so the [`crate::kind`] backtick-reference extractor skips fenced
+/// code blocks the same way heading extraction does — a filename in an example
+/// fence is illustration, not a declared reference (`specs/15-kinds.md`).
+pub(crate) fn fence_marker(line: &str) -> Option<(char, usize)> {
     let rest = line.trim_start_matches(' ');
     if line.len() - rest.len() >= 4 {
         return None;
@@ -369,7 +388,10 @@ fn atx_heading_text(line: &str) -> Option<String> {
 
 /// The name of the directory the artifact was imported from (the folder Claude
 /// Code discovers it under), off its `provenance.source_path`.
-fn source_dir_name(source_path: &Path) -> Option<String> {
+///
+/// `pub(crate)` so the data-driven [`crate::kind`] composer reads the file
+/// placement feature the identical way (`specs/15-kinds.md`).
+pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
     source_path
         .parent()
         .and_then(Path::file_name)
@@ -384,7 +406,11 @@ fn source_dir_name(source_path: &Path) -> Option<String> {
 /// shortcut — would make a `type` check undecidable; recording the kind here is
 /// the precondition that check needs (`specs/10-contracts.md`, the `type`
 /// lattice Decision).
-fn json_to_feature(value: &JsonValue) -> FeatureValue {
+///
+/// `pub(crate)` so the [`crate::kind`] `field` extraction primitive projects a
+/// declared frontmatter value into a [`FeatureValue`] through the same
+/// kind-preserving path, never a second projector (`specs/15-kinds.md`).
+pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
     match value {
         JsonValue::Array(items) => {
             FeatureValue::List(items.iter().map(json_scalar_string).collect())

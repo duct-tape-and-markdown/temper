@@ -23,6 +23,7 @@ pub mod engine;
 pub mod extract;
 pub mod graph;
 pub mod import;
+pub mod kind;
 pub mod roster;
 pub mod rule;
 pub mod skill;
