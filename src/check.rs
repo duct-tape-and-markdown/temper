@@ -1,36 +1,31 @@
-//! `temper check` — the lint engine core.
+//! `temper check` — the workspace-load and diagnostic surface.
 //!
-//! Implements the `check` gate (`specs/20-surface.md`, "CLI surface" — the verb
-//! that validates against the active contract) over the contract model of
-//! `specs/10-contracts.md`: load the typed config surface into a [`Workspace`],
-//! run a set of [`Rule`]s over it, and collect the [`Diagnostic`]s they produce.
-//! `check` parses the workspace IR and runs rules, each emitting zero or more
-//! diagnostics rendered with `miette`; the process exits non-zero when any
-//! `error`-severity diagnostic fires ([`any_error`]).
+//! Implements the loading half of the `check` gate (`specs/20-surface.md`, "CLI
+//! surface" — the verb that validates against the active contract): reconstruct
+//! the typed config surface into a [`Workspace`] IR, and carry the [`Diagnostic`]
+//! value the generic engine emits. The clauses themselves are validated by the
+//! generic engine over the closed algebra ([`crate::engine`], `specs/10-contracts.md`,
+//! "The engine is generic; everything is an instance") — there is no per-rule code
+//! here; the heuristic rule registry it replaced is retired ("Decision: kill the
+//! heuristic rule registry").
 //!
-//! Two deliberate shape decisions (`.claude/rules/rust.md`):
-//!
-//! - [`Rule::check`] takes the **whole** [`Workspace`], never a single artifact,
-//!   so the slice-2 cross-artifact rules (the differentiator) slot in later with
-//!   no signature change.
-//! - [`run`] takes the rules as a slice, so rule *registration* lives in the CLI
-//!   and the engine stays disjoint from the rule set it executes.
-//!
-//! A [`Diagnostic`] is a value the engine *collects*, not a thrown error — it is
-//! distinct from a [`WorkspaceError`] (a hard failure that aborts the load).
+//! A [`Diagnostic`] is a value the engine *collects*, not a thrown error — one
+//! `error`-severity finding drives `check`'s non-zero exit ([`any_error`]), and
+//! [`render`] presents the set with `miette`. It is distinct from a
+//! [`WorkspaceError`] (a hard failure that aborts the load).
 
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use miette::{GraphicalReportHandler, LabeledSpan, SourceSpan};
+use miette::GraphicalReportHandler;
 
 use crate::rule::{Rule as RuleArtifact, RuleError};
 use crate::skill::{Skill, SkillError};
 
 /// The loaded config surface: every built-in artifact `check` lints. Carries the
 /// skills and rules; later built-in artifact kinds (hooks, agents, …) extend this
-/// struct so a cross-artifact [`Rule`] can reach the whole harness at once. Custom
+/// struct so a cross-artifact clause can reach the whole harness at once. Custom
 /// project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are read
 /// generically through [`Unit::from_surface_dir`](crate::kind::Unit::from_surface_dir),
 /// not materialized as a field here.
@@ -131,14 +126,13 @@ pub enum Severity {
     Warn,
 }
 
-/// A single lint finding: which rule fired, on which artifact, with what message
-/// and (optionally) where. A finding the engine collects — never a thrown error.
+/// A single lint finding: which rule fired, on which artifact, with what message.
+/// A finding the engine collects — never a thrown error.
 ///
 /// It implements [`miette::Diagnostic`] so it renders through the same graphical
 /// handler as the crate's hard errors: [`Severity`] maps to miette's severity,
 /// [`Diagnostic::rule`] becomes the diagnostic `code`, and [`Diagnostic::artifact`]
-/// surfaces as the help line. The `span`, when a rule supplies one, becomes a
-/// label (its source context arrives with the rules that carry it).
+/// surfaces as the help line.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("{message}")]
 pub struct Diagnostic {
@@ -150,12 +144,10 @@ pub struct Diagnostic {
     pub artifact: String,
     /// The human-readable finding, the diagnostic's `Display`.
     pub message: String,
-    /// Optional source span a rule can attach to point at the offending bytes.
-    pub span: Option<SourceSpan>,
 }
 
 impl Diagnostic {
-    /// An `error`-severity finding with no span.
+    /// An `error`-severity finding.
     pub fn error(
         rule: impl Into<String>,
         artifact: impl Into<String>,
@@ -164,7 +156,7 @@ impl Diagnostic {
         Self::new(Severity::Error, rule, artifact, message)
     }
 
-    /// A `warn`-severity finding with no span.
+    /// A `warn`-severity finding.
     pub fn warn(
         rule: impl Into<String>,
         artifact: impl Into<String>,
@@ -173,7 +165,7 @@ impl Diagnostic {
         Self::new(Severity::Warn, rule, artifact, message)
     }
 
-    /// A finding at an explicit [`Severity`], with no span.
+    /// A finding at an explicit [`Severity`].
     pub fn new(
         severity: Severity,
         rule: impl Into<String>,
@@ -185,15 +177,7 @@ impl Diagnostic {
             rule: rule.into(),
             artifact: artifact.into(),
             message: message.into(),
-            span: None,
         }
-    }
-
-    /// Attach a source span pointing at the offending bytes.
-    #[must_use]
-    pub fn with_span(mut self, span: impl Into<SourceSpan>) -> Self {
-        self.span = Some(span.into());
-        self
     }
 }
 
@@ -212,30 +196,6 @@ impl miette::Diagnostic for Diagnostic {
     fn help(&self) -> Option<Box<dyn fmt::Display + '_>> {
         Some(Box::new(format!("artifact: {}", self.artifact)))
     }
-
-    fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
-        let span = self.span?;
-        Some(Box::new(std::iter::once(LabeledSpan::underline(span))))
-    }
-}
-
-/// A lint rule: examines the whole [`Workspace`] and emits zero or more findings.
-///
-/// Taking `&Workspace` (not a single artifact) is load-bearing — the cross-artifact
-/// rules that are `temper`'s differentiator need to see every artifact at once,
-/// and slot in here without a signature change.
-pub trait Rule {
-    /// Run this rule over the workspace, returning every finding it produces.
-    fn check(&self, ws: &Workspace) -> Vec<Diagnostic>;
-}
-
-/// Run every rule over the workspace and collect their diagnostics in order.
-///
-/// The rule set arrives as a slice so registration lives in the caller (the CLI),
-/// keeping the engine disjoint from the rules it executes. Render the result with
-/// [`render`] and gate the exit code on [`any_error`].
-pub fn run(ws: &Workspace, rules: &[Box<dyn Rule>]) -> Vec<Diagnostic> {
-    rules.iter().flat_map(|rule| rule.check(ws)).collect()
 }
 
 /// Render diagnostics for the terminal with miette's graphical handler — the same
@@ -330,18 +290,6 @@ Prefer a clone.\n";
         fs::write(dir.join("RULE.md"), &rule.body).unwrap();
     }
 
-    /// A rule that fires one error per skill — an injectable stand-in proving the
-    /// runner wires arbitrary rules to the loaded workspace.
-    struct OneErrorPerSkill;
-    impl Rule for OneErrorPerSkill {
-        fn check(&self, ws: &Workspace) -> Vec<Diagnostic> {
-            ws.skills
-                .iter()
-                .map(|skill| Diagnostic::error("test.always", &skill.name, "synthetic finding"))
-                .collect()
-        }
-    }
-
     #[test]
     fn load_reconstructs_skills_from_a_written_surface() {
         let ws = tmpdir("load");
@@ -395,31 +343,6 @@ Prefer a clone.\n";
         let ws = tmpdir("nodir");
         let loaded = Workspace::load(&ws).unwrap();
         assert!(loaded.skills.is_empty());
-    }
-
-    #[test]
-    fn run_with_an_empty_rule_set_yields_no_diagnostics() {
-        let ws = Workspace {
-            skills: Vec::new(),
-            rules: Vec::new(),
-        };
-        let rules: Vec<Box<dyn Rule>> = Vec::new();
-        assert!(run(&ws, &rules).is_empty());
-    }
-
-    #[test]
-    fn run_collects_diagnostics_from_each_injected_rule() {
-        let ws = tmpdir("run");
-        write_surface_skill(&ws, "demo", DEMO);
-        let loaded = Workspace::load(&ws).unwrap();
-
-        let rules: Vec<Box<dyn Rule>> = vec![Box::new(OneErrorPerSkill)];
-        let diagnostics = run(&loaded, &rules);
-
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].rule, "test.always");
-        assert_eq!(diagnostics[0].artifact, "demo");
-        assert!(any_error(&diagnostics));
     }
 
     #[test]

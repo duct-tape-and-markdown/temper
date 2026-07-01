@@ -44,8 +44,8 @@ use crate::extract::{FeatureValue, Features, Kind};
 /// collecting a [`Diagnostic`] per violation at the clause's declared severity.
 ///
 /// The artifact slice is passed whole because cross-artifact clauses (e.g.
-/// `unique-name`) decide over the set, not one unit — mirroring the
-/// `Rule`-takes-the-whole-workspace shape in [`crate::check`].
+/// `unique-name`) decide over the set, not one unit — the whole-workspace shape
+/// the [`Workspace`](crate::check::Workspace) IR carries.
 #[must_use]
 pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
