@@ -7,8 +7,7 @@
       "section": "Decision: package binding is by artifact kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PACKAGE-DOCUMENT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -48,7 +47,7 @@
       }
     ],
     "acceptance": "The assembly binds packages by name per the naming rule (`specs/90-spec-system.md`: `package` retired `template`); built-ins resolve embedded, custom from `.temper/packages/`; no `template`/`adopt` remains in the binding surface; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Serialized behind PACKAGE-DOCUMENT (needs the by-name PACKAGE.md loader). The requirement-side typing facet migrates in the next entry so the two compose.rs surfaces never co-edit across a parallel wave. Extend/override (`[[kind.<k>.clause]]`, severity flips) stay — `40-composition.md` keeps them in the assembly."
+    "notes": "PACKAGE-DOCUMENT shipped (72104ec: `Contract::load_package` reads `PACKAGE.md`), so this unblocks. The requirement-side typing facet migrates in the next entry so the two compose.rs surfaces never co-edit across a parallel wave. Extend/override (`[[kind.<k>.clause]]`, severity flips) stay — `40-composition.md` keeps them in the assembly."
   },
   {
     "tag": "REQUIREMENT-PACKAGE-TYPING",
