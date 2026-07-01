@@ -322,3 +322,30 @@ means = \"an optional convenience the harness may provide\"\n",
         run.output
     );
 }
+
+#[test]
+fn a_means_less_required_requirement_still_gates() {
+    let root = tmpdir("means-less");
+    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    // The unified requirement makes `means` optional (`specs/10-contracts.md`, "all
+    // facets optional except its name"), but coverage keys off `required`, not
+    // `means`: a `required` requirement with no `means` and nothing opting in still
+    // fires UNFILLED and blocks the run.
+    write_temper_toml(
+        &root,
+        "[requirement.dev-standards]\n\
+required = true\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a means-less required requirement left unfilled must block ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("requirement.unfilled"),
+        "the finding names the unfilled rule, got:\n{}",
+        run.output
+    );
+}

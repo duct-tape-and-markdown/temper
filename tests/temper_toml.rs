@@ -435,25 +435,25 @@ primitive = "paragraph_meaning"
 }
 
 #[test]
-fn a_degree_bound_parses_into_a_typed_role() {
+fn a_degree_bound_parses_into_a_typed_requirement() {
     // The graph-scope `degree` predicate: an inline `{ incoming, outgoing }` table
-    // with per-direction `{ min?, max? }` bounds parses onto the role. The two worked
-    // cases — "self-registering" `incoming = { max = 0 }` and a bounded outgoing —
-    // land as `EdgeBound`s with their open endpoints left `None`.
+    // with per-direction `{ min?, max? }` bounds parses onto the requirement. The two
+    // worked cases — "self-registering" `incoming = { max = 0 }` and a bounded outgoing
+    // — land as `EdgeBound`s with their open endpoints left `None`.
     let toml = r#"
-[role.self-registering]
-artifact = "skill"
+[requirement.self-registering]
+kind = "skill"
 contract = "contracts/skill.toml"
 match = { name = "*" }
 degree = { incoming = { max = 0 }, outgoing = { min = 1, max = 3 } }
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-    let role = layer
-        .roles()
+    let requirement = layer
+        .requirements()
         .get("self-registering")
-        .expect("the role parses");
+        .expect("the requirement parses");
     assert_eq!(
-        role.degree,
+        requirement.degree,
         Some(DegreeBound {
             incoming: Some(EdgeBound {
                 min: None,
@@ -472,16 +472,19 @@ fn a_routed_degree_bound_leaves_the_upper_endpoint_open() {
     // "Routed: at least one incoming" is `incoming = { min = 1 }` — an open-above
     // bound, its `max` left `None` so any positive in-degree satisfies it.
     let toml = r#"
-[role.routed]
-artifact = "skill"
+[requirement.routed]
+kind = "skill"
 contract = "contracts/skill.toml"
 match = { name = "*" }
 degree = { incoming = { min = 1 } }
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
-    let role = layer.roles().get("routed").expect("the role parses");
+    let requirement = layer
+        .requirements()
+        .get("routed")
+        .expect("the requirement parses");
     assert_eq!(
-        role.degree,
+        requirement.degree,
         Some(DegreeBound {
             incoming: Some(EdgeBound {
                 min: Some(1),
@@ -497,8 +500,8 @@ fn a_degree_naming_no_direction_is_a_load_error() {
     // A `degree` that names neither `incoming` nor `outgoing` constrains nothing —
     // a vacuous clause the author cannot have meant, rejected at load.
     let toml = r#"
-[role.gate]
-artifact = "skill"
+[requirement.gate]
+kind = "skill"
 contract = "contracts/skill.toml"
 match = { name = "*" }
 degree = { }
@@ -506,7 +509,7 @@ degree = { }
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
     assert!(matches!(
         err,
-        ComposeError::RoleBadDegree { ref role, .. } if role == "gate"
+        ComposeError::RequirementBadDegree { ref name, .. } if name == "gate"
     ));
 }
 
@@ -515,14 +518,14 @@ fn an_endpoint_less_degree_direction_is_a_load_error() {
     // A direction bound with neither `min` nor `max` admits every degree — malformed,
     // the way a `degree` naming no direction is.
     let toml = r#"
-[role.gate]
-artifact = "skill"
+[requirement.gate]
+kind = "skill"
 contract = "contracts/skill.toml"
 match = { name = "*" }
 degree = { incoming = { } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-    assert!(matches!(err, ComposeError::RoleBadDegree { .. }));
+    assert!(matches!(err, ComposeError::RequirementBadDegree { .. }));
 }
 
 #[test]
@@ -530,36 +533,37 @@ fn an_inverted_degree_bound_is_a_load_error() {
     // `min > max` admits no degree at all — a vacuous bound, rejected at load the way
     // an inverted `count` bound is rejected as inadmissible.
     let toml = r#"
-[role.gate]
-artifact = "skill"
+[requirement.gate]
+kind = "skill"
 contract = "contracts/skill.toml"
 match = { name = "*" }
 degree = { outgoing = { min = 3, max = 1 } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-    assert!(matches!(err, ComposeError::RoleBadDegree { .. }));
+    assert!(matches!(err, ComposeError::RequirementBadDegree { .. }));
 }
 
 #[test]
 fn a_negative_degree_endpoint_is_a_load_error() {
     // A negative endpoint cannot be a `usize` edge count — rejected, not floored.
     let toml = r#"
-[role.gate]
-artifact = "skill"
+[requirement.gate]
+kind = "skill"
 contract = "contracts/skill.toml"
 match = { name = "*" }
 degree = { incoming = { min = -1 } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-    assert!(matches!(err, ComposeError::RoleBadDegree { .. }));
+    assert!(matches!(err, ComposeError::RequirementBadDegree { .. }));
 }
 
 #[test]
 fn a_requirement_parses_into_a_typed_value_with_means_verbatim() {
-    // `[requirement.<name>]` is the meaningful-contract namespace (`specs/10-contracts.md`,
-    // "Requirements and `satisfies`"): a required `means` string stated in meaning, and
-    // an optional `required` coverage flag. `means` is carried *verbatim* and never
-    // interpreted (law 3 — no proxy); `required = true` parses through as declared.
+    // `[requirement.<name>]` is the harness's named-obligation namespace
+    // (`specs/10-contracts.md`, "Requirements — the harness's named obligations"): an
+    // optional `means` string stated in meaning, and an optional `required` coverage
+    // flag. `means` is carried *verbatim* and never interpreted (law 3 — no proxy);
+    // `required = true` parses through as declared.
     let means = "the harness has a skill that maintains development standards";
     let toml = format!(
         r#"
@@ -577,12 +581,21 @@ required = true
     assert_eq!(
         requirement,
         &Requirement {
-            means: means.to_string(),
+            name: "dev-standards".to_string(),
+            means: Some(means.to_string()),
+            kind: None,
+            contract: None,
+            selector: None,
             required: true,
+            count: None,
+            unique: Vec::new(),
+            membership: None,
+            degree: None,
+            verified_by: None,
         }
     );
     // The meaning is stored byte-for-byte — temper organizes it, never judges it.
-    assert_eq!(requirement.means, means);
+    assert_eq!(requirement.means.as_deref(), Some(means));
 }
 
 #[test]
@@ -599,24 +612,26 @@ means = "the harness maintains dev standards"
 }
 
 #[test]
-fn a_requirement_missing_means_is_a_load_error() {
-    // `means` is the requirement's whole content — the intent it states. Absent, the
-    // declaration carries no meaning, so it is a load error, never a silent default.
+fn a_requirement_with_no_means_parses() {
+    // `means` is optional too — the unified requirement's *only* mandatory element is
+    // its name (`specs/10-contracts.md`, "all facets optional except its name"), so a
+    // requirement carrying only structural facets parses, `means` left `None`.
     let toml = r#"
-[requirement.dev-standards]
+[requirement.linter]
+kind = "rule"
+match = { name = "lint*" }
 required = true
 "#;
-    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-    assert!(matches!(
-        err,
-        ComposeError::RequirementMissingMeans { ref name, .. } if name == "dev-standards"
-    ));
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+    let requirement = layer.requirements().get("linter").unwrap();
+    assert_eq!(requirement.means, None);
+    assert!(requirement.required);
 }
 
 #[test]
 fn a_non_table_requirement_root_is_a_load_error() {
     // `requirement` is its own namespace — a table of named requirements. A scalar in
-    // its place is malformed, rejected the way a non-table `role` root is.
+    // its place is malformed, rejected as a non-table root.
     let toml = r#"
 requirement = "dev-standards"
 "#;
@@ -632,24 +647,6 @@ requirement = "dev-standards"
 // clean-table control that must still parse untouched.
 
 #[test]
-fn a_stray_key_in_a_role_is_a_load_error() {
-    // A misspelled `requird` would silently leave `required` false and disable the
-    // gate — exactly the drop this Decision forbids, so it is rejected at parse.
-    let toml = r#"
-[role.linter]
-artifact = "skill"
-contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*" }
-requird = true
-"#;
-    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-    assert!(
-        matches!(err, ComposeError::RoleUnknownKey { ref key, ref role, .. } if key == "requird" && role == "linter"),
-        "a stray role key names itself precisely, got: {err:?}"
-    );
-}
-
-#[test]
 fn a_stray_key_in_a_requirement_is_a_load_error() {
     // A misspelled `requird` on a requirement would quietly drop its coverage gate.
     let toml = r#"
@@ -661,6 +658,24 @@ requird = true
     assert!(
         matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "requird" && name == "dev-standards"),
         "a stray requirement key names itself precisely, got: {err:?}"
+    );
+}
+
+#[test]
+fn a_stray_key_in_a_requirement_with_facets_is_a_load_error() {
+    // The unified requirement's allowlist spans the folded facet set — a stray key
+    // alongside `kind`/`match`/`contract` is still rejected, not silently dropped.
+    let toml = r#"
+[requirement.linter]
+kind = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*" }
+requird = true
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "requird" && name == "linter"),
+        "a stray facet-set key names itself precisely, got: {err:?}"
     );
 }
 
@@ -711,9 +726,9 @@ feild = \"nmae\"\n",
 
 #[test]
 fn clean_contract_surface_tables_still_parse_unchanged() {
-    // The control: a role, a requirement, a built-in kind layer, and a clause each
-    // carrying only their admissible keys parse clean — the reject fires on strays
-    // only, never on the closed vocabulary itself.
+    // The control: a requirement, a built-in kind layer, and a clause each carrying
+    // only their admissible keys parse clean — the reject fires on strays only, never
+    // on the closed vocabulary itself.
     let toml = r#"
 [kind.skill]
 adopt = "skill.anthropic"
@@ -723,8 +738,8 @@ predicate = "max_lines"
 max = 300
 guidance = "keep skills skimmable"
 
-[role.linter]
-artifact = "skill"
+[requirement.linter]
+kind = "skill"
 contract = "contracts/skill.anthropic.toml"
 match = { name = "lint*" }
 required = true
@@ -736,6 +751,6 @@ required = true
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml"))
         .expect("clean contract-surface tables parse without a stray-key error");
-    assert!(layer.roles().contains_key("linter"));
+    assert!(layer.requirements().contains_key("linter"));
     assert!(layer.requirements().contains_key("dev-standards"));
 }

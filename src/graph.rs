@@ -40,14 +40,15 @@
 //!
 //! - [`degree`] — **a matched node's in/out edge count is bounded**
 //!   (`specs/45-governance.md`, "The graph scope (the model)"; the worked example
-//!   "self-registering vs routed"): a role declares a `degree` bound and `temper`
-//!   checks every artifact its `match` selects has an incoming/outgoing edge count
-//!   inside it — "self-registering: zero incoming," "routed: at least one incoming."
-//!   Unlike route resolution and `acyclic`, `degree` is **opt-in, per-role**: it runs
-//!   only for roles that declare a bound. It is *declared* at the set scope (on the
-//!   role) but *ranges over* the edge graph, so it reuses the same resolved arcs
-//!   [`acyclic`] assembles ([`resolved_arcs`]) and selects nodes by the *same*
-//!   [`roster::matches`] selector the roster scope uses.
+//!   "self-registering vs routed"): a requirement declares a `degree` bound and
+//!   `temper` checks every artifact its `match` selects has an incoming/outgoing edge
+//!   count inside it — "self-registering: zero incoming," "routed: at least one
+//!   incoming." Unlike route resolution and `acyclic`, `degree` is **opt-in,
+//!   per-requirement**: it runs only for requirements that declare a bound *and* the
+//!   `kind`/`match` needed to identify their nodes. It is *declared* at the set scope
+//!   (on the requirement) but *ranges over* the edge graph, so it reuses the same
+//!   resolved arcs [`acyclic`] assembles ([`resolved_arcs`]) and selects nodes by the
+//!   *same* [`roster::matches`] selector the roster scope uses.
 //!
 //! Nodes are the artifacts across every kind (their [`Features::id`]); the edges are
 //! the declared references between them.
@@ -64,7 +65,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::check::Diagnostic;
-use crate::compose::{Edge, EdgeBound, Role};
+use crate::compose::{Edge, EdgeBound, Requirement};
 use crate::extract::{FeatureValue, Features};
 use crate::roster;
 
@@ -85,7 +86,7 @@ const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
 
 /// The diagnostic `rule` id every degree finding reports under — the graph-scope
 /// `degree` predicate (`specs/45-governance.md`, "The graph scope (the model)"): a
-/// matched node's in/out edge count must land in the role's declared bound.
+/// matched node's in/out edge count must land in the requirement's declared bound.
 const GRAPH_DEGREE_RULE: &str = "graph.degree";
 
 /// A node in the artifact-level reference graph: `(kind, id)`. An artifact id is
@@ -158,7 +159,7 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
 ///   `by_kind`. A target kind `temper` does not model has no artifacts, so *every*
 ///   route over the edge would dangle — the fault is the declaration, not the
 ///   sources, so it is reported once here (and [`check`] skips the edge). This
-///   mirrors the roster's "a required role over an unmodeled kind can never be
+///   mirrors the roster's "a required requirement over an unmodeled kind can never be
 ///   filled" admissibility clause ([`crate::roster`]).
 ///
 /// `by_kind` is the same corpus map [`check`] reads — admissibility uses only its
@@ -202,7 +203,7 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
 ///
 /// A cycle among declared references is a circular import that loads nothing, so the
 /// finding is a true positive that earns the hard gate. `acyclic` is *intrinsic* to
-/// the declared edges — it runs always-on over `layer.edges()`, no per-role opt-in,
+/// the declared edges — it runs always-on over `layer.edges()`, no per-requirement opt-in,
 /// exactly like route resolution.
 ///
 /// Only **resolved** arcs enter the graph: an [`is_admissible`]-failing edge is
@@ -239,36 +240,40 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
 
 /// Check the graph-scope **`degree`** predicate over the harness reference graph
 /// (`specs/45-governance.md`, "The graph scope (the model)"; the worked example
-/// "self-registering vs routed"): for each role that declares a
+/// "self-registering vs routed"): for each requirement that declares a
 /// [`DegreeBound`](crate::compose::DegreeBound), compute the incoming/outgoing edge
 /// count of every artifact its `match` selects
 /// over the *resolved* reference arcs and return an error-severity [`Diagnostic`] per
 /// matched node whose degree falls outside the declared bound.
 ///
-/// `degree` is declared at the **set scope** (on a role) but ranges over the **edge
-/// graph**, so it is checked here rather than in [`crate::roster`]: it reuses the
-/// same [`resolved_arcs`] [`acyclic`] and [`check`] assemble, and selects a role's
-/// nodes by the *same* [`roster::matches`] selector the roster scope uses — never a
-/// second matcher that could disagree. Only **resolved** arcs count toward a degree:
-/// a dangling reference loads nothing (route resolution owns that finding), and an
-/// inadmissible edge is skipped, exactly as in [`acyclic`].
+/// `degree` is declared at the **set scope** (on a requirement) but ranges over the
+/// **edge graph**, so it is checked here rather than in [`crate::roster`]: it reuses
+/// the same [`resolved_arcs`] [`acyclic`] and [`check`] assemble, and selects a
+/// requirement's nodes by the *same* [`roster::matches`] selector the roster scope
+/// uses — never a second matcher that could disagree. Only **resolved** arcs count
+/// toward a degree: a dangling reference loads nothing (route resolution owns that
+/// finding), and an inadmissible edge is skipped, exactly as in [`acyclic`].
 ///
-/// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-role** — it runs
-/// only for roles carrying a bound, so a roster declaring none (or an absent
-/// `temper.toml`) does no graph work here. A node is `(kind, id)`, the role's
-/// `artifact` kind paired with each matched id; incoming degree is how many distinct
-/// nodes point at it, outgoing how many distinct nodes it points at (an arc is a
-/// distinct `(source, target)` pair, deduped like [`acyclic`]'s adjacency). Roles
-/// iterate in name order and each kind's candidates arrive name-sorted, so the
-/// finding set is stable across runs.
+/// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-requirement** — it
+/// runs only for requirements carrying a bound, so a roster declaring none (or an
+/// absent `temper.toml`) does no graph work here. A node is `(kind, id)` — the
+/// requirement's `kind` facet paired with each matched id — so a requirement that
+/// declares no `kind` or no `match` selector cannot identify its nodes and is skipped.
+/// Incoming degree is how many distinct nodes point at it, outgoing how many distinct
+/// nodes it points at (an arc is a distinct `(source, target)` pair, deduped like
+/// [`acyclic`]'s adjacency). Requirements iterate in name order and each kind's
+/// candidates arrive name-sorted, so the finding set is stable across runs.
 #[must_use]
 pub fn degree(
-    roles: &BTreeMap<String, Role>,
+    requirements: &BTreeMap<String, Requirement>,
     edges: &[Edge],
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
-    // Opt-in: with no role declaring a bound, the graph is never even assembled.
-    if roles.values().all(|role| role.degree.is_none()) {
+    // Opt-in: with no requirement declaring a bound, the graph is never assembled.
+    if requirements
+        .values()
+        .all(|requirement| requirement.degree.is_none())
+    {
         return Vec::new();
     }
 
@@ -283,18 +288,25 @@ pub fn degree(
     }
 
     let mut diagnostics = Vec::new();
-    for role in roles.values() {
-        let Some(bound) = &role.degree else {
+    for requirement in requirements.values() {
+        let Some(bound) = &requirement.degree else {
             continue;
         };
-        let candidates = by_kind.get(role.artifact.as_str()).copied().unwrap_or(&[]);
+        // A node is `(kind, id)`, so `degree` needs both a declared `kind` (the node's
+        // kind) and a `match` selector (which nodes) to range over. A requirement
+        // missing either cannot identify its nodes, so it is skipped — `temper` never
+        // fabricates a gate the author did not fully declare.
+        let (Some(kind), Some(selector)) = (&requirement.kind, &requirement.selector) else {
+            continue;
+        };
+        let candidates = by_kind.get(kind.as_str()).copied().unwrap_or(&[]);
         for features in candidates {
-            if !roster::matches(&role.selector, features) {
+            if !roster::matches(selector, features) {
                 continue;
             }
             // The node is `(kind, id)`: an id is unique only within a kind, and an arc
             // resolves only within its target kind, so degree is per-`(kind, id)` too.
-            let node = (role.artifact.clone(), features.id.clone());
+            let node = (kind.clone(), features.id.clone());
             let in_degree = incoming.get(&node).copied().unwrap_or(0);
             let out_degree = adjacency.get(&node).map_or(0, BTreeSet::len);
 
@@ -302,7 +314,7 @@ pub fn degree(
                 && !edge_bound.admits(in_degree)
             {
                 diagnostics.push(out_of_degree(
-                    role,
+                    requirement,
                     &features.id,
                     Direction::Incoming,
                     in_degree,
@@ -313,7 +325,7 @@ pub fn degree(
                 && !edge_bound.admits(out_degree)
             {
                 diagnostics.push(out_of_degree(
-                    role,
+                    requirement,
                     &features.id,
                     Direction::Outgoing,
                     out_degree,
@@ -347,10 +359,11 @@ impl Direction {
 }
 
 /// The finding for a matched node whose `degree` in one direction falls outside its
-/// role's declared bound — naming the role, the artifact, the direction, the actual
-/// edge count, and the `[min, max]` bound it missed (an open endpoint rendered `∞`).
+/// requirement's declared bound — naming the requirement, the kind, the direction, the
+/// actual edge count, and the `[min, max]` bound it missed (an open endpoint rendered
+/// `∞`). Only reached for a requirement that declares a `kind`, so the kind is present.
 fn out_of_degree(
-    role: &Role,
+    requirement: &Requirement,
     artifact: &str,
     direction: Direction,
     actual: usize,
@@ -358,13 +371,13 @@ fn out_of_degree(
 ) -> Diagnostic {
     let min = bound.min.map_or_else(|| "0".to_string(), |n| n.to_string());
     let max = bound.max.map_or_else(|| "∞".to_string(), |n| n.to_string());
+    let kind = requirement.kind.as_deref().unwrap_or("any");
     Diagnostic::error(
         GRAPH_DEGREE_RULE,
         artifact,
         format!(
-            "role `{}` bounds `{}` {} degree to [{min}, {max}], but `{artifact}` has {actual}",
-            role.name,
-            role.artifact,
+            "requirement `{}` bounds `{kind}` {} degree to [{min}, {max}], but `{artifact}` has {actual}",
+            requirement.name,
             direction.label(),
         ),
     )
@@ -721,7 +734,7 @@ mod tests {
     fn a_source_over_an_unmodeled_from_kind_is_silent() {
         // The edge's `from` kind has no artifacts in the corpus — no sources, so no
         // routes to resolve. Not an inadmissibility (the author may model that kind
-        // later); just silent, mirroring a non-required role over an unmodeled kind.
+        // later); just silent, mirroring a non-required requirement over an unmodeled kind.
         let edges = [routes_to_edge()];
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
@@ -840,26 +853,26 @@ mod tests {
         assert!(acyclic(std::slice::from_ref(&edge), &by_kind).is_empty());
     }
 
-    /// Parse a `temper.toml` fragment's `[role.<name>]` tables into the typed roster
-    /// the [`degree`] check reads — the parse foundation is the only constructor for a
-    /// [`Role`]'s `degree` bound, so the graph tests drive it.
-    fn roles(toml: &str) -> BTreeMap<String, crate::compose::Role> {
+    /// Parse a `temper.toml` fragment's `[requirement.<name>]` tables into the typed
+    /// roster the [`degree`] check reads — the parse foundation is the only constructor
+    /// for a [`Requirement`]'s `degree` bound, so the graph tests drive it.
+    fn requirements(toml: &str) -> BTreeMap<String, crate::compose::Requirement> {
         AuthorLayer::parse(toml, Path::new("temper.toml"))
             .unwrap()
-            .roles()
+            .requirements()
             .clone()
     }
 
-    /// A role selecting the skill `standards` and declaring a `degree` bound `clause`
-    /// (an inline `{ … }` body), over an inline contract so the role is admissible.
+    /// A requirement selecting the skill `standards` and declaring a `degree` bound
+    /// `clause` (an inline `{ … }` body), over an inline contract so it is admissible.
     /// The graph the degree check ranges over is the caller's `edges`/`by_kind`.
-    fn degree_role(clause: &str) -> BTreeMap<String, crate::compose::Role> {
-        roles(&format!(
-            "[role.gate]\n\
-             artifact = \"skill\"\n\
+    fn degree_requirement(clause: &str) -> BTreeMap<String, crate::compose::Requirement> {
+        requirements(&format!(
+            "[requirement.gate]\n\
+             kind = \"skill\"\n\
              match = {{ name = \"standards\" }}\n\
              degree = {{ {clause} }}\n\
-             [[role.gate.clause]]\n\
+             [[requirement.gate.clause]]\n\
              severity = \"required\"\n\
              predicate = \"required\"\n\
              field = \"name\"\n"
@@ -871,27 +884,27 @@ mod tests {
         // `incoming = { max = 0 }`: the skill `standards` must not be pointed at. No
         // rule routes to it (the only rule routes nowhere), so its incoming degree is
         // zero — inside the bound, clean.
-        let roles = degree_role("incoming = { max = 0 }");
+        let requirements = degree_requirement("incoming = { max = 0 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", None)];
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&roles, &edges, &by_kind).is_empty());
+        assert!(degree(&requirements, &edges, &by_kind).is_empty());
     }
 
     #[test]
     fn a_self_registering_bound_fires_when_the_node_is_pointed_at() {
         // The rule `style` routes to `standards`, so the skill has incoming degree 1 —
         // outside `incoming = { max = 0 }`. A self-registering artifact must not be
-        // reached: an error naming the role, the artifact, and the direction.
-        let roles = degree_role("incoming = { max = 0 }");
+        // reached: an error naming the requirement, the artifact, and the direction.
+        let requirements = degree_requirement("incoming = { max = 0 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&roles, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
@@ -905,26 +918,26 @@ mod tests {
         // `incoming = { min = 1 }`: the skill `standards` must be reachable. The rule
         // `style` routes to it, so its incoming degree is 1 — inside the open-above
         // bound, clean.
-        let roles = degree_role("incoming = { min = 1 }");
+        let requirements = degree_requirement("incoming = { min = 1 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&roles, &edges, &by_kind).is_empty());
+        assert!(degree(&requirements, &edges, &by_kind).is_empty());
     }
 
     #[test]
     fn a_routed_bound_fires_when_the_node_is_unreachable() {
         // No rule routes to `standards`, so its incoming degree is zero — outside
         // `incoming = { min = 1 }`. A routed artifact must be reachable: an error.
-        let roles = degree_role("incoming = { min = 1 }");
+        let requirements = degree_requirement("incoming = { min = 1 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", None)];
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&roles, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
         assert_eq!(diags[0].artifact, "standards");
@@ -935,12 +948,12 @@ mod tests {
     fn an_outgoing_bound_reads_the_matched_node_out_degree() {
         // Degree bounds both directions: the rule `style` (selected by an `outgoing`
         // bound) routes to one skill, so its out-degree is 1 — outside `{ max = 0 }`.
-        let roles = roles(
-            "[role.gate]\n\
-             artifact = \"rule\"\n\
+        let requirements = requirements(
+            "[requirement.gate]\n\
+             kind = \"rule\"\n\
              match = { name = \"style\" }\n\
              degree = { outgoing = { max = 0 } }\n\
-             [[role.gate.clause]]\n\
+             [[requirement.gate.clause]]\n\
              severity = \"required\"\n\
              predicate = \"required\"\n\
              field = \"routes_to\"\n",
@@ -950,7 +963,7 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&roles, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "style");
         assert!(diags[0].message.contains("outgoing"));
@@ -958,12 +971,12 @@ mod tests {
 
     #[test]
     fn a_roster_declaring_no_degree_bound_does_no_graph_work() {
-        // `degree` is opt-in, per-role: a role with no bound is silent even over a
+        // `degree` is opt-in, per-requirement: a requirement with no bound is silent over a
         // graph that would violate one — `temper` never fabricates a gate the author
         // did not declare (`00-intent.md` law 4).
-        let roles = roles(
-            "[role.gate]\n\
-             artifact = \"skill\"\n\
+        let requirements = requirements(
+            "[requirement.gate]\n\
+             kind = \"skill\"\n\
              match = { name = \"standards\" }\n\
              contract = \"contracts/skill.toml\"\n",
         );
@@ -972,7 +985,7 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&roles, &edges, &by_kind).is_empty());
+        assert!(degree(&requirements, &edges, &by_kind).is_empty());
     }
 
     #[test]
@@ -981,13 +994,13 @@ mod tests {
         // that loads nothing, so `standards` has incoming degree zero and a routed
         // `{ min = 1 }` bound fires. The dangling reference neither forges nor masks a
         // degree, exactly as it neither forges nor masks a cycle.
-        let roles = degree_role("incoming = { min = 1 }");
+        let requirements = degree_requirement("incoming = { min = 1 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("absent"))];
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&roles, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "standards");
     }

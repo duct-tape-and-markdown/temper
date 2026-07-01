@@ -293,22 +293,22 @@ fn a_cyclic_reference_graph_fails_the_run() {
     );
 }
 
-/// A `temper.toml` declaring the `rule → skill` `routes_to` edge plus a role
+/// A `temper.toml` declaring the `rule → skill` `routes_to` edge plus a requirement
 /// carrying a `degree` bound (`clause`), over an inline `required`-`name` contract so
-/// the role is admissible and its skill filler conforms — the only finding a case can
-/// produce is the degree one. `art`/`sel` pick which kind and artifact the bound
-/// ranges over; `field` is the inline clause's required field (a `name` for a skill,
-/// a `routes_to` for the routing rule).
+/// the requirement is admissible and its skill filler conforms — the only finding a
+/// case can produce is the degree one. `art`/`sel` pick which kind and artifact the
+/// bound ranges over; `field` is the inline clause's required field (a `name` for a
+/// skill, a `routes_to` for the routing rule).
 fn degree_temper_toml(art: &str, sel: &str, field: &str, clause: &str) -> String {
     format!(
         "[[kind.rule.relationships]]\n\
          field = \"routes_to\"\n\
          to = \"skill\"\n\
-         [role.gate]\n\
-         artifact = \"{art}\"\n\
+         [requirement.gate]\n\
+         kind = \"{art}\"\n\
          match = {{ name = \"{sel}\" }}\n\
          degree = {{ {clause} }}\n\
-         [[role.gate.clause]]\n\
+         [[requirement.gate.clause]]\n\
          severity = \"required\"\n\
          predicate = \"required\"\n\
          field = \"{field}\"\n"
@@ -319,7 +319,7 @@ fn degree_temper_toml(art: &str, sel: &str, field: &str, clause: &str) -> String
 fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     let root = tmpdir("degree-self-reg-fires");
     // The rule `style` routes to the skill `standards`, so `standards` has incoming
-    // degree 1. A role declaring the skill self-registering (`incoming = { max = 0 }`,
+    // degree 1. A requirement declaring the skill self-registering (`incoming = { max = 0 }`,
     // "must not be pointed at") is violated — the run fails on the degree finding.
     import_harness(
         &root,

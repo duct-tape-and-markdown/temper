@@ -325,7 +325,7 @@ fn main() -> miette::Result<ExitCode> {
             //
             // Import-internally, not the author's two-step import-then-check: the
             // surface is scratch, and the author layer (the harness's `temper.toml`
-            // custom kinds/roles) is read from the harness itself, not the process
+            // custom kinds/requirements) is read from the harness itself, not the process
             // CWD — so the gate judges the harness under check.
             //
             // Advisory: the run *always* exits zero. `SessionStart` cannot block,
@@ -414,11 +414,11 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     diagnostics.extend(engine::validate(&skill_contract, &skill_features));
     diagnostics.extend(engine::validate(&rule_contract, &rule_features));
 
-    // The harness-contract tier: run role match-selection over the parsed roster,
-    // gating each `required` single-filler role on being filled by exactly one
-    // artifact of its kind (`specs/10-contracts.md`, "Roles and matching"). Absent
-    // `temper.toml` ⇒ no layer ⇒ this adds nothing, so the floor-only path stays
-    // byte-for-byte unchanged.
+    // The harness-contract tier: run requirement match-selection over the parsed
+    // roster, gating each `required` single-filler requirement on being filled by
+    // exactly one artifact of its kind (`specs/10-contracts.md`, "Requirements — the
+    // harness's named obligations"). Absent `temper.toml` ⇒ no layer ⇒ this adds
+    // nothing, so the floor-only path stays byte-for-byte unchanged.
     if let Some(layer) = layer.as_ref() {
         let by_kind: std::collections::BTreeMap<&str, &[extract::Features]> =
             std::collections::BTreeMap::from([
@@ -427,25 +427,33 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
             ]);
         let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
 
-        // Admissibility before conformance, here too: each role's own definition is
-        // validated against the definition — its `match` selector resolves, a
-        // `required` role's artifact kind is satisfiable, its contract resolves and
-        // is itself admissible, and any `verified_by` resolves — before the roster
-        // is trusted to judge the harness (`specs/10-contracts.md`, "Decision: the
-        // contract is itself checked — admissibility").
-        diagnostics.extend(roster::admissibility(layer.roles(), &by_kind, base_dir));
+        // Admissibility before conformance, here too: each requirement's own
+        // definition is validated against the definition — its `match` selector
+        // resolves, a `required` typed requirement's kind is satisfiable, its contract
+        // resolves and is itself admissible, and any `verified_by` resolves — before
+        // the roster is trusted to judge the harness (`specs/10-contracts.md`,
+        // "Decision: the contract is itself checked — admissibility").
+        diagnostics.extend(roster::admissibility(
+            layer.requirements(),
+            &by_kind,
+            base_dir,
+        ));
 
-        // Selection: each `required` single-filler role is filled by exactly one
-        // artifact of its kind (`specs/10-contracts.md`, "Roles and matching").
-        diagnostics.extend(roster::check(layer.roles(), &by_kind, base_dir));
+        // Selection: each `required` single-filler requirement (one declaring a
+        // contract-side `match` selector) is filled by exactly one artifact of its
+        // kind (`specs/10-contracts.md`, the fill facet).
+        diagnostics.extend(roster::check(layer.requirements(), &by_kind, base_dir));
 
-        // The `conforms-to` half of the same tier: each role's selected filler(s)
-        // are validated against the role's resolved contract — its inline clauses,
-        // or a template path taken relative to the `temper.toml` directory — with
-        // findings retagged under `role.conforms-to` (`specs/10-contracts.md`, the
-        // `role` primitive). A non-resolving template is admissibility's finding
-        // above, skipped here rather than double-reported.
-        diagnostics.extend(roster::conformance(layer.roles(), &by_kind, base_dir));
+        // The `conforms-to` half of the same tier: each requirement's selected
+        // filler(s) are validated against its resolved contract — inline clauses, or a
+        // template path taken relative to the `temper.toml` directory — with findings
+        // retagged under `requirement.conforms-to`. A non-resolving template is
+        // admissibility's finding above, skipped here rather than double-reported.
+        diagnostics.extend(roster::conformance(
+            layer.requirements(),
+            &by_kind,
+            base_dir,
+        ));
 
         // The graph scope: build the harness reference graph over the edges
         // declared as each kind's `[[kind.<name>.relationships]]` — a reference is a
@@ -471,14 +479,14 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
 
         // The graph-scope `degree` predicate (`specs/45-governance.md`, "The graph
         // scope (the model)"; the worked example "self-registering vs routed"): a
-        // role declares an in/out edge-count bound and every artifact its `match`
-        // selects must have a degree inside it over the resolved reference arcs.
-        // Declared at the set scope (on the role) but ranging over the edge graph,
-        // so it takes the roles *and* the edges, reusing the arc resolution
-        // `acyclic`/`check` assemble. Opt-in, per-role: a roster declaring no bound
-        // does no graph work here, so the floor-only path stays byte-for-byte
-        // unchanged.
-        diagnostics.extend(graph::degree(layer.roles(), layer.edges(), &by_kind));
+        // requirement declares an in/out edge-count bound and every artifact its
+        // `match` selects must have a degree inside it over the resolved reference
+        // arcs. Declared at the set scope (on the requirement) but ranging over the
+        // edge graph, so it takes the requirements *and* the edges, reusing the arc
+        // resolution `acyclic`/`check` assemble. Opt-in, per-requirement: a roster
+        // declaring no bound does no graph work here, so the floor-only path stays
+        // byte-for-byte unchanged.
+        diagnostics.extend(graph::degree(layer.requirements(), layer.edges(), &by_kind));
 
         // The requirement-coverage tier (`specs/10-contracts.md`, "Requirements and
         // `satisfies` — the meaningful contract"): the referential shadow of the

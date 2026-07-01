@@ -22,8 +22,8 @@
 //! structural `max_lines`, `require_sections`, `must_define`; and cross-artifact
 //! `name-matches-dir`, `unique-name`, `dependency-exists`. The full `pattern`
 //! (regex) field primitive is held behind the regex fork; the harness-contract
-//! primitives (`role`, `verified_by`) belong to the harness-contract layer, not
-//! here.
+//! primitives (`requirement`, `verified_by`) belong to the harness-contract layer,
+//! not here.
 //!
 //! ## Why hand-walk `toml_edit` instead of `serde` derive
 //!

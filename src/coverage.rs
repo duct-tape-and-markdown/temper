@@ -12,12 +12,16 @@
 //! features (every artifact kind that can opt in), the flattened stream the gate
 //! assembles:
 //!
-//! - [`REQUIREMENT_UNFILLED_RULE`] — every `required` requirement is satisfied by
-//!   **≥1 artifact whose representation declares a resolving `satisfies` link naming
-//!   it**. A `required` requirement no artifact opts into is an `error`: the intent
-//!   has no resolving home. A non-`required` requirement left unfilled is *not* a
-//!   violation — `temper` never fabricates a gate the author did not declare
-//!   (`00-intent.md` law 4).
+//! - [`REQUIREMENT_UNFILLED_RULE`] — every `required` requirement **that is filled by
+//!   opt-in** is satisfied by **≥1 artifact whose representation declares a resolving
+//!   `satisfies` link naming it**. A `required` requirement no artifact opts into is an
+//!   `error`: the intent has no resolving home. A non-`required` requirement left
+//!   unfilled is *not* a violation — `temper` never fabricates a gate the author did
+//!   not declare (`00-intent.md` law 4). A requirement that declares a contract-side
+//!   `match` selector is filled the *other* way — [`crate::roster`] gates its
+//!   single-filler selection — so this opt-in coverage check leaves it to the roster
+//!   rather than double-gate the one obligation (`specs/10-contracts.md`, the fill
+//!   facet: opt-in `satisfies` *or* a `match` selector).
 //! - [`REQUIREMENT_DANGLING_RULE`] — every `satisfies` entry on any artifact names a
 //!   **declared** requirement. A `satisfies` resolving to no requirement is an
 //!   `error` on that artifact: a dangling link is a silent no-op, the very failure
@@ -89,10 +93,17 @@ pub fn check(
         .flat_map(|features| features.satisfies.iter().map(String::as_str))
         .collect();
 
-    // (1) Unfilled: every `required` requirement needs a resolving `satisfies` home.
-    // Iteration is over the name-sorted `BTreeMap`, so the diagnostic set is stable.
+    // (1) Unfilled: every `required` requirement filled by opt-in needs a resolving
+    // `satisfies` home. A requirement that declares a contract-side `match` selector is
+    // filled the other way — `crate::roster` gates its single-filler selection — so it
+    // is skipped here rather than double-gated (`specs/10-contracts.md`, the fill facet:
+    // opt-in `satisfies` *or* a `match` selector). Iteration is over the name-sorted
+    // `BTreeMap`, so the diagnostic set is stable.
     for (name, requirement) in requirements {
-        if requirement.required && !satisfied.contains(name.as_str()) {
+        if requirement.required
+            && requirement.selector.is_none()
+            && !satisfied.contains(name.as_str())
+        {
             diagnostics.push(Diagnostic::error(
                 REQUIREMENT_UNFILLED_RULE,
                 name,
@@ -152,11 +163,21 @@ mod tests {
     }
 
     /// A named requirement with the given `required` flag; `means` is carried but
-    /// never read by the coverage check.
-    fn requirement(means: &str, required: bool) -> Requirement {
+    /// never read by the coverage check, and the fill/typing facets are absent so the
+    /// requirement is the pure opt-in-coverage form the gate ranges over.
+    fn requirement(name: &str, means: Option<&str>, required: bool) -> Requirement {
         Requirement {
-            means: means.to_string(),
+            name: name.to_string(),
+            means: means.map(str::to_string),
+            kind: None,
+            contract: None,
+            selector: None,
             required,
+            count: None,
+            unique: Vec::new(),
+            membership: None,
+            degree: None,
+            verified_by: None,
         }
     }
 
@@ -164,7 +185,11 @@ mod tests {
     fn a_required_requirement_with_a_resolving_satisfies_stays_silent() {
         let requirements = BTreeMap::from([(
             "dev-standards".to_string(),
-            requirement("the harness maintains dev standards", true),
+            requirement(
+                "dev-standards",
+                Some("the harness maintains dev standards"),
+                true,
+            ),
         )]);
         let artifacts = vec![artifact("dev-standards-skill", &["dev-standards"])];
 
@@ -175,7 +200,11 @@ mod tests {
     fn a_required_requirement_with_no_satisfying_artifact_fires_unfilled() {
         let requirements = BTreeMap::from([(
             "dev-standards".to_string(),
-            requirement("the harness maintains dev standards", true),
+            requirement(
+                "dev-standards",
+                Some("the harness maintains dev standards"),
+                true,
+            ),
         )]);
         // An artifact that opts into a *different* requirement does not cover it.
         let artifacts = vec![artifact("other-skill", &["something-else"])];
@@ -194,7 +223,11 @@ mod tests {
     fn a_satisfies_naming_no_requirement_fires_dangling_on_that_artifact() {
         let requirements = BTreeMap::from([(
             "dev-standards".to_string(),
-            requirement("the harness maintains dev standards", true),
+            requirement(
+                "dev-standards",
+                Some("the harness maintains dev standards"),
+                true,
+            ),
         )]);
         let artifacts = vec![artifact(
             "dev-standards-skill",
@@ -223,10 +256,47 @@ mod tests {
     fn a_non_required_unfilled_requirement_does_not_block() {
         let requirements = BTreeMap::from([(
             "nice-to-have".to_string(),
-            requirement("an optional convenience", false),
+            requirement("nice-to-have", Some("an optional convenience"), false),
         )]);
         // Nothing opts into it, but it is advisory intent — no gate fires.
         let artifacts = vec![artifact("some-skill", &[])];
+
+        assert!(check(&requirements, &artifacts).is_empty());
+    }
+
+    #[test]
+    fn a_means_less_requirement_still_gates_coverage_via_required() {
+        // `means` is optional on the unified requirement, but coverage keys off
+        // `required`, not `means`: a `required` requirement with no `means` and no
+        // satisfying artifact still fires UNFILLED.
+        let requirements = BTreeMap::from([(
+            "dev-standards".to_string(),
+            requirement("dev-standards", None, true),
+        )]);
+        let artifacts = vec![artifact("some-skill", &[])];
+
+        let diagnostics = check(&requirements, &artifacts);
+        let unfilled: Vec<&Diagnostic> = diagnostics
+            .iter()
+            .filter(|d| d.rule == REQUIREMENT_UNFILLED_RULE)
+            .collect();
+        assert_eq!(unfilled.len(), 1);
+        assert_eq!(unfilled[0].artifact, "dev-standards");
+    }
+
+    #[test]
+    fn a_requirement_with_a_match_selector_is_left_to_the_roster() {
+        // Fill is opt-in `satisfies` *or* a contract-side `match`. A `required`
+        // requirement that declares a `match` selector is filled the roster's way, so
+        // this opt-in coverage check skips it rather than double-gate it.
+        let mut req = requirement("linter", Some("the harness lints"), true);
+        req.selector = Some(crate::compose::MatchSelector::Name {
+            glob: "lint*".to_string(),
+        });
+        let requirements = BTreeMap::from([("linter".to_string(), req)]);
+        // Nothing opts in via `satisfies`, but coverage leaves the match-filled
+        // requirement to the roster — so no UNFILLED here.
+        let artifacts = vec![artifact("lint-rust", &[])];
 
         assert!(check(&requirements, &artifacts).is_empty());
     }
@@ -239,11 +309,11 @@ mod tests {
         let requirements = BTreeMap::from([
             (
                 "dev-standards".to_string(),
-                requirement("skill fills this", true),
+                requirement("dev-standards", Some("skill fills this"), true),
             ),
             (
                 "rust-style".to_string(),
-                requirement("rule fills this", true),
+                requirement("rust-style", Some("rule fills this"), true),
             ),
         ]);
         let artifacts = vec![
@@ -300,7 +370,11 @@ mod tests {
         // other — this pins exact-match precision.
         let requirements = BTreeMap::from([(
             "dev-standards".to_string(),
-            requirement("the harness maintains dev standards", true),
+            requirement(
+                "dev-standards",
+                Some("the harness maintains dev standards"),
+                true,
+            ),
         )]);
         let artifacts = vec![artifact("dev-standards-skill", &["dev-standatds"])];
 
