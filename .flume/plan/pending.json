@@ -7,8 +7,7 @@
       "section": "Artifact kinds & contract selection"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-DECLARATION-PARSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/import.rs",
-          "description": "`import::run` loads the project-root `temper.toml` layer and scans, in addition to the built-in harness kinds, every custom kind it declares — each kind's `governs` locus discovered and projected to the surface via the data extractor (KIND-EXTRACTION-ALGEBRA). Replace the hardwired, unconditional `discover_spec_files`/`import_spec` spec path: spec discovery becomes data-driven like any custom kind. Absent a `temper.toml` custom kind ⇒ built-ins only."
+          "description": "`import::run` loads the project-root `temper.toml` layer (`compose::AuthorLayer::custom_kinds`, shipped) and scans, in addition to the built-in harness kinds, every custom kind it declares — each kind's `governs` locus discovered and its units projected to the surface. Replace the hardwired, unconditional `discover_spec_files`/`import_spec` call in `run`: spec discovery becomes data-driven like any custom kind; absent a `temper.toml` custom kind ⇒ built-ins only. Reconcile the inline `writes_a_spec_surface_and_rollup_row` test — it relies on the hardwired scan over a `temper.toml`-less fixture, so give its fixture a `temper.toml` declaring the spec kind (or fold it into the custom-kind path) plus a no-custom-kind case asserting built-ins only. Keep the `discover_spec_files` fn for now — drift's caller (`src/drift.rs`) still uses it; its removal is KIND-RETIRE-BUILTIN-SPEC."
         }
       ],
       "retire": []

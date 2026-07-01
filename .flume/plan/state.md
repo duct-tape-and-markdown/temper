@@ -1,23 +1,28 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk this tick: KIND-EXTRACTION-ALGEBRA
-  **shipped** — `src/kind.rs` is the closed extraction algebra as data
-  (`Extraction`/`Primitive`: `field`, `headings`, `line_count`, `placement`,
-  `references`), `from_table` public for compose to reuse, unknown-primitive a
-  load error, full unit tests. Also confirmed still un-shipped: `src/compose.rs`
-  carries only the adopt/clause `KindLayer` (no `governs`/`extraction`), and
-  `src/import.rs` still hardwires `discover_spec_files`/`import_spec`.
-- **Last shipped:** KIND-EXTRACTION-ALGEBRA (`9984208`). Tree clean.
+- **Phase:** reconcile. Verified on disk this tick: **KIND-DECLARATION-PARSE
+  shipped** — `src/compose.rs` parses `[kind.<name>]` custom kinds into
+  `CustomKind { governs, extraction, clauses }` off `AuthorLayer::custom_kinds()`
+  (`is_custom_kind_declaration` disambiguates a full custom kind from a built-in
+  contract layer; `Extraction::from_table` reused, so an out-of-vocabulary
+  primitive is a load error). Still un-shipped and confirmed on disk: `src/import.rs`
+  hardwires `discover_spec_files`/`import_spec`; `src/main.rs` `Check` dispatches
+  only `skill`+`rule` contracts; `src/graph.rs` reads the standalone `[[edge]]`
+  list (`AuthorLayer::edges`); the built-in `Spec` IR (`src/spec.rs`,
+  `Workspace.specs`, drift's spec axis, `extract::spec_features`) all remain.
+- **Last shipped:** KIND-DECLARATION-PARSE (`fe27364`). Tree clean; no repo-root
+  `temper.toml` yet.
 - **In flight / next:** the kind-declaration chain, one linear serialized run
-  (shared files compose/import/main/extract/lib/check/drift). **KIND-DECLARATION-PARSE
-  now `open`, pickable** (its blocker shipped; the stale `blockedBy` is cleared) →
-  KIND-IMPORT-DISCOVERY → KIND-CHECK-SPEC → KIND-RETIRE-BUILTIN-SPEC →
-  KIND-EDGE-RELATIONSHIPS, each `blockedBy` its predecessor so exactly one is
-  pickable at a time.
+  (shared files import/main/check/drift/compose/graph). **KIND-IMPORT-DISCOVERY now
+  `open`, pickable** (blocker KIND-DECLARATION-PARSE shipped) → KIND-CHECK-SPEC →
+  KIND-RETIRE-BUILTIN-SPEC → KIND-EDGE-RELATIONSHIPS, each `blockedBy` its
+  predecessor so exactly one is pickable at a time.
 - **Frontier:** after the chain lands, `degree`/`acyclic` (`45-governance.md`) read
-  the same relationships; the spec kind's decisions-name-alternatives clause waits on
-  `(decision-marker-predicate)`, references-resolve on KIND-EDGE-RELATIONSHIPS.
+  the same relationships; the spec kind's references-resolve clause follows
+  KIND-EDGE-RELATIONSHIPS, and decisions-name-alternatives waits on the
+  `(decision-marker-predicate)` fork.
 - **Inbox:** empty. Open-questions unchanged.
 
-Plan continues: no — chain head unblocked and pickable, tail serialized, inbox
-empty; hand to build.
+Plan continues: no — sole stale gate flipped (chain head unblocked, pickable),
+tail serialized over shared files, inbox empty, no new gap filable ahead of the
+chain; hand to build.
