@@ -119,6 +119,23 @@ deterministically (`30-landscapes.md`). So the graph is *not* a spec-special
 mechanism — it is what *any* kind gets by declaring entities + relationships, an
 opt-in capability layered on the closed extraction the kind already composes.
 
+### Decision: reference resolution is declared by the kind, never guessed by the engine
+
+**Chosen:** a kind's declared reference syntax carries its own **normalization** —
+the deterministic mapping from a reference's extracted value to the member id it
+names. The spec kind's backtick-filename syntax declares `strip_suffix = ".md"`,
+so `` `15-kinds.md` `` resolves to the unit id `15-kinds`; the engine applies
+exactly the declared rule and then demands an **exact** id match. The rule is
+declared data beside the syntax it belongs to — the fork dissolves into the
+declaration, the same move as the syntax itself ("never grepped prose,"
+`45-governance.md`). **Rejected:** (a) an engine-global normalization (strip any
+extension) — a guess baked into the engine, wrong the moment the next kind's
+syntax differs; (b) fallback multi-matching (`id == value` *or* `id + ".md" ==
+value`) — a loose fallback can **mask** a genuine dangling reference (collapsing
+`standards.md` onto an unrelated member `standards`), and masking a true positive
+is as unsound as forging one — law 3 cuts both ways. (Resolves
+`(reference-id-normalization)`.)
+
 ## A kind definition — one composed object
 
 A kind is the **declare-side** object over the extraction algebra — with no code of
@@ -135,8 +152,8 @@ kind (`10-contracts.md`), carrying the clauses (`10-contracts.md`) over those fe
 Where each half lives is the ownership line (above). A **built-in** kind is temper's,
 shipped as a harness adapter: its *extraction* is temper's engine code (it mirrors an
 external format the author cannot redefine), and it binds a *layerable built-in
-package*. A **custom** kind is the **author's, authored under `.temper/kinds/<name>/`**
-(`40-composition.md`) — extraction and relationships composed from the algebra — and
+package*. A **custom** kind is the **author's, authored under `.temper/kinds/<name>/`** as its
+`KIND.md` (`20-surface.md`) — extraction and relationships composed from the algebra — and
 binds a package under `.temper/packages/`, exactly as a built-in does. **Every kind
 binds a package; none carries its contract inline** (`40-composition.md`).
 
@@ -162,7 +179,9 @@ temper governs its `specs/` with a custom `spec` kind — authored under temper'
 mechanism above, not shipped in the crate:
 
 - **extraction:** ATX headings, `## Decision` blocks, and backtick-filename
-  references (`` `NN-name.md` `` — the corpus's declared reference syntax).
+  references (`` `NN-name.md` `` — the corpus's declared reference syntax, with
+  its declared normalization `strip_suffix = ".md"` mapping the value to the
+  unit id, Decision above).
 - **package (the `spec` kind's require-side):** `max_lines` (advisory,
   `90-spec-system.md`'s ~150); decisions-name-alternatives (every `## Decision` carries
   a `Rejected` — a predicate over the decision-block extractor); references-resolve

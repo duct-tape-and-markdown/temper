@@ -86,6 +86,7 @@ a workspace.
 
 A built-in kind is **adopted** — its extraction is temper's, you only bind its package
 (above). A **custom** kind is **authored as an artifact** under `.temper/kinds/<name>/`
+— its `KIND.md`, a document in the surface language like every other artifact
 (`20-surface.md`) — the one home for a project's own artifact kind (its specs, ADRs,
 playbooks) — and **registered** in the assembly. Its definition composes the algebras
 (`15-kinds.md`):

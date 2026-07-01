@@ -69,7 +69,7 @@ temper.toml                   # the ASSEMBLY: package↔kind bindings, requireme
   rules/<name>/               # members: RULE.md
   specs/<name>/               # members: SPEC.md
   packages/<name>/            # a PACKAGE: PACKAGE.md — same medium (10-contracts.md)
-  kinds/<name>/               # a custom KIND definition (extraction + entities/relationships)
+  kinds/<name>/               # a custom KIND definition: KIND.md — same medium (Decision below)
 ```
 
 ## The IR
@@ -188,6 +188,23 @@ ecosystem is too thin to carry the medium); the programmable configs
 (CUE/Dhall/Nickel/Pkl — expressiveness in the medium is the same unsound-proxy
 door the algebra bolted); a bespoke dialect (a parser and an editor ecosystem
 owned forever, against "adopt libraries for solved mechanics").
+
+### Decision: a kind definition is `KIND.md` — one document, same medium
+
+**Chosen:** a custom kind is authored as `.temper/kinds/<name>/KIND.md`, a
+document in the surface language like every other artifact: the TOML-fenced
+header carries the definition — `governs`, the composed extraction,
+entities/relationships (`40-composition.md`) — and the body is the kind's own
+prose: what this class of artifact *is*, for the humans and agents who will
+author its members. A kind definition is not "pure structure" once the surface
+is an authoring medium — the class description is exactly the prose worth
+keeping beside the declaration, and the guidance channel can deliver it where a
+member of the kind is being authored. **Rejected:** (a) a bare `kind.toml` — a
+second file convention forking the surface into two dialects, and it strands
+the kind's prose; (b) overloading another document name for the role —
+`KIND.md` keeps the uppercase-document-per-directory convention (`SKILL.md`,
+`PACKAGE.md`) uniform: the file names the role its directory plays. (Resolves
+`(kind-artifact-format)`.)
 
 ## Artifact kinds & package binding
 
@@ -318,6 +335,30 @@ the floor on day one and earn its graph over time.
   modeline) into the harness, drift-synced (future; `50-distribution.md`).
 - `temper schema [--kind <kind>]` — emit the assembly and its bound packages as an
   editor JSON Schema for keystroke validation (future; `50-distribution.md`).
+- `temper why <member>` — **read**: everything that holds this member in place — the
+  requirements it `satisfies` (each with its authored rationale), the package its
+  kind binds, its declared edges in and out (future; Decision below).
+- `temper requirements [<name>]` — **read**: the roster, each requirement with its
+  satisfier set and coverage state; with `<name>`, one requirement's satisfiers —
+  the reverse walk, and the blast radius a removal would open (future; Decision
+  below).
+
+### Decision: the CLI gains a read family — `why` and `requirements`
+
+**Chosen:** two **read-only traversal verbs** over data `check` already computes —
+`why <member>` walks the requirement↔`satisfies` edge forward (this member → the
+requirements it fills, with rationale → the package governing it → its edges);
+`requirements` walks the same edge in reverse (requirement → satisfier set → what a
+removal would strand). They are projections, never gates: no new engine semantics,
+no non-zero exit on findings — the traversal payoff the graph promises ("removing a
+load-bearing entity surfaces its blast radius," `30-landscapes.md`, law 6) finally
+given a verb. Built after the surface-language migration, once coverage + graph
+data exist to read. **Rejected:** (a) growing `check` flags into a query surface —
+the gate stays a gate, and a reporting flag that answers "why" muddies a verb whose
+exit code CI trusts; (b) a general `query` verb — a query language is surface
+`temper` does not need for the two questions that matter, which are exactly the two
+directions of the one requirement↔`satisfies` edge (`10-contracts.md`). (Resolves
+`(read-verbs)`.)
 
 Logic lives in the library; `main` is a thin `clap` dispatch that maps results to
 an exit code (`.claude/rules/rust.md`).

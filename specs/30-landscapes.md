@@ -55,6 +55,16 @@ corresponding code symbol; the contract the `spec` **package** carries checks th
 correspondence resolves both directions. This is flume's spec↔code equality made a *checked relation* rather
 than aspirational prose-vs-types — the structural backbone the spec layer lacked.
 
+**Honest bound — the code half is deferred, and the deferral is structural.** The
+extraction algebra reads *documents* — structured fields, markdown structure,
+text/file facts (`15-kinds.md`) — and none of its primitives can read a code
+symbol. A code kind therefore waits on a **symbol-extraction primitive**: a
+deliberate vocabulary addition (`15-kinds.md`'s Decision — never a per-kind
+hatch) carrying its own machinery, because syntax-tree parsing is not a variation
+on frontmatter. Until that primitive is sanctioned, the seam is *direction, not
+surface*: nothing in the current algebra implies it, and no spec clause should
+pretend to check it.
+
 ## Scope (not sequencing)
 
 The spec owns dependencies and scope; the **order** of work is the plan phase's
@@ -66,4 +76,6 @@ landscapes; the judged tier rents the graph.
 In scope now: the generic engine + the harness instance (replacing the heuristic
 registry, `10-contracts.md` decision), the declared model, and the dependency
 graph. **Out of current scope:** the judged fidelity tier (tier-2) — deferred,
-advisory, and to be calibrated before it is trusted.
+advisory, and to be calibrated before it is trusted — and the **code landscape**
+(the seam's code half, above) — deferred until a symbol-extraction primitive is
+deliberately added to the algebra.
