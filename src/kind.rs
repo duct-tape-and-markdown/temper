@@ -56,8 +56,199 @@ use regex::Regex;
 use serde_json::Value as JsonValue;
 use toml_edit::{DocumentMut, Item, Table};
 
+use crate::compose::Edge;
 use crate::document::Document;
 use crate::extract::{self, FeatureValue, Features};
+
+/// The built-in harness kind names temper ships an engine-code extractor for
+/// (`specs/15-kinds.md`, "Two categories of kind — ownership, not mechanism"). A
+/// `[kind.<name>]` registration in the assembly whose name is one of these is a
+/// **built-in layer** (adopt-and-layer its shipped package); any other name
+/// registers a **custom** kind, whose definition is authored under
+/// `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`, "Decision: a custom
+/// kind is an authored `.temper/` artifact, registered in the assembly").
+pub const BUILTIN_KINDS: &[&str] = &["skill", "rule"];
+
+/// The **file locus** a custom kind reads (`specs/40-composition.md`, "Registering a
+/// custom kind"): the root directory its units live under, and the filename glob that
+/// selects them. `import` discovers a custom kind's units by scanning `root` for files
+/// matching `glob`; file placement is itself an extraction primitive, so the locus is
+/// part of the authored definition, not external config.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Governs {
+    /// The root directory the kind's units sit under (`specs`, `docs/adr`), a path
+    /// relative to the harness the assembly governs.
+    pub root: String,
+    /// The filename glob that selects the kind's units under `root` (`*.md`,
+    /// `[0-9][0-9]-*.md`), stored verbatim.
+    pub glob: String,
+}
+
+/// A custom kind's **authored definition**, loaded from `.temper/kinds/<name>/KIND.md`
+/// (`specs/20-surface.md`, "Decision: a kind definition is `KIND.md` — one document,
+/// same medium"; `specs/40-composition.md`, "Decision: a custom kind is an authored
+/// `.temper/` artifact, registered in the assembly"). The `+++`-fenced header carries
+/// the composed definition — the [`governs`](CustomKind::governs) locus, the composed
+/// [`Extraction`], and the declared [`relationships`](CustomKind::relationships) — and
+/// the body is the kind's own prose (what this class of artifact *is*), read by no
+/// check.
+///
+/// A custom kind is **purely declare-side**: it carries **no clauses**. Its
+/// require-side is a **package** bound in the assembly (`[kind.<name>] package =
+/// "<name>"`), resolved under `.temper/packages/` exactly as a built-in kind binds its
+/// shipped one — every kind refers to a declared package, uniformly.
+///
+/// Not `Eq` — its [`extraction`](CustomKind::extraction) is `Eq`, but keeping the
+/// derive `PartialEq` leaves room for future `f64`-bearing fields without a churn, as
+/// it does for [`Clause`](crate::contract::Clause).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CustomKind {
+    /// The kind's name — the `[kind.<name>]` registration key and the
+    /// `<name>` directory its `KIND.md` lives under.
+    pub name: String,
+    /// The file locus the kind reads.
+    pub governs: Governs,
+    /// The composed extractor over the closed algebra (`specs/15-kinds.md`), parsed
+    /// from the header's `[[extraction]]` array by the shared [`Extraction::from_table`]
+    /// — so an out-of-vocabulary primitive is rejected at load exactly as it is for a
+    /// standalone extraction declaration. Absent ⇒ the vacuous extractor (only the
+    /// intrinsic id).
+    pub extraction: Extraction,
+    /// The declared **relationships** — which of the kind's references are edges
+    /// (`specs/15-kinds.md`, "The entity graph is a kind capability"), each an
+    /// [`Edge`] whose `from` is this kind. Parsed from the header's
+    /// `[[relationships]]` array. Absent ⇒ empty (the kind declares no edges).
+    pub relationships: Vec<Edge>,
+}
+
+impl CustomKind {
+    /// Load a custom kind's authored definition from `<kinds_dir>/<name>/KIND.md` — the
+    /// one home for a project's own artifact kind (`specs/20-surface.md`). A missing
+    /// document is a [`KindError::MissingDefinition`]: the assembly registered the kind,
+    /// so its definition is required, never silently skipped. A malformed fenced
+    /// document, an out-of-vocabulary extraction primitive, a missing/mistyped
+    /// `governs`, or a stray header key each surface as a precise [`KindError`].
+    pub fn load(kinds_dir: &Path, name: &str) -> Result<Self, KindError> {
+        let path = kinds_dir.join(name).join("KIND.md");
+        let raw = match std::fs::read_to_string(&path) {
+            Ok(raw) => raw,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                return Err(KindError::MissingDefinition {
+                    path,
+                    kind: name.to_string(),
+                });
+            }
+            Err(source) => return Err(KindError::Io { path, source }),
+        };
+        let document = Document::parse(&raw).map_err(|source| KindError::Document {
+            path: path.clone(),
+            source,
+        })?;
+        Self::from_header(document.header().as_table(), name, &path)
+    }
+
+    /// Parse a custom kind's definition off a `KIND.md` header table — the composed
+    /// [`governs`](CustomKind::governs) locus, the `[[extraction]]` extractor (via the
+    /// shared [`Extraction::from_table`]), and the `[[relationships]]` edges. The seam
+    /// tests drive without touching disk. A header carries only `governs`,
+    /// `extraction`, and `relationships`; a stray key — a leftover `clause` (a custom
+    /// kind carries no clauses; its contract is the bound package), an `entities` table
+    /// (nodes derive from `features.id`), or a typo — is a [`KindError::UnknownKey`],
+    /// rejected rather than silently dropped (`specs/10-contracts.md`, "Decision:
+    /// unknown keys are rejected, not ignored").
+    pub fn from_header(table: &Table, name: &str, path: &Path) -> Result<Self, KindError> {
+        for (key, _) in table.iter() {
+            if !matches!(key, "governs" | "extraction" | "relationships") {
+                return Err(KindError::UnknownKey {
+                    path: path.to_path_buf(),
+                    kind: name.to_string(),
+                    key: key.to_string(),
+                });
+            }
+        }
+        let governs = parse_governs(table, name, path)?;
+        let extraction = Extraction::from_table(table, path)?;
+        let relationships = parse_relationships(table, name, path)?;
+        Ok(Self {
+            name: name.to_string(),
+            governs,
+            extraction,
+            relationships,
+        })
+    }
+}
+
+/// Parse a `KIND.md` header's required `governs = { root, glob }` locus: absent ⇒
+/// [`KindError::MissingGoverns`] (a custom kind that reads no files is meaningless);
+/// not a table, or a missing/mistyped `root`/`glob` string ⇒ [`KindError::BadGoverns`],
+/// folding every malformation into one error.
+fn parse_governs(table: &Table, kind: &str, path: &Path) -> Result<Governs, KindError> {
+    let item = table
+        .get("governs")
+        .ok_or_else(|| KindError::MissingGoverns {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+        })?;
+    let bad = || KindError::BadGoverns {
+        path: path.to_path_buf(),
+        kind: kind.to_string(),
+    };
+    let governs = item.as_table_like().ok_or_else(bad)?;
+    let root = governs
+        .get("root")
+        .and_then(Item::as_str)
+        .ok_or_else(bad)?
+        .to_string();
+    let glob = governs
+        .get("glob")
+        .and_then(Item::as_str)
+        .ok_or_else(bad)?
+        .to_string();
+    Ok(Governs { root, glob })
+}
+
+/// Parse a `KIND.md` header's `[[relationships]]` array into typed [`Edge`]s, in
+/// declaration order — a reference is a **kind capability** declared under its owning
+/// kind (`specs/15-kinds.md`, "The entity graph is a kind capability"). The owning
+/// `kind` is each edge's source (the implicit `from`); each relationship names its
+/// reference `field` and target `to` kind, both strings. Absent ⇒ an empty vec; not an
+/// array-of-tables ⇒ [`KindError::RelationshipsNotArray`]; a missing/mistyped `field`
+/// or `to` ⇒ a single folded [`KindError::BadRelationship`] naming its position.
+fn parse_relationships(table: &Table, kind: &str, path: &Path) -> Result<Vec<Edge>, KindError> {
+    let Some(item) = table.get("relationships") else {
+        return Ok(Vec::new());
+    };
+    let array = item
+        .as_array_of_tables()
+        .ok_or_else(|| KindError::RelationshipsNotArray {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+        })?;
+    let mut edges = Vec::with_capacity(array.len());
+    for (index, relationship) in array.iter().enumerate() {
+        let bad = || KindError::BadRelationship {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+            index,
+        };
+        let field = relationship
+            .get("field")
+            .and_then(Item::as_str)
+            .ok_or_else(bad)?
+            .to_string();
+        let to = relationship
+            .get("to")
+            .and_then(Item::as_str)
+            .ok_or_else(bad)?
+            .to_string();
+        edges.push(Edge {
+            field,
+            from: kind.to_string(),
+            to,
+        });
+    }
+    Ok(edges)
+}
 
 /// A custom kind's composed extractor: an ordered set of deterministic
 /// [`Primitive`]s over the closed algebra. Run over a [`Unit`] with
@@ -373,6 +564,103 @@ pub enum KindError {
         dir: PathBuf,
         /// How many `.md` bodies were found (never exactly one).
         found: usize,
+    },
+
+    /// The assembly registered a custom kind but its authored definition
+    /// `.temper/kinds/<name>/KIND.md` is absent. A registration promises a definition
+    /// (`specs/40-composition.md`, "Registering a custom kind"), so a missing one is a
+    /// hard error, never a silent skip.
+    #[error("{path}: custom kind `{kind}` is registered but its `KIND.md` definition is missing")]
+    #[diagnostic(
+        code(temper::kind::missing_definition),
+        help(
+            "author the kind's definition at `.temper/kinds/<name>/KIND.md`, or drop its `[kind.<name>]` registration"
+        )
+    )]
+    MissingDefinition {
+        /// The `KIND.md` path that was expected.
+        path: PathBuf,
+        /// The registered kind whose definition is absent.
+        kind: String,
+    },
+
+    /// A `KIND.md` header names no `governs` locus — a custom kind that reads no files
+    /// is meaningless, so the locus is required (`specs/40-composition.md`).
+    #[error("{path}: custom kind `{kind}` is missing required key `governs`")]
+    #[diagnostic(
+        code(temper::kind::missing_governs),
+        help("a custom kind must declare the file locus it reads — a `governs` root and glob")
+    )]
+    MissingGoverns {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The custom kind missing its locus.
+        kind: String,
+    },
+
+    /// A `KIND.md` header's `governs` locus is malformed — not a table, or
+    /// missing/mistyped one of its `root` and `glob` strings. The locus is a root
+    /// directory plus a filename glob; any miss collapses into this one error.
+    #[error(
+        "{path}: custom kind `{kind}` `governs` must be a table with `root` and `glob` string keys"
+    )]
+    #[diagnostic(code(temper::kind::bad_governs))]
+    BadGoverns {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The custom kind with the malformed locus.
+        kind: String,
+    },
+
+    /// A `KIND.md` header carries a key outside its closed set (`governs`,
+    /// `extraction`, `relationships`). A leftover `clause` (a custom kind carries no
+    /// clauses; its contract is the bound package), an `entities` table (nodes derive
+    /// from `features.id`), or a typo is rejected at load rather than silently dropped
+    /// (`specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored").
+    #[error("{path}: custom kind `{kind}` definition has unknown key `{key}`")]
+    #[diagnostic(
+        code(temper::kind::unknown_key),
+        help(
+            "a `KIND.md` definition carries only `governs`, `extraction`, and `relationships` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
+        )
+    )]
+    UnknownKey {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The custom kind whose definition carries the stray key.
+        kind: String,
+        /// The unrecognized key.
+        key: String,
+    },
+
+    /// A `KIND.md` header's `relationships` key is present but is not an array of
+    /// `[[relationships]]` reference tables.
+    #[error(
+        "{path}: custom kind `{kind}` `relationships` must be an array of `[[relationships]]` reference tables"
+    )]
+    #[diagnostic(code(temper::kind::relationships_not_array))]
+    RelationshipsNotArray {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The kind whose relationships array is malformed.
+        kind: String,
+    },
+
+    /// A `[[relationships]]` declaration is malformed — missing or mistyped one of its
+    /// `field`, `to` strings. A declared relationship names a reference field and a
+    /// target kind (its owning kind is the source); any miss collapses into this one
+    /// error naming its position.
+    #[error(
+        "{path}: custom kind `{kind}` `[[relationships]]` #{index} must name a reference `field` and a `to` kind, both strings"
+    )]
+    #[diagnostic(code(temper::kind::bad_relationship))]
+    BadRelationship {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The kind that owns the malformed relationship.
+        kind: String,
+        /// The zero-based position of the malformed relationship in declaration order.
+        index: usize,
     },
 }
 

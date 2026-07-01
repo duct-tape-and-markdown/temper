@@ -15,8 +15,9 @@
 //!
 //! A custom kind (a project's own specs, ADRs, playbooks; `specs/15-kinds.md`)
 //! carries no bespoke IR. Its units are discovered **data-driven** from the kind's
-//! declared [`governs`](crate::compose::Governs) locus — a root directory and a
-//! filename glob ([`AuthorLayer::custom_kinds`]) — and each is projected to
+//! declared [`governs`](crate::kind::Governs) locus — a root directory and a filename
+//! glob, read off its authored `.temper/kinds/<name>/KIND.md` definition
+//! ([`CustomKind::load`]) which the assembly registers — and each is projected to
 //! `<into>/<root>/<name>/<KIND>.md`: one member document whose `+++` header carries
 //! `[provenance]` alone (a custom unit's typed header is composed by its extractor,
 //! not re-serialized here) over the byte-faithful whole file as its body. This is why
@@ -48,8 +49,9 @@ use std::path::{Path, PathBuf};
 
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
-use crate::compose::{AuthorLayer, CustomKind, Governs};
+use crate::compose::AuthorLayer;
 use crate::document::{self, Document};
+use crate::kind::{BUILTIN_KINDS, CustomKind, Governs};
 use crate::rule::{Rule, RuleError};
 use crate::skill::{Skill, SkillError};
 
@@ -138,8 +140,9 @@ pub(crate) struct RollupEntry {
 ///
 /// Writes `<into>/skills/<name>/{SKILL.md, ...companions}` per skill and
 /// `<into>/rules/<name>/RULE.md` per rule — the built-in kinds — then, for every
-/// custom kind the project-root `<harness_path>/temper.toml` declares, discovers its
-/// [`governs`](crate::compose::Governs) locus and writes
+/// custom kind the project-root `<harness_path>/temper.toml` registers, loads its
+/// authored `.temper/kinds/<name>/KIND.md` definition, discovers its
+/// [`governs`](crate::kind::Governs) locus and writes
 /// `<into>/<root>/<name>/<KIND>.md` per unit. Finally the
 /// `<into>/lock.toml` roll-up index carries one `[[skill]]`/`[[rule]]` row per
 /// built-in artifact and one `[[<kind>]]` row per custom-kind unit.
@@ -161,20 +164,29 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
         rules.push(import_rule(file, into)?);
     }
 
-    // The custom kinds the project-root `temper.toml` declares. Absent ⇒ `None`,
-    // so a harness with no `temper.toml` (or none declaring a custom kind) imports
-    // the built-ins alone — the hardwired `specs/*.md` scan is gone.
+    // The custom kinds the project-root `temper.toml` *registers* (`[kind.<name>]`
+    // whose name is not a built-in). Each kind's definition — the `governs` locus the
+    // discovery keys on — is the authored artifact `<harness>/.temper/kinds/<name>/KIND.md`
+    // (`specs/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
+    // artifact, registered in the assembly"), not an inline `temper.toml` block. Absent a
+    // `temper.toml` (or none registering a custom kind) ⇒ the built-ins import alone; the
+    // hardwired `specs/*.md` scan is gone.
     let layer = AuthorLayer::load(&harness_path.join("temper.toml"))?;
     let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     if let Some(layer) = &layer {
-        for (name, kind) in layer.custom_kinds() {
+        let kinds_dir = harness_path.join(".temper").join("kinds");
+        for name in layer.registered_kinds() {
+            if BUILTIN_KINDS.contains(&name) {
+                continue;
+            }
+            let kind = CustomKind::load(&kinds_dir, name)?;
             let unit_files = discover_kind_units(harness_path, &kind.governs)?;
             let mut units = Vec::with_capacity(unit_files.len());
             for file in &unit_files {
-                units.push(import_custom_unit(kind, file, into)?);
+                units.push(import_custom_unit(&kind, file, into)?);
             }
             units.sort_by(|a, b| a.name.cmp(&b.name));
-            custom.insert(name.clone(), units);
+            custom.insert(name.to_string(), units);
         }
     }
 
@@ -659,24 +671,40 @@ The surface is temper's composition write surface, no trailing newline.";
         fs::write(rules.join("collaboration.md"), COLLAB_RULE).unwrap();
     }
 
-    /// A `temper.toml` declaring `spec` as a custom kind whose `governs` locus is
-    /// `specs/*.md` — the data-driven discovery `import` runs in place of the old
-    /// hardwired scan (`specs/40-composition.md`). The extractor is the `spec` kind's
-    /// read side; `import` only needs the `governs` locus to discover units.
-    const SPEC_TEMPER_TOML: &str = "[kind.spec]\n\
+    /// A `temper.toml` *registering* `spec` as a custom kind — the whole require-side
+    /// wiring is the package binding; the definition (the `governs` locus discovery
+    /// keys on) lives in the authored `.temper/kinds/spec/KIND.md` fixture below
+    /// (`specs/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
+    /// artifact, registered in the assembly").
+    const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
+
+    /// The authored `spec` KIND.md definition (`specs/20-surface.md`, "Decision: a kind
+    /// definition is `KIND.md`"): the `+++` header carries the `governs` locus and the
+    /// composed extraction, the body the kind's prose. `import` reads the locus to
+    /// discover units.
+    const SPEC_KIND_MD: &str = "+++\n\
 governs = { root = \"specs\", glob = \"*.md\" }\n\
 \n\
-[[kind.spec.extraction]]\n\
+[[extraction]]\n\
 primitive = \"line_count\"\n\
 \n\
-[[kind.spec.extraction]]\n\
-primitive = \"headings\"\n";
+[[extraction]]\n\
+primitive = \"headings\"\n\
++++\n\
+\n\
+# The spec kind\n\
+\n\
+temper's own governing documents.\n";
 
-    /// Add a `specs/` corpus to an existing harness root, plus a `temper.toml`
-    /// declaring the `spec` custom kind so discovery finds it: two spec files plus a
-    /// non-markdown loose file and a subdirectory, both of which discovery skips.
+    /// Add a `specs/` corpus to an existing harness root, plus the `temper.toml`
+    /// registration and the authored `.temper/kinds/spec/KIND.md` definition so
+    /// discovery finds it: two spec files plus a non-markdown loose file and a
+    /// subdirectory, both of which discovery skips.
     fn write_specs(root: &Path) {
         fs::write(root.join("temper.toml"), SPEC_TEMPER_TOML).unwrap();
+        let kind_dir = root.join(".temper").join("kinds").join("spec");
+        fs::create_dir_all(&kind_dir).unwrap();
+        fs::write(kind_dir.join("KIND.md"), SPEC_KIND_MD).unwrap();
         let specs = root.join("specs");
         fs::create_dir_all(specs.join("notes")).unwrap();
         fs::write(specs.join("20-surface.md"), SURFACE_SPEC).unwrap();
@@ -945,9 +973,17 @@ primitive = \"headings\"\n";
         fs::write(adr_dir.join("0001-surface.md"), adr_body).unwrap();
         // Noise the glob must skip: a non-`.md` sibling.
         fs::write(adr_dir.join("index.txt"), "not an adr\n").unwrap();
+        // Register the `adr` kind and author its definition under `.temper/kinds/adr/`.
         fs::write(
             harness.join("temper.toml"),
-            "[kind.adr]\ngoverns = { root = \"docs/adr\", glob = \"*.md\" }\n",
+            "[kind.adr]\npackage = \"adr\"\n",
+        )
+        .unwrap();
+        let adr_kind_dir = harness.join(".temper").join("kinds").join("adr");
+        fs::create_dir_all(&adr_kind_dir).unwrap();
+        fs::write(
+            adr_kind_dir.join("KIND.md"),
+            "+++\ngoverns = { root = \"docs/adr\", glob = \"*.md\" }\n+++\n# The adr kind\n",
         )
         .unwrap();
 

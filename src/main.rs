@@ -30,7 +30,7 @@ use temper::extract;
 use temper::graph;
 use temper::import;
 use temper::install;
-use temper::kind::{KindError, Unit};
+use temper::kind::{self, CustomKind, KindError, Unit};
 use temper::reporter;
 use temper::roster;
 use temper::schema;
@@ -443,6 +443,12 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // the floor, so this directory is never consulted on the floor-only path.
     let packages_dir = workspace.join("packages");
 
+    // Where a registered custom kind's authored definition resolves from: the surface's
+    // own `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`, "Decision: a custom
+    // kind is an authored `.temper/` artifact"). Consulted only when the assembly
+    // registers a custom kind, so the floor-only path never reads it.
+    let kinds_dir = workspace.join("kinds");
+
     // Dispatch by artifact kind: each kind's features are validated against the
     // *effective* contract for its kind — the package the kind binds (the embedded
     // floor by default) with the author layer's clauses folded over it — and the
@@ -583,31 +589,45 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
             .collect();
         diagnostics.extend(coverage::check(layer.requirements(), &all_features));
 
-        // The custom-kind tier: each custom kind the layer declares
-        // (`specs/15-kinds.md`, "A kind definition — one composed object") is
-        // checked through its **own composed extractor** and **own contract** — the
-        // same two greens the built-in kinds run above, but data-driven rather than
-        // engine code. For each declared kind, project its imported units into raw
-        // markdown units, run the composed extractor over each to yield features,
-        // then extend the stream with admissibility over the kind's contract and
-        // conformance over those features (`specs/15-kinds.md`, "Worked example:
-        // `spec`, temper's own custom kind"). Absent a custom kind ⇒ the loop is
-        // empty, so the built-in-only path is byte-for-byte unchanged.
-        for (name, custom) in layer.custom_kinds() {
-            let units = custom_units(workspace, custom)?;
+        // The custom-kind tier: each custom kind the assembly *registers* (a
+        // `[kind.<name>]` whose name is not a built-in) is checked through its **own
+        // authored extractor** and its **bound package** — the same two greens the
+        // built-in kinds run above (`specs/15-kinds.md`, "A kind definition — one
+        // composed object"), but the definition is loaded from the authored
+        // `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`, "Decision: a custom
+        // kind is an authored `.temper/` artifact") and the require-side is a bound
+        // package, never inline clauses. For each, project its imported units into raw
+        // markdown units, run the composed extractor over each to yield features, then
+        // resolve its bound package (by name, defaulting to the kind's own name) and run
+        // admissibility + conformance over it. Absent a registered custom kind ⇒ the
+        // loop is empty, so the built-in-only path is byte-for-byte unchanged.
+        for name in layer.registered_kinds() {
+            if kind::BUILTIN_KINDS.contains(&name) {
+                continue;
+            }
+            let custom = CustomKind::load(&kinds_dir, name)?;
+            let units = custom_units(workspace, &custom)?;
             let features: Vec<extract::Features> = units
                 .iter()
                 .map(|unit| custom.extraction.extract(unit))
                 .collect();
-            let contract = Contract {
-                name: name.clone(),
-                clauses: custom.clauses.clone(),
-                // A custom kind's clauses are authored inline in `temper.toml`, not
-                // a `PACKAGE.md`, so there is no document body to carry as guidance.
-                guidance: None,
-            };
-            diagnostics.extend(engine::admissibility(&contract));
-            diagnostics.extend(engine::validate(&contract, &features));
+            // The require-side is a bound package (uniform with a built-in kind),
+            // resolved by name through the same order every binding uses — defaulting
+            // to the kind's own name when the registration binds none explicitly.
+            let package_name = layer.kind_package(name).unwrap_or(name);
+            match package_resolver.resolve(package_name)? {
+                Some(contract) => {
+                    diagnostics.extend(engine::admissibility(&contract));
+                    diagnostics.extend(engine::validate(&contract, &features));
+                }
+                None => diagnostics.push(check::Diagnostic::error(
+                    format!("{name}.package"),
+                    name,
+                    format!(
+                        "custom kind `{name}` binds unknown package `{package_name}` (author `.temper/packages/{package_name}/PACKAGE.md`)"
+                    ),
+                )),
+            }
         }
     }
 
@@ -654,15 +674,15 @@ fn scratch_surface() -> miette::Result<PathBuf> {
 /// diagnostic set is stable across runs. A workspace with no directory at the kind's
 /// root contributes no units — its contract's admissibility still runs, over zero
 /// artifacts.
-fn custom_units(workspace_dir: &Path, kind: &compose::CustomKind) -> Result<Vec<Unit>, KindError> {
-    let root = workspace_dir.join(&kind.governs.root);
+fn custom_units(workspace_dir: &Path, custom: &CustomKind) -> Result<Vec<Unit>, KindError> {
+    let root = workspace_dir.join(&custom.governs.root);
     if !root.is_dir() {
         return Ok(Vec::new());
     }
 
     // The member document a custom unit is written under — the kind name upper-cased
     // (`spec` → `SPEC.md`), the same convention `import` writes (`src/import.rs`).
-    let document = format!("{}.md", kind.name.to_uppercase());
+    let document = format!("{}.md", custom.name.to_uppercase());
     let listing = fs::read_dir(&root).map_err(|source| KindError::Io {
         path: root.clone(),
         source,

@@ -210,34 +210,63 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
     );
 }
 
-/// A `temper.toml` declaring the `spec` custom kind exactly as temper's own does
-/// (`specs/15-kinds.md`, "Worked example: `spec`"): it governs `specs/*.md`,
-/// composes the spec extractor (line count, ATX headings, placement, backtick
-/// references), and gates one advisory `max_lines` clause. The shipped budget is
-/// ~150 (`90-spec-system.md`); this fixture uses a small one so a short over-length
-/// spec trips it without a 150-line corpus.
-const SPEC_TEMPER_TOML: &str = "\
-[kind.spec]
-governs = { root = \"specs\", glob = \"*.md\" }
+/// A `temper.toml` *registering* the `spec` custom kind exactly as temper's own does
+/// (`specs/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
+/// artifact, registered in the assembly"): the whole require-side wiring is the package
+/// binding. The definition and the package are authored artifacts, below.
+const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
 
-[[kind.spec.extraction]]
-primitive = \"line_count\"
+/// The authored `spec` KIND.md definition (`specs/20-surface.md`, "Decision: a kind
+/// definition is `KIND.md`"): it governs `specs/*.md` and composes the spec extractor
+/// (line count, ATX headings, placement, backtick references), header over prose.
+const SPEC_KIND_MD: &str = "+++\n\
+governs = { root = \"specs\", glob = \"*.md\" }\n\
+\n\
+[[extraction]]\n\
+primitive = \"line_count\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"headings\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"placement\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"references\"\n\
+feature = \"references\"\n\
++++\n\
+\n\
+# The spec kind\n\
+\n\
+temper's own governing documents.\n";
 
-[[kind.spec.extraction]]
-primitive = \"headings\"
+/// The authored `spec` **package** — the require-side the kind binds
+/// (`specs/40-composition.md`): one advisory `max_lines` clause. The shipped budget is
+/// ~150 (`90-spec-system.md`); this fixture uses a small one so a short over-length spec
+/// trips it without a 150-line corpus.
+const SPEC_PACKAGE_MD: &str = "+++\n\
+[[clause]]\n\
+severity = \"advisory\"\n\
+predicate = \"max_lines\"\n\
+max = 10\n\
++++\n\
+\n\
+# The spec package\n\
+\n\
+The require-side of the spec kind.\n";
 
-[[kind.spec.extraction]]
-primitive = \"placement\"
-
-[[kind.spec.extraction]]
-primitive = \"references\"
-feature = \"references\"
-
-[[kind.spec.clause]]
-severity = \"advisory\"
-predicate = \"max_lines\"
-max = 10
-";
+/// Author a registered custom kind's definition + package under `<corpus>/.temper/`,
+/// beside the `temper.toml` registration — the authored half of the assembly `import`
+/// and `check` read.
+fn author_custom_kind(corpus: &Path, name: &str, kind_md: &str, package_md: &str) {
+    let temper = corpus.join(".temper");
+    let kind_dir = temper.join("kinds").join(name);
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(kind_dir.join("KIND.md"), kind_md).unwrap();
+    let pkg_dir = temper.join("packages").join(name);
+    fs::create_dir_all(&pkg_dir).unwrap();
+    fs::write(pkg_dir.join("PACKAGE.md"), package_md).unwrap();
+}
 
 /// A spec body over the fixture's 10-line `max_lines` budget — used to prove the
 /// advisory fires (and, under `--deny-advisories`, blocks).
@@ -274,6 +303,7 @@ fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> bool {
 fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
     let corpus = tmpdir("spec-corpus");
     fs::write(corpus.join("temper.toml"), SPEC_TEMPER_TOML).unwrap();
+    author_custom_kind(&corpus, "spec", SPEC_KIND_MD, SPEC_PACKAGE_MD);
     let specs = corpus.join("specs");
     fs::create_dir_all(&specs).unwrap();
     // A short spec (clean) beside an over-length one (trips the advisory budget).
@@ -310,19 +340,30 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
 #[test]
 fn check_reads_a_custom_kind_rooted_outside_specs() {
     let corpus = tmpdir("adr-corpus");
-    let temper_toml = "\
-[kind.adr]
-governs = { root = \"adr\", glob = \"*.md\" }
-
-[[kind.adr.extraction]]
-primitive = \"line_count\"
-
-[[kind.adr.clause]]
-severity = \"advisory\"
-predicate = \"max_lines\"
-max = 10
-";
-    fs::write(corpus.join("temper.toml"), temper_toml).unwrap();
+    fs::write(
+        corpus.join("temper.toml"),
+        "[kind.adr]\npackage = \"adr\"\n",
+    )
+    .unwrap();
+    let adr_kind_md = "+++\n\
+governs = { root = \"adr\", glob = \"*.md\" }\n\
+\n\
+[[extraction]]\n\
+primitive = \"line_count\"\n\
++++\n\
+\n\
+# The adr kind\n\
+\n\
+Architecture decision records.\n";
+    let adr_package_md = "+++\n\
+[[clause]]\n\
+severity = \"advisory\"\n\
+predicate = \"max_lines\"\n\
+max = 10\n\
++++\n\
+\n\
+# The adr package\n";
+    author_custom_kind(&corpus, "adr", adr_kind_md, adr_package_md);
     let adrs = corpus.join("adr");
     fs::create_dir_all(&adrs).unwrap();
     // A short ADR (clean) beside an over-length one (trips the advisory budget).
