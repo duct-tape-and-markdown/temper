@@ -1,20 +1,23 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk: **GOV-GRAPH-ACYCLIC shipped** — `graph::acyclic`
-  (three-color DFS over resolved reference arcs, one canonicalized cycle finding) is in
-  `src/graph.rs` and wired always-on in the `if let Some(layer)` block (`main.rs:198`),
-  alongside `graph::check` (route resolution) + `graph::admissibility`. RENAME-ROLLUP-LOCK
-  also shipped (roll-up index is `lock.toml`). The field-level numeric `range` predicate is
-  on disk too (`contract.rs`/`engine.rs`), so 45-governance's "Also in scope" range is done.
-- **Last shipped:** RENAME-ROLLUP-LOCK + GOV-GRAPH-ACYCLIC (`498ab1c`).
-- **In flight (1, pickable):** **GOV-GRAPH-DEGREE** — unblocked (its `blockedBy` ACYCLIC
-  shipped), now `open`: per-role in/out `degree` bound over the resolved-edge graph.
-- **Frontier:** DEGREE completes the graph scope's active predicates (`45-governance.md`);
-  remaining 45 items are held back (conditionals) or open loose ends (harness-version
-  pinning, `verified_by` wired-and-gating). `decisions-name-alternatives` waits on
-  `(decision-marker-predicate)`; spec-kind `references-resolve` is a `temper.toml`
-  dogfood-config task, not engine code. Watch `20-surface.md`'s `temper.toml`-root /
-  `.temper/`-contents topology for further work.
-- **Inbox:** empty (drained prior tick). No open question changed.
+- **Phase:** reconcile. Verified on disk: **GOV-GRAPH-DEGREE shipped** — `graph::degree`
+  (per-role in/out edge-count bound over the resolved reference arcs) is in `src/graph.rs`,
+  wired opt-in at `main.rs:209`. The whole graph scope (route resolution, admissibility,
+  `acyclic`, `degree`) and the whole set scope (`count`, `unique`, `membership`, typed
+  reference) are on disk (`graph.rs`/`roster.rs`), plus custom-kind declaration + extraction
+  algebra (`kind.rs`/`compose.rs`) and the `spec` custom kind in `temper.toml`.
+- **Last shipped:** GOV-GRAPH-DEGREE (`be77947`). Queue was empty; state was stale (it still
+  listed DEGREE in flight).
+- **Filed this tick (2):** **SCHEMA-EMIT** (`open`, pickable) — `temper schema` emits the
+  active per-kind contract as an editor JSON Schema (validation channel; docs/hover deferred,
+  no guidance-prose source exists). **APPLY-WRITEBACK** (`blockedBy` SCHEMA-EMIT — both add a
+  `Command` variant to `main.rs`) — `temper apply`, the three-state write-back engine.
+- **Frontier:** distribution + drift write-back are the big unbuilt areas (`schema`, `apply`,
+  then `re-add`/`bundle`/`install`/reporters, all fork-free). Spec-kind `references-resolve`
+  is NOT a mere config task — the graph scope excludes custom kinds from `by_kind`, and the
+  filename-ref vs stem-id mismatch is a new soundness fork `(reference-id-normalization)`.
+  `decisions-name-alternatives` still waits on `(decision-marker-predicate)`. More built-in
+  harness kinds (agent/hook/command/MCP/settings/plugin) remain adapters to add.
+- **Inbox:** empty (no lines to drain). Added open question `(reference-id-normalization)`.
 
-Plan continues: no — queue reconciled, DEGREE unblocked and pickable, inbox empty; hand to build.
+Plan continues: no — queue reconciled, SCHEMA-EMIT pickable and APPLY queued behind it, inbox empty; hand to build.

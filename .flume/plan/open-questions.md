@@ -148,3 +148,24 @@ and embeds the bundled skill template as the default.
   in `10-contracts.md`'s primitive algebra. Until then decisions-name-alternatives does not
   ship (the `max_lines` spec clause ships without it). Distinct from references-resolve,
   whose predicate *category* `10-contracts.md` already enumerates (referential).
+
+- `(reference-id-normalization)` — The spec kind's **references-resolve** clause
+  (`15-kinds.md` worked example) is the graph-scope frontier, but it does not yet run:
+  the graph scope (`graph::check`/`acyclic`/`degree`) ranges only over the `by_kind`
+  map `main.rs` assembles from `skill`+`rule` — custom-kind features are computed in a
+  separate loop and never added, so a `[[kind.spec.relationships]]` edge (`from = "spec"`)
+  finds no sources and is inert. Wiring custom-kind features into `by_kind` is clear engine
+  work — but it exposes a *soundness* fork: a spec reference is filename-shaped
+  (`` `15-kinds.md` `` — the declared syntax, extracted with the extension) while a spec
+  artifact's id is the file **stem** (`15-kinds`, per `import::import_custom_unit`). Exact-
+  string resolution (what `graph` does for `routes_to`) would dangle *every* spec reference —
+  a false positive on clean input, the exact failure law 3 forbids. So resolution needs a
+  rule mapping `NN-name.md` → the `NN-name` id, and *which* rule is a real decision: strip a
+  trailing `.md` only, strip any single extension, or match `id == value || id + ".md" ==
+  value`? A too-loose fallback could **mask** a genuine dangling reference (e.g. collapse
+  `standards.md` onto skill `standards`), and masking a true positive is as unsound as
+  forging one. Law 3: this is a deliberate resolution-semantics choice a human settles, not a
+  phase-invented normalization. Until then references-resolve does not ship (the `spec` kind's
+  `max_lines` clause ships without it, as it does today in `temper.toml`). Distinct from
+  `(decision-marker-predicate)`, which is a missing *predicate*; this is a missing *resolution
+  rule* for a predicate category (`referential`) `10-contracts.md` already enumerates.
