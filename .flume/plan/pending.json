@@ -1,1 +1,39 @@
-[]
+[
+  {
+    "tag": "CHECK-REPORTERS",
+    "summary": "Add SARIF + GitHub-annotation reporters to `temper check` behind a `--reporter` flag",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "Outward seams"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/reporters.rs",
+          "description": "Drive both reporters over a diagnostic set. `github`: one `::error`/`::warning::` workflow-command line per finding, carrying the rule as title. `sarif`: parses as JSON, `runs[0].tool.driver.name == \"temper\"`, one `results` entry per diagnostic with `level` mapped error->error / warn->warning and the rule as `ruleId`. Plus a CLI-level assertion (assert_cmd, as tests/cli.rs does) that `check --reporter sarif` on a failing surface prints SARIF and still exits non-zero — presentation changes, verdict does not."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/reporter.rs",
+          "description": "Add `github(&[Diagnostic]) -> String` (GitHub Actions `::error`/`::warning::` workflow-command lines, one per finding, `title=` the rule, message as the body) and `sarif(&[Diagnostic]) -> String` (a SARIF 2.1.0 log built via serde_json: one run, driver `temper`, one `results` entry per diagnostic mapping rule->`ruleId`, message->`text`, Severity->`level` (error/warning), artifact->a `locations` artifactUri). Siblings of the existing `session_start` on the one reporter family — all serialize the shared `check::Diagnostic` set, never re-judge it."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add a `--reporter <fmt>` arg to `Command::Check` (a `clap::ValueEnum`: `terminal` default -> the existing `check::render`; `github` -> `reporter::github`; `sarif` -> `reporter::sarif`). Print the chosen format in place of the terminal render. Leave the exit-code gate (`any_error` / `--deny-advisories`) exactly as-is — reporters reshape presentation, never the verdict."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/reporters.rs",
+        "asserts": "github emits one workflow-command line per finding with the rule as title; sarif is valid JSON with driver `temper`, one result per diagnostic, and level mapped error/warning; both derive purely from the diagnostic set; `check --reporter sarif` on a failing surface prints SARIF and still exits non-zero"
+      }
+    ],
+    "acceptance": "`cargo test` + `cargo clippy --all-targets -- -D warnings` green; `temper check --reporter sarif` emits valid SARIF and `--reporter github` emits workflow-command annotations, both from the same diagnostic set, with the exit code unchanged from the default terminal run.",
+    "notes": "Sibling of the shipped `session_start` reporter on the one reporter family (`50-distribution.md`). Decidable presentation only — reporters reshape the diagnostic stream, never re-judge it, so the gate's verdict/exit code is untouched. SARIF built via serde_json, valid by construction like the session-start payload. Frontier siblings (new harness kinds, bundle, install) all also touch main.rs, so they stay unfiled until this lands to avoid a shared-file merge conflict."
+  }
+]
