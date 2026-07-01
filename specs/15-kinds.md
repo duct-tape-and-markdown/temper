@@ -104,9 +104,43 @@ deterministically (`30-landscapes.md`). So the graph is *not* a spec-special
 mechanism — it is what *any* kind gets by declaring entities + relationships, an
 opt-in capability layered on the closed extraction the kind already composes.
 
+## A kind definition — one composed object
+
+A kind is a single declared object over the two algebras — with no code of its own:
+
+- **extraction** — extractor primitives (above), each applied at a locus, each
+  naming the feature it yields;
+- **entities & relationships** (optional) — which named features are entity homes
+  and which references are edges (the graph capability above), over the kind's
+  declared reference syntax;
+- **contract** — clauses (`10-contracts.md`) over those features.
+
+Where the definition lives is the ownership line (above). A **built-in** kind is
+temper's, shipped as a harness adapter: its *extraction* is temper's engine code
+(it mirrors an external format the author cannot redefine), its *contract* a
+layerable template. A **custom** kind is the **author's, declared in `temper.toml`**
+(`40-composition.md`) — extraction included, composed from the algebra.
+
+### Decision: a custom kind is declared data, never engine code
+
+**Chosen:** a custom kind's whole definition — extraction included — is composed
+from the closed algebras and declared in `temper.toml`; the engine implements the
+primitives, the author only composes them. **Rejected:** a custom kind carrying a
+bespoke extractor inside temper's crate — which is exactly what temper's own `spec`
+kind is *today* (`src/spec.rs` + a hardwired `import` scan + a would-be embedded
+contract), built before this mechanism existed. That ships a custom kind as a
+built-in, breaking "temper ships none of them" (above): a stranger installing
+temper would inherit temper's `spec` kind, and a project's own kind would have
+nowhere to live but a patch to temper. Engine-code extraction is sanctioned **only**
+for built-in harness adapters, whose format is external and evolving. temper's own
+`spec` kind is declared in temper's own `temper.toml` like any other custom kind;
+the current engine-code scaffold is superseded.
+
 ## Worked example: `spec`, temper's own custom kind
 
-temper governs its `specs/` with a custom `spec` kind:
+temper governs its `specs/` with a custom `spec` kind — declared in temper's own
+`temper.toml` (`40-composition.md`) by the mechanism above, not shipped in the
+crate:
 
 - **extraction:** ATX headings, `## Decision` blocks, and backtick-filename
   references (`` `NN-name.md` `` — the corpus's declared reference syntax).

@@ -54,9 +54,10 @@ The kind *system* — the extraction algebra and the built-in/custom split — i
 (optional — the real Claude Code scoping key) plus a byte-faithful body. Its
 decidable clauses forbid the Cursor keys Claude Code ignores (`description`,
 `globs`, `alwaysApply`) — the exact mistake that motivated the project (a rule
-authored with `.mdc` frontmatter loads nothing). `import` scans every kind it
-knows (`skills/*/SKILL.md`, `.claude/rules/*.md`); `check` dispatches each
-artifact to the built-in contract for its kind. This is the path to self-hosting:
+authored with `.mdc` frontmatter loads nothing). `import` scans every built-in
+kind (`skills/*/SKILL.md`, `.claude/rules/*.md`) plus every custom kind the active
+`temper.toml` declares (`40-composition.md`); `check` dispatches each artifact to
+the effective contract for its kind. This is the path to self-hosting:
 `temper`'s own `.claude/` is rules, so once the rule kind exists, `temper check`
 can run on its own house.
 

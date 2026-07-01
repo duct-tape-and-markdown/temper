@@ -37,10 +37,10 @@ It does four things:
 - **Bind the harness** — declare roles: which artifact fills role R, by a decidable
   `match`, `required` or not, with its `verified_by` (`10-contracts.md`, "Roles and
   matching"). This is the interface/trait tier, the part no built-in can carry.
-- **Define a custom kind** — for a project-specific artifact (its specs, ADRs,
-  playbooks), declare a new kind: its extraction (from the algebra) + its contract
-  (`15-kinds.md`). Built-in harness kinds are adopted; custom kinds are authored
-  here.
+- **Define a custom kind** — declare a project-specific artifact kind (specs, ADRs,
+  playbooks) in full — extraction + entities/relationships + contract — under
+  `[kind.<name>]` (see *Declaring a custom kind* below). Built-in kinds are adopted;
+  custom kinds are authored here.
 
 The active contract — floor ⊕ `temper.toml` — is also the single source of the
 editor schema `temper` emits (`50-distribution.md`): the same declaration that
@@ -58,6 +58,41 @@ round-trip (law 5) and blurs authored-vs-derived. (b) the shipped templates
 you adopt *from*, not where you declare. Three separate homes — authored
 (`temper.toml`), generated (`author.toml`), shipped (templates) — keep provenance
 honest. (Resolves the home/selection half of `(harness-contract-provisioning)`.)
+
+## Declaring a custom kind
+
+A built-in kind is **adopted** — its extraction is temper's, you only layer its
+contract (above). A **custom** kind is **fully declared** under `[kind.<name>]`, the
+one home for a project's own artifact kind (its specs, ADRs, playbooks), composing
+the algebras (`15-kinds.md`):
+
+- **`governs`** — the file locus the kind reads (root + glob; file placement is
+  itself an extraction primitive).
+- **`[kind.<name>.extraction]`** — the composed extractors, each a primitive at a
+  locus naming the feature it yields (a frontmatter field, an ATX heading, a
+  `## Decision` block, a backtick-filename reference, a line count).
+- **`[kind.<name>.entities]` / `.relationships`** (optional) — which features are
+  entity homes and which references are edges, over the declared reference syntax;
+  this is what yields the dependency graph the governance graph predicates act on
+  (`45-governance.md`, `30-landscapes.md`).
+- **`[[kind.<name>.clause]]`** — the contract, over the extracted features.
+
+`import` discovers kinds from this declaration: it always scans the built-in harness
+kinds, **plus every custom kind the active `temper.toml` declares** — absent a
+declaration, built-ins only. temper reads its own `specs/` because its own
+`temper.toml` declares the `spec` kind, not because anything is hardwired.
+
+### Decision: a custom kind is declared in `temper.toml`, extraction and all
+
+**Chosen:** the full kind definition — extraction, entities/relationships, contract —
+is declared under `[kind.<name>]`, composed from the closed algebras (built-ins
+adopted, customs authored here). This is the format `(model-declaration-format)` was
+forwarded to but never carried: the spec landscape's *model* is just the `spec`
+kind's declared entities + relationships, now with a real surface. **Rejected:** a
+bespoke `model.toml` or per-file frontmatter markers (the old fork's candidates) — a
+second declaration mechanism beside kinds, when a spec is a kind like any other; and
+a per-kind engine-code extractor (`15-kinds.md` Decision) — the soundness escape
+hatch. One mechanism declares every landscape.
 
 ## The authoring loop
 
