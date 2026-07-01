@@ -623,3 +623,119 @@ requirement = "dev-standards"
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
     assert!(matches!(err, ComposeError::RequirementRootNotTable { .. }));
 }
+
+// ---- unknown keys are rejected, not ignored ---------------------------------
+//
+// `specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored": a
+// misspelled key in any parsed contract-surface table must fail admissibility, not
+// silently degrade the gate it was meant to arm. One case per parsed table, plus a
+// clean-table control that must still parse untouched.
+
+#[test]
+fn a_stray_key_in_a_role_is_a_load_error() {
+    // A misspelled `requird` would silently leave `required` false and disable the
+    // gate — exactly the drop this Decision forbids, so it is rejected at parse.
+    let toml = r#"
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*" }
+requird = true
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::RoleUnknownKey { ref key, ref role, .. } if key == "requird" && role == "linter"),
+        "a stray role key names itself precisely, got: {err:?}"
+    );
+}
+
+#[test]
+fn a_stray_key_in_a_requirement_is_a_load_error() {
+    // A misspelled `requird` on a requirement would quietly drop its coverage gate.
+    let toml = r#"
+[requirement.dev-standards]
+means = "the harness maintains dev standards"
+requird = true
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "requird" && name == "dev-standards"),
+        "a stray requirement key names itself precisely, got: {err:?}"
+    );
+}
+
+#[test]
+fn a_stray_key_in_a_kind_layer_is_a_load_error() {
+    // A misspelled `adpot` would silently take the floor instead of the named
+    // template — a stray key on a built-in layer, rejected at parse.
+    let toml = r#"
+[kind.skill]
+adpot = "skill.anthropic"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::KindUnknownKey { ref key, ref kind, .. } if key == "adpot" && kind == "skill"),
+        "a stray kind-layer key names itself precisely, got: {err:?}"
+    );
+}
+
+#[test]
+fn a_stray_key_in_a_clause_fails_admissibility_end_to_end() {
+    // A misspelled clause key must fail the whole `check` run, not degrade the
+    // clause. Drive the binary so the parse → admissibility → gate path is pinned,
+    // exactly as the unknown-predicate case is.
+    let root = tmpdir("clause-stray-key");
+    import_skill(&root, "coordinate", CLEAN_SKILL);
+
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"required\"\n\
+predicate = \"max_len\"\n\
+field = \"name\"\n\
+max = 64\n\
+feild = \"nmae\"\n",
+    );
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a clause carrying a stray key must fail the load ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("unknown key"),
+        "the load error names the stray clause key, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn clean_contract_surface_tables_still_parse_unchanged() {
+    // The control: a role, a requirement, a built-in kind layer, and a clause each
+    // carrying only their admissible keys parse clean — the reject fires on strays
+    // only, never on the closed vocabulary itself.
+    let toml = r#"
+[kind.skill]
+adopt = "skill.anthropic"
+[[kind.skill.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 300
+guidance = "keep skills skimmable"
+
+[role.linter]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "lint*" }
+required = true
+verified_by = "tests/lint.rs"
+
+[requirement.dev-standards]
+means = "the harness maintains dev standards"
+required = true
+"#;
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml"))
+        .expect("clean contract-surface tables parse without a stray-key error");
+    assert!(layer.roles().contains_key("linter"));
+    assert!(layer.requirements().contains_key("dev-standards"));
+}

@@ -230,6 +230,32 @@ impl Predicate {
         }
     }
 
+    /// The arg keys this predicate reads off its clause table — the closed set of
+    /// parameter keys admissible alongside the shared `severity`/`predicate`/
+    /// `guidance` (`crate::contract::parse_clause`). A clause key outside this set
+    /// (plus the shared three) is an unknown key, rejected at parse rather than
+    /// silently dropped (`specs/10-contracts.md`, "Decision: unknown keys are
+    /// rejected, not ignored"). The `allowed_chars` charset keys (`ranges`,
+    /// `chars`) are both optional but both admissible; the arg-less cross-artifact
+    /// predicates name none.
+    #[must_use]
+    pub fn arg_keys(&self) -> &'static [&'static str] {
+        match self {
+            Predicate::Required { .. } | Predicate::Optional { .. } => &["field"],
+            Predicate::Type { .. } => &["field", "type"],
+            Predicate::MinLen { .. } => &["field", "min"],
+            Predicate::MaxLen { .. } => &["field", "max"],
+            Predicate::Range { .. } => &["field", "min", "max"],
+            Predicate::Enum { .. } | Predicate::Deny { .. } => &["field", "values"],
+            Predicate::ForbiddenKeys { .. } => &["keys"],
+            Predicate::AllowedChars { .. } => &["field", "ranges", "chars"],
+            Predicate::MaxLines { .. } => &["max"],
+            Predicate::RequireSections { .. } => &["sections"],
+            Predicate::MustDefine { .. } => &["marker"],
+            Predicate::NameMatchesDir | Predicate::UniqueName | Predicate::DependencyExists => &[],
+        }
+    }
+
     /// The field (or marker) this predicate constrains, or `None` for the
     /// artifact- and cross-artifact-level predicates that name no single field
     /// (`forbidden_keys`, `max_lines`, `require_sections`, `name-matches-dir`,
@@ -405,6 +431,29 @@ pub enum ContractError {
         predicate: String,
     },
 
+    /// A clause carries a key outside its closed set — `severity`, `predicate`,
+    /// `guidance`, or one of the arg keys the clause's own predicate names. A
+    /// misspelled `feild` or a stray parameter is rejected at parse, not silently
+    /// dropped — the same closed-vocabulary posture [`ContractError::UnknownPredicate`]
+    /// holds for the predicate name, one rung out to keys (`specs/10-contracts.md`,
+    /// "Decision: unknown keys are rejected, not ignored"). A typo that quietly
+    /// disables a clause is exactly the silent gap temper exists to catch.
+    #[error("{path}: clause {index} has unknown key `{key}`")]
+    #[diagnostic(
+        code(temper::contract::unknown_key),
+        help(
+            "a clause carries only `severity`, `predicate`, `guidance`, and its predicate's own parameters — a stray key is a typo, not an escape hatch"
+        )
+    )]
+    UnknownKey {
+        /// The contract the clause lives in.
+        path: PathBuf,
+        /// The zero-based clause index.
+        index: usize,
+        /// The unrecognized clause key.
+        key: String,
+    },
+
     /// A `type` clause declares a type outside the closed scalar/container
     /// lattice. Mirrors [`ContractError::UnknownPredicate`]: an out-of-vocabulary
     /// type is rejected at load, never silently coerced.
@@ -507,11 +556,38 @@ fn parse_clause(table: &Table, index: usize, path: &Path) -> Result<Clause, Cont
     let severity = parse_severity(table, index, path)?;
     let predicate = parse_predicate(table, index, path)?;
     let guidance = parse_guidance(table, index, path)?;
+    reject_unknown_clause_keys(table, &predicate, index, path)?;
     Ok(Clause {
         severity,
         predicate,
         guidance,
     })
+}
+
+/// Reject any clause key outside the closed set — the shared `severity`,
+/// `predicate`, `guidance`, plus the parsed predicate's own [`arg keys`](Predicate::arg_keys).
+/// A misspelled `feild` or a stray parameter fails admissibility here rather than
+/// degrading silently, the same closed-vocabulary posture [`parse_predicate`] holds
+/// for the predicate name, one rung out to keys (`specs/10-contracts.md`, "Decision:
+/// unknown keys are rejected, not ignored").
+fn reject_unknown_clause_keys(
+    table: &Table,
+    predicate: &Predicate,
+    index: usize,
+    path: &Path,
+) -> Result<(), ContractError> {
+    for (key, _) in table.iter() {
+        let admissible = matches!(key, "severity" | "predicate" | "guidance")
+            || predicate.arg_keys().contains(&key);
+        if !admissible {
+            return Err(ContractError::UnknownKey {
+                path: path.to_path_buf(),
+                index,
+                key: key.to_string(),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Read the optional `guidance` key — the advisory docs-channel prose a clause may
@@ -1069,6 +1145,66 @@ field = "description"
             err,
             ContractError::UnknownPredicate { ref predicate, index: 0, .. } if predicate == "word_count"
         ));
+    }
+
+    #[test]
+    fn a_stray_clause_key_is_a_load_error_not_a_silent_drop() {
+        // A misspelled `feild` is not one of the clause's admissible keys
+        // (`severity`/`predicate`/`guidance` + the predicate's own args), so it is
+        // rejected at parse — a typo must fail loudly, never degrade the clause.
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "max_len"
+field = "name"
+max = 64
+feild = "nmae"
+"#;
+        let err = Contract::parse(toml, Path::new("c.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::UnknownKey { ref key, index: 0, .. } if key == "feild"
+        ));
+    }
+
+    #[test]
+    fn an_arg_key_from_the_wrong_predicate_is_a_load_error() {
+        // `max` belongs to `max_len`/`range`/`max_lines`, not `required` — carrying
+        // it on a `required` clause is a stray key, rejected the same way a wholly
+        // misspelled key is. The closed set is *per predicate*, not a global union.
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "required"
+field = "name"
+max = 64
+"#;
+        let err = Contract::parse(toml, Path::new("c.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::UnknownKey { ref key, index: 0, .. } if key == "max"
+        ));
+    }
+
+    #[test]
+    fn a_clause_carrying_guidance_and_its_own_args_parses_clean() {
+        // The admissible set is `severity`/`predicate`/`guidance` plus the
+        // predicate's args — a clean clause using all of them trips nothing.
+        let toml = r#"
+[[clause]]
+severity = "advisory"
+predicate = "allowed_chars"
+field = "name"
+ranges = ["a-z", "0-9"]
+chars = "-"
+guidance = "lowercase, digits, and hyphen only"
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(contract.clauses.len(), 1);
+        assert_eq!(
+            contract.clauses[0].guidance.as_deref(),
+            Some("lowercase, digits, and hyphen only")
+        );
     }
 
     #[test]

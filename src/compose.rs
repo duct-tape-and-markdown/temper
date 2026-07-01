@@ -557,6 +557,29 @@ pub enum ComposeError {
         expected: String,
     },
 
+    /// A built-in `[kind.<k>]` contract layer carries a key outside its closed set
+    /// (`adopt`, `clause`, `relationships`). A misspelled `adpot` is rejected at
+    /// parse rather than silently ignored — a typo that quietly disables an
+    /// adoption or a clause is the silent gap temper exists to catch, applied to
+    /// temper's own parser (`specs/10-contracts.md`, "Decision: unknown keys are
+    /// rejected, not ignored"). Mirrors the unknown-predicate reject one rung out to
+    /// keys.
+    #[error("{path}: `[kind.{kind}]` has unknown key `{key}`")]
+    #[diagnostic(
+        code(temper::compose::kind_unknown_key),
+        help(
+            "a built-in kind layer carries only `adopt`, `clause`, and `relationships` — a stray key is a typo, not an escape hatch"
+        )
+    )]
+    KindUnknownKey {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The artifact kind whose layer carries the stray key.
+        kind: String,
+        /// The unrecognized key.
+        key: String,
+    },
+
     /// The top-level `role` key is present but is not a table of role definitions.
     #[error("{path}: `role` must be a table of harness-contract roles")]
     #[diagnostic(code(temper::compose::role_root_not_table))]
@@ -726,6 +749,30 @@ pub enum ComposeError {
         role: String,
     },
 
+    /// A `[role.<name>]` carries a key outside its closed set (`artifact`,
+    /// `contract`, `clause`, `match`, `required`, `count`, `unique`, `membership`,
+    /// `degree`, `verified_by`). A misspelled `requird` is rejected at parse rather
+    /// than silently ignored — a typo that quietly disables the gate it was meant to
+    /// arm is the silent gap temper exists to catch (`specs/10-contracts.md`,
+    /// "Decision: unknown keys are rejected, not ignored"). Mirrors the reject
+    /// posture `match` already has for an unknown selector key, one rung out to the
+    /// role's own keys.
+    #[error("{path}: `[role.{role}]` has unknown key `{key}`")]
+    #[diagnostic(
+        code(temper::compose::role_unknown_key),
+        help(
+            "a role carries only `artifact`, `contract`, `clause`, `match`, `required`, `count`, `unique`, `membership`, `degree`, and `verified_by` — a stray key is a typo, not an escape hatch"
+        )
+    )]
+    RoleUnknownKey {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The role carrying the stray key.
+        role: String,
+        /// The unrecognized key.
+        key: String,
+    },
+
     /// The top-level `requirement` key is present but is not a table of requirement
     /// definitions — its own namespace, distinct from `kind`/`role`.
     #[error("{path}: `requirement` must be a table of named requirements")]
@@ -774,6 +821,28 @@ pub enum ComposeError {
         key: &'static str,
         /// The type that was expected, for the message.
         expected: &'static str,
+    },
+
+    /// A `[requirement.<name>]` carries a key outside its closed set (`means`,
+    /// `required`). A misspelled `mean` is rejected at parse rather than silently
+    /// ignored — a typo that drops the requirement's whole meaning, or quietly
+    /// disables its coverage gate, is the silent gap temper exists to catch
+    /// (`specs/10-contracts.md`, "Decision: unknown keys are rejected, not
+    /// ignored").
+    #[error("{path}: `[requirement.{name}]` has unknown key `{key}`")]
+    #[diagnostic(
+        code(temper::compose::requirement_unknown_key),
+        help(
+            "a requirement carries only `means` and `required` — a stray key is a typo, not an escape hatch"
+        )
+    )]
+    RequirementUnknownKey {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The requirement carrying the stray key.
+        name: String,
+        /// The unrecognized key.
+        key: String,
     },
 
     /// A `[kind.<name>.relationships]` key is present but is not an array of
@@ -1056,6 +1125,18 @@ pub fn effective(
 /// template name and the inline `[[clause]]` array, the latter through the shared
 /// closed-vocabulary parser ([`contract::parse_clauses`]).
 fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer, ComposeError> {
+    // A built-in layer carries only `adopt` and `clause`; `relationships` is a kind
+    // capability gathered off every kind table before this point (`parse_relationships`),
+    // so it is admissible here too. Anything else is a typo, rejected — not dropped.
+    for (key, _) in table.iter() {
+        if !matches!(key, "adopt" | "clause" | "relationships") {
+            return Err(ComposeError::KindUnknownKey {
+                path: path.to_path_buf(),
+                kind: kind.to_string(),
+                key: key.to_string(),
+            });
+        }
+    }
     let adopt = match table.get("adopt") {
         None => None,
         Some(item) => Some(
@@ -1196,6 +1277,18 @@ fn relationship_str(table: &Table, key: &str) -> Option<String> {
 /// the author did not declare — law 4). A missing or non-string `means`, or a
 /// non-boolean `required`, is a load error, mirroring the `[role.<name>]` parse path.
 fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requirement, ComposeError> {
+    // A requirement carries only `means` and `required` — a stray key (a misspelled
+    // `mean`, a `requird`) is a typo that would silently drop the meaning or disable
+    // the coverage gate, so it is rejected at parse, never ignored.
+    for (key, _) in table.iter() {
+        if !matches!(key, "means" | "required") {
+            return Err(ComposeError::RequirementUnknownKey {
+                path: path.to_path_buf(),
+                name: name.to_string(),
+                key: key.to_string(),
+            });
+        }
+    }
     let means = match table.get("means") {
         None => {
             return Err(ComposeError::RequirementMissingMeans {
@@ -1233,6 +1326,31 @@ fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requireme
 /// (absent ⇒ `false`), and the optional `verified_by` verifier. Each malformed
 /// field is a load error, mirroring `[kind.<k>]` parsing.
 fn parse_role(table: &Table, role: &str, path: &Path) -> Result<Role, ComposeError> {
+    // A role carries only the closed set below; a stray key (a misspelled `requird`,
+    // a `matches`) is a typo that would silently disable the gate it was meant to
+    // arm, so it is rejected at parse, never dropped — the reject posture `match`
+    // holds for an unknown selector key, one rung out to the role's own keys.
+    for (key, _) in table.iter() {
+        if !matches!(
+            key,
+            "artifact"
+                | "contract"
+                | "clause"
+                | "match"
+                | "required"
+                | "count"
+                | "unique"
+                | "membership"
+                | "degree"
+                | "verified_by"
+        ) {
+            return Err(ComposeError::RoleUnknownKey {
+                path: path.to_path_buf(),
+                role: role.to_string(),
+                key: key.to_string(),
+            });
+        }
+    }
     let artifact = role_str(table, "artifact", role, path)?.ok_or_else(|| {
         ComposeError::RoleMissingArtifact {
             path: path.to_path_buf(),
