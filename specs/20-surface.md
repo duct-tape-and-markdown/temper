@@ -55,7 +55,7 @@ one file:
 <workspace>/
   lock.toml                   # generated state-of-record (provenance + drift fingerprints)
   skills/<name>/
-    meta.toml                 # typed header + [provenance]
+    meta.toml                 # clause modules (fields · satisfies · edges) + [provenance]
     SKILL.md                  # body, byte-faithful
     <companions…>             # copied byte-for-byte
 ```
@@ -78,23 +78,48 @@ deterministically-decidable features, never inferred meaning.
 ## Each artifact directory is a representation, not a copy
 
 `.temper/<kind>/<name>/` is not a mirror of the source file — it is the artifact's
-**representation in the harness model**, with the byte-faithful body carried
-*alongside*:
+**representation in the harness model**: **every clause that governs this artifact,
+gathered per-artifact in one place**, with the byte-faithful body carried *alongside*.
 
-- **typed header** — the artifact's own fields (`meta.toml`), format-preserving;
-- **`satisfies`** — the requirements this artifact fills (`10-contracts.md`), the
-  opt-in bindings the coverage check reads;
-- **rationale** — the authored *why* bound to the artifact (the behavioral-intent
-  layer, `00-intent.md` law 7), first-class here rather than delegated and forgotten;
-- **edges** — the declared references/relationships to other artifacts
-  (`45-governance.md`), the graph's source;
-- **body** — copied byte-for-byte (law 5), never re-rendered.
+The representation is **clause-structured**, not a flat header. Each clause is its own
+**module** (a `[table]` in `meta.toml`), so the artifact is legible *through what its
+contract checks* — a clear per-clause breakdown, and a labeled home for each authored
+part rather than one undifferentiated blob:
 
-Header / `satisfies` / rationale / edges are **authored** (the intent-encoding); the
-body is **carried**; conformance status is **derived** (a `check` output, never
-persisted into the representation — computed, not authored). This is what makes the
-surface an *authoring space* rather than a lint target: it holds each artifact's
-**meaning and role**, not just its contents (`40-composition.md`).
+- **field clauses** — `[clause.<field>]`, one per frontmatter field the contract reads
+  (`value = …`), format-preserving; the artifact's own typed fields.
+- **`satisfies` clauses** — `[satisfies.<requirement>]`, the requirements this artifact
+  fills (`10-contracts.md`), each carrying its **rationale** (the authored *why*, law 7,
+  first-class here rather than delegated and forgotten). The opt-in bindings coverage reads.
+- **edge clauses** — `[edge.<target>]`, the declared references/relationships to other
+  artifacts (`45-governance.md`), the graph's source — authored, never grepped from prose.
+- **`[provenance]`** — generated: `source_path` + `import_hash` (the drift anchor).
+- **body** — `SKILL.md`/`RULE.md`/… copied byte-for-byte (law 5), never re-rendered.
+
+```toml
+# .temper/skills/dev-standards/meta.toml — every clause governing this artifact
+[clause.name]
+value = "dev-standards"
+[clause.description]
+value = "Maintains development standards."
+
+[satisfies.engineering-standards]
+rationale = "the home for engineering-standards enforcement"
+
+[edge.lint-runner]
+relation = "depends-on"
+
+[provenance]                       # generated, not authored
+source_path = "./.claude/skills/dev-standards/SKILL.md"
+import_hash = "…"
+```
+
+Field / `satisfies` / edge clauses are **authored** (the intent-encoding); `provenance`
+is **generated**; the body is **carried**; conformance status is **derived** (a `check`
+output, never persisted into the representation — computed, not authored). This is what
+makes the surface an *authoring space* rather than a lint target: each artifact directory
+holds **all the clauses that define its meaning and role**, not just its contents
+(`40-composition.md`).
 
 ## Artifact kinds & contract selection
 
