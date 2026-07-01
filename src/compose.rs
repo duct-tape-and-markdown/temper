@@ -1682,6 +1682,7 @@ mod tests {
             clauses: vec![
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::MaxLen {
                         field: "name".to_string(),
                         max: 64,
@@ -1689,12 +1690,14 @@ mod tests {
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::ForbiddenKeys {
                         keys: vec!["globs".to_string()],
                     },
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::MaxLines { max: 500 },
                 },
             ],
@@ -1789,6 +1792,53 @@ min = 1
                 min: 1
             }
         );
+    }
+
+    #[test]
+    fn a_layered_clause_carries_and_overrides_its_guidance_string() {
+        // The docs-channel `guidance` layers exactly as severity/predicate do
+        // (`specs/50-distribution.md`): an *override* (same identity) replaces the
+        // whole floor clause, so its guidance replaces the floor's; an *extend*
+        // (fresh identity) appends its clause, guidance and all. A floor whose
+        // `max_len` on `name` carries guidance, overridden by a layer clause that
+        // both changes the bound and re-authors the guidance, plus a new `min_len`
+        // clause carrying its own guidance.
+        let mut floor = floor();
+        floor.clauses[0].guidance = Some("floor: keep the name short".to_string());
+        let toml = r#"
+[kind.skill]
+[[kind.skill.clause]]
+severity = "required"
+predicate = "max_len"
+field = "name"
+max = 32
+guidance = "layer: names cap at 32"
+
+[[kind.skill.clause]]
+severity = "advisory"
+predicate = "min_len"
+field = "name"
+min = 1
+guidance = "a name is never empty"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let effective = layer.layer_over("skill", floor).unwrap();
+
+        // The override replaced the floor clause's guidance in place.
+        assert_eq!(
+            effective.clauses[0].guidance.as_deref(),
+            Some("layer: names cap at 32")
+        );
+        // The extended clause is appended carrying its own guidance.
+        let appended = effective.clauses.last().unwrap();
+        assert_eq!(
+            appended.predicate,
+            Predicate::MinLen {
+                field: "name".to_string(),
+                min: 1
+            }
+        );
+        assert_eq!(appended.guidance.as_deref(), Some("a name is never empty"));
     }
 
     #[test]
@@ -1936,12 +1986,14 @@ marker = "executable"
             RoleContract::Inline(vec![
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::Required {
                         field: "description".to_string(),
                     },
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::MustDefine {
                         marker: "executable".to_string(),
                     },
@@ -2341,6 +2393,7 @@ field = "model"
             role.membership.as_ref().unwrap().source_contract,
             Some(RoleContract::Inline(vec![Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::Required {
                     field: "model".to_string(),
                 },
@@ -2682,6 +2735,7 @@ max = 400
             spec.clauses,
             vec![Clause {
                 severity: Severity::Advisory,
+                guidance: None,
                 predicate: Predicate::MaxLines { max: 400 },
             }]
         );

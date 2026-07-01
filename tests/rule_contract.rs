@@ -34,6 +34,7 @@ fn expected_template() -> Contract {
             // fails, hence advisory.
             Clause {
                 severity: Severity::Advisory,
+                guidance: None,
                 predicate: Predicate::Optional {
                     field: "paths".to_string(),
                 },
@@ -43,6 +44,7 @@ fn expected_template() -> Contract {
             // it is required (gate-blocking).
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::ForbiddenKeys {
                     keys: vec![
                         "description".to_string(),
@@ -55,6 +57,7 @@ fn expected_template() -> Contract {
             // Advisory, mirroring the CLAUDE.md <200-line guidance.
             Clause {
                 severity: Severity::Advisory,
+                guidance: None,
                 predicate: Predicate::MaxLines { max: 200 },
             },
         ],

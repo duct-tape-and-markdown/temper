@@ -69,6 +69,16 @@ pub struct Clause {
     pub severity: Severity,
     /// The decidable predicate this clause asserts over the surface.
     pub predicate: Predicate,
+    /// Optional per-clause **guidance** prose — the best-practice text
+    /// `specs/10-contracts.md` ("Templates") deliberately keeps *out of checks*,
+    /// authored on the clause and carried verbatim. It is advisory-only: it plays
+    /// no part in conformance or admissibility, and `temper` never *decides* it
+    /// (`00-intent.md` law 3). Its sole role is the **docs/hover channel** of the
+    /// emitted schema (`specs/50-distribution.md`, "The gate at keystroke") — a
+    /// field clause's guidance rides its JSON Schema property's `description`, never
+    /// a validation keyword, so taste can only become documentation and never a
+    /// squiggle. Absent ⇒ the clause documents nothing.
+    pub guidance: Option<String>,
 }
 
 /// The author-declared weight of a clause. Replaces the tool-baked error/warn
@@ -241,6 +251,37 @@ impl Predicate {
             | Predicate::AllowedChars { field, .. } => Some(field),
             Predicate::MustDefine { marker } => Some(marker),
             Predicate::ForbiddenKeys { .. }
+            | Predicate::MaxLines { .. }
+            | Predicate::RequireSections { .. }
+            | Predicate::NameMatchesDir
+            | Predicate::UniqueName
+            | Predicate::DependencyExists => None,
+        }
+    }
+
+    /// The **frontmatter field** this predicate documents — the property a clause's
+    /// [`guidance`](Clause::guidance) rides as a JSON Schema `description` in the
+    /// emitted schema's docs channel (`specs/50-distribution.md`, "The gate at
+    /// keystroke"). `Some` for the per-field frontmatter predicates whose property
+    /// can carry hover docs; `None` for the body/structural and cross-artifact
+    /// predicates that name no frontmatter property. Distinct from
+    /// [`Predicate::target`] in one place: a `must_define` marker is a *body*
+    /// marker, not a frontmatter field, so it documents no property here even though
+    /// `target` names it.
+    #[must_use]
+    pub fn documented_field(&self) -> Option<&str> {
+        match self {
+            Predicate::Required { field }
+            | Predicate::Optional { field }
+            | Predicate::Type { field, .. }
+            | Predicate::MinLen { field, .. }
+            | Predicate::MaxLen { field, .. }
+            | Predicate::Range { field, .. }
+            | Predicate::Enum { field, .. }
+            | Predicate::Deny { field, .. }
+            | Predicate::AllowedChars { field, .. } => Some(field),
+            Predicate::MustDefine { .. }
+            | Predicate::ForbiddenKeys { .. }
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
             | Predicate::NameMatchesDir
@@ -460,14 +501,42 @@ pub fn parse_clauses(table: &Table, path: &Path) -> Result<Vec<Clause>, Contract
     Ok(clauses)
 }
 
-/// Parse one clause table into its typed severity + predicate.
+/// Parse one clause table into its typed severity + predicate, plus its optional
+/// advisory [`guidance`](Clause::guidance) prose.
 fn parse_clause(table: &Table, index: usize, path: &Path) -> Result<Clause, ContractError> {
     let severity = parse_severity(table, index, path)?;
     let predicate = parse_predicate(table, index, path)?;
+    let guidance = parse_guidance(table, index, path)?;
     Ok(Clause {
         severity,
         predicate,
+        guidance,
     })
+}
+
+/// Read the optional `guidance` key — the advisory docs-channel prose a clause may
+/// carry (`specs/50-distribution.md`, "The gate at keystroke"). Absent ⇒ `None`
+/// (the clause documents nothing); present-but-not-a-string ⇒
+/// [`ContractError::WrongType`]. `guidance` is *never* a gate input — it is parsed,
+/// carried, and projected only to the emitted schema's `description`, so admitting
+/// it here neither adds nor relaxes any conformance/admissibility check.
+fn parse_guidance(
+    table: &Table,
+    index: usize,
+    path: &Path,
+) -> Result<Option<String>, ContractError> {
+    match table.get("guidance") {
+        None => Ok(None),
+        Some(item) => match item.as_str() {
+            Some(text) => Ok(Some(text.to_string())),
+            None => Err(ContractError::WrongType {
+                path: path.to_path_buf(),
+                index,
+                param: "guidance",
+                expected: "a string",
+            }),
+        },
+    }
 }
 
 /// Read the required `severity` key as a [`Severity`].
@@ -826,18 +895,21 @@ type = "string"
             clauses: vec![
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::Required {
                         field: "name".to_string(),
                     },
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::Optional {
                         field: "version".to_string(),
                     },
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::MinLen {
                         field: "description".to_string(),
                         min: 1,
@@ -845,6 +917,7 @@ type = "string"
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::MaxLen {
                         field: "name".to_string(),
                         max: 64,
@@ -852,6 +925,7 @@ type = "string"
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::Range {
                         field: "priority".to_string(),
                         min: 0.0,
@@ -860,6 +934,7 @@ type = "string"
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::Enum {
                         field: "status".to_string(),
                         values: vec![
@@ -871,6 +946,7 @@ type = "string"
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::Deny {
                         field: "name".to_string(),
                         values: vec!["anthropic".to_string(), "claude".to_string()],
@@ -878,12 +954,14 @@ type = "string"
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::ForbiddenKeys {
                         keys: vec!["globs".to_string(), "alwaysApply".to_string()],
                     },
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::AllowedChars {
                         field: "name".to_string(),
                         charset: Charset {
@@ -894,34 +972,41 @@ type = "string"
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::MaxLines { max: 500 },
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::RequireSections {
                         sections: vec!["Usage".to_string(), "Examples".to_string()],
                     },
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::MustDefine {
                         marker: "disable-model-invocation".to_string(),
                     },
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::NameMatchesDir,
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::UniqueName,
                 },
                 Clause {
                     severity: Severity::Advisory,
+                    guidance: None,
                     predicate: Predicate::DependencyExists,
                 },
                 Clause {
                     severity: Severity::Required,
+                    guidance: None,
                     predicate: Predicate::Type {
                         field: "name".to_string(),
                         kind: Kind::String,
@@ -1000,6 +1085,7 @@ type = "integer"
             contract.clauses,
             vec![Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::Type {
                     field: "count".to_string(),
                     kind: Kind::Integer,
@@ -1043,6 +1129,7 @@ max = 1.5
             contract.clauses,
             vec![Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::Range {
                     field: "score".to_string(),
                     min: 0.0,

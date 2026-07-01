@@ -20,6 +20,7 @@ use std::path::Path;
 
 use temper::contract::{Charset, Clause, Contract, Predicate, Severity};
 use temper::engine;
+use temper::schema;
 
 /// The typed model `contracts/skill.anthropic.toml` must deserialize into — the
 /// surviving decidable clauses, in declaration order, each at the severity the
@@ -33,12 +34,14 @@ fn expected_template() -> Contract {
             // matches its directory.
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::Required {
                     field: "name".to_string(),
                 },
             },
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::MinLen {
                     field: "name".to_string(),
                     min: 1,
@@ -46,6 +49,7 @@ fn expected_template() -> Contract {
             },
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::AllowedChars {
                     field: "name".to_string(),
                     charset: Charset {
@@ -56,6 +60,7 @@ fn expected_template() -> Contract {
             },
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::MaxLen {
                     field: "name".to_string(),
                     max: 64,
@@ -63,6 +68,7 @@ fn expected_template() -> Contract {
             },
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::Deny {
                     field: "name".to_string(),
                     values: vec!["anthropic".to_string(), "claude".to_string()],
@@ -70,17 +76,20 @@ fn expected_template() -> Contract {
             },
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::NameMatchesDir,
             },
             // description: required, non-empty, length cap.
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::Required {
                     field: "description".to_string(),
                 },
             },
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::MinLen {
                     field: "description".to_string(),
                     min: 1,
@@ -88,6 +97,7 @@ fn expected_template() -> Contract {
             },
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::MaxLen {
                     field: "description".to_string(),
                     max: 1024,
@@ -96,11 +106,13 @@ fn expected_template() -> Contract {
             // body: progressive-disclosure budget — advisory, recommend not gate.
             Clause {
                 severity: Severity::Advisory,
+                guidance: None,
                 predicate: Predicate::MaxLines { max: 500 },
             },
             // no Cursor frontmatter keys Claude Code ignores.
             Clause {
                 severity: Severity::Required,
+                guidance: None,
                 predicate: Predicate::ForbiddenKeys {
                     keys: vec!["globs".to_string(), "alwaysApply".to_string()],
                 },
@@ -197,4 +209,109 @@ fn the_shipped_built_in_contracts_are_admissible() {
             "{relative} should be admissible, got: {diagnostics:?}",
         );
     }
+}
+
+/// The shipped templates carry no `guidance` today — the docs channel is authored
+/// separately (a human `chore(harness)`, since `contracts/` is not build-writable),
+/// so every clause parses with `guidance: None`. Pinning this documents that the
+/// mechanism is live but the prose is not yet authored: absent guidance ⇒ no
+/// `description` in the emitted schema.
+#[test]
+fn the_shipped_templates_carry_no_guidance_yet() {
+    for relative in ["contracts/skill.anthropic.toml", "contracts/rule.toml"] {
+        let contract =
+            Contract::load(&contract_path(relative)).expect("the shipped contract should load");
+        assert!(
+            contract
+                .clauses
+                .iter()
+                .all(|clause| clause.guidance.is_none()),
+            "{relative} carries no guidance until it is human-authored",
+        );
+    }
+}
+
+/// A contract text carrying `guidance` on a field clause parses it onto the clause
+/// (`specs/50-distribution.md`, "The gate at keystroke"), and it plays *no part* in
+/// admissibility — it is advisory-only, never a gate input (`00-intent.md` law 3).
+/// The same contract's `guidance` projects to the emitted schema's property
+/// `description`, strictly beside the validation keywords and never mixed into them.
+#[test]
+fn guidance_parses_is_advisory_only_and_projects_to_description() {
+    let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "max_len"
+field = "name"
+max = 64
+guidance = "Keep the name short and slug-like."
+
+[[clause]]
+severity = "required"
+predicate = "min_len"
+field = "description"
+min = 1
+"#;
+    let contract = Contract::parse(toml, Path::new("skill.toml")).unwrap();
+
+    // Parses onto the clause; a clause without a `guidance` key carries `None`.
+    assert_eq!(
+        contract.clauses[0].guidance.as_deref(),
+        Some("Keep the name short and slug-like.")
+    );
+    assert!(contract.clauses[1].guidance.is_none());
+
+    // Advisory-only: guidance is not a gate input, so admissibility is unaffected —
+    // the contract is exactly as admissible as it would be without it.
+    assert!(
+        engine::admissibility(&contract).is_empty(),
+        "guidance must play no part in admissibility",
+    );
+
+    // Projects to the docs channel: `name`'s property carries both its validation
+    // keyword and the `description`; the un-guided `description` field carries none.
+    let json = schema::emit(&contract);
+    assert_eq!(
+        json["properties"]["name"]["description"],
+        "Keep the name short and slug-like."
+    );
+    assert_eq!(json["properties"]["name"]["maxLength"], 64);
+    assert!(
+        json["properties"]["description"]
+            .get("description")
+            .is_none()
+    );
+}
+
+/// Guidance is admitted by the closed-vocabulary parser without widening the gate:
+/// a clause carrying `guidance` alongside an *unknown* predicate still fails to
+/// load, so `guidance` is not an escape hatch — it rides beside the algebra, never
+/// relaxes it.
+#[test]
+fn guidance_does_not_admit_an_unknown_predicate() {
+    let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "word_count"
+field = "description"
+guidance = "should be concise"
+"#;
+    assert!(
+        Contract::parse(toml, Path::new("c.toml")).is_err(),
+        "guidance must not turn an unknown predicate into an admissible clause",
+    );
+}
+
+/// A non-string `guidance` is a load error, mirroring every other mistyped clause
+/// key — the docs channel is prose, never a structured value.
+#[test]
+fn a_non_string_guidance_is_a_load_error() {
+    let toml = r#"
+[[clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 500
+guidance = 42
+"#;
+    assert!(Contract::parse(toml, Path::new("c.toml")).is_err());
 }

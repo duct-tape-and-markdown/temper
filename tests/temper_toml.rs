@@ -335,6 +335,7 @@ max = 400
         spec.clauses,
         vec![Clause {
             severity: Severity::Advisory,
+            guidance: None,
             predicate: Predicate::MaxLines { max: 400 },
         }]
     );

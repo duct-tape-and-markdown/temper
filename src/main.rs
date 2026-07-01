@@ -212,8 +212,10 @@ fn main() -> miette::Result<ExitCode> {
             // The keystroke placement of the one gate (`specs/50-distribution.md`,
             // "The gate at keystroke"): emit the *active* contract per kind — the
             // same by-kind floor ⊕ optional `temper.toml` layer `check` gates
-            // against — as an editor JSON Schema. Validation channel only; the
-            // docs/hover channel has no source to project (see `schema.rs`).
+            // against — as an editor JSON Schema. Two channels: the decidable
+            // clauses as validation keywords, and each field clause's advisory
+            // `guidance` prose as the property's `description` (hover docs), kept
+            // strictly disjoint (see `schema.rs`).
             let layer = compose::AuthorLayer::load(Path::new(TEMPER_TOML))?;
 
             // The modeled by-kind floors, paired with the kind name the layer keys

@@ -6,15 +6,22 @@
 //! so an editor validates a harness artifact's frontmatter at keystroke — the one
 //! gate, shifted as far left as the work allows.
 //!
-//! ## The validation channel only
+//! ## Two channels, kept disjoint
 //!
-//! The spec's schema carries two channels; this module emits **only the
-//! validation one** — the *decidable clauses*, each a true positive by
-//! construction, so the squiggle never cries wolf (`00-intent.md` law 3). The
-//! docs/hover channel (per-field guidance prose) is *deliberately not built*: the
-//! [`Contract`] model carries no guidance-prose field, so there is no source to
-//! project — wiring one is a separate change, not silently faked here. Taste
-//! cannot become a squiggle, and it does not become one here.
+//! The spec's schema carries two channels, and the split is the on-law guarantee:
+//!
+//! - **validation** (the squiggle) — the *decidable clauses only*, each a true
+//!   positive by construction, so the squiggle never cries wolf (`00-intent.md`
+//!   law 3). These are the JSON-Schema *validation* keywords ([`emit`] below).
+//! - **docs** (hover) — the per-field [`guidance`](crate::contract::Clause::guidance)
+//!   prose `10` keeps *out of checks*, projected onto each field's property
+//!   `description` keyword, **strictly alongside** the validation keywords and
+//!   never mixed into them. Advisory; it never gates.
+//!
+//! Taste cannot become a squiggle — the closed algebra has no syntax for it, and
+//! neither does the schema — so it can only ride the docs channel. The medium
+//! enforces law 2: the editor delivers the decidable contract as validation and
+//! the guidance as documentation, and cannot confuse the two.
 //!
 //! ## What maps, and what does not
 //!
@@ -100,6 +107,23 @@ pub fn emit(contract: &Contract) -> Value {
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
             | Predicate::DependencyExists => {}
+        }
+    }
+
+    // The docs (hover) channel, emitted **strictly alongside** the validation
+    // keywords above, never mixed into them (`specs/50-distribution.md`, "The gate
+    // at keystroke"): a field clause's advisory `guidance` prose rides its JSON
+    // Schema property's `description`. This is the on-law guarantee made concrete —
+    // taste can only become documentation, never a squiggle. Guidance on a
+    // field-less predicate (`forbidden_keys`, `max_lines`, the cross-artifact ones)
+    // names no frontmatter property, so it rides no channel here, exactly as those
+    // predicates' validation does not. Absent guidance ⇒ no `description`.
+    for clause in &contract.clauses {
+        if let (Some(guidance), Some(field)) =
+            (&clause.guidance, clause.predicate.documented_field())
+        {
+            property(&mut properties, field)
+                .insert("description".to_string(), Value::from(guidance.clone()));
         }
     }
 
@@ -222,6 +246,7 @@ mod tests {
     fn clause(predicate: Predicate) -> Clause {
         Clause {
             severity: Severity::Required,
+            guidance: None,
             predicate,
         }
     }
@@ -419,5 +444,109 @@ mod tests {
         let schema = emit(&contract);
         assert_eq!(schema["properties"]["tags"]["type"], "array");
         assert_eq!(schema["properties"]["meta"]["type"], "object");
+    }
+
+    /// A field clause carrying `guidance` — the docs (hover) channel.
+    fn guided(predicate: Predicate, guidance: &str) -> Clause {
+        Clause {
+            severity: Severity::Advisory,
+            guidance: Some(guidance.to_string()),
+            predicate,
+        }
+    }
+
+    #[test]
+    fn guidance_rides_the_property_description_alongside_validation() {
+        // A field clause's `guidance` becomes the property's `description`, sitting
+        // *beside* the validation keyword the same field carries — never mixed into
+        // it. `name` carries a `max_len` (validation) and guidance (docs);
+        // `description` carries only a `min_len` and no guidance, so it gets no
+        // `description` keyword.
+        let contract = Contract {
+            name: "docs".to_string(),
+            clauses: vec![
+                guided(
+                    Predicate::MaxLen {
+                        field: "name".to_string(),
+                        max: 64,
+                    },
+                    "keep the skill name short and slug-like",
+                ),
+                clause(Predicate::MinLen {
+                    field: "description".to_string(),
+                    min: 1,
+                }),
+            ],
+        };
+        let schema = emit(&contract);
+        assert_eq!(
+            schema["properties"]["name"],
+            json!({
+                "maxLength": 64,
+                "description": "keep the skill name short and slug-like"
+            })
+        );
+        // Absent guidance ⇒ no `description` keyword on the property.
+        assert_eq!(
+            schema["properties"]["description"],
+            json!({ "minLength": 1 })
+        );
+        assert!(
+            schema["properties"]["description"]
+                .get("description")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn guidance_never_becomes_a_validation_keyword() {
+        // Guidance rides `description` only; it never appears as a validation
+        // keyword and never lands at the schema root. A `required` field clause
+        // carrying guidance still projects `required[]` (validation) *and* a
+        // property `description` (docs), the two disjoint.
+        let contract = Contract {
+            name: "law".to_string(),
+            clauses: vec![guided(
+                Predicate::Required {
+                    field: "name".to_string(),
+                },
+                "every skill declares a name",
+            )],
+        };
+        let schema = emit(&contract);
+        // Validation channel: `name` is required.
+        assert_eq!(schema["required"], json!(["name"]));
+        // Docs channel: the guidance is the property `description`, nothing else.
+        assert_eq!(
+            schema["properties"]["name"],
+            json!({ "description": "every skill declares a name" })
+        );
+        // The prose never leaked into a validation keyword: no `enum`/`pattern`/
+        // `const` carries it, and it is not a root-level key.
+        let text = serde_json::to_string(&schema).unwrap();
+        assert!(!text.contains("\"enum\""));
+        assert!(!text.contains("\"pattern\""));
+        assert!(schema.get("description").is_none());
+    }
+
+    #[test]
+    fn guidance_on_a_field_less_predicate_rides_no_channel() {
+        // A field-less predicate (`forbidden_keys`) names no frontmatter property,
+        // so guidance authored on it has nowhere to ride — exactly as its
+        // validation projects to a root `allOf`, not a property. The schema is the
+        // same one the un-guided clause would emit.
+        let contract = Contract {
+            name: "fieldless".to_string(),
+            clauses: vec![guided(
+                Predicate::ForbiddenKeys {
+                    keys: vec!["globs".to_string()],
+                },
+                "Cursor keys Claude Code ignores",
+            )],
+        };
+        let schema = emit(&contract);
+        assert!(schema.get("properties").is_none());
+        let text = serde_json::to_string(&schema).unwrap();
+        assert!(!text.contains("Cursor keys"));
     }
 }

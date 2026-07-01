@@ -403,6 +403,7 @@ mod tests {
             clauses: vec![Clause {
                 severity,
                 predicate,
+                guidance: None,
             }],
         }
     }
@@ -843,6 +844,7 @@ mod tests {
         let clauses = vec![
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::Enum {
                     field: "status".to_string(),
                     values: vec!["draft".to_string(), "active".to_string()],
@@ -850,6 +852,7 @@ mod tests {
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::Deny {
                     field: "name".to_string(),
                     values: vec!["claude".to_string()],
@@ -857,24 +860,28 @@ mod tests {
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::ForbiddenKeys {
                     keys: vec!["globs".to_string()],
                 },
             },
             Clause {
                 severity: ClauseSeverity::Advisory,
+                guidance: None,
                 predicate: Predicate::RequireSections {
                     sections: vec!["Usage".to_string()],
                 },
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::Required {
                     field: "name".to_string(),
                 },
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::NameMatchesDir,
             },
         ];
@@ -911,12 +918,14 @@ mod tests {
         let clauses = vec![
             Clause {
                 severity: ClauseSeverity::Advisory,
+                guidance: None,
                 predicate: Predicate::Required {
                     field: "name".to_string(),
                 },
             },
             Clause {
                 severity: ClauseSeverity::Advisory,
+                guidance: None,
                 predicate: Predicate::MaxLines { max: 10 },
             },
         ];
@@ -938,12 +947,14 @@ mod tests {
         let clauses = vec![
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::Required {
                     field: "name".to_string(),
                 },
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::MaxLen {
                     field: "name".to_string(),
                     max: 64,
@@ -951,6 +962,7 @@ mod tests {
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::AllowedChars {
                     field: "name".to_string(),
                     charset: slug_charset(),
@@ -958,16 +970,19 @@ mod tests {
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::ForbiddenKeys {
                     keys: vec!["globs".to_string()],
                 },
             },
             Clause {
                 severity: ClauseSeverity::Advisory,
+                guidance: None,
                 predicate: Predicate::MaxLines { max: 500 },
             },
             Clause {
                 severity: ClauseSeverity::Required,
+                guidance: None,
                 predicate: Predicate::NameMatchesDir,
             },
         ];
