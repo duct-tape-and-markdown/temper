@@ -1,27 +1,26 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk this tick: **KIND-IMPORT-DISCOVERY
-  shipped** — `src/import.rs` discovers custom-kind units data-driven off each
-  declared `governs` locus (`AuthorLayer::custom_kinds()`), the hardwired
-  `specs/*.md` scan is gone, and absent a `temper.toml` custom kind `import` writes
-  the built-ins only. Still un-shipped and confirmed on disk: `src/main.rs` `Check`
-  dispatches only `skill`+`rule` contracts (custom kinds never reach `engine`); no
-  repo-root `temper.toml`; the built-in `Spec` remains (`src/spec.rs`, `lib.rs`
-  `pub mod spec`, `extract::spec_features`, `Workspace.specs`, drift's spec axis
-  reading `workspace.specs` + `import::discover_spec_files`); `src/graph.rs` reads
-  the standalone `[[edge]]` list (`AuthorLayer::edges`).
-- **Last shipped:** KIND-IMPORT-DISCOVERY (`2e04070`). Tree clean.
-- **In flight / next:** the kind-declaration chain, one linear serialized run over
-  shared files (main/check/drift/compose/graph). **KIND-CHECK-SPEC now `open`,
-  pickable** (blocker KIND-IMPORT-DISCOVERY shipped) → KIND-RETIRE-BUILTIN-SPEC →
-  KIND-EDGE-RELATIONSHIPS, each `blockedBy` its predecessor so exactly one is
-  pickable at a time.
-- **Frontier:** after the chain lands, `degree`/`acyclic` (`45-governance.md`) read
-  the same `[kind.<name>.relationships]`, and the spec kind's references-resolve
-  clause follows KIND-EDGE-RELATIONSHIPS; decisions-name-alternatives waits on the
-  `(decision-marker-predicate)` fork. None filable ahead of the shape they read.
+- **Phase:** reconcile. Verified on disk this tick: **KIND-CHECK-SPEC shipped** —
+  `src/main.rs` (lines 201–212) dispatches every declared custom kind through its
+  **own** composed extractor (`custom.extraction.extract`) and **own** contract, the
+  same two greens the built-ins run but data-driven. Still on disk: the built-in
+  `Spec` scaffold (`src/spec.rs`, `lib.rs` `pub mod spec`, `extract::spec_features`
+  — dead but for its test, `check::Workspace.specs`, `import::discover_spec_files`,
+  drift's spec axis) and the standalone `[[edge]]` construct (`compose.rs`
+  `parse_edges`, `graph.rs` over `AuthorLayer::edges`). No repo-root `temper.toml`.
+- **Last shipped:** KIND-CHECK-SPEC (`dbcc53a`). Tree clean.
+- **In flight / next:** the built-in-spec retirement, re-scoped this tick. The old
+  single entry missed `main.rs` (its `custom_units`/`spec_unit` source the check off
+  `ws.specs`) — split into **KIND-CUSTOM-UNIT-LOADER** (`open`, pickable: a generic
+  `Unit::from_surface_dir` reader closing the `root == "specs"` special case) →
+  **KIND-RETIRE-BUILTIN-SPEC** (then near-pure deletion; drift's spec axis dropped as
+  a stated scope cut) → **KIND-EDGE-RELATIONSHIPS**, each `blockedBy` its predecessor
+  (logical dependency; files near-disjoint) so exactly one is pickable at a time.
+- **Frontier:** after the chain, `degree`/`acyclic` (`45-governance.md`) and the spec
+  kind's references-resolve clause read the same `[kind.<name>.relationships]`;
+  decisions-name-alternatives waits on `(decision-marker-predicate)`. None filable
+  ahead of the shape they read.
 - **Inbox:** empty. Open-questions unchanged.
 
-Plan continues: no — sole stale gate flipped (chain head unblocked, pickable), tail
-serialized over shared files, inbox empty, no gap filable ahead of the chain; hand
-to build.
+Plan continues: no — chain head unblocked + pickable, tail serialized over a shared
+logical/file dependency, inbox empty, no gap filable ahead of the shape; hand to build.

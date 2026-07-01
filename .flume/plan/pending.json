@@ -1,14 +1,49 @@
 [
   {
+    "tag": "KIND-CUSTOM-UNIT-LOADER",
+    "summary": "Read a custom kind's units in `check` from a generic surface loader keyed on each kind's `governs.root`, replacing the `root == \"specs\"` special case that reads `Workspace.specs`.",
+    "per": {
+      "path": "specs/40-composition.md",
+      "section": "Declaring a custom kind"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Add `Unit::from_surface_dir(dir)` — reload a written custom-unit surface (`<root>/<name>/{meta.toml, <BODY>.md}`) into a raw `Unit`: id = the surface dir name, body = the lone non-`meta.toml` `.md` sibling (byte-faithful), `source_path` read back from the `[provenance]` table. The generic reader the `check` custom-kind path uses in place of the built-in `Spec::from_surface_dir`; an unknown/malformed surface surfaces as a `KindError`."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Rewrite `custom_units` to load each declared custom kind's units generically from the workspace directory at its `governs.root` (each surface dir → `Unit` via `Unit::from_surface_dir`), instead of the `root == \"specs\"` special case reading `ws.specs`. Delete `spec_unit` and drop `use temper::spec::Spec` — the check path stops depending on the built-in `Spec` IR. Closes the 'extend the loader to every custom root' follow-on the special case flagged, so a custom kind rooted anywhere (not just `specs/`) is read."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "`Unit::from_surface_dir` reloads a written custom-unit surface into a raw `Unit` (id, byte-faithful body, provenance) for any `governs.root`, and the custom-kind `check` path reads its units through it rather than the built-in `Workspace.specs`."
+      }
+    ],
+    "acceptance": "The custom-kind `check` path loads its units generically from the workspace at each kind's `governs.root` via `Unit::from_surface_dir`; `main.rs::custom_units` no longer reads `Workspace.specs` or the built-in `Spec` IR, a custom kind rooted outside `specs/` is now read, and the suite is green.",
+    "notes": "Splits the built-in-spec retirement into disjoint, low-risk ticks: the generic reader ships first — green while `Spec`/`Workspace.specs` still exist but go unread by `check` (drift still reads them until RETIRE) — leaving RETIRE near-pure deletion. Realizes 40-composition's 'temper reads its own `specs/` because its `temper.toml` declares the kind, not because anything is hardwired.'"
+  },
+  {
     "tag": "KIND-RETIRE-BUILTIN-SPEC",
-    "summary": "Retire the built-in `spec` kind — `src/spec.rs`, `extract::spec_features`, and its hardwired import/workspace/drift plumbing — now the data-declared `spec` kind covers it.",
+    "summary": "Retire the built-in `spec` kind (`src/spec.rs`, `extract::spec_features`, `Workspace.specs`, `discover_spec_files`, drift's spec axis) — the data-declared `spec` kind now covers it.",
     "per": {
       "path": "specs/15-kinds.md",
       "section": "Decision: a custom kind is declared data, never engine code"
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "KIND-CHECK-SPEC"
+      "tag": "KIND-CUSTOM-UNIT-LOADER"
     },
     "dependsOnForks": [],
     "files": {
@@ -19,40 +54,42 @@
           "description": "Drop `pub mod spec;`."
         },
         {
-          "path": "src/extract.rs",
-          "description": "Drop `spec_features` and its unit tests — a custom kind extracts via the data algebra, not a bespoke projector."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Drop the residual built-in spec plumbing (`import_spec`, any remaining `discover_spec_files` surface) not already removed by KIND-IMPORT-DISCOVERY."
-        },
-        {
           "path": "src/check.rs",
-          "description": "Remove the `Workspace.specs` field and the built-in `Spec::from_surface_dir` load path (and its tests); custom-kind surface loading is generic, not spec-special."
+          "description": "Remove `Workspace.specs`, the `Spec::from_surface_dir` load in `Workspace::load`, `WorkspaceError::Spec`, `use crate::spec`, and the spec-load tests. Surface loading keeps only the built-in `skills`/`rules`; custom-unit reading is generic (KIND-CUSTOM-UNIT-LOADER's `Unit::from_surface_dir`), not spec-special."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Drop `spec_features` and its unit test, the `spec_in` test helper, and `use crate::spec::Spec` — a custom kind extracts via the data algebra (`custom.extraction.extract`), not a bespoke projector."
         },
         {
           "path": "src/drift.rs",
-          "description": "Remove the spec drift axis that reads `workspace.specs` + `discover_spec_files`; reconcile drift to the generic custom-kind path."
+          "description": "Remove the built-in spec drift axis: the `specs` block in `diff` (which reads `workspace.specs` + `import::discover_spec_files`), the `\"spec\"` `DriftEntry` kind it emits, and the spec drift tests. Generic custom-kind drift is future work alongside `apply`, not part of this retirement (scope cut, stated out loud)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Drop `discover_spec_files` (drift was its only caller) and reconcile the one import test that reloads a written spec surface via `crate::spec::Spec::from_surface_dir` to a generic surface reload — production import already writes custom units generically (`import_custom_unit`) and depends on no `Spec`. (There is no `import_spec`.)"
         },
         {
           "path": "tests/cli.rs",
-          "description": "Reconcile any end-to-end assertion referencing the built-in spec surface/IR."
+          "description": "Reconcile any end-to-end assertion referencing the built-in spec surface/IR to the data-declared custom-kind path."
         }
       ],
       "retire": [
         "src/spec.rs",
-        "extract::spec_features"
+        "extract::spec_features",
+        "check::Workspace.specs",
+        "import::discover_spec_files"
       ]
     },
     "schemaDelta": "none",
     "tests": [
       {
         "path": "tests/cli.rs",
-        "asserts": "`temper` reads `specs/` solely through the data-declared custom kind — the built-in `Spec` IR, `spec_features`, and the spec-special import/workspace/drift plumbing are gone and the suite stays green."
+        "asserts": "`temper` reads `specs/` solely through the data-declared custom kind — the built-in `Spec` IR, `spec_features`, `Workspace.specs`, drift's spec axis, and `discover_spec_files` are gone and the suite stays green."
       }
     ],
-    "acceptance": "The built-in `spec` module and its bespoke plumbing (the `Spec` IR, `spec_features`, `import_spec`, `Workspace.specs`, drift's spec axis) are removed; `temper` reads `specs/` only through the data-declared custom kind; the whole suite is green.",
-    "notes": "A custom kind shipped as a built-in breaks \"temper ships none of them\" — a stranger installing temper would inherit temper's `spec` kind. Cross-cutting: `Spec` is woven through import, check (`Workspace.specs`), drift (spec axis), extract, lib. Serialized last so specs stay discoverable + checkable via data throughout the chain; confirm no `check`/drift regression over `specs/`."
+    "acceptance": "The built-in `spec` module and its bespoke plumbing (the `Spec` IR, `spec_features`, `Workspace.specs`, `discover_spec_files`, drift's spec axis) are removed; `temper` reads `specs/` only through the data-declared custom kind via the generic loader; the whole suite is green.",
+    "notes": "Depends on KIND-CUSTOM-UNIT-LOADER (the generic reader) — after it this is near-pure deletion: `main.rs` already dropped its `Spec` use, so no main.rs edit here. A custom kind shipped as a built-in breaks 'temper ships none of them' (15-kinds Decision): a stranger installing temper would inherit temper's `spec` kind. Confirm no `check`/drift compile or test regression once `Spec` is gone."
   },
   {
     "tag": "KIND-EDGE-RELATIONSHIPS",
@@ -71,15 +108,15 @@
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Move edge parsing from the standalone top-level `[[edge]]` array to `[kind.<name>.relationships]` under the owning kind — an edge is the source kind's declared reference field over its declared reference syntax. Preserve the parsed `Edge` shape the graph consumes."
+          "description": "Move edge parsing from the standalone top-level `[[edge]]` array to `[kind.<name>.relationships]` under the owning kind — the `<name>` is the edge source (the implicit `from`), and each relationship names its reference `field` and target `to` kind. Parse it for both a built-in-layer `[kind.<k>]` and a full custom-kind `[kind.<name>]` (relationships are orthogonal to the custom-vs-layer split). Preserve the parsed `Edge { field, from, to }` shape the graph consumes; drop `parse_edges`/`parse_edge`, the `[[edge]]` reader, and `EdgeRootNotArray`/`BadEdge`."
         },
         {
           "path": "src/graph.rs",
-          "description": "Read the declared relationships off the owning kind rather than a free-standing edge list; route resolution + admissibility behavior unchanged."
+          "description": "Read the declared relationships off the owning kinds rather than a free-standing edge list; route resolution + admissibility behavior unchanged (still over `Edge { field, from, to }`)."
         },
         {
           "path": "src/main.rs",
-          "description": "Assemble the harness graph from the kinds' relationships instead of `AuthorLayer::edges`."
+          "description": "Assemble the harness graph from the kinds' relationships instead of `AuthorLayer::edges()`."
         },
         {
           "path": "tests/graph.rs",
@@ -100,6 +137,6 @@
       }
     ],
     "acceptance": "A reference is declared under its owning kind's `[kind.<name>.relationships]` (over that kind's declared reference syntax) rather than a standalone `[[edge]]` table; the harness graph, route resolution, and edge-admissibility behavior are preserved.",
-    "notes": "Note (d) of the reconciliation. The graph foundation shipped soundly (`src/graph.rs`, 54eb52f) over `AuthorLayer::edges`; this aligns the edge-declaration *shape* with the specced kind capability. `degree`/`acyclic` (the remaining graph-scope predicates) read the same relationships and follow as later entries; this also unlocks the spec kind's references-resolve clause (backtick-filename syntax)."
+    "notes": "Note (d) of the reconciliation. The graph foundation shipped soundly (`src/graph.rs`, 54eb52f) over `AuthorLayer::edges`; this aligns the edge-declaration *shape* with the specced kind capability (15-kinds 'The entity graph is a kind capability'). `degree`/`acyclic` and the spec kind's references-resolve clause read the same relationships and follow as later entries."
   }
 ]
