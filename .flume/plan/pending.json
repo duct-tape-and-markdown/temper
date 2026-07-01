@@ -1,57 +1,5 @@
 [
   {
-    "tag": "KIND-RETIRE-BUILTIN-SPEC",
-    "summary": "Retire the built-in `spec` kind (`src/spec.rs`, `extract::spec_features`, `Workspace.specs`, `discover_spec_files`, drift's spec axis) — the data-declared `spec` kind now covers it.",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Decision: a custom kind is declared data, never engine code"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Drop `pub mod spec;`."
-        },
-        {
-          "path": "src/check.rs",
-          "description": "Remove `Workspace.specs`, the `Spec::from_surface_dir` load in `Workspace::load`, `WorkspaceError::Spec`, `use crate::spec`, the `write_surface_spec` test helper, and the two spec-load tests (`load_reconstructs_specs_sorted_alongside_skills_and_rules`, `load_of_a_workspace_without_specs_dir_is_empty`); drop the `specs:` field from the remaining `Workspace { .. }` test literals. Surface loading keeps only the built-in `skills`/`rules`; custom-unit reading is generic (KIND-CUSTOM-UNIT-LOADER's `Unit::from_surface_dir`), not spec-special."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Drop `spec_features` (dead outside its test — `main.rs` extracts a custom kind via `custom.extraction.extract`, never `spec_features`) and its unit test `spec_features_expose_id_body_lines_headings_and_source_dir`, the `spec_in` test helper, and `use crate::spec::Spec`. A custom kind extracts via the data algebra, not a bespoke projector."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Remove the built-in spec drift axis: the `specs` block in `diff` (reads `workspace.specs` + `import::discover_spec_files`), the `\"spec\"` `DriftEntry` kind it emits, and the `DriftEntry.kind`/`added_name` doc comments that name `spec`. No spec-specific drift *test* exists (the drift tests use skill+rule fixtures), so none is removed. Generic custom-kind drift is future work alongside `apply`, not part of this retirement (scope cut, stated out loud)."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Drop `discover_spec_files` (drift was its only caller). Reconcile the one import test that reloads the written spec surface — `writes_a_spec_surface_and_rollup_row`, which calls `crate::spec::Spec::from_surface_dir` — to the generic `crate::kind::Unit::from_surface_dir`, asserting `unit.id`/`unit.body` in place of `reloaded.name`/`reloaded.body`. Production import already writes custom units generically (`import_custom_unit`) and depends on no `Spec`. (There is no `import_spec`.)"
-        }
-      ],
-      "retire": [
-        "src/spec.rs",
-        "extract::spec_features",
-        "check::Workspace.specs",
-        "import::discover_spec_files"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/acceptance.rs",
-        "asserts": "The data-declared `spec` custom-kind path (`check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract`, `check_reads_a_custom_kind_rooted_outside_specs`) stays green with the built-in `Spec` IR, `spec_features`, `Workspace.specs`, drift's spec axis, and `discover_spec_files` all removed — `temper` reads `specs/` solely through the generic loader + composed extractor, and the whole suite stays green."
-      }
-    ],
-    "acceptance": "The built-in `spec` module and its bespoke plumbing (the `Spec` IR, `spec_features`, `Workspace.specs`, `discover_spec_files`, drift's spec axis) are removed; `temper` reads `specs/` only through the data-declared custom kind via the generic loader; the whole suite is green.",
-    "notes": "KIND-CUSTOM-UNIT-LOADER shipped (`Unit::from_surface_dir`), so this is now near-pure deletion; `main.rs` already reads custom units generically (no main.rs edit). `tests/cli.rs` is NOT in scope — its self-host import carries no root `temper.toml` so `specs/` is ignored, and `diff` runs over spec-less harnesses. Confirm no compile/test regression once `Spec` is gone (15-kinds Decision: temper ships no custom kind as a built-in)."
-  },
-  {
     "tag": "KIND-EDGE-RELATIONSHIPS",
     "summary": "Reconcile the top-level `[[edge]]` construct into `[kind.<name>.relationships]` so a reference is a kind capability, not a separate construct.",
     "per": {
