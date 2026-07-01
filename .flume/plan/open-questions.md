@@ -157,20 +157,14 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   topology move (the `<into>` dir is the `.temper/` contents root, so `<into>/lock.toml`
   *is* `.temper/lock.toml`). Kept as the decision record; no dependent still waits.
 
-- `(decision-marker-predicate)` — The spec contract's **decisions-name-alternatives**
-  clause (`15-kinds.md` worked example, `contracts/spec.toml`: every `## Decision` carries
-  a `Rejected` marker) rests on a predicate `10-contracts.md`'s closed *predicate* algebra
-  does not enumerate — a "a section matching a heading pattern contains a marker" primitive
-  (`section_contains { heading, marker }`). `15-kinds.md` adds the matching *extraction*
-  primitive (the `## Decision` block, heading + body) and names the clause, but explicitly
-  defers a missing predicate to a "deliberate vocabulary addition (`10-contracts.md`)" —
-  and `10-contracts.md`'s algebra (the predicate-vocabulary owner, per DRY/`90-spec-system.md`)
-  still lists only `max_lines` / `require_sections` / `must_define` structurally. So the
-  predicate is authorized to *exist* but is not yet *enumerated in its home spec*. Law 3:
-  adding a predicate is a deliberate language change — human to enumerate `section_contains`
-  in `10-contracts.md`'s primitive algebra. Until then decisions-name-alternatives does not
-  ship (the `max_lines` spec clause ships without it). Distinct from references-resolve,
-  whose predicate *category* `10-contracts.md` already enumerates (referential).
+- `(decision-marker-predicate)` — RESOLVED (`specs/10-contracts.md`, structural
+  primitives): `section_contains` `{heading, marker}` (every section whose heading
+  starts with the declared text carries the declared marker) is now enumerated in
+  the predicate vocabulary's home — the deliberate language addition law 3
+  requires, authorized by `15-kinds.md`'s worked example and now carried.
+  decisions-name-alternatives becomes fileable build work once the spec kind's
+  package exists (downstream of the surface-language/package-model machinery).
+  Kept as the decision record.
 
 - `(read-verbs)` — The traversal payoff `00-intent.md` promises as prose ("remove a
   load-bearing entity and the graph lights up every … — the blast radius") and the
