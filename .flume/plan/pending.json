@@ -1,35 +1,5 @@
 [
   {
-    "tag": "GRAPH-CUSTOM-KIND",
-    "summary": "Custom-kind members join the corpus graph — their features enter the by_kind map and their KIND.md relationships reach the reference graph, so declared edges resolve",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "The entity graph is a kind capability"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Reorder `gate`: compute every registered custom kind's features (the loop at main.rs:604-631) *before* the graph tier, merge those feature slices into the `by_kind` map (today skill+rule only, main.rs:502-506), and gather each custom kind's `custom.relationships` (the `[[relationships]]` edges parsed onto `CustomKind` by KIND-AUTHORED-ARTIFACT) into the edge set handed to `graph::admissibility`/`check`/`acyclic`/`degree` alongside `layer.edges()`. A declared edge to/from a custom-kind member then resolves through the same generic graph functions a built-in kind's edge does. Floor-only path (no `temper.toml` ⇒ no layer ⇒ no custom kinds) stays byte-for-byte unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "an end-to-end `temper check` over a fixture workspace registering a custom kind: a member's declared edge that resolves to a real target keeps check green; a dangling edge makes check exit non-zero — proving custom-kind members participate in the reference graph exactly as built-in kinds do."
-      }
-    ],
-    "acceptance": "A declared reference from or to a custom-kind member resolves through the harness graph exactly as a built-in kind's does; a dangling one is a finding; the floor-only and built-in-only paths are unchanged; cargo fmt/clippy -D warnings/test green.",
-    "notes": "KIND-AUTHORED-ARTIFACT's deliberate narrowing (90c9dd1): custom-kind KIND.md relationships parse and store on `CustomKind` but never reach the graph, and `by_kind` (main.rs:502) carries only skill+rule. This is the machinery the resolved (reference-id-normalization) named 'now fileable'; references-resolve (the spec kind's own clause) is downstream, needing the spec package. Builds against test fixtures — no in-repo temper.toml/.temper yet."
-  },
-  {
     "tag": "EMBED-BUILTIN-PACKAGES",
     "summary": "Embed the built-in std-lib from temper's own `packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park that validates the reconciled machinery",
     "per": {
