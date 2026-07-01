@@ -7,8 +7,7 @@
       "section": "The member document — the surface language"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MATCH-ERADICATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -261,9 +260,7 @@
       "kind": "blockedBy",
       "tag": "MEMBER-DOCUMENT-IMPORT"
     },
-    "dependsOnForks": [
-      "kind-artifact-format"
-    ],
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -273,7 +270,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "Load the composed definition (governs locus, extraction primitives, relationships) from the authored artifact."
+          "description": "Load the composed definition (governs locus, extraction primitives, relationships) from the authored `.temper/kinds/<name>/KIND.md` — the one-document, same-medium format the resolved `(kind-artifact-format)` fork settled (`20-surface.md`: header carries the definition, body the kind's prose)."
         },
         {
           "path": "src/import.rs",
@@ -304,7 +301,7 @@
       }
     ],
     "acceptance": "Custom kinds live as authored `.temper/kinds/<name>/` artifacts registered in the assembly, require-side always a bound package — uniform with built-ins; no inline kind definition parses; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Held by `(kind-artifact-format)`: the spec names PACKAGE.md/SKILL.md but never the kind definition's concrete file/shape — inventing it would be inventing surface (collaboration rule). The files above are the blast radius, not the format. Downstream of MEMBER-DOCUMENT-IMPORT (the artifact medium it is authored in)."
+    "notes": "`(kind-artifact-format)` RESOLVED (7e462e7): a custom kind is authored as `.temper/kinds/<name>/KIND.md` — one document, same surface medium (`20-surface.md`, Decision). Downstream of MEMBER-DOCUMENT-IMPORT (the document medium it is authored in); serialized behind it on the shared compose.rs/import.rs surface."
   },
   {
     "tag": "EMBED-BUILTIN-PACKAGES",
