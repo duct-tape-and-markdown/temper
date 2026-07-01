@@ -120,25 +120,31 @@ fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
 }
 
-/// Author the `[representation].satisfies` opt-in on an imported artifact's surface
-/// `meta.toml` — the binding the roster and graph read to place a node in a
-/// requirement's satisfier set. `kind_dir` is the surface subdirectory (`skills` or
-/// `rules`). `import` never writes it (it is surface-authored, not frontmatter), so a
-/// case appends the table exactly as a human editing the surface would.
+/// Author the `[satisfies.<requirement>]` opt-in modules on an imported artifact's
+/// surface member document — the binding the roster and graph read to place a node in
+/// a requirement's satisfier set. `kind_dir` is the surface subdirectory (`skills` or
+/// `rules`), whose document is `SKILL.md` / `RULE.md`. `import` never writes them
+/// (they are surface-authored, not frontmatter), so a case adds them exactly as a
+/// human editing the member document would, via the same projection the tool uses.
 fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
-    let meta = root
-        .join(".temper")
-        .join(kind_dir)
-        .join(name)
-        .join("meta.toml");
-    let mut contents = fs::read_to_string(&meta).unwrap();
-    let list = requirements
+    let dir = root.join(".temper").join(kind_dir).join(name);
+    let satisfies: Vec<temper::document::Satisfies> = requirements
         .iter()
-        .map(|r| format!("\"{r}\""))
-        .collect::<Vec<_>>()
-        .join(", ");
-    contents.push_str(&format!("\n[representation]\nsatisfies = [{list}]\n"));
-    fs::write(&meta, contents).unwrap();
+        .map(|r| temper::document::Satisfies::new(*r))
+        .collect();
+    match kind_dir {
+        "skills" => {
+            let mut skill = temper::skill::Skill::from_dir(&dir).unwrap();
+            skill.satisfies = satisfies;
+            fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+        }
+        "rules" => {
+            let mut rule = temper::rule::Rule::from_dir(&dir).unwrap();
+            rule.satisfies = satisfies;
+            fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+        }
+        other => panic!("unknown kind_dir {other}"),
+    }
 }
 
 /// A floor-clean skill carrying a `routes_to` reference field. A skill preserves

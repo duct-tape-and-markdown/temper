@@ -1,18 +1,25 @@
 //! The `Skill` artifact — the typed IR for `~/.claude/skills/<name>/SKILL.md`.
 //!
-//! Models the skill instance of the IR in `specs/20-surface.md` ("The IR" —
-//! one typed value per artifact kind). A skill is read from source with
+//! Models the skill instance of the IR in `specs/20-surface.md` ("The member
+//! document — the surface language"). A skill is read from source with
 //! [`Skill::from_source_dir`] (split YAML frontmatter, scan companions, hash the
-//! original bytes for provenance), projected to the typed surface header with
-//! [`Skill::to_meta_document`], and reloaded from that surface with
-//! [`Skill::from_surface_dir`].
+//! original bytes for provenance), projected to its **one authored document** with
+//! [`Skill::to_document`], and reloaded from that surface with [`Skill::from_dir`].
+//!
+//! The member is a single document (`specs/20-surface.md`, "Decision: the member is
+//! one document in the surface language"): a `+++`-fenced TOML header over the body,
+//! written in place of the retired `meta.toml` + body pair. The header is
+//! **clause-structured** — one `[clause.<field>]` module per structured field
+//! (typed fields *and* the verbatim-preserved unknown frontmatter keys), the
+//! authored `[satisfies.<requirement>]` and `[edge.<target>]` modules, and the
+//! generated `[provenance]`.
 //!
 //! Round-trip discipline (`.claude/rules/rust.md`): the markdown body and every
-//! companion are byte-faithful — never re-rendered. Only the structured header
-//! (`meta.toml`) is written, via `toml_edit`. Unknown frontmatter keys are
-//! preserved in that header, never dropped. `import_hash` is the SHA-256 of the
-//! original `SKILL.md` bytes; it is the drift anchor and is computed at import
-//! so the provenance lock is complete even before write-back exists.
+//! companion are byte-faithful — never re-rendered. Only the structured header is
+//! written, via `toml_edit`. Unknown frontmatter keys are preserved in it, never
+//! dropped. `import_hash` is the SHA-256 of the original `SKILL.md` bytes; it is the
+//! drift anchor and is computed at import so the provenance lock is complete even
+//! before write-back exists.
 
 use std::collections::HashMap;
 use std::fs;
@@ -21,12 +28,10 @@ use std::path::{Path, PathBuf};
 use gray_matter::Pod;
 use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use toml_edit::{DocumentMut, Item, Table, Value, value};
-use walkdir::WalkDir;
+use toml_edit::{DocumentMut, Item, Value};
 
-/// The canonical, ordered frontmatter keys that are projected to typed fields.
-/// Everything else is an "unknown" key, preserved verbatim under [`Skill::extra`].
-const KNOWN_KEYS: [&str; 4] = ["name", "description", "version", "license"];
+use crate::document::{self, Document, EdgeClause, Satisfies};
+use walkdir::WalkDir;
 
 /// A Claude Code skill: typed frontmatter, a byte-faithful body, the companion
 /// files that travel with it, and the provenance lock that anchors drift.
@@ -42,25 +47,25 @@ pub struct Skill {
     pub license: Option<String>,
     /// Markdown after the frontmatter, byte-faithful (trailing bytes intact).
     pub body: String,
-    /// The requirements this artifact opts into filling (`specs/20-surface.md`,
-    /// "Each artifact directory is a representation, not a copy") — the coverage
-    /// check's opt-in bindings. **Authored** on the surface, not imported: the
-    /// source `SKILL.md` carries no such field, so `from_source_dir` leaves this
-    /// empty. It lives under `meta.toml`'s `[representation]` table, kept out of
-    /// the frontmatter `extra` the contract engine ranges over.
-    pub satisfies: Vec<String>,
-    /// The authored *why* bound to this artifact (`00-intent.md` law 7 — the
-    /// behavioral-intent layer). **Authored**, not imported (`from_source_dir`
-    /// leaves it `None`); carried under `[representation]` in `meta.toml`. It is
-    /// the human rationale, never a decidable feature, so extraction never reads
-    /// it.
-    pub rationale: Option<String>,
+    /// The requirements this artifact opts into filling (`specs/20-surface.md`, the
+    /// `[satisfies.<requirement>]` clause modules) — the coverage check's opt-in
+    /// bindings, each carrying its optional authored `rationale`. **Authored** on
+    /// the surface, not imported: the source `SKILL.md` carries no such field, so
+    /// `from_source_dir` leaves this empty. It lives in the header's `[satisfies.*]`
+    /// modules, kept out of the frontmatter `extra` the contract engine ranges over.
+    pub satisfies: Vec<Satisfies>,
+    /// The declared references/relationships to other members
+    /// (`specs/45-governance.md`, "an edge is a declared field on the surface") —
+    /// the header's `[edge.<target>]` modules. **Authored** on the surface, not
+    /// imported (`from_source_dir` leaves this empty); the graph's source, never
+    /// grepped from prose.
+    pub edges: Vec<EdgeClause>,
     /// Sibling files that ship with the skill (e.g. `PLAYBOOK.md`, `scripts/**`),
     /// as paths relative to the skill directory, sorted for determinism.
     pub companions: Vec<PathBuf>,
     /// Unknown frontmatter keys, preserved verbatim so the surface never drops
     /// authoring intent. Sorted by key (`serde_json::Map` is a `BTreeMap`), which
-    /// makes `to_meta_document` deterministic and `import` idempotent.
+    /// makes `to_document` deterministic and `import` idempotent.
     pub extra: JsonMap<String, JsonValue>,
     /// Where the skill came from and the hash of its original bytes.
     pub provenance: Provenance,
@@ -124,15 +129,16 @@ pub enum SkillError {
         field: &'static str,
     },
 
-    /// `meta.toml` could not be parsed as TOML.
-    #[error("failed to parse {path} as TOML")]
-    #[diagnostic(code(temper::skill::bad_toml))]
-    Toml {
-        /// The surface header that failed to parse.
+    /// The surface `SKILL.md` is not a well-formed `+++`-fenced document (missing or
+    /// unterminated fence, or a malformed TOML header).
+    #[error("{path}: {source}")]
+    #[diagnostic(code(temper::skill::bad_document))]
+    Document {
+        /// The surface document that failed to parse.
         path: PathBuf,
-        /// The TOML parse error.
+        /// The underlying fenced-document parse error.
         #[source]
-        source: toml_edit::TomlError,
+        source: crate::document::DocumentError,
     },
 }
 
@@ -181,11 +187,11 @@ impl Skill {
             version,
             license,
             body: body.to_string(),
-            // `satisfies`/`rationale` are authored on the surface, never present
-            // in the source — so import leaves them empty and an unauthored
-            // skill's `meta.toml` stays byte-identical (import idempotence).
+            // `satisfies`/`edges` are authored on the surface, never present in the
+            // source — so import leaves them empty and an unauthored skill's document
+            // carries no `[satisfies.*]`/`[edge.*]` modules (import idempotence).
             satisfies: Vec::new(),
-            rationale: None,
+            edges: Vec::new(),
             companions: scan_companions(dir)?,
             extra,
             provenance: Provenance {
@@ -195,153 +201,135 @@ impl Skill {
         })
     }
 
-    /// Reload a skill from its written surface: `<dir>/meta.toml` (typed header +
-    /// `[provenance]`) plus `<dir>/SKILL.md` (the body alone, no frontmatter).
+    /// Reload a skill from its **one authored document** `<dir>/SKILL.md`: parse the
+    /// `+++`-fenced header, read the `[clause.<field>]` modules into the typed fields
+    /// (unknown clauses preserved in `extra`), the `[satisfies.*]` / `[edge.*]`
+    /// modules, and `[provenance]`; the body is everything below the header.
     ///
-    /// The inverse of [`Skill::to_meta_document`] over the same directory: the
-    /// surface `SKILL.md` holds only the body, and `import_hash` is read back
-    /// from the provenance lock, not recomputed (the surface body differs from
-    /// the original, which carried frontmatter).
-    pub fn from_surface_dir(dir: &Path) -> Result<Self, SkillError> {
-        let meta_path = dir.join("meta.toml");
-        let meta_src = fs::read_to_string(&meta_path).map_err(|source| SkillError::Io {
-            path: meta_path.clone(),
+    /// The inverse of [`Skill::to_document`] over the same file: `import_hash` is
+    /// read back from the provenance module, not recomputed (the surface body differs
+    /// from the original, which carried frontmatter).
+    pub fn from_dir(dir: &Path) -> Result<Self, SkillError> {
+        let doc_path = dir.join("SKILL.md");
+        let raw = fs::read_to_string(&doc_path).map_err(|source| SkillError::Io {
+            path: doc_path.clone(),
             source,
         })?;
-        let doc = meta_src
-            .parse::<DocumentMut>()
-            .map_err(|source| SkillError::Toml {
-                path: meta_path.clone(),
-                source,
-            })?;
-        let table = doc.as_table();
+        let doc = Document::parse(&raw).map_err(|source| SkillError::Document {
+            path: doc_path.clone(),
+            source,
+        })?;
+        let header = doc.header();
 
-        let name = required_str(table, "name", &meta_path)?;
-        let description = required_str(table, "description", &meta_path)?;
-        let version = optional_str(table, "version");
-        let license = optional_str(table, "license");
-
-        let provenance =
-            table
-                .get("provenance")
-                .and_then(Item::as_table)
-                .ok_or(SkillError::MissingField {
-                    path: meta_path.clone(),
-                    field: "provenance",
-                })?;
-        let source_path = PathBuf::from(required_str(provenance, "source_path", &meta_path)?);
-        let import_hash = required_str(provenance, "import_hash", &meta_path)?;
-
-        // The authored representation layer, if present. Absent when the skill
-        // was never authored with either field (its `meta.toml` has no table).
-        let representation = table.get("representation").and_then(Item::as_table);
-        let satisfies = representation
-            .map(|table| string_list(table, "satisfies"))
-            .unwrap_or_default();
-        let rationale = representation.and_then(|table| optional_str(table, "rationale"));
-
+        // The `[clause.<field>]` modules: the known fields typed, the rest preserved
+        // verbatim in `extra` — the same catch-all the contract engine ranges over.
+        let mut name = None;
+        let mut description = None;
+        let mut version = None;
+        let mut license = None;
         let mut extra = JsonMap::new();
-        for (key, item) in table.iter() {
-            // `representation` is authored, not frontmatter — like `provenance`,
-            // it must never leak back into the contract-checked `extra`.
-            if KNOWN_KEYS.contains(&key) || key == "provenance" || key == "representation" {
-                continue;
-            }
-            if let Some(json) = toml_item_to_json(item) {
-                extra.insert(key.to_string(), json);
+        for (field, val) in document::clauses(header) {
+            match field.as_str() {
+                "name" => name = val.as_str().map(str::to_string),
+                "description" => description = val.as_str().map(str::to_string),
+                "version" => version = val.as_str().map(str::to_string),
+                "license" => license = val.as_str().map(str::to_string),
+                _ => {
+                    if let Some(json) = toml_item_to_json(val) {
+                        extra.insert(field, json);
+                    }
+                }
             }
         }
-
-        let body_path = dir.join("SKILL.md");
-        let body = fs::read_to_string(&body_path).map_err(|source| SkillError::Io {
-            path: body_path,
-            source,
+        let name = name.ok_or(SkillError::MissingField {
+            path: doc_path.clone(),
+            field: "name",
         })?;
+        let description = description.ok_or(SkillError::MissingField {
+            path: doc_path.clone(),
+            field: "description",
+        })?;
+
+        let (source_path, import_hash) =
+            document::provenance(header).ok_or(SkillError::MissingField {
+                path: doc_path.clone(),
+                field: "provenance",
+            })?;
 
         Ok(Self {
             name,
             description,
             version,
             license,
-            body,
-            satisfies,
-            rationale,
+            body: doc.body().to_string(),
+            satisfies: document::satisfies(header),
+            edges: document::edges(header),
             companions: scan_companions(dir)?,
             extra,
             provenance: Provenance {
-                source_path,
+                source_path: PathBuf::from(source_path),
                 import_hash,
             },
         })
     }
 
-    /// Carry the authored `[representation]` layer (`satisfies` + `rationale`)
-    /// from an already-written surface artifact forward into this freshly-parsed
-    /// source skill.
+    /// Carry the authored surface layer (`satisfies` + `edges`) from an
+    /// already-written surface artifact forward into this freshly-parsed source
+    /// skill.
     ///
-    /// The source `SKILL.md` never carries representation — it is surface-only
-    /// authored state (`specs/20-surface.md`, "Each artifact directory is a
-    /// representation" — header/`satisfies`/rationale are *authored*, the body is
-    /// merely carried). So a re-import or a drifted-body `re-add`, which rebuilds
-    /// `meta.toml` from source, would otherwise clobber it. This is the authored
-    /// layer's half of the three-state law: **merge rather than clobber** — the
-    /// caller loads the existing surface, carries its representation onto the
-    /// re-parsed source, then writes, so a body edit on disk never erases the
-    /// authored `satisfies`/`rationale`.
+    /// The source `SKILL.md` never carries the authored clauses — they are
+    /// surface-only state (`specs/20-surface.md`, "importing a member is recognizing
+    /// it"; the authored `[satisfies.*]`/`[edge.*]` accrue afterward). So a re-import
+    /// or a drifted-body `re-add`, which rebuilds the document from source, would
+    /// otherwise clobber them. This is the authored layer's half of the three-state
+    /// law: **merge rather than clobber** — the caller loads the existing surface,
+    /// carries its authored clauses onto the re-parsed source, then writes, so a body
+    /// edit on disk never erases the authored `satisfies`/`edges`.
     pub fn carry_representation(&mut self, existing: &Skill) {
         self.satisfies = existing.satisfies.clone();
-        self.rationale = existing.rationale.clone();
+        self.edges = existing.edges.clone();
     }
 
-    /// Project the typed header to a format-preserving `toml_edit` document:
-    /// the known fields in canonical order, every unknown frontmatter key
-    /// (written as TOML values, sorted), then the `[provenance]` table last.
-    ///
-    /// Unknown keys are emitted as inline values (objects become inline tables)
-    /// so the only standard table is `[provenance]` — sidestepping TOML's
-    /// "scalars before tables" ordering hazard while staying lossless.
-    pub fn to_meta_document(&self) -> DocumentMut {
-        let mut doc = DocumentMut::new();
-        doc["name"] = value(self.name.clone());
-        doc["description"] = value(self.description.clone());
+    /// Project the skill to its **one authored document**: a `+++`-fenced header of
+    /// clause modules over the byte-faithful body (`specs/20-surface.md`, "The member
+    /// document"). The header carries a `[clause.<field>]` module per structured
+    /// field (the typed fields in canonical order, then every unknown frontmatter key
+    /// in sorted `extra` order), the authored `[satisfies.*]` / `[edge.*]` modules,
+    /// then the generated `[provenance]` last.
+    pub fn to_document(&self) -> Document {
+        let mut header = DocumentMut::new();
+        document::add_clause(&mut header, "name", Value::from(self.name.clone()));
+        document::add_clause(
+            &mut header,
+            "description",
+            Value::from(self.description.clone()),
+        );
         if let Some(version) = &self.version {
-            doc["version"] = value(version.clone());
+            document::add_clause(&mut header, "version", Value::from(version.clone()));
         }
         if let Some(license) = &self.license {
-            doc["license"] = value(license.clone());
+            document::add_clause(&mut header, "license", Value::from(license.clone()));
         }
-
         for (key, json) in &self.extra {
             if let Some(val) = json_to_toml_value(json) {
-                doc[key.as_str()] = Item::Value(val);
+                document::add_clause(&mut header, key, val);
             }
         }
 
-        // The authored representation layer, emitted only when non-empty so an
-        // unauthored skill's `meta.toml` is byte-identical to slice 1 (import
-        // idempotence holds).
-        if !self.satisfies.is_empty() || self.rationale.is_some() {
-            let mut representation = Table::new();
-            if !self.satisfies.is_empty() {
-                let mut array = toml_edit::Array::new();
-                for requirement in &self.satisfies {
-                    array.push(requirement.clone());
-                }
-                representation["satisfies"] = Item::Value(Value::Array(array));
-            }
-            if let Some(rationale) = &self.rationale {
-                representation["rationale"] = value(rationale.clone());
-            }
-            doc["representation"] = Item::Table(representation);
+        for satisfies in &self.satisfies {
+            document::add_satisfies(&mut header, satisfies);
+        }
+        for edge in &self.edges {
+            document::add_edge(&mut header, edge);
         }
 
-        let mut provenance = Table::new();
-        provenance["source_path"] =
-            value(self.provenance.source_path.to_string_lossy().into_owned());
-        provenance["import_hash"] = value(self.provenance.import_hash.clone());
-        doc["provenance"] = Item::Table(provenance);
+        document::add_provenance(
+            &mut header,
+            &self.provenance.source_path.to_string_lossy(),
+            &self.provenance.import_hash,
+        );
 
-        doc
+        Document::new(header, self.body.clone())
     }
 }
 
@@ -421,41 +409,8 @@ fn pod_hash_to_json(fields: HashMap<String, Pod>) -> JsonMap<String, JsonValue> 
     out
 }
 
-/// A required string field of a TOML table.
-fn required_str(table: &Table, field: &'static str, path: &Path) -> Result<String, SkillError> {
-    table
-        .get(field)
-        .and_then(Item::as_str)
-        .map(str::to_string)
-        .ok_or(SkillError::MissingField {
-            path: path.to_path_buf(),
-            field,
-        })
-}
-
-/// An optional string field of a TOML table.
-fn optional_str(table: &Table, field: &str) -> Option<String> {
-    table.get(field).and_then(Item::as_str).map(str::to_string)
-}
-
-/// The string elements of an array field of a TOML table, or an empty vec when
-/// the field is absent or not an array. Used to read `[representation].satisfies`
-/// back off the surface.
-fn string_list(table: &Table, field: &str) -> Vec<String> {
-    table
-        .get(field)
-        .and_then(Item::as_array)
-        .map(|array| {
-            array
-                .iter()
-                .filter_map(|val| val.as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Walk a skill directory and collect its companion files — every file except
-/// `SKILL.md` and `meta.toml` — as paths relative to `dir`, sorted.
+/// Walk a skill directory and collect its companion files — every file except the
+/// `SKILL.md` document itself — as paths relative to `dir`, sorted.
 fn scan_companions(dir: &Path) -> Result<Vec<PathBuf>, SkillError> {
     let mut companions = Vec::new();
     for entry in WalkDir::new(dir).min_depth(1).sort_by_file_name() {
@@ -472,7 +427,7 @@ fn scan_companions(dir: &Path) -> Result<Vec<PathBuf>, SkillError> {
             continue;
         }
         let name = entry.file_name();
-        if name == "SKILL.md" || name == "meta.toml" {
+        if name == "SKILL.md" {
             continue;
         }
         let relative = entry
@@ -622,11 +577,11 @@ Last line, no newline.";
         assert_eq!(skill.version.as_deref(), Some("1.2.0"));
         assert_eq!(skill.license.as_deref(), Some("MIT"));
 
-        // Unknown keys are preserved, never dropped — and not the known ones.
+        // Unknown keys are preserved, never dropped — and not the typed ones.
         assert!(skill.extra.contains_key("allowed-tools"));
         assert_eq!(skill.extra["priority"], JsonValue::from(7));
-        for known in KNOWN_KEYS {
-            assert!(!skill.extra.contains_key(known));
+        for typed in ["name", "description", "version", "license"] {
+            assert!(!skill.extra.contains_key(typed));
         }
     }
 
@@ -690,101 +645,117 @@ Last line, no newline.";
         ));
     }
 
+    /// Write a skill to its surface as one member document `<dir>/SKILL.md`, exactly
+    /// as `import` does, and return that directory.
+    fn write_document(skill: &Skill, label: &str) -> PathBuf {
+        let dir = tmpdir(label);
+        fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+        dir
+    }
+
     #[test]
-    fn surface_round_trips_a_meta_document() {
+    fn surface_round_trips_a_document() {
         let src = tmpdir("rt-src");
         write_source(&src, FIXTURE);
         let original = Skill::from_source_dir(&src).unwrap();
 
-        // Project to the surface: meta.toml + the body alone.
-        let surface = tmpdir("rt-surface");
-        fs::write(
-            surface.join("meta.toml"),
-            original.to_meta_document().to_string(),
-        )
-        .unwrap();
-        fs::write(surface.join("SKILL.md"), &original.body).unwrap();
-
-        let reloaded = Skill::from_surface_dir(&surface).unwrap();
+        // Project to the surface as ONE document, then reload it.
+        let surface = write_document(&original, "rt-surface");
+        let reloaded = Skill::from_dir(&surface).unwrap();
 
         assert_eq!(original, reloaded);
     }
 
     #[test]
-    fn meta_document_is_deterministic_and_keeps_unknown_keys() {
-        let dir = tmpdir("meta");
+    fn document_is_deterministic_and_keeps_unknown_keys_as_clauses() {
+        let dir = tmpdir("doc");
         write_source(&dir, FIXTURE);
         let skill = Skill::from_source_dir(&dir).unwrap();
 
-        let once = skill.to_meta_document().to_string();
-        let twice = skill.to_meta_document().to_string();
+        let once = skill.to_document().emit();
+        let twice = skill.to_document().emit();
         assert_eq!(once, twice, "rendering must be deterministic");
 
-        assert!(once.contains("allowed-tools = [\"Bash\", \"Read\"]"));
-        assert!(once.contains("priority = 7"));
+        // Each field is its own `[clause.<field>]` module — typed and unknown alike.
+        assert!(once.contains("[clause.name]\nvalue = \"demo\""));
+        assert!(once.contains("[clause.allowed-tools]\nvalue = [\"Bash\", \"Read\"]"));
+        assert!(once.contains("[clause.priority]\nvalue = 7"));
         assert!(once.contains("[provenance]"));
         assert!(once.contains("import_hash = "));
+        // The body rides below the closing fence, byte-faithful.
+        assert!(once.contains("+++\n# Demo\n"));
     }
 
     #[test]
-    fn authored_representation_round_trips_and_stays_out_of_frontmatter() {
+    fn authored_layer_round_trips_and_stays_out_of_frontmatter() {
         let src = tmpdir("rep-src");
         write_source(&src, FIXTURE);
         let mut skill = Skill::from_source_dir(&src).unwrap();
 
-        // Author the representation layer — the surface-only fields.
-        skill.satisfies = vec!["req.one".to_string(), "req.two".to_string()];
-        skill.rationale = Some("Fills the demo requirement so coverage resolves.".to_string());
+        // Author the surface-only layer — `[satisfies.*]` (with rationale) and an edge.
+        skill.satisfies = vec![
+            Satisfies {
+                requirement: "req-one".to_string(),
+                rationale: Some("Fills the demo requirement so coverage resolves.".to_string()),
+            },
+            Satisfies::new("req-two"),
+        ];
+        skill.edges = vec![EdgeClause {
+            target: "lint-runner".to_string(),
+            relation: Some("depends-on".to_string()),
+        }];
 
-        let surface = tmpdir("rep-surface");
-        let meta = skill.to_meta_document().to_string();
-        fs::write(surface.join("meta.toml"), &meta).unwrap();
-        fs::write(surface.join("SKILL.md"), &skill.body).unwrap();
+        let surface = write_document(&skill, "rep-surface");
+        let emitted = fs::read_to_string(surface.join("SKILL.md")).unwrap();
+        let reloaded = Skill::from_dir(&surface).unwrap();
 
-        let reloaded = Skill::from_surface_dir(&surface).unwrap();
-
-        // The authored fields survive the surface round-trip identically.
+        // The authored clauses survive the surface round-trip identically.
         assert_eq!(skill, reloaded);
-        assert_eq!(reloaded.satisfies, vec!["req.one", "req.two"]);
         assert_eq!(
-            reloaded.rationale.as_deref(),
-            Some("Fills the demo requirement so coverage resolves.")
+            reloaded.satisfies,
+            vec![
+                Satisfies {
+                    requirement: "req-one".to_string(),
+                    rationale: Some("Fills the demo requirement so coverage resolves.".to_string()),
+                },
+                Satisfies::new("req-two"),
+            ]
         );
+        assert_eq!(reloaded.edges[0].target, "lint-runner");
 
-        // They live under `[representation]`, never leaking into the frontmatter
-        // `extra` the contract engine ranges over.
-        assert!(meta.contains("[representation]"));
+        // They ride `[satisfies.*]` / `[edge.*]` modules, never leaking into the
+        // frontmatter `extra` the contract engine ranges over.
+        assert!(emitted.contains("[satisfies.req-one]"));
+        assert!(emitted.contains("[edge.lint-runner]"));
         assert!(!reloaded.extra.contains_key("satisfies"));
         assert!(!reloaded.extra.contains_key("rationale"));
-        assert!(!reloaded.extra.contains_key("representation"));
     }
 
     #[test]
-    fn unauthored_representation_leaves_meta_byte_identical() {
+    fn unauthored_layer_leaves_the_document_without_authored_modules() {
         let dir = tmpdir("rep-none");
         write_source(&dir, FIXTURE);
         let skill = Skill::from_source_dir(&dir).unwrap();
 
-        // With neither field authored, `meta.toml` must be byte-identical to
-        // slice 1: no `[representation]` table at all (import idempotence).
-        let meta = skill.to_meta_document().to_string();
+        // With nothing authored, the document carries no `[satisfies.*]`/`[edge.*]`.
+        let emitted = skill.to_document().emit();
         assert!(skill.satisfies.is_empty());
-        assert!(skill.rationale.is_none());
-        assert!(!meta.contains("[representation]"));
+        assert!(skill.edges.is_empty());
+        assert!(!emitted.contains("[satisfies."));
+        assert!(!emitted.contains("[edge."));
     }
 
     #[test]
     fn scans_companions_relative_and_sorted() {
         let dir = tmpdir("companions");
         write_source(&dir, FIXTURE);
-        fs::write(dir.join("meta.toml"), "ignored = true\n").unwrap();
         fs::write(dir.join("PLAYBOOK.md"), "playbook\n").unwrap();
         fs::create_dir_all(dir.join("scripts")).unwrap();
         fs::write(dir.join("scripts").join("run.sh"), "echo hi\n").unwrap();
 
         let skill = Skill::from_source_dir(&dir).unwrap();
 
-        // SKILL.md and meta.toml are excluded; the rest are relative + sorted.
+        // SKILL.md (the document) is excluded; the rest are relative + sorted.
         assert_eq!(
             skill.companions,
             vec![

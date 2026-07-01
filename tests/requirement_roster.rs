@@ -79,24 +79,19 @@ fn import_skill(root: &Path, name: &str, skill_md: &str) {
     assert!(status.success(), "import should succeed: {status}");
 }
 
-/// Author the `[representation].satisfies` opt-in on an imported skill's surface
-/// `meta.toml` — the binding the roster reads to build a requirement's satisfier set.
-/// `import` never writes it (it is surface-authored, not frontmatter), so a case
-/// appends the table exactly as a human editing the surface would.
+/// Author the `[satisfies.<requirement>]` opt-in modules on an imported skill's
+/// surface `SKILL.md` document — the binding the roster reads to build a
+/// requirement's satisfier set. `import` never writes them (they are
+/// surface-authored, not frontmatter), so a case adds them exactly as a human editing
+/// the member document would, via the same projection the tool uses.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
-    let meta = root
-        .join(".temper")
-        .join("skills")
-        .join(name)
-        .join("meta.toml");
-    let mut contents = fs::read_to_string(&meta).unwrap();
-    let list = requirements
+    let dir = root.join(".temper").join("skills").join(name);
+    let mut skill = temper::skill::Skill::from_dir(&dir).unwrap();
+    skill.satisfies = requirements
         .iter()
-        .map(|r| format!("\"{r}\""))
-        .collect::<Vec<_>>()
-        .join(", ");
-    contents.push_str(&format!("\n[representation]\nsatisfies = [{list}]\n"));
-    fs::write(&meta, contents).unwrap();
+        .map(|r| temper::document::Satisfies::new(*r))
+        .collect();
+    fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined

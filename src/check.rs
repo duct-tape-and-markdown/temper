@@ -39,32 +39,33 @@ pub struct Workspace {
 
 impl Workspace {
     /// Load a workspace from its surface directory by reconstructing every skill
-    /// under `<dir>/skills/*` via [`Skill::from_surface_dir`] and every rule under
-    /// `<dir>/rules/*` via [`RuleArtifact::from_surface_dir`].
+    /// under `<dir>/skills/*` via [`Skill::from_dir`] and every rule under
+    /// `<dir>/rules/*` via [`RuleArtifact::from_dir`].
     ///
-    /// A child is treated as an artifact surface only when it holds a `meta.toml`,
-    /// so stray files and partial directories are skipped rather than erroring.
-    /// Each kind is returned name-sorted (the directory listing order is
-    /// unspecified) so the diagnostic set is stable across runs.
+    /// A child is treated as an artifact surface only when it holds its kind's member
+    /// document (`SKILL.md`, `RULE.md`), so stray files and partial directories are
+    /// skipped rather than erroring. Each kind is returned name-sorted (the directory
+    /// listing order is unspecified) so the diagnostic set is stable across runs.
     pub fn load(dir: &Path) -> Result<Self, WorkspaceError> {
         let mut skills = Vec::new();
-        for skill_dir in &surface_dirs(&dir.join("skills"))? {
-            skills.push(Skill::from_surface_dir(skill_dir)?);
+        for skill_dir in &surface_dirs(&dir.join("skills"), "SKILL.md")? {
+            skills.push(Skill::from_dir(skill_dir)?);
         }
 
         let mut rules = Vec::new();
-        for rule_dir in &surface_dirs(&dir.join("rules"))? {
-            rules.push(RuleArtifact::from_surface_dir(rule_dir)?);
+        for rule_dir in &surface_dirs(&dir.join("rules"), "RULE.md")? {
+            rules.push(RuleArtifact::from_dir(rule_dir)?);
         }
 
         Ok(Self { skills, rules })
     }
 }
 
-/// Enumerate the artifact surface directories under `root` — the immediate
-/// children that hold a `meta.toml` — name-sorted for a stable load order. A
-/// missing `root` yields an empty list (a workspace need not carry every kind).
-fn surface_dirs(root: &Path) -> Result<Vec<PathBuf>, WorkspaceError> {
+/// Enumerate the artifact surface directories under `root` — the immediate children
+/// that hold their kind's member document `doc` (`SKILL.md`, `RULE.md`) — name-sorted
+/// for a stable load order. A missing `root` yields an empty list (a workspace need
+/// not carry every kind).
+fn surface_dirs(root: &Path, doc: &str) -> Result<Vec<PathBuf>, WorkspaceError> {
     if !root.is_dir() {
         return Ok(Vec::new());
     }
@@ -80,7 +81,7 @@ fn surface_dirs(root: &Path) -> Result<Vec<PathBuf>, WorkspaceError> {
             source,
         })?;
         let path = entry.path();
-        if path.is_dir() && path.join("meta.toml").is_file() {
+        if path.is_dir() && path.join(doc).is_file() {
             dirs.push(path);
         }
     }
@@ -288,8 +289,7 @@ Body.\n";
 
         let dir = ws.join("skills").join(name);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("meta.toml"), skill.to_meta_document().to_string()).unwrap();
-        fs::write(dir.join("SKILL.md"), &skill.body).unwrap();
+        fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
     }
 
     const RULE_SRC: &str = "---\n\
@@ -310,8 +310,7 @@ Prefer a clone.\n";
 
         let dir = ws.join("rules").join(name);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("meta.toml"), rule.to_meta_document().to_string()).unwrap();
-        fs::write(dir.join("RULE.md"), &rule.body).unwrap();
+        fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
     }
 
     #[test]

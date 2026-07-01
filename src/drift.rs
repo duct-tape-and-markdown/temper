@@ -524,7 +524,7 @@ fn project_one(
 
 /// The desired header fields of a skill, in canonical order: the known scalars
 /// (only those present), then the preserved unknown keys (already key-sorted in
-/// [`Skill::extra`]). Mirrors the order [`Skill::to_meta_document`] projects.
+/// [`Skill::extra`]). Mirrors the order [`Skill::to_document`] projects.
 fn skill_fields(skill: &Skill) -> Vec<(String, JsonValue)> {
     let mut fields = vec![
         ("name".to_string(), JsonValue::from(skill.name.clone())),
@@ -547,7 +547,7 @@ fn skill_fields(skill: &Skill) -> Vec<(String, JsonValue)> {
 
 /// The desired header fields of a rule: the optional `paths` sequence, then the
 /// preserved unknown keys. A no-frontmatter rule yields an empty field set, so its
-/// projection is the body alone. Mirrors [`Rule::to_meta_document`].
+/// projection is the body alone. Mirrors [`Rule::to_document`].
 fn rule_fields(rule: &Rule) -> Vec<(String, JsonValue)> {
     let mut fields = Vec::new();
     if let Some(paths) = &rule.paths {
@@ -858,7 +858,7 @@ pub fn render_apply(report: &ApplyReport) -> String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReAddOutcome {
     /// A **drifted** source was pulled into an existing surface artifact — its
-    /// `meta.toml` header and body rewritten, and its lock row's fingerprints
+    /// member document (header and body) rewritten, and its lock row's fingerprints
     /// refreshed to the current source bytes.
     Reconciled,
     /// An **added** on-disk source the surface did not carry became a new surface

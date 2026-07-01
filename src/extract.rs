@@ -237,9 +237,15 @@ pub fn skill_features(skill: &Skill) -> Features {
         body_lines: body_line_count(&skill.body),
         headings: body_headings(&skill.body),
         source_dir: source_dir_name(&skill.provenance.source_path),
-        // The authored representation binding the coverage check resolves —
-        // distinct from the frontmatter `fields` above.
-        satisfies: skill.satisfies.clone(),
+        // The authored representation binding the coverage check resolves — the
+        // requirement names off the `[satisfies.*]` clause modules, distinct from
+        // the frontmatter `fields` above (the per-clause `rationale` is the human
+        // *why*, never a decidable feature, so it is dropped here).
+        satisfies: skill
+            .satisfies
+            .iter()
+            .map(|s| s.requirement.clone())
+            .collect(),
     }
 }
 
@@ -267,9 +273,14 @@ pub fn rule_features(rule: &Rule) -> Features {
         body_lines: body_line_count(&rule.body),
         headings: body_headings(&rule.body),
         source_dir: source_dir_name(&rule.provenance.source_path),
-        // The authored representation binding the coverage check resolves —
-        // distinct from the frontmatter `fields` above.
-        satisfies: rule.satisfies.clone(),
+        // The authored representation binding the coverage check resolves — the
+        // requirement names off the `[satisfies.*]` clause modules, distinct from
+        // the frontmatter `fields` above.
+        satisfies: rule
+            .satisfies
+            .iter()
+            .map(|s| s.requirement.clone())
+            .collect(),
     }
 }
 
@@ -760,14 +771,19 @@ Just a paragraph, no headings at all.\n",
     fn skill_features_expose_satisfies_off_the_ir_and_keep_it_out_of_fields() {
         let parent = tmpdir("satisfies");
         let mut skill = skill_in(&parent, "demo", FIXTURE);
-        // The authored representation binding — set on the IR the way the surface
-        // reload would (via `[representation].satisfies`).
-        skill.satisfies = vec!["req.one".to_string(), "req.two".to_string()];
-        skill.rationale = Some("Why this skill exists.".to_string());
+        // The authored binding — set on the IR the way the surface reload would (via
+        // the `[satisfies.*]` clause modules, each with its optional `rationale`).
+        skill.satisfies = vec![
+            crate::document::Satisfies {
+                requirement: "req.one".to_string(),
+                rationale: Some("Why this skill exists.".to_string()),
+            },
+            crate::document::Satisfies::new("req.two"),
+        ];
 
         let features = skill_features(&skill);
 
-        // `satisfies` is surfaced as a representation edge for the coverage check.
+        // `satisfies` is surfaced as requirement names for the coverage check.
         assert_eq!(features.satisfies, vec!["req.one", "req.two"]);
         // It is NOT a frontmatter field — it never resolves through `field`, so a
         // contract clause can't range over it.
@@ -786,8 +802,10 @@ Just a paragraph, no headings at all.\n",
             "rust",
             "---\npaths:\n  - \"src/**/*.rs\"\n---\n# Rust\n\nBody.\n",
         );
-        rule.satisfies = vec!["req.rust-style".to_string()];
-        rule.rationale = Some("The conventions the gate enforces.".to_string());
+        rule.satisfies = vec![crate::document::Satisfies {
+            requirement: "req.rust-style".to_string(),
+            rationale: Some("The conventions the gate enforces.".to_string()),
+        }];
 
         let features = rule_features(&rule);
 

@@ -115,9 +115,9 @@ fn outcome(report: &drift::ApplyReport, name: &str) -> ApplyOutcome {
 /// the composition surface would, and return the reloaded workspace path.
 fn edit_surface_description(workspace: &Path, new: &str) {
     let dir = workspace.join("skills").join("coordinate");
-    let mut skill = Skill::from_surface_dir(&dir).unwrap();
+    let mut skill = Skill::from_dir(&dir).unwrap();
     skill.description = new.to_string();
-    fs::write(dir.join("meta.toml"), skill.to_meta_document().to_string()).unwrap();
+    fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
 #[test]

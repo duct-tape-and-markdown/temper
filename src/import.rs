@@ -3,13 +3,13 @@
 //! Implements `import` per `specs/20-surface.md` ("Artifact kinds & contract
 //! selection"): `import` scans every **built-in** harness kind (`skills/*/SKILL.md`,
 //! `.claude/rules/*.md`) *plus* every **custom** kind the active `temper.toml`
-//! declares (`specs/40-composition.md`). For each skill it writes the surface tree
-//! `<into>/skills/<name>/` — a typed `meta.toml` header projected with
-//! [`Skill::to_meta_document`] alongside the byte-faithful `SKILL.md` body and
-//! every companion copied byte-for-byte. For each rule it writes the parallel
-//! tree `<into>/rules/<name>/` — a `meta.toml` header projected with
-//! [`Rule::to_meta_document`] (the optional `paths` + `[provenance]`) alongside
-//! the byte-faithful `RULE.md` body.
+//! declares (`specs/40-composition.md`). Each member is projected as **one authored
+//! document** (`specs/20-surface.md`, "Decision: the member is one document"). For
+//! each skill it writes the surface tree `<into>/skills/<name>/SKILL.md` — the
+//! `+++`-fenced clause-module document projected with [`Skill::to_document`] —
+//! alongside every companion copied byte-for-byte. For each rule it writes the
+//! parallel `<into>/rules/<name>/RULE.md`, projected with [`Rule::to_document`]. The
+//! retired `meta.toml` + body pair is gone: the header and body now live in one file.
 //!
 //! ## Custom kinds are discovered from `temper.toml`, never hardwired
 //!
@@ -17,9 +17,9 @@
 //! carries no bespoke IR. Its units are discovered **data-driven** from the kind's
 //! declared [`governs`](crate::compose::Governs) locus — a root directory and a
 //! filename glob ([`AuthorLayer::custom_kinds`]) — and each is projected to
-//! `<into>/<root>/<name>/`: a provenance-only `meta.toml` (`[provenance]` alone —
-//! a custom unit's typed header is composed by its extractor, not re-serialized
-//! here) alongside the byte-faithful whole file as `<KIND>.md`. This is exactly why
+//! `<into>/<root>/<name>/<KIND>.md`: one member document whose `+++` header carries
+//! `[provenance]` alone (a custom unit's typed header is composed by its extractor,
+//! not re-serialized here) over the byte-faithful whole file as its body. This is why
 //! "temper reads its own `specs/` because its own `temper.toml` declares the `spec`
 //! kind, not because anything is hardwired" (`specs/40-composition.md`): absent a
 //! `temper.toml` custom kind, `import` writes the built-ins only — there is no
@@ -49,6 +49,7 @@ use std::path::{Path, PathBuf};
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::compose::{AuthorLayer, CustomKind, Governs};
+use crate::document::{self, Document};
 use crate::rule::{Rule, RuleError};
 use crate::skill::{Skill, SkillError};
 
@@ -135,11 +136,11 @@ pub(crate) struct RollupEntry {
 /// Import every built-in artifact plus every declared custom-kind unit under
 /// `harness_path` into the surface workspace `into`.
 ///
-/// Writes `<into>/skills/<name>/{meta.toml, SKILL.md, ...companions}` per skill and
-/// `<into>/rules/<name>/{meta.toml, RULE.md}` per rule — the built-in kinds — then,
-/// for every custom kind the project-root `<harness_path>/temper.toml` declares,
-/// discovers its [`governs`](crate::compose::Governs) locus and writes
-/// `<into>/<root>/<name>/{meta.toml, <KIND>.md}` per unit. Finally the
+/// Writes `<into>/skills/<name>/{SKILL.md, ...companions}` per skill and
+/// `<into>/rules/<name>/RULE.md` per rule — the built-in kinds — then, for every
+/// custom kind the project-root `<harness_path>/temper.toml` declares, discovers its
+/// [`governs`](crate::compose::Governs) locus and writes
+/// `<into>/<root>/<name>/<KIND>.md` per unit. Finally the
 /// `<into>/lock.toml` roll-up index carries one `[[skill]]`/`[[rule]]` row per
 /// built-in artifact and one `[[<kind>]]` row per custom-kind unit.
 ///
@@ -261,32 +262,31 @@ pub(crate) fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, Import
 /// Read one source skill and write its surface tree under `<into>/skills/<name>/`,
 /// returning the roll-up row for the index.
 ///
-/// `pub(crate)` so `re-add` reuses this single round-trip write path — the typed
-/// `meta.toml` via [`Skill::to_meta_document`] plus the byte-faithful body — when
-/// it pulls a drifted or added on-disk skill back into the surface, rather than
-/// re-implementing the projection (`specs/20-surface.md`, "Drift / apply").
+/// `pub(crate)` so `re-add` reuses this single round-trip write path — the member
+/// document via [`Skill::to_document`] plus the copied companions — when it pulls a
+/// drifted or added on-disk skill back into the surface, rather than re-implementing
+/// the projection (`specs/20-surface.md`, "Drift / apply").
 pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
     let mut skill = Skill::from_source_dir(source_dir)?;
     let out_dir = into.join("skills").join(&skill.name);
 
-    // Merge, never clobber: the source carries no `[representation]` (it is
-    // surface-only authored state), so a re-import or drifted-body `re-add`
-    // rebuilds `meta.toml` from source and would wipe the authored
-    // `satisfies`/`rationale`. Carry any existing surface representation forward
-    // before writing (`specs/20-surface.md`, "three states, never two").
+    // Merge, never clobber: the source carries no authored clauses (they are
+    // surface-only state), so a re-import or drifted-body `re-add` rebuilds the
+    // document from source and would wipe the authored `satisfies`/`edges`. Carry
+    // any existing surface layer forward before writing (`specs/20-surface.md`,
+    // "three states, never two").
     if let Some(existing) = existing_surface_skill(&out_dir) {
         skill.carry_representation(&existing);
     }
 
     create_dir_all(&out_dir)?;
 
-    // Typed header via the format-preserving writer — never a lossy re-serialize.
+    // The member is ONE document: the `+++`-fenced clause-module header over the
+    // byte-faithful body, written format-preserving — never a lossy re-serialize.
     write_bytes(
-        &out_dir.join("meta.toml"),
-        skill.to_meta_document().to_string().as_bytes(),
+        &out_dir.join("SKILL.md"),
+        skill.to_document().emit().as_bytes(),
     )?;
-    // The surface `SKILL.md` is the body alone (no frontmatter), byte-faithful.
-    write_bytes(&out_dir.join("SKILL.md"), skill.body.as_bytes())?;
 
     for companion in &skill.companions {
         copy_companion(source_dir, &out_dir, companion)?;
@@ -305,9 +305,9 @@ pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry
 /// Read one source rule and write its surface tree under `<into>/rules/<name>/`,
 /// returning the roll-up row for the index.
 ///
-/// Mirrors [`import_skill`] for the rule kind: a format-preserving `meta.toml`
-/// header (the optional `paths` + `[provenance]`) and the byte-faithful body as
-/// `RULE.md`. A rule carries no companions, so there is nothing else to copy.
+/// Mirrors [`import_skill`] for the rule kind: the member document `RULE.md` — a
+/// `+++`-fenced clause-module header (the optional `paths` + `[provenance]`) over the
+/// byte-faithful body. A rule carries no companions, so there is nothing else to copy.
 ///
 /// `pub(crate)` for the same reason as [`import_skill`]: `re-add` reuses this exact
 /// write path to reconcile a drifted or added on-disk rule into the surface.
@@ -323,13 +323,12 @@ pub(crate) fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry
 
     create_dir_all(&out_dir)?;
 
-    // Typed header via the format-preserving writer — never a lossy re-serialize.
+    // The member is ONE document: the `+++`-fenced clause-module header over the
+    // byte-faithful body, written format-preserving — never a lossy re-serialize.
     write_bytes(
-        &out_dir.join("meta.toml"),
-        rule.to_meta_document().to_string().as_bytes(),
+        &out_dir.join("RULE.md"),
+        rule.to_document().emit().as_bytes(),
     )?;
-    // The surface `RULE.md` is the body alone (no frontmatter), byte-faithful.
-    write_bytes(&out_dir.join("RULE.md"), rule.body.as_bytes())?;
 
     Ok(RollupEntry {
         name: rule.name,
@@ -346,19 +345,19 @@ pub(crate) fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry
 /// is unreadable, so a missing or malformed prior surface degrades to "nothing to
 /// carry" rather than failing the write.
 fn existing_surface_skill(out_dir: &Path) -> Option<Skill> {
-    if !out_dir.join("meta.toml").is_file() {
+    if !out_dir.join("SKILL.md").is_file() {
         return None;
     }
-    Skill::from_surface_dir(out_dir).ok()
+    Skill::from_dir(out_dir).ok()
 }
 
 /// Rule equivalent of [`existing_surface_skill`]: the prior surface rule whose
 /// authored representation is carried forward before the header is rewritten.
 fn existing_surface_rule(out_dir: &Path) -> Option<Rule> {
-    if !out_dir.join("meta.toml").is_file() {
+    if !out_dir.join("RULE.md").is_file() {
         return None;
     }
-    Rule::from_surface_dir(out_dir).ok()
+    Rule::from_dir(out_dir).ok()
 }
 
 /// Discover a custom kind's units under `<harness>/<governs.root>/`: every
@@ -399,13 +398,13 @@ fn discover_kind_units(harness: &Path, governs: &Governs) -> Result<Vec<PathBuf>
 /// Read one discovered custom-kind unit and write its surface tree under
 /// `<into>/<governs.root>/<name>/`, returning the roll-up row for the index.
 ///
-/// A custom kind carries no bespoke IR, so the unit is projected generically: a
-/// provenance-only `meta.toml` (`[provenance]` — `source_path` + `import_hash`)
-/// alongside the byte-faithful *whole* file as `<KIND>.md` (the kind name
-/// upper-cased, `SPEC.md` for the `spec` kind, mirroring the built-in `SKILL.md` /
-/// `RULE.md` bodies). The whole file is the body — a custom unit's frontmatter, if
-/// any, is preserved verbatim in the body rather than dropped, and its extractor
-/// (`crate::kind`) reads it at `check` time (`specs/15-kinds.md`).
+/// A custom kind carries no bespoke IR, so the unit is projected generically as ONE
+/// member document `<KIND>.md` (the kind name upper-cased, `SPEC.md` for the `spec`
+/// kind, mirroring the built-in `SKILL.md` / `RULE.md`): a `+++`-fenced header
+/// carrying `[provenance]` alone (`source_path` + `import_hash`) over the byte-faithful
+/// *whole* file as its body. The whole file is the body — a custom unit's frontmatter,
+/// if any, is preserved verbatim rather than dropped, and its extractor (`crate::kind`)
+/// reads it at `check` time (`specs/15-kinds.md`).
 fn import_custom_unit(
     kind: &CustomKind,
     source_file: &Path,
@@ -435,15 +434,14 @@ fn import_custom_unit(
     let out_dir = into.join(&kind.governs.root).join(&name);
     create_dir_all(&out_dir)?;
 
-    // Typed header via the format-preserving writer — never a lossy re-serialize.
+    // The member is ONE document: a provenance-only `+++` header over the whole
+    // byte-faithful source file as the body, written format-preserving.
+    let mut header = DocumentMut::new();
+    document::add_provenance(&mut header, &source_file.to_string_lossy(), &import_hash);
     write_bytes(
-        &out_dir.join("meta.toml"),
-        provenance_document(source_file, &import_hash)
-            .to_string()
-            .as_bytes(),
+        &out_dir.join(body_filename(&kind.name)),
+        Document::new(header, body).emit().as_bytes(),
     )?;
-    // The surface body is the whole source file, byte-faithful.
-    write_bytes(&out_dir.join(body_filename(&kind.name)), body.as_bytes())?;
 
     Ok(RollupEntry {
         name,
@@ -459,20 +457,6 @@ fn import_custom_unit(
 /// `RULE.md` bodies so a custom kind's surface reads uniformly with them.
 fn body_filename(kind: &str) -> String {
     format!("{}.md", kind.to_uppercase())
-}
-
-/// Build a provenance-only surface header for a custom-kind unit: a single
-/// `[provenance]` table carrying `source_path` and `import_hash`. A custom kind
-/// composes no typed frontmatter header at import (its extractor owns the read
-/// side), so the surface header is provenance alone — byte-identical to the
-/// built-in prose kinds' provenance table.
-fn provenance_document(source_path: &Path, import_hash: &str) -> DocumentMut {
-    let mut doc = DocumentMut::new();
-    let mut provenance = Table::new();
-    provenance["source_path"] = value(source_path.to_string_lossy().into_owned());
-    provenance["import_hash"] = value(import_hash.to_string());
-    doc["provenance"] = Item::Table(provenance);
-    doc
 }
 
 /// Whether `glob` matches `name`, treating `*` as "any run of characters (including
@@ -724,25 +708,23 @@ primitive = \"headings\"\n";
 
         run(&harness, &into).unwrap();
 
-        // Per-skill surface dirs with header + body.
+        // Per-skill surface dirs each hold ONE member document — no meta.toml.
         let coord = into.join("skills").join("coordinate");
-        assert!(coord.join("meta.toml").is_file());
         assert!(coord.join("SKILL.md").is_file());
-        assert!(into.join("skills").join("demo").join("meta.toml").is_file());
+        assert!(!coord.join("meta.toml").exists());
+        assert!(into.join("skills").join("demo").join("SKILL.md").is_file());
         assert!(into.join("lock.toml").is_file());
 
-        // The surface SKILL.md is the body alone (no frontmatter), byte-faithful.
-        let body = fs::read_to_string(coord.join("SKILL.md")).unwrap();
-        assert_eq!(
-            body,
-            "# Coordinate\n\nSee PLAYBOOK.md for the full reference.   \nNo trailing newline here."
-        );
-
-        // The typed header round-trips back to the source skill.
-        let reloaded = Skill::from_surface_dir(&coord).unwrap();
+        // The member document is the `+++` clause-module header over the byte-faithful
+        // body, which reloads back to the source skill.
+        let reloaded = Skill::from_dir(&coord).unwrap();
         assert_eq!(reloaded.name, "coordinate");
         assert_eq!(reloaded.version.as_deref(), Some("0.3.0"));
         assert!(reloaded.extra.contains_key("allowed-tools"));
+        assert_eq!(
+            reloaded.body,
+            "# Coordinate\n\nSee PLAYBOOK.md for the full reference.   \nNo trailing newline here."
+        );
     }
 
     #[test]
@@ -816,32 +798,29 @@ primitive = \"headings\"\n";
 
         run(&harness, &into).unwrap();
 
-        // The rule surface mirrors a skill: a `rules/<name>/` dir with a typed
-        // header and the body alone under `RULE.md`.
+        // The rule surface mirrors a skill: a `rules/<name>/` dir holding ONE member
+        // document `RULE.md`, no meta.toml.
         let rust = into.join("rules").join("rust");
-        assert!(rust.join("meta.toml").is_file());
-        let body = fs::read_to_string(rust.join("RULE.md")).unwrap();
-        assert_eq!(
-            body,
-            "# Rust conventions\n\nPrefer a clone over a lifetime fight.   \nLast line, no newline."
-        );
+        assert!(rust.join("RULE.md").is_file());
+        assert!(!rust.join("meta.toml").exists());
 
-        // The typed header round-trips back to the source rule (paths + the
-        // preserved Cursor key).
-        let reloaded = Rule::from_surface_dir(&rust).unwrap();
+        // The document round-trips back to the source rule (paths + the preserved
+        // Cursor key), body byte-faithful below the header.
+        let reloaded = Rule::from_dir(&rust).unwrap();
         assert_eq!(reloaded.name, "rust");
         assert_eq!(
             reloaded.paths.as_deref(),
             Some(&["src/**/*.rs".to_string()][..])
         );
         assert!(reloaded.extra.contains_key("description"));
-
-        // A no-frontmatter rule writes its whole body byte-faithful.
-        let collab = into.join("rules").join("collaboration");
         assert_eq!(
-            fs::read_to_string(collab.join("RULE.md")).unwrap(),
-            COLLAB_RULE
+            reloaded.body,
+            "# Rust conventions\n\nPrefer a clone over a lifetime fight.   \nLast line, no newline."
         );
+
+        // A no-frontmatter rule carries its whole body byte-faithful below the header.
+        let collab = into.join("rules").join("collaboration");
+        assert_eq!(Rule::from_dir(&collab).unwrap().body, COLLAB_RULE);
 
         // The roll-up carries a `[[rule]]` row per rule, name-sorted, alongside
         // the `[[skill]]` rows — both kinds coexist in one import.
@@ -872,7 +851,7 @@ primitive = \"headings\"\n";
 
         run(&harness, &into).unwrap();
 
-        assert!(into.join("skills").join("demo").join("meta.toml").is_file());
+        assert!(into.join("skills").join("demo").join("SKILL.md").is_file());
         let doc = fs::read_to_string(into.join("lock.toml"))
             .unwrap()
             .parse::<DocumentMut>()
@@ -910,20 +889,22 @@ primitive = \"headings\"\n";
 
         run(&harness, &into).unwrap();
 
-        // The spec surface mirrors a rule: a `specs/<name>/` dir with a
-        // provenance-only header and the whole file alone under `SPEC.md`.
+        // The spec surface mirrors a rule: a `specs/<name>/` dir holding ONE member
+        // document `SPEC.md` — a provenance-only `+++` header over the whole file.
         let surface = into.join("specs").join("20-surface");
-        assert!(surface.join("meta.toml").is_file());
-        // The body is the *entire* source — a spec has no frontmatter, so the
-        // leading `---` is prose and the missing final newline is preserved.
-        assert_eq!(
-            fs::read_to_string(surface.join("SPEC.md")).unwrap(),
-            SURFACE_SPEC
-        );
+        assert!(surface.join("SPEC.md").is_file());
+        assert!(!surface.join("meta.toml").exists());
+        // The document begins with the provenance header; the body below it is the
+        // *entire* source — a spec has no frontmatter, so the leading `---` is prose
+        // and the missing final newline is preserved.
+        let document = fs::read_to_string(surface.join("SPEC.md")).unwrap();
+        assert!(document.starts_with("+++\n[provenance]\n"));
+        assert!(document.ends_with(SURFACE_SPEC));
 
         // The generic custom-unit surface round-trips back through the generic
         // unit loader (`crate::kind::Unit`) — a custom kind carries no bespoke IR,
-        // so `import`'s output is read by the same reader `check` uses.
+        // so `import`'s output is read by the same reader `check` uses. The unit body
+        // is the whole source file, below the header.
         let unit = crate::kind::Unit::from_surface_dir(&surface).unwrap();
         assert_eq!(unit.id, "20-surface");
         assert_eq!(unit.body, SURFACE_SPEC);
@@ -973,14 +954,14 @@ primitive = \"headings\"\n";
         let into = tmpdir("adr-into");
         run(&harness, &into).unwrap();
 
-        // The unit lands at `<into>/<root>/<name>/` with a provenance header and the
-        // whole file byte-faithful under `<KIND>.md`.
+        // The unit lands at `<into>/<root>/<name>/` as ONE member document `<KIND>.md`
+        // — a provenance-only `+++` header over the whole file byte-faithful.
         let surface = into.join("docs").join("adr").join("0001-surface");
-        assert!(surface.join("meta.toml").is_file());
-        assert_eq!(
-            fs::read_to_string(surface.join("ADR.md")).unwrap(),
-            adr_body
-        );
+        assert!(surface.join("ADR.md").is_file());
+        assert!(!surface.join("meta.toml").exists());
+        let document = fs::read_to_string(surface.join("ADR.md")).unwrap();
+        assert!(document.starts_with("+++\n[provenance]\n"));
+        assert!(document.ends_with(adr_body));
 
         // The roll-up carries an `[[adr]]` row — keyed by the kind name — while the
         // non-`.md` sibling is skipped.

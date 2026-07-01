@@ -480,18 +480,18 @@ fn run_apply(into: &Path, extra: &[&str]) -> (bool, String) {
 
 #[test]
 fn apply_projects_a_surface_edit_and_dry_run_writes_nothing() {
-    // Import a clean skill, then edit its description on the surface `meta.toml` —
-    // exactly the field a human recomposes.
+    // Import a clean skill, then edit its description in the surface `SKILL.md`
+    // document — exactly the field a human recomposes.
     let harness = tmpdir("apply-src");
     write_harness(&harness, "coordinate", CLEAN_SKILL);
     let into = tmpdir("apply-into");
     import(&harness, &into);
 
-    let meta = into.join("skills").join("coordinate").join("meta.toml");
-    let edited = fs::read_to_string(&meta)
+    let document = into.join("skills").join("coordinate").join("SKILL.md");
+    let edited = fs::read_to_string(&document)
         .unwrap()
         .replace("Use when coordinating", "Use when orchestrating");
-    fs::write(&meta, edited).unwrap();
+    fs::write(&document, edited).unwrap();
 
     let source = harness.join("skills").join("coordinate").join("SKILL.md");
 
@@ -557,7 +557,7 @@ fn into_and_workspace_default_to_dot_author() {
         default_ws
             .join("skills")
             .join("coordinate")
-            .join("meta.toml")
+            .join("SKILL.md")
             .is_file()
     );
 

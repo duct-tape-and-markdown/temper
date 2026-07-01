@@ -9,17 +9,24 @@
 //! internal field.
 //!
 //! A rule is read from its source file with [`Rule::from_source_file`] (split the
-//! YAML frontmatter, hash the original bytes for provenance), projected to the
-//! typed surface header with [`Rule::to_meta_document`], and reloaded from the
-//! written surface with [`Rule::from_surface_dir`].
+//! YAML frontmatter, hash the original bytes for provenance), projected to its **one
+//! authored document** with [`Rule::to_document`], and reloaded from the written
+//! surface with [`Rule::from_dir`].
+//!
+//! The member is a single document (`specs/20-surface.md`, "Decision: the member is
+//! one document in the surface language"): a `+++`-fenced TOML header over the body,
+//! in place of the retired `meta.toml` + body pair. The header carries a
+//! `[clause.<field>]` module per structured field (the optional `paths` *and* the
+//! verbatim-preserved unknown frontmatter keys), the authored `[satisfies.*]` /
+//! `[edge.*]` modules, and the generated `[provenance]`.
 //!
 //! Round-trip discipline (`.claude/rules/rust.md`): the markdown body is
-//! byte-faithful — never re-rendered. Only the structured header (`meta.toml`) is
-//! written, via `toml_edit`. Unknown frontmatter keys are preserved verbatim in
-//! [`Rule::extra`] (never dropped), so a `forbidden_keys` clause can later resolve
-//! the Cursor keys (`description`/`globs`/`alwaysApply`) Claude Code ignores.
-//! `import_hash` is the SHA-256 of the original file bytes — the drift anchor,
-//! computed at import so the provenance lock is complete before write-back exists.
+//! byte-faithful — never re-rendered. Only the structured header is written, via
+//! `toml_edit`. Unknown frontmatter keys are preserved verbatim in [`Rule::extra`]
+//! (never dropped), so a `forbidden_keys` clause can later resolve the Cursor keys
+//! (`description`/`globs`/`alwaysApply`) Claude Code ignores. `import_hash` is the
+//! SHA-256 of the original file bytes — the drift anchor, computed at import so the
+//! provenance lock is complete before write-back exists.
 //!
 //! The split-frontmatter and SHA-256 helpers are duplicated from `src/skill.rs`
 //! rather than shared: one artifact kind per module keeps the rule self-contained,
@@ -32,11 +39,9 @@ use std::path::{Path, PathBuf};
 use gray_matter::Pod;
 use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use toml_edit::{Array, DocumentMut, Item, Table, Value, value};
+use toml_edit::{Array, DocumentMut, Item, Value};
 
-/// The frontmatter keys projected to typed fields. Everything else is an
-/// "unknown" key, preserved verbatim under [`Rule::extra`].
-const KNOWN_KEYS: [&str; 1] = ["paths"];
+use crate::document::{self, Document, EdgeClause, Satisfies};
 
 /// A Claude Code rule: an optional `paths` scope, a byte-faithful body, the
 /// unknown frontmatter keys preserved verbatim, and the provenance lock that
@@ -51,23 +56,23 @@ pub struct Rule {
     /// Markdown after the frontmatter, byte-faithful (trailing bytes intact). For
     /// a rule with no frontmatter this is the whole file.
     pub body: String,
-    /// The requirements this artifact opts into filling (`specs/20-surface.md`,
-    /// "Each artifact directory is a representation, not a copy") — the coverage
-    /// check's opt-in bindings. **Authored** on the surface, not imported: the
-    /// source `.md` carries no such field, so `from_source_file` leaves this
-    /// empty. It lives under `meta.toml`'s `[representation]` table, kept out of
-    /// the frontmatter `extra` the contract engine ranges over.
-    pub satisfies: Vec<String>,
-    /// The authored *why* bound to this artifact (`00-intent.md` law 7 — the
-    /// behavioral-intent layer). **Authored**, not imported (`from_source_file`
-    /// leaves it `None`); carried under `[representation]` in `meta.toml`. It is
-    /// the human rationale, never a decidable feature, so extraction never reads
-    /// it.
-    pub rationale: Option<String>,
+    /// The requirements this artifact opts into filling (`specs/20-surface.md`, the
+    /// `[satisfies.<requirement>]` clause modules) — the coverage check's opt-in
+    /// bindings, each carrying its optional authored `rationale`. **Authored** on
+    /// the surface, not imported: the source `.md` carries no such field, so
+    /// `from_source_file` leaves this empty. It lives in the header's `[satisfies.*]`
+    /// modules, kept out of the frontmatter `extra` the contract engine ranges over.
+    pub satisfies: Vec<Satisfies>,
+    /// The declared references/relationships to other members
+    /// (`specs/45-governance.md`, "an edge is a declared field on the surface") —
+    /// the header's `[edge.<target>]` modules. **Authored** on the surface, not
+    /// imported (`from_source_file` leaves this empty); the graph's source, never
+    /// grepped from prose.
+    pub edges: Vec<EdgeClause>,
     /// Unknown frontmatter keys, preserved verbatim so the surface never drops
     /// authoring intent — and so a `forbidden_keys` clause can resolve them by
     /// name. Sorted by key (`serde_json::Map` is a `BTreeMap`), which makes
-    /// `to_meta_document` deterministic and `import` idempotent.
+    /// `to_document` deterministic and `import` idempotent.
     pub extra: JsonMap<String, JsonValue>,
     /// Where the rule came from and the hash of its original bytes.
     pub provenance: Provenance,
@@ -129,15 +134,16 @@ pub enum RuleError {
         field: &'static str,
     },
 
-    /// `meta.toml` could not be parsed as TOML.
-    #[error("failed to parse {path} as TOML")]
-    #[diagnostic(code(temper::rule::bad_toml))]
-    Toml {
-        /// The surface header that failed to parse.
+    /// The surface `RULE.md` is not a well-formed `+++`-fenced document (missing or
+    /// unterminated fence, or a malformed TOML header).
+    #[error("{path}: {source}")]
+    #[diagnostic(code(temper::rule::bad_document))]
+    Document {
+        /// The surface document that failed to parse.
         path: PathBuf,
-        /// The TOML parse error.
+        /// The underlying fenced-document parse error.
         #[source]
-        source: toml_edit::TomlError,
+        source: crate::document::DocumentError,
     },
 }
 
@@ -190,11 +196,11 @@ impl Rule {
             name,
             paths,
             body: body.to_string(),
-            // `satisfies`/`rationale` are authored on the surface, never present
-            // in the source — so import leaves them empty and an unauthored
-            // rule's `meta.toml` stays byte-identical (import idempotence).
+            // `satisfies`/`edges` are authored on the surface, never present in the
+            // source — so import leaves them empty and an unauthored rule's document
+            // carries no `[satisfies.*]`/`[edge.*]` modules (import idempotence).
             satisfies: Vec::new(),
-            rationale: None,
+            edges: Vec::new(),
             extra,
             provenance: Provenance {
                 source_path: path.to_path_buf(),
@@ -203,14 +209,16 @@ impl Rule {
         })
     }
 
-    /// Reload a rule from its written surface `<dir>/`: `meta.toml` (the optional
-    /// `paths`, any preserved unknown keys, and the `[provenance]` table) plus
-    /// `<dir>/RULE.md` (the body alone). The name is the surface directory name.
+    /// Reload a rule from its **one authored document** `<dir>/RULE.md`: parse the
+    /// `+++`-fenced header, read the `[clause.<field>]` modules (the optional `paths`
+    /// typed, unknown clauses preserved in `extra`), the `[satisfies.*]` / `[edge.*]`
+    /// modules, and `[provenance]`; the body is everything below the header. The
+    /// rule name is the surface directory name.
     ///
-    /// The inverse of [`Rule::to_meta_document`] over the same directory:
-    /// `import_hash` is read back from the provenance lock, not recomputed (the
-    /// surface body differs from the original, which may have carried frontmatter).
-    pub fn from_surface_dir(dir: &Path) -> Result<Self, RuleError> {
+    /// The inverse of [`Rule::to_document`] over the same file: `import_hash` is read
+    /// back from the provenance module, not recomputed (the surface body differs from
+    /// the original, which may have carried frontmatter).
+    pub fn from_dir(dir: &Path) -> Result<Self, RuleError> {
         let name = dir
             .file_name()
             .and_then(|name| name.to_str())
@@ -220,137 +228,118 @@ impl Rule {
                 field: "name",
             })?;
 
-        let meta_path = dir.join("meta.toml");
-        let meta_src = fs::read_to_string(&meta_path).map_err(|source| RuleError::Io {
-            path: meta_path.clone(),
+        let doc_path = dir.join("RULE.md");
+        let raw = fs::read_to_string(&doc_path).map_err(|source| RuleError::Io {
+            path: doc_path.clone(),
             source,
         })?;
-        let doc = meta_src
-            .parse::<DocumentMut>()
-            .map_err(|source| RuleError::Toml {
-                path: meta_path.clone(),
-                source,
-            })?;
-        let table = doc.as_table();
+        let doc = Document::parse(&raw).map_err(|source| RuleError::Document {
+            path: doc_path.clone(),
+            source,
+        })?;
+        let header = doc.header();
 
-        let paths = optional_list(table, "paths");
-
-        let provenance =
-            table
-                .get("provenance")
-                .and_then(Item::as_table)
-                .ok_or(RuleError::MissingField {
-                    path: meta_path.clone(),
-                    field: "provenance",
-                })?;
-        let source_path = PathBuf::from(required_str(provenance, "source_path", &meta_path)?);
-        let import_hash = required_str(provenance, "import_hash", &meta_path)?;
-
-        // The authored representation layer, if present. Absent when the rule was
-        // never authored with either field (its `meta.toml` has no table).
-        let representation = table.get("representation").and_then(Item::as_table);
-        let satisfies = representation
-            .map(|table| string_list(table, "satisfies"))
-            .unwrap_or_default();
-        let rationale = representation.and_then(|table| optional_str(table, "rationale"));
-
+        // The `[clause.<field>]` modules: the optional typed `paths`, the rest
+        // preserved verbatim in `extra` (the catch-all a `forbidden_keys` clause
+        // ranges over — a Cursor key Claude Code ignores must survive to be caught).
+        let mut paths = None;
         let mut extra = JsonMap::new();
-        for (key, item) in table.iter() {
-            // `representation` is authored, not frontmatter — like `provenance`,
-            // it must never leak back into the contract-checked `extra`.
-            if KNOWN_KEYS.contains(&key) || key == "provenance" || key == "representation" {
-                continue;
-            }
-            if let Some(json) = toml_item_to_json(item) {
-                extra.insert(key.to_string(), json);
+        for (field, val) in document::clauses(header) {
+            match field.as_str() {
+                "paths" => paths = item_string_list(val),
+                _ => {
+                    if let Some(json) = toml_item_to_json(val) {
+                        extra.insert(field, json);
+                    }
+                }
             }
         }
 
-        let body_path = dir.join("RULE.md");
-        let body = fs::read_to_string(&body_path).map_err(|source| RuleError::Io {
-            path: body_path,
-            source,
-        })?;
+        let (source_path, import_hash) =
+            document::provenance(header).ok_or(RuleError::MissingField {
+                path: doc_path.clone(),
+                field: "provenance",
+            })?;
 
         Ok(Self {
             name,
             paths,
-            body,
-            satisfies,
-            rationale,
+            body: doc.body().to_string(),
+            satisfies: document::satisfies(header),
+            edges: document::edges(header),
             extra,
             provenance: Provenance {
-                source_path,
+                source_path: PathBuf::from(source_path),
                 import_hash,
             },
         })
     }
 
-    /// Carry the authored `[representation]` layer (`satisfies` + `rationale`)
-    /// from an already-written surface artifact forward into this freshly-parsed
-    /// source rule. Mirrors [`Skill::carry_representation`](crate::skill::Skill::carry_representation).
+    /// Carry the authored surface layer (`satisfies` + `edges`) from an
+    /// already-written surface artifact forward into this freshly-parsed source rule.
+    /// Mirrors [`Skill::carry_representation`](crate::skill::Skill::carry_representation).
     ///
-    /// The source `.md` never carries representation — it is surface-only authored
-    /// state (`specs/20-surface.md`, "Each artifact directory is a representation").
-    /// So a re-import or drifted-body `re-add`, which rebuilds `meta.toml` from
-    /// source, would otherwise clobber it. This is the authored layer's half of the
+    /// The source `.md` never carries the authored clauses — they are surface-only
+    /// state (`specs/20-surface.md`, "importing a member is recognizing it"). So a
+    /// re-import or drifted-body `re-add`, which rebuilds the document from source,
+    /// would otherwise clobber them. This is the authored layer's half of the
     /// three-state law: **merge rather than clobber** — the caller loads the existing
-    /// surface, carries its representation onto the re-parsed source, then writes.
+    /// surface, carries its authored clauses onto the re-parsed source, then writes.
     pub fn carry_representation(&mut self, existing: &Rule) {
         self.satisfies = existing.satisfies.clone();
-        self.rationale = existing.rationale.clone();
+        self.edges = existing.edges.clone();
     }
 
-    /// Project the typed header to a format-preserving `toml_edit` document: the
-    /// `paths` sequence if present, every unknown frontmatter key (written as TOML
-    /// values, sorted), then the `[provenance]` table last.
-    ///
-    /// Unknown keys are emitted as inline values (objects become inline tables) so
-    /// the only standard table is `[provenance]` — sidestepping TOML's
-    /// "scalars before tables" ordering hazard while staying lossless.
-    pub fn to_meta_document(&self) -> DocumentMut {
-        let mut doc = DocumentMut::new();
+    /// Project the rule to its **one authored document**: a `+++`-fenced header of
+    /// clause modules over the byte-faithful body (`specs/20-surface.md`, "The member
+    /// document"). The header carries a `[clause.paths]` module when `paths` is
+    /// present, a `[clause.<key>]` per unknown frontmatter key (sorted `extra`
+    /// order), the authored `[satisfies.*]` / `[edge.*]` modules, then the generated
+    /// `[provenance]` last.
+    pub fn to_document(&self) -> Document {
+        let mut header = DocumentMut::new();
 
         if let Some(paths) = &self.paths {
             let mut array = Array::new();
             for path in paths {
                 array.push(path.clone());
             }
-            doc["paths"] = Item::Value(Value::Array(array));
+            document::add_clause(&mut header, "paths", Value::Array(array));
         }
 
         for (key, json) in &self.extra {
             if let Some(val) = json_to_toml_value(json) {
-                doc[key.as_str()] = Item::Value(val);
+                document::add_clause(&mut header, key, val);
             }
         }
 
-        // The authored representation layer, emitted only when non-empty so an
-        // unauthored rule's `meta.toml` is byte-identical to slice 1 (import
-        // idempotence holds).
-        if !self.satisfies.is_empty() || self.rationale.is_some() {
-            let mut representation = Table::new();
-            if !self.satisfies.is_empty() {
-                let mut array = Array::new();
-                for requirement in &self.satisfies {
-                    array.push(requirement.clone());
-                }
-                representation["satisfies"] = Item::Value(Value::Array(array));
-            }
-            if let Some(rationale) = &self.rationale {
-                representation["rationale"] = value(rationale.clone());
-            }
-            doc["representation"] = Item::Table(representation);
+        for satisfies in &self.satisfies {
+            document::add_satisfies(&mut header, satisfies);
+        }
+        for edge in &self.edges {
+            document::add_edge(&mut header, edge);
         }
 
-        let mut provenance = Table::new();
-        provenance["source_path"] =
-            value(self.provenance.source_path.to_string_lossy().into_owned());
-        provenance["import_hash"] = value(self.provenance.import_hash.clone());
-        doc["provenance"] = Item::Table(provenance);
+        document::add_provenance(
+            &mut header,
+            &self.provenance.source_path.to_string_lossy(),
+            &self.provenance.import_hash,
+        );
 
-        doc
+        Document::new(header, self.body.clone())
     }
+}
+
+/// The string elements of a `[clause.<field>]` module's array `value`, or `None`
+/// when it is absent or not an array — used to read the typed `paths` sequence back
+/// off the member document.
+fn item_string_list(value: &Item) -> Option<Vec<String>> {
+    value.as_array().map(|array| {
+        array
+            .iter()
+            .filter_map(|val| val.as_str().map(str::to_string))
+            .collect()
+    })
 }
 
 /// Split a source `.md` file into its YAML frontmatter block and a byte-faithful
@@ -417,40 +406,6 @@ fn pod_hash_to_json(fields: HashMap<String, Pod>) -> JsonMap<String, JsonValue> 
         out.insert(key, pod.into());
     }
     out
-}
-
-/// A required string field of a TOML table.
-fn required_str(table: &Table, field: &'static str, path: &Path) -> Result<String, RuleError> {
-    table
-        .get(field)
-        .and_then(Item::as_str)
-        .map(str::to_string)
-        .ok_or(RuleError::MissingField {
-            path: path.to_path_buf(),
-            field,
-        })
-}
-
-/// An optional list field of a TOML table, read back as `Vec<String>`.
-fn optional_list(table: &Table, field: &str) -> Option<Vec<String>> {
-    table.get(field).and_then(Item::as_array).map(|array| {
-        array
-            .iter()
-            .filter_map(|val| val.as_str().map(str::to_string))
-            .collect()
-    })
-}
-
-/// An optional string field of a TOML table.
-fn optional_str(table: &Table, field: &str) -> Option<String> {
-    table.get(field).and_then(Item::as_str).map(str::to_string)
-}
-
-/// The string elements of an array field of a TOML table, or an empty vec when
-/// the field is absent or not an array. Used to read `[representation].satisfies`
-/// back off the surface.
-fn string_list(table: &Table, field: &str) -> Vec<String> {
-    optional_list(table, field).unwrap_or_default()
 }
 
 /// Convert a JSON value to a `toml_edit` value, rendering objects as inline
@@ -664,25 +619,20 @@ Pushback is the point.\n";
         assert_eq!(rule.extra.get("paths"), Some(&JsonValue::from("src/**")));
     }
 
-    /// Project a rule to its surface (`<name>/meta.toml` + `RULE.md`) and reload.
+    /// Project a rule to its one member document (`<name>/RULE.md`) and reload.
     fn round_trip(name: &str, source: &str) {
         let src = tmpdir("rt-src");
         let path = write_source(&src, &format!("{name}.md"), source);
         let original = Rule::from_source_file(&path).unwrap();
 
-        // The surface mirrors a skill: a `<name>/` dir carries the typed header
-        // and the body alone. The reloaded name comes from that directory name.
+        // The surface mirrors a skill: a `<name>/` dir carries ONE document. The
+        // reloaded name comes from that directory name.
         let surface_root = tmpdir("rt-surface");
         let surface = surface_root.join(name);
         fs::create_dir_all(&surface).unwrap();
-        fs::write(
-            surface.join("meta.toml"),
-            original.to_meta_document().to_string(),
-        )
-        .unwrap();
-        fs::write(surface.join("RULE.md"), &original.body).unwrap();
+        fs::write(surface.join("RULE.md"), original.to_document().emit()).unwrap();
 
-        let reloaded = Rule::from_surface_dir(&surface).unwrap();
+        let reloaded = Rule::from_dir(&surface).unwrap();
 
         assert_eq!(original, reloaded);
     }
@@ -698,66 +648,68 @@ Pushback is the point.\n";
     }
 
     #[test]
-    fn authored_representation_round_trips_and_stays_out_of_frontmatter() {
+    fn authored_layer_round_trips_and_stays_out_of_frontmatter() {
         let src = tmpdir("rep-src");
         let path = write_source(&src, "rust.md", PATHS_RULE);
         let mut rule = Rule::from_source_file(&path).unwrap();
 
-        // Author the surface-only representation layer.
-        rule.satisfies = vec!["req.rust-style".to_string()];
-        rule.rationale = Some("Encodes the Rust conventions the gate enforces.".to_string());
+        // Author the surface-only layer — a `[satisfies.*]` (with rationale) module.
+        rule.satisfies = vec![Satisfies {
+            requirement: "req-rust-style".to_string(),
+            rationale: Some("Encodes the Rust conventions the gate enforces.".to_string()),
+        }];
 
         let surface_root = tmpdir("rep-surface");
         let surface = surface_root.join("rust");
         fs::create_dir_all(&surface).unwrap();
-        let meta = rule.to_meta_document().to_string();
-        fs::write(surface.join("meta.toml"), &meta).unwrap();
-        fs::write(surface.join("RULE.md"), &rule.body).unwrap();
+        let emitted = rule.to_document().emit();
+        fs::write(surface.join("RULE.md"), &emitted).unwrap();
 
-        let reloaded = Rule::from_surface_dir(&surface).unwrap();
+        let reloaded = Rule::from_dir(&surface).unwrap();
 
-        // Satisfies/rationale survive the surface round-trip identically.
+        // The authored clause survives the surface round-trip identically.
         assert_eq!(rule, reloaded);
-        assert_eq!(reloaded.satisfies, vec!["req.rust-style"]);
+        assert_eq!(reloaded.satisfies[0].requirement, "req-rust-style");
         assert_eq!(
-            reloaded.rationale.as_deref(),
+            reloaded.satisfies[0].rationale.as_deref(),
             Some("Encodes the Rust conventions the gate enforces.")
         );
 
-        // They ride `[representation]`, never leaking into the frontmatter
+        // It rides a `[satisfies.*]` module, never leaking into the frontmatter
         // `extra` a `forbidden_keys` clause ranges over.
-        assert!(meta.contains("[representation]"));
+        assert!(emitted.contains("[satisfies.req-rust-style]"));
         assert!(!reloaded.extra.contains_key("satisfies"));
         assert!(!reloaded.extra.contains_key("rationale"));
-        assert!(!reloaded.extra.contains_key("representation"));
     }
 
     #[test]
-    fn unauthored_representation_leaves_meta_byte_identical() {
-        // A no-frontmatter rule with no representation authored stays byte-
-        // identical to slice 1: no `[representation]` table (import idempotence).
+    fn unauthored_layer_leaves_the_document_without_authored_modules() {
+        // A no-frontmatter rule with nothing authored carries no `[satisfies.*]` /
+        // `[edge.*]` modules (import idempotence).
         let dir = tmpdir("rep-none");
         let path = write_source(&dir, "collaboration.md", NO_FRONTMATTER_RULE);
         let rule = Rule::from_source_file(&path).unwrap();
 
-        let meta = rule.to_meta_document().to_string();
+        let emitted = rule.to_document().emit();
         assert!(rule.satisfies.is_empty());
-        assert!(rule.rationale.is_none());
-        assert!(!meta.contains("[representation]"));
+        assert!(rule.edges.is_empty());
+        assert!(!emitted.contains("[satisfies."));
+        assert!(!emitted.contains("[edge."));
     }
 
     #[test]
-    fn meta_document_is_deterministic_and_keeps_paths_and_unknown_keys() {
-        let dir = tmpdir("meta");
+    fn document_is_deterministic_and_keeps_paths_and_unknown_keys_as_clauses() {
+        let dir = tmpdir("doc");
         let path = write_source(&dir, "rust.md", PATHS_RULE);
         let rule = Rule::from_source_file(&path).unwrap();
 
-        let once = rule.to_meta_document().to_string();
-        let twice = rule.to_meta_document().to_string();
+        let once = rule.to_document().emit();
+        let twice = rule.to_document().emit();
         assert_eq!(once, twice, "rendering must be deterministic");
 
-        assert!(once.contains("paths = [\"src/**/*.rs\", \"tests/**/*.rs\"]"));
-        assert!(once.contains("description = "));
+        assert!(once.contains("[clause.paths]\nvalue = [\"src/**/*.rs\", \"tests/**/*.rs\"]"));
+        // The preserved Cursor key rides its own clause module.
+        assert!(once.contains("[clause.description]\nvalue = "));
         assert!(once.contains("[provenance]"));
         assert!(once.contains("import_hash = "));
     }

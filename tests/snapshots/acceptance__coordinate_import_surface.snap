@@ -20,6 +20,23 @@ trigger surface stays small (progressive disclosure).
 2. **Converge.** Fold every finding into the shared artifact.
 3. **Gate.** Run an adversarial reviewer before shipping.
 --- skills/coordinate/SKILL.md ---
++++
+[clause.name]
+value = "coordinate"
+
+[clause.description]
+value = "Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work."
+
+[clause.version]
+value = "0.3.0"
+
+[clause.allowed-tools]
+value = ["Task", "Read", "Edit"]
+
+[provenance]
+source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
+import_hash = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
++++
 # Coordinate
 
 Drive a complex task through a team of agents. See [the playbook](PLAYBOOK.md)
@@ -29,12 +46,3 @@ for the full reference on phases, fan-out, and the reviewer gate.
 
 Parallel exploration across three or more independent axes, converging on a
 shared artifact, with an adversarial reviewer gate before shipping.
---- skills/coordinate/meta.toml ---
-name = "coordinate"
-description = "Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work."
-version = "0.3.0"
-allowed-tools = ["Task", "Read", "Edit"]
-
-[provenance]
-source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
-import_hash = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"

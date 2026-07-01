@@ -20,7 +20,7 @@
 //! out of its header, and patch it back format-preserving.
 
 use miette::SourceSpan;
-use toml_edit::DocumentMut;
+use toml_edit::{DocumentMut, Item, Table, Value};
 
 /// The literal fence line that opens and closes a surface header. A line is a
 /// fence when its content (trailing whitespace stripped) is exactly this.
@@ -194,6 +194,175 @@ impl Document {
     }
 }
 
+/// A `[satisfies.<requirement>]` clause module (`specs/20-surface.md`, "The member
+/// document"): the member opts into filling `requirement`, carrying the optional
+/// authored `rationale` — the *why*, first-class beside the link rather than
+/// delegated and forgotten (`00-intent.md` law 7). Authored on the surface, never
+/// imported; the coverage check reads only the requirement name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Satisfies {
+    /// The declared requirement this member opts into filling.
+    pub requirement: String,
+    /// The authored rationale — never a decidable feature, so no check reads it.
+    pub rationale: Option<String>,
+}
+
+impl Satisfies {
+    /// A `satisfies` clause naming `requirement`, with no rationale.
+    pub fn new(requirement: impl Into<String>) -> Self {
+        Self {
+            requirement: requirement.into(),
+            rationale: None,
+        }
+    }
+}
+
+/// An `[edge.<target>]` clause module (`specs/45-governance.md`, "an edge is a
+/// declared field on the surface"): the member declares a reference/relationship to
+/// `target`, carrying the optional `relation` naming the relationship kind. Authored
+/// on the surface, never imported — the graph's source, never grepped from prose.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EdgeClause {
+    /// The referenced member this edge points at.
+    pub target: String,
+    /// The relationship kind (`depends-on`, `routes-to`, …), if authored.
+    pub relation: Option<String>,
+}
+
+/// Get-or-create an *implicit* parent table under `key`, so its children render as
+/// standalone `[key.<child>]` tables (never a bare `[key]` header). This is what
+/// makes each clause module its own labelled `[table]` in the fenced header.
+fn child_table<'a>(header: &'a mut DocumentMut, key: &'static str) -> &'a mut Table {
+    let table = header.as_table_mut();
+    if !table.contains_key(key) {
+        let mut parent = Table::new();
+        parent.set_implicit(true);
+        table.insert(key, Item::Table(parent));
+    }
+    table
+        .get_mut(key)
+        .and_then(Item::as_table_mut)
+        .expect("the just-inserted parent is a table")
+}
+
+/// Emit a `[clause.<field>]` module carrying `value = <val>` into `header`. Called
+/// once per structured field the member carries, in the caller's order (which is
+/// what makes projection deterministic).
+pub fn add_clause(header: &mut DocumentMut, field: &str, val: Value) {
+    let mut module = Table::new();
+    module.insert("value", Item::Value(val));
+    child_table(header, "clause").insert(field, Item::Table(module));
+}
+
+/// Emit a `[satisfies.<requirement>]` module (with its optional `rationale`).
+pub fn add_satisfies(header: &mut DocumentMut, satisfies: &Satisfies) {
+    let mut module = Table::new();
+    if let Some(rationale) = &satisfies.rationale {
+        module.insert("rationale", Item::Value(Value::from(rationale.clone())));
+    }
+    child_table(header, "satisfies").insert(&satisfies.requirement, Item::Table(module));
+}
+
+/// Emit an `[edge.<target>]` module (with its optional `relation`).
+pub fn add_edge(header: &mut DocumentMut, edge: &EdgeClause) {
+    let mut module = Table::new();
+    if let Some(relation) = &edge.relation {
+        module.insert("relation", Item::Value(Value::from(relation.clone())));
+    }
+    child_table(header, "edge").insert(&edge.target, Item::Table(module));
+}
+
+/// Emit the generated `[provenance]` module — `source_path` + `import_hash`, the
+/// drift anchor (`specs/20-surface.md`). Always last, so the authored clauses read
+/// first and the generated lock trails them.
+pub fn add_provenance(header: &mut DocumentMut, source_path: &str, import_hash: &str) {
+    let mut module = Table::new();
+    module.insert(
+        "source_path",
+        Item::Value(Value::from(source_path.to_string())),
+    );
+    module.insert(
+        "import_hash",
+        Item::Value(Value::from(import_hash.to_string())),
+    );
+    header
+        .as_table_mut()
+        .insert("provenance", Item::Table(module));
+}
+
+/// The `value` item of each `[clause.<field>]` module in `header`, in document
+/// order — the structured fields the member carries (typed fields *and* the
+/// verbatim-preserved unknown frontmatter keys). A module with no `value` key is
+/// skipped rather than erroring: it names a field but carries nothing to read.
+pub fn clauses(header: &DocumentMut) -> Vec<(String, &Item)> {
+    header
+        .get("clause")
+        .and_then(Item::as_table)
+        .map(|table| {
+            table
+                .iter()
+                .filter_map(|(field, item)| {
+                    item.as_table()
+                        .and_then(|module| module.get("value"))
+                        .map(|value| (field.to_string(), value))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The `[satisfies.<requirement>]` modules in `header`, in document order.
+pub fn satisfies(header: &DocumentMut) -> Vec<Satisfies> {
+    header
+        .get("satisfies")
+        .and_then(Item::as_table)
+        .map(|table| {
+            table
+                .iter()
+                .map(|(requirement, item)| Satisfies {
+                    requirement: requirement.to_string(),
+                    rationale: item
+                        .as_table()
+                        .and_then(|module| module.get("rationale"))
+                        .and_then(Item::as_str)
+                        .map(str::to_string),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The `[edge.<target>]` modules in `header`, in document order.
+pub fn edges(header: &DocumentMut) -> Vec<EdgeClause> {
+    header
+        .get("edge")
+        .and_then(Item::as_table)
+        .map(|table| {
+            table
+                .iter()
+                .map(|(target, item)| EdgeClause {
+                    target: target.to_string(),
+                    relation: item
+                        .as_table()
+                        .and_then(|module| module.get("relation"))
+                        .and_then(Item::as_str)
+                        .map(str::to_string),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The generated `[provenance]` module's `(source_path, import_hash)`, or `None`
+/// when it is absent or missing either key — a surface missing what the tool always
+/// writes is malformed, and the caller turns that `None` into a precise error.
+pub fn provenance(header: &DocumentMut) -> Option<(String, String)> {
+    let table = header.get("provenance").and_then(Item::as_table)?;
+    let source_path = table.get("source_path").and_then(Item::as_str)?;
+    let import_hash = table.get("import_hash").and_then(Item::as_str)?;
+    Some((source_path.to_string(), import_hash.to_string()))
+}
+
 /// Whether `line` is a `+++` fence: its content, with any trailing newline and
 /// trailing whitespace stripped, is exactly `+++`. Trailing whitespace or a `\r`
 /// (CRLF) is tolerated on the fence and preserved verbatim by the caller.
@@ -347,6 +516,72 @@ Last line, no newline.";
         // The span points into the header region (past the opening fence), never
         // at offset zero — the error is located, not generic.
         assert!(at.offset() >= "+++\n".len());
+    }
+
+    #[test]
+    fn clause_modules_emit_as_labelled_tables_and_round_trip() {
+        // Build a header from clause modules the way a member projector does: field
+        // clauses, an authored satisfies with rationale, an edge, then provenance.
+        let mut header = DocumentMut::new();
+        add_clause(&mut header, "name", Value::from("dev-standards"));
+        add_clause(&mut header, "allowed-tools", {
+            let mut array = toml_edit::Array::new();
+            array.push("Bash");
+            Value::Array(array)
+        });
+        add_satisfies(
+            &mut header,
+            &Satisfies {
+                requirement: "engineering-standards".to_string(),
+                rationale: Some("the home for enforcement".to_string()),
+            },
+        );
+        add_edge(
+            &mut header,
+            &EdgeClause {
+                target: "lint-runner".to_string(),
+                relation: Some("depends-on".to_string()),
+            },
+        );
+        add_provenance(&mut header, "./SKILL.md", "abc123");
+        let doc = Document::new(header, "# Body\n".to_string());
+        let emitted = doc.emit();
+
+        // Each clause is its own labelled `[table]`, never a bare `[clause]`.
+        assert!(emitted.contains("[clause.name]\nvalue = \"dev-standards\""));
+        assert!(emitted.contains("[clause.allowed-tools]\nvalue = [\"Bash\"]"));
+        assert!(!emitted.contains("[clause]\n"));
+        assert!(emitted.contains("[satisfies.engineering-standards]\nrationale ="));
+        assert!(emitted.contains("[edge.lint-runner]\nrelation = \"depends-on\""));
+        assert!(emitted.contains("[provenance]\nsource_path = \"./SKILL.md\""));
+
+        // The readers recover exactly what was emitted, in order.
+        let parsed = Document::parse(&emitted).unwrap();
+        let read: Vec<String> = clauses(parsed.header())
+            .into_iter()
+            .map(|(field, _)| field)
+            .collect();
+        assert_eq!(read, vec!["name".to_string(), "allowed-tools".to_string()]);
+        assert_eq!(
+            satisfies(parsed.header()),
+            vec![Satisfies {
+                requirement: "engineering-standards".to_string(),
+                rationale: Some("the home for enforcement".to_string()),
+            }]
+        );
+        assert_eq!(
+            edges(parsed.header()),
+            vec![EdgeClause {
+                target: "lint-runner".to_string(),
+                relation: Some("depends-on".to_string()),
+            }]
+        );
+        assert_eq!(
+            provenance(parsed.header()),
+            Some(("./SKILL.md".to_string(), "abc123".to_string()))
+        );
+        // Re-emitting a parsed document is byte-identical — deterministic round-trip.
+        assert_eq!(parsed.emit(), emitted);
     }
 
     #[test]

@@ -7,7 +7,7 @@
 //! three properties the entry names, across both built-in kinds:
 //!
 //! - **drifted → reconciled** — a source edited straight on disk is pulled back into
-//!   the surface (its `meta.toml` header and body rewritten) and its lock row's
+//!   the surface (its member document rewritten) and its lock row's
 //!   fingerprints are refreshed to the current source bytes;
 //! - **added → new artifact** — an on-disk source the surface never imported gains a
 //!   surface directory and a lock row;
@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::check::Workspace;
+use temper::document::Satisfies;
 use temper::drift::{self, ReAddOutcome};
 use temper::import;
 use temper::rule::Rule;
@@ -185,15 +186,16 @@ An edited body, straight on disk.\n";
 
     // The surface header was rewritten: the reloaded skill carries the edited field.
     let surface = into.join("skills").join("coordinate");
-    let reloaded = Skill::from_surface_dir(&surface).unwrap();
+    let reloaded = Skill::from_dir(&surface).unwrap();
     assert_eq!(
         reloaded.description,
         "Edited straight on disk, outside the surface."
     );
     assert_eq!(reloaded.version.as_deref(), Some("0.4.0"));
-    // ...and the body was pulled in byte-faithfully (frontmatter stripped).
+    // ...and the body was pulled in byte-faithfully (frontmatter stripped), below
+    // the member document's header.
     assert_eq!(
-        fs::read_to_string(surface.join("SKILL.md")).unwrap(),
+        reloaded.body,
         "# Coordinate\n\nAn edited body, straight on disk.\n"
     );
 
@@ -243,13 +245,13 @@ An edited rule body.\n";
 
     // The surface header carries the broadened scope, and the body is byte-faithful.
     let surface = into.join("rules").join("rust");
-    let reloaded = Rule::from_surface_dir(&surface).unwrap();
+    let reloaded = Rule::from_dir(&surface).unwrap();
     assert_eq!(
         reloaded.paths.as_deref(),
         Some(&["src/**/*.rs".to_string(), "tests/**/*.rs".to_string()][..])
     );
     assert_eq!(
-        fs::read_to_string(surface.join("RULE.md")).unwrap(),
+        reloaded.body,
         "# Rust conventions\n\nAn edited rule body.\n"
     );
 
@@ -270,30 +272,26 @@ An edited rule body.\n";
 fn a_drifted_body_readd_preserves_authored_representation() {
     let (harness, into) = imported("rep-preserve");
 
-    // Author the surface-only representation layer on both kinds — `satisfies`
-    // and `rationale` the source files never carry.
+    // Author the surface-only layer on both kinds — `satisfies` and its `rationale`
+    // the source files never carry.
     let skill_surface = into.join("skills").join("coordinate");
-    let mut skill = Skill::from_surface_dir(&skill_surface).unwrap();
-    skill.satisfies = vec!["req.coordinate".to_string()];
-    skill.rationale = Some("Fills the coordination requirement.".to_string());
-    fs::write(
-        skill_surface.join("meta.toml"),
-        skill.to_meta_document().to_string(),
-    )
-    .unwrap();
+    let mut skill = Skill::from_dir(&skill_surface).unwrap();
+    skill.satisfies = vec![Satisfies {
+        requirement: "req.coordinate".to_string(),
+        rationale: Some("Fills the coordination requirement.".to_string()),
+    }];
+    fs::write(skill_surface.join("SKILL.md"), skill.to_document().emit()).unwrap();
 
     let rule_surface = into.join("rules").join("rust");
-    let mut rule = Rule::from_surface_dir(&rule_surface).unwrap();
-    rule.satisfies = vec!["req.rust-style".to_string()];
-    rule.rationale = Some("Encodes the Rust conventions the gate enforces.".to_string());
-    fs::write(
-        rule_surface.join("meta.toml"),
-        rule.to_meta_document().to_string(),
-    )
-    .unwrap();
+    let mut rule = Rule::from_dir(&rule_surface).unwrap();
+    rule.satisfies = vec![Satisfies {
+        requirement: "req.rust-style".to_string(),
+        rationale: Some("Encodes the Rust conventions the gate enforces.".to_string()),
+    }];
+    fs::write(rule_surface.join("RULE.md"), rule.to_document().emit()).unwrap();
 
-    // Drift only the bodies on disk, so `re-add` genuinely rebuilds `meta.toml`
-    // from source — the path that clobbers representation today.
+    // Drift only the bodies on disk, so `re-add` genuinely rebuilds the member
+    // document from source — the path that clobbers the authored layer today.
     fs::write(
         skill_source(&harness),
         "---\n\
@@ -323,50 +321,45 @@ An edited rule body.\n",
     assert_eq!(outcome(&report, "coordinate"), ReAddOutcome::Reconciled);
     assert_eq!(outcome(&report, "rust"), ReAddOutcome::Reconciled);
 
-    // The authored representation survived the body-drift re-add — the data-loss
-    // this entry fixes (both fields are wiped without the carry).
-    let skill = Skill::from_surface_dir(&skill_surface).unwrap();
-    assert_eq!(skill.satisfies, vec!["req.coordinate"]);
+    // The authored layer survived the body-drift re-add — the data-loss the carry
+    // prevents (satisfies + rationale are wiped without it).
+    let skill = Skill::from_dir(&skill_surface).unwrap();
+    assert_eq!(skill.satisfies[0].requirement, "req.coordinate");
     assert_eq!(
-        skill.rationale.as_deref(),
+        skill.satisfies[0].rationale.as_deref(),
         Some("Fills the coordination requirement.")
     );
     // ...and the drifted body was still pulled in byte-faithfully.
     assert_eq!(
-        fs::read_to_string(skill_surface.join("SKILL.md")).unwrap(),
+        skill.body,
         "# Coordinate\n\nAn edited body, straight on disk.\n"
     );
 
-    let rule = Rule::from_surface_dir(&rule_surface).unwrap();
-    assert_eq!(rule.satisfies, vec!["req.rust-style"]);
+    let rule = Rule::from_dir(&rule_surface).unwrap();
+    assert_eq!(rule.satisfies[0].requirement, "req.rust-style");
     assert_eq!(
-        rule.rationale.as_deref(),
+        rule.satisfies[0].rationale.as_deref(),
         Some("Encodes the Rust conventions the gate enforces.")
     );
-    assert_eq!(
-        fs::read_to_string(rule_surface.join("RULE.md")).unwrap(),
-        "# Rust conventions\n\nAn edited rule body.\n"
-    );
+    assert_eq!(rule.body, "# Rust conventions\n\nAn edited rule body.\n");
 }
 
 #[test]
 fn a_reimport_of_an_authored_surface_preserves_representation_and_is_idempotent() {
     let (harness, into) = imported("rep-reimport");
 
-    // Author representation on the surface, then re-import the *unchanged* harness.
+    // Author the layer on the surface, then re-import the *unchanged* harness.
     let skill_surface = into.join("skills").join("coordinate");
-    let mut skill = Skill::from_surface_dir(&skill_surface).unwrap();
-    skill.satisfies = vec!["req.coordinate".to_string()];
-    skill.rationale = Some("Fills the coordination requirement.".to_string());
-    fs::write(
-        skill_surface.join("meta.toml"),
-        skill.to_meta_document().to_string(),
-    )
-    .unwrap();
+    let mut skill = Skill::from_dir(&skill_surface).unwrap();
+    skill.satisfies = vec![Satisfies {
+        requirement: "req.coordinate".to_string(),
+        rationale: Some("Fills the coordination requirement.".to_string()),
+    }];
+    fs::write(skill_surface.join("SKILL.md"), skill.to_document().emit()).unwrap();
 
     let before = tree_bytes(&into);
-    // A re-import rebuilds every `meta.toml` from source; carrying the surface's
-    // authored representation forward keeps it — and the workspace byte-identical.
+    // A re-import rebuilds every member document from source; carrying the surface's
+    // authored layer forward keeps it — and the workspace byte-identical.
     import::run(&harness, &into).unwrap();
 
     assert_eq!(
@@ -374,10 +367,10 @@ fn a_reimport_of_an_authored_surface_preserves_representation_and_is_idempotent(
         tree_bytes(&into),
         "re-importing an authored, unchanged surface must not change a byte"
     );
-    let skill = Skill::from_surface_dir(&skill_surface).unwrap();
-    assert_eq!(skill.satisfies, vec!["req.coordinate"]);
+    let skill = Skill::from_dir(&skill_surface).unwrap();
+    assert_eq!(skill.satisfies[0].requirement, "req.coordinate");
     assert_eq!(
-        skill.rationale.as_deref(),
+        skill.satisfies[0].rationale.as_deref(),
         Some("Fills the coordination requirement.")
     );
 }
@@ -418,18 +411,15 @@ A helping hand.\n",
     // Each added source gained a surface directory that reloads through its kind's
     // loader — a first-class surface artifact, not a partial write.
     let skill_surface = into.join("skills").join("helper");
-    assert!(skill_surface.join("meta.toml").is_file());
-    let reloaded = Skill::from_surface_dir(&skill_surface).unwrap();
+    assert!(skill_surface.join("SKILL.md").is_file());
+    let reloaded = Skill::from_dir(&skill_surface).unwrap();
     assert_eq!(reloaded.name, "helper");
-    assert_eq!(
-        fs::read_to_string(skill_surface.join("SKILL.md")).unwrap(),
-        "# Helper\n\nA helping hand.\n"
-    );
+    assert_eq!(reloaded.body, "# Helper\n\nA helping hand.\n");
 
     let rule_surface = into.join("rules").join("extra");
-    assert!(rule_surface.join("meta.toml").is_file());
+    assert!(rule_surface.join("RULE.md").is_file());
     assert_eq!(
-        fs::read_to_string(rule_surface.join("RULE.md")).unwrap(),
+        Rule::from_dir(&rule_surface).unwrap().body,
         "# Extra\n\nA rule added straight to the harness, after import.\n"
     );
 

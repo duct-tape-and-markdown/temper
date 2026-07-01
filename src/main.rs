@@ -649,16 +649,20 @@ fn scratch_surface() -> miette::Result<PathBuf> {
 /// `spec` — and a custom kind rooted anywhere else (`docs/adr`, …) is read the same
 /// way, not just `specs/` (`specs/40-composition.md`, "Declaring a custom kind").
 ///
-/// A surface directory is one holding a `meta.toml`, mirroring the built-in
-/// [`Workspace::load`] enumeration, name-sorted so the diagnostic set is stable
-/// across runs. A workspace with no directory at the kind's root contributes no
-/// units — its contract's admissibility still runs, over zero artifacts.
+/// A surface directory is one holding the kind's `<KIND>.md` member document,
+/// mirroring the built-in [`Workspace::load`] enumeration, name-sorted so the
+/// diagnostic set is stable across runs. A workspace with no directory at the kind's
+/// root contributes no units — its contract's admissibility still runs, over zero
+/// artifacts.
 fn custom_units(workspace_dir: &Path, kind: &compose::CustomKind) -> Result<Vec<Unit>, KindError> {
     let root = workspace_dir.join(&kind.governs.root);
     if !root.is_dir() {
         return Ok(Vec::new());
     }
 
+    // The member document a custom unit is written under — the kind name upper-cased
+    // (`spec` → `SPEC.md`), the same convention `import` writes (`src/import.rs`).
+    let document = format!("{}.md", kind.name.to_uppercase());
     let listing = fs::read_dir(&root).map_err(|source| KindError::Io {
         path: root.clone(),
         source,
@@ -670,7 +674,7 @@ fn custom_units(workspace_dir: &Path, kind: &compose::CustomKind) -> Result<Vec<
             source,
         })?;
         let path = entry.path();
-        if path.is_dir() && path.join("meta.toml").is_file() {
+        if path.is_dir() && path.join(&document).is_file() {
             dirs.push(path);
         }
     }
