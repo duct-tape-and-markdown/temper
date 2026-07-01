@@ -1,41 +1,56 @@
 //! `temper import` — scan a Claude Code harness into the typed config surface.
 //!
 //! Implements `import` per `specs/20-surface.md` ("Artifact kinds & contract
-//! selection" — `import` scans every kind it knows: `skills/*/SKILL.md`,
-//! `.claude/rules/*.md`, and `specs/*.md`). For each skill it writes the surface
-//! tree `<into>/skills/<name>/` — a typed `meta.toml` header projected with
+//! selection"): `import` scans every **built-in** harness kind (`skills/*/SKILL.md`,
+//! `.claude/rules/*.md`) *plus* every **custom** kind the active `temper.toml`
+//! declares (`specs/40-composition.md`). For each skill it writes the surface tree
+//! `<into>/skills/<name>/` — a typed `meta.toml` header projected with
 //! [`Skill::to_meta_document`] alongside the byte-faithful `SKILL.md` body and
 //! every companion copied byte-for-byte. For each rule it writes the parallel
 //! tree `<into>/rules/<name>/` — a `meta.toml` header projected with
 //! [`Rule::to_meta_document`] (the optional `paths` + `[provenance]`) alongside
-//! the byte-faithful `RULE.md` body. For each spec — temper's own custom kind
-//! (`90-spec-system.md`) — it writes `<into>/specs/<name>/` with a
-//! provenance-only `meta.toml` ([`Spec::to_meta_document`]) and the byte-faithful
-//! whole file as `SPEC.md`. A roll-up index `<into>/author.toml` records one
-//! `[[skill]]`/`[[rule]]`/`[[spec]]` entry per artifact with its provenance and a
-//! `body_hash`.
+//! the byte-faithful `RULE.md` body.
 //!
-//! Note the root asymmetry the spec literal carries: skills live at
-//! `<harness>/skills/`, rules at `<harness>/.claude/rules/`, and specs at the
-//! plain `<harness>/specs/` (no `.claude/` prefix — they are temper's own corpus,
-//! not a Claude Code artifact).
+//! ## Custom kinds are discovered from `temper.toml`, never hardwired
+//!
+//! A custom kind (a project's own specs, ADRs, playbooks; `specs/15-kinds.md`)
+//! carries no bespoke IR. Its units are discovered **data-driven** from the kind's
+//! declared [`governs`](crate::compose::Governs) locus — a root directory and a
+//! filename glob ([`AuthorLayer::custom_kinds`]) — and each is projected to
+//! `<into>/<root>/<name>/`: a provenance-only `meta.toml` (`[provenance]` alone —
+//! a custom unit's typed header is composed by its extractor, not re-serialized
+//! here) alongside the byte-faithful whole file as `<KIND>.md`. This is exactly why
+//! "temper reads its own `specs/` because its own `temper.toml` declares the `spec`
+//! kind, not because anything is hardwired" (`specs/40-composition.md`): absent a
+//! `temper.toml` custom kind, `import` writes the built-ins only — there is no
+//! phantom `specs/` scan.
+//!
+//! A roll-up index `<into>/author.toml` records one `[[skill]]`/`[[rule]]` entry
+//! per built-in artifact, then one `[[<kind>]]` entry per custom-kind unit, each
+//! with its provenance and a `body_hash`.
+//!
+//! Note the root asymmetry the built-in kinds carry: skills live at
+//! `<harness>/skills/`, rules at `<harness>/.claude/rules/`. A custom kind sits
+//! wherever its `governs` root names (the `spec` kind's `specs/`, no `.claude/`
+//! prefix — temper's own corpus, not a Claude Code artifact).
 //!
 //! The keystone invariant (`.claude/rules/rust.md`) is idempotence: re-importing
 //! an unchanged harness yields an identical workspace. It holds because every
-//! written artifact is content-derived — `to_meta_document` renders the same
-//! header deterministically, bodies and companions are copied verbatim, and the
-//! roll-up is built from the artifacts in a fixed (name-sorted) order — and each
-//! write overwrites in place rather than appending.
+//! written artifact is content-derived — headers render deterministically, bodies
+//! and companions are copied verbatim, and the roll-up is built from the artifacts
+//! in a fixed (name-sorted) order — and each write overwrites in place rather than
+//! appending.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
+use crate::compose::{AuthorLayer, CustomKind, Governs};
 use crate::rule::{Rule, RuleError};
 use crate::skill::{Skill, SkillError};
-use crate::spec::{Spec, SpecError};
 
 /// Errors raised while importing a harness. Distinct from a [`SkillError`]
 /// (which a malformed source skill produces) by also covering the surface-write
@@ -52,10 +67,18 @@ pub enum ImportError {
     #[diagnostic(transparent)]
     Rule(#[from] RuleError),
 
-    /// A source spec could not be read or projected.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Spec(#[from] SpecError),
+    /// A custom-kind unit's source file is not valid UTF-8, so its body cannot be
+    /// modelled. (A built-in kind reports this through its own IR; a custom unit is
+    /// read here as a raw byte-faithful body, so the check lands in `import`.)
+    #[error("{path} is not valid UTF-8")]
+    #[diagnostic(code(temper::import::not_utf8))]
+    NotUtf8 {
+        /// The offending source file.
+        path: PathBuf,
+        /// The decode error.
+        #[source]
+        source: std::string::FromUtf8Error,
+    },
 
     /// The harness `skills/` directory could not be enumerated.
     #[error("failed to read harness directory {path}")]
@@ -82,7 +105,8 @@ pub enum ImportError {
 
 /// One row of the `author.toml` roll-up index: an artifact's identity, its source
 /// provenance, and the hash of its byte-faithful body. Shared by every kind — a
-/// `[[skill]]`, `[[rule]]`, and `[[spec]]` row all carry the same four columns.
+/// `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
+/// four columns.
 struct RollupEntry {
     /// Artifact name (and its `<kind>/<name>/` surface directory).
     name: String,
@@ -94,15 +118,21 @@ struct RollupEntry {
     body_hash: String,
 }
 
-/// Import every skill, rule, and spec under `harness_path` into the surface
-/// workspace `into`.
+/// Import every built-in artifact plus every declared custom-kind unit under
+/// `harness_path` into the surface workspace `into`.
 ///
-/// Writes `<into>/skills/<name>/{meta.toml, SKILL.md, ...companions}` per skill,
-/// `<into>/rules/<name>/{meta.toml, RULE.md}` per rule,
-/// `<into>/specs/<name>/{meta.toml, SPEC.md}` per spec, and the
-/// `<into>/author.toml` roll-up index (one `[[skill]]`/`[[rule]]`/`[[spec]]` row
-/// each). Idempotent over an unchanged harness. See the module header for the
-/// discovery rules and the invariant.
+/// Writes `<into>/skills/<name>/{meta.toml, SKILL.md, ...companions}` per skill and
+/// `<into>/rules/<name>/{meta.toml, RULE.md}` per rule — the built-in kinds — then,
+/// for every custom kind the project-root `<harness_path>/temper.toml` declares,
+/// discovers its [`governs`](crate::compose::Governs) locus and writes
+/// `<into>/<root>/<name>/{meta.toml, <KIND>.md}` per unit. Finally the
+/// `<into>/author.toml` roll-up index carries one `[[skill]]`/`[[rule]]` row per
+/// built-in artifact and one `[[<kind>]]` row per custom-kind unit.
+///
+/// Spec discovery is now just a custom kind like any other — absent a `temper.toml`
+/// declaring one, `import` writes the built-ins only (no phantom `specs/` scan).
+/// Idempotent over an unchanged harness. See the module header for the discovery
+/// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
     let skill_dirs = discover_skill_dirs(harness_path)?;
     let mut skills = Vec::with_capacity(skill_dirs.len());
@@ -116,18 +146,28 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
         rules.push(import_rule(file, into)?);
     }
 
-    let spec_files = discover_spec_files(harness_path)?;
-    let mut specs = Vec::with_capacity(spec_files.len());
-    for file in &spec_files {
-        specs.push(import_spec(file, into)?);
+    // The custom kinds the project-root `temper.toml` declares. Absent ⇒ `None`,
+    // so a harness with no `temper.toml` (or none declaring a custom kind) imports
+    // the built-ins alone — the hardwired `specs/*.md` scan is gone.
+    let layer = AuthorLayer::load(&harness_path.join("temper.toml"))?;
+    let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
+    if let Some(layer) = &layer {
+        for (name, kind) in layer.custom_kinds() {
+            let unit_files = discover_kind_units(harness_path, &kind.governs)?;
+            let mut units = Vec::with_capacity(unit_files.len());
+            for file in &unit_files {
+                units.push(import_custom_unit(kind, file, into)?);
+            }
+            units.sort_by(|a, b| a.name.cmp(&b.name));
+            custom.insert(name.clone(), units);
+        }
     }
 
     // Sort by name so the roll-up — and thus the whole workspace — is stable
     // regardless of filesystem listing order.
     skills.sort_by(|a, b| a.name.cmp(&b.name));
     rules.sort_by(|a, b| a.name.cmp(&b.name));
-    specs.sort_by(|a, b| a.name.cmp(&b.name));
-    write_rollup(into, &skills, &rules, &specs)?;
+    write_rollup(into, &skills, &rules, &custom)?;
 
     Ok(())
 }
@@ -291,33 +331,158 @@ fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportErr
     })
 }
 
-/// Read one source spec and write its surface tree under `<into>/specs/<name>/`,
-/// returning the roll-up row for the index.
+/// Discover a custom kind's units under `<harness>/<governs.root>/`: every
+/// immediate file whose name matches `governs.glob`. Non-matching files and
+/// subdirectories are skipped, and a missing root yields an empty list (a declared
+/// kind whose corpus does not exist on this harness). Data-driven discovery — the
+/// locus is the kind's own `governs` declaration (`specs/40-composition.md`), never
+/// a hardwired path.
+fn discover_kind_units(harness: &Path, governs: &Governs) -> Result<Vec<PathBuf>, ImportError> {
+    let root = harness.join(&governs.root);
+    if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let listing = fs::read_dir(&root).map_err(|source| ImportError::ReadDir {
+        path: root.clone(),
+        source,
+    })?;
+    let mut files = Vec::new();
+    for entry in listing {
+        let entry = entry.map_err(|source| ImportError::ReadDir {
+            path: root.clone(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_file()
+            && let Some(name) = path.file_name().and_then(|name| name.to_str())
+            && glob_matches(&governs.glob, name)
+        {
+            files.push(path);
+        }
+    }
+    // `read_dir` order is unspecified; sort for deterministic processing.
+    files.sort();
+    Ok(files)
+}
+
+/// Read one discovered custom-kind unit and write its surface tree under
+/// `<into>/<governs.root>/<name>/`, returning the roll-up row for the index.
 ///
-/// Mirrors [`import_rule`] for the spec kind: a format-preserving `meta.toml`
-/// header (provenance-only — a spec carries no frontmatter, `90-spec-system.md`)
-/// alongside the byte-faithful body as `SPEC.md`. Like a rule, a spec has no
-/// companions, so there is nothing else to copy.
-fn import_spec(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
-    let spec = Spec::from_source_file(source_file)?;
-    let out_dir = into.join("specs").join(&spec.name);
+/// A custom kind carries no bespoke IR, so the unit is projected generically: a
+/// provenance-only `meta.toml` (`[provenance]` — `source_path` + `import_hash`)
+/// alongside the byte-faithful *whole* file as `<KIND>.md` (the kind name
+/// upper-cased, `SPEC.md` for the `spec` kind, mirroring the built-in `SKILL.md` /
+/// `RULE.md` bodies). The whole file is the body — a custom unit's frontmatter, if
+/// any, is preserved verbatim in the body rather than dropped, and its extractor
+/// (`crate::kind`) reads it at `check` time (`specs/15-kinds.md`).
+fn import_custom_unit(
+    kind: &CustomKind,
+    source_file: &Path,
+    into: &Path,
+) -> Result<RollupEntry, ImportError> {
+    let bytes = fs::read(source_file).map_err(|source| ImportError::ReadDir {
+        path: source_file.to_path_buf(),
+        source,
+    })?;
+    let import_hash = sha256_hex(&bytes);
+    let body = String::from_utf8(bytes).map_err(|source| ImportError::NotUtf8 {
+        path: source_file.to_path_buf(),
+        source,
+    })?;
+    let name = source_file
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(str::to_string)
+        .ok_or_else(|| ImportError::Write {
+            path: source_file.to_path_buf(),
+            source: std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "source file has no stem to name the unit",
+            ),
+        })?;
+
+    let out_dir = into.join(&kind.governs.root).join(&name);
     create_dir_all(&out_dir)?;
 
     // Typed header via the format-preserving writer — never a lossy re-serialize.
     write_bytes(
         &out_dir.join("meta.toml"),
-        spec.to_meta_document().to_string().as_bytes(),
+        provenance_document(source_file, &import_hash)
+            .to_string()
+            .as_bytes(),
     )?;
-    // The surface `SPEC.md` is the whole spec body, byte-faithful (a spec has no
-    // frontmatter to strip — the entire source file is the body).
-    write_bytes(&out_dir.join("SPEC.md"), spec.body.as_bytes())?;
+    // The surface body is the whole source file, byte-faithful.
+    write_bytes(&out_dir.join(body_filename(&kind.name)), body.as_bytes())?;
 
     Ok(RollupEntry {
-        name: spec.name,
-        source_path: spec.provenance.source_path.to_string_lossy().into_owned(),
-        import_hash: spec.provenance.import_hash,
-        body_hash: sha256_hex(spec.body.as_bytes()),
+        name,
+        source_path: source_file.to_string_lossy().into_owned(),
+        import_hash,
+        body_hash: sha256_hex(body.as_bytes()),
     })
+}
+
+/// The byte-faithful body filename for a custom kind — the kind name upper-cased
+/// with a `.md` suffix (`spec` → `SPEC.md`), mirroring the built-in `SKILL.md` and
+/// `RULE.md` bodies so a custom kind's surface reads uniformly with them.
+fn body_filename(kind: &str) -> String {
+    format!("{}.md", kind.to_uppercase())
+}
+
+/// Build a provenance-only surface header for a custom-kind unit: a single
+/// `[provenance]` table carrying `source_path` and `import_hash`. A custom kind
+/// composes no typed frontmatter header at import (its extractor owns the read
+/// side), so the surface header is provenance alone — byte-identical to the
+/// built-in prose kinds' provenance table.
+fn provenance_document(source_path: &Path, import_hash: &str) -> DocumentMut {
+    let mut doc = DocumentMut::new();
+    let mut provenance = Table::new();
+    provenance["source_path"] = value(source_path.to_string_lossy().into_owned());
+    provenance["import_hash"] = value(import_hash.to_string());
+    doc["provenance"] = Item::Table(provenance);
+    doc
+}
+
+/// Whether `glob` matches `name`, treating `*` as "any run of characters (including
+/// empty)" and every other character literally — the minimal in-crate wildcard a
+/// `governs` glob needs (`*.md`), short of pulling in a glob crate for one
+/// metacharacter. Mirrors the `name`-selector matcher in [`crate::roster`]; kept
+/// local so `import` stays self-contained, the way each module carries its own
+/// `sha256_hex` (`.claude/rules/rust.md`). A standard linear matcher with
+/// single-star backtracking: on a mismatch it falls back to the most recent `*`,
+/// extending what that star consumed by one character.
+fn glob_matches(glob: &str, name: &str) -> bool {
+    let pattern: Vec<char> = glob.chars().collect();
+    let text: Vec<char> = name.chars().collect();
+    let mut pi = 0;
+    let mut ti = 0;
+    // The position of the last `*` in `pattern`, and how much of `text` it had
+    // consumed when we matched it — the backtrack point.
+    let mut star: Option<usize> = None;
+    let mut star_ti = 0;
+    while ti < text.len() {
+        if pi < pattern.len() && pattern[pi] == text[ti] {
+            pi += 1;
+            ti += 1;
+        } else if pi < pattern.len() && pattern[pi] == '*' {
+            star = Some(pi);
+            star_ti = ti;
+            pi += 1;
+        } else if let Some(star_pi) = star {
+            // Mismatch under an open `*`: let the star swallow one more character.
+            pi = star_pi + 1;
+            star_ti += 1;
+            ti = star_ti;
+        } else {
+            return false;
+        }
+    }
+    // Trailing `*`s match the empty remainder.
+    while pi < pattern.len() && pattern[pi] == '*' {
+        pi += 1;
+    }
+    pi == pattern.len()
 }
 
 /// Copy a single companion from the source dir to the surface dir, byte-for-byte,
@@ -333,23 +498,25 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 }
 
 /// Write the `<into>/author.toml` roll-up: one `[[skill]]` table per imported
-/// skill, then one `[[rule]]` table per imported rule, then one `[[spec]]` table
-/// per imported spec, each with `name`, `source_path`, `import_hash`, and
-/// `body_hash`.
+/// skill, then one `[[rule]]` table per imported rule, then one `[[<kind>]]` table
+/// per imported custom-kind unit (custom kinds in name order), each with `name`,
+/// `source_path`, `import_hash`, and `body_hash`.
 ///
 /// An empty kind renders to no bytes (an empty `ArrayOfTables` emits nothing), so
 /// a harness with only some kinds yields exactly the rows it has — a skill-only
-/// harness emits no `[[spec]]` bytes at all.
+/// harness with no declared custom kind emits `[[skill]]` rows and nothing else.
 fn write_rollup(
     into: &Path,
     skills: &[RollupEntry],
     rules: &[RollupEntry],
-    specs: &[RollupEntry],
+    custom: &BTreeMap<String, Vec<RollupEntry>>,
 ) -> Result<(), ImportError> {
     let mut doc = DocumentMut::new();
     doc["skill"] = Item::ArrayOfTables(rollup_tables(skills));
     doc["rule"] = Item::ArrayOfTables(rollup_tables(rules));
-    doc["spec"] = Item::ArrayOfTables(rollup_tables(specs));
+    for (kind, units) in custom {
+        doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(units));
+    }
 
     create_dir_all(into)?;
     write_bytes(&into.join("author.toml"), doc.to_string().as_bytes())
@@ -488,9 +655,24 @@ The surface is temper's composition write surface, no trailing newline.";
         fs::write(rules.join("collaboration.md"), COLLAB_RULE).unwrap();
     }
 
-    /// Add a `specs/` corpus to an existing harness root: two spec files plus a
+    /// A `temper.toml` declaring `spec` as a custom kind whose `governs` locus is
+    /// `specs/*.md` — the data-driven discovery `import` runs in place of the old
+    /// hardwired scan (`specs/40-composition.md`). The extractor is the `spec` kind's
+    /// read side; `import` only needs the `governs` locus to discover units.
+    const SPEC_TEMPER_TOML: &str = "[kind.spec]\n\
+governs = { root = \"specs\", glob = \"*.md\" }\n\
+\n\
+[[kind.spec.extraction]]\n\
+primitive = \"line_count\"\n\
+\n\
+[[kind.spec.extraction]]\n\
+primitive = \"headings\"\n";
+
+    /// Add a `specs/` corpus to an existing harness root, plus a `temper.toml`
+    /// declaring the `spec` custom kind so discovery finds it: two spec files plus a
     /// non-markdown loose file and a subdirectory, both of which discovery skips.
     fn write_specs(root: &Path) {
+        fs::write(root.join("temper.toml"), SPEC_TEMPER_TOML).unwrap();
         let specs = root.join("specs");
         fs::create_dir_all(specs.join("notes")).unwrap();
         fs::write(specs.join("20-surface.md"), SURFACE_SPEC).unwrap();
@@ -697,6 +879,8 @@ The surface is temper's composition write surface, no trailing newline.";
 
     #[test]
     fn writes_a_spec_surface_and_rollup_row() {
+        // A harness whose `temper.toml` declares the `spec` custom kind: discovery
+        // is data-driven off its `governs` locus, not a hardwired scan.
         let harness = tmpdir("spec-src");
         write_fixture_harness(&harness);
         write_specs(&harness);
@@ -715,8 +899,9 @@ The surface is temper's composition write surface, no trailing newline.";
             SURFACE_SPEC
         );
 
-        // The typed header round-trips back to the source spec (provenance only).
-        let reloaded = Spec::from_surface_dir(&surface).unwrap();
+        // The generic custom-unit surface round-trips back through the spec IR
+        // (provenance only) — byte-identical to the old hardwired projection.
+        let reloaded = crate::spec::Spec::from_surface_dir(&surface).unwrap();
         assert_eq!(reloaded.name, "20-surface");
         assert_eq!(reloaded.body, SURFACE_SPEC);
 
@@ -743,21 +928,76 @@ The surface is temper's composition write surface, no trailing newline.";
     }
 
     #[test]
-    fn skill_and_rule_only_harness_emits_no_spec_bytes() {
-        // The base fixture carries skills and rules but no `specs/` corpus.
+    fn imports_a_generic_custom_kind_via_its_governs_locus() {
+        // A custom kind that is not `spec`: an `adr` kind under a nested `docs/adr`
+        // root. Discovery is generic — the surface dir is the `governs` root, the
+        // body file is the kind name upper-cased, and the roll-up key is the kind
+        // name — so nothing is special-cased on `spec`.
+        let harness = tmpdir("adr-src");
+        write_fixture_harness(&harness);
+        let adr_dir = harness.join("docs").join("adr");
+        fs::create_dir_all(&adr_dir).unwrap();
+        let adr_body = "# ADR 0001 — adopt the surface\n\nContext, decision, no final newline.";
+        fs::write(adr_dir.join("0001-surface.md"), adr_body).unwrap();
+        // Noise the glob must skip: a non-`.md` sibling.
+        fs::write(adr_dir.join("index.txt"), "not an adr\n").unwrap();
+        fs::write(
+            harness.join("temper.toml"),
+            "[kind.adr]\ngoverns = { root = \"docs/adr\", glob = \"*.md\" }\n",
+        )
+        .unwrap();
+
+        let into = tmpdir("adr-into");
+        run(&harness, &into).unwrap();
+
+        // The unit lands at `<into>/<root>/<name>/` with a provenance header and the
+        // whole file byte-faithful under `<KIND>.md`.
+        let surface = into.join("docs").join("adr").join("0001-surface");
+        assert!(surface.join("meta.toml").is_file());
+        assert_eq!(
+            fs::read_to_string(surface.join("ADR.md")).unwrap(),
+            adr_body
+        );
+
+        // The roll-up carries an `[[adr]]` row — keyed by the kind name — while the
+        // non-`.md` sibling is skipped.
+        let doc = fs::read_to_string(into.join("author.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        let adrs = doc["adr"].as_array_of_tables().unwrap();
+        let names: Vec<&str> = adrs.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(names, vec!["0001-surface"]);
+        assert!(
+            adrs.iter()
+                .all(|t| t["import_hash"].as_str().unwrap().len() == 64)
+        );
+    }
+
+    #[test]
+    fn no_declared_custom_kind_imports_builtins_only() {
+        // The base fixture carries skills and rules and a `specs/` corpus on disk,
+        // but NO `temper.toml` declaring the `spec` kind — so discovery is
+        // data-driven to nothing: the built-ins import, the `specs/` are ignored.
+        // This is the guarantee that the old hardwired scan is gone.
         let harness = tmpdir("nospec-src");
         write_fixture_harness(&harness);
+        let specs = harness.join("specs");
+        fs::create_dir_all(&specs).unwrap();
+        fs::write(specs.join("20-surface.md"), SURFACE_SPEC).unwrap();
         let into = tmpdir("nospec-into");
 
         run(&harness, &into).unwrap();
 
-        // No spec surfaces are written, and an empty `[[spec]]` array renders to
-        // no bytes — the roll-up stays exactly the skill + rule rows it has.
+        // No spec surfaces are written — absent a `temper.toml` custom kind there
+        // is no phantom `specs/` scan, even with a `specs/` corpus on disk.
         assert!(!into.join("specs").exists());
         let author = fs::read_to_string(into.join("author.toml")).unwrap();
         assert!(!author.contains("[[spec]]"));
-        // An empty `ArrayOfTables` emits no bytes, so the key is absent on reparse.
         let doc = author.parse::<DocumentMut>().unwrap();
         assert!(doc.get("spec").is_none());
+        // The built-ins are still imported — the skill and rule rows are present.
+        assert_eq!(doc["skill"].as_array_of_tables().unwrap().len(), 2);
+        assert_eq!(doc["rule"].as_array_of_tables().unwrap().len(), 2);
     }
 }
