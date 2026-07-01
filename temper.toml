@@ -46,21 +46,21 @@ max = 150
 
 # Requirements — temper's own harness obligations (the keystone dogfood).
 #
-# A `requirement` is a named obligation stated in *meaning* (`means`), filled by a
-# matched artifact and coverage-gated — temper encoding its own intent through the
-# very mechanism it builds (`specs/10-contracts.md`, "Requirements"). These use the
-# contract-side `match` fill (name over the existing rules), so they need no authored
-# `.temper/` `satisfies` and stay green on a fresh import; the `satisfies` opt-in path
-# activates once the surface itself is committed (surface-authority, `specs/20-surface.md`).
+# A `requirement` is a named obligation stated in *meaning* (`means`), coverage-gated —
+# temper encoding its own intent through the very mechanism it builds
+# (`specs/10-contracts.md`, "Requirements"). These use the **opt-in `satisfies` fill**:
+# the artifact declares what it fills from its own representation
+# (`.temper/rules/<name>/meta.toml` `[representation] satisfies = [...]`), the preferred
+# binding — the artifact opting in, not the contract reaching out. `kind = "rule"` types
+# the filler; coverage checks every required requirement has a resolving `satisfies`.
+# This is why the surface (`.temper/`) is committed: the `satisfies` links live there.
 
 [requirement.engineering-standards]
 means = "the harness carries a rule that maintains Rust engineering standards — errors/diagnostics, round-trip discipline, tests"
 kind = "rule"
-match = { name = "rust" }
 required = true
 
 [requirement.collaboration-discipline]
 means = "the harness carries a rule that enforces the pushback / challenge-gaps collaboration discipline"
 kind = "rule"
-match = { name = "collaboration" }
 required = true

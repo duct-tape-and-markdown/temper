@@ -1,0 +1,9 @@
+paths = ["src/**/*.rs", "tests/**/*.rs", "benches/**/*.rs"]
+
+[provenance]
+source_path = "./.claude/rules/rust.md"
+import_hash = "1dd65d4d03520edfd2e9661a990cb08f607fcd348800a3b221cc27f266514d76"
+
+[representation]
+satisfies = ["engineering-standards"]
+rationale = "The rust rule carries temper's engineering standards — thiserror/miette diagnostics, byte-faithful round-trip discipline, insta test conventions; it is the artifact that fills the harness's engineering-standards obligation."
