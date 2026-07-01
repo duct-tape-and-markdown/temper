@@ -50,7 +50,12 @@ placeholders, no `todo!()`, no stubbed function bodies.
 # OUTPUT
 
 One commit on this worktree's branch, prefixed `build:`. Imperative subject; the
-body explains *why*, not a restatement of the spec.
+body explains *why*, not a restatement of the spec. **Your branch is the only
+place you commit.** Never rebase onto or merge from `main`, never push a trunk
+ref, never `cd` to the root checkout to commit — if `main` has moved since your
+worktree was created, ignore it; reconciling is the dispatcher's job, and a
+commit made anywhere but this branch bypasses the gates and is lost to ship
+bookkeeping.
 
 Gates run automatically after your commit: `cargo fmt --check` (afterCommit),
 then `cargo clippy -D warnings` and `cargo test` (afterMerge). A gate failure

@@ -65,7 +65,12 @@ Git log is orientation, not authority.
 
 ## Non-negotiables
 
-- Build commits per entry to the trunk after green validation.
+- Build commits per entry reach the trunk after green validation — **via the
+  dispatcher's merge, never directly**. The agent commits only on its own
+  worktree branch: no rebasing onto `main`, no pushing a trunk ref, no
+  committing from the root checkout. A `main` that moved mid-tick is the
+  dispatcher's merge problem, not the agent's — a commit made directly on the
+  trunk bypasses the afterMerge gates and is invisible to ship bookkeeping.
 - NEVER force-push, amend pushed commits, or `--no-verify`.
 - NEVER modify files when asked to investigate — investigate and report.
 - Search the codebase before implementing — don't assume not implemented.
