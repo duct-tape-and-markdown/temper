@@ -1,50 +1,45 @@
 [
   {
-    "tag": "SCHEMA-EMIT",
-    "summary": "Add `temper schema [--kind]` — emit each kind's active contract as an editor JSON Schema (decidable-clause validation channel; docs/hover deferred)",
-    "per": {
-      "path": "specs/50-distribution.md",
-      "section": "The gate at keystroke — the emitted schema"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        { "path": "src/schema.rs", "description": "New module: project a `contract::Contract` (the active floor ⊕ temper.toml, via `compose::effective`) into a JSON Schema value, then serialize with serde_json (already a sanctioned dep, used in extract/kind). Map only the decidable field/structural clauses to their JSON-Schema shape: `required`→required[], `type`→type (over the closed lattice), `min_len`/`max_len`→minLength/maxLength, `enum`→enum, `deny`→not/enum, `range`→minimum/maximum, `allowed_chars`→pattern (a generated `^[<ranges><chars>]*$` charclass — a faithful projection of the decidable clause, not an authored regex), `forbidden_keys`→not/required. Validation channel only. Declare `pub mod schema;` in src/lib.rs here (foundation)." }
-      ],
-      "edit": [
-        { "path": "src/main.rs", "description": "Add a `Schema { kind: Option<String> }` variant to `enum Command` and a dispatch arm: load the same by-kind floors + optional AuthorLayer `check` uses, compose the effective contract per kind (or the one named by `--kind`), call schema::emit, and print the JSON to stdout. Exit zero. Thin dispatch only." },
-        { "path": "src/lib.rs", "description": "Add `pub mod schema;` alongside the existing module list (kept with the SCHEMA module itself so no other entry co-edits lib.rs)." }
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "src/schema.rs", "asserts": "each decidable predicate maps to its JSON-Schema keyword; allowed_chars yields the expected charclass pattern; a vacuous contract yields an empty-but-valid schema; the emitted JSON parses back via serde_json." },
-      { "path": "tests/cli.rs", "asserts": "`temper schema --kind skill` prints a JSON object carrying the skill floor's decidable clauses and exits zero." }
-    ],
-    "acceptance": "`temper schema [--kind <k>]` prints the active per-kind contract as a JSON Schema whose validation keywords are exactly the decidable clauses, and exits zero; `cargo test`/`clippy`/`fmt` green.",
-    "notes": "Validation channel only. The docs/hover channel (50-distribution: per-field guidance prose) is intentionally NOT built — the Contract model carries no guidance-prose field, so there is no source to project; wiring one is a separate change, not silently faked here. Scoped so no shared file collides with APPLY (serialized below)."
-  },
-  {
     "tag": "APPLY-WRITEBACK",
     "summary": "Add `temper apply` — project the surface to disk over the three-state drift engine (desired / last-applied fingerprint / real), patch-not-re-emit, idempotent, dry-runnable",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Drift / apply — three states, never two (the hard core)"
     },
-    "gate": { "kind": "blockedBy", "tag": "SCHEMA-EMIT" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SCHEMA-EMIT"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": "tests/apply.rs", "description": "Round-trip tests: apply is idempotent (a clean surface→disk apply re-run changes nothing); a surface-only edit patches just the changed field and leaves surrounding bytes/comments intact (toml_edit for headers, surgical patch for bodies/frontmatter); a world-drift that differs from the last-applied fingerprint surfaces the choice rather than clobbering; --dry-run writes nothing." }
+        {
+          "path": "tests/apply.rs",
+          "description": "Round-trip tests: apply is idempotent (a clean surface→disk apply re-run changes nothing); a surface-only edit patches just the changed field and leaves surrounding bytes/comments intact (toml_edit for headers, surgical patch for bodies/frontmatter); a world-drift that differs from the last-applied fingerprint surfaces the choice rather than clobbering; --dry-run writes nothing."
+        }
       ],
       "edit": [
-        { "path": "src/drift.rs", "description": "Add the write direction beside the existing read-only `diff`: an `apply` fn that compares the three states — desired (the loaded surface), the last-applied fingerprint, and real on-disk — and projects the surface back to the harness, patching only changed fields (headers via toml_edit; bodies/companions byte-faithful, never re-rendered). Distinguish a surface edit from a world drift via the fingerprint; on genuine conflict surface diff/overwrite/skip/re-add rather than clobber. Support a dry-run mode. Reuse the existing hashing helpers." },
-        { "path": "src/import.rs", "description": "Extend the generated lock (lock.toml rollup) to record the last-applied fingerprint per artifact — the third state the merge needs (`three states, never two`). Additive to the RollupEntry writer; import still writes a complete baseline (last-applied == import at first import)." },
-        { "path": "src/main.rs", "description": "Add an `Apply { harness_path, into, dry_run }` variant to `enum Command` and a dispatch arm calling drift::apply, printing the applied/skipped/conflicted report. (Serialized after SCHEMA-EMIT because both add a Command variant to the same enum/match.)" }
-      ]
+        {
+          "path": "src/drift.rs",
+          "description": "Add the write direction beside the existing read-only `diff`: an `apply` fn that compares the three states — desired (the loaded surface), the last-applied fingerprint, and real on-disk — and projects the surface back to the harness, patching only changed fields (headers via toml_edit; bodies/companions byte-faithful, never re-rendered). Distinguish a surface edit from a world drift via the fingerprint; on genuine conflict surface diff/overwrite/skip/re-add rather than clobber. Support a dry-run mode. Reuse the existing hashing helpers."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Extend the generated lock (lock.toml rollup) to record the last-applied fingerprint per artifact — the third state the merge needs (`three states, never two`). Additive to the RollupEntry writer; import still writes a complete baseline (last-applied == import at first import)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add an `Apply { harness_path, into, dry_run }` variant to `enum Command` and a dispatch arm calling drift::apply, printing the applied/skipped/conflicted report. (Serialized after SCHEMA-EMIT because both add a Command variant to the same enum/match.)"
+        }
+      ],
+      "retire": []
     },
     "schemaDelta": "lock.toml RollupEntry gains a last-applied fingerprint field (generated state-of-record, not authored).",
     "tests": [
-      { "path": "tests/apply.rs", "asserts": "idempotence, patch-not-re-emit fidelity, three-state conflict handling, and dry-run-writes-nothing all hold." }
+      {
+        "path": "tests/apply.rs",
+        "asserts": "idempotence, patch-not-re-emit fidelity, three-state conflict handling, and dry-run-writes-nothing all hold."
+      }
     ],
     "acceptance": "`temper apply` projects the surface to disk patching only changed fields, is idempotent and dry-runnable, and merges via the three-state model rather than clobbering a drifted source; gates green.",
     "notes": "Law 5/6 core. Two states would be a spec violation (`three states, never two`), so the last-applied fingerprint is in scope, hence the lock/import.rs touch. `re-add` (on-disk→surface) is the sibling direction — a follow-on entry, not this one. Forks gating this are all RESOLVED: (yaml-writeback), (surface-authority), (workspace-scope)."
