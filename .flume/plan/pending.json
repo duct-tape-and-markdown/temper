@@ -7,8 +7,7 @@
       "section": "The primitive algebra (decidable only)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "FEATURES-COMPANIONS-DROP"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "Treat `Predicate::DependencyExists` (~203) as a held-back predicate (like `pattern`): recognizable when parsed, but flagged inadmissible rather than accepted as a working clause."
+          "description": "Treat `Predicate::DependencyExists` (~203) as a held-back predicate (like the full `pattern`): recognizable when parsed, but documented/flagged inadmissible rather than accepted as a working clause. Refresh the ~202 doc comment ('every declared dependency resolves') to name the held-back status."
         },
         {
           "path": "src/engine.rs",
-          "description": "In `admissibility`, emit an inadmissibility finding for a `DependencyExists` clause (a held predicate with no decidable reference syntax/extractor), so a hand-authored `dependency-exists` fails loudly. Today `decide` returns `Outcome::Indeterminate` for it (~333) — a silent no-op law 1 forbids. Update the inline test asserting `run(DependencyExists, ..)` is empty (~787) to the new fenced behavior."
+          "description": "In `inadmissibilities` (~108), emit an inadmissibility finding for a `DependencyExists` clause (a held predicate with no decidable reference syntax/extractor), so a hand-authored `dependency-exists` fails loudly. Today `decide` returns `Outcome::Indeterminate` for it (~333) — a silent no-op law 1 forbids. Update the inline test asserting `run(DependencyExists, ..)` is empty (~786) to the new fenced behavior."
         }
       ],
       "retire": []
@@ -32,8 +31,8 @@
         "asserts": "a contract clause using `dependency-exists` fails admissibility (a held predicate), never silently decides `Indeterminate`."
       }
     ],
-    "acceptance": "A hand-authored `dependency-exists` clause is an admissibility violation (fenced like `pattern`), never a silent `Indeterminate` no-op; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox DEPENDENCY-EXISTS-FENCE (R2). Spec 2bc1013 fenced dependency-exists as held-back (no decidable reference syntax/extractor yet); engine.rs:333 returns Outcome::Indeterminate = the silent no-op law 1 forbids. Mirror the `pattern` fence. blockedBy FEATURES-COMPANIONS-DROP (shared engine.rs)."
+    "acceptance": "A hand-authored `dependency-exists` clause is an admissibility violation (fenced like `pattern`), never a silent `Indeterminate` no-op; no embedded contract (rule.toml/skill.anthropic.toml) uses it, so self-host stays green; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Spec (10-contracts.md) fenced dependency-exists as held-back (no decidable reference syntax/extractor yet). engine.rs:333 returns Outcome::Indeterminate — the silent no-op law 1 forbids. Mirror the `pattern` fence. schema.rs emits nothing for it (no channel), so it stays as-is. Blocker FEATURES-COMPANIONS-DROP shipped (e65e872)."
   },
   {
     "tag": "SHA256-HOIST",
@@ -43,8 +42,7 @@
       "section": "Provenance and round-trip discipline (law 5)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "BODY-HASH-DROP"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -69,7 +67,7 @@
         },
         {
           "path": "src/import.rs",
-          "description": "Delete the local `sha256_hex` (~597); call `crate::hash::sha256_hex`."
+          "description": "Delete the local `sha256_hex` (~590); call `crate::hash::sha256_hex`."
         },
         {
           "path": "src/drift.rs",
@@ -86,7 +84,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "One shared `sha256_hex`; skill/rule/import/drift all call it; no duplicate defs remain; hash output is byte-identical (no snapshot churn); cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox SHA256-HOIST (U2-sha256). Do ONLY the sha256 hoist. The frontmatter round-trip helpers (split_frontmatter, pod_scalar_to_string, ...) stay duplicated across skill.rs/rule.rs per the documented 'one artifact kind per module' tradeoff — accepted debt (.claude/rules/rust.md), not this entry. blockedBy BODY-HASH-DROP (shared import.rs/drift.rs)."
+    "notes": "Do ONLY the sha256 hoist. The frontmatter round-trip helpers (split_frontmatter, pod_scalar_to_string, …) stay duplicated across skill.rs/rule.rs per the documented 'one artifact kind per module' tradeoff — accepted debt (.claude/rules/rust.md), not this entry. Blocker BODY-HASH-DROP shipped (e65e872); import.rs sha256_hex now at ~590."
   },
   {
     "tag": "MATCHSELECTOR-ROLE-DROP",
@@ -96,8 +94,7 @@
       "section": "Requirements — the harness's named obligations"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-ENTITIES-RECONCILE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -105,11 +102,11 @@
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Drop the `MatchSelector::Role` variant (~461), its `selector_from` parse arm (~1497), the two test constructions (~1982/2427), and the doc reference (~188)."
+          "description": "Drop the `MatchSelector::Role` variant (~463), its `selector_from` parse arm (~1538), the two test constructions (~2023/2468), and the doc reference (~190)."
         },
         {
           "path": "src/roster.rs",
-          "description": "Drop the `matches()` `Role` arm (~463-464, reading `features.field(\"role\")`), the empty-marker admissibility guard (~304-315, pure seam-policing), and the `MatchSelector::Role` doc mentions (~44/266/445). Adjust the `features()` test helper and the role-marker tests (~735/827) to the name/glob path."
+          "description": "Drop the `matches()` `Role` arm (~463-464, reading `features.field(\"role\")`), the empty-marker admissibility guard (~304-315, pure seam-policing), and the `MatchSelector::Role` doc mentions (~44/266/445). Adjust the `features()` test helper (~735) and the role-marker tests (~826/1447) to the name/glob path."
         },
         {
           "path": "tests/requirement_roster.rs",
@@ -128,7 +125,7 @@
       }
     ],
     "acceptance": "No `MatchSelector::Role`; the role-marker admissibility guard is removed; a requirement's fill is `satisfies` (artifact-side) or `match` name/glob (contract-side) only, per the consolidated fill vocabulary; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox MATCHSELECTOR-ROLE-DROP (U1), the accretion residue. Post-consolidation, satisfies is the sole artifact-side opt-in; match=name/glob is contract-side (specs/10-contracts.md). MatchSelector::Role reads Features.field(\"role\"), no struct field — clean delete over the unified Requirement. blockedBy KIND-ENTITIES-RECONCILE (compose.rs); also shares roster.rs with FEATURES-COMPANIONS-DROP, so held out of that wave."
+    "notes": "Post-consolidation, satisfies is the sole artifact-side opt-in; match=name/glob is contract-side (10-contracts.md). MatchSelector::Role reads Features.field(\"role\"), no struct field — clean delete over the unified Requirement. Blockers KIND-ENTITIES-RECONCILE (compose.rs) + FEATURES-COMPANIONS-DROP (roster.rs) both shipped (e65e872)."
   },
   {
     "tag": "COVERAGE-CUSTOM-KIND",
@@ -147,7 +144,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (the commented gap ~451-455), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
+          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (the commented gap ~451-454), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
         },
         {
           "path": "tests/coverage.rs",
@@ -164,7 +161,7 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox DEFER (1). kind::Unit hardcodes `satisfies=Vec::new()` (kind.rs commented gap). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. CONSOLIDATE-REQUIREMENT shipped (19333aa); on revival rebase onto the unified Requirement and past FEATURES-COMPANIONS-DROP (which edits kind.rs/coverage.rs). Revive when the dogfood needs the spec corpus in coverage."
+    "notes": "kind::Unit hardcodes `satisfies=Vec::new()` (kind.rs:451-454 commented gap). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. On revival rebase onto the unified Requirement; FEATURES-COMPANIONS-DROP (which edited kind.rs/coverage.rs) has shipped. Revive when the dogfood needs the spec corpus in coverage."
   },
   {
     "tag": "PACKAGING-CHANNELS",

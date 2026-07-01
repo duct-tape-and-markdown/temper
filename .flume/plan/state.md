@@ -1,20 +1,20 @@
 # Plan state
 
-- **Phase:** reconcile. CONSOLIDATE-REQUIREMENT verified shipped on disk (one
-  `Requirement`; `[role.*]` retired and rejected loudly in `compose.rs`;
-  `MatchSelector::Role` survives as leftover role-marker matching). Inbox drained:
-  the COMPLEXITY-AUDIT remediation batch filed as 7 entries (4 open + 3 serialized).
-- **Last shipped:** CONSOLIDATE-REQUIREMENT (`19333aa`).
+- **Phase:** reconcile. Wave 1 (CHECK-CLEANUP, KIND-ENTITIES-RECONCILE,
+  BODY-HASH-DROP, FEATURES-COMPANIONS-DROP) verified shipped on disk (e65e872) —
+  their four target seams are gone/reconciled. Wave 2's blockers are all satisfied,
+  so its three entries flip `blockedBy` → `open`. Inbox empty; no new corpus↔src gap
+  to file (the KIND-* frontier stays human-gated on open questions).
+- **Last shipped:** CHECK-CLEANUP / KIND-ENTITIES-RECONCILE / BODY-HASH-DROP /
+  FEATURES-COMPANIONS-DROP (`e65e872`).
 - **In flight:** none.
-- **Pickable now (4, disjoint files):** CHECK-CLEANUP (`check.rs`),
-  KIND-ENTITIES-RECONCILE (`compose.rs`), BODY-HASH-DROP (`import.rs`/`drift.rs`),
-  FEATURES-COMPANIONS-DROP (`extract`/`engine`/`roster`/`coverage`/`graph`/`kind`).
-- **Serialized wave 2 (blockedBy, mutually disjoint):** DEPENDENCY-EXISTS-FENCE
-  ← FEATURES (engine.rs); SHA256-HOIST ← BODY-HASH-DROP (import/drift);
-  MATCHSELECTOR-ROLE-DROP ← KIND-ENTITIES (compose.rs; also shares roster.rs with
-  FEATURES, held out of that wave). Carried: COVERAGE-CUSTOM-KIND deferred,
-  PACKAGING-CHANNELS parked, AGENT-KIND deferred.
+- **Pickable now (3, mutually disjoint files):** DEPENDENCY-EXISTS-FENCE
+  (`contract.rs`/`engine.rs`), SHA256-HOIST (new `hash.rs` + `lib.rs`/`skill.rs`/
+  `rule.rs`/`import.rs`/`drift.rs`), MATCHSELECTOR-ROLE-DROP (`compose.rs`/`roster.rs`/
+  `tests/requirement_roster.rs`). No path overlap — parallel-safe.
+- **Carried:** COVERAGE-CUSTOM-KIND deferred (priority), PACKAGING-CHANNELS parked
+  (human release creds), AGENT-KIND deferred (reframe).
 - **Blocked frontier (open questions, unchanged):** `(read-verbs)`,
   `(reference-id-normalization)`, `(decision-marker-predicate)` — await a human decision.
 
-Plan continues: no — queue reconciled, 4 disjoint `open` entries pickable, inbox drained; hand to build.
+Plan continues: no — queue reconciled, 3 disjoint `open` entries pickable, inbox drained; hand to build.
