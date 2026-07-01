@@ -1,58 +1,86 @@
 [
   {
-    "tag": "FILLED-BY-ROLE",
-    "summary": "Add `filled_by = { role }` — a requirement met by whatever fills a typed role; coverage delegates to that role's required filler",
+    "tag": "CONSOLIDATE-REQUIREMENT",
+    "summary": "Unify role + requirement into one `Requirement`; retire `Role`/`[role.*]`; roster and coverage both become checks over the one requirement",
     "per": {
       "path": "specs/10-contracts.md",
-      "section": "Two fill paths: opt-in `satisfies`, or `filled_by` a role"
+      "section": "Decision: role and requirement are one concept"
     },
     "gate": {
-      "kind": "deferred",
-      "reason": "KILLED by spec 0784d00 — `filled_by` is retired; role+requirement are now one concept, so there is nothing to bridge. Do NOT build. Plan removes this entry on its next reconcile (see inbox consolidation note); gated deferred now only to stop a build pick during the reconcile lag."
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
-      "new": [],
+      "new": [
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "The renamed roster test suite (was tests/role_roster.rs), rewritten over `[requirement.<name>]` tables: the set-scope predicates (match selection, count, membership, unique, typed-ref/conforms-to, verified_by) and admissibility now fire over the unified `Requirement`. No `role` term in the file (naming rule, `specs/90-spec-system.md`)."
+        }
+      ],
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Add an optional `filled_by: Option<{ role: String }>` to the `Requirement` struct and parse `filled_by = { role = \"...\" }` in `parse_requirement`; add `filled_by` to the requirement key allowlist UNKNOWN-KEY-REJECT installs. Enforce one fill path per requirement: EITHER bare `satisfies` opt-in OR `filled_by = { role }`, never both (reject at parse). There is deliberately no `filled_by = { kind }` — kind-typing lives on the role."
+          "description": "Fold every `[role.*]` facet (artifact→`kind`, contract, `match` selector, count/membership/unique, degree, verified_by) AND the requirement facets (means — now OPTIONAL per `specs/10-contracts.md` \"all facets optional except its name\" — satisfies fill, required) onto ONE `Requirement` struct keyed by name. Parse `[requirement.<name>]` as the unified table; retire the `Role` struct, the `[role.<name>]` root parse, and every `Role*` ComposeError variant (hard-cut — the surface is unpublished, a clean cut is preferred per inbox). Expand the requirement key allowlist (UNKNOWN-KEY-REJECT) from `means`/`required` to the unified facet set; the inbox scopes stray-key rejection to `[requirement.*]`+`[kind.*]`+predicate clauses, NO `[role.*]`. Keep `MatchSelector`/`CountBound`/`Membership`/`DegreeBound`/`EdgeBound`; rename `RoleContract`→ the requirement's contract type. Preserve the mutually-exclusive required⟷count parse rule on the unified type."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Re-cast `check` (selection), `conformance` (conforms-to), and `admissibility` plus the set-scope predicates (match/count/membership/unique/typed-ref/verified_by) as checks over `Requirement` instead of `Role`. Multiplicity is the facet over the requirement's filler set; the module doc drops the `role` framing for `requirement`."
         },
         {
           "path": "src/coverage.rs",
-          "description": "For a requirement with `filled_by = { role = R }`, delegate coverage: it is covered iff role R's required filler is present (reuse role `match` selection over the matched set — still referential, decidable). A `filled_by` naming no declared role is a precise diagnostic."
+          "description": "Keep the referential presence check (unfilled + dangling `satisfies`) over the now-unified `Requirement`. `means` is optional, so a requirement with no `means` still gates coverage via `required`; the module stays separate from roster (kinship noted, merge still rejected)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`degree` reads its `DegreeBound` off `Requirement` instead of `Role`; a matched node's `(kind, id)` uses the requirement's `kind` facet (was `Role::artifact`). Update the module doc's per-role framing to per-requirement."
         },
         {
           "path": "src/main.rs",
-          "description": "Thread the role set (`layer.roles()`) and `by_kind` into the `coverage::check` call at ~`main.rs:472` so coverage can resolve `filled_by` role fillers (today it takes only requirements + features)."
+          "description": "Thread `layer.requirements()` into the `roster::{admissibility,check,conformance}` and `graph::degree` call sites (today `layer.roles()` at ~436/440/448/481); `coverage::check` already reads `layer.requirements()` (~497). Remove the now-dead `layer.roles()` accessor usage."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Re-record the parse snapshots for the unified surface: `[requirement.*]` carries the folded facets; `[role.*]` no longer parses (assert it is now an unknown-root / rejected). Update insta snapshots deliberately."
         },
         {
           "path": "tests/coverage.rs",
-          "description": "A `filled_by = { role }` requirement is covered when the role's required filler is present and UNFILLED when absent; a `filled_by` naming no role is a diagnostic; declaring both `satisfies` and `filled_by` is rejected."
+          "description": "Update for the unified `Requirement`: a requirement with no `means` still gates coverage; the existing unfilled/dangling assertions hold over the unified type."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Degree fixtures declare their bound under `[requirement.*]` instead of `[role.*]`; re-record any affected snapshot."
         }
       ],
-      "retire": []
+      "retire": [
+        "src/compose.rs::Role (struct + RoleContract renamed onto Requirement)",
+        "src/compose.rs `[role.<name>]` parse + all Role* ComposeError variants",
+        "tests/role_roster.rs (renamed to tests/requirement_roster.rs)"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
       {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "the set-scope predicates (match/count/membership/unique/typed-ref/conforms/verified_by) + admissibility fire over `[requirement.*]`; a `[role.*]` table is now rejected."
+      },
+      {
         "path": "tests/coverage.rs",
-        "asserts": "filled_by={role} coverage delegates to the role's filler; unknown role and dual fill-path are diagnostics."
+        "asserts": "unfilled/dangling coverage runs over the unified requirement; a means-less requirement still gates."
       }
     ],
-    "acceptance": "A requirement declaring `filled_by = { role = R }` is covered iff role R's required filler is present; the bare-`satisfies` path is unchanged; one-fill-path-per-requirement is enforced; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox DECISION (i), resolved in spec (e72c23c) — role form only, no `filled_by={kind}`. Serialized behind UNKNOWN-KEY-REJECT: shares compose.rs (requirement parse/allowlist). Also touches main.rs (coverage call site — collides with BUNDLE) and coverage.rs (collides with COVERAGE-HARDEN), so it must not be `open` while the wave runs. Revive as `open` next tick once the wave lands and those files are free."
+    "acceptance": "`role` and `requirement` are one `Requirement` in code (no `Role`, no `[role.*]`, no `filled_by`); the roster set-scope predicates AND coverage both run over the one requirement; `means` is optional; unknown-key reject covers the unified `[requirement.*]` facet set; the naming rule (`specs/90-spec-system.md`) holds — no `role` term in code; cargo fmt/clippy -D warnings/test all green with snapshots re-recorded deliberately.",
+    "notes": "Inbox MAJOR RECONCILE + CONSOLIDATION (spec 0784d00). One atomic entry: the type unification ripples through compose/roster/coverage/graph/main at once, so it can't be split green-at-each-step — sole `open` entry, no parallel wave, no shared-file conflict. Folds the inbox UNKNOWN-KEY scope note. Hard-cut `[role.*]` (surface unpublished). COVERAGE-HARDEN + UNKNOWN-KEY-REJECT already shipped (6969683)."
   },
   {
     "tag": "COVERAGE-CUSTOM-KIND",
     "summary": "Custom-kind units join coverage — read `[representation]` `satisfies` in `kind::Unit` instead of hardcoding it empty",
     "per": {
       "path": "specs/10-contracts.md",
-      "section": "Decision: a requirement carries meaning, gates coverage — never judged"
+      "section": "Coverage — the one referential check"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "follow-on; no story yet demands custom-kind coverage participation; verify the custom-kind projection emits a readable [representation] first"
+      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it must rebase onto the unified Requirement after CONSOLIDATE-REQUIREMENT lands"
     },
     "dependsOnForks": [],
     "files": {
@@ -60,7 +88,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (`src/kind.rs:452-455`), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
+          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (the commented gap in `kind::Unit`), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
         },
         {
           "path": "tests/coverage.rs",
@@ -77,7 +105,7 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox DEFER (1). kind::Unit hardcodes `satisfies=Vec::new()` today (`src/kind.rs:452-455`, with a comment acknowledging the gap). Coverage is kind-blind (spec Decision), so the seam is legitimate — deferred only on priority. Edits kind.rs (disjoint) + coverage tests. Revive when the dogfood needs the spec corpus in coverage."
+    "notes": "Inbox DEFER (1). kind::Unit hardcodes `satisfies=Vec::new()` today (commented gap). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. Shares coverage.rs with CONSOLIDATE-REQUIREMENT, so it must land AFTER that (rebase onto the unified `Requirement`); deferred anyway, never open during the consolidation. Revive when the dogfood needs the spec corpus in coverage."
   },
   {
     "tag": "PACKAGING-CHANNELS",
