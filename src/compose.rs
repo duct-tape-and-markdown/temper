@@ -35,17 +35,19 @@
 //! named obligations"; "Decision: role and requirement are one concept"). A
 //! **requirement** is the harness's named obligation, one concept carrying every
 //! facet: an optional authored `means`, optional typing (`kind` / `contract`), an
-//! optional `match` selector (the contract-side fill path, alongside the preferred
-//! opt-in `satisfies`), an optional `required` flag, the set-scope predicates
-//! (`count` / `unique` / `membership`), an optional graph-scope `degree` bound, and
-//! an optional `verified_by` verifier. Each parses into a typed [`Requirement`];
-//! **every facet is optional except the name** (`specs/10-contracts.md`, "all
-//! facets optional except its name").
+//! optional `required` flag, the set-scope predicates (`count` / `unique` /
+//! `membership`), an optional graph-scope `degree` bound, and an optional
+//! `verified_by` verifier. Each parses into a typed [`Requirement`]; **every facet
+//! is optional except the name** (`specs/10-contracts.md`, "all facets optional
+//! except its name"). Fill is the artifact's opt-in `satisfies` alone — there is
+//! **no contract-side name-`match` selector** (a name pattern is the contract
+//! guessing, eradicated; `specs/45-governance.md`, "The set scope").
 //!
 //! `crate::coverage` gates referential coverage over the opt-in `satisfies` edges,
-//! and `crate::roster`/`crate::graph` run the contract-side `match` selection, the
-//! set-scope predicates, and the graph-scope `degree` bound — both over this one
-//! requirement. A malformed requirement is a load error here.
+//! and `crate::roster`/`crate::graph` run the set-scope predicates and the
+//! graph-scope `degree` bound over each requirement's **satisfier set** — the
+//! artifacts of its `kind` that opt in via `satisfies`. A malformed requirement is a
+//! load error here.
 //!
 //! ## The custom-kind declaration (parse-only)
 //!
@@ -121,7 +123,8 @@ pub struct AuthorLayer {
     /// "Decision: role and requirement are one concept"). Its own namespace,
     /// distinct from the `kind` map. Empty when the `temper.toml` declares none.
     /// `crate::coverage` gates coverage over the `satisfies` edges; `crate::roster`
-    /// and `crate::graph` run the `match` selection, set-scope, and `degree` checks.
+    /// and `crate::graph` run the set-scope and `degree` checks over each
+    /// requirement's satisfier set.
     requirements: BTreeMap<String, Requirement>,
     /// The declared edge relationships gathered off every kind's
     /// `[[kind.<name>.relationships]]` array, in declaration order — the reference
@@ -230,17 +233,19 @@ pub struct Governs {
 /// "Decision: role and requirement are one concept"). The earlier split into a
 /// structural slot and a semantic obligation bridged by `filled_by` is retired:
 /// kind-typing is a facet (`kind` / `contract`), not a rival concept, and there is
-/// no `filled_by` because there are not two things to bridge. **Every facet is
-/// optional except the name** (`specs/10-contracts.md`, "all facets optional except
-/// its name").
+/// no `filled_by` because there are not two things to bridge. Fill is the artifact's
+/// opt-in `satisfies` alone — there is **no name-`match` selector** (a name pattern is
+/// the contract guessing, eradicated). **Every facet is optional except the name**
+/// (`specs/10-contracts.md`, "all facets optional except its name").
 ///
 /// `temper` **never interprets `means`** — it is authored intent the surface carries
 /// and organizes, never a thing the engine judges (no proxy; `00-intent.md` law 3).
 /// What `check` gates is the decidable shadow: [`crate::coverage`] gates referential
 /// coverage over the opt-in `satisfies` edges, and [`crate::roster`]/[`crate::graph`]
-/// run the contract-side `match` selection, the set-scope predicates, and the
-/// graph-scope `degree` bound — both over this one requirement. `requirement.` is its
-/// own namespace, distinct from the `rule` artifact kind (the Decision's closing note).
+/// run the set-scope predicates and the graph-scope `degree` bound over the
+/// requirement's **satisfier set** (the artifacts of its `kind` that opt in via
+/// `satisfies`). `requirement.` is its own namespace, distinct from the `rule`
+/// artifact kind (the Decision's closing note).
 ///
 /// Not `Eq`: its [`contract`](Requirement::contract) may carry inline clauses with
 /// `f64` `range` bounds (see [`crate::contract::Contract`]); equality stays derived
@@ -262,42 +267,35 @@ pub struct Requirement {
     /// facet: an adopted template named by path, or inline clauses over the closed
     /// vocabulary. Absent ⇒ no shape constraint on the filler.
     pub contract: Option<RequirementContract>,
-    /// The decidable `match` selector that picks the filling artifact on the
-    /// contract side — the *alternative* fill path to the preferred opt-in
-    /// `satisfies` (`specs/10-contracts.md`, the fill facet). Stored verbatim — the
-    /// glob/marker is *not* evaluated here. Absent ⇒ fill is by opt-in `satisfies`
-    /// alone, which [`crate::coverage`] gates.
-    pub selector: Option<MatchSelector>,
     /// Whether an unfilled requirement is a gate-blocking violation. Absent in
     /// source ⇒ `false`: `temper` never fabricates a gate the author did not declare
     /// (`00-intent.md` law 4). Mutually exclusive with [`count`](Requirement::count):
-    /// `required` is the single-filler shorthand, `count` the general cardinality form.
+    /// `required` is the ≥1-satisfier shorthand, `count` the general cardinality form.
     pub required: bool,
-    /// An optional bound on the matched-set cardinality — the set-scope `count`
+    /// An optional bound on the satisfier-set cardinality — the set-scope `count`
     /// predicate (`specs/45-governance.md`, "The set scope (the roster)"): the
-    /// number of artifacts matching the selector must land in `[min, max]`. Absent
-    /// ⇒ `None` (no cardinality gate beyond `required`'s single-filler one). The
-    /// general form of `required`; the two are mutually exclusive.
+    /// number of artifacts satisfying the requirement must land in `[min, max]`. Absent
+    /// ⇒ `None` (no cardinality gate beyond `required`'s ≥1 one). The general form of
+    /// `required`; the two are mutually exclusive.
     pub count: Option<CountBound>,
-    /// The declared field names held unique across the requirement's matched set —
+    /// The declared field names held unique across the requirement's satisfier set —
     /// the set-scope `unique` predicate (`specs/45-governance.md`, "The set scope
     /// (the roster)"): each named field's extracted scalar must not repeat across the
-    /// matched fillers. Absent ⇒ empty (no uniqueness gate). Generalizes the
-    /// kind-wide `unique-name` engine predicate from name-only over a whole kind to
-    /// an arbitrary field over a requirement's matched subset. Checked in
-    /// [`crate::roster`].
+    /// satisfiers. Absent ⇒ empty (no uniqueness gate). Generalizes the kind-wide
+    /// `unique-name` engine predicate from name-only over a whole kind to an arbitrary
+    /// field over a requirement's opt-in satisfier subset. Checked in [`crate::roster`].
     pub unique: Vec<String>,
     /// An optional set-scope `membership` predicate (`specs/45-governance.md`, "The
-    /// set scope (the roster)"): a declared field `F` of every artifact matching the
-    /// requirement's own selector (S₁) must lie in the feature-set drawn from a
-    /// *second* matched set (S₂) — "every agent's `model` is one of the approved
-    /// set." Unlike the static field `enum`, the allowed set is corpus-*derived*.
-    /// Absent ⇒ `None` (no membership gate). Orthogonal to `count`/`unique`/`required`;
-    /// checked in [`crate::roster`].
+    /// set scope (the roster)"): a declared field `F` of every artifact satisfying the
+    /// requirement (S₁) must lie in the feature-set drawn from a *second* satisfier
+    /// set (S₂) — "every agent's `model` is one of the approved set." Unlike the static
+    /// field `enum`, the allowed set is corpus-*derived*. Absent ⇒ `None` (no
+    /// membership gate). Orthogonal to `count`/`unique`/`required`; checked in
+    /// [`crate::roster`].
     pub membership: Option<Membership>,
     /// An optional graph-scope `degree` bound (`specs/45-governance.md`, "The graph
-    /// scope (the model)"): the in/out edge count of every artifact the requirement's
-    /// selector matches must land in the declared bound over the harness reference
+    /// scope (the model)"): the in/out edge count of every artifact satisfying the
+    /// requirement must land in the declared bound over the harness reference
     /// graph. Declared on the requirement (a set-scope home) but ranging over the
     /// *edge* graph, so it is checked in [`crate::graph`] — reusing the resolved arcs
     /// route resolution and `acyclic` assemble — not the set-scope [`crate::roster`].
@@ -308,36 +306,36 @@ pub struct Requirement {
     pub verified_by: Option<String>,
 }
 
-/// An inclusive bound on the cardinality of a requirement's matched set — the
+/// An inclusive bound on the cardinality of a requirement's satisfier set — the
 /// set-scope `count` predicate (`specs/45-governance.md`, "The set scope (the
-/// roster)"). The number of artifacts the selector matches must land in `[min, max]`;
-/// "at most N agents" is `{ min = 0, max = N }`, "exactly one planner" is
-/// `{ min = 1, max = 1 }`. An inverted `min > max` bound admits no cardinality and
+/// roster)"). The number of artifacts satisfying the requirement must land in
+/// `[min, max]`; "at most N agents" is `{ min = 0, max = N }`, "exactly one planner"
+/// is `{ min = 1, max = 1 }`. An inverted `min > max` bound admits no cardinality and
 /// is rejected as inadmissible (`crate::roster`), mirroring `range`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CountBound {
-    /// The inclusive lower bound on the matched-set size.
+    /// The inclusive lower bound on the satisfier-set size.
     pub min: usize,
-    /// The inclusive upper bound on the matched-set size.
+    /// The inclusive upper bound on the satisfier-set size.
     pub max: usize,
 }
 
 /// The graph-scope `degree` predicate declared on a requirement — an optional
 /// inclusive bound on the **incoming** and/or **outgoing** edge count of every
-/// artifact the requirement's `match` selects over the harness reference graph
+/// artifact satisfying the requirement over the harness reference graph
 /// (`specs/45-governance.md`, "The graph scope (the model)"). Declared on the
 /// requirement (a set-scope home) but ranging over the *edge* graph: "self-registering
 /// artifact: zero incoming" is `degree = { incoming = { max = 0 } }`; "routed
 /// artifact: at least one incoming" is `degree = { incoming = { min = 1 } }`. At
 /// least one direction is present (an empty `degree` constrains nothing — rejected
-/// at parse). Deciding a matched node's degree against the resolved arcs lives in
+/// at parse). Deciding a satisfier node's degree against the resolved arcs lives in
 /// [`crate::graph`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DegreeBound {
-    /// The bound on a matched node's incoming edge count (how many nodes point at
+    /// The bound on a satisfier node's incoming edge count (how many nodes point at
     /// it). Absent ⇒ `None` (incoming degree is unconstrained).
     pub incoming: Option<EdgeBound>,
-    /// The bound on a matched node's outgoing edge count (how many nodes it points
+    /// The bound on a satisfier node's outgoing edge count (how many nodes it points
     /// at). Absent ⇒ `None` (outgoing degree is unconstrained).
     pub outgoing: Option<EdgeBound>,
 }
@@ -366,15 +364,16 @@ impl EdgeBound {
     }
 }
 
-/// A set-scope `membership` predicate over a requirement's matched set (S₁) — the
-/// constraint that a declared field `F` of every artifact matching the requirement's
-/// own selector must lie in a *corpus-derived* set, not a static `enum`
+/// A set-scope `membership` predicate over a requirement's satisfier set (S₁) — the
+/// constraint that a declared field `F` of every artifact satisfying the requirement
+/// must lie in a *corpus-derived* set, not a static `enum`
 /// (`specs/45-governance.md`, "The set scope (the roster)"). The allowed set is the
-/// `source_feature` (G) extracted over the artifacts of `source_kind` matched by
-/// `source_selector` (S₂) — "every agent's `model` is one of the approved set;" "a
-/// hook's binary is one the manifest declares." S₂ may name a different artifact
-/// kind than the requirement's own, so the check ranges over the whole by-kind map.
-/// The field-name and selector are stored verbatim; deciding membership lives in
+/// `source_feature` (G) extracted over the S₂ satisfier set — the artifacts of
+/// `source_kind` that opt into the `source` requirement (R₂) — "every agent's `model`
+/// is one of the approved set;" "a hook's binary is one the manifest declares," each
+/// set an opt-in satisfier set. S₂ may name a different artifact kind than the
+/// requirement's own, so the check ranges over the whole by-kind map. The field
+/// names and source requirement are stored verbatim; deciding membership lives in
 /// [`crate::roster`].
 ///
 /// Not `Eq` — its optional [`source_contract`](Membership::source_contract) may
@@ -382,16 +381,18 @@ impl EdgeBound {
 /// equality stays derived as `PartialEq`, as it is for [`Requirement`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Membership {
-    /// The field `F` on each S₁ filler whose extracted scalar must be a member of
-    /// the source set. A filler missing `F` carries no value to check.
+    /// The field `F` on each S₁ satisfier whose extracted scalar must be a member of
+    /// the source set. A satisfier missing `F` carries no value to check.
     pub field: String,
-    /// The artifact kind S₂ ranges over (`skill`, `manifest`, …). May differ from
+    /// The source requirement `R₂` whose satisfier set (S₂) supplies the allowed
+    /// values (`specs/45-governance.md`, "each set an opt-in satisfier set"): a
+    /// `source_kind` artifact enters S₂ exactly when its `satisfies` names this
+    /// requirement. Stored verbatim; the join lives in [`crate::roster`].
+    pub source: String,
+    /// The artifact kind S₂ is drawn from (`skill`, `manifest`, …). May differ from
     /// the requirement's own `kind`, so the allowed set can be drawn from another kind.
     pub source_kind: String,
-    /// The decidable selector picking S₂'s artifacts, stored verbatim — evaluated
-    /// against the `source_kind` candidates in [`crate::roster`].
-    pub source_selector: MatchSelector,
-    /// The feature `G` whose extracted scalars over the S₂ matches form the allowed
+    /// The feature `G` whose extracted scalars over the S₂ satisfiers form the allowed
     /// set. A source artifact missing `G` contributes nothing to the set.
     pub source_feature: String,
     /// An optional **typed reference** constraint (`conforms_to`,
@@ -400,7 +401,7 @@ pub struct Membership {
     /// reference resolves to the right *kind* of thing — "a reference to an agent of
     /// kind K conforming to contract C." The same [`RequirementContract`] a
     /// requirement's `contract` takes (a template path or inline clauses). Absent ⇒
-    /// `None`: plain membership over every matching source, unchanged. Deciding
+    /// `None`: plain membership over every S₂ satisfier, unchanged. Deciding
     /// conformance lives in [`crate::roster`], reusing the resolve + validate
     /// machinery `conformance` runs.
     pub source_contract: Option<RequirementContract>,
@@ -445,19 +446,6 @@ impl RequirementContract {
             RequirementContract::Template(rel) => Contract::load(&base_dir.join(rel)),
         }
     }
-}
-
-/// The decidable `match` selector picking a requirement's filler on the contract
-/// side — a closed set (`specs/10-contracts.md`, the fill facet). The pattern is
-/// stored *verbatim*; resolving it against artifacts lives in [`crate::roster`], so
-/// no glob crate enters here.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MatchSelector {
-    /// By artifact name glob (`match = { name = "plan*" }`).
-    Name {
-        /// The glob, stored verbatim.
-        glob: String,
-    },
 }
 
 /// One kind's customization: an optional adopted template and the clauses to layer
@@ -637,8 +625,7 @@ pub enum ComposeError {
     },
 
     /// A `[requirement.<name>]` key has the wrong TOML type — `means` not a string,
-    /// `required` not a boolean, `kind`/`verified_by` not a string, or `match` not a
-    /// table.
+    /// `required` not a boolean, or `kind`/`verified_by` not a string.
     #[error("{path}: `[requirement.{name}]` key `{key}` must be {expected}")]
     #[diagnostic(code(temper::compose::requirement_wrong_type))]
     RequirementWrongType {
@@ -662,20 +649,6 @@ pub enum ComposeError {
         /// The malformed `temper.toml`.
         path: PathBuf,
         /// The requirement with a doubly-declared contract.
-        name: String,
-    },
-
-    /// A `[requirement.<name>]`'s `match` selector is not exactly one of the closed
-    /// set (a `name` glob). A non-table, zero/many keys, or an unknown key all land
-    /// here — matching is a decidable selector, never an open guess.
-    #[error(
-        "{path}: `[requirement.{name}]` `match` must name exactly one decidable selector (`name` glob)"
-    )]
-    #[diagnostic(code(temper::compose::requirement_bad_match))]
-    RequirementBadMatch {
-        /// The malformed `temper.toml`.
-        path: PathBuf,
-        /// The requirement with the malformed selector.
         name: String,
     },
 
@@ -708,13 +681,13 @@ pub enum ComposeError {
     },
 
     /// A `[requirement.<name>]`'s `membership` declaration is malformed — not an
-    /// inline table, or missing/mistyped one of its `field`, `kind`, `feature`
-    /// strings or its `match` selector. The set-scope `membership` predicate names a
-    /// field, a source kind, a source feature, and a decidable second selector; any
+    /// inline table, or missing/mistyped one of its `field`, `kind`, `source`,
+    /// `feature` strings. The set-scope `membership` predicate names a constrained
+    /// field, a source kind, a source requirement, and a source feature; any
     /// miss collapses here, the way [`parse_count`] folds its malformations into one
     /// error.
     #[error(
-        "{path}: `[requirement.{name}]` `membership` must be an inline table with `field`, `kind`, `feature` strings and a decidable `match` selector"
+        "{path}: `[requirement.{name}]` `membership` must be an inline table with `field`, `kind`, `source`, `feature` strings"
     )]
     #[diagnostic(code(temper::compose::requirement_bad_membership))]
     RequirementBadMembership {
@@ -765,7 +738,7 @@ pub enum ComposeError {
     #[diagnostic(
         code(temper::compose::requirement_unknown_key),
         help(
-            "a requirement carries only `means`, `kind`, `contract`, `clause`, `match`, `required`, `count`, `unique`, `membership`, `degree`, and `verified_by` — a stray key is a typo, not an escape hatch"
+            "a requirement carries only `means`, `kind`, `contract`, `clause`, `required`, `count`, `unique`, `membership`, `degree`, and `verified_by` — a stray key is a typo, not an escape hatch"
         )
     )]
     RequirementUnknownKey {
@@ -960,7 +933,7 @@ impl AuthorLayer {
     /// obligations"). Empty when the `temper.toml` declares no `[requirement.<name>]`
     /// tables — a kind-only (or empty) layer carries an empty roster. `crate::coverage`
     /// gates coverage over the `satisfies` edges; `crate::roster` and `crate::graph`
-    /// run the `match` selection, set-scope, and `degree` checks.
+    /// run the set-scope and `degree` checks over each requirement's satisfier set.
     #[must_use]
     pub fn requirements(&self) -> &BTreeMap<String, Requirement> {
         &self.requirements
@@ -1265,10 +1238,11 @@ fn relationship_str(table: &Table, key: &str) -> Option<String> {
 /// (`specs/10-contracts.md`, "Decision: role and requirement are one concept"). Every
 /// facet is optional except the name: an authored `means` (carried verbatim, never
 /// interpreted — `00-intent.md` law 3), the typing facets (`kind` / `contract`), the
-/// contract-side `match` selector, the optional `required` flag (absent ⇒ `false`;
-/// `temper` never fabricates a gate the author did not declare — law 4), the set-scope
-/// predicates (`count` / `unique` / `membership`), the graph-scope `degree` bound, and
-/// the `verified_by` verifier. Each malformed facet is a load error, mirroring
+/// optional `required` flag (absent ⇒ `false`; `temper` never fabricates a gate the
+/// author did not declare — law 4), the set-scope predicates (`count` / `unique` /
+/// `membership`), the graph-scope `degree` bound, and the `verified_by` verifier.
+/// Fill is by opt-in `satisfies` alone — there is no `match` key (a `match = {…}` is
+/// now an unknown-key reject, below). Each malformed facet is a load error, mirroring
 /// `[kind.<k>]` parsing.
 fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requirement, ComposeError> {
     // A requirement carries only the closed facet set below; a stray key (a misspelled
@@ -1282,7 +1256,6 @@ fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requireme
                 | "kind"
                 | "contract"
                 | "clause"
-                | "match"
                 | "required"
                 | "count"
                 | "unique"
@@ -1301,8 +1274,7 @@ fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requireme
     let means = requirement_str(table, "means", name, path)?;
     let kind = requirement_str(table, "kind", name, path)?;
     let contract = parse_requirement_contract(table, name, path)?;
-    let selector = parse_optional_match(table, name, path)?;
-    // `required` and `count` are two ways to express the same dimension (matched-set
+    // `required` and `count` are two ways to express the same dimension (satisfier-set
     // cardinality), so declaring both is ambiguous — reject it before parsing either.
     if table.contains_key("required") && table.contains_key("count") {
         return Err(ComposeError::RequirementCountAndRequired {
@@ -1322,7 +1294,6 @@ fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requireme
         means,
         kind,
         contract,
-        selector,
         required,
         count,
         unique,
@@ -1335,7 +1306,7 @@ fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requireme
 /// The requirement's optional `count` bound: an inline `count = { min, max }` table
 /// whose `min` and `max` are non-negative integers (`usize`). Absent ⇒ `None`. Any
 /// malformation — not a table, a missing/mistyped/negative bound — collapses to
-/// [`ComposeError::RequirementBadCount`], the way [`parse_optional_match`] folds its
+/// [`ComposeError::RequirementBadCount`], the way [`parse_membership`] folds its
 /// malformations into one error. The bound is stored verbatim; whether `min > max` (an
 /// unsatisfiable bound) is an *admissibility* concern, checked in [`crate::roster`].
 fn parse_count(table: &Table, name: &str, path: &Path) -> Result<Option<CountBound>, ComposeError> {
@@ -1479,14 +1450,15 @@ fn parse_unique(table: &Table, name: &str, path: &Path) -> Result<Vec<String>, C
 }
 
 /// The requirement's optional `membership` predicate: an inline `membership = { field,
-/// kind, match, feature }` table naming the constrained field `F` (on the requirement's
-/// own matched set), the source artifact kind and second selector `S₂`, and the
-/// source feature `G` whose values form the allowed set (`specs/45-governance.md`,
-/// "The set scope (the roster)"). Absent ⇒ `None`. Any malformation — not a table,
-/// a missing/mistyped string, or a malformed `match` selector — collapses to
+/// kind, source, feature }` table naming the constrained field `F` (on the
+/// requirement's own satisfier set), the source artifact kind and the source
+/// requirement `R₂` whose satisfier set is `S₂`, and the source feature `G` whose
+/// values form the allowed set (`specs/45-governance.md`, "The set scope (the
+/// roster)"; "each set an opt-in satisfier set"). Absent ⇒ `None`. Any malformation —
+/// not a table, or a missing/mistyped string — collapses to
 /// [`ComposeError::RequirementBadMembership`], the way [`parse_count`] folds its
-/// malformations into one error. The field names and selector are stored verbatim;
-/// deciding membership against the corpus is left to [`crate::roster`].
+/// malformations into one error. The field names and source requirement are stored
+/// verbatim; deciding membership against the corpus is left to [`crate::roster`].
 fn parse_membership(
     table: &Table,
     name: &str,
@@ -1502,16 +1474,13 @@ fn parse_membership(
     let membership = item.as_table_like().ok_or_else(bad)?;
     let field = membership_str(membership, "field").ok_or_else(bad)?;
     let source_kind = membership_str(membership, "kind").ok_or_else(bad)?;
+    let source = membership_str(membership, "source").ok_or_else(bad)?;
     let source_feature = membership_str(membership, "feature").ok_or_else(bad)?;
-    let source_selector = membership
-        .get("match")
-        .and_then(selector_from)
-        .ok_or_else(bad)?;
     let source_contract = parse_conforms_to(membership, name, path)?;
     Ok(Some(Membership {
         field,
+        source,
         source_kind,
-        source_selector,
         source_feature,
         source_contract,
     }))
@@ -1561,31 +1530,6 @@ fn membership_str(table: &dyn toml_edit::TableLike, key: &str) -> Option<String>
     Some(table.get(key)?.as_str()?.to_string())
 }
 
-/// Parse a [`MatchSelector`] out of a `match` item that is itself an inline table
-/// naming exactly one decidable selector (a `name` glob) with a string value.
-/// Returns `None` on any malformation — not a table, zero/many keys, an unknown key,
-/// or a non-string value — so a caller can collapse it into its own error (the
-/// membership `match` folds into [`ComposeError::RequirementBadMembership`], the
-/// requirement's own into [`ComposeError::RequirementBadMatch`]).
-fn selector_from(item: &toml_edit::Item) -> Option<MatchSelector> {
-    let table = item.as_table_like()?;
-    let mut selector = None;
-    for (key, value) in table.iter() {
-        if selector.is_some() {
-            // A second selector key — `match` must name exactly one.
-            return None;
-        }
-        let pattern = value.as_str()?;
-        selector = Some(match key {
-            "name" => MatchSelector::Name {
-                glob: pattern.to_string(),
-            },
-            _ => return None,
-        });
-    }
-    selector
-}
-
 /// The requirement's optional contract reference — at most one of a `contract`
 /// template path or an inline `[[requirement.<name>.clause]]` array. Declaring both
 /// is ambiguous (a load error); declaring neither is `None` (the requirement is
@@ -1610,27 +1554,6 @@ fn parse_requirement_contract(
         )?))),
         (None, false) => Ok(None),
     }
-}
-
-/// The requirement's optional `match` selector: absent ⇒ `None` (fill is by opt-in
-/// `satisfies` alone, gated by [`crate::coverage`]); present ⇒ an inline table naming
-/// exactly one of the closed set — a `name` glob — whose value is a
-/// string. Any malformation (not a table, zero/many/unknown keys, a non-string value)
-/// collapses to [`ComposeError::RequirementBadMatch`], via the shared [`selector_from`].
-/// The pattern is stored verbatim, never matched.
-fn parse_optional_match(
-    table: &Table,
-    name: &str,
-    path: &Path,
-) -> Result<Option<MatchSelector>, ComposeError> {
-    let Some(item) = table.get("match") else {
-        return Ok(None);
-    };
-    let selector = selector_from(item).ok_or_else(|| ComposeError::RequirementBadMatch {
-        path: path.to_path_buf(),
-        name: name.to_string(),
-    })?;
-    Ok(Some(selector))
 }
 
 /// The requirement's optional `required` flag: absent ⇒ `false` (`temper` never
@@ -1955,14 +1878,14 @@ adopt = "skill.cursor"
 
     #[test]
     fn a_full_requirement_table_parses_into_a_typed_requirement() {
-        // Every facet present: a `means`, a `kind`, a path-string contract, a
-        // name-glob selector, an explicit `required`, and a `verified_by` verifier.
+        // Every facet present: a `means`, a `kind`, a path-string contract, an
+        // explicit `required`, and a `verified_by` verifier. Fill is by opt-in
+        // `satisfies` — there is no `match` selector facet.
         let toml = r#"
 [requirement.task-planning]
 means = "the harness plans tasks"
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "plan*" }
 required = true
 verified_by = "tests/plan.rs"
 "#;
@@ -1980,9 +1903,6 @@ verified_by = "tests/plan.rs"
                 contract: Some(RequirementContract::Template(
                     "contracts/skill.anthropic.toml".to_string()
                 )),
-                selector: Some(MatchSelector::Name {
-                    glob: "plan*".to_string(),
-                }),
                 required: true,
                 count: None,
                 unique: Vec::new(),
@@ -2010,7 +1930,6 @@ means = "the harness maintains dev standards"
                 means: Some("the harness maintains dev standards".to_string()),
                 kind: None,
                 contract: None,
-                selector: None,
                 required: false,
                 count: None,
                 unique: Vec::new(),
@@ -2028,7 +1947,6 @@ means = "the harness maintains dev standards"
         let toml = r#"
 [requirement.linter]
 kind = "rule"
-match = { name = "lint*" }
 required = true
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2040,12 +1958,10 @@ required = true
     #[test]
     fn an_inline_clause_contract_parses_via_the_shared_parser() {
         // No `contract` path: the requirement's contract is inline `[[clause]]`s,
-        // parsed by the same closed-vocabulary parser a bare contract uses. The
-        // selector is the contract-side `name` glob.
+        // parsed by the same closed-vocabulary parser a bare contract uses.
         let toml = r#"
 [requirement.release-tool]
 kind = "command"
-match = { name = "release*" }
 [[requirement.release-tool.clause]]
 severity = "required"
 predicate = "required"
@@ -2060,12 +1976,6 @@ marker = "executable"
             .requirements()
             .get("release-tool")
             .expect("the requirement parses");
-        assert_eq!(
-            requirement.selector,
-            Some(MatchSelector::Name {
-                glob: "release*".to_string(),
-            })
-        );
         assert_eq!(
             requirement.contract,
             Some(RequirementContract::Inline(vec![
@@ -2095,7 +2005,6 @@ marker = "executable"
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("linter").unwrap();
@@ -2110,7 +2019,6 @@ match = { name = "lint*" }
         let toml = r#"
 [requirement.linter]
 kind = "skill"
-match = { name = "lint*" }
 [[requirement.linter.clause]]
 severity = "required"
 predicate = "word_count"
@@ -2130,7 +2038,6 @@ field = "description"
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*" }
 [[requirement.linter.clause]]
 severity = "required"
 predicate = "required"
@@ -2144,32 +2051,23 @@ field = "name"
     }
 
     #[test]
-    fn a_match_with_an_unknown_selector_key_is_a_load_error() {
-        // `path` is not in the closed selector set {name}.
+    fn a_match_key_is_rejected_as_an_unknown_key() {
+        // The name-`match` selector is eradicated — fill is opt-in `satisfies` alone.
+        // A leftover `match = {…}` is no longer a facet but an unknown key, rejected at
+        // parse rather than silently dropped (`specs/10-contracts.md`, "Decision:
+        // unknown keys are rejected, not ignored").
         let toml = r#"
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { path = "skills/lint" }
+match = { name = "lint*" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(
             err,
-            ComposeError::RequirementBadMatch { ref name, .. } if name == "linter"
+            ComposeError::RequirementUnknownKey { ref name, ref key, .. }
+                if name == "linter" && key == "match"
         ));
-    }
-
-    #[test]
-    fn a_match_naming_two_selectors_is_a_load_error() {
-        // Exactly one selector — a `name` glob paired with any second key is ambiguous.
-        let toml = r#"
-[requirement.linter]
-kind = "skill"
-contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*", extra = "lint" }
-"#;
-        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
-        assert!(matches!(err, ComposeError::RequirementBadMatch { .. }));
     }
 
     #[test]
@@ -2178,7 +2076,6 @@ match = { name = "lint*", extra = "lint" }
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*" }
 required = "yes"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2206,7 +2103,6 @@ required = "yes"
 [requirement.agents]
 kind = "agent"
 contract = "contracts/agent.toml"
-match = { name = "agent-*" }
 count = { min = 0, max = 3 }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2221,7 +2117,6 @@ count = { min = 0, max = 3 }
 [requirement.agents]
 kind = "agent"
 contract = "contracts/agent.toml"
-match = { name = "agent-*" }
 count = 3
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2234,12 +2129,11 @@ count = 3
     #[test]
     fn a_count_with_a_non_integer_bound_is_a_load_error() {
         // A `max` that is not a non-negative integer collapses to `RequirementBadCount`,
-        // the way a malformed `match` collapses to `RequirementBadMatch`.
+        // the way a malformed `membership` collapses to `RequirementBadMembership`.
         let toml = r#"
 [requirement.agents]
 kind = "agent"
 contract = "contracts/agent.toml"
-match = { name = "agent-*" }
 count = { min = 0, max = "three" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2254,7 +2148,6 @@ count = { min = 0, max = "three" }
 [requirement.agents]
 kind = "agent"
 contract = "contracts/agent.toml"
-match = { name = "agent-*" }
 count = { max = 3 }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2268,7 +2161,6 @@ count = { max = 3 }
 [requirement.agents]
 kind = "agent"
 contract = "contracts/agent.toml"
-match = { name = "agent-*" }
 count = { min = -1, max = 3 }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2283,7 +2175,6 @@ count = { min = -1, max = 3 }
 [requirement.agents]
 kind = "agent"
 contract = "contracts/agent.toml"
-match = { name = "agent-*" }
 required = true
 count = { min = 0, max = 3 }
 "#;
@@ -2302,7 +2193,6 @@ count = { min = 0, max = 3 }
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 unique = ["model"]
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -2318,7 +2208,6 @@ unique = ["model"]
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
@@ -2331,7 +2220,6 @@ match = { name = "agent-*" }
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 unique = "model"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2349,7 +2237,6 @@ unique = "model"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 unique = ["model", 7]
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2358,15 +2245,15 @@ unique = ["model", 7]
 
     #[test]
     fn a_membership_clause_parses_into_a_typed_requirement() {
-        // The set-scope `membership` predicate: an inline `{ field, kind, match,
+        // The set-scope `membership` predicate: an inline `{ field, kind, source,
         // feature }` table parses into a `Membership`, naming the constrained field
-        // F, the source kind and second selector S₂, and the source feature G.
+        // F, the source kind and source requirement R₂ (whose satisfiers are S₂), and
+        // the source feature G.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
-membership = { field = "model", kind = "manifest", match = { name = "approved-models" }, feature = "model" }
+membership = { field = "model", kind = "manifest", source = "approved-models", feature = "model" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
@@ -2374,10 +2261,8 @@ membership = { field = "model", kind = "manifest", match = { name = "approved-mo
             requirement.membership,
             Some(Membership {
                 field: "model".to_string(),
+                source: "approved-models".to_string(),
                 source_kind: "manifest".to_string(),
-                source_selector: MatchSelector::Name {
-                    glob: "approved-models".to_string(),
-                },
                 source_feature: "model".to_string(),
                 source_contract: None,
             })
@@ -2394,8 +2279,7 @@ membership = { field = "model", kind = "manifest", match = { name = "approved-mo
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
-membership = { field = "model", kind = "manifest", match = { name = "approved-*" }, feature = "model", conforms_to = "contracts/approved.toml" }
+membership = { field = "model", kind = "manifest", source = "approved-model", feature = "model", conforms_to = "contracts/approved.toml" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
@@ -2417,13 +2301,12 @@ membership = { field = "model", kind = "manifest", match = { name = "approved-*"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 
 [requirement.agents.membership]
 field = "model"
 kind = "manifest"
 feature = "model"
-match = { name = "approved-*" }
+source = "approved-model"
 
 [[requirement.agents.membership.conforms_to.clause]]
 severity = "required"
@@ -2453,13 +2336,12 @@ field = "model"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 
 [requirement.agents.membership]
 field = "model"
 kind = "manifest"
 feature = "model"
-match = { name = "approved-*" }
+source = "approved-model"
 
 [[requirement.agents.membership.conforms_to.clause]]
 severity = "required"
@@ -2482,8 +2364,7 @@ field = "model"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
-membership = { field = "model", kind = "manifest", match = { name = "approved-*" }, feature = "model", conforms_to = 7 }
+membership = { field = "model", kind = "manifest", source = "approved-model", feature = "model", conforms_to = 7 }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(
@@ -2493,23 +2374,20 @@ membership = { field = "model", kind = "manifest", match = { name = "approved-*"
     }
 
     #[test]
-    fn a_membership_with_a_name_glob_source_selector_parses() {
-        // S₂ may select by the `name` glob just as a requirement's own `match` can —
-        // the selector is the same closed set.
+    fn a_membership_names_its_source_requirement() {
+        // S₂ is the satisfier set of a *named source requirement* (R₂) drawn over the
+        // source kind — an opt-in satisfier set, not a name glob.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
-membership = { field = "model", kind = "skill", match = { name = "approved-*" }, feature = "model" }
+membership = { field = "model", kind = "skill", source = "approved-model", feature = "model" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
         assert_eq!(
-            requirement.membership.as_ref().unwrap().source_selector,
-            MatchSelector::Name {
-                glob: "approved-*".to_string(),
-            }
+            requirement.membership.as_ref().unwrap().source,
+            "approved-model".to_string()
         );
     }
 
@@ -2521,7 +2399,6 @@ membership = { field = "model", kind = "skill", match = { name = "approved-*" },
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
@@ -2534,7 +2411,6 @@ match = { name = "agent-*" }
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
 membership = "model"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -2553,23 +2429,21 @@ membership = "model"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
-membership = { field = "model", kind = "manifest", match = { name = "approved" } }
+membership = { field = "model", kind = "manifest", source = "approved-model" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(err, ComposeError::RequirementBadMembership { .. }));
     }
 
     #[test]
-    fn a_membership_with_a_malformed_source_selector_is_a_load_error() {
-        // The source `match` must name exactly one decidable selector; `path` is not
-        // in the closed set {name}, so the whole clause is malformed.
+    fn a_membership_with_a_non_string_source_is_a_load_error() {
+        // The `source` names a requirement (a string); a non-string is malformed, so
+        // the whole clause folds into `RequirementBadMembership`.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "agent-*" }
-membership = { field = "model", kind = "manifest", match = { path = "x" }, feature = "model" }
+membership = { field = "model", kind = "manifest", source = 7, feature = "model" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(err, ComposeError::RequirementBadMembership { .. }));
@@ -2676,7 +2550,6 @@ to = "skill"
 [requirement.planner]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "plan*" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         assert!(layer.edges().is_empty());

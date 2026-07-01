@@ -38,17 +38,17 @@
 //!   cycle is a true positive that earns the hard gate. Like route resolution it is
 //!   intrinsic to the declared edges — always-on over `layer.edges()`, no opt-in.
 //!
-//! - [`degree`] — **a matched node's in/out edge count is bounded**
+//! - [`degree`] — **a satisfier node's in/out edge count is bounded**
 //!   (`specs/45-governance.md`, "The graph scope (the model)"; the worked example
 //!   "self-registering vs routed"): a requirement declares a `degree` bound and
-//!   `temper` checks every artifact its `match` selects has an incoming/outgoing edge
+//!   `temper` checks every artifact satisfying it has an incoming/outgoing edge
 //!   count inside it — "self-registering: zero incoming," "routed: at least one
 //!   incoming." Unlike route resolution and `acyclic`, `degree` is **opt-in,
 //!   per-requirement**: it runs only for requirements that declare a bound *and* the
-//!   `kind`/`match` needed to identify their nodes. It is *declared* at the set scope
+//!   `kind` needed to identify their nodes. It is *declared* at the set scope
 //!   (on the requirement) but *ranges over* the edge graph, so it reuses the same
 //!   resolved arcs [`acyclic`] assembles ([`resolved_arcs`]) and selects nodes by the
-//!   *same* [`roster::matches`] selector the roster scope uses.
+//!   *same* opt-in [`roster::is_satisfier`] join the roster scope's satisfier set uses.
 //!
 //! Nodes are the artifacts across every kind (their [`Features::id`]); the edges are
 //! the declared references between them.
@@ -242,23 +242,24 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
 /// (`specs/45-governance.md`, "The graph scope (the model)"; the worked example
 /// "self-registering vs routed"): for each requirement that declares a
 /// [`DegreeBound`](crate::compose::DegreeBound), compute the incoming/outgoing edge
-/// count of every artifact its `match` selects
+/// count of every artifact satisfying it
 /// over the *resolved* reference arcs and return an error-severity [`Diagnostic`] per
-/// matched node whose degree falls outside the declared bound.
+/// satisfier node whose degree falls outside the declared bound.
 ///
 /// `degree` is declared at the **set scope** (on a requirement) but ranges over the
 /// **edge graph**, so it is checked here rather than in [`crate::roster`]: it reuses
 /// the same [`resolved_arcs`] [`acyclic`] and [`check`] assemble, and selects a
-/// requirement's nodes by the *same* [`roster::matches`] selector the roster scope
-/// uses — never a second matcher that could disagree. Only **resolved** arcs count
-/// toward a degree: a dangling reference loads nothing (route resolution owns that
-/// finding), and an inadmissible edge is skipped, exactly as in [`acyclic`].
+/// requirement's nodes by the *same* opt-in [`roster::is_satisfier`] join the roster
+/// scope's satisfier set uses — never a second selector that could disagree. Only
+/// **resolved** arcs count toward a degree: a dangling reference loads nothing (route
+/// resolution owns that finding), and an inadmissible edge is skipped, exactly as in
+/// [`acyclic`].
 ///
 /// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-requirement** — it
 /// runs only for requirements carrying a bound, so a roster declaring none (or an
 /// absent `temper.toml`) does no graph work here. A node is `(kind, id)` — the
-/// requirement's `kind` facet paired with each matched id — so a requirement that
-/// declares no `kind` or no `match` selector cannot identify its nodes and is skipped.
+/// requirement's `kind` facet paired with each satisfier id — so a requirement that
+/// declares no `kind` cannot identify its nodes and is skipped.
 /// Incoming degree is how many distinct nodes point at it, outgoing how many distinct
 /// nodes it points at (an arc is a distinct `(source, target)` pair, deduped like
 /// [`acyclic`]'s adjacency). Requirements iterate in name order and each kind's
@@ -292,16 +293,16 @@ pub fn degree(
         let Some(bound) = &requirement.degree else {
             continue;
         };
-        // A node is `(kind, id)`, so `degree` needs both a declared `kind` (the node's
-        // kind) and a `match` selector (which nodes) to range over. A requirement
-        // missing either cannot identify its nodes, so it is skipped — `temper` never
+        // A node is `(kind, id)`, so `degree` needs a declared `kind` (the node's
+        // kind) to range over; which nodes is the opt-in satisfier set. A kind-blind
+        // requirement cannot identify its nodes, so it is skipped — `temper` never
         // fabricates a gate the author did not fully declare.
-        let (Some(kind), Some(selector)) = (&requirement.kind, &requirement.selector) else {
+        let Some(kind) = &requirement.kind else {
             continue;
         };
         let candidates = by_kind.get(kind.as_str()).copied().unwrap_or(&[]);
         for features in candidates {
-            if !roster::matches(selector, features) {
+            if !roster::is_satisfier(&requirement.name, features) {
                 continue;
             }
             // The node is `(kind, id)`: an id is unique only within a kind, and an arc
@@ -862,20 +863,28 @@ mod tests {
             .clone()
     }
 
-    /// A requirement selecting the skill `standards` and declaring a `degree` bound
-    /// `clause` (an inline `{ … }` body), over an inline contract so it is admissible.
-    /// The graph the degree check ranges over is the caller's `edges`/`by_kind`.
+    /// A requirement whose satisfier nodes are the skills opting into `gate`, declaring
+    /// a `degree` bound `clause` (an inline `{ … }` body), over an inline contract so
+    /// it is admissible. The graph the degree check ranges over is the caller's
+    /// `edges`/`by_kind`; the satisfier nodes are the skills whose `satisfies` names
+    /// `gate`.
     fn degree_requirement(clause: &str) -> BTreeMap<String, crate::compose::Requirement> {
         requirements(&format!(
             "[requirement.gate]\n\
              kind = \"skill\"\n\
-             match = {{ name = \"standards\" }}\n\
              degree = {{ {clause} }}\n\
              [[requirement.gate.clause]]\n\
              severity = \"required\"\n\
              predicate = \"required\"\n\
              field = \"name\"\n"
         ))
+    }
+
+    /// A node that opts into the named requirement via `satisfies` — the degree tests'
+    /// way to place a node in a requirement's satisfier set.
+    fn satisfying(mut features: Features, requirement: &str) -> Features {
+        features.satisfies.push(requirement.to_string());
+        features
     }
 
     #[test]
@@ -886,7 +895,7 @@ mod tests {
         let requirements = degree_requirement("incoming = { max = 0 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", None)];
-        let skills = [node("standards", None)];
+        let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         assert!(degree(&requirements, &edges, &by_kind).is_empty());
@@ -900,7 +909,7 @@ mod tests {
         let requirements = degree_requirement("incoming = { max = 0 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
-        let skills = [node("standards", None)];
+        let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let diags = degree(&requirements, &edges, &by_kind);
@@ -920,7 +929,7 @@ mod tests {
         let requirements = degree_requirement("incoming = { min = 1 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
-        let skills = [node("standards", None)];
+        let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         assert!(degree(&requirements, &edges, &by_kind).is_empty());
@@ -933,7 +942,7 @@ mod tests {
         let requirements = degree_requirement("incoming = { min = 1 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", None)];
-        let skills = [node("standards", None)];
+        let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let diags = degree(&requirements, &edges, &by_kind);
@@ -944,13 +953,13 @@ mod tests {
     }
 
     #[test]
-    fn an_outgoing_bound_reads_the_matched_node_out_degree() {
-        // Degree bounds both directions: the rule `style` (selected by an `outgoing`
-        // bound) routes to one skill, so its out-degree is 1 — outside `{ max = 0 }`.
+    fn an_outgoing_bound_reads_the_satisfier_node_out_degree() {
+        // Degree bounds both directions: the rule `style` (a `gate` satisfier under an
+        // `outgoing` bound) routes to one skill, so its out-degree is 1 — outside
+        // `{ max = 0 }`.
         let requirements = requirements(
             "[requirement.gate]\n\
              kind = \"rule\"\n\
-             match = { name = \"style\" }\n\
              degree = { outgoing = { max = 0 } }\n\
              [[requirement.gate.clause]]\n\
              severity = \"required\"\n\
@@ -958,7 +967,7 @@ mod tests {
              field = \"routes_to\"\n",
         );
         let edges = [routes_to_edge()];
-        let rules = [node("style", Some("standards"))];
+        let rules = [satisfying(node("style", Some("standards")), "gate")];
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
@@ -976,7 +985,6 @@ mod tests {
         let requirements = requirements(
             "[requirement.gate]\n\
              kind = \"skill\"\n\
-             match = { name = \"standards\" }\n\
              contract = \"contracts/skill.toml\"\n",
         );
         let edges = [routes_to_edge()];
@@ -996,7 +1004,7 @@ mod tests {
         let requirements = degree_requirement("incoming = { min = 1 }");
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("absent"))];
-        let skills = [node("standards", None)];
+        let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         let diags = degree(&requirements, &edges, &by_kind);

@@ -558,7 +558,6 @@ fn a_degree_bound_parses_into_a_typed_requirement() {
 [requirement.self-registering]
 kind = "skill"
 contract = "contracts/skill.toml"
-match = { name = "*" }
 degree = { incoming = { max = 0 }, outgoing = { min = 1, max = 3 } }
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -589,7 +588,6 @@ fn a_routed_degree_bound_leaves_the_upper_endpoint_open() {
 [requirement.routed]
 kind = "skill"
 contract = "contracts/skill.toml"
-match = { name = "*" }
 degree = { incoming = { min = 1 } }
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -617,7 +615,6 @@ fn a_degree_naming_no_direction_is_a_load_error() {
 [requirement.gate]
 kind = "skill"
 contract = "contracts/skill.toml"
-match = { name = "*" }
 degree = { }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -635,7 +632,6 @@ fn an_endpoint_less_degree_direction_is_a_load_error() {
 [requirement.gate]
 kind = "skill"
 contract = "contracts/skill.toml"
-match = { name = "*" }
 degree = { incoming = { } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -650,7 +646,6 @@ fn an_inverted_degree_bound_is_a_load_error() {
 [requirement.gate]
 kind = "skill"
 contract = "contracts/skill.toml"
-match = { name = "*" }
 degree = { outgoing = { min = 3, max = 1 } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -664,7 +659,6 @@ fn a_negative_degree_endpoint_is_a_load_error() {
 [requirement.gate]
 kind = "skill"
 contract = "contracts/skill.toml"
-match = { name = "*" }
 degree = { incoming = { min = -1 } }
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
@@ -699,7 +693,6 @@ required = true
             means: Some(means.to_string()),
             kind: None,
             contract: None,
-            selector: None,
             required: true,
             count: None,
             unique: Vec::new(),
@@ -733,7 +726,6 @@ fn a_requirement_with_no_means_parses() {
     let toml = r#"
 [requirement.linter]
 kind = "rule"
-match = { name = "lint*" }
 required = true
 "#;
     let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
@@ -778,18 +770,37 @@ requird = true
 #[test]
 fn a_stray_key_in_a_requirement_with_facets_is_a_load_error() {
     // The unified requirement's allowlist spans the folded facet set — a stray key
-    // alongside `kind`/`match`/`contract` is still rejected, not silently dropped.
+    // alongside `kind`/`contract` is still rejected, not silently dropped.
     let toml = r#"
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*" }
 requird = true
 "#;
     let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
     assert!(
         matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "requird" && name == "linter"),
         "a stray facet-set key names itself precisely, got: {err:?}"
+    );
+}
+
+#[test]
+fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
+    // The name-`match` selector is eradicated — fill is opt-in `satisfies` alone. A
+    // leftover `match = {…}` is no longer a facet but an unknown key, rejected at parse
+    // rather than silently dropped (`specs/10-contracts.md`, "Decision: unknown keys
+    // are rejected, not ignored"; the MATCH-ERADICATE migration).
+    let toml = r#"
+[requirement.planner]
+kind = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "plan*" }
+required = true
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(
+        matches!(err, ComposeError::RequirementUnknownKey { ref key, ref name, .. } if key == "match" && name == "planner"),
+        "a `match` key is now an unknown-key reject, got: {err:?}"
     );
 }
 
@@ -855,7 +866,6 @@ guidance = "keep skills skimmable"
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*" }
 required = true
 verified_by = "tests/lint.rs"
 

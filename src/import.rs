@@ -478,9 +478,8 @@ fn provenance_document(source_path: &Path, import_hash: &str) -> DocumentMut {
 /// Whether `glob` matches `name`, treating `*` as "any run of characters (including
 /// empty)" and every other character literally — the minimal in-crate wildcard a
 /// `governs` glob needs (`*.md`), short of pulling in a glob crate for one
-/// metacharacter. Mirrors the `name`-selector matcher in [`crate::roster`]; kept
-/// local so `import` stays self-contained (`.claude/rules/rust.md`). A standard
-/// linear matcher with
+/// metacharacter, kept local so `import` stays self-contained
+/// (`.claude/rules/rust.md`). A standard linear matcher with
 /// single-star backtracking: on a mismatch it falls back to the most recent `*`,
 /// extending what that star consumed by one character.
 fn glob_matches(glob: &str, name: &str) -> bool {
