@@ -22,6 +22,7 @@ use miette::IntoDiagnostic;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
 use temper::contract::Contract;
+use temper::coverage;
 use temper::drift;
 use temper::engine;
 use temper::extract;
@@ -423,6 +424,22 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // does no graph work here, so the floor-only path stays byte-for-byte
         // unchanged.
         diagnostics.extend(graph::degree(layer.roles(), layer.edges(), &by_kind));
+
+        // The requirement-coverage tier (`specs/10-contracts.md`, "Requirements and
+        // `satisfies` — the meaningful contract"): the referential shadow of the
+        // meaningful contract. Every `required` requirement must have a resolving
+        // home — ≥1 artifact whose representation opts in with a `satisfies` link
+        // naming it — and every authored `satisfies` must resolve to a declared
+        // requirement. `means` is never judged; coverage is the whole of the gate.
+        // Ranges over every opt-in-capable artifact (skill ⊕ rule), so a requirement
+        // filled by either kind is covered. Absent `temper.toml` ⇒ no layer ⇒ no
+        // requirements ⇒ this adds nothing, so the floor-only path is unchanged.
+        let all_features: Vec<extract::Features> = skill_features
+            .iter()
+            .chain(rule_features.iter())
+            .cloned()
+            .collect();
+        diagnostics.extend(coverage::check(layer.requirements(), &all_features));
 
         // The custom-kind tier: each custom kind the layer declares
         // (`specs/15-kinds.md`, "A kind definition — one composed object") is
