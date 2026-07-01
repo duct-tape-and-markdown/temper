@@ -164,6 +164,108 @@ pub struct Unit {
     pub source_path: PathBuf,
 }
 
+impl Unit {
+    /// Reload a written custom-unit surface `<root>/<name>/` into a raw [`Unit`]:
+    /// the id is the surface directory name, the body is the lone non-`meta.toml`
+    /// `.md` sibling (byte-faithful), and `source_path` is read back from the
+    /// `[provenance]` table `import` wrote (`src/import.rs`, `import_custom_unit`).
+    ///
+    /// This is the **generic** inverse of that projection — keyed on the surface
+    /// shape every custom kind shares (`meta.toml` + a lone body file), not on any
+    /// one kind's IR. It is the reader `check`'s custom-kind path uses in place of
+    /// the built-in [`Spec::from_surface_dir`](crate::spec::Spec::from_surface_dir),
+    /// so a custom kind rooted at *any* `governs.root` — not just `specs/` — is read
+    /// (`specs/40-composition.md`, "Declaring a custom kind").
+    ///
+    /// The body file is found by extension, not by the kind's own upper-cased name,
+    /// so one reader serves every custom kind. Frontmatter is left empty: a custom
+    /// unit's surface preserves the *whole* source file (frontmatter included) in
+    /// its body, and the composed extractor reads the loci it declares off that body
+    /// (`specs/15-kinds.md`). An unreadable or malformed surface is a [`KindError`],
+    /// never a silent skip.
+    pub fn from_surface_dir(dir: &Path) -> Result<Self, KindError> {
+        let id = dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_string)
+            .ok_or_else(|| KindError::SurfaceMissingField {
+                path: dir.to_path_buf(),
+                field: "name",
+            })?;
+
+        let meta_path = dir.join("meta.toml");
+        let meta_src = std::fs::read_to_string(&meta_path).map_err(|source| KindError::Io {
+            path: meta_path.clone(),
+            source,
+        })?;
+        let doc = meta_src
+            .parse::<DocumentMut>()
+            .map_err(|source| KindError::Toml {
+                path: meta_path.clone(),
+                source,
+            })?;
+        let provenance = doc
+            .as_table()
+            .get("provenance")
+            .and_then(Item::as_table)
+            .ok_or_else(|| KindError::SurfaceMissingField {
+                path: meta_path.clone(),
+                field: "provenance",
+            })?;
+        let source_path = provenance
+            .get("source_path")
+            .and_then(Item::as_str)
+            .map(PathBuf::from)
+            .ok_or_else(|| KindError::SurfaceMissingField {
+                path: meta_path.clone(),
+                field: "source_path",
+            })?;
+
+        let body_path = lone_body_file(dir)?;
+        let body = std::fs::read_to_string(&body_path).map_err(|source| KindError::Io {
+            path: body_path,
+            source,
+        })?;
+
+        Ok(Self {
+            id,
+            frontmatter: BTreeMap::new(),
+            body,
+            source_path,
+        })
+    }
+}
+
+/// The lone body `.md` file in a custom-unit surface directory — the byte-faithful
+/// body `import` writes beside `meta.toml` (`<KIND>.md`; `src/import.rs`). Selected
+/// by extension rather than by the kind's own upper-cased name, so the reader stays
+/// generic over every custom kind. Exactly one is required: zero (no body) or more
+/// than one (an ambiguous surface) is a [`KindError::SurfaceBody`].
+fn lone_body_file(dir: &Path) -> Result<PathBuf, KindError> {
+    let listing = std::fs::read_dir(dir).map_err(|source| KindError::Io {
+        path: dir.to_path_buf(),
+        source,
+    })?;
+    let mut bodies = Vec::new();
+    for entry in listing {
+        let entry = entry.map_err(|source| KindError::Io {
+            path: dir.to_path_buf(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+            bodies.push(path);
+        }
+    }
+    match bodies.len() {
+        1 => Ok(bodies.remove(0)),
+        found => Err(KindError::SurfaceBody {
+            dir: dir.to_path_buf(),
+            found,
+        }),
+    }
+}
+
 /// Errors raised while loading an [`Extraction`]. Hard failures (unreadable file,
 /// malformed TOML, a primitive outside the closed vocabulary) — distinct from a
 /// lint finding, which the check engine collects rather than throws. Mirrors
@@ -245,6 +347,34 @@ pub enum KindError {
         index: usize,
         /// The unrecognized extractor key.
         primitive: String,
+    },
+
+    /// A written custom-unit surface is missing a required part — its directory
+    /// name, its `[provenance]` table, or the `source_path` inside that table.
+    /// Reloading is the inverse of the projection `import` writes, so a surface
+    /// missing what `import` always writes is malformed, never a silent skip.
+    #[error("{path}: custom-unit surface is missing required field `{field}`")]
+    #[diagnostic(code(temper::kind::surface_missing_field))]
+    SurfaceMissingField {
+        /// The surface (its directory, or its `meta.toml`) whose part is absent.
+        path: PathBuf,
+        /// The required field that was absent.
+        field: &'static str,
+    },
+
+    /// A written custom-unit surface does not carry exactly one body `.md` file
+    /// beside its `meta.toml` — the byte-faithful body the extractor reads
+    /// (`src/import.rs`, `import_custom_unit`). Zero (no body) or more than one (an
+    /// ambiguous surface) is malformed.
+    #[error(
+        "{dir}: custom-unit surface must carry exactly one body `.md` file beside `meta.toml` (found {found})"
+    )]
+    #[diagnostic(code(temper::kind::surface_body))]
+    SurfaceBody {
+        /// The surface directory whose body is missing or ambiguous.
+        dir: PathBuf,
+        /// How many `.md` bodies were found (never exactly one).
+        found: usize,
     },
 }
 
@@ -669,5 +799,143 @@ primitive = "paragraph_meaning"
 
         let extraction = Extraction::load(&path).unwrap();
         assert_eq!(extraction.primitives(), &[Primitive::LineCount]);
+    }
+
+    /// A fresh, empty temp directory unique to this call.
+    fn surface_tmpdir(label: &str) -> PathBuf {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "author-kind-surface-{}-{}-{}",
+            std::process::id(),
+            id,
+            label
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Write a `<root>/<name>/{meta.toml, <BODY>.md}` surface exactly as `import`
+    /// projects a custom-kind unit: a provenance-only `meta.toml` plus the whole
+    /// body as `<body_name>`. Returns the surface directory.
+    fn write_surface(
+        root: &Path,
+        name: &str,
+        source_path: &str,
+        body_name: &str,
+        body: &str,
+    ) -> PathBuf {
+        let dir = root.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        let meta =
+            format!("[provenance]\nsource_path = \"{source_path}\"\nimport_hash = \"deadbeef\"\n");
+        std::fs::write(dir.join("meta.toml"), meta).unwrap();
+        std::fs::write(dir.join(body_name), body).unwrap();
+        dir
+    }
+
+    #[test]
+    fn from_surface_dir_reloads_a_written_unit_for_any_root() {
+        // The root is `docs/adr`, not `specs` — the reader keys on the surface
+        // shape, never a hardwired `specs` special case, so a kind rooted anywhere
+        // reloads the same way.
+        let root = surface_tmpdir("adr-root").join("docs").join("adr");
+        let body = "# ADR 0001\n\nContext refers to `15-kinds.md`.\n";
+        let dir = write_surface(
+            &root,
+            "0001-use-kinds",
+            "docs/adr/0001-use-kinds.md",
+            "ADR.md",
+            body,
+        );
+
+        let unit = Unit::from_surface_dir(&dir).unwrap();
+
+        // id is the surface directory name.
+        assert_eq!(unit.id, "0001-use-kinds");
+        // body is the lone `.md` sibling, byte-faithful.
+        assert_eq!(unit.body, body);
+        // source_path is read back from the `[provenance]` table.
+        assert_eq!(
+            unit.source_path,
+            PathBuf::from("docs/adr/0001-use-kinds.md")
+        );
+        // A generic surface reload carries no frontmatter — the whole file is body.
+        assert!(unit.frontmatter.is_empty());
+    }
+
+    #[test]
+    fn from_surface_dir_feeds_the_composed_extractor() {
+        // The reloaded unit is exactly what a kind's composed extractor reads: the
+        // spec-shaped extractor over it yields the same features it would over a
+        // freshly-parsed unit — the tie between the generic loader and the check path.
+        let root = surface_tmpdir("feed-root").join("specs");
+        let body = "# Kinds\n\nComposed over `10-contracts.md`.\n";
+        let dir = write_surface(&root, "15-kinds", "specs/15-kinds.md", "SPEC.md", body);
+
+        let unit = Unit::from_surface_dir(&dir).unwrap();
+        let features = spec_extraction().extract(&unit);
+
+        assert_eq!(features.id, "15-kinds");
+        assert_eq!(features.body_lines, 3);
+        assert_eq!(features.headings, vec!["Kinds".to_string()]);
+        assert_eq!(features.source_dir.as_deref(), Some("specs"));
+        assert_eq!(
+            features.field("references"),
+            Some(&FeatureValue::List(vec!["10-contracts.md".to_string()]))
+        );
+    }
+
+    #[test]
+    fn a_surface_missing_its_provenance_is_a_load_error() {
+        let root = surface_tmpdir("no-prov");
+        let dir = root.join("00-intent");
+        std::fs::create_dir_all(&dir).unwrap();
+        // A `meta.toml` with no `[provenance]` table, and a body beside it.
+        std::fs::write(dir.join("meta.toml"), "# empty\n").unwrap();
+        std::fs::write(dir.join("SPEC.md"), "# Intent\n").unwrap();
+
+        let err = Unit::from_surface_dir(&dir).unwrap_err();
+        assert!(matches!(
+            err,
+            KindError::SurfaceMissingField {
+                field: "provenance",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn a_surface_without_a_body_file_is_a_load_error() {
+        let root = surface_tmpdir("no-body");
+        let dir = root.join("00-intent");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("meta.toml"),
+            "[provenance]\nsource_path = \"specs/00-intent.md\"\nimport_hash = \"x\"\n",
+        )
+        .unwrap();
+
+        let err = Unit::from_surface_dir(&dir).unwrap_err();
+        assert!(matches!(err, KindError::SurfaceBody { found: 0, .. }));
+    }
+
+    #[test]
+    fn a_surface_with_two_body_files_is_ambiguous() {
+        let root = surface_tmpdir("two-body");
+        let dir = root.join("00-intent");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("meta.toml"),
+            "[provenance]\nsource_path = \"specs/00-intent.md\"\nimport_hash = \"x\"\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("SPEC.md"), "# One\n").unwrap();
+        std::fs::write(dir.join("EXTRA.md"), "# Two\n").unwrap();
+
+        let err = Unit::from_surface_dir(&dir).unwrap_err();
+        assert!(matches!(err, KindError::SurfaceBody { found: 2, .. }));
     }
 }

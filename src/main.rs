@@ -13,7 +13,7 @@
 //!
 //! [`Features`]: temper::extract::Features
 
-use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -26,9 +26,8 @@ use temper::engine;
 use temper::extract;
 use temper::graph;
 use temper::import;
-use temper::kind::Unit;
+use temper::kind::{KindError, Unit};
 use temper::roster;
-use temper::spec::Spec;
 
 /// The surface workspace default for `--into` / the `check` argument: a `.temper`
 /// directory under the current working directory (`specs/20-surface.md`).
@@ -199,7 +198,8 @@ fn main() -> miette::Result<ExitCode> {
                 // temper's own custom kind"). Absent a custom kind ⇒ the loop is
                 // empty, so the built-in-only path is byte-for-byte unchanged.
                 for (name, custom) in layer.custom_kinds() {
-                    let features: Vec<extract::Features> = custom_units(&ws, custom)
+                    let units = custom_units(&workspace, custom)?;
+                    let features: Vec<extract::Features> = units
                         .iter()
                         .map(|unit| custom.extraction.extract(unit))
                         .collect();
@@ -240,35 +240,40 @@ fn main() -> miette::Result<ExitCode> {
     }
 }
 
-/// Project a custom `kind`'s imported units into the raw [`Unit`]s its composed
-/// extractor reads (`specs/15-kinds.md`). Keyed on the declared `governs` locus,
-/// never the kind name — discovery stays data-driven, so temper reads its own
-/// `specs/` because the `temper.toml` declares a kind rooted there, not because
-/// anything is hardwired to `spec` (`specs/40-composition.md`).
+/// Load a custom `kind`'s units from the surface, generically — every surface
+/// directory under the workspace at the kind's declared `governs.root`, each
+/// reloaded into a raw [`Unit`] via [`Unit::from_surface_dir`]. Keyed on the
+/// declared locus, never the kind name: temper reads its own `specs/` because its
+/// `temper.toml` declares a kind rooted there, not because anything is hardwired to
+/// `spec` — and a custom kind rooted anywhere else (`docs/adr`, …) is read the same
+/// way, not just `specs/` (`specs/40-composition.md`, "Declaring a custom kind").
 ///
-/// The surface loader (`temper::check::Workspace`) materializes the `specs/`
-/// custom root today, so a kind whose `governs` root is `specs` draws its units
-/// from `ws.specs`. A custom kind rooted elsewhere has no materialized surface yet
-/// — extending the workspace loader to every custom root is a follow-on — so it
-/// contributes no units (its contract's admissibility still runs, over zero
-/// artifacts).
-fn custom_units(ws: &Workspace, kind: &compose::CustomKind) -> Vec<Unit> {
-    if kind.governs.root == "specs" {
-        ws.specs.iter().map(spec_unit).collect()
-    } else {
-        Vec::new()
+/// A surface directory is one holding a `meta.toml`, mirroring the built-in
+/// [`Workspace::load`] enumeration, name-sorted so the diagnostic set is stable
+/// across runs. A workspace with no directory at the kind's root contributes no
+/// units — its contract's admissibility still runs, over zero artifacts.
+fn custom_units(workspace_dir: &Path, kind: &compose::CustomKind) -> Result<Vec<Unit>, KindError> {
+    let root = workspace_dir.join(&kind.governs.root);
+    if !root.is_dir() {
+        return Ok(Vec::new());
     }
-}
 
-/// Project a reloaded [`Spec`] into the raw [`Unit`] a composed extractor reads. A
-/// spec is pure prose (`90-spec-system.md`) — no frontmatter — so the whole file
-/// is the body, the id is the file stem, and the source path carries the placement
-/// the `placement` primitive reads.
-fn spec_unit(spec: &Spec) -> Unit {
-    Unit {
-        id: spec.name.clone(),
-        frontmatter: BTreeMap::new(),
-        body: spec.body.clone(),
-        source_path: spec.provenance.source_path.clone(),
+    let listing = fs::read_dir(&root).map_err(|source| KindError::Io {
+        path: root.clone(),
+        source,
+    })?;
+    let mut dirs = Vec::new();
+    for entry in listing {
+        let entry = entry.map_err(|source| KindError::Io {
+            path: root.clone(),
+            source,
+        })?;
+        let path = entry.path();
+        if path.is_dir() && path.join("meta.toml").is_file() {
+            dirs.push(path);
+        }
     }
+    dirs.sort();
+
+    dirs.iter().map(|dir| Unit::from_surface_dir(dir)).collect()
 }

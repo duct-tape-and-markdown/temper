@@ -297,3 +297,52 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
         "the over-length spec must exit non-zero under --deny-advisories"
     );
 }
+
+/// A custom kind rooted **outside** `specs/` — proof the check path loads units
+/// from a *generic* surface loader keyed on each kind's declared `governs.root`,
+/// not the retired `root == "specs"` special case that read `Workspace.specs`
+/// (`specs/40-composition.md`, "Declaring a custom kind"). The `adr` kind governs
+/// `adr/*.md`; `check` reads its units from `<ws>/adr/*` through
+/// `Unit::from_surface_dir`, so its contract fires over the extracted features
+/// exactly as the `spec` kind's does — a root the built-in `Workspace` never
+/// materializes into `ws.specs`, so under the old special case it contributed no
+/// units and the advisory could never fire.
+#[test]
+fn check_reads_a_custom_kind_rooted_outside_specs() {
+    let corpus = tmpdir("adr-corpus");
+    let temper_toml = "\
+[kind.adr]
+governs = { root = \"adr\", glob = \"*.md\" }
+
+[[kind.adr.extraction]]
+primitive = \"line_count\"
+
+[[kind.adr.clause]]
+severity = \"advisory\"
+predicate = \"max_lines\"
+max = 10
+";
+    fs::write(corpus.join("temper.toml"), temper_toml).unwrap();
+    let adrs = corpus.join("adr");
+    fs::create_dir_all(&adrs).unwrap();
+    // A short ADR (clean) beside an over-length one (trips the advisory budget).
+    fs::write(adrs.join("0001-short.md"), "# ADR 1\n\nDecided.\n").unwrap();
+    fs::write(adrs.join("0002-long.md"), over_length_spec()).unwrap();
+
+    // import discovers the `adr` kind from the corpus `temper.toml` and writes each
+    // unit to `<into>/adr/<name>/` — a root the built-in `Workspace` never reads.
+    let into = corpus.join(".temper");
+    import::run(&corpus, &into).unwrap();
+
+    // check from the corpus dir: the generic loader keys on `governs.root = "adr"`,
+    // so the over-length ADR trips the advisory `max_lines`. The flag flipping the
+    // exit is proof the contract fired over units read from outside `specs/`.
+    assert!(
+        check_from(&corpus, &into, &[]),
+        "an advisory-only ADR violation must exit zero without --deny-advisories"
+    );
+    assert!(
+        !check_from(&corpus, &into, &["--deny-advisories"]),
+        "the over-length ADR must exit non-zero under --deny-advisories"
+    );
+}
