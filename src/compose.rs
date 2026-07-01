@@ -80,6 +80,39 @@ pub struct AuthorLayer {
     /// tier — selection, required-filling, and admissibility are follow-on
     /// entries.
     roles: BTreeMap<String, Role>,
+    /// The declared edge relationships parsed from `[[edge]]` tables, in
+    /// declaration order — the reference syntax the harness reference graph is
+    /// built from (`specs/45-governance.md`, "The harness is a graph too — and
+    /// references are declared edges"). Empty when the `temper.toml` declares
+    /// none. Parse-only here; assembling the graph and checking route resolution
+    /// live in [`crate::graph`].
+    edges: Vec<Edge>,
+}
+
+/// A declared **edge relationship** over the harness reference graph
+/// (`specs/45-governance.md`, "The harness is a graph too — and references are
+/// declared edges"): the reference is a *declared structured field on the
+/// surface*, never grepped from prose (`(skill-ref-syntax)` RESOLVED). The
+/// declaration names the reference field, the kind that owns it (the edge
+/// source), and the kind it resolves to (the edge target) — "a rule routes to a
+/// skill by a `routes_to` field." [`crate::graph`] reads the field off each
+/// source artifact's [`Features`](crate::extract::Features) into edges, then
+/// flags any route that resolves to no artifact of the target kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Edge {
+    /// The reference field `F` read off each source artifact's frontmatter (via
+    /// the `extra` catch-all) — the declared reference syntax (`routes_to`). Its
+    /// scalar value (or each element of a list value) names the target artifact.
+    pub field: String,
+    /// The artifact kind that owns the reference field — the edge *source*
+    /// (`rule`). Stored verbatim; a `from` naming an unmodeled kind simply yields
+    /// no source artifacts, so the edge is inert (never a route to resolve).
+    pub from: String,
+    /// The artifact kind the reference resolves to — the edge *target* (`skill`).
+    /// A route resolves when an artifact of this kind bears the named id; the
+    /// target kind must be one `temper` models, else no route can resolve (a
+    /// graph-admissibility concern, checked in [`crate::graph`]).
+    pub to: String,
 }
 
 /// A harness-contract **role**: an abstract slot bound to whichever concrete
@@ -489,6 +522,30 @@ pub enum ComposeError {
         role: String,
     },
 
+    /// The top-level `edge` key is present but is not an array of `[[edge]]`
+    /// reference-relationship tables.
+    #[error("{path}: `edge` must be an array of `[[edge]]` reference-relationship tables")]
+    #[diagnostic(code(temper::compose::edge_root_not_array))]
+    EdgeRootNotArray {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+    },
+
+    /// An `[[edge]]` declaration is malformed — missing or mistyped one of its
+    /// `field`, `from`, `to` strings. A declared edge relationship names a
+    /// reference field, an owning kind, and a target kind; any miss collapses
+    /// here, the way [`parse_count`] folds its malformations into one error.
+    #[error(
+        "{path}: `[[edge]]` #{index} must name a reference `field`, a `from` kind, and a `to` kind, all strings"
+    )]
+    #[diagnostic(code(temper::compose::bad_edge))]
+    BadEdge {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The zero-based position of the malformed `[[edge]]` in declaration order.
+        index: usize,
+    },
+
     /// A layered clause is outside the closed vocabulary (or otherwise malformed).
     /// Bubbled verbatim from [`crate::contract`] so the author layer's clauses are
     /// held to the exact same closed-vocabulary contract as a bare one's. Covers a
@@ -557,10 +614,13 @@ impl AuthorLayer {
             }
         }
 
+        let edges = parse_edges(&doc, path)?;
+
         Ok(Self {
             path: path.to_path_buf(),
             kinds,
             roles,
+            edges,
         })
     }
 
@@ -570,6 +630,15 @@ impl AuthorLayer {
     #[must_use]
     pub fn roles(&self) -> &BTreeMap<String, Role> {
         &self.roles
+    }
+
+    /// The parsed edge relationships, in declaration order. Empty when the
+    /// `temper.toml` declares no `[[edge]]` tables. The declared reference syntax
+    /// the harness reference graph is built from — [`crate::graph`] reads these
+    /// into a directed graph and checks route resolution.
+    #[must_use]
+    pub fn edges(&self) -> &[Edge] {
+        &self.edges
     }
 
     /// The effective contract for `kind`: this layer's clauses for that kind
@@ -647,6 +716,52 @@ fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer,
     };
     let clauses = contract::parse_clauses(table, path)?;
     Ok(KindLayer { adopt, clauses })
+}
+
+/// Parse the top-level `[[edge]]` array into typed [`Edge`]s, in declaration
+/// order. Absent ⇒ an empty vec (no graph runs). The key must be an
+/// array-of-tables (`[[edge]]`); anything else is [`ComposeError::EdgeRootNotArray`].
+/// Each element parses through [`parse_edge`], so a malformed one is a single
+/// folded [`ComposeError::BadEdge`] naming its position.
+fn parse_edges(doc: &DocumentMut, path: &Path) -> Result<Vec<Edge>, ComposeError> {
+    let Some(item) = doc.as_table().get("edge") else {
+        return Ok(Vec::new());
+    };
+    let array = item
+        .as_array_of_tables()
+        .ok_or_else(|| ComposeError::EdgeRootNotArray {
+            path: path.to_path_buf(),
+        })?;
+    let mut edges = Vec::with_capacity(array.len());
+    for (index, table) in array.iter().enumerate() {
+        edges.push(parse_edge(table, index, path)?);
+    }
+    Ok(edges)
+}
+
+/// Parse one `[[edge]]` table into a typed [`Edge`] — its required `field`
+/// (reference syntax), `from` (owning kind), and `to` (target kind), all
+/// strings. Any missing or mistyped key collapses to a single
+/// [`ComposeError::BadEdge`], the way [`parse_count`] folds its malformations.
+/// The three names are stored verbatim; whether they are *sound* (a non-empty
+/// field, a modeled target kind) is a graph-admissibility concern
+/// ([`crate::graph`]), not a parse one.
+fn parse_edge(table: &Table, index: usize, path: &Path) -> Result<Edge, ComposeError> {
+    let bad = || ComposeError::BadEdge {
+        path: path.to_path_buf(),
+        index,
+    };
+    let field = edge_str(table, "field").ok_or_else(bad)?;
+    let from = edge_str(table, "from").ok_or_else(bad)?;
+    let to = edge_str(table, "to").ok_or_else(bad)?;
+    Ok(Edge { field, from, to })
+}
+
+/// Read one required string key off an `[[edge]]` table: present and a TOML
+/// string ⇒ `Some`, else `None` (which [`parse_edge`] reports as a single
+/// [`ComposeError::BadEdge`]).
+fn edge_str(table: &Table, key: &str) -> Option<String> {
+    Some(table.get(key)?.as_str()?.to_string())
 }
 
 /// Parse one `[role.<name>]` table into a typed [`Role`]: the required `artifact`
@@ -1820,5 +1935,100 @@ max = 100
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         assert!(layer.roles().is_empty());
+    }
+
+    // ---- edge relationships (parse-only) ----------------------------------
+
+    #[test]
+    fn an_edge_relationship_parses_into_a_typed_edge() {
+        // The declared reference syntax: a `[[edge]]` naming the reference field,
+        // the owning (source) kind, and the target kind parses into an `Edge`.
+        let toml = r#"
+[[edge]]
+field = "routes_to"
+from = "rule"
+to = "skill"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        assert_eq!(
+            layer.edges(),
+            &[Edge {
+                field: "routes_to".to_string(),
+                from: "rule".to_string(),
+                to: "skill".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn multiple_edges_parse_in_declaration_order() {
+        // The graph is built from a whole array of declared relationships; they
+        // arrive in declaration order.
+        let toml = r#"
+[[edge]]
+field = "routes_to"
+from = "rule"
+to = "skill"
+
+[[edge]]
+field = "delegates_to"
+from = "skill"
+to = "skill"
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let fields: Vec<&str> = layer.edges().iter().map(|e| e.field.as_str()).collect();
+        assert_eq!(fields, vec!["routes_to", "delegates_to"]);
+    }
+
+    #[test]
+    fn an_absent_edge_array_yields_no_edges() {
+        // `temper` never fabricates a gate the author did not declare: absent
+        // `[[edge]]` ⇒ no graph runs.
+        let toml = r#"
+[role.planner]
+artifact = "skill"
+contract = "contracts/skill.anthropic.toml"
+match = { name = "plan*" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        assert!(layer.edges().is_empty());
+    }
+
+    #[test]
+    fn a_non_array_edge_root_is_a_load_error() {
+        let err = AuthorLayer::parse("edge = 7\n", Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::EdgeRootNotArray { .. }));
+    }
+
+    #[test]
+    fn an_edge_missing_a_required_key_is_a_load_error() {
+        // `to` (the target kind) is required — its absence collapses to `BadEdge`,
+        // the way a missing `count` bound collapses to `RoleBadCount`.
+        let toml = r#"
+[[edge]]
+field = "routes_to"
+from = "rule"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::BadEdge { index: 0, .. }));
+    }
+
+    #[test]
+    fn an_edge_with_a_mistyped_key_is_a_load_error() {
+        // A non-string `field` is not a reference syntax name — folded into
+        // `BadEdge`, with the index naming which `[[edge]]` was malformed.
+        let toml = r#"
+[[edge]]
+field = "routes_to"
+from = "rule"
+to = "skill"
+
+[[edge]]
+field = 7
+from = "skill"
+to = "skill"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::BadEdge { index: 1, .. }));
     }
 }

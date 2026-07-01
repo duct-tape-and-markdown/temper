@@ -21,6 +21,7 @@ pub mod contract;
 pub mod drift;
 pub mod engine;
 pub mod extract;
+pub mod graph;
 pub mod import;
 pub mod roster;
 pub mod rule;
