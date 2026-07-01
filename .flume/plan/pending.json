@@ -1,48 +1,5 @@
 [
   {
-    "tag": "SATISFIES-REPRESENTATION",
-    "summary": "Carry `satisfies` + `rationale` on the artifact representation — extend the skill/rule IR + features so meta.toml holds them, round-tripped",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Each artifact directory is a representation, not a copy"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/skill.rs",
-          "description": "Add representation-level fields to the `Skill` IR: `satisfies: Vec<String>` (the requirements this artifact opts into filling — the coverage-check binding) and `rationale: Option<String>` (the authored *why*, `00-intent.md` law 7). These are AUTHORED on the surface, NOT frontmatter that round-trips to the source `.claude/` file — so they live under a dedicated `[representation]` table in `meta.toml`, kept out of the frontmatter fields the contract engine ranges over. `from_source_dir` sets both empty/None (the source carries neither); `to_meta_document` emits `[representation]` with `satisfies`/`rationale` only when non-empty (so an unauthored skill's meta.toml is byte-identical to today — import idempotence holds); `from_surface_dir` reads them back and must skip `representation` when rebuilding `extra` (as it already skips `provenance`). Add in-module round-trip tests."
-        },
-        {
-          "path": "src/rule.rs",
-          "description": "Mirror the skill change on the `Rule` IR: `satisfies: Vec<String>` + `rationale: Option<String>` under a `[representation]` table in `meta.toml`, authored-not-imported, kept out of the frontmatter `extra` (skip `representation` alongside `provenance` in `from_surface_dir` and `KNOWN_KEYS` handling). `from_source_file` sets both empty/None; `to_meta_document` emits the table only when non-empty (a no-frontmatter rule with no representation stays byte-identical). Add in-module round-trip tests proving satisfies/rationale survive the surface round-trip and never leak into the reconstructed frontmatter."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Add `satisfies: Vec<String>` to `Features` (a representation binding the coverage check reads, distinct from the frontmatter `fields` map — a `satisfies` link is NOT a contract-checkable field, it is the referential edge coverage resolves). Populate it in `skill_features` (from `skill.satisfies`) and `rule_features` (from `rule.satisfies`). `rationale` is carried in the IR but NOT extracted — it is the human *why*, never a decidable feature. Update the in-module tests to assert `Features.satisfies` reflects the IR."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/skill.rs",
-        "asserts": "A skill authored with satisfies/rationale round-trips through the surface (meta.toml `[representation]` → from_surface_dir) identically, and neither leaks into the frontmatter fields; an unauthored skill's meta.toml is unchanged."
-      },
-      {
-        "path": "src/extract.rs",
-        "asserts": "skill_features/rule_features expose the IR's `satisfies` on Features.satisfies, and it stays out of the frontmatter `fields` map."
-      }
-    ],
-    "acceptance": "The skill and rule IRs carry authored `satisfies` + `rationale` under a `[representation]` meta.toml table, round-tripped byte-faithfully and kept out of the contract-checked frontmatter; `Features` exposes `satisfies` for the coverage check; import stays idempotent; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The representation is an authoring space, not a lint target (`specs/20-surface.md`): header/satisfies/rationale authored, body carried, conformance derived. Scoped to the built-in skill+rule kinds; custom-kind Unit satisfies is a later follow-on (noted, not silently cut). Disjoint files from REQUIREMENTS-PARSE (compose.rs) and REQUIREMENT-COVERAGE (main/lib/coverage.rs); chained after parse so the coverage entry has one landed upstream."
-  },
-  {
     "tag": "REQUIREMENT-COVERAGE",
     "summary": "`check` gates referential coverage — every `required` requirement has a resolving `satisfies`; diagnose unfilled requirements and dangling links",
     "per": {
