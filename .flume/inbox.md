@@ -25,3 +25,13 @@ removes them each tick. Empty is the normal state.
   Also refresh open-questions: `(spec-landscape-kind)` is superseded by this
   mechanism; `(model-declaration-format)`'s format is now actually carried, not just
   forwarded.
+
+- The authoring surface is now specced as **stratified** (`20-surface.md` "The
+  surface is stratified: schema + instances"; `40-composition.md` "`temper.toml` is
+  the surface's schema stratum"): schema stratum (`temper.toml`) + instance stratum
+  (artifacts), the two greens = admissibility (schema well-formed) + conformance
+  (instances satisfy it). This is mostly a *framing* reconciliation — the two checks
+  already exist; align docs/naming, don't rebuild. One real code delta: `author.toml`
+  is generated machinery outside the authoring surface and its name collides with the
+  authored `temper.toml` — a rename is warranted, but the new name is a HUMAN naming
+  decision: park it as an open question `(rollup-index-rename)`, do NOT invent a name.
