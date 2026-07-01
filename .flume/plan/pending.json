@@ -1,1 +1,59 @@
-[]
+[
+  {
+    "tag": "AGENT-KIND",
+    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md`, typed frontmatter + byte-faithful body, with its own decidable contract",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Artifact kinds & contract selection"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        {
+          "path": "src/agent.rs",
+          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs` end-to-end. Split YAML frontmatter into typed fields (`name`, `description`, optional `tools`/`model`) with every unknown key preserved verbatim in `extra` (never dropped), a byte-faithful markdown body, and `provenance { source_path, import_hash }` (SHA-256 of the source bytes). Ship `from_source_file` (parse + hash), `to_meta_document` (`toml_edit` header, comment/order preserving), and `from_surface_dir` (reload the written surface). Round-trip discipline: body copied byte-for-byte, only the header rewritten (`.claude/rules/rust.md`). The name is the file stem; identity is the path, not an internal field (`specs/10-contracts.md`)."
+        },
+        {
+          "path": "contracts/agent.toml",
+          "description": "The built-in decidable floor for the `agent` kind, embedded like `contracts/rule.toml` — decidable clauses only, identity by path not name. Clauses: `name` required + `allowed_chars` `[a-z0-9-]` (marked harness fact); `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores (`globs`/`alwaysApply`); an advisory `max_lines`. No heuristic/undecidable clause (`specs/00-intent.md` law 3) — extraction mirrors the real subagent format, the contract is a layerable template (`specs/40-composition.md`)."
+        },
+        {
+          "path": "tests/agent_contract.rs",
+          "description": "Fixture-driven proof mirroring `tests/rule_contract.rs`: one deliberately-broken agent per clause proving it fires (missing `description`, an inert `globs` key, an uppercase `name`) and a clean agent that trips nothing; an `insta` import round-trip proving re-importing an unchanged agent yields an identical surface (idempotence)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod agent;` beside the other artifact-kind modules (this foundation entry owns the `pub mod` line so no other entry co-edits `lib.rs`)."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Extend `Workspace` with an `agents: Vec<Agent>` field and load it under `<dir>/agents/*` in `Workspace::load` (name-sorted via the existing `surface_dirs`), and add an `Agent(#[from] AgentError)` arm to `WorkspaceError`. Update the in-module load tests to construct/assert the new field."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Add `pub fn agent_features(&Agent) -> Features` mirroring `rule_features`: typed fields as `string` scalars, every `extra` key folded into the same name-keyed map so `forbidden_keys` resolves the ignored Cursor keys, `body_lines` over the byte-faithful body."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Discover `.claude/agents/*.md`, project each to `<into>/agents/<name>/{meta.toml, AGENT.md}` via the Agent IR, and add a `[[agent]]` row per agent to the `lock.toml` roll-up — parallel to the existing rule discovery/import/lock path. Extend the import idempotence snapshot to cover an agents fixture."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Wire the `agent` kind into the shared `gate()`: add a `BUILTIN_AGENT_CONTRACT` embed, extract `agent_features` over `ws.agents`, compose the effective agent contract (floor ⊕ layer), extend the admissibility + conformance streams, add `\"agent\"` to the `by_kind` map, and add the agent floor to the `schema` command's `floors` vec."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/agent_contract.rs",
+        "asserts": "Each decidable clause of contracts/agent.toml fires on its broken fixture and stays silent on a clean agent; import of an unchanged agent is idempotent (insta snapshot)."
+      }
+    ],
+    "acceptance": "`temper check` dispatches `.claude/agents/*.md` artifacts to the embedded agent contract (conformance) and the agent contract passes admissibility; `temper import` scans, projects, and round-trips agents idempotently with `[[agent]]` lock rows; `temper schema --kind agent` emits the agent contract; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Mirrors the rule kind end-to-end (skill.rs/rule.rs pattern): built-in extraction mirrors the real Claude Code subagent format (temper's, not the author's to redefine); the contract is a decidable floor, layerable via temper.toml. Wide blast radius over the shared surface (lib/check/extract/import/main) but the ONLY open entry, so no parallel-merge conflict — the remaining kinds/verbs serialize behind it."
+  }
+]
