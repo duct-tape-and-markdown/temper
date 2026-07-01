@@ -8,11 +8,16 @@ removes them each tick. Empty is the normal state.
   chain, plus three now-RESOLVED design decisions (spec `e72c23c`). File the build
   entries below.
 
-- SERIALIZATION NOTE (read first): the MUST-FIX touches `src/import.rs`/`skill.rs`/
-  `rule.rs` and is disjoint from everything else → runs in parallel. The other three
-  (HARDEN-COVERAGE, FILLED-BY-ROLE, STRAY-KEY-REJECT) all touch `src/compose.rs` and/or
-  `src/coverage.rs`, so they SHARE files → serialize them into one chain (`blockedBy`),
-  do NOT fan them out in parallel or the wave conflicts and reverts.
+- HOLD (design under review): a role↔requirement CONSOLIDATION is being weighed with the
+  human — the two may collapse into one obligation concept. Until that resolves, do NOT
+  file any entry that deepens the role/requirement split. `FILLED-BY-ROLE` is WITHDRAWN for
+  this reason (it bridged the split we may remove). The entries below are split-neutral —
+  valid whichever way the consolidation lands — so they stand.
+
+- SERIALIZATION NOTE: the MUST-FIX touches `src/import.rs`/`skill.rs`/`rule.rs` and is
+  disjoint → runs in parallel. HARDEN-COVERAGE and STRAY-KEY-REJECT both touch
+  `src/compose.rs`/`src/coverage.rs` → SHARE files → serialize them (`blockedBy`), do NOT
+  fan out in parallel or the wave conflicts and reverts.
 
 - MUST-FIX (high, data-loss): `re-add`/`import` clobber authored representation.
   `drift::re_add` (`src/drift.rs:961-969`) re-projects drifted/added skills+rules through
@@ -37,16 +42,6 @@ removes them each tick. Empty is the normal state.
   UNFILLED mirrors `graph::degree` min-in-degree over a NON-artifact target set, and WHY
   unifying into `graph.rs` is rejected (avoids a fake `requirement` kind in `by_kind`).
   Touches `src/coverage.rs` + `src/compose.rs` + tests. SERIALIZE with the two below.
-
-- FILLED-BY-ROLE (resolved decision; spec `10-contracts.md` "Two fill paths"): parse
-  `filled_by = { role = "<name>" }` on `[requirement.*]` in `src/compose.rs`. Coverage
-  semantics: a requirement carrying `filled_by` is covered iff the named role's required
-  filler is present (delegate to `roster` match — referential, decidable), NOT by
-  `satisfies` opt-in. ONE fill path per requirement: `filled_by` and bare-`satisfies`
-  coverage are mutually exclusive for a given requirement. Admissibility: `filled_by` must
-  name a DECLARED role (referential resolve, same posture as `verified_by`); dangling role
-  ref → admissibility error. Deliberately NO `filled_by = { kind }` (duplicates
-  `role.artifact`). Touches `src/compose.rs` + `src/coverage.rs` + tests. SERIALIZE.
 
 - STRAY-KEY-REJECT (resolved decision; spec `10-contracts.md` "Decision: unknown keys are
   rejected"): unknown keys in `temper.toml` contract tables — `[requirement.*]`, `[role.*]`,
