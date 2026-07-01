@@ -35,9 +35,9 @@ It does four things:
 - **Extend / override** — add clauses to a kind's contract, flip a clause's
   severity (`required` ⟷ `advisory`), or fork the template for a kind.
 - **Bind the harness** — declare requirements: named obligations a filler meets by
-  opt-in `satisfies` or a decidable `match`, `required` or not, optionally typed and
-  `verified_by`-wired (`10-contracts.md`, "Requirements"). This is the interface/trait
-  tier, the part no built-in can carry.
+  opt-in `satisfies` (the artifact declaring what it fills — never a name-`match`),
+  `required` or not, optionally typed and `verified_by`-wired (`10-contracts.md`,
+  "Requirements"). This is the interface/trait tier, the part no built-in can carry.
 - **Define a custom kind** — declare a project-specific artifact kind (specs, ADRs,
   playbooks) in full — extraction + entities/relationships + contract — under
   `[kind.<name>]` (see *Declaring a custom kind* below). Built-in kinds are adopted;

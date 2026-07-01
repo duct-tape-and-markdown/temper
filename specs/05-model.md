@@ -56,7 +56,7 @@ The vocabulary; the **owning spec** carries the detail.
 | **landscape** | a corpus of artifacts (≥1 kinds) governed by a contract | `30-landscapes.md` |
 | **surface** | the authored source of truth; projects to the landscape | `20-surface.md` |
 | projection | the on-disk landscape `apply` writes from the surface | `20-surface.md` |
-| **requirement** | the harness's named obligation (the interface/trait a filler implements): optional `means` (the why), optional typing (`kind`/`contract`), optional multiplicity; filled by opt-in `satisfies` or a `match` selector, coverage-gated, never judged | `10-contracts.md` |
+| **requirement** | the harness's named obligation (the interface/trait a filler implements): optional `means` (the why), optional typing (`kind`/`contract`), optional multiplicity; filled solely by opt-in `satisfies` (no name-`match` — the contract never guesses), coverage-gated, never judged | `10-contracts.md` |
 | **satisfies** | an artifact's opt-in declaration (in its representation) that it fills a requirement — the preferred, decidable fill | `10-contracts.md` |
 | entity / relationship | nodes / edges of a kind's dependency graph | `15` / `30` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |

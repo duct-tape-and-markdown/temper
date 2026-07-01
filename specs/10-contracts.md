@@ -58,7 +58,7 @@ hatch (law 3). The primitives:
   one the engine can only return *indeterminate* — a silent no-op law 1 forbids — so
   it is inadmissible, not a working clause.)
 - **requirement** (harness layer) — a named obligation is *filled*: a filler is
-  `present`, `conforms-to` its typing, selected by opt-in `satisfies` or `match`
+  `present` and `conforms-to` its typing, bound by the artifact's opt-in `satisfies`
   (see Requirements).
 - **verified_by** (the delegation seam) — names an external verifier for the
   behavioral part. `temper` checks the verifier is *declared and wired*; it does
@@ -86,50 +86,54 @@ A requirement declares — all facets optional except its name:
 
 - **`means`** — the authored *intent*, the why. `temper` **never interprets it** (no
   proxy; law 3); the surface carries and organizes it (`20-surface.md`).
-- **fill** — how the obligation is met. *Preferred:* an artifact **opts in** from its
-  own representation with a `satisfies` link — the artifact declaring what it fills,
-  not the contract reaching out to guess. *Alternative:* a contract-side `match`
-  selector (`name` / glob) for artifacts that haven't opted in — the on-ramp for a
-  freshly imported harness.
+- **fill** — how the obligation is met: an artifact **opts in** from its own
+  representation with a `satisfies` link — the artifact declaring what it fills. This
+  is the *only* fill. There is deliberately **no contract-side name/glob `match`**: a
+  name pattern is the contract *reaching out to guess*, the exact anti-pattern this
+  system exists to eliminate (a rename silently breaks it; intent is inferred, not
+  declared). Binding is always the artifact opting in, never the contract guessing.
 - **typing** — `kind` and/or `contract`: constrain *what* may fill it. Absent ⇒
-  **kind-blind**: any artifact that opts in fills it.
-- **multiplicity** — a single filler (≥1, the default) or a predicate over the filler
-  *set* (`count` / `membership` / `unique`, `45-governance.md`).
+  **kind-blind**: any artifact that opts in fills it. `kind` is a *type constraint*,
+  exact and declared — not a name-guess — so it stays where `match` goes.
+- **multiplicity** — a single filler (≥1, the default) or a predicate over the
+  **satisfier set** — the artifacts opting into the requirement (`count` / `membership`
+  / `unique`, `45-governance.md`). The governed set is defined by opt-in, kind-typed —
+  never by a name selector.
 - **`verified_by`** — wire an external judge for the behavioral remainder (below).
 
 ```toml
 # opt-in fill, kind-blind — the intent path
 # .temper/skills/dev-standards/  →  satisfies = ["dev-standards"]
 
-# typed fill — the structural path (what a `role` was):
+# typed fill — kind-constrained opt-in (what a `role` was, minus the name guess):
 [requirement.linter]
 kind     = "rule"                    # only a rule may fill it
-match    = { name = "lint*" }        # contract-side selector, or a rule opts in via satisfies
+# a rule opts in from its representation:  satisfies = ["linter"]
 required = true
 ```
 
 ### Coverage — the one referential check
 
 `check` gates **coverage**: every `required` requirement resolves to its filler(s).
-An **unfilled** requirement (nothing opts in or matches, or the multiplicity is
-violated) and a **dangling** `satisfies` (naming no declared requirement) are precise
-diagnostics. This is the **referential primitive** (above) — decidable, a true
-positive every time. It is the same referential resolution the graph runs over its
+An **unfilled** requirement (nothing opts in, or the multiplicity is violated) and a
+**dangling** `satisfies` (naming no declared requirement) are precise diagnostics.
+This is the **referential primitive** (above) — decidable, a true positive every
+time. It is the same referential resolution the graph runs over its
 edges (`30-landscapes.md`), one arity down: a requirement and its fillers.
 
 So a requirement reads as *intent* ("the harness must maintain dev standards") while
 the gate stays *weak* ("does that obligation have a resolving filler?"). The meaning
 is human; coverage is checked; `temper` does **not** judge whether the filler *truly*
-fulfils `means` — that is the author's attestation (the `satisfies` / `match`),
+fulfils `means` — that is the author's attestation (the `satisfies` opt-in),
 optionally backed by a wired `verified_by`.
 
 ### Decision: role and requirement are one concept
 
 **Chosen:** a single **requirement** — a named obligation with optional `means`,
-optional typing (`kind` / `contract`), a fill declaration (opt-in `satisfies`,
-preferred, or `match`), optional multiplicity, and optional `verified_by`; `check`
-gates **coverage** (every required requirement's filler resolves) — one referential,
-decidable check. **Rejected:** the earlier split into a structural `role` and a
+optional typing (`kind` / `contract`), fill by the artifact's opt-in `satisfies` (the
+sole binding — no name-`match`, which would be the contract guessing), optional
+multiplicity, and optional `verified_by`; `check` gates **coverage** (every required
+requirement's filler resolves) — one referential, decidable check. **Rejected:** the earlier split into a structural `role` and a
 semantic `requirement` bridged by `filled_by`. That split was path-dependence — `role`
 shipped first (the harness slice); `requirement` was added *beside* it in the intent
 reframe rather than *absorbing* it — and every rule it forced (`filled_by`, "one fill
@@ -268,9 +272,9 @@ decidable, therefore sound:
 - every clause names a predicate in the **closed vocabulary** (unknown ⇒ rejected);
 - every referential clause **names its reference syntax** (the hole that made
   `companion-refs` unsound);
-- every requirement's fill **resolves** — a `match` selector resolves, a typed
-  `kind`/`contract` names a real kind/contract — and a `required` single-filler
-  requirement is satisfiable;
+- every requirement's typed `kind`/`contract` **names a real kind/contract**, and a
+  `required` single-filler requirement is satisfiable (some artifact of the right kind
+  can opt in);
 - every regex-backed clause **compiles** (none today — `pattern` is held, above);
   every `enum` is non-empty;
 - every `verified_by` **resolves** to a declared verifier (above).

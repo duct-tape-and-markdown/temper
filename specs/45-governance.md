@@ -14,19 +14,22 @@ guess, so the gate never cries wolf (`00-intent.md` law 3): the wider scopes gai
 
 ## The set scope (the roster) — predicates over a matched set
 
-A requirement already selects its filler(s) by a decidable `match`/`satisfies`
-(`10-contracts.md`). Lift the selector from "fill one slot" to "quantify over the
-matched set," and the roster scope gains its predicates:
+A requirement's set is its **satisfier set** — the artifacts that opt in via
+`satisfies`, kind-typed (`10-contracts.md`); there is no name-`match` selector (a name
+pattern is the contract guessing, eradicated). Lift from "fill one slot" to "quantify
+over the satisfier set" and the roster scope gains its predicates:
 
-- **count** — `|artifacts matching S| ∈ [min, max]` ("at most N agents," "exactly
-  one planner"). This also makes the cascade harness-economy template — cited in
-  `10-contracts.md` but currently inexpressible — real.
-- **membership** — `field F of every artifact matching S₁ ∈ { feature G over
-  artifacts matching S₂ }` ("every agent's `model` is one of the approved set;" "a
-  hook's binary is one the manifest declares").
-- **typed reference** — membership where S₂ is "artifacts of kind K conforming to
-  contract C": a reference resolves *to the right kind of thing*.
-- **unique** — a field is unique across the matched set (today only `name` is).
+- **count** — `|artifacts satisfying R| ∈ [min, max]` ("at most N planners," "exactly
+  one release-tool"). This also makes the cascade harness-economy template — cited in
+  `10-contracts.md` but otherwise inexpressible — real. A whole-*kind* population
+  constraint quantifies over the requirement's `kind` (every artifact of the kind);
+  an intent *subset* quantifies over its opt-in satisfiers.
+- **membership** — `field F of every artifact satisfying R₁ ∈ { feature G over
+  artifacts satisfying R₂ }` ("every agent's `model` is one of the approved set;" "a
+  hook's binary is one the manifest declares"), each set an opt-in satisfier set.
+- **typed reference** — membership where R₂'s set is "artifacts of kind K conforming
+  to contract C": a reference resolves *to the right kind of thing*.
+- **unique** — a field is unique across the satisfier set (today only `name` is).
 
 Each is exact membership/count over deterministically-extracted features of a finite
 corpus — decidable, a fact, a true positive every time.
