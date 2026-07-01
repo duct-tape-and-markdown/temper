@@ -222,6 +222,26 @@ lie" Decision); admissibility only enforces that nothing outside the algebra
 slipped in. It bottoms out at the hand-built algebra — the axiom, validated by
 code, not by a further contract. No regress.
 
+## The recursion bottoms out — the definition is not in `temper.toml`
+
+The two checks are one relation at successive rungs — **contract over subject, and
+the subject satisfies it:**
+
+- `.temper/` contents ⊨ `temper.toml` — **conformance**;
+- `temper.toml` ⊨ **the definition** — **admissibility**.
+
+The definition — the closed algebra above plus the structural rules — is **engine-
+owned and fixed; it is not in `temper.toml`, and must not be.** If the author could
+add a primitive or loosen a structural rule from the surface, they could mint an
+unsound proxy and law 3 collapses through that door — so the algebra is deliberately
+**un-authorable**. That un-authorability *is* the immune system. So the recursion is
+not infinite turtles: it is exactly two *checked* rungs grounded on a *fixed axiom*.
+The relation is uniform (contract over subject at every rung), but the topmost
+contract is engine-provided, never authored — and it bottoms out in **Rust, checked
+by `rustc`**: the honest handoff off temper's own stack (`00-intent.md` honest bound).
+`temper` governs harnesses and specs down to the algebra; it does not check its own
+primitive vocabulary — that is the axiom it stands on.
+
 ## Decision: the `type` vocabulary is a closed scalar/container lattice
 
 **Chosen:** the `type` primitive ranges over a fixed, closed set matching what
