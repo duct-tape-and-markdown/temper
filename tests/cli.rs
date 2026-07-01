@@ -230,6 +230,82 @@ fn self_host_check_is_clean_over_tempers_own_rules() {
     );
 }
 
+#[test]
+fn schema_kind_skill_emits_the_skill_floor_decidable_clauses() {
+    // Run in a fresh CWD with no `temper.toml`, so the emitted schema is the pure
+    // skill floor (no author layer) and the assertions are deterministic.
+    let cwd = tmpdir("schema-skill");
+    let output = Command::new(BIN)
+        .current_dir(&cwd)
+        .arg("schema")
+        .arg("--kind")
+        .arg("skill")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "temper schema --kind skill must exit zero"
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // A JSON object over frontmatter.
+    assert!(
+        stdout.contains("\"type\": \"object\""),
+        "schema must be an object schema, got:\n{stdout}"
+    );
+    // The skill floor requires `name` (required → required[]).
+    assert!(
+        stdout.contains("\"required\""),
+        "the skill floor's `required` clause must project a required[] array"
+    );
+    // `allowed_chars` on `name` → a generated `pattern` charclass.
+    assert!(
+        stdout.contains("\"pattern\""),
+        "the skill floor's allowed_chars clause must project a `pattern`"
+    );
+    // `forbidden_keys` (globs / alwaysApply) → a `not`/`required` combinator per key.
+    assert!(
+        stdout.contains("globs") && stdout.contains("alwaysApply"),
+        "the skill floor's forbidden_keys must appear as forbidden-key combinators"
+    );
+
+    // It parses back as JSON — a well-formed schema, not just a string that looks
+    // like one.
+    serde_json::from_str::<serde_json::Value>(&stdout).expect("emitted schema must be valid JSON");
+}
+
+#[test]
+fn schema_without_kind_maps_every_modeled_kind() {
+    let cwd = tmpdir("schema-all");
+    let output = Command::new(BIN)
+        .current_dir(&cwd)
+        .arg("schema")
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "temper schema must exit zero");
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    // A by-kind map: each modeled kind resolves to its own object schema.
+    assert_eq!(json["skill"]["type"], "object");
+    assert_eq!(json["rule"]["type"], "object");
+}
+
+#[test]
+fn schema_rejects_an_unknown_kind() {
+    let cwd = tmpdir("schema-unknown");
+    let status = Command::new(BIN)
+        .current_dir(&cwd)
+        .arg("schema")
+        .arg("--kind")
+        .arg("nonesuch")
+        .status()
+        .unwrap();
+    assert!(
+        !status.success(),
+        "an unknown kind must be a hard error, not a silent empty schema"
+    );
+}
+
 /// Run `temper diff <harness> --into <ws>` and return `(exit-zero, stdout)`.
 fn run_diff(harness: &Path, into: &Path) -> (bool, String) {
     let output = Command::new(BIN)

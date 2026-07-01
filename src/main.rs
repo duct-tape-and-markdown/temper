@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use miette::IntoDiagnostic;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
 use temper::contract::Contract;
@@ -28,6 +29,7 @@ use temper::graph;
 use temper::import;
 use temper::kind::{KindError, Unit};
 use temper::roster;
+use temper::schema;
 
 /// The surface workspace default for `--into` / the `check` argument: a `.temper`
 /// directory under the current working directory (`specs/20-surface.md`).
@@ -76,6 +78,14 @@ enum Command {
         /// `required` ones — the strict CI policy from `specs/10-contracts.md`.
         #[arg(long)]
         deny_advisories: bool,
+    },
+    /// Emit the active per-kind contract as an editor JSON Schema (the keystroke
+    /// gate — `specs/50-distribution.md`, "The gate at keystroke").
+    Schema {
+        /// Emit only this artifact kind's schema (`skill`, `rule`); omitted ⇒ a
+        /// JSON object mapping each modeled kind to its schema.
+        #[arg(long)]
+        kind: Option<String>,
     },
     /// Report on-disk drift of a harness against the surface's import baseline.
     Diff {
@@ -247,6 +257,55 @@ fn main() -> miette::Result<ExitCode> {
             } else {
                 ExitCode::SUCCESS
             })
+        }
+        Command::Schema { kind } => {
+            // The keystroke placement of the one gate (`specs/50-distribution.md`,
+            // "The gate at keystroke"): emit the *active* contract per kind — the
+            // same by-kind floor ⊕ optional `temper.toml` layer `check` gates
+            // against — as an editor JSON Schema. Validation channel only; the
+            // docs/hover channel has no source to project (see `schema.rs`).
+            let layer = compose::AuthorLayer::load(Path::new(TEMPER_TOML))?;
+
+            // The modeled by-kind floors, paired with the kind name the layer keys
+            // on — the identical floors `check` composes above.
+            let floors: Vec<(&str, Contract)> = vec![
+                (
+                    "skill",
+                    Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?,
+                ),
+                (
+                    "rule",
+                    Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?,
+                ),
+            ];
+
+            let json = match kind.as_deref() {
+                // `--kind <k>`: emit just that kind's schema. An unknown kind is a
+                // hard error, never a silent empty schema — the caller named a kind
+                // `temper` does not model.
+                Some(requested) => {
+                    let floor = floors
+                        .into_iter()
+                        .find_map(|(name, floor)| (name == requested).then_some((name, floor)));
+                    let (name, floor) = floor.ok_or_else(|| {
+                        miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
+                    })?;
+                    let contract = compose::effective(layer.as_ref(), name, floor)?;
+                    schema::emit(&contract)
+                }
+                // No `--kind`: a JSON object mapping each modeled kind to its schema.
+                None => {
+                    let mut map = serde_json::Map::new();
+                    for (name, floor) in floors {
+                        let contract = compose::effective(layer.as_ref(), name, floor)?;
+                        map.insert(name.to_string(), schema::emit(&contract));
+                    }
+                    serde_json::Value::Object(map)
+                }
+            };
+
+            println!("{}", serde_json::to_string_pretty(&json).into_diagnostic()?);
+            Ok(ExitCode::SUCCESS)
         }
         Command::Diff { harness_path, into } => {
             // Drift is a report, not a gate (`specs/20-surface.md`, CLI surface):

@@ -26,4 +26,5 @@ pub mod import;
 pub mod kind;
 pub mod roster;
 pub mod rule;
+pub mod schema;
 pub mod skill;
