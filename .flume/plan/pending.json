@@ -1,5 +1,235 @@
 [
   {
+    "tag": "CHECK-CLEANUP",
+    "summary": "Delete check.rs's dead pre-engine lint scaffold — `trait Rule`/`run`/`OneErrorPerSkill` and the unused diagnostic-span channel; fix the false module header",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: kill the heuristic rule registry"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/check.rs",
+          "description": "Delete the dead pre-engine lint architecture `engine.rs` superseded: `trait Rule` (~227), `fn run` (~237), the test-only `OneErrorPerSkill` (~335) and its two `run` tests; and the never-used diagnostic-span channel — `Diagnostic::span` (~154), `with_span` (~194, zero callers), the `labels()` override (~216, always None), and the now-unused `SourceSpan`/`LabeledSpan` imports (~26). Rewrite the false module header (~11-17) that still sells `Rule::check`/`run` as the architecture. KEEP `Workspace`/`Diagnostic` struct/`Severity`/`render`/`any_error` — zero production edits."
+        }
+      ],
+      "retire": ["trait Rule", "check::run", "OneErrorPerSkill", "Diagnostic::span", "Diagnostic::with_span"]
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "check.rs carries only the live surface (Workspace/Diagnostic/Severity/render/any_error); the dead Rule registry and the always-None span channel are gone; the module header describes the engine, not the retired registry; no production behavior change; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox CHECK-CLEANUP (D1+D3). engine.rs replaced the heuristic registry (specs/10-contracts.md); the trait/run/OneErrorPerSkill scaffold and the diagnostic-span plumbing are pure dead code. check.rs-only — fully disjoint from the rest of the wave."
+  },
+  {
+    "tag": "KIND-ENTITIES-RECONCILE",
+    "summary": "Reject `[kind.*.entities]` uniformly in both compose kind-parse paths (custom-kind silently drops it today) and fix the false `folded in elsewhere` comment",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: unknown keys are rejected, not ignored"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Spec 2bc1013 dropped the phantom `[kind.<name>.entities]` table. Make `parse_custom_kind` (~1075) reject unknown keys the way `parse_kind_layer` (~1031) already does — iterate the table, allow only `governs`/`extraction`/`clause`/`relationships`, and reject any stray key (a leftover `[kind.*.entities]`, a typo) as a load error rather than silently dropping it. Fix the false comment (~68, `[kind.<name>.entities] ... folded in elsewhere`): nodes derive from `features.id`; there is no separate entities table."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "a custom-kind `[kind.<name>]` declaration carrying a stray subtable/key (e.g. `entities`) is a load error, exactly as `parse_kind_layer` already rejects it."
+      }
+    ],
+    "acceptance": "Both compose kind-parse paths reject an unrecognized key on a `[kind.<name>]` table uniformly; a leftover `[kind.*.entities]` fails loudly instead of being silently dropped; the stale `folded in elsewhere` comment is corrected; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox KIND-ENTITIES-RECONCILE (R1). Today `parse_kind_layer` rejects unknown keys but `parse_custom_kind` pulls only its known parts and drops the rest — align them (anti-silent-gap, specs/10-contracts.md unknown-key decision). Consolidation shipped (19333aa); compose.rs-only. MATCHSELECTOR-ROLE-DROP serializes after this (shared compose.rs)."
+  },
+  {
+    "tag": "BODY-HASH-DROP",
+    "summary": "Remove the write-only `RollupEntry.body_hash` — no production reader; law-5 provenance is `{source_path, import_hash}` only",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Provenance and round-trip discipline (law 5)"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Drop the `RollupEntry.body_hash` field (~129), its three `sha256_hex` computations (~306/345/460), and its emit into the lock row (~573); rewrite the `five-column row` doc (~541) to the four columns production actually uses (`source_path`/`import_hash`/`last_applied`)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Drop the two `re_add` rewrites of `body_hash` (~1037/1055) and the doc mentions (~66/997) — nothing reads it back."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "Regenerate the `coordinate_import_surface` insta snapshot (tests/snapshots/acceptance__coordinate_import_surface.snap) — the emitted lock row loses its `body_hash` column."
+        }
+      ],
+      "retire": ["import::RollupEntry::body_hash"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/acceptance.rs",
+        "asserts": "the generated lock (lock.toml) row carries four columns — source_path/import_hash/last_applied — with body_hash gone; the snapshot is regenerated."
+      }
+    ],
+    "acceptance": "`RollupEntry` carries no `body_hash`; the lock emits the four columns production reads; `re_add` no longer rewrites it; the `coordinate_import_surface` snapshot is updated; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox BODY-HASH-DROP (D2). Write-only field, no production reader; law-5 provenance is {source_path, import_hash} (specs/20-surface.md). Touches import.rs + drift.rs + the acceptance snapshot. SHA256-HOIST serializes after (shared import.rs/drift.rs)."
+  },
+  {
+    "tag": "FEATURES-COMPANIONS-DROP",
+    "summary": "Remove the never-read `Features.companions` projection (its sole consumer companion-refs was killed as unsound); keep `Skill::companions` for the byte-faithful copy",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: kill the heuristic rule registry"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/extract.rs",
+          "description": "Remove the `Features.companions` field (~175), its population in `skill_features` (~243-247), the `rule_features` placeholder (~279), and the two `assert!(features.companions.is_empty())` test asserts (~640/696)."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Remove the `companions: Vec::new()` test-helper placeholder (~380) and the stale `companions are unused by these clauses` comment (~363)."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Remove the `companions: Vec::new()` placeholder in the `features()` test helper (~749)."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "Remove the `companions: Vec::new()` test-helper placeholder (~160)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Remove the `companions: Vec::new()` test-helper placeholder (~583)."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Remove the `companions: Vec::new()` placeholder in the composed-Unit `Features` (~451)."
+        }
+      ],
+      "retire": ["extract::Features::companions"]
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`Features` has no `companions` field; every constructor across extract/engine/roster/coverage/graph/kind is updated; `Skill::companions` is retained (import.rs byte-faithful copy); cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox FEATURES-COMPANIONS-DROP (D4). companion-refs was killed as unsound → a companion-reference clause is inadmissible (specs/10-contracts.md), so the feature projection is dead. Field + ~6 Vec::new() placeholders. KEEP Skill::companions (byte-faithful copy). Shares engine.rs with DEPENDENCY-EXISTS-FENCE and roster.rs with MATCHSELECTOR-ROLE-DROP — both serialize after."
+  },
+  {
+    "tag": "DEPENDENCY-EXISTS-FENCE",
+    "summary": "Reject `Predicate::DependencyExists` in admissibility so a hand-authored clause fails loud, not a silent `Indeterminate` no-op the spec fenced",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "The primitive algebra (decidable only)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "FEATURES-COMPANIONS-DROP" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Treat `Predicate::DependencyExists` (~203) as a held-back predicate (like `pattern`): recognizable when parsed, but flagged inadmissible rather than accepted as a working clause."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "In `admissibility`, emit an inadmissibility finding for a `DependencyExists` clause (a held predicate with no decidable reference syntax/extractor), so a hand-authored `dependency-exists` fails loudly. Today `decide` returns `Outcome::Indeterminate` for it (~333) — a silent no-op law 1 forbids. Update the inline test asserting `run(DependencyExists, ..)` is empty (~787) to the new fenced behavior."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "a contract clause using `dependency-exists` fails admissibility (a held predicate), never silently decides `Indeterminate`."
+      }
+    ],
+    "acceptance": "A hand-authored `dependency-exists` clause is an admissibility violation (fenced like `pattern`), never a silent `Indeterminate` no-op; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox DEPENDENCY-EXISTS-FENCE (R2). Spec 2bc1013 fenced dependency-exists as held-back (no decidable reference syntax/extractor yet); engine.rs:333 returns Outcome::Indeterminate = the silent no-op law 1 forbids. Mirror the `pattern` fence. blockedBy FEATURES-COMPANIONS-DROP (shared engine.rs)."
+  },
+  {
+    "tag": "SHA256-HOIST",
+    "summary": "Hoist the duplicate `sha256_hex` defs (skill/rule/import/drift) into one shared `&[u8]` helper — only the sha256 hoist, not the frontmatter round-trip helpers",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Provenance and round-trip discipline (law 5)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "BODY-HASH-DROP" },
+    "files": {
+      "new": [
+        {
+          "path": "src/hash.rs",
+          "description": "A small shared `sha256_hex(bytes: &[u8]) -> String` util — the single home for the SHA-256 hex the import_hash/drift anchors compute (specs/20-surface.md law 5). Generic `&[u8]`, no kind-typing lost."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub(crate) mod hash;` beside the other modules — this entry owns the `mod` line."
+        },
+        { "path": "src/skill.rs", "description": "Delete the local `sha256_hex` (~350); call `crate::hash::sha256_hex`." },
+        { "path": "src/rule.rs", "description": "Delete the local `sha256_hex` (~358); call `crate::hash::sha256_hex`." },
+        { "path": "src/import.rs", "description": "Delete the local `sha256_hex` (~597); call `crate::hash::sha256_hex`." },
+        { "path": "src/drift.rs", "description": "Delete the local `sha256_hex` (~322); call `crate::hash::sha256_hex`." }
+      ],
+      "retire": ["skill::sha256_hex", "rule::sha256_hex", "import::sha256_hex", "drift::sha256_hex"]
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "One shared `sha256_hex`; skill/rule/import/drift all call it; no duplicate defs remain; hash output is byte-identical (no snapshot churn); cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox SHA256-HOIST (U2-sha256). Do ONLY the sha256 hoist. The frontmatter round-trip helpers (split_frontmatter, pod_scalar_to_string, ...) stay duplicated across skill.rs/rule.rs per the documented 'one artifact kind per module' tradeoff — accepted debt (.claude/rules/rust.md), not this entry. blockedBy BODY-HASH-DROP (shared import.rs/drift.rs)."
+  },
+  {
+    "tag": "MATCHSELECTOR-ROLE-DROP",
+    "summary": "Drop the `role:` marker opt-in — the `MatchSelector::Role` variant + parse arms + roster read + empty-marker admissibility guard; `satisfies` is the sole artifact-side fill",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Requirements — the harness's named obligations"
+    },
+    "gate": { "kind": "blockedBy", "tag": "KIND-ENTITIES-RECONCILE" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Drop the `MatchSelector::Role` variant (~461), its `selector_from` parse arm (~1497), the two test constructions (~1982/2427), and the doc reference (~188)."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Drop the `matches()` `Role` arm (~463-464, reading `features.field(\"role\")`), the empty-marker admissibility guard (~304-315, pure seam-policing), and the `MatchSelector::Role` doc mentions (~44/266/445). Adjust the `features()` test helper and the role-marker tests (~735/827) to the name/glob path."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Remove/adjust the role-marker roster tests — fill is now `satisfies` opt-in or a `match` name/glob selector only."
+        }
+      ],
+      "retire": ["compose::MatchSelector::Role"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a requirement is filled only via a `satisfies` opt-in or a `match` name/glob selector; the removed `role:` marker path is gone and its empty-marker guard with it."
+      }
+    ],
+    "acceptance": "No `MatchSelector::Role`; the role-marker admissibility guard is removed; a requirement's fill is `satisfies` (artifact-side) or `match` name/glob (contract-side) only, per the consolidated fill vocabulary; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox MATCHSELECTOR-ROLE-DROP (U1), the accretion residue. Post-consolidation, satisfies is the sole artifact-side opt-in; match=name/glob is contract-side (specs/10-contracts.md). MatchSelector::Role reads Features.field(\"role\"), no struct field — clean delete over the unified Requirement. blockedBy KIND-ENTITIES-RECONCILE (compose.rs); also shares roster.rs with FEATURES-COMPANIONS-DROP, so held out of that wave."
+  },
+  {
     "tag": "COVERAGE-CUSTOM-KIND",
     "summary": "Custom-kind units join coverage — read `[representation]` `satisfies` in `kind::Unit` instead of hardcoding it empty",
     "per": {
@@ -8,7 +238,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it must rebase onto the unified Requirement after CONSOLIDATE-REQUIREMENT lands"
+      "reason": "follow-on; no story yet demands custom-kind coverage participation — deferred on priority"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +246,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (the commented gap in `kind::Unit`), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
+          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its projected `[representation]` rather than the hardcoded `satisfies: Vec::new()` (the commented gap ~451-455), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. Confirm `import`'s custom-unit projection emits `[representation]` for the read to find."
         },
         {
           "path": "tests/coverage.rs",
@@ -33,7 +263,7 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox DEFER (1). kind::Unit hardcodes `satisfies=Vec::new()` today (commented gap). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. Shares coverage.rs with CONSOLIDATE-REQUIREMENT, so it must land AFTER that (rebase onto the unified `Requirement`); deferred anyway, never open during the consolidation. Revive when the dogfood needs the spec corpus in coverage."
+    "notes": "Inbox DEFER (1). kind::Unit hardcodes `satisfies=Vec::new()` (kind.rs commented gap). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. CONSOLIDATE-REQUIREMENT shipped (19333aa); on revival rebase onto the unified Requirement and past FEATURES-COMPANIONS-DROP (which edits kind.rs/coverage.rs). Revive when the dogfood needs the spec corpus in coverage."
   },
   {
     "tag": "PACKAGING-CHANNELS",
