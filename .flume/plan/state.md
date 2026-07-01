@@ -1,20 +1,20 @@
 # Plan state
 
-- **Phase:** reconcile. Wave 1 (CHECK-CLEANUP, KIND-ENTITIES-RECONCILE,
-  BODY-HASH-DROP, FEATURES-COMPANIONS-DROP) verified shipped on disk (e65e872) —
-  their four target seams are gone/reconciled. Wave 2's blockers are all satisfied,
-  so its three entries flip `blockedBy` → `open`. Inbox empty; no new corpus↔src gap
-  to file (the KIND-* frontier stays human-gated on open questions).
-- **Last shipped:** CHECK-CLEANUP / KIND-ENTITIES-RECONCILE / BODY-HASH-DROP /
-  FEATURES-COMPANIONS-DROP (`e65e872`).
+- **Phase:** reconcile. Verified on disk: wave 2 (DEPENDENCY-EXISTS-FENCE,
+  SHA256-HOIST, MATCHSELECTOR-ROLE-DROP) shipped at `d78cf65` — the `role:` marker
+  is gone from the fill vocabulary, the four sha256 defs are hoisted into `hash.rs`,
+  and `dependency-exists` is fenced at admissibility (engine.rs). One new gap filed:
+  the spec names a gitignored `temper-local.toml` (`40-composition.md`) but `main.rs`
+  loads only `temper.toml`. Everything else is either shipped or fork-blocked. Inbox empty.
+- **Last shipped:** DEPENDENCY-EXISTS-FENCE / SHA256-HOIST / MATCHSELECTOR-ROLE-DROP
+  (`d78cf65`).
 - **In flight:** none.
-- **Pickable now (3, mutually disjoint files):** DEPENDENCY-EXISTS-FENCE
-  (`contract.rs`/`engine.rs`), SHA256-HOIST (new `hash.rs` + `lib.rs`/`skill.rs`/
-  `rule.rs`/`import.rs`/`drift.rs`), MATCHSELECTOR-ROLE-DROP (`compose.rs`/`roster.rs`/
-  `tests/requirement_roster.rs`). No path overlap — parallel-safe.
-- **Carried:** COVERAGE-CUSTOM-KIND deferred (priority), PACKAGING-CHANNELS parked
-  (human release creds), AGENT-KIND deferred (reframe).
-- **Blocked frontier (open questions, unchanged):** `(read-verbs)`,
-  `(reference-id-normalization)`, `(decision-marker-predicate)` — await a human decision.
+- **Pickable now (1):** TEMPER-LOCAL-LAYER — `main.rs` + `compose.rs` +
+  `tests/temper_toml.rs`. No other `open` entry, so no parallel-conflict risk.
+- **Carried:** COVERAGE-CUSTOM-KIND deferred (priority; kind.rs:451-454 gap confirmed),
+  PACKAGING-CHANNELS parked (human release creds), AGENT-KIND deferred (reframe).
+- **Blocked frontier (open questions, unchanged):** `(reference-id-normalization)` +
+  `(decision-marker-predicate)` gate the spec-kind references-resolve / decisions-name
+  clauses; `(read-verbs)` gates `why`/`requirements` CLI verbs — all await a human decision.
 
-Plan continues: no — queue reconciled, 3 disjoint `open` entries pickable, inbox drained; hand to build.
+Plan continues: no — queue reconciled, one disjoint `open` entry pickable, inbox drained; hand to build.

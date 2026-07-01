@@ -1,5 +1,44 @@
 [
   {
+    "tag": "TEMPER-LOCAL-LAYER",
+    "summary": "Load a gitignored `temper-local.toml` and layer it over `temper.toml` for personal clause/severity overrides — the committed-plus-local split the spec names but code never loads",
+    "per": {
+      "path": "specs/40-composition.md",
+      "section": "The author-declared contract — `temper.toml`"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Discover an optional `temper-local.toml` beside `temper.toml` at the invocation root (a `TEMPER_LOCAL_TOML` const mirroring `TEMPER_TOML` at ~main.rs:46). When present, parse it into a second `AuthorLayer` and fold it over the committed layer before the effective-contract pass; absent ⇒ the current path (floor ⊕ `temper.toml`, or bare floor) runs verbatim. Personal file is gitignored — the Lefthook committed-plus-local split the spec cites."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Add the two-layer fold: merge a local `AuthorLayer`'s per-kind clauses over a base layer's (local clause overrides the base clause of the same identity via the existing `same_identity`, else extends — reusing `layer_over`'s clause semantics one file up), yielding one effective `AuthorLayer` the existing `effective()`/`layer_over` path consumes unchanged. Scope the fold to contract clauses/severity (the personal-override case); note that cross-file requirement-roster / custom-kind merge is out of scope here (raise an open question if a story needs local requirements)."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "A `temper-local.toml` flips a committed clause's severity (and adds a clause) and the effective contract reflects the local override; absent-local leaves the committed layer's effective contract byte-identical to today (guards the pass-through path)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "a `temper-local.toml` clause overrides/extends the committed `temper.toml` layer in the effective contract; absent-local is a verbatim pass-through of the committed layer."
+      }
+    ],
+    "acceptance": "With `temper-local.toml` present beside `temper.toml`, its clause/severity overrides layer over the committed layer in each kind's effective contract; absent, `check` behaves exactly as today; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Spec names `temper-local.toml` as present-tense design ('a gitignored `temper-local.toml` layers over *it*'), unimplemented — `main.rs` loads only `temper.toml`. Decidable, unblocked, small: the `layer_over`/`effective` seam already exists (compose.rs:999-1045), this applies it to a second file. Scope to clause/severity local override (Lefthook personal-tuning analogue); local requirement/custom-kind roster merge is under-specified — deferred, not invented."
+  },
+  {
     "tag": "COVERAGE-CUSTOM-KIND",
     "summary": "Custom-kind units join coverage — read `[representation]` `satisfies` in `kind::Unit` instead of hardcoding it empty",
     "per": {
@@ -33,7 +72,7 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "kind::Unit hardcodes `satisfies=Vec::new()` (kind.rs:451-454 commented gap). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. On revival rebase onto the unified Requirement; FEATURES-COMPANIONS-DROP (which edited kind.rs/coverage.rs) has shipped. Revive when the dogfood needs the spec corpus in coverage."
+    "notes": "kind::Unit hardcodes `satisfies=Vec::new()` (kind.rs:451-454 commented gap, confirmed on disk). Coverage is kind-blind (spec), so the seam is legitimate — deferred only on priority. On revival: import_custom_unit writes provenance-only meta.toml (no `[representation]`), so add the projection first, then the read. Revive when the dogfood needs the spec corpus in coverage."
   },
   {
     "tag": "PACKAGING-CHANNELS",
