@@ -1,88 +1,16 @@
 [
   {
-    "tag": "RENAME-ROLLUP-LOCK",
-    "summary": "Rename the generated roll-up index file from `author.toml` to `lock.toml`",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Topology: structured-index + markdown sidecars"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Change the roll-up write path `into.join(\"author.toml\")` (line ~489) to `into.join(\"lock.toml\")` — ideally via a named `const` for the filename. Update the module and item doc comments that name the roll-up `author.toml` (lines ~28, 106, 129, 467) to `lock.toml`. Update every in-module test that asserts/reads `into.join(\"author.toml\")` to `lock.toml`."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Update assertions referencing the generated `author.toml` to `lock.toml`."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "Update assertions referencing the generated `author.toml` to `lock.toml`."
-        },
-        {
-          "path": "tests/snapshots/acceptance__coordinate_import_surface.snap",
-          "description": "Regenerate the snapshot (`cargo insta accept`) so the imported surface names `lock.toml` in place of `author.toml`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "`import` writes the roll-up to `<into>/lock.toml`; no `author.toml` remains"
-      }
-    ],
-    "acceptance": "`import` writes the generated roll-up state-of-record to `<into>/lock.toml`; no `author.toml` is produced; snapshots regenerated; `cargo test` / `clippy -D warnings` / `fmt --check` green.",
-    "notes": "Resolves `(rollup-index-rename)`: `specs/20-surface.md` now names the generated state-of-record `lock.toml` (\"The surface: a contract over its contents\"; topology diagram). Filename + the docstrings/comments naming it — no behavior change, no `.temper/` topology move (the `<into>` dir is the `.temper/` contents root, so `<into>/lock.toml` is `.temper/lock.toml`). Only `src/import.rs` writes it; nothing reads it back outside import's own tests. Disjoint from the graph entries."
-  },
-  {
-    "tag": "GOV-GRAPH-ACYCLIC",
-    "summary": "Add an `acyclic` graph-scope check: the harness reference graph must contain no cycle",
-    "per": {
-      "path": "specs/45-governance.md",
-      "section": "The graph scope (the model) — predicates over the relation graph"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "Add `pub fn acyclic(edges, by_kind) -> Vec<Diagnostic>`: build the artifact-level directed graph by resolving each declared edge's reference field to target ids (the same arc-resolution `check` already does via `edge_targets`), then DFS for a cycle. Emit an error-severity `Diagnostic` (a `graph.acyclic` rule id) naming the cycle when the reference graph is not acyclic. Skip inadmissible edges exactly as `check` does."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Inside the existing `if let Some(layer)` graph block (~line 189-190), wire `diagnostics.extend(graph::acyclic(layer.edges(), &by_kind));` alongside `graph::admissibility` / `graph::check`. Absent `temper.toml` ⇒ no layer ⇒ no edges ⇒ adds nothing, so the floor-only path stays byte-for-byte unchanged."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "Add cases: an acyclic reference graph is clean; a self-loop fires; a multi-node cycle (rule→skill→rule) fires an error; an inadmissible/dangling edge is skipped and does not mask or forge a cycle finding."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a cyclic declared-reference graph fires an error-severity diagnostic; an acyclic one is clean"
-      }
-    ],
-    "acceptance": "`graph::acyclic` runs in `check` over the harness edge graph; a cycle among declared references fires an error-severity diagnostic; acyclic graphs pass; `cargo test` / `clippy -D warnings` / `fmt --check` green.",
-    "notes": "acyclic is intrinsic to declared edges — runs always-on over `layer.edges()` like route resolution (`graph::check`), no per-role opt-in; a cycle loads nothing, so every finding is a true positive. Detects artifact-level cycles over the resolved reference arcs. The always-on vs author-declared choice is flagged here for the human. degree (opt-in, per-role) is serialized behind this — both edit graph.rs."
-  },
-  {
     "tag": "GOV-GRAPH-DEGREE",
     "summary": "Add a per-role `degree` clause bounding the in/out edge count of a role's matched nodes",
     "per": {
       "path": "specs/45-governance.md",
       "section": "The graph scope (the model) — predicates over the relation graph"
     },
-    "gate": { "kind": "blockedBy", "tag": "GOV-GRAPH-ACYCLIC" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GOV-GRAPH-ACYCLIC"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
