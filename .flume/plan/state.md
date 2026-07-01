@@ -1,21 +1,23 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk this tick: GOV-UNIQUE **shipped** —
-  `compose.rs` `Role` carries `unique: Vec<String>` (with the `RoleBadUnique`
-  parse guard, orthogonal to `count`/`required`), and `roster.rs` `check` decides
-  it via `ROLE_UNIQUE_RULE` + `duplicates` (group the matched set by the field's
-  scalar, flag each shared value). No `membership` exists anywhere in `src/`.
-- **Last shipped:** GOV-UNIQUE (`0dbf402`). Tree clean, inbox empty, no new fork.
-- **Queue:** GOV-MEMBERSHIP **`open`, pickable** — the next set-scope predicate
-  (`45-governance.md`): a declared field on each matched artifact must lie in the
-  feature-set derived from a second selector's matched artifacts (`compose.rs` +
-  `roster.rs`). SPEC-KIND-GATE **`parked`** on a human committing the untracked
-  `contracts/spec.toml`. The two are disjoint (compose/roster vs `main.rs`), and
-  GOV-MEMBERSHIP is the only pickable entry, so `open` is parallel-safe.
-- **Unfiled frontier:** `(typed-reference)` — membership where S₂ is "kind K
-  conforming-to contract C" — filed next, after GOV-MEMBERSHIP ships. Graph
-  degree/acyclic still await an edge-extraction + graph foundation (`45` "The
-  harness is a graph too").
+- **Phase:** reconcile. Verified on disk this tick: GOV-MEMBERSHIP **shipped** —
+  `compose.rs` `Membership` (field / kind / selector / feature, with the
+  `RoleBadMembership` parse guard) and `roster.rs` `out_of_set` decides it under
+  `ROLE_MEMBERSHIP_RULE` (draw the S₂ feature-set, flag any S₁ filler outside it).
+  No `source_contract` / typed-reference anywhere in `src/`.
+- **Last shipped:** GOV-MEMBERSHIP (`47db174`). Tree clean, inbox empty, no new fork.
+- **Queue:** GOV-TYPED-REFERENCE **`open`, pickable** — the fourth set-scope
+  predicate (`45-governance.md`): membership where S₂ is "kind K conforming-to
+  contract C", so a reference resolves to the right *kind of thing* (`compose.rs`
+  + `roster.rs`, reusing `RoleContract::resolve` + `engine::validate`).
+  SPEC-KIND-GATE **`parked`** on a human committing the untracked
+  `contracts/spec.toml`. Disjoint (compose/roster vs `main.rs`), and
+  GOV-TYPED-REFERENCE is the only pickable entry ⇒ `open` is parallel-safe.
+- **Frontier:** graph scope (`degree`, `acyclic`) awaits an edge-extraction +
+  graph foundation (`45` "The harness is a graph too") — filed after
+  GOV-TYPED-REFERENCE. `(skill-ref-syntax)` and `(regex-crate)` reconciled to
+  RESOLVED this tick (their specs already carry the resolving decision).
 
-Plan continues: no — GOV-UNIQUE confirmed shipped and dropped, GOV-MEMBERSHIP
-filed as the one pickable entry, queue reconciled, inbox empty. Hand to build.
+Plan continues: no — GOV-MEMBERSHIP confirmed shipped, GOV-TYPED-REFERENCE filed
+as the one pickable entry, two drifted forks reconciled to RESOLVED, inbox empty.
+Hand to build.

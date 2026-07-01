@@ -18,12 +18,13 @@ and embeds the bundled skill template as the default.
   Chain head SKILL-CONTRACT-TEMPLATE is now `open`. Kept as the decision record;
   no dependent still waits on it.
 
-- `(regex-crate)` — The primitive algebra lists `pattern` (regex), but `regex` is
-  not in the sanctioned crate set and the codebase deliberately avoids it. Add
-  `regex` to the sanctioned set for a real `pattern` primitive, or restrict to
-  in-crate decidable predicates (the `allowed_chars` charset covers the skill
-  template's `[a-z0-9-]`)? Blocks only the full `pattern` clause, not the engine.
-  See `specs/10-contracts.md`.
+- `(regex-crate)` — RESOLVED (`specs/10-contracts.md` Decision: "`allowed_chars`,
+  not a general `pattern` clause"). `regex` was already sanctioned for *solved
+  mechanics*; the live decision is to **not** expose an arbitrary `pattern =
+  "<regex>"` clause — it is expressive enough to be an unsound proxy. The
+  author-facing charset predicate caps at `allowed_chars` (`ranges` + `chars`, e.g.
+  `[a-z0-9-]`); a genuine *format* need gets a narrow named predicate, never a
+  general regex clause. Kept as the decision record; no dependent still waits.
 
 - `(contract-selection)` — RESOLVED (`specs/20-surface.md` Decision: "contract
   selection is by artifact kind"). `check` maps each artifact to the built-in
@@ -31,26 +32,26 @@ and embeds the bundled skill template as the default.
   `contracts/rule.toml`), embedded as defaults. A per-workspace override is a
   later extension, not the default. Unblocks the rule artifact kind.
 
-- `(skill-ref-syntax)` — The rejected `companion-refs` rule grepped prose, which
-  is unsound (`10-contracts.md` referential clause: admissible *only* over a
-  precisely declared reference syntax). Should a decidable referential clause for
-  skills exist, and if so what reference syntax does the author declare (an
-  explicit `@path`, a fenced block)? Until declared, no companion-ref check
-  ships. See `specs/10-contracts.md`.
+- `(skill-ref-syntax)` — RESOLVED (`specs/45-governance.md` Decision: "a reference
+  is a declared edge on the surface, never grepped prose"). A reference is a
+  **declared structured field** authored on the surface (the reference syntax),
+  projected alongside any prose; the graph is built from these edges — never
+  inferred by grepping prose for names/paths (the unsound prose-grep
+  `10-contracts.md`'s referential rule forbids, the exact `companion-refs`
+  unsoundness). So no prose-grep companion-ref check ships; a decidable referential
+  clause runs only over a declared edge field. Kept as the decision record; its
+  build (edge extraction + the graph) is the graph-scope frontier, downstream of a
+  graph foundation.
 
-- `(model-declaration-format)` — `30-landscapes.md` ("The spec landscape: a
-  declared model + bound prose") says the author *declares the domain model* —
-  entities, relationships, invariants — as structure, and the dependency graph /
-  blast radius (build-order step 2) derives from it. But the corpus never pins
-  the **declaration format**: a dedicated `model.toml`, frontmatter
-  `owns:`/`binds:` markers per spec, or something else? The graph and the
-  cross-landscape seam (spec ⟷ code) can't be filed until this is authored.
-  Intent gap — human to author into the spec, not plan to invent.
-  `specs/05-model.md` (new this tick) supplies the corpus's model *content* in
-  prose (entities + relationships, each with an owning spec) and calls it "the
-  model temper's own `spec` kind would declare" — but it is prose, not a declared
-  *structured* model temper extracts, so it confirms the gap rather than closing
-  it: the declaration format is still unpinned. See `specs/30-landscapes.md`.
+- `(model-declaration-format)` — RESOLVED (`specs/40-composition.md` "Scope
+  boundary": "there is no bespoke spec-model format — a spec is a kind like any
+  other"). The domain model is **not** a separate declared format: a spec is a
+  **custom kind** (`15-kinds.md`) whose entities are declared by the kind's
+  extraction and whose relationships are declared edges (`45-governance.md`),
+  declared in `temper.toml` like any custom kind. `05-model.md` supplies the
+  corpus's model *content* in prose; the *mechanism* is the kind system, not a
+  `model.toml`. Kept as the decision record; the graph + cross-landscape seam
+  build on the kind + edge-extraction frontier, not on a new format.
 
 - `(workspace-scope)` — RESOLVED (`specs/20-surface.md` Decision: "the workspace is
   per-project"). The surface targets a **per-project** harness — the `.claude/` +

@@ -1,5 +1,42 @@
 [
   {
+    "tag": "GOV-TYPED-REFERENCE",
+    "summary": "Extend `membership` to a typed reference — constrain the S₂ source set to artifacts also conforming to a named contract C, so a reference resolves to the right kind of thing.",
+    "per": {
+      "path": "specs/45-governance.md",
+      "section": "The set scope (the roster) — predicates over a matched set"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Add an optional `source_contract: Option<RoleContract>` to `Membership`; extend `parse_membership` to read an optional `conforms_to` key (a template path or inline clauses, the same `RoleContract` a role's `contract` takes) and fold a malformed one into the existing `RoleBadMembership`. Absent ⇒ plain membership, unchanged."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "In `out_of_set`, when `source_contract` is set, resolve it (`RoleContract::resolve`) and keep only S₂ candidates whose features pass `engine::validate` with no findings (i.e. conform) before drawing the allowed feature-set — reusing the same resolve+validate machinery `conformance` already runs. A non-resolving `conforms_to` is admissibility's to report, not `out_of_set`'s."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/role_roster.rs",
+        "asserts": "A `[role.*]` `membership` carrying `conforms_to` draws its corpus-derived allowed set only from S₂ artifacts that conform to that contract: an S₁ filler whose field value matches only a non-conforming source is flagged; drop the `conforms_to` and the same value is in-set and silent."
+      },
+      {
+        "path": "src/compose.rs",
+        "asserts": "A `membership` inline table with a `conforms_to` template-path (and with inline clauses) parses into a `Membership` carrying `Some(source_contract)`; a malformed `conforms_to` folds into `RoleBadMembership`."
+      }
+    ],
+    "acceptance": "A `[role.*]` `membership` with a `conforms_to` constraint draws its corpus-derived allowed set only from source artifacts conforming to that contract — a filler whose field value comes solely from a non-conforming source is flagged; without the constraint that value is in-set and silent.",
+    "notes": "Extends the shipped `membership` predicate (`compose.rs::Membership` + `roster.rs::out_of_set`); reuses `RoleContract::resolve` + `engine::validate` already in `roster.rs` (see `conformance`). Disjoint from parked SPEC-KIND-GATE (main.rs). Closes the fourth set-scope predicate; graph-scope degree/acyclic remain, awaiting an edge-extraction + graph foundation filed after this."
+  },
+  {
     "tag": "SPEC-KIND-GATE",
     "summary": "Dispatch `check` over specs: embed `contracts/spec.toml`, project `ws.specs` via `spec_features`, and run admissibility + `engine::validate` (the advisory `max_lines` clause) over the spec features.",
     "per": {
