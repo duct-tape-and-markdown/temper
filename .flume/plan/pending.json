@@ -1,55 +1,5 @@
 [
   {
-    "tag": "PACKAGE-BINDING",
-    "summary": "Assembly binds packages by name — `[kind.<k>] package = \"<name>\"` replaces path-`adopt`; names resolve embedded floor ∪ `.temper/packages/`; `template` vocabulary retires",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Decision: package binding is by artifact kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "The kind layer's `adopt = \"<path>\"` becomes `package = \"<name>\"` (a name, not a path); `UnknownTemplate` becomes an unknown-package error naming the resolution set (built-ins + `.temper/packages/`); `template` vocabulary in docs/identifiers renames to `package`."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Resolution order for a bound name: a built-in name (`skill.anthropic`, `rule`) resolves from the embedded floor (the BUILTIN_*_CONTRACT constants persist until EMBED-BUILTIN-PACKAGES), any other name from `.temper/packages/<name>/PACKAGE.md` via PACKAGE-DOCUMENT's loader."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "`contract templates` → `packages` vocabulary in the plugin skill prose, docs, and embedded std-lib comments (`specs/50-distribution.md` ships 'built-in packages')."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "`adopt` fixtures migrate to `package = \"<name>\"`; an unknown name is a precise load error; a custom name resolves from a `.temper/packages/` fixture."
-        },
-        {
-          "path": "tests/bundle.rs",
-          "description": "Snapshot churn from the renamed vocabulary in the bundled skill/std-lib, re-accepted deliberately."
-        }
-      ],
-      "retire": [
-        "the `adopt = \"<path>\"` binding key",
-        "ComposeError::UnknownTemplate"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs, tests/bundle.rs",
-        "asserts": "`package = \"<name>\"` binds a kind to a built-in (embedded) or project-authored (`.temper/packages/`) package; `adopt` is rejected as an unknown key; unknown names error precisely; snapshots re-accepted."
-      }
-    ],
-    "acceptance": "The assembly binds packages by name per the naming rule (`specs/90-spec-system.md`: `package` retired `template`); built-ins resolve embedded, custom from `.temper/packages/`; no `template`/`adopt` remains in the binding surface; cargo fmt/clippy -D warnings/test green.",
-    "notes": "PACKAGE-DOCUMENT shipped (72104ec: `Contract::load_package` reads `PACKAGE.md`), so this unblocks. The requirement-side typing facet migrates in the next entry so the two compose.rs surfaces never co-edit across a parallel wave. Extend/override (`[[kind.<k>.clause]]`, severity flips) stay — `40-composition.md` keeps them in the assembly."
-  },
-  {
     "tag": "REQUIREMENT-PACKAGE-TYPING",
     "summary": "Requirement typing migrates to `package = \"<name>\"` — the `contract` facet (template path / inline clauses) retires; satisfiers validate against the named package",
     "per": {
