@@ -1,41 +1,5 @@
 [
   {
-    "tag": "SURFACE-DOCUMENT-FORMAT",
-    "summary": "The surface-language document primitive — parse/emit one authored document: `+++` TOML-fenced header over a markdown body, format-preserving (toml_edit), deterministic round-trip",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "The member document — the surface language"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/document.rs",
-          "description": "The generic fenced-document type both members and PACKAGE.md share (`10-contracts.md`: a package is 'authored in the same medium as any member'): split the `+++`-fenced TOML header from the body, parse the header into a `toml_edit::DocumentMut` (comments/order/whitespace survive a patch — the co-authorship constraint of the TOML-dialect Decision), keep the body verbatim, emit deterministically (parse→emit is byte-identical). Precise miette errors for a missing/unterminated fence or malformed header TOML. Foundation only — no pipeline rewiring; the module name is the implementer's."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Add the new module's `pub mod` line (this foundation entry owns it)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/document.rs (unit tests)",
-        "asserts": "parse→emit round-trips byte-identical; a header field patch preserves comments, key order, and whitespace; unknown header tables are preserved verbatim; missing/unterminated fence and malformed TOML are precise errors, not panics."
-      }
-    ],
-    "acceptance": "A `+++`-fenced document parses into (header DocumentMut, body) and re-emits byte-identical; format-preserving header patches work; the module is exported from lib.rs; cargo fmt/clippy -D warnings/test green.",
-    "notes": "First rung of the surface-language chain the resolved `(package-surface-sequencing)` fork directs — machinery against fixtures, dogfood after. The inbox's representation hold is lifted: the human authored the model into `20-surface.md` (9aed8cc) after routing the hold. Downstream consumers: PACKAGE-DOCUMENT (PACKAGE.md) and MEMBER-DOCUMENT-IMPORT (members)."
-  },
-  {
     "tag": "PACKAGE-DOCUMENT",
     "summary": "A package is one PACKAGE.md — clauses (with colocated `guidance`) in the fenced header, guidance prose as the body; loaded into the contract model, identity from its dir stem",
     "per": {
