@@ -15,11 +15,12 @@
 //! label must derive to `skill.anthropic` from the file stem
 //! (`specs/10-contracts.md`: a contract is identified by its path, not a name).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use temper::contract::{Charset, Clause, Contract, Predicate, Severity};
 use temper::engine;
+use temper::extract::Features;
 use temper::schema;
 
 /// The typed model `contracts/skill.anthropic.toml` must deserialize into — the
@@ -29,6 +30,7 @@ fn expected_template() -> Contract {
     Contract {
         // No top-level `name` in the data file: the label derives from the stem.
         name: "skill.anthropic".to_string(),
+        guidance: None,
         clauses: vec![
             // name: required, non-empty, charset, length cap, reserved words,
             // matches its directory.
@@ -314,4 +316,131 @@ max = 500
 guidance = 42
 "#;
     assert!(Contract::parse(toml, Path::new("c.toml")).is_err());
+}
+
+// --- PACKAGE.md — a package authored as one fenced document -------------------
+//
+// A package is authored the same way as any member (`specs/20-surface.md`): one
+// `PACKAGE.md` whose fenced header carries the `[[clause]]` tables and whose body
+// is the package-level guidance. It loads straight into the [`Contract`] model
+// (`specs/10-contracts.md`, "Packages" — the resolved PACKAGE-MODEL-RECONCILE
+// fold), beside the embedded `contracts/*.toml` floor. These cases grow the
+// TOML-file ones above to the document form.
+
+/// A fixture package under `tests/fixtures/.temper/packages/<name>/`, resolved off
+/// the crate root so the test is cwd-independent.
+fn package_path(name: &str) -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/.temper/packages")
+        .join(name)
+        .join("PACKAGE.md")
+}
+
+/// A `PACKAGE.md` whose header clauses mirror `contracts/skill.anthropic.toml`
+/// loads through the document primitive into the *same* clause vector the TOML
+/// floor deserializes into — the two authoring forms decide identically, because
+/// both parse the same closed-vocabulary header through [`temper::contract`].
+#[test]
+fn a_package_document_loads_the_same_clauses_as_the_toml_floor() {
+    let package =
+        Contract::load_package(&package_path("skill.anthropic")).expect("the package should load");
+    let toml_floor = Contract::load(&template_path()).expect("the floor should load");
+
+    // Identical clauses ⇒ identical decisions over any surface: the medium changed
+    // (fenced document vs bare `.toml`), the algebra did not.
+    assert_eq!(package.clauses, toml_floor.clauses);
+
+    // And the package is admissible for the same reason the floor is — it carries
+    // only closed-vocabulary clauses with no vacuous list.
+    assert!(
+        engine::admissibility(&package).is_empty(),
+        "the package must pass admissibility beside the floor",
+    );
+}
+
+/// A package is identified by *where it lives*: its display name derives from the
+/// containing directory's stem, never an internal `name` field
+/// (`specs/10-contracts.md`, "Decision: a package is identified by its binding").
+#[test]
+fn a_package_display_name_is_its_directory_stem() {
+    let package =
+        Contract::load_package(&package_path("skill.anthropic")).expect("the package should load");
+    assert_eq!(package.name, "skill.anthropic");
+}
+
+/// The document body is the package-level guidance channel — the always-on prose
+/// the clauses cannot encode, carried verbatim onto the [`Contract`]. It never
+/// gates (admissibility above is unaffected); it is the authoring agent's channel.
+#[test]
+fn a_package_body_is_carried_as_package_level_guidance() {
+    let package =
+        Contract::load_package(&package_path("skill.anthropic")).expect("the package should load");
+    let guidance = package
+        .guidance
+        .as_deref()
+        .expect("the package body is its guidance");
+    assert!(guidance.contains("Anthropic skill package"));
+    assert!(guidance.contains("hover docs"));
+}
+
+/// An unknown predicate in a package header fails to load — the same closed-
+/// vocabulary rejection the TOML floor makes, one medium over. A package reaches
+/// the definition check through the document primitive exactly as a bare contract
+/// does; the trapdoor stays shut.
+#[test]
+fn an_unknown_predicate_in_a_package_header_fails_to_load() {
+    let err = Contract::load_package(&package_path("bad-predicate")).unwrap_err();
+    assert!(
+        matches!(err, temper::contract::ContractError::UnknownPredicate { ref predicate, .. } if predicate == "word_count"),
+        "an out-of-vocabulary package clause must be rejected at load, got: {err:?}",
+    );
+}
+
+/// A malformed fenced document (no closing `+++`) is a load error surfaced through
+/// the document primitive — distinct from a `.toml` parse error, because a package
+/// is authored in the surface's fenced medium.
+#[test]
+fn a_malformed_package_document_is_a_load_error() {
+    let err = Contract::parse_package(
+        "+++\n[[clause]]\nno closing fence\n",
+        Path::new("PACKAGE.md"),
+    )
+    .unwrap_err();
+    assert!(matches!(
+        err,
+        temper::contract::ContractError::PackageDocument { .. }
+    ));
+}
+
+/// A failing clause's colocated `guidance` rides its diagnostic — the just-in-time
+/// teaching moment (`specs/10-contracts.md`, "Packages"). The `guided` package's
+/// `required name` clause carries guidance; a member missing `name` trips it, and
+/// the emitted [`Diagnostic`](temper::check::Diagnostic) carries that guidance so
+/// the violation teaches. A clause is a gate; its guidance is never one — the
+/// prose explains the finding, it did not decide it.
+#[test]
+fn a_failing_clause_diagnostic_carries_its_colocated_guidance() {
+    let package =
+        Contract::load_package(&package_path("guided")).expect("the guided package should load");
+
+    // A member with no `name` frontmatter field: the `required name` clause fails.
+    let member = Features {
+        id: "nameless".to_string(),
+        fields: BTreeMap::new(),
+        body_lines: 3,
+        headings: Vec::new(),
+        source_dir: Some("nameless".to_string()),
+        satisfies: Vec::new(),
+    };
+
+    let diagnostics = engine::validate(&package, std::slice::from_ref(&member));
+    let required = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.rule == "required")
+        .expect("the missing name must fire the `required` clause");
+    assert_eq!(
+        required.guidance.as_deref(),
+        Some("Every skill declares a `name` — it is the slug the harness binds to."),
+        "the diagnostic must carry the clause's colocated guidance",
+    );
 }

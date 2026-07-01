@@ -2,8 +2,12 @@
 //!
 //! Models the primitive algebra of `specs/10-contracts.md` ("The primitive
 //! algebra (decidable only)"): a [`Contract`] is a *named set of clauses* over a
-//! fixed, **closed** vocabulary of decidable predicates, loaded from a TOML
-//! contract file. There is no arbitrary-code clause — adding a predicate is a
+//! fixed, **closed** vocabulary of decidable predicates. It loads from either the
+//! embedded `contracts/*.toml` floor ([`Contract::load`]) or a package authored as
+//! a `PACKAGE.md` fenced document ([`Contract::load_package`],
+//! `specs/10-contracts.md`, "Packages") — a package *carries* a contract, so both
+//! parse the same closed-vocabulary header through one clause parser. There is no
+//! arbitrary-code clause — adding a predicate is a
 //! deliberate language change, never a per-contract escape hatch (`00-intent.md`
 //! law 3). Loading therefore **rejects an unknown predicate key** rather than
 //! skipping it silently: a contract is closed-vocabulary data, not data with a
@@ -39,6 +43,7 @@ use std::path::{Path, PathBuf};
 
 use toml_edit::{DocumentMut, Item, Table};
 
+use crate::document::{Document, DocumentError};
 use crate::extract::Kind;
 
 /// A named set of clauses over the decidable primitive algebra — the type a
@@ -56,6 +61,15 @@ pub struct Contract {
     /// The clauses, in declaration order. An empty set is a valid (vacuous)
     /// contract — a named shape that asserts nothing.
     pub clauses: Vec<Clause>,
+    /// Package-level **guidance** — the document body of a `PACKAGE.md`
+    /// (`specs/10-contracts.md`, "Packages"): the best-practice prose the clauses
+    /// cannot encode (house style, rationale), the second of a package's two
+    /// channels beside per-clause [`guidance`](Clause::guidance). Like that
+    /// channel it *never gates* — the closed algebra has no path from prose to a
+    /// predicate — and its consumer is the authoring agent / emitted schema, never
+    /// admissibility or conformance. `None` for a TOML-file contract (the embedded
+    /// floor has no body) and for a package whose body is empty.
+    pub guidance: Option<String>,
 }
 
 /// One clause: a decidable [`Predicate`] plus the [`Severity`] its author
@@ -372,6 +386,23 @@ pub enum ContractError {
         source: toml_edit::TomlError,
     },
 
+    /// A `PACKAGE.md` package document is malformed as a *fenced document* —
+    /// a missing or unterminated `+++` header fence, or a header that is not valid
+    /// TOML. Distinct from [`ContractError::Toml`] (a bare `.toml` contract file):
+    /// a package is authored in the surface's fenced medium (`specs/20-surface.md`),
+    /// so its structural failures come from the [`Document`] primitive and are
+    /// surfaced verbatim through it (`source` carries the labelled span).
+    #[error("failed to parse package document {path}")]
+    #[diagnostic(code(temper::contract::package_document))]
+    PackageDocument {
+        /// The package document that failed to parse.
+        path: PathBuf,
+        /// The underlying document parse error (boxed — it carries the full source
+        /// text for its rendered diagnostic, so this keeps `ContractError` small).
+        #[source]
+        source: Box<DocumentError>,
+    },
+
     /// `clause` is present but is not an array of tables (`[[clause]]`).
     #[error("{path}: `clause` must be an array of tables (`[[clause]]`)")]
     #[diagnostic(code(temper::contract::clause_not_array))]
@@ -526,8 +557,73 @@ impl Contract {
             });
 
         let clauses = parse_clauses(table, path)?;
-        Ok(Self { name, clauses })
+        // A bare `.toml` contract file has no document body, so it carries no
+        // package-level guidance; the per-clause channel is parsed above.
+        Ok(Self {
+            name,
+            clauses,
+            guidance: None,
+        })
     }
+
+    /// Load a **package** authored as a `PACKAGE.md` fenced document — the
+    /// reusable, bindable unit that *carries* a contract (`specs/10-contracts.md`,
+    /// "Packages"). A package lives at `.temper/packages/<name>/PACKAGE.md`; this
+    /// folds it straight into the [`Contract`] model rather than a separate type
+    /// (the resolved PACKAGE-MODEL-RECONCILE point: a package *carries* a contract,
+    /// and the `package` kind's admissibility is exactly the definition check this
+    /// loader's clauses already run).
+    pub fn load_package(path: &Path) -> Result<Self, ContractError> {
+        let src = fs::read_to_string(path).map_err(|source| ContractError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        Self::parse_package(&src, path)
+    }
+
+    /// Parse a package from `PACKAGE.md` source. `path` labels diagnostics *and*
+    /// carries the package's identity: the display name derives from the containing
+    /// directory's stem, never an internal `name` field (`specs/10-contracts.md`,
+    /// "Decision: a package is identified by its binding, not an internal name").
+    ///
+    /// The document splits through the [`Document`] primitive (`specs/20-surface.md`):
+    /// its fenced header carries the `[[clause]]` tables, parsed through the *same*
+    /// closed-vocabulary [`parse_clauses`] the TOML floor uses — so an unknown
+    /// predicate, unknown key, or malformed charset in a package header is rejected
+    /// exactly as it is in a `.toml` contract (admissibility unchanged). The body is
+    /// the package-level [`guidance`](Contract::guidance) — carried, never gated.
+    pub fn parse_package(src: &str, path: &Path) -> Result<Self, ContractError> {
+        let doc = Document::parse(src).map_err(|source| ContractError::PackageDocument {
+            path: path.to_path_buf(),
+            source: Box::new(source),
+        })?;
+        let clauses = parse_clauses(doc.header().as_table(), path)?;
+        let body = doc.body();
+        let guidance = if body.trim().is_empty() {
+            None
+        } else {
+            Some(body.to_string())
+        };
+        Ok(Self {
+            name: package_name(path),
+            clauses,
+            guidance,
+        })
+    }
+}
+
+/// A package's display name — the stem of its containing directory
+/// (`.temper/packages/<name>/PACKAGE.md` ⇒ `<name>`). Identity is *where the
+/// package lives*, which every binding names, so the name derives from the home
+/// and a package carries no internal `name` (`specs/10-contracts.md`, "Decision: a
+/// package is identified by its binding, not an internal name"). Falls back to
+/// `package` only for the degenerate path with no parent directory.
+fn package_name(path: &Path) -> String {
+    path.parent()
+        .and_then(Path::file_name)
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("package")
+        .to_string()
 }
 
 /// Parse a `[[clause]]` array of tables off `table`, in declaration order. Absent
@@ -975,6 +1071,7 @@ type = "string"
     fn rep_expected() -> Contract {
         Contract {
             name: "skill".to_string(),
+            guidance: None,
             clauses: vec![
                 Clause {
                     severity: Severity::Required,

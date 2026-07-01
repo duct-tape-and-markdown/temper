@@ -397,6 +397,9 @@ fn conformance_finding(requirement: &Requirement, finding: &Diagnostic) -> Diagn
             finding.artifact, requirement.name, finding.message
         ),
     )
+    // Carry the broken clause's guidance through the recast: the teaching moment
+    // survives the requirement re-framing (`specs/10-contracts.md`, "Packages").
+    .with_guidance(finding.guidance.clone())
 }
 
 /// The finding for a requirement whose satisfier-set cardinality falls outside its

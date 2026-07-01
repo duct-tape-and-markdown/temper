@@ -256,6 +256,7 @@ mod tests {
     fn representative() -> Contract {
         Contract {
             name: "skill".to_string(),
+            guidance: None,
             clauses: vec![
                 clause(Predicate::Required {
                     field: "name".to_string(),
@@ -341,6 +342,7 @@ mod tests {
         // keyword, so none surfaces.
         let contract = Contract {
             name: "structural".to_string(),
+            guidance: None,
             clauses: vec![
                 clause(Predicate::MaxLines { max: 500 }),
                 clause(Predicate::RequireSections {
@@ -371,6 +373,7 @@ mod tests {
         // so the class stays a literal set, ranges first then individual chars.
         let contract = Contract {
             name: "charset".to_string(),
+            guidance: None,
             clauses: vec![clause(Predicate::AllowedChars {
                 field: "id".to_string(),
                 charset: Charset {
@@ -391,6 +394,7 @@ mod tests {
     fn a_vacuous_contract_yields_an_empty_but_valid_schema() {
         let schema = emit(&Contract {
             name: "empty".to_string(),
+            guidance: None,
             clauses: Vec::new(),
         });
         assert_eq!(
@@ -414,6 +418,7 @@ mod tests {
     fn a_field_required_by_two_clauses_lists_once() {
         let contract = Contract {
             name: "dup".to_string(),
+            guidance: None,
             clauses: vec![
                 clause(Predicate::Required {
                     field: "name".to_string(),
@@ -430,6 +435,7 @@ mod tests {
     fn the_container_kinds_are_renamed_to_json_schema_vocabulary() {
         let contract = Contract {
             name: "containers".to_string(),
+            guidance: None,
             clauses: vec![
                 clause(Predicate::Type {
                     field: "tags".to_string(),
@@ -464,6 +470,7 @@ mod tests {
         // `description` keyword.
         let contract = Contract {
             name: "docs".to_string(),
+            guidance: None,
             clauses: vec![
                 guided(
                     Predicate::MaxLen {
@@ -506,6 +513,7 @@ mod tests {
         // property `description` (docs), the two disjoint.
         let contract = Contract {
             name: "law".to_string(),
+            guidance: None,
             clauses: vec![guided(
                 Predicate::Required {
                     field: "name".to_string(),
@@ -537,6 +545,7 @@ mod tests {
         // same one the un-guided clause would emit.
         let contract = Contract {
             name: "fieldless".to_string(),
+            guidance: None,
             clauses: vec![guided(
                 Predicate::ForbiddenKeys {
                     keys: vec!["globs".to_string()],

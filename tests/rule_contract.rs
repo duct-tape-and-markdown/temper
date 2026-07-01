@@ -28,6 +28,7 @@ fn expected_template() -> Contract {
     Contract {
         // No top-level `name` in the data file: the label derives from the stem.
         name: "rule".to_string(),
+        guidance: None,
         clauses: vec![
             // `paths` is Claude Code's real scoping key — declared so it is part
             // of the known schema. `optional` always holds; it documents, never

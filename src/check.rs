@@ -144,6 +144,13 @@ pub struct Diagnostic {
     pub artifact: String,
     /// The human-readable finding, the diagnostic's `Display`.
     pub message: String,
+    /// The **colocated guidance** of the clause that produced this finding, if it
+    /// carried any (`specs/10-contracts.md`, "Packages"): the hover-sized *why*,
+    /// delivered just-in-time on the violation — the failure is the teaching
+    /// moment. Advisory-only prose that never gates (it played no part in deciding
+    /// this finding, only in explaining it), surfaced on the rendered help line
+    /// below the artifact. `None` when the clause carried no guidance.
+    pub guidance: Option<String>,
 }
 
 impl Diagnostic {
@@ -177,7 +184,19 @@ impl Diagnostic {
             rule: rule.into(),
             artifact: artifact.into(),
             message: message.into(),
+            guidance: None,
         }
+    }
+
+    /// Attach a clause's [`guidance`](crate::contract::Clause::guidance) to this
+    /// finding — the just-in-time delivery of the hover-sized *why* on the
+    /// violation (`specs/10-contracts.md`, "Packages"). A builder so the base
+    /// constructors stay guidance-free (most findings carry none); a `None`
+    /// argument is a no-op, leaving the finding unguided.
+    #[must_use]
+    pub fn with_guidance(mut self, guidance: Option<String>) -> Self {
+        self.guidance = guidance;
+        self
     }
 }
 
@@ -194,7 +213,12 @@ impl miette::Diagnostic for Diagnostic {
     }
 
     fn help(&self) -> Option<Box<dyn fmt::Display + '_>> {
-        Some(Box::new(format!("artifact: {}", self.artifact)))
+        // The colocated guidance rides the help line beneath the artifact — the
+        // violation is the teaching moment (`specs/10-contracts.md`, "Packages").
+        Some(Box::new(match &self.guidance {
+            Some(guidance) => format!("artifact: {}\n{guidance}", self.artifact),
+            None => format!("artifact: {}", self.artifact),
+        }))
     }
 }
 

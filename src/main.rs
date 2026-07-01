@@ -564,6 +564,9 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
             let contract = Contract {
                 name: name.clone(),
                 clauses: custom.clauses.clone(),
+                // A custom kind's clauses are authored inline in `temper.toml`, not
+                // a `PACKAGE.md`, so there is no document body to carry as guidance.
+                guidance: None,
             };
             diagnostics.extend(engine::admissibility(&contract));
             diagnostics.extend(engine::validate(&contract, &features));

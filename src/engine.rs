@@ -56,12 +56,17 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
     for features in artifacts {
         for clause in &contract.clauses {
             for message in evaluate(&clause.predicate, features, artifacts) {
-                diagnostics.push(Diagnostic::new(
-                    severity_of(clause.severity),
-                    clause.predicate.key(),
-                    &features.id,
-                    message,
-                ));
+                diagnostics.push(
+                    Diagnostic::new(
+                        severity_of(clause.severity),
+                        clause.predicate.key(),
+                        &features.id,
+                        message,
+                    )
+                    // The clause's colocated guidance rides its own violation — the
+                    // just-in-time teaching moment (`specs/10-contracts.md`).
+                    .with_guidance(clause.guidance.clone()),
+                );
             }
         }
     }
@@ -423,6 +428,7 @@ mod tests {
     fn contract(severity: ClauseSeverity, predicate: Predicate) -> Contract {
         Contract {
             name: "skill".to_string(),
+            guidance: None,
             clauses: vec![Clause {
                 severity,
                 predicate,
@@ -923,6 +929,7 @@ mod tests {
         ];
         let contract = Contract {
             name: "skill".to_string(),
+            guidance: None,
             clauses,
         };
         assert!(admissibility(&contract).is_empty());
@@ -967,6 +974,7 @@ mod tests {
         ];
         let contract = Contract {
             name: "skill".to_string(),
+            guidance: None,
             clauses,
         };
         let violating = features("demo", &[], 99, None);
@@ -1024,6 +1032,7 @@ mod tests {
         ];
         let contract = Contract {
             name: "skill".to_string(),
+            guidance: None,
             clauses,
         };
         let conforming = features("demo", &[("name", scalar("demo"))], 12, Some("demo"));

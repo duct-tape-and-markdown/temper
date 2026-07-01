@@ -442,6 +442,8 @@ impl RequirementContract {
             RequirementContract::Inline(clauses) => Ok(Contract {
                 name: label.to_string(),
                 clauses: clauses.clone(),
+                // Inline clauses carry no document body, so no package guidance.
+                guidance: None,
             }),
             RequirementContract::Template(rel) => Contract::load(&base_dir.join(rel)),
         }
@@ -990,6 +992,9 @@ impl AuthorLayer {
         Ok(Contract {
             name: floor.name,
             clauses,
+            // Carry the floor's package guidance through the fold: layering
+            // clauses over a floor overrides predicates, not the floor's prose.
+            guidance: floor.guidance,
         })
     }
 
@@ -1636,6 +1641,7 @@ mod tests {
     fn floor() -> Contract {
         Contract {
             name: "skill.anthropic".to_string(),
+            guidance: None,
             clauses: vec![
                 Clause {
                     severity: Severity::Required,
