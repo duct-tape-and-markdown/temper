@@ -35,7 +35,10 @@ too. (Build's writable paths must include the plugin tree for the loop to author
 
 **Chosen:** the bundled skill teaches the agent to *operate the gate* — when to
 `import` / `check`, how to read a diagnostic, and when to **challenge the contract**
-versus fix the artifact (the `collaboration` reflex). **Rejected:** a skill that
+versus fix the artifact (the `collaboration` reflex) — and the **model's vocabulary
+itself** (the cleave: kind reads, package judges, member fills, assembly binds),
+because an agent cannot operate a verdict spoken in words it does not hold.
+Vocabulary is mechanics, not taste. **Rejected:** a skill that
 advises *what a good harness is* ("write triggers like this," "keep descriptions
 tight"). That advice is the tool's taste, and law 2 forbids hardcoding it; it lives
 in **packages** (data, adopted by choice), never in skill prose. The split is
@@ -97,6 +100,37 @@ Taste cannot become a squiggle — the closed algebra has no syntax for it, and
 neither does the schema — so it can only ride the docs channel. The **medium
 enforces law 2**: the editor delivers the decidable contract as validation and the
 guidance as documentation, and cannot confuse the two.
+
+## The gate teaches — one vocabulary, four placements
+
+The surface's **primary author is an agent** (`00-intent.md`, positioning), and an
+author who does not hold the model cannot author under it — so teaching the model
+is not documentation off to the side; it is a delivery concern of the gate itself.
+Four channels, four moments of contact, all placements above:
+
+- **the skill** — the primer, *before authoring*: the vocabulary and the cleave,
+  the authoring loop, how to read a verdict (mechanics per the Decision above).
+- **the diagnostic** — JIT, *at the moment of failure*: a failing clause carries
+  its package's colocated guidance (`10-contracts.md`) — the violation is the
+  teaching moment. **Model-level failures teach the model itself**: a dangling
+  `satisfies`, an unbound kind, an inadmissible package confuse the *cleave*, not
+  a clause, and their diagnostics carry the engine's own guidance ("a `satisfies`
+  names a requirement; requirements are declared in the assembly") — guidance with
+  no package to live in, because it is the engine's.
+- **the read verbs** — teaching by rendering, *during exploration*: `why` /
+  `requirements` (`20-surface.md`) narrate the model over the author's own
+  artifacts — the fastest teacher there is.
+- **the schema docs channel** — hover, *at keystroke* (above).
+
+### Decision: every placement speaks the corpus's vocabulary — no synonyms
+
+**Chosen:** the corpus's nouns — kind, package, member, assembly, requirement,
+clause, `satisfies`, edge — are API. Every placement (skill prose, diagnostic
+text, read-verb output, schema docs) uses exactly these, one name per concept.
+**Rejected:** per-surface "friendlier" wording. A synonym forks the reader's
+mental model — the silent-drift failure `temper` hunts, reintroduced in its own
+mouth — and the audience that most needs the teaching (the agent) is precisely
+the one that pattern-matches on exact terms.
 
 ## Fail-loud delivery — the invariant
 

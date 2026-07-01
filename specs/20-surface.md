@@ -352,8 +352,10 @@ requirements it fills, with rationale → the package governing it → its edges
 removal would strand). They are projections, never gates: no new engine semantics,
 no non-zero exit on findings — the traversal payoff the graph promises ("removing a
 load-bearing entity surfaces its blast radius," `30-landscapes.md`, law 6) finally
-given a verb. Built after the surface-language migration, once coverage + graph
-data exist to read. **Rejected:** (a) growing `check` flags into a query surface —
+given a verb. Their output is a **teaching surface**, not a table dump: it narrates
+the model in full sentences over the author's own artifacts, in the corpus's exact
+vocabulary (`50-distribution.md`, "the gate teaches"). Built after the
+surface-language migration, once coverage + graph data exist to read. **Rejected:** (a) growing `check` flags into a query surface —
 the gate stays a gate, and a reporting flag that answers "why" muddies a verb whose
 exit code CI trusts; (b) a general `query` verb — a query language is surface
 `temper` does not need for the two questions that matter, which are exactly the two
