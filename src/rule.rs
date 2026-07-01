@@ -52,6 +52,19 @@ pub struct Rule {
     /// Markdown after the frontmatter, byte-faithful (trailing bytes intact). For
     /// a rule with no frontmatter this is the whole file.
     pub body: String,
+    /// The requirements this artifact opts into filling (`specs/20-surface.md`,
+    /// "Each artifact directory is a representation, not a copy") — the coverage
+    /// check's opt-in bindings. **Authored** on the surface, not imported: the
+    /// source `.md` carries no such field, so `from_source_file` leaves this
+    /// empty. It lives under `meta.toml`'s `[representation]` table, kept out of
+    /// the frontmatter `extra` the contract engine ranges over.
+    pub satisfies: Vec<String>,
+    /// The authored *why* bound to this artifact (`00-intent.md` law 7 — the
+    /// behavioral-intent layer). **Authored**, not imported (`from_source_file`
+    /// leaves it `None`); carried under `[representation]` in `meta.toml`. It is
+    /// the human rationale, never a decidable feature, so extraction never reads
+    /// it.
+    pub rationale: Option<String>,
     /// Unknown frontmatter keys, preserved verbatim so the surface never drops
     /// authoring intent — and so a `forbidden_keys` clause can resolve them by
     /// name. Sorted by key (`serde_json::Map` is a `BTreeMap`), which makes
@@ -178,6 +191,11 @@ impl Rule {
             name,
             paths,
             body: body.to_string(),
+            // `satisfies`/`rationale` are authored on the surface, never present
+            // in the source — so import leaves them empty and an unauthored
+            // rule's `meta.toml` stays byte-identical (import idempotence).
+            satisfies: Vec::new(),
+            rationale: None,
             extra,
             provenance: Provenance {
                 source_path: path.to_path_buf(),
@@ -229,9 +247,19 @@ impl Rule {
         let source_path = PathBuf::from(required_str(provenance, "source_path", &meta_path)?);
         let import_hash = required_str(provenance, "import_hash", &meta_path)?;
 
+        // The authored representation layer, if present. Absent when the rule was
+        // never authored with either field (its `meta.toml` has no table).
+        let representation = table.get("representation").and_then(Item::as_table);
+        let satisfies = representation
+            .map(|table| string_list(table, "satisfies"))
+            .unwrap_or_default();
+        let rationale = representation.and_then(|table| optional_str(table, "rationale"));
+
         let mut extra = JsonMap::new();
         for (key, item) in table.iter() {
-            if KNOWN_KEYS.contains(&key) || key == "provenance" {
+            // `representation` is authored, not frontmatter — like `provenance`,
+            // it must never leak back into the contract-checked `extra`.
+            if KNOWN_KEYS.contains(&key) || key == "provenance" || key == "representation" {
                 continue;
             }
             if let Some(json) = toml_item_to_json(item) {
@@ -249,6 +277,8 @@ impl Rule {
             name,
             paths,
             body,
+            satisfies,
+            rationale,
             extra,
             provenance: Provenance {
                 source_path,
@@ -279,6 +309,24 @@ impl Rule {
             if let Some(val) = json_to_toml_value(json) {
                 doc[key.as_str()] = Item::Value(val);
             }
+        }
+
+        // The authored representation layer, emitted only when non-empty so an
+        // unauthored rule's `meta.toml` is byte-identical to slice 1 (import
+        // idempotence holds).
+        if !self.satisfies.is_empty() || self.rationale.is_some() {
+            let mut representation = Table::new();
+            if !self.satisfies.is_empty() {
+                let mut array = Array::new();
+                for requirement in &self.satisfies {
+                    array.push(requirement.clone());
+                }
+                representation["satisfies"] = Item::Value(Value::Array(array));
+            }
+            if let Some(rationale) = &self.rationale {
+                representation["rationale"] = value(rationale.clone());
+            }
+            doc["representation"] = Item::Table(representation);
         }
 
         let mut provenance = Table::new();
@@ -388,6 +436,18 @@ fn optional_list(table: &Table, field: &str) -> Option<Vec<String>> {
             .filter_map(|val| val.as_str().map(str::to_string))
             .collect()
     })
+}
+
+/// An optional string field of a TOML table.
+fn optional_str(table: &Table, field: &str) -> Option<String> {
+    table.get(field).and_then(Item::as_str).map(str::to_string)
+}
+
+/// The string elements of an array field of a TOML table, or an empty vec when
+/// the field is absent or not an array. Used to read `[representation].satisfies`
+/// back off the surface.
+fn string_list(table: &Table, field: &str) -> Vec<String> {
+    optional_list(table, field).unwrap_or_default()
 }
 
 /// Convert a JSON value to a `toml_edit` value, rendering objects as inline
@@ -632,6 +692,55 @@ Pushback is the point.\n";
     #[test]
     fn surface_round_trips_a_no_frontmatter_rule() {
         round_trip("collaboration", NO_FRONTMATTER_RULE);
+    }
+
+    #[test]
+    fn authored_representation_round_trips_and_stays_out_of_frontmatter() {
+        let src = tmpdir("rep-src");
+        let path = write_source(&src, "rust.md", PATHS_RULE);
+        let mut rule = Rule::from_source_file(&path).unwrap();
+
+        // Author the surface-only representation layer.
+        rule.satisfies = vec!["req.rust-style".to_string()];
+        rule.rationale = Some("Encodes the Rust conventions the gate enforces.".to_string());
+
+        let surface_root = tmpdir("rep-surface");
+        let surface = surface_root.join("rust");
+        fs::create_dir_all(&surface).unwrap();
+        let meta = rule.to_meta_document().to_string();
+        fs::write(surface.join("meta.toml"), &meta).unwrap();
+        fs::write(surface.join("RULE.md"), &rule.body).unwrap();
+
+        let reloaded = Rule::from_surface_dir(&surface).unwrap();
+
+        // Satisfies/rationale survive the surface round-trip identically.
+        assert_eq!(rule, reloaded);
+        assert_eq!(reloaded.satisfies, vec!["req.rust-style"]);
+        assert_eq!(
+            reloaded.rationale.as_deref(),
+            Some("Encodes the Rust conventions the gate enforces.")
+        );
+
+        // They ride `[representation]`, never leaking into the frontmatter
+        // `extra` a `forbidden_keys` clause ranges over.
+        assert!(meta.contains("[representation]"));
+        assert!(!reloaded.extra.contains_key("satisfies"));
+        assert!(!reloaded.extra.contains_key("rationale"));
+        assert!(!reloaded.extra.contains_key("representation"));
+    }
+
+    #[test]
+    fn unauthored_representation_leaves_meta_byte_identical() {
+        // A no-frontmatter rule with no representation authored stays byte-
+        // identical to slice 1: no `[representation]` table (import idempotence).
+        let dir = tmpdir("rep-none");
+        let path = write_source(&dir, "collaboration.md", NO_FRONTMATTER_RULE);
+        let rule = Rule::from_source_file(&path).unwrap();
+
+        let meta = rule.to_meta_document().to_string();
+        assert!(rule.satisfies.is_empty());
+        assert!(rule.rationale.is_none());
+        assert!(!meta.contains("[representation]"));
     }
 
     #[test]

@@ -449,6 +449,10 @@ impl Extraction {
             headings: Vec::new(),
             source_dir: None,
             companions: Vec::new(),
+            // Custom-kind `satisfies` is a later follow-on: no extraction
+            // primitive yields it yet, so a composed Unit's representation
+            // bindings stay empty until that lands.
+            satisfies: Vec::new(),
         };
         for primitive in &self.primitives {
             primitive.apply(unit, &mut features);

@@ -173,6 +173,15 @@ pub struct Features {
     /// Companion paths relative to the artifact, forward-slash normalized so the
     /// comparison is platform-stable.
     pub companions: Vec<String>,
+    /// The requirements this artifact opts into filling — the authored
+    /// `[representation].satisfies` bindings, surfaced for the coverage check
+    /// (`specs/20-surface.md`, "Each artifact directory is a representation, not
+    /// a copy"). This is a *representation* edge the coverage resolver reads, NOT
+    /// a contract-checkable frontmatter field — so it lives here, distinct from
+    /// `fields`, and never resolves through [`Features::field`]. The authored
+    /// `rationale` is deliberately absent: it is the human *why*, never a
+    /// decidable feature.
+    pub satisfies: Vec<String>,
 }
 
 impl Features {
@@ -236,6 +245,9 @@ pub fn skill_features(skill: &Skill) -> Features {
             .iter()
             .map(|path| path.to_string_lossy().replace('\\', "/"))
             .collect(),
+        // The authored representation binding the coverage check resolves —
+        // distinct from the frontmatter `fields` above.
+        satisfies: skill.satisfies.clone(),
     }
 }
 
@@ -265,6 +277,9 @@ pub fn rule_features(rule: &Rule) -> Features {
         headings: body_headings(&rule.body),
         source_dir: source_dir_name(&rule.provenance.source_path),
         companions: Vec::new(),
+        // The authored representation binding the coverage check resolves —
+        // distinct from the frontmatter `fields` above.
+        satisfies: rule.satisfies.clone(),
     }
 }
 
@@ -753,6 +768,54 @@ Just a paragraph, no headings at all.\n",
         assert_eq!(Kind::from_name("array"), None);
         assert_eq!(Kind::from_name("int"), None);
         assert_eq!(Kind::from_name(""), None);
+    }
+
+    #[test]
+    fn skill_features_expose_satisfies_off_the_ir_and_keep_it_out_of_fields() {
+        let parent = tmpdir("satisfies");
+        let mut skill = skill_in(&parent, "demo", FIXTURE);
+        // The authored representation binding — set on the IR the way the surface
+        // reload would (via `[representation].satisfies`).
+        skill.satisfies = vec!["req.one".to_string(), "req.two".to_string()];
+        skill.rationale = Some("Why this skill exists.".to_string());
+
+        let features = skill_features(&skill);
+
+        // `satisfies` is surfaced as a representation edge for the coverage check.
+        assert_eq!(features.satisfies, vec!["req.one", "req.two"]);
+        // It is NOT a frontmatter field — it never resolves through `field`, so a
+        // contract clause can't range over it.
+        assert!(features.field("satisfies").is_none());
+        assert!(!features.has_field("satisfies"));
+        // `rationale` is the human *why*, never extracted as a decidable feature.
+        assert!(features.field("rationale").is_none());
+        assert!(!features.has_field("rationale"));
+    }
+
+    #[test]
+    fn rule_features_expose_satisfies_off_the_ir_and_keep_it_out_of_fields() {
+        let parent = tmpdir("rule-satisfies");
+        let mut rule = rule_in(
+            &parent,
+            "rust",
+            "---\npaths:\n  - \"src/**/*.rs\"\n---\n# Rust\n\nBody.\n",
+        );
+        rule.satisfies = vec!["req.rust-style".to_string()];
+        rule.rationale = Some("The conventions the gate enforces.".to_string());
+
+        let features = rule_features(&rule);
+
+        assert_eq!(features.satisfies, vec!["req.rust-style"]);
+        assert!(features.field("satisfies").is_none());
+        assert!(!features.has_field("satisfies"));
+        assert!(!features.has_field("rationale"));
+    }
+
+    #[test]
+    fn features_default_to_no_satisfies_when_unauthored() {
+        let parent = tmpdir("no-satisfies");
+        let skill = skill_in(&parent, "demo", FIXTURE);
+        assert!(skill_features(&skill).satisfies.is_empty());
     }
 
     #[test]

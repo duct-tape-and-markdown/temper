@@ -43,6 +43,19 @@ pub struct Skill {
     pub license: Option<String>,
     /// Markdown after the frontmatter, byte-faithful (trailing bytes intact).
     pub body: String,
+    /// The requirements this artifact opts into filling (`specs/20-surface.md`,
+    /// "Each artifact directory is a representation, not a copy") — the coverage
+    /// check's opt-in bindings. **Authored** on the surface, not imported: the
+    /// source `SKILL.md` carries no such field, so `from_source_dir` leaves this
+    /// empty. It lives under `meta.toml`'s `[representation]` table, kept out of
+    /// the frontmatter `extra` the contract engine ranges over.
+    pub satisfies: Vec<String>,
+    /// The authored *why* bound to this artifact (`00-intent.md` law 7 — the
+    /// behavioral-intent layer). **Authored**, not imported (`from_source_dir`
+    /// leaves it `None`); carried under `[representation]` in `meta.toml`. It is
+    /// the human rationale, never a decidable feature, so extraction never reads
+    /// it.
+    pub rationale: Option<String>,
     /// Sibling files that ship with the skill (e.g. `PLAYBOOK.md`, `scripts/**`),
     /// as paths relative to the skill directory, sorted for determinism.
     pub companions: Vec<PathBuf>,
@@ -169,6 +182,11 @@ impl Skill {
             version,
             license,
             body: body.to_string(),
+            // `satisfies`/`rationale` are authored on the surface, never present
+            // in the source — so import leaves them empty and an unauthored
+            // skill's `meta.toml` stays byte-identical (import idempotence).
+            satisfies: Vec::new(),
+            rationale: None,
             companions: scan_companions(dir)?,
             extra,
             provenance: Provenance {
@@ -215,9 +233,19 @@ impl Skill {
         let source_path = PathBuf::from(required_str(provenance, "source_path", &meta_path)?);
         let import_hash = required_str(provenance, "import_hash", &meta_path)?;
 
+        // The authored representation layer, if present. Absent when the skill
+        // was never authored with either field (its `meta.toml` has no table).
+        let representation = table.get("representation").and_then(Item::as_table);
+        let satisfies = representation
+            .map(|table| string_list(table, "satisfies"))
+            .unwrap_or_default();
+        let rationale = representation.and_then(|table| optional_str(table, "rationale"));
+
         let mut extra = JsonMap::new();
         for (key, item) in table.iter() {
-            if KNOWN_KEYS.contains(&key) || key == "provenance" {
+            // `representation` is authored, not frontmatter — like `provenance`,
+            // it must never leak back into the contract-checked `extra`.
+            if KNOWN_KEYS.contains(&key) || key == "provenance" || key == "representation" {
                 continue;
             }
             if let Some(json) = toml_item_to_json(item) {
@@ -237,6 +265,8 @@ impl Skill {
             version,
             license,
             body,
+            satisfies,
+            rationale,
             companions: scan_companions(dir)?,
             extra,
             provenance: Provenance {
@@ -268,6 +298,24 @@ impl Skill {
             if let Some(val) = json_to_toml_value(json) {
                 doc[key.as_str()] = Item::Value(val);
             }
+        }
+
+        // The authored representation layer, emitted only when non-empty so an
+        // unauthored skill's `meta.toml` is byte-identical to slice 1 (import
+        // idempotence holds).
+        if !self.satisfies.is_empty() || self.rationale.is_some() {
+            let mut representation = Table::new();
+            if !self.satisfies.is_empty() {
+                let mut array = toml_edit::Array::new();
+                for requirement in &self.satisfies {
+                    array.push(requirement.clone());
+                }
+                representation["satisfies"] = Item::Value(Value::Array(array));
+            }
+            if let Some(rationale) = &self.rationale {
+                representation["rationale"] = value(rationale.clone());
+            }
+            doc["representation"] = Item::Table(representation);
         }
 
         let mut provenance = Table::new();
@@ -382,6 +430,22 @@ fn required_str(table: &Table, field: &'static str, path: &Path) -> Result<Strin
 /// An optional string field of a TOML table.
 fn optional_str(table: &Table, field: &str) -> Option<String> {
     table.get(field).and_then(Item::as_str).map(str::to_string)
+}
+
+/// The string elements of an array field of a TOML table, or an empty vec when
+/// the field is absent or not an array. Used to read `[representation].satisfies`
+/// back off the surface.
+fn string_list(table: &Table, field: &str) -> Vec<String> {
+    table
+        .get(field)
+        .and_then(Item::as_array)
+        .map(|array| {
+            array
+                .iter()
+                .filter_map(|val| val.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Walk a skill directory and collect its companion files — every file except
@@ -654,6 +718,53 @@ Last line, no newline.";
         assert!(once.contains("priority = 7"));
         assert!(once.contains("[provenance]"));
         assert!(once.contains("import_hash = "));
+    }
+
+    #[test]
+    fn authored_representation_round_trips_and_stays_out_of_frontmatter() {
+        let src = tmpdir("rep-src");
+        write_source(&src, FIXTURE);
+        let mut skill = Skill::from_source_dir(&src).unwrap();
+
+        // Author the representation layer — the surface-only fields.
+        skill.satisfies = vec!["req.one".to_string(), "req.two".to_string()];
+        skill.rationale = Some("Fills the demo requirement so coverage resolves.".to_string());
+
+        let surface = tmpdir("rep-surface");
+        let meta = skill.to_meta_document().to_string();
+        fs::write(surface.join("meta.toml"), &meta).unwrap();
+        fs::write(surface.join("SKILL.md"), &skill.body).unwrap();
+
+        let reloaded = Skill::from_surface_dir(&surface).unwrap();
+
+        // The authored fields survive the surface round-trip identically.
+        assert_eq!(skill, reloaded);
+        assert_eq!(reloaded.satisfies, vec!["req.one", "req.two"]);
+        assert_eq!(
+            reloaded.rationale.as_deref(),
+            Some("Fills the demo requirement so coverage resolves.")
+        );
+
+        // They live under `[representation]`, never leaking into the frontmatter
+        // `extra` the contract engine ranges over.
+        assert!(meta.contains("[representation]"));
+        assert!(!reloaded.extra.contains_key("satisfies"));
+        assert!(!reloaded.extra.contains_key("rationale"));
+        assert!(!reloaded.extra.contains_key("representation"));
+    }
+
+    #[test]
+    fn unauthored_representation_leaves_meta_byte_identical() {
+        let dir = tmpdir("rep-none");
+        write_source(&dir, FIXTURE);
+        let skill = Skill::from_source_dir(&dir).unwrap();
+
+        // With neither field authored, `meta.toml` must be byte-identical to
+        // slice 1: no `[representation]` table at all (import idempotence).
+        let meta = skill.to_meta_document().to_string();
+        assert!(skill.satisfies.is_empty());
+        assert!(skill.rationale.is_none());
+        assert!(!meta.contains("[representation]"));
     }
 
     #[test]
