@@ -43,15 +43,16 @@ and embeds the bundled skill template as the default.
   build (edge extraction + the graph) is the graph-scope frontier, downstream of a
   graph foundation.
 
-- `(model-declaration-format)` — RESOLVED (`specs/40-composition.md` "Scope
-  boundary": "there is no bespoke spec-model format — a spec is a kind like any
-  other"). The domain model is **not** a separate declared format: a spec is a
-  **custom kind** (`15-kinds.md`) whose entities are declared by the kind's
-  extraction and whose relationships are declared edges (`45-governance.md`),
-  declared in `temper.toml` like any custom kind. `05-model.md` supplies the
+- `(model-declaration-format)` — RESOLVED + now CARRIED (`specs/40-composition.md`
+  "Declaring a custom kind" + its Decision "a custom kind is declared in `temper.toml`,
+  extraction and all"). The domain model is **not** a separate declared format: a spec
+  is a **custom kind** (`15-kinds.md`) whose entities are declared by the kind's
+  extraction and whose relationships are declared edges (`45-governance.md`), declared
+  under `[kind.<name>]` in `temper.toml` like any custom kind. `05-model.md` supplies the
   corpus's model *content* in prose; the *mechanism* is the kind system, not a
-  `model.toml`. Kept as the decision record; the graph + cross-landscape seam
-  build on the kind + edge-extraction frontier, not on a new format.
+  `model.toml`. The format the old fork was "forwarded to but never carried" is now the
+  concrete `[kind.<name>]` surface, built by the KIND-* chain (KIND-DECLARATION-PARSE …
+  KIND-EDGE-RELATIONSHIPS). Kept as the decision record; no dependent still waits.
 
 - `(workspace-scope)` — RESOLVED (`specs/20-surface.md` Decision: "the workspace is
   per-project"). The surface targets a **per-project** harness — the `.claude/` +
@@ -108,23 +109,31 @@ and embeds the bundled skill template as the default.
   Fail-loud is intrinsic — a missing platform binary is an install error, never a
   silent skip. Kept as the decision record; gates packaging work, not the engine.
 
-- `(spec-landscape-kind)` — RESOLVED (mostly), by the human authoring `specs/15-kinds.md`
-  ("Kinds — the extraction algebra and the kind system"). Of the three original fronts:
-  **(1)** is the **spec corpus a checked artifact kind, scanned by `import`?** — RESOLVED:
-  `15-kinds.md` makes `spec` a *custom* kind (provenance: author-defined, not a harness
-  format) governing `specs/*.md`, with a worked-example extraction (ATX headings, `## Decision`
-  blocks, backtick-filename refs) and contract (max_lines + two clauses). The `spec`-kind
-  build-out: SPEC-KIND-IR → IMPORT → WORKSPACE all SHIPPED on disk; the gate splits into
-  SPEC-FEATURES (`open`, the extractor) and SPEC-KIND-GATE (`parked` on the spec.toml
-  commit). **(3)** the **referential `references-resolve` clause** — RESOLVED as intent:
-  `15-kinds.md` *declares* the spec landscape's reference syntax (the backtick-wrapped
-  `` `NN-name.md` ``), the precondition `10-contracts.md`'s referential primitive needed.
-  Fork-free, but its build is *downstream of the spec.toml commit* — the clause lives
-  commented in the untracked `contracts/spec.toml`, so it ships only once a human commits
-  and uncomments it (same gate as GATE). **(2)** the `section_contains` / decisions-name-alternatives
-  **predicate** is NOT resolved — carved out as `(decision-marker-predicate)` below.
-  `contracts/spec.toml` remains untracked human territory; plan neither writes nor commits
-  it (the GATE entry is `parked` until a human commits it).
+- `(spec-landscape-kind)` — RESOLVED, and its *build shape* now SUPERSEDED by the
+  kind-declaration mechanism (`15-kinds.md` Decision "a custom kind is declared data,
+  never engine code"; `40-composition.md` "Declaring a custom kind"). `spec` is a
+  *custom* kind governing `specs/*.md` — but it is declared as **data in temper's own
+  `temper.toml`**, not shipped as engine code. The earlier build shape (a hardwired
+  `src/spec.rs` extractor, an unconditional `specs/*.md` import scan, an embedded
+  `contracts/spec.toml`) is retired: those shipped a custom kind *as a built-in*, which
+  breaks "temper ships none of them." The replacement is the KIND-* chain
+  (KIND-EXTRACTION-ALGEBRA … KIND-RETIRE-BUILTIN-SPEC), and SPEC-KIND-GATE is dropped.
+  The referential `references-resolve` clause is now downstream of KIND-EDGE-RELATIONSHIPS
+  (the `[kind.<name>.relationships]` reconcile), not a `contracts/spec.toml` commit. The
+  `section_contains` / decisions-name-alternatives **predicate** remains carved out as
+  `(decision-marker-predicate)` below. Kept as the decision record; no dependent waits.
+
+- `(rollup-index-rename)` — The generated roll-up index is written to `author.toml`
+  (`src/import.rs` `write_rollup`), but `20-surface.md` ("The surface is stratified:
+  schema + instances") establishes the *authored* schema stratum as `temper.toml`, and
+  the two names collide in intent — `author.toml` is generated ledger/provenance
+  machinery (neither stratum), while `temper.toml` is authored schema. The spec flags
+  the rename as "open" ("a rename to reflect its generated-ledger role is open"). The new
+  name is a **human naming decision** — plan does not invent it. A pending entry renaming
+  the roll-up file declares `dependsOnForks: ["rollup-index-rename"]` and waits. Blast
+  radius when chosen: `src/import.rs` (`write_rollup`), `src/check.rs`/`src/drift.rs` if
+  they read it, and their tests. Distinct from any code behavior — purely the on-disk
+  filename + the docstrings/comments naming it.
 
 - `(decision-marker-predicate)` — The spec contract's **decisions-name-alternatives**
   clause (`15-kinds.md` worked example, `contracts/spec.toml`: every `## Decision` carries
