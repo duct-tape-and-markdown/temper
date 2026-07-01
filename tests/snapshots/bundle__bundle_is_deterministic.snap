@@ -1,0 +1,12 @@
+---
+source: tests/bundle.rs
+expression: files
+---
+[
+    ".claude-plugin/marketplace.json",
+    ".claude-plugin/plugin.json",
+    "contracts/rule.toml",
+    "contracts/skill.anthropic.toml",
+    "hooks/hooks.json",
+    "skills/temper/SKILL.md",
+]

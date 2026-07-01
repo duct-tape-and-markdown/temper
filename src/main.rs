@@ -19,6 +19,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
+use temper::bundle;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
 use temper::contract::Contract;
@@ -155,6 +156,21 @@ enum Command {
         /// Compute and report every placement without writing a single byte.
         #[arg(long)]
         dry_run: bool,
+    },
+    /// Compose the imported surface into a publishable Claude Code plugin +
+    /// `marketplace.json` (`specs/50-distribution.md`, "The plugin — the
+    /// Claude-Code-native delivery"): the operate-the-gate skill, the `SessionStart`
+    /// hook in its own `hooks.json`, and the shipped contract templates embedded. The
+    /// vendored, generated plugin is byte-faithful where it carries prose and
+    /// deterministic, so re-running reproduces an identical tree. `temper bundle` over
+    /// temper's own surface self-packages temper's plugin — the dogfood target.
+    Bundle {
+        /// The imported surface workspace to compose from (defaults to `./.temper`).
+        #[arg(default_value = DEFAULT_WORKSPACE)]
+        path: PathBuf,
+        /// Where to write the plugin tree (defaults to `./plugin`).
+        #[arg(long, default_value = "./plugin")]
+        out: PathBuf,
     },
 }
 
@@ -335,6 +351,15 @@ fn main() -> miette::Result<ExitCode> {
                 println!("dry run — no files written");
             }
             print!("{}", install::render(&report));
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Bundle { path, out } => {
+            // Compose the imported surface into a publishable plugin + marketplace
+            // (`specs/50-distribution.md`, "The plugin"). Deterministic and
+            // byte-faithful where it carries prose; the CLI is a thin wrapper over
+            // the library composer.
+            let report = bundle::run(&path, &out)?;
+            print!("{}", bundle::render(&report));
             Ok(ExitCode::SUCCESS)
         }
     }
