@@ -7,8 +7,7 @@
       "section": "Decision: a custom kind is an authored `.temper/` artifact, registered in the assembly"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MEMBER-DOCUMENT-IMPORT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
