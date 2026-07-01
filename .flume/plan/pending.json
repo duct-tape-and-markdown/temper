@@ -1,49 +1,5 @@
 [
   {
-    "tag": "REQUIREMENT-COVERAGE",
-    "summary": "`check` gates referential coverage — every `required` requirement has a resolving `satisfies`; diagnose unfilled requirements and dangling links",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Requirements and `satisfies` — the meaningful contract"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/coverage.rs",
-          "description": "The referential COVERAGE check (`specs/10-contracts.md`, \"What `check` gates is the decidable shadow\"): `pub fn check(requirements: &BTreeMap<String, Requirement>, artifacts: &[Features]) -> Vec<Diagnostic>`. Two decidable, true-positive diagnostics — (1) UNFILLED: every `required` requirement is satisfied by ≥1 artifact whose representation declares a resolving `satisfies` link naming it; a required requirement with no such artifact is an `error` finding. (2) DANGLING: every `satisfies` entry on any artifact names a declared requirement; a `satisfies` resolving to no requirement is an `error` finding on that artifact. This is the referential primitive — decidable coverage, a true positive every time — and temper NEVER judges whether the artifact *actually* fulfils `means` (that is the author's attestation, optionally a wired `verified_by`). Rule ids like `requirement.unfilled` / `requirement.dangling`."
-        },
-        {
-          "path": "tests/coverage.rs",
-          "description": "Fixture-driven proof: a `required` requirement with a skill declaring a resolving `satisfies` stays silent; a `required` requirement with no satisfying artifact fires UNFILLED; a skill whose `satisfies` names no declared requirement fires DANGLING; a non-`required` requirement left unfilled does not block. An end-to-end case over the built binary (mirroring tests/temper_toml.rs) proving `temper check` exits non-zero on an unfilled required requirement and zero when covered."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod coverage;` beside the other engine modules (this entry owns the new module's `pub mod` line, so no other entry co-edits lib.rs)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Wire coverage into `gate()`, inside the existing `if let Some(layer)` block at src/main.rs:366 (requirements only exist with a `temper.toml`): assemble all artifact features (skill_features chained with rule_features), then `diagnostics.extend(coverage::check(layer.requirements(), &all_features))`. Coverage findings are `error` severity (a `required` requirement unfilled, or a dangling `satisfies`, blocks the gate) — the gate stays closed. Absent `temper.toml` ⇒ no layer ⇒ no requirements ⇒ this adds nothing, so the floor-only path is byte-for-byte unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage.rs",
-        "asserts": "Unfilled required requirement and dangling satisfies each fire an error; a covered required requirement + resolving satisfies stays silent; a non-required unfilled requirement does not block; `temper check` exit code reflects the verdict."
-      }
-    ],
-    "acceptance": "`temper check` gates referential coverage — every `required` requirement resolves to ≥1 artifact's `satisfies`, and every `satisfies` resolves to a declared requirement — emitting precise unfilled/dangling diagnostics and exiting non-zero on a required violation; `means` is never judged; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Closes the requirements/satisfies reframe: contract reads as *intent* while the gate stays *weak* (\"does that intent have a resolving home?\") — meaningful contract, weak gate (law 3). Ranges over skill+rule features. Both upstreams (REQUIREMENTS-PARSE, SATISFIES-REPRESENTATION) have landed; only new fixtures declare `[requirement.*]`, so wiring into gate() breaks nothing else."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md`, typed frontmatter + byte-faithful body, with its own decidable contract",
     "per": {
