@@ -1,40 +1,5 @@
 [
   {
-    "tag": "KIND-DECLARATION-PARSE",
-    "summary": "Parse `[kind.<name>]` custom-kind declarations in `temper.toml` — governs + extraction + clause — distinct from a built-in contract layer.",
-    "per": {
-      "path": "specs/40-composition.md",
-      "section": "Declaring a custom kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Parse a `[kind.<name>]` table carrying `governs` (root+glob locus) and `[kind.<name>.extraction]` into a typed custom-kind definition (composing the extraction algebra from KIND-EXTRACTION-ALGEBRA with the existing `[[kind.<name>.clause]]` contract parser), stored off `AuthorLayer`. Disambiguate a full custom-kind declaration (has `governs`/`extraction`) from the existing built-in contract layer (adopt/clause-only over a shipped kind); a malformed declaration is a load error."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "Assert a `[kind.spec]` declaration with `governs`, `[kind.spec.extraction]`, and a `[[kind.spec.clause]]` parses into a custom-kind definition distinct from a built-in layer; a malformed one is a load error."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "`AuthorLayer` parses a `[kind.<name>]` custom-kind declaration (governs + extraction + clause), distinct from a built-in contract layer; malformed declarations are load errors."
-      }
-    ],
-    "acceptance": "`AuthorLayer` parses a `[kind.<name>]` custom-kind declaration — `governs` locus, `[kind.<name>.extraction]`, and `[[kind.<name>.clause]]` — into a typed definition, distinguished from an adopt/clause-only built-in contract layer.",
-    "notes": "The `[kind.<name>]` key serves both a built-in contract layer (adopt/extend/flip over a shipped kind) and a full custom-kind declaration; `governs`/`extraction` presence disambiguates. `[kind.<name>.relationships]` (the edge capability) is folded in by KIND-EDGE-RELATIONSHIPS, not here."
-  },
-  {
     "tag": "KIND-IMPORT-DISCOVERY",
     "summary": "Discover custom-kind units at import from the active `temper.toml`'s declared `governs` loci, replacing the hardwired `specs/*.md` scan.",
     "per": {
