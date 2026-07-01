@@ -1,44 +1,16 @@
 [
   {
-    "tag": "REQUIREMENTS-PARSE",
-    "summary": "Parse `[requirement.<name>]` (`means`, `required`) in `temper.toml` — the meaningful-contract namespace, parse-only",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Requirements and `satisfies` — the meaningful contract"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Add a `Requirement { means: String, required: bool }` struct and a `requirements: BTreeMap<String, Requirement>` field on `AuthorLayer`, parsed from top-level `[requirement.<name>]` tables in `AuthorLayer::parse` — its own namespace, distinct from `kind`/`role` (`specs/10-contracts.md`, the Decision's closing note: \"`requirement.` is its own namespace — distinct from the `rule` artifact kind\"). `means` is a required string carried verbatim and NEVER interpreted (law 3 — no proxy); `required` is an optional bool (absent ⇒ false: temper never fabricates a gate the author did not declare, `00-intent.md` law 4). Mirror the `[role.<name>]` parse path: a `requirement` root that is not a table, a `[requirement.<name>]` that is not a table, and a missing/mistyped `means` are each a load error (new `ComposeError` variants: `RequirementRootNotTable`, `RequirementNotTable`, `RequirementMissingMeans`, `RequirementWrongType`). Add a `requirements(&self) -> &BTreeMap<String, Requirement>` accessor. Parse-only in this tier: coverage over the parsed requirements is a follow-on entry (REQUIREMENT-COVERAGE)."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "Extend the acceptance suite with `AuthorLayer::parse` cases over the new namespace: a `[requirement.dev-standards]` with `means` + `required = true` parses to the typed `Requirement`; `means` is stored verbatim (never judged); an absent `required` defaults to false; a `[requirement.x]` missing `means`, or a non-table `requirement` root, is a load error. Import the new `Requirement` type from `temper::compose`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "`[requirement.<name>]` parses into a typed Requirement (means verbatim, required defaulting false); a missing `means` or malformed `requirement` table is a ComposeError load error."
-      }
-    ],
-    "acceptance": "`AuthorLayer` carries a name-keyed `requirements` map parsed from `[requirement.<name>]` tables (`means` required + verbatim, `required` optional), exposed via `requirements()`; malformed declarations are load errors; cargo fmt/clippy -D warnings/test green. No coverage check yet (that is REQUIREMENT-COVERAGE).",
-    "notes": "Foundation for the reframe (inbox, spec dacec45): a requirement carries meaning, not predicates — temper NEVER interprets `means` (law 3). Parse mirrors the existing `[role.<name>]` / `[kind.<name>]` paths already in compose.rs, so no new mechanism, just a new namespace + typed value. Disjoint from the representation + coverage entries that chain behind it."
-  },
-  {
     "tag": "SATISFIES-REPRESENTATION",
     "summary": "Carry `satisfies` + `rationale` on the artifact representation — extend the skill/rule IR + features so meta.toml holds them, round-tripped",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Each artifact directory is a representation, not a copy"
     },
-    "gate": { "kind": "blockedBy", "tag": "REQUIREMENTS-PARSE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "REQUIREMENTS-PARSE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -78,7 +50,11 @@
       "path": "specs/10-contracts.md",
       "section": "Requirements and `satisfies` — the meaningful contract"
     },
-    "gate": { "kind": "blockedBy", "tag": "SATISFIES-REPRESENTATION" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SATISFIES-REPRESENTATION"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -119,7 +95,11 @@
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & contract selection"
     },
-    "gate": { "kind": "deferred", "reason": "reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind" },
+    "gate": {
+      "kind": "deferred",
+      "reason": "reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
