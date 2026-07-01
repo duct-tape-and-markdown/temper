@@ -32,7 +32,7 @@
 //! fabricates a gate the author did not declare, `00-intent.md` law 4), but every
 //! requirement's definition is held to admissibility regardless.
 //!
-//! ## The two decidable selectors
+//! ## The decidable selector
 //!
 //! Matching ranges over the closed selector set the parse foundation already
 //! captured:
@@ -41,9 +41,9 @@
 //!   name ([`Features::id`]). `*` matches any run of characters (including empty);
 //!   every other character is literal. No glob crate joins the sanctioned set for
 //!   this one wildcard.
-//! - [`MatchSelector::Role`] — the artifact declares the marker it carries in a
-//!   `role:` frontmatter field, read off [`Features`] like any other field — the
-//!   marker-opt-in selector, the contract-side alternative to a name glob.
+//!
+//! It is the contract-side on-ramp for an artifact that has not opted in via a
+//! `satisfies` link (`specs/10-contracts.md`, the fill facet).
 //!
 //! Candidates come from the loaded kinds (`skill`, `rule`): a requirement's `kind`
 //! typing narrows them to that kind, and a kind-blind requirement (no `kind`) draws
@@ -260,32 +260,31 @@ pub fn conformance(
 /// [`Diagnostic::error`] (an inadmissible requirement cannot be trusted, so it must
 /// fail the run) and names the requirement it indicts.
 ///
-/// Six decidable clauses over the requirement's *present* facets — every facet is
-/// optional, so an absent one imposes no admissibility check:
+/// Five decidable clauses over the requirement's *present* facets — every facet is
+/// optional, so an absent one imposes no admissibility check. The `match` selector
+/// imposes none: a [`MatchSelector::Name`] glob is always well-formed under the
+/// in-crate matcher ([`glob_matches`] accepts any pattern), so it can never be
+/// inadmissible.
 ///
-/// - **(a) the `match` selector resolves** — when present, a [`MatchSelector::Role`]
-///   marker is non-empty (an empty marker no artifact can declare admits nothing). A
-///   [`MatchSelector::Name`] glob is always well-formed under the in-crate matcher
-///   ([`glob_matches`] accepts any pattern), so it never fails here.
-/// - **(b) a `required` typed requirement is satisfiable** — when the requirement
+/// - **(a) a `required` typed requirement is satisfiable** — when the requirement
 ///   declares a `kind`, that kind is one `temper` models (a key of `by_kind`); a
 ///   required requirement typed to an unmodeled kind can *never* be filled, so its
 ///   definition is inadmissible. A kind-blind requirement (no `kind`) is filled by
 ///   opt-in `satisfies`, so this clause gates on both `required` *and* a declared kind.
-/// - **(c) its contract resolves and is itself admissible** — when present,
+/// - **(b) its contract resolves and is itself admissible** — when present,
 ///   [`RequirementContract::resolve`](crate::compose::RequirementContract::resolve)
 ///   succeeds (a non-resolving template path is the inadmissibility this pass owns,
 ///   the case [`conformance`] skips) and the resolved [`Contract`](crate::contract::Contract)
 ///   passes [`engine::admissibility`] (so an empty `enum` in an inline contract is
 ///   caught here, exactly as in a floor contract).
-/// - **(d) any `verified_by` resolves** — the named path exists relative to
+/// - **(c) any `verified_by` resolves** — the named path exists relative to
 ///   `base_dir` (the referential clause; a dangling verifier is a silent no-op,
 ///   the very failure `00-intent.md` law 1 forbids).
-/// - **(e) a declared `count` bound is satisfiable** — `min <= max`; an inverted
+/// - **(d) a declared `count` bound is satisfiable** — `min <= max`; an inverted
 ///   bound admits no cardinality at all, so the definition is inadmissible, mirroring
 ///   `range`'s `min > max` rejection (`specs/45-governance.md`).
-/// - **(f) a `membership` `conforms_to` typed reference resolves and is itself
-///   admissible** — held to the same bar as the requirement's own contract in (c).
+/// - **(e) a `membership` `conforms_to` typed reference resolves and is itself
+///   admissible** — held to the same bar as the requirement's own contract in (b).
 ///
 /// `by_kind` is the same workspace-features map [`check`] and [`conformance`] read
 /// — admissibility uses only its *keys* (the modeled kinds), never the fillers.
@@ -301,21 +300,7 @@ pub fn admissibility(
     for requirement in requirements.values() {
         let name = requirement.name.as_str();
 
-        // (a) The `match` selector resolves. Only a `role` marker can be vacuous:
-        // an empty marker is one no artifact can opt into.
-        if let Some(MatchSelector::Role { marker }) = &requirement.selector
-            && marker.is_empty()
-        {
-            diagnostics.push(Diagnostic::error(
-                REQUIREMENT_ADMISSIBILITY_RULE,
-                name,
-                format!(
-                    "requirement `{name}` selects by an empty `role` marker, which no artifact can declare"
-                ),
-            ));
-        }
-
-        // (b) A `required` typed requirement is satisfiable: its declared `kind` is
+        // (a) A `required` typed requirement is satisfiable: its declared `kind` is
         // one `temper` models, else no artifact of that kind can ever fill it. A
         // kind-blind requirement is filled by opt-in `satisfies`, so this gates on a
         // declared kind.
@@ -332,7 +317,7 @@ pub fn admissibility(
             ));
         }
 
-        // (c) The requirement's contract resolves, and the resolved contract is
+        // (b) The requirement's contract resolves, and the resolved contract is
         // itself admissible. A non-resolving template is this pass's finding (the case
         // `conformance` skips to avoid double-reporting).
         if let Some(contract_ref) = &requirement.contract {
@@ -357,7 +342,7 @@ pub fn admissibility(
             }
         }
 
-        // (d) Any `verified_by` resolves to a real path under the project — a
+        // (c) Any `verified_by` resolves to a real path under the project — a
         // dangling verifier is a silent no-op.
         if let Some(verifier) = &requirement.verified_by
             && !base_dir.join(verifier).exists()
@@ -371,7 +356,7 @@ pub fn admissibility(
             ));
         }
 
-        // (e) A declared `count` bound is satisfiable: `min <= max`. An inverted
+        // (d) A declared `count` bound is satisfiable: `min <= max`. An inverted
         // bound admits no cardinality at all — a vacuous clause the author cannot
         // have meant — so the definition is inadmissible, mirroring `range`'s
         // `min > max` rejection (`specs/45-governance.md`, "reject min>max").
@@ -388,8 +373,8 @@ pub fn admissibility(
             ));
         }
 
-        // (f) A `membership` `conforms_to` typed reference resolves and is itself
-        // admissible — held to the same bar as the requirement's own contract in (c).
+        // (e) A `membership` `conforms_to` typed reference resolves and is itself
+        // admissible — held to the same bar as the requirement's own contract in (b).
         // A `conforms_to` that never loads would otherwise silently drop the whole
         // membership check (`out_of_set` skips a non-resolving one), so it must be
         // reported here.
@@ -441,8 +426,7 @@ fn conformance_finding(requirement: &Requirement, finding: &Diagnostic) -> Diagn
 }
 
 /// The names of the artifacts that fill `selector`, in candidate order. A candidate
-/// fills the selector when its name matches the [`MatchSelector::Name`] glob or it
-/// declares the [`MatchSelector::Role`] marker in its `role` field.
+/// fills the selector when its name matches the [`MatchSelector::Name`] glob.
 fn fillers<'a>(selector: &MatchSelector, candidates: &[&'a Features]) -> Vec<&'a str> {
     candidates
         .iter()
@@ -458,11 +442,6 @@ fn fillers<'a>(selector: &MatchSelector, candidates: &[&'a Features]) -> Vec<&'a
 pub(crate) fn matches(selector: &MatchSelector, features: &Features) -> bool {
     match selector {
         MatchSelector::Name { glob } => glob_matches(glob, &features.id),
-        // The marker-opt-in selector: the artifact declares the marker in its `role:`
-        // frontmatter field, read off `Features` like any other scalar field.
-        MatchSelector::Role { marker } => {
-            features.field("role").and_then(FeatureValue::as_scalar) == Some(marker.as_str())
-        }
     }
 }
 
@@ -730,19 +709,12 @@ mod tests {
     use crate::extract::Kind;
     use std::path::Path;
 
-    /// A `Features` carrying a name (its `id`) and an optional `role:` marker —
-    /// the two facts the selectors decide over.
-    fn features(name: &str, role_marker: Option<&str>) -> Features {
-        let mut fields = BTreeMap::new();
-        if let Some(marker) = role_marker {
-            fields.insert(
-                "role".to_string(),
-                FeatureValue::scalar(Kind::String, marker),
-            );
-        }
+    /// A `Features` carrying a name (its `id`) — the fact the `name` glob selector
+    /// decides over.
+    fn features(name: &str) -> Features {
         Features {
             id: name.to_string(),
-            fields,
+            fields: BTreeMap::new(),
             body_lines: 1,
             headings: Vec::new(),
             source_dir: Some(name.to_string()),
@@ -814,33 +786,12 @@ mod tests {
     fn a_name_glob_picks_exactly_the_matching_fillers() {
         let req = required_name_requirement("plan*");
         let skills = [
-            features("plan-tasks", None),
-            features("lint-rust", None),
-            features("plan-sprints", None),
+            features("plan-tasks"),
+            features("lint-rust"),
+            features("plan-sprints"),
         ];
         let selected = fillers(req.selector.as_ref().unwrap(), &refs(&skills));
         assert_eq!(selected, vec!["plan-tasks", "plan-sprints"]);
-    }
-
-    #[test]
-    fn a_role_marker_picks_the_opting_in_artifact() {
-        // The `role` marker selector matches the artifact's declared `role:` field,
-        // not its name — the marker-opt-in form.
-        let req = requirement(
-            "[requirement.release]\n\
-             kind = \"skill\"\n\
-             contract = \"contracts/skill.anthropic.toml\"\n\
-             match = { role = \"release\" }\n\
-             required = true\n",
-            "release",
-        );
-        let skills = [
-            features("ship-it", Some("release")),
-            features("plan-tasks", Some("planning")),
-            features("no-marker", None),
-        ];
-        let selected = fillers(req.selector.as_ref().unwrap(), &refs(&skills));
-        assert_eq!(selected, vec!["ship-it"]);
     }
 
     #[test]
@@ -848,7 +799,7 @@ mod tests {
         let req = required_name_requirement("plan*");
 
         // Zero fillers ⇒ an error-severity finding.
-        let none = run(req.clone(), &[features("lint-rust", None)]);
+        let none = run(req.clone(), &[features("lint-rust")]);
         assert_eq!(none.len(), 1);
         assert_eq!(none[0].severity, Severity::Error);
         assert_eq!(none[0].rule, REQUIREMENT_MATCH_RULE);
@@ -856,14 +807,11 @@ mod tests {
         assert!(none[0].message.contains("no `skill` artifact"));
 
         // Exactly one filler ⇒ clean.
-        let one = run(req.clone(), &[features("plan-tasks", None)]);
+        let one = run(req.clone(), &[features("plan-tasks")]);
         assert!(one.is_empty());
 
         // Many fillers ⇒ an error naming the count and the colliding fillers.
-        let many = run(
-            req,
-            &[features("plan-tasks", None), features("plan-sprints", None)],
-        );
+        let many = run(req, &[features("plan-tasks"), features("plan-sprints")]);
         assert_eq!(many.len(), 1);
         assert_eq!(many[0].severity, Severity::Error);
         assert!(many[0].message.contains("plan-tasks"));
@@ -882,13 +830,7 @@ mod tests {
             "planner",
         );
         assert!(run(req.clone(), &[]).is_empty());
-        assert!(
-            run(
-                req,
-                &[features("plan-tasks", None), features("plan-sprints", None)],
-            )
-            .is_empty()
-        );
+        assert!(run(req, &[features("plan-tasks"), features("plan-sprints")],).is_empty());
     }
 
     #[test]
@@ -902,7 +844,7 @@ mod tests {
              required = true\n",
             "dev-standards",
         );
-        assert!(run(req, &[features("lint-rust", None)]).is_empty());
+        assert!(run(req, &[features("lint-rust")]).is_empty());
     }
 
     /// A `count = { min, max }` band requirement over the `skill` kind — the set-scope
@@ -924,14 +866,14 @@ mod tests {
     fn a_count_band_is_clean_inside_and_fires_outside() {
         // A `[1, 2]` band: one or two matching skills are clean, zero or three fire.
         let req = count_band_requirement(1, 2);
-        let agent = |n: u8| features(&format!("agent-{n}"), None);
+        let agent = |n: u8| features(&format!("agent-{n}"));
 
         // In band (one filler, and two fillers) ⇒ clean.
         assert!(run(req.clone(), &[agent(1)]).is_empty());
         assert!(run(req.clone(), &[agent(1), agent(2)]).is_empty());
 
         // Below the band (zero fillers — the non-matching skill is ignored) ⇒ fires.
-        let below = run(req.clone(), &[features("lint-rust", None)]);
+        let below = run(req.clone(), &[features("lint-rust")]);
         assert_eq!(below.len(), 1);
         assert_eq!(below[0].severity, Severity::Error);
         assert_eq!(below[0].rule, REQUIREMENT_MATCH_RULE);
@@ -951,7 +893,7 @@ mod tests {
         // `count` is an author-declared gate, so it fires independent of `required`
         // (with which it is mutually exclusive) — a `{ min = 2, max = 4 }` requirement
         // with one filler is out of band.
-        let one = run(count_band_requirement(2, 4), &[features("agent-1", None)]);
+        let one = run(count_band_requirement(2, 4), &[features("agent-1")]);
         assert_eq!(one.len(), 1);
         assert_eq!(one[0].rule, REQUIREMENT_MATCH_RULE);
     }
@@ -972,7 +914,7 @@ mod tests {
     /// A `Features` carrying a name and an optional `model:` scalar field — the
     /// field the `unique` predicate groups the matched set by.
     fn skill_with_model(name: &str, model: Option<&str>) -> Features {
-        let mut f = features(name, None);
+        let mut f = features(name);
         if let Some(model) = model {
             f.fields.insert(
                 "model".to_string(),
@@ -1251,7 +1193,7 @@ mod tests {
     /// inline `max_len` contract measures (the engine validates extracted *fields*,
     /// not the bare diagnostic id).
     fn named_skill(name: &str) -> Features {
-        let mut f = features(name, None);
+        let mut f = features(name);
         f.fields
             .insert("name".to_string(), FeatureValue::scalar(Kind::String, name));
         f
@@ -1310,7 +1252,7 @@ mod tests {
         // skips it (a non-resolving template is admissibility's finding), so
         // nothing fires even though a filler matches.
         let req = required_name_requirement("plan*"); // contract = a template path
-        let skills = [features("plan-tasks", None)];
+        let skills = [features("plan-tasks")];
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
@@ -1338,7 +1280,7 @@ mod tests {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         // Only `skill` candidates are present; `command` is absent.
-        let skills = [features("release-it", None)];
+        let skills = [features("release-it")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let diags = check(&requirements, &by_kind, Path::new(""));
         assert_eq!(diags.len(), 1);
@@ -1441,27 +1383,6 @@ mod tests {
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
         assert!(diags[0].message.contains("verifier"));
         assert!(diags[0].message.contains("tests/nope.rs"));
-    }
-
-    #[test]
-    fn an_empty_role_marker_selector_is_inadmissible() {
-        // A `role` marker no artifact can declare (the empty string) admits
-        // nothing, so the selector does not resolve.
-        let req = requirement(
-            "[requirement.planner]\n\
-             kind = \"skill\"\n\
-             match = { role = \"\" }\n\
-             [[requirement.planner.clause]]\n\
-             severity = \"required\"\n\
-             predicate = \"max_len\"\n\
-             field = \"name\"\n\
-             max = 64\n",
-            "planner",
-        );
-        let diags = run_admissibility(req, Path::new(""));
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
-        assert!(diags[0].message.contains("empty"));
     }
 
     #[test]

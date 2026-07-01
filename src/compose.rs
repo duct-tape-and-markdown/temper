@@ -187,7 +187,7 @@ pub struct Edge {
 ///
 /// Not `Eq` — its [`clauses`](CustomKind::clauses) may carry `f64` `range` bounds
 /// (see [`crate::contract::Contract`]); equality stays derived as `PartialEq`, as
-/// it is for [`Role`].
+/// it is for [`Clause`](crate::contract::Clause).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CustomKind {
     /// The kind's name — the `[kind.<name>]` table key.
@@ -458,12 +458,6 @@ pub enum MatchSelector {
         /// The glob, stored verbatim.
         glob: String,
     },
-    /// By an explicit marker the artifact declares in its `role:` frontmatter field
-    /// (`match = { role = "task-planning" }`) — the marker-opt-in selector.
-    Role {
-        /// The marker the filling artifact must declare, stored verbatim.
-        marker: String,
-    },
 }
 
 /// One kind's customization: an optional adopted template and the clauses to layer
@@ -672,11 +666,10 @@ pub enum ComposeError {
     },
 
     /// A `[requirement.<name>]`'s `match` selector is not exactly one of the closed
-    /// set (a `name` glob or a `role` marker). A non-table, zero/many keys, or an
-    /// unknown key all land here — matching is a decidable selector, never an open
-    /// guess.
+    /// set (a `name` glob). A non-table, zero/many keys, or an unknown key all land
+    /// here — matching is a decidable selector, never an open guess.
     #[error(
-        "{path}: `[requirement.{name}]` `match` must name exactly one decidable selector (`name` glob or `role` marker)"
+        "{path}: `[requirement.{name}]` `match` must name exactly one decidable selector (`name` glob)"
     )]
     #[diagnostic(code(temper::compose::requirement_bad_match))]
     RequirementBadMatch {
@@ -1517,11 +1510,11 @@ fn membership_str(table: &dyn toml_edit::TableLike, key: &str) -> Option<String>
 }
 
 /// Parse a [`MatchSelector`] out of a `match` item that is itself an inline table
-/// naming exactly one decidable selector (a `name` glob or a `role` marker) with a
-/// string value. Returns `None` on any malformation — not a table, zero/many keys,
-/// an unknown key, or a non-string value — so a caller can collapse it into its own
-/// error (the membership `match` folds into [`ComposeError::RequirementBadMembership`],
-/// the requirement's own into [`ComposeError::RequirementBadMatch`]).
+/// naming exactly one decidable selector (a `name` glob) with a string value.
+/// Returns `None` on any malformation — not a table, zero/many keys, an unknown key,
+/// or a non-string value — so a caller can collapse it into its own error (the
+/// membership `match` folds into [`ComposeError::RequirementBadMembership`], the
+/// requirement's own into [`ComposeError::RequirementBadMatch`]).
 fn selector_from(item: &toml_edit::Item) -> Option<MatchSelector> {
     let table = item.as_table_like()?;
     let mut selector = None;
@@ -1534,9 +1527,6 @@ fn selector_from(item: &toml_edit::Item) -> Option<MatchSelector> {
         selector = Some(match key {
             "name" => MatchSelector::Name {
                 glob: pattern.to_string(),
-            },
-            "role" => MatchSelector::Role {
-                marker: pattern.to_string(),
             },
             _ => return None,
         });
@@ -1572,7 +1562,7 @@ fn parse_requirement_contract(
 
 /// The requirement's optional `match` selector: absent ⇒ `None` (fill is by opt-in
 /// `satisfies` alone, gated by [`crate::coverage`]); present ⇒ an inline table naming
-/// exactly one of the closed set — a `name` glob or a `role` marker — whose value is a
+/// exactly one of the closed set — a `name` glob — whose value is a
 /// string. Any malformation (not a table, zero/many/unknown keys, a non-string value)
 /// collapses to [`ComposeError::RequirementBadMatch`], via the shared [`selector_from`].
 /// The pattern is stored verbatim, never matched.
@@ -1999,11 +1989,11 @@ required = true
     fn an_inline_clause_contract_parses_via_the_shared_parser() {
         // No `contract` path: the requirement's contract is inline `[[clause]]`s,
         // parsed by the same closed-vocabulary parser a bare contract uses. The
-        // selector is the marker-opt-in `role` form.
+        // selector is the contract-side `name` glob.
         let toml = r#"
 [requirement.release-tool]
 kind = "command"
-match = { role = "release" }
+match = { name = "release*" }
 [[requirement.release-tool.clause]]
 severity = "required"
 predicate = "required"
@@ -2020,8 +2010,8 @@ marker = "executable"
             .expect("the requirement parses");
         assert_eq!(
             requirement.selector,
-            Some(MatchSelector::Role {
-                marker: "release".to_string(),
+            Some(MatchSelector::Name {
+                glob: "release*".to_string(),
             })
         );
         assert_eq!(
@@ -2103,7 +2093,7 @@ field = "name"
 
     #[test]
     fn a_match_with_an_unknown_selector_key_is_a_load_error() {
-        // `path` is not in the closed selector set {name, role}.
+        // `path` is not in the closed selector set {name}.
         let toml = r#"
 [requirement.linter]
 kind = "skill"
@@ -2119,12 +2109,12 @@ match = { path = "skills/lint" }
 
     #[test]
     fn a_match_naming_two_selectors_is_a_load_error() {
-        // Exactly one selector — `name` and `role` together is ambiguous.
+        // Exactly one selector — a `name` glob paired with any second key is ambiguous.
         let toml = r#"
 [requirement.linter]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
-match = { name = "lint*", role = "lint" }
+match = { name = "lint*", extra = "lint" }
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(err, ComposeError::RequirementBadMatch { .. }));
@@ -2451,22 +2441,22 @@ membership = { field = "model", kind = "manifest", match = { name = "approved-*"
     }
 
     #[test]
-    fn a_membership_with_a_role_marker_source_selector_parses() {
-        // S₂ may select by the marker-opt-in `role` selector just as a requirement's
-        // own `match` can — the selector is the same closed set.
+    fn a_membership_with_a_name_glob_source_selector_parses() {
+        // S₂ may select by the `name` glob just as a requirement's own `match` can —
+        // the selector is the same closed set.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
 contract = "contracts/skill.anthropic.toml"
 match = { name = "agent-*" }
-membership = { field = "model", kind = "skill", match = { role = "approved" }, feature = "model" }
+membership = { field = "model", kind = "skill", match = { name = "approved-*" }, feature = "model" }
 "#;
         let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
         let requirement = layer.requirements().get("agents").unwrap();
         assert_eq!(
             requirement.membership.as_ref().unwrap().source_selector,
-            MatchSelector::Role {
-                marker: "approved".to_string(),
+            MatchSelector::Name {
+                glob: "approved-*".to_string(),
             }
         );
     }
@@ -2521,7 +2511,7 @@ membership = { field = "model", kind = "manifest", match = { name = "approved" }
     #[test]
     fn a_membership_with_a_malformed_source_selector_is_a_load_error() {
         // The source `match` must name exactly one decidable selector; `path` is not
-        // in the closed set {name, role}, so the whole clause is malformed.
+        // in the closed set {name}, so the whole clause is malformed.
         let toml = r#"
 [requirement.agents]
 kind = "skill"
