@@ -13,6 +13,7 @@
 //!
 //! [`Features`]: temper::extract::Features
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -25,7 +26,9 @@ use temper::engine;
 use temper::extract;
 use temper::graph;
 use temper::import;
+use temper::kind::Unit;
 use temper::roster;
+use temper::spec::Spec;
 
 /// The surface workspace default for `--into` / the `check` argument: a `.temper`
 /// directory under the current working directory (`specs/20-surface.md`).
@@ -183,6 +186,30 @@ fn main() -> miette::Result<ExitCode> {
                 // byte-for-byte unchanged.
                 diagnostics.extend(graph::admissibility(layer.edges(), &by_kind));
                 diagnostics.extend(graph::check(layer.edges(), &by_kind));
+
+                // The custom-kind tier: each custom kind the layer declares
+                // (`specs/15-kinds.md`, "A kind definition — one composed object")
+                // is checked through its **own composed extractor** and **own
+                // contract** — the same two greens the built-in kinds run above, but
+                // data-driven rather than engine code. For each declared kind,
+                // project its imported units into raw markdown units, run the
+                // composed extractor over each to yield features, then extend the
+                // stream with admissibility over the kind's contract and conformance
+                // over those features (`specs/15-kinds.md`, "Worked example: `spec`,
+                // temper's own custom kind"). Absent a custom kind ⇒ the loop is
+                // empty, so the built-in-only path is byte-for-byte unchanged.
+                for (name, custom) in layer.custom_kinds() {
+                    let features: Vec<extract::Features> = custom_units(&ws, custom)
+                        .iter()
+                        .map(|unit| custom.extraction.extract(unit))
+                        .collect();
+                    let contract = Contract {
+                        name: name.clone(),
+                        clauses: custom.clauses.clone(),
+                    };
+                    diagnostics.extend(engine::admissibility(&contract));
+                    diagnostics.extend(engine::validate(&contract, &features));
+                }
             }
 
             print!("{}", check::render(&diagnostics));
@@ -210,5 +237,38 @@ fn main() -> miette::Result<ExitCode> {
             print!("{}", drift::render(&report));
             Ok(ExitCode::SUCCESS)
         }
+    }
+}
+
+/// Project a custom `kind`'s imported units into the raw [`Unit`]s its composed
+/// extractor reads (`specs/15-kinds.md`). Keyed on the declared `governs` locus,
+/// never the kind name — discovery stays data-driven, so temper reads its own
+/// `specs/` because the `temper.toml` declares a kind rooted there, not because
+/// anything is hardwired to `spec` (`specs/40-composition.md`).
+///
+/// The surface loader (`temper::check::Workspace`) materializes the `specs/`
+/// custom root today, so a kind whose `governs` root is `specs` draws its units
+/// from `ws.specs`. A custom kind rooted elsewhere has no materialized surface yet
+/// — extending the workspace loader to every custom root is a follow-on — so it
+/// contributes no units (its contract's admissibility still runs, over zero
+/// artifacts).
+fn custom_units(ws: &Workspace, kind: &compose::CustomKind) -> Vec<Unit> {
+    if kind.governs.root == "specs" {
+        ws.specs.iter().map(spec_unit).collect()
+    } else {
+        Vec::new()
+    }
+}
+
+/// Project a reloaded [`Spec`] into the raw [`Unit`] a composed extractor reads. A
+/// spec is pure prose (`90-spec-system.md`) — no frontmatter — so the whole file
+/// is the body, the id is the file stem, and the source path carries the placement
+/// the `placement` primitive reads.
+fn spec_unit(spec: &Spec) -> Unit {
+    Unit {
+        id: spec.name.clone(),
+        frontmatter: BTreeMap::new(),
+        body: spec.body.clone(),
+        source_path: spec.provenance.source_path.clone(),
     }
 }

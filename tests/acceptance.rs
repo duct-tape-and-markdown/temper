@@ -12,11 +12,19 @@
 //!   produces over the deliberately broken `tests/fixtures/rules/*` tree — the
 //!   reduced, decidable-only surviving-clause set;
 //! - the slice acceptance end to end: `import <fixture>` then validate reproduces
-//!   the expected diagnostics, and re-running `import` produces no diff.
+//!   the expected diagnostics, and re-running `import` produces no diff;
+//! - the custom-kind acceptance (`specs/15-kinds.md`, "Worked example: `spec`"):
+//!   over a corpus whose `temper.toml` declares the `spec` kind, `temper check`
+//!   dispatches each spec through its composed extractor and contract — an
+//!   over-length spec trips the advisory `max_lines`, exiting zero absent
+//!   `--deny-advisories`. That case drives the built binary, since the exit code
+//!   (and reading `temper.toml` off the process cwd) is observable only across a
+//!   real process boundary.
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::check::{self, Diagnostic, Severity, Workspace};
@@ -33,6 +41,10 @@ fn builtin_skill_contract() -> Contract {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts/skill.anthropic.toml");
     Contract::load(&path).expect("the shipped skill contract should load")
 }
+
+/// The built `temper` binary, located by Cargo at compile time — the custom-kind
+/// acceptance drives it to observe the process exit code.
+const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -195,5 +207,93 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
         first,
         render_surface(&into),
         "re-import must produce no diff"
+    );
+}
+
+/// A `temper.toml` declaring the `spec` custom kind exactly as temper's own does
+/// (`specs/15-kinds.md`, "Worked example: `spec`"): it governs `specs/*.md`,
+/// composes the spec extractor (line count, ATX headings, placement, backtick
+/// references), and gates one advisory `max_lines` clause. The shipped budget is
+/// ~150 (`90-spec-system.md`); this fixture uses a small one so a short over-length
+/// spec trips it without a 150-line corpus.
+const SPEC_TEMPER_TOML: &str = "\
+[kind.spec]
+governs = { root = \"specs\", glob = \"*.md\" }
+
+[[kind.spec.extraction]]
+primitive = \"line_count\"
+
+[[kind.spec.extraction]]
+primitive = \"headings\"
+
+[[kind.spec.extraction]]
+primitive = \"placement\"
+
+[[kind.spec.extraction]]
+primitive = \"references\"
+feature = \"references\"
+
+[[kind.spec.clause]]
+severity = \"advisory\"
+predicate = \"max_lines\"
+max = 10
+";
+
+/// A spec body over the fixture's 10-line `max_lines` budget — used to prove the
+/// advisory fires (and, under `--deny-advisories`, blocks).
+fn over_length_spec() -> String {
+    let mut body = String::from("# Kinds\n");
+    for line in 1..=40 {
+        body.push_str(&format!("Line {line} of an over-budget spec body.\n"));
+    }
+    body
+}
+
+/// Run the built binary `temper check <workspace> [extra…]` from `cwd` — so the
+/// project-root `temper.toml` is discovered at the process working directory —
+/// and return whether it exited zero.
+fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> bool {
+    Command::new(BIN)
+        .current_dir(cwd)
+        .arg("check")
+        .arg(workspace)
+        .args(extra)
+        .status()
+        .unwrap()
+        .success()
+}
+
+/// The custom-kind acceptance (`specs/15-kinds.md`, "Worked example: `spec`"):
+/// over a corpus whose `temper.toml` declares the `spec` kind, `temper check`
+/// dispatches each spec through the composed data extractor and the kind's own
+/// contract. The over-length spec trips the advisory `max_lines` (warn), which
+/// does not gate — so the run exits zero absent `--deny-advisories` and non-zero
+/// under it. That the flag flips the exit is proof the spec contract actually
+/// fired over the extracted features, not that the run was silently clean.
+#[test]
+fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
+    let corpus = tmpdir("spec-corpus");
+    fs::write(corpus.join("temper.toml"), SPEC_TEMPER_TOML).unwrap();
+    let specs = corpus.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    // A short spec (clean) beside an over-length one (trips the advisory budget).
+    fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
+    fs::write(specs.join("15-kinds.md"), over_length_spec()).unwrap();
+
+    // import discovers the `spec` kind from the corpus `temper.toml` and writes
+    // each spec into the surface — the units the extractor reads at check time.
+    let into = corpus.join(".temper");
+    import::run(&corpus, &into).unwrap();
+
+    // check from the corpus dir: `temper.toml` at the cwd declares the spec kind,
+    // so the run projects each spec through the composed extractor and validates it
+    // against the kind's contract. The only violation is the advisory `max_lines`.
+    assert!(
+        check_from(&corpus, &into, &[]),
+        "an advisory-only spec violation must exit zero without --deny-advisories"
+    );
+    assert!(
+        !check_from(&corpus, &into, &["--deny-advisories"]),
+        "the over-length spec must exit non-zero under --deny-advisories"
     );
 }
