@@ -7,8 +7,7 @@
       "section": "Requirements and `satisfies` — the meaningful contract"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SATISFIES-REPRESENTATION"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -29,7 +28,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "Wire coverage into `gate()`, inside the existing `if let Some(layer)` block (requirements only exist with a `temper.toml`): assemble all artifact features (skill_features chained with rule_features), then `diagnostics.extend(coverage::check(layer.requirements(), &all_features))`. Coverage findings are `error` severity (a `required` requirement unfilled, or a dangling `satisfies`, blocks the gate) — the gate stays closed. Absent `temper.toml` ⇒ no layer ⇒ no requirements ⇒ this adds nothing, so the floor-only path is byte-for-byte unchanged."
+          "description": "Wire coverage into `gate()`, inside the existing `if let Some(layer)` block at src/main.rs:366 (requirements only exist with a `temper.toml`): assemble all artifact features (skill_features chained with rule_features), then `diagnostics.extend(coverage::check(layer.requirements(), &all_features))`. Coverage findings are `error` severity (a `required` requirement unfilled, or a dangling `satisfies`, blocks the gate) — the gate stays closed. Absent `temper.toml` ⇒ no layer ⇒ no requirements ⇒ this adds nothing, so the floor-only path is byte-for-byte unchanged."
         }
       ],
       "retire": []
@@ -42,7 +41,7 @@
       }
     ],
     "acceptance": "`temper check` gates referential coverage — every `required` requirement resolves to ≥1 artifact's `satisfies`, and every `satisfies` resolves to a declared requirement — emitting precise unfilled/dangling diagnostics and exiting non-zero on a required violation; `means` is never judged; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Closes the reframe: the contract reads as *intent* (\"the harness must maintain dev standards\") while the gate stays *weak* (\"does that intent have a resolving home?\") — meaningful contract, weak gate (law 3). Ranges over skill+rule features (SATISFIES-REPRESENTATION's scope). Disjoint files (main/lib/coverage) from the two upstream entries; chained last so both upstreams have landed."
+    "notes": "Closes the requirements/satisfies reframe: contract reads as *intent* while the gate stays *weak* (\"does that intent have a resolving home?\") — meaningful contract, weak gate (law 3). Ranges over skill+rule features. Both upstreams (REQUIREMENTS-PARSE, SATISFIES-REPRESENTATION) have landed; only new fixtures declare `[requirement.*]`, so wiring into gate() breaks nothing else."
   },
   {
     "tag": "AGENT-KIND",
