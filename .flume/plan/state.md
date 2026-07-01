@@ -1,20 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile. Verified on disk: **SCHEMA-EMIT shipped** — `src/schema.rs`
-  emits the active per-kind contract as an editor JSON Schema, wired as `Command::Schema`
-  (`main.rs:84`, dispatch `main.rs:261`) over the same by-kind floor ⊕ `temper.toml` layer
-  `check` gates against (validation channel; docs/hover deferred).
-- **Last shipped:** SCHEMA-EMIT (`5e79663`). Queue held one blocked entry; SCHEMA-EMIT's
-  ship cleared the gate.
-- **In flight / pickable (1):** **APPLY-WRITEBACK** (`open`) — `temper apply`, the three-state
-  write-back engine (`drift.rs` today has read-only `diff` only; the lock `RollupEntry` carries
-  `import_hash`+`body_hash`, no last-applied fingerprint yet). All gating forks RESOLVED.
-- **Frontier:** `re-add` (on-disk→surface, sibling of apply) and `bundle`/`install`/reporters
-  are the unbuilt distribution/write-back areas; more built-in harness kinds
-  (agent/hook/command/MCP/settings/plugin) remain adapters to add — all touch `import.rs`+`main.rs`,
-  so each collides with APPLY's blast radius and is serialized behind it, not filed `open` now.
-  Spec-kind `references-resolve` waits on `(reference-id-normalization)`; `decisions-name-alternatives`
-  waits on `(decision-marker-predicate)`.
+- **Phase:** reconcile. Verified on disk: **APPLY-WRITEBACK shipped** — `drift.rs`
+  carries the three-state write direction (`apply` + `project_one`, patch-not-re-emit,
+  the Applied/Unchanged/Conflicted merge), wired as `Command::Apply` (`main.rs:334`);
+  the lock's `last_applied` fingerprint is written at import and reconciled on apply.
+  The custom-kind (KIND-*) tier is also on disk — `import` discovers custom kinds from
+  `temper.toml` and `check` runs each through its own composed extractor + contract.
+- **Last shipped:** APPLY-WRITEBACK (`4a7db52`). Queue was empty; APPLY dropped as shipped.
+- **Filed / pickable (1):** **RE-ADD** (`open`) — `temper re-add`, the third drift
+  direction (on-disk→surface), reusing `diff`'s classification + `import`'s writers over
+  the built-in kinds. Serialized behind it: **SESSION-START-GATE** (`blockedBy RE-ADD`) —
+  the advisory session-start reporter/verb; both touch `main.rs`, so one at a time.
+- **Frontier:** `bundle`/`install`, the SARIF + GitHub-annotation reporters, and more
+  built-in harness kinds (agent/hook/command/MCP/settings/plugin) are the unbuilt areas —
+  each touches `main.rs` (and most `import.rs`), so all serialize on that shared surface,
+  not filed `open` now. Spec-kind `references-resolve` waits on `(reference-id-normalization)`
+  (custom-kind features never join `by_kind` at `main.rs:168`, so spec edges find no sources);
+  `decisions-name-alternatives` waits on `(decision-marker-predicate)`.
 - **Inbox:** empty (nothing to drain). Open questions unchanged (no fork resolved this tick).
 
-Plan continues: no — queue reconciled, SCHEMA-EMIT dropped as shipped, APPLY-WRITEBACK unblocked and pickable, inbox empty; hand to build.
+Plan continues: no — queue reconciled, APPLY-WRITEBACK dropped as shipped, RE-ADD filed and pickable with SESSION-START-GATE serialized behind it, inbox empty; hand to build.

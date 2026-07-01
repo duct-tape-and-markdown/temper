@@ -1,1 +1,84 @@
-[]
+[
+  {
+    "tag": "RE-ADD",
+    "summary": "add `temper re-add` — reconcile on-disk harness edits back into the surface (the third drift direction)",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Drift / apply — three states, never two (the hard core)"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/readd.rs",
+          "description": "Acceptance: a drifted source is pulled into the surface (body + meta.toml rewritten, lock fingerprints refreshed); an added on-disk source becomes a new surface artifact + lock row; an in-sync harness is a no-op; covers skill and rule kinds."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Add the `re_add` write direction beside `diff`/`apply`: reuse `diff`'s four-state classification to target the drifted + added built-in artifacts, re-parse each source through the skill/rule loaders, project it into its surface tree, and refresh the lock row's import_hash/body_hash/last_applied to the current source bytes. Report types (ReAddReport/ReAddEntry/outcome) + `render_readd`, mirroring the apply report."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Expose the per-kind surface writers (import_skill/import_rule) as pub(crate) so re-add reuses the single round-trip write path (meta.toml via to_meta_document + byte-faithful body) rather than re-implementing it. Visibility only — no signature or behavior change, existing import tests untouched."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add `Command::ReAdd { harness_path, into }` + dispatch: load the surface, run `drift::re_add` against the live harness, print the report, exit zero (a reconcile, not a gate). Mirrors the `Diff` variant's shape."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/readd.rs",
+        "asserts": "A drifted skill/rule source is reconciled into the surface (SKILL.md/RULE.md body + meta.toml updated, lock import_hash/last_applied bumped to the new bytes); an added on-disk source gains a surface dir + lock row; an unchanged harness leaves every surface byte identical."
+      }
+    ],
+    "acceptance": "`temper re-add <harness>` updates the surface from drifted/added on-disk sources and refreshes the lock; the existing diff/apply tests stay green.",
+    "notes": "Completes the drift trilogy (diff/apply/re-add) law 6 rests on. Forks surface-authority + workspace-scope are RESOLVED. Built-in kinds only (skill/rule), matching diff/apply's scope; generic custom-kind re-add is follow-on. Shares main.rs with SESSION-START-GATE, which is serialized behind it."
+  },
+  {
+    "tag": "SESSION-START-GATE",
+    "summary": "add the advisory session-start gate — a one-shot check over a harness path emitting the claude-session-start reporter payload",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "Decision: the session-start gate is advisory, not blocking"
+    },
+    "gate": { "kind": "blockedBy", "tag": "RE-ADD" },
+    "files": {
+      "new": [
+        {
+          "path": "src/reporter.rs",
+          "description": "The `claude-session-start` reporter: render the merged diagnostic set to the SessionStart JSON payload — a failing contract emits `additionalContext` carrying the verdict plus a notify-and-approve instruction; a clean harness emits a quiet payload. Capped to Claude Code's 10k additionalContext limit."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Acceptance over the reporter + the one-shot verb: a failing contract yields a payload with the verdict + notify-and-approve instruction; a clean harness yields a quiet payload; output is valid JSON under the 10k cap; the run exits 0 (advisory, never blocks)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod reporter;` (the foundation line for the new module — this is the only entry that touches lib.rs)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add a session-start check verb that takes a harness path, imports it internally (one-shot, not the two-step author check), runs the same by-kind gate `check` runs, and emits the reporter payload on stdout; advisory — exit 0 regardless. The hook IS the binary (exec-form), so no shell wrapper."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/session_start.rs",
+        "asserts": "The emitted SessionStart payload is valid JSON ≤10k, carries the verdict + notify-and-approve instruction on a failing harness and stays quiet on a clean one, and the process exits 0 (advisory)."
+      }
+    ],
+    "acceptance": "`temper` produces the SessionStart hook payload for a harness path via the claude-session-start reporter; the gate is advisory (never blocks).",
+    "notes": "50-distribution.md: the hook is the temper binary itself, one-shot over a harness path (import-internally). Fail-loud (a hook that cannot run temper) is a separate concern. SARIF + GitHub-annotation reporters are sibling follow-ons on the same reporter family. Serialized behind RE-ADD only because both touch main.rs."
+  }
+]
