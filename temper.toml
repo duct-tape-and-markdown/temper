@@ -1,0 +1,45 @@
+# temper.toml — temper's own harness contract (the recursive dogfood).
+#
+# The top-level *contract* (`specs/20-surface.md`, "The surface: a contract over its
+# contents") that the `.temper/` contents must satisfy. temper checks its own harness
+# through this file: the built-in `skill`/`rule` kinds are the adopted floor (no
+# declaration needed — they govern `.claude/`), and this file declares temper's one
+# *custom* kind, `spec`, via the kind-declaration mechanism (`specs/15-kinds.md`,
+# `specs/40-composition.md`) — the proper replacement for the retired built-in `spec`
+# extractor. temper now governs its own `specs/` through the mechanism it builds.
+
+[kind.spec]
+# The file locus the kind reads. `placement` is itself an extraction primitive, so
+# the corpus is `specs/*.md` — no `.claude/` prefix; specs are temper's own corpus.
+governs = { root = "specs", glob = "*.md" }
+
+# Extraction — composed from the closed algebra (`specs/15-kinds.md`); the author
+# composes primitives, never writes a parser. An out-of-vocabulary primitive is a
+# load error (law 3: the algebra is engine-owned, un-authorable).
+[[kind.spec.extraction]]
+primitive = "line_count"          # for the max_lines budget
+
+[[kind.spec.extraction]]
+primitive = "headings"            # ATX headings, in document order
+
+[[kind.spec.extraction]]
+primitive = "placement"           # file placement / naming
+
+[[kind.spec.extraction]]
+primitive = "references"          # backtick-filename refs (`NN-name.md`), the corpus's
+feature = "references"            # declared reference syntax
+
+# Contract — the ~150-line budget from `specs/90-spec-system.md`, advisory: a long
+# spec is a smell, not a build-breaker.
+#
+# Two further clauses the worked example names are deliberately NOT declared yet,
+# because their predicates aren't in the algebra — declaring them would be faking a
+# check temper can't decide (law 3):
+#   - decisions-name-alternatives — waits on the `section_contains` predicate
+#     (`(decision-marker-predicate)` open question).
+#   - references-resolve — waits on the referential clause over the extracted
+#     `references` edges (the graph-scope frontier, `specs/45-governance.md`).
+[[kind.spec.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 150
