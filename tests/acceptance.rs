@@ -121,7 +121,7 @@ fn render_diagnostics(diagnostics: &[Diagnostic]) -> String {
     out
 }
 
-/// The `source_path` recorded in `meta.toml` / `author.toml` is the absolute
+/// The `source_path` recorded in `meta.toml` / `lock.toml` is the absolute
 /// origin of the fixture, which varies per machine. Redact just that prefix so
 /// the surface snapshot pins everything content-derived (hashes, body, header)
 /// without pinning an unstable absolute path.

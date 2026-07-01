@@ -2,7 +2,7 @@
 source: tests/acceptance.rs
 expression: first
 ---
---- author.toml ---
+--- lock.toml ---
 [[skill]]
 name = "coordinate"
 source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"

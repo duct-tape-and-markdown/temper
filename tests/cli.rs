@@ -348,7 +348,7 @@ fn into_and_workspace_default_to_dot_author() {
     // The default surface landed under `<cwd>/.temper`.
     let default_ws = cwd.join(".temper");
     assert!(
-        default_ws.join("author.toml").is_file(),
+        default_ws.join("lock.toml").is_file(),
         "import without --into must resolve to ./.temper"
     );
     assert!(

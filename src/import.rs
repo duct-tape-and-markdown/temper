@@ -25,7 +25,7 @@
 //! `temper.toml` custom kind, `import` writes the built-ins only — there is no
 //! phantom `specs/` scan.
 //!
-//! A roll-up index `<into>/author.toml` records one `[[skill]]`/`[[rule]]` entry
+//! A roll-up index `<into>/lock.toml` records one `[[skill]]`/`[[rule]]` entry
 //! per built-in artifact, then one `[[<kind>]]` entry per custom-kind unit, each
 //! with its provenance and a `body_hash`.
 //!
@@ -51,6 +51,10 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use crate::compose::{AuthorLayer, CustomKind, Governs};
 use crate::rule::{Rule, RuleError};
 use crate::skill::{Skill, SkillError};
+
+/// Filename of the generated roll-up index — the contents' state-of-record —
+/// written at the workspace root (`specs/20-surface.md`, "Topology").
+const LOCK_FILENAME: &str = "lock.toml";
 
 /// Errors raised while importing a harness. Distinct from a [`SkillError`]
 /// (which a malformed source skill produces) by also covering the surface-write
@@ -103,7 +107,7 @@ pub enum ImportError {
     },
 }
 
-/// One row of the `author.toml` roll-up index: an artifact's identity, its source
+/// One row of the `lock.toml` roll-up index: an artifact's identity, its source
 /// provenance, and the hash of its byte-faithful body. Shared by every kind — a
 /// `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
 /// four columns.
@@ -126,7 +130,7 @@ struct RollupEntry {
 /// for every custom kind the project-root `<harness_path>/temper.toml` declares,
 /// discovers its [`governs`](crate::compose::Governs) locus and writes
 /// `<into>/<root>/<name>/{meta.toml, <KIND>.md}` per unit. Finally the
-/// `<into>/author.toml` roll-up index carries one `[[skill]]`/`[[rule]]` row per
+/// `<into>/lock.toml` roll-up index carries one `[[skill]]`/`[[rule]]` row per
 /// built-in artifact and one `[[<kind>]]` row per custom-kind unit.
 ///
 /// Spec discovery is now just a custom kind like any other — absent a `temper.toml`
@@ -464,7 +468,7 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
     Ok(())
 }
 
-/// Write the `<into>/author.toml` roll-up: one `[[skill]]` table per imported
+/// Write the `<into>/lock.toml` roll-up: one `[[skill]]` table per imported
 /// skill, then one `[[rule]]` table per imported rule, then one `[[<kind>]]` table
 /// per imported custom-kind unit (custom kinds in name order), each with `name`,
 /// `source_path`, `import_hash`, and `body_hash`.
@@ -486,7 +490,7 @@ fn write_rollup(
     }
 
     create_dir_all(into)?;
-    write_bytes(&into.join("author.toml"), doc.to_string().as_bytes())
+    write_bytes(&into.join(LOCK_FILENAME), doc.to_string().as_bytes())
 }
 
 /// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
@@ -676,7 +680,7 @@ primitive = \"headings\"\n";
         assert!(coord.join("meta.toml").is_file());
         assert!(coord.join("SKILL.md").is_file());
         assert!(into.join("skills").join("demo").join("meta.toml").is_file());
-        assert!(into.join("author.toml").is_file());
+        assert!(into.join("lock.toml").is_file());
 
         // The surface SKILL.md is the body alone (no frontmatter), byte-faithful.
         let body = fs::read_to_string(coord.join("SKILL.md")).unwrap();
@@ -716,7 +720,7 @@ primitive = \"headings\"\n";
 
         run(&harness, &into).unwrap();
 
-        let doc = fs::read_to_string(into.join("author.toml"))
+        let doc = fs::read_to_string(into.join("lock.toml"))
             .unwrap()
             .parse::<DocumentMut>()
             .unwrap();
@@ -790,7 +794,7 @@ primitive = \"headings\"\n";
 
         // The roll-up carries a `[[rule]]` row per rule, name-sorted, alongside
         // the `[[skill]]` rows — both kinds coexist in one import.
-        let doc = fs::read_to_string(into.join("author.toml"))
+        let doc = fs::read_to_string(into.join("lock.toml"))
             .unwrap()
             .parse::<DocumentMut>()
             .unwrap();
@@ -818,7 +822,7 @@ primitive = \"headings\"\n";
         run(&harness, &into).unwrap();
 
         assert!(into.join("skills").join("demo").join("meta.toml").is_file());
-        let doc = fs::read_to_string(into.join("author.toml"))
+        let doc = fs::read_to_string(into.join("lock.toml"))
             .unwrap()
             .parse::<DocumentMut>()
             .unwrap();
@@ -836,7 +840,7 @@ primitive = \"headings\"\n";
         let into = tmpdir("skip-into");
         run(&harness, &into).unwrap();
 
-        let doc = fs::read_to_string(into.join("author.toml"))
+        let doc = fs::read_to_string(into.join("lock.toml"))
             .unwrap()
             .parse::<DocumentMut>()
             .unwrap();
@@ -876,7 +880,7 @@ primitive = \"headings\"\n";
         // The roll-up carries a `[[spec]]` row per spec, name-sorted, alongside
         // the skill and rule rows — all three kinds coexist in one import. The
         // `notes/` subdir and `README.txt` are skipped (immediate `*.md` only).
-        let doc = fs::read_to_string(into.join("author.toml"))
+        let doc = fs::read_to_string(into.join("lock.toml"))
             .unwrap()
             .parse::<DocumentMut>()
             .unwrap();
@@ -929,7 +933,7 @@ primitive = \"headings\"\n";
 
         // The roll-up carries an `[[adr]]` row — keyed by the kind name — while the
         // non-`.md` sibling is skipped.
-        let doc = fs::read_to_string(into.join("author.toml"))
+        let doc = fs::read_to_string(into.join("lock.toml"))
             .unwrap()
             .parse::<DocumentMut>()
             .unwrap();
@@ -960,9 +964,9 @@ primitive = \"headings\"\n";
         // No spec surfaces are written — absent a `temper.toml` custom kind there
         // is no phantom `specs/` scan, even with a `specs/` corpus on disk.
         assert!(!into.join("specs").exists());
-        let author = fs::read_to_string(into.join("author.toml")).unwrap();
-        assert!(!author.contains("[[spec]]"));
-        let doc = author.parse::<DocumentMut>().unwrap();
+        let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+        assert!(!lock.contains("[[spec]]"));
+        let doc = lock.parse::<DocumentMut>().unwrap();
         assert!(doc.get("spec").is_none());
         // The built-ins are still imported — the skill and rule rows are present.
         assert_eq!(doc["skill"].as_array_of_tables().unwrap().len(), 2);
