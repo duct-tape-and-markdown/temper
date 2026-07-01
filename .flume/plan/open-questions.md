@@ -4,10 +4,28 @@ Product/architecture forks not yet settled. Each is keyed with a `(slug)` so a
 pending entry can declare `dependsOnForks: ["slug"]` and be held until resolved.
 Mark a line `RESOLVED` (and record the decision) to unblock its dependents.
 
-The forks below gate *extensions* (a full regex predicate, a contract-selection
-override, a declared skill-reference clause) and the later `apply` write-back
-path — not the contract-engine chain, which ships the in-crate decidable subset
-and embeds the bundled skill template as the default.
+The forks below gate *extensions* and the code↔spec reconciliation to the
+package/assembly/kind model — not the shipped contract engine, which today still
+embeds the built-in contracts from `contracts/*.toml` under the retired
+vocabulary (`template`, requirement-typing `contract`) pending that migration.
+
+- `(package-surface-sequencing)` — The corpus reconciled to the package/assembly
+  model (`5b06eae`): a **package** is a reusable bundle authored under
+  `.temper/packages/<name>/` and embedded, the `contracts/` embedded std-lib
+  **retires** (`10-contracts.md` Decision "a package is project-authorable … and is
+  itself a kind"), and a **custom kind** is authored under `.temper/kinds/<name>/`,
+  not inlined in `[kind.*]` (`40-composition.md` Decision). The code still speaks the
+  retired vocabulary and embeds `contracts/*.toml` (main.rs:59/65). The knot: the
+  human **parked** temper's `.temper/` self-application surface at `cb52cc3` "pending
+  code reconciliation," yet the reconciled code must *embed authored package sources
+  from `.temper/packages/`* — which do not exist until that surface is un-parked. A
+  human settles the sequencing: un-park the surface first (author temper's own
+  `.temper/packages/` + `.temper/kinds/`) then reconcile code, or reconcile code
+  against test fixtures and un-park after; plus the embedding mechanism (a directory
+  of authored package sources needs `include_dir`/`build.rs` — a sanctioned-crate
+  addition, `CLAUDE.md`), and whether the migration lands as one wave or a serialized
+  chain. Until settled, PACKAGE-MODEL-RECONCILE stays parked; the code runs on the
+  embedded `contracts/` floor as it does today.
 
 - `(contract-name-field)` — RESOLVED + SHIPPED (88246bf). Option B
   (`specs/10-contracts.md` Decision: "a contract is identified by its path/role,
