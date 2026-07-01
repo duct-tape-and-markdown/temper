@@ -27,6 +27,26 @@
 //! algebra) — decidable coverage, a true positive every time. `temper` NEVER judges
 //! whether the artifact *actually* fulfils `means`; the judged tier is delegated and
 //! advisory (`00-intent.md` tier 2), never this gate.
+//!
+//! # Kinship with the graph scope — and why coverage stays here
+//!
+//! The two checks are the graph-scope predicates ([`crate::graph`]) re-cast over a
+//! *requirement* target set instead of an artifact one:
+//!
+//! - [`REQUIREMENT_DANGLING_RULE`] mirrors [`graph::check`](crate::graph::check)'s
+//!   **route resolution** — a declared reference (`satisfies` here, a `routes_to`-style
+//!   edge there) that resolves to no target is a dangling no-op. Both range over
+//!   authored links and fire once per unresolved name.
+//! - [`REQUIREMENT_UNFILLED_RULE`] mirrors [`graph::degree`](crate::graph::degree)'s
+//!   **min-in-degree** bound — "≥1 artifact must point at this requirement" is exactly
+//!   a `degree = { incoming = at_least(1) }` over the `satisfies` arcs.
+//!
+//! The difference that keeps this a separate module: the target set is the declared
+//! **requirements**, *not* an artifact kind. Unifying into `graph.rs` would force a
+//! synthetic `requirement` node kind into its `by_kind` corpus map — a fake artifact
+//! kind that imports nothing and conforms to no contract, muddying the graph's honest
+//! "artifact routes to artifact" model to reuse two small loops. The kinship is real
+//! and worth naming; the merge is rejected — the duplication is cheaper than the lie.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -85,9 +105,16 @@ pub fn check(
 
     // (2) Dangling: every authored `satisfies` link must resolve to a declared
     // requirement. Ranges over the artifacts in load order (already name-sorted per
-    // kind), each link checked against the declared requirement names.
+    // kind), each link checked against the declared requirement names. Each artifact's
+    // links are deduped first (a `BTreeSet` — the unfilled side's `satisfied` set does
+    // the same collapse implicitly), so a link duplicated within one artifact's
+    // `satisfies` emits ONE diagnostic, not one per repeat: the fault is the
+    // unresolvable name, and it is named once. Dedup is per-artifact, so the *same*
+    // dangling name on two different artifacts still fires once each — that is two
+    // faults, one per opting-in artifact.
     for features in artifacts {
-        for target in &features.satisfies {
+        let links: BTreeSet<&str> = features.satisfies.iter().map(String::as_str).collect();
+        for target in links {
             if !requirements.contains_key(target) {
                 diagnostics.push(Diagnostic::error(
                     REQUIREMENT_DANGLING_RULE,
@@ -225,6 +252,72 @@ mod tests {
         ];
 
         assert!(check(&requirements, &artifacts).is_empty());
+    }
+
+    #[test]
+    fn a_satisfies_entry_duplicated_within_one_artifact_dangles_once() {
+        // One artifact repeats the same unresolvable link. The fault is the single
+        // unresolvable name, so it is named ONCE — the dangling loop dedups each
+        // artifact's `satisfies` before checking, mirroring the implicit collapse the
+        // unfilled `satisfied` set already performs.
+        let requirements = BTreeMap::new();
+        let artifacts = vec![artifact("dup-skill", &["ghost", "ghost", "ghost"])];
+
+        let diagnostics = check(&requirements, &artifacts);
+        let dangling: Vec<&Diagnostic> = diagnostics
+            .iter()
+            .filter(|d| d.rule == REQUIREMENT_DANGLING_RULE)
+            .collect();
+        assert_eq!(dangling.len(), 1);
+        assert_eq!(dangling[0].artifact, "dup-skill");
+    }
+
+    #[test]
+    fn the_same_dangling_name_on_two_artifacts_dangles_once_each() {
+        // Dedup is per-artifact: the same unresolvable name on two distinct opting-in
+        // artifacts is two faults — one per artifact — not one collapsed finding.
+        let requirements = BTreeMap::new();
+        let artifacts = vec![
+            artifact("skill-a", &["ghost", "ghost"]),
+            artifact("skill-b", &["ghost"]),
+        ];
+
+        let diagnostics = check(&requirements, &artifacts);
+        let dangling: Vec<&Diagnostic> = diagnostics
+            .iter()
+            .filter(|d| d.rule == REQUIREMENT_DANGLING_RULE)
+            .collect();
+        assert_eq!(dangling.len(), 2);
+        assert_eq!(dangling[0].artifact, "skill-a");
+        assert_eq!(dangling[1].artifact, "skill-b");
+    }
+
+    #[test]
+    fn a_typo_link_yields_paired_unfilled_and_dangling() {
+        // A misspelled link is exact-string-matched, never folded: the real
+        // requirement goes UNFILLED (nothing resolves to it) *and* the typo'd name
+        // DANGLES (it names no requirement). Two true positives, not one masking the
+        // other — this pins exact-match precision.
+        let requirements = BTreeMap::from([(
+            "dev-standards".to_string(),
+            requirement("the harness maintains dev standards", true),
+        )]);
+        let artifacts = vec![artifact("dev-standards-skill", &["dev-standatds"])];
+
+        let diagnostics = check(&requirements, &artifacts);
+        let unfilled: Vec<&Diagnostic> = diagnostics
+            .iter()
+            .filter(|d| d.rule == REQUIREMENT_UNFILLED_RULE)
+            .collect();
+        let dangling: Vec<&Diagnostic> = diagnostics
+            .iter()
+            .filter(|d| d.rule == REQUIREMENT_DANGLING_RULE)
+            .collect();
+        assert_eq!(unfilled.len(), 1);
+        assert_eq!(unfilled[0].artifact, "dev-standards");
+        assert_eq!(dangling.len(), 1);
+        assert_eq!(dangling[0].artifact, "dev-standards-skill");
+        assert!(dangling[0].message.contains("dev-standatds"));
     }
 
     #[test]

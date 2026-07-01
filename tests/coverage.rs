@@ -14,6 +14,10 @@
 //!   silent (covered ⇒ zero);
 //! - a `required` requirement with no satisfying artifact fires UNFILLED (⇒ non-zero);
 //! - a skill whose `satisfies` names no declared requirement fires DANGLING (⇒ non-zero);
+//! - a typo'd link yields the paired UNFILLED+DANGLING — exact-match precision, not one
+//!   folding into the other (⇒ non-zero, both rules named);
+//! - a duplicated `satisfies` entry emits exactly ONE dangling finding — the loop dedups
+//!   per artifact (⇒ non-zero, one finding);
 //! - a non-`required` requirement left unfilled does not block (⇒ zero).
 
 use std::fs;
@@ -116,6 +120,25 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
+/// Run `temper check --reporter github` from `root`, so findings render as one
+/// `::error` workflow-command line per diagnostic — a stable substrate for counting
+/// how many findings a case emits.
+fn check_github(root: &Path) -> CheckRun {
+    let out = Command::new(BIN)
+        .current_dir(root)
+        .arg("check")
+        .arg("--reporter")
+        .arg("github")
+        .output()
+        .unwrap();
+    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    output.push_str(&String::from_utf8_lossy(&out.stderr));
+    CheckRun {
+        ok: out.status.success(),
+        output,
+    }
+}
+
 #[test]
 fn a_required_requirement_with_a_resolving_satisfies_stays_silent() {
     let root = tmpdir("covered");
@@ -194,6 +217,88 @@ required = true\n",
     assert!(
         run.output.contains("ghost-requirement"),
         "the finding names the unresolvable link, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_typo_in_a_satisfies_link_yields_paired_unfilled_and_dangling() {
+    let root = tmpdir("typo");
+    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    // The link misspells the requirement name. `satisfies` is exact-string matched,
+    // never folded, so the real requirement goes UNFILLED (nothing resolves to it)
+    // *and* the typo'd name DANGLES (it names no declared requirement). Both are true
+    // positives — the pair is what pins exact-match precision, not one masking the
+    // other.
+    author_satisfies(&root, "dev-standards", &["dev-standatds"]);
+    write_temper_toml(
+        &root,
+        "[requirement.dev-standards]\n\
+means = \"the harness has a skill that maintains development standards\"\n\
+required = true\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a typo'd link must block on both counts ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("requirement.unfilled"),
+        "the real requirement is unfilled, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("requirement.dangling"),
+        "the misspelled link dangles, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("dev-standatds"),
+        "the dangling finding names the typo, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
+    let root = tmpdir("dup");
+    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    // The skill covers the declared requirement (so no UNFILLED) and repeats the same
+    // undeclared link. The coverage check dedups each artifact's `satisfies` before
+    // the dangling loop, so the single unresolvable name yields exactly ONE
+    // diagnostic — a duplicated link is not a doubled fault.
+    author_satisfies(
+        &root,
+        "dev-standards",
+        &["dev-standards", "ghost-requirement", "ghost-requirement"],
+    );
+    write_temper_toml(
+        &root,
+        "[requirement.dev-standards]\n\
+means = \"the harness has a skill that maintains development standards\"\n\
+required = true\n",
+    );
+
+    // The github reporter renders one `::error` line per diagnostic, a stable count.
+    let run = check_github(&root);
+    assert!(
+        !run.ok,
+        "a dangling link must block ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    let dangling = run.output.matches("requirement.dangling").count();
+    assert_eq!(
+        dangling, 1,
+        "a duplicated `satisfies` must emit exactly one dangling finding, got {dangling} in:\n{}",
+        run.output
+    );
+    // And no spurious unfilled — the requirement is covered by the first link.
+    assert_eq!(
+        run.output.matches("requirement.unfilled").count(),
+        0,
+        "the covered requirement must not fire unfilled, got:\n{}",
         run.output
     );
 }
