@@ -1,17 +1,16 @@
 # Plan state
 
-- **Phase:** reconcile. The inbox PRIORITY reframe (spec `dacec45`) is drained into a
-  three-entry **serialized chain** — the meaningful-contract mechanism, not more kinds:
-  REQUIREMENTS-PARSE → SATISFIES-REPRESENTATION → REQUIREMENT-COVERAGE. Verified
-  unshipped: `rg` finds no requirement/satisfies/coverage code in `src/` (only prose hits).
-- **Last shipped:** CHECK-REPORTERS (`9010dfe`); queue since reconciled.
+- **Phase:** reconcile. REQUIREMENTS-PARSE shipped, so its dependent unblocks; the
+  three-entry chain (REQUIREMENTS-PARSE → SATISFIES-REPRESENTATION →
+  REQUIREMENT-COVERAGE) advances one link. Verified on disk: `compose.rs` carries
+  `Requirement`/`requirements()`/`parse_requirement`; `coverage.rs` absent; no
+  `satisfies`/`rationale`/`representation` in skill/rule/extract yet.
+- **Last shipped:** REQUIREMENTS-PARSE (`ee3d561`); queue reconciled since.
 - **In flight:** none.
-- **Pickable now (1):** **REQUIREMENTS-PARSE** (`open`) — parse `[requirement.<name>]`
-  (`means`/`required`) in `compose.rs`, parse-only. The other two are `blockedBy` behind
-  it in order (disjoint files, chained so COVERAGE has both upstreams landed).
-- **Deferred:** **AGENT-KIND** — deprioritized by the reframe (more built-in kinds is the
-  wrong direction); revive only if a story demands the `agent` kind.
-- **Inbox:** drained (both lines routed — reframe → the chain, AGENT-KIND → deferred).
-  Open questions unchanged (no fork resolved; the reframe is spec-settled, carries a clean cite).
+- **Pickable now (1):** **SATISFIES-REPRESENTATION** (`open`) — carry
+  `satisfies`+`rationale` under a `[representation]` meta.toml table on the
+  skill/rule IR + `Features.satisfies`. REQUIREMENT-COVERAGE stays `blockedBy` it.
+- **Deferred:** **AGENT-KIND** — deprioritized by the reframe; revive on demand.
+- **Inbox:** empty. Open questions unchanged (no fork resolved this tick).
 
-Plan continues: no — queue reconciled, one `open` entry pickable, inbox drained; hand to build.
+Plan continues: no — one gate flipped to `open`, one pickable entry, inbox empty; hand to build.

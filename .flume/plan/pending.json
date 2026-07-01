@@ -7,8 +7,7 @@
       "section": "Each artifact directory is a representation, not a copy"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REQUIREMENTS-PARSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
