@@ -7,8 +7,7 @@
       "section": "Worked example: `spec`, temper's own custom kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-IMPORT-DISCOVERY"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
