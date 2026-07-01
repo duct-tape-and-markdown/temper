@@ -121,11 +121,48 @@ above: "the artifact opting in rather than the contract reaching out to guess"),
 made first-class and meaning-carrying. A `role` fills a slot by a decidable `match`;
 a `requirement` is filled by a declared `satisfies` and carries the *why*.
 
+### Two fill paths: opt-in `satisfies`, or `filled_by` a role
+
+A requirement is **kind-blind by default**: any artifact whose representation declares
+a resolving `satisfies` covers it. That is the pure-intent path — meaning + coverage,
+no structural constraint on the filler. When a requirement needs its filler *typed*
+(a specific kind, a conforming contract, a wired verifier), it does **not** re-declare
+that machinery — it **composes over a role**:
+
+```toml
+[requirement.dev-standards]
+means     = "the harness maintains development standards"
+required  = true
+filled_by = { role = "linter" }   # met by whatever fills role `linter`
+
+[role.linter]
+artifact = "rule"                  # the typed slot: kind + contract + match live here
+match    = { marker = "role:linter" }
+```
+
+`filled_by = { role = R }` is the **trait-bound** form: the requirement is the named
+*why*, the role is the typed interface it binds. Coverage delegates — the requirement
+is covered iff role `R`'s required filler is present (reusing role `match`, still
+referential and decidable) — so the requirement adds the intent layer roles lack
+(`means` + rationale) without duplicating their typing. This is what `role` composed
+*with* a requirement looks like; the role remains the sole place kind-typing is
+declared (Decision below).
+
+**One fill path per requirement.** A requirement is filled *either* by bare
+`satisfies` opt-in (kind-blind) *or* by `filled_by = { role }` (structural) — never
+both, so coverage never has two competing definitions. There is deliberately **no
+`filled_by = { kind }`**: typing a filler by kind is what a `role` already does
+(`role.artifact`), and a second spelling would split that one concept in two.
+
 ### Decision: a requirement carries meaning, gates coverage — never judged
 
-**Chosen:** a requirement declares semantic intent (`means`) and is satisfied by an
-artifact's opt-in, resolving `satisfies` link; `check` gates **coverage** — every
-required requirement filled, every link resolves — a referential, decidable check.
+**Chosen:** a requirement declares semantic intent (`means`) and is satisfied either
+by an artifact's opt-in, resolving `satisfies` link, or by `filled_by = { role }`
+delegating coverage to a typed role; `check` gates **coverage** — every required
+requirement filled, every link resolves — a referential, decidable check. Coverage is
+**kind-blind by design**: a `satisfies`-filled requirement accepts any kind (`means`
+is human, law 3); when the filler must be typed, that constraint lives on the bound
+**role**, not on a `filled_by = { kind }` (which would duplicate `role.artifact`).
 **Rejected:** temper assessing whether the artifact *truly* fulfils the meaning. That
 is undecidable — the judged tier (`00-intent.md` tier 2) is delegated and advisory,
 never this gate; behavioral truth goes to a wired `verified_by` (above). The
@@ -270,6 +307,22 @@ The closed algebra makes the unsound proxy **unsayable** (the "language too weak
 lie" Decision); admissibility only enforces that nothing outside the algebra
 slipped in. It bottoms out at the hand-built algebra — the axiom, validated by
 code, not by a further contract. No regress.
+
+### Decision: unknown keys are rejected, not ignored
+
+**Chosen:** every parsed table in `temper.toml` — `[requirement.*]`, `[role.*]`,
+`[kind.*]`, a predicate clause — **rejects an unrecognized key** at parse rather than
+silently dropping it. A misspelled `requird = true` must fail loudly, not degrade to
+`required = false` and quietly disable the gate it was meant to arm. **Rejected:**
+lenient parsing that ignores stray keys (the prior behavior across
+`parse_role`/`parse_predicate`/requirement parsing). A typo that weakens a contract is
+exactly the failure temper exists to catch — so temper must not commit it in its own
+parser; this is the anti-silent-gap non-negotiable (`collaboration` rule) applied to
+the config surface itself. Unknown *contract* keys join the closed vocabulary as an
+admissibility violation — the same posture as an unknown predicate (above), one rung
+out to keys. This is distinct from an *artifact's* unknown frontmatter, which law 5
+byte-preserves verbatim in `extra` (`20-surface.md`): artifact content is carried;
+contract-surface keys are validated.
 
 ## The recursion bottoms out — the definition is not in `temper.toml`
 
