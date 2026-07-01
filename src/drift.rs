@@ -1,13 +1,12 @@
-//! `temper diff` — the read-only drift report.
+//! `temper diff` / `apply` — the three-state drift engine.
 //!
-//! Implements the first, read-only slice of the three-state drift engine
-//! (`specs/20-surface.md`, "Drift / apply — three states, never two"). The full
-//! engine tracks three states — **desired** (the edited surface), the
-//! **last-applied fingerprint**, and **real on-disk** — so `apply` can tell a
-//! human surface edit from a world drift and merge rather than clobber. This
-//! slice covers the **real-on-disk vs import-baseline** axis only: for each
-//! artifact the surface imported, has its source on disk changed since import?
-//! The surface-edit and post-apply-fingerprint axes arrive with `apply`/`re-add`.
+//! Implements the drift engine of `specs/20-surface.md` ("Drift / apply — three
+//! states, never two"). It tracks three states — **desired** (the edited
+//! surface), the **last-applied fingerprint** (the source as `temper` last left
+//! it, from the lock), and **real on-disk** — so the write direction can tell a
+//! human surface edit from a world drift and merge rather than clobber.
+//!
+//! ## [`diff`] — the read-only report
 //!
 //! [`diff`] loads nothing and writes nothing of its own — it takes an already
 //! loaded [`Workspace`] (the surface + its provenance lock) and a live harness
@@ -23,19 +22,50 @@
 //! the last re-runs `import`'s own per-kind discovery
 //! ([`discover_skill_dirs`](crate::import::discover_skill_dirs) and siblings) so
 //! the "what's on disk" question is answered by the exact scan that imported it.
-//! `diff` returns a typed [`DriftReport`] and renders nothing; [`render`] turns
-//! that report into terminal text, and `main` maps it to stdout. Drift is a
-//! report, not a gate (`specs/20-surface.md`, the CLI surface) — the command
-//! exits zero regardless of what it finds.
+//! Drift is a report, not a gate — the command exits zero regardless.
+//!
+//! ## [`apply`] — the write direction
+//!
+//! [`apply`] projects the surface back onto the harness sources. It is
+//! **patch-not-re-emit**: for each artifact it splits the on-disk source into its
+//! frontmatter and body, replaces the body byte-faithfully with the surface body,
+//! and patches *only the frontmatter fields whose value changed* — every untouched
+//! byte (comments, key order, whitespace) survives exactly as the human wrote it
+//! (`specs/20-surface.md`, "write-back patches changed fields, never re-emits").
+//! No comment-preserving YAML editor exists in Rust, so a changed scalar/sequence
+//! field's own formatting is re-rendered while its neighbours are left verbatim.
+//!
+//! The merge is the hard core. For each artifact `apply` compares the desired
+//! projection against real-on-disk and the last-applied fingerprint:
+//!
+//! - projection **equals** on-disk ⇒ [`ApplyOutcome::Unchanged`] (idempotent
+//!   no-op; the fingerprint is reconciled to the current bytes).
+//! - projection **differs** and on-disk still hashes to the last-applied
+//!   fingerprint (no world drift) ⇒ patch the source, [`ApplyOutcome::Applied`],
+//!   and record the new fingerprint.
+//! - projection **differs** and on-disk drifted from the last-applied fingerprint
+//!   ⇒ [`ApplyOutcome::Conflicted`]: the world changed the source out from under
+//!   the surface, so `apply` surfaces the choice rather than clobbering — it
+//!   writes nothing and leaves the fingerprint untouched.
+//!
+//! A `--dry-run` computes every outcome but writes neither the sources nor the
+//! updated lock. Like `diff`, `apply` covers the built-in kinds (skill, rule);
+//! generic custom-kind write-back and the `re-add` direction are follow-on work.
 
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use gray_matter::Pod;
+use gray_matter::engine::{Engine, YAML};
+use serde_json::Value as JsonValue;
 use sha2::{Digest, Sha256};
+use toml_edit::{DocumentMut, Item, value};
 
 use crate::check::Workspace;
 use crate::import;
+use crate::rule::Rule;
+use crate::skill::Skill;
 
 /// Errors raised while computing a drift report. A hard failure (a source path
 /// errors for a reason other than "not found", which is the `removed` state) —
@@ -54,6 +84,40 @@ pub enum DriftError {
         /// The underlying I/O error.
         #[source]
         source: std::io::Error,
+    },
+
+    /// A patched source could not be written back to the harness during `apply`.
+    #[error("failed to write source {path}")]
+    #[diagnostic(code(temper::drift::write))]
+    Write {
+        /// The destination source path that failed to write.
+        path: PathBuf,
+        /// The underlying I/O error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// The workspace lock could not be read for its last-applied fingerprints.
+    #[error("failed to read lock {path}")]
+    #[diagnostic(code(temper::drift::lock_read))]
+    LockRead {
+        /// The lock path whose read failed.
+        path: PathBuf,
+        /// The underlying I/O error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// The workspace lock is not valid TOML, so its fingerprints cannot be read
+    /// or updated.
+    #[error("failed to parse lock {path}")]
+    #[diagnostic(code(temper::drift::lock_parse))]
+    LockParse {
+        /// The lock path that failed to parse.
+        path: PathBuf,
+        /// The TOML parse error.
+        #[source]
+        source: toml_edit::TomlError,
     },
 }
 
@@ -246,6 +310,539 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+// ---------------------------------------------------------------------------
+// apply — the write direction (`specs/20-surface.md`, the hard core)
+// ---------------------------------------------------------------------------
+
+/// Options controlling an [`apply`] run.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ApplyOptions {
+    /// When set, compute every outcome and report it but write nothing — neither
+    /// the patched harness sources nor the updated lock fingerprints.
+    pub dry_run: bool,
+}
+
+/// One artifact's outcome from an [`apply`]: what the three-state merge decided.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApplyOutcome {
+    /// The source was patched to match the surface (or, under `--dry-run`, would
+    /// have been). Only reachable when the source had *not* drifted from the
+    /// last-applied fingerprint — a clean surface edit.
+    Applied,
+    /// The source already matched the surface projection; nothing to write. The
+    /// idempotent no-op — a re-run of a clean apply lands here for every artifact.
+    Unchanged,
+    /// The source drifted from the last-applied fingerprint *and* the surface wants
+    /// something different — a genuine conflict. `apply` surfaces the choice rather
+    /// than clobbering: it writes nothing. (A source removed from disk since the
+    /// last apply is reported here too — the world changed it out from under us.)
+    Conflicted,
+}
+
+impl ApplyOutcome {
+    /// The lower-case label used in the rendered report and stable for tests.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            ApplyOutcome::Applied => "applied",
+            ApplyOutcome::Unchanged => "unchanged",
+            ApplyOutcome::Conflicted => "conflicted",
+        }
+    }
+}
+
+/// One row of an [`ApplyReport`]: which artifact, of which kind, located where, and
+/// the outcome the merge produced.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplyEntry {
+    /// The artifact kind — `"skill"` or `"rule"`.
+    pub kind: &'static str,
+    /// The artifact name (its surface name).
+    pub name: String,
+    /// The on-disk source path the projection targeted.
+    pub source_path: PathBuf,
+    /// What `apply` did (or would do, under `--dry-run`) for this artifact.
+    pub outcome: ApplyOutcome,
+}
+
+/// The typed result of an [`apply`]: every artifact's outcome, in the workspace's
+/// stable load order (skills then rules, each name-sorted). Renders nothing itself
+/// — [`render_apply`] turns it into text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplyReport {
+    /// Every projected artifact, across the built-in kinds.
+    pub entries: Vec<ApplyEntry>,
+}
+
+/// The desired projection of one surface artifact: its identity, the last-applied
+/// fingerprint the merge compares against, the ordered header fields the surface
+/// wants the frontmatter to express, and the byte-faithful body.
+struct Projection {
+    kind: &'static str,
+    name: String,
+    source_path: PathBuf,
+    /// The fingerprint of the source as `temper` last left it (from the lock, or
+    /// the import hash as a baseline when the lock predates this field).
+    last_applied: String,
+    /// The desired header fields in canonical order (known fields first, then the
+    /// preserved unknown keys). Each value is compared as JSON against the on-disk
+    /// frontmatter to decide whether that one field changed.
+    fields: Vec<(String, JsonValue)>,
+    /// The desired body — the surface body, projected byte-faithfully.
+    body: String,
+}
+
+/// Project the loaded `workspace` surface back onto the harness sources, patching
+/// only changed frontmatter fields over the three-state merge.
+///
+/// `workspace_dir` is the surface root — where the lock (`lock.toml`) carrying the
+/// last-applied fingerprints lives. Each artifact is written to its recorded
+/// `provenance.source_path` (where `import` read it from). See the module header
+/// for the per-outcome merge rules; nothing is written under `options.dry_run`.
+pub fn apply(
+    workspace: &Workspace,
+    workspace_dir: &Path,
+    options: ApplyOptions,
+) -> miette::Result<ApplyReport> {
+    let last_applied = load_last_applied(workspace_dir)?;
+
+    let mut projections = Vec::new();
+    for skill in &workspace.skills {
+        projections.push(Projection {
+            kind: "skill",
+            name: skill.name.clone(),
+            source_path: skill.provenance.source_path.clone(),
+            last_applied: fingerprint(&last_applied, skill.provenance.source_path.as_path())
+                .unwrap_or_else(|| skill.provenance.import_hash.clone()),
+            fields: skill_fields(skill),
+            body: skill.body.clone(),
+        });
+    }
+    for rule in &workspace.rules {
+        projections.push(Projection {
+            kind: "rule",
+            name: rule.name.clone(),
+            source_path: rule.provenance.source_path.clone(),
+            last_applied: fingerprint(&last_applied, rule.provenance.source_path.as_path())
+                .unwrap_or_else(|| rule.provenance.import_hash.clone()),
+            fields: rule_fields(rule),
+            body: rule.body.clone(),
+        });
+    }
+
+    let mut entries = Vec::new();
+    // source_path -> new fingerprint to record for Applied/Unchanged artifacts.
+    let mut updates: Vec<(PathBuf, String)> = Vec::new();
+    for projection in &projections {
+        let (entry, update) = project_one(projection, options.dry_run)?;
+        if let Some(fingerprint) = update {
+            updates.push((projection.source_path.clone(), fingerprint));
+        }
+        entries.push(entry);
+    }
+
+    if !options.dry_run && !updates.is_empty() {
+        update_lock(workspace_dir, &updates)?;
+    }
+
+    Ok(ApplyReport { entries })
+}
+
+/// Merge one artifact against real-on-disk, returning its [`ApplyEntry`] and, when
+/// the source is in a reconciled state (applied or unchanged), the fingerprint to
+/// record for it. A conflict records nothing — the lock is left untouched so the
+/// next run still sees the drift.
+fn project_one(
+    projection: &Projection,
+    dry_run: bool,
+) -> Result<(ApplyEntry, Option<String>), DriftError> {
+    let row = |outcome| ApplyEntry {
+        kind: projection.kind,
+        name: projection.name.clone(),
+        source_path: projection.source_path.clone(),
+        outcome,
+    };
+
+    // Read real-on-disk. A source removed since the last apply is a world drift we
+    // must not silently re-create — surface it as a conflict.
+    let real_bytes = match fs::read(&projection.source_path) {
+        Ok(bytes) => bytes,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok((row(ApplyOutcome::Conflicted), None));
+        }
+        Err(source) => {
+            return Err(DriftError::Read {
+                path: projection.source_path.clone(),
+                source,
+            });
+        }
+    };
+    // The source drifted into non-UTF-8 bytes; we cannot faithfully patch it.
+    let Ok(real) = String::from_utf8(real_bytes) else {
+        return Ok((row(ApplyOutcome::Conflicted), None));
+    };
+
+    let desired = project_bytes(&projection.fields, &projection.body, &real);
+
+    if desired == real {
+        // The projection already sits on disk. If the fingerprint is stale (a benign
+        // world edit that happens to match the surface), reconcile it to the current
+        // bytes so it stops reading as drift; otherwise there is nothing to record and
+        // the lock is left alone.
+        let real_hash = sha256_hex(real.as_bytes());
+        let update = (real_hash != projection.last_applied).then_some(real_hash);
+        return Ok((row(ApplyOutcome::Unchanged), update));
+    }
+
+    if sha256_hex(real.as_bytes()) == projection.last_applied {
+        // No world drift since the last apply: the on-disk source is exactly what
+        // `temper` last wrote, so patching the surface edit onto it is clean.
+        if !dry_run {
+            fs::write(&projection.source_path, desired.as_bytes()).map_err(|source| {
+                DriftError::Write {
+                    path: projection.source_path.clone(),
+                    source,
+                }
+            })?;
+        }
+        Ok((
+            row(ApplyOutcome::Applied),
+            Some(sha256_hex(desired.as_bytes())),
+        ))
+    } else {
+        // The world drifted *and* the surface wants something else: a genuine
+        // conflict. Do not clobber — surface the choice, write nothing.
+        Ok((row(ApplyOutcome::Conflicted), None))
+    }
+}
+
+/// The desired header fields of a skill, in canonical order: the known scalars
+/// (only those present), then the preserved unknown keys (already key-sorted in
+/// [`Skill::extra`]). Mirrors the order [`Skill::to_meta_document`] projects.
+fn skill_fields(skill: &Skill) -> Vec<(String, JsonValue)> {
+    let mut fields = vec![
+        ("name".to_string(), JsonValue::from(skill.name.clone())),
+        (
+            "description".to_string(),
+            JsonValue::from(skill.description.clone()),
+        ),
+    ];
+    if let Some(version) = &skill.version {
+        fields.push(("version".to_string(), JsonValue::from(version.clone())));
+    }
+    if let Some(license) = &skill.license {
+        fields.push(("license".to_string(), JsonValue::from(license.clone())));
+    }
+    for (key, value) in &skill.extra {
+        fields.push((key.clone(), value.clone()));
+    }
+    fields
+}
+
+/// The desired header fields of a rule: the optional `paths` sequence, then the
+/// preserved unknown keys. A no-frontmatter rule yields an empty field set, so its
+/// projection is the body alone. Mirrors [`Rule::to_meta_document`].
+fn rule_fields(rule: &Rule) -> Vec<(String, JsonValue)> {
+    let mut fields = Vec::new();
+    if let Some(paths) = &rule.paths {
+        fields.push(("paths".to_string(), JsonValue::from(paths.clone())));
+    }
+    for (key, value) in &rule.extra {
+        fields.push((key.clone(), value.clone()));
+    }
+    fields
+}
+
+/// Project the desired header + body onto the real on-disk source, byte-faithfully
+/// except for the frontmatter fields that changed.
+///
+/// The on-disk source is split into its frontmatter and body; the body is replaced
+/// with the surface body and the frontmatter is patched field-by-field
+/// ([`patch_frontmatter`]). A source with no frontmatter takes the body directly
+/// (an empty desired header) or a freshly synthesised block (a rule the surface
+/// gave `paths`/unknown keys but disk has none).
+fn project_bytes(fields: &[(String, JsonValue)], body: &str, real: &str) -> String {
+    match split_source(real) {
+        Some(split) => {
+            let patched = patch_frontmatter(&split.inner, fields);
+            format!("{}{}{}{}", split.open, patched, split.close, body)
+        }
+        None if fields.is_empty() => body.to_string(),
+        None => {
+            let mut frontmatter = String::new();
+            for (key, value) in fields {
+                frontmatter.push_str(&render_field(key, value));
+            }
+            format!("---\n{frontmatter}---\n{body}")
+        }
+    }
+}
+
+/// A source `.md` split around its frontmatter so a patched frontmatter can be
+/// reassembled without re-emitting the delimiters. `apply` replaces the body
+/// wholesale with the surface body, so only the header region is retained here.
+struct SourceSplit {
+    /// The opening delimiter line, including its trailing newline (`"---\n"`).
+    open: String,
+    /// The frontmatter text between the delimiters (no delimiter lines).
+    inner: String,
+    /// The closing delimiter line, exactly as written (including its newline, if any).
+    close: String,
+}
+
+/// Split a source into [`SourceSplit`], or `None` when it has no leading
+/// `---`-delimited frontmatter block. Mirrors the delimiter detection the skill/rule
+/// loaders use, but keeps the delimiter lines so `apply` can reassemble the file
+/// without re-emitting them.
+fn split_source(raw: &str) -> Option<SourceSplit> {
+    let (first, rest) = raw.split_once('\n')?;
+    if first.trim_end() != "---" {
+        return None;
+    }
+
+    let mut offset = 0;
+    for line in rest.split_inclusive('\n') {
+        let content = line.strip_suffix('\n').unwrap_or(line);
+        if content.trim_end() == "---" {
+            return Some(SourceSplit {
+                open: format!("{first}\n"),
+                inner: rest[..offset].to_string(),
+                close: line.to_string(),
+            });
+        }
+        offset += line.len();
+    }
+
+    // Opening delimiter but no close — not a frontmatter block.
+    None
+}
+
+/// Patch the desired fields into a frontmatter's `inner` text, changing only the
+/// fields whose value differs and leaving every other byte — comments, blank lines,
+/// key order, the untouched fields' exact formatting — verbatim.
+///
+/// The inner text is parsed into top-level segments: a *field* segment (a `key:`
+/// line at column 0 plus its indented continuation lines) or a *verbatim* segment
+/// (a comment, blank line, or any other column-0 line). Each field the surface
+/// still carries is compared as JSON against its on-disk value: equal ⇒ the segment
+/// is kept verbatim; changed ⇒ it is re-rendered. A field the surface dropped is
+/// removed; a field the surface added that disk lacks is appended in desired order.
+fn patch_frontmatter(inner: &str, desired: &[(String, JsonValue)]) -> String {
+    let on_disk = parse_frontmatter_json(inner);
+    let mut out = String::new();
+    let mut emitted: HashSet<String> = HashSet::new();
+
+    for segment in parse_segments(inner) {
+        match segment {
+            Segment::Verbatim(text) => out.push_str(&text),
+            Segment::Field { key, text } => {
+                if let Some((_, wanted)) = desired.iter().find(|(k, _)| *k == key) {
+                    let unchanged = on_disk.get(&key).is_some_and(|current| current == wanted);
+                    if unchanged {
+                        out.push_str(&text);
+                    } else {
+                        out.push_str(&render_field(&key, wanted));
+                    }
+                    emitted.insert(key);
+                }
+                // A key the surface dropped is simply not re-emitted.
+            }
+        }
+    }
+
+    // Fields the surface carries that disk did not — append in desired order.
+    for (key, value) in desired {
+        if !emitted.contains(key.as_str()) {
+            out.push_str(&render_field(key, value));
+        }
+    }
+
+    out
+}
+
+/// A top-level segment of a frontmatter's inner text — either a field (a `key:`
+/// line plus its indented continuation) or a run of verbatim bytes (comments,
+/// blank lines, anything else at column 0) preserved untouched.
+enum Segment {
+    Verbatim(String),
+    Field { key: String, text: String },
+}
+
+/// Parse a frontmatter's inner text into ordered [`Segment`]s. Concatenating every
+/// segment's text reproduces `inner` exactly, so an all-verbatim / no-change patch
+/// is byte-identical.
+fn parse_segments(inner: &str) -> Vec<Segment> {
+    let lines: Vec<&str> = inner.split_inclusive('\n').collect();
+    let mut segments = Vec::new();
+    let mut i = 0;
+    while i < lines.len() {
+        if let Some(key) = top_level_key(lines[i]) {
+            let mut text = lines[i].to_string();
+            i += 1;
+            // Continuation lines of a block value are indented; a column-0 line
+            // (next key, comment, or blank) ends the segment.
+            while i < lines.len() && is_indented(lines[i]) {
+                text.push_str(lines[i]);
+                i += 1;
+            }
+            segments.push(Segment::Field { key, text });
+        } else {
+            segments.push(Segment::Verbatim(lines[i].to_string()));
+            i += 1;
+        }
+    }
+    segments
+}
+
+/// The top-level YAML key a line declares (`name: demo` -> `name`), or `None` when
+/// the line is indented, blank, a comment, or carries no `key:`.
+fn top_level_key(line: &str) -> Option<String> {
+    let content = line.strip_suffix('\n').unwrap_or(line);
+    let first = content.chars().next()?;
+    if first.is_whitespace() || first == '#' {
+        return None;
+    }
+    let colon = content.find(':')?;
+    let key = &content[..colon];
+    if key.is_empty() || key.contains('#') {
+        return None;
+    }
+    Some(key.to_string())
+}
+
+/// Whether a line begins with whitespace — a continuation of the preceding block
+/// value. A blank line (`"\n"`) is not indented, so it ends the current field.
+fn is_indented(line: &str) -> bool {
+    line.starts_with(' ') || line.starts_with('\t')
+}
+
+/// Render one frontmatter field as `key: <value>\n`. The value is emitted as
+/// compact JSON, which is valid YAML flow — a double-quoted string, a bare number
+/// or bool, a `[..]` sequence — so it round-trips back to the same JSON on the next
+/// parse (keeping `apply` idempotent). Only *changed* or *added* fields are rendered
+/// this way; unchanged fields keep their original block formatting verbatim.
+fn render_field(key: &str, value: &JsonValue) -> String {
+    // Serializing a `serde_json::Value` is infallible in practice; fall back to a
+    // null literal rather than panic on the unreachable error path.
+    let rendered = serde_json::to_string(value).unwrap_or_else(|_| "null".to_string());
+    format!("{key}: {rendered}\n")
+}
+
+/// Parse a frontmatter's inner text into a JSON map for value comparison, reusing
+/// the same YAML engine the loaders parse with. A non-mapping frontmatter yields an
+/// empty map (every field then reads as "added", never "unchanged").
+fn parse_frontmatter_json(inner: &str) -> std::collections::HashMap<String, JsonValue> {
+    let mut out = std::collections::HashMap::new();
+    if let Pod::Hash(hash) = YAML::parse(inner.trim()) {
+        for (key, pod) in hash {
+            out.insert(key, pod.into());
+        }
+    }
+    out
+}
+
+/// Read the last-applied fingerprints from `<workspace_dir>/lock.toml`, keyed by
+/// source path. Covers the built-in `[[skill]]`/`[[rule]]` rows — the kinds `apply`
+/// projects. A row without a `last_applied` column (a lock predating the field) is
+/// simply absent, and the caller falls back to the import hash.
+fn load_last_applied(
+    workspace_dir: &Path,
+) -> Result<std::collections::HashMap<PathBuf, String>, DriftError> {
+    let path = workspace_dir.join("lock.toml");
+    let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
+        path: path.clone(),
+        source,
+    })?;
+    let doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse {
+            path: path.clone(),
+            source,
+        })?;
+
+    let mut map = std::collections::HashMap::new();
+    for kind in ["skill", "rule"] {
+        let Some(rows) = doc.get(kind).and_then(Item::as_array_of_tables) else {
+            continue;
+        };
+        for row in rows.iter() {
+            if let (Some(source_path), Some(fingerprint)) = (
+                row.get("source_path").and_then(Item::as_str),
+                row.get("last_applied").and_then(Item::as_str),
+            ) {
+                map.insert(PathBuf::from(source_path), fingerprint.to_string());
+            }
+        }
+    }
+    Ok(map)
+}
+
+/// Look up one source path's last-applied fingerprint in the loaded map.
+fn fingerprint(map: &std::collections::HashMap<PathBuf, String>, source: &Path) -> Option<String> {
+    map.get(source).cloned()
+}
+
+/// Write the reconciled fingerprints back into `<workspace_dir>/lock.toml` in place,
+/// matching each `[[skill]]`/`[[rule]]` row by its `source_path`. Format-preserving
+/// via `toml_edit` — only the `last_applied` values change.
+fn update_lock(workspace_dir: &Path, updates: &[(PathBuf, String)]) -> Result<(), DriftError> {
+    let path = workspace_dir.join("lock.toml");
+    let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
+        path: path.clone(),
+        source,
+    })?;
+    let mut doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse {
+            path: path.clone(),
+            source,
+        })?;
+
+    for kind in ["skill", "rule"] {
+        let Some(rows) = doc.get_mut(kind).and_then(Item::as_array_of_tables_mut) else {
+            continue;
+        };
+        for row in rows.iter_mut() {
+            let Some(source_path) = row.get("source_path").and_then(Item::as_str) else {
+                continue;
+            };
+            if let Some((_, fingerprint)) = updates
+                .iter()
+                .find(|(path, _)| path.as_os_str().to_string_lossy() == source_path)
+            {
+                row["last_applied"] = value(fingerprint.clone());
+            }
+        }
+    }
+
+    fs::write(&path, doc.to_string()).map_err(|source| DriftError::Write { path, source })
+}
+
+/// Render an apply report for the terminal: one `<outcome>  <kind>  <name>` line per
+/// entry in the report's stable order, then a one-line tally.
+#[must_use]
+pub fn render_apply(report: &ApplyReport) -> String {
+    let mut out = String::new();
+    let (mut applied, mut unchanged, mut conflicted) = (0u32, 0u32, 0u32);
+    for entry in &report.entries {
+        match entry.outcome {
+            ApplyOutcome::Applied => applied += 1,
+            ApplyOutcome::Unchanged => unchanged += 1,
+            ApplyOutcome::Conflicted => conflicted += 1,
+        }
+        out.push_str(&format!(
+            "{:<10}  {:<5}  {}\n",
+            entry.outcome.label(),
+            entry.kind,
+            entry.name
+        ));
+    }
+    out.push_str(&format!(
+        "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted\n"
+    ));
+    out
 }
 
 #[cfg(test)]

@@ -402,6 +402,71 @@ fn diff_reports_the_four_states_and_writes_nothing() {
     assert_eq!(before, snapshot(&into), "diff must write nothing");
 }
 
+/// Run `temper apply --into <ws> [extra…]` and return `(exit-zero, stdout)`.
+fn run_apply(into: &Path, extra: &[&str]) -> (bool, String) {
+    let output = Command::new(BIN)
+        .arg("apply")
+        .arg("--into")
+        .arg(into)
+        .args(extra)
+        .output()
+        .unwrap();
+    (
+        output.status.success(),
+        String::from_utf8(output.stdout).unwrap(),
+    )
+}
+
+#[test]
+fn apply_projects_a_surface_edit_and_dry_run_writes_nothing() {
+    // Import a clean skill, then edit its description on the surface `meta.toml` —
+    // exactly the field a human recomposes.
+    let harness = tmpdir("apply-src");
+    write_harness(&harness, "coordinate", CLEAN_SKILL);
+    let into = tmpdir("apply-into");
+    import(&harness, &into);
+
+    let meta = into.join("skills").join("coordinate").join("meta.toml");
+    let edited = fs::read_to_string(&meta)
+        .unwrap()
+        .replace("Use when coordinating", "Use when orchestrating");
+    fs::write(&meta, edited).unwrap();
+
+    let source = harness.join("skills").join("coordinate").join("SKILL.md");
+
+    // A dry run reports the pending write but touches nothing on disk.
+    let before = snapshot(&harness);
+    let (ok, stdout) = run_apply(&into, &["--dry-run"]);
+    assert!(ok, "apply --dry-run must exit zero");
+    assert!(
+        stdout.contains("dry run") && stdout.contains("applied"),
+        "the dry run must report the pending apply, got:\n{stdout}"
+    );
+    assert_eq!(before, snapshot(&harness), "a dry run writes nothing");
+
+    // The real apply lands the edited field on the harness source.
+    let (ok, stdout) = run_apply(&into, &[]);
+    assert!(ok, "apply must exit zero");
+    assert!(
+        stdout.contains("applied"),
+        "the report names the applied skill"
+    );
+    assert!(
+        fs::read_to_string(&source)
+            .unwrap()
+            .contains("Use when orchestrating"),
+        "the edited description must be projected onto the source"
+    );
+
+    // Re-running is idempotent — the second apply finds nothing to do.
+    let (ok, stdout) = run_apply(&into, &[]);
+    assert!(ok, "the re-run must exit zero");
+    assert!(
+        stdout.contains("unchanged"),
+        "a re-applied surface reports unchanged, got:\n{stdout}"
+    );
+}
+
 #[test]
 fn into_and_workspace_default_to_dot_author() {
     // With `--into` omitted, import writes to `./.temper` relative to the

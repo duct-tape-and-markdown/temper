@@ -95,6 +95,19 @@ enum Command {
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
     },
+    /// Project the surface back onto its harness sources, patching only changed
+    /// fields over the three-state drift model (`specs/20-surface.md`, the hard
+    /// core). Each artifact writes back to the source path `import` recorded.
+    Apply {
+        /// The surface workspace to project (defaults to `./.temper`). The lock
+        /// under it carries the last-applied fingerprints the merge stands on.
+        #[arg(long, default_value = DEFAULT_WORKSPACE)]
+        into: PathBuf,
+        /// Compute and report every outcome without writing a single byte — not
+        /// the patched sources, not the updated lock.
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 fn main() -> miette::Result<ExitCode> {
@@ -316,6 +329,22 @@ fn main() -> miette::Result<ExitCode> {
             let ws = Workspace::load(&into)?;
             let report = drift::diff(&ws, &harness_path)?;
             print!("{}", drift::render(&report));
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Apply { into, dry_run } => {
+            // The write direction (`specs/20-surface.md`, "Drift / apply"): load the
+            // surface + its lock, project it back onto the harness sources patching
+            // only changed fields, and print the applied/unchanged/conflicted report.
+            // `--dry-run` reports every outcome but writes nothing. Apply targets the
+            // recorded provenance path per artifact — the destination is the source it
+            // came from, so no harness root is re-supplied here (unlike `diff`, whose
+            // harness arg drives its on-disk *rescan* for the "added" axis).
+            let ws = Workspace::load(&into)?;
+            let report = drift::apply(&ws, &into, drift::ApplyOptions { dry_run })?;
+            if dry_run {
+                println!("dry run — no files written");
+            }
+            print!("{}", drift::render_apply(&report));
             Ok(ExitCode::SUCCESS)
         }
     }
