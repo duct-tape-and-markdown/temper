@@ -1,45 +1,5 @@
 [
   {
-    "tag": "PACKAGE-DOCUMENT",
-    "summary": "A package is one PACKAGE.md — clauses (with colocated `guidance`) in the fenced header, guidance prose as the body; loaded into the contract model, identity from its dir stem",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Packages — the reusable, bindable unit of a contract"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/fixtures/.temper/packages/<name>/PACKAGE.md (fixture set)",
-          "description": "A clean package document, one with an unknown predicate (admissibility reject), one with per-clause `guidance` keys — the machinery-first fixtures the resolved sequencing fork calls for."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "Load a `Contract` from `.temper/packages/<name>/PACKAGE.md` via the document primitive: header clause tables parse through the existing clause parser (closed vocabulary, unknown keys/predicates rejected — admissibility unchanged); a clause may carry a colocated `guidance` key (the hover-sized why, delivered on its diagnostic); the body is package-level guidance; the display name derives from the dir stem (the identified-by-binding Decision — no internal `name`). The TOML-file loader stays for the embedded `contracts/*.toml` floor until EMBED-BUILTIN-PACKAGES retires it."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "Grow PACKAGE.md load/admissibility/guidance cases beside the existing TOML-file ones."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/contract_template.rs",
-        "asserts": "a fixture PACKAGE.md loads and its clauses decide identically to the TOML form; an unknown predicate in the header fails admissibility; a failing clause's diagnostic carries its colocated `guidance`; display name is the dir stem."
-      }
-    ],
-    "acceptance": "A package authored as `.temper/packages/<name>/PACKAGE.md` loads, passes admissibility, gates members, and surfaces per-clause guidance on diagnostics; the embedded TOML floor still works beside it; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Resolves the old PACKAGE-MODEL-RECONCILE open point (own src/package.rs vs fold into contract.rs): fold — a package *carries* a contract, and the `package` kind's admissibility is exactly the definition check this loader already runs. Guidance never gates: prose has no path into a predicate (the algebra's guarantee, not the parser's)."
-  },
-  {
     "tag": "PACKAGE-BINDING",
     "summary": "Assembly binds packages by name — `[kind.<k>] package = \"<name>\"` replaces path-`adopt`; names resolve embedded floor ∪ `.temper/packages/`; `template` vocabulary retires",
     "per": {
