@@ -24,6 +24,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use temper::compose::{AuthorLayer, ComposeError, Governs};
+use temper::contract::{Clause, Predicate, Severity};
+use temper::kind::{KindError, Primitive};
+
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
@@ -262,4 +266,123 @@ fn an_absent_temper_toml_leaves_the_floor_outcome_byte_for_byte_unchanged() {
         absent.output, empty.output,
         "an absent and a declares-nothing temper.toml must produce identical output"
     );
+}
+
+// ---- custom-kind declaration (parse-only) -----------------------------------
+//
+// The `check` engine does not yet discover units at a custom kind's `governs`
+// locus (a follow-on entry), so these cases drive the library parser directly —
+// the seam that lands a `[kind.<name>]` declaration in `AuthorLayer`.
+
+#[test]
+fn a_custom_kind_declaration_parses_distinct_from_a_built_in_layer() {
+    // `[kind.spec]` carries a `governs` locus, an `[[kind.spec.extraction]]` array,
+    // and a `[[kind.spec.clause]]` contract — a *full* custom-kind declaration. It
+    // parses into a typed `CustomKind` in the custom-kind map, while `[kind.skill]`
+    // (adopt/clause-only, no `governs`/`extraction`) stays a built-in layer.
+    let toml = r#"
+[kind.skill]
+adopt = "skill.anthropic"
+[[kind.skill.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 300
+
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+
+[[kind.spec.extraction]]
+primitive = "line_count"
+
+[[kind.spec.extraction]]
+primitive = "references"
+feature = "references"
+
+[[kind.spec.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 400
+"#;
+    let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+
+    // The built-in layer is *not* a custom kind; the full declaration is.
+    assert!(!layer.custom_kinds().contains_key("skill"));
+    let spec = layer
+        .custom_kinds()
+        .get("spec")
+        .expect("the custom kind parses into the roster");
+
+    // The locus, the composed extractor, and the contract all parse.
+    assert_eq!(
+        spec.governs,
+        Governs {
+            root: "specs".to_string(),
+            glob: "*.md".to_string(),
+        }
+    );
+    assert_eq!(
+        spec.extraction.primitives(),
+        &[
+            Primitive::LineCount,
+            Primitive::References {
+                feature: "references".to_string(),
+            },
+        ]
+    );
+    assert_eq!(
+        spec.clauses,
+        vec![Clause {
+            severity: Severity::Advisory,
+            predicate: Predicate::MaxLines { max: 400 },
+        }]
+    );
+}
+
+#[test]
+fn a_custom_kind_missing_its_governs_locus_is_a_load_error() {
+    // An `[[kind.spec.extraction]]` array marks this custom, but it names no
+    // `governs` locus — a custom kind that reads no files is malformed.
+    let toml = r#"
+[kind.spec]
+[[kind.spec.extraction]]
+primitive = "line_count"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(
+        err,
+        ComposeError::CustomKindMissingGoverns { ref kind, .. } if kind == "spec"
+    ));
+}
+
+#[test]
+fn a_custom_kind_with_a_malformed_governs_is_a_load_error() {
+    // `governs` must be a table with `root` and `glob` strings; a bare string is
+    // neither, so it folds into `BadGoverns`.
+    let toml = r#"
+[kind.spec]
+governs = "specs"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(
+        err,
+        ComposeError::BadGoverns { ref kind, .. } if kind == "spec"
+    ));
+}
+
+#[test]
+fn an_unknown_extraction_primitive_in_a_custom_kind_is_a_load_error() {
+    // The extraction array goes through the same closed-algebra parser a standalone
+    // declaration does — an out-of-vocabulary primitive is rejected at load.
+    let toml = r#"
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+[[kind.spec.extraction]]
+primitive = "paragraph_meaning"
+"#;
+    let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+    assert!(matches!(
+        err,
+        ComposeError::Extraction(KindError::UnknownPrimitive { ref primitive, .. })
+            if primitive == "paragraph_meaning"
+    ));
 }

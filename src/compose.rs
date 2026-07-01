@@ -45,6 +45,27 @@
 //! or admissibility (does `match` resolve, does `verified_by` resolve) runs yet —
 //! those are separate follow-on entries.
 //!
+//! ## The custom-kind declaration (parse-only)
+//!
+//! The `[kind.<name>]` key serves two authorings (`specs/40-composition.md`,
+//! "Declaring a custom kind"): a **built-in contract layer** (adopt a shipped kind
+//! and layer clauses over it, above) and a **full custom-kind declaration** — a
+//! project's own artifact kind (its specs, ADRs, playbooks) authored in full. The
+//! two are disambiguated by structure: a declaration that carries a `governs`
+//! locus or an `[[kind.<name>.extraction]]` array — neither of which a built-in
+//! layer needs — is a [`CustomKind`], parsed into its file locus, its composed
+//! [`Extraction`] (via the shared [`Extraction::from_table`], so an
+//! out-of-vocabulary primitive is rejected exactly as in a standalone declaration),
+//! and its `[[kind.<name>.clause]]` contract (via the same [`contract::parse_clauses`]).
+//! Everything else stays a built-in layer. A declaration triggered as custom but
+//! missing its `governs` locus — or carrying a malformed one — is a load error.
+//!
+//! This tier is **parse only**: custom kinds load into typed values off
+//! [`AuthorLayer::custom_kinds`], but discovering units at each kind's `governs`
+//! locus and running its extractor over them is a follow-on entry. The
+//! `[kind.<name>.entities]`/`.relationships` capabilities are folded in elsewhere
+//! (KIND-EDGE-RELATIONSHIPS), not here.
+//!
 //! ## Closed vocabulary, end to end
 //!
 //! The clause array is parsed by the *same* [`crate::contract`] parser a bare
@@ -64,6 +85,7 @@ use std::path::{Path, PathBuf};
 use toml_edit::{DocumentMut, Table};
 
 use crate::contract::{self, Clause, Contract, ContractError};
+use crate::kind::{Extraction, KindError};
 
 /// The author-declared layer parsed from a project-root `temper.toml`: a per-kind
 /// set of adoptions and clause overrides to apply over the embedded floor.
@@ -87,6 +109,17 @@ pub struct AuthorLayer {
     /// none. Parse-only here; assembling the graph and checking route resolution
     /// live in [`crate::graph`].
     edges: Vec<Edge>,
+    /// The fully-declared custom kinds parsed from `[kind.<name>]` tables that
+    /// carry a `governs` locus or an `[[kind.<name>.extraction]]` array — a
+    /// project's own artifact kinds (its specs, ADRs, playbooks), each composed
+    /// from the closed algebras (`specs/40-composition.md`, "Declaring a custom
+    /// kind"). Keyed by kind name, **disjoint** from the built-in-layer `kinds`
+    /// map: a `[kind.<name>]` is either a built-in contract layer (adopt/clause-
+    /// only) or a full custom-kind declaration, never both. Parse-only in this tier
+    /// —
+    /// discovering units at the `governs` locus and running the extractor are
+    /// follow-on entries.
+    custom_kinds: BTreeMap<String, CustomKind>,
 }
 
 /// A declared **edge relationship** over the harness reference graph
@@ -113,6 +146,56 @@ pub struct Edge {
     /// target kind must be one `temper` models, else no route can resolve (a
     /// graph-admissibility concern, checked in [`crate::graph`]).
     pub to: String,
+}
+
+/// A fully-declared **custom kind** parsed from a `[kind.<name>]` table
+/// (`specs/40-composition.md`, "Declaring a custom kind"): the one home for a
+/// project's own artifact kind (its specs, ADRs, playbooks), composed from the
+/// closed algebras (`specs/15-kinds.md`). Where a **built-in** kind is *adopted* —
+/// its extraction is temper's and only its contract is layered ([`KindLayer`]) — a
+/// **custom** kind is *authored in full*: it declares the file locus it reads
+/// ([`governs`](CustomKind::governs)), the composed [`Extraction`] that projects a
+/// unit into features, and the [`Clause`]s its contract gates over those features.
+/// The `governs`/`extraction` presence is exactly what disambiguates the two homes
+/// (see [`is_custom_kind_declaration`]).
+///
+/// Not `Eq` — its [`clauses`](CustomKind::clauses) may carry `f64` `range` bounds
+/// (see [`crate::contract::Contract`]); equality stays derived as `PartialEq`, as
+/// it is for [`Role`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct CustomKind {
+    /// The kind's name — the `[kind.<name>]` table key.
+    pub name: String,
+    /// The file locus the kind reads: a root directory and a filename glob. File
+    /// placement is itself an extraction primitive (`specs/40-composition.md`), so
+    /// the locus is part of the declaration, not external config.
+    pub governs: Governs,
+    /// The composed extractor over the closed algebra (`specs/15-kinds.md`), parsed
+    /// from the `[[kind.<name>.extraction]]` array by the shared
+    /// [`Extraction::from_table`] — so an out-of-vocabulary primitive is rejected at
+    /// load exactly as it is for a standalone extraction declaration, no per-kind
+    /// escape hatch. Absent ⇒ the vacuous extractor (only the intrinsic id).
+    pub extraction: Extraction,
+    /// The kind's contract over the extracted features — the `[[kind.<name>.clause]]`
+    /// array parsed by the shared [`contract::parse_clauses`], so a clause naming an
+    /// unknown predicate is rejected at load just as in a bare contract. Absent ⇒
+    /// empty (a kind with no gate; `temper` never fabricates one).
+    pub clauses: Vec<Clause>,
+}
+
+/// The **file locus** a custom kind reads (`specs/40-composition.md`, "Declaring a
+/// custom kind"): the root directory its units live under, and the filename glob
+/// that selects them. `import` discovers a custom kind's units by scanning `root`
+/// for files matching `glob`. Stored verbatim in this tier — the glob is not
+/// compiled or matched here; discovering units at the locus is a follow-on entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Governs {
+    /// The root directory the kind's units sit under (`specs`, `docs/adr`), a path
+    /// relative to the `temper.toml`.
+    pub root: String,
+    /// The filename glob that selects the kind's units under `root` (`*.md`,
+    /// `[0-9][0-9]-*.md`), stored verbatim.
+    pub glob: String,
 }
 
 /// A harness-contract **role**: an abstract slot bound to whichever concrete
@@ -546,6 +629,45 @@ pub enum ComposeError {
         index: usize,
     },
 
+    /// A `[kind.<name>]` is a custom-kind declaration (it carries an `extraction`
+    /// array) but names no `governs` locus — a custom kind that reads no files is
+    /// meaningless, so the locus is required (`specs/40-composition.md`, "Declaring
+    /// a custom kind"). A built-in contract layer carries neither `governs` nor
+    /// `extraction` and needs neither, so this fires only on the custom path.
+    #[error("{path}: custom kind `[kind.{kind}]` is missing required key `governs`")]
+    #[diagnostic(
+        code(temper::compose::custom_kind_missing_governs),
+        help("a custom kind must declare the file locus it reads — a `governs` root and glob")
+    )]
+    CustomKindMissingGoverns {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The custom kind missing its locus.
+        kind: String,
+    },
+
+    /// A `[kind.<name>]`'s `governs` locus is malformed — not a table, or
+    /// missing/mistyped one of its `root` and `glob` strings. The locus is a root
+    /// directory plus a filename glob; any miss collapses here, the way
+    /// [`parse_count`] folds its malformations into one error.
+    #[error("{path}: `[kind.{kind}]` `governs` must be a table with `root` and `glob` string keys")]
+    #[diagnostic(code(temper::compose::bad_governs))]
+    BadGoverns {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The custom kind with the malformed locus.
+        kind: String,
+    },
+
+    /// A custom kind's `[[kind.<name>.extraction]]` array is malformed — an
+    /// out-of-vocabulary primitive or a mistyped parameter. Bubbled verbatim from
+    /// [`crate::kind`] so a custom kind's extraction is held to the exact same
+    /// closed algebra a standalone extraction declaration is — no per-kind escape
+    /// hatch (`specs/15-kinds.md`).
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Extraction(#[from] KindError),
+
     /// A layered clause is outside the closed vocabulary (or otherwise malformed).
     /// Bubbled verbatim from [`crate::contract`] so the author layer's clauses are
     /// held to the exact same closed-vocabulary contract as a bare one's. Covers a
@@ -581,6 +703,7 @@ impl AuthorLayer {
             })?;
 
         let mut kinds = BTreeMap::new();
+        let mut custom_kinds = BTreeMap::new();
         if let Some(item) = doc.as_table().get("kind") {
             let kind_table = item
                 .as_table()
@@ -594,7 +717,14 @@ impl AuthorLayer {
                         path: path.to_path_buf(),
                         kind: name.to_string(),
                     })?;
-                kinds.insert(name.to_string(), parse_kind_layer(table, name, path)?);
+                // A `governs` locus or an `extraction` array marks a full custom-kind
+                // declaration; anything else is a built-in contract layer. The two
+                // share the `[kind.<name>]` key but land in disjoint homes.
+                if is_custom_kind_declaration(table) {
+                    custom_kinds.insert(name.to_string(), parse_custom_kind(table, name, path)?);
+                } else {
+                    kinds.insert(name.to_string(), parse_kind_layer(table, name, path)?);
+                }
             }
         }
 
@@ -621,6 +751,7 @@ impl AuthorLayer {
             kinds,
             roles,
             edges,
+            custom_kinds,
         })
     }
 
@@ -639,6 +770,16 @@ impl AuthorLayer {
     #[must_use]
     pub fn edges(&self) -> &[Edge] {
         &self.edges
+    }
+
+    /// The parsed custom kinds, keyed by name. Empty when the `temper.toml`
+    /// declares no full `[kind.<name>]` custom kind — a built-in contract layer, if
+    /// any, lives off [`layer_over`](Self::layer_over) instead, not here. Parse-only
+    /// in this tier: `import` discovering units at each kind's `governs` locus and
+    /// running its extractor over them are follow-on entries.
+    #[must_use]
+    pub fn custom_kinds(&self) -> &BTreeMap<String, CustomKind> {
+        &self.custom_kinds
     }
 
     /// The effective contract for `kind`: this layer's clauses for that kind
@@ -716,6 +857,64 @@ fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer,
     };
     let clauses = contract::parse_clauses(table, path)?;
     Ok(KindLayer { adopt, clauses })
+}
+
+/// Whether a `[kind.<name>]` table is a **full custom-kind declaration** rather
+/// than a built-in contract layer. The two share the `[kind.<name>]` key
+/// (`specs/40-composition.md`, "Declaring a custom kind"): a custom kind authors a
+/// file locus and an extraction, while a built-in layer only adopts a shipped kind
+/// and layers clauses over it. The presence of a `governs` locus or an `extraction`
+/// array — neither of which a built-in layer carries — disambiguates the two.
+fn is_custom_kind_declaration(table: &Table) -> bool {
+    table.contains_key("governs") || table.contains_key("extraction")
+}
+
+/// Parse one `[kind.<name>]` custom-kind declaration into a typed [`CustomKind`]:
+/// its required `governs` locus, the composed `[[kind.<name>.extraction]]`
+/// extractor (via the shared [`Extraction::from_table`]), and the
+/// `[[kind.<name>.clause]]` contract (via the shared [`contract::parse_clauses`]).
+/// Each malformed part is a load error, mirroring `[kind.<k>]` layer and
+/// `[role.<name>]` parsing — a custom kind earns no escape hatch the floor lacks.
+fn parse_custom_kind(table: &Table, name: &str, path: &Path) -> Result<CustomKind, ComposeError> {
+    let governs = parse_governs(table, name, path)?;
+    let extraction = Extraction::from_table(table, path)?;
+    let clauses = contract::parse_clauses(table, path)?;
+    Ok(CustomKind {
+        name: name.to_string(),
+        governs,
+        extraction,
+        clauses,
+    })
+}
+
+/// The custom kind's required `governs` locus: a `governs = { root, glob }` table
+/// whose `root` and `glob` are strings. Absent ⇒
+/// [`ComposeError::CustomKindMissingGoverns`]; not a table, or a missing/mistyped
+/// key ⇒ [`ComposeError::BadGoverns`], the way [`parse_count`] folds its
+/// malformations into one error. The two names are stored verbatim; compiling the
+/// glob and discovering units at the locus are follow-on entries.
+fn parse_governs(table: &Table, kind: &str, path: &Path) -> Result<Governs, ComposeError> {
+    let item = table
+        .get("governs")
+        .ok_or_else(|| ComposeError::CustomKindMissingGoverns {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+        })?;
+    let bad = || ComposeError::BadGoverns {
+        path: path.to_path_buf(),
+        kind: kind.to_string(),
+    };
+    let governs = item.as_table_like().ok_or_else(bad)?;
+    let root = governs_str(governs, "root").ok_or_else(bad)?;
+    let glob = governs_str(governs, "glob").ok_or_else(bad)?;
+    Ok(Governs { root, glob })
+}
+
+/// Read one required string key off a `governs` locus table: present and a TOML
+/// string ⇒ `Some`, else `None` (which [`parse_governs`] reports as a single
+/// [`ComposeError::BadGoverns`]).
+fn governs_str(table: &dyn toml_edit::TableLike, key: &str) -> Option<String> {
+    Some(table.get(key)?.as_str()?.to_string())
 }
 
 /// Parse the top-level `[[edge]]` array into typed [`Edge`]s, in declaration
@@ -2030,5 +2229,194 @@ to = "skill"
 "#;
         let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(err, ComposeError::BadEdge { index: 1, .. }));
+    }
+
+    // ---- custom-kind declarations (parse-only) ----------------------------
+
+    #[test]
+    fn a_full_custom_kind_declaration_parses_into_a_typed_kind() {
+        // `governs` + `[[kind.spec.extraction]]` + `[[kind.spec.clause]]` — the full
+        // custom-kind declaration composes the closed algebras into a `CustomKind`.
+        let toml = r#"
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+
+[[kind.spec.extraction]]
+primitive = "line_count"
+
+[[kind.spec.extraction]]
+primitive = "references"
+feature = "references"
+
+[[kind.spec.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 400
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let spec = layer
+            .custom_kinds()
+            .get("spec")
+            .expect("the custom kind parses");
+        assert_eq!(spec.name, "spec");
+        assert_eq!(
+            spec.governs,
+            Governs {
+                root: "specs".to_string(),
+                glob: "*.md".to_string(),
+            }
+        );
+        // The extraction is composed via the shared closed-algebra parser.
+        assert_eq!(
+            spec.extraction.primitives(),
+            &[
+                crate::kind::Primitive::LineCount,
+                crate::kind::Primitive::References {
+                    feature: "references".to_string(),
+                },
+            ]
+        );
+        // The contract is parsed via the same closed-vocabulary clause parser.
+        assert_eq!(
+            spec.clauses,
+            vec![Clause {
+                severity: Severity::Advisory,
+                predicate: Predicate::MaxLines { max: 400 },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_built_in_layer_and_a_custom_kind_land_in_disjoint_homes() {
+        // `[kind.skill]` adopts + layers over a shipped kind (a built-in contract
+        // layer); `[kind.spec]` declares `governs` (a custom kind). The
+        // `governs`/`extraction` presence routes each to its own home.
+        let toml = r#"
+[kind.skill]
+adopt = "skill.anthropic"
+[[kind.skill.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 300
+
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+[[kind.spec.clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 400
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+
+        // `spec` is a custom kind; `skill` is not — it stays a built-in layer.
+        assert!(layer.custom_kinds().contains_key("spec"));
+        assert!(!layer.custom_kinds().contains_key("skill"));
+
+        // The `skill` layer still applies over the floor exactly as before: its
+        // advisory `max_lines` override lands in the effective contract.
+        let effective = layer.layer_over("skill", floor()).unwrap();
+        assert!(
+            effective
+                .clauses
+                .iter()
+                .any(|c| matches!(c.predicate, Predicate::MaxLines { max: 300 }))
+        );
+    }
+
+    #[test]
+    fn a_custom_kind_may_omit_extraction_and_clauses() {
+        // `governs` alone still marks a custom kind; an absent extraction is the
+        // vacuous extractor and an absent clause array an empty (no-gate) contract —
+        // `temper` never fabricates either.
+        let toml = r#"
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+"#;
+        let layer = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap();
+        let spec = layer.custom_kinds().get("spec").expect("parses");
+        assert!(spec.extraction.primitives().is_empty());
+        assert!(spec.clauses.is_empty());
+    }
+
+    #[test]
+    fn a_custom_kind_missing_its_governs_locus_is_a_load_error() {
+        // An `[[kind.spec.extraction]]` array marks this custom, but it names no
+        // `governs` locus — a custom kind that reads no files is malformed.
+        let toml = r#"
+[kind.spec]
+[[kind.spec.extraction]]
+primitive = "line_count"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::CustomKindMissingGoverns { ref kind, .. } if kind == "spec"
+        ));
+    }
+
+    #[test]
+    fn a_custom_kind_with_a_malformed_governs_is_a_load_error() {
+        // `governs` must be a table with `root` and `glob` strings; a bare string is
+        // neither, so it folds into `BadGoverns`.
+        let toml = r#"
+[kind.spec]
+governs = "specs"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::BadGoverns { ref kind, .. } if kind == "spec"
+        ));
+    }
+
+    #[test]
+    fn a_custom_kind_governs_missing_a_key_is_a_load_error() {
+        // Both `root` and `glob` are required — a half-declared locus collapses to
+        // `BadGoverns`, the way a missing `count` bound collapses to `RoleBadCount`.
+        let toml = r#"
+[kind.spec]
+governs = { root = "specs" }
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::BadGoverns { .. }));
+    }
+
+    #[test]
+    fn an_unknown_extraction_primitive_in_a_custom_kind_is_a_load_error() {
+        // The extraction array goes through the same closed-algebra parser a
+        // standalone declaration does — an out-of-vocabulary primitive is rejected
+        // at load, bubbled as the `KindError`.
+        let toml = r#"
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+[[kind.spec.extraction]]
+primitive = "paragraph_meaning"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::Extraction(KindError::UnknownPrimitive { ref primitive, .. })
+                if primitive == "paragraph_meaning"
+        ));
+    }
+
+    #[test]
+    fn an_unknown_predicate_in_a_custom_kind_clause_is_a_load_error() {
+        // The custom kind's clauses reuse the shared closed-vocabulary parser, so an
+        // unknown predicate is rejected exactly as in a bare contract.
+        let toml = r#"
+[kind.spec]
+governs = { root = "specs", glob = "*.md" }
+[[kind.spec.clause]]
+severity = "required"
+predicate = "word_count"
+field = "body"
+"#;
+        let err = AuthorLayer::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ComposeError::Contract(ContractError::UnknownPredicate { ref predicate, .. })
+                if predicate == "word_count"
+        ));
     }
 }
