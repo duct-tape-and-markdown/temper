@@ -1,103 +1,15 @@
 [
   {
-    "tag": "INSTALL-GATE-WIRING",
-    "summary": "Add `temper install` — project the gate's wiring (SessionStart hook, CI job, schema modeline) into the harness under the three-state drift engine",
-    "per": {
-      "path": "specs/50-distribution.md",
-      "section": "Decision: `install` projects the gate's wiring; drift keeps it synced"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/install.rs",
-          "description": "The `install` verb: project temper's own gate integration points as ordinary artifacts under the existing drift engine (`src/drift.rs` public API — no re-implementation). Three placements: the `SessionStart` hook (the exec-form `temper session-start` command) into `.claude/settings.json`; the CI job into `.github/`; the `# yaml-language-server: $schema=…` modeline into artifact frontmatter headers. Each is written/merged through the same three-state (desired / last-applied / real-on-disk) logic drift already owns, so `install` is idempotent, dry-runnable, and re-add-able. Also expose a `gate_installed(&Workspace) -> Vec<Diagnostic>` helper reporting whether these placements are present and undrifted (the `temper check` self-verify below), so main.rs can fold it into the gate. Fail-loud: a placement that cannot be written errors, never silently skips (`specs/50-distribution.md`, 'Fail-loud delivery')."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Acceptance: `temper install` on a fixture harness writes the three placements; a second run lands `Unchanged` (idempotence); `--dry-run` writes nothing; a hand-drifted placement is detected by the self-verify helper. insta snapshots where output is stable."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod install;` beside the other modules (this entry owns the `pub mod` line)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Add an `Install { path, dry_run }` variant to the `Command` enum and a dispatch arm calling `install::run`; and fold `install::gate_installed` into the `gate()` walkthrough so `temper check` reports its own gate is installed and undrifted (`specs/50-distribution.md`: 'the harness checking that its self-check is wired')."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "install projects the three placements; second run is Unchanged (idempotent); --dry-run writes nothing; drifted placement is flagged by the self-verify path."
-      }
-    ],
-    "acceptance": "`temper install` projects the SessionStart hook into `.claude/settings.json`, the CI job into `.github/`, and the schema modeline into artifact headers, all as artifacts under the three-state drift engine (idempotent, dry-runnable); `temper check` reports whether its own gate is installed and undrifted; a placement that cannot be written errors loudly; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Builds on drift's public API rather than re-emitting write-back logic (law 5). Disjoint from SCHEMA-DOCS-CHANNEL (that owns contract/compose/schema/contracts; this owns install/main/lib), so parallel-safe. BUNDLE-PLUGIN shares main.rs + lib.rs and is serialized behind it."
-  },
-  {
-    "tag": "SCHEMA-DOCS-CHANNEL",
-    "summary": "Emit the schema's docs/hover channel — per-field guidance prose carried on contract clauses, projected as JSON Schema `description`, never as validation",
-    "per": {
-      "path": "specs/50-distribution.md",
-      "section": "The gate at keystroke — the emitted schema"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "Carry an optional per-clause `guidance` string on the parsed contract model — the best-practice text `specs/10-contracts.md` ('Templates') keeps *out of checks*, authored on the clause, never decided. Parse it (unknown-key admissibility must accept it); it is advisory-only and plays no part in conformance or admissibility beyond being present."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Thread `guidance` through contract layering (floor ⊕ temper.toml) so an adopted/extended clause keeps or overrides its guidance string, mirroring how severity/predicate already layer."
-        },
-        {
-          "path": "src/schema.rs",
-          "description": "Emit the docs channel: map each field clause's `guidance` to the corresponding JSON Schema property's `description` keyword (hover docs), strictly alongside — never mixed into — the existing validation keywords. Absent guidance ⇒ no `description`. The split is the on-law guarantee: taste can only ride `description`, never become a squiggle (`specs/50-distribution.md`)."
-        },
-        {
-          "path": "contracts/skill.anthropic.toml",
-          "description": "Author `guidance` prose on the decidable field clauses (the best-practice text that today lives only as spec prose), so the emitted schema carries real hover docs for the skill kind."
-        },
-        {
-          "path": "contracts/rule.toml",
-          "description": "Author `guidance` prose on the rule kind's field clauses, same as the skill contract."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "Extend the schema/template tests: assert guidance parses and layers, and that `temper schema --kind skill` emits `description` for a clause carrying guidance and omits it for one that does not (insta snapshot); assert guidance never appears as a validation keyword."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/contract_template.rs",
-        "asserts": "guidance parses + layers; `temper schema` emits it as JSON Schema `description` only; it never leaks into the validation channel; admissibility still passes with guidance present."
-      }
-    ],
-    "acceptance": "`temper schema [--kind <k>]` emits per-field guidance prose as JSON Schema `description` (the hover/docs channel) drawn from the contract, strictly separate from the decidable validation keywords; contracts parse and layer guidance without affecting conformance/admissibility; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Completes the two-channel schema `specs/50-distribution.md` mandates — validation (shipped) + docs (this). Guidance is authored, advisory, never checked (law 3): the medium enforces law 2. Disjoint from INSTALL-GATE-WIRING (contract/compose/schema/contracts vs install/main/lib), so parallel-safe."
-  },
-  {
     "tag": "BUNDLE-PLUGIN",
     "summary": "Add `temper bundle` — compose the imported surface into a publishable Claude Code plugin + `marketplace.json`",
     "per": {
       "path": "specs/50-distribution.md",
       "section": "Outward seams"
     },
-    "gate": { "kind": "blockedBy", "tag": "INSTALL-GATE-WIRING" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "INSTALL-GATE-WIRING"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
@@ -139,7 +51,10 @@
       "path": "specs/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
     },
-    "gate": { "kind": "parked", "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end" },
+    "gate": {
+      "kind": "parked",
+      "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
