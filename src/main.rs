@@ -45,6 +45,14 @@ const DEFAULT_WORKSPACE: &str = "./.temper";
 /// runs unchanged.
 const TEMPER_TOML: &str = "temper.toml";
 
+/// The gitignored personal override layer discovered beside [`TEMPER_TOML`] — the
+/// committed-plus-local split the spec names (`specs/40-composition.md`, "a
+/// gitignored `temper-local.toml` layers over *it*"; the split Lefthook proves).
+/// `temper.toml` is committed project policy; `temper-local.toml` is a developer's
+/// personal clause/severity override that layers over it. Absent ⇒ the committed
+/// layer (or bare floor) runs unchanged.
+const TEMPER_LOCAL_TOML: &str = "temper-local.toml";
+
 /// The built-in Anthropic skill contract — the curated "std-lib" default
 /// (`contracts/skill.anthropic.toml`), embedded at build time so `check` has a
 /// contract to validate against without any on-disk configuration.
@@ -232,7 +240,7 @@ fn main() -> miette::Result<ExitCode> {
             // clauses as validation keywords, and each field clause's advisory
             // `guidance` prose as the property's `description` (hover docs), kept
             // strictly disjoint (see `schema.rs`).
-            let layer = compose::AuthorLayer::load(Path::new(TEMPER_TOML))?;
+            let layer = load_layer(Path::new(TEMPER_TOML))?;
 
             // The modeled by-kind floors, paired with the kind name the layer keys
             // on — the identical floors `check` composes above.
@@ -377,14 +385,46 @@ fn main() -> miette::Result<ExitCode> {
 /// harness's own, so the roster/graph/custom-kind tiers resolve relative to the
 /// harness under check rather than the process CWD. Absent that file the layer is
 /// `None` and the by-kind floor runs verbatim.
+/// Load the author-declared layer for a `temper_toml` path, folding a gitignored
+/// `temper-local.toml` beside it over the committed layer when present
+/// (`specs/40-composition.md`, "a gitignored `temper-local.toml` layers over *it*").
+/// The committed `temper.toml` is project policy; the local file is a developer's
+/// personal clause/severity override that layers on top — the committed-plus-local
+/// split Lefthook proves. The local file is discovered in the *same* directory as
+/// the committed one, so both `check` (project root) and the session-start gate
+/// (harness root) resolve it beside the file they already consult.
+///
+/// Absent local ⇒ the committed layer (or bare floor) is returned verbatim — every
+/// existing path is unchanged. Present local over a present committed layer folds
+/// via [`compose::AuthorLayer::fold_local`]; present local with no committed layer
+/// layers straight over the floor, so the personal file alone still customizes the
+/// contract.
+fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>> {
+    let committed = compose::AuthorLayer::load(temper_toml)?;
+
+    let local_path = temper_toml.parent().map_or_else(
+        || PathBuf::from(TEMPER_LOCAL_TOML),
+        |dir| dir.join(TEMPER_LOCAL_TOML),
+    );
+    let Some(local) = compose::AuthorLayer::load(&local_path)? else {
+        return Ok(committed);
+    };
+
+    Ok(Some(match committed {
+        Some(base) => base.fold_local(local),
+        None => local,
+    }))
+}
+
 fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     let ws = Workspace::load(workspace)?;
 
-    // The optional author-declared layer beside the harness. Absent ⇒ `None` and
-    // the floor runs verbatim (every existing test's path); present ⇒ it layers
-    // over the by-kind floor per kind below (`specs/40-composition.md`, the
-    // `temper.toml` Decision).
-    let layer = compose::AuthorLayer::load(temper_toml)?;
+    // The optional author-declared layer beside the harness — the committed
+    // `temper.toml` with a gitignored `temper-local.toml` folded over it when
+    // present. Absent both ⇒ `None` and the floor runs verbatim (every existing
+    // test's path); present ⇒ it layers over the by-kind floor per kind below
+    // (`specs/40-composition.md`, the `temper.toml` Decision).
+    let layer = load_layer(temper_toml)?;
 
     // Dispatch by artifact kind: each kind's features are validated against the
     // *effective* contract for its kind — the embedded floor with the author layer

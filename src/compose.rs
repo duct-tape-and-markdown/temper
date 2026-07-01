@@ -1013,19 +1013,71 @@ impl AuthorLayer {
         }
 
         let mut clauses = floor.clauses;
-        for clause in &layer.clauses {
-            match clauses
-                .iter()
-                .position(|existing| same_identity(existing, clause))
-            {
-                Some(index) => clauses[index] = clause.clone(),
-                None => clauses.push(clause.clone()),
-            }
-        }
+        fold_clauses(&mut clauses, &layer.clauses);
         Ok(Contract {
             name: floor.name,
             clauses,
         })
+    }
+
+    /// Fold a gitignored **`temper-local.toml`** layer over this committed one — the
+    /// committed-plus-local split the spec names (`specs/40-composition.md`, "a
+    /// gitignored `temper-local.toml` layers over *it*"; the split Lefthook proves).
+    /// `temper.toml` is committed project policy; `temper-local.toml` is a personal
+    /// clause/severity override that layers on top, so the fold runs one file up from
+    /// [`layer_over`] with the *same* clause semantics: per kind, a local clause
+    /// **overrides** the base clause sharing its [`same_identity`] (the severity flip
+    /// and parameter change both land here) or, with a fresh identity, **extends** the
+    /// base with it. A kind only `local` names is carried in whole; a kind only the
+    /// committed layer names is left untouched.
+    ///
+    /// **Scope: contract clauses/severity only.** Cross-file requirement-roster,
+    /// relationship, and custom-kind merge is out of this tier and under-specified —
+    /// the committed layer's [`requirements`](Self::requirements),
+    /// [`edges`](Self::edges), and [`custom_kinds`](Self::custom_kinds) pass through
+    /// unchanged and any `local` carries of those are not merged here (a story that
+    /// needs local requirements raises an open question, per the entry). A local
+    /// `adopt` overrides the base's for that kind, since it names the same
+    /// floor-selecting facet the clauses layer over.
+    #[must_use]
+    pub fn fold_local(mut self, local: AuthorLayer) -> AuthorLayer {
+        for (kind, local_layer) in local.kinds {
+            match self.kinds.get_mut(&kind) {
+                // The committed layer already customizes this kind: fold the local
+                // clauses over its own, and let a local `adopt` override the base's.
+                Some(base) => {
+                    if local_layer.adopt.is_some() {
+                        base.adopt = local_layer.adopt;
+                    }
+                    fold_clauses(&mut base.clauses, &local_layer.clauses);
+                }
+                // A kind only the local layer names: it layers straight over the
+                // floor, so carry it in whole.
+                None => {
+                    self.kinds.insert(kind, local_layer);
+                }
+            }
+        }
+        self
+    }
+}
+
+/// Fold an `overlay` of clauses over a `base` clause list in place, with a layer's
+/// override/extend semantics: an overlay clause sharing a base clause's
+/// [`same_identity`] (predicate key + targeted field) replaces it in place — a
+/// severity flip or a parameter change — while one with a fresh identity is
+/// appended. Shared by [`AuthorLayer::layer_over`] (layer over the floor) and
+/// [`AuthorLayer::fold_local`] (local over the committed layer), so both files fold
+/// clauses identically.
+fn fold_clauses(base: &mut Vec<Clause>, overlay: &[Clause]) {
+    for clause in overlay {
+        match base
+            .iter()
+            .position(|existing| same_identity(existing, clause))
+        {
+            Some(index) => base[index] = clause.clone(),
+            None => base.push(clause.clone()),
+        }
     }
 }
 

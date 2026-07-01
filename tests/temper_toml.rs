@@ -129,6 +129,12 @@ fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
 }
 
+/// Write `<root>/temper-local.toml` — the gitignored personal override layer that
+/// folds over the committed `temper.toml` (`specs/40-composition.md`).
+fn write_temper_local(root: &Path, contents: &str) {
+    fs::write(root.join("temper-local.toml"), contents).unwrap();
+}
+
 #[test]
 fn a_severity_flip_turns_a_violating_skill_from_blocking_to_non_blocking() {
     let root = tmpdir("flip");
@@ -267,6 +273,89 @@ fn an_absent_temper_toml_leaves_the_floor_outcome_byte_for_byte_unchanged() {
     assert_eq!(
         absent.output, empty.output,
         "an absent and a declares-nothing temper.toml must produce identical output"
+    );
+}
+
+#[test]
+fn a_temper_local_toml_overrides_and_extends_the_committed_layer() {
+    let root = tmpdir("local-override");
+    import_skill(&root, "coordinate", FORBIDDEN_GLOBS_SKILL);
+
+    // The committed `temper.toml` relaxes the floor's `required` `forbidden_keys`
+    // clause to `advisory`, so on its own the forbidden `globs` key only warns and
+    // the run is non-blocking.
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"advisory\"\n\
+predicate = \"forbidden_keys\"\n\
+keys = [\"globs\", \"alwaysApply\"]\n",
+    );
+    assert!(
+        check_in(&root).ok,
+        "the committed layer alone relaxes the clause to advisory ⇒ zero"
+    );
+
+    // A personal `temper-local.toml` folds over that committed layer: it flips the
+    // *committed* `forbidden_keys` clause back to `required` (same identity ⇒
+    // override) and extends the contract with a new `require_sections` clause the
+    // skill's body lacks. Both take effect in the effective contract.
+    write_temper_local(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"required\"\n\
+predicate = \"forbidden_keys\"\n\
+keys = [\"globs\", \"alwaysApply\"]\n\
+[[kind.skill.clause]]\n\
+severity = \"required\"\n\
+predicate = \"require_sections\"\n\
+sections = [\"Usage\"]\n",
+    );
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "the local override flips the committed clause back to required ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("require_sections"),
+        "the local-added clause fires in the effective contract, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn an_absent_temper_local_is_a_verbatim_pass_through_of_the_committed_layer() {
+    let root = tmpdir("local-absent");
+    import_skill(&root, "coordinate", CLEAN_SKILL);
+
+    // A committed `temper.toml` that extends the floor with a `required` section the
+    // clean skill's body lacks — a non-trivial effective contract that fires.
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+[[kind.skill.clause]]\n\
+severity = \"required\"\n\
+predicate = \"require_sections\"\n\
+sections = [\"Usage\"]\n",
+    );
+
+    // Absent `temper-local.toml`: the committed layer runs unchanged.
+    let absent = check_in(&root);
+    assert!(
+        !absent.ok,
+        "the committed layer's added clause fires ⇒ non-zero"
+    );
+
+    // A present-but-empty `temper-local.toml` folds nothing over the committed
+    // layer, so the effective contract — and thus the diagnostic output — must be
+    // byte-for-byte identical to the absent-local run.
+    write_temper_local(&root, "# this temper-local.toml declares nothing\n");
+    let empty = check_in(&root);
+    assert_eq!(
+        absent.output, empty.output,
+        "an absent and a declares-nothing temper-local.toml must produce identical output"
     );
 }
 
