@@ -49,9 +49,9 @@ project in one shot and, on a failing contract, emits the verdict as
 `additionalContext` with an instruction to notify the user and get approval before
 continuing. No shell wrapper, no external deps, no escaping — the binary owns the
 output contract (a `claude-session-start` reporter; see Reporters below), capped to
-Claude Code's 10k `additionalContext` limit. (This is a one-shot check over a
-*harness path* — import-internally — not the two-step import-then-check of the
-author workflow; the gate needs that verb.) It does not block.
+Claude Code's 10k `additionalContext` limit. (This is `check --harness <path>` — the one-shot
+import-internally mode the CLI surface names, `20-surface.md` — not the two-step
+import-then-check of the author workflow.) It does not block.
 **Rejected:** a hard block at session start (a `PreToolUse` hook denying the
 agent's first action). Two reasons: Claude Code's `SessionStart` *cannot* block (it
 only injects context and shows stderr), and — the deeper one — a hard block on a

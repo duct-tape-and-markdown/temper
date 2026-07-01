@@ -308,6 +308,9 @@ the floor on day one and earn its graph over time.
   against the package its kind is bound to, `10-contracts.md`) and **admissibility**
   (the assembly and each package against the definition); exit non-zero on a
   `required`-clause violation (`--deny-advisories` to also block on advisory).
+  `check --harness <path>` is the **one-shot mode**: import-internally over a raw
+  harness, no workspace touched — the session-start placement's verb
+  (`50-distribution.md`).
 - `temper diff` / `apply` / `re-add` — the drift engine (future).
 - `temper bundle` — compose into a publishable plugin + `marketplace.json`
   (future; the publish verb — `50-distribution.md`).

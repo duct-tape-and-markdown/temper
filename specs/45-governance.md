@@ -53,7 +53,10 @@ each other. To govern its shape, temper needs the edges — and an edge is a
 skill by a structured field (`routes_to: standards`), authored on the composition
 surface (`20-surface.md`) **alongside** the prose that says the same thing for the
 agent. temper builds the graph from the field; the prose rides along
-content-faithful; `apply` projects both into the project.
+content-faithful; `apply` projects both into the project. On the surface the
+edge is an edge clause in the member document (`[edge.<target>]`,
+`20-surface.md`); the kind's adapter emits it into the projection's structured
+field (`15-kinds.md`).
 
 So governance does not demand you rewrite your prose — it **adds the structure it
 needs and plants it.** This is why the write surface is load-bearing for
@@ -94,7 +97,8 @@ graph matches. All three are counts over declared edges — sound.
 - **numeric `range` `{min, max}`** over `integer` / `number` — a value bound is a
   fact, wrongly excluded when the `type` lattice rejected JSON-Schema ranges
   (`10-contracts.md`). A narrow named predicate, the corpus's own escape for a
-  genuine need.
+  genuine need — now enumerated in `10-contracts.md`'s field primitives (the
+  vocabulary's home).
 
 ## Held back, and loose ends
 

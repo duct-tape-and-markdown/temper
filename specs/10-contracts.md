@@ -44,12 +44,17 @@ the vocabulary is a deliberate language change, never a per-contract escape
 hatch (law 3). The primitives:
 
 - **field** — `required` / `optional`; `type`; `allowed_chars` (a declared
-  character class, e.g. `[a-z0-9-]`); `max_len` / `min_len`; `enum`; `deny`
-  (forbidden values); `forbidden_keys` (e.g. the Cursor `globs`/`alwaysApply` keys
-  Claude Code ignores). The full `pattern` (arbitrary regex) clause is **held
-  back** — see the `allowed_chars` Decision below.
+  character class, e.g. `[a-z0-9-]`); `max_len` / `min_len`; `range` `{min, max}`
+  over `integer`/`number` (a numeric bound is a fact — motivated in
+  `45-governance.md`); `enum`; `deny` (forbidden values); `forbidden_keys` (e.g.
+  the Cursor `globs`/`alwaysApply` keys Claude Code ignores). The full `pattern`
+  (arbitrary regex) clause is **held back** — see the `allowed_chars` Decision
+  below.
 - **structural** — `max_lines`; `require_sections` (named headings present);
-  `must_define` (a field/marker exists, e.g. `disable-model-invocation`).
+  `must_define` (a field/marker exists, e.g. `disable-model-invocation`);
+  `section_contains` `{heading, marker}` (every section whose heading starts with
+  the declared text carries the declared marker — the predicate behind the spec
+  kind's decisions-name-alternatives, `15-kinds.md`).
 - **referential** — a reference resolves — *only over a precisely declared
   reference syntax* (e.g. markdown links, an explicit `@path`), never by grepping
   prose. If the author can't name the reference syntax, the clause is not
@@ -345,9 +350,9 @@ decidable, therefore sound:
 - every clause names a predicate in the **closed vocabulary** (unknown ⇒ rejected);
 - every referential clause **names its reference syntax** (the hole that made
   `companion-refs` unsound);
-- every requirement's typed `kind`/`package` **names a real kind/package**, and a
-  `required` single-filler requirement is satisfiable (some artifact of the right kind
-  can opt in);
+- every requirement's typed `kind`/`package` **names a real kind/package** —
+  whether the requirement is *filled* is conformance's question (coverage), never
+  admissibility's;
 - every regex-backed clause **compiles** (none today — `pattern` is held, above);
   every `enum` is non-empty;
 - every `verified_by` **resolves** to a declared verifier (above).
