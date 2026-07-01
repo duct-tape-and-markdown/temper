@@ -24,6 +24,7 @@ pub mod extract;
 pub mod graph;
 pub mod import;
 pub mod kind;
+pub mod reporter;
 pub mod roster;
 pub mod rule;
 pub mod schema;
