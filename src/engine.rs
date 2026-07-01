@@ -22,11 +22,15 @@
 //!
 //! ## The honest bound (`verified_by` philosophy)
 //!
-//! One predicate in the vocabulary — `dependency-exists` — names a fact the
-//! current [`Features`] projection does not carry (a declared-dependency model).
-//! The engine does **not** fabricate a pass for it: its arm is marked
-//! [`Outcome::Indeterminate`], so growing the extractor later lights it up with
-//! no engine change. The decidable members the spec keeps — name format,
+//! One predicate in the vocabulary — `dependency-exists` — is **held back**: it
+//! names no decidable reference syntax or extractor yet (a declared-dependency
+//! model the current [`Features`] projection does not carry), so the engine
+//! could only ever return *indeterminate* for it — a silent no-op law 1 forbids.
+//! Rather than fabricate a pass or degrade to that no-op, [`admissibility`]
+//! **fences it**: a contract carrying a `dependency-exists` clause fails
+//! admissibility, exactly as the full `pattern` primitive is held back, so a
+//! hand-authored clause fails loudly instead of quietly deciding nothing. The
+//! decidable members the spec keeps — name format,
 //! lengths, forbidden keys, required fields, `name-matches-dir`, body
 //! `max_lines`, and `require_sections` over the extracted headings — are
 //! evaluated here in full.
@@ -101,12 +105,27 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
 }
 
 /// The admissibility violations of a single clause's predicate — empty when the
-/// clause is well-formed over the definition. Today the sole decidable check is
-/// that a value/key list is non-empty: a list-bearing predicate with an empty
-/// list is vacuous (an `enum` over no values admits nothing; `forbidden_keys`
-/// over no keys forbids nothing), which the author cannot have meant.
+/// clause is well-formed over the definition. Two decidable checks live here
+/// today: (1) a value/key list is non-empty — a list-bearing predicate with an
+/// empty list is vacuous (an `enum` over no values admits nothing;
+/// `forbidden_keys` over no keys forbids nothing), which the author cannot have
+/// meant; and (2) no **held-back** predicate is used as a working clause —
+/// `dependency-exists` names no decidable reference syntax or extractor, so it is
+/// inadmissible until it does (`specs/10-contracts.md`, "The primitive algebra").
 fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
     match predicate {
+        // `dependency-exists` is held back — like the full `pattern` primitive.
+        // It names no decidable reference syntax or extractor, so the engine
+        // could only return `Indeterminate` for it (a silent no-op law 1
+        // forbids). A hand-authored clause must therefore fail admissibility, not
+        // degrade to a working no-op.
+        Predicate::DependencyExists => {
+            vec![
+                "`dependency-exists` is held back: it names no decidable reference \
+                 syntax or extractor, so it is inadmissible as a contract clause"
+                    .to_string(),
+            ]
+        }
         Predicate::Enum { field, values } if values.is_empty() => {
             vec![format!("`enum` clause on field `{field}` lists no values")]
         }
@@ -172,8 +191,10 @@ impl Outcome {
 }
 
 /// The decision table — one arm per primitive. Every arm is decidable *given the
-/// feature it names*; the two whose feature the projection omits return
-/// [`Outcome::Indeterminate`] rather than a fabricated pass.
+/// feature it names*; the one held-back predicate whose feature the projection
+/// omits (`dependency-exists`) returns [`Outcome::Indeterminate`] rather than a
+/// fabricated pass — though [`admissibility`] fences it before a valid run ever
+/// reaches conformance, so that arm is a defensive floor, not a working clause.
 fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outcome {
     match predicate {
         // A value/presence predicate is the *only* owner of its field's
@@ -328,8 +349,11 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             })
         }
 
-        // `dependency-exists` resolves a declared dependency, a relation the
-        // current projection does not extract. Indeterminate until it does.
+        // `dependency-exists` is held back — [`admissibility`] rejects any
+        // contract carrying it, so a valid conformance run never reaches this arm.
+        // It stays `Indeterminate` as a defensive floor (never a fabricated pass)
+        // and to light up with no engine change once the extractor grows a
+        // declared-dependency model.
         Predicate::DependencyExists => Outcome::Indeterminate,
     }
 }
@@ -779,11 +803,24 @@ mod tests {
     }
 
     #[test]
-    fn dependency_exists_neither_passes_nor_fires() {
-        // The projection carries no dependency model, so this clause cannot be
-        // decided here — and must not fabricate a finding.
-        let any = features("demo", &[("name", scalar("demo"))], 1, None);
-        assert!(run(Predicate::DependencyExists, any).is_empty());
+    fn dependency_exists_is_inadmissible() {
+        // `dependency-exists` is held back — it names no decidable reference
+        // syntax or extractor, so a hand-authored clause must fail admissibility
+        // loudly rather than silently decide `Indeterminate` (a no-op law 1
+        // forbids). The fence is mirrored on the full `pattern` primitive.
+        let held = contract(ClauseSeverity::Required, Predicate::DependencyExists);
+        let diags = admissibility(&held);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "dependency-exists");
+        assert_eq!(diags[0].severity, Severity::Error);
+        // The finding names the contract it indicts.
+        assert_eq!(diags[0].artifact, "skill");
+        assert!(any_error(&diags));
+
+        // A clause's declared severity is irrelevant: it is inadmissible even
+        // when marked advisory, because an inadmissible contract cannot be used.
+        let advisory = contract(ClauseSeverity::Advisory, Predicate::DependencyExists);
+        assert_eq!(admissibility(&advisory).len(), 1);
     }
 
     #[test]

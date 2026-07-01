@@ -199,7 +199,14 @@ pub enum Predicate {
     NameMatchesDir,
     /// `unique-name`: names are unique within the artifact kind.
     UniqueName,
-    /// `dependency-exists`: every declared dependency resolves.
+    /// `dependency-exists`: every declared dependency resolves. **Held back** —
+    /// like the full `pattern` (regex) primitive: recognizable when parsed, so
+    /// the vocabulary names it, but inadmissible until it declares a decidable
+    /// reference syntax *and* an extractor to resolve it. Without one the engine
+    /// could only return *indeterminate* — a silent no-op law 1 forbids — so a
+    /// hand-authored clause fails admissibility ([`crate::engine::admissibility`])
+    /// rather than acting as a working clause (`specs/10-contracts.md`, "The
+    /// primitive algebra").
     DependencyExists,
 }
 
