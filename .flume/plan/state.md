@@ -1,33 +1,32 @@
 # Plan state
 
-- **Phase:** reconcile — realign tick. The corpus was reconciled to the
-  package/assembly/kind model (`5b06eae`) *after* the last plan commit
-  (`8117825`), so the inherited queue spoke the retired vocabulary. This tick
-  realigns it. Verified on disk: `lock.toml` rename already shipped
-  (import.rs:57), but code still uses `template`/`contract`-bundle (no `package`
-  concept), embeds `contracts/*.toml` bound by hardcoded kind name (main.rs:59/65),
-  types requirements by `contract`, and declares custom kinds *inline* in
-  `[kind.*]`. No `.temper/`/`temper.toml` on disk — the self-application surface
-  was parked at `cb52cc3` "pending code reconciliation." Inbox empty.
+- **Phase:** decompose — the tick the resolved `(package-surface-sequencing)`
+  fork called for. The PACKAGE-MODEL-RECONCILE monolith is replaced by a
+  serialized chain (shared compose/roster/main files ⇒ `blockedBy`, one at a
+  time): MATCH-ERADICATE (open, inbox-routed, atomic) → SURFACE-DOCUMENT-FORMAT →
+  PACKAGE-DOCUMENT → PACKAGE-BINDING → REQUIREMENT-PACKAGE-TYPING →
+  MEMBER-DOCUMENT-IMPORT → KIND-AUTHORED-ARTIFACT (also on the new
+  `(kind-artifact-format)` fork) → EMBED-BUILTIN-PACKAGES (parked: human authors
+  the `.temper/packages/` std-lib — dogfood after machinery). Verified on disk:
+  `match` selectors live across compose/roster/graph/coverage, `template`/`adopt`
+  vocabulary throughout, `contracts/*.toml` embedded at main.rs:59/65, import
+  writes the meta.toml+body split, custom kinds fully inline in `[kind.*]`.
 - **Last shipped:** `lock.toml` rollup rename (RENAME-ROLLUP-LOCK, on disk).
 - **In flight:** none.
-- **Filed this tick:** PACKAGE-MODEL-RECONCILE (parked) — the code↔spec migration
-  (`template`→`package`, embed built-in packages from `.temper/packages/`, retire
-  `contracts/`, custom kinds under `.temper/kinds/`), blocked on the human
-  un-parking `.temper/` + the new `(package-surface-sequencing)` fork. Reconciled
-  the three carried entries to the new model (fixed AGENT-KIND's stale cite +
-  `contracts/agent.toml` shape; noted COVERAGE-CUSTOM-KIND downstream of
-  `.temper/kinds/`).
-- **Pickable now (0):** every entry is parked/deferred. PACKAGE-MODEL-RECONCILE
-  parked (human un-park + sequencing), COVERAGE-CUSTOM-KIND deferred (priority +
-  downstream), PACKAGING-CHANNELS parked (release creds), AGENT-KIND deferred
-  (reframe).
-- **Blocked frontier (forks, unchanged):** `(package-surface-sequencing)` (new)
-  gates the whole migration; `(decision-marker-predicate)` + `(reference-id-normalization)`
-  gate the spec-kind decisions-name / references-resolve clauses; `(read-verbs)`
-  gates `why`/`requirements` CLI verbs — all await a human decision.
+- **Inbox:** drained. MATCH-ERADICATE filed as the sole `open` entry per its
+  routing. The representation hold is lifted — the human authored the
+  surface-language model into `20-surface.md` (9aed8cc) after routing the hold,
+  and the resolved sequencing fork directs plan to reconcile against that corpus;
+  the representation work is filed as SURFACE-DOCUMENT-FORMAT +
+  MEMBER-DOCUMENT-IMPORT.
+- **Pickable now (1):** MATCH-ERADICATE. Everything else is blockedBy the chain,
+  parked (EMBED-BUILTIN-PACKAGES, PACKAGING-CHANNELS), or deferred
+  (COVERAGE-CUSTOM-KIND, AGENT-KIND — both rewritten to the surface-language
+  shapes).
+- **Blocked frontier (forks):** `(kind-artifact-format)` (new — the custom kind
+  definition's concrete file/dialect), `(reference-id-normalization)`,
+  `(read-verbs)` — all await a human decision.
 
-Plan continues: no — queue realigned to the reconciled spec model, inbox empty,
-and the frontier (the package/assembly migration) is human-held: it rests on
-un-parking `.temper/` and settling `(package-surface-sequencing)`. Nothing for
-build to pick and nothing more to plan until that decision lands.
+Plan continues: no — the queue is reconciled to the surface-language corpus, the
+inbox is drained, and MATCH-ERADICATE is pickable; building is how the queue
+drains from here.

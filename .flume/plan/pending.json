@@ -1,83 +1,404 @@
 [
   {
-    "tag": "PACKAGE-MODEL-RECONCILE",
-    "summary": "Reconcile code to the package/assembly model — `template`→`package`, embed built-in packages from `.temper/packages/` (retire `contracts/`), custom kinds under `.temper/kinds/`",
+    "tag": "MATCH-ERADICATE",
+    "summary": "Eradicate the name-`match` selector — opt-in `satisfies` is the sole fill; requirements quantify over kind-typed satisfier sets across compose/roster/graph/coverage",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Requirements — the harness's named obligations"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Drop `MatchSelector` (enum + parse/selector_from), the `match` key from the requirement allowlist (it becomes an unknown-key reject), `Requirement.selector`, and any Match* ComposeError variants. Membership's S₂ set: replace `source_selector` with a named source requirement whose satisfier set (over `source_kind`) supplies the allowed values — `specs/45-governance.md`, 'each set an opt-in satisfier set'."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "The set a requirement quantifies over becomes its satisfier set — artifacts of the requirement's `kind` whose features `satisfies` it. Set-scope predicates (count/membership/unique) range over satisfiers; `conformance` validates the satisfiers against the requirement's typing; drop `fillers()`, `matches()`, the glob matcher, and the `selector.is_none() → skip` branch. Whole-kind population constraints quantify over the `kind` (all artifacts of it); intent subsets over the satisfier set."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`degree` selects its node set by the requirement's `kind` + satisfiers, not `roster::matches` — doc comments citing the shared selector update with it."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "Already satisfies-based: remove the now-moot 'requirement with a selector is left to the roster' branch (coverage.rs:104) and its unit test (coverage.rs:287) — coverage gates every requirement's satisfier presence + dangling `satisfies`."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Doc-comment sweep only: the admissibility summary at engine.rs:84 names a 'requirement-`match`-resolves' clause that no longer exists."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Fixtures define sets via `kind` + `satisfies` (representation), not `match = { name }`; assert a `match` key is rejected as an unknown key; selector-named tests renamed to satisfier vocabulary."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Same fixture migration (the `match = { name = \"*\" }` sites) plus a parse-level assertion that `match` is now an unknown-key reject."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The `degree` fixtures select nodes by `kind` + `satisfies` instead of the `match` glob."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Any selector-dependent fixture migrates to satisfies-only; coverage asserts every requirement is gated (no roster-deferral path remains)."
+        }
+      ],
+      "retire": [
+        "MatchSelector (compose.rs)",
+        "roster::fillers / roster::matches / the glob matcher",
+        "coverage's requirement-with-selector skip branch"
+      ]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs, tests/temper_toml.rs, tests/graph.rs, tests/coverage.rs",
+        "asserts": "set-scope predicates (count/membership/unique/degree) and conformance quantify over kind-typed satisfier sets; a `match = {...}` key is rejected as an unknown key; coverage gates every requirement; insta snapshots re-recorded deliberately."
+      }
+    ],
+    "acceptance": "`match` is gone from the config surface (an unknown-key reject, per the unknown-keys Decision); every set/graph-scope predicate and requirement conformance range over satisfier sets; coverage checks every requirement's satisfier presence + dangling; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox-routed (spec 01d4f59). ATOMIC — ripples compose→roster→graph→coverage in one commit; sole `open` entry, no parallel wave. Membership's S₂: `45-governance.md` makes each set an opt-in satisfier set, so `source_selector` is replaced by a named source requirement's satisfiers. The parked temper.toml dogfood (cb52cc3) is already satisfies-only — the dogfood is the target."
+  },
+  {
+    "tag": "SURFACE-DOCUMENT-FORMAT",
+    "summary": "The surface-language document primitive — parse/emit one authored document: `+++` TOML-fenced header over a markdown body, format-preserving (toml_edit), deterministic round-trip",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "The member document — the surface language"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MATCH-ERADICATE" },
+    "files": {
+      "new": [
+        {
+          "path": "src/document.rs",
+          "description": "The generic fenced-document type both members and PACKAGE.md share (`10-contracts.md`: a package is 'authored in the same medium as any member'): split the `+++`-fenced TOML header from the body, parse the header into a `toml_edit::DocumentMut` (comments/order/whitespace survive a patch — the co-authorship constraint of the TOML-dialect Decision), keep the body verbatim, emit deterministically (parse→emit is byte-identical). Precise miette errors for a missing/unterminated fence or malformed header TOML. Foundation only — no pipeline rewiring; the module name is the implementer's."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add the new module's `pub mod` line (this foundation entry owns it)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/document.rs (unit tests)",
+        "asserts": "parse→emit round-trips byte-identical; a header field patch preserves comments, key order, and whitespace; unknown header tables are preserved verbatim; missing/unterminated fence and malformed TOML are precise errors, not panics."
+      }
+    ],
+    "acceptance": "A `+++`-fenced document parses into (header DocumentMut, body) and re-emits byte-identical; format-preserving header patches work; the module is exported from lib.rs; cargo fmt/clippy -D warnings/test green.",
+    "notes": "First rung of the surface-language chain the resolved `(package-surface-sequencing)` fork directs — machinery against fixtures, dogfood after. The inbox's representation hold is lifted: the human authored the model into `20-surface.md` (9aed8cc) after routing the hold. Downstream consumers: PACKAGE-DOCUMENT (PACKAGE.md) and MEMBER-DOCUMENT-IMPORT (members)."
+  },
+  {
+    "tag": "PACKAGE-DOCUMENT",
+    "summary": "A package is one PACKAGE.md — clauses (with colocated `guidance`) in the fenced header, guidance prose as the body; loaded into the contract model, identity from its dir stem",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Packages — the reusable, bindable unit of a contract"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SURFACE-DOCUMENT-FORMAT" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/fixtures/.temper/packages/<name>/PACKAGE.md (fixture set)",
+          "description": "A clean package document, one with an unknown predicate (admissibility reject), one with per-clause `guidance` keys — the machinery-first fixtures the resolved sequencing fork calls for."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Load a `Contract` from `.temper/packages/<name>/PACKAGE.md` via the document primitive: header clause tables parse through the existing clause parser (closed vocabulary, unknown keys/predicates rejected — admissibility unchanged); a clause may carry a colocated `guidance` key (the hover-sized why, delivered on its diagnostic); the body is package-level guidance; the display name derives from the dir stem (the identified-by-binding Decision — no internal `name`). The TOML-file loader stays for the embedded `contracts/*.toml` floor until EMBED-BUILTIN-PACKAGES retires it."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Grow PACKAGE.md load/admissibility/guidance cases beside the existing TOML-file ones."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "a fixture PACKAGE.md loads and its clauses decide identically to the TOML form; an unknown predicate in the header fails admissibility; a failing clause's diagnostic carries its colocated `guidance`; display name is the dir stem."
+      }
+    ],
+    "acceptance": "A package authored as `.temper/packages/<name>/PACKAGE.md` loads, passes admissibility, gates members, and surfaces per-clause guidance on diagnostics; the embedded TOML floor still works beside it; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Resolves the old PACKAGE-MODEL-RECONCILE open point (own src/package.rs vs fold into contract.rs): fold — a package *carries* a contract, and the `package` kind's admissibility is exactly the definition check this loader already runs. Guidance never gates: prose has no path into a predicate (the algebra's guarantee, not the parser's)."
+  },
+  {
+    "tag": "PACKAGE-BINDING",
+    "summary": "Assembly binds packages by name — `[kind.<k>] package = \"<name>\"` replaces path-`adopt`; names resolve embedded floor ∪ `.temper/packages/`; `template` vocabulary retires",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Decision: package binding is by artifact kind"
+    },
+    "gate": { "kind": "blockedBy", "tag": "PACKAGE-DOCUMENT" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "The kind layer's `adopt = \"<path>\"` becomes `package = \"<name>\"` (a name, not a path); `UnknownTemplate` becomes an unknown-package error naming the resolution set (built-ins + `.temper/packages/`); `template` vocabulary in docs/identifiers renames to `package`."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Resolution order for a bound name: a built-in name (`skill.anthropic`, `rule`) resolves from the embedded floor (the BUILTIN_*_CONTRACT constants persist until EMBED-BUILTIN-PACKAGES), any other name from `.temper/packages/<name>/PACKAGE.md` via PACKAGE-DOCUMENT's loader."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "`contract templates` → `packages` vocabulary in the plugin skill prose, docs, and embedded std-lib comments (`specs/50-distribution.md` ships 'built-in packages')."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "`adopt` fixtures migrate to `package = \"<name>\"`; an unknown name is a precise load error; a custom name resolves from a `.temper/packages/` fixture."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "Snapshot churn from the renamed vocabulary in the bundled skill/std-lib, re-accepted deliberately."
+        }
+      ],
+      "retire": ["the `adopt = \"<path>\"` binding key", "ComposeError::UnknownTemplate"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs, tests/bundle.rs",
+        "asserts": "`package = \"<name>\"` binds a kind to a built-in (embedded) or project-authored (`.temper/packages/`) package; `adopt` is rejected as an unknown key; unknown names error precisely; snapshots re-accepted."
+      }
+    ],
+    "acceptance": "The assembly binds packages by name per the naming rule (`specs/90-spec-system.md`: `package` retired `template`); built-ins resolve embedded, custom from `.temper/packages/`; no `template`/`adopt` remains in the binding surface; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Serialized behind PACKAGE-DOCUMENT (needs the by-name PACKAGE.md loader). The requirement-side typing facet migrates in the next entry so the two compose.rs surfaces never co-edit across a parallel wave. Extend/override (`[[kind.<k>.clause]]`, severity flips) stay — `40-composition.md` keeps them in the assembly."
+  },
+  {
+    "tag": "REQUIREMENT-PACKAGE-TYPING",
+    "summary": "Requirement typing migrates to `package = \"<name>\"` — the `contract` facet (template path / inline clauses) retires; satisfiers validate against the named package",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Requirements — the harness's named obligations"
+    },
+    "gate": { "kind": "blockedBy", "tag": "PACKAGE-BINDING" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "`RequirementContract` (Template path | inline clauses) becomes a by-name package binding: `package = \"<name>\"` on `[requirement.*]`. Inline clauses under a requirement retire — `10-contracts.md` typing is `kind`/`package`, 'never inline clauses (clauses live only in packages)'; the unknown-key reject catches stragglers."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Conformance validates a requirement's satisfiers against the named package (resolved via PACKAGE-BINDING's order); admissibility's clause becomes 'names a real kind/package' — a non-resolving name is admissibility's finding, whether it is *filled* stays coverage's. `template` vocabulary sweep in docs/messages."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Typed-requirement fixtures migrate from `contract = \"contracts/*.toml\"` / inline clauses to `package = \"<name>\"` over package fixtures; admissibility cases (non-resolving name) updated."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Requirement parse fixtures: the `contract`/inline forms are now unknown-key rejects; `package` parses."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Any requirement-side template-path case migrates to the by-name binding."
+        }
+      ],
+      "retire": ["RequirementContract::Template(path) and the inline-clauses variant", "the `contract =` requirement key"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs, tests/temper_toml.rs",
+        "asserts": "a requirement typed `package = \"<name>\"` validates its satisfiers against that package (findings retagged per satisfier); a non-resolving name fails admissibility; `contract =` and inline clauses are rejected keys."
+      }
+    ],
+    "acceptance": "Requirement typing is `kind`/`package` exactly as `10-contracts.md` declares — by-name, exact, never inline; packages compose (a satisfier is checked by its kind's bound package and any requirement-named package); cargo fmt/clippy -D warnings/test green.",
+    "notes": "Completes the require-side vocabulary migration: after this no `template`/`contract`-as-bundle usage remains in src (`contract` stays as the clause-set a package carries, per `90-spec-system.md` naming). Serialized — shares compose.rs/roster.rs with the entries above."
+  },
+  {
+    "tag": "MEMBER-DOCUMENT-IMPORT",
+    "summary": "A member is one document — import projects a `+++` clause-module header ([clause.*], [satisfies.*], [edge.*], [provenance]) over the body; the meta.toml+body split retires",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Decision: the member is one document in the surface language"
+    },
+    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-PACKAGE-TYPING" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Project each skill/rule/custom unit as ONE document — `<into>/<kind-dir>/<name>/{SKILL,RULE,<KIND>}.md`, a `+++` TOML header (clause modules) over the content-faithful body — replacing the `meta.toml` + body pair; import stays a migration (mechanical, members arrive unrecognized, provenance stamped); the `lock.toml` roll-up unchanged."
+        },
+        {
+          "path": "src/skill.rs",
+          "description": "`to_meta_document`/`from_dir` become header emit/parse over the document primitive: `[clause.<field>]` modules for typed fields (unknown frontmatter keys preserved verbatim), `[satisfies.<req>]` modules (each with the optional authored `rationale` the spec example carries), `[provenance]` generated."
+        },
+        {
+          "path": "src/rule.rs",
+          "description": "Same migration for the rule member document, including the structured edge field as `[edge.<target>]` modules (`45-governance.md`: an edge is a declared field on the surface)."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Custom-unit read follows the document form (provenance from the header, body below) — still provenance-only pending COVERAGE-CUSTOM-KIND for authored `satisfies`."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Fingerprints / three-state comparison range over the one-document member instead of the meta.toml pair."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Workspace load reads member documents (extraction ranges over the member document — `15-kinds.md`, the adapter)."
+        },
+        {
+          "path": "tests/apply.rs",
+          "description": "Projection re-emits from the member document; determinism/idempotence snapshots re-recorded."
+        },
+        {
+          "path": "tests/readd.rs",
+          "description": "`re-add` lifts an on-disk edit into the member document's header/body."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Import/check end-to-end fixtures and snapshots over the new layout."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "The import fixpoint (re-importing the projection yields the surface back) asserted over the one-document layout."
+        }
+      ],
+      "retire": ["the meta.toml + body two-file member layout", "Skill::to_meta_document / the rule meta writer (become document emitters)"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/apply.rs, tests/readd.rs, tests/cli.rs, tests/acceptance.rs",
+        "asserts": "import writes one document per member (header modules + verbatim body); re-import is idempotent (fixpoint snapshot); drift/re-add/apply operate over the single file; companions still copied byte-for-byte; snapshots re-recorded deliberately."
+      }
+    ],
+    "acceptance": "`.temper/<kind-dir>/<name>/` holds one authored document per member — exactly the `20-surface.md` topology; no meta.toml is written or read; import→check→drift round-trips green; cargo fmt/clippy -D warnings/test green.",
+    "notes": "ATOMIC and the chain's largest tick — write and read sides must flip together (import writes what check/drift/re-add consume); stay green, re-record insta deliberately. The inbox's representation hold is lifted: the human authored this model into `20-surface.md` (9aed8cc) after routing the hold, and the resolved sequencing fork directs plan to reconcile against that corpus."
+  },
+  {
+    "tag": "KIND-AUTHORED-ARTIFACT",
+    "summary": "A custom kind is authored under `.temper/kinds/<name>/` and registered in the assembly — the fully-inline `[kind.<name>]` definition retires; its require-side is a bound package",
+    "per": {
+      "path": "specs/40-composition.md",
+      "section": "Decision: a custom kind is an authored `.temper/` artifact, registered in the assembly"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MEMBER-DOCUMENT-IMPORT" },
+    "dependsOnForks": ["kind-artifact-format"],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "`[kind.<name>]` for a custom kind becomes a registration — a pointer to the authored definition under `.temper/kinds/<name>/` plus its `package = \"<name>\"` binding — never the inline `governs`/`[[extraction]]`/`[[clause]]` definition (the `CustomKind` parse moves to the artifact loader); a custom kind carries no clauses itself."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Load the composed definition (governs locus, extraction primitives, relationships) from the authored artifact."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Discovery unchanged in principle (kinds come from the assembly's registrations) — re-point at the artifact-loaded definitions."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Custom-kind fixtures move from inline `[kind.<name>]` definitions to `.temper/kinds/<name>/` fixtures + registrations; inline definition keys become rejects."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Custom-kind fixtures follow the registration form."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Relationship fixtures declared in the authored kind definition."
+        }
+      ],
+      "retire": ["the fully-inline [kind.<name>] custom-kind definition (governs/extraction/clauses in temper.toml)"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs, tests/coverage.rs, tests/graph.rs",
+        "asserts": "a custom kind authored under `.temper/kinds/<name>/` and registered in the assembly extracts, checks against its bound package, and yields its declared relationships; an inline definition is rejected."
+      }
+    ],
+    "acceptance": "Custom kinds live as authored `.temper/kinds/<name>/` artifacts registered in the assembly, require-side always a bound package — uniform with built-ins; no inline kind definition parses; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Held by `(kind-artifact-format)`: the spec names PACKAGE.md/SKILL.md but never the kind definition's concrete file/shape — inventing it would be inventing surface (collaboration rule). The files above are the blast radius, not the format. Downstream of MEMBER-DOCUMENT-IMPORT (the artifact medium it is authored in)."
+  },
+  {
+    "tag": "EMBED-BUILTIN-PACKAGES",
+    "summary": "Embed the built-in std-lib from temper's own `.temper/packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park that validates the reconciled machinery",
     "per": {
       "path": "specs/10-contracts.md",
       "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the self-application `.temper/packages/` + `.temper/kinds/` surface was parked at cb52cc3 pending this reconciliation; a human must un-park it (author temper's built-in packages on temper's own surface) and settle the migration sequencing before the code can embed from `.temper/packages/` and retire `contracts/`"
+      "reason": "the authored sources must exist first: a human un-parks the cb52cc3 self-application surface and authors `.temper/packages/{skill.anthropic,rule}/PACKAGE.md` on temper's own surface — the resolved `(package-surface-sequencing)` order (machinery first, dogfood as validation); also last in the chain (needs PACKAGE-DOCUMENT…KIND-AUTHORED-ARTIFACT shipped)"
     },
-    "dependsOnForks": ["package-surface-sequencing"],
     "files": {
       "new": [
         {
-          "path": ".temper/packages/skill.anthropic/, .temper/packages/rule/",
-          "description": "The authored built-in package sources (clauses + guidance), on temper's own composition surface — the embed target that replaces `contracts/*.toml`. Human/dogfood territory (the parked surface, cb52cc3); the build embeds these into the binary as the shipped std-lib (`specs/10-contracts.md`, the `contracts/` retirement)."
+          "path": ".temper/packages/skill.anthropic/PACKAGE.md, .temper/packages/rule/PACKAGE.md",
+          "description": "The authored built-in package sources on temper's own surface — human/dogfood territory; the embed target replacing `contracts/*.toml`."
         },
         {
-          "path": "src/package.rs",
-          "description": "The `package` kind — a package is itself an artifact of the `package` kind, checked by the definition (admissibility). A future plan tick decides whether this lands as its own module or folds into `contract.rs`; scoped here only to name the shape, not to fix it."
+          "path": "build.rs (or include_dir wiring)",
+          "description": "Embed the authored package directories into the binary — a sanctioned-crate addition (include_dir / build.rs codegen), folded in per the resolved fork."
         }
       ],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Embed the built-in packages from `.temper/packages/<name>/` (a directory of authored sources) instead of `include_str!(\"../contracts/skill.anthropic.toml\"|\"../contracts/rule.toml\")` at main.rs:59/65; wire the `package` kind into `gate()`'s admissibility. Embedding a directory needs a build approach (include_dir / build.rs codegen) — a sanctioned-crate call folded into the fork."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Assembly binding by `package = \"<name>\"` per kind (replacing `adopt = \"...\"`); requirement typing facet `contract` → `package` (roster.rs / RequirementContract); rename the `template`/bundle vocabulary to `package`; custom kinds authored under `.temper/kinds/<name>/` and *registered* in the assembly rather than inlined under `[kind.<name>]` (`specs/40-composition.md` Decision rejects inlining the whole definition)."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "Requirement typing `contract` → `package` vocabulary and the contract-side conformance pass wording; the `RequirementContract::Template(path)` variant becomes a package binding by name."
-        },
-        {
-          "path": "src/contract.rs",
-          "description": "Retire the last `template` reference; `contract` stays the require-side clause-set term (spec keeps `contract` distinct from `package`)."
+          "description": "Built-in names resolve from the embedded PACKAGE.md sources instead of `include_str!(\"../contracts/*.toml\")` (main.rs:59/65)."
         },
         {
           "path": "src/bundle.rs",
-          "description": "`template` → `package` vocabulary in the publishable-bundle path (`specs/50-distribution.md`, project-authored packages publish through `bundle`)."
+          "description": "The plugin ships the embedded PACKAGE.md std-lib verbatim instead of the TOML files."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "Retire the TOML-file contract loader once nothing resolves through it."
         }
       ],
-      "retire": [
-        "contracts/skill.anthropic.toml",
-        "contracts/rule.toml",
-        "the contracts/ embedded std-lib directory"
-      ]
+      "retire": ["contracts/skill.anthropic.toml", "contracts/rule.toml", "the contracts/ embedded std-lib directory"]
     },
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/temper_toml.rs, tests/requirement_roster.rs, tests/contract_template.rs, tests/import*",
-        "asserts": "assembly binding by `package`, requirement typing by `package`, and built-in packages resolving from the embedded `.temper/packages/` set; the `package` kind passes admissibility; snapshot churn across the renamed vocabulary is re-accepted."
+        "path": "tests/contract_template.rs, tests/bundle.rs, tests/cli.rs",
+        "asserts": "built-ins resolve from the embedded authored sources; the bundled plugin carries them; nothing references contracts/*.toml."
       }
     ],
-    "acceptance": "Code uses `package`/`assembly` per the spec's naming rule (`specs/90-spec-system.md`); built-in packages are authored under `.temper/packages/<name>/` and embedded (the `contracts/` dir retired); requirement typing uses `kind`/`package`; custom kinds are authored under `.temper/kinds/<name>/` and registered in the assembly; the parked self-application surface un-parks and `temper check` runs green on temper's own `.temper/`; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Large, entangled migration across compose/contract/roster/main/bundle — NOT parallel-safe; a future plan tick decomposes it into a serialized (blockedBy) chain once `(package-surface-sequencing)` resolves. `lock.toml` rename already shipped. Blocked on the human un-parking `.temper/` (cb52cc3) — the code must embed authored package sources absent from disk. `contract` (require-side clauses) stays distinct from `package` (the bundle); only the bundle term migrates."
+    "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored in temper's repo and shipped embedded; `contracts/` is gone; `temper check` runs green on temper's own `.temper/`; cargo fmt/clippy -D warnings/test green.",
+    "notes": "The dogfood finish of the chain — un-parking `.temper/` is the *validation* step, never tangled into the machinery (resolved fork). Blocked on human authoring; the embedded `contracts/*.toml` floor persists until then by design."
   },
   {
     "tag": "COVERAGE-CUSTOM-KIND",
-    "summary": "Custom-kind units join coverage — read authored `satisfies` in `kind::Unit` instead of hardcoding it empty",
+    "summary": "Custom-kind units join coverage — read authored `satisfies` from the member document instead of hardcoding it empty",
     "per": {
       "path": "specs/10-contracts.md",
       "section": "Coverage — the one referential check"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it is downstream of the `.temper/kinds/` custom-kind authoring in PACKAGE-MODEL-RECONCILE — deferred on priority"
+      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it is downstream of MEMBER-DOCUMENT-IMPORT (the header its `satisfies` would be authored in) and KIND-AUTHORED-ARTIFACT — deferred on priority"
     },
-    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from its authored representation rather than the hardcoded `satisfies: Vec::new()` (the commented gap at kind.rs:451-454, inside `Kind::extract`), so a custom kind (temper's own `spec` corpus) can opt into requirements — coverage is kind-blind by design. This likely needs a new `satisfies` extraction primitive (a deliberate algebra addition, `specs/15-kinds.md`)."
+          "description": "Populate `Features.satisfies` for a custom-kind `Unit` from the member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` (kind.rs:451-454, inside `Kind::extract`) — coverage is kind-blind by design, so temper's own `spec` corpus can opt into requirements. Likely a deliberate extraction-algebra addition (`specs/15-kinds.md`)."
         },
         {
           "path": "tests/coverage.rs",
@@ -90,11 +411,11 @@
     "tests": [
       {
         "path": "tests/coverage.rs",
-        "asserts": "a custom-kind unit's `satisfies` participates in coverage (kind-blind)."
+        "asserts": "a custom-kind unit's authored `satisfies` participates in coverage (kind-blind)."
       }
     ],
-    "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "kind.rs:451-454 hardcodes `satisfies=Vec::new()` in `Kind::extract` (confirmed on disk). Coverage is kind-blind (spec) so the seam is legitimate — deferred on priority. Reading a custom unit's `satisfies` needs a projection + read (import_custom_unit at import.rs:409 writes a provenance-only meta.toml today) and likely a new extraction primitive (a deliberate algebra addition, `15-kinds.md`). Downstream of the `.temper/kinds/` custom-kind authoring in PACKAGE-MODEL-RECONCILE."
+    "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
+    "notes": "kind.rs:451-454 hardcodes `satisfies=Vec::new()` in `Kind::extract` (confirmed on disk). Under the surface-language model the read is from the member document's `[satisfies.*]` header modules (no meta.toml projection anymore). Re-scope on revival against the then-current chain state."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -107,7 +428,6 @@
       "kind": "parked",
       "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
     },
-    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -126,29 +446,28 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — the npm-distribution config must reconcile with or split from it, never blindly create a second. Parked until a human sets creds up. `(binary-bootstrap)` RESOLVED — execution, not a fork."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
   },
   {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md`, typed frontmatter + byte-faithful body, checked by an authored agent package",
+    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind — and it lands only after PACKAGE-MODEL-RECONCILE reshapes how a kind binds its package"
+      "reason": "the reframe deprioritizes more built-in kinds; revive only if a story demands the agent kind — and only after the surface-language chain (through MEMBER-DOCUMENT-IMPORT) reshapes how a kind's members and package land"
     },
-    "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs` end-to-end: typed YAML frontmatter (`name`, `description`, optional `tools`/`model`) with unknown keys preserved in `extra`, a byte-faithful body, and `provenance`. Identity is the path (file stem), not an internal field."
+          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
         },
         {
-          "path": ".temper/packages/agent/",
-          "description": "The agent kind's authored package (clauses + guidance) under temper's own surface, embedded — NOT a `contracts/agent.toml` (the retired embedded-contracts model, PACKAGE-MODEL-RECONCILE). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores (`globs`/`alwaysApply`); an advisory `max_lines`."
+          "path": ".temper/packages/agent/PACKAGE.md",
+          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
         },
         {
           "path": "tests/agent_contract.rs",
@@ -158,23 +477,23 @@
       "edit": [
         {
           "path": "src/lib.rs",
-          "description": "Add `pub mod agent;` beside the other artifact-kind modules (this entry owns the `pub mod` line)."
+          "description": "Add `pub mod agent;` beside the other artifact-kind modules (this entry owns the line)."
         },
         {
           "path": "src/check.rs",
-          "description": "Extend `Workspace` with `agents: Vec<Agent>` loaded under `<dir>/agents/*`, and add an `Agent(#[from] AgentError)` arm to `WorkspaceError`. Update the load tests."
+          "description": "Extend `Workspace` with `agents` loaded under `<dir>/agents/*` and a `WorkspaceError` arm; update the load tests."
         },
         {
           "path": "src/extract.rs",
-          "description": "Add `pub fn agent_features(&Agent) -> Features` mirroring `rule_features`."
+          "description": "Add `agent_features` mirroring `rule_features`."
         },
         {
           "path": "src/import.rs",
-          "description": "Discover `.claude/agents/*.md`, project each to `<into>/agents/<name>/{meta.toml, AGENT.md}`, and add an `[[agent]]` lock row per agent — parallel to the rule path."
+          "description": "Discover `.claude/agents/*.md`, project each to one `<into>/agents/<name>/AGENT.md` member document, add an `[[agent]]` lock row per agent."
         },
         {
           "path": "src/main.rs",
-          "description": "Wire the `agent` kind into `gate()`: bind the embedded agent package, extract `agent_features` over `ws.agents`, extend the admissibility + conformance streams, add `\"agent\"` to `by_kind`."
+          "description": "Bind the agent package, wire admissibility + conformance streams and `by_kind` for the kind."
         }
       ],
       "retire": []
@@ -183,10 +502,10 @@
     "tests": [
       {
         "path": "tests/agent_contract.rs",
-        "asserts": "Each decidable clause of the agent package fires on its broken fixture and stays silent on a clean agent; import of an unchanged agent is idempotent (insta snapshot)."
+        "asserts": "each decidable clause of the agent package fires on its broken fixture and stays silent on a clean agent; import of an unchanged agent is idempotent (insta snapshot)."
       }
     ],
-    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the embedded agent package (conformance) and that package passes admissibility; `temper import` scans, projects, and round-trips agents idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Now also downstream of PACKAGE-MODEL-RECONCILE — the agent package is an authored `.temper/packages/agent/` artifact (embedded), not the retired `contracts/agent.toml`; binding follows the reconciled assembly model. Mirrors the rule kind end-to-end; on revival re-check its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
+    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Rewritten to the surface-language shapes — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
   }
 ]

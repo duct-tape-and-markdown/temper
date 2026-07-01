@@ -28,7 +28,11 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   shape from dependencies as usual; the embedding mechanism for the shipped std-lib
   packages (`include_dir`/`build.rs` — a sanctioned-crate addition when reached)
   lands when temper's own `.temper/packages/` exist to embed, and the embedded
-  `contracts/*.toml` floor persists only until then.
+  `contracts/*.toml` floor persists only until then. CARRIED: the plan tick after
+  resolution decomposed the migration into the serialized chain MATCH-ERADICATE →
+  SURFACE-DOCUMENT-FORMAT → PACKAGE-DOCUMENT → PACKAGE-BINDING →
+  REQUIREMENT-PACKAGE-TYPING → MEMBER-DOCUMENT-IMPORT → KIND-AUTHORED-ARTIFACT,
+  with EMBED-BUILTIN-PACKAGES parked at the end as the dogfood/validation step.
 
 - `(contract-name-field)` — RESOLVED + SHIPPED (88246bf). Option B
   (`specs/10-contracts.md` Decision: "a contract is identified by its path/role,
@@ -176,6 +180,19 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   Adding a CLI verb the CLI-surface spec does not name is inventing surface
   (`collaboration` rule). Human to decide whether the CLI surface gains read/traversal
   verbs and exactly what each exposes; until then they are not fileable as build work.
+
+- `(kind-artifact-format)` — The concrete authored shape of a **custom kind
+  definition** under `.temper/kinds/<name>/` is unspecified. `specs/20-surface.md`
+  names the member documents (`SKILL.md`, `RULE.md`, `SPEC.md`) and the package
+  document (`PACKAGE.md`) explicitly, but the topology line for `kinds/<name>/`
+  names no file; `40-composition.md` says *what* the definition carries (governs
+  locus, composed extraction, relationships, its bound package) but not its
+  syntax — a `+++`-fenced document like every other artifact (then what is its
+  body, when a kind definition is pure structure?), a plain TOML file, and what
+  the file is called (`KIND.md`? `kind.toml`?). Naming it in code would be
+  inventing surface (`collaboration` rule). Human to name the file and its
+  dialect; until then KIND-AUTHORED-ARTIFACT holds (`dependsOnForks`), while the
+  inline `[kind.<name>]` scaffold keeps working.
 
 - `(reference-id-normalization)` — The spec kind's **references-resolve** clause
   (`15-kinds.md` worked example) is the graph-scope frontier, but it does not yet run:
