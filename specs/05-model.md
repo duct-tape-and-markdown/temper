@@ -57,6 +57,8 @@ The vocabulary; the **owning spec** carries the detail.
 | **surface** | the authored source of truth; projects to the landscape | `20-surface.md` |
 | projection | the on-disk landscape `apply` writes from the surface | `20-surface.md` |
 | **role** | an abstract slot a matched artifact fills | `10-contracts.md` |
+| **requirement** | a named semantic intent the harness must fill (`means`); filled by a `satisfies` link, coverage-gated, never judged | `10-contracts.md` |
+| **satisfies** | an artifact's opt-in declaration (in its representation) that it fills a requirement — the decidable binding | `10-contracts.md` |
 | entity / relationship | nodes / edges of a kind's dependency graph | `15` / `30` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
 | verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |

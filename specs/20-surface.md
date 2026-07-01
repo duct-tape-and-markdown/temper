@@ -75,6 +75,27 @@ frontmatter + body; for a spec it is headings, bindings, and declared model
 elements. Extraction is the soundness boundary — it surfaces only
 deterministically-decidable features, never inferred meaning.
 
+## Each artifact directory is a representation, not a copy
+
+`.temper/<kind>/<name>/` is not a mirror of the source file — it is the artifact's
+**representation in the harness model**, with the byte-faithful body carried
+*alongside*:
+
+- **typed header** — the artifact's own fields (`meta.toml`), format-preserving;
+- **`satisfies`** — the requirements this artifact fills (`10-contracts.md`), the
+  opt-in bindings the coverage check reads;
+- **rationale** — the authored *why* bound to the artifact (the behavioral-intent
+  layer, `00-intent.md` law 7), first-class here rather than delegated and forgotten;
+- **edges** — the declared references/relationships to other artifacts
+  (`45-governance.md`), the graph's source;
+- **body** — copied byte-for-byte (law 5), never re-rendered.
+
+Header / `satisfies` / rationale / edges are **authored** (the intent-encoding); the
+body is **carried**; conformance status is **derived** (a `check` output, never
+persisted into the representation — computed, not authored). This is what makes the
+surface an *authoring space* rather than a lint target: it holds each artifact's
+**meaning and role**, not just its contents (`40-composition.md`).
+
 ## Artifact kinds & contract selection
 
 The kind *system* — the extraction algebra and the built-in/custom split — is

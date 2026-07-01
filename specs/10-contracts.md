@@ -84,6 +84,55 @@ the artifact declares, or — preferred for clarity — by the artifact *opting 
 When zero or many artifacts match a `required` single-filler role, that is a
 conformance error, reported precisely.
 
+## Requirements and `satisfies` — the meaningful contract
+
+A **requirement** is a named **semantic intent** the harness must fill — declared in
+`temper.toml`, stated in *meaning*, not in predicates:
+
+```toml
+[requirement.dev-standards]
+means    = "the harness has a skill that maintains development standards"
+required = true
+```
+
+temper **never interprets `means`** — it is authored intent the surface carries and
+organizes, never a thing the engine judges (no proxy; law 3). An artifact fills a
+requirement by **opting in** from its own representation (`20-surface.md`):
+
+```toml
+# .temper/skills/dev-standards/  →
+satisfies = ["dev-standards"]
+```
+
+What `check` gates is the **decidable shadow**: every `required` requirement is
+satisfied by **≥1 artifact whose representation declares — and resolves — a
+`satisfies` link** to it. An unfilled requirement, or a `satisfies` naming no
+declared requirement, is a precise diagnostic. This is a **referential coverage**
+check (the referential primitive, above) — decidable, a true positive every time.
+
+So the contract reads as *intent* ("the harness must maintain dev standards") while
+the gate stays *weak* ("does that intent have a resolving home?"). The meaning is
+human; coverage is checked; temper does **not** judge whether `dev-standards`
+*actually* maintains standards — that is the author's attestation (the `satisfies`
+link), optionally backed by a wired `verified_by`.
+
+`satisfies` is the **opt-in binding** this file already calls preferred (Roles,
+above: "the artifact opting in rather than the contract reaching out to guess"),
+made first-class and meaning-carrying. A `role` fills a slot by a decidable `match`;
+a `requirement` is filled by a declared `satisfies` and carries the *why*.
+
+### Decision: a requirement carries meaning, gates coverage — never judged
+
+**Chosen:** a requirement declares semantic intent (`means`) and is satisfied by an
+artifact's opt-in, resolving `satisfies` link; `check` gates **coverage** — every
+required requirement filled, every link resolves — a referential, decidable check.
+**Rejected:** temper assessing whether the artifact *truly* fulfils the meaning. That
+is undecidable — the judged tier (`00-intent.md` tier 2) is delegated and advisory,
+never this gate; behavioral truth goes to a wired `verified_by` (above). The
+requirement is how intent becomes a *checkable-for-coverage* contract without the
+engine ever judging meaning — meaningful contract, weak gate. (`requirement.` is its
+own namespace — distinct from the `rule` artifact kind.)
+
 ## Severity is declared, not baked
 
 `temper` does not decide what is an error vs a warning. **The contract author
