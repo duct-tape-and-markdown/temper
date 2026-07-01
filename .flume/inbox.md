@@ -5,8 +5,14 @@ removes them each tick. Empty is the normal state.
 -->
 
 - From a cross-perspective review of the shipped requirements/satisfies/representation
-  chain. File these; the three DECISIONS below are already being put to the human, so
-  do NOT act on them — only the build entries here are for you.
+  chain, plus three now-RESOLVED design decisions (spec `e72c23c`). File the build
+  entries below.
+
+- SERIALIZATION NOTE (read first): the MUST-FIX touches `src/import.rs`/`skill.rs`/
+  `rule.rs` and is disjoint from everything else → runs in parallel. The other three
+  (HARDEN-COVERAGE, FILLED-BY-ROLE, STRAY-KEY-REJECT) all touch `src/compose.rs` and/or
+  `src/coverage.rs`, so they SHARE files → serialize them into one chain (`blockedBy`),
+  do NOT fan them out in parallel or the wave conflicts and reverts.
 
 - MUST-FIX (high, data-loss): `re-add`/`import` clobber authored representation.
   `drift::re_add` (`src/drift.rs:961-969`) re-projects drifted/added skills+rules through
@@ -21,37 +27,45 @@ removes them each tick. Empty is the normal state.
   `rationale` forward — a small merge helper shared by `import_skill`/`import_rule` (and
   the rule equivalent). Add a round-trip test: author satisfies → drift the body on disk →
   re-add → assert satisfies+rationale survive. Touches `src/import.rs` + `src/skill.rs` +
-  `src/rule.rs` + tests.
+  `src/rule.rs` + tests. DISJOINT → parallel-safe.
 
-- HARDEN coverage (low, do in one entry): (a) pin EXACT-STRING match for
-  `satisfies`↔`requirement.<name>` (both are literal human-authored TOML keys; no
-  case/whitespace fold) and add a mismatch fixture proving a typo yields the paired
-  UNFILLED+DANGLING (true positives, not spurious); (b) dedup `satisfies` before the
-  dangling loop so `["x","x"]` emits ONE diagnostic (unfilled already uses a set);
-  (c) add a doc cross-ref in `src/coverage.rs` noting DANGLING mirrors `graph::check`
-  route-resolution and UNFILLED mirrors `graph::degree` min-in-degree over a NON-artifact
-  target set, and WHY unifying into `graph.rs` is rejected (avoids a fake `requirement`
-  kind in `by_kind`) — so a future third bipartite case finds the seam. Touches
-  `src/coverage.rs` + `src/compose.rs` (match rule) + tests. Disjoint from the MUST-FIX
-  (different files) → the two may run in parallel.
+- HARDEN-COVERAGE (low): (a) pin EXACT-STRING match for `satisfies`↔`requirement.<name>`
+  (both literal human-authored TOML keys; no case/whitespace fold) + a mismatch fixture
+  proving a typo yields the paired UNFILLED+DANGLING (true positives); (b) dedup
+  `satisfies` before the dangling loop so `["x","x"]` emits ONE diagnostic; (c) doc
+  cross-ref in `src/coverage.rs`: DANGLING mirrors `graph::check` route-resolution,
+  UNFILLED mirrors `graph::degree` min-in-degree over a NON-artifact target set, and WHY
+  unifying into `graph.rs` is rejected (avoids a fake `requirement` kind in `by_kind`).
+  Touches `src/coverage.rs` + `src/compose.rs` + tests. SERIALIZE with the two below.
 
-- DEFER (track as real entries, not code comments): (1) custom-kind (`spec`) gains a
-  `[representation]` read + `Features.satisfies` population so temper's own spec corpus
-  can participate in coverage — `kind::Unit` currently hardcodes `satisfies=Vec::new()`
-  (`src/kind.rs:452-455`). (2) `temper why <artifact>` + `temper requirements` READ verbs
-  (forward `satisfies → means`+rationale; reverse `requirement → satisfiers` = blast
-  radius) — high payoff, queue AFTER the dogfood below; realizes the traversal
-  `00-intent.md` already promises as prose. No engine change, read-only over post-keystone
-  data.
+- FILLED-BY-ROLE (resolved decision; spec `10-contracts.md` "Two fill paths"): parse
+  `filled_by = { role = "<name>" }` on `[requirement.*]` in `src/compose.rs`. Coverage
+  semantics: a requirement carrying `filled_by` is covered iff the named role's required
+  filler is present (delegate to `roster` match — referential, decidable), NOT by
+  `satisfies` opt-in. ONE fill path per requirement: `filled_by` and bare-`satisfies`
+  coverage are mutually exclusive for a given requirement. Admissibility: `filled_by` must
+  name a DECLARED role (referential resolve, same posture as `verified_by`); dangling role
+  ref → admissibility error. Deliberately NO `filled_by = { kind }` (duplicates
+  `role.artifact`). Touches `src/compose.rs` + `src/coverage.rs` + tests. SERIALIZE.
 
-- DOGFOOD (after MUST-FIX lands, so re-add won't wipe it): author temper's own
-  `[requirement.*]` in the root `temper.toml` + a `satisfies` on an artifact — human
-  territory (root `temper.toml`), NOT a build entry; noting it here only so plan sequences
-  it after REPRESENTATION-PRESERVE. The friction (harness carries rules, not skills, so the
-  `10-contracts.md` worked example can't be literally satisfied) IS the demo.
+- STRAY-KEY-REJECT (resolved decision; spec `10-contracts.md` "Decision: unknown keys are
+  rejected"): unknown keys in `temper.toml` contract tables — `[requirement.*]`, `[role.*]`,
+  `[kind.*]`, predicate clauses — become a HARD parse/admissibility error, not silently
+  dropped (`requird = true` must fail, not degrade to `required=false`). Project-wide across
+  the contract-surface parsers in `src/compose.rs`. DO NOT touch the artifact `extra`
+  unknown-frontmatter catch-all (law 5 byte-preserves that — it is content, not a contract
+  key). Touches `src/compose.rs` + tests. SERIALIZE.
 
-- DECISIONS being put to the human (do NOT file as build work): (i) `filled_by = {kind|role}`
-  typed requirement fillers — revises the role-vs-requirement separation
-  (`10-contracts.md:119-122`); (ii) ratify coverage kind-blindness explicitly in the
-  `10-contracts.md` Decision (kind-typed fillers go via roles); (iii) project-wide
-  stray-key hard-error posture in `compose.rs` table parsing. Await the human's calls.
+- kind-blind ratification: SPEC-ONLY, already shipped in `e72c23c` (coverage is already
+  kind-blind in code). No build entry — noting so plan doesn't file a no-op.
+
+- DEFER (track as real entries): (1) custom-kind (`spec`) gains a `[representation]` read +
+  `Features.satisfies` population so temper's own spec corpus participates in coverage —
+  `kind::Unit` hardcodes `satisfies=Vec::new()` (`src/kind.rs:452-455`). (2) `temper why
+  <artifact>` + `temper requirements` READ verbs (forward `satisfies`/`filled_by → means`+
+  rationale; reverse `requirement → satisfiers` = blast radius) — queue AFTER the dogfood.
+
+- DOGFOOD (after MUST-FIX lands): author temper's own `[requirement.*]` in the root
+  `temper.toml` + a `satisfies`/`filled_by` — human territory (root `temper.toml`), NOT a
+  build entry; sequence after REPRESENTATION-PRESERVE. The friction (harness carries rules,
+  not skills) IS the demo.
