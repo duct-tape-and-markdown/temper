@@ -57,10 +57,16 @@ the other lies.
 ## Naming consistency — the one hard rule
 
 Name the same concept the same way in every file and in the code. One concept,
-one name. `Contract`, `artifact contract`, `harness contract`, `requirement`
-(the harness's named obligation — the retired `role` folded into it), `satisfies`,
-`verified_by`, `decidable`, `surface`, `provenance`, `drift` are load-bearing
-terms — search before coining a new one.
+one name. `contract` (the clause-set / require-side *only* — never `temper.toml`,
+never the bundle), `package` (the reusable bundle carrying a kind's contract +
+guidance — the term that retired `template`), `assembly` (`temper.toml`: bindings +
+roster + relationships), `member` (an instance artifact; a role, not a directory),
+`requirement` (a named obligation — the retired `role` folded into it), `satisfies`,
+`match`, `verified_by`, `the definition` (the fixed engine axiom — reserved, never a
+package's contents), `kind`, `decidable`, `surface`, `provenance`, `drift` are
+load-bearing terms — search before coining a new one. Note the recent migration:
+`template` → `package`; `temper.toml is the contract` → `temper.toml is the
+assembly`.
 
 ## Decisions
 
@@ -71,11 +77,11 @@ without rejected alternatives is incomplete — future readers can't audit it.
 
 - `00-intent.md` — north star: the thesis, the law, positioning, self-hosting.
 - `05-model.md` — the domain model: temper's concepts and how they relate.
-- `10-contracts.md` — the contract model, the decidable algebra, admissibility.
+- `10-contracts.md` — the contract model, the decidable algebra, packages, admissibility.
 - `15-kinds.md` — the kind system: the extraction algebra, built-in vs custom kinds.
 - `20-surface.md` — the composition write surface: compose, import, project, drift.
 - `30-landscapes.md` — landscapes: engine instances, the spec model, the seams.
-- `40-composition.md` — authoring the harness: the author-declared contract.
+- `40-composition.md` — authoring the harness: the assembly (bindings + roster).
 - `45-governance.md` — powering up the wider scopes: corpus-wide, fact-only predicates.
 - `50-distribution.md` — delivering the gate: plugin, CI, the fail-loud invariant.
 - `90-spec-system.md` — this file.

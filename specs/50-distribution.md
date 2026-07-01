@@ -2,7 +2,7 @@
 
 Distribution is not a second product; it is **placing the one gate** at every
 moment a harness is authored, changes, or is used. Every placement emits from the
-same source — the contract (a built-in template ⊕ the author's `temper.toml`,
+same source — the **assembly** (built-in **packages** ⊕ the author's `temper.toml`,
 `40-composition.md`) — so a placement can never drift from the gate it delivers:
 
 | Moment | Placement | Form of the gate |
@@ -12,7 +12,7 @@ same source — the contract (a built-in template ⊕ the author's `temper.toml`
 | Human change | CI job on PRs | "gate, don't lint," where humans collaborate |
 | On demand | the CLI | the author runs it |
 
-Same contract, four placements, shifted as far left as the work allows.
+Same assembly, four placements, shifted as far left as the work allows.
 Consumption is self-hosting aimed outward: the placements `temper` carries against
 its own `.claude/` are the ones a stranger installs against theirs — no separate
 external finish line (`00-intent.md`).
@@ -20,16 +20,16 @@ external finish line (`00-intent.md`).
 ## The plugin — the Claude-Code-native delivery
 
 `temper` ships as a Claude Code plugin bundling three things: the **skill** (how to
-operate the gate), the **`SessionStart` hook** (law 1), and the **shipped contract
-templates** (the std-lib, embedded — so an installed `temper` has something to
+operate the gate), the **`SessionStart` hook** (law 1), and the **shipped built-in
+packages** (the std-lib, embedded — so an installed `temper` has something to
 check against). It is distributed through a marketplace, and it is `temper`'s first
 plugin dogfood — the artifact kind `temper` exists to project.
 
 The plugin is a **vendored surface** — generated and checked in, **built by flume
 per spec** today and by `temper bundle` (self-packaging, below) in time; it is *not*
-hand-curated like `.claude/` or `contracts/`. Its files are an instance of what
-`temper` projects, so `temper check` will in time gate the plugin too. (Build's
-writable paths must include the plugin tree for the loop to author it.)
+hand-curated like `.claude/` or the `.temper/packages/` std-lib sources. Its files are
+an instance of what `temper` projects, so `temper check` will in time gate the plugin
+too. (Build's writable paths must include the plugin tree for the loop to author it.)
 
 ### Decision: the skill is mechanics, never taste
 
@@ -38,8 +38,8 @@ writable paths must include the plugin tree for the loop to author it.)
 versus fix the artifact (the `collaboration` reflex). **Rejected:** a skill that
 advises *what a good harness is* ("write triggers like this," "keep descriptions
 tight"). That advice is the tool's taste, and law 2 forbids hardcoding it; it lives
-in contract templates (data, adopted by choice), never in skill prose. The split is
-the dogfood of law 2 — the skill runs the checker, the templates carry the opinions.
+in **packages** (data, adopted by choice), never in skill prose. The split is
+the dogfood of law 2 — the skill runs the checker, the **packages** carry the opinions.
 
 ### Decision: the session-start gate is advisory, not blocking
 
@@ -81,10 +81,12 @@ Installing the gate is just projection.
 
 ## The gate at keystroke — the emitted schema
 
-`temper schema [--kind <k>]` emits a JSON Schema **from the active contract** and
-wires it into frontmatter via the `# yaml-language-server: $schema=…` modeline (the
-path that makes JSON Schema validate `.md` frontmatter today, no daemon; served over
-LSP later). It carries two channels, and the split is the on-law guarantee:
+`temper schema [--kind <k>]` emits a JSON Schema **from the assembly and its bound
+packages** and wires it into frontmatter via the `# yaml-language-server: $schema=…`
+modeline (the path that makes JSON Schema validate `.md` frontmatter today, no daemon;
+served over LSP later). It carries two channels — which map exactly onto a package's
+two: a bound package's **contract** clauses become the validation channel, its
+**guidance** becomes the docs channel — and the split is the on-law guarantee:
 
 - **validation** (the squiggle) — the **decidable clauses only**; a true positive
   by construction, so it never cries wolf at keystroke (law 3).
@@ -129,5 +131,8 @@ JS-project case, the second fails silently when absent. (Resolves
   `forbidden_keys` clause catches the inert `globs` / `alwaysApply` keys at the
   on-ramp — the motivating bug, fixed at import. Positioning made concrete.
 - **`bundle`.** Composes an imported harness into a publishable plugin +
-  `marketplace.json` (`20-surface.md`). The dogfood target: `temper`'s own plugin is
-  itself producible by `bundle` — `temper` distributes itself with its own verb.
+  `marketplace.json` (`20-surface.md`). Project-authored **packages** publish through
+  this same channel — a package is a first-class publishable artifact, not vendor-only;
+  the built-in std-lib packages are merely the first-party instances. The dogfood
+  target: `temper`'s own plugin is itself producible by `bundle` — `temper` distributes
+  itself with its own verb.

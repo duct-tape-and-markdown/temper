@@ -72,17 +72,21 @@ author models their own landscape. **Rejected:** a privileged built-in path with
 custom kinds as a lesser bolt-on. This is "a new landscape is a new instance, never
 new engine code" (`10-contracts.md`) made literal — including the extractor. Built-
 ins are simply the kind-definitions temper ships and versions as harness adapters.
+The identical non-privilege governs **packages** (the require-side): a built-in
+package is just the one temper ships, and a project authors its own as a peer
+(`10-contracts.md`, "a package is project-authorable, not vendor-privileged"). One
+ownership axis cuts across both kinds and packages (`05-model.md`).
 
 ## Extending a built-in kind
 
 A built-in's **extraction is temper's** — it mirrors the real harness format;
-redefining it would check against a fiction. Its **contract is a template the
-author layers on** (`40-composition.md`): adopt the base, add custom standards,
-flip a severity. The effective contract is **base ∪ custom**. And because the IR
-preserves unknown frontmatter keys verbatim (`20-surface.md`), a project convention
-on a known artifact — a `team:` key on skills — is *already extracted*; the author
-only adds a clause over it. Permissive extraction, layerable contract: use the
-artifact your way, check it your way.
+redefining it would check against a fiction. Its **require-side is a package the
+author binds and layers** (`40-composition.md`): adopt the built-in package, add
+custom clauses, flip a severity. The effective contract is **base ∪ custom**. And
+because the IR preserves unknown frontmatter keys verbatim (`20-surface.md`), a
+project convention on a known artifact — a `team:` key on skills — is *already
+extracted*; the author only adds a clause over it. Permissive extraction, layerable
+package: use the artifact your way, check it your way.
 
 ### Decision: base-contract clauses are marked fact or opinion
 
@@ -106,48 +110,52 @@ opt-in capability layered on the closed extraction the kind already composes.
 
 ## A kind definition — one composed object
 
-A kind is a single declared object over the two algebras — with no code of its own:
+A kind is the **declare-side** object over the extraction algebra — with no code of
+its own:
 
 - **extraction** — extractor primitives (above), each applied at a locus, each
   naming the feature it yields;
 - **entities & relationships** (optional) — which named features are entity homes
   and which references are edges (the graph capability above), over the kind's
-  declared reference syntax;
-- **contract** — clauses (`10-contracts.md`) over those features.
+  declared reference syntax.
 
-Where the definition lives is the ownership line (above). A **built-in** kind is
-temper's, shipped as a harness adapter: its *extraction* is temper's engine code
-(it mirrors an external format the author cannot redefine), its *contract* a
-layerable template. A **custom** kind is the **author's, declared in `temper.toml`**
-(`40-composition.md`) — extraction included, composed from the algebra.
+The **require-side** is not part of the kind object — it is a **package** bound to the
+kind (`10-contracts.md`), carrying the clauses (`10-contracts.md`) over those features.
+Where each half lives is the ownership line (above). A **built-in** kind is temper's,
+shipped as a harness adapter: its *extraction* is temper's engine code (it mirrors an
+external format the author cannot redefine), and it binds a *layerable built-in
+package*. A **custom** kind is the **author's, authored under `.temper/kinds/<name>/`**
+(`40-composition.md`) — extraction and relationships composed from the algebra — and
+binds a package under `.temper/packages/`, exactly as a built-in does. **Every kind
+binds a package; none carries its contract inline** (`40-composition.md`).
 
 ### Decision: a custom kind is declared data, never engine code
 
 **Chosen:** a custom kind's whole definition — extraction included — is composed
-from the closed algebras and declared in `temper.toml`; the engine implements the
-primitives, the author only composes them. **Rejected:** a custom kind carrying a
-bespoke extractor inside temper's crate — which is exactly what temper's own `spec`
-kind is *today* (`src/spec.rs` + a hardwired `import` scan + a would-be embedded
-contract), built before this mechanism existed. That ships a custom kind as a
-built-in, breaking "temper ships none of them" (above): a stranger installing
-temper would inherit temper's `spec` kind, and a project's own kind would have
-nowhere to live but a patch to temper. Engine-code extraction is sanctioned **only**
-for built-in harness adapters, whose format is external and evolving. temper's own
-`spec` kind is declared in temper's own `temper.toml` like any other custom kind;
+from the closed algebras and **authored under `.temper/kinds/<name>/`**, registered in
+the assembly; the engine implements the primitives, the author only composes them.
+**Rejected:** a custom kind carrying a bespoke extractor inside temper's crate — which
+is exactly what temper's own `spec` kind is *today* (`src/spec.rs` + a hardwired
+`import` scan + a would-be embedded contract), built before this mechanism existed.
+That ships a custom kind as a built-in, breaking "temper ships none of them" (above): a
+stranger installing temper would inherit temper's `spec` kind, and a project's own kind
+would have nowhere to live but a patch to temper. Engine-code extraction is sanctioned
+**only** for built-in harness adapters, whose format is external and evolving. temper's
+own `spec` kind is authored under its own `.temper/kinds/` like any other custom kind;
 the current engine-code scaffold is superseded.
 
 ## Worked example: `spec`, temper's own custom kind
 
-temper governs its `specs/` with a custom `spec` kind — declared in temper's own
-`temper.toml` (`40-composition.md`) by the mechanism above, not shipped in the
-crate:
+temper governs its `specs/` with a custom `spec` kind — authored under temper's own
+`.temper/kinds/spec/` and registered in the assembly (`40-composition.md`) by the
+mechanism above, not shipped in the crate:
 
 - **extraction:** ATX headings, `## Decision` blocks, and backtick-filename
   references (`` `NN-name.md` `` — the corpus's declared reference syntax).
-- **contract:** `max_lines` (advisory, `90-spec-system.md`'s ~150);
-  decisions-name-alternatives (every `## Decision` carries a `Rejected` — a
-  predicate over the decision-block extractor); references-resolve (over that
-  declared syntax).
+- **package (the `spec` kind's require-side):** `max_lines` (advisory,
+  `90-spec-system.md`'s ~150); decisions-name-alternatives (every `## Decision` carries
+  a `Rejected` — a predicate over the decision-block extractor); references-resolve
+  (over that declared syntax).
 
 Piloted over the corpus it confirms every Decision names its rejected alternative
 and every cross-reference resolves, and flags the over-length specs. This is the

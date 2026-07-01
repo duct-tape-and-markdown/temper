@@ -40,8 +40,9 @@ These bind every part of the tool and every change to it.
    `temper` ships no built-in judgment about what a good skill/rule/harness is.
    It gives the author a way to **declare a contract** and checks conformance.
    The author writes the types; `temper` is the type checker. Built-in "best
-   practices" exist only as *contract templates* — data, adopted by choice,
-   overridable — never as hardcoded checks. (`10-contracts.md`.)
+   practices" exist only as **packages** — reusable, bindable data (clauses +
+   guidance), adopted by choice, overridable, and *project-authorable as peers* —
+   never as hardcoded checks. (`10-contracts.md`.)
 
 3. **Decidable clauses only — the immune system.** A check enters `temper` *iff*
    it is expressible as a decidable contract clause over the fixed primitive
@@ -116,6 +117,17 @@ stands on its own without it.)
 
 ## Positioning
 
+The **product** is a **declarative configuration model for the agent harness**: the
+author composes the whole harness at one altitude — the **assembly** (`temper.toml`)
+binding **packages** to **kinds** over the authored **members** in `.temper/` — and
+`temper` projects it into the project. The **typed gate** is the *differentiating
+guarantee* that model uniquely offers: because the surface is declared, malformed
+harness config is caught at author-time, not at the 2am page. The declarative model is
+why you reach for `temper`; the gate is why you reach for it over a dotfiles manager.
+The two ship together — the moat and the motivation in one repo — and neither the
+type-system framing above nor this one demotes the other: the type checker is *how* the
+guarantee is earned (`05-model.md`).
+
 `rulesync` makes a harness *portable* across assistants. `skills`/marketplaces
 *distribute* artifacts. `temper` makes a harness *correct* — a Claude-Code-native
 (then agent-agnostic) contract system on the maintenance/quality axis. Different
@@ -136,8 +148,8 @@ work?) is delegated to verifiers the contract requires to be *wired*, and whose
 we are still correcting, because `temper` doesn't yet exist to check it. The
 classic compiler bootstrap. The finish line is two greens on `temper`'s own
 surface, projected to its own `.claude/`: the harness **conforms** to its
-contract and that contract is **admissible** against the definition
-(`10-contracts.md`). Then the next flume loop refuses to run until both hold. Consumption is the same
+assembly (the packages it binds) and that assembly and its packages are
+**admissible** against the definition (`10-contracts.md`). Then the next flume loop refuses to run until both hold. Consumption is the same
 two greens aimed outward — the plugin a stranger installs to gate their harness is
 the one that gates ours (`50-distribution.md`); there is no separate external
 finish line. When `temper` governs its own builder, the thesis stops being a slogan.

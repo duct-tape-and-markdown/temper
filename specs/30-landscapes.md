@@ -1,7 +1,7 @@
 # Landscapes — instances of the engine
 
-A **landscape** is a corpus of authored artifacts governed by one declared
-contract (`10-contracts.md`). The harness is one landscape; the spec corpus is
+A **landscape** is a corpus of authored artifacts governed by the
+**assembly** — which binds a **package** per kind (`10-contracts.md`). The harness is one landscape; the spec corpus is
 another; code is a third. This file specifies how a landscape is declared and the
 two that matter beyond the harness: the spec landscape (a declared model + bound
 prose) and the cross-landscape seam.
@@ -51,8 +51,8 @@ calibrated per question-class (`00-intent.md` tier 2). That judged shelf is
 ## The cross-landscape seam — spec ⟷ code
 
 Landscapes reference each other. A declared spec entity may require a
-corresponding code symbol; the contract checks the correspondence resolves both
-directions. This is flume's spec↔code equality made a *checked relation* rather
+corresponding code symbol; the contract the `spec` **package** carries checks the
+correspondence resolves both directions. This is flume's spec↔code equality made a *checked relation* rather
 than aspirational prose-vs-types — the structural backbone the spec layer lacked.
 
 ## Scope (not sequencing)

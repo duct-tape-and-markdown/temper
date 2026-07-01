@@ -2,15 +2,17 @@
 
 A contract has three scopes by **arity** (`05-model.md`) — over one artifact, over a
 matched **set**, over the **relation graph** — not three landscapes; a single harness
-draws on all three (it is itself a graph, below). The per-artifact scope has a rich
-predicate set (`10-contracts.md`); the **set** scope (the roster of requirements) and
-the **graph** scope (the model's entities + edges) have almost none — just a
-requirement's presence and a descriptive graph. But *governing* an environment is
-corpus-wide and quantified —
-"every agent…", "at most N…", "no cycles" — which lives at exactly those two scopes.
-This file gives them their predicates. Every one is a **decidable fact**, never a
-guess, so the gate never cries wolf (`00-intent.md` law 3): the wider scopes gain
-*quantification*, not *fuzziness*.
+draws on all three (it is itself a graph, below). The per-artifact scope is a
+**package**'s (it says what a member *is*); the **set** scope (the roster of
+requirements) and the **graph** scope (the model's entities + edges) are the
+**assembly**'s (what the environment *contains and connects*) — the intensional/
+extensional line (`40-composition.md`). The artifact scope has a rich predicate set
+(`10-contracts.md`); the two wider scopes have almost none — just a requirement's
+presence and a descriptive graph. But *governing* an environment is corpus-wide and
+quantified — "every agent…", "at most N…", "no cycles" — which lives at exactly those
+two assembly scopes. This file gives them their predicates. Every one is a **decidable
+fact**, never a guess, so the gate never cries wolf (`00-intent.md` law 3): the wider
+scopes gain *quantification*, not *fuzziness*.
 
 ## The set scope (the roster) — predicates over a matched set
 
@@ -20,7 +22,7 @@ pattern is the contract guessing, eradicated). Lift from "fill one slot" to "qua
 over the satisfier set" and the roster scope gains its predicates:
 
 - **count** — `|artifacts satisfying R| ∈ [min, max]` ("at most N planners," "exactly
-  one release-tool"). This also makes the cascade harness-economy template — cited in
+  one release-tool"). This also makes the cascade harness-economy package — cited in
   `10-contracts.md` but otherwise inexpressible — real. A whole-*kind* population
   constraint quantifies over the requirement's `kind` (every artifact of the kind);
   an intent *subset* quantifies over its opt-in satisfiers.
@@ -28,7 +30,7 @@ over the satisfier set" and the roster scope gains its predicates:
   artifacts satisfying R₂ }` ("every agent's `model` is one of the approved set;" "a
   hook's binary is one the manifest declares"), each set an opt-in satisfier set.
 - **typed reference** — membership where R₂'s set is "artifacts of kind K conforming
-  to contract C": a reference resolves *to the right kind of thing*.
+  to package C": a reference resolves *to the right kind of thing*.
 - **unique** — a field is unique across the satisfier set (today only `name` is).
 
 Each is exact membership/count over deterministically-extracted features of a finite
@@ -57,6 +59,14 @@ So governance does not demand you rewrite your prose — it **adds the structure
 needs and plants it.** This is why the write surface is load-bearing for
 governance: a pure linter can only nag about what is on disk; temper can carry in
 the structure a contract requires.
+
+Hold one line, because it is where the declare/require cleave (`05-model.md`) is
+easiest to blur: **declaring an edge and requiring it are opposite sides.** The edge
+itself is a declared field on the member (declare-side, part of the kind's
+relationships); the demand that it *resolve*, or that a node's *degree* hold, or that
+the graph be *acyclic*, is a predicate in the **assembly** (require-side). Same edge,
+two sides — so the predicates below live in the assembly, never smuggled into the
+member's own declaration.
 
 ### Decision: a reference is a declared edge on the surface, never grepped prose
 

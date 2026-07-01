@@ -1,19 +1,22 @@
 # Contracts — the two-layer model
 
 A `Contract` is an author-declared, decidable description of structure that a
-harness (or one artifact in it) must satisfy. `temper check` validates the
-imported surface against the active contract and reports conformance. This is the
-type checker; the contract is the types. (`00-intent.md` laws 2–3.)
+harness (or one artifact in it) must satisfy — the **require-side** of the cleave
+(`05-model.md`), and *only* that: never a synonym for `temper.toml` (that is the
+**assembly**) nor for the reusable bundle that carries it (that is a **package**). A
+contract is what a **package** *contains*. `temper check` validates the imported
+surface against the assembly and its bound packages, and reports conformance. This is
+the type checker; the contract is the types. (`00-intent.md` laws 2–3.)
 
 `temper` runs **two checks**, not one. **Conformance** — the harness satisfies its
-contract (the type checker above). **Admissibility** — the contract itself
-satisfies *the definition*: the closed algebra below is both the vocabulary a
-contract is written in *and* the contract a contract must satisfy. A type system
-checks values against types *and* checks the types are well-formed; `temper`
-checks harness-against-contract *and* contract-against-definition (`00-intent.md`
-finish line — both greens). Admissibility is what lets an author *declare* a
-contract (`40-composition.md`) without re-opening the heuristic swamp by the front
-door (Decision below).
+assembly and the packages it binds (the type checker above). **Admissibility** — the
+assembly and each package satisfy *the definition*: the closed algebra below is both
+the vocabulary a contract is written in *and* the contract a contract must satisfy. A
+type system checks values against types *and* checks the types are well-formed;
+`temper` checks harness-against-package *and* package-against-definition (`00-intent.md`
+finish line — both greens). Admissibility is what lets an author *declare* a package
+(`40-composition.md`) without re-opening the heuristic swamp by the front door
+(Decision below).
 
 ## The engine is generic; everything is an instance
 
@@ -21,11 +24,11 @@ There are not "two kinds of contract." There is one engine over the primitive
 algebra (below), and every contract is an **instance** expressed in it. The
 distinctions are compositional, not built-in:
 
-| Instance | Declares | `temper` checks | Analogy |
-| -------- | -------- | --------------- | ------- |
-| **Artifact contract** | the shape of one artifact kind | each artifact conforms | a **type** |
-| **Harness contract** | required requirements + relations + verifiers across a harness | each requirement is filled and wired | an **interface / trait** |
-| **Spec contract** | the declared domain model + how prose binds to it (`30-landscapes.md`) | the model is coherent; prose binds; the graph resolves | a **schema / ontology** |
+| Instance | Declares | `temper` checks | Analogy | Home |
+| -------- | -------- | --------------- | ------- | ---- |
+| **Artifact contract** | the shape of one artifact kind | each artifact conforms | a **type** | a **package** |
+| **Harness contract** | required requirements + relations + verifiers across a harness | each requirement is filled and wired | an **interface / trait** | the **assembly** |
+| **Spec contract** | the declared domain model + how prose binds to it (`30-landscapes.md`) | the model is coherent; prose binds; the graph resolves | a **schema / ontology** | the `spec` kind's package + assembly |
 
 The engine knows none of these names — it validates primitive clauses over
 extracted features. A new landscape is a new instance, never new engine code.
@@ -86,15 +89,21 @@ A requirement declares — all facets optional except its name:
 
 - **`means`** — the authored *intent*, the why. `temper` **never interprets it** (no
   proxy; law 3); the surface carries and organizes it (`20-surface.md`).
-- **fill** — how the obligation is met: an artifact **opts in** from its own
-  representation with a `satisfies` link — the artifact declaring what it fills. This
-  is the *only* fill. There is deliberately **no contract-side name/glob `match`**: a
-  name pattern is the contract *reaching out to guess*, the exact anti-pattern this
-  system exists to eliminate (a rename silently breaks it; intent is inferred, not
-  declared). Binding is always the artifact opting in, never the contract guessing.
-- **typing** — `kind` and/or `contract`: constrain *what* may fill it. Absent ⇒
-  **kind-blind**: any artifact that opts in fills it. `kind` is a *type constraint*,
-  exact and declared — not a name-guess — so it stays where `match` goes.
+- **fill** — a requirement and a member's `satisfies` are the **two ends of one edge**;
+  the obligation is met when they join. Neither end is primary: the requirement is
+  declared in the assembly, the `satisfies` on the member's own representation, and
+  `check` **resolves the join** (an unfilled requirement and a dangling `satisfies` are
+  the same diagnostic from opposite sides — Coverage, below). This is the *only* fill:
+  there is deliberately **no contract-side name/glob `match`** — a name pattern is the
+  contract *reaching out to guess* (a rename silently breaks it; intent inferred, not
+  declared), the exact anti-pattern temper exists to eliminate.
+- **typing** — `kind` and/or `package`: constrain *what* may fill it. The filler must
+  be of the named `kind` and/or **conform to the named package** — never inline clauses
+  (clauses live only in packages, below). A filler is thus checked against its own
+  kind's bound package (conformance) *and* any package a requirement names — packages
+  **compose**, as a type implements several traits. Both are *exact, declared*
+  constraints — not a name-guess — which is why they stay where `match` was refused.
+  Absent ⇒ **kind-blind**: any artifact that opts in fills it.
 - **multiplicity** — a single filler (≥1, the default) or a predicate over the
   **satisfier set** — the artifacts opting into the requirement (`count` / `membership`
   / `unique`, `45-governance.md`). The governed set is defined by opt-in, kind-typed —
@@ -108,6 +117,7 @@ A requirement declares — all facets optional except its name:
 # typed fill — kind-constrained opt-in (what a `role` was, minus the name guess):
 [requirement.linter]
 kind     = "rule"                    # only a rule may fill it
+package  = "lint-standards"          # …that also conforms to this package (composes)
 # a rule opts in from its representation:  satisfies = ["linter"]
 required = true
 ```
@@ -130,7 +140,7 @@ optionally backed by a wired `verified_by`.
 ### Decision: role and requirement are one concept
 
 **Chosen:** a single **requirement** — a named obligation with optional `means`,
-optional typing (`kind` / `contract`), fill by the artifact's opt-in `satisfies` (the
+optional typing (`kind` / `package`), fill by the artifact's opt-in `satisfies` (the
 sole binding — no name-`match`, which would be the contract guessing), optional
 multiplicity, and optional `verified_by`; `check` gates **coverage** (every required
 requirement's filler resolves) — one referential, decidable check. **Rejected:** the earlier split into a structural `role` and a
@@ -139,8 +149,8 @@ shipped first (the harness slice); `requirement` was added *beside* it in the in
 reframe rather than *absorbing* it — and every rule it forced (`filled_by`, "one fill
 path per requirement", "kind-typing lives on the role") was ceremony patching a seam
 between two halves of one idea. Unifying **deletes** those rules — the tell that the
-split was artificial. Kind-typing is a facet (`kind` / `contract`), not a rival
-concept; there is no `filled_by`, because there are not two things to bridge.
+split was artificial. Typing is a facet (`kind` / `package`), not a rival concept;
+there is no `filled_by`, because there are not two things to bridge.
 **Rejected also:** temper assessing whether a filler *truly* fulfils `means` — that is
 undecidable; the judged tier (`00-intent.md` tier 2) is advisory and delegated, and
 behavioral truth goes to a wired `verified_by`. Meaningful obligation, weak gate.
@@ -159,18 +169,52 @@ how firmly a failing contract is enforced at each placement — a hard block in 
 an advisory notify-and-approve at session start — is the author's to set, not the
 tool's to bake.
 
-## Templates — best practices as data
+## Packages — the reusable, bindable unit of a contract
 
-The documented best practices (Anthropic skill mechanics, Pocock's invocation
-axis, the cascade harness-economy model) ship as **contract templates** under
-`contracts/` — declarations an author adopts, extends, forks, or ignores. They
-are the std-lib types and the on-ramp so nobody writes a contract from scratch;
-they are never hardcoded checks. A template admits a clause only if it is
-decidable — so "name ≤ 64 chars, `[a-z0-9-]`" is in; "description triggers well"
-and "no-op detection" are **out** (undecidable), and stay as prose guidance, not
-checks. Emitted as a JSON Schema (`50-distribution.md`), a template delivers its
-decidable clauses as keystroke validation and that prose guidance as hover docs —
-best-practices-as-data reaching the editor without ever becoming a check.
+A **package** is the named unit that carries a kind's contract: a bundle of clauses,
+bound to a kind by the assembly (`40-composition.md`). It is the reusable form of the
+require-side — the std-lib type and the on-ramp so nobody writes a contract from
+scratch. The documented best practices (Anthropic skill mechanics, Pocock's invocation
+axis, the cascade harness-economy model) ship as **built-in packages**, adopted,
+extended, forked, or ignored — never hardcoded checks.
+
+A package carries **two physically separate channels**, and the split is load-bearing
+(`00-intent.md` law 2; `50-distribution.md`):
+
+- **clauses** — decidable predicates only; a package admits a clause *iff* it is
+  decidable, so "name ≤ 64 chars, `[a-z0-9-]`" is in and "description triggers well" /
+  "no-op detection" are **out** (undecidable). These gate.
+- **guidance** — the best-practice prose the clauses cannot encode (house style,
+  rationale). This never gates; it rides the docs channel only.
+
+Emitted as a JSON Schema (`50-distribution.md`), a package delivers its clauses as
+keystroke validation and its guidance as hover docs — best-practices-as-data reaching
+the editor without either channel bleeding into the other. Taste cannot become a
+squiggle because the format keeps the two apart by construction.
+
+### Decision: a package is project-authorable, not vendor-privileged — and is itself a kind
+
+**Chosen:** a package is authored the same way regardless of origin; the only
+difference is **who owns it** — a **built-in** package temper ships as a harness
+adapter, or a **custom** package the author writes for their own project — and both
+bind identically. A package is *itself* an artifact of the **`package` kind**, living
+under `.temper/packages/<name>/` (`20-surface.md`) and checked by **the definition**
+(admissibility, below): `package : the definition :: skill : its package`. **Rejected:**
+packages as embedded, vendor-only files an author may merely fork. That is the exact
+two-tier privilege `15-kinds.md` retired for *kinds* ("built-in vs custom is ownership,
+not a privileged mechanism"), and it has no soundness basis here — a contract is
+*opinion*, which law 2 makes the author's, adopted from data. Vendor-only packages
+would make the author a tenant of temper's opinions rather than a composer of their
+own. temper's built-in packages become just the *first-party instances* of a unit
+every project authors and — via `bundle` (`50-distribution.md`) — publishes through
+the same channel. **The `contracts/` embedded std-lib retires:** a built-in package's
+authoritative home is `.temper/packages/<name>/` in temper's *own* repo (authored on
+temper's own surface — the deepest dogfood), and the build **embeds** those authored
+sources into the binary as the shipped std-lib. A consumer never carries a copy; the
+assembly binds the built-in *by name* and it resolves from the embedded set (a version
+pin governs which format version — `45-governance.md`). So the *same* package is
+**authored** in temper's repo and **shipped** to a consumer — one artifact, two
+provenance roles, no duplication, no `contracts/` mirror.
 
 ## `verified_by` — where behavior goes
 
@@ -181,7 +225,7 @@ behavior:
 ```toml
 [requirement.release-tool]
 kind        = "command"
-contract    = { required = ["description"], must_define = ["executable"] }
+package     = "release-command"    # a command that also conforms to this package
 verified_by = "tests/release.rs"   # author checks this is wired; CI runs it
 ```
 
@@ -244,18 +288,18 @@ named predicate** for it, never a general regex clause; the vocabulary stays too
 weak to lie. (Resolves `(regex-crate)`: regex was already sanctioned — the live
 decision is to *not* expose an arbitrary-`pattern` clause.)
 
-## Decision: a contract is identified by its path/binding, not an internal name
+## Decision: a package is identified by its binding, not an internal name
 
-**Chosen:** a `Contract` carries **no required internal `name`**. Its identity is
-*where it lives* — the file path a requirement binds (`contract = "contracts/skill.anthropic.toml"`)
-or the inline block under a requirement. A display label for diagnostics derives from
-the file stem (`skill.anthropic`). **Rejected:** a required top-level `name` field on
-every contract. The contract examples above (Requirements; Templates)
-identify contracts by path or inline binding and carry no internal name — a
-required name is redundant with the path and forces ceremony into a data file
-that is otherwise pure clauses. (This resolves the `(contract-name-field)` fork:
-the curated `contracts/skill.anthropic.toml` rightly has no `name`; the model's
-required-`name` was code drift — relax it to optional, derived from the stem.)
+**Chosen:** a package carries **no required internal `name`**. Its identity is *where
+it lives* — its `.temper/packages/<name>/` home, which every binding names (`package =
+"skill.anthropic"`, whether from a kind or a requirement). A display label for
+diagnostics derives from the name/stem (`skill.anthropic`).
+**Rejected:** a required top-level `name` field on every package. The examples above
+(Requirements; Packages) identify packages by binding and carry no internal name — a
+required name is redundant with the home and forces ceremony into a data file that is
+otherwise clauses + guidance. (This resolves the `(contract-name-field)` fork: the
+curated `skill.anthropic` package rightly has no `name`; the model's required-`name`
+was code drift — relax it to optional, derived from the stem.)
 
 ## Decision: the contract is itself checked — admissibility
 
@@ -264,15 +308,15 @@ definition** (the closed algebra + the structural rules below) by the same engin
 *before* it is used to check a harness. This is **admissibility**. The author-
 declared contract earns trust the way the harness does — by passing a check — not
 by the author's say-so. **Rejected:** trusting an author-declared contract on
-faith. The built-in templates are first-party and curated, but the moment an
-author writes or forks a contract (`40-composition.md`), "the author declared it"
+faith. The built-in packages are first-party and curated, but the moment an
+author writes or forks a package (`40-composition.md`), "the author declared it"
 would become the heuristic escape hatch law 3 exists to close. Admissibility is
 decidable, therefore sound:
 
 - every clause names a predicate in the **closed vocabulary** (unknown ⇒ rejected);
 - every referential clause **names its reference syntax** (the hole that made
   `companion-refs` unsound);
-- every requirement's typed `kind`/`contract` **names a real kind/contract**, and a
+- every requirement's typed `kind`/`package` **names a real kind/package**, and a
   `required` single-filler requirement is satisfiable (some artifact of the right kind
   can opt in);
 - every regex-backed clause **compiles** (none today — `pattern` is held, above);
@@ -306,8 +350,10 @@ contract-surface keys are validated.
 The two checks are one relation at successive rungs — **contract over subject, and
 the subject satisfies it:**
 
-- `.temper/` contents ⊨ `temper.toml` — **conformance**;
-- `temper.toml` ⊨ **the definition** — **admissibility**.
+- a member artifact ⊨ its bound **package**'s contract — **conformance**;
+- the **assembly** (`temper.toml`) and each **package** ⊨ **the definition** —
+  **admissibility** (a package is a `.temper/` artifact, so it is checked here like any
+  other, then trusted to check its members).
 
 The definition — the closed algebra above plus the structural rules — is **engine-
 owned and fixed; it is not in `temper.toml`, and must not be.** If the author could
