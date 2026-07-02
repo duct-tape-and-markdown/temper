@@ -183,6 +183,7 @@ const build: Phase = {
     // Root docs + dotfiles
     "README.md",
     "CHANGELOG.md",
+    "AGENTS.md",
     "LICENSE",
     "LICENSE.*",
     "LICENSE-*",
