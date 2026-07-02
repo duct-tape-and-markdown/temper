@@ -337,6 +337,30 @@ impl Unit {
     /// frontmatter, its whole source file preserved in the body. An unreadable or
     /// malformed surface is a [`KindError`], never a silent skip.
     pub fn from_surface_dir(dir: &Path) -> Result<Self, KindError> {
+        let doc_path = lone_body_file(dir)?;
+        Self::from_member_document(dir, &doc_path)
+    }
+
+    /// Reload a surface member from an explicit member document `doc_path` under the
+    /// surface directory `dir`, sharing the whole parse [`from_surface_dir`] runs.
+    ///
+    /// [`from_surface_dir`](Unit::from_surface_dir) finds the member document by the
+    /// lone-`.md` convention every custom kind's surface shares; a **built-in** kind
+    /// whose surface may carry markdown companions (a skill's `PLAYBOOK.md`) names its
+    /// own member document instead — `SKILL.md`, `RULE.md` — so the companion never
+    /// confuses the read. Both faces then read the surface through this one path
+    /// (`specs/15-kinds.md`, "A built-in kind is an adapter"): the `[clause.*]` header
+    /// lifts into `frontmatter`, `[satisfies.*]`/`[requirement.*]` into the edge sets,
+    /// the body byte-faithful. The id is the surface directory name — the member's
+    /// home, never a field it sets (`specs/15-kinds.md`, "the emit face owns the
+    /// locus").
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`KindError`] when the document is unreadable, is not a well-formed
+    /// `+++`-fenced document, or carries no `[provenance]` — the same hard failures
+    /// [`from_surface_dir`](Unit::from_surface_dir) raises, never a silent skip.
+    pub fn from_member_document(dir: &Path, doc_path: &Path) -> Result<Self, KindError> {
         let id = dir
             .file_name()
             .and_then(|name| name.to_str())
@@ -346,18 +370,17 @@ impl Unit {
                 field: "name",
             })?;
 
-        let doc_path = lone_body_file(dir)?;
-        let raw = std::fs::read_to_string(&doc_path).map_err(|source| KindError::Io {
-            path: doc_path.clone(),
+        let raw = std::fs::read_to_string(doc_path).map_err(|source| KindError::Io {
+            path: doc_path.to_path_buf(),
             source,
         })?;
         let document = Document::parse(&raw).map_err(|source| KindError::Document {
-            path: doc_path.clone(),
+            path: doc_path.to_path_buf(),
             source,
         })?;
         let (source_path, _import_hash) = crate::document::provenance(document.header())
             .ok_or_else(|| KindError::SurfaceMissingField {
-                path: doc_path.clone(),
+                path: doc_path.to_path_buf(),
                 field: "provenance",
             })?;
 
@@ -376,7 +399,7 @@ impl Unit {
         let published_requirements =
             crate::document::requirements(document.header()).map_err(|source| {
                 KindError::Document {
-                    path: doc_path.clone(),
+                    path: doc_path.to_path_buf(),
                     source,
                 }
             })?;

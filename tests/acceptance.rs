@@ -28,11 +28,12 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
-use temper::check::{self, Diagnostic, Severity, Workspace};
+use temper::check::{self, Diagnostic, Severity};
 use temper::contract::Contract;
 use temper::engine;
 use temper::extract::Features;
 use temper::import;
+use temper::kind::Unit;
 use temper::skill::Skill;
 
 /// The built-in Anthropic skill contract, resolved from the embedded `packages/`
@@ -63,6 +64,19 @@ fn tmpdir(label: &str) -> PathBuf {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
+}
+
+/// Project an imported skill to its authored surface member document
+/// `<skill.name>/SKILL.md` (`Skill::to_document`) and reload it through the generic
+/// `Unit` loader `check` reads. The surface directory is named for the skill so the
+/// generic id matches the imported member; `placement` reads the imported source
+/// directory off the preserved provenance, not this scratch directory.
+fn skill_surface_unit(skill: &Skill) -> Unit {
+    let dir = tmpdir(&format!("surface-{}", skill.name)).join(&skill.name);
+    fs::create_dir_all(&dir).unwrap();
+    let doc_path = dir.join("SKILL.md");
+    fs::write(&doc_path, skill.to_document().emit()).unwrap();
+    Unit::from_member_document(&dir, &doc_path).unwrap()
 }
 
 /// Path to a directory under `tests/fixtures`, resolved from the manifest so the
@@ -173,8 +187,12 @@ fn check_reproduces_the_expected_diagnostic_set() {
     for dir in &fixtures {
         let name = dir.file_name().unwrap().to_string_lossy();
         let skill = Skill::from_source_dir(dir).expect("fixture skill should parse");
+        // Read features off the projected surface member document through the generic
+        // `Unit` loader `check` uses — no IR→Unit adapter. `placement` still reads the
+        // imported source directory off provenance, so `name-matches-dir` is unchanged.
+        let unit = skill_surface_unit(&skill);
         let features =
-            builtin_kind::skill_features(&skill).expect("the embedded skill extraction should run");
+            builtin_kind::skill_features(&unit).expect("the embedded skill extraction should run");
         let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
         report.push_str(&format!("## {name}\n"));
         report.push_str(&render_diagnostics(&diagnostics));
@@ -196,9 +214,10 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
     let first = render_surface(&into);
 
     // check <tmp> — a well-formed skill trips no contract clause, so it is clean.
-    let ws = Workspace::load(&into).unwrap();
-    let features: Vec<Features> = ws
-        .skills
+    // The gate reads each skill's surface member document through the one generic
+    // `Unit` loader (`specs/15-kinds.md`, "A built-in kind is an adapter").
+    let units = check::surface_units(&into, "skills", "SKILL.md").unwrap();
+    let features: Vec<Features> = units
         .iter()
         .map(builtin_kind::skill_features)
         .collect::<Result<_, _>>()

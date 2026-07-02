@@ -2,14 +2,17 @@
 //! algebra — the soundness boundary, as data").
 //!
 //! Pins the built-in extractors' output — now the composed generic path,
-//! `builtin_kind::skill_features` and `builtin_kind::rule_features` (the embedded
-//! `kinds/*/KIND.md` extraction over an IR-derived `Unit`) — over real Claude Code
-//! fixtures that mirror the actual on-disk layout
-//! (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`; `.claude/rules/rust.md`
-//! guidance: never a layout invented for the test). Each resulting `Features` is
-//! snapshotted (Debug): these `.snap` files were pinned against the retired
-//! hand-coded `skill_features`/`rule_features` and stay byte-identical under the
-//! composed driver — the unchanged snapshot *is* the equivalence proof.
+//! `builtin_kind::skill_features` and `builtin_kind::rule_features`, run over a
+//! surface member document reloaded through the one generic `Unit` loader (`Unit::from_member_document`)
+//! `check` reads — over real Claude Code fixtures that mirror the actual on-disk
+//! layout (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`;
+//! `.claude/rules/rust.md` guidance: never a layout invented for the test). Each
+//! fixture is imported, projected to its authored surface document
+//! (`Skill`/`Rule::to_document`), then re-read as a generic `Unit` — the exact check
+//! read path, no IR→Unit adapter. Each resulting `Features` is snapshotted (Debug):
+//! these `.snap` files were pinned against the retired hand-coded
+//! `skill_features`/`rule_features` and stay byte-identical under the generic surface
+//! read — the unchanged snapshot *is* the equivalence proof.
 //!
 //! These snapshots pin extraction only — the frontmatter fields at each parsed
 //! kind, the body line count, the ATX headings (fence-excluded, closing-hash
@@ -17,8 +20,10 @@
 //! engine that ranges over them.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
+use temper::kind::Unit;
 use temper::rule::Rule;
 use temper::skill::Skill;
 
@@ -32,8 +37,45 @@ fn fixture(rel: &str) -> PathBuf {
         .join(rel)
 }
 
+/// A fresh, empty temp directory unique to this test run — the surface the imported
+/// fixture is projected into before it is read back generically.
+fn tmpdir(label: &str) -> PathBuf {
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "extract-equivalence-{}-{}-{}",
+        std::process::id(),
+        id,
+        label
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// Write an imported skill's authored surface member document `<name>/SKILL.md`
+/// (`Skill::to_document`) and reload it through the generic `Unit` loader `check`
+/// reads — the built-in kind's member-document read, no IR→Unit adapter.
+fn skill_surface_unit(skill: &Skill, name: &str) -> Unit {
+    let dir = tmpdir(name).join(name);
+    std::fs::create_dir_all(&dir).unwrap();
+    let doc_path = dir.join("SKILL.md");
+    std::fs::write(&doc_path, skill.to_document().emit()).unwrap();
+    Unit::from_member_document(&dir, &doc_path).unwrap()
+}
+
+/// The rule counterpart to [`skill_surface_unit`]: project the imported rule to its
+/// `<name>/RULE.md` surface document and reload it as a generic `Unit`.
+fn rule_surface_unit(rule: &Rule, name: &str) -> Unit {
+    let dir = tmpdir(name).join(name);
+    std::fs::create_dir_all(&dir).unwrap();
+    let doc_path = dir.join("RULE.md");
+    std::fs::write(&doc_path, rule.to_document().emit()).unwrap();
+    Unit::from_member_document(&dir, &doc_path).unwrap()
+}
+
 /// The `skill_features` projection over a real-shaped `.claude/skills/<name>/SKILL.md`
-/// is the fixed target the extraction-unification swap must hold byte-identical. The
+/// is the fixed target the surface-read unification must hold byte-identical. The
 /// fixture exercises the full surface a skill extractor decides over: typed fields
 /// (`name`/`description`/`version`/`license`), an unknown list key (`allowed-tools`),
 /// multi-level ATX headings with a fence-excluded `#` line and a closing-hash heading,
@@ -42,8 +84,9 @@ fn fixture(rel: &str) -> PathBuf {
 fn skill_features_over_a_real_skill_fixture() {
     let skill = Skill::from_source_dir(&fixture("skills/coordinate"))
         .expect("the coordinate skill fixture should parse");
+    let unit = skill_surface_unit(&skill, "coordinate");
     let features =
-        builtin_kind::skill_features(&skill).expect("the embedded skill extraction should run");
+        builtin_kind::skill_features(&unit).expect("the embedded skill extraction should run");
     insta::assert_debug_snapshot!("skill_features_coordinate", features);
 }
 
@@ -54,8 +97,9 @@ fn skill_features_over_a_real_skill_fixture() {
 fn rule_features_over_a_paths_rule_fixture() {
     let rule = Rule::from_source_file(&fixture("rules/rust.md"))
         .expect("the rust rule fixture should parse");
+    let unit = rule_surface_unit(&rule, "rust");
     let features =
-        builtin_kind::rule_features(&rule).expect("the embedded rule extraction should run");
+        builtin_kind::rule_features(&unit).expect("the embedded rule extraction should run");
     insta::assert_debug_snapshot!("rule_features_rust", features);
 }
 
@@ -66,7 +110,8 @@ fn rule_features_over_a_paths_rule_fixture() {
 fn rule_features_over_a_no_frontmatter_rule_fixture() {
     let rule = Rule::from_source_file(&fixture("rules/collaboration.md"))
         .expect("the collaboration rule fixture should parse");
+    let unit = rule_surface_unit(&rule, "collaboration");
     let features =
-        builtin_kind::rule_features(&rule).expect("the embedded rule extraction should run");
+        builtin_kind::rule_features(&unit).expect("the embedded rule extraction should run");
     insta::assert_debug_snapshot!("rule_features_collaboration", features);
 }

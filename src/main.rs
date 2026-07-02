@@ -405,13 +405,16 @@ fn main() -> miette::Result<ExitCode> {
             // (READ-EDGE-UNIFY: one source of truth), so `why`'s edge narration
             // ranges over the exact resolved set `graph::check`/`acyclic`/`degree`
             // do — never a private re-derivation.
-            let skill_features: Vec<extract::Features> = ws
-                .skills
+            // The by-kind feature corpus reads each built-in kind's surface members
+            // through the same generic `Unit` loader the gate uses (no IR→Unit adapter
+            // on the check path); the typed `ws` survives for the read family below.
+            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
+            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
+            let skill_features: Vec<extract::Features> = skill_units
                 .iter()
                 .map(builtin_kind::skill_features)
                 .collect::<Result<_, _>>()?;
-            let rule_features: Vec<extract::Features> = ws
-                .rules
+            let rule_features: Vec<extract::Features> = rule_units
                 .iter()
                 .map(builtin_kind::rule_features)
                 .collect::<Result<_, _>>()?;
@@ -527,8 +530,6 @@ fn gate(
     authored: &Path,
     temper_toml: &Path,
 ) -> miette::Result<Vec<check::Diagnostic>> {
-    let ws = Workspace::load(workspace)?;
-
     // Absent `temper.toml` ⇒ `None` and the by-kind floor runs verbatim; present
     // ⇒ it layers over the floor per kind below (`specs/40-composition.md`).
     let layer = load_layer(temper_toml)?;
@@ -547,14 +548,18 @@ fn gate(
     // Each kind's features are validated against its *effective* contract (bound
     // package ⊕ author layer) and merged into one set; the generic engine holds no
     // per-kind opinion, so a mixed harness is judged in one run (`specs/20-surface.md`).
-    let skill_features: Vec<extract::Features> = ws
-        .skills
+    // Read each built-in kind's surface members through the one generic `Unit` loader
+    // custom kinds use (`specs/15-kinds.md`, "A built-in kind is an adapter") — no
+    // IR→Unit adapter on the check path; the typed `Workspace` survives for
+    // drift/bundle/apply and the read family (`why`/`requirements`).
+    let skill_units = check::surface_units(workspace, "skills", "SKILL.md")?;
+    let rule_units = check::surface_units(workspace, "rules", "RULE.md")?;
+    let skill_features: Vec<extract::Features> = skill_units
         .iter()
         .map(builtin_kind::skill_features)
         .collect::<Result<_, _>>()?;
 
-    let rule_features: Vec<extract::Features> = ws
-        .rules
+    let rule_features: Vec<extract::Features> = rule_units
         .iter()
         .map(builtin_kind::rule_features)
         .collect::<Result<_, _>>()?;

@@ -17,13 +17,9 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use serde_json::Value as JsonValue;
-
 use crate::document::Document;
 use crate::extract::{self, Features};
 use crate::kind::{CustomKind, KindError, Unit};
-use crate::rule::Rule;
-use crate::skill::Skill;
 
 // The generated `pub static BUILTIN_KINDS: &[(&str, &str)]` — every embedded kind as
 // `(name, KIND.md source)`, sorted by name. `build.rs` writes it into `$OUT_DIR` from
@@ -86,30 +82,33 @@ fn parse(name: &str, src: &str) -> Result<CustomKind, KindError> {
 }
 
 /// Extract a built-in skill's [`Features`] by running the embedded `skill`
-/// `KIND.md` extraction over an IR-derived [`Unit`] — the generic composed path
-/// every kind reads (`specs/15-kinds.md`, "The extraction algebra"), in place of a
-/// hand-coded per-field projector. The `Skill` IR → `Unit` conversion is the
-/// sanctioned engine-code adapter face (the frontmatter format is Claude Code's);
-/// the per-field feature mapping is the composed `kinds/skill/KIND.md`.
+/// `KIND.md` extraction over a generically-loaded surface [`Unit`] — the same
+/// composed path every kind reads (`specs/15-kinds.md`, "The extraction algebra"),
+/// with **no IR→Unit adapter on the check read**: the caller loads the surface
+/// member document through [`Unit::from_member_document`](crate::kind::Unit::from_member_document),
+/// exactly as a custom kind's members load, so built-in and custom kinds read the
+/// surface through one loader. The per-field feature mapping is the composed
+/// `kinds/skill/KIND.md`.
 ///
 /// # Errors
 ///
 /// Returns a [`KindError`] if the embedded `skill` `KIND.md` is not an admissible
 /// kind definition — a genuine invariant, as it is compiled-in product source
 /// (`build.rs`).
-pub fn skill_features(skill: &Skill) -> Result<Features, KindError> {
-    features_from("skill", &skill_unit(skill))
+pub fn skill_features(unit: &Unit) -> Result<Features, KindError> {
+    features_from("skill", unit)
 }
 
 /// Extract a built-in rule's [`Features`] the same way [`skill_features`] does — the
-/// embedded `rule` `KIND.md` extraction over the rule's IR-derived [`Unit`].
+/// embedded `rule` `KIND.md` extraction over the rule's generically-loaded surface
+/// [`Unit`].
 ///
 /// # Errors
 ///
 /// Returns a [`KindError`] if the embedded `rule` `KIND.md` is not an admissible
 /// kind definition (a compiled-in invariant).
-pub fn rule_features(rule: &Rule) -> Result<Features, KindError> {
-    features_from("rule", &rule_unit(rule))
+pub fn rule_features(unit: &Unit) -> Result<Features, KindError> {
+    features_from("rule", unit)
 }
 
 /// Run the named built-in kind's embedded extraction over `unit`, then fold every
@@ -130,74 +129,6 @@ fn features_from(name: &str, unit: &Unit) -> Result<Features, KindError> {
             .or_insert_with(|| extract::json_to_feature(value));
     }
     Ok(features)
-}
-
-/// Adapt a parsed [`Skill`] IR into the generic [`Unit`] the composed extractor
-/// reads (`specs/15-kinds.md`, "A built-in kind is an adapter"): the typed
-/// frontmatter fields and every preserved `extra` key as parsed frontmatter, the
-/// byte-faithful body, the provenance source path (the `placement` locus), and the
-/// representation edges (`satisfies`, published requirements) carried through
-/// unchanged. The typed fields are stringified at load, so each is a JSON string —
-/// exactly what the composed `field` primitive projects kind-preserving.
-fn skill_unit(skill: &Skill) -> Unit {
-    let mut frontmatter = BTreeMap::new();
-    frontmatter.insert("name".to_string(), JsonValue::String(skill.name.clone()));
-    frontmatter.insert(
-        "description".to_string(),
-        JsonValue::String(skill.description.clone()),
-    );
-    if let Some(version) = &skill.version {
-        frontmatter.insert("version".to_string(), JsonValue::String(version.clone()));
-    }
-    if let Some(license) = &skill.license {
-        frontmatter.insert("license".to_string(), JsonValue::String(license.clone()));
-    }
-    for (key, value) in &skill.extra {
-        frontmatter.insert(key.clone(), value.clone());
-    }
-    Unit {
-        id: skill.name.clone(),
-        frontmatter,
-        body: skill.body.clone(),
-        source_path: skill.provenance.source_path.clone(),
-        satisfies: skill
-            .satisfies
-            .iter()
-            .map(|s| s.requirement.clone())
-            .collect(),
-        satisfies_clauses: skill.satisfies.clone(),
-        published_requirements: skill.published_requirements.clone(),
-    }
-}
-
-/// Adapt a parsed [`Rule`] IR into its generic [`Unit`], mirroring [`skill_unit`]:
-/// the optional `paths` sequence as a JSON array of strings (the `field` primitive
-/// projects it back to a list feature) plus every preserved `extra` key, the
-/// byte-faithful body, provenance placement, and the representation edges.
-fn rule_unit(rule: &Rule) -> Unit {
-    let mut frontmatter = BTreeMap::new();
-    if let Some(paths) = &rule.paths {
-        frontmatter.insert(
-            "paths".to_string(),
-            JsonValue::Array(paths.iter().map(|p| JsonValue::String(p.clone())).collect()),
-        );
-    }
-    for (key, value) in &rule.extra {
-        frontmatter.insert(key.clone(), value.clone());
-    }
-    Unit {
-        id: rule.name.clone(),
-        frontmatter,
-        body: rule.body.clone(),
-        source_path: rule.provenance.source_path.clone(),
-        satisfies: rule
-            .satisfies
-            .iter()
-            .map(|s| s.requirement.clone())
-            .collect(),
-        satisfies_clauses: rule.satisfies.clone(),
-        published_requirements: rule.published_requirements.clone(),
-    }
 }
 
 #[cfg(test)]
@@ -300,15 +231,26 @@ mod tests {
         dir
     }
 
+    /// Write a skill's authored surface member document `<dir>/SKILL.md` exactly as
+    /// `import`/`apply` project it (`Skill::to_document`), then reload it through the
+    /// generic surface loader `check` reads — the built-in kind's member-document read
+    /// (`specs/15-kinds.md`, "A built-in kind is an adapter"), no IR→Unit adapter.
+    fn skill_surface_unit(skill: &crate::skill::Skill, dir: &std::path::Path) -> Unit {
+        std::fs::create_dir_all(dir).unwrap();
+        let doc_path = dir.join("SKILL.md");
+        std::fs::write(&doc_path, skill.to_document().emit()).unwrap();
+        Unit::from_member_document(dir, &doc_path).unwrap()
+    }
+
     #[test]
-    fn skill_features_fold_unknown_keys_and_surface_satisfies_off_the_ir() {
+    fn skill_features_fold_unknown_keys_and_surface_satisfies_off_the_surface() {
         use crate::extract::{FeatureValue, Kind};
 
         let parent = tmpdir("skill-driver");
-        let dir = parent.join("demo");
-        std::fs::create_dir_all(&dir).unwrap();
+        let src = parent.join("demo");
+        std::fs::create_dir_all(&src).unwrap();
         std::fs::write(
-            dir.join("SKILL.md"),
+            src.join("SKILL.md"),
             "---\n\
 name: demo\n\
 description: Use when exercising the composed built-in driver.\n\
@@ -320,14 +262,16 @@ priority: 7\n\
 Body line two.\n",
         )
         .unwrap();
-        let mut skill = Skill::from_source_dir(&dir).unwrap();
+        let mut skill = crate::skill::Skill::from_source_dir(&src).unwrap();
         // The authored representation edge — surfaced by the driver, kept out of `fields`.
         skill.satisfies = vec![crate::document::Satisfies {
             requirement: "req.one".to_string(),
             rationale: Some("The human why, never a decidable feature.".to_string()),
         }];
 
-        let features = skill_features(&skill).unwrap();
+        // Read the extracted features off the written surface, not the typed IR.
+        let unit = skill_surface_unit(&skill, &parent.join("surface-demo"));
+        let features = skill_features(&unit).unwrap();
 
         // The documented fields come off the composed `field` primitives.
         assert_eq!(
@@ -354,6 +298,16 @@ Body line two.\n",
         assert!(!features.has_field("rationale"));
     }
 
+    /// Write a rule's authored surface member document `<dir>/RULE.md`
+    /// (`Rule::to_document`) and reload it through the generic surface loader `check`
+    /// reads — the rule counterpart to [`skill_surface_unit`].
+    fn rule_surface_unit(rule: &crate::rule::Rule, dir: &std::path::Path) -> Unit {
+        std::fs::create_dir_all(dir).unwrap();
+        let doc_path = dir.join("RULE.md");
+        std::fs::write(&doc_path, rule.to_document().emit()).unwrap();
+        Unit::from_member_document(dir, &doc_path).unwrap()
+    }
+
     #[test]
     fn rule_features_expose_paths_and_a_no_frontmatter_rule() {
         use crate::extract::FeatureValue;
@@ -367,18 +321,22 @@ Body line two.\n",
             "---\npaths:\n  - \"src/**/*.rs\"\n---\n# Rust\n\nBody.\n",
         )
         .unwrap();
-        let rule = Rule::from_source_file(&rules.join("rust.md")).unwrap();
-        let features = rule_features(&rule).unwrap();
+        let rule = crate::rule::Rule::from_source_file(&rules.join("rust.md")).unwrap();
+        let unit = rule_surface_unit(&rule, &parent.join("surface-rust"));
+        let features = rule_features(&unit).unwrap();
         assert_eq!(
             features.field("paths"),
             Some(&FeatureValue::List(vec!["src/**/*.rs".to_string()]))
         );
+        // `placement` reads the imported source directory off provenance, carried
+        // through the surface — `rules`, not the projected surface directory.
         assert_eq!(features.source_dir.as_deref(), Some("rules"));
 
         // A rule with no frontmatter carries no fields at all — the whole file is body.
         std::fs::write(rules.join("collab.md"), "# Collaboration\n\nPushback.\n").unwrap();
-        let bare = Rule::from_source_file(&rules.join("collab.md")).unwrap();
-        let bare_features = rule_features(&bare).unwrap();
+        let bare = crate::rule::Rule::from_source_file(&rules.join("collab.md")).unwrap();
+        let bare_unit = rule_surface_unit(&bare, &parent.join("surface-collab"));
+        let bare_features = rule_features(&bare_unit).unwrap();
         assert!(bare_features.fields.is_empty());
         assert_eq!(bare_features.body_lines, 3);
     }

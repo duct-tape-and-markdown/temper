@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 
 use miette::GraphicalReportHandler;
 
+use crate::kind::{KindError, Unit};
 use crate::rule::{Rule as RuleArtifact, RuleError};
 use crate::skill::{Skill, SkillError};
 
@@ -59,6 +60,37 @@ impl Workspace {
 
         Ok(Self { skills, rules })
     }
+}
+
+/// Load a built-in kind's surface members as generic [`Unit`]s — the read the gate's
+/// feature extraction ranges over, the built-in counterpart to `main::custom_units`.
+/// Each member directory under `<dir>/<subdir>/*` that holds its kind's member
+/// document `member_doc` (`SKILL.md`, `RULE.md`) is reloaded through the same
+/// [`Unit::from_member_document`] a custom kind's [`Unit::from_surface_dir`] uses — so
+/// built-in and custom kinds read the surface through **one loader**, with no IR→Unit
+/// adapter on the check path (`specs/15-kinds.md`, "A built-in kind is an adapter").
+///
+/// The member document is targeted by the built-in's own name, not the lone-`.md`
+/// heuristic, so a skill's markdown companion (a `PLAYBOOK.md`) never confuses the
+/// read. Name-sorted for a stable diagnostic set; a missing `subdir` yields an empty
+/// list. The typed [`Workspace`] survives for the adapter faces (drift/bundle/apply);
+/// this is the check read alone.
+///
+/// # Errors
+///
+/// Returns a [`WorkspaceError`] if a surface directory cannot be enumerated, or a
+/// member document is unreadable or malformed.
+pub fn surface_units(
+    dir: &Path,
+    subdir: &str,
+    member_doc: &str,
+) -> Result<Vec<Unit>, WorkspaceError> {
+    let mut units = Vec::new();
+    for member_dir in surface_dirs(&dir.join(subdir), member_doc)? {
+        let doc_path = member_dir.join(member_doc);
+        units.push(Unit::from_member_document(&member_dir, &doc_path)?);
+    }
+    Ok(units)
 }
 
 /// Enumerate the artifact surface directories under `root` — the immediate children
@@ -114,6 +146,13 @@ pub enum WorkspaceError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Rule(#[from] RuleError),
+
+    /// A built-in kind's surface member document could not be read generically
+    /// (`specs/15-kinds.md`, "A built-in kind is an adapter") — the check read's
+    /// hard failure, distinct from the typed-IR reconstruction faces above.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Kind(#[from] KindError),
 }
 
 /// The severity of a [`Diagnostic`]. Only `error` raises the process exit code;
@@ -344,6 +383,61 @@ Prefer a clone.\n";
         );
         // The no-frontmatter rule carries no `paths`.
         assert!(loaded.rules[0].paths.is_none());
+    }
+
+    #[test]
+    fn surface_units_yield_the_same_features_the_ir_adapter_produced() {
+        use crate::builtin_kind;
+        use crate::extract::{self, FeatureValue, Kind};
+
+        let ws = tmpdir("surface-units");
+        // A skill carrying an unknown key beside the typed fields, and a `paths` rule.
+        let skill_md = "---\n\
+name: demo\n\
+description: Use when demonstrating the generic surface read.\n\
+allowed-tools: [\"Bash\", \"Read\"]\n\
+---\n\
+# Demo\n\
+\n\
+Body.\n";
+        write_surface_skill(&ws, "demo", skill_md);
+        write_surface_rule(&ws, "rust", RULE_SRC);
+
+        // The typed reconstruction (the adapter faces still use it) beside the generic
+        // surface read the gate now uses — one loader, `Unit::from_member_document`.
+        let typed = Workspace::load(&ws).unwrap();
+        let skill_units = surface_units(&ws, "skills", "SKILL.md").unwrap();
+        let rule_units = surface_units(&ws, "rules", "RULE.md").unwrap();
+
+        let skill_features = builtin_kind::skill_features(&skill_units[0]).unwrap();
+        // The id, the typed `name` field, and the unknown key all land exactly as the
+        // retired IR→Unit adapter produced — the documented fields off the composed
+        // `field` primitives, the unknown key folded in permissively.
+        assert_eq!(skill_features.id, typed.skills[0].name);
+        assert_eq!(
+            skill_features.field("name"),
+            Some(&FeatureValue::scalar(Kind::String, "demo"))
+        );
+        assert_eq!(
+            skill_features.field("allowed-tools"),
+            Some(&FeatureValue::List(vec![
+                "Bash".to_string(),
+                "Read".to_string()
+            ]))
+        );
+        // `placement` carries through the same provenance the typed IR reloaded, so the
+        // generic read's source directory equals the typed skill's.
+        assert_eq!(
+            skill_features.source_dir,
+            extract::source_dir_name(&typed.skills[0].provenance.source_path)
+        );
+
+        let rule_features = builtin_kind::rule_features(&rule_units[0]).unwrap();
+        assert_eq!(rule_features.id, typed.rules[0].name);
+        assert_eq!(
+            rule_features.field("paths"),
+            Some(&FeatureValue::List(vec!["src/**/*.rs".to_string()]))
+        );
     }
 
     #[test]
