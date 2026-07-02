@@ -1,48 +1,5 @@
 [
   {
-    "tag": "MEMBER-PUBLISHED-REQUIREMENTS",
-    "summary": "A member header may publish `[requirement.<name>]` tables — same namespace as the assembly roster, joined by `satisfies`, cross-publisher name collisions are admissibility findings",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: a requirement's publisher is any authored surface document"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/document.rs",
-          "description": "Parse `[requirement.<name>]` clause modules on a member header — the same shape the assembly roster carries (`means`, `kind`, `package`, `required`), unknown-key-rejecting (specs/10-contracts.md, \"unknown keys are rejected\"). Surface them as a parsed collection beside the existing `Satisfies` modules (a `requirements(header)` reader mirroring `satisfies(header)`, plus an `add_requirement` emitter), and round-trip them on emit."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Carry a member's published requirements into its `Features` (or a parallel per-member collection) so main can gather them across every kind's members, mirroring how `satisfies` is already carried on `Features`."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Inside the layered (`if let Some(layer)`) path, union member-published requirements with `layer.requirements()` into the single `BTreeMap<String, Requirement>` fed to `coverage::check` and `roster::{admissibility,check,conformance}` — reusing `compose::Requirement` (its fields are pub). A name published by two surfaces (assembly ⊕ member, or two members) is one namespace: emit an admissibility finding on collision, never a shadow. `satisfies` fill and the existing coverage gate join them unchanged."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "Add coverage: a member-published requirement is filled by another member's `satisfies` (green); an unfilled `required` member-published requirement is an unfilled finding; a name declared by two publishers is an admissibility collision finding."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a `[requirement.<name>]` published in a member header joins the roster's coverage gate (filled by a `satisfies` on another member); an unfilled required one fires; a cross-publisher name collision is an admissibility finding."
-      }
-    ],
-    "acceptance": "a member document's `[requirement.<name>]` tables publish into the one requirement namespace, are gated by the existing coverage check, and collide with other publishers as admissibility findings — the engine support the classed-corpus migration needs (an intent spec declaring the entities an architecture spec must satisfy); cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Engine consequence of law 8 + the classed-corpus Decision (specs/90-spec-system.md). Unblocked: REDD-CUSTOM-KINDS shipped (7333235). Sole open entry, so parallel-safe. Scoped to the layered coverage path; a member-published requirement in a temper.toml-less floor-only harness is out of scope — surfaced, not filed. The specs/ class reshuffle + header authoring is a HUMAN ceremony after this ships, never a build tick."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
