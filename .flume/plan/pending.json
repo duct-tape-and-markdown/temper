@@ -6,7 +6,9 @@
       "path": "specs/10-contracts.md",
       "section": "Coverage — the one referential check"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -37,51 +39,26 @@
     "notes": "Revived to open: GRAPH-CUSTOM-KIND (8f057c7) shipped, so custom features already join `by_kind`/`edges` — the remaining work is threading `satisfies` (kind.rs:740 still `Vec::new()`) and chaining custom features into `all_features` (main.rs:624, skill⊕rule only). Buildable against fixtures; no in-repo `.temper` needed. Disjoint from the contract.rs source-key entry."
   },
   {
-    "tag": "PACKAGE-CLAUSE-SOURCE",
-    "summary": "Parse and preserve a per-clause `source` citation key (URL + retrieved date) on the PACKAGE.md loader, beside `guidance`",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: a built-in package is named for its source, and cited to it"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "Add an optional `source` field to the `Clause` struct (contract.rs:81-96), parse it in `parse_clause` (658-668), and whitelist `\"source\"` in `reject_unknown_clause_keys` (682-691) so it is no longer an `UnknownKey` reject. It is preserved metadata (a citation), not a predicate — no admissibility gate on its content beyond being a recognized key; the spec's clause example carries it beside `guidance`."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "A clause carrying `source` loads and round-trips without tripping UnknownKey; a clause without it still loads unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/contract_template.rs",
-        "asserts": "a `source` key on a clause parses and is preserved; absence stays valid; an unrelated stray key still rejects."
-      }
-    ],
-    "acceptance": "A PACKAGE.md clause may carry a `source` citation beside `guidance`; the loader parses and preserves it; genuinely unknown clause keys still reject; cargo fmt/clippy -D warnings/test green.",
-    "notes": "From inbox: specs/10-contracts.md ('named for its source, and cited to it') adds a per-clause `source`; the loader must parse/preserve it before the packages/ std-lib authoring session (packages/DOSSIER.md consumes it). On disk: contract.rs `Clause` has only severity/predicate/guidance and `reject_unknown_clause_keys` whitelists exactly those + arg keys, so `source` rejects today. contract.rs-only; disjoint from COVERAGE (kind.rs/main.rs)."
-  },
-  {
     "tag": "OFFERING-LICENSE",
     "summary": "Relicense to dual MIT OR Apache-2.0 — add LICENSE-MIT + LICENSE-APACHE and set the Cargo.toml `license` field, before external contributors",
     "per": {
       "path": "specs/55-offering.md",
       "section": "Decision: the license is MIT OR Apache-2.0, dual, before launch"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": "LICENSE-MIT", "description": "The standard MIT license text." },
-        { "path": "LICENSE-APACHE", "description": "The standard Apache-2.0 license text (the patent grant the dual choice buys)." }
+        {
+          "path": "LICENSE-MIT",
+          "description": "The standard MIT license text."
+        },
+        {
+          "path": "LICENSE-APACHE",
+          "description": "The standard Apache-2.0 license text (the patent grant the dual choice buys)."
+        }
       ],
       "edit": [
         {
@@ -89,7 +66,9 @@
           "description": "Set `license = \"MIT OR Apache-2.0\"` (the SPDX expression the dual grant requires; the API-guidelines / uv / Biome choice). The Cargo.toml `license` field follows the LICENSE change, per the Decision."
         }
       ],
-      "retire": ["LICENSE (the bare-MIT root file the dual grant supersedes, if present)"]
+      "retire": [
+        "LICENSE (the bare-MIT root file the dual grant supersedes, if present)"
+      ]
     },
     "schemaDelta": "none",
     "tests": [],
@@ -103,7 +82,9 @@
       "path": "specs/55-offering.md",
       "section": "The community surface — small, honest, gated"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
@@ -143,7 +124,9 @@
       "path": "specs/55-offering.md",
       "section": "The front door — the README is the landing page"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
