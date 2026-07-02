@@ -5,18 +5,23 @@
 //! **declared** reference fields, read off [`Features`], never grepped from a body
 //! (`specs/10-contracts.md`, the referential primitive). Nodes are `(kind, id)`
 //! across every kind; edges are the [`Edge`] relationships declared on the surface.
-//! Four checks range over it: [`check`] (route resolution — a reference resolves to a
+//! Five checks range over it: [`check`] (route resolution — a reference resolves to a
 //! real target), [`admissibility`] (each edge names its field and a modeled target
-//! kind, checked before the graph is trusted), [`acyclic`] (no circular import), and
-//! [`degree`] (a satisfier node's in/out count lands in a requirement's bound). All
+//! kind, checked before the graph is trusted), [`acyclic`] (no circular import),
+//! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
+//! [`reachable`] (a member's inbound activation edge from the distinguished [`world`]
+//! node is live, `specs/45-governance.md`, "The world is a node"). The first four
 //! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
 //! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use regex::Regex;
+
 use crate::check::Diagnostic;
 use crate::compose::{Edge, EdgeBound, Requirement};
 use crate::extract::{FeatureValue, Features};
+use crate::kind::Activation;
 use crate::roster;
 
 /// The diagnostic `rule` id every route-resolution finding reports under.
@@ -31,6 +36,9 @@ const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
 /// The diagnostic `rule` id every degree finding reports under.
 const GRAPH_DEGREE_RULE: &str = "graph.degree";
 
+/// The diagnostic `rule` id every reachability finding reports under.
+const GRAPH_REACHABLE_RULE: &str = "graph.reachable";
+
 /// A node in the artifact-level reference graph: `(kind, id)`. An id is unique only
 /// *within* a kind and an edge resolves only within its target kind, so the kind is
 /// part of the identity — else a same-named rule and skill collapse into one node and
@@ -39,6 +47,17 @@ const GRAPH_DEGREE_RULE: &str = "graph.degree";
 /// `pub(crate)` so the read family (`crate::read`) keys a member's resolved in/out
 /// edges on the *same* `(kind, id)` node the gate does (READ-EDGE-UNIFY).
 pub(crate) type Node = (String, String);
+
+/// The distinguished **world** node — the harness runtime and repo `temper` observes
+/// but does not govern (`specs/45-governance.md`, "The world is a node — reachability
+/// is a predicate"). Activation facts are its edges *into* members; [`reachable`]
+/// decides whether the edge the world would use to reach a given member is live. Keyed
+/// like any [`Node`] under a reserved `world` kind no artifact kind collides with, so a
+/// follow-on gate can place it in the same `(kind, id)` graph the other predicates
+/// range over.
+pub(crate) fn world() -> Node {
+    ("world".to_string(), "world".to_string())
+}
 
 /// A **resolved edge** — a `(from, field, to)` triple over `(kind, id)` [`Node`]s,
 /// both endpoints naming a real artifact. The element type of [`resolved_edges`], the
@@ -294,6 +313,176 @@ fn out_of_degree(
             "requirement `{}` bounds `{kind}` {} degree to [{min}, {max}], but `{artifact}` has {actual}",
             requirement.name,
             direction.label(),
+        ),
+    )
+}
+
+/// Check the graph-scope **`reachable`** predicate (`specs/45-governance.md`, "The
+/// world is a node — reachability is a predicate"): for each member of a kind that
+/// declares an [`Activation`], return a finding when the inbound activation edge from
+/// the [`world`] node is provably dead — a `description-trigger` member whose named
+/// field is blank (the harness loads nothing) or a `paths-match` member whose globs
+/// match no file in `repo_files` (the harness activates it never). Each is an exact
+/// fact at check time.
+///
+/// `activations` maps a kind to the single [`Activation`] its definition declares;
+/// `by_kind` is the same corpus map the other predicates read; `repo_files` is the
+/// repo file-set the `paths-match` globs are tested against — a **parameter**, not a
+/// graph dependency, so the blast radius stays this module and the predicate is pure
+/// and testable. A kind that declares no activation contributes no entry to
+/// `activations` and is not subject; an `always` edge is unconditionally live and an
+/// `event` edge carries no repo-decidable dead criterion the spec names, so neither
+/// fires. Members iterate in the corpus's candidate order under each name-sorted kind,
+/// so findings are stable.
+///
+/// Findings are [`Diagnostic::error`] like every sibling predicate; the eventual
+/// severity is the package clause's choice (`specs/45-governance.md`), applied when a
+/// follow-on gate wires this predicate to the real repo file-set.
+#[must_use]
+pub fn reachable(
+    activations: &BTreeMap<&str, Activation>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    repo_files: &[String],
+) -> Vec<Diagnostic> {
+    let world = world();
+    let mut diagnostics = Vec::new();
+    for (kind, activation) in activations {
+        let members = by_kind.get(kind).copied().unwrap_or(&[]);
+        for member in members {
+            if let Some(reason) = dead_activation(activation, member, repo_files) {
+                diagnostics.push(unreachable(&world, kind, &member.id, &reason));
+            }
+        }
+    }
+    diagnostics
+}
+
+/// Whether a member's declared [`Activation`] edge from the world is **provably dead**,
+/// and why — `Some(reason)` names the dead edge for the finding, `None` leaves the
+/// member reachable. Only the two edges the spec makes decidable can die here: a blank
+/// `description-trigger` field and a `paths-match` field whose globs match no file.
+/// `always` (unconditionally live) and `event` (no repo-decidable criterion) never do.
+fn dead_activation(
+    activation: &Activation,
+    member: &Features,
+    repo_files: &[String],
+) -> Option<String> {
+    match activation {
+        Activation::Always | Activation::Event { .. } => None,
+        Activation::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
+            format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
+        }),
+        Activation::PathsMatch { field } => {
+            let globs = declared_globs(member, field);
+            let live = globs.iter().any(|glob| glob_matches_any(glob, repo_files));
+            (!live).then(|| {
+                format!("its `{field}` globs match no file in the repository, so the harness activates it never")
+            })
+        }
+    }
+}
+
+/// Whether a member's activation field is **blank** — absent, or a scalar whose text is
+/// empty or all whitespace. A blank `description-trigger` field means the harness has
+/// nothing to load, so the edge is dead. A list/map value carries content and is never
+/// blank (a `description` is a scalar; a container there is another finding's to own).
+fn field_is_blank(member: &Features, field: &str) -> bool {
+    match member.field(field) {
+        None => true,
+        Some(FeatureValue::Scalar { text, .. }) => text.trim().is_empty(),
+        Some(FeatureValue::List(_) | FeatureValue::Map) => false,
+    }
+}
+
+/// The activation globs a member declares on `field`: a scalar names one glob, a list
+/// names each of several, and an absent field or a map (which carries no glob) names
+/// none. Read off [`Features`] — a declared field, never grepped. Empty globs match no
+/// file, so a `paths-match` member declaring none activates never.
+fn declared_globs(member: &Features, field: &str) -> Vec<String> {
+    match member.field(field) {
+        None | Some(FeatureValue::Map) => Vec::new(),
+        Some(FeatureValue::Scalar { text, .. }) => {
+            let glob = text.trim();
+            if glob.is_empty() {
+                Vec::new()
+            } else {
+                vec![glob.to_string()]
+            }
+        }
+        Some(FeatureValue::List(items)) => items
+            .iter()
+            .map(|glob| glob.trim().to_string())
+            .filter(|glob| !glob.is_empty())
+            .collect(),
+    }
+}
+
+/// Whether `glob` matches at least one path in `files`, decided over a regex compiled
+/// from the glob (the sanctioned `regex` crate — `specs/45-governance.md` leaves
+/// zero-match globs to this module). A glob `temper` cannot compile is treated as
+/// matching, so the gate never cries wolf on a pattern it failed to understand — though
+/// [`glob_to_regex`] is total, so that branch is defensive only.
+fn glob_matches_any(glob: &str, files: &[String]) -> bool {
+    match Regex::new(&glob_to_regex(glob)) {
+        Ok(regex) => files.iter().any(|file| regex.is_match(file)),
+        Err(_) => true,
+    }
+}
+
+/// Compile a path glob to an anchored regex: `**` crosses directory separators (`**/`
+/// matching any number of leading segments, including none), a single `*` and `?` stay
+/// within one segment, and every other character matches literally (a regex
+/// metacharacter escaped). Total — every input yields a valid pattern.
+fn glob_to_regex(glob: &str) -> String {
+    let chars: Vec<char> = glob.chars().collect();
+    let mut regex = String::from("^");
+    let mut i = 0;
+    while i < chars.len() {
+        match chars[i] {
+            '*' if i + 1 < chars.len() && chars[i + 1] == '*' => {
+                // `**` crosses `/`: `**/` (a segment wildcard) matches any number of
+                // leading path segments, including none; a trailing `**` any suffix.
+                i += 1;
+                if i + 1 < chars.len() && chars[i + 1] == '/' {
+                    regex.push_str("(?:.*/)?");
+                    i += 1;
+                } else {
+                    regex.push_str(".*");
+                }
+            }
+            '*' => regex.push_str("[^/]*"),
+            '?' => regex.push_str("[^/]"),
+            c => {
+                if is_regex_meta(c) {
+                    regex.push('\\');
+                }
+                regex.push(c);
+            }
+        }
+        i += 1;
+    }
+    regex.push('$');
+    regex
+}
+
+/// Whether `c` is a regex metacharacter that must be escaped to match literally. `*`
+/// and `?` are consumed as glob wildcards before this is reached, so they are absent.
+fn is_regex_meta(c: char) -> bool {
+    matches!(
+        c,
+        '.' | '+' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$' | '\\'
+    )
+}
+
+/// The finding for a member whose inbound activation edge from the [`world`] node is
+/// dead — naming the world, the member (kind + id), and the dead-edge reason.
+fn unreachable(world: &Node, kind: &str, id: &str, reason: &str) -> Diagnostic {
+    Diagnostic::error(
+        GRAPH_REACHABLE_RULE,
+        id,
+        format!(
+            "the activation edge from the {} node to {kind} `{id}` is dead — {reason}",
+            world.0
         ),
     )
 }
@@ -916,6 +1105,35 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
         assert!(degree(&requirements, &edges, &by_kind).is_empty());
+    }
+
+    #[test]
+    fn glob_to_regex_matches_common_path_globs_within_and_across_segments() {
+        // `**/` matches any number of leading segments including none, `*` stays within
+        // one segment, and a literal `.` is escaped — the semantics `reachable` leans on
+        // to decide a `paths-match` glob dead.
+        let recursive = Regex::new(&glob_to_regex("**/*.rs")).unwrap();
+        assert!(recursive.is_match("foo.rs"));
+        assert!(recursive.is_match("src/a/foo.rs"));
+        assert!(!recursive.is_match("foo.md"));
+
+        let subtree = Regex::new(&glob_to_regex("src/**")).unwrap();
+        assert!(subtree.is_match("src/graph.rs"));
+        assert!(subtree.is_match("src/a/b.rs"));
+        assert!(!subtree.is_match("tests/graph.rs"));
+
+        // A single `*` does not cross a `/`.
+        let flat = Regex::new(&glob_to_regex("*.md")).unwrap();
+        assert!(flat.is_match("README.md"));
+        assert!(!flat.is_match("docs/README.md"));
+    }
+
+    #[test]
+    fn the_world_node_is_a_stable_reserved_identity() {
+        // The distinguished world node keys under a reserved `world` kind, so a
+        // reachability finding can name the edge's source without colliding with any
+        // artifact kind.
+        assert_eq!(world(), ("world".to_string(), "world".to_string()));
     }
 
     #[test]

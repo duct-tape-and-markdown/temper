@@ -456,3 +456,132 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
         run.output
     );
 }
+
+/// Library-level fixture proof of the `reachable` predicate (`specs/45-governance.md`,
+/// "The world is a node — reachability is a predicate"). Gate-side wiring (main.rs
+/// scanning the real repo file-set) + the severity-carrying package clause are a
+/// follow-on, so the machinery is proven directly over constructed fixtures here rather
+/// than through the binary.
+mod reachability {
+    use std::collections::BTreeMap;
+
+    use temper::check::Severity;
+    use temper::extract::{FeatureValue, Features, Kind};
+    use temper::graph::reachable;
+    use temper::kind::Activation;
+
+    /// A member carrying an id and, optionally, one frontmatter field — the only inputs
+    /// the reachability predicate reads (the id for the finding, the named activation
+    /// field for the edge). Everything else is inert.
+    fn member(id: &str, field: Option<(&str, FeatureValue)>) -> Features {
+        let mut fields = BTreeMap::new();
+        if let Some((name, value)) = field {
+            fields.insert(name.to_string(), value);
+        }
+        Features {
+            id: id.to_string(),
+            fields,
+            body_lines: 1,
+            headings: Vec::new(),
+            sections: Vec::new(),
+            source_dir: Some(id.to_string()),
+            satisfies: Vec::new(),
+            published_requirements: Vec::new(),
+        }
+    }
+
+    /// A `description-trigger` activation over the named field.
+    fn description_trigger(field: &str) -> Activation {
+        Activation::DescriptionTrigger {
+            field: field.to_string(),
+        }
+    }
+
+    /// A `paths-match` activation over the named field.
+    fn paths_match(field: &str) -> Activation {
+        Activation::PathsMatch {
+            field: field.to_string(),
+        }
+    }
+
+    #[test]
+    fn a_live_activation_edge_is_reachable() {
+        // A skill with a non-empty `description` (a live description-trigger) and a rule
+        // whose `paths` glob matches a repo file (a live paths-match) each have a live
+        // inbound edge from the world — nothing fires.
+        let skills = [member(
+            "standards",
+            Some((
+                "description",
+                FeatureValue::scalar(Kind::String, "Use when styling the code."),
+            )),
+        )];
+        let rules = [member(
+            "style",
+            Some(("paths", FeatureValue::scalar(Kind::String, "src/**/*.rs"))),
+        )];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
+        let activations = BTreeMap::from([
+            ("skill", description_trigger("description")),
+            ("rule", paths_match("paths")),
+        ]);
+        let files = vec!["src/graph.rs".to_string()];
+        assert!(reachable(&activations, &by_kind, &files).is_empty());
+    }
+
+    #[test]
+    fn a_blank_description_trigger_field_is_unreachable() {
+        // The skill declares a description-trigger on `description`, but the field is
+        // whitespace-only — the harness has nothing to load, a dead inbound edge.
+        let skills = [member(
+            "standards",
+            Some(("description", FeatureValue::scalar(Kind::String, "   "))),
+        )];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let activations = BTreeMap::from([("skill", description_trigger("description"))]);
+
+        let diags = reachable(&activations, &by_kind, &[]);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, "graph.reachable");
+        assert_eq!(diags[0].artifact, "standards");
+        assert!(diags[0].message.contains("description"));
+        assert!(diags[0].message.contains("world"));
+    }
+
+    #[test]
+    fn a_zero_match_paths_glob_is_unreachable() {
+        // The rule declares a paths-match on `paths`, but its glob matches no file in
+        // the supplied repo file-set — the harness activates it never.
+        let rules = [member(
+            "style",
+            Some(("paths", FeatureValue::scalar(Kind::String, "docs/**/*.md"))),
+        )];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        let activations = BTreeMap::from([("rule", paths_match("paths"))]);
+        let files = vec!["src/graph.rs".to_string(), "README.md".to_string()];
+
+        let diags = reachable(&activations, &by_kind, &files);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "graph.reachable");
+        assert_eq!(diags[0].artifact, "style");
+        assert!(diags[0].message.contains("paths"));
+        assert!(diags[0].message.contains("world"));
+    }
+
+    #[test]
+    fn a_kind_that_declares_no_activation_is_not_subject() {
+        // The corpus holds a skill with a blank `description`, but no kind declares an
+        // activation (the map is empty) — the predicate ranges over declared edges only,
+        // so nothing fires. `temper` never invents an edge the kind did not declare.
+        let skills = [member(
+            "standards",
+            Some(("description", FeatureValue::scalar(Kind::String, ""))),
+        )];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let activations: BTreeMap<&str, Activation> = BTreeMap::new();
+
+        assert!(reachable(&activations, &by_kind, &[]).is_empty());
+    }
+}
