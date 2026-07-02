@@ -1,73 +1,16 @@
-//! `temper diff` / `apply` — the three-state drift engine.
+//! `temper diff` / `apply` / `re-add` — the three-state drift engine.
 //!
-//! Implements the drift engine of `specs/20-surface.md` ("Drift / apply — three
-//! states, never two"). It tracks three states — **desired** (the edited
+//! specs/20-surface.md, "Drift / apply — three states, never two".
+//!
+//! Every write direction turns on three states — **desired** (the edited
 //! surface), the **last-applied fingerprint** (the source as `temper` last left
-//! it, from the lock), and **real on-disk** — so the write direction can tell a
-//! human surface edit from a world drift and merge rather than clobber.
-//!
-//! ## [`diff`] — the read-only report
-//!
-//! [`diff`] loads nothing and writes nothing of its own — it takes an already
-//! loaded [`Workspace`] (the surface + its provenance lock) and a live harness
-//! path, then classifies every artifact into one of four states:
-//!
-//! - **in-sync** — the source still hashes to the imported [`import_hash`].
-//! - **drifted** — the source still exists but its bytes changed since import.
-//! - **removed** — the recorded source path is gone from disk.
-//! - **added** — a source the per-kind scan finds on disk that no surface
-//!   artifact accounts for.
-//!
-//! The first three iterate the surface and re-read each `provenance.source_path`;
-//! the last re-runs `import`'s own per-kind discovery
-//! ([`discover_skill_dirs`](crate::import::discover_skill_dirs) and siblings) so
-//! the "what's on disk" question is answered by the exact scan that imported it.
-//! Drift is a report, not a gate — the command exits zero regardless.
-//!
-//! ## [`apply`] — the write direction
-//!
-//! [`apply`] projects the surface back onto the harness sources. It is
-//! **patch-not-re-emit**: for each artifact it splits the on-disk source into its
-//! frontmatter and body, replaces the body byte-faithfully with the surface body,
-//! and patches *only the frontmatter fields whose value changed* — every untouched
-//! byte (comments, key order, whitespace) survives exactly as the human wrote it
-//! (`specs/20-surface.md`, "write-back patches changed fields, never re-emits").
-//! No comment-preserving YAML editor exists in Rust, so a changed scalar/sequence
-//! field's own formatting is re-rendered while its neighbours are left verbatim.
-//!
-//! The merge is the hard core. For each artifact `apply` compares the desired
-//! projection against real-on-disk and the last-applied fingerprint:
-//!
-//! - projection **equals** on-disk ⇒ [`ApplyOutcome::Unchanged`] (idempotent
-//!   no-op; the fingerprint is reconciled to the current bytes).
-//! - projection **differs** and on-disk still hashes to the last-applied
-//!   fingerprint (no world drift) ⇒ patch the source, [`ApplyOutcome::Applied`],
-//!   and record the new fingerprint.
-//! - projection **differs** and on-disk drifted from the last-applied fingerprint
-//!   ⇒ [`ApplyOutcome::Conflicted`]: the world changed the source out from under
-//!   the surface, so `apply` surfaces the choice rather than clobbering — it
-//!   writes nothing and leaves the fingerprint untouched.
-//!
-//! A `--dry-run` computes every outcome but writes neither the sources nor the
-//! updated lock. Like `diff`, `apply` covers the built-in kinds (skill, rule).
-//!
-//! ## [`re_add`] — the on-disk → surface direction
-//!
-//! [`re_add`] is the third drift direction and the one that keeps direct on-disk
-//! editing first-class (`specs/20-surface.md`, "the surface is the source of
-//! truth" — `re-add` reconciles the harness edits a human made outside the
-//! surface). Where `apply` pushes the surface *out*, `re_add` pulls the harness
-//! *in*: it runs [`diff`]'s four-state classification, then for every **drifted**
-//! or **added** built-in artifact it re-parses the live source through the
-//! skill/rule loaders and re-projects it into the surface tree via `import`'s own
-//! per-kind writers ([`import::import_skill`]/[`import::import_rule`]) — the single
-//! round-trip write path, never a second implementation. Each written artifact's
-//! lock row is refreshed to the current source bytes (its `import_hash` and
-//! `last_applied` fingerprint), an **added** source gaining a brand-new row. An
-//! **in-sync** artifact is left untouched (a no-op), and a
-//! **removed** one is skipped — `re_add` only pulls in what is actually on disk;
-//! reconciling a deletion is a different direction. Like the other two, it covers
-//! the built-in kinds; generic custom-kind re-add is follow-on work.
+//! it, from the lock), and **real on-disk** — so it can tell a human surface edit
+//! from a world drift and merge rather than clobber. [`diff`] classifies every
+//! artifact into four read-only states (in-sync / drifted / added / removed);
+//! [`apply`] pushes the surface out, patching only the frontmatter fields that
+//! changed; [`re_add`] pulls on-disk edits back in through `import`'s own writers;
+//! [`place`] is the whole-file sibling for artifacts temper places rather than
+//! round-trips (specs/50-distribution.md, `install`).
 
 use std::collections::HashSet;
 use std::fs;
