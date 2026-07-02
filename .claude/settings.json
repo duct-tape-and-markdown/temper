@@ -1,24 +1,34 @@
 {
   "autoMemoryEnabled": false,
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "cargo fmt --quiet >/dev/null 2>&1 || true",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "temper session-start .",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(cargo build:*)",
       "Bash(cargo test:*)",
       "Bash(cargo clippy:*)",
       "Bash(cargo fmt:*)"
-    ]
-  },
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cargo fmt --quiet >/dev/null 2>&1 || true"
-          }
-        ]
-      }
     ]
   }
 }

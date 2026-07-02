@@ -1,0 +1,27 @@
+# temper.toml — temper's own assembly (the recursive dogfood, un-parked).
+#
+# temper checks its own harness through this file: the built-in `skill`/`rule`
+# kinds are the adopted floor (no declaration needed), and the one custom kind,
+# `spec`, is REGISTERED here and DEFINED in `.temper/kinds/spec/KIND.md`
+# (`specs/40-composition.md`: registered in the assembly, authored as an
+# artifact). Restores the intent parked in cb52cc3, in the reconciled model.
+#
+# NB the built-in rule binding stays the embedded `rule` floor until
+# EMBED-BUILTIN-PACKAGES ships the authored `packages/rule.anthropic` std-lib.
+
+[kind.spec]
+package = "spec"
+
+# Requirements — temper's own harness obligations, coverage-gated. Fill is the
+# member's opt-in `satisfies` (authored in its document header), never a name
+# guess.
+
+[requirement.engineering-standards]
+means = "the harness carries a rule that maintains Rust engineering standards — errors/diagnostics, round-trip discipline, tests"
+kind = "rule"
+required = true
+
+[requirement.collaboration-discipline]
+means = "the harness carries a rule that enforces the pushback / challenge-gaps collaboration discipline"
+kind = "rule"
+required = true

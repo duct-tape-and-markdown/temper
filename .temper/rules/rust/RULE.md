@@ -1,10 +1,14 @@
----
-# yaml-language-server: $schema=../../.temper/schema/rule.json
-paths:
-  - "src/**/*.rs"
-  - "tests/**/*.rs"
-  - "benches/**/*.rs"
----
++++
+[clause.paths]
+value = ["src/**/*.rs", "tests/**/*.rs", "benches/**/*.rs"]
+
+[satisfies.engineering-standards]
+rationale = "the path-scoped home for the Rust bar: diagnostics discipline, round-trip invariants, test conventions — loaded exactly when Rust files are in play"
+
+[provenance]
+source_path = "./.claude/rules/rust.md"
+import_hash = "101393bd41985ecf3a373b81ed1a66567fbccd29ba7b13a43b7942aa0238921e"
++++
 
 # Rust conventions — author
 

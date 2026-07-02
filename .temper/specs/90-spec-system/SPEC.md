@@ -1,0 +1,95 @@
++++
+[provenance]
+source_path = "./specs/90-spec-system.md"
+import_hash = "bd2629e6385a697f58a21492baf11b76612c96ded010071b93b34051e132ae8f"
++++
+# Spec system — how `temper` is specified
+
+Orientation file, not a contract spec. Adapted from cascade's spec system. The
+`specs/` corpus is the evergreen source of truth for `temper`'s intent and
+contract; code is the truth below the line it draws.
+
+This file is itself the prose ancestor of a **spec-landscape contract**
+(`30-landscapes.md`): the conventions below are what a declared spec contract for
+`temper`'s own corpus would encode (placement, length, decisions-name-
+alternatives, references resolve). The final dogfood is `temper` checking
+`specs/` against that contract — the tool eating the rules it was written under.
+Until then these stay prose discipline.
+
+## What a spec is
+
+- The source of truth for **intent and contract**. The loop and humans re-read
+  them every iteration. If spec and code disagree on intent, the spec wins — fix
+  the code, or refine the spec if intent has shifted.
+- **Prose.** Paragraphs, lists, tables, decisions. No frontmatter, no schema, no
+  template to fill. (Note the irony and hold it: `temper` validates *other*
+  harnesses against declared contracts, but its own *design intent* is prose —
+  because intent is the undecidable layer that contracts delegate, not encode.)
+- **One topic per file**, filename is the topic handle. Target under ~150 lines.
+
+## Evergreen, not release lines
+
+There are no `RELEASE-vN.md` ship targets (`00-intent.md` decision). `specs/` is
+continuously reconciled against code: `plan` re-reads the corpus every tick,
+files the gap between intent and `src/` as pending entries, and drops entries
+whose work has shipped. "Done" is a moving conformance, not a frozen milestone.
+New or changed intent is authored by the human in interactive sessions, never by
+an autonomous phase — the loop shapes and implements intent, it never invents it
+(`00-intent.md` law 4; `.claude/rules/collaboration.md`).
+
+## The depth rule — how deep a spec goes
+
+**A spec owns the contract; code owns the mechanism. State a fact in a spec only
+if code changing shouldn't be free to change it.**
+
+| Spec owns (WHAT / WHY) | Code owns (HOW) — keep OUT |
+| ---------------------- | -------------------------- |
+| Intent, positioning, the law | Type/field layout, signatures, internals |
+| The named primitives + invariants | Parsing details, algorithms |
+| Decisions + rejected alternatives | Anything an implementer can change freely without breaking intent |
+
+Boundary test: if a detail can change as an implementation choice without
+violating intent, it belongs to code. (This *is* the contract/mechanism split
+the tool itself enforces — `10-contracts.md` — applied reflexively to our specs.)
+
+## DRY — one fact, one home
+
+Each fact lives in the most specific spec that owns it; everywhere else
+**references** it. A cross-cutting law is stated once in `00-intent.md` and
+referenced, never restated. Duplication invites drift — when one copy changes,
+the other lies.
+
+## Naming consistency — the one hard rule
+
+Name the same concept the same way in every file and in the code. One concept,
+one name. `contract` (the clause-set / require-side *only* — never `temper.toml`,
+never the bundle), `package` (the reusable bundle carrying a kind's contract +
+guidance — the term that retired `template`), `assembly` (`temper.toml`: bindings +
+roster + relationships), `member` (an instance artifact; a role, not a directory),
+`requirement` (a named obligation — the retired `role` folded into it), `satisfies`,
+`verified_by`, `the definition` (the fixed engine axiom — reserved, never a
+package's contents), `kind`, `decidable`, `surface`, `provenance`, `drift` are
+load-bearing terms — search before coining a new one. Note the recent migration:
+`template` → `package`; `temper.toml is the contract` → `temper.toml is the
+assembly`; name-`match` retired (opt-in `satisfies` is the sole fill);
+`byte-faithful` narrowed to literal byte-for-byte copies (companions, the
+deterministic projection) — authored prose is **`content-faithful`** (law 5:
+never reworded, synthesized, or dropped).
+
+## Decisions
+
+Every Decision records what was chosen, what was rejected, and why. A decision
+without rejected alternatives is incomplete — future readers can't audit it.
+
+## The corpus
+
+- `00-intent.md` — north star: the thesis, the law, positioning, self-hosting.
+- `05-model.md` — the domain model: temper's concepts and how they relate.
+- `10-contracts.md` — the contract model, the decidable algebra, packages, admissibility.
+- `15-kinds.md` — the kind system: the extraction algebra, built-in vs custom kinds.
+- `20-surface.md` — the composition write surface: compose, import, project, drift.
+- `30-landscapes.md` — landscapes: engine instances, the spec model, the seams.
+- `40-composition.md` — authoring the harness: the assembly (bindings + roster).
+- `45-governance.md` — powering up the wider scopes: corpus-wide, fact-only predicates.
+- `50-distribution.md` — delivering the gate: plugin, CI, the fail-loud invariant.
+- `90-spec-system.md` — this file.
