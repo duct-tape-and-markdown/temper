@@ -377,32 +377,38 @@ fn main() -> miette::Result<ExitCode> {
         Command::SessionStart { harness_path } => {
             // The advisory session-start gate (`specs/50-distribution.md`,
             // "Decision: the session-start gate is advisory, not blocking"): a
-            // one-shot check over a *harness* path. Import it internally into a
-            // throwaway scratch surface, run the same by-kind gate `check` runs,
-            // and emit the `claude-session-start` reporter payload on stdout for a
-            // Claude Code `SessionStart` hook.
-            //
-            // Import-internally, not the author's two-step import-then-check: the
-            // surface is scratch, and the author layer (the harness's `temper.toml`
-            // custom kinds/requirements) is read from the harness itself, not the process
-            // CWD — so the gate judges the harness under check.
+            // one-shot check over a *harness* path that emits the
+            // `claude-session-start` reporter payload on stdout for a Claude Code
+            // `SessionStart` hook.
             //
             // Advisory: the run *always* exits zero. `SessionStart` cannot block,
             // and a failing contract routes through the human via the reporter's
             // notify-and-approve verdict, never a hard denial.
-            let scratch = scratch_surface()?;
-            import::run(&harness_path, &scratch)?;
-            // Members import into the scratch surface; the authored custom-kind
-            // definitions and bound packages resolve from the harness's own `.temper/`
-            // beside its `temper.toml`, never the scratch (which never carries them).
-            let diagnostics = gate(
-                &scratch,
-                &harness_path.join(TEMPER_DIR),
-                &harness_path.join(TEMPER_TOML),
-            )?;
-            // Best-effort cleanup of the scratch surface: a leftover temp dir must
-            // never fail the advisory gate, so a removal error is swallowed.
-            let _ = fs::remove_dir_all(&scratch);
+            let authored = harness_path.join(TEMPER_DIR);
+            let temper_toml = harness_path.join(TEMPER_TOML);
+            let diagnostics = if authored.is_dir() && temper_toml.is_file() {
+                // Surface-present: the harness carries an authored surface (an
+                // assembly + `.temper/`), so the gate checks the *surface* — the
+                // two-step path, the surface itself as both workspace and authored
+                // root — never a fresh import. A fresh import discards recognition
+                // (the authored `satisfies` links), so every filled requirement
+                // would read unfilled — the false positive on clean input the
+                // spec's surface-present clause forbids (law 3).
+                gate(&authored, &authored, &temper_toml)?
+            } else {
+                // Surfaceless fallback: no authored surface, so import the raw
+                // harness internally into a throwaway scratch surface and run the
+                // same by-kind gate. Members import into the scratch; the authored
+                // layer (the harness's `temper.toml` custom kinds/requirements) is
+                // read from the harness itself, not the process CWD.
+                let scratch = scratch_surface()?;
+                import::run(&harness_path, &scratch)?;
+                let diagnostics = gate(&scratch, &authored, &temper_toml)?;
+                // Best-effort cleanup of the scratch surface: a leftover temp dir
+                // must never fail the advisory gate, so a removal error is swallowed.
+                let _ = fs::remove_dir_all(&scratch);
+                diagnostics
+            };
 
             println!("{}", reporter::session_start(&diagnostics));
             Ok(ExitCode::SUCCESS)

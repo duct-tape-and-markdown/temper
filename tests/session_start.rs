@@ -199,6 +199,62 @@ fn a_registered_custom_kind_resolves_from_the_harness_temper_dir() {
 }
 
 #[test]
+fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
+    // The inbox false positive, repro'd: a harness carrying an authored surface
+    // (a `temper.toml` declaring a `required` requirement + a surface member whose
+    // document header `satisfies` it) must emit ZERO blocking findings at
+    // session-start. The surface path resolves the fill; a fresh import would
+    // discard the authored `satisfies` recognition and report the requirement
+    // unfilled — the law-3 false positive the spec's surface-present clause forbids.
+    let harness = tmpdir("authored-surface-src");
+
+    // The assembly declares a required `rule`-kind requirement.
+    fs::write(
+        harness.join("temper.toml"),
+        "[requirement.engineering-standards]\n\
+         means = \"the harness carries a rule maintaining engineering standards\"\n\
+         kind = \"rule\"\n\
+         required = true\n",
+    )
+    .unwrap();
+
+    // The authored surface member: a `rule` whose imported document header opts in
+    // via `satisfies.engineering-standards` — the recognition a fresh import drops.
+    let rule_dir = harness.join(".temper").join("rules").join("rust");
+    fs::create_dir_all(&rule_dir).unwrap();
+    fs::write(
+        rule_dir.join("RULE.md"),
+        "+++\n\
+         [clause.paths]\n\
+         value = [\"src/**/*.rs\"]\n\
+         \n\
+         [satisfies.engineering-standards]\n\
+         rationale = \"the path-scoped home for the Rust engineering bar\"\n\
+         \n\
+         [provenance]\n\
+         source_path = \"./.claude/rules/rust.md\"\n\
+         import_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
+         +++\n\
+         # Rust conventions\n\
+         \n\
+         The engineering bar.\n",
+    )
+    .unwrap();
+
+    let (ok, payload) = run_session_start(&harness);
+
+    // Advisory, and — the point — the required requirement resolves via the
+    // surface's `satisfies`, so no blocking verdict is injected.
+    assert!(ok, "the session-start gate must exit zero");
+    let hook = &payload["hookSpecificOutput"];
+    assert_eq!(hook["hookEventName"], "SessionStart");
+    assert!(
+        hook["additionalContext"].is_null(),
+        "the authored `satisfies` must fill the requirement ⇒ quiet payload, got: {hook}"
+    );
+}
+
+#[test]
 fn the_reporter_caps_additional_context_at_10k() {
     // A synthetic flood far larger than the cap — easier to construct directly
     // than to provoke through a harness, and the cap is the reporter's own
