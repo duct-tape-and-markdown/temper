@@ -270,6 +270,12 @@ path strings remain in comments).
   is open. No dependent today — becomes load-bearing with the first
   non-Claude-Code adapter family. Human to settle when a second harness is
   actually scheduled, not before.
+  DATUM (2026-07-02, unification day): the trees already disagree — packages
+  are source-qualified (`packages/rule.anthropic`) but kinds are not
+  (`kinds/skill`, not `kinds/skill.anthropic` or a per-harness grouping).
+  With declared adapters, a new harness family is a directory of data files,
+  so this fork's answer decides that directory's shape; blocking-adjacent the
+  moment a second harness (Codex, Cursor) is attempted.
 
 - `(multi-harness-projection)` — OPEN, strategic. The surface language is
   harness-neutral and built-in kinds are two-faced adapters (`15-kinds.md`), so
@@ -322,3 +328,37 @@ path strings remain in comments).
   corpus's real edges are the header `[edge.*]` / `satisfies` declarations of the
   classed corpus (`specs/90-spec-system.md`), never extracted from bodies. Kept as
   the decision record; the fork is closed by the retirement, not by wiring.
+
+- `(default-assembly-as-data)` — OPEN. The built-in floor's zero-config
+  adoption (a bare harness gets skill/rule checked with no `temper.toml`) is
+  today **engine behavior**, the one deliberate built-in/custom asymmetry the
+  unification kept. The proposed rung: the floor becomes an **embedded default
+  assembly** — shipped declared data beside `kinds/` and `packages/`, same
+  source-not-mechanism move — so "what temper does with zero config" is
+  readable, cited, and overridable rather than coded. Recommendation: adopt;
+  needs its `specs/40-composition.md` Decision (the floor is data), then a
+  small engine wave. Filed 2026-07-02 from the ladder review.
+
+## Kept on purpose — deliberate asymmetries (re-read every tick)
+
+Every asymmetry below is a **choice with a condition**, not a fact. When its
+condition arrives, it is the next break — today's declared-adapter wave came
+from exactly such a line fossilizing. If work touches one, surface it.
+
+- **Floor auto-adoption** (built-in kinds bind their packages with no assembly
+  declaration) — kept for the zero-config front door; challenged by
+  `(default-assembly-as-data)` above.
+- **Format implementations are engine code** (the generic frontmatter adapter,
+  post-swap) — kept because an external format's mechanics are temper's to
+  implement once; the *selection* is declared. Grows only by deliberate
+  vocabulary addition.
+- **`kinds/` + `packages/` are curated, fence-excluded** — kept because
+  built-in definitions encode cited external facts; humans author, build
+  embeds.
+- **`.temper/**` is human territory** — the dogfood surface is the project's
+  declared intent; the loop never writes it.
+- **`.flume/` is ungoverned by temper** — the machine that builds temper is
+  not yet under its gate; a candidate landscape once the corpus migration
+  proves the custom-kind story end to end.
+- **CLAUDE.md bootstrap fence** — transitional until the `memory` kind ships
+  and the flip ceremony moves it onto the surface.
