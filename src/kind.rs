@@ -330,10 +330,12 @@ impl Unit {
     /// custom kind shares (a lone member document found by extension), not on any
     /// one kind's IR, so it is the sole reader `check`'s custom-kind path uses and a
     /// kind rooted at any `governs.root` — not just `specs/` — is read
-    /// (`specs/40-composition.md`). Frontmatter is left empty: a custom unit's
-    /// document preserves the whole source file in its body, and the composed
-    /// extractor reads the loci it declares off that body (`specs/15-kinds.md`). An
-    /// unreadable or malformed surface is a [`KindError`], never a silent skip.
+    /// (`specs/40-composition.md`). The `[clause.<field>]` header values are lifted
+    /// into `frontmatter`, so the `field` primitive ranges over a custom member's
+    /// declared fields exactly as it does a built-in's parsed frontmatter
+    /// (`specs/20-surface.md`); a member carrying no clause tables reloads with empty
+    /// frontmatter, its whole source file preserved in the body. An unreadable or
+    /// malformed surface is a [`KindError`], never a silent skip.
     pub fn from_surface_dir(dir: &Path) -> Result<Self, KindError> {
         let id = dir
             .file_name()
@@ -379,9 +381,20 @@ impl Unit {
                 }
             })?;
 
+        // The `[clause.<field>]` header values are the member's typed fields — lift
+        // each into `frontmatter` so the `field` primitive ranges over a custom member
+        // exactly as it does a built-in's parsed frontmatter (`specs/20-surface.md`). A
+        // clause whose `value` is JSON-null-unrepresentable is dropped, never invented.
+        let frontmatter = crate::document::clauses(document.header())
+            .into_iter()
+            .filter_map(|(field, value)| {
+                crate::document::item_to_json(value).map(|json| (field, json))
+            })
+            .collect();
+
         Ok(Self {
             id,
-            frontmatter: BTreeMap::new(),
+            frontmatter,
             body: document.body().to_string(),
             source_path: PathBuf::from(source_path),
             satisfies,
@@ -1099,6 +1112,71 @@ primitive = "paragraph_meaning"
         assert_eq!(features.source_dir.as_deref(), Some("specs"));
         // The composed `spec` extractor mines no references — `fields` stays empty.
         assert!(features.fields.is_empty());
+    }
+
+    #[test]
+    fn from_surface_dir_lifts_clause_fields_into_frontmatter() {
+        // A custom member carrying `[clause.<field>]` header tables reloads with those
+        // fields in `frontmatter` — the generic reader that closes the built-in/custom
+        // asymmetry (`specs/20-surface.md`): a custom member's declared fields are the
+        // `field` primitive's locus, like a built-in's parsed frontmatter.
+        let root = surface_tmpdir("clause-fields").join("specs");
+        let dir = root.join("15-kinds");
+        std::fs::create_dir_all(&dir).unwrap();
+        let document = "+++\n\
+[clause.name]\n\
+value = \"15-kinds\"\n\
+[clause.priority]\n\
+value = 7\n\
+[provenance]\n\
+source_path = \"specs/15-kinds.md\"\n\
+import_hash = \"deadbeef\"\n\
++++\n\
+# Kinds\n\nBody.\n";
+        std::fs::write(dir.join("SPEC.md"), document).unwrap();
+
+        let unit = Unit::from_surface_dir(&dir).unwrap();
+
+        // The clause values land in `frontmatter`, JSON-kind-faithful: a string stays
+        // a string, a bare integer stays an integer.
+        assert_eq!(
+            unit.frontmatter.get("name"),
+            Some(&JsonValue::String("15-kinds".to_string()))
+        );
+        assert_eq!(unit.frontmatter.get("priority"), Some(&JsonValue::from(7)));
+
+        // And they resolve through the composed `field` primitive exactly as a
+        // built-in's parsed frontmatter does — the asymmetry closed.
+        let toml = "[[extraction]]\nprimitive = \"field\"\nkey = \"name\"\n\
+[[extraction]]\nprimitive = \"field\"\nkey = \"priority\"\n";
+        let extraction = Extraction::parse(toml, Path::new("temper.toml")).unwrap();
+        let features = extraction.extract(&unit);
+        assert_eq!(
+            features.field("name"),
+            Some(&FeatureValue::scalar(Kind::String, "15-kinds"))
+        );
+        assert_eq!(
+            features.field("priority").map(FeatureValue::kind),
+            Some(Kind::Integer)
+        );
+    }
+
+    #[test]
+    fn from_surface_dir_with_no_clause_tables_yields_empty_frontmatter() {
+        // A member document with no `[clause.<field>]` tables (only provenance) reloads
+        // with empty frontmatter — the built-in floor's default, unchanged from before
+        // this reader existed.
+        let root = surface_tmpdir("no-clauses").join("specs");
+        let dir = write_surface(
+            &root,
+            "00-intent",
+            "specs/00-intent.md",
+            "SPEC.md",
+            "# Intent\n\nBody.\n",
+        );
+
+        let unit = Unit::from_surface_dir(&dir).unwrap();
+        assert!(unit.frontmatter.is_empty());
     }
 
     #[test]

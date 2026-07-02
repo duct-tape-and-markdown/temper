@@ -20,6 +20,7 @@
 //! out of its header, and patch it back format-preserving.
 
 use miette::SourceSpan;
+use serde_json::{Map as JsonMap, Value as JsonValue};
 use toml_edit::{DocumentMut, Item, Table, Value};
 
 /// The literal fence line that opens and closes a surface header. A line is a
@@ -388,6 +389,58 @@ pub fn clauses(header: &DocumentMut) -> Vec<(String, &Item)> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// Convert a header [`Item`] to a [`serde_json::Value`] — the inverse of the
+/// built-in adapters' `json_to_toml_value`, so a `[clause.<field>]` `value` read by
+/// [`clauses`] lands in a member's frontmatter the same shape a built-in's hand-
+/// written parser produces (`specs/20-surface.md`). A JSON-null-unrepresentable item
+/// (`Item::None`, a bare TOML `Datetime` is kept as its string form) yields `None`,
+/// dropped rather than invented. Recurses through tables and arrays so a nested
+/// clause value round-trips.
+#[must_use]
+pub fn item_to_json(item: &Item) -> Option<JsonValue> {
+    match item {
+        Item::Value(val) => value_to_json(val),
+        Item::Table(table) => {
+            let mut map = JsonMap::new();
+            for (key, child) in table.iter() {
+                if let Some(json) = item_to_json(child) {
+                    map.insert(key.to_string(), json);
+                }
+            }
+            Some(JsonValue::Object(map))
+        }
+        Item::ArrayOfTables(tables) => Some(JsonValue::Array(
+            tables
+                .iter()
+                .map(|t| item_to_json(&Item::Table(t.clone())))
+                .collect::<Option<Vec<_>>>()?,
+        )),
+        Item::None => None,
+    }
+}
+
+/// Convert a header [`Value`] to a [`serde_json::Value`]; a TOML `Datetime` carries
+/// as its string form (JSON has no datetime scalar).
+fn value_to_json(val: &Value) -> Option<JsonValue> {
+    Some(match val {
+        Value::String(s) => JsonValue::from(s.value().clone()),
+        Value::Integer(i) => JsonValue::from(*i.value()),
+        Value::Float(f) => JsonValue::from(*f.value()),
+        Value::Boolean(b) => JsonValue::from(*b.value()),
+        Value::Datetime(d) => JsonValue::from(d.value().to_string()),
+        Value::Array(array) => JsonValue::Array(array.iter().filter_map(value_to_json).collect()),
+        Value::InlineTable(inline) => {
+            let mut map = JsonMap::new();
+            for (key, child) in inline.iter() {
+                if let Some(json) = value_to_json(child) {
+                    map.insert(key.to_string(), json);
+                }
+            }
+            JsonValue::Object(map)
+        }
+    })
 }
 
 /// The `[satisfies.<requirement>]` modules in `header`, in document order.
@@ -830,6 +883,31 @@ Last line, no newline.";
     fn a_header_with_no_requirement_modules_reads_empty() {
         let doc = Document::parse(FIXTURE).unwrap();
         assert!(requirements(doc.header()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn item_to_json_converts_each_clause_value_kind_faithfully() {
+        // The inverse of the built-in adapters' `json_to_toml_value`: a `[clause.<field>]`
+        // `value` read by `clauses` lands JSON-kind-faithful, so a custom member's
+        // frontmatter matches a built-in's hand-parsed shape (`specs/20-surface.md`).
+        let raw = "+++\n\
+[clause.name]\nvalue = \"demo\"\n\
+[clause.priority]\nvalue = 7\n\
+[clause.enabled]\nvalue = true\n\
+[clause.tools]\nvalue = [\"Bash\", \"Read\"]\n\
+[clause.meta]\nvalue = { team = \"core\" }\n\
++++\n# body\n";
+        let doc = Document::parse(raw).unwrap();
+        let by_field: std::collections::BTreeMap<String, JsonValue> = clauses(doc.header())
+            .into_iter()
+            .filter_map(|(field, value)| item_to_json(value).map(|json| (field, json)))
+            .collect();
+
+        assert_eq!(by_field["name"], JsonValue::String("demo".to_string()));
+        assert_eq!(by_field["priority"], JsonValue::from(7));
+        assert_eq!(by_field["enabled"], JsonValue::Bool(true));
+        assert_eq!(by_field["tools"], serde_json::json!(["Bash", "Read"]));
+        assert_eq!(by_field["meta"], serde_json::json!({ "team": "core" }));
     }
 
     #[test]
