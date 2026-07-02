@@ -1,66 +1,16 @@
-//! The harness reference graph — route resolution over declared edges.
+//! The harness reference graph — route resolution over declared edges
+//! (`specs/45-governance.md`, "The harness is a graph too").
 //!
-//! Implements `specs/45-governance.md` ("The harness is a graph too — and
-//! references are declared edges"). The **harness** is a graph: skills and rules
-//! pointing at each other. To govern its shape `temper` needs the edges — and an
-//! edge is a **declared field on the surface**, never grepped from prose
-//! (`(skill-ref-syntax)` RESOLVED: the field is the truth, the prose is payload).
-//! A rule routes to a skill through a structured field (`routes_to: standards`),
-//! authored on the composition surface (`specs/20-surface.md`); `temper` reads the
-//! field into the graph.
-//!
-//! ## What this tier does
-//!
-//! Given the [`Edge`] relationships declared on the author layer
-//! ([`AuthorLayer::edges`](crate::compose::AuthorLayer::edges)) and the by-kind
-//! [`Features`] of the whole corpus:
-//!
-//! - [`check`] — **route resolution**: for each declared edge (source kind `from`,
-//!   reference field `F`, target kind `to`), read `F` off every source artifact and
-//!   emit an error-severity [`Diagnostic`] for any route whose named target resolves
-//!   to no artifact of the target kind. This is the *referential decidable check*
-//!   (`specs/10-contracts.md`, the referential primitive: a reference resolves over
-//!   a **declared syntax**, never prose-grep) — every violation is a true positive,
-//!   so it earns the hard gate.
-//! - [`admissibility`] — **the edge declaration is itself checked**
-//!   (`specs/10-contracts.md`, "Decision: the contract is itself checked"): before
-//!   the graph is trusted to judge the harness, each edge must *name its reference
-//!   field and target kind* (`specs/45-governance.md`). An edge with an empty field
-//!   names no reference syntax; one whose target kind `temper` does not model can
-//!   *never* resolve — its every route would dangle, so the fault is the declaration,
-//!   not the artifacts. An inadmissible edge is reported here and **skipped** by
-//!   [`check`], so a single unsound declaration does not forge a route finding on
-//!   every source artifact.
-//!
-//! - [`acyclic`] — **the reference graph has no cycle** (`specs/45-governance.md`,
-//!   "The graph scope (the model)"): resolve the same declared edges into an
-//!   artifact-level graph and DFS for a cycle. A circular import loads nothing, so a
-//!   cycle is a true positive that earns the hard gate. Like route resolution it is
-//!   intrinsic to the declared edges — always-on over `layer.edges()`, no opt-in.
-//!
-//! - [`degree`] — **a satisfier node's in/out edge count is bounded**
-//!   (`specs/45-governance.md`, "The graph scope (the model)"; the worked example
-//!   "self-registering vs routed"): a requirement declares a `degree` bound and
-//!   `temper` checks every artifact satisfying it has an incoming/outgoing edge
-//!   count inside it — "self-registering: zero incoming," "routed: at least one
-//!   incoming." Unlike route resolution and `acyclic`, `degree` is **opt-in,
-//!   per-requirement**: it runs only for requirements that declare a bound *and* the
-//!   `kind` needed to identify their nodes. It is *declared* at the set scope
-//!   (on the requirement) but *ranges over* the edge graph, so it reuses the same
-//!   resolved arcs [`acyclic`] assembles ([`resolved_arcs`]) and selects nodes by the
-//!   *same* opt-in [`roster::is_satisfier`] join the roster scope's satisfier set uses.
-//!
-//! Nodes are the artifacts across every kind (their [`Features::id`]); the edges are
-//! the declared references between them.
-//!
-//! ## Only declared fields, never grepped prose
-//!
-//! The reference is read off [`Features`] — the deterministically-extracted feature
-//! set (`specs/30-landscapes.md`, the extraction soundness boundary), the `extra`
-//! catch-all surfacing the author's `routes_to` field like any other. A scalar field
-//! names one target; a list field names several. `temper` never scans a body for
-//! names or paths — the unsound prose-grep the referential rule forbids
-//! (`specs/10-contracts.md`).
+//! The harness is a graph: skills and rules pointing at each other through
+//! **declared** reference fields, read off [`Features`], never grepped from a body
+//! (`specs/10-contracts.md`, the referential primitive). Nodes are `(kind, id)`
+//! across every kind; edges are the [`Edge`] relationships declared on the surface.
+//! Four checks range over it: [`check`] (route resolution — a reference resolves to a
+//! real target), [`admissibility`] (each edge names its field and a modeled target
+//! kind, checked before the graph is trusted), [`acyclic`] (no circular import), and
+//! [`degree`] (a satisfier node's in/out count lands in a requirement's bound). All
+//! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
+//! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -69,45 +19,33 @@ use crate::compose::{Edge, EdgeBound, Requirement};
 use crate::extract::{FeatureValue, Features};
 use crate::roster;
 
-/// The diagnostic `rule` id every route-resolution finding reports under — the
-/// referential clause of the harness graph (`specs/45-governance.md`, "The harness
-/// is a graph too"): a declared reference must resolve to a real artifact.
+/// The diagnostic `rule` id every route-resolution finding reports under.
 const GRAPH_ROUTE_RULE: &str = "graph.route";
 
-/// The diagnostic `rule` id every graph-admissibility finding reports under — the
-/// edge declaration is itself checked (`specs/10-contracts.md`, "Decision: the
-/// contract is itself checked — admissibility") before the graph judges the harness.
+/// The diagnostic `rule` id every graph-admissibility finding reports under.
 const GRAPH_ADMISSIBILITY_RULE: &str = "graph.admissibility";
 
-/// The diagnostic `rule` id the acyclicity finding reports under — the graph-scope
-/// `acyclic` predicate (`specs/45-governance.md`, "The graph scope (the model)"): the
-/// reference graph has no cycle (a circular import loads nothing).
+/// The diagnostic `rule` id the acyclicity finding reports under.
 const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
 
-/// The diagnostic `rule` id every degree finding reports under — the graph-scope
-/// `degree` predicate (`specs/45-governance.md`, "The graph scope (the model)"): a
-/// matched node's in/out edge count must land in the requirement's declared bound.
+/// The diagnostic `rule` id every degree finding reports under.
 const GRAPH_DEGREE_RULE: &str = "graph.degree";
 
-/// A node in the artifact-level reference graph: `(kind, id)`. An artifact id is
-/// unique only *within* a kind (a rule and a skill may share a name), and an edge
-/// resolves only within its target kind, so the kind is part of the identity —
-/// otherwise a same-named rule and skill would collapse into one node and forge or
-/// mask a cycle.
+/// A node in the artifact-level reference graph: `(kind, id)`. An id is unique only
+/// *within* a kind and an edge resolves only within its target kind, so the kind is
+/// part of the identity — else a same-named rule and skill collapse into one node and
+/// forge or mask a cycle.
 ///
-/// `pub(crate)` so the read family (`crate::read`) keys a member's resolved
-/// in/out edges on the *same* `(kind, id)` node the gate does (READ-EDGE-UNIFY).
+/// `pub(crate)` so the read family (`crate::read`) keys a member's resolved in/out
+/// edges on the *same* `(kind, id)` node the gate does (READ-EDGE-UNIFY).
 pub(crate) type Node = (String, String);
 
-/// A **resolved edge** in the harness reference graph — a `(from, field, to)` triple
-/// over `(kind, id)` [`Node`]s, both endpoints naming a real artifact (the reference
-/// resolved). The element type of [`resolved_edges`], the one arc-resolution
-/// enumeration the gate's [`resolved_arcs`] folds into adjacency **and** the read
-/// family (`crate::read`) narrates per node — so `temper why`'s edge narration and
-/// `graph::check`/`acyclic`/`degree` range over one identical edge set, never two
-/// re-derivations that can disagree (READ-EDGE-UNIFY; `specs/20-surface.md`, "Decision:
-/// the CLI gains a read family"). Retains the reference `field` an arc drops, so a
-/// reader can see *which* declared reference produced the edge.
+/// A **resolved edge** — a `(from, field, to)` triple over `(kind, id)` [`Node`]s,
+/// both endpoints naming a real artifact. The element type of [`resolved_edges`], the
+/// one arc-resolution enumeration [`resolved_arcs`] folds into adjacency and
+/// `crate::read` narrates per node, so gate and read range over one identical edge set
+/// (READ-EDGE-UNIFY). Retains the reference `field` an arc drops, so a reader can see
+/// which declared reference produced the edge.
 pub(crate) struct ResolvedEdge {
     /// The source node `(kind, id)` carrying the reference.
     pub from: Node,
@@ -117,32 +55,25 @@ pub(crate) struct ResolvedEdge {
     pub to: Node,
 }
 
-/// Build the harness reference graph and check **route resolution** over it
-/// (`specs/45-governance.md`, "The harness is a graph too"): for each declared
-/// [`Edge`], read its reference field off every source artifact and return an
-/// error-severity [`Diagnostic`] for any route that resolves to no artifact of the
-/// target kind.
+/// Check **route resolution** over the harness reference graph
+/// (`specs/45-governance.md`): for each declared [`Edge`], read its reference field
+/// off every source artifact and return an error-severity [`Diagnostic`] for any
+/// route that resolves to no artifact of the target kind.
 ///
-/// `by_kind` maps an artifact kind (`skill`, `rule`, …) to the workspace
-/// [`Features`] of that kind — the whole corpus, since an edge's source and target
-/// kinds may differ. An edge that fails [`admissibility`] (an empty reference field,
-/// or a target kind `temper` does not model) is **skipped** here, so its single
-/// declaration fault is reported once by admissibility rather than forged into a
-/// route finding on every source artifact. Sources iterate in candidate order (each
-/// kind's slice is name-sorted), so the finding set is stable across runs.
+/// `by_kind` maps each kind to the whole corpus of that kind, since an edge's source
+/// and target kinds may differ. An [`admissibility`]-failing edge is **skipped** so
+/// its one declaration fault is not forged into a route finding on every source.
+/// Sources iterate in candidate (name-sorted) order, so the finding set is stable.
 #[must_use]
 pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for edge in edges {
-        // A declaration that is not itself admissible cannot soundly judge the
-        // harness — admissibility owns that finding, so skip it here rather than
-        // dangle every source's route off an unsound edge.
+        // Inadmissible edges are admissibility's finding to own — skip here rather
+        // than dangle every source's route off an unsound declaration.
         if !is_admissible(edge, by_kind) {
             continue;
         }
 
-        // The nodes reachable as targets: the ids of every artifact of the target
-        // kind. A route resolves exactly when its named target is one of these.
         let targets: BTreeSet<&str> = by_kind
             .get(edge.to.as_str())
             .copied()
@@ -163,28 +94,18 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
     diagnostics
 }
 
-/// Validate the declared edge relationships against **the definition** —
-/// admissibility (`specs/10-contracts.md`, "Decision: the contract is itself
-/// checked"). Each edge earns trust by passing a check *before* the graph is used to
-/// judge the harness; every finding is [`Diagnostic::error`] (an inadmissible edge
-/// cannot be trusted, so it must fail the run) and names the edge it indicts.
+/// Validate the declared edges against **the definition** — admissibility
+/// (`specs/10-contracts.md`, "the contract is itself checked"): each edge earns trust
+/// *before* the graph judges the harness. Every finding is [`Diagnostic::error`] and
+/// names the edge.
 ///
-/// Two decidable clauses, mirroring the spec's requirement that a declared edge
-/// relationship *name its reference field and target kind*
-/// (`specs/45-governance.md`, "The harness is a graph too"):
+/// Two decidable clauses (`specs/45-governance.md`): **(a)** the reference `field` is
+/// non-empty — an empty field names no reference syntax; **(b)** the target kind is
+/// one `temper` models — an unmodeled `to` has no artifacts, so every route over the
+/// edge would dangle, making the fault the declaration's, reported once here while
+/// [`check`] skips the edge.
 ///
-/// - **(a) the reference field is named** — a non-empty `field`. An empty field
-///   names no reference syntax; no artifact declares an empty-named field, so the
-///   edge could never carry a route.
-/// - **(b) the target kind is one `temper` models** — `edge.to` is a key of
-///   `by_kind`. A target kind `temper` does not model has no artifacts, so *every*
-///   route over the edge would dangle — the fault is the declaration, not the
-///   sources, so it is reported once here (and [`check`] skips the edge). This
-///   mirrors the roster's "a required requirement over an unmodeled kind can never be
-///   filled" admissibility clause ([`crate::roster`]).
-///
-/// `by_kind` is the same corpus map [`check`] reads — admissibility uses only its
-/// *keys* (the modeled kinds), never the artifacts.
+/// `by_kind` is the same corpus map [`check`] reads; admissibility uses only its keys.
 #[must_use]
 pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -217,35 +138,22 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
 }
 
 /// Check **acyclicity** over the harness reference graph (`specs/45-governance.md`,
-/// "The graph scope (the model)"): build the artifact-level directed graph by
-/// resolving each declared [`Edge`]'s reference field to real target ids — the same
-/// arc resolution [`check`] performs — and return an error-severity [`Diagnostic`]
-/// naming a cycle if the reference graph is not acyclic.
+/// "The graph scope"): build the artifact-level graph from the same resolved arcs
+/// [`check`] uses and return an error-severity [`Diagnostic`] naming a cycle if one
+/// exists. A cycle is a circular import that loads nothing — a true positive.
 ///
-/// A cycle among declared references is a circular import that loads nothing, so the
-/// finding is a true positive that earns the hard gate. `acyclic` is *intrinsic* to
-/// the declared edges — it runs always-on over `layer.edges()`, no per-requirement opt-in,
-/// exactly like route resolution.
-///
-/// Only **resolved** arcs enter the graph: an [`is_admissible`]-failing edge is
-/// skipped (as in [`check`]), and a dangling reference (one naming no artifact of the
-/// target kind) loads nothing, so it contributes no arc — it can neither forge a
-/// cycle nor mask one, leaving that dangling finding to [`check`]. Nodes are keyed by
-/// `(kind, id)` so a same-named artifact of a different kind is a distinct node.
-///
-/// At most one finding is returned — a cycle is a fatal structural fault, and naming
-/// one closed chain suffices to fail the run and orient the author. The chain is
-/// canonicalized (rotated to start at its least node) so the finding is stable
-/// regardless of which node the traversal happened to enter from.
+/// Only **resolved** arcs enter: an inadmissible edge is skipped and a dangling
+/// reference loads nothing, so neither forges nor masks a cycle (that dangling finding
+/// is [`check`]'s). Nodes are keyed `(kind, id)`. At most one finding — a cycle is
+/// fatal, and naming one closed chain suffices; the chain is canonicalized (rotated to
+/// its least node) so the finding is stable regardless of the traversal's entry node.
 #[must_use]
 pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
-    // Build adjacency over resolved reference arcs — the same graph `degree` reads.
     let adjacency = resolved_arcs(edges, by_kind);
 
-    // A three-color DFS: a back edge to a node still on the current path (`Gray`)
-    // closes a cycle. Roots iterate in sorted node order (BTreeMap keys), and each
-    // node's neighbours in sorted order (BTreeSet), so the first cycle found is
-    // deterministic across runs.
+    // Three-color DFS: a back edge to a node still on the current path (`Gray`) closes
+    // a cycle. Roots and neighbours iterate in sorted order (BTreeMap/BTreeSet), so the
+    // first cycle found is deterministic across runs.
     let mut color: BTreeMap<Node, Color> = BTreeMap::new();
     let mut path: Vec<Node> = Vec::new();
     for root in adjacency.keys() {
@@ -259,32 +167,23 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
     Vec::new()
 }
 
-/// Check the graph-scope **`degree`** predicate over the harness reference graph
-/// (`specs/45-governance.md`, "The graph scope (the model)"; the worked example
-/// "self-registering vs routed"): for each requirement that declares a
-/// [`DegreeBound`](crate::compose::DegreeBound), compute the incoming/outgoing edge
-/// count of every artifact satisfying it
-/// over the *resolved* reference arcs and return an error-severity [`Diagnostic`] per
-/// satisfier node whose degree falls outside the declared bound.
+/// Check the graph-scope **`degree`** predicate (`specs/45-governance.md`, "The graph
+/// scope"; worked example "self-registering vs routed"): for each requirement
+/// declaring a [`DegreeBound`](crate::compose::DegreeBound), return an error-severity
+/// [`Diagnostic`] per satisfier node whose in/out edge count over the resolved arcs
+/// falls outside the bound.
 ///
-/// `degree` is declared at the **set scope** (on a requirement) but ranges over the
-/// **edge graph**, so it is checked here rather than in [`crate::roster`]: it reuses
-/// the same [`resolved_arcs`] [`acyclic`] and [`check`] assemble, and selects a
-/// requirement's nodes by the *same* opt-in [`roster::is_satisfier`] join the roster
-/// scope's satisfier set uses — never a second selector that could disagree. Only
-/// **resolved** arcs count toward a degree: a dangling reference loads nothing (route
-/// resolution owns that finding), and an inadmissible edge is skipped, exactly as in
-/// [`acyclic`].
+/// Declared at the **set scope** (on a requirement) but ranging over the **edge
+/// graph**, so it lives here: it reuses [`acyclic`]'s [`resolved_arcs`] and the same
+/// opt-in [`roster::is_satisfier`] join the roster scope uses, never a second selector
+/// that could disagree. Only **resolved** arcs count (a dangling reference loads
+/// nothing; an inadmissible edge is skipped), exactly as in [`acyclic`].
 ///
-/// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-requirement** — it
-/// runs only for requirements carrying a bound, so a roster declaring none (or an
-/// absent `temper.toml`) does no graph work here. A node is `(kind, id)` — the
-/// requirement's `kind` facet paired with each satisfier id — so a requirement that
-/// declares no `kind` cannot identify its nodes and is skipped.
-/// Incoming degree is how many distinct nodes point at it, outgoing how many distinct
-/// nodes it points at (an arc is a distinct `(source, target)` pair, deduped like
-/// [`acyclic`]'s adjacency). Requirements iterate in name order and each kind's
-/// candidates arrive name-sorted, so the finding set is stable across runs.
+/// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-requirement** — a
+/// roster declaring no bound does no graph work. A node is `(kind, id)`, so a
+/// requirement declaring no `kind` cannot identify its nodes and is skipped.
+/// Requirements iterate in name order over name-sorted candidates, so findings are
+/// stable across runs.
 #[must_use]
 pub fn degree(
     requirements: &BTreeMap<String, Requirement>,
@@ -300,8 +199,8 @@ pub fn degree(
     }
 
     let adjacency = resolved_arcs(edges, by_kind);
-    // Incoming degree per node: how many distinct nodes point at it. Built once by
-    // inverting the resolved arcs; a node absent from the map has in-degree zero.
+    // Incoming degree per node, built once by inverting the resolved arcs; a node
+    // absent from the map has in-degree zero.
     let mut incoming: BTreeMap<&Node, usize> = BTreeMap::new();
     for targets in adjacency.values() {
         for target in targets {
@@ -314,10 +213,9 @@ pub fn degree(
         let Some(bound) = &requirement.degree else {
             continue;
         };
-        // A node is `(kind, id)`, so `degree` needs a declared `kind` (the node's
-        // kind) to range over; which nodes is the opt-in satisfier set. A kind-blind
-        // requirement cannot identify its nodes, so it is skipped — `temper` never
-        // fabricates a gate the author did not fully declare.
+        // `degree` needs a declared `kind` to range over; a kind-blind requirement
+        // can't identify its nodes and is skipped — `temper` never fabricates a gate
+        // the author did not fully declare.
         let Some(kind) = &requirement.kind else {
             continue;
         };
@@ -326,8 +224,6 @@ pub fn degree(
             if !roster::is_satisfier(&requirement.name, features) {
                 continue;
             }
-            // The node is `(kind, id)`: an id is unique only within a kind, and an arc
-            // resolves only within its target kind, so degree is per-`(kind, id)` too.
             let node = (kind.clone(), features.id.clone());
             let in_degree = incoming.get(&node).copied().unwrap_or(0);
             let out_degree = adjacency.get(&node).map_or(0, BTreeSet::len);
@@ -359,9 +255,7 @@ pub fn degree(
     diagnostics
 }
 
-/// A degree direction — which side of a node's edges a [`DegreeBound`] constrains,
-/// named in the finding so the author knows whether an incoming or outgoing count
-/// broke the bound.
+/// A degree direction — which side of a node's edges a [`DegreeBound`] constrains.
 #[derive(Clone, Copy)]
 enum Direction {
     /// Edges *pointing at* the node — how many nodes reference it.
@@ -381,9 +275,8 @@ impl Direction {
 }
 
 /// The finding for a matched node whose `degree` in one direction falls outside its
-/// requirement's declared bound — naming the requirement, the kind, the direction, the
-/// actual edge count, and the `[min, max]` bound it missed (an open endpoint rendered
-/// `∞`). Only reached for a requirement that declares a `kind`, so the kind is present.
+/// requirement's bound — naming the requirement, kind, direction, actual count, and
+/// the `[min, max]` bound (an open endpoint rendered `∞`).
 fn out_of_degree(
     requirement: &Requirement,
     artifact: &str,
@@ -405,17 +298,15 @@ fn out_of_degree(
     )
 }
 
-/// Enumerate every **resolved** reference edge over the declared [`Edge`] set: for each
-/// admissible edge, each source artifact of its `from` kind, and each named target that
-/// resolves to a real artifact of its `to` kind, one [`ResolvedEdge`]. The single
-/// arc-resolution primitive — [`resolved_arcs`] folds it into `(kind, id)`-keyed
-/// adjacency for [`acyclic`]/[`degree`], and `crate::read`'s `why` filters it per node —
-/// so the gate and the read narrate the *same* edges (READ-EDGE-UNIFY). An
-/// [`is_admissible`]-failing edge is skipped (as in [`check`]), and a dangling reference
-/// (naming no artifact of the target kind) loads nothing, so it yields no edge — route
-/// resolution owns that finding. Sources iterate in candidate (name-sorted) order, so
-/// the enumeration is stable across runs; the same target named twice (e.g. by a list
-/// field) yields two edges here, which [`resolved_arcs`] dedupes into one arc.
+/// Enumerate every **resolved** reference edge: for each admissible edge, each source
+/// of its `from` kind, and each named target that resolves to a real artifact of its
+/// `to` kind, one [`ResolvedEdge`]. The single arc-resolution primitive —
+/// [`resolved_arcs`] folds it into adjacency for [`acyclic`]/[`degree`] and
+/// `crate::read` filters it per node — so gate and read narrate the *same* edges
+/// (READ-EDGE-UNIFY). An inadmissible edge is skipped and a dangling reference yields
+/// no edge (route resolution owns that). Sources iterate in name-sorted order for a
+/// stable enumeration; a target named twice yields two edges, deduped into one arc by
+/// [`resolved_arcs`].
 pub(crate) fn resolved_edges(
     edges: &[Edge],
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -449,13 +340,11 @@ pub(crate) fn resolved_edges(
     resolved
 }
 
-/// Build the artifact-level directed graph over **resolved** reference arcs — the
-/// shared foundation [`acyclic`] and [`degree`] both range over — by folding
-/// [`resolved_edges`] into `(kind, id)`-keyed adjacency. Nodes are keyed `(kind, id)`
-/// so a same-named artifact of a different kind is a distinct node. Arcs dedupe in the
-/// [`BTreeSet`], so a target named twice (e.g. by a list field) is one arc. Deriving
-/// this from the same [`resolved_edges`] the read family consumes is what keeps the
-/// gate's cycle/degree checks and `temper why`'s narration in lockstep.
+/// Build the artifact-level directed graph over **resolved** arcs — the shared
+/// foundation [`acyclic`] and [`degree`] range over — by folding [`resolved_edges`]
+/// into `(kind, id)`-keyed adjacency. Arcs dedupe in the [`BTreeSet`], so a target
+/// named twice is one arc. Deriving it from the same [`resolved_edges`] the read family
+/// consumes keeps the gate's checks and `temper why` in lockstep.
 fn resolved_arcs(
     edges: &[Edge],
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -497,8 +386,8 @@ fn find_cycle(
                     }
                 }
                 Color::Gray => {
-                    // A back edge to a node on the current path closes a cycle. The
-                    // node is on `path` by the invariant that `Gray` ⇔ on the path.
+                    // A back edge closes a cycle; the node is on `path` by the
+                    // invariant Gray ⇔ on the current path.
                     let start = path
                         .iter()
                         .position(|n| n == next)
@@ -546,8 +435,8 @@ fn cycle_diagnostic(cycle: &[Node]) -> Diagnostic {
         .map(|(kind, id)| format!("{kind} `{id}`"))
         .collect::<Vec<_>>()
         .join(" → ");
-    // Name the finding after the ring's least node — the same node the chain starts
-    // at — so the `artifact` is stable and points into the cycle.
+    // Name the finding after the ring's least node (the chain's start) so `artifact`
+    // is stable and points into the cycle.
     let artifact = cycle.first().map_or_else(String::new, |(_, id)| id.clone());
     Diagnostic::error(
         GRAPH_ACYCLIC_RULE,
@@ -577,15 +466,13 @@ fn edge_targets<'a>(source: &'a Features, field: &str) -> Vec<&'a str> {
 }
 
 /// A stable identity for an edge in a diagnostic — `<from>.<field>` (e.g.
-/// `rule.routes_to`), naming the source kind and the reference field so a reader
-/// knows which declaration is indicted.
+/// `rule.routes_to`).
 fn edge_id(edge: &Edge) -> String {
     format!("{}.{}", edge.from, edge.field)
 }
 
-/// The finding for a route that resolves to no artifact — naming the source
-/// artifact carrying the route, the reference field, the dangling target, and the
-/// target kind no artifact of which bears that id.
+/// The finding for a route that resolves to no artifact — naming the source, the
+/// reference field, the dangling target, and the target kind.
 fn dangling(edge: &Edge, source: &str, target: &str) -> Diagnostic {
     Diagnostic::error(
         GRAPH_ROUTE_RULE,
