@@ -1,46 +1,14 @@
 [
   {
-    "tag": "REFERENCES-RETIRE",
-    "summary": "Retire the prose-mined `references` extraction primitive and its helpers/tests from src/kind.rs — law 8 forbids mining edges from bodies",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Decision: no body-mined references — the `references` primitive is retired"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Remove `Primitive::References { strip_suffix }` (the variant, its `label` arm returning \"references\", its extraction arm, and the `\"references\" =>` parse arm), plus the prose-scanning helpers `backtick_filename_refs` and `is_filename_reference`, and the inline `references_*` unit tests. After removal the KIND.md loader rejects `references` as an unknown primitive — the correct law-8 posture (a mined edge is a guess wearing tier-1 clothes). The dogfood `.temper/kinds/spec/KIND.md` already dropped the declaration (commit 0496270), so nothing on the surface still names it."
-        }
-      ],
-      "retire": [
-        "tests/reference_resolution.rs",
-        "src/kind.rs::Primitive::References",
-        "src/kind.rs::backtick_filename_refs",
-        "src/kind.rs::is_filename_reference"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "a KIND.md header declaring `primitive = \"references\"` fails to load with the unknown-primitive rejection (the retired primitive is no longer in the closed extraction vocabulary)."
-      }
-    ],
-    "acceptance": "no `Primitive::References`, `strip_suffix`-normalized ref extraction, `backtick_filename_refs`, or `is_filename_reference` remains in src/kind.rs; a KIND.md that declares `references` is rejected as an unknown primitive; tests/reference_resolution.rs is deleted; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Engine consequence of law 8 (specs/00-intent.md) landing. Commit 0496270 only cleaned the dogfood `.temper/`; the engine primitive still ships. Isolated blast radius (kind.rs + its own test file) — parallel-safe with REDD-CUSTOM-KINDS. Supersedes the shipped `strip_suffix` machinery `(reference-id-normalization)` recorded."
-  },
-  {
     "tag": "REDD-CUSTOM-KINDS",
     "summary": "`diff`/`re-add` cover custom kinds — scan each assembly-registered kind's `governs` locus so hand-edited spec bodies reconcile back into `.temper/` instead of the gate reading stale bodies",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Drift / apply — three states, never two (the hard core)"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -85,7 +53,10 @@
       "path": "specs/10-contracts.md",
       "section": "Decision: a requirement's publisher is any authored surface document"
     },
-    "gate": { "kind": "blockedBy", "tag": "REDD-CUSTOM-KINDS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "REDD-CUSTOM-KINDS"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
