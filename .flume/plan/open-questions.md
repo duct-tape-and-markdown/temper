@@ -4,10 +4,11 @@ Product/architecture forks not yet settled. Each is keyed with a `(slug)` so a
 pending entry can declare `dependsOnForks: ["slug"]` and be held until resolved.
 Mark a line `RESOLVED` (and record the decision) to unblock its dependents.
 
-The forks below gate *extensions* and the code↔spec reconciliation to the
-package/assembly/kind model — not the shipped contract engine, which today still
-embeds the built-in contracts from `contracts/*.toml` under the retired
-vocabulary (`template`, requirement-typing `contract`) pending that migration.
+The forks below gate *extensions*. The package/assembly/kind migration they once
+gated has **shipped** (verified on disk): `build.rs` embeds the built-in std-lib
+from `packages/<name>/PACKAGE.md` (not `contracts/*.toml`), `.temper/` is authored,
+and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror is
+now dead code pending deletion (filed CONTRACTS-RETIRE).
 
 - `(package-surface-sequencing)` — RESOLVED: **machinery first, dogfood after.**
   The code reconciles to the model **against test fixtures**; temper's own
@@ -33,6 +34,10 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   SURFACE-DOCUMENT-FORMAT → PACKAGE-DOCUMENT → PACKAGE-BINDING →
   REQUIREMENT-PACKAGE-TYPING → MEMBER-DOCUMENT-IMPORT → KIND-AUTHORED-ARTIFACT,
   with EMBED-BUILTIN-PACKAGES parked at the end as the dogfood/validation step.
+  SHIPPED: that whole chain has landed — `packages/` is the embedded std-lib home
+  (`build.rs`/`src/builtin.rs`), `.temper/` is authored, custom kinds resolve in the
+  graph. Only the dead-`contracts/` deletion remains (CONTRACTS-RETIRE). No dependent
+  waits; kept as the decision record.
 
 - `(contract-name-field)` — RESOLVED + SHIPPED (88246bf). Option B
   (`specs/10-contracts.md` Decision: "a contract is identified by its path/role,
@@ -294,4 +299,9 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   positive is as unsound as forging one). The engine work this fork was holding —
   wiring custom-kind features into the graph's `by_kind` map so declared edges
   find their sources — is now fileable, with references-resolve downstream of it.
-  Kept as the decision record.
+  by_kind wiring has SHIPPED (custom kinds resolve in the graph); the remaining
+  `strip_suffix` normalization step is FILED as REFERENCE-NORMALIZATION (engine
+  capability only). Wiring the dogfood spec kind's own `[[relationships]]` +
+  `strip_suffix` into `.temper/kinds/spec/KIND.md` is a HUMAN `.temper/` follow-up
+  (surfaced, never a build entry — `.temper/**` is human territory). Kept as the
+  decision record.

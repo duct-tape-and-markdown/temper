@@ -1,24 +1,28 @@
 # Plan state
 
 - **Phase:** reconcile. Queue reconciled to the corpus; inbox drained; tree clean.
-  HEAD 7de5a75.
-- **Last shipped (trunk):** IMPORT-SKILL-LOCUS hand-shipped (d057e74) — skills scan
-  `.claude/skills/`, so one project-root `harness_path` captures skills + rules.
-  Confirmed on disk: `discover_skill_dirs` (src/import.rs:221) scans
-  `<harness>/.claude/skills/`. The engine stays broad against the corpus —
+  HEAD 2521f7d.
+- **Last shipped (trunk):** the corpus gates on its Decision discipline (2521f7d,
+  hand) — decisions-name-alternatives required in the dogfood; READ-EDGE-UNIFY (6e80405)
+  before it. Verified on disk: the `packages/` migration has fully landed — build.rs
+  embeds built-in packages from `packages/<name>/PACKAGE.md` (src/builtin.rs); `.temper/`
+  is authored; custom kinds feed the graph's `by_kind`. The engine stays broad —
   import/check/drift/apply/re-add, bundle, install, schema, reporters, coverage/graph,
-  roster set-scope predicates, custom `.temper/kinds/`, the read verbs, section_contains.
-- **This tick:** drained the inbox BUG into **READ-EDGE-UNIFY** (`open`). `temper why`
-  narrates edges from the surface's `[edge.*]` document clauses (src/read.rs, via
-  `skill.edges`/`rule.edges`), while `graph::check`/`acyclic`/`degree` (src/graph.rs)
-  resolve the gate's graph from `[[kind.relationships]]` over extracted `routes_to`
-  features (src/main.rs check arm) — the two disagree on a `routes_to` edge. Fix
-  (inbox-directed): the read family consumes the gate's resolved edge set, one source of
-  truth. Verified on disk the two edge paths are fully disconnected — extraction never
-  reads `[edge.*]` — so filed the deeper representation fork as `(edge-representation-unify)`.
-- **Pickable now (1 `open`):** READ-EDGE-UNIFY (single atomic edge-source unification; no
-  parallel peer). Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (human
-  release creds).
+  roster set-scope + graph predicates, custom kinds, read verbs, section_contains, typed
+  extraction.
+- **This tick:** filed two disk-verified code↔spec gaps — **REFERENCE-NORMALIZATION**
+  (engine gains the kind-declared `strip_suffix` the dogfood spec KIND.md waits on;
+  `graph::resolved_edges` does exact match with no normalization today) and
+  **CONTRACTS-RETIRE** (the `contracts/*.toml` mirror is dead — nothing loads it since
+  build.rs embeds `packages/` — the spec's 'no contracts/ mirror' wants it gone). Drained
+  the inbox: **COMMENT-DIET** fanned out per heavy-offender module (8 disjoint entries;
+  the `kind.rs` sweep serialized `blockedBy` REFERENCE-NORMALIZATION since both edit that
+  file). SPEC-DECISION-DOGFOOD noted shipped-by-hand, not re-filed (`.temper/**` is human
+  territory).
+- **Pickable now (9 `open`, all disjoint files):** REFERENCE-NORMALIZATION (src/kind.rs),
+  CONTRACTS-RETIRE (delete-only), and 7 COMMENT-DIET sweeps (compose/main/roster/drift/
+  graph/import/contract — one file each). Serialized: COMMENT-DIET(kind) `blockedBy`
+  REFERENCE-NORMALIZATION. Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS.
 
-Plan continues: no — inbox drained, queue reconciled, READ-EDGE-UNIFY is pickable
-`open`; building drains it.
+Plan continues: no — inbox drained, queue reconciled, nine disjoint `open` entries are
+pickable; building drains them.
