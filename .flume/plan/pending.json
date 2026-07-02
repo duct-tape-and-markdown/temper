@@ -1,5 +1,62 @@
 [
   {
+    "tag": "MEMORY-KIND",
+    "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Two categories of kind — ownership, not mechanism"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "the curated kinds/memory/KIND.md + packages/memory.anthropic/PACKAGE.md are outside build's fence (curated std-lib — a human authors them, cited to code.claude.com/docs/en/memory); and the no-frontmatter projection format + the `@path` edge extraction primitive are deliberate closed-vocab additions a human must sanction before the engine wiring can land"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "kinds/memory/KIND.md",
+          "description": "The embedded built-in `memory` KIND.md (curated — humans author it, outside build's fence), beside kinds/skill and kinds/rule. Format facts per specs/15-kinds.md: no frontmatter, `@`-imports, dual root locus (project `./CLAUDE.md` + user `~/.claude/CLAUDE.md`). Declares a no-frontmatter projection format, markdown-structure extraction over the body, and `@path` imports as declared edges. build.rs auto-embeds it."
+        },
+        {
+          "path": "packages/memory.anthropic/PACKAGE.md",
+          "description": "The memory kind's built-in package `memory.anthropic` (curated product territory, outside build's fence), embedded with the std-lib by build.rs. Decidable clauses only over the memory format, per-clause `source` citations to the Claude Code memory docs (code.claude.com/docs/en/memory); the `@path` imports resolve as a referential clause over the declared edge (never a body grep — law 8)."
+        },
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: broken/clean memory fixtures through the generic adapter + loader, plus an import round-trip insta snapshot proving idempotence over a no-frontmatter unit."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:361 + parse_primitive load-guard kind.rs:933). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/15-kinds.md Decision: extraction is a closed algebra)."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "Add a `MEMORY_PACKAGE = \"memory.anthropic\"` const and register the memory kind→package binding beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:32-37). build.rs auto-embeds the PACKAGE.md; no manual embed edit."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "The extractor helpers behind the memory format: an `@path`-import reader over the markdown body yielding declared edges (mirroring body_headings/body_sections), and the no-frontmatter unit read face (empty frontmatter map, body is the whole file)."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "The generic adapter's no-frontmatter format path: split/emit a memory member whose on-disk artifact carries no YAML frontmatter (the `yaml-frontmatter` adapter assumes a fence), byte-deterministic re-emission of the body."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/memory_contract.rs",
+        "asserts": "the memory package's decidable clauses fire on broken fixtures and stay silent on clean; a no-frontmatter memory member imports and re-emits idempotently (insta snapshot); an `@path` import resolves as a declared edge and a dangling one is a coverage finding."
+      }
+    ],
+    "acceptance": "`temper check` dispatches the CLAUDE.md family to `memory.anthropic`; `temper import` projects memory files as no-frontmatter members idempotently via the generic adapter; the `@path` edge primitive builds the memory graph; cargo fmt/clippy -D warnings/test all green. (Parked: not built until the curated KIND.md/PACKAGE.md are human-authored and the format/primitive additions sanctioned.)",
+    "notes": "Drained from the open-questions CLAUDE.md-bootstrap recipe (DFA shipped, so it's fileable). Memory is the flip-ceremony proof — shipping it moves CLAUDE.md onto the surface. Curated KIND.md/PACKAGE.md are outside build's fence: a human authors them (cited code.claude.com/docs/en/memory), then engine wiring lands. NB `@path` is its own edge primitive, NOT EXTRACTION-VOCAB-GAPS's fenced/key-path — that entry stays deferred, not revived here."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds.md lists but code lacks — a `fenced` block extractor and key-path (nested) `field` lookup — held until a consumer kind needs them",
     "per": {
@@ -8,7 +65,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule/spec) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — MEMORY-KIND's `@path` executed-reference syntax, a JSON-manifest kind's nested key-path field, or a spec class kind's fenced-block extraction."
+      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — a JSON-manifest kind's nested key-path field, or a spec/class kind's fenced-block extraction. (NB memory's `@path` is a separate edge primitive, not one of these — MEMORY-KIND does not revive this.)"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +73,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:322-344); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:366) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:895). This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:361-382); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:404) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:933). This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
@@ -33,7 +90,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk audit re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (kind.rs:322-344); `Field` reads flat `frontmatter.get(key)` (kind.rs:366), no key-path. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. On revival, serialize the shared-file edits against any open kind.rs entry (esp. DECLARED-FRONTMATTER-ADAPTER, which also edits src/kind.rs)."
+    "notes": "Disk re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (kind.rs:361-382); `Field` reads flat `frontmatter.get(key)` (kind.rs:404), no key-path; load-guard parse_primitive at kind.rs:933. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. MEMORY-KIND does NOT revive this: `@path` is a distinct edge primitive, not fenced/key-path."
   },
   {
     "tag": "AGENT-KIND",
@@ -51,7 +108,7 @@
       "new": [
         {
           "path": "kinds/agent/KIND.md",
-          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), beside kinds/skill and kinds/rule: `governs = { root = '.claude/agents', glob = '*.md' }`, the declared projection format + unit shape (post DECLARED-FRONTMATTER-ADAPTER), composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. build.rs auto-embeds it — no engine extractor."
+          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), beside kinds/skill and kinds/rule: `governs = { root = '.claude/agents', glob = '*.md' }`, the declared `yaml-frontmatter` projection format + unit shape, composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. build.rs auto-embeds it — no engine extractor."
         },
         {
           "path": "packages/agent.anthropic/PACKAGE.md",
@@ -69,7 +126,7 @@
         },
         {
           "path": "src/builtin.rs",
-          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const and register it in the built-in package map beside `skill.anthropic`/`rule.anthropic`. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
+          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:32-37) and register its kind→package binding. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
         }
       ],
       "retire": []
@@ -82,7 +139,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Rewritten for the declared-adapter architecture: no src/agent.rs typed IR — the generic adapter projects it. The agent kind is a curated kinds/agent/KIND.md + packages/agent.anthropic/PACKAGE.md (outside build's fence) plus near-zero engine wiring: add \"agent\" to BUILTIN_KINDS (kind.rs) + an AGENT_PACKAGE binding (builtin.rs); build.rs auto-embeds. Deferred: more built-in kinds is the wrong direction under requirements/satisfies, and blocked on the adapter wave draining."
+    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS kind.rs:30 + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Adapter wave drained (DFA shipped). Stays deferred: more built-in kinds is the wrong direction under requirements/satisfies."
   },
   {
     "tag": "PACKAGING-CHANNELS",
