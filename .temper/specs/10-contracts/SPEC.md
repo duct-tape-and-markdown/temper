@@ -1,7 +1,7 @@
 +++
 [provenance]
 source_path = "./specs/10-contracts.md"
-import_hash = "9cf3afc1e036f05f2dbd42ea559a96a755902d9eb57e46bd14dddf7d28076ac0"
+import_hash = "57baca7a347318ddd3597c55cb06426135a0f609e1512d13818a03ca364bd05d"
 +++
 # Contracts — the two-layer model
 
@@ -60,9 +60,10 @@ hatch (law 3). The primitives:
   `section_contains` `{heading, marker}` (every section whose heading starts with
   the declared text carries the declared marker — the predicate behind the spec
   kind's decisions-name-alternatives, `15-kinds.md`).
-- **referential** — a reference resolves — *only over a precisely declared
-  reference syntax* (e.g. markdown links, an explicit `@path`), never by grepping
-  prose. If the author can't name the reference syntax, the clause is not
+- **referential** — a reference resolves — *only over a declared structured
+  field, or a reference syntax the external format itself executes* (a
+  `CLAUDE.md` `@path` import), never by grepping prose (law 8, `00-intent.md`).
+  If the author can't name the reference syntax, the clause is not
   admissible (this is exactly what made the slice-1 `companion-refs` rule unsound;
   see Decision below).
 - **cross-artifact** — names unique within a kind; `name-matches-dir`. (A general
@@ -101,7 +102,8 @@ A requirement declares — all facets optional except its name:
   proxy; law 3); the surface carries and organizes it (`20-surface.md`).
 - **fill** — a requirement and a member's `satisfies` are the **two ends of one edge**;
   the obligation is met when they join. Neither end is primary: the requirement is
-  declared in the assembly, the `satisfies` on the member's own representation, and
+  declared by its **publisher** — the assembly, or a member's own header (Decision
+  below) — the `satisfies` on the member's own representation, and
   `check` **resolves the join** (an unfilled requirement and a dangling `satisfies` are
   the same diagnostic from opposite sides — Coverage, below). This is the *only* fill:
   there is deliberately **no contract-side name/glob `match`** — a name pattern is the
@@ -131,6 +133,21 @@ package  = "lint-standards"          # …that also conforms to this package (co
 # a rule opts in from its representation:  satisfies = ["linter"]
 required = true
 ```
+
+### Decision: a requirement's publisher is any authored surface document
+
+**Chosen:** a requirement may be published by the **assembly** (a project-level
+obligation: "this harness carries a rule for X") or by a **member's own header**
+(a concept-level obligation: "the entity this spec declares must be satisfied by
+an `architecture` member" — the classed corpus, `90-spec-system.md`). One
+namespace, one fill mechanism, one coverage gate: `satisfies` is the same opt-in
+claim whoever published the demand, and a name collision across publishers is an
+admissibility finding, never a shadowing rule. This is how inter-artifact
+structure is authored **intentionally on each side** — the demand declared at
+the concept's home, the fill claimed with a rationale at the satisfier — with no
+third mechanism to learn. **Rejected:** a separate member-to-member pairing
+vocabulary beside requirements — two names for one edge ("a demand, met by a
+declared opt-in") would fork the model the read verbs teach (`20-surface.md`).
 
 ### Coverage — the one referential check
 

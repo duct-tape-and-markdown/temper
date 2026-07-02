@@ -13,32 +13,32 @@ last_applied = "5168b1ac38309b1bd6885ac8fe887b51764079541ca938c4657ac05eba4131d2
 [[spec]]
 name = "00-intent"
 source_path = "./specs/00-intent.md"
-import_hash = "709e5c5244cb06b1b8d8b12d43ff184c6587375ad7e5fef08d947c46ac6297df"
-last_applied = "709e5c5244cb06b1b8d8b12d43ff184c6587375ad7e5fef08d947c46ac6297df"
+import_hash = "7dcb4d434557932432236d7abb11e5cbc843d203267a8c7dd542f5c9c24b1ae6"
+last_applied = "7dcb4d434557932432236d7abb11e5cbc843d203267a8c7dd542f5c9c24b1ae6"
 
 [[spec]]
 name = "05-model"
 source_path = "./specs/05-model.md"
-import_hash = "e27c1a7cf0400116fb61ffe1e83eb8819a97cef43fad6c951d691c142d8f4e64"
-last_applied = "e27c1a7cf0400116fb61ffe1e83eb8819a97cef43fad6c951d691c142d8f4e64"
+import_hash = "e37a0eb632c1b42518b21dfb626e1c746fd9fae471c2fa934de8702e9c504a46"
+last_applied = "e37a0eb632c1b42518b21dfb626e1c746fd9fae471c2fa934de8702e9c504a46"
 
 [[spec]]
 name = "10-contracts"
 source_path = "./specs/10-contracts.md"
-import_hash = "9cf3afc1e036f05f2dbd42ea559a96a755902d9eb57e46bd14dddf7d28076ac0"
-last_applied = "9cf3afc1e036f05f2dbd42ea559a96a755902d9eb57e46bd14dddf7d28076ac0"
+import_hash = "57baca7a347318ddd3597c55cb06426135a0f609e1512d13818a03ca364bd05d"
+last_applied = "57baca7a347318ddd3597c55cb06426135a0f609e1512d13818a03ca364bd05d"
 
 [[spec]]
 name = "15-kinds"
 source_path = "./specs/15-kinds.md"
-import_hash = "377c0676bcd3113503922691d7d4fd07f77a4ea276fdc5059433760359b0d7ea"
-last_applied = "377c0676bcd3113503922691d7d4fd07f77a4ea276fdc5059433760359b0d7ea"
+import_hash = "48ace201213fa53eb01ee8eabe7046b329e30c42d65a4c913ff45ac66e4c02d1"
+last_applied = "48ace201213fa53eb01ee8eabe7046b329e30c42d65a4c913ff45ac66e4c02d1"
 
 [[spec]]
 name = "20-surface"
 source_path = "./specs/20-surface.md"
-import_hash = "da7f666b5f5b611a0889cde2b7b01cd775a9a15ab8ac8907a3ed10b289c6b984"
-last_applied = "da7f666b5f5b611a0889cde2b7b01cd775a9a15ab8ac8907a3ed10b289c6b984"
+import_hash = "7b801201d5269ec39a7be948babb2fd023c1b0444494190b34e830702dbb914e"
+last_applied = "7b801201d5269ec39a7be948babb2fd023c1b0444494190b34e830702dbb914e"
 
 [[spec]]
 name = "30-landscapes"
@@ -49,8 +49,8 @@ last_applied = "2b4de49277fb9785d66b74ac71825c08cfa5dad659f91ce23cb0cdaf87db781b
 [[spec]]
 name = "40-composition"
 source_path = "./specs/40-composition.md"
-import_hash = "2c286770bb639b6d87af66c8bf8dead45155c3f6ce9286cea9ddae238ec1a838"
-last_applied = "2c286770bb639b6d87af66c8bf8dead45155c3f6ce9286cea9ddae238ec1a838"
+import_hash = "78e65751b399ecf651fa7140c29e11de53f1d54b4fcfea4fa5756bd23fff3b19"
+last_applied = "78e65751b399ecf651fa7140c29e11de53f1d54b4fcfea4fa5756bd23fff3b19"
 
 [[spec]]
 name = "45-governance"
@@ -61,8 +61,8 @@ last_applied = "a81c1723bf4b10e3ffc7aa43b29d40b729c49c8b76c2e0849442dcdecb0c93cd
 [[spec]]
 name = "50-distribution"
 source_path = "./specs/50-distribution.md"
-import_hash = "617aa93a7b26a202179cd7dda5fe58ced889add292ecf2b541625c85b74d790c"
-last_applied = "617aa93a7b26a202179cd7dda5fe58ced889add292ecf2b541625c85b74d790c"
+import_hash = "00bc1bf4377a6accdf44415a5ff5ac2c8d8da1db9ad0be01cdaec6a9a5187a93"
+last_applied = "00bc1bf4377a6accdf44415a5ff5ac2c8d8da1db9ad0be01cdaec6a9a5187a93"
 
 [[spec]]
 name = "55-offering"
@@ -73,5 +73,5 @@ last_applied = "a9980239faa7e6dc3fb23c7e22e343718e866e3ce4c2913ee469ace8d3d9817d
 [[spec]]
 name = "90-spec-system"
 source_path = "./specs/90-spec-system.md"
-import_hash = "bd2629e6385a697f58a21492baf11b76612c96ded010071b93b34051e132ae8f"
-last_applied = "bd2629e6385a697f58a21492baf11b76612c96ded010071b93b34051e132ae8f"
+import_hash = "31187625e91d6535f8214ba3804aa80c4c39bb483ffa69db5f11076f77c86f52"
+last_applied = "31187625e91d6535f8214ba3804aa80c4c39bb483ffa69db5f11076f77c86f52"

@@ -1,7 +1,7 @@
 +++
 [provenance]
 source_path = "./specs/05-model.md"
-import_hash = "e27c1a7cf0400116fb61ffe1e83eb8819a97cef43fad6c951d691c142d8f4e64"
+import_hash = "e37a0eb632c1b42518b21dfb626e1c746fd9fae471c2fa934de8702e9c504a46"
 +++
 # The domain model — temper's own concepts
 
@@ -73,9 +73,9 @@ The vocabulary; the **owning spec** carries the detail.
 | **landscape** | a corpus of artifacts (≥1 kinds) governed by the assembly | `30-landscapes.md` |
 | **surface** | the authored source of truth; projects to the landscape | `20-surface.md` |
 | projection | the on-disk landscape `apply` writes from the surface | `20-surface.md` |
-| **requirement** | the assembly-side end of a fill edge: a named obligation (optional `means`, typing `kind`/`package`, multiplicity), joined to a member by `satisfies` — the sole binding, no name-`match` (the contract never guesses); coverage-gated, never judged | `10-contracts.md` |
+| **requirement** | the demand-side end of a fill edge, published by the assembly or a member's header: a named obligation (optional `means`, typing `kind`/`package`, multiplicity), joined to a member by `satisfies` — the sole binding, no name-`match` (the contract never guesses); coverage-gated, never judged | `10-contracts.md` |
 | **satisfies** | the member-side end of the same edge: an artifact's opt-in declaration (in its representation) that it fills a requirement — the sole, decidable fill | `10-contracts.md` |
-| entity / relationship | nodes / edges of a kind's dependency graph | `15` / `30` |
+| entity / relationship | nodes / edges of a kind's dependency graph — declared in headers and structured fields, never mined from prose (law 8) | `15` / `45` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
 | verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |
 | behavioral contract | the prose surplus beyond the declared model (tier-3, human) | `00` / `30` |
