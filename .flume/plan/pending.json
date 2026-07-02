@@ -7,8 +7,7 @@
       "section": "The world is a node — reachability is a predicate"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "ACTIVATION-KEY-PARSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "Add the distinguished **world** node and a `reachable` predicate over a member's declared activation (the typed `Activation` from ACTIVATION-KEY-PARSE): a `description-trigger` member whose named field is blank, or a `paths-match` member whose globs match zero repo files, has a dead inbound activation edge and is decidably unreachable — an exact fact at check time. Mirrors the `degree`/`acyclic` predicate shape already in this module; severity is the package/assembly's clause choice, like every other predicate."
+          "description": "Add the distinguished **world** node and a `reachable` predicate over a member's declared activation. The typed `Activation` (Always / DescriptionTrigger{field} / PathsMatch{field} / Event{field}) + `parse_activation` shipped in kind.rs (ACTIVATION-KEY-PARSE, ceb8bba) on `CustomKind.activation`; nothing consumes it yet. Rule: a `description-trigger(field)` member whose named field is blank, or a `paths-match(field)` member whose globs match zero files in a supplied repo file-set, has a dead inbound activation edge and is decidably unreachable — an exact fact at check time; a kind declaring no activation is not subject. Mirror the `degree`/`acyclic` shape already in this module: a pure `fn` over its inputs returning `Vec<Diagnostic>`, taking the activation-per-kind map and the repo file-set as *parameters* so it stays testable and the blast radius is graph.rs only. Zero-match globs is graph.rs's to implement (glob→regex over the sanctioned `regex` crate) over that file-set. Severity is the package's clause choice, like every other predicate."
         },
         {
           "path": "tests/graph.rs",
@@ -32,8 +31,8 @@
         "asserts": "a live activation edge is reachable; a blank description-trigger field and zero-match paths globs are each unreachable findings; a kind with no declared activation is unaffected."
       }
     ],
-    "acceptance": "the graph carries a world node and a decidable `reachable` predicate over declared activation; cargo fmt/clippy -D warnings/test green. (Curated skill/rule activation lines — a human chore after ACTIVATION-KEY-PARSE — are what make the dogfood self-check fire; the machinery is proven against fixtures first.)",
-    "notes": "Inbox item (3). Blocked on ACTIVATION-KEY-PARSE (consumes the typed Activation). The zero-match-globs case needs scanning the governed repo for matches — a capability beyond the pure blank-field case; scope may widen (compose.rs/check.rs wiring for the predicate declaration) and gets refiled when the upstream lands. Machinery-first (package-surface-sequencing): built against fixtures, curated lines follow."
+    "acceptance": "graph.rs carries a world node and a pure, decidable `reachable(...)` over declared `Activation` — blank description-trigger field and zero-match paths globs both flagged, no-activation kinds exempt — proven against fixtures; cargo fmt/clippy -D warnings/test green. Gate-side wiring (main.rs scanning the real repo) + the severity-carrying package clause + the curated kinds/skill|rule activation lines (a human chore, outside the fence) that make the dogfood self-check fire are the follow-on — the machinery is proven against fixtures first.",
+    "notes": "Unblocked: ACTIVATION-KEY-PARSE shipped (ceb8bba) — typed `Activation` + parse_activation now in kind.rs, verified on disk. Only src/graph.rs + tests/graph.rs; disjoint — no other open entry touches graph.rs. The repo file-set is a *parameter* (not a new graph dependency), so blast radius stays graph.rs; zero-match globs via the sanctioned `regex` crate. Gate wiring + clause declaration + curated activation lines follow (machinery-first, package-surface-sequencing)."
   },
   {
     "tag": "MEMORY-KIND",
@@ -65,7 +64,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:361 + parse_primitive load-guard kind.rs:933). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/15-kinds.md Decision: extraction is a closed algebra)."
+          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:456 + parse_primitive load-guard kind.rs:1048). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/15-kinds.md Decision: extraction is a closed algebra)."
         },
         {
           "path": "src/builtin.rs",
@@ -109,7 +108,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:361-382); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:404) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:933). This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:456-477); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:499) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:1048). This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
@@ -126,7 +125,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (kind.rs:361-382); `Field` reads flat `frontmatter.get(key)` (kind.rs:404), no key-path; load-guard parse_primitive at kind.rs:933. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. MEMORY-KIND does NOT revive this: `@path` is a distinct edge primitive, not fenced/key-path."
+    "notes": "Disk re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (kind.rs:456-477); `Field` reads flat `frontmatter.get(key)` (kind.rs:499), no key-path; load-guard parse_primitive at kind.rs:1048. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. MEMORY-KIND does NOT revive this: `@path` is a distinct edge primitive, not fenced/key-path."
   },
   {
     "tag": "AGENT-KIND",
