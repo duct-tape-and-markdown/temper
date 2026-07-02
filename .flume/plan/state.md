@@ -1,28 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile. Queue reconciled to the corpus; inbox drained; tree clean.
-  HEAD 2521f7d.
-- **Last shipped (trunk):** the corpus gates on its Decision discipline (2521f7d,
-  hand) — decisions-name-alternatives required in the dogfood; READ-EDGE-UNIFY (6e80405)
-  before it. Verified on disk: the `packages/` migration has fully landed — build.rs
-  embeds built-in packages from `packages/<name>/PACKAGE.md` (src/builtin.rs); `.temper/`
-  is authored; custom kinds feed the graph's `by_kind`. The engine stays broad —
-  import/check/drift/apply/re-add, bundle, install, schema, reporters, coverage/graph,
-  roster set-scope + graph predicates, custom kinds, read verbs, section_contains, typed
-  extraction.
-- **This tick:** filed two disk-verified code↔spec gaps — **REFERENCE-NORMALIZATION**
-  (engine gains the kind-declared `strip_suffix` the dogfood spec KIND.md waits on;
-  `graph::resolved_edges` does exact match with no normalization today) and
-  **CONTRACTS-RETIRE** (the `contracts/*.toml` mirror is dead — nothing loads it since
-  build.rs embeds `packages/` — the spec's 'no contracts/ mirror' wants it gone). Drained
-  the inbox: **COMMENT-DIET** fanned out per heavy-offender module (8 disjoint entries;
-  the `kind.rs` sweep serialized `blockedBy` REFERENCE-NORMALIZATION since both edit that
-  file). SPEC-DECISION-DOGFOOD noted shipped-by-hand, not re-filed (`.temper/**` is human
-  territory).
-- **Pickable now (9 `open`, all disjoint files):** REFERENCE-NORMALIZATION (src/kind.rs),
-  CONTRACTS-RETIRE (delete-only), and 7 COMMENT-DIET sweeps (compose/main/roster/drift/
-  graph/import/contract — one file each). Serialized: COMMENT-DIET(kind) `blockedBy`
-  REFERENCE-NORMALIZATION. Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS.
+- **Phase:** reconcile. Queue reconciled to the corpus; inbox empty; tree clean.
+  HEAD 362ae6c.
+- **Last shipped (trunk):** REFERENCE-NORMALIZATION + COMMENT-DIET(compose,main)
+  (362ae6c, build). Verified on disk: `strip_suffix` is on the `references` primitive
+  in src/kind.rs (the kind-declared normalization, `15-kinds.md`); compose.rs/main.rs
+  swept. The engine stays broad — import/check/drift/apply/re-add, bundle, install,
+  schema, reporters, coverage/graph, roster set-scope + graph predicates, custom kinds,
+  read verbs, section_contains, typed extraction.
+- **This tick:** unblocked **COMMENT-DIET(kind)** — its `blockedBy
+  REFERENCE-NORMALIZATION` cleared now that the `strip_suffix` addition has landed, and
+  kind.rs is disjoint from every other open entry, so the sweep is parallel-safe. No new
+  gaps: **CONTRACTS-RETIRE** (dead `contracts/*.toml` mirror — nothing loads it; build.rs
+  embeds `packages/`; only comments + a test-fixture string name it) remains the one
+  code↔spec gap outstanding. Inbox was empty.
+- **Pickable now (8 `open`, all disjoint files):** CONTRACTS-RETIRE (delete-only) and
+  7 COMMENT-DIET sweeps (roster/drift/graph/import/contract/kind — one file each).
+  Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (release creds).
 
-Plan continues: no — inbox drained, queue reconciled, nine disjoint `open` entries are
+Plan continues: no — queue reconciled, inbox empty, eight disjoint `open` entries are
 pickable; building drains them.

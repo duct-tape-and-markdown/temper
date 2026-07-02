@@ -156,8 +156,7 @@
       "section": "Style & structure"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REFERENCE-NORMALIZATION"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -173,7 +172,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "`src/kind.rs` carries only the sanctioned comment classes; the diff changes zero code; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Serialized after REFERENCE-NORMALIZATION — both edit `src/kind.rs`, so parallel `open` would merge-conflict and spin the wave (the GOV-RANGE/GOV-COUNT failure). Sweep kind.rs once the `strip_suffix` field addition has landed."
+    "notes": "Unblocked: REFERENCE-NORMALIZATION shipped (362ae6c) — `strip_suffix` is on the `references` primitive in src/kind.rs. No open entry touches kind.rs now, so the sweep is parallel-safe. kind.rs still carries a ~40-line `//!` head plus restated-spec narrative to trim (398 comment lines, the queue's heaviest offender)."
   },
   {
     "tag": "AGENT-KIND",
