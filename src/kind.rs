@@ -71,6 +71,43 @@ pub struct CustomKind {
     /// (`specs/15-kinds.md`), each an [`Edge`] whose `from` is this kind. Parsed
     /// from the header's `[[relationships]]` array. Absent ⇒ empty.
     pub relationships: Vec<Edge>,
+    /// The declared projection format — how a member's on-disk artifact is shaped
+    /// (`specs/15-kinds.md`, "the adapter faces are declared"). A closed vocabulary;
+    /// absent ⇒ `None` (today's built-in KIND.md declare none). Inert until
+    /// DECLARED-FRONTMATTER-ADAPTER: parsed and typed, consumed by nothing yet.
+    pub format: Option<Format>,
+    /// The declared unit shape — whether a member is a lone file (id from the stem)
+    /// or a directory with companions (id from the directory name)
+    /// (`specs/15-kinds.md`). A closed enum; absent ⇒ `None`. Inert alongside
+    /// [`format`](CustomKind::format).
+    pub unit_shape: Option<UnitShape>,
+}
+
+/// A kind's declared **projection format** — the closed vocabulary naming how a
+/// member's on-disk artifact is shaped (`specs/15-kinds.md`, "Decision: the adapter
+/// faces are declared"). The engine implements each format once, generically; the
+/// first and only harvested entry is [`YamlFrontmatter`](Format::YamlFrontmatter).
+/// Any other value is a load error, the same closed-vocabulary guard the extraction
+/// primitives carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Format {
+    /// `yaml-frontmatter` — YAML frontmatter over a markdown body, the Claude Code
+    /// family's shape.
+    YamlFrontmatter,
+}
+
+/// A kind's declared **unit shape** — the format fact that varies per kind
+/// (`specs/15-kinds.md`): whether a member's on-disk artifact is a lone file, its
+/// identity the filename stem, or a directory with companions, its identity the
+/// directory name. A closed enum; any other value is a load error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnitShape {
+    /// `file` — a lone file; the member's id is its filename stem (a rule's
+    /// `.claude/rules/rust.md`).
+    File,
+    /// `directory` — a directory with companions; the member's id is the directory
+    /// name (a skill's `.claude/skills/<name>/SKILL.md`).
+    Directory,
 }
 
 impl CustomKind {
@@ -101,14 +138,18 @@ impl CustomKind {
 
     /// Parse a custom kind's definition off a `KIND.md` header table — the
     /// [`governs`](CustomKind::governs) locus, the `[[extraction]]` extractor (via
-    /// [`Extraction::from_table`]), and the `[[relationships]]` edges. The seam
-    /// tests drive without touching disk. A header carries only `governs`,
-    /// `extraction`, and `relationships`; any stray key is a
+    /// [`Extraction::from_table`]), the `[[relationships]]` edges, and the declared
+    /// adapter faces ([`format`](CustomKind::format), [`unit_shape`](CustomKind::unit_shape)).
+    /// The seam tests drive without touching disk. A header carries only `governs`,
+    /// `extraction`, `relationships`, `format`, and `unit_shape`; any stray key is a
     /// [`KindError::UnknownKey`], rejected rather than silently dropped
     /// (`specs/10-contracts.md`).
     pub fn from_header(table: &Table, name: &str, path: &Path) -> Result<Self, KindError> {
         for (key, _) in table.iter() {
-            if !matches!(key, "governs" | "extraction" | "relationships") {
+            if !matches!(
+                key,
+                "governs" | "extraction" | "relationships" | "format" | "unit_shape"
+            ) {
                 return Err(KindError::UnknownKey {
                     path: path.to_path_buf(),
                     kind: name.to_string(),
@@ -119,11 +160,15 @@ impl CustomKind {
         let governs = parse_governs(table, name, path)?;
         let extraction = Extraction::from_table(table, path)?;
         let relationships = parse_relationships(table, name, path)?;
+        let format = parse_format(table, name, path)?;
+        let unit_shape = parse_unit_shape(table, name, path)?;
         Ok(Self {
             name: name.to_string(),
             governs,
             extraction,
             relationships,
+            format,
+            unit_shape,
         })
     }
 }
@@ -197,6 +242,64 @@ fn parse_relationships(table: &Table, kind: &str, path: &Path) -> Result<Vec<Edg
         });
     }
     Ok(edges)
+}
+
+/// Parse a `KIND.md` header's optional `format` key into a typed [`Format`]
+/// (`specs/15-kinds.md`, "the adapter faces are declared"). Absent ⇒ `Ok(None)`,
+/// still valid — today's built-in KIND.md declare none. A non-string or an
+/// out-of-vocabulary string is a [`KindError::OutOfVocab`], the closed-vocabulary
+/// guard the extraction primitives carry applied to the projection-format face.
+fn parse_format(table: &Table, kind: &str, path: &Path) -> Result<Option<Format>, KindError> {
+    let Some(item) = table.get("format") else {
+        return Ok(None);
+    };
+    match item.as_str() {
+        Some("yaml-frontmatter") => Ok(Some(Format::YamlFrontmatter)),
+        other => Err(KindError::OutOfVocab {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+            key: "format",
+            value: other
+                .map(str::to_string)
+                .unwrap_or_else(|| render_item(item)),
+            expected: "`yaml-frontmatter`",
+        }),
+    }
+}
+
+/// Parse a `KIND.md` header's optional unit-shape key into a typed [`UnitShape`]
+/// (`specs/15-kinds.md`). Absent ⇒ `Ok(None)`; a non-string or an out-of-vocabulary
+/// string is a [`KindError::OutOfVocab`], folding every malformation into one error
+/// as [`parse_format`] does for the projection face.
+fn parse_unit_shape(
+    table: &Table,
+    kind: &str,
+    path: &Path,
+) -> Result<Option<UnitShape>, KindError> {
+    let Some(item) = table.get("unit_shape") else {
+        return Ok(None);
+    };
+    match item.as_str() {
+        Some("file") => Ok(Some(UnitShape::File)),
+        Some("directory") => Ok(Some(UnitShape::Directory)),
+        other => Err(KindError::OutOfVocab {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+            key: "unit_shape",
+            value: other
+                .map(str::to_string)
+                .unwrap_or_else(|| render_item(item)),
+            expected: "`file` or `directory`",
+        }),
+    }
+}
+
+/// Render a non-string header value for an [`KindError::OutOfVocab`] diagnostic — its
+/// TOML text with surrounding decor trimmed, so `format = 7` reports `7`.
+fn render_item(item: &Item) -> String {
+    item.as_value()
+        .map(|value| value.to_string().trim().to_string())
+        .unwrap_or_else(|| "a table".to_string())
 }
 
 /// A custom kind's composed extractor: an ordered set of deterministic
@@ -628,13 +731,14 @@ pub enum KindError {
     },
 
     /// A `KIND.md` header carries a key outside its closed set (`governs`,
-    /// `extraction`, `relationships`) — a leftover `clause`, an `entities` table, or
-    /// a typo — rejected at load rather than silently dropped (`specs/10-contracts.md`).
+    /// `extraction`, `relationships`, `format`, `unit_shape`) — a leftover `clause`,
+    /// an `entities` table, or a typo — rejected at load rather than silently dropped
+    /// (`specs/10-contracts.md`).
     #[error("{path}: custom kind `{kind}` definition has unknown key `{key}`")]
     #[diagnostic(
         code(temper::kind::unknown_key),
         help(
-            "a `KIND.md` definition carries only `governs`, `extraction`, and `relationships` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
+            "a `KIND.md` definition carries only `governs`, `extraction`, `relationships`, `format`, and `unit_shape` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
         )
     )]
     UnknownKey {
@@ -674,6 +778,28 @@ pub enum KindError {
         kind: String,
         /// The zero-based position of the malformed relationship in declaration order.
         index: usize,
+    },
+
+    /// A `KIND.md` header's `format` or `unit_shape` key names a value outside its
+    /// closed vocabulary — the same closed-algebra guard the extraction primitives
+    /// carry (`specs/15-kinds.md`, "the adapter faces are declared"), applied to the
+    /// declared adapter faces. Rejected at load, never silently coerced; a non-string
+    /// value folds into this error too.
+    #[error(
+        "{path}: custom kind `{kind}` key `{key}` has out-of-vocabulary value `{value}` (expected {expected})"
+    )]
+    #[diagnostic(code(temper::kind::out_of_vocab))]
+    OutOfVocab {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The kind whose adapter-face declaration is out of vocabulary.
+        kind: String,
+        /// The offending key — `format` or `unit_shape`.
+        key: &'static str,
+        /// The rejected value, as authored.
+        value: String,
+        /// The closed vocabulary that was expected, for the message.
+        expected: &'static str,
     },
 }
 
@@ -1254,5 +1380,66 @@ import_hash = \"deadbeef\"\n\
 
         let err = Unit::from_surface_dir(&dir).unwrap_err();
         assert!(matches!(err, KindError::SurfaceBody { found: 2, .. }));
+    }
+
+    /// Build a `CustomKind` off a `KIND.md`-shaped header, `governs` inline so the
+    /// adapter-face keys sit at the top level regardless of order. Drives
+    /// [`CustomKind::from_header`] without touching disk.
+    fn kind_from_header(extra: &str) -> Result<CustomKind, KindError> {
+        let src = format!("governs = {{ root = \"specs\", glob = \"*.md\" }}\n{extra}");
+        let doc = src.parse::<DocumentMut>().unwrap();
+        CustomKind::from_header(doc.as_table(), "spec", Path::new("kinds/spec/KIND.md"))
+    }
+
+    #[test]
+    fn absent_format_and_unit_shape_keys_parse_as_none() {
+        // The built-in-kind default — today's KIND.md carry neither, and absence is
+        // valid: the fields stay `None`, nothing invented.
+        let kind = kind_from_header("").unwrap();
+        assert_eq!(kind.format, None);
+        assert_eq!(kind.unit_shape, None);
+    }
+
+    #[test]
+    fn a_declared_format_and_each_unit_shape_variant_parse_into_typed_fields() {
+        let lone =
+            kind_from_header("format = \"yaml-frontmatter\"\nunit_shape = \"file\"\n").unwrap();
+        assert_eq!(lone.format, Some(Format::YamlFrontmatter));
+        assert_eq!(lone.unit_shape, Some(UnitShape::File));
+
+        // The other unit-shape variant — a directory with companions, id from the dir.
+        let dir = kind_from_header("unit_shape = \"directory\"\n").unwrap();
+        assert_eq!(dir.unit_shape, Some(UnitShape::Directory));
+    }
+
+    #[test]
+    fn an_out_of_vocab_format_is_a_load_error() {
+        // The closed vocabulary guards the projection face exactly as it guards the
+        // extraction primitives: an unknown format is rejected at load, never coerced.
+        let err = kind_from_header("format = \"toml-frontmatter\"\n").unwrap_err();
+        assert!(matches!(
+            err,
+            KindError::OutOfVocab { key: "format", ref value, .. } if value == "toml-frontmatter"
+        ));
+    }
+
+    #[test]
+    fn an_out_of_vocab_unit_shape_is_a_load_error() {
+        let err = kind_from_header("unit_shape = \"symlink\"\n").unwrap_err();
+        assert!(matches!(
+            err,
+            KindError::OutOfVocab { key: "unit_shape", ref value, .. } if value == "symlink"
+        ));
+    }
+
+    #[test]
+    fn a_header_carrying_both_adapter_face_keys_no_longer_trips_unknown_key() {
+        // Inbox sequencing (`FORMAT-KEY-PARSE`): before this entry a KIND.md carrying
+        // `format`/`unit_shape` lines tripped `UnknownKey`. They now parse into typed
+        // fields, so a human can add the two curated lines without turning checks red.
+        let kind = kind_from_header("format = \"yaml-frontmatter\"\nunit_shape = \"directory\"\n")
+            .unwrap();
+        assert_eq!(kind.format, Some(Format::YamlFrontmatter));
+        assert_eq!(kind.unit_shape, Some(UnitShape::Directory));
     }
 }
