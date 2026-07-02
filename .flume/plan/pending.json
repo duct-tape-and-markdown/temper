@@ -1,42 +1,5 @@
 [
   {
-    "tag": "APPLY-REEMIT-PROJECTION",
-    "summary": "`apply` re-emits the projection deterministically from the member document — retire the surgical frontmatter-patch path the re-emit Decision supersedes",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Decision: the projection is re-emitted; the surface is patched"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "Replace `project_bytes`'s patch branch with deterministic full-file re-emission: render every desired field (typed fields then `extra`, in the order the existing `*_fields` builders already produce) into a fresh `---`-delimited frontmatter block via `render_field`, then append the surface body byte-for-byte — for every artifact, whether or not disk had frontmatter. Retire the surgical-patch machinery now unused: `SourceSplit`/`split_source`, `patch_frontmatter`, `Segment`/`parse_segments`, and any `parse_frontmatter_json` helper. This is the superseded '(yaml-writeback)' path (specs/20-surface.md Decision, Rejected: 'surgically patching the projection to preserve hand edits'). Leave the three-state classification, conflict detection, and lock-fingerprint advance unchanged — only the desired-bytes computation changes. Custom-kind (spec) projection rides the same `project_bytes`, so it is covered without touching kind.rs."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Rewrite the `Command::Apply` doc comments (today 'patching only changed fields' / 'patch only changed fields back onto ... provenance path') to the re-emit model: apply re-emits the projection deterministically, byte-stable and idempotent; a direct edit to the projection is drift for `re-add` to lift, never something apply patches around."
-        },
-        {
-          "path": "tests/apply.rs",
-          "description": "Rewrite `a_surface_edit_patches_only_the_changed_field` and its 'patch-not-re-emit fidelity' framing to assert the re-emit contract: a surface edit regenerates the whole projection deterministically, and on-disk-only frontmatter comments/extra bytes are NOT preserved (that is drift, `re-add`'s to reconcile). Keep and strengthen the idempotence (`apply_is_idempotent_over_a_clean_surface`, `successive_surface_edits_each_apply_cleanly`) and the world-drift-conflict test — apply twice yields byte-identical output, and a world drift still surfaces a conflict rather than clobbering."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/apply.rs",
-        "asserts": "apply re-emits the whole projection deterministically from the member document (byte-stable, idempotent); a surface field edit regenerates the frontmatter rather than surgically patching it; on-disk-only frontmatter bytes are dropped; a world drift still surfaces a conflict instead of clobbering."
-      }
-    ],
-    "acceptance": "`temper apply` regenerates each projection file full-file from its member document (deterministic frontmatter emission + byte-for-byte body), idempotent on re-run; the `split_source`/`patch_frontmatter`/`parse_segments` surgical path is gone; world-drift still conflicts rather than clobbers; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Code still runs the superseded '(yaml-writeback)' patch model; the live Decision re-emits the projection (it is generated — nothing human to preserve; direct edits are `re-add`'s drift). Net simplification: `render_field` already emits fields and the drift field-builders already order them, so emit all and delete the segment/patch machinery. Sole open entry — drift.rs/main.rs/tests only, disjoint from the parked/deferred ones."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
