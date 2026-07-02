@@ -1,14 +1,15 @@
 //! The extraction equivalence baseline (`specs/15-kinds.md`, "The extraction
 //! algebra — the soundness boundary, as data").
 //!
-//! Pins the current built-in extractors' output — `extract::skill_features` and
-//! `extract::rule_features` — over real Claude Code fixtures that mirror the
-//! actual on-disk layout (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`;
-//! `.claude/rules/rust.md` guidance: never a layout invented for the test). Each
-//! resulting `Features` is snapshotted (Debug), so the later swap to the composed
-//! generic path (`BUILTIN-EXTRACT-GENERIC`) can repoint these same tests at the
-//! data-driven extractor and prove it yields feature-for-feature identical output:
-//! the committed `.snap` files staying byte-identical *is* the equivalence proof.
+//! Pins the built-in extractors' output — now the composed generic path,
+//! `builtin_kind::skill_features` and `builtin_kind::rule_features` (the embedded
+//! `kinds/*/KIND.md` extraction over an IR-derived `Unit`) — over real Claude Code
+//! fixtures that mirror the actual on-disk layout
+//! (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`; `.claude/rules/rust.md`
+//! guidance: never a layout invented for the test). Each resulting `Features` is
+//! snapshotted (Debug): these `.snap` files were pinned against the retired
+//! hand-coded `skill_features`/`rule_features` and stay byte-identical under the
+//! composed driver — the unchanged snapshot *is* the equivalence proof.
 //!
 //! These snapshots pin extraction only — the frontmatter fields at each parsed
 //! kind, the body line count, the ATX headings (fence-excluded, closing-hash
@@ -17,7 +18,7 @@
 
 use std::path::{Path, PathBuf};
 
-use temper::extract;
+use temper::builtin_kind;
 use temper::rule::Rule;
 use temper::skill::Skill;
 
@@ -41,7 +42,8 @@ fn fixture(rel: &str) -> PathBuf {
 fn skill_features_over_a_real_skill_fixture() {
     let skill = Skill::from_source_dir(&fixture("skills/coordinate"))
         .expect("the coordinate skill fixture should parse");
-    let features = extract::skill_features(&skill);
+    let features =
+        builtin_kind::skill_features(&skill).expect("the embedded skill extraction should run");
     insta::assert_debug_snapshot!("skill_features_coordinate", features);
 }
 
@@ -52,7 +54,8 @@ fn skill_features_over_a_real_skill_fixture() {
 fn rule_features_over_a_paths_rule_fixture() {
     let rule = Rule::from_source_file(&fixture("rules/rust.md"))
         .expect("the rust rule fixture should parse");
-    let features = extract::rule_features(&rule);
+    let features =
+        builtin_kind::rule_features(&rule).expect("the embedded rule extraction should run");
     insta::assert_debug_snapshot!("rule_features_rust", features);
 }
 
@@ -63,6 +66,7 @@ fn rule_features_over_a_paths_rule_fixture() {
 fn rule_features_over_a_no_frontmatter_rule_fixture() {
     let rule = Rule::from_source_file(&fixture("rules/collaboration.md"))
         .expect("the collaboration rule fixture should parse");
-    let features = extract::rule_features(&rule);
+    let features =
+        builtin_kind::rule_features(&rule).expect("the embedded rule extraction should run");
     insta::assert_debug_snapshot!("rule_features_collaboration", features);
 }

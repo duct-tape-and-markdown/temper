@@ -13,6 +13,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
 use temper::builtin;
+use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
@@ -402,10 +403,16 @@ fn main() -> miette::Result<ExitCode> {
             // (READ-EDGE-UNIFY: one source of truth), so `why`'s edge narration
             // ranges over the exact resolved set `graph::check`/`acyclic`/`degree`
             // do — never a private re-derivation.
-            let skill_features: Vec<extract::Features> =
-                ws.skills.iter().map(extract::skill_features).collect();
-            let rule_features: Vec<extract::Features> =
-                ws.rules.iter().map(extract::rule_features).collect();
+            let skill_features: Vec<extract::Features> = ws
+                .skills
+                .iter()
+                .map(builtin_kind::skill_features)
+                .collect::<Result<_, _>>()?;
+            let rule_features: Vec<extract::Features> = ws
+                .rules
+                .iter()
+                .map(builtin_kind::rule_features)
+                .collect::<Result<_, _>>()?;
             let kinds_dir = workspace.join("kinds");
             let (custom_kinds, edges, custom_members) = match layer.as_ref() {
                 Some(layer) => {
@@ -538,11 +545,17 @@ fn gate(
     // Each kind's features are validated against its *effective* contract (bound
     // package ⊕ author layer) and merged into one set; the generic engine holds no
     // per-kind opinion, so a mixed harness is judged in one run (`specs/20-surface.md`).
-    let skill_features: Vec<extract::Features> =
-        ws.skills.iter().map(extract::skill_features).collect();
+    let skill_features: Vec<extract::Features> = ws
+        .skills
+        .iter()
+        .map(builtin_kind::skill_features)
+        .collect::<Result<_, _>>()?;
 
-    let rule_features: Vec<extract::Features> =
-        ws.rules.iter().map(extract::rule_features).collect();
+    let rule_features: Vec<extract::Features> = ws
+        .rules
+        .iter()
+        .map(builtin_kind::rule_features)
+        .collect::<Result<_, _>>()?;
 
     // The embedded std-lib a by-name `package` binding resolves against before
     // `.temper/packages/` (`specs/10-contracts.md`). Packages **compose**: a

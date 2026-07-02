@@ -27,10 +27,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use temper::builtin_kind;
 use temper::check::{self, Diagnostic, Severity, Workspace};
 use temper::contract::Contract;
 use temper::engine;
-use temper::extract::{self, Features};
+use temper::extract::Features;
 use temper::import;
 use temper::skill::Skill;
 
@@ -172,7 +173,8 @@ fn check_reproduces_the_expected_diagnostic_set() {
     for dir in &fixtures {
         let name = dir.file_name().unwrap().to_string_lossy();
         let skill = Skill::from_source_dir(dir).expect("fixture skill should parse");
-        let features = extract::skill_features(&skill);
+        let features =
+            builtin_kind::skill_features(&skill).expect("the embedded skill extraction should run");
         let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
         report.push_str(&format!("## {name}\n"));
         report.push_str(&render_diagnostics(&diagnostics));
@@ -195,7 +197,12 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
 
     // check <tmp> — a well-formed skill trips no contract clause, so it is clean.
     let ws = Workspace::load(&into).unwrap();
-    let features: Vec<Features> = ws.skills.iter().map(extract::skill_features).collect();
+    let features: Vec<Features> = ws
+        .skills
+        .iter()
+        .map(builtin_kind::skill_features)
+        .collect::<Result<_, _>>()
+        .expect("the embedded skill extraction should run");
     let diagnostics = engine::validate(&builtin_skill_contract(), &features);
     assert!(
         diagnostics.is_empty(),
