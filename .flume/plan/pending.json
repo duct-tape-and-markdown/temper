@@ -1,48 +1,5 @@
 [
   {
-    "tag": "REACHABILITY-WIRE",
-    "summary": "Wire the shipped `reachable` graph predicate into the gate — a dead world→member activation edge becomes a finding; opt-in + severity are assembly-declared (fork resolved)",
-    "per": {
-      "path": "specs/45-governance.md",
-      "section": "The world is a node — reachability is a predicate"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [
-        {
-          "path": "tests/reachable_gate.rs",
-          "description": "Gate-side proof mirroring the library fixture at tests/graph.rs: a fixture kind declaring an `activation` plus an assembly declaration opting reachability in with a severity. A dead edge (blank description-trigger field / present-but-zero-matching paths glob) surfaces a finding through the wired gate; a live one (including an unscoped rule with no `paths` field, post-PATHS-MATCH-ABSENCE) stays silent; absent the assembly opt-in nothing fires at all; and the finding names the world node, the kind, the member, and the dead-edge reason, at the assembly-declared severity."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Build the `activations: BTreeMap<&str, Activation>` map from each in-scope kind definition's declared `Activation` — built-in kind defs via `builtin_kind::definitions()` plus each custom kind's `CustomKind.activation` (kind.rs:89) — and collect the repo file set (the `paths-match` liveness input), then dispatch `graph::reachable(&activations, &by_kind, &repo_files)` beside the always-on acyclic/degree graph pass (main.rs:654-666), gated by the assembly's reachability opt-in and emitted at its declared severity, and extend diagnostics. Reads the opt-in off the `layer` (AuthorLayer) exactly as `degree` reads `layer.requirements()`."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Sweep the stale `reachable` doc comment (graph.rs:338-340, 'the eventual severity is the package clause's choice') to the resolved assembly-declared severity per specs/45 (`reachability-gate-mechanism` option b). Thread the assembly-declared severity into the emitted findings — today unconditionally `Diagnostic::error` (graph.rs:353) — so a required vs advisory reachability dial is honored. No change to the pure `dead_activation`/`declared_globs`/glob mechanics."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Parse the assembly's reachability opt-in + severity declaration into `AuthorLayer`, kind/assembly-level like `degree`'s `[requirement.*].degree` bound (compose.rs parse_degree/DegreeBound). The concrete surface key is build's to choose within the resolved envelope (assembly-declared, opt-in, severity dial — never a member or a package). Rejects unknown keys per the closed-vocab load-guard (specs/10-contracts.md, unknown keys are rejected). NOT contract.rs/engine.rs — reachability is assembly-scope, not a package clause."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/reachable_gate.rs",
-        "asserts": "with reachability wired and opted in via the assembly, a member whose declared activation edge is provably dead is a finding at the gate at the declared severity, a reachable member is silent, and absent the opt-in nothing fires; the finding names the world node, the kind, the member, and the dead-edge reason."
-      }
-    ],
-    "acceptance": "`temper check` runs the `reachable` predicate over members of kinds that declare an activation when the assembly opts reachability in, flags a dead world→member edge at the assembly-declared severity, and stays silent otherwise; the stale graph.rs:338-340 doc comment is swept to name the assembly's declaration; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Fork reachability-gate-mechanism RESOLVED (option b: assembly-declared like `degree`, not a package clause) un-parks this. `reachable`/`world`/`dead_activation` at graph.rs:342, library-proven (tests/graph.rs), no main.rs caller (654-666). Curated skill+rule activation lines both ship (2259667, 9f7d176). Assembly opt-in home is compose.rs, not contract.rs/engine.rs; concrete key is build's within the resolved envelope."
-  },
-  {
     "tag": "MEMORY-KIND",
     "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
     "per": {
