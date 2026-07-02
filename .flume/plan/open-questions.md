@@ -365,7 +365,18 @@ path strings remain in comments).
   needs its `specs/40-composition.md` Decision (the floor is data), then a
   small engine wave. Filed 2026-07-02 from the ladder review.
 
-- `(reachability-gate-mechanism)` — OPEN (dogfood residual; REACHABILITY
+- `(reachability-gate-mechanism)` — RESOLVED (human ruling 2026-07-02): option
+  **(b)** — reachability is **assembly-declared, like `degree`**. A graph-scope
+  predicate's opt-in and severity are assembly declarations, per the
+  declare/require cleave (`45-governance.md`: the set/graph scopes are the
+  assembly's; a package clause is artifact-scope). The overpromising spec
+  sentence ("the package's clause choice") is corrected in the same commit as
+  this resolution; `src/graph.rs`'s `reachable` doc comment (~line 338) carries
+  the stale sentence and REACHABILITY-WIRE sweeps it. Rejected: (a) always-on —
+  a dead edge can be deliberate (a WIP skill with a blank description), the
+  severity dial is real; (c) graph-tier package clauses — extends the package
+  vocabulary across the scope line the model deliberately drew. Unblocks
+  REACHABILITY-WIRE. Original record: was OPEN (dogfood residual; REACHABILITY
   shipped 50c5a00). The `reachable` graph predicate — world→member
   activation-edge liveness (`45-governance.md`, "The world is a node") — is
   library-proven in `src/graph.rs` (`world()`/`reachable`/`dead_activation`)

@@ -137,8 +137,13 @@ edges out. This makes *dead artifacts* decidable:
 - **reachable** — the activation edge a member's kind declares is live. A skill
   whose `description` is empty has a dead description-trigger edge (the harness
   has nothing to load); a rule whose `paths` globs match zero files in the repo
-  activates never. Each is an exact fact at check time — what severity it
-  carries is the package's clause choice, like every other predicate here.
+  activates never. Each is an exact fact at check time — whether it gates, and
+  at what severity, is the **assembly's declaration**, like `degree`: the graph
+  scope is the assembly's, and a package clause is artifact-scope (the
+  declare/require cleave above). A dead edge can be deliberate (a
+  work-in-progress skill with a blank description), so the dial is the
+  author's — declared where graph-scope demands live, never smuggled into a
+  member or a package.
 
 ## Worked example — self-registering vs routed
 
