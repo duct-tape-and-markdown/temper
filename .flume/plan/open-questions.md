@@ -242,17 +242,19 @@ path strings remain in comments).
   requirement/satisfies join (canonical); a one-way pointer in the projection
   is the emit face's **flattening** of that join (derived, never authored); and
   the `[edge.<target>]` surface clause is **retired** (rejected (b)) — option
-  (c). Filed the retirement as pending **EDGE-CLAUSE-RETIRE** (open): drop the
-  dead `[edge.*]` syntax from document.rs/frontmatter.rs. What stays OPEN is the
-  narrower *mechanism*: the graph today reads `routes_to` as an extracted
-  feature (`[[kind.relationships]]`), NOT as the flattened projection of a join,
-  and joins build only coverage — so a surface-authored join still reaches no
-  graph edge. Wiring join→`routes_to` flattening (the emit face derives the
-  one-way pointer; a landscape pointer with no join behind it is drift) is
-  fileable work the spec now sanctions, but not yet filed — the human's inbox
-  scoped this revision to the three engine consequences (ACTIVATION-KEY-PARSE,
-  EDGE-CLAUSE-RETIRE, REACHABILITY); the join→graph unification is the residual
-  and awaits a decision to file it.
+  (c). All THREE scoped engine consequences have now **SHIPPED** (verified on
+  disk): EDGE-CLAUSE-RETIRE (`[edge.*]`/`EdgeClause` gone from src/ — dead in
+  document.rs/frontmatter.rs, only comment mentions of "edge" survive),
+  ACTIVATION-KEY-PARSE (an inert `activation` key parses in KIND.md headers),
+  and REACHABILITY-WIRE (the `reachable` predicate now gates at assembly-declared
+  severity). What stays OPEN is the narrower *mechanism*: the graph today reads
+  `routes_to` as an extracted feature (`[[kind.relationships]]`), NOT as the
+  flattened projection of a join, and joins build only coverage — so a
+  surface-authored join still reaches no graph edge. Wiring join→`routes_to`
+  flattening (the emit face derives the one-way pointer; a landscape pointer with
+  no join behind it is drift) is fileable work the spec now sanctions, but NOT
+  filed — the human scoped the revision to those three shipped consequences; the
+  join→graph unification is the residual and awaits a human decision to file it.
 
 - `(launch-front-door-docs)` — RESOLVED. **AGENTS.md is a separate,
   build-authorable contributor doc; `CLAUDE.md` stays canonical and untouched.**
