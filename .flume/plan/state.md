@@ -11,8 +11,12 @@
   skill scan root (`<harness>/skills/`) disagrees with the now-corrected spec
   (`.claude/skills/`), so no single project-root harness_path captures a standard
   Claude Code project. Verified on disk: `discover_skill_dirs` (src/import.rs) scans
-  `<harness>/skills/` + bare `SKILL.md`; `discover_rule_files` scans `.claude/rules/`.
-  Wide test ripple (one scan-fn change) scoped into the entry. No other src↔spec gap found.
+  `<harness>/skills/` + bare `SKILL.md`; `discover_rule_files` already scans
+  `.claude/rules/`; `check --harness` routes through `import::run` (main.rs:255).
+  Scoped keep-bare-dir (cheap, spec-permitted): relocate only the tree scan, so
+  tests/fixtures/coordinate + acceptance.rs stay green untouched (no snapshot churn);
+  trimmed phantom edits (src/install.rs has no in-module fixture; tests/read_verbs.rs
+  is surface-only). Wide but atomic test ripple scoped in. No other src↔spec gap found.
 - **Pickable now (1 `open`):** IMPORT-SKILL-LOCUS (single atomic scan-locus fix; no
   parallel peer). Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (human
   release creds). Forks: all RESOLVED/OPEN decision records with no filed dependents.
