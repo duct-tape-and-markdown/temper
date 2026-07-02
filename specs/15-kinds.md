@@ -25,7 +25,7 @@ same way a contract is composed from the closed predicate vocabulary:
 - **structured field** — a frontmatter / JSON / TOML value at a key-path (kind from
   the `type` lattice, `10-contracts.md`);
 - **markdown structure** — ATX headings; named sections; a `## Decision` block
-  (heading + its body); a markdown link or a declared reference; a fenced block;
+  (heading + its body); a fenced block;
 - **text & file** — line count; file placement, naming, glob.
 
 An author **composes** a kind from these; an author **writes no parsing**. The
@@ -125,30 +125,31 @@ harness-correctness check.
 
 ## The entity graph is a kind capability
 
-A kind may declare which extracted features are **entities** (a marked heading is an
-entity's one home) and which references are **relationships** (over the kind's
-declared reference syntax). A kind that does yields a **dependency graph of
-intent**: removing a load-bearing entity surfaces its **blast radius**
-deterministically (`30-landscapes.md`). So the graph is *not* a spec-special
-mechanism — it is what *any* kind gets by declaring entities + relationships, an
-opt-in capability layered on the closed extraction the kind already composes.
+A kind may declare **entities** (a member's header names the concepts whose one
+home it is) and **relationships** (edges over **declared structured fields** —
+`45-governance.md`; never mined from prose bodies — law 8, `00-intent.md`). A
+kind that does yields a **dependency graph of intent**: removing a load-bearing
+entity surfaces its **blast radius** deterministically (`30-landscapes.md`). So
+the graph is *not* a spec-special mechanism — it is what *any* kind gets by
+declaring entities + relationships, an opt-in capability layered on the closed
+extraction the kind already composes.
 
-### Decision: reference resolution is declared by the kind, never guessed by the engine
+### Decision: no body-mined references — the `references` primitive is retired
 
-**Chosen:** a kind's declared reference syntax carries its own **normalization** —
-the deterministic mapping from a reference's extracted value to the member id it
-names. The spec kind's backtick-filename syntax declares `strip_suffix = ".md"`,
-so `` `15-kinds.md` `` resolves to the unit id `15-kinds`; the engine applies
-exactly the declared rule and then demands an **exact** id match. The rule is
-declared data beside the syntax it belongs to — the fork dissolves into the
-declaration, the same move as the syntax itself ("never grepped prose,"
-`45-governance.md`). **Rejected:** (a) an engine-global normalization (strip any
-extension) — a guess baked into the engine, wrong the moment the next kind's
-syntax differs; (b) fallback multi-matching (`id == value` *or* `id + ".md" ==
-value`) — a loose fallback can **mask** a genuine dangling reference (collapsing
-`standards.md` onto an unrelated member `standards`), and masking a true positive
-is as unsound as forging one — law 3 cuts both ways. (Resolves
-`(reference-id-normalization)`.)
+**Chosen:** the extraction algebra carries **no primitive that derives references
+from a member's prose body**. Relationships range over declared structured
+fields only (law 8, `00-intent.md`; the reference Decision in `45-governance.md`).
+The `references` primitive — backtick filename spans, shape-tested by engine
+code, suffix-normalized (`strip_suffix`) — is retired from the engine and the
+vocabulary: it grepped prose and called the result structure, violating the
+standing `45-governance.md` Decision, and each refinement it invited (a declared
+normalization, then a declared `match` shape glob) refined the violation rather
+than the model. **Rejected:** keeping it as an opt-in primitive — a
+sound-looking tier-1 gate over mined edges forges findings in both directions
+(prose that mentions a file is not an edge; an edge is not always mentioned),
+law 3's exact failure mode. Backtick file mentions are typography, permanently.
+(Supersedes `(reference-id-normalization)`; the spec corpus's real edges are
+declared in member headers — `90-spec-system.md`, "the corpus is classed".)
 
 ## A kind definition — one composed object
 
@@ -157,9 +158,9 @@ its own:
 
 - **extraction** — extractor primitives (above), each applied at a locus, each
   naming the feature it yields;
-- **entities & relationships** (optional) — which named features are entity homes
-  and which references are edges (the graph capability above), over the kind's
-  declared reference syntax.
+- **entities & relationships** (optional) — the concepts a member's header may
+  declare as having their home here, and which declared fields are edges (the
+  graph capability above).
 
 The **require-side** is not part of the kind object — it is a **package** bound to the
 kind (`10-contracts.md`), carrying the clauses (`10-contracts.md`) over those features.
@@ -187,22 +188,26 @@ would have nowhere to live but a patch to temper. Engine-code extraction is sanc
 own `spec` kind is authored under its own `.temper/kinds/` like any other custom kind;
 the current engine-code scaffold is superseded.
 
-## Worked example: `spec`, temper's own custom kind
+## Worked example: temper's own spec corpus, custom kinds
 
-temper governs its `specs/` with a custom `spec` kind — authored under temper's own
-`.temper/kinds/spec/` and registered in the assembly (`40-composition.md`) by the
-mechanism above, not shipped in the crate:
+temper governs its `specs/` with custom kinds — authored under temper's own
+`.temper/kinds/` and registered in the assembly (`40-composition.md`) by the
+mechanism above, not shipped in the crate. The corpus is **classed** — `intent`,
+`architecture`, `process`, each class a kind governed by placement, paired by
+declared demands and `satisfies` claims in member headers (`90-spec-system.md`,
+which owns the class structure):
 
-- **extraction:** ATX headings, `## Decision` blocks, and backtick-filename
-  references (`` `NN-name.md` `` — the corpus's declared reference syntax, with
-  its declared normalization `strip_suffix = ".md"` mapping the value to the
-  unit id, Decision above).
-- **package (the `spec` kind's require-side):** `max_lines` (advisory,
-  `90-spec-system.md`'s ~150); decisions-name-alternatives (every `## Decision` carries
-  a `Rejected` — a predicate over the decision-block extractor); references-resolve
-  (over that declared syntax).
+- **extraction:** ATX headings, `## Decision` blocks, line count, placement —
+  markdown structure only, no body-mined references (Decision above). The
+  corpus's edges are **declared** in member headers, never extracted from prose.
+- **package (each class's require-side):** `max_lines` (advisory,
+  `90-spec-system.md`'s ~150); decisions-name-alternatives (every `## Decision`
+  carries a `Rejected` — a predicate over the decision-block extractor); and the
+  class pairing — an `intent` member's declared entities must be satisfied by an
+  `architecture` member (coverage over the fill edge, `10-contracts.md`).
 
-Piloted over the corpus it confirms every Decision names its rejected alternative
-and every cross-reference resolves, and flags the over-length specs. This is the
-deepest dogfood: temper checking the corpus flume derives from — self-hosting
-(`00-intent.md`) extended from `.claude/` to `specs/`.
+Piloted over the corpus it confirms every Decision names its rejected
+alternative and every declared entity has its architecture home, and flags the
+over-length specs. This is the deepest dogfood: temper checking the corpus flume
+derives from — self-hosting (`00-intent.md`) extended from `.claude/` to
+`specs/`.

@@ -81,6 +81,19 @@ These bind every part of the tool and every change to it.
    by the tool's taste. Write-total, check-bounded: the editor writes all your
    code; the type checker only checks its types. (`20-surface.md`.)
 
+8. **The model is declared, never mined.** An entity or relationship exists
+   because an author declared it on a structured surface — a header clause, a
+   frontmatter field, the assembly, or a syntax the external format itself
+   executes (a `CLAUDE.md` `@path` import is the harness's structure, not
+   prose) — never because prose mentioned a name or a path. Inter-artifact
+   relationships are **authored intent**, not mechanics
+   the tool reconstructs from bodies; a mined edge is a guess wearing tier-1
+   clothes, false in both directions (a mention is not an edge; an edge is not
+   always mentioned), and law 3's false-positive machine by another door. A
+   check may read authored content (a line count, a marker in a section); it
+   may never derive model *structure* from it. (`45-governance.md` decides the
+   reference case; this is the cross-cutting law it instantiates.)
+
 ## One engine, every layer an instance
 
 There is one **contract engine** built from a fixed algebra of decidable

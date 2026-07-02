@@ -95,12 +95,13 @@ playbooks) — and **registered** in the assembly. Its definition composes the a
   itself an extraction primitive).
 - **extraction** — the composed extractors, each a primitive at a locus naming the
   feature it yields (a frontmatter field, an ATX heading, a `## Decision` block, a
-  backtick-filename reference, a line count).
-- **relationships** (optional) — which references are edges, over the declared
-  reference syntax. Each unit is itself a node (its id), and finer-grained **entity
-  homes** are named in the extraction (a marked heading) — not a separate table — so
-  `relationships` is all a kind adds to yield the dependency graph the governance graph
-  predicates act on (`45-governance.md`, `30-landscapes.md`).
+  line count).
+- **relationships** (optional) — which **declared structured fields** are edges
+  (`45-governance.md`; never mined from prose bodies — law 8, `00-intent.md`).
+  Each unit is itself a node (its id), and **entities** are declared in member
+  headers (`15-kinds.md`) — so `relationships` is all a kind adds to yield the
+  dependency graph the governance graph predicates act on (`45-governance.md`,
+  `30-landscapes.md`).
 - **its package** — the require-side, **always a bound package** under
   `.temper/packages/`, exactly as a built-in kind binds one. A custom kind is *purely
   declare-side*; it never carries clauses itself. `[kind.<name>] package = "<name>"` in

@@ -113,6 +113,10 @@ The header is **clause-structured**, not a flat blob. Each clause is its own
   first-class here rather than delegated and forgotten). The opt-in bindings coverage reads.
 - **edge clauses** — `[edge.<target>]`, the declared references/relationships to other
   members (`45-governance.md`), the graph's source — authored, never grepped from prose.
+- **`requirement` clauses** — `[requirement.<name>]`, the demands this member
+  *publishes* (`10-contracts.md`, "a requirement's publisher"): the same table the
+  assembly's roster carries, at the concept's own home — how an intent spec declares
+  the entities an architecture spec must satisfy (`90-spec-system.md`).
 - **`[provenance]`** — generated: `source_path` + `import_hash` (the drift anchor).
 - **the body** — the member's prose, below the header. Not cargo: it is authored
   *in the medium*, and a part no clause governs today is one declaration away from
