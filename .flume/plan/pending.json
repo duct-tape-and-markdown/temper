@@ -1,61 +1,15 @@
 [
   {
-    "tag": "SURFACE-READING-GENERIC",
-    "summary": "Check reads every kind's surface member document through the one generic Unit loader, retiring the skill/rule IR→Unit adapter on the check path",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "A built-in kind is an adapter — two faces"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Collapse the per-kind `skill_features`/`rule_features` dispatch in `gate`/`why`/`requirements` into one generic loop: load each built-in kind's surface members via `Unit::from_surface_dir` (the loader custom kinds already use) and run its embedded `skill`/`rule` KIND.md extraction (`builtin_kind::definition`), so built-in and custom kinds read through one path. The typed `Workspace` is kept for the adapter-face callers (drift/bundle/apply)."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "Retire `skill_unit`/`rule_unit` (the IR→Unit adapters) and reshape `skill_features`/`rule_features` to run the embedded extraction over a generically-loaded `Unit` rather than a typed IR, keeping the permissive unknown-key fold. Engine-code IR parse/emit stays only for import/apply/drift, not the check read. Update this module's tests."
-        },
-        {
-          "path": "src/check.rs",
-          "description": "Provide the generic per-kind surface-Unit loader the gate reads (mirroring `main::custom_units`), keeping the typed `skills`/`rules` fields on `Workspace` intact so drift/bundle/apply (the adapter faces) are unaffected. Update the `Workspace::load` tests to assert the generic read yields the same features."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Only if `Workspace` is restructured beyond keeping its typed fields: keep the drift/apply/re-add adapter faces on typed IRs (reload `Skill`/`Rule` where needed). No change expected if `Workspace` keeps `skills`/`rules`."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "Only if `Workspace` is restructured: keep the skill/rule counts working off whatever `Workspace` exposes. No change expected if the typed fields survive."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/check.rs",
-        "asserts": "loading a written skill/rule surface yields the same extracted features through the generic `Unit` loader that the retired IR→Unit adapter produced."
-      },
-      {
-        "path": "src/builtin_kind.rs",
-        "asserts": "`skill_features`/`rule_features` computed over a generically-loaded `Unit` still fold unknown `[clause.*]` keys and surface `satisfies` off the surface, matching the prior IR-path output."
-      }
-    ],
-    "acceptance": "`temper check` extracts skill/rule features by reading their surface member documents through the same generic `Unit` loader custom kinds use — no IR→Unit adapter on the check path; the typed IRs survive only for import/apply/drift; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Read-path unification tail — `(extraction-source-not-mechanism)`, RESOLVED. The skill/rule surface member document is `[clause.*]`-headed (`Skill::to_document`), so `Unit::from_surface_dir` already lifts its fields — the generic read is feasible. Keep `Workspace` typed for drift/bundle/apply; only the gate's feature extraction goes generic. IMPORT-DISCOVERY-GENERIC is serialized after this (shared drift.rs)."
-  },
-  {
     "tag": "IMPORT-DISCOVERY-GENERIC",
     "summary": "Import discovers built-in kinds off their embedded KIND.md `governs` locus, retiring the hardwired `discover_skill_dirs`/`discover_rule_files` scans",
     "per": {
       "path": "specs/15-kinds.md",
       "section": "A built-in kind is an adapter — two faces"
     },
-    "gate": { "kind": "blockedBy", "tag": "SURFACE-READING-GENERIC" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SURFACE-READING-GENERIC"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
