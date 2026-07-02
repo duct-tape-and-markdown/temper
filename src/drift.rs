@@ -20,12 +20,11 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
+use crate::builtin_kind;
 use crate::check::Workspace;
 use crate::hash::sha256_hex;
 use crate::import;
-use crate::kind::CustomKind;
-use crate::rule::Rule;
-use crate::skill::Skill;
+use crate::kind::{BUILTIN_KINDS, CustomKind};
 
 /// Errors raised while computing a drift report. A hard failure (a source path
 /// errors for a reason other than "not found", which is the `removed` state) —
@@ -164,7 +163,7 @@ pub fn diff(
         .skills
         .iter()
         .map(|skill| SurfaceArtifact {
-            name: skill.name.clone(),
+            name: skill.id.clone(),
             source_path: skill.provenance.source_path.clone(),
             import_hash: skill.provenance.import_hash.clone(),
         })
@@ -177,7 +176,7 @@ pub fn diff(
         .rules
         .iter()
         .map(|rule| SurfaceArtifact {
-            name: rule.name.clone(),
+            name: rule.id.clone(),
             source_path: rule.provenance.source_path.clone(),
             import_hash: rule.provenance.import_hash.clone(),
         })
@@ -420,22 +419,22 @@ pub fn apply(
     for skill in &workspace.skills {
         projections.push(Projection {
             kind: "skill",
-            name: skill.name.clone(),
+            name: skill.id.clone(),
             source_path: skill.provenance.source_path.clone(),
             last_applied: fingerprint(&last_applied, skill.provenance.source_path.as_path())
                 .unwrap_or_else(|| skill.provenance.import_hash.clone()),
-            fields: skill_fields(skill),
+            fields: skill.fields.clone(),
             body: skill.body.clone(),
         });
     }
     for rule in &workspace.rules {
         projections.push(Projection {
             kind: "rule",
-            name: rule.name.clone(),
+            name: rule.id.clone(),
             source_path: rule.provenance.source_path.clone(),
             last_applied: fingerprint(&last_applied, rule.provenance.source_path.as_path())
                 .unwrap_or_else(|| rule.provenance.import_hash.clone()),
-            fields: rule_fields(rule),
+            fields: rule.fields.clone(),
             body: rule.body.clone(),
         });
     }
@@ -527,43 +526,6 @@ fn project_one(
     }
 }
 
-/// The desired header fields of a skill, in canonical order: the known scalars
-/// (only those present), then the preserved unknown keys (already key-sorted in
-/// [`Skill::extra`]). Mirrors the order [`Skill::to_document`] projects.
-fn skill_fields(skill: &Skill) -> Vec<(String, JsonValue)> {
-    let mut fields = vec![
-        ("name".to_string(), JsonValue::from(skill.name.clone())),
-        (
-            "description".to_string(),
-            JsonValue::from(skill.description.clone()),
-        ),
-    ];
-    if let Some(version) = &skill.version {
-        fields.push(("version".to_string(), JsonValue::from(version.clone())));
-    }
-    if let Some(license) = &skill.license {
-        fields.push(("license".to_string(), JsonValue::from(license.clone())));
-    }
-    for (key, value) in &skill.extra {
-        fields.push((key.clone(), value.clone()));
-    }
-    fields
-}
-
-/// The desired header fields of a rule: the optional `paths` sequence, then the
-/// preserved unknown keys. A no-frontmatter rule yields an empty field set, so its
-/// projection is the body alone. Mirrors [`Rule::to_document`].
-fn rule_fields(rule: &Rule) -> Vec<(String, JsonValue)> {
-    let mut fields = Vec::new();
-    if let Some(paths) = &rule.paths {
-        fields.push(("paths".to_string(), JsonValue::from(paths.clone())));
-    }
-    for (key, value) in &rule.extra {
-        fields.push((key.clone(), value.clone()));
-    }
-    fields
-}
-
 /// Re-emit the desired projection deterministically: a fresh `---`-delimited
 /// frontmatter block carrying every desired field in order, then the surface body
 /// byte-for-byte.
@@ -616,7 +578,7 @@ fn load_last_applied(
         })?;
 
     let mut map = std::collections::HashMap::new();
-    for kind in ["skill", "rule"] {
+    for &kind in BUILTIN_KINDS {
         let Some(rows) = doc.get(kind).and_then(Item::as_array_of_tables) else {
             continue;
         };
@@ -653,7 +615,7 @@ fn update_lock(workspace_dir: &Path, updates: &[(PathBuf, String)]) -> Result<()
             source,
         })?;
 
-    for kind in ["skill", "rule"] {
+    for &kind in BUILTIN_KINDS {
         let Some(rows) = doc.get_mut(kind).and_then(Item::as_array_of_tables_mut) else {
             continue;
         };
@@ -794,25 +756,22 @@ pub fn re_add(
         }
 
         // Drifted or added: re-project the live source through `import`'s writer for
-        // its kind. A skill's source is the `SKILL.md`, so its surface directory is
-        // that file's parent (which the discovery scan always yields). A custom kind
-        // reuses `import`'s generic unit writer, keyed off its own definition.
-        let rollup = match entry.kind.as_str() {
-            "skill" => {
-                let dir = entry.source_path.parent().unwrap_or_else(|| Path::new("."));
-                import::import_skill(dir, workspace_dir)?
-            }
-            "rule" => import::import_rule(&entry.source_path, workspace_dir)?,
-            name => {
-                // A registered custom kind: re-project the whole file byte-faithfully
-                // through the same generic writer `import` uses. Absent its definition
-                // there is nothing to project against — skip (mirrors the built-in
-                // `_ => continue` guard `apply` keeps).
-                let Some(kind) = custom_kinds.iter().find(|k| k.name == name) else {
-                    continue;
-                };
-                import::import_custom_unit(kind, &entry.source_path, workspace_dir)?
-            }
+        // its kind. A built-in frontmatter kind rides the one generic adapter, keyed
+        // off its embedded declaration; a custom kind reuses `import`'s generic
+        // whole-file unit writer, keyed off its own definition.
+        let rollup = if BUILTIN_KINDS.contains(&entry.kind.as_str()) {
+            let kind = builtin_kind::definition(&entry.kind)?
+                .expect("a built-in frontmatter kind resolves to an embedded KIND.md");
+            import::import_frontmatter_member(&kind, &entry.source_path, workspace_dir)?
+        } else {
+            // A registered custom kind: re-project the whole file byte-faithfully
+            // through the same generic writer `import` uses. Absent its definition
+            // there is nothing to project against — skip (mirrors the built-in
+            // `_ => continue` guard `apply` keeps).
+            let Some(kind) = custom_kinds.iter().find(|k| k.name == entry.kind) else {
+                continue;
+            };
+            import::import_custom_unit(kind, &entry.source_path, workspace_dir)?
         };
 
         let outcome = if entry.state == DriftState::Drifted {

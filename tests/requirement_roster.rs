@@ -86,7 +86,7 @@ fn import_skill(root: &Path, name: &str, skill_md: &str) {
 /// the member document would, via the same projection the tool uses.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     let dir = root.join(".temper").join("skills").join(name);
-    let mut skill = temper::skill::Skill::from_dir(&dir).unwrap();
+    let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
     skill.satisfies = requirements
         .iter()
         .map(|r| temper::document::Satisfies::new(*r))
@@ -105,7 +105,7 @@ fn author_published(
     published: Vec<temper::document::PublishedRequirement>,
 ) {
     let dir = root.join(".temper").join("skills").join(name);
-    let mut skill = temper::skill::Skill::from_dir(&dir).unwrap();
+    let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
     skill.published_requirements = published;
     fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }

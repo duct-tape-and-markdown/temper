@@ -11,7 +11,7 @@
 //! change, never a per-contract escape hatch (`00-intent.md` law 3), so loading
 //! **rejects** an unknown predicate rather than skipping it silently.
 //!
-//! Parsing hand-walks `toml_edit` (mirroring [`crate::skill`]) instead of deriving
+//! Parsing hand-walks `toml_edit` (mirroring [`crate::frontmatter`]) instead of deriving
 //! `serde`: the diagnostics *are* the product, and a precise "clause 3 names unknown
 //! predicate `word_count`" beats the generic decode error a tagged-enum deserializer
 //! would give.

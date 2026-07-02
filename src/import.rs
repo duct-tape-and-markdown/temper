@@ -5,7 +5,8 @@
 //!
 //! Built-in kinds scan at their real Claude Code locus under `<harness>/.claude/`,
 //! so one project-root `harness_path` captures the whole harness; each is projected
-//! as one authored document ([`import_skill`], [`import_rule`]). Custom kinds are
+//! as one authored document through the generic frontmatter adapter
+//! ([`import_frontmatter_member`]). Custom kinds are
 //! discovered data-driven off the [`governs`](crate::kind::Governs) locus their
 //! authored `.temper/kinds/<name>/KIND.md` declares — spec discovery is a custom
 //! kind, not a hardwired scan, so absent a `temper.toml` registration the built-ins
@@ -23,28 +24,23 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use crate::builtin_kind;
 use crate::compose::AuthorLayer;
 use crate::document::{self, Document};
+use crate::frontmatter::{FrontmatterError, Member};
 use crate::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError};
-use crate::rule::{Rule, RuleError};
-use crate::skill::{Skill, SkillError};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
 /// written at the workspace root (`specs/20-surface.md`, "Topology").
 const LOCK_FILENAME: &str = "lock.toml";
 
-/// Errors raised while importing a harness. Distinct from a [`SkillError`]
-/// (which a malformed source skill produces) by also covering the surface-write
+/// Errors raised while importing a harness. Distinct from a [`FrontmatterError`]
+/// (which a malformed source member produces) by also covering the surface-write
 /// side: creating the workspace tree and copying companions.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ImportError {
-    /// A source skill could not be read or projected.
+    /// A source member could not be read or projected through the generic
+    /// frontmatter adapter (`specs/15-kinds.md`).
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Skill(#[from] SkillError),
-
-    /// A source rule could not be read or projected.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Rule(#[from] RuleError),
+    Frontmatter(#[from] FrontmatterError),
 
     /// A built-in kind's embedded `KIND.md` failed to parse into its definition —
     /// the `governs` locus discovery keys off. A compiled-in invariant (`build.rs`
@@ -121,22 +117,11 @@ pub(crate) struct RollupEntry {
 /// Idempotent over an unchanged harness. See the module header for the discovery
 /// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
-    let skill_files = discover_builtin(harness_path, "skill")?;
-    let mut skills = Vec::with_capacity(skill_files.len());
-    for file in &skill_files {
-        // A skill's source is its directory (the `SKILL.md`'s parent); the generic
-        // `governs` scan yields the `SKILL.md` files, so recover the dir here.
-        let dir = file
-            .parent()
-            .expect("a discovered SKILL.md path has a parent directory");
-        skills.push(import_skill(dir, into)?);
-    }
-
-    let rule_files = discover_builtin(harness_path, "rule")?;
-    let mut rules = Vec::with_capacity(rule_files.len());
-    for file in &rule_files {
-        rules.push(import_rule(file, into)?);
-    }
+    // The built-in frontmatter kinds ride one generic adapter driven by each kind's
+    // declared format + unit shape (`specs/15-kinds.md`) — no per-kind writer. Ordered
+    // skill-then-rule so the roll-up's byte layout is stable.
+    let skills = import_frontmatter_kind(harness_path, into, "skill")?;
+    let rules = import_frontmatter_kind(harness_path, into, "rule")?;
 
     // A custom kind's definition — the `governs` locus discovery keys on — is the
     // authored `<harness>/.temper/kinds/<name>/KIND.md`, not an inline `temper.toml`
@@ -161,13 +146,33 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
         }
     }
 
-    // Sort by name so the roll-up — and thus the whole workspace — is stable
-    // regardless of filesystem listing order.
-    skills.sort_by(|a, b| a.name.cmp(&b.name));
-    rules.sort_by(|a, b| a.name.cmp(&b.name));
     write_rollup(into, &skills, &rules, &custom)?;
 
     Ok(())
+}
+
+/// Import every source of one built-in frontmatter kind (`skill`, `rule`) into the
+/// surface, driven by the kind's embedded declaration. Discover the source files off
+/// the kind's `governs` locus, project each through the generic frontmatter adapter,
+/// and return the roll-up rows name-sorted for a stable index.
+///
+/// The kind name is always an embedded built-in at every call site, so an absent
+/// definition is a genuine invariant surfaced (not panicked) so import stays
+/// panic-free (`.claude/rules/rust.md`).
+fn import_frontmatter_kind(
+    harness: &Path,
+    into: &Path,
+    name: &str,
+) -> Result<Vec<RollupEntry>, ImportError> {
+    let kind = builtin_kind::definition(name)?
+        .expect("a built-in frontmatter kind resolves to an embedded KIND.md");
+    let files = discover_builtin(harness, name)?;
+    let mut rows = Vec::with_capacity(files.len());
+    for file in &files {
+        rows.push(import_frontmatter_member(&kind, file, into)?);
+    }
+    rows.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(rows)
 }
 
 /// Discover a built-in kind's source files by name, keying off the `governs` its
@@ -208,24 +213,32 @@ fn builtin_governs(name: &str) -> Result<Governs, ImportError> {
     Ok(kind.governs)
 }
 
-/// Read one source skill and write its surface tree under `<into>/skills/<name>/`,
-/// returning the roll-up row for the index.
+/// Read one source member of a frontmatter `kind` and write its surface tree under
+/// `<into>/<subdir>/<id>/`, returning the roll-up row for the index. The one write
+/// path for every frontmatter kind (`specs/15-kinds.md`, "the adapter faces are
+/// declared"): the member document via [`Member::to_document`], plus the copied
+/// companions of a directory-shaped unit. The surface subdir is the kind's declared
+/// `governs` leaf, the member document its declared name (`SKILL.md`, `RULE.md`).
 ///
-/// `pub(crate)` so `re-add` reuses this single round-trip write path — the member
-/// document via [`Skill::to_document`] plus the copied companions — when it pulls a
-/// drifted or added on-disk skill back into the surface, rather than re-implementing
+/// `pub(crate)` so `re-add` reuses this exact round-trip write path when it pulls a
+/// drifted or added on-disk source back into the surface, rather than re-implementing
 /// the projection (`specs/20-surface.md`, "Drift / apply").
-pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
-    let mut skill = Skill::from_source_dir(source_dir)?;
-    let out_dir = into.join("skills").join(&skill.name);
+pub(crate) fn import_frontmatter_member(
+    kind: &CustomKind,
+    source_file: &Path,
+    into: &Path,
+) -> Result<RollupEntry, ImportError> {
+    let mut member = Member::from_source(kind, source_file)?;
+    let out_dir = into.join(kind.surface_subdir()).join(&member.id);
 
     // Merge, never clobber: the source carries no authored clauses (they are
     // surface-only state), so a re-import or drifted-body `re-add` rebuilds the
     // document from source and would wipe the authored `satisfies`/`edges`. Carry
     // any existing surface layer forward before writing (`specs/20-surface.md`,
     // "three states, never two").
-    if let Some(existing) = existing_surface_skill(&out_dir) {
-        skill.carry_representation(&existing);
+    let member_doc = kind.member_document();
+    if let Some(existing) = existing_surface_member(&out_dir, &member_doc) {
+        member.carry_representation(&existing);
     }
 
     create_dir_all(&out_dir)?;
@@ -233,80 +246,38 @@ pub(crate) fn import_skill(source_dir: &Path, into: &Path) -> Result<RollupEntry
     // The member is ONE document: the `+++`-fenced clause-module header over the
     // byte-faithful body, written format-preserving — never a lossy re-serialize.
     write_bytes(
-        &out_dir.join("SKILL.md"),
-        skill.to_document().emit().as_bytes(),
+        &out_dir.join(&member_doc),
+        member.to_document().emit().as_bytes(),
     )?;
 
-    for companion in &skill.companions {
-        copy_companion(source_dir, &out_dir, companion)?;
+    // A directory-shaped unit's companions ride beside the member document, copied
+    // byte-for-byte from the source directory (the member file's parent).
+    if let Some(source_dir) = source_file.parent() {
+        for companion in &member.companions {
+            copy_companion(source_dir, &out_dir, companion)?;
+        }
     }
 
     Ok(RollupEntry {
-        name: skill.name,
-        source_path: skill.provenance.source_path.to_string_lossy().into_owned(),
+        name: member.id,
+        source_path: member.provenance.source_path.to_string_lossy().into_owned(),
         // At import the last-applied fingerprint is the import hash: the source as
         // it stands on disk is exactly what the surface was just derived from.
-        last_applied: skill.provenance.import_hash.clone(),
-        import_hash: skill.provenance.import_hash,
+        last_applied: member.provenance.import_hash.clone(),
+        import_hash: member.provenance.import_hash,
     })
 }
 
-/// Read one source rule and write its surface tree under `<into>/rules/<name>/`,
-/// returning the roll-up row for the index.
-///
-/// Mirrors [`import_skill`] for the rule kind: the member document `RULE.md` — a
-/// `+++`-fenced clause-module header (the optional `paths` + `[provenance]`) over the
-/// byte-faithful body. A rule carries no companions, so there is nothing else to copy.
-///
-/// `pub(crate)` for the same reason as [`import_skill`]: `re-add` reuses this exact
-/// write path to reconcile a drifted or added on-disk rule into the surface.
-pub(crate) fn import_rule(source_file: &Path, into: &Path) -> Result<RollupEntry, ImportError> {
-    let mut rule = Rule::from_source_file(source_file)?;
-    let out_dir = into.join("rules").join(&rule.name);
-
-    // Merge, never clobber — see `import_skill`. Carry the surface's authored
-    // representation forward so a body-only drift re-add never wipes it.
-    if let Some(existing) = existing_surface_rule(&out_dir) {
-        rule.carry_representation(&existing);
-    }
-
-    create_dir_all(&out_dir)?;
-
-    // The member is ONE document: the `+++`-fenced clause-module header over the
-    // byte-faithful body, written format-preserving — never a lossy re-serialize.
-    write_bytes(
-        &out_dir.join("RULE.md"),
-        rule.to_document().emit().as_bytes(),
-    )?;
-
-    Ok(RollupEntry {
-        name: rule.name,
-        source_path: rule.provenance.source_path.to_string_lossy().into_owned(),
-        // At import the last-applied fingerprint is the import hash (see `import_skill`).
-        last_applied: rule.provenance.import_hash.clone(),
-        import_hash: rule.provenance.import_hash,
-    })
-}
-
-/// Load an already-written surface skill from `out_dir` if one is there — the
-/// carrier of the authored `[representation]` a re-import / `re-add` must preserve.
-/// `None` on a first import (the directory does not exist yet) or if the surface
-/// is unreadable, so a missing or malformed prior surface degrades to "nothing to
-/// carry" rather than failing the write.
-fn existing_surface_skill(out_dir: &Path) -> Option<Skill> {
-    if !out_dir.join("SKILL.md").is_file() {
+/// Load an already-written surface member from `out_dir` if one is there — the carrier
+/// of the authored surface layer a re-import / `re-add` must preserve. `None` on a
+/// first import (the directory does not exist yet) or if the surface is unreadable, so
+/// a missing or malformed prior surface degrades to "nothing to carry" rather than
+/// failing the write.
+fn existing_surface_member(out_dir: &Path, member_doc: &str) -> Option<Member> {
+    if !out_dir.join(member_doc).is_file() {
         return None;
     }
-    Skill::from_dir(out_dir).ok()
-}
-
-/// Rule equivalent of [`existing_surface_skill`]: the prior surface rule whose
-/// authored representation is carried forward before the header is rewritten.
-fn existing_surface_rule(out_dir: &Path) -> Option<Rule> {
-    if !out_dir.join("RULE.md").is_file() {
-        return None;
-    }
-    Rule::from_dir(out_dir).ok()
+    Member::from_surface(out_dir, member_doc).ok()
 }
 
 /// Discover a kind's units under `<harness>/<governs.root>/` by matching the
@@ -385,9 +356,9 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
 /// file byte-faithful. The whole file is the body so a unit's frontmatter, if any,
 /// survives verbatim for its extractor to read at `check` time (`specs/15-kinds.md`).
 ///
-/// `pub(crate)` for the same reason as [`import_skill`]: `re-add` reuses this exact
-/// generic write path to reconcile a drifted or added on-disk custom-kind unit into
-/// the surface, folding the returned row straight into the lock.
+/// `pub(crate)` for the same reason as [`import_frontmatter_member`]: `re-add` reuses
+/// this exact generic write path to reconcile a drifted or added on-disk custom-kind
+/// unit into the surface, folding the returned row straight into the lock.
 pub(crate) fn import_custom_unit(
     kind: &CustomKind,
     source_file: &Path,
@@ -429,7 +400,8 @@ pub(crate) fn import_custom_unit(
     Ok(RollupEntry {
         name,
         source_path: source_file.to_string_lossy().into_owned(),
-        // At import the last-applied fingerprint is the import hash (see `import_skill`).
+        // At import the last-applied fingerprint is the import hash (see the built-in
+        // frontmatter member writer).
         last_applied: import_hash.clone(),
         import_hash,
     })
@@ -715,11 +687,14 @@ temper's own governing documents.\n";
         assert!(into.join("lock.toml").is_file());
 
         // The member document is the `+++` clause-module header over the byte-faithful
-        // body, which reloads back to the source skill.
-        let reloaded = Skill::from_dir(&coord).unwrap();
-        assert_eq!(reloaded.name, "coordinate");
-        assert_eq!(reloaded.version.as_deref(), Some("0.3.0"));
-        assert!(reloaded.extra.contains_key("allowed-tools"));
+        // body, which reloads back to the source member through the generic adapter.
+        let reloaded = Member::from_surface(&coord, "SKILL.md").unwrap();
+        assert_eq!(reloaded.id, "coordinate");
+        assert_eq!(
+            reloaded.field("version").and_then(|v| v.as_str()),
+            Some("0.3.0")
+        );
+        assert!(reloaded.has_field("allowed-tools"));
         assert_eq!(
             reloaded.body,
             "# Coordinate\n\nSee PLAYBOOK.md for the full reference.   \nNo trailing newline here."
@@ -805,13 +780,13 @@ temper's own governing documents.\n";
 
         // The document round-trips back to the source rule (paths + the preserved
         // Cursor key), body byte-faithful below the header.
-        let reloaded = Rule::from_dir(&rust).unwrap();
-        assert_eq!(reloaded.name, "rust");
+        let reloaded = Member::from_surface(&rust, "RULE.md").unwrap();
+        assert_eq!(reloaded.id, "rust");
         assert_eq!(
-            reloaded.paths.as_deref(),
-            Some(&["src/**/*.rs".to_string()][..])
+            reloaded.field("paths"),
+            Some(&serde_json::json!(["src/**/*.rs"]))
         );
-        assert!(reloaded.extra.contains_key("description"));
+        assert!(reloaded.has_field("description"));
         assert_eq!(
             reloaded.body,
             "# Rust conventions\n\nPrefer a clone over a lifetime fight.   \nLast line, no newline."
@@ -819,7 +794,10 @@ temper's own governing documents.\n";
 
         // A no-frontmatter rule carries its whole body byte-faithful below the header.
         let collab = into.join("rules").join("collaboration");
-        assert_eq!(Rule::from_dir(&collab).unwrap().body, COLLAB_RULE);
+        assert_eq!(
+            Member::from_surface(&collab, "RULE.md").unwrap().body,
+            COLLAB_RULE
+        );
 
         // The roll-up carries a `[[rule]]` row per rule, name-sorted, alongside
         // the `[[skill]]` rows — both kinds coexist in one import.
@@ -904,8 +882,11 @@ temper's own governing documents.\n";
 
     #[test]
     fn imports_a_bare_harness_that_is_itself_a_skill() {
-        // A `<harness>` whose own SKILL.md makes it a skill dir, with no skills/.
-        let harness = tmpdir("bare-src");
+        // A `<harness>` whose own SKILL.md makes it a skill dir, with no skills/. Its
+        // directory name is the member id (`directory` shape), so the harness dir is
+        // named for the skill — the real bare-skill-repo shape, not a tmpdir artifact.
+        let harness = tmpdir("bare-src").join("demo");
+        fs::create_dir_all(&harness).unwrap();
         fs::write(harness.join("SKILL.md"), DEMO).unwrap();
         let into = tmpdir("bare-into");
 

@@ -26,8 +26,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::check::Workspace;
 use temper::drift::{self, ApplyOptions, ApplyOutcome};
+use temper::frontmatter::Member;
 use temper::import;
-use temper::skill::Skill;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -123,9 +123,11 @@ fn outcome(report: &drift::ApplyReport, name: &str) -> ApplyOutcome {
 /// the composition surface would, and return the reloaded workspace path.
 fn edit_surface_description(workspace: &Path, new: &str) {
     let dir = workspace.join("skills").join("coordinate");
-    let mut skill = Skill::from_dir(&dir).unwrap();
-    skill.description = new.to_string();
-    fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+    let mut member = Member::from_surface(&dir, "SKILL.md").unwrap();
+    if let Some(f) = member.fields.iter_mut().find(|(k, _)| k == "description") {
+        f.1 = serde_json::Value::String(new.to_string());
+    }
+    fs::write(dir.join("SKILL.md"), member.to_document().emit()).unwrap();
 }
 
 #[test]
@@ -199,19 +201,27 @@ fn a_surface_edit_re_emits_the_projection() {
     );
 
     // The re-emitted source re-parses to the same typed skill the surface holds.
-    let reloaded = Skill::from_source_dir(
-        harness
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let reloaded = Member::from_source(
+        &skill_kind,
+        &harness
             .join(".claude")
             .join("skills")
             .join("coordinate")
-            .as_path(),
+            .join("SKILL.md"),
     )
     .expect("the re-emitted source must re-parse");
     assert_eq!(
-        reloaded.description,
+        reloaded
+            .field("description")
+            .and_then(|v| v.as_str())
+            .unwrap(),
         "Use when driving a team across many axes."
     );
-    assert_eq!(reloaded.version.as_deref(), Some("0.3.0"));
+    assert_eq!(
+        reloaded.field("version").and_then(|v| v.as_str()),
+        Some("0.3.0")
+    );
 }
 
 #[test]

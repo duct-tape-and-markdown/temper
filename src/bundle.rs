@@ -359,13 +359,19 @@ mod tests {
         fs::create_dir_all(&skill_dir).unwrap();
         fs::write(skill_dir.join("SKILL.md"), OPERATE_SKILL).unwrap();
 
-        let skill = crate::skill::Skill::from_source_dir(&skill_dir).unwrap();
-        assert_eq!(skill.name, "temper");
-        assert!(!skill.description.is_empty());
-        assert!(skill.description.len() <= 1024);
+        let kind = crate::builtin_kind::definition("skill").unwrap().unwrap();
+        let member =
+            crate::frontmatter::Member::from_source(&kind, &skill_dir.join("SKILL.md")).unwrap();
+        assert_eq!(member.id, "temper");
+        let description = member
+            .field("description")
+            .and_then(|v| v.as_str())
+            .expect("the operate-the-gate skill declares a description");
+        assert!(!description.is_empty());
+        assert!(description.len() <= 1024);
         // No Cursor keys leaked into the frontmatter.
-        assert!(!skill.extra.contains_key("globs"));
-        assert!(!skill.extra.contains_key("alwaysApply"));
+        assert!(!member.has_field("globs"));
+        assert!(!member.has_field("alwaysApply"));
     }
 
     #[test]

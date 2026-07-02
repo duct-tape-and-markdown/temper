@@ -89,14 +89,14 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
     for skill in &workspace.skills {
         members.push(Member {
             kind: "skill".to_string(),
-            id: skill.name.clone(),
+            id: skill.id.clone(),
             satisfies: skill.satisfies.clone(),
         });
     }
     for rule in &workspace.rules {
         members.push(Member {
             kind: "rule".to_string(),
-            id: rule.name.clone(),
+            id: rule.id.clone(),
             satisfies: rule.satisfies.clone(),
         });
     }

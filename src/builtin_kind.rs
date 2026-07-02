@@ -231,14 +231,19 @@ mod tests {
         dir
     }
 
-    /// Write a skill's authored surface member document `<dir>/SKILL.md` exactly as
-    /// `import`/`apply` project it (`Skill::to_document`), then reload it through the
-    /// generic surface loader `check` reads — the built-in kind's member-document read
-    /// (`specs/15-kinds.md`, "A built-in kind is an adapter"), no IR→Unit adapter.
-    fn skill_surface_unit(skill: &crate::skill::Skill, dir: &std::path::Path) -> Unit {
+    /// Write a member's authored surface member document `<dir>/<member_doc>` exactly
+    /// as `import`/`apply` project it ([`crate::frontmatter::Member::to_document`]),
+    /// then reload it through the generic surface loader `check` reads — the built-in
+    /// kind's member-document read (`specs/15-kinds.md`, "A built-in kind is an
+    /// adapter"), one generic adapter, no per-kind IR.
+    fn surface_unit(
+        member: &crate::frontmatter::Member,
+        member_doc: &str,
+        dir: &std::path::Path,
+    ) -> Unit {
         std::fs::create_dir_all(dir).unwrap();
-        let doc_path = dir.join("SKILL.md");
-        std::fs::write(&doc_path, skill.to_document().emit()).unwrap();
+        let doc_path = dir.join(member_doc);
+        std::fs::write(&doc_path, member.to_document().emit()).unwrap();
         Unit::from_member_document(dir, &doc_path).unwrap()
     }
 
@@ -262,15 +267,17 @@ priority: 7\n\
 Body line two.\n",
         )
         .unwrap();
-        let mut skill = crate::skill::Skill::from_source_dir(&src).unwrap();
+        let skill = definition("skill").unwrap().unwrap();
+        let mut member =
+            crate::frontmatter::Member::from_source(&skill, &src.join("SKILL.md")).unwrap();
         // The authored representation edge — surfaced by the driver, kept out of `fields`.
-        skill.satisfies = vec![crate::document::Satisfies {
+        member.satisfies = vec![crate::document::Satisfies {
             requirement: "req.one".to_string(),
             rationale: Some("The human why, never a decidable feature.".to_string()),
         }];
 
-        // Read the extracted features off the written surface, not the typed IR.
-        let unit = skill_surface_unit(&skill, &parent.join("surface-demo"));
+        // Read the extracted features off the written surface, not a typed IR.
+        let unit = surface_unit(&member, "SKILL.md", &parent.join("surface-demo"));
         let features = skill_features(&unit).unwrap();
 
         // The documented fields come off the composed `field` primitives.
@@ -298,16 +305,6 @@ Body line two.\n",
         assert!(!features.has_field("rationale"));
     }
 
-    /// Write a rule's authored surface member document `<dir>/RULE.md`
-    /// (`Rule::to_document`) and reload it through the generic surface loader `check`
-    /// reads — the rule counterpart to [`skill_surface_unit`].
-    fn rule_surface_unit(rule: &crate::rule::Rule, dir: &std::path::Path) -> Unit {
-        std::fs::create_dir_all(dir).unwrap();
-        let doc_path = dir.join("RULE.md");
-        std::fs::write(&doc_path, rule.to_document().emit()).unwrap();
-        Unit::from_member_document(dir, &doc_path).unwrap()
-    }
-
     #[test]
     fn rule_features_expose_paths_and_a_no_frontmatter_rule() {
         use crate::extract::FeatureValue;
@@ -315,14 +312,16 @@ Body line two.\n",
         let parent = tmpdir("rule-driver");
         let rules = parent.join("rules");
         std::fs::create_dir_all(&rules).unwrap();
+        let rule = definition("rule").unwrap().unwrap();
 
         std::fs::write(
             rules.join("rust.md"),
             "---\npaths:\n  - \"src/**/*.rs\"\n---\n# Rust\n\nBody.\n",
         )
         .unwrap();
-        let rule = crate::rule::Rule::from_source_file(&rules.join("rust.md")).unwrap();
-        let unit = rule_surface_unit(&rule, &parent.join("surface-rust"));
+        let member =
+            crate::frontmatter::Member::from_source(&rule, &rules.join("rust.md")).unwrap();
+        let unit = surface_unit(&member, "RULE.md", &parent.join("surface-rust"));
         let features = rule_features(&unit).unwrap();
         assert_eq!(
             features.field("paths"),
@@ -334,8 +333,9 @@ Body line two.\n",
 
         // A rule with no frontmatter carries no fields at all — the whole file is body.
         std::fs::write(rules.join("collab.md"), "# Collaboration\n\nPushback.\n").unwrap();
-        let bare = crate::rule::Rule::from_source_file(&rules.join("collab.md")).unwrap();
-        let bare_unit = rule_surface_unit(&bare, &parent.join("surface-collab"));
+        let bare =
+            crate::frontmatter::Member::from_source(&rule, &rules.join("collab.md")).unwrap();
+        let bare_unit = surface_unit(&bare, "RULE.md", &parent.join("surface-collab"));
         let bare_features = rule_features(&bare_unit).unwrap();
         assert!(bare_features.fields.is_empty());
         assert_eq!(bare_features.body_lines, 3);

@@ -171,6 +171,44 @@ impl CustomKind {
             unit_shape,
         })
     }
+
+    /// The kind's declared frontmatter fields, in declaration order — the `field`
+    /// extraction primitives' keys (`specs/15-kinds.md`, "the adapter faces are
+    /// declared"). The generic frontmatter adapter (`crate::frontmatter`) lifts these
+    /// into the leading `[clause.<field>]` tables, before the preserved unknown keys.
+    #[must_use]
+    pub fn declared_fields(&self) -> Vec<&str> {
+        self.extraction
+            .primitives()
+            .iter()
+            .filter_map(|primitive| match primitive {
+                Primitive::Field { key } => Some(key.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The surface member-document filename for this kind — the kind name upper-cased
+    /// with a `.md` suffix (`skill` → `SKILL.md`, `rule` → `RULE.md`), the name both
+    /// the emit face writes and the reload face reads (`src/frontmatter.rs`,
+    /// `src/import.rs`).
+    #[must_use]
+    pub fn member_document(&self) -> String {
+        format!("{}.md", self.name.to_uppercase())
+    }
+
+    /// The surface subdirectory a member of this kind lands under — the leaf of the
+    /// `governs.root` locus (`.claude/skills` → `skills`, `.claude/rules` → `rules`).
+    /// The read face's scan root and the emit face's write root share this leaf, so a
+    /// built-in kind's surface tree is derived from its declaration, not hardwired.
+    #[must_use]
+    pub fn surface_subdir(&self) -> &str {
+        self.governs
+            .root
+            .rsplit('/')
+            .next()
+            .unwrap_or(&self.governs.root)
+    }
 }
 
 /// Parse a `KIND.md` header's required `governs = { root, glob }` locus: absent ⇒
@@ -383,8 +421,8 @@ impl Primitive {
 /// the three surface loci the primitives range over (parsed frontmatter, the
 /// byte-faithful body, the source placement). Frontmatter is *already parsed* —
 /// splitting it is the surface tier's job and varies per harness format
-/// (`crate::skill` vs a frontmatter-less spec), so this composer takes the values
-/// rather than re-parse. A spec supplies an empty `frontmatter`.
+/// (`crate::frontmatter` vs a frontmatter-less spec), so this composer takes the
+/// values rather than re-parse. A spec supplies an empty `frontmatter`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unit {
     /// The artifact id used in diagnostics and as `Features::id` (a file stem, a

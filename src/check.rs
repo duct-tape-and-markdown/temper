@@ -20,28 +20,28 @@ use std::path::{Path, PathBuf};
 
 use miette::GraphicalReportHandler;
 
+use crate::frontmatter::{FrontmatterError, Member};
 use crate::kind::{KindError, Unit};
-use crate::rule::{Rule as RuleArtifact, RuleError};
-use crate::skill::{Skill, SkillError};
 
 /// The loaded config surface: every built-in artifact `check` lints. Carries the
-/// skills and rules; later built-in artifact kinds (hooks, agents, …) extend this
-/// struct so a cross-artifact clause can reach the whole harness at once. Custom
-/// project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are read
-/// generically through [`Unit::from_surface_dir`](crate::kind::Unit::from_surface_dir),
+/// skills and rules as generic frontmatter [`Member`]s (`specs/15-kinds.md`, "A
+/// built-in kind is an adapter"); later built-in artifact kinds (hooks, agents, …)
+/// extend this struct so a cross-artifact clause can reach the whole harness at once.
+/// Custom project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are
+/// read generically through [`Unit::from_surface_dir`](crate::kind::Unit::from_surface_dir),
 /// not materialized as a field here.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Workspace {
-    /// The skills reconstructed from `<workspace>/skills/<name>/`.
-    pub skills: Vec<Skill>,
-    /// The rules reconstructed from `<workspace>/rules/<name>/`.
-    pub rules: Vec<RuleArtifact>,
+    /// The skill members reconstructed from `<workspace>/skills/<name>/`.
+    pub skills: Vec<Member>,
+    /// The rule members reconstructed from `<workspace>/rules/<name>/`.
+    pub rules: Vec<Member>,
 }
 
 impl Workspace {
     /// Load a workspace from its surface directory by reconstructing every skill
-    /// under `<dir>/skills/*` via [`Skill::from_dir`] and every rule under
-    /// `<dir>/rules/*` via [`RuleArtifact::from_dir`].
+    /// under `<dir>/skills/*` and every rule under `<dir>/rules/*` through the one
+    /// generic frontmatter adapter ([`Member::from_surface`]) — no per-kind IR.
     ///
     /// A child is treated as an artifact surface only when it holds its kind's member
     /// document (`SKILL.md`, `RULE.md`), so stray files and partial directories are
@@ -50,12 +50,12 @@ impl Workspace {
     pub fn load(dir: &Path) -> Result<Self, WorkspaceError> {
         let mut skills = Vec::new();
         for skill_dir in &surface_dirs(&dir.join("skills"), "SKILL.md")? {
-            skills.push(Skill::from_dir(skill_dir)?);
+            skills.push(Member::from_surface(skill_dir, "SKILL.md")?);
         }
 
         let mut rules = Vec::new();
         for rule_dir in &surface_dirs(&dir.join("rules"), "RULE.md")? {
-            rules.push(RuleArtifact::from_dir(rule_dir)?);
+            rules.push(Member::from_surface(rule_dir, "RULE.md")?);
         }
 
         Ok(Self { skills, rules })
@@ -137,15 +137,11 @@ pub enum WorkspaceError {
         source: std::io::Error,
     },
 
-    /// A skill surface under the workspace could not be reconstructed.
+    /// A built-in kind's surface member could not be reconstructed through the
+    /// generic frontmatter adapter (`specs/15-kinds.md`).
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Skill(#[from] SkillError),
-
-    /// A rule surface under the workspace could not be reconstructed.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Rule(#[from] RuleError),
+    Frontmatter(#[from] FrontmatterError),
 
     /// A built-in kind's surface member document could not be read generically
     /// (`specs/15-kinds.md`, "A built-in kind is an adapter") — the check read's
@@ -319,16 +315,22 @@ version: \"1.0.0\"\n\
 \n\
 Body.\n";
 
-    /// Write a one-skill surface (`meta.toml` + body) under `<ws>/skills/<name>/`,
+    /// The embedded built-in kind definition the generic frontmatter adapter is
+    /// driven by in these tests.
+    fn builtin(name: &str) -> crate::kind::CustomKind {
+        crate::builtin_kind::definition(name).unwrap().unwrap()
+    }
+
+    /// Write a one-skill surface (member document + body) under `<ws>/skills/<name>/`,
     /// projecting it from a source `SKILL.md` exactly as `import` would.
     fn write_surface_skill(ws: &Path, name: &str, skill_md: &str) {
         let src = tmpdir(&format!("src-{name}"));
         fs::write(src.join("SKILL.md"), skill_md).unwrap();
-        let skill = Skill::from_source_dir(&src).unwrap();
+        let member = Member::from_source(&builtin("skill"), &src.join("SKILL.md")).unwrap();
 
         let dir = ws.join("skills").join(name);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+        fs::write(dir.join("SKILL.md"), member.to_document().emit()).unwrap();
     }
 
     const RULE_SRC: &str = "---\n\
@@ -339,17 +341,17 @@ paths:\n\
 \n\
 Prefer a clone.\n";
 
-    /// Write a one-rule surface (`meta.toml` + body) under `<ws>/rules/<name>/`,
+    /// Write a one-rule surface (member document + body) under `<ws>/rules/<name>/`,
     /// projecting it from a source rule file exactly as `import` would.
     fn write_surface_rule(ws: &Path, name: &str, rule_md: &str) {
         let src = tmpdir(&format!("rule-src-{name}"));
         let path = src.join(format!("{name}.md"));
         fs::write(&path, rule_md).unwrap();
-        let rule = RuleArtifact::from_source_file(&path).unwrap();
+        let member = Member::from_source(&builtin("rule"), &path).unwrap();
 
         let dir = ws.join("rules").join(name);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+        fs::write(dir.join("RULE.md"), member.to_document().emit()).unwrap();
     }
 
     #[test]
@@ -360,8 +362,11 @@ Prefer a clone.\n";
         let loaded = Workspace::load(&ws).unwrap();
 
         assert_eq!(loaded.skills.len(), 1);
-        assert_eq!(loaded.skills[0].name, "demo");
-        assert_eq!(loaded.skills[0].version.as_deref(), Some("1.0.0"));
+        assert_eq!(loaded.skills[0].id, "demo");
+        assert_eq!(
+            loaded.skills[0].field("version").and_then(|v| v.as_str()),
+            Some("1.0.0")
+        );
     }
 
     #[test]
@@ -375,14 +380,14 @@ Prefer a clone.\n";
 
         // Skills load as before, and rules load name-sorted beside them.
         assert_eq!(loaded.skills.len(), 1);
-        let rule_names: Vec<&str> = loaded.rules.iter().map(|r| r.name.as_str()).collect();
+        let rule_names: Vec<&str> = loaded.rules.iter().map(|r| r.id.as_str()).collect();
         assert_eq!(rule_names, vec!["collaboration", "rust"]);
         assert_eq!(
-            loaded.rules[1].paths.as_deref(),
-            Some(&["src/**/*.rs".to_string()][..])
+            loaded.rules[1].field("paths"),
+            Some(&serde_json::json!(["src/**/*.rs"]))
         );
         // The no-frontmatter rule carries no `paths`.
-        assert!(loaded.rules[0].paths.is_none());
+        assert!(!loaded.rules[0].has_field("paths"));
     }
 
     #[test]
@@ -413,7 +418,7 @@ Body.\n";
         // The id, the typed `name` field, and the unknown key all land exactly as the
         // retired IR→Unit adapter produced — the documented fields off the composed
         // `field` primitives, the unknown key folded in permissively.
-        assert_eq!(skill_features.id, typed.skills[0].name);
+        assert_eq!(skill_features.id, typed.skills[0].id);
         assert_eq!(
             skill_features.field("name"),
             Some(&FeatureValue::scalar(Kind::String, "demo"))
@@ -433,7 +438,7 @@ Body.\n";
         );
 
         let rule_features = builtin_kind::rule_features(&rule_units[0]).unwrap();
-        assert_eq!(rule_features.id, typed.rules[0].name);
+        assert_eq!(rule_features.id, typed.rules[0].id);
         assert_eq!(
             rule_features.field("paths"),
             Some(&FeatureValue::List(vec!["src/**/*.rs".to_string()]))
@@ -449,10 +454,10 @@ Body.\n";
         fs::create_dir_all(ws.join("skills").join("empty")).unwrap();
 
         let loaded = Workspace::load(&ws).unwrap();
-        let names: Vec<&str> = loaded.skills.iter().map(|s| s.name.as_str()).collect();
-        // Both surfaces carry `name: demo` (from the shared fixture); what we
-        // assert here is the count and that the stray dir was skipped.
-        assert_eq!(names, vec!["demo", "demo"]);
+        let names: Vec<&str> = loaded.skills.iter().map(|s| s.id.as_str()).collect();
+        // The member id is the surface directory name (`directory` shape), so the two
+        // surfaces are `alpha` and `bravo`, name-sorted, and the stray dir was skipped.
+        assert_eq!(names, vec!["alpha", "bravo"]);
     }
 
     #[test]

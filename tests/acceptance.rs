@@ -32,9 +32,9 @@ use temper::check::{self, Diagnostic, Severity};
 use temper::contract::Contract;
 use temper::engine;
 use temper::extract::Features;
+use temper::frontmatter::Member;
 use temper::import;
 use temper::kind::Unit;
-use temper::skill::Skill;
 
 /// The built-in Anthropic skill contract, resolved from the embedded `packages/`
 /// std-lib exactly as the shipped `check` does — so the acceptance path validates
@@ -67,12 +67,12 @@ fn tmpdir(label: &str) -> PathBuf {
 }
 
 /// Project an imported skill to its authored surface member document
-/// `<skill.name>/SKILL.md` (`Skill::to_document`) and reload it through the generic
+/// `<skill.id>/SKILL.md` (`Member::to_document`) and reload it through the generic
 /// `Unit` loader `check` reads. The surface directory is named for the skill so the
 /// generic id matches the imported member; `placement` reads the imported source
 /// directory off the preserved provenance, not this scratch directory.
-fn skill_surface_unit(skill: &Skill) -> Unit {
-    let dir = tmpdir(&format!("surface-{}", skill.name)).join(&skill.name);
+fn skill_surface_unit(skill: &Member) -> Unit {
+    let dir = tmpdir(&format!("surface-{}", skill.id)).join(&skill.id);
     fs::create_dir_all(&dir).unwrap();
     let doc_path = dir.join("SKILL.md");
     fs::write(&doc_path, skill.to_document().emit()).unwrap();
@@ -186,7 +186,9 @@ fn check_reproduces_the_expected_diagnostic_set() {
     let mut report = String::new();
     for dir in &fixtures {
         let name = dir.file_name().unwrap().to_string_lossy();
-        let skill = Skill::from_source_dir(dir).expect("fixture skill should parse");
+        let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+        let skill = Member::from_source(&skill_kind, &dir.join("SKILL.md"))
+            .expect("fixture skill should parse");
         // Read features off the projected surface member document through the generic
         // `Unit` loader `check` uses — no IR→Unit adapter. `placement` still reads the
         // imported source directory off provenance, so `name-matches-dir` is unchanged.

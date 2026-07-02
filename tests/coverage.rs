@@ -79,7 +79,7 @@ fn import_skill(root: &Path, name: &str, skill_md: &str) {
 /// projection the tool uses.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     let dir = root.join(".temper").join("skills").join(name);
-    let mut skill = temper::skill::Skill::from_dir(&dir).unwrap();
+    let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
     skill.satisfies = requirements
         .iter()
         .map(|r| temper::document::Satisfies::new(*r))

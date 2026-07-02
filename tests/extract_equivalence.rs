@@ -8,7 +8,7 @@
 //! layout (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`;
 //! `.claude/rules/rust.md` guidance: never a layout invented for the test). Each
 //! fixture is imported, projected to its authored surface document
-//! (`Skill`/`Rule::to_document`), then re-read as a generic `Unit` — the exact check
+//! (`Member::to_document`), then re-read as a generic `Unit` — the exact check
 //! read path, no IR→Unit adapter. Each resulting `Features` is snapshotted (Debug):
 //! these `.snap` files were pinned against the retired hand-coded
 //! `skill_features`/`rule_features` and stay byte-identical under the generic surface
@@ -23,9 +23,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
+use temper::frontmatter::Member;
 use temper::kind::Unit;
-use temper::rule::Rule;
-use temper::skill::Skill;
 
 /// Path to a fixture under `tests/fixtures/extract_equivalence`, resolved from the
 /// manifest so the test is independent of the process working directory. The tree
@@ -54,23 +53,24 @@ fn tmpdir(label: &str) -> PathBuf {
 }
 
 /// Write an imported skill's authored surface member document `<name>/SKILL.md`
-/// (`Skill::to_document`) and reload it through the generic `Unit` loader `check`
+/// (`Member::to_document`) and reload it through the generic `Unit` loader `check`
 /// reads — the built-in kind's member-document read, no IR→Unit adapter.
-fn skill_surface_unit(skill: &Skill, name: &str) -> Unit {
+fn skill_surface_unit(member: &Member, name: &str) -> Unit {
     let dir = tmpdir(name).join(name);
     std::fs::create_dir_all(&dir).unwrap();
     let doc_path = dir.join("SKILL.md");
-    std::fs::write(&doc_path, skill.to_document().emit()).unwrap();
+    std::fs::write(&doc_path, member.to_document().emit()).unwrap();
     Unit::from_member_document(&dir, &doc_path).unwrap()
 }
 
 /// The rule counterpart to [`skill_surface_unit`]: project the imported rule to its
-/// `<name>/RULE.md` surface document and reload it as a generic `Unit`.
-fn rule_surface_unit(rule: &Rule, name: &str) -> Unit {
+/// `<name>/RULE.md` surface document (`Member::to_document`) and reload it as a
+/// generic `Unit`.
+fn rule_surface_unit(member: &Member, name: &str) -> Unit {
     let dir = tmpdir(name).join(name);
     std::fs::create_dir_all(&dir).unwrap();
     let doc_path = dir.join("RULE.md");
-    std::fs::write(&doc_path, rule.to_document().emit()).unwrap();
+    std::fs::write(&doc_path, member.to_document().emit()).unwrap();
     Unit::from_member_document(&dir, &doc_path).unwrap()
 }
 
@@ -82,7 +82,8 @@ fn rule_surface_unit(rule: &Rule, name: &str) -> Unit {
 /// nested sections, and the imported directory name.
 #[test]
 fn skill_features_over_a_real_skill_fixture() {
-    let skill = Skill::from_source_dir(&fixture("skills/coordinate"))
+    let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
+    let skill = Member::from_source(&skill_kind, &fixture("skills/coordinate").join("SKILL.md"))
         .expect("the coordinate skill fixture should parse");
     let unit = skill_surface_unit(&skill, "coordinate");
     let features =
@@ -95,7 +96,8 @@ fn skill_features_over_a_real_skill_fixture() {
 /// nested sections, and the discovered `rules` directory.
 #[test]
 fn rule_features_over_a_paths_rule_fixture() {
-    let rule = Rule::from_source_file(&fixture("rules/rust.md"))
+    let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+    let rule = Member::from_source(&rule_kind, &fixture("rules/rust.md"))
         .expect("the rust rule fixture should parse");
     let unit = rule_surface_unit(&rule, "rust");
     let features =
@@ -108,7 +110,8 @@ fn rule_features_over_a_paths_rule_fixture() {
 /// whole file as the byte-faithful body.
 #[test]
 fn rule_features_over_a_no_frontmatter_rule_fixture() {
-    let rule = Rule::from_source_file(&fixture("rules/collaboration.md"))
+    let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+    let rule = Member::from_source(&rule_kind, &fixture("rules/collaboration.md"))
         .expect("the collaboration rule fixture should parse");
     let unit = rule_surface_unit(&rule, "collaboration");
     let features =

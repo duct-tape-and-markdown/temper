@@ -21,10 +21,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use temper::check::Workspace;
 use temper::document::Satisfies;
 use temper::drift::{self, ReAddOutcome};
+use temper::frontmatter::Member;
 use temper::import;
 use temper::kind::{CustomKind, Unit};
-use temper::rule::Rule;
-use temper::skill::Skill;
 use toml_edit::DocumentMut;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -191,12 +190,18 @@ An edited body, straight on disk.\n";
 
     // The surface header was rewritten: the reloaded skill carries the edited field.
     let surface = into.join("skills").join("coordinate");
-    let reloaded = Skill::from_dir(&surface).unwrap();
+    let reloaded = Member::from_surface(&surface, "SKILL.md").unwrap();
     assert_eq!(
-        reloaded.description,
+        reloaded
+            .field("description")
+            .and_then(|v| v.as_str())
+            .unwrap(),
         "Edited straight on disk, outside the surface."
     );
-    assert_eq!(reloaded.version.as_deref(), Some("0.4.0"));
+    assert_eq!(
+        reloaded.field("version").and_then(|v| v.as_str()),
+        Some("0.4.0")
+    );
     // ...and the body was pulled in byte-faithfully (frontmatter stripped), below
     // the member document's header.
     assert_eq!(
@@ -208,7 +213,8 @@ An edited body, straight on disk.\n";
     // anchor now hashes the edited file, and `last_applied` tracks it — both
     // different from the pre-drift baseline. The fresh hash matches what a source
     // re-parse computes, so the lock truly reflects on-disk reality.
-    let fresh = Skill::from_source_dir(&skill_dir(&harness))
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let fresh = Member::from_source(&skill_kind, &skill_dir(&harness).join("SKILL.md"))
         .unwrap()
         .provenance
         .import_hash;
@@ -250,10 +256,10 @@ An edited rule body.\n";
 
     // The surface header carries the broadened scope, and the body is byte-faithful.
     let surface = into.join("rules").join("rust");
-    let reloaded = Rule::from_dir(&surface).unwrap();
+    let reloaded = Member::from_surface(&surface, "RULE.md").unwrap();
     assert_eq!(
-        reloaded.paths.as_deref(),
-        Some(&["src/**/*.rs".to_string(), "tests/**/*.rs".to_string()][..])
+        reloaded.field("paths"),
+        Some(&serde_json::json!(["src/**/*.rs", "tests/**/*.rs"]))
     );
     assert_eq!(
         reloaded.body,
@@ -261,7 +267,8 @@ An edited rule body.\n";
     );
 
     // The lock anchor is refreshed to the edited source bytes.
-    let fresh = Rule::from_source_file(&rule_source(&harness))
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+    let fresh = Member::from_source(&rule_kind, &rule_source(&harness))
         .unwrap()
         .provenance
         .import_hash;
@@ -280,7 +287,7 @@ fn a_drifted_body_readd_preserves_authored_representation() {
     // Author the surface-only layer on both kinds — `satisfies` and its `rationale`
     // the source files never carry.
     let skill_surface = into.join("skills").join("coordinate");
-    let mut skill = Skill::from_dir(&skill_surface).unwrap();
+    let mut skill = Member::from_surface(&skill_surface, "SKILL.md").unwrap();
     skill.satisfies = vec![Satisfies {
         requirement: "req.coordinate".to_string(),
         rationale: Some("Fills the coordination requirement.".to_string()),
@@ -288,7 +295,7 @@ fn a_drifted_body_readd_preserves_authored_representation() {
     fs::write(skill_surface.join("SKILL.md"), skill.to_document().emit()).unwrap();
 
     let rule_surface = into.join("rules").join("rust");
-    let mut rule = Rule::from_dir(&rule_surface).unwrap();
+    let mut rule = Member::from_surface(&rule_surface, "RULE.md").unwrap();
     rule.satisfies = vec![Satisfies {
         requirement: "req.rust-style".to_string(),
         rationale: Some("Encodes the Rust conventions the gate enforces.".to_string()),
@@ -328,7 +335,7 @@ An edited rule body.\n",
 
     // The authored layer survived the body-drift re-add — the data-loss the carry
     // prevents (satisfies + rationale are wiped without it).
-    let skill = Skill::from_dir(&skill_surface).unwrap();
+    let skill = Member::from_surface(&skill_surface, "SKILL.md").unwrap();
     assert_eq!(skill.satisfies[0].requirement, "req.coordinate");
     assert_eq!(
         skill.satisfies[0].rationale.as_deref(),
@@ -340,7 +347,7 @@ An edited rule body.\n",
         "# Coordinate\n\nAn edited body, straight on disk.\n"
     );
 
-    let rule = Rule::from_dir(&rule_surface).unwrap();
+    let rule = Member::from_surface(&rule_surface, "RULE.md").unwrap();
     assert_eq!(rule.satisfies[0].requirement, "req.rust-style");
     assert_eq!(
         rule.satisfies[0].rationale.as_deref(),
@@ -355,7 +362,7 @@ fn a_reimport_of_an_authored_surface_preserves_representation_and_is_idempotent(
 
     // Author the layer on the surface, then re-import the *unchanged* harness.
     let skill_surface = into.join("skills").join("coordinate");
-    let mut skill = Skill::from_dir(&skill_surface).unwrap();
+    let mut skill = Member::from_surface(&skill_surface, "SKILL.md").unwrap();
     skill.satisfies = vec![Satisfies {
         requirement: "req.coordinate".to_string(),
         rationale: Some("Fills the coordination requirement.".to_string()),
@@ -372,7 +379,7 @@ fn a_reimport_of_an_authored_surface_preserves_representation_and_is_idempotent(
         tree_bytes(&into),
         "re-importing an authored, unchanged surface must not change a byte"
     );
-    let skill = Skill::from_dir(&skill_surface).unwrap();
+    let skill = Member::from_surface(&skill_surface, "SKILL.md").unwrap();
     assert_eq!(skill.satisfies[0].requirement, "req.coordinate");
     assert_eq!(
         skill.satisfies[0].rationale.as_deref(),
@@ -417,21 +424,22 @@ A helping hand.\n",
     // loader — a first-class surface artifact, not a partial write.
     let skill_surface = into.join("skills").join("helper");
     assert!(skill_surface.join("SKILL.md").is_file());
-    let reloaded = Skill::from_dir(&skill_surface).unwrap();
-    assert_eq!(reloaded.name, "helper");
+    let reloaded = Member::from_surface(&skill_surface, "SKILL.md").unwrap();
+    assert_eq!(reloaded.id, "helper");
     assert_eq!(reloaded.body, "# Helper\n\nA helping hand.\n");
 
     let rule_surface = into.join("rules").join("extra");
     assert!(rule_surface.join("RULE.md").is_file());
     assert_eq!(
-        Rule::from_dir(&rule_surface).unwrap().body,
+        Member::from_surface(&rule_surface, "RULE.md").unwrap().body,
         "# Extra\n\nA rule added straight to the harness, after import.\n"
     );
 
     // Each added source gained a lock row anchored to its source bytes.
     assert!(lock_has_row(&into, "skill", "helper"));
     assert!(lock_has_row(&into, "rule", "extra"));
-    let fresh = Skill::from_source_dir(&helper)
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let fresh = Member::from_source(&skill_kind, &helper.join("SKILL.md"))
         .unwrap()
         .provenance
         .import_hash;

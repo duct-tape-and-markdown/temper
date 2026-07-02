@@ -134,12 +134,12 @@ fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&st
         .collect();
     match kind_dir {
         "skills" => {
-            let mut skill = temper::skill::Skill::from_dir(&dir).unwrap();
+            let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
             skill.satisfies = satisfies;
             fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
         }
         "rules" => {
-            let mut rule = temper::rule::Rule::from_dir(&dir).unwrap();
+            let mut rule = temper::frontmatter::Member::from_surface(&dir, "RULE.md").unwrap();
             rule.satisfies = satisfies;
             fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
         }

@@ -25,8 +25,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::document::Satisfies;
-use temper::rule::Rule;
-use temper::skill::Skill;
+use temper::frontmatter::Member;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -71,7 +70,8 @@ fn clean_skill(name: &str) -> String {
 fn write_skill(root: &Path, name: &str, satisfies: &[(&str, Option<&str>)]) {
     let src = tmpdir("skill-src");
     fs::write(src.join("SKILL.md"), clean_skill(name)).unwrap();
-    let mut skill = Skill::from_source_dir(&src).unwrap();
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let mut skill = Member::from_source(&skill_kind, &src.join("SKILL.md")).unwrap();
     skill.satisfies = satisfies
         .iter()
         .map(|(req, rationale)| Satisfies {
@@ -106,7 +106,8 @@ fn write_rule(
         format!("---\npaths:\n  - \"src/**/*.rs\"\n{routes}---\n# rule\n\nBody.\n"),
     )
     .unwrap();
-    let mut rule = Rule::from_source_file(&path).unwrap();
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+    let mut rule = Member::from_source(&rule_kind, &path).unwrap();
     rule.satisfies = satisfies
         .iter()
         .map(|(req, rationale)| Satisfies {
