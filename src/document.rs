@@ -98,6 +98,39 @@ pub enum DocumentError {
         #[source]
         source: Box<toml_edit::TomlError>,
     },
+
+    /// A `[requirement.<name>]` module published on a member header carries a key
+    /// outside its closed facet set (`means`/`kind`/`package`/`required`) — the same
+    /// posture as an unknown contract key (`specs/10-contracts.md`, "unknown keys are
+    /// rejected"): a typo that would silently drop a published obligation is a hard
+    /// load error, not a dropped key.
+    #[error("published requirement `{name}` has unknown key `{key}`")]
+    #[diagnostic(
+        code(temper::document::requirement_unknown_key),
+        help(
+            "a member-published requirement carries only `means`, `kind`, `package`, and `required`"
+        )
+    )]
+    RequirementUnknownKey {
+        /// The published requirement carrying the stray key.
+        name: String,
+        /// The unrecognized key.
+        key: String,
+    },
+
+    /// A `[requirement.<name>]` module published on a member header carries a facet
+    /// of the wrong TOML type — `means`/`kind`/`package` not a string, or `required`
+    /// not a boolean.
+    #[error("published requirement `{name}` key `{key}` must be {expected}")]
+    #[diagnostic(code(temper::document::requirement_wrong_type))]
+    RequirementWrongType {
+        /// The published requirement whose facet is mistyped.
+        name: String,
+        /// The mistyped facet.
+        key: &'static str,
+        /// The type that was expected, for the message.
+        expected: &'static str,
+    },
 }
 
 impl Document {
@@ -229,6 +262,31 @@ pub struct EdgeClause {
     pub relation: Option<String>,
 }
 
+/// A `[requirement.<name>]` clause module **published** on a member header
+/// (`specs/10-contracts.md`, "Decision: a requirement's publisher is any authored
+/// surface document"): the member declares a named obligation — the demand side of
+/// the fill edge, joined to the roster by another member's `satisfies`. It carries
+/// the same facets the assembly roster's `[requirement.<name>]` does (`means`,
+/// `kind`, `package`, `required`); the richer set-scope facets stay assembly-only.
+/// Authored on the surface, never imported; one namespace with the assembly roster,
+/// so a cross-publisher name collision is an admissibility finding (resolved in the
+/// gate), never a shadow.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublishedRequirement {
+    /// The requirement's name — the `[requirement.<name>]` module key.
+    pub name: String,
+    /// The authored *intent*, the why. Carried verbatim and never interpreted
+    /// (`00-intent.md` law 3).
+    pub means: Option<String>,
+    /// The artifact kind that may fill the requirement. Absent ⇒ kind-blind.
+    pub kind: Option<String>,
+    /// The package the filling artifact must conform to, named by name. Absent ⇒ no
+    /// package constraint.
+    pub package: Option<String>,
+    /// Whether an unfilled requirement is gate-blocking. Absent ⇒ `false`.
+    pub required: bool,
+}
+
 /// Get-or-create an *implicit* parent table under `key`, so its children render as
 /// standalone `[key.<child>]` tables (never a bare `[key]` header). This is what
 /// makes each clause module its own labelled `[table]` in the fenced header.
@@ -270,6 +328,27 @@ pub fn add_edge(header: &mut DocumentMut, edge: &EdgeClause) {
         module.insert("relation", Item::Value(Value::from(relation.clone())));
     }
     child_table(header, "edge").insert(&edge.target, Item::Table(module));
+}
+
+/// Emit a `[requirement.<name>]` module carrying the facets the member publishes
+/// (`means`, `kind`, `package`, `required`). The demand-side mirror of
+/// [`add_satisfies`]; an absent facet (`None`, or `required = false`) is omitted, so
+/// emit is the exact inverse of [`requirements`] and the round-trip is symmetric.
+pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirement) {
+    let mut module = Table::new();
+    if let Some(means) = &requirement.means {
+        module.insert("means", Item::Value(Value::from(means.clone())));
+    }
+    if let Some(kind) = &requirement.kind {
+        module.insert("kind", Item::Value(Value::from(kind.clone())));
+    }
+    if let Some(package) = &requirement.package {
+        module.insert("package", Item::Value(Value::from(package.clone())));
+    }
+    if requirement.required {
+        module.insert("required", Item::Value(Value::from(true)));
+    }
+    child_table(header, "requirement").insert(&requirement.name, Item::Table(module));
 }
 
 /// Emit the generated `[provenance]` module — `source_path` + `import_hash`, the
@@ -351,6 +430,79 @@ pub fn edges(header: &DocumentMut) -> Vec<EdgeClause> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// The `[requirement.<name>]` modules a member **publishes** in its header, in
+/// document order (`specs/10-contracts.md`, "Decision: a requirement's publisher is
+/// any authored surface document") — the demand-side mirror of [`satisfies`]. A
+/// module with no body is a bare (all-facets-absent) obligation, valid like a bare
+/// assembly `[requirement.<name>]`.
+///
+/// # Errors
+///
+/// Rejects a module carrying a key outside the closed facet set
+/// ([`DocumentError::RequirementUnknownKey`]) or a facet of the wrong TOML type
+/// ([`DocumentError::RequirementWrongType`]) — a typo that would silently drop a
+/// published obligation is a hard load error (`specs/10-contracts.md`, "unknown keys
+/// are rejected").
+pub fn requirements(header: &DocumentMut) -> Result<Vec<PublishedRequirement>, DocumentError> {
+    let Some(table) = header.get("requirement").and_then(Item::as_table) else {
+        return Ok(Vec::new());
+    };
+    let mut requirements = Vec::new();
+    for (name, item) in table.iter() {
+        let mut means = None;
+        let mut kind = None;
+        let mut package = None;
+        let mut required = false;
+        if let Some(module) = item.as_table() {
+            for (key, value) in module.iter() {
+                match key {
+                    "means" => means = Some(requirement_str(value, name, "means")?),
+                    "kind" => kind = Some(requirement_str(value, name, "kind")?),
+                    "package" => package = Some(requirement_str(value, name, "package")?),
+                    "required" => required = requirement_bool(value, name)?,
+                    other => {
+                        return Err(DocumentError::RequirementUnknownKey {
+                            name: name.to_string(),
+                            key: other.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        requirements.push(PublishedRequirement {
+            name: name.to_string(),
+            means,
+            kind,
+            package,
+            required,
+        });
+    }
+    Ok(requirements)
+}
+
+/// Read one string facet off a published `[requirement.<name>]` module, mapping a
+/// non-string value to a precise [`DocumentError::RequirementWrongType`].
+fn requirement_str(value: &Item, name: &str, key: &'static str) -> Result<String, DocumentError> {
+    value
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| DocumentError::RequirementWrongType {
+            name: name.to_string(),
+            key,
+            expected: "a string",
+        })
+}
+
+/// Read the boolean `required` facet off a published `[requirement.<name>]` module,
+/// mapping a non-boolean value to a precise [`DocumentError::RequirementWrongType`].
+fn requirement_bool(value: &Item, name: &str) -> Result<bool, DocumentError> {
+    value.as_bool().ok_or(DocumentError::RequirementWrongType {
+        name: name.to_string(),
+        key: "required",
+        expected: "a boolean",
+    })
 }
 
 /// The generated `[provenance]` module's `(source_path, import_hash)`, or `None`
@@ -582,6 +734,102 @@ Last line, no newline.";
         );
         // Re-emitting a parsed document is byte-identical — deterministic round-trip.
         assert_eq!(parsed.emit(), emitted);
+    }
+
+    #[test]
+    fn published_requirement_modules_emit_as_labelled_tables_and_round_trip() {
+        // A member publishes two `[requirement.<name>]` modules: a fully-facetted one
+        // and a bare (name-only) one. Each emits as its own labelled table and reads
+        // back identically, the demand-side mirror of the satisfies round-trip.
+        let mut header = DocumentMut::new();
+        add_requirement(
+            &mut header,
+            &PublishedRequirement {
+                name: "architecture".to_string(),
+                means: Some("the corpus carries an architecture spec".to_string()),
+                kind: Some("spec".to_string()),
+                package: Some("spec.temper".to_string()),
+                required: true,
+            },
+        );
+        add_requirement(
+            &mut header,
+            &PublishedRequirement {
+                name: "bare".to_string(),
+                means: None,
+                kind: None,
+                package: None,
+                required: false,
+            },
+        );
+        let doc = Document::new(header, "# Body\n".to_string());
+        let emitted = doc.emit();
+
+        // Each is its own labelled `[requirement.<name>]` table.
+        assert!(emitted.contains("[requirement.architecture]\nmeans ="));
+        assert!(emitted.contains("kind = \"spec\""));
+        assert!(emitted.contains("required = true"));
+        // A bare requirement is an empty module — a name with no facets.
+        assert!(emitted.contains("[requirement.bare]"));
+
+        let parsed = Document::parse(&emitted).unwrap();
+        assert_eq!(
+            requirements(parsed.header()).unwrap(),
+            vec![
+                PublishedRequirement {
+                    name: "architecture".to_string(),
+                    means: Some("the corpus carries an architecture spec".to_string()),
+                    kind: Some("spec".to_string()),
+                    package: Some("spec.temper".to_string()),
+                    required: true,
+                },
+                PublishedRequirement {
+                    name: "bare".to_string(),
+                    means: None,
+                    kind: None,
+                    package: None,
+                    required: false,
+                },
+            ]
+        );
+        // Deterministic round-trip: re-emitting a parsed document is byte-identical.
+        assert_eq!(parsed.emit(), emitted);
+    }
+
+    #[test]
+    fn a_published_requirement_with_an_unknown_key_is_rejected() {
+        // A facet outside the closed set (`count` is assembly-only) is a hard load
+        // error, not a silently dropped key (`specs/10-contracts.md`, unknown keys
+        // rejected).
+        let raw = "+++\n[requirement.x]\ncount = 3\n+++\n# body\n";
+        let doc = Document::parse(raw).unwrap();
+        let err = requirements(doc.header()).unwrap_err();
+        assert!(matches!(
+            err,
+            DocumentError::RequirementUnknownKey { ref name, ref key }
+                if name == "x" && key == "count"
+        ));
+    }
+
+    #[test]
+    fn a_published_requirement_with_a_mistyped_facet_is_rejected() {
+        // `required` must be a boolean; a string is a precise wrong-type error.
+        let raw = "+++\n[requirement.x]\nrequired = \"yes\"\n+++\n# body\n";
+        let doc = Document::parse(raw).unwrap();
+        let err = requirements(doc.header()).unwrap_err();
+        assert!(matches!(
+            err,
+            DocumentError::RequirementWrongType {
+                key: "required",
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn a_header_with_no_requirement_modules_reads_empty() {
+        let doc = Document::parse(FIXTURE).unwrap();
+        assert!(requirements(doc.header()).unwrap().is_empty());
     }
 
     #[test]

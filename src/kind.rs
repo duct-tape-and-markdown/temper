@@ -20,7 +20,7 @@ use serde_json::Value as JsonValue;
 use toml_edit::{DocumentMut, Item, Table};
 
 use crate::compose::Edge;
-use crate::document::Document;
+use crate::document::{Document, PublishedRequirement};
 use crate::extract::{self, Features};
 
 /// The built-in harness kinds temper ships an engine-code extractor for. A
@@ -302,6 +302,13 @@ pub struct Unit {
     /// joins coverage exactly as a skill/rule does (`specs/10-contracts.md`). Empty
     /// when the member authors none.
     pub satisfies: Vec<String>,
+    /// The requirements this unit **publishes** — the authored `[requirement.<name>]`
+    /// header modules (`specs/10-contracts.md`, "Decision: a requirement's publisher is
+    /// any authored surface document"). The demand side of the fill edge, threaded
+    /// through unchanged so a custom-kind member (an intent `spec`) publishes into the
+    /// one requirement namespace exactly as the assembly does. Empty when the member
+    /// publishes none.
+    pub published_requirements: Vec<PublishedRequirement>,
 }
 
 impl Unit {
@@ -352,12 +359,23 @@ impl Unit {
             .map(|s| s.requirement)
             .collect();
 
+        // The demand side: `[requirement.*]` modules the member publishes, carried
+        // through unchanged into the one namespace the gate unions (`specs/10-contracts.md`).
+        let published_requirements =
+            crate::document::requirements(document.header()).map_err(|source| {
+                KindError::Document {
+                    path: doc_path.clone(),
+                    source,
+                }
+            })?;
+
         Ok(Self {
             id,
             frontmatter: BTreeMap::new(),
             body: document.body().to_string(),
             source_path: PathBuf::from(source_path),
             satisfies,
+            published_requirements,
         })
     }
 }
@@ -687,6 +705,9 @@ impl Extraction {
             // composed primitive, so a custom-kind member joins coverage exactly as
             // a built-in kind's does (`specs/10-contracts.md`).
             satisfies: unit.satisfies.clone(),
+            // The demand side rides through the same way — a published `[requirement.*]`
+            // is authored surface state, never a composed feature.
+            published_requirements: unit.published_requirements.clone(),
         };
         for primitive in &self.primitives {
             primitive.apply(unit, &mut features);
@@ -785,6 +806,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             body: body.to_string(),
             source_path: PathBuf::from("specs/15-kinds.md"),
             satisfies: Vec::new(),
+            published_requirements: Vec::new(),
         }
     }
 
@@ -847,6 +869,7 @@ key = "priority"
             body: "# Demo\n".to_string(),
             source_path: PathBuf::from("skills/demo/SKILL.md"),
             satisfies: Vec::new(),
+            published_requirements: Vec::new(),
         };
 
         let features = extraction.extract(&unit);
@@ -876,6 +899,7 @@ key = "priority"
             body: String::new(),
             source_path: PathBuf::from("skills/demo/SKILL.md"),
             satisfies: Vec::new(),
+            published_requirements: Vec::new(),
         };
         // A key the unit does not carry yields no feature — never a phantom entry.
         assert!(extraction.extract(&unit).field("license").is_none());

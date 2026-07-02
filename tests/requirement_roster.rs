@@ -94,6 +94,42 @@ fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
+/// Author the `[requirement.<name>]` modules a member `name` **publishes** on its
+/// surface `SKILL.md` — the demand side of the fill edge, the mirror of
+/// [`author_satisfies`]. `import` never writes them (surface-authored), so a case
+/// adds them via the same projection the tool uses, exactly as a human editing the
+/// member header would.
+fn author_published(
+    root: &Path,
+    name: &str,
+    published: Vec<temper::document::PublishedRequirement>,
+) {
+    let dir = root.join(".temper").join("skills").join(name);
+    let mut skill = temper::skill::Skill::from_dir(&dir).unwrap();
+    skill.published_requirements = published;
+    fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+}
+
+/// A member-published requirement carrying only the facets a member header publishes
+/// (`kind` and `required`; `means`/`package` unused by these cases).
+fn published(
+    name: &str,
+    kind: Option<&str>,
+    required: bool,
+) -> temper::document::PublishedRequirement {
+    temper::document::PublishedRequirement {
+        name: name.to_string(),
+        means: None,
+        kind: kind.map(str::to_string),
+        package: None,
+        required,
+    }
+}
+
+/// A `temper.toml` that declares no roster but is present, so the layered
+/// member-published-requirement path runs (the union only happens under a layer).
+const LAYERED_NO_ROSTER: &str = "[kind.skill]\npackage = \"skill.anthropic\"\n";
+
 /// The outcome of a `check` run: whether it exited zero and its combined
 /// stdout+stderr (diagnostics render to stdout, a load error to stderr).
 struct CheckRun {
@@ -747,6 +783,119 @@ fn a_retired_role_table_is_rejected() {
     assert!(
         run.output.contains("unknown top-level key") && run.output.contains("role"),
         "the load error names the retired `role` root, got:\n{}",
+        run.output
+    );
+}
+
+// ---- member-published requirements join the one namespace --------------------
+
+#[test]
+fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean() {
+    let root = tmpdir("member-published-filled");
+    // `arch-spec` publishes a required `[requirement.architecture]` in its own header;
+    // `arch-impl` fills it by opting in via `satisfies`. One namespace, the demand
+    // published on one surface and the fill claimed on another — coverage resolves the
+    // join green, exactly as it does for an assembly-published requirement.
+    import_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    import_skill(&root, "arch-impl", &clean_skill("arch-impl"));
+    author_published(
+        &root,
+        "arch-spec",
+        vec![published("architecture", Some("skill"), true)],
+    );
+    author_satisfies(&root, "arch-impl", &["architecture"]);
+    write_temper_toml(&root, LAYERED_NO_ROSTER);
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a member-published requirement filled by another member's `satisfies` passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn an_unfilled_required_member_published_requirement_fires() {
+    let root = tmpdir("member-published-unfilled");
+    // `arch-spec` publishes a required `[requirement.architecture]`, but no member
+    // opts in — the published obligation has no resolving home, so the coverage gate
+    // fires exactly as for an unfilled assembly requirement.
+    import_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    author_published(
+        &root,
+        "arch-spec",
+        vec![published("architecture", Some("skill"), true)],
+    );
+    write_temper_toml(&root, LAYERED_NO_ROSTER);
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "an unfilled required member-published requirement must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("architecture") && run.output.contains("unfilled"),
+        "the finding names the requirement and that it is unfilled, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
+    let root = tmpdir("member-published-collision");
+    // Two members publish the same requirement name. A requirement lives in one
+    // namespace, so the second publisher is a collision — an admissibility finding,
+    // never a silent shadow that would let one member quietly redefine another's.
+    import_skill(&root, "spec-a", &clean_skill("spec-a"));
+    import_skill(&root, "spec-b", &clean_skill("spec-b"));
+    author_published(
+        &root,
+        "spec-a",
+        vec![published("shared", Some("skill"), false)],
+    );
+    author_published(
+        &root,
+        "spec-b",
+        vec![published("shared", Some("skill"), false)],
+    );
+    write_temper_toml(&root, LAYERED_NO_ROSTER);
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a name published by two members must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("shared") && run.output.contains("more than one surface"),
+        "the finding names the collided requirement and the cross-publisher collision, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_name_published_by_both_the_assembly_and_a_member_collides() {
+    let root = tmpdir("member-published-assembly-collision");
+    // The assembly *and* a member both publish `architecture`. Same namespace, so the
+    // member's re-declaration collides with the assembly's — the assembly ⊕ member
+    // half of the one-namespace rule.
+    import_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    author_published(
+        &root,
+        "arch-spec",
+        vec![published("architecture", Some("skill"), false)],
+    );
+    write_temper_toml(&root, "[requirement.architecture]\nkind = \"skill\"\n");
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a name published by both the assembly and a member must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("architecture") && run.output.contains("more than one surface"),
+        "the finding names the collided requirement and the cross-publisher collision, got:\n{}",
         run.output
     );
 }

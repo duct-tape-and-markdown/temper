@@ -30,7 +30,7 @@ use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use toml_edit::{DocumentMut, Item, Value};
 
-use crate::document::{self, Document, EdgeClause, Satisfies};
+use crate::document::{self, Document, EdgeClause, PublishedRequirement, Satisfies};
 use walkdir::WalkDir;
 
 /// A Claude Code skill: typed frontmatter, a byte-faithful body, the companion
@@ -60,6 +60,13 @@ pub struct Skill {
     /// imported (`from_source_dir` leaves this empty); the graph's source, never
     /// grepped from prose.
     pub edges: Vec<EdgeClause>,
+    /// The requirements this artifact **publishes** (`specs/10-contracts.md`,
+    /// "Decision: a requirement's publisher is any authored surface document") — the
+    /// header's `[requirement.<name>]` modules, the demand side of the fill edge.
+    /// **Authored** on the surface, not imported (`from_source_dir` leaves this
+    /// empty); the gate unions them with the assembly roster into the one requirement
+    /// namespace.
+    pub published_requirements: Vec<PublishedRequirement>,
     /// Sibling files that ship with the skill (e.g. `PLAYBOOK.md`, `scripts/**`),
     /// as paths relative to the skill directory, sorted for determinism.
     pub companions: Vec<PathBuf>,
@@ -192,6 +199,7 @@ impl Skill {
             // carries no `[satisfies.*]`/`[edge.*]` modules (import idempotence).
             satisfies: Vec::new(),
             edges: Vec::new(),
+            published_requirements: Vec::new(),
             companions: scan_companions(dir)?,
             extra,
             provenance: Provenance {
@@ -256,6 +264,12 @@ impl Skill {
                 field: "provenance",
             })?;
 
+        let published_requirements =
+            document::requirements(header).map_err(|source| SkillError::Document {
+                path: doc_path.clone(),
+                source,
+            })?;
+
         Ok(Self {
             name,
             description,
@@ -264,6 +278,7 @@ impl Skill {
             body: doc.body().to_string(),
             satisfies: document::satisfies(header),
             edges: document::edges(header),
+            published_requirements,
             companions: scan_companions(dir)?,
             extra,
             provenance: Provenance {
@@ -288,14 +303,15 @@ impl Skill {
     pub fn carry_representation(&mut self, existing: &Skill) {
         self.satisfies = existing.satisfies.clone();
         self.edges = existing.edges.clone();
+        self.published_requirements = existing.published_requirements.clone();
     }
 
     /// Project the skill to its **one authored document**: a `+++`-fenced header of
     /// clause modules over the byte-faithful body (`specs/20-surface.md`, "The member
     /// document"). The header carries a `[clause.<field>]` module per structured
     /// field (the typed fields in canonical order, then every unknown frontmatter key
-    /// in sorted `extra` order), the authored `[satisfies.*]` / `[edge.*]` modules,
-    /// then the generated `[provenance]` last.
+    /// in sorted `extra` order), the authored `[satisfies.*]` / `[edge.*]` /
+    /// `[requirement.*]` modules, then the generated `[provenance]` last.
     pub fn to_document(&self) -> Document {
         let mut header = DocumentMut::new();
         document::add_clause(&mut header, "name", Value::from(self.name.clone()));
@@ -321,6 +337,9 @@ impl Skill {
         }
         for edge in &self.edges {
             document::add_edge(&mut header, edge);
+        }
+        for requirement in &self.published_requirements {
+            document::add_requirement(&mut header, requirement);
         }
 
         document::add_provenance(

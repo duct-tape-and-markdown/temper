@@ -18,6 +18,7 @@ use temper::check::{self, Severity, Workspace};
 use temper::compose;
 use temper::contract::Contract;
 use temper::coverage;
+use temper::document;
 use temper::drift;
 use temper::engine;
 use temper::extract;
@@ -51,6 +52,13 @@ const TEMPER_TOML: &str = "temper.toml";
 /// `temper-local.toml` a developer's personal clause/severity override that
 /// layers over it. Absent ⇒ the committed layer (or bare floor) runs unchanged.
 const TEMPER_LOCAL_TOML: &str = "temper-local.toml";
+
+/// The diagnostic `rule` id a cross-publisher requirement-name collision reports
+/// under (`specs/10-contracts.md`, "Decision: a requirement's publisher is any
+/// authored surface document"): one namespace, so two surfaces publishing one name
+/// is an admissibility finding, never a shadow. Shares the roster's admissibility
+/// tag — a malformed namespace is inadmissible, decided before it judges anything.
+const REQUIREMENT_COLLISION_RULE: &str = "requirement.admissibility";
 
 /// Resolve a built-in package by name into its floor [`Contract`], failing loud
 /// if the build embedded no package of that name (`specs/10-contracts.md`) — a
@@ -549,11 +557,31 @@ fn gate(
         // assembled through the same helper the read arm uses.
         let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
+        // Every opt-in-capable member's features (built-in kinds *and* each custom
+        // kind's members) — the stream coverage ranges over *and* the one the gate
+        // gathers member-published requirements from below.
+        let all_features: Vec<extract::Features> = skill_features
+            .iter()
+            .chain(rule_features.iter())
+            .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
+            .cloned()
+            .collect();
+
+        // The one requirement namespace (`specs/10-contracts.md`, "Decision: a
+        // requirement's publisher is any authored surface document"): the assembly's
+        // `[requirement.*]` unioned with every member's published `[requirement.*]`.
+        // A name published by two surfaces is one obligation, not a shadow — the
+        // collision is an admissibility finding and the first publisher keeps the slot,
+        // so the roster/coverage passes below judge one coherent namespace.
+        let (requirements, collisions) =
+            union_published_requirements(layer.requirements(), &all_features);
+        diagnostics.extend(collisions);
+
         // Admissibility before conformance here too: each requirement's own
         // definition is validated before the roster is trusted to judge the harness
         // (`specs/10-contracts.md`).
         diagnostics.extend(roster::admissibility(
-            layer.requirements(),
+            &requirements,
             &by_kind,
             &package_resolver,
             base_dir,
@@ -561,18 +589,14 @@ fn gate(
 
         // The set-scope predicates: each requirement's `count` / `unique` /
         // `membership` gate over its satisfier set (`specs/45-governance.md`).
-        diagnostics.extend(roster::check(
-            layer.requirements(),
-            &by_kind,
-            &package_resolver,
-        ));
+        diagnostics.extend(roster::check(&requirements, &by_kind, &package_resolver));
 
         // The `conforms-to` half: each requirement's satisfiers validated against
         // its bound `package`'s contract, retagged under `requirement.conforms-to`.
         // A non-resolving package is admissibility's finding above, skipped here
         // rather than double-reported.
         diagnostics.extend(roster::conformance(
-            layer.requirements(),
+            &requirements,
             &by_kind,
             &package_resolver,
         ));
@@ -602,14 +626,10 @@ fn gate(
         // `satisfies`) and every authored `satisfies` must resolve to a declared
         // requirement. Kind-blind: it ranges over every opt-in-capable artifact —
         // built-in kinds *and* each custom kind's members — so temper's own `spec`
-        // corpus can opt in exactly as a skill does (`specs/15-kinds.md`).
-        let all_features: Vec<extract::Features> = skill_features
-            .iter()
-            .chain(rule_features.iter())
-            .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
-            .cloned()
-            .collect();
-        diagnostics.extend(coverage::check(layer.requirements(), &all_features));
+        // corpus can opt in exactly as a skill does (`specs/15-kinds.md`). The
+        // requirement set is the *unioned* namespace, so a member-published obligation
+        // is gated here exactly as an assembly-published one.
+        diagnostics.extend(coverage::check(&requirements, &all_features));
 
         // The custom-kind conformance tier: each registered custom kind runs the
         // same two greens the built-in kinds do (`specs/15-kinds.md`), but through
@@ -720,6 +740,67 @@ fn assemble_by_kind<'a>(
         by_kind.insert(*name, features.as_slice());
     }
     by_kind
+}
+
+/// Union the assembly's published `[requirement.*]` roster with every member's
+/// published `[requirement.*]` into the single requirement namespace the gate judges
+/// (`specs/10-contracts.md`, "Decision: a requirement's publisher is any authored
+/// surface document"). `satisfies` fills whichever surface published the demand, so
+/// one namespace is the whole point.
+///
+/// A name published by two surfaces — assembly ⊕ member, or two members — is **one
+/// obligation, never a shadow**: the collision is reported as an admissibility finding
+/// (returned separately, so the caller folds it into the gate) and the **first
+/// publisher keeps the slot**. The assembly roster seeds the map, then members are
+/// walked in the corpus's stable order, so the winner and the finding set are
+/// deterministic across runs. Every member-published requirement carries only the
+/// four facets a member header publishes (`means`/`kind`/`package`/`required`); the
+/// richer set-scope facets stay assembly-only and default here.
+fn union_published_requirements(
+    assembly: &BTreeMap<String, compose::Requirement>,
+    members: &[extract::Features],
+) -> (
+    BTreeMap<String, compose::Requirement>,
+    Vec<check::Diagnostic>,
+) {
+    let mut requirements = assembly.clone();
+    let mut diagnostics = Vec::new();
+    for features in members {
+        for published in &features.published_requirements {
+            if requirements.contains_key(&published.name) {
+                diagnostics.push(check::Diagnostic::error(
+                    REQUIREMENT_COLLISION_RULE,
+                    &published.name,
+                    format!(
+                        "requirement `{}` is published by more than one surface (member `{}` re-declares a name already published); a requirement lives in one namespace and is never shadowed — rename or drop one publisher",
+                        published.name, features.id
+                    ),
+                ));
+            } else {
+                requirements.insert(published.name.clone(), to_requirement(published));
+            }
+        }
+    }
+    (requirements, diagnostics)
+}
+
+/// Lift a member-published [`document::PublishedRequirement`] into the shared
+/// [`compose::Requirement`] the roster and coverage passes range over — the four
+/// published facets carried across, the assembly-only set-scope facets defaulted.
+/// The demand is the same concept whichever surface authored it, so it joins one type.
+fn to_requirement(published: &document::PublishedRequirement) -> compose::Requirement {
+    compose::Requirement {
+        name: published.name.clone(),
+        means: published.means.clone(),
+        kind: published.kind.clone(),
+        package: published.package.clone(),
+        required: published.required,
+        count: None,
+        unique: Vec::new(),
+        membership: None,
+        degree: None,
+        verified_by: None,
+    }
 }
 
 /// Load a custom `kind`'s units from the surface generically — every surface

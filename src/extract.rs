@@ -204,6 +204,15 @@ pub struct Features {
     /// `rationale` is deliberately absent: it is the human *why*, never a
     /// decidable feature.
     pub satisfies: Vec<String>,
+    /// The requirements this artifact **publishes** — the authored
+    /// `[requirement.<name>]` header modules (`specs/10-contracts.md`, "Decision: a
+    /// requirement's publisher is any authored surface document"). The demand side of
+    /// the fill edge, carried beside `satisfies` (the fill side) so the gate gathers
+    /// every member's published obligations across every kind and unions them with the
+    /// assembly roster into the one requirement namespace. Like `satisfies`, this is a
+    /// *representation* fact carried through, never a contract-checkable frontmatter
+    /// field. Empty when the member publishes none.
+    pub published_requirements: Vec<crate::document::PublishedRequirement>,
 }
 
 impl Features {
@@ -272,6 +281,8 @@ pub fn skill_features(skill: &Skill) -> Features {
             .iter()
             .map(|s| s.requirement.clone())
             .collect(),
+        // The demand side rides beside the fill side, authored on the same surface.
+        published_requirements: skill.published_requirements.clone(),
     }
 }
 
@@ -308,6 +319,8 @@ pub fn rule_features(rule: &Rule) -> Features {
             .iter()
             .map(|s| s.requirement.clone())
             .collect(),
+        // The demand side rides beside the fill side, authored on the same surface.
+        published_requirements: rule.published_requirements.clone(),
     }
 }
 

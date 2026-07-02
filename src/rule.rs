@@ -41,7 +41,7 @@ use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use toml_edit::{Array, DocumentMut, Item, Value};
 
-use crate::document::{self, Document, EdgeClause, Satisfies};
+use crate::document::{self, Document, EdgeClause, PublishedRequirement, Satisfies};
 
 /// A Claude Code rule: an optional `paths` scope, a byte-faithful body, the
 /// unknown frontmatter keys preserved verbatim, and the provenance lock that
@@ -69,6 +69,13 @@ pub struct Rule {
     /// imported (`from_source_file` leaves this empty); the graph's source, never
     /// grepped from prose.
     pub edges: Vec<EdgeClause>,
+    /// The requirements this artifact **publishes** (`specs/10-contracts.md`,
+    /// "Decision: a requirement's publisher is any authored surface document") — the
+    /// header's `[requirement.<name>]` modules, the demand side of the fill edge.
+    /// **Authored** on the surface, not imported (`from_source_file` leaves this
+    /// empty); the gate unions them with the assembly roster into the one requirement
+    /// namespace.
+    pub published_requirements: Vec<PublishedRequirement>,
     /// Unknown frontmatter keys, preserved verbatim so the surface never drops
     /// authoring intent — and so a `forbidden_keys` clause can resolve them by
     /// name. Sorted by key (`serde_json::Map` is a `BTreeMap`), which makes
@@ -201,6 +208,7 @@ impl Rule {
             // carries no `[satisfies.*]`/`[edge.*]` modules (import idempotence).
             satisfies: Vec::new(),
             edges: Vec::new(),
+            published_requirements: Vec::new(),
             extra,
             provenance: Provenance {
                 source_path: path.to_path_buf(),
@@ -261,12 +269,19 @@ impl Rule {
                 field: "provenance",
             })?;
 
+        let published_requirements =
+            document::requirements(header).map_err(|source| RuleError::Document {
+                path: doc_path.clone(),
+                source,
+            })?;
+
         Ok(Self {
             name,
             paths,
             body: doc.body().to_string(),
             satisfies: document::satisfies(header),
             edges: document::edges(header),
+            published_requirements,
             extra,
             provenance: Provenance {
                 source_path: PathBuf::from(source_path),
@@ -288,6 +303,7 @@ impl Rule {
     pub fn carry_representation(&mut self, existing: &Rule) {
         self.satisfies = existing.satisfies.clone();
         self.edges = existing.edges.clone();
+        self.published_requirements = existing.published_requirements.clone();
     }
 
     /// Project the rule to its **one authored document**: a `+++`-fenced header of
@@ -318,6 +334,9 @@ impl Rule {
         }
         for edge in &self.edges {
             document::add_edge(&mut header, edge);
+        }
+        for requirement in &self.published_requirements {
+            document::add_requirement(&mut header, requirement);
         }
 
         document::add_provenance(
