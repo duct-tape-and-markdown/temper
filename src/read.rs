@@ -3,15 +3,18 @@
 //! read family — `why` and `requirements`").
 //!
 //! [`why`] walks the edge **forward** (this member → the requirements it fills, with
-//! their authored rationale → the package its kind binds → its declared edges in and
+//! their authored rationale → the package its kind binds → its resolved edges in and
 //! out); [`requirements`] walks it in **reverse** (the roster → each requirement's
 //! satisfier set + coverage state, and with a name the blast radius a removal would
 //! strand). Both are *projections* over the data `check` already computes — the
-//! opt-in `satisfies` bindings [`crate::coverage`] gates and the authored
-//! `[edge.<target>]` clauses [`crate::graph`]'s source is built from — so neither
-//! adds engine semantics and neither ever gates: they return narration, and `main`
-//! prints it and exits zero on every input (the read family is not the gate; a
-//! reporting verb whose exit code CI trusts is exactly what the Decision rejects).
+//! opt-in `satisfies` bindings [`crate::coverage`] gates, and, for the edge walk, the
+//! **gate's own resolved edge set** ([`crate::graph::resolved_edges`], relationships
+//! over extracted features), never a private re-derivation off the `[edge.<target>]`
+//! document clauses (READ-EDGE-UNIFY: one source of truth, so `why`'s edge narration
+//! cannot disagree with `graph::check`). Neither adds engine semantics and neither ever
+//! gates: they return narration, and `main` prints it and exits zero on every input
+//! (the read family is not the gate; a reporting verb whose exit code CI trusts is
+//! exactly what the Decision rejects).
 //!
 //! The output is a **teaching surface**, not a table dump (`specs/50-distribution.md`,
 //! "the gate teaches"): full sentences over the author's own artifacts, in the
@@ -33,15 +36,19 @@ use std::fmt::Write;
 
 use crate::builtin;
 use crate::check::Workspace;
-use crate::compose::{AuthorLayer, Requirement};
-use crate::document::{EdgeClause, Satisfies};
+use crate::compose::{AuthorLayer, Edge, Requirement};
+use crate::document::Satisfies;
+use crate::extract::Features;
+use crate::graph::{self, ResolvedEdge};
 
-/// A member as the read family sees it: its kind, its id, the requirements it opts
-/// into filling (each with its authored rationale), and its declared `[edge.<target>]`
-/// clauses. Built off the typed [`Workspace`] artifacts — the `satisfies` and `edges`
-/// the surface language authors on each member document (`specs/20-surface.md`, "The
-/// member document"), which the decidable [`crate::extract::Features`] view drops the
-/// rationale from but the read family needs whole.
+/// A member as the read family sees it: its kind, its id, and the requirements it opts
+/// into filling (each with its authored rationale). Built off the typed [`Workspace`]
+/// artifacts — the `satisfies` the surface language authors on each member document
+/// (`specs/20-surface.md`, "The member document"), which the decidable
+/// [`crate::extract::Features`] view drops the rationale from but the read family needs
+/// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
+/// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never the
+/// `[edge.<target>]` document clauses (READ-EDGE-UNIFY).
 struct Member {
     /// The artifact kind (`skill`, `rule`) — part of the identity, since an id is
     /// unique only within a kind.
@@ -50,8 +57,6 @@ struct Member {
     id: String,
     /// The requirements this member opts into filling, with their authored rationale.
     satisfies: Vec<Satisfies>,
-    /// The references this member declares — the outgoing edges of the graph.
-    edges: Vec<EdgeClause>,
 }
 
 /// Project the [`Workspace`]'s built-in opt-in artifacts into the read family's
@@ -64,7 +69,6 @@ fn members(workspace: &Workspace) -> Vec<Member> {
             kind: "skill",
             id: skill.name.clone(),
             satisfies: skill.satisfies.clone(),
-            edges: skill.edges.clone(),
         });
     }
     for rule in &workspace.rules {
@@ -72,7 +76,6 @@ fn members(workspace: &Workspace) -> Vec<Member> {
             kind: "rule",
             id: rule.name.clone(),
             satisfies: rule.satisfies.clone(),
-            edges: rule.edges.clone(),
         });
     }
     members
@@ -106,14 +109,31 @@ fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
 
 /// `temper why <member>` — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
-/// own `means`), the package its kind binds, and its declared edges in and out
+/// own `means`), the package its kind binds, and its resolved edges in and out
 /// (`specs/20-surface.md`, "Decision: the CLI gains a read family"). A read, never a
 /// gate — the caller prints this and exits zero on every input, including a name no
 /// member bears.
+///
+/// The edge walk ranges over the **gate's own resolved edge set** — `by_kind` (the
+/// by-kind [`Features`] corpus) and `edges` (the declared `[[kind.<name>.relationships]]`
+/// set) are the *same* two the `check` arm builds, and `why` runs them through the
+/// identical [`graph::resolved_edges`] the gate's `check`/`acyclic`/`degree` range over.
+/// So `why`'s edge narration cannot disagree with the gate (READ-EDGE-UNIFY): a
+/// `routes_to` edge the gate resolves is the exact edge `why` narrates, and a member
+/// with no resolved edge stays silent.
 #[must_use]
-pub fn why(workspace: &Workspace, layer: Option<&AuthorLayer>, member: &str) -> String {
+pub fn why(
+    workspace: &Workspace,
+    layer: Option<&AuthorLayer>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    edges: &[Edge],
+    member: &str,
+) -> String {
     let members = members(workspace);
     let roster = roster(layer);
+    // The resolved edge set the gate ranges over — computed once, filtered per matched
+    // node below. One source of truth: the exact arcs `graph::check` resolves.
+    let resolved = graph::resolved_edges(edges, by_kind);
 
     let matches: Vec<&Member> = members.iter().filter(|m| m.id == member).collect();
     if matches.is_empty() {
@@ -130,7 +150,7 @@ pub fn why(workspace: &Workspace, layer: Option<&AuthorLayer>, member: &str) -> 
         if index > 0 {
             out.push('\n');
         }
-        why_one(&mut out, member, &members, roster, layer);
+        why_one(&mut out, member, roster, layer, &resolved);
     }
     out
 }
@@ -140,9 +160,9 @@ pub fn why(workspace: &Workspace, layer: Option<&AuthorLayer>, member: &str) -> 
 fn why_one(
     out: &mut String,
     member: &Member,
-    all: &[Member],
     roster: &BTreeMap<String, Requirement>,
     layer: Option<&AuthorLayer>,
+    resolved: &[ResolvedEdge],
 ) {
     let _ = writeln!(
         out,
@@ -175,36 +195,45 @@ fn why_one(
         bound_package(layer, member.kind),
     );
 
-    // The declared edges out — the references this member authors.
-    let known: Vec<&str> = all.iter().map(|m| m.id.as_str()).collect();
-    if member.edges.is_empty() {
-        let _ = writeln!(out, "Edges out: it declares no references.");
+    // The edges in and out — the member's node in the **gate's resolved edge set**
+    // (`crate::graph::resolved_edges`), not a re-derivation off the `[edge.*]` document
+    // clauses (READ-EDGE-UNIFY). A dangling reference resolves to no node, so it appears
+    // in neither list — route resolution is the gate's finding to report, not `why`'s.
+    let node: (String, String) = (member.kind.to_string(), member.id.clone());
+
+    let outgoing: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.from == node).collect();
+    if outgoing.is_empty() {
+        let _ = writeln!(
+            out,
+            "Edges out: it points at no member (it declares no resolved reference)."
+        );
     } else {
-        let _ = writeln!(out, "Edges out (references it declares):");
-        for edge in &member.edges {
-            let relation = edge.relation.as_deref().unwrap_or("references");
-            let fate = if known.contains(&edge.target.as_str()) {
-                "resolves to a member in the surface"
-            } else {
-                "dangling — names no member in the surface"
-            };
-            let _ = writeln!(out, "  • {relation} → `{}` ({fate})", edge.target);
+        let _ = writeln!(
+            out,
+            "Edges out (the resolved references it declares, the exact set the gate ranges over):"
+        );
+        for edge in outgoing {
+            let (to_kind, to_id) = &edge.to;
+            let _ = writeln!(
+                out,
+                "  • it points at `{to_id}` ({to_kind}) via its `{}` field",
+                edge.field
+            );
         }
     }
 
-    // The declared edges in — the references that point at this member.
-    let incoming: Vec<(&Member, &EdgeClause)> = all
-        .iter()
-        .flat_map(|m| m.edges.iter().map(move |edge| (m, edge)))
-        .filter(|(_, edge)| edge.target == member.id)
-        .collect();
+    let incoming: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.to == node).collect();
     if incoming.is_empty() {
         let _ = writeln!(out, "Edges in: no member points at it.");
     } else {
-        let _ = writeln!(out, "Edges in (references that point at it):");
-        for (source, edge) in incoming {
-            let relation = edge.relation.as_deref().unwrap_or("references");
-            let _ = writeln!(out, "  • `{}` ({}) {relation} it", source.id, source.kind);
+        let _ = writeln!(out, "Edges in (the resolved references that point at it):");
+        for edge in incoming {
+            let (from_kind, from_id) = &edge.from;
+            let _ = writeln!(
+                out,
+                "  • `{from_id}` ({from_kind}) points at it via its `{}` field",
+                edge.field
+            );
         }
     }
 }

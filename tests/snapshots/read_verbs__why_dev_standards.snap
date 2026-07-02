@@ -11,6 +11,6 @@ Requirements it satisfies:
 
 Governing package: its `skill` kind binds the `skill.anthropic` package, whose clauses check it.
 
-Edges out (references it declares):
-  • depends-on → `lint-runner` (resolves to a member in the surface)
-Edges in: no member points at it.
+Edges out: it points at no member (it declares no resolved reference).
+Edges in (the resolved references that point at it):
+  • `collaboration` (rule) points at it via its `routes_to` field

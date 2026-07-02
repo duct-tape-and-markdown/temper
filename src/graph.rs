@@ -94,7 +94,28 @@ const GRAPH_DEGREE_RULE: &str = "graph.degree";
 /// resolves only within its target kind, so the kind is part of the identity —
 /// otherwise a same-named rule and skill would collapse into one node and forge or
 /// mask a cycle.
-type Node = (String, String);
+///
+/// `pub(crate)` so the read family (`crate::read`) keys a member's resolved
+/// in/out edges on the *same* `(kind, id)` node the gate does (READ-EDGE-UNIFY).
+pub(crate) type Node = (String, String);
+
+/// A **resolved edge** in the harness reference graph — a `(from, field, to)` triple
+/// over `(kind, id)` [`Node`]s, both endpoints naming a real artifact (the reference
+/// resolved). The element type of [`resolved_edges`], the one arc-resolution
+/// enumeration the gate's [`resolved_arcs`] folds into adjacency **and** the read
+/// family (`crate::read`) narrates per node — so `temper why`'s edge narration and
+/// `graph::check`/`acyclic`/`degree` range over one identical edge set, never two
+/// re-derivations that can disagree (READ-EDGE-UNIFY; `specs/20-surface.md`, "Decision:
+/// the CLI gains a read family"). Retains the reference `field` an arc drops, so a
+/// reader can see *which* declared reference produced the edge.
+pub(crate) struct ResolvedEdge {
+    /// The source node `(kind, id)` carrying the reference.
+    pub from: Node,
+    /// The reference field the edge was declared under (`routes_to`).
+    pub field: String,
+    /// The target node `(kind, id)` the reference resolved to.
+    pub to: Node,
+}
 
 /// Build the harness reference graph and check **route resolution** over it
 /// (`specs/45-governance.md`, "The harness is a graph too"): for each declared
@@ -384,20 +405,22 @@ fn out_of_degree(
     )
 }
 
-/// Build the artifact-level directed graph over **resolved** reference arcs — the
-/// shared foundation [`acyclic`] and [`degree`] both range over. Each admissible edge
-/// contributes, for every source artifact of its `from` kind, an arc to each named
-/// target that resolves to a real artifact of its `to` kind. An [`is_admissible`]-
-/// failing edge is skipped (as in [`check`]), and a dangling reference (naming no
-/// artifact of the target kind) loads nothing, so it contributes no arc — route
-/// resolution owns that finding. Nodes are keyed `(kind, id)` so a same-named
-/// artifact of a different kind is a distinct node. Arcs dedupe in the [`BTreeSet`],
-/// so a target named twice (e.g. by a list field) is one arc.
-fn resolved_arcs(
+/// Enumerate every **resolved** reference edge over the declared [`Edge`] set: for each
+/// admissible edge, each source artifact of its `from` kind, and each named target that
+/// resolves to a real artifact of its `to` kind, one [`ResolvedEdge`]. The single
+/// arc-resolution primitive — [`resolved_arcs`] folds it into `(kind, id)`-keyed
+/// adjacency for [`acyclic`]/[`degree`], and `crate::read`'s `why` filters it per node —
+/// so the gate and the read narrate the *same* edges (READ-EDGE-UNIFY). An
+/// [`is_admissible`]-failing edge is skipped (as in [`check`]), and a dangling reference
+/// (naming no artifact of the target kind) loads nothing, so it yields no edge — route
+/// resolution owns that finding. Sources iterate in candidate (name-sorted) order, so
+/// the enumeration is stable across runs; the same target named twice (e.g. by a list
+/// field) yields two edges here, which [`resolved_arcs`] dedupes into one arc.
+pub(crate) fn resolved_edges(
     edges: &[Edge],
     by_kind: &BTreeMap<&str, &[Features]>,
-) -> BTreeMap<Node, BTreeSet<Node>> {
-    let mut adjacency: BTreeMap<Node, BTreeSet<Node>> = BTreeMap::new();
+) -> Vec<ResolvedEdge> {
+    let mut resolved = Vec::new();
     for edge in edges {
         if !is_admissible(edge, by_kind) {
             continue;
@@ -412,15 +435,34 @@ fn resolved_arcs(
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
-                // A dangling reference loads nothing — no arc.
+                // A dangling reference loads nothing — no resolved edge.
                 if targets.contains(target) {
-                    adjacency
-                        .entry((edge.from.clone(), source.id.clone()))
-                        .or_default()
-                        .insert((edge.to.clone(), target.to_string()));
+                    resolved.push(ResolvedEdge {
+                        from: (edge.from.clone(), source.id.clone()),
+                        field: edge.field.clone(),
+                        to: (edge.to.clone(), target.to_string()),
+                    });
                 }
             }
         }
+    }
+    resolved
+}
+
+/// Build the artifact-level directed graph over **resolved** reference arcs — the
+/// shared foundation [`acyclic`] and [`degree`] both range over — by folding
+/// [`resolved_edges`] into `(kind, id)`-keyed adjacency. Nodes are keyed `(kind, id)`
+/// so a same-named artifact of a different kind is a distinct node. Arcs dedupe in the
+/// [`BTreeSet`], so a target named twice (e.g. by a list field) is one arc. Deriving
+/// this from the same [`resolved_edges`] the read family consumes is what keeps the
+/// gate's cycle/degree checks and `temper why`'s narration in lockstep.
+fn resolved_arcs(
+    edges: &[Edge],
+    by_kind: &BTreeMap<&str, &[Features]>,
+) -> BTreeMap<Node, BTreeSet<Node>> {
+    let mut adjacency: BTreeMap<Node, BTreeSet<Node>> = BTreeMap::new();
+    for ResolvedEdge { from, to, .. } in resolved_edges(edges, by_kind) {
+        adjacency.entry(from).or_default().insert(to);
     }
     adjacency
 }

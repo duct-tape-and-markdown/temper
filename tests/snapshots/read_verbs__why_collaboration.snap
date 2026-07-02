@@ -1,0 +1,16 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+Member `collaboration` (rule) — everything that holds it in place:
+
+Requirements it satisfies:
+  • `collaboration-discipline` — "pushback is the point"
+      It means: "pushback is the point".
+      It is required — at least one member must fill it.
+
+Governing package: its `rule` kind binds the `rule.anthropic` package, whose clauses check it.
+
+Edges out (the resolved references it declares, the exact set the gate ranges over):
+  • it points at `dev-standards` (skill) via its `routes_to` field
+Edges in: no member points at it.

@@ -5,11 +5,14 @@
 //! Drives the built `temper` binary over a fixture surface so the whole path is
 //! pinned: `temper.toml` discovery at the project root, the surface at `./.temper`,
 //! and the narration each verb prints to stdout. The cases mirror the entry's
-//! acceptance:
-//! - `why <member>` narrates a member's filled requirements (with rationale) + the
-//!   governing package + its edges out;
-//! - `why <member>` over a bare member narrates its incoming edges and that it fills
-//!   nothing;
+//! acceptance (READ-EDGE-UNIFY — the edge walk ranges over the gate's resolved edge
+//! set, a `[[kind.rule.relationships]]` `routes_to` edge over an extracted field, never
+//! an `[edge.*]` document clause):
+//! - `why <rule>` narrates a member's filled requirements (with rationale) + the
+//!   governing package + its **outgoing** resolved edge to the skill;
+//! - `why <skill>` narrates the **incoming** resolved edge from the rule (the same edge
+//!   `graph::check` resolves);
+//! - `why <member>` over a member touching no edge stays silent on both directions;
 //! - `requirements` lists the roster forward with each requirement's coverage state;
 //! - `requirements <name>` walks it in reverse — the satisfier set and the blast
 //!   radius a removal would strand;
@@ -21,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::document::{EdgeClause, Satisfies};
+use temper::document::Satisfies;
 use temper::rule::Rule;
 use temper::skill::Skill;
 
@@ -59,16 +62,13 @@ fn clean_skill(name: &str) -> String {
 }
 
 /// Project a skill onto the surface at `<root>/.temper/skills/<name>/SKILL.md` with
-/// the given authored `satisfies` (name + optional rationale) and `edge` (target +
-/// relation) clauses — exactly as a human editing the member document would, via the
-/// same projection the tool uses. `satisfies`/`edges` are surface-authored, never
-/// imported, so they are set on the reloaded IR here.
-fn write_skill(
-    root: &Path,
-    name: &str,
-    satisfies: &[(&str, Option<&str>)],
-    edges: &[(&str, &str)],
-) {
+/// the given authored `satisfies` (name + optional rationale) clauses — exactly as a
+/// human editing the member document would, via the same projection the tool uses.
+/// `satisfies` is surface-authored, never imported, so it is set on the reloaded IR
+/// here. Edges are **not** authored on the skill: in the resolved-edge model the read
+/// family narrates (READ-EDGE-UNIFY), an edge is a `[[kind.<name>.relationships]]`
+/// declaration over an extracted field, not a per-member `[edge.*]` clause.
+fn write_skill(root: &Path, name: &str, satisfies: &[(&str, Option<&str>)]) {
     let src = tmpdir("skill-src");
     fs::write(src.join("SKILL.md"), clean_skill(name)).unwrap();
     let mut skill = Skill::from_source_dir(&src).unwrap();
@@ -79,13 +79,6 @@ fn write_skill(
             rationale: rationale.map(str::to_string),
         })
         .collect();
-    skill.edges = edges
-        .iter()
-        .map(|(target, relation)| EdgeClause {
-            target: (*target).to_string(),
-            relation: Some((*relation).to_string()),
-        })
-        .collect();
 
     let dir = root.join(".temper").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
@@ -93,13 +86,24 @@ fn write_skill(
 }
 
 /// Project a rule onto the surface at `<root>/.temper/rules/<name>/RULE.md` with the
-/// given authored `satisfies` clauses — the rule-kind mirror of [`write_skill`].
-fn write_rule(root: &Path, name: &str, satisfies: &[(&str, Option<&str>)]) {
+/// given authored `satisfies` clauses and an optional `routes_to` reference field — the
+/// rule-kind mirror of [`write_skill`]. `routes_to` is authored as an **extracted
+/// frontmatter field** on the source (it round-trips into the surface as a
+/// `[clause.routes_to]` module and back out into `Features`), the source side of the
+/// `[[kind.rule.relationships]]` edge the gate — and now the read family — resolve
+/// over (READ-EDGE-UNIFY). It is *not* an `[edge.*]` document clause.
+fn write_rule(
+    root: &Path,
+    name: &str,
+    satisfies: &[(&str, Option<&str>)],
+    routes_to: Option<&str>,
+) {
     let src = tmpdir("rule-src");
     let path = src.join(format!("{name}.md"));
+    let routes = routes_to.map_or_else(String::new, |target| format!("routes_to: {target}\n"));
     fs::write(
         &path,
-        "---\npaths:\n  - \"src/**/*.rs\"\n---\n# rule\n\nBody.\n",
+        format!("---\npaths:\n  - \"src/**/*.rs\"\n{routes}---\n# rule\n\nBody.\n"),
     )
     .unwrap();
     let mut rule = Rule::from_source_file(&path).unwrap();
@@ -116,9 +120,12 @@ fn write_rule(root: &Path, name: &str, satisfies: &[(&str, Option<&str>)]) {
     fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
 }
 
-/// The `temper.toml` roster the fixture surface is read against: one required
-/// requirement filled by a single skill (load-bearing), one filled by a rule, and one
-/// advisory requirement left unfilled.
+/// The `temper.toml` the fixture surface is read against: the requirement roster — one
+/// required requirement filled by a single skill (load-bearing), one filled by a rule,
+/// and one advisory requirement left unfilled — plus a `[[kind.rule.relationships]]`
+/// declaration (`routes_to`, a rule → skill edge). The relationship + the source's
+/// extracted `routes_to` field are the edge set `graph::check` resolves, and the read
+/// family narrates that same set (READ-EDGE-UNIFY) — never an `[edge.*]` document clause.
 const TEMPER_TOML: &str = "\
 [requirement.collaboration-discipline]
 means = \"pushback is the point\"
@@ -130,12 +137,19 @@ required = true
 
 [requirement.nice-to-have]
 means = \"an optional convenience\"
+
+[[kind.rule.relationships]]
+field = \"routes_to\"
+to = \"skill\"
 ";
 
 /// Build the shared fixture surface + assembly under a fresh root and return it. Two
-/// skills (`dev-standards` fills `engineering-standards` and points at `lint-runner`;
-/// `lint-runner` fills nothing) and a rule (`collaboration` fills
-/// `collaboration-discipline`).
+/// skills (`dev-standards` fills `engineering-standards` and is *pointed at* by the
+/// rule; `lint-runner` fills nothing and touches no edge) and a rule (`collaboration`
+/// fills `collaboration-discipline` and `routes_to` the skill `dev-standards`). The
+/// edge is a `[[kind.rule.relationships]]` declaration over `collaboration`'s extracted
+/// `routes_to` field — the same edge `graph::check` resolves — so `why` narrates the
+/// outgoing edge on the rule and the incoming one on the skill from that one set.
 fn fixture() -> PathBuf {
     let root = tmpdir("root");
     write_skill(
@@ -145,13 +159,13 @@ fn fixture() -> PathBuf {
             "engineering-standards",
             Some("the home for engineering-standards enforcement"),
         )],
-        &[("lint-runner", "depends-on")],
     );
-    write_skill(&root, "lint-runner", &[], &[]);
+    write_skill(&root, "lint-runner", &[]);
     write_rule(
         &root,
         "collaboration",
         &[("collaboration-discipline", Some("pushback is the point"))],
+        Some("dev-standards"),
     );
     fs::write(root.join("temper.toml"), TEMPER_TOML).unwrap();
     root
@@ -178,8 +192,12 @@ fn read(root: &Path, args: &[&str]) -> Run {
 }
 
 #[test]
-fn why_narrates_a_members_forward_walk() {
+fn why_narrates_a_skill_and_its_incoming_resolved_edge() {
     let root = fixture();
+    // `dev-standards` fills `engineering-standards` and is *pointed at* by the rule
+    // `collaboration`'s `routes_to` edge — so `why` narrates the filled requirement,
+    // the governing package, and the **incoming** edge from the exact set
+    // `graph::check` resolves.
     let run = read(&root, &["why", "dev-standards"]);
     // A read, never a gate — it exits zero.
     assert!(run.ok, "why must exit zero: {}", run.stdout);
@@ -187,10 +205,22 @@ fn why_narrates_a_members_forward_walk() {
 }
 
 #[test]
-fn why_narrates_a_bare_member_and_its_incoming_edges() {
+fn why_narrates_a_rule_and_its_outgoing_resolved_edge() {
     let root = fixture();
-    // `lint-runner` fills nothing and declares no edges, but `dev-standards` points at
-    // it — so the reverse (incoming) edge is surfaced.
+    // `collaboration` fills `collaboration-discipline` and `routes_to` the skill
+    // `dev-standards` — so `why` narrates the **outgoing** edge, the same
+    // `[[kind.rule.relationships]]` edge `graph::check` resolves over the extracted
+    // `routes_to` field (never an `[edge.*]` clause).
+    let run = read(&root, &["why", "collaboration"]);
+    assert!(run.ok, "why must exit zero: {}", run.stdout);
+    insta::assert_snapshot!("why_collaboration", run.stdout);
+}
+
+#[test]
+fn why_stays_silent_when_a_member_touches_no_edge() {
+    let root = fixture();
+    // `lint-runner` fills nothing and neither declares nor receives a resolved edge, so
+    // both edge directions read silent — the no-declared-edge case.
     let run = read(&root, &["why", "lint-runner"]);
     assert!(run.ok, "why must exit zero: {}", run.stdout);
     insta::assert_snapshot!("why_lint_runner", run.stdout);

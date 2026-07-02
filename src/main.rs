@@ -13,6 +13,7 @@
 //!
 //! [`Features`]: temper::extract::Features
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -463,9 +464,32 @@ fn main() -> miette::Result<ExitCode> {
             // filled requirements, governing package, and edges. A read, never a gate:
             // the traversal lives in the library (`.claude/rules/rust.md`), and this
             // arm only maps its narration to stdout and exit 0.
-            let ws = Workspace::load(Path::new(DEFAULT_WORKSPACE))?;
+            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
+            let ws = Workspace::load(&workspace)?;
             let layer = load_layer(Path::new(TEMPER_TOML))?;
-            print!("{}", read::why(&ws, layer.as_ref(), &member));
+
+            // Build the *same* by-kind corpus + declared edge set the `check` gate
+            // derives (READ-EDGE-UNIFY: one source of truth), so `why`'s edge narration
+            // ranges over the exact resolved set `graph::check`/`acyclic`/`degree` do —
+            // never a private re-derivation. The custom-kind definitions and the
+            // authored `temper.toml` live beside the surface, so the kinds dir and
+            // custom-unit locus are the two-step surface itself.
+            let skill_features: Vec<extract::Features> =
+                ws.skills.iter().map(extract::skill_features).collect();
+            let rule_features: Vec<extract::Features> =
+                ws.rules.iter().map(extract::rule_features).collect();
+            let kinds_dir = workspace.join("kinds");
+            let (custom_kinds, edges) = match layer.as_ref() {
+                Some(layer) => custom_kinds_and_edges(&workspace, layer, &kinds_dir)?,
+                // No `temper.toml` ⇒ no declared relationships, so no edges to resolve.
+                None => (Vec::new(), Vec::new()),
+            };
+            let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
+
+            print!(
+                "{}",
+                read::why(&ws, layer.as_ref(), &by_kind, &edges, &member)
+            );
             Ok(ExitCode::SUCCESS)
         }
         Command::Requirements { name } => {
@@ -623,49 +647,20 @@ fn gate(
     if let Some(layer) = layer.as_ref() {
         let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
 
-        // Load every registered custom kind and compute its features *before* the
-        // graph tier, so a custom-kind member joins the corpus graph exactly as a
-        // built-in kind's members do (`specs/15-kinds.md`, "The entity graph is a kind
-        // capability"). Each kind's authored definition loads from
-        // `.temper/kinds/<name>/KIND.md` and its imported units project through the
-        // kind's own composed extractor. Owned here so the feature slices outlive both
-        // the graph tier (which borrows them through `by_kind`) and the conformance
-        // loop below.
-        let mut custom_kinds: Vec<(&str, CustomKind, Vec<extract::Features>)> = Vec::new();
-        for name in layer.registered_kinds() {
-            if kind::BUILTIN_KINDS.contains(&name) {
-                continue;
-            }
-            let custom = CustomKind::load(&kinds_dir, name)?;
-            let units = custom_units(workspace, &custom)?;
-            let features: Vec<extract::Features> = units
-                .iter()
-                .map(|unit| custom.extraction.extract(unit))
-                .collect();
-            custom_kinds.push((name, custom, features));
-        }
+        // The custom-kind corpus (definition + features, computed *before* the graph
+        // tier so a custom-kind member joins the graph exactly as a built-in kind's do)
+        // and the declared edge set — built through the *shared* [`custom_kinds_and_edges`]
+        // helper the `why` read arm also calls, so the gate and the read derive one
+        // identical edge set by construction (READ-EDGE-UNIFY: one source of truth).
+        // Owned here so the feature slices outlive both the graph tier (which borrows
+        // them through `by_kind`) and the conformance loop below.
+        let (custom_kinds, edges) = custom_kinds_and_edges(workspace, layer, &kinds_dir)?;
 
         // The by-kind corpus every set-scope and graph predicate ranges over: the
         // built-in kinds plus each registered custom kind's features, so an edge to or
         // from a custom-kind member resolves through the same generic graph functions a
-        // built-in kind's edge does.
-        let mut by_kind: std::collections::BTreeMap<&str, &[extract::Features]> =
-            std::collections::BTreeMap::from([
-                ("skill", skill_features.as_slice()),
-                ("rule", rule_features.as_slice()),
-            ]);
-        for (name, _custom, features) in &custom_kinds {
-            by_kind.insert(*name, features.as_slice());
-        }
-
-        // The declared edge set the graph tier resolves: the built-in kinds'
-        // `[[kind.<name>.relationships]]` (`layer.edges()`) plus each custom kind's own
-        // `[[relationships]]` parsed onto `CustomKind` — a reference is a kind
-        // capability regardless of the owning kind's category (`specs/15-kinds.md`).
-        let mut edges: Vec<compose::Edge> = layer.edges().to_vec();
-        for (_name, custom, _features) in &custom_kinds {
-            edges.extend(custom.relationships.iter().cloned());
-        }
+        // built-in kind's edge does. Assembled through the same helper the read arm uses.
+        let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
         // Admissibility before conformance, here too: each requirement's own
         // definition is validated against the definition — a `required` typed
@@ -816,6 +811,74 @@ fn scratch_surface() -> miette::Result<PathBuf> {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).into_diagnostic()?;
     Ok(dir)
+}
+
+/// A registered custom kind as the corpus construction carries it: its name (borrowed
+/// from the assembly layer), its loaded [`CustomKind`] definition, and its computed
+/// member [`Features`](extract::Features). Named so the shared corpus helpers keep a
+/// legible signature (`clippy::type_complexity`).
+type CustomKindEntry<'a> = (&'a str, CustomKind, Vec<extract::Features>);
+
+/// Load every registered custom kind (its definition + computed features) and assemble
+/// the declared edge set — `layer.edges()` (the built-in kinds'
+/// `[[kind.<name>.relationships]]`) plus each custom kind's own `[[relationships]]`
+/// parsed onto its `KIND.md`. The **one** construction the `check` gate and the `why`
+/// read both derive their by-kind corpus + edge set from (READ-EDGE-UNIFY: one source of
+/// truth, no private re-derivation), so the read's edge narration ranges over the exact
+/// resolved set the gate's `graph::check`/`acyclic`/`degree` do.
+///
+/// A `[kind.<name>]` whose name is a built-in is a contract layer, not a custom-kind
+/// registration, so it is skipped here (`specs/40-composition.md`); each custom kind's
+/// definition loads from `<kinds_dir>/<name>/KIND.md` and its units project through the
+/// kind's own composed extractor. The returned names borrow `layer`, so it outlives the
+/// corpus; a workspace with no members of a kind contributes an empty feature slice.
+fn custom_kinds_and_edges<'a>(
+    workspace: &Path,
+    layer: &'a compose::AuthorLayer,
+    kinds_dir: &Path,
+) -> miette::Result<(Vec<CustomKindEntry<'a>>, Vec<compose::Edge>)> {
+    let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
+    for name in layer.registered_kinds() {
+        if kind::BUILTIN_KINDS.contains(&name) {
+            continue;
+        }
+        let custom = CustomKind::load(kinds_dir, name)?;
+        let units = custom_units(workspace, &custom)?;
+        let features: Vec<extract::Features> = units
+            .iter()
+            .map(|unit| custom.extraction.extract(unit))
+            .collect();
+        custom_kinds.push((name, custom, features));
+    }
+
+    // A reference is a kind capability regardless of the owning kind's category
+    // (`specs/15-kinds.md`): a built-in kind declares its edges in the assembly
+    // (`layer.edges()`), a custom kind in its own `KIND.md`.
+    let mut edges: Vec<compose::Edge> = layer.edges().to_vec();
+    for (_name, custom, _features) in &custom_kinds {
+        edges.extend(custom.relationships.iter().cloned());
+    }
+
+    Ok((custom_kinds, edges))
+}
+
+/// Assemble the by-kind [`Features`](extract::Features) corpus every set-scope and graph
+/// predicate ranges over: the built-in kinds (skill ⊕ rule) plus each registered custom
+/// kind's features, keyed by kind name. The counterpart to [`custom_kinds_and_edges`]
+/// shared by the gate and the `why` read, so both range over the identical corpus an
+/// edge resolves against (READ-EDGE-UNIFY). Borrows every slice, so the caller holds the
+/// owned feature vecs for the map's lifetime.
+fn assemble_by_kind<'a>(
+    skill_features: &'a [extract::Features],
+    rule_features: &'a [extract::Features],
+    custom_kinds: &'a [CustomKindEntry<'a>],
+) -> BTreeMap<&'a str, &'a [extract::Features]> {
+    let mut by_kind: BTreeMap<&str, &[extract::Features]> =
+        BTreeMap::from([("skill", skill_features), ("rule", rule_features)]);
+    for (name, _custom, features) in custom_kinds {
+        by_kind.insert(*name, features.as_slice());
+    }
+    by_kind
 }
 
 /// Load a custom `kind`'s units from the surface, generically — every surface
