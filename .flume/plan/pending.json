@@ -76,7 +76,7 @@
       "new": [
         {
           "path": ".github/workflows/release.yml",
-          "description": "Build the per-target release binaries and publish them to the npm platform packages, GitHub release assets, and the Homebrew tap; channel auto-detected."
+          "description": "Build the per-target release binaries and publish them to the npm platform packages, GitHub release assets, and the Homebrew tap; channel auto-detected. Distinct from the existing `.github/workflows/temper.yml` CI job."
         }
       ],
       "edit": [
@@ -91,5 +91,36 @@
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
     "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
+  },
+  {
+    "tag": "COMMUNITY-DOCS",
+    "summary": "Add CONTRIBUTING.md and SECURITY.md — the two missing launch community docs (two-sided AI-authorship disclosure; vuln-reporting evidence bar)",
+    "per": {
+      "path": "specs/55-offering.md",
+      "section": "The community surface — small, honest, gated"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "build's writable fence (.flume/chain.ts BUILD_WRITABLE_PATHS) lists only README/CHANGELOG/AGENTS/LICENSE among root docs — no root CONTRIBUTING.md/SECURITY.md glob — so build would bail; a human must widen the fence (chain.ts is human territory) and enable private vulnerability reporting (a repo setting) before build can author these"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "CONTRIBUTING.md",
+          "description": "Small and honest per the Decision: how to file a good issue, 'search first', PRs by prior discussion, and the two-sided AI-authorship policy (inbound AI-assisted contributions welcome WITH disclosure; the contributor must understand and defend the change without the assistant). Expectation-setting, not an invitation to co-maintain."
+        },
+        {
+          "path": "SECURITY.md",
+          "description": "Vulnerability-reporting policy with an explicit evidence bar — a report must demonstrate, not speculate (the 'unverified AI-generated vuln reports are the new spam' lesson). Points at private vulnerability reporting (the GitHub repo setting a human enables)."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "CONTRIBUTING.md and SECURITY.md exist at root, matching specs/55's launch-set Decisions (two-sided disclosure; demonstrate-not-speculate); the fence has been widened so build's entry-fence preflight admits them.",
+    "notes": "Launch set (specs/55). Already on disk: README, AGENTS.md, CHANGELOG.md, LICENSE-MIT/APACHE, issue forms (.github/ISSUE_TEMPLATE/{bug,feature,config}.yml). Missing only CONTRIBUTING.md + SECURITY.md. Both are root-level per the spec but outside build's root-docs fence — parked on a human fence-widen (chain.ts) + enabling private reporting. Parked entries are skipped by the entry-fence gate, so this files cleanly."
   }
 ]
