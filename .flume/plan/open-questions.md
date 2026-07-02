@@ -236,6 +236,23 @@ path strings remain in comments).
   `[edge.*]`/`routes_to` is the one-way class — resolved, never obligating — and
   the join machinery already ships (coverage/roster). Doctrine only; no engine
   work beyond what the classed-corpus entries already cover.
+  DATUM (2026-07-02, join-retirement): `45-governance.md`'s revised Decision
+  "coupling is a join — one-way edges exist only at the governance boundary"
+  now *decides the representation*: member-to-member coupling is the
+  requirement/satisfies join (canonical); a one-way pointer in the projection
+  is the emit face's **flattening** of that join (derived, never authored); and
+  the `[edge.<target>]` surface clause is **retired** (rejected (b)) — option
+  (c). Filed the retirement as pending **EDGE-CLAUSE-RETIRE** (open): drop the
+  dead `[edge.*]` syntax from document.rs/frontmatter.rs. What stays OPEN is the
+  narrower *mechanism*: the graph today reads `routes_to` as an extracted
+  feature (`[[kind.relationships]]`), NOT as the flattened projection of a join,
+  and joins build only coverage — so a surface-authored join still reaches no
+  graph edge. Wiring join→`routes_to` flattening (the emit face derives the
+  one-way pointer; a landscape pointer with no join behind it is drift) is
+  fileable work the spec now sanctions, but not yet filed — the human's inbox
+  scoped this revision to the three engine consequences (ACTIVATION-KEY-PARSE,
+  EDGE-CLAUSE-RETIRE, REACHABILITY); the join→graph unification is the residual
+  and awaits a decision to file it.
 
 - `(launch-front-door-docs)` — RESOLVED. **AGENTS.md is a separate,
   build-authorable contributor doc; `CLAUDE.md` stays canonical and untouched.**

@@ -1,5 +1,100 @@
 [
   {
+    "tag": "ACTIVATION-KEY-PARSE",
+    "summary": "Parse an inert `activation` key in KIND.md headers into the closed activation vocab (always / description-trigger / paths-match / event) — stored, not yet consumed",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Activation — a kind's inherent world-edges"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Add `\"activation\"` to `from_header`'s accepted-key allowlist (kind.rs:151, beside `format`/`unit_shape`) and a `parse_activation` mirroring `parse_format`/`parse_unit_shape` (kind.rs:290-333): a typed `Activation` over the closed vocab — `Always`, `DescriptionTrigger(field)`, `PathsMatch(field)`, `Event(field)` (specs/15-kinds.md, cited code.claude.com/docs/en/memory + /skills, retrieved 2026-07-02), the three field-carrying variants naming the declared frontmatter field they range over. Out-of-vocab ⇒ `KindError::OutOfVocab`, exactly as the projection-format face does. Store `Option<Activation>` on `CustomKind` inert — nothing reads it yet (REACHABILITY consumes it). Seam tests beside the format/unit_shape ones (kind.rs:1425+)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "an `activation` header parses into the typed value for each vocab entry (incl. the field-carrying variants); an out-of-vocab value is OutOfVocab, never silently dropped; a KIND.md with no activation still parses (Ok(None)); a header carrying activation alongside format/unit_shape no longer trips UnknownKey."
+      }
+    ],
+    "acceptance": "`CustomKind::from_header` accepts `activation` and stores the typed value; unknown keys still reject; the embedded curated KIND.md files stay unchanged (a human adds their activation lines afterward as a chore, outside build's fence); cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox item (1), the join/boundary spec revision. Red-interim shape of FORMAT-KEY-PARSE: build ships the parser accepting `activation` inert; a human then adds activation lines to curated kinds/skill + kinds/rule KIND.md (outside build's fence). Unlocks REACHABILITY, which reads the typed Activation. NB the field-carrying variants name a declared frontmatter field, not a value. Disjoint from EDGE-CLAUSE-RETIRE (document.rs) — parallel-safe."
+  },
+  {
+    "tag": "EDGE-CLAUSE-RETIRE",
+    "summary": "Retire `[edge.<target>]` surface support — member coupling rides requirement/satisfies only; drop EdgeClause, add_edge, edges() and the frontmatter parse/apply path",
+    "per": {
+      "path": "specs/45-governance.md",
+      "section": "Decision: coupling is a join — one-way edges exist only at the governance boundary"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/document.rs",
+          "description": "Remove the `[edge.<target>]` surface mechanism (retired from the header vocabulary, specs/45-governance.md Decision, rejected (b)): drop the `EdgeClause` struct (document.rs:259), `add_edge` (326-331), and the `edges()` reader (468-475), plus the inline fixtures/tests carrying `[edge.*]` (document.rs:622, 673, 687, 744-760). Member-to-member coupling is a join (requirement/satisfies); a one-way pointer in the projection is the emit face's flattening, never an authored clause."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "Drop the `edges: Vec<EdgeClause>` field (frontmatter.rs:62) and the `EdgeClause` import (line 30), the `document::edges(header)` read at parse (277), the `edges` carry in the recognition/merge path (211, 310), and the `add_edge` emit loop (330-331). Update the doc comments that name `[edge.*]` (61-62, 223, 317)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/document.rs",
+        "asserts": "no `[edge.*]` module is parsed or emitted; the clause-module round-trip covers only clause/satisfies/requirement/provenance and stays byte-identical parse→emit."
+      }
+    ],
+    "acceptance": "`[edge.<target>]` is gone from the surface language — no `EdgeClause` type, no `add_edge`/`edges`, no frontmatter `edges` field; the graph is unaffected (it reads `compose::Edge`/`routes_to`, never `EdgeClause`); cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox item (2). The `[edge.*]` clause was dead surface syntax — parsed and round-tripped but feeding no graph edge (edge-representation-unify). The revised Decision retires it: coupling is a join. Disjoint from ACTIVATION-KEY-PARSE (kind.rs) — parallel-safe. graph.rs's `Edge` is `compose::Edge` (assembly relationships), untouched by this."
+  },
+  {
+    "tag": "REACHABILITY",
+    "summary": "Add the world node + a `reachable` predicate to the graph — a member whose declared activation edge is dead (blank description-trigger field, zero-match paths globs) is decidably unreachable",
+    "per": {
+      "path": "specs/45-governance.md",
+      "section": "The world is a node — reachability is a predicate"
+    },
+    "gate": { "kind": "blockedBy", "tag": "ACTIVATION-KEY-PARSE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "Add the distinguished **world** node and a `reachable` predicate over a member's declared activation (the typed `Activation` from ACTIVATION-KEY-PARSE): a `description-trigger` member whose named field is blank, or a `paths-match` member whose globs match zero repo files, has a dead inbound activation edge and is decidably unreachable — an exact fact at check time. Mirrors the `degree`/`acyclic` predicate shape already in this module; severity is the package/assembly's clause choice, like every other predicate."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Fixture-driven proof: a member with a live activation edge is reachable; a description-trigger member with an empty field and a paths-match member with zero-match globs are each flagged unreachable; a kind that declares no activation is not subject to the predicate."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a live activation edge is reachable; a blank description-trigger field and zero-match paths globs are each unreachable findings; a kind with no declared activation is unaffected."
+      }
+    ],
+    "acceptance": "the graph carries a world node and a decidable `reachable` predicate over declared activation; cargo fmt/clippy -D warnings/test green. (Curated skill/rule activation lines — a human chore after ACTIVATION-KEY-PARSE — are what make the dogfood self-check fire; the machinery is proven against fixtures first.)",
+    "notes": "Inbox item (3). Blocked on ACTIVATION-KEY-PARSE (consumes the typed Activation). The zero-match-globs case needs scanning the governed repo for matches — a capability beyond the pure blank-field case; scope may widen (compose.rs/check.rs wiring for the predicate declaration) and gets refiled when the upstream lands. Machinery-first (package-surface-sequencing): built against fixtures, curated lines follow."
+  },
+  {
     "tag": "MEMORY-KIND",
     "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
     "per": {
