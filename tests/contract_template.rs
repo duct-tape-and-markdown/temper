@@ -500,6 +500,7 @@ fn a_failing_clause_diagnostic_carries_its_colocated_guidance() {
         fields: BTreeMap::new(),
         body_lines: 3,
         headings: Vec::new(),
+        sections: Vec::new(),
         source_dir: Some("nameless".to_string()),
         satisfies: Vec::new(),
     };

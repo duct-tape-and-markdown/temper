@@ -148,6 +148,7 @@ mod tests {
             fields: BTreeMap::new(),
             body_lines: 0,
             headings: Vec::new(),
+            sections: Vec::new(),
             source_dir: None,
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
         }

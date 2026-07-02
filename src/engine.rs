@@ -32,8 +32,8 @@
 //! hand-authored clause fails loudly instead of quietly deciding nothing. The
 //! decidable members the spec keeps — name format,
 //! lengths, forbidden keys, required fields, `name-matches-dir`, body
-//! `max_lines`, and `require_sections` over the extracted headings — are
-//! evaluated here in full.
+//! `max_lines`, `require_sections` over the extracted headings, and
+//! `section_contains` over the extracted sections — are evaluated here in full.
 //!
 //! [`Error`]: check::Severity::Error
 //! [`Warn`]: check::Severity::Warn
@@ -142,6 +142,15 @@ fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
         }
         Predicate::RequireSections { sections } if sections.is_empty() => {
             vec!["`require_sections` clause lists no sections".to_string()]
+        }
+        // An empty `section_contains` marker is a substring of every body, so the
+        // clause can never fire — vacuous, and inadmissible like an empty-list
+        // clause. An empty *heading* prefix is not vacuous (it governs every
+        // section, a meaningful "every section carries the marker"), so it stands.
+        Predicate::SectionContains { heading, marker } if marker.is_empty() => {
+            vec![format!(
+                "`section_contains` clause on heading `{heading}` names an empty marker"
+            )]
         }
         // An inverted bound (`min > max`) admits no value at all — a vacuous
         // clause the author cannot have meant, so the contract carrying it fails
@@ -334,6 +343,30 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             format!("marker `{marker}` is not defined")
         }),
 
+        // `section_contains` decides over the extracted body sections: every
+        // section whose heading *starts with* the declared prefix must carry the
+        // declared marker (a substring of its body). One finding per bare section,
+        // so each offending section points at itself.
+        Predicate::SectionContains { heading, marker } => {
+            let bare: Vec<String> = features
+                .sections
+                .iter()
+                .filter(|section| section.heading.starts_with(heading.as_str()))
+                .filter(|section| !section.body.contains(marker.as_str()))
+                .map(|section| {
+                    format!(
+                        "section `{}` does not carry the required marker `{marker}`",
+                        section.heading
+                    )
+                })
+                .collect();
+            if bare.is_empty() {
+                Outcome::Holds
+            } else {
+                Outcome::Violated(bare)
+            }
+        }
+
         Predicate::NameMatchesDir => {
             match (scalar(features, "name"), features.source_dir.as_deref()) {
                 (Some(name), Some(dir)) => Outcome::check(name == dir, || {
@@ -405,6 +438,7 @@ mod tests {
             fields,
             body_lines,
             headings: Vec::new(),
+            sections: Vec::new(),
             source_dir: source_dir.map(str::to_string),
             satisfies: Vec::new(),
         }

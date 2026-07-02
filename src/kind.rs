@@ -27,6 +27,9 @@
 //! - **`field`** — a frontmatter value at a key, projected as a named field
 //!   feature (kind-preserving, via the shared [`crate::extract`] projector);
 //! - **`headings`** — the body's ATX headings;
+//! - **`sections`** — the body's ATX sections (each heading + the body span
+//!   beneath it), the `## Decision`-block feature a `section_contains` clause
+//!   reads (`specs/10-contracts.md`);
 //! - **`line_count`** — the body's line count (the `max_lines` feature);
 //! - **`placement`** — the source directory the unit sits under;
 //! - **`references`** — the backtick-filename references in the body (`` `NN-name.md` ``,
@@ -34,14 +37,11 @@
 //!   example: `spec`"), as a named list feature a `references-resolve` clause or
 //!   a declared edge (`crate::graph`) then reads.
 //!
-//! The `## Decision`-block primitive (heading + its body) waits on the
-//! `(decision-marker-predicate)` fork; this tier ships the primitives the `spec`
-//! kind's `max_lines`/references clauses need now.
-//!
 //! ## Why reuse `crate::extract`, never a second extractor
 //!
 //! Every primitive delegates to the *same* surface extractor the built-in
 //! projectors use ([`crate::extract::body_headings`],
+//! [`body_sections`](crate::extract::body_sections),
 //! [`body_line_count`](crate::extract::body_line_count),
 //! [`source_dir_name`](crate::extract::source_dir_name)). A custom kind that
 //! composes `headings` reads the byte-identical ATX/fence logic a skill does —
@@ -279,6 +279,10 @@ pub enum Primitive {
     /// `headings` — the body's ATX headings, in document order
     /// (`Features::headings`).
     Headings,
+    /// `sections` — the body's ATX sections (each heading + the body span beneath
+    /// it), in document order (`Features::sections`) — the `## Decision`-block
+    /// feature a `section_contains` clause decides over (`specs/10-contracts.md`).
+    Sections,
     /// `line_count` — the body's line count (`Features::body_lines`), the
     /// `max_lines` feature.
     LineCount,
@@ -302,6 +306,7 @@ impl Primitive {
         match self {
             Primitive::Field { .. } => "field",
             Primitive::Headings => "headings",
+            Primitive::Sections => "sections",
             Primitive::LineCount => "line_count",
             Primitive::Placement => "placement",
             Primitive::References { .. } => "references",
@@ -321,6 +326,7 @@ impl Primitive {
                 }
             }
             Primitive::Headings => features.headings = extract::body_headings(&unit.body),
+            Primitive::Sections => features.sections = extract::body_sections(&unit.body),
             Primitive::LineCount => features.body_lines = extract::body_line_count(&unit.body),
             Primitive::Placement => {
                 features.source_dir = extract::source_dir_name(&unit.source_path)
@@ -751,6 +757,7 @@ impl Extraction {
             fields: BTreeMap::new(),
             body_lines: 0,
             headings: Vec::new(),
+            sections: Vec::new(),
             source_dir: None,
             // The authored representation binding the coverage check resolves —
             // threaded off the unit's `[satisfies.*]` header modules, not a composed
@@ -776,6 +783,7 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
             key: str_param(table, "key", index, path)?,
         },
         "headings" => Primitive::Headings,
+        "sections" => Primitive::Sections,
         "line_count" => Primitive::LineCount,
         "placement" => Primitive::Placement,
         "references" => Primitive::References {

@@ -97,13 +97,15 @@ pub fn emit(contract: &Contract) -> Value {
             }
             // The remaining predicates name no frontmatter JSON-Schema keyword —
             // `optional` is documentation, `max_lines`/`require_sections`/
-            // `must_define` are body/structural, and the cross-artifact predicates
-            // range over the whole corpus. None is a per-artifact frontmatter
-            // squiggle, so none rides the validation channel here.
+            // `must_define`/`section_contains` are body/structural, and the
+            // cross-artifact predicates range over the whole corpus. None is a
+            // per-artifact frontmatter squiggle, so none rides the validation
+            // channel here.
             Predicate::Optional { .. }
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
             | Predicate::MustDefine { .. }
+            | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
             | Predicate::DependencyExists => {}

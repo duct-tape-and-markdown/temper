@@ -151,6 +151,24 @@ impl FeatureValue {
     }
 }
 
+/// One ATX **section** of a markdown body: a heading paired with the body span
+/// beneath it, up to the next heading of the same or a shallower level. The
+/// feature a `section_contains` clause decides over (`specs/10-contracts.md`, the
+/// `section_contains` structural primitive) — its [`heading`](Section::heading) is
+/// matched by the clause's declared prefix, its [`body`](Section::body) searched
+/// for the declared marker. Surface-decidable like every other feature: a heading
+/// inside a fenced code block opens no section (the same exclusion
+/// [`body_headings`] makes), so a section is never a guess.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Section {
+    /// The heading text, with its `#` markers stripped exactly as
+    /// [`body_headings`] strips them.
+    pub heading: String,
+    /// The body span beneath the heading — the intervening lines rejoined with
+    /// `\n`, the text a `section_contains` marker check searches.
+    pub body: String,
+}
+
 /// An artifact's deterministically-extracted features, keyed for generic clause
 /// lookup. Everything here is surface-decidable; nothing is inferred meaning.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,6 +185,13 @@ pub struct Features {
     /// `#` run and any closing `#` run trimmed (for `require_sections`). A `#`
     /// inside a fenced code block is not a heading.
     pub headings: Vec<String>,
+    /// The body's ATX [`Section`]s (heading + the body span beneath it), in
+    /// document order — the feature a `section_contains` clause decides over
+    /// (`specs/10-contracts.md`, the `section_contains` structural primitive). A
+    /// superset of [`headings`](Features::headings): where `headings` carries only
+    /// each heading's text, a section pairs it with its body span so a marker check
+    /// has prose to search.
+    pub sections: Vec<Section>,
     /// The name of the directory the unit was imported from, off provenance
     /// (for `name-matches-dir`). `None` when the source path has no parent.
     pub source_dir: Option<String>,
@@ -236,6 +261,7 @@ pub fn skill_features(skill: &Skill) -> Features {
         fields,
         body_lines: body_line_count(&skill.body),
         headings: body_headings(&skill.body),
+        sections: body_sections(&skill.body),
         source_dir: source_dir_name(&skill.provenance.source_path),
         // The authored representation binding the coverage check resolves — the
         // requirement names off the `[satisfies.*]` clause modules, distinct from
@@ -272,6 +298,7 @@ pub fn rule_features(rule: &Rule) -> Features {
         fields,
         body_lines: body_line_count(&rule.body),
         headings: body_headings(&rule.body),
+        sections: body_sections(&rule.body),
         source_dir: source_dir_name(&rule.provenance.source_path),
         // The authored representation binding the coverage check resolves — the
         // requirement names off the `[satisfies.*]` clause modules, distinct from
@@ -323,12 +350,67 @@ pub(crate) fn body_headings(body: &str) -> Vec<String> {
             continue;
         }
         if fence.is_none()
-            && let Some(text) = atx_heading_text(line)
+            && let Some((_, text)) = atx_heading(line)
         {
             headings.push(text);
         }
     }
     headings
+}
+
+/// Extract the ATX **sections** of a byte-faithful markdown body: each heading
+/// paired with the body span beneath it, up to the next heading of the same or a
+/// shallower level (a deeper subsection stays part of its parent's span). The
+/// feature a `section_contains` clause reads (`specs/10-contracts.md`, the
+/// `section_contains` structural primitive). A heading (and any `#` line) inside a
+/// fenced code block opens no section — the same exclusion [`body_headings`] makes,
+/// tracked the identical way — so a fenced marker never splits the prose. Heading
+/// text is stripped exactly as [`body_headings`] strips it; the body is the
+/// intervening lines rejoined with `\n`, the span a marker check searches.
+///
+/// `pub(crate)` so the data-driven [`crate::kind`] `sections` primitive composes
+/// this exact splitter rather than a second one that could drift from the heading
+/// logic (`specs/15-kinds.md`).
+pub(crate) fn body_sections(body: &str) -> Vec<Section> {
+    let lines: Vec<&str> = body.lines().collect();
+    // First pass: the heading lines *outside* fenced code, each with its line
+    // index, level, and stripped text — the section boundaries.
+    let mut heads: Vec<(usize, usize, String)> = Vec::new();
+    let mut fence: Option<(char, usize)> = None;
+    for (index, line) in lines.iter().enumerate() {
+        if let Some((fence_char, fence_len)) = fence_marker(line) {
+            match fence {
+                Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
+                    fence = None;
+                }
+                Some(_) => {}
+                None => fence = Some((fence_char, fence_len)),
+            }
+            continue;
+        }
+        if fence.is_none()
+            && let Some((level, text)) = atx_heading(line)
+        {
+            heads.push((index, level, text));
+        }
+    }
+
+    // Second pass: each heading's body runs to the next heading of the same or a
+    // shallower level (`next_level <= level`), so a subsection nests inside its
+    // parent's span rather than truncating it.
+    let mut sections = Vec::with_capacity(heads.len());
+    for (position, (start, level, text)) in heads.iter().enumerate() {
+        let end = heads[position + 1..]
+            .iter()
+            .find(|head| head.1 <= *level)
+            .map_or(lines.len(), |head| head.0);
+        let body = lines[*start + 1..end].join("\n");
+        sections.push(Section {
+            heading: text.clone(),
+            body,
+        });
+    }
+    sections
 }
 
 /// The fence marker a line carries, if any: the fence character (`` ` `` or
@@ -348,11 +430,12 @@ pub(crate) fn fence_marker(line: &str) -> Option<(char, usize)> {
     (len >= 3).then_some((fence_char, len))
 }
 
-/// The text of an ATX heading on this line, or `None` if it is not one. A
-/// heading is up to three leading spaces, a `#`..`######` run, then a space/tab
-/// (or end of line); the returned text has the markers and an optional closing
-/// `#` run stripped.
-fn atx_heading_text(line: &str) -> Option<String> {
+/// The **level and text** of an ATX heading on this line, or `None` if it is not
+/// one. A heading is up to three leading spaces, a `#`..`######` run (the level),
+/// then a space/tab (or end of line); the returned text has the markers and an
+/// optional closing `#` run stripped. [`body_headings`] reads only the text;
+/// [`body_sections`] also reads the level to nest subsections inside their parent.
+fn atx_heading(line: &str) -> Option<(usize, String)> {
     let rest = line.trim_start_matches(' ');
     if line.len() - rest.len() >= 4 {
         return None;
@@ -378,7 +461,7 @@ fn atx_heading_text(line: &str) -> Option<String> {
     } else {
         text
     };
-    Some(text.to_string())
+    Some((level, text.to_string()))
 }
 
 /// The name of the directory the artifact was imported from (the folder Claude
@@ -739,6 +822,46 @@ description: Use when there is nothing but prose.\n\
 Just a paragraph, no headings at all.\n",
         );
         assert!(skill_features(&plain).headings.is_empty());
+    }
+
+    #[test]
+    fn body_sections_pair_each_heading_with_its_nested_span_and_skip_fences() {
+        // Two `##` sections; the first nests a `###` subsection (which stays part of
+        // the parent's span, `level <= parent`), the second's body is a fenced block
+        // whose `#` line is not a heading and so opens no phantom section.
+        let body = "# Title\n\
+\n\
+## Decision: one\n\
+Chosen: A. Rejected: B.\n\
+\n\
+### Sub\n\
+detail\n\
+\n\
+## Decision: two\n\
+```sh\n\
+# not a heading\n\
+```\n\
+tail\n";
+        let sections = body_sections(body);
+
+        let headings: Vec<&str> = sections.iter().map(|s| s.heading.as_str()).collect();
+        assert_eq!(
+            headings,
+            vec!["Title", "Decision: one", "Sub", "Decision: two"]
+        );
+
+        // `Decision: one` runs to the next same-or-shallower heading (`## Decision:
+        // two`), so its body absorbs the nested `### Sub` subsection.
+        let one = &sections[1];
+        assert!(one.body.contains("Chosen: A. Rejected: B."));
+        assert!(one.body.contains("### Sub"));
+        assert!(one.body.contains("detail"));
+
+        // `Decision: two`'s body carries the fenced block verbatim (the fenced `#`
+        // never split off a section) and the trailing line.
+        let two = &sections[3];
+        assert!(two.body.contains("# not a heading"));
+        assert!(two.body.contains("tail"));
     }
 
     #[test]

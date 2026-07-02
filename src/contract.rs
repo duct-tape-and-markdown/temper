@@ -25,7 +25,8 @@
 //! The artifact-level primitives buildable in-crate, without a new dependency:
 //! field presence (`required`/`optional`), `min_len`/`max_len`, `enum`, `deny`,
 //! `forbidden_keys`, an in-crate `allowed_chars` charset (the `[a-z0-9-]` case);
-//! structural `max_lines`, `require_sections`, `must_define`; and cross-artifact
+//! structural `max_lines`, `require_sections`, `must_define`, `section_contains`;
+//! and cross-artifact
 //! `name-matches-dir`, `unique-name`, `dependency-exists`. The full `pattern`
 //! (regex) field primitive is held behind the regex fork; the harness-contract
 //! primitives (`requirement`, `verified_by`) belong to the harness-contract layer,
@@ -221,6 +222,20 @@ pub enum Predicate {
         /// The marker that must be defined.
         marker: String,
     },
+    /// `section_contains`: every body section whose heading *starts with* the
+    /// declared `heading` text carries the declared `marker` (a substring of the
+    /// section body). The structural predicate behind the spec kind's
+    /// decisions-name-alternatives — "every `## Decision` section carries a
+    /// `Rejected` marker" (`specs/10-contracts.md`, "The primitive algebra";
+    /// `specs/15-kinds.md`). Decidable over the extracted
+    /// [`sections`](crate::extract::Features::sections): each matching section
+    /// either carries the marker or does not.
+    SectionContains {
+        /// The heading-text prefix that selects the sections this clause governs.
+        heading: String,
+        /// The marker text every governed section's body must contain.
+        marker: String,
+    },
     /// `name-matches-dir`: the artifact's name equals its containing directory.
     NameMatchesDir,
     /// `unique-name`: names are unique within the artifact kind.
@@ -257,6 +272,7 @@ impl Predicate {
             Predicate::MaxLines { .. } => "max_lines",
             Predicate::RequireSections { .. } => "require_sections",
             Predicate::MustDefine { .. } => "must_define",
+            Predicate::SectionContains { .. } => "section_contains",
             Predicate::NameMatchesDir => "name-matches-dir",
             Predicate::UniqueName => "unique-name",
             Predicate::DependencyExists => "dependency-exists",
@@ -285,6 +301,7 @@ impl Predicate {
             Predicate::MaxLines { .. } => &["max"],
             Predicate::RequireSections { .. } => &["sections"],
             Predicate::MustDefine { .. } => &["marker"],
+            Predicate::SectionContains { .. } => &["heading", "marker"],
             Predicate::NameMatchesDir | Predicate::UniqueName | Predicate::DependencyExists => &[],
         }
     }
@@ -309,6 +326,10 @@ impl Predicate {
             | Predicate::Deny { field, .. }
             | Predicate::AllowedChars { field, .. } => Some(field),
             Predicate::MustDefine { marker } => Some(marker),
+            // The section heading is the layering identity: a layered
+            // `section_contains` on the same heading overrides the floor's (a
+            // severity flip or a changed marker), while a fresh heading extends it.
+            Predicate::SectionContains { heading, .. } => Some(heading),
             Predicate::ForbiddenKeys { .. }
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
@@ -343,6 +364,7 @@ impl Predicate {
             | Predicate::ForbiddenKeys { .. }
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
+            | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
             | Predicate::DependencyExists => None,
@@ -816,6 +838,10 @@ fn parse_predicate(table: &Table, index: usize, path: &Path) -> Result<Predicate
             sections: str_list(table, "sections", index, path)?,
         },
         "must_define" => Predicate::MustDefine {
+            marker: str_param(table, "marker", index, path)?,
+        },
+        "section_contains" => Predicate::SectionContains {
+            heading: str_param(table, "heading", index, path)?,
             marker: str_param(table, "marker", index, path)?,
         },
         "name-matches-dir" => Predicate::NameMatchesDir,
