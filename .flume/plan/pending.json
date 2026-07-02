@@ -1,44 +1,16 @@
 [
   {
-    "tag": "HEADER-FIELD-EXTRACTION",
-    "summary": "Populate a custom member's frontmatter from its `[clause.<field>]` header tables in `Unit::from_surface_dir`, so field predicates range over custom members like a built-in's",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "The member document — the surface language"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "In `Unit::from_surface_dir` the frontmatter is left `BTreeMap::new()`, so the `field` extraction primitive has nothing to range over on a custom member. Read the header's `[clause.<field>]` modules (`crate::document::clauses` already returns each field's `value` item) and populate `Unit.frontmatter`, converting each `value` item to its `serde_json::Value` — exactly what the built-in adapters do with their hand-written parsers. Add module tests: a surface carrying `[clause.name]`/`[clause.priority]` yields those in `frontmatter` and through the composed `field` primitive; a surface with no clause tables still yields empty frontmatter (the existing `from_surface_dir_reloads_a_written_unit_for_any_root` assertion holds)."
-        },
-        {
-          "path": "src/document.rs",
-          "description": "If the clause `value` conversion needs a shared TOML-`Item`→`serde_json::Value` helper, add it here beside the existing header readers (`clauses`, `satisfies`, `provenance`) — the inverse of `json_to_toml_value`. Skip this file if kind.rs can reuse an existing converter."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "a custom-member surface carrying `[clause.<field>]` tables reloads with those fields in `Unit.frontmatter` and they resolve through the composed `field` primitive; a surface with no clause tables reloads with empty frontmatter."
-      }
-    ],
-    "acceptance": "`Unit::from_surface_dir` lifts `[clause.<field>]` header values into `frontmatter`, so a custom member's declared header fields are checked by the same `field` primitive path a rule's `paths` is; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Ships FIRST (inbox ruling) — it IS the generic reader the source-not-mechanism wave completes. `document::clauses()` already returns each `[clause.<field>]` value item; convert to JSON and fill `Unit.frontmatter` (today left empty). No new predicates or grammar — closes the built-in/custom asymmetry."
-  },
-  {
     "tag": "EXTRACT-EQUIVALENCE-PIN",
     "summary": "Insta-snapshot current `skill_features`/`rule_features` output over real `.claude/` fixtures — the equivalence baseline the extraction-unification swap must hold byte-identical",
     "per": {
       "path": "specs/15-kinds.md",
       "section": "The extraction algebra — the soundness boundary, as data"
     },
-    "gate": { "kind": "blockedBy", "tag": "HEADER-FIELD-EXTRACTION" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "HEADER-FIELD-EXTRACTION"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -66,7 +38,11 @@
       "path": "specs/15-kinds.md",
       "section": "The extraction algebra — the soundness boundary, as data"
     },
-    "gate": { "kind": "blockedBy", "tag": "EXTRACT-EQUIVALENCE-PIN" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EXTRACT-EQUIVALENCE-PIN"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -103,7 +79,11 @@
       "path": "specs/15-kinds.md",
       "section": "The extraction algebra — the soundness boundary, as data"
     },
-    "gate": { "kind": "blockedBy", "tag": "EMBED-BUILTIN-KINDS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMBED-BUILTIN-KINDS"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
