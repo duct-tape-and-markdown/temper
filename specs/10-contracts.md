@@ -144,6 +144,19 @@ third mechanism to learn. **Rejected:** a separate member-to-member pairing
 vocabulary beside requirements — two names for one edge ("a demand, met by a
 declared opt-in") would fork the model the read verbs teach (`20-surface.md`).
 
+### Decision: satisfaction is total per named demand
+
+**Chosen:** a `satisfies` claim is whole — a member fills a named requirement or
+it does not. A demand only partly met is a **composite demand**: decompose it
+into named sub-requirements (its publisher is the natural grouping) and claim
+exactly the parts filled; coverage then reports *which* named part is missing —
+decidable, actionable — never a weight. **Rejected:** an authored partial claim
+(`partial = true`, a percentage) — "how much of this obligation does my prose
+fill" is an undecidable judgment (law 3), and a partial claim either counts
+toward coverage (masking the unfilled remainder) or does not (decoration).
+Derived partiality stays legitimate: `check` may *report* "3 of 5 demands
+filled" — computed output, never an authored claim.
+
 ### Coverage — the one referential check
 
 `check` gates **coverage**: every `required` requirement resolves to its filler(s).
