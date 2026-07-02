@@ -1,45 +1,15 @@
 [
   {
-    "tag": "REFERENCE-NORMALIZATION",
-    "summary": "Engine gains kind-declared reference normalization: an optional `strip_suffix` on the `references` primitive maps a ref value to a member id before the exact-match resolve",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Decision: reference resolution is declared by the kind, never guessed by the engine"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        {
-          "path": "tests/reference_resolution.rs",
-          "description": "End-to-end proof: a custom kind whose `references` primitive declares `strip_suffix = \".md\"` and a `[[relationships]]` edge, over members whose backtick-filename refs (`` `NN-name.md` ``) resolve to sibling member ids with zero dangling findings under `graph::check`; a control (no `strip_suffix`) proves the same ref dangles — the exact-match discipline the Decision demands (never a loose fallback)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add an optional declared `strip_suffix` to `Primitive::References` (the reference syntax's own normalization, `specs/15-kinds.md`), parse it from the `[[extraction]]` references table (a new *known* key — unknown keys still rejected), and apply it in `Primitive::apply` after `backtick_filename_refs`: strip the declared suffix from each ref before it becomes the feature value, so a later exact id-match resolves without a loose fallback. Additive/optional — absent ⇒ current behavior, so the by-kind floor and the current dogfood `spec` KIND.md (no suffix declared) are byte-unchanged. Update the in-module `Primitive::References {…}` test constructions for the new field."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/reference_resolution.rs",
-        "asserts": "a kind declaring `strip_suffix = \".md\"` resolves `` `NN-name.md` `` refs to sibling member ids (no dangle) under graph resolution; the same ref without the declared normalization dangles."
-      }
-    ],
-    "acceptance": "the `references` primitive accepts an optional declared `strip_suffix`, applied at extraction so a custom kind's backtick-filename refs resolve to member ids under `graph::check`/`resolved_edges`; the floor-only path is byte-unchanged; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Reconciles code to `(reference-id-normalization)` RESOLVED. Engine capability ONLY — wiring the dogfood spec kind's `[[relationships]]` + `strip_suffix` into `.temper/kinds/spec/KIND.md` is a HUMAN `.temper/` follow-up (surfaced, never a build entry — `.temper/**` is human territory). by_kind already carries custom-kind features + edges, so resolution needs only the normalization step."
-  },
-  {
     "tag": "CONTRACTS-RETIRE",
     "summary": "Delete the dead `contracts/*.toml` std-lib mirror — the engine embeds built-in packages from `packages/<name>/PACKAGE.md` (build.rs); nothing loads `contracts/`",
     "per": {
       "path": "specs/10-contracts.md",
       "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [],
@@ -54,48 +24,16 @@
     "notes": "The spec's `contracts/` retirement (`10-contracts.md`): the built-in std-lib's authoritative home is the `packages/` product tree, embedded by build.rs — 'one artifact, no contracts/ mirror.' Verified on disk: no `include_str!`/loader reads contracts/; only comments (still accurate — they cite the retirement) and test-fixture string literals name it. Pure deletion, behavior-neutral."
   },
   {
-    "tag": "COMMENT-DIET(compose)",
-    "summary": "Comment-etiquette sweep of `src/compose.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Apply the sourced comment etiquette (RFC 1574; Ousterhout APoSD ch.13; antirez). Keep: one-line `///` summaries (+ Errors/Panics where reachable), why/invariant/checklist comments, terse spec pointer tags, ~10-line `//!` overview. Cut: module-head narrative restating specs/, what-comments narrating ordinary code, compliance narration. Comments-only — zero code changes. compose.rs is the heaviest offender (~900 comment lines)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`src/compose.rs` carries only the sanctioned comment classes; the diff changes zero code; cargo fmt/clippy -D warnings/test all green (behavior-neutral, proven by the unchanged gate suite)."
-  },
-  {
-    "tag": "COMMENT-DIET(main)",
-    "summary": "Comment-etiquette sweep of `src/main.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Apply the sourced comment etiquette (rust.md). Keep the sanctioned classes (one-line `///`, why/invariant, terse pointer tags, ~10-line `//!`); cut restated-spec narrative, what-comments, and compliance narration. Comments-only — zero code changes; `main` stays a thin clap dispatch. main.rs is ~47% comment lines — a heavy offender."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`src/main.rs` carries only the sanctioned comment classes; the diff changes zero code; cargo fmt/clippy -D warnings/test all green."
-  },
-  {
     "tag": "COMMENT-DIET(roster)",
     "summary": "Comment-etiquette sweep of `src/roster.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "open" },
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Style & structure"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -113,8 +51,14 @@
   {
     "tag": "COMMENT-DIET(drift)",
     "summary": "Comment-etiquette sweep of `src/drift.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "open" },
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Style & structure"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -132,8 +76,14 @@
   {
     "tag": "COMMENT-DIET(graph)",
     "summary": "Comment-etiquette sweep of `src/graph.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "open" },
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Style & structure"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -151,8 +101,14 @@
   {
     "tag": "COMMENT-DIET(import)",
     "summary": "Comment-etiquette sweep of `src/import.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "open" },
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Style & structure"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -170,8 +126,14 @@
   {
     "tag": "COMMENT-DIET(contract)",
     "summary": "Comment-etiquette sweep of `src/contract.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "open" },
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Style & structure"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -189,8 +151,15 @@
   {
     "tag": "COMMENT-DIET(kind)",
     "summary": "Comment-etiquette sweep of `src/kind.rs` — cut module-head spec narrative and what-comments; keep why/invariant/checklist/pointer tags. Behavior-neutral.",
-    "per": { "path": ".claude/rules/rust.md", "section": "Style & structure" },
-    "gate": { "kind": "blockedBy", "tag": "REFERENCE-NORMALIZATION" },
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Style & structure"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "REFERENCE-NORMALIZATION"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
