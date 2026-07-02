@@ -13,6 +13,9 @@ primitive = "placement"
 [[extraction]]
 primitive = "references"
 feature = "references"
+
+[[extraction]]
+primitive = "sections"
 +++
 
 # The spec kind

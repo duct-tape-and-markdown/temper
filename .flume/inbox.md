@@ -13,3 +13,12 @@ removes them each tick. Empty is the normal state.
   ordinary code, compliance narration. Comments-only, behavior-neutral — the
   diff must contain zero code changes and the full gate suite proves it. Fan
   out per-module if that makes cleaner entries.
+- SPEC-DECISION-DOGFOOD is SHIPPED BY HAND — do not re-file. The fence gate
+  correctly reverted the filing: `.temper/**` is HUMAN territory (the dogfood
+  surface encodes the project's own declared intent, same standing as
+  packages/ — build never writes either). The intent is applied: the spec
+  kind extracts `sections`, and `.temper/packages/spec/PACKAGE.md` carries
+  decisions-name-alternatives (`section_contains`, heading "Decision:" —
+  colon-scoped to exclude 90's "## Decisions" meta-section — marker
+  "Rejected", required; 41 blocks pass, self-check green). If future work
+  needs a `.temper/` edit, surface it as a question, never an entry.
