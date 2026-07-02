@@ -369,6 +369,12 @@ from exactly such a line fossilizing. If work touches one, surface it.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the corpus migration
   proves the custom-kind story end to end.
+- **`docs/` is candidate intent, not intent** — `docs/horizons.md` parks
+  product opportunities upstream of the corpus (its own header states the
+  law-4 rationale). Human territory, fence-excluded; no phase writes it, and
+  plan never reads a horizon entry as intent or cites one from a pending
+  entry — an idea enters the corpus only through the human graduation
+  ceremony the file describes.
 - **CLAUDE.md bootstrap fence** — transitional until the `memory` kind ships
   and the flip ceremony moves it onto the surface.
   MEMORY-KIND recipe: **FILED** as pending MEMORY-KIND (parked) 2026-07-02, the

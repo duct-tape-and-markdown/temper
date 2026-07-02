@@ -165,7 +165,9 @@ const BUILD_WRITABLE_PATHS = [
   // humans), specs/** (the evergreen human-authored corpus), packages/** or
   // kinds/** (the curated std-lib sources — built-in package and kind
   // definitions, citation-bearing product territory the build EMBEDS but never
-  // writes). If a build entry needs to change one, block it and surface the
+  // writes), or docs/** (candidate intent parked upstream of the corpus —
+  // docs/horizons.md; pre-intent is human territory, and no phase reads it as
+  // intent). If a build entry needs to change one, block it and surface the
   // question. The harness writes the post-merge ship commit to pending.json itself.
 ];
 
