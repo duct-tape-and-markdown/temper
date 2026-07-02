@@ -7,8 +7,7 @@
       "section": "The extraction algebra — the soundness boundary, as data"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "HEADER-FIELD-EXTRACTION"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
