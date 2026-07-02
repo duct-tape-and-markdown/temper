@@ -34,6 +34,7 @@ fn expected_template() -> Contract {
             // of the known schema. `optional` always holds; it documents, never
             // fails, hence advisory.
             Clause {
+                source: None,
                 severity: Severity::Advisory,
                 guidance: None,
                 predicate: Predicate::Optional {
@@ -44,6 +45,7 @@ fn expected_template() -> Contract {
             // them catches the inert-rule mistake `temper` exists to prevent, so
             // it is required (gate-blocking).
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::ForbiddenKeys {
@@ -57,6 +59,7 @@ fn expected_template() -> Contract {
             // Rules are always-on context paid each tick — keep them lean.
             // Advisory, mirroring the CLAUDE.md <200-line guidance.
             Clause {
+                source: None,
                 severity: Severity::Advisory,
                 guidance: None,
                 predicate: Predicate::MaxLines { max: 200 },

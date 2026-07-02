@@ -93,6 +93,16 @@ pub struct Clause {
     /// a validation keyword, so taste can only become documentation and never a
     /// squiggle. Absent ⇒ the clause documents nothing.
     pub guidance: Option<String>,
+    /// Optional **source** citation — the clause's provenance of taste (a URL plus
+    /// the date it was retrieved), authored beside its [`guidance`](Clause::guidance)
+    /// (`specs/10-contracts.md`, "Decision: a built-in package is named for its
+    /// source, and cited to it"). It is *preserved metadata*, not a predicate: no
+    /// admissibility gate reads its content beyond it being a recognized key, so
+    /// admitting it neither adds nor relaxes any check. For a built-in package's
+    /// clauses it is the expected posture — their legitimacy is *sourced* opinion,
+    /// and the update ritual is *walk the clauses, re-check their citations*. Absent
+    /// ⇒ the clause is uncited (every clause on disk today).
+    pub source: Option<String>,
 }
 
 /// The author-declared weight of a clause. Replaces the tool-baked error/warn
@@ -659,16 +669,18 @@ fn parse_clause(table: &Table, index: usize, path: &Path) -> Result<Clause, Cont
     let severity = parse_severity(table, index, path)?;
     let predicate = parse_predicate(table, index, path)?;
     let guidance = parse_guidance(table, index, path)?;
+    let source = parse_source(table, index, path)?;
     reject_unknown_clause_keys(table, &predicate, index, path)?;
     Ok(Clause {
         severity,
         predicate,
         guidance,
+        source,
     })
 }
 
 /// Reject any clause key outside the closed set — the shared `severity`,
-/// `predicate`, `guidance`, plus the parsed predicate's own [`arg keys`](Predicate::arg_keys).
+/// `predicate`, `guidance`, `source`, plus the parsed predicate's own [`arg keys`](Predicate::arg_keys).
 /// A misspelled `feild` or a stray parameter fails admissibility here rather than
 /// degrading silently, the same closed-vocabulary posture [`parse_predicate`] holds
 /// for the predicate name, one rung out to keys (`specs/10-contracts.md`, "Decision:
@@ -680,7 +692,7 @@ fn reject_unknown_clause_keys(
     path: &Path,
 ) -> Result<(), ContractError> {
     for (key, _) in table.iter() {
-        let admissible = matches!(key, "severity" | "predicate" | "guidance")
+        let admissible = matches!(key, "severity" | "predicate" | "guidance" | "source")
             || predicate.arg_keys().contains(&key);
         if !admissible {
             return Err(ContractError::UnknownKey {
@@ -712,6 +724,27 @@ fn parse_guidance(
                 path: path.to_path_buf(),
                 index,
                 param: "guidance",
+                expected: "a string",
+            }),
+        },
+    }
+}
+
+/// Read the optional `source` key — the clause's provenance citation
+/// (`specs/10-contracts.md`, "Decision: a built-in package is named for its source,
+/// and cited to it"). Absent ⇒ `None` (the clause is uncited); present-but-not-a-string
+/// ⇒ [`ContractError::WrongType`], mirroring [`parse_guidance`]. Like `guidance` it is
+/// *never* a gate input — the citation string is carried verbatim, its content read by
+/// no predicate — so admitting it neither adds nor relaxes any check.
+fn parse_source(table: &Table, index: usize, path: &Path) -> Result<Option<String>, ContractError> {
+    match table.get("source") {
+        None => Ok(None),
+        Some(item) => match item.as_str() {
+            Some(text) => Ok(Some(text.to_string())),
+            None => Err(ContractError::WrongType {
+                path: path.to_path_buf(),
+                index,
+                param: "source",
                 expected: "a string",
             }),
         },
@@ -1074,6 +1107,7 @@ type = "string"
             guidance: None,
             clauses: vec![
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::Required {
@@ -1081,6 +1115,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::Optional {
@@ -1088,6 +1123,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::MinLen {
@@ -1096,6 +1132,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::MaxLen {
@@ -1104,6 +1141,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::Range {
@@ -1113,6 +1151,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::Enum {
@@ -1125,6 +1164,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::Deny {
@@ -1133,6 +1173,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::ForbiddenKeys {
@@ -1140,6 +1181,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::AllowedChars {
@@ -1151,11 +1193,13 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::MaxLines { max: 500 },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::RequireSections {
@@ -1163,6 +1207,7 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::MustDefine {
@@ -1170,21 +1215,25 @@ type = "string"
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::NameMatchesDir,
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::UniqueName,
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::DependencyExists,
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::Type {
@@ -1324,6 +1373,7 @@ type = "integer"
         assert_eq!(
             contract.clauses,
             vec![Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::Type {
@@ -1368,6 +1418,7 @@ max = 1.5
         assert_eq!(
             contract.clauses,
             vec![Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::Range {

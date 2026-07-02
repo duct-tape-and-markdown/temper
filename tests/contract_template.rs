@@ -35,6 +35,7 @@ fn expected_template() -> Contract {
             // name: required, non-empty, charset, length cap, reserved words,
             // matches its directory.
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::Required {
@@ -42,6 +43,7 @@ fn expected_template() -> Contract {
                 },
             },
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::MinLen {
@@ -50,6 +52,7 @@ fn expected_template() -> Contract {
                 },
             },
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::AllowedChars {
@@ -61,6 +64,7 @@ fn expected_template() -> Contract {
                 },
             },
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::MaxLen {
@@ -69,6 +73,7 @@ fn expected_template() -> Contract {
                 },
             },
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::Deny {
@@ -77,12 +82,14 @@ fn expected_template() -> Contract {
                 },
             },
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::NameMatchesDir,
             },
             // description: required, non-empty, length cap.
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::Required {
@@ -90,6 +97,7 @@ fn expected_template() -> Contract {
                 },
             },
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::MinLen {
@@ -98,6 +106,7 @@ fn expected_template() -> Contract {
                 },
             },
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::MaxLen {
@@ -107,12 +116,14 @@ fn expected_template() -> Contract {
             },
             // body: progressive-disclosure budget — advisory, recommend not gate.
             Clause {
+                source: None,
                 severity: Severity::Advisory,
                 guidance: None,
                 predicate: Predicate::MaxLines { max: 500 },
             },
             // no Cursor frontmatter keys Claude Code ignores.
             Clause {
+                source: None,
                 severity: Severity::Required,
                 guidance: None,
                 predicate: Predicate::ForbiddenKeys {
@@ -314,6 +325,94 @@ severity = "advisory"
 predicate = "max_lines"
 max = 500
 guidance = 42
+"#;
+    assert!(Contract::parse(toml, Path::new("c.toml")).is_err());
+}
+
+/// A clause may carry a `source` citation beside its `guidance` — the *provenance
+/// of taste* a built-in package's clauses are expected to record (`specs/10-contracts.md`,
+/// "Decision: a built-in package is named for its source, and cited to it"). The
+/// loader parses and *preserves* it verbatim; a clause without one still loads,
+/// carrying `None`. `source` is preserved metadata, not a predicate — admitting it
+/// leaves admissibility untouched.
+#[test]
+fn source_parses_is_preserved_and_advisory_only() {
+    let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "max_len"
+field = "name"
+max = 64
+guidance = "Keep the name short and slug-like."
+source = "https://docs.claude.com/skills#naming (retrieved 2026-07-01)"
+
+[[clause]]
+severity = "required"
+predicate = "min_len"
+field = "description"
+min = 1
+"#;
+    let contract = Contract::parse(toml, Path::new("skill.toml")).unwrap();
+
+    // Preserved verbatim on the clause that declares it; absent ⇒ `None`.
+    assert_eq!(
+        contract.clauses[0].source.as_deref(),
+        Some("https://docs.claude.com/skills#naming (retrieved 2026-07-01)")
+    );
+    assert!(contract.clauses[1].source.is_none());
+
+    // Preserved metadata, not a gate input: admitting `source` neither adds nor
+    // relaxes any admissibility check.
+    assert!(
+        engine::admissibility(&contract).is_empty(),
+        "source must play no part in admissibility",
+    );
+}
+
+/// `source` rides *beside* the algebra, never widens it: a clause pairing `source`
+/// with a genuinely unknown predicate still fails to load, so a stray key is no
+/// escape hatch. And absent `source` (every clause on disk today) stays admissible.
+#[test]
+fn source_does_not_admit_a_stray_key_or_unknown_predicate() {
+    // `source` is not a blanket "accept any key" — an unrelated stray key still rejects.
+    let stray = r#"
+[[clause]]
+severity = "required"
+predicate = "max_len"
+field = "name"
+max = 64
+source = "https://example.test"
+nonsense = "still rejected"
+"#;
+    assert!(
+        Contract::parse(stray, Path::new("c.toml")).is_err(),
+        "a stray key must still reject even when `source` is present",
+    );
+
+    // Nor does `source` launder an unknown predicate into an admissible clause.
+    let unknown_predicate = r#"
+[[clause]]
+severity = "required"
+predicate = "word_count"
+field = "description"
+source = "https://example.test"
+"#;
+    assert!(
+        Contract::parse(unknown_predicate, Path::new("c.toml")).is_err(),
+        "source must not turn an unknown predicate into an admissible clause",
+    );
+}
+
+/// A non-string `source` is a load error, mirroring `guidance` and every other
+/// mistyped clause key — the citation channel is prose, never a structured value.
+#[test]
+fn a_non_string_source_is_a_load_error() {
+    let toml = r#"
+[[clause]]
+severity = "advisory"
+predicate = "max_lines"
+max = 500
+source = 42
 "#;
     assert!(Contract::parse(toml, Path::new("c.toml")).is_err());
 }

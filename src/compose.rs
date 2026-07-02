@@ -1453,6 +1453,7 @@ mod tests {
             guidance: None,
             clauses: vec![
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::MaxLen {
@@ -1461,6 +1462,7 @@ mod tests {
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Required,
                     guidance: None,
                     predicate: Predicate::ForbiddenKeys {
@@ -1468,6 +1470,7 @@ mod tests {
                     },
                 },
                 Clause {
+                    source: None,
                     severity: Severity::Advisory,
                     guidance: None,
                     predicate: Predicate::MaxLines { max: 500 },

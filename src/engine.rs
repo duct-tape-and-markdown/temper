@@ -430,6 +430,7 @@ mod tests {
             name: "skill".to_string(),
             guidance: None,
             clauses: vec![Clause {
+                source: None,
                 severity,
                 predicate,
                 guidance: None,
@@ -885,6 +886,7 @@ mod tests {
         // admissibility to reject — the multi-clause representative is admissible.
         let clauses = vec![
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::Enum {
@@ -893,6 +895,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::Deny {
@@ -901,6 +904,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::ForbiddenKeys {
@@ -908,6 +912,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Advisory,
                 guidance: None,
                 predicate: Predicate::RequireSections {
@@ -915,6 +920,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::Required {
@@ -922,6 +928,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::NameMatchesDir,
@@ -960,6 +967,7 @@ mod tests {
         // Every clause advisory; the artifact violates all of them.
         let clauses = vec![
             Clause {
+                source: None,
                 severity: ClauseSeverity::Advisory,
                 guidance: None,
                 predicate: Predicate::Required {
@@ -967,6 +975,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Advisory,
                 guidance: None,
                 predicate: Predicate::MaxLines { max: 10 },
@@ -990,6 +999,7 @@ mod tests {
     fn a_conforming_artifact_against_a_multi_clause_contract_is_clean() {
         let clauses = vec![
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::Required {
@@ -997,6 +1007,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::MaxLen {
@@ -1005,6 +1016,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::AllowedChars {
@@ -1013,6 +1025,7 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::ForbiddenKeys {
@@ -1020,11 +1033,13 @@ mod tests {
                 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Advisory,
                 guidance: None,
                 predicate: Predicate::MaxLines { max: 500 },
             },
             Clause {
+                source: None,
                 severity: ClauseSeverity::Required,
                 guidance: None,
                 predicate: Predicate::NameMatchesDir,
