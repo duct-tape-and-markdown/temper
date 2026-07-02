@@ -105,6 +105,22 @@ const testGate = shellGate({
   failHint: "Tests failed — entry reverted, returns to pending.",
 });
 
+/**
+ * The self-hosting gate (`specs/00-intent.md` finish line): temper checks its
+ * own harness surface (temper.toml + .temper/ + .claude/) after every merge.
+ * Advisories report without failing (exit 0); a `required` violation — broken
+ * conformance, coverage, or admissibility on temper's own house — reverts the
+ * entry. From here on, every build entry is gated by the product it builds.
+ */
+const selfCheckGate = shellGate({
+  name: "temper check (self)",
+  when: "afterMerge",
+  cmd: "cargo",
+  args: ["run", "--quiet", "--", "check"],
+  failHint:
+    "temper's own surface went red — fix the code or the harness, never bypass the self-check.",
+});
+
 // ---------- phases ----------
 
 const plan: Phase = {
@@ -188,7 +204,7 @@ const build: Phase = {
     // territories. If a build entry needs to change one, block it and surface the
     // question. The harness writes the post-merge ship commit to pending.json itself.
   ],
-  gates: [fmtGate, clippyGate, testGate],
+  gates: [fmtGate, clippyGate, testGate, selfCheckGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
       throw new Error("build phase requires an assignedEntry");
