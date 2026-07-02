@@ -2,6 +2,7 @@
 governs = { root = ".claude/rules", glob = "*.md" }
 format = "yaml-frontmatter"
 unit_shape = "file"
+activation = { via = "paths-match", field = "paths" }
 
 [[extraction]]
 primitive = "field"
@@ -27,7 +28,11 @@ The declared definition of the Claude Code rule kind: a markdown file under
 `paths` — glob-scoped loading — over an instruction body
 (https://code.claude.com/docs/en/memory#path-specific-rules, retrieved
 2026-07-01). Identity is the file stem; a rule with no frontmatter loads
-unconditionally.
+unconditionally. Activation is the path match: "path-scoped rules trigger
+when Claude reads files matching the pattern," and "rules without a `paths`
+field are loaded unconditionally" (same doc, retrieved 2026-07-02) — so an
+absent field is a live `always`-shaped edge, and only a present glob set
+matching zero repo files is dead (`specs/45-governance.md`, reachability).
 
 Built-in means **temper-sourced, not privileged** (`specs/15-kinds.md`): this
 definition ships embedded beside `packages/rule.anthropic`, same medium and
