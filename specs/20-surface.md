@@ -111,12 +111,13 @@ The header is **clause-structured**, not a flat blob. Each clause is its own
 - **`satisfies` clauses** — `[satisfies.<requirement>]`, the requirements this member
   fills (`10-contracts.md`), each carrying its **rationale** (the authored *why*, law 7,
   first-class here rather than delegated and forgotten). The opt-in bindings coverage reads.
-- **edge clauses** — `[edge.<target>]`, the declared references/relationships to other
-  members (`45-governance.md`), the graph's source — authored, never grepped from prose.
 - **`requirement` clauses** — `[requirement.<name>]`, the demands this member
   *publishes* (`10-contracts.md`, "a requirement's publisher"): the same table the
   assembly's roster carries, at the concept's own home — how an intent spec declares
-  the entities an architecture spec must satisfy (`90-spec-system.md`).
+  the entities an architecture spec must satisfy (`90-spec-system.md`). Together
+  with `satisfies`, these are the graph's whole source: member-to-member coupling
+  is a **join** — a published demand and an opt-in claim — never a free-standing
+  one-way edge clause (`45-governance.md`, "coupling is a join").
 - **`[provenance]`** — generated: `source_path` + `import_hash` (the drift anchor).
 - **the body** — the member's prose, below the header. Not cargo: it is authored
   *in the medium*, and a part no clause governs today is one declaration away from
@@ -135,8 +136,9 @@ value = "Maintains development standards."
 [satisfies.engineering-standards]
 rationale = "the home for engineering-standards enforcement"
 
-[edge.lint-runner]
-relation = "depends-on"
+[requirement.lint-runner]         # a join half: the runner opts in with
+means = "the runner this skill dispatches to"   # [satisfies.lint-runner]
+kind = "skill"
 
 [provenance]                       # generated, not authored
 source_path = "./.claude/skills/dev-standards/SKILL.md"
@@ -148,7 +150,7 @@ import_hash = "…"
 <the body — the member's prose, authored here>
 ```
 
-Field / `satisfies` / edge clauses are **authored** (the intent-encoding); `provenance`
+Field / `satisfies` / `requirement` clauses are **authored** (the intent-encoding); `provenance`
 is **generated**; conformance status is **derived** (a `check` output, never persisted
 into the document — computed, not authored). This is what makes the surface an
 *authoring space* rather than a lint target: the member document holds **all the
@@ -345,7 +347,7 @@ the floor on day one and earn its graph over time.
   editor JSON Schema for keystroke validation (future; `50-distribution.md`).
 - `temper why <member>` — **read**: everything that holds this member in place — the
   requirements it `satisfies` (each with its authored rationale), the package its
-  kind binds, its declared edges in and out (future; Decision below).
+  kind binds, its joins in and out (future; Decision below).
 - `temper requirements [<name>]` — **read**: the roster, each requirement with its
   satisfier set and coverage state; with `<name>`, one requirement's satisfiers —
   the reverse walk, and the blast radius a removal would open (future; Decision

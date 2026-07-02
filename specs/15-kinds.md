@@ -175,6 +175,39 @@ law 3's exact failure mode. Backtick file mentions are typography, permanently.
 (Supersedes `(reference-id-normalization)`; the spec corpus's real edges are
 declared in member headers — `90-spec-system.md`, "the corpus is classed".)
 
+## Activation — a kind's inherent world-edges
+
+A kind declares how the harness activates its members — the **inbound boundary
+edges** of the relation graph (`45-governance.md`, "coupling is a join"): the
+world reaching into the landscape by its own mechanics, one-way because the
+world signs nothing. The vocabulary is closed and harvested from the kinds
+temper ships; every entry is an external fact, cited at the point of claim:
+
+- **`always`** — loaded at launch, unconditionally. A rule without `paths` is
+  "loaded at launch with the same priority as `.claude/CLAUDE.md`"; `CLAUDE.md`
+  itself is loaded in full at launch (code.claude.com/docs/en/memory, retrieved
+  2026-07-02).
+- **`description-trigger(field)`** — the named field is always in context; the
+  body loads on invocation: "skill descriptions are loaded into context so
+  Claude knows what's available, but full skill content only loads when
+  invoked" (code.claude.com/docs/en/skills, retrieved 2026-07-02).
+- **`paths-match(field)`** — the member activates when the agent reads files
+  matching the named glob field: "path-scoped rules trigger when Claude reads
+  files matching the pattern, not on every tool use"
+  (code.claude.com/docs/en/memory, retrieved 2026-07-02).
+- **`event(field)`** — the member executes at a named lifecycle event: "hooks
+  execute as shell commands at fixed lifecycle events"
+  (code.claude.com/docs/en/memory, retrieved 2026-07-02) — carried for the
+  future `hook` kind, harvested now because the doc names the mechanic.
+
+Activation is **per-kind mechanics over per-member data**: the *fact* that
+rules activate by path-match is the kind's declaration; the glob *values* are
+the member's ordinary `[clause.paths]`. No edge syntax appears in the member
+document. What the declaration buys is the reachability predicate
+(`45-governance.md`, "the world is a node"): a member whose declared activation
+edge is dead — a blank skill `description`, a `paths` list matching zero files —
+is decidably unreachable, the harness-shaped analogue of dead code.
+
 ## A kind definition — one composed object
 
 A kind is the **declare-side** object over the extraction algebra — with no code of
@@ -184,7 +217,9 @@ its own:
   naming the feature it yields;
 - **entities & relationships** (optional) — the concepts a member's header may
   declare as having their home here, and which declared fields are edges (the
-  graph capability above).
+  graph capability above);
+- **activation** (optional) — the kind's inherent world-edges (above): how the
+  harness reaches a member, and over which declared field.
 
 The **require-side** is not part of the kind object — it is a **package** bound to the
 kind (`10-contracts.md`), carrying the clauses (`10-contracts.md`) over those features.

@@ -47,16 +47,17 @@ Governance makes it *prescriptive*:
 
 ## The harness is a graph too — and references are declared edges
 
-The graph is not spec-only. The **harness** is a graph: skills and rules pointing at
-each other. To govern its shape, temper needs the edges — and an edge is a
-**declared field on the surface**, never grepped from prose. A rule routes to a
-skill by a structured field (`routes_to: standards`), authored on the composition
-surface (`20-surface.md`) **alongside** the prose that says the same thing for the
-agent. temper builds the graph from the field; the prose rides along
-content-faithful; `apply` projects both into the project. On the surface the
-edge is an edge clause in the member document (`[edge.<target>]`,
-`20-surface.md`); the kind's adapter emits it into the projection's structured
-field (`15-kinds.md`).
+The graph is not spec-only. The **harness** is a graph: skills and rules coupled
+to each other. To govern its shape, temper needs the edges — and inside the
+world an edge is a **join**, never grepped from prose and never authored
+one-sided. A rule that routes to a skill is temper's intent on *both* ends: the
+rule publishes the demand (`[requirement.<name>]`), the skill opts in
+(`[satisfies.<name>]`), and the gate resolves them (`20-surface.md`) —
+**alongside** the prose that says the same thing for the agent. temper builds
+the graph from the join; the prose rides along content-faithful; where the
+harness must *execute* the coupling, the kind's emit face flattens the join
+into the projection's one-way structured field (`15-kinds.md`) — derived from
+the join, never authored as a pointer.
 
 So governance does not demand you rewrite your prose — it **adds the structure it
 needs and plants it.** This is why the write surface is load-bearing for
@@ -64,41 +65,80 @@ governance: a pure linter can only nag about what is on disk; temper can carry i
 the structure a contract requires.
 
 Hold one line, because it is where the declare/require cleave (`05-model.md`) is
-easiest to blur: **declaring an edge and requiring it are opposite sides.** The edge
-itself is a declared field on the member (declare-side, part of the kind's
-relationships); the demand that it *resolve*, or that a node's *degree* hold, or that
-the graph be *acyclic*, is a predicate in the **assembly** (require-side). Same edge,
-two sides — so the predicates below live in the assembly, never smuggled into the
+easiest to blur: **declaring an edge and requiring it are opposite sides.** Each
+half of a join is a declared clause on its own member (declare-side); the demand
+that the join *agree*, or that a node's *degree* hold, or that the graph be
+*acyclic*, is a predicate in the **assembly** (require-side). Same edge, two
+sides — so the predicates below live in the assembly, never smuggled into the
 member's own declaration.
 
 ### Decision: a reference is a declared edge on the surface, never grepped prose
 
-**Chosen:** an artifact references another through a **declared structured field**
-(the reference syntax), authored on the surface and projected alongside any prose;
-the graph is built from these edges. **Rejected:** inferring edges by scanning prose
+**Chosen:** an artifact references another through **declared structure** —
+inside the world, the paired join clauses (the Decision below); at the boundary,
+syntax the external format itself executes (law 8's carve-out) — authored on the
+surface and projected alongside any prose; the graph is built from these
+declarations. **Rejected:** inferring edges by scanning prose
 for names or paths — the unsound prose-grep `10-contracts.md`'s referential rule
-forbids (it matched filenames in prose and forged false positives). The field is the
-truth; the prose is payload. (Resolves `(skill-ref-syntax)`.)
+forbids (it matched filenames in prose and forged false positives). The declaration
+is the truth; the prose is payload. (Resolves `(skill-ref-syntax)`.)
 
-### Decision: coupling is a join — a one-way edge never obligates its target
+### Decision: coupling is a join — one-way edges exist only at the governance boundary
 
-**Chosen:** any relationship that creates **mutual obligation** — "I depend on
-you existing and meaning what you mean" — is a **join**: two independent
-declarations (a published demand, an opt-in claim) that the gate resolves, true
-only where both sides agree, a finding on either dangling half. The fill edge
-(`requirement`/`satisfies`, `10-contracts.md`) is the join mechanism; there is
-no second one. One-way declared edges survive in exactly two classes, and are
-**resolution-checked but obligation-free**: (a) **mirrored harness mechanics**
-(`routes_to` — the runtime follows the pointer whether or not the target
-consents; modeling it two-sided would lie about the harness), and (b)
-**non-obligating annotations** (a citation, a `supersedes` — genuinely
-unilateral; the superseded gets no veto). The self-registering pattern below
-(`degree(incoming) = 0`) is this Decision's shadow form made explicit: an
-artifact declaring that nobody may point at it is consent semantics, and
-consent is the join's whole content. **Rejected:** unilateral dependency edges —
-an obligation the obligated party never declared is un-consented intent (law
-8's social half) and the invisible 2am dependency in corpus form: you delete
-the artifact nothing *appears* to need, and three others dangle.
+**Chosen:** any relationship between two members of temper's world is a
+**join**: two independent declarations — a published demand
+(`[requirement.<name>]`) and an opt-in claim (`[satisfies.<name>]`) — that the
+gate resolves, true only where both sides agree, a finding on either dangling
+half (`10-contracts.md`). The fill edge is the join mechanism and there is no
+second one: there is no free-standing edge clause. A member that needs another
+member *publishes the demand*; the needed member *opts in* — a skill that
+dispatches to a runner publishes `[requirement.lint-runner]`, and the runner
+declares `[satisfies.lint-runner]` with its rationale. Delete the runner and
+the demand dangles — the graph lights up, because the obligation was declared
+on both ends.
+
+One-way edges are real, but they are **boundary phenomena** — they exist only
+where temper's world touches the world it does not govern, in exactly two
+directions:
+
+- **Inbound — activation (world → member).** The harness reaches into the
+  landscape by its own mechanics: it loads a skill's `description` into context
+  and the body on invocation; it applies a rule when the agent reads files
+  matching its `paths` globs; it loads `CLAUDE.md` in full at launch. These
+  edges are the *harness's* intent, not an author's — nobody on the surface
+  consents to them, and modeling them as joins would forge a signature the
+  world never gave. A kind declares them as **activation facts**
+  (`15-kinds.md`); the gate checks **reachability** (below), never consent.
+- **Outbound — flattening (member → world).** A join whose meaning the harness
+  must *execute* is projected by the kind's emit face into the one-way
+  structured field the harness format defines. The pointer in the projection is
+  **derived from the join**, never authored as one — and a pointer found in the
+  landscape with no join behind it is a **drift finding**: un-consented intent
+  sitting in the world.
+
+**Rejected:** (a) unilateral member-to-member dependency edges — an obligation
+the obligated party never declared is un-consented intent (law 8's social half)
+and the invisible 2am dependency in corpus form: you delete the artifact
+nothing *appears* to need, and three others dangle; (b) the `[edge.<target>]`
+clause as a surface mechanism — it either duplicates a join (then author the
+join) or smuggles (a); retired from `20-surface.md`'s header vocabulary; (c)
+obligation-free annotation edges (a citation, a `supersedes`) — genuinely
+unilateral, but with zero consumers today they are vocabulary without a
+requirement; readmit only when a real consumer arrives, and as data the
+obligation graph ignores.
+
+## The world is a node — reachability is a predicate
+
+The relation graph gains one distinguished node: **the world** — the harness
+runtime and repo temper observes but does not govern. Activation facts
+(`15-kinds.md`) are its edges into members; flattened pointers are members'
+edges out. This makes *dead artifacts* decidable:
+
+- **reachable** — the activation edge a member's kind declares is live. A skill
+  whose `description` is empty has a dead description-trigger edge (the harness
+  has nothing to load); a rule whose `paths` globs match zero files in the repo
+  activates never. Each is an exact fact at check time — what severity it
+  carries is the package's clause choice, like every other predicate here.
 
 ## Worked example — self-registering vs routed
 
@@ -107,7 +147,7 @@ A project distinguishes two activation patterns and wants to enforce them:
 - a **self-registering** artifact engages Claude through its own frontmatter + hooks
   and must **not** be pointed at → `degree(incoming) = 0`.
 - a **routed** artifact is reached by being pointed at and must be reachable →
-  `degree(incoming) ≥ 1`, and every route **resolves**.
+  `degree(incoming) ≥ 1`, and every route's join **agrees**.
 
 The author declares which pattern each artifact follows; temper checks the harness
 graph matches. All three are counts over declared edges — sound.
