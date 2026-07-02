@@ -1,24 +1,25 @@
 # Plan state
 
-- **Phase:** reconcile. Queue reconciled to the corpus; inbox empty; tree clean.
-  HEAD 502351e.
-- **Last shipped (trunk):** COMMENT-DIET(import,contract,kind) (502351e, build) —
-  the three comment sweeps drained; import/contract/kind now carry only sanctioned
-  comment classes.
-- **This tick:** pure reconcile — no queue change. Verified on disk (two fan-out
-  reads): CONTRACTS-RETIRE is valid — `contracts/{rule,skill.anthropic}.toml` are
-  orphaned, nothing loads them (build.rs embeds `packages/<name>/PACKAGE.md`; the
-  only `contracts/` mentions are spec-pointer comments + one `compose.rs` test
-  literal). Every other shippable corpus feature has landed: package rename to
-  `skill.anthropic`/`rule.anthropic`, `why`/`requirements` read verbs,
-  `section_contains`, `strip_suffix` ref normalization, `lock.toml` rename — all
-  SHIPPED (refreshed those breadcrumbs in open-questions). No new gap fileable; no
-  TODO/FIXME/unimplemented in `src/`. The one live gap — `edge-representation-unify`
-  (authored `[edge.*]` not consumed by the gate's graph, which reads
-  `[[relationships]]`+`references`) — stays an OPEN human fork (canonical form
-  undecided), already recorded. Inbox empty.
-- **Pickable now (1 `open`):** CONTRACTS-RETIRE (delete-only, no shared files).
-  Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (release creds).
+- **Phase:** reconcile + inbox drain. HEAD 0496270.
+- **Last shipped (trunk):** law 8 landed in the corpus (750dbc8) and the dogfood
+  `.temper/` was reconciled by hand (0496270, references dropped from the spec
+  KIND.md); `contracts/` retired by hand earlier (b5f0786). CONTRACTS-RETIRE is
+  gone from the queue (shipped) — verified: `contracts/` does not exist on disk.
+- **This tick:** drained the inbox (2 notes) into 3 new pending entries, verified
+  on disk. (1) REFERENCES-RETIRE — `Primitive::References` + `backtick_filename_refs`
+  + `is_filename_reference` + `strip_suffix` still ship in `src/kind.rs` (0496270
+  only touched the dogfood); law 8 retires them. (2) REDD-CUSTOM-KINDS — `drift.rs`
+  `diff`/`re_add` hardwire skills+rules only, so custom-kind (spec) members never
+  reconcile back (the dogfood defect). (3) MEMBER-PUBLISHED-REQUIREMENTS — member
+  headers carry only `[satisfies.*]` today, not `[requirement.*]`; coverage reads
+  `layer.requirements()` alone. Updated `(reference-id-normalization)` →
+  SUPERSEDED. Accepted debt: the specs/ class placement reshuffle is a human
+  ceremony after the engine ships (not a build entry).
+- **Pickable now (2 `open`, disjoint):** REFERENCES-RETIRE (kind.rs +
+  reference_resolution.rs) and REDD-CUSTOM-KINDS (drift.rs + main.rs + drift
+  tests) — no shared file. Serialized: MEMBER-PUBLISHED-REQUIREMENTS blockedBy
+  REDD-CUSTOM-KINDS (both edit main.rs). Deferred: AGENT-KIND (priority). Parked:
+  PACKAGING-CHANNELS (release creds).
 
-Plan continues: no — queue reconciled, inbox empty, CONTRACTS-RETIRE is pickable;
-building drains it.
+Plan continues: no — queue reconciled, inbox drained, two disjoint `open` entries
+are pickable; building drains them.

@@ -1,25 +1,145 @@
 [
   {
+    "tag": "REFERENCES-RETIRE",
+    "summary": "Retire the prose-mined `references` extraction primitive and its helpers/tests from src/kind.rs — law 8 forbids mining edges from bodies",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Decision: no body-mined references — the `references` primitive is retired"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Remove `Primitive::References { strip_suffix }` (the variant, its `label` arm returning \"references\", its extraction arm, and the `\"references\" =>` parse arm), plus the prose-scanning helpers `backtick_filename_refs` and `is_filename_reference`, and the inline `references_*` unit tests. After removal the KIND.md loader rejects `references` as an unknown primitive — the correct law-8 posture (a mined edge is a guess wearing tier-1 clothes). The dogfood `.temper/kinds/spec/KIND.md` already dropped the declaration (commit 0496270), so nothing on the surface still names it."
+        }
+      ],
+      "retire": [
+        "tests/reference_resolution.rs",
+        "src/kind.rs::Primitive::References",
+        "src/kind.rs::backtick_filename_refs",
+        "src/kind.rs::is_filename_reference"
+      ]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "a KIND.md header declaring `primitive = \"references\"` fails to load with the unknown-primitive rejection (the retired primitive is no longer in the closed extraction vocabulary)."
+      }
+    ],
+    "acceptance": "no `Primitive::References`, `strip_suffix`-normalized ref extraction, `backtick_filename_refs`, or `is_filename_reference` remains in src/kind.rs; a KIND.md that declares `references` is rejected as an unknown primitive; tests/reference_resolution.rs is deleted; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Engine consequence of law 8 (specs/00-intent.md) landing. Commit 0496270 only cleaned the dogfood `.temper/`; the engine primitive still ships. Isolated blast radius (kind.rs + its own test file) — parallel-safe with REDD-CUSTOM-KINDS. Supersedes the shipped `strip_suffix` machinery `(reference-id-normalization)` recorded."
+  },
+  {
+    "tag": "REDD-CUSTOM-KINDS",
+    "summary": "`diff`/`re-add` cover custom kinds — scan each assembly-registered kind's `governs` locus so hand-edited spec bodies reconcile back into `.temper/` instead of the gate reading stale bodies",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Drift / apply — three states, never two (the hard core)"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Extend `diff`/`re_add` to scan every registered custom kind, not just the built-in skill/rule fields. `diff` currently hardwires `discover_skill_dirs`/`discover_rule_files`; add a pass that, for each registered custom kind, calls `import::discover_kind_units(harness, &kind.governs)` and classifies each unit against the surface's lock rows (source_path + import_hash). `re_add` re-projects a drifted/added custom unit via `import::import_custom_unit`. `DriftEntry.kind`/`ReAddEntry.kind` change from `&'static str` to `String` to carry dynamic kind names; `render`/`render_readd` follow. Custom-kind surface provenance comes from the `[[<kind>]]` lock rows (custom members are not materialized in `Workspace`)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The `Diff`/`ReAdd` command arms load only `Workspace::load` today — no assembly. Load the optional `temper.toml` layer and its registered custom kinds (reuse the kind-loading path the `check` arm uses) and thread the custom-kind definitions into `drift::diff`/`drift::re_add` so their `governs` loci are scanned. Absent a `temper.toml`, behavior is unchanged (built-in kinds only)."
+        },
+        {
+          "path": "tests/readd.rs",
+          "description": "Add a fixture with a registered custom kind (a `spec`-shaped kind over a `governs` locus): a hand-edited on-disk unit re-adds back into the surface tree and refreshes its lock row; an in-sync unit is a no-op. Refresh existing snapshots for the `DriftEntry.kind: String` change."
+        },
+        {
+          "path": "tests/apply.rs",
+          "description": "Refresh any drift-render snapshots affected by the `DriftEntry.kind` type change (kind still renders as its string label; assert no incidental drift)."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Refresh `diff`/`re-add` CLI-output snapshots for the `kind: String` change and the new custom-kind rows."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/readd.rs",
+        "asserts": "a hand-edited on-disk member of an assembly-registered custom kind is reconciled back into `.temper/<governs.root>/<name>/` with its lock row refreshed; an unchanged custom unit is `unchanged`; built-in skill/rule re-add is unregressed."
+      }
+    ],
+    "acceptance": "`temper diff` and `temper re-add` classify and reconcile members of every custom kind the assembly registers (each scanned at its `governs` locus), so editing `specs/*.md` directly no longer leaves `.temper/specs/` stale; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Dogfood defect (commit 0496270 body: re-add skips custom kinds, so law-8 spec edits were invisible to the gate). Scoped to the reconcile-back directions the inbox names (diff + re_add). `apply` (surface→disk) custom-kind projection is OUT of scope — surfaced as a follow-up, not filed. Shares src/main.rs with MEMBER-PUBLISHED-REQUIREMENTS, serialized behind it via blockedBy."
+  },
+  {
+    "tag": "MEMBER-PUBLISHED-REQUIREMENTS",
+    "summary": "A member header may publish `[requirement.<name>]` tables — same namespace as the assembly roster, joined by `satisfies`, cross-publisher name collisions are admissibility findings",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: a requirement's publisher is any authored surface document"
+    },
+    "gate": { "kind": "blockedBy", "tag": "REDD-CUSTOM-KINDS" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/document.rs",
+          "description": "Parse `[requirement.<name>]` clause modules on a member header — the same shape the assembly roster carries (`means`, `kind`, `package`, `required`), unknown-key-rejecting (specs/10-contracts.md, \"unknown keys are rejected\"). Surface them as a parsed collection beside the existing `Satisfies` modules, and round-trip them on emit."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Carry a member's published requirements into its `Features` (or a parallel per-member collection) so main can gather them across every kind's members, mirroring how `satisfies` is already carried."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Inside the layered (`if let Some(layer)`) path, union member-published requirements with `layer.requirements()` into the single `BTreeMap<String, Requirement>` fed to `coverage::check` and `roster::*` — reusing `compose::Requirement` (its fields are pub). A name published by two surfaces (assembly ⊕ member, or two members) is one namespace: emit an admissibility finding on collision, never a shadow. `satisfies` fill and the existing coverage gate join them unchanged."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Add coverage: a member-published requirement is filled by another member's `satisfies` (green); an unfilled `required` member-published requirement is an unfilled finding; a name declared by two publishers is an admissibility collision finding."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a `[requirement.<name>]` published in a member header joins the roster's coverage gate (filled by a `satisfies` on another member); an unfilled required one fires; a cross-publisher name collision is an admissibility finding."
+      }
+    ],
+    "acceptance": "a member document's `[requirement.<name>]` tables publish into the one requirement namespace, are gated by the existing coverage check, and collide with other publishers as admissibility findings — the engine support the classed-corpus migration needs (an intent spec declaring the entities an architecture spec must satisfy); cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Engine consequence of law 8 + the classed-corpus Decision (specs/90-spec-system.md). Serialized behind REDD-CUSTOM-KINDS (both edit src/main.rs). Scoped to the layered coverage path; a member-published requirement in a temper.toml-less floor-only harness is out of scope — surfaced, not filed. The specs/ class placement reshuffle + header authoring is a HUMAN ceremony after this ships, never a build tick."
+  },
+  {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind \u2014 `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
+    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the surface-language chain it waited on has shipped, so the blocker is priority alone \u2014 revive only if a story demands the agent kind"
+      "reason": "more built-in kinds is the wrong direction under the requirements/satisfies reframe; the surface-language chain it waited on has shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR \u2014 the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
+          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
         },
         {
           "path": "packages/agent/PACKAGE.md",
-          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib by build.rs (the packages/ product tree \u2014 NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
+          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib by build.rs (the packages/ product tree — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
         },
         {
           "path": "tests/agent_contract.rs",
@@ -58,11 +178,11 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe \u2014 more built-in kinds is the wrong direction; revive only if a story demands it. Shaped to the surface-language forms: one AGENT.md member document, an authored packages/agent/PACKAGE.md embedded like the rule/skill built-ins, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes via blockedBy against any then-open entry touching those files."
+    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands the agent kind. Shaped to surface-language forms: one AGENT.md member document + an authored packages/agent/PACKAGE.md (no contracts/agent.toml). On revival, serialize its shared-file blast radius (lib/check/extract/import/main) via blockedBy against any then-open entry touching those files."
   },
   {
     "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship acquisition channels \u2014 npm optionalDependencies binary wrapper, Homebrew, cargo install \u2014 auto-detected, fail-loud on a missing platform binary",
+    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
     "per": {
       "path": "specs/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
@@ -90,6 +210,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest \u2014 reconcile or split, never blindly create a second. Parked until a human sets creds up."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
   }
 ]

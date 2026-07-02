@@ -286,23 +286,17 @@ now dead code pending deletion (filed CONTRACTS-RETIRE).
   role the directory plays. Un-gates KIND-AUTHORED-ARTIFACT. Kept as the decision
   record.
 
-- `(reference-id-normalization)` — RESOLVED (`specs/15-kinds.md` Decision:
-  "reference resolution is declared by the kind, never guessed by the engine").
-  The kind's declared reference syntax carries its own **normalization** — the
-  deterministic mapping from extracted reference value to member id, declared
-  data beside the syntax it belongs to. The spec kind's backtick-filename syntax
-  declares `strip_suffix = ".md"` (`` `15-kinds.md` `` → `15-kinds`); the engine
-  applies exactly the declared rule, then demands an **exact** id match.
-  Rejected: an engine-global normalization (a baked-in guess, wrong for the next
-  kind's syntax); fallback multi-matching (`id == value || id + ".md" == value` —
-  a loose fallback can *mask* a genuine dangling reference, and masking a true
-  positive is as unsound as forging one). The engine work this fork was holding —
-  wiring custom-kind features into the graph's `by_kind` map so declared edges
-  find their sources — is now fileable, with references-resolve downstream of it.
-  by_kind wiring has SHIPPED (custom kinds resolve in the graph); the
-  `strip_suffix` normalization step is SHIPPED too as REFERENCE-NORMALIZATION
-  (`Primitive::References { strip_suffix }` in `src/kind.rs`). Wiring the dogfood
-  spec kind's own `[[relationships]]` +
-  `strip_suffix` into `.temper/kinds/spec/KIND.md` is a HUMAN `.temper/` follow-up
-  (surfaced, never a build entry — `.temper/**` is human territory). Kept as the
-  decision record.
+- `(reference-id-normalization)` — RESOLVED, then **SUPERSEDED** by law 8
+  (`specs/15-kinds.md` Decision: "no body-mined references — the `references`
+  primitive is retired"; `specs/00-intent.md` law 8). The earlier resolution
+  declared a per-kind reference *normalization* (`strip_suffix = ".md"`,
+  `` `15-kinds.md` `` → `15-kinds`) for a backtick-filename syntax **mined from
+  the member body**. Law 8 retires the whole body-mining primitive: relationships
+  range over **declared structured fields only**, never grepped prose — backtick
+  file mentions are typography, permanently. So the shipped `strip_suffix`
+  machinery is not wired into the dogfood; it is **removed** (filed
+  REFERENCES-RETIRE: drop `Primitive::References` + `strip_suffix` +
+  `backtick_filename_refs` + `is_filename_reference` from `src/kind.rs`). The spec
+  corpus's real edges are the header `[edge.*]` / `satisfies` declarations of the
+  classed corpus (`specs/90-spec-system.md`), never extracted from bodies. Kept as
+  the decision record; the fork is closed by the retirement, not by wiring.
