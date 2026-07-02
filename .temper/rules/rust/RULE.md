@@ -7,7 +7,7 @@ rationale = "the path-scoped home for the Rust bar: diagnostics discipline, roun
 
 [provenance]
 source_path = "./.claude/rules/rust.md"
-import_hash = "101393bd41985ecf3a373b81ed1a66567fbccd29ba7b13a43b7942aa0238921e"
+import_hash = "5168b1ac38309b1bd6885ac8fe887b51764079541ca938c4657ac05eba4131d2"
 +++
 
 # Rust conventions — author
@@ -38,15 +38,21 @@ are flume gates, so a violation reverts the commit.
   must slot in without a signature change.
 - Keep `main.rs` a thin `clap` dispatch; logic lives in the library crate so
   `tests/` can drive it.
-- Public items carry doc comments. Module headers state the artifact/schema they
-  model and cite the `specs/` section.
-- **Cite, don't restate.** A comment carries the spec pointer plus only what the
-  code *adds*: an invariant the code can't show (`BTreeMap` for stable output), a
-  deliberate narrowing ("parse-only tier; discovery is a follow-on entry"), a
-  deviation. Spec narrative lives in the spec — a paraphrased model in a module
-  header is a second, unchecked home for intent that silently drifts when the
-  spec moves (the exact failure this tool hunts). Compliance narration ("this
-  matches §X because…") belongs in the commit message, not the file.
+- Public items carry `///` docs: **one-line third-person summary first**, then
+  `# Errors`/`# Panics` where reachable (RFC 1574; api-guidelines C-FAILURE).
+  Module `//!` headers are an **overview plus the spec pointer, ~10 lines** —
+  "without excessive detail" (RFC 1574); the spec documents itself, the header
+  never restates it.
+- **Comment only what code + cited spec can't say** (Ousterhout, *APoSD* ch. 13;
+  antirez taxonomy, antirez.com/news/124). Keep: the *why* (chosen-over-
+  alternative, ordering constraints, workarounds); invariants, units, edge
+  behavior (`BTreeMap` for stable output); checklist warnings ("change X → also
+  Y"); a what-summary only above code genuinely denser than the sentence. Spec
+  citations are **terse pointer tags** (`// specs/20-surface.md, drift`), never
+  prose recaps — the DO-178C trace-tag form. Cut: restated spec narrative (a
+  second, unchecked home for intent that drifts), narration of ordinary code,
+  compliance narration ("per §X we…" — commit-message material). Comments are
+  paid twice here: every agent reading the module bills for every line.
 
 ## Round-trip discipline (the core invariant)
 
@@ -66,3 +72,7 @@ are flume gates, so a violation reverts the commit.
 - Fixtures of deliberately-broken artifacts (one per rule) live under
   `tests/fixtures/`; each rule has a test that proves it fires and that clean
   input does not trip it.
+- **Harness-input fixtures mirror the real Claude Code layout**
+  (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`) — never a layout
+  invented for the test's convenience. A fixture shaped by the code's own
+  assumption cannot falsify it (the import-locus bug hid behind exactly this).

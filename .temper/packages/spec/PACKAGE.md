@@ -19,9 +19,11 @@ source = "specs/90-spec-system.md (retrieved 2026-07-02)"
 
 # spec
 
-The require-side of temper's own `spec` kind. Two further clauses from the
-worked example (`specs/15-kinds.md`) are deliberately absent until their
-machinery ships: decisions-name-alternatives (the `section_contains` predicate,
-enumerated in `specs/10-contracts.md` but not yet in the engine) and
-references-resolve (waits on declared-normalization edges). Declaring a check
-the engine cannot decide would fake a gate — law 3.
+The require-side of temper's own `spec` kind. The class pairing from the worked
+example (`specs/15-kinds.md`) — an intent member's declared entities satisfied
+by an architecture member — is deliberately absent until member-published
+requirements ship and the corpus migrates to its three class kinds
+(`specs/90-spec-system.md`, "the corpus is classed"). Declaring a check the
+engine cannot decide would fake a gate — law 3. There is no references-resolve
+clause and never will be: body-mined references are retired
+(`specs/15-kinds.md`, "no body-mined references").

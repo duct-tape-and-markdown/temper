@@ -11,10 +11,6 @@ primitive = "headings"
 primitive = "placement"
 
 [[extraction]]
-primitive = "references"
-feature = "references"
-
-[[extraction]]
 primitive = "sections"
 +++
 
@@ -22,10 +18,13 @@ primitive = "sections"
 
 A spec is temper's own governing document — one file per concern under
 `specs/`, evergreen, human-authored (`specs/90-spec-system.md`). The extraction
-surfaces the line budget, the heading structure, and the corpus's declared
-reference syntax (backtick filenames, `` `NN-name.md` ``).
+surfaces the line budget and the heading/section structure — markdown structure
+only, no body-mined references (`specs/15-kinds.md`, "no body-mined
+references"; law 8): backtick file mentions in spec prose are typography, never
+edges.
 
-Relationships (references → spec edges) are deliberately not declared yet: the
-declared `strip_suffix` normalization (`specs/15-kinds.md`, "reference
-resolution is declared by the kind") ships first, so the graph never dangles on
-clean input.
+The corpus's real edges are declared, not extracted: the classed-corpus design
+(`specs/90-spec-system.md`, "the corpus is classed") pairs intent-declared
+entities with architecture `satisfies` claims in member headers. This single
+`spec` kind is transitional until that migration splits it into the three class
+kinds.
