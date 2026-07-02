@@ -162,8 +162,9 @@ const BUILD_WRITABLE_PATHS = [
 
   // NOTE: build does NOT touch .flume/** (harness territory), .claude/** or
   // CLAUDE.md (the hand-curated CC harness — also a dogfood fixture, edited by
-  // humans), specs/** (the evergreen human-authored corpus), or packages/**
-  // (the curated std-lib sources — product territory the build EMBEDS but never
+  // humans), specs/** (the evergreen human-authored corpus), packages/** or
+  // kinds/** (the curated std-lib sources — built-in package and kind
+  // definitions, citation-bearing product territory the build EMBEDS but never
   // writes). If a build entry needs to change one, block it and surface the
   // question. The harness writes the post-merge ship commit to pending.json itself.
 ];
@@ -364,7 +365,10 @@ const makeAgent = (model: string) =>
  * ENTRY` is build's (prompts/build.md); everything else is plan's.
  */
 const planAgent = makeAgent("claude-opus-4-8");
-const buildAgent = makeAgent("claude-sonnet-5");
+// Build temporarily rides Opus for the extraction-unification wave — an
+// equivalence-sensitive refactor of load-bearing extraction (human call,
+// 2026-07-02). Revert to claude-sonnet-5 when the wave drains.
+const buildAgent = makeAgent("claude-opus-4-8");
 
 export const agent: Agent = {
   name: "phase-model-router",

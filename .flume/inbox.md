@@ -33,3 +33,17 @@ removes them each tick. Empty is the normal state.
   derived wave behind it (declared built-in KIND definitions embedded beside
   their packages; generic composed extraction replacing the hand-coded feature
   fns; per-kind surface readers retired into the one loader).
+
+- KIND-EXTRACTION-UNIFY re-scope (the fence revert was correct): `kinds/**` is
+  RULED human territory — curated std-lib sources beside `packages/**`,
+  citation-bearing, build EMBEDS but never writes (chain.ts NOTE updated). The
+  two built-in definitions now EXIST, hand-authored: `kinds/skill/KIND.md`,
+  `kinds/rule/KIND.md` — same schema the custom-kind loader already parses.
+  Re-file the wave code-only (src/**, build.rs, tests/**), and OPEN WITH AN
+  EQUIVALENCE-PINNING ENTRY: insta-snapshot the current `skill_features`/
+  `rule_features` output over real fixtures BEFORE any entry swaps the
+  implementation, so every later entry diffs against a pinned target. Then:
+  embed the kinds/ definitions (build.rs beside the packages embed), drive
+  built-in extraction through the generic composed path, retire the hand-coded
+  feature fns and per-kind surface readers into the one loader. Adapter faces
+  (harness-format parse/emit) stay engine code.
