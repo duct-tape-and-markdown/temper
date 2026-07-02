@@ -61,54 +61,6 @@
     "notes": "Fileable per RESOLVED (launch-front-door-docs). Root doc only, disjoint from every other entry (owns AGENTS.md alone). The chore(harness) boundary holds: this entry must not edit CLAUDE.md or `.claude/**`. CONTRIBUTING.md lives at `.github/CONTRIBUTING.md` (verified on disk), so link there."
   },
   {
-    "tag": "EMBED-BUILTIN-PACKAGES",
-    "summary": "Embed the built-in std-lib from temper's own `packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park validating the reconciled machinery",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "build.rs",
-          "description": "Embed the authored package directories (`packages/{skill.anthropic,rule.anthropic}/PACKAGE.md`) into the binary via a build script — auto-detected at package root (no Cargo.toml edit needed if it reads the sources and generates `include!`d code; if `include_dir` is used instead, its dependency is added here). Folded in per the resolved (package-surface-sequencing) fork; keeps the embed off Cargo.toml so it never collides with OFFERING-LICENSE."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Built-in names resolve from the embedded PACKAGE.md sources via `Contract::load_package` (contract.rs:586) instead of `include_str!(\"../contracts/skill.anthropic.toml\")` / `include_str!(\"../contracts/rule.toml\")` (main.rs:67/73). EMBED is now the sole open editor of src/main.rs (SESSION-START-CUSTOM-KIND shipped)."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "The plugin ships the embedded PACKAGE.md std-lib verbatim instead of the TOML files (bundle.rs:122/126, 210/216)."
-        },
-        {
-          "path": "src/contract.rs",
-          "description": "Retire the TOML-file contract loader (`Contract::load`, contract.rs:536) once nothing resolves through it; keep `Contract::load_package` (contract.rs:586)."
-        }
-      ],
-      "retire": [
-        "contracts/skill.anthropic.toml",
-        "contracts/rule.toml",
-        "the contracts/ embedded std-lib directory"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/contract_template.rs, tests/bundle.rs, tests/cli.rs",
-        "asserts": "built-ins resolve from the embedded authored sources; the bundled plugin carries them; nothing references contracts/*.toml."
-      }
-    ],
-    "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves (skill→skill.anthropic, rule→rule.anthropic); cargo fmt/clippy -D warnings/test green.",
-    "notes": "Un-blocked: SESSION-START-CUSTOM-KIND shipped (8839794), so EMBED is now the sole open editor of src/main.rs. On disk: contracts/{skill.anthropic,rule}.toml still exist; main.rs:67/73 + bundle.rs:122/126,210/216 include_str! them; Contract::load_package at contract.rs:586; packages/{skill.anthropic,rule.anthropic}/PACKAGE.md authored. rule→rule.anthropic rename lands here (20-surface.md binds rule→rule.anthropic)."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
