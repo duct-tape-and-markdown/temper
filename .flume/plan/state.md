@@ -1,20 +1,17 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 30c15f3.
-- **Last shipped (trunk):** APPLY-REEMIT-PROJECTION — `apply` re-emits each
-  projection deterministically over the three-state drift model (verified on disk:
-  `src/drift.rs`/`src/main.rs` Apply arm; the superseded surgical frontmatter-patch
-  model is gone).
-- **This tick:** drained the inbox's read-path-unification item into two serialized
-  entries — SURFACE-READING-GENERIC (check reads every kind's surface member document
-  through the one generic `Unit` loader; retires the skill/rule IR→Unit adapter on the
-  check path) then IMPORT-DISCOVERY-GENERIC (discovery keys off the embedded built-in
-  KIND.md `governs`), blockedBy the first since both touch `src/drift.rs`. Rewrote the
-  deferred AGENT-KIND to the post-unification architecture (typed IR + embedded KIND.md
-  + `agent.anthropic` package, generic-loader read). Parked trio unchanged (none shipped).
-- **Pickable now:** SURFACE-READING-GENERIC (open, sole). IMPORT-DISCOVERY-GENERIC
-  blockedBy it; AGENT-KIND deferred; PACKAGING-CHANNELS / COMMUNITY-DOCS parked. Sole
-  live OPEN fork: `(edge-representation-unify)` — human to settle the canonical edge form.
+- **Phase:** reconcile. HEAD 7e7e5ee.
+- **Last shipped (trunk):** SURFACE-READING-GENERIC — `check` reads every kind's
+  surface member through the one generic `Unit` loader (verified on disk: the
+  IR→Unit adapter is off the check path).
+- **This tick:** unblocked IMPORT-DISCOVERY-GENERIC — its blocker
+  SURFACE-READING-GENERIC shipped, so gate → open. Verified on disk it is NOT yet
+  done: `discover_skill_dirs`/`discover_rule_files` still exist and are called from
+  import/drift/install; the embedded skill/rule KIND.md carry `governs` and the
+  `*/SKILL.md` subdir-glob wrinkle in `discover_kind_units` is real. Inbox empty;
+  no new decidable gap with a clean cite. Deferred/parked trio unchanged.
+- **Pickable now:** IMPORT-DISCOVERY-GENERIC (open, sole). AGENT-KIND deferred;
+  PACKAGING-CHANNELS / COMMUNITY-DOCS parked. Sole live OPEN fork:
+  `(edge-representation-unify)` — human to settle the canonical edge form.
 
-Plan continues: no — inbox drained, one open entry filed disjoint of the blocked/
-parked/deferred set; hand to build.
+Plan continues: no — queue reconciled, one open entry pickable, inbox drained; hand to build.

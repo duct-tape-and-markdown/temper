@@ -7,8 +7,7 @@
       "section": "A built-in kind is an adapter — two faces"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SURFACE-READING-GENERIC"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -37,7 +36,7 @@
       }
     ],
     "acceptance": "`temper import` discovers `.claude/skills/*/SKILL.md` and `.claude/rules/*.md` by keying off the embedded built-in KIND.md `governs` through one scanner shared with custom kinds, the bare-root skill case still imports, and drift/install reuse the same discovery; idempotence snapshot holds; gates green.",
-    "notes": "Read-path unification tail, discovery half. Embedded `skill`/`rule` KIND.md now carry `governs` (`.claude/skills` + `*/SKILL.md`; `.claude/rules` + `*.md`), so discovery keys off the declaration like custom kinds. Wrinkle: `discover_kind_units` globs immediate files only, so the skill's `*/SKILL.md` subdir glob needs the scanner generalized. Serialized after SURFACE-READING-GENERIC (shared drift.rs)."
+    "notes": "Read-path unification tail, discovery half — last of the extraction/read/discovery wave. Embedded skill/rule KIND.md carry `governs` (`.claude/skills`+`*/SKILL.md`; `.claude/rules`+`*.md`), so discovery keys off the declaration like custom kinds. Wrinkle: `discover_kind_units` globs immediate files only, so the skill `*/SKILL.md` subdir glob needs the scanner generalized; drift's skill path also maps `dir.join(SKILL.md)`. Blocker SURFACE-READING-GENERIC shipped (7e7e5ee)."
   },
   {
     "tag": "AGENT-KIND",
