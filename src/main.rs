@@ -647,12 +647,18 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // home — ≥1 artifact whose representation opts in with a `satisfies` link
         // naming it — and every authored `satisfies` must resolve to a declared
         // requirement. `means` is never judged; coverage is the whole of the gate.
-        // Ranges over every opt-in-capable artifact (skill ⊕ rule), so a requirement
-        // filled by either kind is covered. Absent `temper.toml` ⇒ no layer ⇒ no
-        // requirements ⇒ this adds nothing, so the floor-only path is unchanged.
+        // Ranges over every opt-in-capable artifact — the built-in kinds (skill ⊕
+        // rule) *and* each registered custom kind's members, whose authored
+        // `satisfies` is threaded off the member document through the kind's own
+        // extractor (`src/kind.rs`). Coverage stays kind-blind by design: a
+        // requirement may be filled by any artifact that opts in, so temper's own
+        // `spec` corpus can opt into requirements exactly as a skill does
+        // (`specs/15-kinds.md`, the worked example). Absent `temper.toml` ⇒ no layer ⇒
+        // no requirements ⇒ this adds nothing, so the floor-only path is unchanged.
         let all_features: Vec<extract::Features> = skill_features
             .iter()
             .chain(rule_features.iter())
+            .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
             .cloned()
             .collect();
         diagnostics.extend(coverage::check(layer.requirements(), &all_features));

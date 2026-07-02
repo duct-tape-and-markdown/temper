@@ -354,6 +354,14 @@ pub struct Unit {
     pub body: String,
     /// The source path the unit was read from — the `placement` locus.
     pub source_path: PathBuf,
+    /// The requirements this unit opts into filling — the authored
+    /// `[satisfies.<requirement>]` header modules (`specs/20-surface.md`, "The
+    /// member document"). A *representation* edge the coverage check resolves, not a
+    /// composed feature: it is intrinsic to the surface, threaded through unchanged
+    /// so a custom-kind member joins coverage exactly as a skill/rule does
+    /// (`specs/10-contracts.md`, "Coverage — the one referential check"). Empty when
+    /// the member authors none.
+    pub satisfies: Vec<String>,
 }
 
 impl Unit {
@@ -402,11 +410,21 @@ impl Unit {
                 field: "provenance",
             })?;
 
+        // The authored `[satisfies.<requirement>]` opt-in modules — the same
+        // surface-header channel a skill/rule carries (`specs/20-surface.md`). Only
+        // the requirement name feeds coverage; the per-clause `rationale` is the
+        // human *why*, never a decidable feature, so it is dropped here.
+        let satisfies = crate::document::satisfies(document.header())
+            .into_iter()
+            .map(|s| s.requirement)
+            .collect();
+
         Ok(Self {
             id,
             frontmatter: BTreeMap::new(),
             body: document.body().to_string(),
             source_path: PathBuf::from(source_path),
+            satisfies,
         })
     }
 }
@@ -734,10 +752,12 @@ impl Extraction {
             body_lines: 0,
             headings: Vec::new(),
             source_dir: None,
-            // Custom-kind `satisfies` is a later follow-on: no extraction
-            // primitive yields it yet, so a composed Unit's representation
-            // bindings stay empty until that lands.
-            satisfies: Vec::new(),
+            // The authored representation binding the coverage check resolves —
+            // threaded off the unit's `[satisfies.*]` header modules, not a composed
+            // primitive (`satisfies` is a surface edge, uniform with skill/rule), so a
+            // custom-kind member joins coverage exactly as a built-in kind's does
+            // (`specs/10-contracts.md`, "Coverage — the one referential check").
+            satisfies: unit.satisfies.clone(),
         };
         for primitive in &self.primitives {
             primitive.apply(unit, &mut features);
@@ -905,6 +925,7 @@ Composed like `15-kinds.md` over `10-contracts.md`. Not refs: `Features`, `min_l
             frontmatter: BTreeMap::new(),
             body: body.to_string(),
             source_path: PathBuf::from("specs/15-kinds.md"),
+            satisfies: Vec::new(),
         }
     }
 
@@ -976,6 +997,7 @@ key = "priority"
             frontmatter,
             body: "# Demo\n".to_string(),
             source_path: PathBuf::from("skills/demo/SKILL.md"),
+            satisfies: Vec::new(),
         };
 
         let features = extraction.extract(&unit);
@@ -1004,6 +1026,7 @@ key = "priority"
             frontmatter: BTreeMap::new(),
             body: String::new(),
             source_path: PathBuf::from("skills/demo/SKILL.md"),
+            satisfies: Vec::new(),
         };
         // A key the unit does not carry yields no feature — never a phantom entry.
         assert!(extraction.extract(&unit).field("license").is_none());

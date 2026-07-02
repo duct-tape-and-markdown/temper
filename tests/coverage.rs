@@ -318,6 +318,104 @@ means = \"an optional convenience the harness may provide\"\n",
     );
 }
 
+/// Author a workspace registering a custom `spec` kind — its `KIND.md` definition, a
+/// trivial no-clause bound package, and one member document under `specs/<id>/` whose
+/// header opts into `satisfies`. Mirrors `tests/cli.rs`'s custom-spec fixture, but the
+/// member carries `[satisfies.*]` modules so the coverage tier resolves them. The
+/// caller writes `temper.toml` and runs `check`.
+fn author_custom_spec(root: &Path, member_id: &str, satisfies: &[&str]) {
+    // The kind definition: a frontmatter-less spec kind with no extractor beyond the
+    // intrinsics — coverage keys off the surface-authored `satisfies`, not a feature.
+    let kind_dir = root.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(
+        kind_dir.join("KIND.md"),
+        "+++\n\
+         governs = { root = \"specs\", glob = \"*.md\" }\n\
+         +++\n\
+         # The spec kind\n\
+         \n\
+         Specs opt into requirements via `satisfies`, exactly as a skill does.\n",
+    )
+    .unwrap();
+
+    // The bound require-side must resolve for the run to be green; this fixture
+    // exercises coverage, not the clause engine, so the package carries no clauses.
+    let pkg_dir = root.join(".temper").join("packages").join("spec");
+    fs::create_dir_all(&pkg_dir).unwrap();
+    fs::write(
+        pkg_dir.join("PACKAGE.md"),
+        "+++\n+++\n# The spec package\n\nNo clauses — coverage is what this pins.\n",
+    )
+    .unwrap();
+
+    // The member document: a `+++` header carrying the authored `[satisfies.<req>]`
+    // opt-in modules over `[provenance]`, exactly the shape `import` projects a custom
+    // unit into (`src/import.rs`), then edited to declare its `satisfies` as a human
+    // would (import never writes them — they are surface-authored).
+    let dir = root.join(".temper").join("specs").join(member_id);
+    fs::create_dir_all(&dir).unwrap();
+    let mut header = String::new();
+    for requirement in satisfies {
+        header.push_str(&format!("[satisfies.{requirement}]\n"));
+    }
+    let document = format!(
+        "+++\n{header}[provenance]\nsource_path = \"specs/{member_id}.md\"\nimport_hash = \"deadbeef\"\n+++\n# {member_id}\n\nA spec member.\n"
+    );
+    fs::write(dir.join("SPEC.md"), document).unwrap();
+}
+
+#[test]
+fn a_custom_kind_units_satisfies_covers_a_requirement() {
+    let root = tmpdir("custom-covered");
+    // A custom-kind member opts into the required requirement — coverage is kind-blind
+    // (`specs/15-kinds.md`, the worked example: temper's own `spec` corpus can opt into
+    // requirements), so the spec member fills it exactly as a skill would.
+    author_custom_spec(&root, "core.spec", &["domain-model"]);
+    write_temper_toml(
+        &root,
+        "[kind.spec]\npackage = \"spec\"\n\
+[requirement.domain-model]\n\
+means = \"the harness carries a coherent domain model\"\n\
+required = true\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a custom-kind unit's authored `satisfies` must cover the requirement ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_required_requirement_a_custom_member_does_not_fill_still_fires_unfilled() {
+    let root = tmpdir("custom-unfilled");
+    // The custom member is present but opts into nothing, so the `required`
+    // requirement has no resolving home and still fires UNFILLED — a custom-kind
+    // member in the corpus does not fabricate coverage it never declared.
+    author_custom_spec(&root, "core.spec", &[]);
+    write_temper_toml(
+        &root,
+        "[kind.spec]\npackage = \"spec\"\n\
+[requirement.domain-model]\n\
+means = \"the harness carries a coherent domain model\"\n\
+required = true\n",
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "an unfilled required requirement must block even with a custom member present ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("requirement.unfilled"),
+        "the finding names the unfilled rule, got:\n{}",
+        run.output
+    );
+}
+
 #[test]
 fn a_means_less_required_requirement_still_gates() {
     let root = tmpdir("means-less");
