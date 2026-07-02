@@ -2,6 +2,7 @@
 governs = { root = ".claude/skills", glob = "*/SKILL.md" }
 format = "yaml-frontmatter"
 unit_shape = "directory"
+activation = { via = "description-trigger", field = "description" }
 
 [[extraction]]
 primitive = "field"
@@ -38,7 +39,11 @@ The declared definition of the Claude Code skill kind: a directory under
 `.claude/skills/` carrying a `SKILL.md` with YAML frontmatter over a markdown
 body (https://agentskills.io/specification, retrieved 2026-07-01). Identity is
 the `name` field; `name-matches-dir` (the package's cross-artifact clause)
-holds it to the directory.
+holds it to the directory. Activation is the description trigger: "skill
+descriptions are loaded into context so Claude knows what's available, but
+full skill content only loads when invoked"
+(https://code.claude.com/docs/en/skills, retrieved 2026-07-02) — so a blank
+`description` is a dead world-edge (`specs/45-governance.md`, reachability).
 
 Built-in means **temper-sourced, not privileged** (`specs/15-kinds.md`): this
 definition ships embedded with the crate exactly as `packages/skill.anthropic`

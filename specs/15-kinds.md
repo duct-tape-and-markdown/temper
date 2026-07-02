@@ -194,7 +194,11 @@ temper ships; every entry is an external fact, cited at the point of claim:
 - **`paths-match(field)`** — the member activates when the agent reads files
   matching the named glob field: "path-scoped rules trigger when Claude reads
   files matching the pattern, not on every tool use"
-  (code.claude.com/docs/en/memory, retrieved 2026-07-02).
+  (code.claude.com/docs/en/memory, retrieved 2026-07-02). An absent or blank
+  field is **not** a dead edge — the harness falls back to unconditional
+  loading ("rules without a `paths` field are loaded unconditionally and apply
+  to all files", same retrieval); only a *present* field whose globs match
+  nothing is provably dead.
 - **`event(field)`** — the member executes at a named lifecycle event: "hooks
   execute as shell commands at fixed lifecycle events"
   (code.claude.com/docs/en/memory, retrieved 2026-07-02) — carried for the
