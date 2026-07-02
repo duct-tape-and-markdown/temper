@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "how a graph-scope reachability fact carries author-declared severity is unsettled (fork reachability-gate-mechanism — acyclic is always-on, degree assembly-declared, the spec says 'the package's clause choice'). The curated activation lines this waited on have BOTH shipped: skill/KIND.md declares description-trigger and rule/KIND.md now declares paths-match (chore 9f7d176, verified on disk). So the fork's severity home is the sole remaining blocker; the human-authored data is done"
+      "reason": "how a graph-scope reachability fact carries author-declared severity is unsettled (fork reachability-gate-mechanism — acyclic is always-on, degree assembly-declared, the spec says 'the package's clause choice'; a reachability fact ranges over the world node + repo files, not one artifact's features, so it doesn't fit the artifact-scope Predicate a package clause lives in). Both curated activation lines now ship (kinds/skill/KIND.md description-trigger + kinds/rule/KIND.md paths-match, human-authored 9f7d176) and PATHS-MATCH-ABSENCE fixed the absent-field false positive — so the OPEN fork is the sole remaining blocker."
     },
     "dependsOnForks": [
       "reachability-gate-mechanism"
@@ -35,8 +35,8 @@
         "asserts": "with reachability wired, a member whose declared activation edge is provably dead is a finding at the gate and a reachable member is silent; the finding names the world node, the kind, the member, and the dead-edge reason."
       }
     ],
-    "acceptance": "`temper check` runs the `reachable` predicate over members of kinds that declare an activation and flags a dead world→member edge; cargo fmt/clippy -D warnings/test all green. (Parked: not built until reachability-gate-mechanism resolves the severity-declaration home. The curated skill/rule activation lines have shipped — no longer a blocker.)",
-    "notes": "reachable/world/dead_activation live in src/graph.rs:342, library-proven (tests/graph.rs:460); no main.rs caller (654-666 = admissibility/check/acyclic/degree only). Both activation lines now on disk: skill/KIND.md description-trigger, rule/KIND.md paths-match (9f7d176). PATHS-MATCH-ABSENCE shipped: dead_activation reads absent/blank paths as live. Sole blocker: fork reachability-gate-mechanism (severity home unsettled)."
+    "acceptance": "`temper check` runs the `reachable` predicate over members of kinds that declare an activation and flags a dead world→member edge; cargo fmt/clippy -D warnings/test all green. (Parked: not built until reachability-gate-mechanism resolves the severity-declaration home — both curated activation lines and PATHS-MATCH-ABSENCE have already shipped.)",
+    "notes": "reachable/world/dead_activation in src/graph.rs:342, library-proven (tests/graph.rs:460); no main.rs caller (654-666 = admissibility/check/acyclic/degree). Both curated activation lines now on disk — kinds/skill/KIND.md description-trigger + kinds/rule/KIND.md paths-match (shipped 9f7d176); PATHS-MATCH-ABSENCE shipped (absent paths = live). Sole remaining blocker: fork reachability-gate-mechanism (severity home unsettled)."
   },
   {
     "tag": "MEMORY-KIND",
@@ -68,7 +68,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:456 + parse_primitive load-guard kind.rs:1048). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/15-kinds.md Decision: extraction is a closed algebra)."
+          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:456 + parse_primitive load-guard kind.rs:1051). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/15-kinds.md Decision: extraction is a closed algebra)."
         },
         {
           "path": "src/builtin.rs",
@@ -112,7 +112,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:456-477); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:499) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:1048). This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:456-489); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:498) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:1051). This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
@@ -129,7 +129,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (kind.rs:456-477); `Field` reads flat `frontmatter.get(key)` (kind.rs:499), no key-path; load-guard parse_primitive at kind.rs:1048. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. MEMORY-KIND does NOT revive this: `@path` is a distinct edge primitive, not fenced/key-path."
+    "notes": "Disk re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (kind.rs:456-489); `Field` reads flat `frontmatter.get(key)` (kind.rs:498), no key-path; load-guard parse_primitive at kind.rs:1051. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. MEMORY-KIND does NOT revive this: `@path` is a distinct edge primitive, not fenced/key-path."
   },
   {
     "tag": "AGENT-KIND",
