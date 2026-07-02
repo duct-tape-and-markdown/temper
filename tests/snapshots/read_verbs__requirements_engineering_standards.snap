@@ -1,0 +1,16 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+Requirement `engineering-standards`:
+
+  It means: "the harness maintains development standards".
+  required, filled by 1 member(s)
+
+  Satisfied by:
+    • `dev-standards` (skill) — "the home for engineering-standards enforcement"
+
+  Blast radius — removing `engineering-standards` would strand 1 `satisfies` link(s):
+    • `dev-standards` (skill) would dangle
+
+  `engineering-standards` is required and rests on a single satisfier — removing `dev-standards` (skill) would leave it unfilled, failing the gate.

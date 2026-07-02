@@ -1,0 +1,14 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+The requirement roster (3 requirements):
+
+  • `collaboration-discipline` — required, filled by 1 member(s)
+      It means: "pushback is the point".
+      ← `collaboration` (rule)
+  • `engineering-standards` — required, filled by 1 member(s)
+      It means: "the harness maintains development standards".
+      ← `dev-standards` (skill)
+  • `nice-to-have` — advisory, and unfilled — never a gate
+      It means: "an optional convenience".

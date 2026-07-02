@@ -30,6 +30,7 @@ pub(crate) mod hash;
 pub mod import;
 pub mod install;
 pub mod kind;
+pub mod read;
 pub mod reporter;
 pub mod roster;
 pub mod rule;

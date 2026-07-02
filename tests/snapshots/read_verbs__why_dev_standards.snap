@@ -1,0 +1,16 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+Member `dev-standards` (skill) — everything that holds it in place:
+
+Requirements it satisfies:
+  • `engineering-standards` — "the home for engineering-standards enforcement"
+      It means: "the harness maintains development standards".
+      It is required — at least one member must fill it.
+
+Governing package: its `skill` kind binds the `skill.anthropic` package, whose clauses check it.
+
+Edges out (references it declares):
+  • depends-on → `lint-runner` (resolves to a member in the surface)
+Edges in: no member points at it.

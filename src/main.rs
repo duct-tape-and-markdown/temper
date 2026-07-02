@@ -32,6 +32,7 @@ use temper::graph;
 use temper::import;
 use temper::install;
 use temper::kind::{self, CustomKind, KindError, Unit};
+use temper::read;
 use temper::reporter;
 use temper::roster;
 use temper::schema;
@@ -195,6 +196,25 @@ enum Command {
         /// Where to write the plugin tree (defaults to `./plugin`).
         #[arg(long, default_value = "./plugin")]
         out: PathBuf,
+    },
+    /// **Read** (`specs/20-surface.md`, "Decision: the CLI gains a read family"):
+    /// narrate everything that holds a member in place — the requirements it
+    /// `satisfies` (each with its authored rationale), the package its kind binds,
+    /// and its declared edges in and out. The forward walk of the requirement↔
+    /// `satisfies` edge, a read-only projection over the surface `check` gates — it
+    /// never gates and always exits zero.
+    Why {
+        /// The member (a skill or rule name) to walk the edge forward from.
+        member: String,
+    },
+    /// **Read** (`specs/20-surface.md`, "Decision: the CLI gains a read family"):
+    /// narrate the requirement roster — each requirement with its satisfier set and
+    /// coverage state; with a `<name>`, that one requirement's satisfiers and the
+    /// blast radius a removal would strand. The reverse walk of the requirement↔
+    /// `satisfies` edge — it never gates and always exits zero.
+    Requirements {
+        /// A single requirement to walk in reverse; omitted ⇒ the whole roster.
+        name: Option<String>,
     },
 }
 
@@ -432,6 +452,32 @@ fn main() -> miette::Result<ExitCode> {
             // the library composer.
             let report = bundle::run(&path, &out)?;
             print!("{}", bundle::render(&report));
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Why { member } => {
+            // The forward read (`specs/20-surface.md`, "Decision: the CLI gains a read
+            // family"): load the authored surface and the optional `temper.toml` layer
+            // — the same two the two-step `check` reads — and narrate the member's
+            // filled requirements, governing package, and edges. A read, never a gate:
+            // the traversal lives in the library (`.claude/rules/rust.md`), and this
+            // arm only maps its narration to stdout and exit 0.
+            let ws = Workspace::load(Path::new(DEFAULT_WORKSPACE))?;
+            let layer = load_layer(Path::new(TEMPER_TOML))?;
+            print!("{}", read::why(&ws, layer.as_ref(), &member));
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Requirements { name } => {
+            // The reverse read (`specs/20-surface.md`, "Decision: the CLI gains a read
+            // family"): the requirement roster with coverage state, and with a name the
+            // satisfier set + removal blast radius. Reads the same surface + layer as
+            // `why`; the traversal lives in the library, and this arm maps its narration
+            // to stdout and exit 0 — never a gate.
+            let ws = Workspace::load(Path::new(DEFAULT_WORKSPACE))?;
+            let layer = load_layer(Path::new(TEMPER_TOML))?;
+            print!(
+                "{}",
+                read::requirements(&ws, layer.as_ref(), name.as_deref())
+            );
             Ok(ExitCode::SUCCESS)
         }
     }
