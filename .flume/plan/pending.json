@@ -1,40 +1,5 @@
 [
   {
-    "tag": "SESSION-START-CHECK-SURFACE",
-    "summary": "Session-start checks the authored surface when one exists (.temper/ + temper.toml) — two-step, no fresh import; one-shot import stays the surfaceless fallback",
-    "per": {
-      "path": "specs/50-distribution.md",
-      "section": "Decision: the session-start gate is advisory, not blocking"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "In the `Command::SessionStart` arm (main.rs:377), branch on whether the harness carries an authored surface: if `harness_path/.temper/` and `harness_path/temper.toml` both exist, run the two-step gate over the surface directly — `gate(&harness_path.join(TEMPER_DIR), &harness_path.join(TEMPER_DIR), &harness_path.join(TEMPER_TOML))` (the same shape `check`'s two-step None branch at main.rs:257 uses, retargeted at the harness root) — and NEVER a fresh import. A fresh import (`import::run` at main.rs:394) discards the authored `satisfies` recognition, so every filled requirement reads unfilled — the law-3 false positive the spec's surface-present clause forbids. Absent the surface, keep the current one-shot import-into-scratch fallback verbatim (surfaceless harness). Leave the `check --harness` one-shot verb (main.rs:235) unchanged — it is the explicit raw-harness wedge, not the session-start placement."
-        },
-        {
-          "path": "tests/session_start.rs",
-          "description": "Add a test that a harness carrying an authored surface (a `temper.toml` declaring a `required` requirement plus a member whose document header `satisfies` it) emits ZERO blocking findings at session-start — proving the two-step surface path resolves the fill where a fresh import would report the requirement unfilled. Repro of the inbox false positive. The existing one-shot tests (surfaceless harnesses) must stay green: they carry no `temper.toml`, so they take the fallback branch unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/session_start.rs",
-        "asserts": "a harness with an authored surface whose member `satisfies` a required requirement emits 0 blocking findings (surface path); a surfaceless harness still imports one-shot; both exit zero."
-      }
-    ],
-    "acceptance": "`temper session-start .` at temper's own root emits 0 blocking findings — its two filled requirements (engineering-standards, collaboration-discipline) resolve via the surface's `satisfies`; a surfaceless harness still runs the one-shot import fallback; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "From inbox FOLLOW-ON, spec-pinned (ac4de6a). temper's own surface trips it today: session-start does a fresh import (main.rs:394) discarding the `satisfies` recognition, so both filled requirements (engineering-standards, collaboration-discipline) read unfilled — 2 blocking findings on clean input (law-3 false positive). Owns main.rs + tests/session_start.rs alone — disjoint from OFFERING-LICENSE and AGENTS-MD."
-  },
-  {
     "tag": "OFFERING-LICENSE",
     "summary": "Relicense to dual MIT OR Apache-2.0 — add LICENSE-MIT + LICENSE-APACHE and set the Cargo.toml `license` field, before external contributors",
     "per": {
