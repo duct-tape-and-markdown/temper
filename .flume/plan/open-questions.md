@@ -8,7 +8,23 @@ The forks below gate *extensions*. The package/assembly/kind migration they once
 gated has **shipped** (verified on disk): `build.rs` embeds the built-in std-lib
 from `packages/<name>/PACKAGE.md` (not `contracts/*.toml`), `.temper/` is authored,
 and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror is
-now dead code pending deletion (filed CONTRACTS-RETIRE).
+**deleted** (CONTRACTS-RETIRE shipped — no `contracts/` dir on disk; only stale
+path strings remain in comments).
+
+- `(extraction-source-not-mechanism)` — RESOLVED (human ruling this session;
+  `specs/15-kinds.md`, "The extraction algebra — the soundness boundary, as data":
+  "Today extractors are engine code … The end state is that extraction is composed
+  from a closed algebra"). The built-in/custom split is **source, never
+  mechanism**: every member's *extraction* runs through the one generic composed
+  path, a built-in differing only in that its KIND definition sources from embedded
+  product data (`kinds/<name>/KIND.md`) rather than the project's `.temper/kinds/`.
+  The hand-coded `skill_features`/`rule_features` and the per-kind surface readers
+  are transitional scaffolding, retired by the serialized wave
+  HEADER-FIELD-EXTRACTION → EXTRACT-EQUIVALENCE-PIN → EMBED-BUILTIN-KINDS →
+  BUILTIN-EXTRACT-GENERIC (equivalence pinned by snapshot before any swap). Engine
+  code stays sanctioned ONLY at the harness adapter faces (parse/emit of the
+  external Claude Code format, and the IR→`Unit` read face). Kept as the decision
+  record; the wave is its build-out.
 
 - `(package-surface-sequencing)` — RESOLVED: **machinery first, dogfood after.**
   The code reconciles to the model **against test fixtures**; temper's own

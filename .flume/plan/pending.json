@@ -1,5 +1,142 @@
 [
   {
+    "tag": "HEADER-FIELD-EXTRACTION",
+    "summary": "Populate a custom member's frontmatter from its `[clause.<field>]` header tables in `Unit::from_surface_dir`, so field predicates range over custom members like a built-in's",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "The member document — the surface language"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "In `Unit::from_surface_dir` the frontmatter is left `BTreeMap::new()`, so the `field` extraction primitive has nothing to range over on a custom member. Read the header's `[clause.<field>]` modules (`crate::document::clauses` already returns each field's `value` item) and populate `Unit.frontmatter`, converting each `value` item to its `serde_json::Value` — exactly what the built-in adapters do with their hand-written parsers. Add module tests: a surface carrying `[clause.name]`/`[clause.priority]` yields those in `frontmatter` and through the composed `field` primitive; a surface with no clause tables still yields empty frontmatter (the existing `from_surface_dir_reloads_a_written_unit_for_any_root` assertion holds)."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "If the clause `value` conversion needs a shared TOML-`Item`→`serde_json::Value` helper, add it here beside the existing header readers (`clauses`, `satisfies`, `provenance`) — the inverse of `json_to_toml_value`. Skip this file if kind.rs can reuse an existing converter."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "a custom-member surface carrying `[clause.<field>]` tables reloads with those fields in `Unit.frontmatter` and they resolve through the composed `field` primitive; a surface with no clause tables reloads with empty frontmatter."
+      }
+    ],
+    "acceptance": "`Unit::from_surface_dir` lifts `[clause.<field>]` header values into `frontmatter`, so a custom member's declared header fields are checked by the same `field` primitive path a rule's `paths` is; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Ships FIRST (inbox ruling) — it IS the generic reader the source-not-mechanism wave completes. `document::clauses()` already returns each `[clause.<field>]` value item; convert to JSON and fill `Unit.frontmatter` (today left empty). No new predicates or grammar — closes the built-in/custom asymmetry."
+  },
+  {
+    "tag": "EXTRACT-EQUIVALENCE-PIN",
+    "summary": "Insta-snapshot current `skill_features`/`rule_features` output over real `.claude/` fixtures — the equivalence baseline the extraction-unification swap must hold byte-identical",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "The extraction algebra — the soundness boundary, as data"
+    },
+    "gate": { "kind": "blockedBy", "tag": "HEADER-FIELD-EXTRACTION" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/extract_equivalence.rs",
+          "description": "Insta snapshots of `extract::skill_features` and `extract::rule_features` over real Claude Code fixtures that mirror the actual on-disk layout (a representative `.claude/skills/<name>/SKILL.md`, the dogfood-shaped `.claude/rules/*.md` — never a layout invented for the test, per `.claude/rules/rust.md`). Snapshot each resulting `Features` (Debug) so a later entry can prove the generic composed path yields feature-for-feature identical output. The committed `.snap` files are the baseline the swap must not change."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/extract_equivalence.rs",
+        "asserts": "the current built-in extractors' `Features` output over real skill/rule fixtures is captured as committed insta snapshots — the fixed target every wave entry diffs against."
+      }
+    ],
+    "acceptance": "committed `.snap` files pin `skill_features`/`rule_features` output over real fixtures; cargo test green with accepted snapshots.",
+    "notes": "Opens the source-not-mechanism wave: pin the built-in extractors' output BEFORE any swap so every later entry diffs a fixed target (inbox ruling). BUILTIN-EXTRACT-GENERIC repoints this test to the generic path; its `.snap` must stay byte-identical — that unchanged snapshot IS the equivalence proof."
+  },
+  {
+    "tag": "EMBED-BUILTIN-KINDS",
+    "summary": "Embed `kinds/skill/KIND.md` + `kinds/rule/KIND.md` via `build.rs` (beside the packages embed) and expose them as in-crate `CustomKind` definitions",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "The extraction algebra — the soundness boundary, as data"
+    },
+    "gate": { "kind": "blockedBy", "tag": "EXTRACT-EQUIVALENCE-PIN" },
+    "files": {
+      "new": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "The embedded built-in KIND std-lib, mirroring `src/builtin.rs` for packages: `include!` the generated `BUILTIN_KINDS` table and parse a named definition into a `crate::kind::CustomKind` via `CustomKind::from_header` over its `+++`-fenced `KIND.md` header. Accessors `definition(name)`/`definitions()`; `skill`/`rule` resolve from the embedded set with no on-disk config, validated as any kind is. The parse-into-CustomKind path already exists — this only sources the header from embedded product data instead of `.temper/kinds/`."
+        }
+      ],
+      "edit": [
+        {
+          "path": "build.rs",
+          "description": "Also walk the `kinds/` product tree (beside the existing `packages/` walk) and generate `BUILTIN_KINDS: &[(&str, &str)]` — `(name, KIND.md source)` per `kinds/<name>/KIND.md`, `include_str!`-embedded, sorted, with a `rerun-if-changed` per file. Auto-detected exactly like the packages embed: adding a built-in kind needs no edit here."
+        },
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod builtin_kind;` beside `pub mod builtin;` (this entry owns the line)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/builtin_kind.rs",
+        "asserts": "`definition(\"skill\")`/`definition(\"rule\")` parse the embedded `KIND.md` into a `CustomKind` whose composed `Extraction` and `governs` match the hand-authored definitions; an unknown name yields `None`."
+      }
+    ],
+    "acceptance": "the two built-in `KIND.md` definitions ship embedded and resolve in-crate to `CustomKind` values with no on-disk config; cargo fmt/clippy -D warnings/test green.",
+    "notes": "`kinds/**` is human territory — build EMBEDS, never writes (chain.ts NOTE); both definitions are hand-authored (b06f3a0). Mirror the packages embed: `build.rs` emits `BUILTIN_KINDS`; `src/builtin_kind.rs` parses each via the existing `CustomKind::from_header`. No behavior swap yet — extraction still runs the old path until BUILTIN-EXTRACT-GENERIC."
+  },
+  {
+    "tag": "BUILTIN-EXTRACT-GENERIC",
+    "summary": "Drive built-in skill/rule extraction through the embedded KIND definitions and the generic composed path; retire the hand-coded `skill_features`/`rule_features`",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "The extraction algebra — the soundness boundary, as data"
+    },
+    "gate": { "kind": "blockedBy", "tag": "EMBED-BUILTIN-KINDS" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Add the adapter read face: turn a `Skill`/`Rule` IR into a `crate::kind::Unit` (frontmatter from the typed fields + `extra`, the byte-faithful body, provenance, `satisfies`, `published_requirements`) and run the embedded kind's `Extraction::extract` to yield `extract::Features`. This IR→Unit conversion is the engine-code adapter the source-not-mechanism direction leaves sanctioned; the per-field feature mapping moves into the composed `kinds/*/KIND.md` extraction."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Retire `skill_features` and `rule_features` (the hand-coded per-field mappings) and their `#[cfg(test)]` unit tests — symbol retirement as an EDIT, never a `retire` path (inbox fence correction). Keep the shared `pub(crate)` surface extractors (`body_line_count`/`body_headings`/`body_sections`/`source_dir_name`/`json_to_feature`) the composed path already reuses; the `Features`/`FeatureValue`/`Kind`/`Section` types stay."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Repoint the built-in feature call sites — `run_check` (~541–545) and the `Why` command (~405–408) — from `extract::skill_features`/`extract::rule_features` to the embedded skill/rule KIND extraction driver in `builtin_kind`. `assemble_by_kind`, the `engine::validate` streams, and coverage/graph tiers are otherwise unchanged (they range over `Features`)."
+        },
+        {
+          "path": "tests/extract_equivalence.rs",
+          "description": "Repoint the snapshots from `skill_features`/`rule_features` to the new embedded-extraction driver; the committed `.snap` files MUST remain byte-identical — the unchanged snapshot is the equivalence proof."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/extract_equivalence.rs",
+        "asserts": "the embedded-extraction driver produces `Features` byte-identical to the pinned `skill_features`/`rule_features` snapshots (the `.snap` files are unchanged)."
+      }
+    ],
+    "acceptance": "built-in skill/rule `check` features are computed by running the embedded `kinds/*/KIND.md` extraction over an IR-derived `Unit`; `skill_features`/`rule_features` are gone; the pinned equivalence snapshot is unchanged; cargo fmt/clippy -D warnings/test and the self-check gate all green.",
+    "notes": "Completes the wave. `skill_features`/`rule_features` (hand-coded field mapping) retire as an EDIT to src/extract.rs naming the symbols, never a `retire` path (inbox fence correction). Engine code stays only at adapter faces (Skill/Rule IR→Unit; parse/emit). Equivalence proven by the unchanged pin snapshot; blocked serially so no open entry shares these files."
+  },
+  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
@@ -37,7 +174,7 @@
         },
         {
           "path": "src/extract.rs",
-          "description": "Add `agent_features` mirroring `rule_features`."
+          "description": "Add `agent_features` mirroring the built-in extraction driver (post-unification this is the embedded KIND path, not a hand-coded feature fn)."
         },
         {
           "path": "src/import.rs",
@@ -58,7 +195,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands the agent kind. Shaped to surface-language forms: one AGENT.md member document + an authored packages/agent/PACKAGE.md (no contracts/agent.toml). On revival, serialize its shared-file blast radius (lib/check/extract/import/main) via blockedBy against any then-open entry touching those files."
+    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands it. On revival, add the agent KIND definition under kinds/ (post-unification) and serialize its shared-file blast radius (lib/check/extract/import/main) via blockedBy against any then-open entry touching those files."
   },
   {
     "tag": "PACKAGING-CHANNELS",
