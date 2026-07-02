@@ -365,10 +365,7 @@ const makeAgent = (model: string) =>
  * ENTRY` is build's (prompts/build.md); everything else is plan's.
  */
 const planAgent = makeAgent("claude-opus-4-8");
-// Build temporarily rides Opus for the extraction-unification wave — an
-// equivalence-sensitive refactor of load-bearing extraction (human call,
-// 2026-07-02). Revert to claude-sonnet-5 when the wave drains.
-const buildAgent = makeAgent("claude-opus-4-8");
+const buildAgent = makeAgent("claude-sonnet-5");
 
 export const agent: Agent = {
   name: "phase-model-router",
