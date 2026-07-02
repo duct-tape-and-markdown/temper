@@ -1,41 +1,5 @@
 [
   {
-    "tag": "READ-CUSTOM-SATISFIERS",
-    "summary": "Range the read family (`why`/`requirements`) over custom-kind member satisfiers, not just skill/rule, so a custom member that fills a requirement isn't under-reported",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Carry each custom-kind member's `satisfies` **with rationale** for the read family. `Unit` (src/kind.rs:286) stores `satisfies: Vec<String>` today — kind.rs:357 pulls names via `crate::document::satisfies` and drops the rationale. Add an additive rationale-preserving field (`Vec<crate::document::Satisfies>`) populated in `Unit::load` from the same `[satisfies.*]` header parse skills/rules already use; leave the existing name vec and its consumers untouched. This entry owns the `Unit` change."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Extend the `satisfies`/rationale forward (`why`) and reverse (`requirements`) walks to include custom-kind members, not just `workspace.skills`/`rules` (`members()`, read.rs:65; scope note read.rs:23-32). Build each custom member into the `Member` view from its rationale-carrying `Satisfies`. Leave edge narration alone — it already ranges over the gate's `graph::resolved_edges` set across every kind (READ-EDGE-UNIFY), so do not re-derive edges here."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Thread custom-kind members into both read handlers. `Why` (main.rs:396) already assembles `custom_kinds_and_edges`/`custom_units`; pass the custom units' satisfiers into `read::why`. `Requirements` (main.rs:423) loads only `ws`+layer today — load the layer's custom kinds/units the same way and pass their satisfiers into `read::requirements`. This entry owns these two handler edits and any signature widening on `read::why`/`read::requirements`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "In a workspace where a custom-kind (e.g. `spec`) member declares `[satisfies.<R>]` for an assembly-published requirement, `why <custom-member>` narrates that `satisfies` with its authored rationale, and `requirements <R>` lists the custom member in its satisfier set + coverage (insta)."
-      }
-    ],
-    "acceptance": "`temper why <custom-kind-member>` narrates the requirements it satisfies (with rationale) and `temper requirements <R>` counts custom-kind satisfiers in the set and coverage; a custom member filling a requirement is no longer silently absent from either read verb. Built-in-kind narration and the shared resolved-edge set are unchanged. cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Surfaced from src/read.rs:28: the `satisfies`/rationale walk covers skill⊕rule only; edges already cover custom kinds (READ-EDGE-UNIFY). No temper spec member fills a requirement yet (bare headers), but a consumer whose custom-kind member satisfies a requirement hits it now — the silent under-report the read verbs exist to prevent. Sole `open` entry; disjoint from deferred AGENT-KIND / parked PACKAGING-CHANNELS."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
