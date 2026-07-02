@@ -1,5 +1,41 @@
 [
   {
+    "tag": "EXTRACTION-VOCAB-GAPS",
+    "summary": "Extend the extraction algebra with the two primitives 15-kinds.md lists but code lacks — a `fenced` block extractor and key-path (nested) `field` lookup — held until a consumer kind needs them",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "The extraction algebra — the soundness boundary, as data"
+    },
+    "gate": {
+      "kind": "deferred",
+      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule/spec) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — a JSON-manifest kind's nested key-path field, or a spec class kind's fenced-block extraction."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement); (2) make `Primitive::Field` honor the key-path its own doc-comment (kind.rs:225) promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:262) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set. This entry owns both edits so they don't collide in parallel worktrees."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "The extractor helpers behind the two primitives: a `body_fenced_blocks`-style reader over the markdown body (mirroring `body_headings`/`body_sections`), and key-path traversal for the field extractor (walk nested TOML/JSON tables to the leaf before `json_to_feature`, kind-preserving per the `type` lattice, `specs/10-contracts.md`)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/extract_equivalence.rs",
+        "asserts": "a `fenced` primitive yields the fenced block's content and skips prose; a key-path `field` reads a nested value and is absent (not errored) when the path doesn't resolve; both preserve the source scalar kind."
+      }
+    ],
+    "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
+    "notes": "Disk audit this tick found both. `Primitive::Field` (src/kind.rs:262) does a flat `frontmatter.get(key)` despite its doc-comment (kind.rs:225) saying 'key-path'; a `fenced` block is in 15-kinds.md's markdown-structure list but absent from `Primitive`. Neither breaks anything today (no kind uses them). Kept as ONE entry — both touch src/kind.rs+src/extract.rs, so two parallel opens would conflict. On revival, serialize the shared-file edits against any open entry."
+  },
+  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document, read through the generic loader and checked by the embedded `agent.anthropic` package",
     "per": {

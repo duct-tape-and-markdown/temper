@@ -217,10 +217,16 @@ path strings remain in comments).
   graph consumes `EdgeClause`s directly; (c) the structured `routes_to` field is the
   authored form and `[edge.*]` is retired. Impedance: `[edge.*]` is keyed by
   target+relation (member-side), a relationship by field+from/to kinds (kind-side), so
-  resolving a target's kind needs both. READ-EDGE-UNIFY fixes only the read↔gate
-  divergence (inbox-directed: read consumes the gate's set); THIS fork is the deeper
-  "one edge set" question — which representation is canonical and how a surface-authored
-  edge reaches the gate's graph. No dependent filed; human to settle the canonical form.
+  resolving a target's kind needs both. READ-EDGE-UNIFY **has shipped** — it fixed the
+  read↔gate divergence (read now consumes the gate's `resolved_edges` set, never the
+  `[edge.*]` clauses). Verified on disk this tick, the residual is a precise
+  **surface↔engine** divergence: `[edge.<target>]`/`EdgeClause` is still parsed, stored,
+  and round-tripped (`document.rs`, `skill.rs`/`rule.rs`) but feeds **no** graph edge —
+  the graph reads only the `routes_to` frontmatter field named by
+  `[[kind.<name>.relationships]]`. So `[edge.*]` is **dead surface syntax**, closest to
+  option (c) but with the clause orphaned, not retired. THIS fork is the deeper "one edge
+  set" question — which representation is canonical and how a surface-authored edge reaches
+  the gate's graph. No dependent filed; human to settle the canonical form.
 
 - `(launch-front-door-docs)` — RESOLVED. **AGENTS.md is a separate,
   build-authorable contributor doc; `CLAUDE.md` stays canonical and untouched.**
