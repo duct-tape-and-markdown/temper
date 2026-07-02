@@ -52,6 +52,12 @@ wins.
    Scope `files` to the truthful **blast radius** — include existing tests/snapshots
    a change will break — so build reaches green inside the planned scope instead
    of discovering the ripple mid-tick.
+   Every path in `files` — `new[].path`, `edit[].path`, and `retire` (bare
+   strings) — is a **repo-relative file path**; the fence gate glob-matches all
+   three against build's writable paths. `retire` means "this FILE is deleted."
+   Retiring a symbol *within* a surviving file (a function, an enum variant) is
+   an `edit` to that file, described in its `description` — never a `retire`
+   entry.
    **Disjoint, or serialized — never both `open` over a shared file.** Build fans
    out every pickable entry *in parallel worktrees* and merges the wave together;
    if two `open` entries edit the **same file** (even different regions — touching

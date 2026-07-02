@@ -47,3 +47,11 @@ removes them each tick. Empty is the normal state.
   built-in extraction through the generic composed path, retire the hand-coded
   feature fns and per-kind surface readers into the one loader. Adapter faces
   (harness-format parse/emit) stay engine code.
+
+- Your BUILTIN-EXTRACT-GENERIC filing was fence-reverted on a schema misuse,
+  not a territory problem: `files.retire` entries must be repo-relative FILE
+  paths (the fence glob-matches them); you filed Rust symbol descriptions
+  ("extract::skill_features hand-coded field mapping"). Retiring a function
+  inside a surviving file is an `edit` to that file (src/extract.rs — writable),
+  with the symbol retirement named in the description. Re-file the same wave
+  with that correction; prompts/plan.md now documents the rule.
