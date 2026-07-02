@@ -227,6 +227,15 @@ path strings remain in comments).
   option (c) but with the clause orphaned, not retired. THIS fork is the deeper "one edge
   set" question — which representation is canonical and how a surface-authored edge reaches
   the gate's graph. No dependent filed; human to settle the canonical form.
+  DATUM (2026-07-02): `specs/45-governance.md` gained the Decision "coupling
+  is a join — a one-way edge never obligates its target" (`05-model.md` names
+  `join`). It sharpens this fork's frame: `requirement`/`satisfies` is the sole
+  two-sided join (mutual obligation); one-way declared edges (`routes_to` mirrored
+  harness mechanics, `supersedes`/citation annotations) survive as
+  **resolution-checked but obligation-free**. So whichever representation wins,
+  `[edge.*]`/`routes_to` is the one-way class — resolved, never obligating — and
+  the join machinery already ships (coverage/roster). Doctrine only; no engine
+  work beyond what the classed-corpus entries already cover.
 
 - `(launch-front-door-docs)` — RESOLVED. **AGENTS.md is a separate,
   build-authorable contributor doc; `CLAUDE.md` stays canonical and untouched.**

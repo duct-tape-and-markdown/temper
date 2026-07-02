@@ -6,10 +6,7 @@
       "path": "specs/15-kinds.md",
       "section": "Decision: the adapter faces are declared — a kind names its projection format"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "the adapter is declaration-driven and BOTH build prerequisites have now shipped: FORMAT-KEY-PARSE (56732ee) — CustomKind carries typed `format`/`unit_shape` fields, closed-vocab guarded, inert (kind.rs:78-111, parse_format/parse_unit_shape, allowed-key set kind.rs:147-159) — and ADAPTER-EQUIVALENCE-PIN (4765d5b), the byte baseline. The remaining gate is a human chore: kinds/skill/KIND.md and kinds/rule/KIND.md must declare `format=\"yaml-frontmatter\"` plus a unit shape (directory+companions for skill, flat file for rule); kinds/ is fence-excluded curated std-lib territory (.flume/chain.ts), so build cannot author it. Verified on disk this tick — neither KIND.md carries the lines yet. Un-parks the tick after those two curated lines land."
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [
@@ -65,7 +62,7 @@
       }
     ],
     "acceptance": "src/skill.rs and src/rule.rs are deleted; one generic frontmatter adapter reads each kind's declared format + unit shape and drives import/apply/re-add/drift for skill and rule identically; ADAPTER-EQUIVALENCE-PIN's snapshots are unchanged; the built-in/custom split is purely source; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Gated now on ONE human step: add `format=\"yaml-frontmatter\"` + a unit shape to kinds/{skill,rule}/KIND.md (directory for skill, flat file for rule; build's fence excludes kinds/). Both build prerequisites shipped: FORMAT-KEY-PARSE (56732ee) parses the inert fields, ADAPTER-EQUIVALENCE-PIN (4765d5b) pins the byte baseline. Then it un-parks. Atomic: add adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit."
+    "notes": "Un-parked 2026-07-02: both curated KIND.md lines landed (kinds/skill format=yaml-frontmatter+unit_shape=directory, kinds/rule +unit_shape=file; verified on disk) and both build prereqs shipped (FORMAT-KEY-PARSE 56732ee parses the inert fields, ADAPTER-EQUIVALENCE-PIN 4765d5b pins the baseline). Atomic: add src/frontmatter.rs, rewire import/drift/check/bundle/main off the typed IRs, delete skill.rs+rule.rs in one green commit. Sole open entry — no parallel-worktree conflict."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
