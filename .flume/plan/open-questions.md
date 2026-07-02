@@ -168,7 +168,9 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   requires, authorized by `15-kinds.md`'s worked example and now carried.
   decisions-name-alternatives becomes fileable build work once the spec kind's
   package exists (downstream of the surface-language/package-model machinery).
-  Kept as the decision record.
+  FILED as SECTION-CONTAINS-PREDICATE now that `.temper/packages/spec/PACKAGE.md`
+  exists (its own note flags the predicate as "not yet in the engine"). Kept as
+  the decision record.
 
 - `(read-verbs)` — RESOLVED (`specs/20-surface.md` Decision: "the CLI gains a read
   family — `why` and `requirements`"). Two **read-only traversal verbs** over data
@@ -178,7 +180,8 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   blast radius of a removal). Projections, never gates — no new engine semantics, no
   non-zero exit on findings. Rejected: `check` flags as a query surface; a general
   `query` verb. Fileable as build work **after** the surface-language migration,
-  once coverage + graph data exist to read. Kept as the decision record.
+  once coverage + graph data exist to read. FILED as READ-VERBS this tick — the
+  migration + coverage/graph data have landed. Kept as the decision record.
 
 - `(launch-front-door-docs)` — RESOLVED. **AGENTS.md is a separate,
   build-authorable contributor doc; `CLAUDE.md` stays canonical and untouched.**
