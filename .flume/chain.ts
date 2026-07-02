@@ -203,10 +203,17 @@ const entryFenceGate: Gate = {
     for (const entry of result.entries) {
       const gate = (entry as { gate?: { kind?: string } }).gate?.kind;
       if (gate !== "open" && gate !== "blockedBy") continue; // parked/deferred entries may be re-scoped before they open
-      const files = (entry as { files?: { new?: { path: string }[]; edit?: { path: string }[] } }).files;
-      for (const f of [...(files?.new ?? []), ...(files?.edit ?? [])]) {
-        if (!fence.some((re) => re.test(f.path))) {
-          offending.push(`  [${(entry as { tag: string }).tag}] ${f.path}`);
+      const files = (entry as {
+        files?: { new?: { path: string }[]; edit?: { path: string }[]; retire?: string[] };
+      }).files;
+      // `retire` entries are bare path strings; a deletion is a write too.
+      const paths = [
+        ...[...(files?.new ?? []), ...(files?.edit ?? [])].map((f) => f.path),
+        ...(files?.retire ?? []),
+      ];
+      for (const path of paths) {
+        if (!fence.some((re) => re.test(path))) {
+          offending.push(`  [${(entry as { tag: string }).tag}] ${path}`);
         }
       }
     }
