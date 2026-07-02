@@ -1,5 +1,7 @@
 +++
 governs = { root = ".claude/rules", glob = "*.md" }
+format = "yaml-frontmatter"
+unit_shape = "file"
 
 [[extraction]]
 primitive = "field"

@@ -1,5 +1,7 @@
 +++
 governs = { root = ".claude/skills", glob = "*/SKILL.md" }
+format = "yaml-frontmatter"
+unit_shape = "directory"
 
 [[extraction]]
 primitive = "field"
