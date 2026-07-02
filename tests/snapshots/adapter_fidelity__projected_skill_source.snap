@@ -1,0 +1,13 @@
+---
+source: tests/adapter_fidelity.rs
+expression: skill
+---
+---
+name: "coordinate"
+description: "Use when coordinating agents across axes."
+version: "0.3.0"
+team: ["platform","infra"]
+---
+# Coordinate
+
+Drive the team through the playbook.

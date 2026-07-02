@@ -1,0 +1,11 @@
+---
+source: tests/adapter_fidelity.rs
+expression: rule
+---
+---
+paths: ["src/**/*.rs"]
+description: "A Cursor key Claude Code ignores."
+---
+# Rust conventions
+
+Prefer a clone over a lifetime fight.
