@@ -1,5 +1,171 @@
 [
   {
+    "tag": "COVERAGE-CUSTOM-KIND",
+    "summary": "Custom-kind units join coverage — read authored `satisfies` from the member document instead of the hardcoded empty vec",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Coverage — the one referential check"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Populate `Features.satisfies` for a custom-kind unit from the parsed member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:737-740 names it a later follow-on). This is NOT a new extraction primitive — the `satisfies` binding is already parsed from the surface header (as for skill/rule via extract); thread it into the composed Unit's Features. Coverage stays kind-blind by design (specs/15-kinds.md worked example — temper's own `spec` corpus can opt into requirements)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:624-629, today skill ⊕ rule only). GRAPH-CUSTOM-KIND (8f057c7) already computes the `custom_kinds` features up front and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "A custom-kind unit declaring `satisfies` covers a requirement, exactly as a skill/rule does."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "a custom-kind unit's authored `satisfies` participates in coverage (kind-blind)."
+      }
+    ],
+    "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Revived to open: GRAPH-CUSTOM-KIND (8f057c7) shipped, so custom features already join `by_kind`/`edges` — the remaining work is threading `satisfies` (kind.rs:740 still `Vec::new()`) and chaining custom features into `all_features` (main.rs:624, skill⊕rule only). Buildable against fixtures; no in-repo `.temper` needed. Disjoint from the contract.rs source-key entry."
+  },
+  {
+    "tag": "PACKAGE-CLAUSE-SOURCE",
+    "summary": "Parse and preserve a per-clause `source` citation key (URL + retrieved date) on the PACKAGE.md loader, beside `guidance`",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: a built-in package is named for its source, and cited to it"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Add an optional `source` field to the `Clause` struct (contract.rs:81-96), parse it in `parse_clause` (658-668), and whitelist `\"source\"` in `reject_unknown_clause_keys` (682-691) so it is no longer an `UnknownKey` reject. It is preserved metadata (a citation), not a predicate — no admissibility gate on its content beyond being a recognized key; the spec's clause example carries it beside `guidance`."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "A clause carrying `source` loads and round-trips without tripping UnknownKey; a clause without it still loads unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "a `source` key on a clause parses and is preserved; absence stays valid; an unrelated stray key still rejects."
+      }
+    ],
+    "acceptance": "A PACKAGE.md clause may carry a `source` citation beside `guidance`; the loader parses and preserves it; genuinely unknown clause keys still reject; cargo fmt/clippy -D warnings/test green.",
+    "notes": "From inbox: specs/10-contracts.md ('named for its source, and cited to it') adds a per-clause `source`; the loader must parse/preserve it before the packages/ std-lib authoring session (packages/DOSSIER.md consumes it). On disk: contract.rs `Clause` has only severity/predicate/guidance and `reject_unknown_clause_keys` whitelists exactly those + arg keys, so `source` rejects today. contract.rs-only; disjoint from COVERAGE (kind.rs/main.rs)."
+  },
+  {
+    "tag": "OFFERING-LICENSE",
+    "summary": "Relicense to dual MIT OR Apache-2.0 — add LICENSE-MIT + LICENSE-APACHE and set the Cargo.toml `license` field, before external contributors",
+    "per": {
+      "path": "specs/55-offering.md",
+      "section": "Decision: the license is MIT OR Apache-2.0, dual, before launch"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        { "path": "LICENSE-MIT", "description": "The standard MIT license text." },
+        { "path": "LICENSE-APACHE", "description": "The standard Apache-2.0 license text (the patent grant the dual choice buys)." }
+      ],
+      "edit": [
+        {
+          "path": "Cargo.toml",
+          "description": "Set `license = \"MIT OR Apache-2.0\"` (the SPDX expression the dual grant requires; the API-guidelines / uv / Biome choice). The Cargo.toml `license` field follows the LICENSE change, per the Decision."
+        }
+      ],
+      "retire": ["LICENSE (the bare-MIT root file the dual grant supersedes, if present)"]
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "The repo carries LICENSE-MIT + LICENSE-APACHE, the bare MIT LICENSE is retired, and Cargo.toml declares `license = \"MIT OR Apache-2.0\"`; cargo build/fmt/clippy green.",
+    "notes": "From the offering tranche (specs/55-offering.md). Do the relicense now — the Decision's whole point is 'while there are no external contributors' (clean git status confirms the window). SPDX `MIT OR Apache-2.0`. Disjoint from all other open entries: owns the Cargo.toml `license` field and the LICENSE-* files, touches no source and no README."
+  },
+  {
+    "tag": "OFFERING-COMMUNITY",
+    "summary": "Author the launch community docs — CONTRIBUTING.md (two-sided AI policy), SECURITY.md (evidence bar), and bug/feature issue forms",
+    "per": {
+      "path": "specs/55-offering.md",
+      "section": "The community surface — small, honest, gated"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "CONTRIBUTING.md",
+          "description": "Small and honest: file-a-good-issue, search-first, PRs-by-prior-discussion, and the two-sided AI-authorship policy (outbound — this codebase is agent-built under human specs, stated as fact; inbound — AI-assisted contributions welcome WITH disclosure, contributor must defend the change without the assistant), per the AI-authorship Decision."
+        },
+        {
+          "path": "SECURITY.md",
+          "description": "Private vulnerability reporting plus an explicit evidence bar — a report must demonstrate, not speculate (the unverified-AI-report spam lesson)."
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/bug.yml",
+          "description": "A bug issue form: version, OS, repro."
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/feature.yml",
+          "description": "A feature-request issue form."
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/config.yml",
+          "description": "Optional, if trivial: disable blank issues so reports route through the forms."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "CONTRIBUTING.md, SECURITY.md, and one bug + one feature issue form exist per the community-surface + AI-authorship Decisions; no code surface changes; cargo green.",
+    "notes": "From the offering tranche (specs/55-offering.md). Scope to the launch set ONLY — deliberately NOT GitHub Discussions, a code of conduct, or good-first-issue bait (the Decision defers/rejects them). Enabling private vuln reporting is a GitHub repo setting (human), not a file; SECURITY.md carries the policy + evidence bar. Docs-only; disjoint from LICENSE/README/code entries."
+  },
+  {
+    "tag": "OFFERING-README",
+    "summary": "Rewrite the README to the ~800-word front-door contract with a regenerable `check` diagnostic as the one hero visual",
+    "per": {
+      "path": "specs/55-offering.md",
+      "section": "The front door — the README is the landing page"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "scripts/gen-demo (capture pipeline) + the committed demo asset",
+          "description": "A scripted terminal-capture pipeline that renders a real `miette` `check` diagnostic and its committed output asset, regenerable from the shipped binary — never a hand-curated screenshot that drifts, per the hero-visual Decision (the demo is a projection of real output)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "README.md",
+          "description": "Rewrite to the genre-standard short landing page: tagline (category + differentiator — the type checker for the harness, 'makes it good' vs rulesync's 'makes it portable'), badge row, one hero visual (the diagnostic), a highlights list, and a run-before-install `check --harness` quickstart that produces real findings on the reader's own `.claude/`, plus an honest pre-1.0 status line. Everything else links out."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "README.md is the ~800-word front door with the diagnostic hero visual produced by the captioned command; the demo asset is committed and regenerable; cargo green.",
+    "notes": "From the offering tranche (specs/55-offering.md). Two Decisions govern: the front-door shape and 'the hero visual is the diagnostic, not a benchmark' — the demo asset must be a committed, regenerable projection of real `check` output (scripted capture), not a drift-prone screenshot. Heavier than the other doc entries because of the capture pipeline. README.md + scripts/ only; disjoint from the rest."
+  },
+  {
     "tag": "EMBED-BUILTIN-PACKAGES",
     "summary": "Embed the built-in std-lib from temper's own `packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park that validates the reconciled machinery",
     "per": {
@@ -8,7 +174,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "the authored sources must exist first: a human authors the built-in `packages/{skill.anthropic,rule.anthropic}/PACKAGE.md` in temper's product tree (product source, not the dogfood workspace — b0cf244) — the resolved (package-surface-sequencing) order, machinery first / dogfood as validation; last in the chain, needs the surface-language chain (MEMBER-DOCUMENT-IMPORT…KIND-AUTHORED-ARTIFACT) shipped, which it now is"
+      "reason": "the authored sources must exist first: a human authors the built-in `packages/{skill.anthropic,rule.anthropic}/PACKAGE.md` in temper's product tree (product source, not the dogfood workspace — b0cf244) — the resolved (package-surface-sequencing) order, machinery first / dogfood as validation; last in the chain, needs the surface-language chain (MEMBER-DOCUMENT-IMPORT…KIND-AUTHORED-ARTIFACT + GRAPH-CUSTOM-KIND) shipped, which it now is"
     },
     "dependsOnForks": [],
     "files": {
@@ -50,47 +216,7 @@
       }
     ],
     "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The dogfood finish of the chain. Confirmed on disk: contracts/skill.anthropic.toml + contracts/rule.toml still exist, main.rs:59/65 and bundle.rs:122/126 still include_str! them, no packages/ product tree authored yet. Blocked on human authoring; the embedded contracts floor persists until then by design."
-  },
-  {
-    "tag": "COVERAGE-CUSTOM-KIND",
-    "summary": "Custom-kind units join coverage — read authored `satisfies` from the member document instead of hardcoding it empty",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Coverage — the one referential check"
-    },
-    "gate": {
-      "kind": "deferred",
-      "reason": "follow-on; no story yet demands custom-kind coverage participation, and it shares main.rs with GRAPH-CUSTOM-KIND (the custom features it chains into `all_features` are the ones GRAPH first joins to the corpus map) — deferred on priority, revive downstream of GRAPH-CUSTOM-KIND"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind unit from the member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:730-746; the comment at 737-740 names it a later follow-on) — coverage is kind-blind by design, so temper's own `spec` corpus can opt into requirements. Likely a deliberate extraction-algebra addition (`specs/15-kinds.md`)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Chain the registered custom kinds' features into `all_features` (main.rs:585-590, today skill ⊕ rule only) so their authored `satisfies` reaches `coverage::check`. Downstream of GRAPH-CUSTOM-KIND, which computes those features up front and joins them to `by_kind`."
-        },
-        {
-          "path": "tests/coverage.rs",
-          "description": "A custom-kind unit declaring `satisfies` covers a requirement, exactly as a skill/rule does."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage.rs",
-        "asserts": "a custom-kind unit's authored `satisfies` participates in coverage (kind-blind)."
-      }
-    ],
-    "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
-    "notes": "kind.rs:740 hardcodes `satisfies=Vec::new()` in `Kind::extract` (confirmed on disk). Under the surface-language model the read is from the member document's `[satisfies.*]` header modules (no meta.toml projection). Also needs custom features in `all_features` (main.rs:585) — downstream of GRAPH-CUSTOM-KIND. Re-scope on revival against the then-current chain state."
+    "notes": "The dogfood finish of the chain. On disk: contracts/skill.anthropic.toml + contracts/rule.toml still exist, main.rs:59/65 + bundle.rs still include_str! them, only packages/DOSSIER.md authored (no PACKAGE.md product tree). Blocked on human authoring; the embedded contracts floor persists until then by design. PACKAGE-CLAUSE-SOURCE (source-key parse) is now filed as a loader prereq for that authoring session."
   },
   {
     "tag": "AGENT-KIND",
@@ -101,7 +227,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the surface-language chain it waited on (through KIND-AUTHORED-ARTIFACT, which reshaped how a kind's members and package land) has now shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
+      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the surface-language chain it waited on (through KIND-AUTHORED-ARTIFACT + GRAPH-CUSTOM-KIND) has now shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
@@ -151,7 +277,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry — notably COVERAGE-CUSTOM-KIND, which also edits main.rs."
   },
   {
     "tag": "PACKAGING-CHANNELS",

@@ -1,26 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile. The serialized surface-language chain is **complete** —
-  both MEMBER-DOCUMENT-IMPORT (5aff1aa) and KIND-AUTHORED-ARTIFACT (0a510ce)
-  shipped. Verified on disk: a custom kind loads from `.temper/kinds/<name>/KIND.md`
-  and binds a package by name (`compose`/`kind`/`main`), members are one surface
-  document. KIND-AUTHORED-ARTIFACT left one deliberate narrowing — custom-kind
-  KIND.md relationships parse onto `CustomKind` but never reach the graph, and
-  `by_kind` (main.rs:502) carries only skill+rule. Filed as **GRAPH-CUSTOM-KIND**
-  (open), the machinery the resolved `(reference-id-normalization)` named "now
-  fileable."
-- **Last shipped:** KIND-AUTHORED-ARTIFACT — a custom kind is an authored
-  `.temper/` artifact, registered in the assembly (0a510ce / 90c9dd1).
+- **Phase:** reconcile. The surface-language machinery chain is **complete and
+  self-joining** — GRAPH-CUSTOM-KIND (8f057c7) shipped, so a custom kind's features
+  and `[[relationships]]` now reach `by_kind`/`edges` and the corpus graph (verified
+  on disk: main.rs:530-545). Only follow-on machinery remains.
+- **Last shipped:** GRAPH-CUSTOM-KIND — custom-kind members joined to the corpus
+  reference graph (8f057c7 / 2c75c81).
 - **In flight:** none.
-- **Pickable now (1):** GRAPH-CUSTOM-KIND (open, main.rs-only, buildable against
-  fixtures — no in-repo `temper.toml`/`.temper` yet). Everything else is parked
-  (EMBED-BUILTIN-PACKAGES — human authors `packages/` std-lib; PACKAGING-CHANNELS —
-  human release creds) or deferred on priority (COVERAGE-CUSTOM-KIND downstream of
-  GRAPH-CUSTOM-KIND; AGENT-KIND).
-- **Inbox:** empty. **Forks:** `(reference-id-normalization)` resolved (grounds
-  GRAPH-CUSTOM-KIND); only the human-only OPEN strategics and provisional
-  `project-name` remain — none gate the pickable head.
+- **Pickable now (5, all disjoint / parallel-safe):** COVERAGE-CUSTOM-KIND
+  (kind.rs+main.rs — revived, GRAPH unblocked it), PACKAGE-CLAUSE-SOURCE
+  (contract.rs — inbox), OFFERING-LICENSE (Cargo.toml+LICENSE-*), OFFERING-COMMUNITY
+  (new docs), OFFERING-README (README.md+scripts/). Parked: EMBED-BUILTIN-PACKAGES
+  (human authors packages/), PACKAGING-CHANNELS (human release creds). Deferred:
+  AGENT-KIND (priority; shares main.rs with COVERAGE on revival).
+- **Inbox:** drained (source-key → PACKAGE-CLAUSE-SOURCE; offering tranche →
+  OFFERING-{LICENSE,COMMUNITY,README}). **Forks:** none new; only the human-only
+  OPEN strategics remain, none gate a pickable head.
 
-Plan continues: no — the queue is reconciled to the corpus, one open entry
-(GRAPH-CUSTOM-KIND) is pickable, the inbox is empty, and the fork frontier is
-clear. Building drains it from here.
+Plan continues: no — the queue is reconciled to the corpus, five disjoint `open`
+entries are pickable, the inbox is drained, and the fork frontier is clear.
+Building drains it from here.
