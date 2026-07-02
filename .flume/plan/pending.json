@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "the adapter is declaration-driven, but it needs the declared `format`/unit-shape fields parsed onto CustomKind first (FORMAT-KEY-PARSE, filed above), and kinds/skill+rule/KIND.md must then carry the format+unit lines — a human chore, since build's fence excludes kinds/ (curated std-lib territory, .flume/chain.ts). Un-parks once FORMAT-KEY-PARSE ships and the two curated KIND.md lines are added. Its ADAPTER-EQUIVALENCE-PIN prerequisite shipped (4765d5b)."
+      "reason": "the adapter is declaration-driven and BOTH build prerequisites have now shipped: FORMAT-KEY-PARSE (56732ee) — CustomKind carries typed `format`/`unit_shape` fields, closed-vocab guarded, inert (kind.rs:78-111, parse_format/parse_unit_shape, allowed-key set kind.rs:147-159) — and ADAPTER-EQUIVALENCE-PIN (4765d5b), the byte baseline. The remaining gate is a human chore: kinds/skill/KIND.md and kinds/rule/KIND.md must declare `format=\"yaml-frontmatter\"` plus a unit shape (directory+companions for skill, flat file for rule); kinds/ is fence-excluded curated std-lib territory (.flume/chain.ts), so build cannot author it. Verified on disk this tick — neither KIND.md carries the lines yet. Un-parks the tick after those two curated lines land."
     },
     "dependsOnForks": [],
     "files": {
@@ -21,7 +21,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Consume the declared projection facts FORMAT-KEY-PARSE parsed onto `CustomKind` (the `format` + unit-shape `Option` fields): drive the generic adapter's unit split and byte-render off them. FORMAT-KEY-PARSE owns the struct fields, the header parse, and the closed allowed-key guard (kind.rs:110-118); this entry only reads them (add accessor helpers if needed), never re-parses or re-guards."
+          "description": "Consume the declared projection facts FORMAT-KEY-PARSE parsed onto `CustomKind` (the `format` + `unit_shape` `Option` fields, kind.rs:78-111): drive the generic adapter's unit split and byte-render off them. FORMAT-KEY-PARSE owns the struct fields, the header parse, and the closed allowed-key guard (kind.rs:147-159); this entry only reads them (add accessor helpers if needed), never re-parses or re-guards."
         },
         {
           "path": "src/lib.rs",
@@ -65,7 +65,7 @@
       }
     ],
     "acceptance": "src/skill.rs and src/rule.rs are deleted; one generic frontmatter adapter reads each kind's declared format + unit shape and drives import/apply/re-add/drift for skill and rule identically; ADAPTER-EQUIVALENCE-PIN's snapshots are unchanged; the built-in/custom split is purely source; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Now gated on TWO steps: (1) FORMAT-KEY-PARSE ships the inert format/unit-shape parse (else curated KIND.md lines redden main); (2) humans add `format=\"yaml-frontmatter\"` + a unit shape to kinds/{skill,rule}/KIND.md (directory+companions for skill, flat file for rule; build's fence excludes kinds/). Then it un-parks. ADAPTER-EQUIVALENCE-PIN shipped. Atomic: add adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit."
+    "notes": "Gated now on ONE human step: add `format=\"yaml-frontmatter\"` + a unit shape to kinds/{skill,rule}/KIND.md (directory for skill, flat file for rule; build's fence excludes kinds/). Both build prerequisites shipped: FORMAT-KEY-PARSE (56732ee) parses the inert fields, ADAPTER-EQUIVALENCE-PIN (4765d5b) pins the byte baseline. Then it un-parks. Atomic: add adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
@@ -84,7 +84,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:220-241); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:263) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set. This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:322-344); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:366) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:895). This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
@@ -101,7 +101,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk audit re-confirmed both gaps this tick: `Primitive` = field/headings/sections/line_count/placement (kind.rs:220-241); `Field` reads flat `frontmatter.get(key)` (kind.rs:263), no key-path. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+src/extract.rs. On revival, serialize the shared-file edits against any open entry (esp. FORMAT-KEY-PARSE / DECLARED-FRONTMATTER-ADAPTER, which also edit src/kind.rs)."
+    "notes": "Disk audit re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (kind.rs:322-344); `Field` reads flat `frontmatter.get(key)` (kind.rs:366), no key-path. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. On revival, serialize the shared-file edits against any open kind.rs entry (esp. DECLARED-FRONTMATTER-ADAPTER, which also edits src/kind.rs)."
   },
   {
     "tag": "AGENT-KIND",
