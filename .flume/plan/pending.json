@@ -1,48 +1,5 @@
 [
   {
-    "tag": "BUILTIN-EXTRACT-GENERIC",
-    "summary": "Drive built-in skill/rule extraction through the embedded KIND definitions and the generic composed path; retire the hand-coded `skill_features`/`rule_features`",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "The extraction algebra — the soundness boundary, as data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "Add the adapter read face: turn a `Skill`/`Rule` IR into a `crate::kind::Unit` (frontmatter from the typed fields + `extra`, the byte-faithful body, provenance, `satisfies`, `published_requirements`) and run the embedded kind's `Extraction::extract` (via `builtin_kind::definition(\"skill\"|\"rule\")`) to yield `extract::Features`. This IR→Unit conversion is the engine-code adapter the source-not-mechanism direction leaves sanctioned; the per-field feature mapping moves into the composed `kinds/*/KIND.md` extraction."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Retire `skill_features` and `rule_features` (the hand-coded per-field mappings, lines 238/296) and their `#[cfg(test)]` unit tests — symbol retirement as an EDIT, never a `retire` path. Keep the shared `pub(crate)` surface extractors (`body_line_count`/`body_headings`/`body_sections`/`source_dir_name`/`json_to_feature`) the composed path already reuses; the `Features`/`FeatureValue`/`Kind`/`Section` types stay."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Repoint the built-in feature call sites — `run_check` (~541–545) and the `Why` command (~405–408) — from `extract::skill_features`/`extract::rule_features` to the embedded skill/rule KIND extraction driver in `builtin_kind`. `assemble_by_kind` (~788), the `engine::validate` streams (564–565), and coverage/graph tiers are otherwise unchanged (they range over `Features`)."
-        },
-        {
-          "path": "tests/extract_equivalence.rs",
-          "description": "Repoint the three snapshot tests from `extract::skill_features`/`extract::rule_features` to the new embedded-extraction driver; the committed `.snap` files MUST remain byte-identical — the unchanged snapshot is the equivalence proof."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/extract_equivalence.rs",
-        "asserts": "the embedded-extraction driver produces `Features` byte-identical to the pinned `skill_features`/`rule_features` snapshots (the `.snap` files are unchanged)."
-      }
-    ],
-    "acceptance": "built-in skill/rule `check` features are computed by running the embedded `kinds/*/KIND.md` extraction over an IR-derived `Unit`; `skill_features`/`rule_features` are gone; the pinned equivalence snapshot is unchanged; cargo fmt/clippy -D warnings/test and the self-check gate all green.",
-    "notes": "Completes the extraction-unification wave (blocker EMBED-BUILTIN-KINDS shipped, e38cb59). `skill_features`/`rule_features` retire as an EDIT to src/extract.rs naming the symbols, never a `retire` path. Engine code stays only at adapter faces (Skill/Rule IR→Unit; parse/emit). Equivalence proven by the unchanged pin snapshot; sole open entry so nothing shares its files."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
