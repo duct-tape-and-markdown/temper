@@ -55,7 +55,13 @@ continuing. No shell wrapper, no external deps, no escaping — the binary owns 
 output contract (a `claude-session-start` reporter; see Reporters below), capped to
 Claude Code's 10k `additionalContext` limit. (This is `check --harness <path>` — the one-shot
 import-internally mode the CLI surface names, `20-surface.md` — not the two-step
-import-then-check of the author workflow.) It does not block.
+import-then-check of the author workflow.) **On a project that carries an
+authored surface** (an assembly + `.temper/` exist), the hook checks the
+*surface* — the two-step path — never a fresh import: a fresh import discards
+recognition (the authored `satisfies` links), so every filled requirement would
+read unfilled — a false positive on clean input, the exact failure law 3
+forbids. The one-shot import is the fallback for a surfaceless harness. It does
+not block.
 **Rejected:** a hard block at session start (a `PreToolUse` hook denying the
 agent's first action). Two reasons: Claude Code's `SessionStart` *cannot* block (it
 only injects context and shows stderr), and — the deeper one — a hard block on a
