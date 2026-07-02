@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "how a graph-scope reachability fact carries author-declared severity is unsettled (fork reachability-gate-mechanism — acyclic is always-on, degree assembly-declared, the spec says 'the package's clause choice'); and the rule kind's `paths-match` activation line is still human-authored (curated kinds/rule/KIND.md, outside build's fence — the human adds it only after PATHS-MATCH-ABSENCE fixes the absent-field false-positive). skill/KIND.md already declares its description-trigger activation, so that half is live"
+      "reason": "how a graph-scope reachability fact carries author-declared severity is unsettled (fork reachability-gate-mechanism — acyclic is always-on, degree assembly-declared, the spec says 'the package's clause choice'); and the rule kind's `paths-match` activation line is still human-authored (curated kinds/rule/KIND.md, outside build's fence — verified absent on disk). PATHS-MATCH-ABSENCE has shipped, so the absent-field false-positive is fixed; skill/KIND.md already declares its description-trigger activation, so that half is live"
     },
     "dependsOnForks": [
       "reachability-gate-mechanism"
@@ -36,7 +36,7 @@
       }
     ],
     "acceptance": "`temper check` runs the `reachable` predicate over members of kinds that declare an activation and flags a dead world→member edge; cargo fmt/clippy -D warnings/test all green. (Parked: not built until reachability-gate-mechanism resolves the severity-declaration home, PATHS-MATCH-ABSENCE ships, and the curated rule `paths-match` activation line is human-authored.)",
-    "notes": "reachable/world()/dead_activation live in src/graph.rs, library-proven (tests/graph.rs:460); no main.rs caller yet. kinds/skill/KIND.md now declares a description-trigger activation (chore 2259667); the rule kind's paths-match line is human-authored only after PATHS-MATCH-ABSENCE drains. Parked on (reachability-gate-mechanism): acyclic always-on, degree assembly-declared, spec says 'package's clause choice' — severity home unsettled. Sequenced after PATHS-MATCH-ABSENCE."
+    "notes": "reachable/world/dead_activation live in src/graph.rs (line 342), library-proven (tests/graph.rs:460); no main.rs caller (654-666 = admissibility/check/acyclic/degree only). kinds/skill/KIND.md declares description-trigger activation; kinds/rule/KIND.md has none (verified absent) — human-authored. PATHS-MATCH-ABSENCE shipped: dead_activation reads absent/blank paths as live. Parked on fork reachability-gate-mechanism (severity home unsettled)."
   },
   {
     "tag": "MEMORY-KIND",

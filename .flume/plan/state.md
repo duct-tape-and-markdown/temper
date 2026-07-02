@@ -1,25 +1,26 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 2259667.
-- **Last shipped:** REACHABILITY (build 50c5a00). Since then, human `chore` commits
-  only: 2259667 added the `paths-match` absence fact to `specs/15-kinds.md` and the
-  skill kind's `activation = { via = "description-trigger", field = "description" }`
-  line to `kinds/skill/KIND.md` (verified on disk). No `build:` tick since.
-- **This tick:** drained the inbox's post-REACHABILITY soundness note into new
-  **PATHS-MATCH-ABSENCE** (`open`) — `dead_activation` (graph.rs:375) reads an absent
-  `paths` field as a dead edge, but the cited fact says absence ⇒ unconditional
-  loading, so a wired pass would false-positive every unscoped rule (law 3); the fix
-  is one branch (mark dead only when globs are present) + a fixture. Updated
-  **REACHABILITY-WIRE**'s stale "kinds declare no activation" facts (skill now does;
-  rule's line waits on this fix) and sequenced it after PATHS-MATCH-ABSENCE. Carried
-  the four other entries unchanged (anchors re-confirmed: BUILTIN_KINDS kind.rs:30 =
-  ["skill","rule"]; builtin.rs SKILL/RULE_PACKAGE 32/37). Inbox now empty.
-- **In flight / pickable:** **PATHS-MATCH-ABSENCE** is `open` and pickable — a pure
-  src/graph.rs + tests/graph.rs soundness fix, disjoint from every other entry.
-- **Next:** build ships PATHS-MATCH-ABSENCE. Its landing (plus a human resolving
-  `reachability-gate-mechanism` and authoring the rule `paths-match` activation line)
-  is what un-parks REACHABILITY-WIRE. The remaining five entries stay human-gated
-  (curated kinds/packages data, fence-widen, release creds, an unresolved fork).
+- **Phase:** reconcile. HEAD fca2429.
+- **Last shipped:** PATHS-MATCH-ABSENCE (build 4caea75, chore fca2429) — the last
+  pickable `open` entry. Verified on disk: `dead_activation` (src/graph.rs:366) now
+  reads an absent/blank `paths-match` field as unconditional loading (live), flagging
+  only a *present* glob set matching zero files — the law-3 soundness fix landed.
+- **This tick:** drained the shipped entry's forward-references. REACHABILITY-WIRE's
+  gate/notes no longer say "sequenced after PATHS-MATCH-ABSENCE" — that fix has shipped;
+  its remaining blockers are the OPEN fork (reachability-gate-mechanism, severity home)
+  and the human-authored rule `paths-match` activation line (verified absent in
+  kinds/rule/KIND.md). Re-confirmed all anchors: BUILTIN_KINDS kind.rs:30 =
+  ["skill","rule"]; SKILL/RULE_PACKAGE builtin.rs:32/37; Primitive = field/headings/
+  sections/line_count/placement (no Fenced); reachable graph.rs:342 has no main.rs
+  caller. Inbox empty; carried the other five entries unchanged.
+- **In flight / pickable:** none. All six entries are human-gated — REACHABILITY-WIRE
+  (fork + human rule line), MEMORY-KIND/AGENT-KIND (curated data outside build's fence),
+  EXTRACTION-VOCAB-GAPS (no consumer), PACKAGING-CHANNELS (release creds), COMMUNITY-DOCS
+  (fence-widen).
+- **Next:** the loop idles until a human acts — resolve reachability-gate-mechanism +
+  author the rule activation line (un-parks REACHABILITY-WIRE), author the curated
+  kinds/packages data, widen the fence, or set release creds. No build-pickable work.
 
-Plan continues: no — queue reconciled, inbox drained, PATHS-MATCH-ABSENCE is a
-pickable `open` entry; hand to build.
+Plan continues: no — queue reconciled, inbox empty, no pickable entry to spin on;
+the remaining work is all human-gated. Re-planning an unchanged queue would be the
+failure mode, not diligence.
