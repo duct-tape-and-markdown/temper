@@ -102,6 +102,30 @@ prerequisite: a member born on the surface projects identically, its drift
 baseline established by the lock at first `apply` rather than by an import
 hash.
 
+### Decision: the adapter faces are declared — a kind names its projection format
+
+**Chosen:** a kind's definition declares its **projection format** — a closed
+vocabulary naming how a member's on-disk artifact is shaped — plus the format
+facts that vary per kind: unit shape (a lone file, identity from the stem; a
+directory with companions, identity from the directory name). The first and
+only harvested entry is `yaml-frontmatter` (YAML frontmatter over a markdown
+body — the Claude Code family's shape). The engine implements each format
+**once, generically**: `import`/`re-add` split the artifact per the declaration
+and lift the kind's declared fields into `[clause.<field>]` tables; `apply`
+renders them back byte-deterministically; drift compares declared fields with
+no per-kind serializer. Built-in and custom kinds ride the same adapter — a
+custom kind declaring a format gets import/re-add/apply for free — and the
+per-kind adapter modules (`src/skill.rs`, `src/rule.rs`) retire into one
+generic frontmatter adapter: the built-in/custom split becomes purely *source*.
+The vocabulary is harvested from the kinds temper ships (it must be able to
+describe every one of them) and grows deliberately, never per-kind. The
+*rendering* vocabulary for born-on-surface kinds (a spec's projected standard
+block) remains deferred until the corpus migration supplies real requirements.
+**Rejected:** (a) per-kind adapter modules — the field list already lives in
+the kind definition; a typed IR restates it as code, and the two homes drift;
+(b) an author-supplied template language — codegen walking in through the emit
+face, the closed-algebra escape hatch refused everywhere else.
+
 ## Extending a built-in kind
 
 A built-in's **extraction is temper's** — it mirrors the real harness format;
