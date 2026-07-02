@@ -54,6 +54,16 @@ Each fact lives in the most specific spec that owns it; everywhere else
 referenced, never restated. Duplication invites drift — when one copy changes,
 the other lies.
 
+## External facts carry citations
+
+A spec claim about a format the outside world owns — Claude Code's layout, a
+frontmatter schema, a registry's behavior — is an **external fact**: it carries
+its source (URL, retrieved date) at the point of claim, and it is verified
+against current docs when written, never encoded from memory (the
+`collaboration` rule; the same bar `10-contracts.md` sets for built-in package
+clauses). An uncited external fact is a guess wearing the corpus's authority —
+derived layers implement it faithfully and ship the guess.
+
 ## Naming consistency — the one hard rule
 
 Name the same concept the same way in every file and in the code. One concept,

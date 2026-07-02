@@ -17,6 +17,21 @@ fill it silently.
   resting on one declares `dependsOnForks: ["slug"]` and waits — building onto an
   undecided foundation is worse than not building.
 
+## External facts are cited, never guessed
+
+- A claim about a real-world format or behavior — Claude Code's file layout, a
+  frontmatter schema, a registry's rules, an API's shape — is an **external
+  fact**, not background knowledge. It carries its source (doc URL, retrieved
+  date) at the point of claim: in the spec section, the pending entry, or the
+  comment that encodes it.
+- If you cannot cite it, **verify before encoding it** (fetch the current
+  docs), or mark it `UNVERIFIED` and surface the gap. An uncited guess wearing
+  spec authority is how the import-locus bug shipped: the spec said
+  `skills/*/SKILL.md`, reality says `.claude/skills/`, and nothing forced
+  anyone to look.
+- The product already holds this bar for its own std-lib (per-clause `source`,
+  `specs/10-contracts.md`). The project holds itself to the bar it ships.
+
 ## Investigation discipline
 
 - When asked to investigate, **investigate and report — modify nothing.**
