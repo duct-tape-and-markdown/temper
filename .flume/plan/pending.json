@@ -1,44 +1,5 @@
 [
   {
-    "tag": "IMPORT-DISCOVERY-GENERIC",
-    "summary": "Import discovers built-in kinds off their embedded KIND.md `governs` locus, retiring the hardwired `discover_skill_dirs`/`discover_rule_files` scans",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "A built-in kind is an adapter — two faces"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Drive built-in-kind discovery off the embedded `skill`/`rule` KIND.md `governs` (`builtin_kind::definition`) through one generic scanner, retiring the hardwired `discover_skill_dirs`/`discover_rule_files`. Generalize the `governs` scanner so a subdir glob (`*/SKILL.md`) and a flat glob (`*.md`) both resolve — today `discover_kind_units` globs immediate files only. Preserve the bare-harness-is-a-skill special case (a root `SKILL.md`) and keep the existing import tests green."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Update the drift `added`-axis rescan to call the unified `governs`-keyed discovery for built-in kinds too, replacing the retired `discover_skill_dirs`/`discover_rule_files` calls."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Update the two `import::discover_skill_dirs`/`discover_rule_files` call sites (schema-modeline placement) to the unified `governs`-keyed discovery."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "`.claude/skills/*/SKILL.md` (subdir glob) and `.claude/rules/*.md` (flat glob) both discover off the embedded KIND.md `governs`; the bare-root skill still imports; import stays idempotent (byte-identical re-run)."
-      }
-    ],
-    "acceptance": "`temper import` discovers `.claude/skills/*/SKILL.md` and `.claude/rules/*.md` by keying off the embedded built-in KIND.md `governs` through one scanner shared with custom kinds, the bare-root skill case still imports, and drift/install reuse the same discovery; idempotence snapshot holds; gates green.",
-    "notes": "Read-path unification tail, discovery half — last of the extraction/read/discovery wave. Embedded skill/rule KIND.md carry `governs` (`.claude/skills`+`*/SKILL.md`; `.claude/rules`+`*.md`), so discovery keys off the declaration like custom kinds. Wrinkle: `discover_kind_units` globs immediate files only, so the skill `*/SKILL.md` subdir glob needs the scanner generalized; drift's skill path also maps `dir.join(SKILL.md)`. Blocker SURFACE-READING-GENERIC shipped (7e7e5ee)."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document, read through the generic loader and checked by the embedded `agent.anthropic` package",
     "per": {
