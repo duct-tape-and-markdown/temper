@@ -185,6 +185,7 @@ const build: Phase = {
     "CHANGELOG.md",
     "LICENSE",
     "LICENSE.*",
+    "LICENSE-*",
     ".gitignore",
     ".editorconfig",
 

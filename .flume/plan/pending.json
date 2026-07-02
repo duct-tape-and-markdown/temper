@@ -1,45 +1,10 @@
 [
   {
-    "tag": "OFFERING-LICENSE",
-    "summary": "Relicense to dual MIT OR Apache-2.0 — add LICENSE-MIT + LICENSE-APACHE and set the Cargo.toml `license` field, before external contributors",
-    "per": {
-      "path": "specs/55-offering.md",
-      "section": "Decision: the license is MIT OR Apache-2.0, dual, before launch"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "LICENSE-MIT",
-          "description": "The standard MIT license text."
-        },
-        {
-          "path": "LICENSE-APACHE",
-          "description": "The standard Apache-2.0 license text (the patent grant the dual choice buys)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "Cargo.toml",
-          "description": "Set `license = \"MIT OR Apache-2.0\"` (the SPDX expression the dual grant requires; the API-guidelines / uv / Biome choice), replacing the current `license = \"MIT\"` (Cargo.toml:6). The `license` field follows the LICENSE change, per the Decision."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "The repo carries LICENSE-MIT + LICENSE-APACHE and Cargo.toml declares `license = \"MIT OR Apache-2.0\"`; cargo build/fmt/clippy green.",
-    "notes": "Relicense now — the Decision's window is 'no external contributors' (clean trunk confirms). Verified on disk this tick: no bare LICENSE file; sole declaration is Cargo.toml `license = \"MIT\"` (line 6), flipped to SPDX — nothing to retire. Disjoint: owns Cargo.toml `license` + LICENSE-* files, touches no source/README."
-  },
-  {
     "tag": "AGENTS-MD",
-    "summary": "Author AGENTS.md at root — contributor-facing build/test/lint + architecture map, pointing to the AI-authorship policy; CLAUDE.md stays canonical and untouched",
+    "summary": "Author AGENTS.md at root \u2014 contributor-facing build/test/lint + architecture map, pointing to the AI-authorship policy; CLAUDE.md stays canonical and untouched",
     "per": {
       "path": "specs/55-offering.md",
-      "section": "The front door — the README is the landing page"
+      "section": "The front door \u2014 the README is the landing page"
     },
     "gate": {
       "kind": "open"
@@ -49,7 +14,7 @@
       "new": [
         {
           "path": "AGENTS.md",
-          "description": "The 2025-26 agent-readable contributor doc at repo root: build/test/lint commands (cargo build/test, clippy -D warnings, fmt), a short architecture map of `src/` (the contract engine, kinds, surface, drift), and a pointer to the AI-contribution policy in `.github/CONTRIBUTING.md` (verified on disk). Per the RESOLVED (launch-front-door-docs) fork it is a SEPARATE contributor doc — it does NOT touch `.claude/**` or `CLAUDE.md`, and CLAUDE.md is NOT gutted to source it (the ruff/uv 'CLAUDE.md = @AGENTS.md' move is rejected here; CLAUDE.md is the pipeline's operating harness, the recursive-dogfood fixture)."
+          "description": "The 2025-26 agent-readable contributor doc at repo root: build/test/lint commands (cargo build/test, clippy -D warnings, fmt), a short architecture map of `src/` (the contract engine, kinds, surface, drift), and a pointer to the AI-contribution policy in `.github/CONTRIBUTING.md` (verified on disk). Per the RESOLVED (launch-front-door-docs) fork it is a SEPARATE contributor doc \u2014 it does NOT touch `.claude/**` or `CLAUDE.md`, and CLAUDE.md is NOT gutted to source it (the ruff/uv 'CLAUDE.md = @AGENTS.md' move is rejected here; CLAUDE.md is the pipeline's operating harness, the recursive-dogfood fixture)."
         }
       ],
       "edit": [],
@@ -62,25 +27,25 @@
   },
   {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
+    "summary": "Add the `agent` built-in harness kind \u2014 `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the whole surface-language chain it waited on has shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
+      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the whole surface-language chain it waited on has shipped, so the blocker is priority alone \u2014 revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
+          "description": "The Agent IR \u2014 the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
         },
         {
           "path": "packages/agent/PACKAGE.md",
-          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
+          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model \u2014 NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
         },
         {
           "path": "tests/agent_contract.rs",
@@ -119,11 +84,11 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open main.rs entry (e.g. READ-VERBS)."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms \u2014 one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open main.rs entry (e.g. READ-VERBS)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
+    "summary": "Ship acquisition channels \u2014 npm optionalDependencies binary wrapper, Homebrew, cargo install \u2014 auto-detected, fail-loud on a missing platform binary",
     "per": {
       "path": "specs/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
@@ -151,6 +116,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest \u2014 reconcile or split, never blindly create a second. Parked until a human sets creds up."
   }
 ]
