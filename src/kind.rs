@@ -81,6 +81,12 @@ pub struct CustomKind {
     /// (`specs/15-kinds.md`). A closed enum; absent ⇒ `None`. Inert alongside
     /// [`format`](CustomKind::format).
     pub unit_shape: Option<UnitShape>,
+    /// The declared activation — the kind's inherent world-edges (`specs/15-kinds.md`,
+    /// "Activation — a kind's inherent world-edges"): how the harness reaches a member,
+    /// and over which declared field. A closed vocabulary; absent ⇒ `None` (today's
+    /// built-in KIND.md declare none). Stored inert — REACHABILITY reads it to decide a
+    /// member's declared activation edge is dead; nothing consumes it yet.
+    pub activation: Option<Activation>,
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
@@ -108,6 +114,41 @@ pub enum UnitShape {
     /// `directory` — a directory with companions; the member's id is the directory
     /// name (a skill's `.claude/skills/<name>/SKILL.md`).
     Directory,
+}
+
+/// A kind's declared **activation** — its inherent world-edges, the inbound
+/// boundary edges of the relation graph (`specs/15-kinds.md`, "Activation — a
+/// kind's inherent world-edges"): how the harness reaches a member, per-kind
+/// mechanics over per-member data. A closed vocabulary harvested from the kinds
+/// temper ships; any other value is a load error, the same closed-vocabulary guard
+/// [`Format`] and [`UnitShape`] carry. The three field-carrying variants name the
+/// declared frontmatter field they range over, never a value — the glob/description
+/// *values* stay the member's ordinary clauses. Inert until REACHABILITY reads it to
+/// decide a member's declared activation edge is dead.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Activation {
+    /// `always` — loaded at launch, unconditionally (a rule without `paths`;
+    /// `CLAUDE.md` itself). Carries no field: the edge is unconditional.
+    Always,
+    /// `description-trigger(field)` — the named field is always in context, the body
+    /// loading on invocation (a skill's `description`). The field names the declared
+    /// frontmatter field the trigger ranges over.
+    DescriptionTrigger {
+        /// The declared frontmatter field always kept in context.
+        field: String,
+    },
+    /// `paths-match(field)` — the member activates when the agent reads files matching
+    /// the named glob field (a path-scoped rule's `paths`).
+    PathsMatch {
+        /// The declared frontmatter field carrying the activation glob.
+        field: String,
+    },
+    /// `event(field)` — the member executes at a named lifecycle event (carried for the
+    /// future `hook` kind). The field names the declared lifecycle-event field.
+    Event {
+        /// The declared frontmatter field naming the lifecycle event.
+        field: String,
+    },
 }
 
 impl CustomKind {
@@ -139,16 +180,16 @@ impl CustomKind {
     /// Parse a custom kind's definition off a `KIND.md` header table — the
     /// [`governs`](CustomKind::governs) locus, the `[[extraction]]` extractor (via
     /// [`Extraction::from_table`]), the `[[relationships]]` edges, and the declared
-    /// adapter faces ([`format`](CustomKind::format), [`unit_shape`](CustomKind::unit_shape)).
-    /// The seam tests drive without touching disk. A header carries only `governs`,
-    /// `extraction`, `relationships`, `format`, and `unit_shape`; any stray key is a
-    /// [`KindError::UnknownKey`], rejected rather than silently dropped
-    /// (`specs/10-contracts.md`).
+    /// adapter faces ([`format`](CustomKind::format), [`unit_shape`](CustomKind::unit_shape),
+    /// [`activation`](CustomKind::activation)). The seam tests drive without touching disk.
+    /// A header carries only `governs`, `extraction`, `relationships`, `format`,
+    /// `unit_shape`, and `activation`; any stray key is a [`KindError::UnknownKey`],
+    /// rejected rather than silently dropped (`specs/10-contracts.md`).
     pub fn from_header(table: &Table, name: &str, path: &Path) -> Result<Self, KindError> {
         for (key, _) in table.iter() {
             if !matches!(
                 key,
-                "governs" | "extraction" | "relationships" | "format" | "unit_shape"
+                "governs" | "extraction" | "relationships" | "format" | "unit_shape" | "activation"
             ) {
                 return Err(KindError::UnknownKey {
                     path: path.to_path_buf(),
@@ -162,6 +203,7 @@ impl CustomKind {
         let relationships = parse_relationships(table, name, path)?;
         let format = parse_format(table, name, path)?;
         let unit_shape = parse_unit_shape(table, name, path)?;
+        let activation = parse_activation(table, name, path)?;
         Ok(Self {
             name: name.to_string(),
             governs,
@@ -169,6 +211,7 @@ impl CustomKind {
             relationships,
             format,
             unit_shape,
+            activation,
         })
     }
 
@@ -330,6 +373,58 @@ fn parse_unit_shape(
             expected: "`file` or `directory`",
         }),
     }
+}
+
+/// Parse a `KIND.md` header's optional `activation` key into a typed [`Activation`]
+/// (`specs/15-kinds.md`, "Activation — a kind's inherent world-edges"). Absent ⇒
+/// `Ok(None)` — today's built-in KIND.md declare none. The value is an inline table
+/// naming its vocab entry in `via`, plus (for the three field-carrying variants) the
+/// declared frontmatter `field` it ranges over. A `via` outside the closed vocabulary
+/// is a [`KindError::OutOfVocab`], the same guard [`parse_format`] carries; a structural
+/// malformation — not a table, a missing/mistyped `via`, or a field-carrying variant
+/// missing its `field` string — folds into [`KindError::BadActivation`], exactly as
+/// [`parse_governs`] folds its locus malformations.
+fn parse_activation(
+    table: &Table,
+    kind: &str,
+    path: &Path,
+) -> Result<Option<Activation>, KindError> {
+    let Some(item) = table.get("activation") else {
+        return Ok(None);
+    };
+    let bad = || KindError::BadActivation {
+        path: path.to_path_buf(),
+        kind: kind.to_string(),
+    };
+    let declaration = item.as_table_like().ok_or_else(bad)?;
+    let via = declaration
+        .get("via")
+        .and_then(Item::as_str)
+        .ok_or_else(bad)?;
+    // The field-carrying variants name a declared frontmatter field, never a value.
+    let field = || {
+        declaration
+            .get("field")
+            .and_then(Item::as_str)
+            .map(str::to_string)
+            .ok_or_else(bad)
+    };
+    let activation = match via {
+        "always" => Activation::Always,
+        "description-trigger" => Activation::DescriptionTrigger { field: field()? },
+        "paths-match" => Activation::PathsMatch { field: field()? },
+        "event" => Activation::Event { field: field()? },
+        other => {
+            return Err(KindError::OutOfVocab {
+                path: path.to_path_buf(),
+                kind: kind.to_string(),
+                key: "activation",
+                value: other.to_string(),
+                expected: "`always`, `description-trigger`, `paths-match`, or `event`",
+            });
+        }
+    };
+    Ok(Some(activation))
 }
 
 /// Render a non-string header value for an [`KindError::OutOfVocab`] diagnostic — its
@@ -769,14 +864,14 @@ pub enum KindError {
     },
 
     /// A `KIND.md` header carries a key outside its closed set (`governs`,
-    /// `extraction`, `relationships`, `format`, `unit_shape`) — a leftover `clause`,
-    /// an `entities` table, or a typo — rejected at load rather than silently dropped
-    /// (`specs/10-contracts.md`).
+    /// `extraction`, `relationships`, `format`, `unit_shape`, `activation`) — a leftover
+    /// `clause`, an `entities` table, or a typo — rejected at load rather than silently
+    /// dropped (`specs/10-contracts.md`).
     #[error("{path}: custom kind `{kind}` definition has unknown key `{key}`")]
     #[diagnostic(
         code(temper::kind::unknown_key),
         help(
-            "a `KIND.md` definition carries only `governs`, `extraction`, `relationships`, `format`, and `unit_shape` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
+            "a `KIND.md` definition carries only `governs`, `extraction`, `relationships`, `format`, `unit_shape`, and `activation` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
         )
     )]
     UnknownKey {
@@ -838,6 +933,26 @@ pub enum KindError {
         value: String,
         /// The closed vocabulary that was expected, for the message.
         expected: &'static str,
+    },
+
+    /// A `KIND.md` header's `activation` declaration is structurally malformed — not an
+    /// inline table, missing its `via` vocab entry, or a field-carrying variant
+    /// (`description-trigger`/`paths-match`/`event`) missing the declared `field` string
+    /// it ranges over. A `via` *value* outside the vocabulary is an [`OutOfVocab`] instead
+    /// (`specs/15-kinds.md`); any structural miss collapses into this one error, as
+    /// [`BadGoverns`] does for the locus.
+    ///
+    /// [`OutOfVocab`]: KindError::OutOfVocab
+    /// [`BadGoverns`]: KindError::BadGoverns
+    #[error(
+        "{path}: custom kind `{kind}` `activation` must be a table naming a `via` vocab entry and, for the field-carrying variants, the declared `field` it ranges over"
+    )]
+    #[diagnostic(code(temper::kind::bad_activation))]
+    BadActivation {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The custom kind with the malformed activation declaration.
+        kind: String,
     },
 }
 
@@ -1479,5 +1594,89 @@ import_hash = \"deadbeef\"\n\
             .unwrap();
         assert_eq!(kind.format, Some(Format::YamlFrontmatter));
         assert_eq!(kind.unit_shape, Some(UnitShape::Directory));
+    }
+
+    #[test]
+    fn absent_activation_parses_as_none() {
+        // Today's built-in KIND.md declare none — absence is valid, nothing invented.
+        assert_eq!(kind_from_header("").unwrap().activation, None);
+    }
+
+    #[test]
+    fn each_activation_vocab_entry_parses_into_its_typed_value() {
+        // `always` carries no field — the edge is unconditional.
+        let always = kind_from_header("activation = { via = \"always\" }\n").unwrap();
+        assert_eq!(always.activation, Some(Activation::Always));
+
+        // The three field-carrying variants name the declared frontmatter field they
+        // range over, never a value.
+        let desc = kind_from_header(
+            "activation = { via = \"description-trigger\", field = \"description\" }\n",
+        )
+        .unwrap();
+        assert_eq!(
+            desc.activation,
+            Some(Activation::DescriptionTrigger {
+                field: "description".to_string()
+            })
+        );
+
+        let paths = kind_from_header("activation = { via = \"paths-match\", field = \"paths\" }\n")
+            .unwrap();
+        assert_eq!(
+            paths.activation,
+            Some(Activation::PathsMatch {
+                field: "paths".to_string()
+            })
+        );
+
+        let event =
+            kind_from_header("activation = { via = \"event\", field = \"event\" }\n").unwrap();
+        assert_eq!(
+            event.activation,
+            Some(Activation::Event {
+                field: "event".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn an_out_of_vocab_activation_is_a_load_error() {
+        // The closed vocabulary guards the activation face exactly as it guards format:
+        // an unknown `via` is rejected at load, never silently dropped.
+        let err = kind_from_header("activation = { via = \"cron\" }\n").unwrap_err();
+        assert!(matches!(
+            err,
+            KindError::OutOfVocab { key: "activation", ref value, .. } if value == "cron"
+        ));
+    }
+
+    #[test]
+    fn a_field_carrying_activation_missing_its_field_is_a_load_error() {
+        // `paths-match` names the declared field it ranges over — omitting it is
+        // structurally malformed, never silently defaulted.
+        let err = kind_from_header("activation = { via = \"paths-match\" }\n").unwrap_err();
+        assert!(matches!(err, KindError::BadActivation { .. }));
+    }
+
+    #[test]
+    fn a_header_carrying_activation_alongside_the_adapter_faces_no_longer_trips_unknown_key() {
+        // Inbox sequencing (`ACTIVATION-KEY-PARSE`): before this entry a KIND.md carrying
+        // an `activation` line tripped `UnknownKey`. It now parses into a typed field
+        // beside format/unit_shape, so a human can add the curated activation line
+        // without turning checks red.
+        let kind = kind_from_header(
+            "format = \"yaml-frontmatter\"\nunit_shape = \"directory\"\n\
+activation = { via = \"paths-match\", field = \"paths\" }\n",
+        )
+        .unwrap();
+        assert_eq!(kind.format, Some(Format::YamlFrontmatter));
+        assert_eq!(kind.unit_shape, Some(UnitShape::Directory));
+        assert_eq!(
+            kind.activation,
+            Some(Activation::PathsMatch {
+                field: "paths".to_string()
+            })
+        );
     }
 }
