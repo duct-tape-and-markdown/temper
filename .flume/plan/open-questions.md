@@ -180,6 +180,19 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   `query` verb. Fileable as build work **after** the surface-language migration,
   once coverage + graph data exist to read. Kept as the decision record.
 
+- `(launch-front-door-docs)` — OPEN. `specs/55-offering.md` "The front door"
+  names two root docs the offering tranche has **not** filed: **AGENTS.md** ("with
+  `CLAUDE.md` sourcing it") and a root **CHANGELOG.md**. AGENTS.md is genuinely
+  underdetermined and touches human territory: making `CLAUDE.md` source AGENTS.md
+  edits the hand-curated `CLAUDE.md` (the recursive-dogfood boundary — `.claude/` +
+  `CLAUDE.md` flow through human `chore(harness):` commits, **never** `build:`
+  ticks), and it is unsettled whether AGENTS.md becomes the *canonical* contributor
+  doc (with `CLAUDE.md` reduced to a thin `@AGENTS.md` pointer — gutting the curated
+  file) or a thin build-authored root file beside it. CHANGELOG.md is build-safe but
+  pre-1.0 is a near-empty stub whose cadence is a human call. Human to settle the
+  AGENTS.md ⟷ CLAUDE.md canonicality before either is filed as build work; no
+  dependents, and OFFERING-README is deliberately scoped to exclude them.
+
 - `(eval-capability)` — OPEN, strategic, parked past launch. The platform is
   unusually pre-positioned to offer **harness evals** — answering the question one
   level up from the wedge: not "did the rule load" (tier 1 answers) but "does the

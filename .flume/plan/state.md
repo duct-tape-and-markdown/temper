@@ -1,22 +1,24 @@
 # Plan state
 
-- **Phase:** reconcile. The surface-language machinery chain is **complete and
-  self-joining** — GRAPH-CUSTOM-KIND (8f057c7) shipped, so a custom kind's features
-  and `[[relationships]]` now reach `by_kind`/`edges` and the corpus graph (verified
-  on disk: main.rs:530-545). Only follow-on machinery remains.
-- **Last shipped:** GRAPH-CUSTOM-KIND — custom-kind members joined to the corpus
-  reference graph (8f057c7 / 2c75c81).
-- **In flight:** none.
-- **Pickable now (5, all disjoint / parallel-safe):** COVERAGE-CUSTOM-KIND
-  (kind.rs+main.rs — revived, GRAPH unblocked it), PACKAGE-CLAUSE-SOURCE
-  (contract.rs — inbox), OFFERING-LICENSE (Cargo.toml+LICENSE-*), OFFERING-COMMUNITY
-  (new docs), OFFERING-README (README.md+scripts/). Parked: EMBED-BUILTIN-PACKAGES
-  (human authors packages/), PACKAGING-CHANNELS (human release creds). Deferred:
+- **Phase:** reconcile. Queue is reconciled to the corpus; the inbox is empty.
+- **Last shipped (trunk):** PACKAGE-CLAUSE-SOURCE — per-clause `source` citation
+  parsed + preserved (6c51057 / 2bf7529). HEAD is 6c51057.
+- **In flight / anomaly:** COVERAGE-CUSTOM-KIND was **attempted and reverted** by
+  the `cargo fmt` afterCommit gate — its unformatted diff (src/kind.rs, src/main.rs,
+  tests/coverage.rs) sits **uncommitted in the working tree, not on trunk**. The
+  entry stays `open`; build retries from a clean fresh worktree (unaffected by the
+  residue) and must run `cargo fmt --all` before commit. The residue is not plan-
+  writable to clean — a human may `git checkout -- src tests` to clear it.
+- **Pickable now (4, all disjoint / parallel-safe):** COVERAGE-CUSTOM-KIND
+  (kind.rs+main.rs+tests/coverage.rs), OFFERING-LICENSE (Cargo.toml+LICENSE-*),
+  OFFERING-COMMUNITY (new docs+.github/), OFFERING-README (README.md+scripts/). No
+  path is shared across the four. Parked: EMBED-BUILTIN-PACKAGES (human authors
+  packages/*/PACKAGE.md), PACKAGING-CHANNELS (human release creds). Deferred:
   AGENT-KIND (priority; shares main.rs with COVERAGE on revival).
-- **Inbox:** drained (source-key → PACKAGE-CLAUSE-SOURCE; offering tranche →
-  OFFERING-{LICENSE,COMMUNITY,README}). **Forks:** none new; only the human-only
-  OPEN strategics remain, none gate a pickable head.
+- **Inbox:** empty. **Forks:** filed `(launch-front-door-docs)` — AGENTS.md +
+  CHANGELOG launch docs, held on the AGENTS.md⟷CLAUDE.md canonicality question
+  (human territory). No new fork gates a pickable head.
 
-Plan continues: no — the queue is reconciled to the corpus, five disjoint `open`
-entries are pickable, the inbox is drained, and the fork frontier is clear.
-Building drains it from here.
+Plan continues: no — the queue is reconciled, four disjoint `open` entries are
+pickable, the inbox is empty, and the only new gap is surfaced as an open question.
+Building drains the queue from here.

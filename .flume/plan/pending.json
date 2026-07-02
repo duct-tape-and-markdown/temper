@@ -15,15 +15,15 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind unit from the parsed member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:737-740 names it a later follow-on). This is NOT a new extraction primitive — the `satisfies` binding is already parsed from the surface header (as for skill/rule via extract); thread it into the composed Unit's Features. Coverage stays kind-blind by design (specs/15-kinds.md worked example — temper's own `spec` corpus can opt into requirements)."
+          "description": "Populate `Features.satisfies` for a custom-kind unit from the parsed member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:737-740 on trunk names it a later follow-on). This is NOT a new extraction primitive — the `satisfies` binding is a surface-header module (as for skill/rule), threaded onto the composed `Unit` and into its Features. Coverage stays kind-blind by design (specs/15-kinds.md worked example — temper's own `spec` corpus can opt into requirements)."
         },
         {
           "path": "src/main.rs",
-          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:624-629, today skill ⊕ rule only). GRAPH-CUSTOM-KIND (8f057c7) already computes the `custom_kinds` features up front and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
+          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:624-629 on trunk, skill ⊕ rule only). GRAPH-CUSTOM-KIND (8f057c7) already computes the `custom_kinds` features up front and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
         },
         {
           "path": "tests/coverage.rs",
-          "description": "A custom-kind unit declaring `satisfies` covers a requirement, exactly as a skill/rule does."
+          "description": "A custom-kind unit declaring `satisfies` covers a requirement, exactly as a skill/rule does; plus the negative that an unfilled required requirement still fires with a custom member present."
         }
       ],
       "retire": []
@@ -32,11 +32,11 @@
     "tests": [
       {
         "path": "tests/coverage.rs",
-        "asserts": "a custom-kind unit's authored `satisfies` participates in coverage (kind-blind)."
+        "asserts": "a custom-kind unit's authored `satisfies` participates in coverage (kind-blind), and its absence leaves a required requirement unfilled."
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Revived to open: GRAPH-CUSTOM-KIND (8f057c7) shipped, so custom features already join `by_kind`/`edges` — the remaining work is threading `satisfies` (kind.rs:740 still `Vec::new()`) and chaining custom features into `all_features` (main.rs:624, skill⊕rule only). Buildable against fixtures; no in-repo `.temper` needed. Disjoint from the contract.rs source-key entry."
+    "notes": "A build tick shipped this but its commit was reverted by the `cargo fmt` afterCommit gate — the unformatted diff (a main.rs `.chain`, a tests/coverage.rs `PACKAGE.md` write) sits uncommitted in the working tree, NOT on trunk (HEAD=6c51057). Retry runs from clean HEAD (kind.rs still `satisfies: Vec::new()`, main.rs chains skill⊕rule only) and MUST `cargo fmt --all` before commit. Disjoint from every other open entry."
   },
   {
     "tag": "OFFERING-LICENSE",
@@ -63,17 +63,15 @@
       "edit": [
         {
           "path": "Cargo.toml",
-          "description": "Set `license = \"MIT OR Apache-2.0\"` (the SPDX expression the dual grant requires; the API-guidelines / uv / Biome choice). The Cargo.toml `license` field follows the LICENSE change, per the Decision."
+          "description": "Set `license = \"MIT OR Apache-2.0\"` (the SPDX expression the dual grant requires; the API-guidelines / uv / Biome choice), replacing the current `license = \"MIT\"` (Cargo.toml:6). The `license` field follows the LICENSE change, per the Decision."
         }
       ],
-      "retire": [
-        "LICENSE (the bare-MIT root file the dual grant supersedes, if present)"
-      ]
+      "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "The repo carries LICENSE-MIT + LICENSE-APACHE, the bare MIT LICENSE is retired, and Cargo.toml declares `license = \"MIT OR Apache-2.0\"`; cargo build/fmt/clippy green.",
-    "notes": "From the offering tranche (specs/55-offering.md). Do the relicense now — the Decision's whole point is 'while there are no external contributors' (clean git status confirms the window). SPDX `MIT OR Apache-2.0`. Disjoint from all other open entries: owns the Cargo.toml `license` field and the LICENSE-* files, touches no source and no README."
+    "acceptance": "The repo carries LICENSE-MIT + LICENSE-APACHE and Cargo.toml declares `license = \"MIT OR Apache-2.0\"`; cargo build/fmt/clippy green.",
+    "notes": "From the offering tranche (specs/55-offering.md). Do the relicense now — the Decision's window is 'while there are no external contributors' (clean trunk confirms it). No bare LICENSE file exists on disk; the only license declaration is Cargo.toml `license = \"MIT\"` (Cargo.toml:6), which the edit flips to SPDX `MIT OR Apache-2.0` — nothing to retire. Disjoint from all other open entries: owns Cargo.toml `license` + the LICENSE-* files, touches no source/README."
   },
   {
     "tag": "OFFERING-COMMUNITY",
@@ -138,7 +136,7 @@
       "edit": [
         {
           "path": "README.md",
-          "description": "Rewrite to the genre-standard short landing page: tagline (category + differentiator — the type checker for the harness, 'makes it good' vs rulesync's 'makes it portable'), badge row, one hero visual (the diagnostic), a highlights list, and a run-before-install `check --harness` quickstart that produces real findings on the reader's own `.claude/`, plus an honest pre-1.0 status line. Everything else links out."
+          "description": "Rewrite the 37-line stub to the genre-standard short landing page: tagline (category + differentiator — the type checker for the harness, 'makes it good' vs rulesync's 'makes it portable'), badge row, one hero visual (the diagnostic), a highlights list, and a run-before-install `check --harness` quickstart that produces real findings on the reader's own `.claude/`, plus an honest pre-1.0 status line. Everything else links out."
         }
       ],
       "retire": []
@@ -146,7 +144,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "README.md is the ~800-word front door with the diagnostic hero visual produced by the captioned command; the demo asset is committed and regenerable; cargo green.",
-    "notes": "From the offering tranche (specs/55-offering.md). Two Decisions govern: the front-door shape and 'the hero visual is the diagnostic, not a benchmark' — the demo asset must be a committed, regenerable projection of real `check` output (scripted capture), not a drift-prone screenshot. Heavier than the other doc entries because of the capture pipeline. README.md + scripts/ only; disjoint from the rest."
+    "notes": "From the offering tranche (specs/55-offering.md). Two Decisions govern: the front-door shape and 'hero visual is the diagnostic, not a benchmark' — the demo asset must be a committed, regenerable projection of real `check` output, not a drift-prone screenshot. Heavier than the sibling doc entries (the capture pipeline). README.md + scripts/ only; disjoint from the rest. AGENTS.md + CHANGELOG (same section) are held as (launch-front-door-docs), NOT in scope here."
   },
   {
     "tag": "EMBED-BUILTIN-PACKAGES",
@@ -199,7 +197,7 @@
       }
     ],
     "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The dogfood finish of the chain. On disk: contracts/skill.anthropic.toml + contracts/rule.toml still exist, main.rs:59/65 + bundle.rs still include_str! them, only packages/DOSSIER.md authored (no PACKAGE.md product tree). Blocked on human authoring; the embedded contracts floor persists until then by design. PACKAGE-CLAUSE-SOURCE (source-key parse) is now filed as a loader prereq for that authoring session."
+    "notes": "The dogfood finish of the chain. On disk: contracts/{skill.anthropic,rule}.toml still exist, main.rs:59/65 + bundle.rs still include_str! them, packages/ holds only DOSSIER.md. Blocked on human authoring of packages/{skill.anthropic,rule.anthropic}/PACKAGE.md; the embedded contracts floor persists until then. Loader prereq PACKAGE-CLAUSE-SOURCE (per-clause `source` parse) shipped (6c51057)."
   },
   {
     "tag": "AGENT-KIND",
