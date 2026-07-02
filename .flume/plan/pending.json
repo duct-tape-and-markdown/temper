@@ -1,40 +1,5 @@
 [
   {
-    "tag": "REACHABILITY",
-    "summary": "Add the world node + a `reachable` predicate to the graph — a member whose declared activation edge is dead (blank description-trigger field, zero-match paths globs) is decidably unreachable",
-    "per": {
-      "path": "specs/45-governance.md",
-      "section": "The world is a node — reachability is a predicate"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "Add the distinguished **world** node and a `reachable` predicate over a member's declared activation. The typed `Activation` (Always / DescriptionTrigger{field} / PathsMatch{field} / Event{field}) + `parse_activation` shipped in kind.rs (ACTIVATION-KEY-PARSE, ceb8bba) on `CustomKind.activation`; nothing consumes it yet. Rule: a `description-trigger(field)` member whose named field is blank, or a `paths-match(field)` member whose globs match zero files in a supplied repo file-set, has a dead inbound activation edge and is decidably unreachable — an exact fact at check time; a kind declaring no activation is not subject. Mirror the `degree`/`acyclic` shape already in this module: a pure `fn` over its inputs returning `Vec<Diagnostic>`, taking the activation-per-kind map and the repo file-set as *parameters* so it stays testable and the blast radius is graph.rs only. Zero-match globs is graph.rs's to implement (glob→regex over the sanctioned `regex` crate) over that file-set. Severity is the package's clause choice, like every other predicate."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "Fixture-driven proof: a member with a live activation edge is reachable; a description-trigger member with an empty field and a paths-match member with zero-match globs are each flagged unreachable; a kind that declares no activation is not subject to the predicate."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a live activation edge is reachable; a blank description-trigger field and zero-match paths globs are each unreachable findings; a kind with no declared activation is unaffected."
-      }
-    ],
-    "acceptance": "graph.rs carries a world node and a pure, decidable `reachable(...)` over declared `Activation` — blank description-trigger field and zero-match paths globs both flagged, no-activation kinds exempt — proven against fixtures; cargo fmt/clippy -D warnings/test green. Gate-side wiring (main.rs scanning the real repo) + the severity-carrying package clause + the curated kinds/skill|rule activation lines (a human chore, outside the fence) that make the dogfood self-check fire are the follow-on — the machinery is proven against fixtures first.",
-    "notes": "Unblocked: ACTIVATION-KEY-PARSE shipped (ceb8bba) — typed `Activation` + parse_activation now in kind.rs, verified on disk. Only src/graph.rs + tests/graph.rs; disjoint — no other open entry touches graph.rs. The repo file-set is a *parameter* (not a new graph dependency), so blast radius stays graph.rs; zero-match globs via the sanctioned `regex` crate. Gate wiring + clause declaration + curated activation lines follow (machinery-first, package-surface-sequencing)."
-  },
-  {
     "tag": "MEMORY-KIND",
     "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
     "per": {
