@@ -1,0 +1,35 @@
+---
+source: tests/extract_equivalence.rs
+expression: features
+---
+Features {
+    id: "rust",
+    fields: {
+        "paths": List(
+            [
+                "src/**/*.rs",
+                "tests/**/*.rs",
+            ],
+        ),
+    },
+    body_lines: 8,
+    headings: [
+        "Rust conventions",
+        "Errors & diagnostics",
+    ],
+    sections: [
+        Section {
+            heading: "Rust conventions",
+            body: "\nPrefer a clone over a lifetime fight. This tool is I/O-bound over kilobyte\nfiles; zero-copy buys nothing and costs readability.\n\n## Errors & diagnostics\n\nModel errors with `thiserror`, surface them with `miette`.",
+        },
+        Section {
+            heading: "Errors & diagnostics",
+            body: "\nModel errors with `thiserror`, surface them with `miette`.",
+        },
+    ],
+    source_dir: Some(
+        "rules",
+    ),
+    satisfies: [],
+    published_requirements: [],
+}

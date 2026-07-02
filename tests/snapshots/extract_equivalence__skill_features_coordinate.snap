@@ -1,0 +1,62 @@
+---
+source: tests/extract_equivalence.rs
+expression: features
+---
+Features {
+    id: "coordinate",
+    fields: {
+        "allowed-tools": List(
+            [
+                "Task",
+                "Read",
+                "Edit",
+            ],
+        ),
+        "description": Scalar {
+            kind: String,
+            text: "Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work.",
+        },
+        "license": Scalar {
+            kind: String,
+            text: "MIT",
+        },
+        "name": Scalar {
+            kind: String,
+            text: "coordinate",
+        },
+        "version": Scalar {
+            kind: String,
+            text: "0.3.0",
+        },
+    },
+    body_lines: 20,
+    headings: [
+        "Coordinate",
+        "When to use",
+        "Example",
+        "Caveats",
+    ],
+    sections: [
+        Section {
+            heading: "Coordinate",
+            body: "\nDrive a complex task through a team of agents. See the playbook for the full\nreference on phases, fan-out, and the reviewer gate.\n\n## When to use\n\nParallel exploration across three or more independent axes, converging on a\nshared artifact, with an adversarial reviewer gate before shipping.\n\n## Example\n\n```sh\n# not a heading — a shell comment inside a fence\ntemper coordinate --agents 6\n```\n\n### Caveats ###\n\nNOT for single-axis or research-only work.",
+        },
+        Section {
+            heading: "When to use",
+            body: "\nParallel exploration across three or more independent axes, converging on a\nshared artifact, with an adversarial reviewer gate before shipping.\n",
+        },
+        Section {
+            heading: "Example",
+            body: "\n```sh\n# not a heading — a shell comment inside a fence\ntemper coordinate --agents 6\n```\n\n### Caveats ###\n\nNOT for single-axis or research-only work.",
+        },
+        Section {
+            heading: "Caveats",
+            body: "\nNOT for single-axis or research-only work.",
+        },
+    ],
+    source_dir: Some(
+        "coordinate",
+    ),
+    satisfies: [],
+    published_requirements: [],
+}

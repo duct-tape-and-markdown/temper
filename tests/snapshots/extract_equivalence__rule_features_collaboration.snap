@@ -1,0 +1,28 @@
+---
+source: tests/extract_equivalence.rs
+expression: features
+---
+Features {
+    id: "collaboration",
+    fields: {},
+    body_lines: 9,
+    headings: [
+        "Collaboration — pushback is the point",
+        "Challenge gaps, never paper over them",
+    ],
+    sections: [
+        Section {
+            heading: "Collaboration — pushback is the point",
+            body: "\n`temper` is a design-led project. The harness enforces mechanics; judgment is\nyours. The most useful thing you do is surface what's wrong or undecided.\n\n## Challenge gaps, never paper over them\n\nIf a spec section is ambiguous, stop and surface it — do not invent intent to\nkeep moving.",
+        },
+        Section {
+            heading: "Challenge gaps, never paper over them",
+            body: "\nIf a spec section is ambiguous, stop and surface it — do not invent intent to\nkeep moving.",
+        },
+    ],
+    source_dir: Some(
+        "rules",
+    ),
+    satisfies: [],
+    published_requirements: [],
+}
