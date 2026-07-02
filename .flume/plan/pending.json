@@ -1,34 +1,5 @@
 [
   {
-    "tag": "FORMAT-KEY-PARSE",
-    "summary": "Parse optional `format` (closed vocab, first entry yaml-frontmatter) + a unit-shape key on a kind definition into typed inert CustomKind fields the adapter will later consume",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Decision: the adapter faces are declared — a kind names its projection format"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Teach `CustomKind::from_header` two optional header keys the Decision names, without any adapter consuming them yet: `format` — a closed-vocabulary projection format whose only harvested value is `yaml-frontmatter` (any other value is a load error, mirroring the closed extraction-primitive guard); and a unit-shape key — a closed enum distinguishing a lone file (id from the stem) from a directory-with-companions (id from the dir name). Add BOTH to the `matches!` allowed-key guard (kind.rs:110-118) so they parse instead of tripping `KindError::UnknownKey`, and store them as typed `Option` fields on the `CustomKind` struct (kind.rs:60-74) — absent ⇒ `None`, still valid, since today's built-in KIND.md carry neither. Add a `KindError` variant for an out-of-vocab `format`/unit-shape value. The fields are inert: nothing reads them until DECLARED-FRONTMATTER-ADAPTER. Extend the existing `#[cfg(test)] mod tests` (kind.rs:815+) with coverage per the tests entry."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "in the existing `#[cfg(test)] mod tests`: absent `format`/unit-shape keys parse (the built-in-kind default, still valid); `format = \"yaml-frontmatter\"` and each unit-shape variant parse into the typed fields; an unknown `format` value and an unknown unit-shape value are load errors; and a KIND.md header carrying both keys no longer trips `UnknownKey`."
-      }
-    ],
-    "acceptance": "`CustomKind` carries typed optional `format` + unit-shape fields; `from_header` accepts both keys on built-in and project KIND.md, rejects out-of-vocab values, and treats absence as valid; nothing consumes the fields yet; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox sequencing fix: `from_header` (kind.rs:111) rejects unknown keys, and built-in KIND.md parses through that same guard (builtin_kind.rs:81) — a human adding format/unit lines to kinds/{skill,rule}/KIND.md before the parser accepts them turns every check red. Ships FIRST; then the human adds the two curated lines (chore); then DECLARED-FRONTMATTER-ADAPTER un-parks, main green at every step."
-  },
-  {
     "tag": "DECLARED-FRONTMATTER-ADAPTER",
     "summary": "Collapse the per-kind adapter modules (src/skill.rs, src/rule.rs) into one generic declaration-driven frontmatter adapter for import/apply/re-add/drift; retire the typed IRs",
     "per": {
