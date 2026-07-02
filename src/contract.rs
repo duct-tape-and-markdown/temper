@@ -1,44 +1,20 @@
-//! The `Contract` artifact — the decidable artifact-clause algebra.
+//! The `Contract` artifact — the decidable artifact-clause algebra
+//! (`specs/10-contracts.md`, "The primitive algebra (decidable only)").
 //!
-//! Models the primitive algebra of `specs/10-contracts.md` ("The primitive
-//! algebra (decidable only)"): a [`Contract`] is a *named set of clauses* over a
-//! fixed, **closed** vocabulary of decidable predicates. Its authored home is a
-//! package — a `PACKAGE.md` fenced document ([`Contract::load_package`],
-//! `specs/10-contracts.md`, "Packages"), whether a built-in embedded from the
-//! `packages/` product tree ([`crate::builtin`]) or a project's own under
-//! `.temper/packages/`. A package *carries* a contract, and its closed-vocabulary
-//! header parses through the same clause parser [`Contract::parse`] runs over bare
-//! TOML source (the seam tests and the `temper.toml` layer drive). There is no
-//! arbitrary-code clause — adding a predicate is a
-//! deliberate language change, never a per-contract escape hatch (`00-intent.md`
-//! law 3). Loading therefore **rejects an unknown predicate key** rather than
-//! skipping it silently: a contract is closed-vocabulary data, not data with a
-//! trapdoor.
+//! A [`Contract`] is a named set of [`Clause`]s over a **closed** vocabulary of
+//! decidable predicates, each carrying an author-declared [`Severity`]. Its
+//! authored home is a package — a `PACKAGE.md` fenced document
+//! ([`Contract::load_package`]) or the embedded built-in floor ([`crate::builtin`]);
+//! both parse through the same clause parser [`Contract::parse`] runs over bare TOML.
 //!
-//! Severity is author-declared, not tool-baked: every [`Clause`] carries a
-//! [`Severity`] marking it `required` (gate-blocking) or `advisory` (reported,
-//! non-blocking). The engine that *checks* a surface against these clauses lives
-//! elsewhere; this module is the type system it checks against.
+//! There is no arbitrary-code clause: adding a predicate is a deliberate language
+//! change, never a per-contract escape hatch (`00-intent.md` law 3), so loading
+//! **rejects** an unknown predicate rather than skipping it silently.
 //!
-//! ## Scope (this entry)
-//!
-//! The artifact-level primitives buildable in-crate, without a new dependency:
-//! field presence (`required`/`optional`), `min_len`/`max_len`, `enum`, `deny`,
-//! `forbidden_keys`, an in-crate `allowed_chars` charset (the `[a-z0-9-]` case);
-//! structural `max_lines`, `require_sections`, `must_define`, `section_contains`;
-//! and cross-artifact
-//! `name-matches-dir`, `unique-name`, `dependency-exists`. The full `pattern`
-//! (regex) field primitive is held behind the regex fork; the harness-contract
-//! primitives (`requirement`, `verified_by`) belong to the harness-contract layer,
-//! not here.
-//!
-//! ## Why hand-walk `toml_edit` instead of `serde` derive
-//!
-//! Parsing walks the `toml_edit` document by hand, mirroring [`crate::skill`].
-//! A closed vocabulary keyed on a discriminator field is exactly the internally
-//! tagged-enum shape the TOML deserializer handles poorly, and the diagnostics
-//! *are* the product (`00-intent.md`): a precise "clause 3 names unknown
-//! predicate `word_count`" beats a generic serde decode error.
+//! Parsing hand-walks `toml_edit` (mirroring [`crate::skill`]) instead of deriving
+//! `serde`: the diagnostics *are* the product, and a precise "clause 3 names unknown
+//! predicate `word_count`" beats the generic decode error a tagged-enum deserializer
+//! would give.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -65,13 +41,10 @@ pub struct Contract {
     /// contract — a named shape that asserts nothing.
     pub clauses: Vec<Clause>,
     /// Package-level **guidance** — the document body of a `PACKAGE.md`
-    /// (`specs/10-contracts.md`, "Packages"): the best-practice prose the clauses
-    /// cannot encode (house style, rationale), the second of a package's two
-    /// channels beside per-clause [`guidance`](Clause::guidance). Like that
-    /// channel it *never gates* — the closed algebra has no path from prose to a
-    /// predicate — and its consumer is the authoring agent / emitted schema, never
-    /// admissibility or conformance. `None` for a TOML-file contract (the embedded
-    /// floor has no body) and for a package whose body is empty.
+    /// (`specs/10-contracts.md`, "Packages"): best-practice prose the clauses cannot
+    /// encode. Like the per-clause [`guidance`](Clause::guidance) channel it *never
+    /// gates* — the closed algebra has no path from prose to a predicate. `None` for
+    /// a TOML-file contract (no body) and for a package whose body is empty.
     pub guidance: Option<String>,
 }
 
@@ -86,25 +59,18 @@ pub struct Clause {
     pub severity: Severity,
     /// The decidable predicate this clause asserts over the surface.
     pub predicate: Predicate,
-    /// Optional per-clause **guidance** prose — the best-practice text
-    /// `specs/10-contracts.md` ("Templates") deliberately keeps *out of checks*,
-    /// authored on the clause and carried verbatim. It is advisory-only: it plays
-    /// no part in conformance or admissibility, and `temper` never *decides* it
-    /// (`00-intent.md` law 3). Its sole role is the **docs/hover channel** of the
-    /// emitted schema (`specs/50-distribution.md`, "The gate at keystroke") — a
-    /// field clause's guidance rides its JSON Schema property's `description`, never
-    /// a validation keyword, so taste can only become documentation and never a
+    /// Optional per-clause **guidance** prose — advisory-only best-practice text
+    /// (`specs/10-contracts.md`, "Templates") kept *out of checks*: it plays no part
+    /// in conformance or admissibility. It rides its JSON Schema property's
+    /// `description` in the emitted schema (`specs/50-distribution.md`, "The gate at
+    /// keystroke"), never a validation keyword — taste becomes documentation, never a
     /// squiggle. Absent ⇒ the clause documents nothing.
     pub guidance: Option<String>,
-    /// Optional **source** citation — the clause's provenance of taste (a URL plus
-    /// the date it was retrieved), authored beside its [`guidance`](Clause::guidance)
-    /// (`specs/10-contracts.md`, "Decision: a built-in package is named for its
-    /// source, and cited to it"). It is *preserved metadata*, not a predicate: no
-    /// admissibility gate reads its content beyond it being a recognized key, so
-    /// admitting it neither adds nor relaxes any check. For a built-in package's
-    /// clauses it is the expected posture — their legitimacy is *sourced* opinion,
-    /// and the update ritual is *walk the clauses, re-check their citations*. Absent
-    /// ⇒ the clause is uncited (every clause on disk today).
+    /// Optional **source** citation — the clause's provenance of taste, a URL plus
+    /// retrieval date (`specs/10-contracts.md`, "Decision: a built-in package is
+    /// named for its source, and cited to it"). *Preserved metadata*, not a
+    /// predicate: no gate reads its content, so admitting it neither adds nor relaxes
+    /// any check. Absent ⇒ the clause is uncited (every clause on disk today).
     pub source: Option<String>,
 }
 
@@ -163,12 +129,10 @@ pub enum Predicate {
         max: usize,
     },
     /// `range`: the field's numeric value lies within the inclusive `[min, max]`
-    /// bound. The corpus's own narrow named escape for a genuine *value* bound
-    /// over `integer`/`number` fields (`specs/45-governance.md`, "Also in
-    /// scope") — admitted after the `type` lattice rejected JSON-Schema ranges
-    /// (`specs/10-contracts.md`). Bounds are `f64` so a single predicate spans
-    /// both integer and fractional fields; an inverted `min > max` bound is
-    /// rejected as inadmissible (`crate::engine`).
+    /// bound over `integer`/`number` fields (`specs/45-governance.md`, "Also in
+    /// scope"). Bounds are `f64` so a single predicate spans both integer and
+    /// fractional fields; an inverted `min > max` bound is rejected as inadmissible
+    /// (`crate::engine`).
     Range {
         /// The field measured.
         field: String,
@@ -223,13 +187,10 @@ pub enum Predicate {
         marker: String,
     },
     /// `section_contains`: every body section whose heading *starts with* the
-    /// declared `heading` text carries the declared `marker` (a substring of the
-    /// section body). The structural predicate behind the spec kind's
-    /// decisions-name-alternatives — "every `## Decision` section carries a
-    /// `Rejected` marker" (`specs/10-contracts.md`, "The primitive algebra";
-    /// `specs/15-kinds.md`). Decidable over the extracted
-    /// [`sections`](crate::extract::Features::sections): each matching section
-    /// either carries the marker or does not.
+    /// declared `heading` carries the declared `marker` (a substring of the section
+    /// body) — e.g. "every `## Decision` section carries a `Rejected` marker"
+    /// (`specs/10-contracts.md`, "The primitive algebra"; `specs/15-kinds.md`).
+    /// Decidable over the extracted [`sections`](crate::extract::Features::sections).
     SectionContains {
         /// The heading-text prefix that selects the sections this clause governs.
         heading: String,
@@ -240,14 +201,12 @@ pub enum Predicate {
     NameMatchesDir,
     /// `unique-name`: names are unique within the artifact kind.
     UniqueName,
-    /// `dependency-exists`: every declared dependency resolves. **Held back** —
-    /// like the full `pattern` (regex) primitive: recognizable when parsed, so
-    /// the vocabulary names it, but inadmissible until it declares a decidable
-    /// reference syntax *and* an extractor to resolve it. Without one the engine
-    /// could only return *indeterminate* — a silent no-op law 1 forbids — so a
-    /// hand-authored clause fails admissibility ([`crate::engine::admissibility`])
-    /// rather than acting as a working clause (`specs/10-contracts.md`, "The
-    /// primitive algebra").
+    /// `dependency-exists`: every declared dependency resolves. **Held back** — like
+    /// the full `pattern` (regex) primitive: named by the vocabulary so it parses, but
+    /// inadmissible until it declares a decidable reference syntax *and* an extractor.
+    /// Without one the engine could only return *indeterminate* — a silent no-op law 1
+    /// forbids — so a hand-authored clause fails admissibility
+    /// ([`crate::engine::admissibility`]) rather than acting as a working clause.
     DependencyExists,
 }
 
@@ -281,12 +240,11 @@ impl Predicate {
 
     /// The arg keys this predicate reads off its clause table — the closed set of
     /// parameter keys admissible alongside the shared `severity`/`predicate`/
-    /// `guidance` (`crate::contract::parse_clause`). A clause key outside this set
-    /// (plus the shared three) is an unknown key, rejected at parse rather than
-    /// silently dropped (`specs/10-contracts.md`, "Decision: unknown keys are
-    /// rejected, not ignored"). The `allowed_chars` charset keys (`ranges`,
-    /// `chars`) are both optional but both admissible; the arg-less cross-artifact
-    /// predicates name none.
+    /// `guidance`/`source` (`reject_unknown_clause_keys`). A key outside the union
+    /// is rejected at parse, never silently dropped (`specs/10-contracts.md`,
+    /// "Decision: unknown keys are rejected, not ignored"). The `allowed_chars`
+    /// charset keys (`ranges`, `chars`) are both optional but both admissible; the
+    /// cross-artifact predicates name none.
     #[must_use]
     pub fn arg_keys(&self) -> &'static [&'static str] {
         match self {
@@ -503,13 +461,11 @@ pub enum ContractError {
         predicate: String,
     },
 
-    /// A clause carries a key outside its closed set — `severity`, `predicate`,
-    /// `guidance`, or one of the arg keys the clause's own predicate names. A
-    /// misspelled `feild` or a stray parameter is rejected at parse, not silently
-    /// dropped — the same closed-vocabulary posture [`ContractError::UnknownPredicate`]
-    /// holds for the predicate name, one rung out to keys (`specs/10-contracts.md`,
-    /// "Decision: unknown keys are rejected, not ignored"). A typo that quietly
-    /// disables a clause is exactly the silent gap temper exists to catch.
+    /// A clause carries a key outside its closed set — the shared
+    /// `severity`/`predicate`/`guidance`/`source` plus the arg keys its predicate
+    /// names. A misspelled `feild` that quietly disables a clause is exactly the
+    /// silent gap temper exists to catch, so it is rejected at parse, not dropped
+    /// (`specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored").
     #[error("{path}: clause {index} has unknown key `{key}`")]
     #[diagnostic(
         code(temper::contract::unknown_key),
@@ -568,8 +524,7 @@ impl Contract {
         let table = doc.as_table();
 
         // Identity is the contract's path/role, not a required internal name
-        // (specs/10-contracts.md). Honor an explicit `name`; otherwise derive a
-        // display label from the file stem.
+        // (specs/10-contracts.md), so `name` falls back to the file stem.
         let name = table
             .get("name")
             .and_then(Item::as_str)
@@ -611,12 +566,10 @@ impl Contract {
     /// directory's stem, never an internal `name` field (`specs/10-contracts.md`,
     /// "Decision: a package is identified by its binding, not an internal name").
     ///
-    /// The document splits through the [`Document`] primitive (`specs/20-surface.md`):
-    /// its fenced header carries the `[[clause]]` tables, parsed through the *same*
-    /// closed-vocabulary [`parse_clauses`] the TOML floor uses — so an unknown
-    /// predicate, unknown key, or malformed charset in a package header is rejected
-    /// exactly as it is in a `.toml` contract (admissibility unchanged). The body is
-    /// the package-level [`guidance`](Contract::guidance) — carried, never gated.
+    /// The document splits through the [`Document`] primitive (`specs/20-surface.md`);
+    /// its fenced header runs through the *same* [`parse_clauses`] the TOML floor uses,
+    /// so a package header is held to the identical closed vocabulary. The body is the
+    /// package-level [`guidance`](Contract::guidance) — carried, never gated.
     pub fn parse_package(src: &str, path: &Path) -> Result<Self, ContractError> {
         let doc = Document::parse(src).map_err(|source| ContractError::PackageDocument {
             path: path.to_path_buf(),
@@ -638,11 +591,9 @@ impl Contract {
 }
 
 /// A package's display name — the stem of its containing directory
-/// (`.temper/packages/<name>/PACKAGE.md` ⇒ `<name>`). Identity is *where the
-/// package lives*, which every binding names, so the name derives from the home
-/// and a package carries no internal `name` (`specs/10-contracts.md`, "Decision: a
-/// package is identified by its binding, not an internal name"). Falls back to
-/// `package` only for the degenerate path with no parent directory.
+/// (`.temper/packages/<name>/PACKAGE.md` ⇒ `<name>`; `specs/10-contracts.md`,
+/// "Decision: a package is identified by its binding, not an internal name"). Falls
+/// back to `package` only for the degenerate path with no parent directory.
 fn package_name(path: &Path) -> String {
     path.parent()
         .and_then(Path::file_name)
@@ -695,11 +646,10 @@ fn parse_clause(table: &Table, index: usize, path: &Path) -> Result<Clause, Cont
 }
 
 /// Reject any clause key outside the closed set — the shared `severity`,
-/// `predicate`, `guidance`, `source`, plus the parsed predicate's own [`arg keys`](Predicate::arg_keys).
-/// A misspelled `feild` or a stray parameter fails admissibility here rather than
-/// degrading silently, the same closed-vocabulary posture [`parse_predicate`] holds
-/// for the predicate name, one rung out to keys (`specs/10-contracts.md`, "Decision:
-/// unknown keys are rejected, not ignored").
+/// `predicate`, `guidance`, `source`, plus the parsed predicate's own
+/// [`arg keys`](Predicate::arg_keys) — so a stray key fails admissibility rather
+/// than degrading silently (`specs/10-contracts.md`, "Decision: unknown keys are
+/// rejected, not ignored").
 fn reject_unknown_clause_keys(
     table: &Table,
     predicate: &Predicate,
@@ -721,11 +671,8 @@ fn reject_unknown_clause_keys(
 }
 
 /// Read the optional `guidance` key — the advisory docs-channel prose a clause may
-/// carry (`specs/50-distribution.md`, "The gate at keystroke"). Absent ⇒ `None`
-/// (the clause documents nothing); present-but-not-a-string ⇒
-/// [`ContractError::WrongType`]. `guidance` is *never* a gate input — it is parsed,
-/// carried, and projected only to the emitted schema's `description`, so admitting
-/// it here neither adds nor relaxes any conformance/admissibility check.
+/// carry ([`Clause::guidance`]). Absent ⇒ `None`; present-but-not-a-string ⇒
+/// [`ContractError::WrongType`].
 fn parse_guidance(
     table: &Table,
     index: usize,
@@ -746,11 +693,8 @@ fn parse_guidance(
 }
 
 /// Read the optional `source` key — the clause's provenance citation
-/// (`specs/10-contracts.md`, "Decision: a built-in package is named for its source,
-/// and cited to it"). Absent ⇒ `None` (the clause is uncited); present-but-not-a-string
-/// ⇒ [`ContractError::WrongType`], mirroring [`parse_guidance`]. Like `guidance` it is
-/// *never* a gate input — the citation string is carried verbatim, its content read by
-/// no predicate — so admitting it neither adds nor relaxes any check.
+/// ([`Clause::source`]), mirroring [`parse_guidance`]. Absent ⇒ `None`;
+/// present-but-not-a-string ⇒ [`ContractError::WrongType`].
 fn parse_source(table: &Table, index: usize, path: &Path) -> Result<Option<String>, ContractError> {
     match table.get("source") {
         None => Ok(None),
