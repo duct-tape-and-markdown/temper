@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "the adapter is declaration-driven, but kinds/skill/KIND.md + kinds/rule/KIND.md carry no `format`/unit-shape keys and build's fence excludes kinds/ (curated std-lib territory, .flume/chain.ts). A human adds the format + unit-shape lines to the two curated KIND.md files (a chore(harness) commit); then this un-parks (after ADAPTER-EQUIVALENCE-PIN)."
+      "reason": "the adapter is declaration-driven, but kinds/skill/KIND.md + kinds/rule/KIND.md carry no `format`/unit-shape keys and build's fence excludes kinds/ (curated std-lib territory, .flume/chain.ts). A human adds the format + unit-shape lines to the two curated KIND.md files (a chore(harness) commit); then this un-parks. Its ADAPTER-EQUIVALENCE-PIN prerequisite has shipped (4765d5b)."
     },
     "dependsOnForks": [],
     "files": {
@@ -65,7 +65,7 @@
       }
     ],
     "acceptance": "src/skill.rs and src/rule.rs are deleted; one generic frontmatter adapter reads each kind's declared format + unit shape and drives import/apply/re-add/drift for skill and rule identically; ADAPTER-EQUIVALENCE-PIN's snapshots are unchanged; the built-in/custom split is purely source; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Human-gated: kinds/skill+rule/KIND.md carry no `format`/unit keys and build's fence excludes kinds/. Humans add two KIND.md lines (`format = \"yaml-frontmatter\"` + a unit shape: directory+companions for skill, flat file for rule), then it un-parks. Atomic refactor: add the adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit (clippy forbids interim dead code). Needs ADAPTER-EQUIVALENCE-PIN first."
+    "notes": "Human-gated: kinds/skill+rule/KIND.md carry no `format`/unit keys; build's fence excludes kinds/. Humans add two KIND.md lines (`format = \"yaml-frontmatter\"` + a unit shape: directory+companions for skill, flat file for rule), then it un-parks. ADAPTER-EQUIVALENCE-PIN shipped (tests/adapter_fidelity.rs). Atomic: add adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit (clippy forbids interim dead code)."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
