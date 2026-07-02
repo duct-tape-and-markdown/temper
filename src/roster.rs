@@ -1,45 +1,13 @@
-//! Roster checks — set-scope predicates, conformance, and admissibility over the
-//! parsed harness contract.
+//! Roster checks — the set-scope predicates, conformance, and admissibility passes
+//! over a parsed harness contract's named requirements (`specs/10-contracts.md`;
+//! `specs/45-governance.md`, "The set scope").
 //!
-//! Implements the requirement tier of `specs/10-contracts.md` ("Requirements — the
-//! harness's named obligations"; "Decision: role and requirement are one concept"): a
-//! harness contract declares named **requirements**, and the set a requirement
-//! quantifies over is its **satisfier set** — the artifacts of its `kind` that opt in
-//! via `satisfies` (`specs/45-governance.md`, "The set scope"). There is deliberately
-//! **no name-`match` selector** — a name pattern is the contract guessing, eradicated.
-//! The requirements parsed onto [`AuthorLayer`](crate::compose::AuthorLayer) reach this
-//! module as typed [`Requirement`]s.
-//!
-//! ## Three passes over one roster
-//!
-//! Three decidable passes read the same parsed requirements, each owning one facet:
-//!
-//! - [`check`] — **set-scope predicates**: the `count` cardinality bound, the `unique`
-//!   field constraint, and the `membership` predicate, each quantified over the
-//!   requirement's satisfier set. `temper` never fabricates a gate the author did not
-//!   declare (`00-intent.md` law 4), so a requirement declaring none of these adds
-//!   nothing here — the ≥1-satisfier presence of a `required` requirement is
-//!   [`crate::coverage`]'s referential gate, not this one's.
-//! - [`conformance`] — **`conforms-to`**: each satisfier is validated against the
-//!   contract of the package the requirement binds **by name** (PACKAGE-BINDING's
-//!   order) — packages compose, so this is *in addition to* the satisfier's own kind.
-//! - [`admissibility`] — **the contract is itself checked** (`specs/10-contracts.md`,
-//!   "Decision: the contract is itself checked — admissibility"): before the roster
-//!   is trusted to judge a harness, each requirement's own definition is held to the
-//!   definition — a `required` typed requirement's kind is satisfiable, its `package`
-//!   names a real package and is itself admissible, a `count` bound is well-ordered, a
-//!   `membership` `conforms_to` names a real package, and any `verified_by` resolves to
-//!   a real path.
-//!
-//! ## The satisfier set
-//!
-//! A requirement's satisfier set is the artifacts of its `kind` whose `satisfies`
-//! names it. Candidates come from the loaded kinds (`skill`, `rule`): a requirement's
-//! `kind` typing narrows them to that kind, and a kind-blind requirement (no `kind`)
-//! draws from every modeled kind. Membership's *second* set (S₂) is the satisfier set
-//! of a named source requirement drawn over its own `source_kind`, so the allowed set
-//! is itself an opt-in satisfier set (`specs/45-governance.md`, "each set an opt-in
-//! satisfier set").
+//! Three decidable passes read the same parsed requirements: [`check`] gates the
+//! author-declared `count`/`unique`/`membership` predicates over each requirement's
+//! **satisfier set** — the `kind`-typed artifacts opting in via `satisfies`;
+//! [`conformance`] validates those satisfiers against a bound package's contract; and
+//! [`admissibility`] checks each requirement's own definition before the roster is
+//! trusted to judge a harness.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -49,31 +17,24 @@ use crate::compose::{CountBound, Membership, PackageResolver, Requirement};
 use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
-/// The diagnostic `rule` id every set-scope cardinality finding reports under — the
-/// `count` predicate of the roster scope (`specs/45-governance.md`, "The set scope
-/// (the roster)"): a requirement's satisfier count must land in its declared bound.
+/// The diagnostic `rule` id every set-scope `count` finding reports under
+/// (`specs/45-governance.md`, "The set scope (the roster)").
 const REQUIREMENT_COUNT_RULE: &str = "requirement.count";
 
-/// The diagnostic `rule` id every conformance finding reports under — the
-/// `conforms-to` clause of a requirement (`specs/10-contracts.md`: a satisfier is
-/// `present` and `conforms-to` contract C).
+/// The diagnostic `rule` id every conformance finding reports under — a requirement's
+/// `conforms-to` clause (`specs/10-contracts.md`).
 const REQUIREMENT_CONFORMS_TO_RULE: &str = "requirement.conforms-to";
 
-/// The diagnostic `rule` id every roster-admissibility finding reports under — the
-/// admissibility clause of a requirement (`specs/10-contracts.md`, "Decision: the
-/// contract is itself checked — admissibility"): the requirement's own definition is
-/// well-formed against the definition, before the roster is trusted to judge a harness.
+/// The diagnostic `rule` id every roster-admissibility finding reports under
+/// (`specs/10-contracts.md`, "Decision: the contract is itself checked — admissibility").
 const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
 
-/// The diagnostic `rule` id every set-scope uniqueness finding reports under — the
-/// `unique` predicate of the roster scope (`specs/45-governance.md`, "The set scope
-/// (the roster)"): a declared field must not repeat across a requirement's satisfier set.
+/// The diagnostic `rule` id every set-scope `unique` finding reports under
+/// (`specs/45-governance.md`, "The set scope (the roster)").
 const REQUIREMENT_UNIQUE_RULE: &str = "requirement.unique";
 
-/// The diagnostic `rule` id every set-scope membership finding reports under — the
-/// `membership` predicate of the roster scope (`specs/45-governance.md`, "The set
-/// scope (the roster)"): a declared field of every artifact satisfying a requirement
-/// (S₁) must lie in the feature-set drawn from a second satisfier set (S₂).
+/// The diagnostic `rule` id every set-scope `membership` finding reports under
+/// (`specs/45-governance.md`, "The set scope (the roster)").
 const REQUIREMENT_MEMBERSHIP_RULE: &str = "requirement.membership";
 
 /// Whether an artifact opts into the requirement named `requirement` — its
@@ -131,20 +92,15 @@ fn kind_label(requirement: &Requirement) -> &str {
 /// `membership` gate.
 ///
 /// Every predicate quantifies over the requirement's **satisfier set** — the
-/// `kind`-typed artifacts that opt in via `satisfies`. `by_kind` maps an artifact kind
-/// (`skill`, `rule`, …) to the workspace [`Features`] of that kind; a kind-blind
-/// requirement draws from every modeled kind. Requirements iterate in name order (the
-/// roster is a [`BTreeMap`]) and each kind's candidates arrive name-sorted, so the
-/// finding set is stable across runs.
+/// `kind`-typed artifacts that opt in via `satisfies`; a kind-blind requirement draws
+/// from every modeled kind of `by_kind`. Requirements iterate in name order (the roster
+/// is a [`BTreeMap`]) and each kind's candidates arrive name-sorted, so the finding set
+/// is stable across runs.
 ///
-/// This pass gates only the *predicates* the author declared. The ≥1-satisfier
-/// presence of a plain `required` requirement is [`crate::coverage`]'s referential
-/// gate, not this one's — `temper` never fabricates a gate the author did not declare.
-/// `conforms-to` the requirement's bound package is a separate pass.
-///
-/// `resolver` resolves a `membership` `conforms_to` package name to its contract — the
-/// typed-reference constraint (`specs/45-governance.md`, "The set scope") needs it to
-/// load the package that narrows the source set.
+/// This pass gates only the predicates the author declared: the ≥1-satisfier presence
+/// of a plain `required` requirement is [`crate::coverage`]'s gate, and `conforms-to`
+/// is [`conformance`]'s. `resolver` resolves a `membership` `conforms_to` package name
+/// to its contract.
 #[must_use]
 pub fn check(
     requirements: &BTreeMap<String, Requirement>,
@@ -155,29 +111,24 @@ pub fn check(
     for requirement in requirements.values() {
         let satisfiers = satisfiers_for(requirement, by_kind);
 
-        // The set-scope `count` predicate (`specs/45-governance.md`, "The set scope"):
-        // the satisfier-set cardinality must land in `[min, max]`. `count` is an
-        // author-declared gate, so it fires whenever declared (it is mutually exclusive
-        // with `required`, which coverage gates as ≥1).
+        // `count` is an author-declared gate — it fires whenever declared, mutually
+        // exclusive with `required` (which coverage gates as ≥1).
+        // specs/45-governance.md, "The set scope"
         if let Some(bound) = &requirement.count
             && !(bound.min..=bound.max).contains(&satisfiers.len())
         {
             diagnostics.push(out_of_band(requirement, bound, &satisfiers));
         }
 
-        // The set-scope `unique` predicate (`specs/45-governance.md`, "The set
-        // scope"): each declared field must not repeat across the satisfier set.
-        // Author-declared and orthogonal to `count`, so it fires regardless of it.
+        // `unique` is orthogonal to `count`, so it fires regardless of it.
+        // specs/45-governance.md, "The set scope"
         for field in &requirement.unique {
             diagnostics.extend(duplicates(requirement, field, &satisfiers));
         }
 
-        // The set-scope `membership` predicate (`specs/45-governance.md`, "The set
-        // scope"): each S₁ satisfier's declared field must lie in the corpus-derived
-        // set drawn from the source requirement's satisfiers (S₂). The S₂ kind may
-        // differ from the requirement's own, so the source set is built off the full
-        // `by_kind` map, not the `satisfiers`. Author-declared and orthogonal to
-        // `count`/`unique`, so it fires regardless of them.
+        // S₂'s kind may differ from the requirement's own, so the source set is built
+        // off the full `by_kind` map, not `satisfiers`. Orthogonal to `count`/`unique`.
+        // specs/45-governance.md, "The set scope"
         if let Some(membership) = &requirement.membership {
             diagnostics.extend(out_of_set(
                 requirement,
@@ -192,19 +143,16 @@ pub fn check(
 }
 
 /// Run the `conforms-to` half of a requirement over the parsed roster
-/// (`specs/10-contracts.md`, the `package` typing facet): for each requirement that
-/// binds a `package`, validate its **satisfiers** — the `kind`-typed artifacts
-/// opting in via `satisfies` — against the resolved package's contract, retagging every
-/// conformance finding under [`REQUIREMENT_CONFORMS_TO_RULE`] and naming the
-/// requirement the satisfier broke. Packages **compose**: this is *in addition to* the
-/// satisfier being checked by its own kind's bound package.
+/// (`specs/10-contracts.md`, the `package` typing facet): validate each
+/// `package`-binding requirement's satisfiers against the resolved package's contract,
+/// retagging every finding under [`REQUIREMENT_CONFORMS_TO_RULE`] and naming the
+/// requirement the satisfier broke. Packages **compose** — this is *in addition to* the
+/// satisfier's own kind check.
 ///
-/// A requirement binding no `package` imposes no shape (skipped). `resolver` resolves a
-/// bound package name to its contract (PACKAGE-BINDING's order); `by_kind` is the same
-/// workspace-features map [`check`] reads. A requirement whose package does not resolve
-/// — no built-in, no project package — or fails to load is skipped here rather than
-/// reported: a non-resolving package is admissibility's finding, and double-reporting
-/// would be noise.
+/// A requirement binding no `package` imposes no shape (skipped). A requirement whose
+/// package does not resolve or fails to load is skipped rather than reported: that is
+/// admissibility's finding, and double-reporting would be noise. `resolver` resolves a
+/// bound package name (PACKAGE-BINDING's order); `by_kind` is [`check`]'s map.
 #[must_use]
 pub fn conformance(
     requirements: &BTreeMap<String, Requirement>,
@@ -235,39 +183,26 @@ pub fn conformance(
 
 /// Validate the harness roster against **the definition** — admissibility
 /// (`specs/10-contracts.md`, "Decision: the contract is itself checked —
-/// admissibility"). Each requirement earns trust the way a harness does, by passing a
-/// check, *before* the roster is used to judge anything; every finding is
-/// [`Diagnostic::error`] (an inadmissible requirement cannot be trusted, so it must
-/// fail the run) and names the requirement it indicts.
+/// admissibility"). Each requirement's own definition must pass a check *before* the
+/// roster is used to judge anything; every finding is [`Diagnostic::error`] (an
+/// inadmissible requirement cannot be trusted) and names the requirement it indicts.
 ///
-/// Five decidable clauses over the requirement's *present* facets — every facet is
-/// optional, so an absent one imposes no admissibility check.
+/// Five decidable clauses over the requirement's *present* facets — an absent facet
+/// imposes no check:
 ///
-/// - **(a) a `required` typed requirement is satisfiable** — when the requirement
-///   declares a `kind`, that kind is one `temper` models (a key of `by_kind`); a
-///   required requirement typed to an unmodeled kind can *never* be filled, so its
-///   definition is inadmissible. A kind-blind requirement (no `kind`) is filled by
-///   opt-in `satisfies`, so this clause gates on both `required` *and* a declared kind.
-/// - **(b) its `package` names a real package and is itself admissible** — when the
-///   requirement binds a `package`, that name resolves through the [`PackageResolver`]
-///   (a name matching no built-in and no project package is the inadmissibility this
-///   pass owns — `names a real package` — the case [`conformance`] skips) and the
-///   resolved [`Contract`](crate::contract::Contract) passes [`engine::admissibility`]
-///   (so an empty `enum` in a bound package is caught here, exactly as in a floor
-///   contract). Whether the requirement is *filled* stays coverage's, never this pass's.
-/// - **(c) any `verified_by` resolves** — the named path exists relative to
-///   `base_dir` (the referential clause; a dangling verifier is a silent no-op,
-///   the very failure `00-intent.md` law 1 forbids).
-/// - **(d) a declared `count` bound is satisfiable** — `min <= max`; an inverted
-///   bound admits no cardinality at all, so the definition is inadmissible, mirroring
+/// - **(a)** a `required` typed requirement's `kind` is one `temper` models, else it
+///   can never be filled (a kind-blind requirement is filled by opt-in `satisfies`).
+/// - **(b)** its `package` resolves through the [`PackageResolver`] and the resolved
+///   [`Contract`](crate::contract::Contract) is itself admissible — `names a real
+///   package`, the case [`conformance`] skips. Whether it is *filled* stays coverage's.
+/// - **(c)** any `verified_by` path exists relative to `base_dir` (a dangling verifier
+///   is the silent no-op `00-intent.md` law 1 forbids).
+/// - **(d)** a declared `count` bound is well-ordered (`min <= max`), mirroring
 ///   `range`'s `min > max` rejection (`specs/45-governance.md`).
-/// - **(e) a `membership` `conforms_to` typed reference names a real package and is
-///   itself admissible** — held to the same bar as the requirement's own package in (b).
+/// - **(e)** a `membership` `conforms_to` reference, held to (b)'s bar.
 ///
-/// `by_kind` is the same workspace-features map [`check`] and [`conformance`] read
-/// — admissibility uses only its *keys* (the modeled kinds), never the satisfiers.
-/// `resolver` resolves a bound package name (a requirement's `package` or a
-/// `membership` `conforms_to`); `base_dir` is the `temper.toml` directory a
+/// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `resolver`
+/// resolves a bound package name; `base_dir` is the `temper.toml` directory a
 /// `verified_by` path resolves against.
 #[must_use]
 pub fn admissibility(
@@ -280,10 +215,7 @@ pub fn admissibility(
     for requirement in requirements.values() {
         let name = requirement.name.as_str();
 
-        // (a) A `required` typed requirement is satisfiable: its declared `kind` is
-        // one `temper` models, else no artifact of that kind can ever fill it. A
-        // kind-blind requirement is filled by opt-in `satisfies`, so this gates on a
-        // declared kind.
+        // (a) A required requirement typed to an unmodeled kind can never be filled.
         if requirement.required
             && let Some(kind) = &requirement.kind
             && !by_kind.contains_key(kind.as_str())
@@ -297,11 +229,8 @@ pub fn admissibility(
             ));
         }
 
-        // (b) The requirement's `package` names a real package, and the resolved
-        // package's contract is itself admissible. A name matching no built-in and no
-        // project package is this pass's finding — `names a real package` — the case
-        // `conformance` skips to avoid double-reporting. Whether the requirement is
-        // *filled* stays coverage's, never this pass's.
+        // (b) The `package` resolves and the resolved contract is itself admissible; a
+        // non-resolving name is this pass's finding, not `conformance`'s.
         if let Some(package) = &requirement.package {
             match resolver.resolve(package) {
                 Ok(None) => diagnostics.push(Diagnostic::error(
@@ -331,8 +260,7 @@ pub fn admissibility(
             }
         }
 
-        // (c) Any `verified_by` resolves to a real path under the project — a
-        // dangling verifier is a silent no-op.
+        // (c) A `verified_by` path must exist — a dangling verifier is a silent no-op.
         if let Some(verifier) = &requirement.verified_by
             && !base_dir.join(verifier).exists()
         {
@@ -345,10 +273,8 @@ pub fn admissibility(
             ));
         }
 
-        // (d) A declared `count` bound is satisfiable: `min <= max`. An inverted
-        // bound admits no cardinality at all — a vacuous clause the author cannot
-        // have meant — so the definition is inadmissible, mirroring `range`'s
-        // `min > max` rejection (`specs/45-governance.md`, "reject min>max").
+        // (d) An inverted `count` bound (`min > max`) admits no cardinality —
+        // inadmissible, mirroring `range`'s rejection (`specs/45-governance.md`).
         if let Some(bound) = &requirement.count
             && bound.min > bound.max
         {
@@ -362,11 +288,9 @@ pub fn admissibility(
             ));
         }
 
-        // (e) A `membership` `conforms_to` typed reference names a real package and is
-        // itself admissible — held to the same bar as the requirement's own package in
-        // (b). A `conforms_to` that never resolves would otherwise silently drop the
-        // whole membership check (`out_of_set` skips a non-resolving one), so it must be
-        // reported here.
+        // (e) A `membership` `conforms_to` reference, held to (b)'s bar. A non-resolving
+        // one would silently drop the whole membership check (`out_of_set` skips it), so
+        // it must be reported here.
         if let Some(source_package) = requirement
             .membership
             .as_ref()
@@ -544,12 +468,9 @@ fn out_of_set(
         .filter(|features| is_satisfier(&membership.source, features))
         .collect();
 
-    // A typed reference constrains S₂ to sources conforming to contract C: keep only
-    // the matched sources that validate clean against it, reusing `conformance`'s
-    // resolve + validate machinery. A non-resolving `conforms_to` is admissibility's
-    // finding, not ours — skip the check rather than draw a set off an unconstrained
-    // source (mirroring how `conformance` skips a requirement whose contract does not
-    // resolve).
+    // A typed reference narrows S₂ to sources that validate clean against contract C
+    // (reusing `conformance`'s resolve + validate). A non-resolving `conforms_to` is
+    // admissibility's finding — skip rather than draw a set off an unconstrained source.
     if let Some(source_package) = &membership.source_package {
         let Ok(Some(contract)) = resolver.resolve(source_package) else {
             return Vec::new();
