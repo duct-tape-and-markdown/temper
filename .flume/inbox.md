@@ -15,3 +15,21 @@ removes them each tick. Empty is the normal state.
   hand-written parsers. No new predicates, no new grammar — closing the
   built-in/custom asymmetry so a spec's declared header fields are checked by
   the same path as a rule's `paths`.
+
+- DIRECTION (human ruling, this session): the built-in/custom split is SOURCE,
+  never MECHANISM — end-to-end. The engine reads every member through the one
+  generic declared path; a built-in kind/package differs from a custom one only
+  in where its definition sources from (embedded product data — packages/ today,
+  a kinds/ sibling for the declared KIND definitions — vs project-registered in
+  the assembly). This is already the corpus's end state (specs/15-kinds.md:
+  "Today extractors are engine code (`src/skill.rs`). The end state is that
+  extraction is composed from a closed algebra"; "built-in vs custom is
+  ownership, not a privileged mechanism") — the hand-coded `skill_features`/
+  `rule_features` in src/extract.rs and the per-kind surface readers are
+  transitional scaffolding, now called. Engine code remains sanctioned ONLY at
+  the harness adapter faces (parse/emit of the external Claude Code formats).
+  SEQUENCING: do not displace HEADER-FIELD EXTRACTION (above) — it ships first
+  and IS the generic reader this direction completes. File the unification as a
+  derived wave behind it (declared built-in KIND definitions embedded beside
+  their packages; generic composed extraction replacing the hand-coded feature
+  fns; per-kind surface readers retired into the one loader).
