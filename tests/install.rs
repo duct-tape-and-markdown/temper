@@ -76,7 +76,7 @@ const EXISTING_SETTINGS: &str =
 /// pre-existing settings file, and return its root.
 fn write_harness(label: &str, with_settings: bool) -> PathBuf {
     let root = tmpdir(label);
-    let skill = root.join("skills").join("coordinate");
+    let skill = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), SKILL).unwrap();
 
@@ -161,11 +161,17 @@ fn install_projects_the_three_placements() {
 
     // 3. The schema modeline is inserted as the first frontmatter line of each
     //    artifact that HAS frontmatter — the skill and the `paths:` rule.
-    let skill_md =
-        fs::read_to_string(root.join("skills").join("coordinate").join("SKILL.md")).unwrap();
+    let skill_md = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+    )
+    .unwrap();
     assert!(
-        skill_md
-            .starts_with("---\n# yaml-language-server: $schema=../../.temper/schema/skill.json\n"),
+        skill_md.starts_with(
+            "---\n# yaml-language-server: $schema=../../../.temper/schema/skill.json\n"
+        ),
         "the skill modeline must lead the frontmatter, got:\n{skill_md}"
     );
     // The body and the other frontmatter fields are preserved byte-for-byte.

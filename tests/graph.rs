@@ -78,7 +78,7 @@ fn import_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str,
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join(format!("{rule_name}.md")), rule_md).unwrap();
 
-    let skill_dir = harness.join("skills").join(skill_name);
+    let skill_dir = harness.join(".claude").join("skills").join(skill_name);
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(skill_dir.join("SKILL.md"), skill_md).unwrap();
 

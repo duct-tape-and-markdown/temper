@@ -62,11 +62,15 @@ Prefer a clone over a lifetime fight.\n";
 
 /// The on-disk source paths of the imported artifacts in `harness`.
 fn skill_source(harness: &Path) -> PathBuf {
-    harness.join("skills").join("coordinate").join("SKILL.md")
+    harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md")
 }
 
 fn skill_dir(harness: &Path) -> PathBuf {
-    harness.join("skills").join("coordinate")
+    harness.join(".claude").join("skills").join("coordinate")
 }
 
 fn rule_source(harness: &Path) -> PathBuf {
@@ -77,7 +81,7 @@ fn rule_source(harness: &Path) -> PathBuf {
 /// returning `(harness, workspace)`.
 fn imported(label: &str) -> (PathBuf, PathBuf) {
     let harness = tmpdir(&format!("{label}-src"));
-    let skill = harness.join("skills").join("coordinate");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), SKILL).unwrap();
     let rules = harness.join(".claude").join("rules");
@@ -380,7 +384,7 @@ fn an_added_source_becomes_a_new_surface_artifact_and_lock_row() {
     let (harness, into) = imported("added");
 
     // A skill and a rule that live on disk but the surface never imported.
-    let helper = harness.join("skills").join("helper");
+    let helper = harness.join(".claude").join("skills").join("helper");
     fs::create_dir_all(&helper).unwrap();
     fs::write(
         helper.join("SKILL.md"),

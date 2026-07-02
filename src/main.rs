@@ -85,7 +85,8 @@ struct Cli {
 enum Command {
     /// Scan the harness into the typed config surface (+ provenance lock).
     Import {
-        /// The harness to scan: a `skills/*/SKILL.md` tree, or a bare skill dir.
+        /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`),
+        /// or a bare skill dir.
         harness_path: PathBuf,
         /// Where to write the surface workspace (defaults to `./.temper`).
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
@@ -163,8 +164,9 @@ enum Command {
     /// zero, never blocking the session; a failing contract routes through the
     /// human via the reporter's notify-and-approve verdict.
     SessionStart {
-        /// The harness to check: the same tree `import` scans (a `skills/*` tree,
-        /// a bare skill dir, `.claude/rules/*`, plus any `temper.toml` kinds).
+        /// The harness to check: the same tree `import` scans (a project root with
+        /// `.claude/skills/*` + `.claude/rules/*`, or a bare skill dir, plus any
+        /// `temper.toml` kinds).
         harness_path: PathBuf,
     },
     /// Project temper's own gate wiring into the harness (`specs/50-distribution.md`,

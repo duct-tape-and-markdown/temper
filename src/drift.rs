@@ -1200,7 +1200,7 @@ Prefer a clone over a lifetime fight.\n";
     /// returning `(harness, workspace)`.
     fn imported(label: &str) -> (PathBuf, PathBuf) {
         let harness = tmpdir(&format!("{label}-src"));
-        let skill = harness.join("skills").join("coordinate");
+        let skill = harness.join(".claude").join("skills").join("coordinate");
         fs::create_dir_all(&skill).unwrap();
         fs::write(skill.join("SKILL.md"), SKILL).unwrap();
         let rules = harness.join(".claude").join("rules");
@@ -1237,7 +1237,11 @@ Prefer a clone over a lifetime fight.\n";
         let ws = Workspace::load(&into).unwrap();
 
         // Mutate one source after import; its hash no longer matches the baseline.
-        let skill_md = harness.join("skills").join("coordinate").join("SKILL.md");
+        let skill_md = harness
+            .join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md");
         let edited = fs::read_to_string(&skill_md).unwrap() + "\nAn extra line.\n";
         fs::write(&skill_md, edited).unwrap();
 
@@ -1272,7 +1276,7 @@ Prefer a clone over a lifetime fight.\n";
         let ws = Workspace::load(&into).unwrap();
 
         // Delete a source the surface imported: its path is gone from disk.
-        fs::remove_dir_all(harness.join("skills").join("coordinate")).unwrap();
+        fs::remove_dir_all(harness.join(".claude").join("skills").join("coordinate")).unwrap();
 
         let report = diff(&ws, &harness).unwrap();
 

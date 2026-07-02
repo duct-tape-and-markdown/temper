@@ -61,7 +61,7 @@ Prefer a clone over a lifetime fight.\n";
 /// returning the surface path.
 fn imported_surface(label: &str) -> PathBuf {
     let harness = tmpdir(&format!("{label}-harness"));
-    let skill = harness.join("skills").join("coordinate");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), SKILL).unwrap();
     let rules = harness.join(".claude").join("rules");

@@ -1,8 +1,9 @@
 //! `temper import` — scan a Claude Code harness into the typed config surface.
 //!
 //! Implements `import` per `specs/20-surface.md` ("Artifact kinds & contract
-//! selection"): `import` scans every **built-in** harness kind (`skills/*/SKILL.md`,
-//! `.claude/rules/*.md`) *plus* every **custom** kind the active `temper.toml`
+//! selection"): `import` scans every **built-in** harness kind at its real Claude
+//! Code locus (`.claude/skills/*/SKILL.md`, `.claude/rules/*.md` — one project-root
+//! `harness_path` captures every kind) *plus* every **custom** kind the active `temper.toml`
 //! declares (`specs/40-composition.md`). Each member is projected as **one authored
 //! document** (`specs/20-surface.md`, "Decision: the member is one document"). For
 //! each skill it writes the surface tree `<into>/skills/<name>/SKILL.md` — the
@@ -31,10 +32,11 @@
 //! with its provenance and the `last_applied` fingerprint the three-state
 //! drift/apply merge stands on (at import: equal to `import_hash`).
 //!
-//! Note the root asymmetry the built-in kinds carry: skills live at
-//! `<harness>/skills/`, rules at `<harness>/.claude/rules/`. A custom kind sits
-//! wherever its `governs` root names (the `spec` kind's `specs/`, no `.claude/`
-//! prefix — temper's own corpus, not a Claude Code artifact).
+//! Every built-in kind scans under `<harness>/.claude/` — its real Claude Code
+//! locus — so one project-root `harness_path` captures the whole harness. A
+//! custom kind sits wherever its `governs` root names (the `spec` kind's
+//! `specs/`, no `.claude/` prefix — temper's own corpus, not a Claude Code
+//! artifact).
 //!
 //! The keystone invariant (`.claude/rules/rust.md`) is idempotence: re-importing
 //! an unchanged harness yields an identical workspace. It holds because every
@@ -200,8 +202,11 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
 }
 
 /// Find the skill directories under `harness`: a bare `<harness>` that is itself
-/// a skill dir (has `SKILL.md`), followed by each immediate `skills/<name>/`
-/// child that has one. Non-skill files and dirs are skipped.
+/// a skill dir (has `SKILL.md`), followed by each immediate `.claude/skills/<name>/`
+/// child that has one — the skill kind's real Claude Code locus, so one
+/// project-root `harness_path` captures skills and rules together
+/// (`specs/20-surface.md`; a repo-root `skills/` tree is a *plugin* layout,
+/// not scanned here). Non-skill files and dirs are skipped.
 ///
 /// `pub(crate)` so the drift engine can re-run the same per-kind scan against a
 /// live harness without duplicating the discovery rules (`specs/20-surface.md`,
@@ -213,7 +218,7 @@ pub(crate) fn discover_skill_dirs(harness: &Path) -> Result<Vec<PathBuf>, Import
         dirs.push(harness.to_path_buf());
     }
 
-    let skills_root = harness.join("skills");
+    let skills_root = harness.join(".claude").join("skills");
     if skills_root.is_dir() {
         let listing = fs::read_dir(&skills_root).map_err(|source| ImportError::ReadDir {
             path: skills_root.clone(),
@@ -651,17 +656,17 @@ The surface is temper's composition write surface, no trailing newline.";
     /// observable (`00-intent` sorts before `20-surface`).
     const INTENT_SPEC: &str = "# Intent\n\nThe north star.\n";
 
-    /// Build a harness with two skills under `skills/` and two rules under
+    /// Build a harness with two skills under `.claude/skills/` and two rules under
     /// `.claude/rules/`; `coordinate` carries a companion markdown file and a
     /// nested script. The two kinds coexist so one import covers both.
     fn write_fixture_harness(root: &Path) {
-        let coordinate = root.join("skills").join("coordinate");
+        let coordinate = root.join(".claude").join("skills").join("coordinate");
         fs::create_dir_all(coordinate.join("scripts")).unwrap();
         fs::write(coordinate.join("SKILL.md"), COORDINATE).unwrap();
         fs::write(coordinate.join("PLAYBOOK.md"), PLAYBOOK).unwrap();
         fs::write(coordinate.join("scripts").join("run.sh"), SCRIPT).unwrap();
 
-        let demo = root.join("skills").join("demo");
+        let demo = root.join(".claude").join("skills").join("demo");
         fs::create_dir_all(&demo).unwrap();
         fs::write(demo.join("SKILL.md"), DEMO).unwrap();
 
@@ -892,8 +897,12 @@ temper's own governing documents.\n";
         let harness = tmpdir("skip-src");
         write_fixture_harness(&harness);
         // Noise that must be ignored: a loose file and a dir without SKILL.md.
-        fs::write(harness.join("skills").join("README.md"), "not a skill\n").unwrap();
-        fs::create_dir_all(harness.join("skills").join("empty")).unwrap();
+        fs::write(
+            harness.join(".claude").join("skills").join("README.md"),
+            "not a skill\n",
+        )
+        .unwrap();
+        fs::create_dir_all(harness.join(".claude").join("skills").join("empty")).unwrap();
 
         let into = tmpdir("skip-into");
         run(&harness, &into).unwrap();

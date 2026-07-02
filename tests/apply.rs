@@ -66,14 +66,18 @@ Prefer a clone over a lifetime fight.\n";
 
 /// The on-disk source path of the imported skill in `harness`.
 fn skill_source(harness: &Path) -> PathBuf {
-    harness.join("skills").join("coordinate").join("SKILL.md")
+    harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md")
 }
 
 /// Build a one-skill + one-rule harness and import it into a fresh surface,
 /// returning `(harness, workspace)`.
 fn imported(label: &str) -> (PathBuf, PathBuf) {
     let harness = tmpdir(&format!("{label}-src"));
-    let skill = harness.join("skills").join("coordinate");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), SKILL).unwrap();
     let rules = harness.join(".claude").join("rules");
@@ -183,8 +187,14 @@ fn a_surface_edit_patches_only_the_changed_field() {
     );
 
     // The patch re-parses to the same typed skill the surface holds — a valid write.
-    let reloaded = Skill::from_source_dir(harness.join("skills").join("coordinate").as_path())
-        .expect("the patched source must re-parse");
+    let reloaded = Skill::from_source_dir(
+        harness
+            .join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .as_path(),
+    )
+    .expect("the patched source must re-parse");
     assert_eq!(
         reloaded.description,
         "Use when driving a team across many axes."

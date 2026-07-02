@@ -84,7 +84,7 @@ Drive the team through the playbook.\n";
 /// the workspace `check` reads is built exactly as a user's would be.
 fn import_skill(root: &Path, name: &str, skill_md: &str) {
     let harness = tmpdir("harness");
-    let dir = harness.join("skills").join(name);
+    let dir = harness.join(".claude").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 

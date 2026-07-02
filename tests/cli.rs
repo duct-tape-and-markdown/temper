@@ -80,7 +80,7 @@ description: Use when coordinating agents across axes; not for single-axis work.
 
 /// Write a one-skill harness at `<root>/skills/<name>/SKILL.md`.
 fn write_harness(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join("skills").join(name);
+    let dir = root.join(".claude").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
@@ -477,11 +477,15 @@ fn diff_reports_the_four_states_and_writes_nothing() {
     assert_eq!(stdout.lines().count(), 3, "one line per imported artifact");
 
     // Mutate the harness three ways: edit one source, add a new one, delete one.
-    let coordinate_md = harness.join("skills").join("coordinate").join("SKILL.md");
+    let coordinate_md = harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
     let edited = fs::read_to_string(&coordinate_md).unwrap() + "\nAn extra line.\n";
     fs::write(&coordinate_md, edited).unwrap();
     write_rule_harness(&harness, "extra", CLEAN_RULE);
-    fs::remove_dir_all(harness.join("skills").join("review")).unwrap();
+    fs::remove_dir_all(harness.join(".claude").join("skills").join("review")).unwrap();
 
     // The surface is unchanged, so the report reflects each on-disk mutation.
     let before = snapshot(&into);
@@ -546,7 +550,11 @@ fn apply_projects_a_surface_edit_and_dry_run_writes_nothing() {
         .replace("Use when coordinating", "Use when orchestrating");
     fs::write(&document, edited).unwrap();
 
-    let source = harness.join("skills").join("coordinate").join("SKILL.md");
+    let source = harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
 
     // A dry run reports the pending write but touches nothing on disk.
     let before = snapshot(&harness);

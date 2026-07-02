@@ -60,7 +60,7 @@ Drive the team through the playbook.\n";
 
 /// Write a one-skill harness at `<root>/skills/<name>/SKILL.md`.
 fn write_harness(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join("skills").join(name);
+    let dir = root.join(".claude").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }

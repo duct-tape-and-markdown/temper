@@ -1,73 +1,25 @@
 [
   {
-    "tag": "IMPORT-SKILL-LOCUS",
-    "summary": "Scan skills at `.claude/skills/*/SKILL.md` so one project-root harness_path captures skills and rules together — the repo-root `skills/` tree is plugin layout, no longer scanned",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Artifact kinds & package binding"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "The fix: change `discover_skill_dirs` to scan the tree at `<harness>/.claude/skills/*/SKILL.md` (was the repo-root `<harness>/skills/*`) — the skill kind's real Claude Code read locus (`specs/15-kinds.md`, the adapter's read face). KEEP the bare `<harness>/SKILL.md` single-skill case (cheap; the spec's plugin carve-out only drops the repo-root `skills/` *tree*, and acceptance.rs + tests/fixtures/coordinate rely on the bare arg). `discover_rule_files` already scans `.claude/rules/*` — leave it. Rewrite the module header's 'root asymmetry' narrative (lines ~1-12, ~34-37) and the `discover_rule_files` doc's asymmetry line — after the fix both built-in kinds share the `.claude/` locus. Relocate the in-module fixtures `write_fixture_harness` and `skips_non_skill_dirs_and_files` from `<root>/skills/` to `<root>/.claude/skills/`; keep `imports_a_bare_harness_that_is_itself_a_skill`. Add the standard-project test below. This entry owns the scan-locus change."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "No logic change — drift re-scans through the shared `import::discover_skill_dirs`, so it inherits the fix. Relocate its in-module test harness skills (lines ~1203/1240/1275) from `<harness>/skills/coordinate/` to `<harness>/.claude/skills/coordinate/`. Touch the doc comment (line ~23) only if it names the old `skills/` locus."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Doc-comment only: the `import` (line ~88) and `check --harness` (line ~166) command help describe the harness as a `skills/*/SKILL.md` tree — reword to the project root whose `.claude/skills/*/SKILL.md` + `.claude/rules/*.md` are scanned (a bare skill dir still works). `check --harness` routes through `import::run` (main.rs:255) and inherits the fix; no dispatch change."
-        },
-        { "path": "tests/apply.rs", "description": "Relocate the harness-INPUT skill fixture (lines ~69/76/186) from `<harness>/skills/coordinate/` to `<harness>/.claude/skills/coordinate/`. The surface side (`<into>/skills/`) is unaffected." },
-        { "path": "tests/readd.rs", "description": "Relocate every harness-INPUT skill fixture (lines ~65/69/80/383) from `<harness>/skills/<name>/` to `<harness>/.claude/skills/<name>/`; the `<into>/skills/` surface reads are unchanged." },
-        { "path": "tests/install.rs", "description": "`install::run` scans the harness via `discover_skill_dirs` — relocate `write_harness`'s skill fixture (lines ~79/165) from `<root>/skills/coordinate/` to `<root>/.claude/skills/coordinate/`." },
-        { "path": "tests/reporters.rs", "description": "`write_harness` (line ~183) builds a one-skill harness at `<root>/skills/<name>/` then imports it — relocate to `<root>/.claude/skills/<name>/`." },
-        { "path": "tests/graph.rs", "description": "`import_harness` (line ~81) builds a skill at `<root>/skills/<name>/` — relocate to `<root>/.claude/skills/<name>/` (its rule at `.claude/rules/` already matches the real locus)." },
-        { "path": "tests/session_start.rs", "description": "`write_harness` (line ~63, the `check --harness` one-shot fixture) builds a skill at `<root>/skills/<name>/` — relocate to `<root>/.claude/skills/<name>/`." },
-        { "path": "tests/cli.rs", "description": "`write_harness` / `write_rule_harness` (line ~83) and the `check --harness` wedge cases (lines ~480/484/543/549/611) build skills at `<root>/skills/<name>/` — relocate to `<root>/.claude/skills/<name>/`. The `<into>/skills/` surface assertions stay." },
-        { "path": "tests/coverage.rs", "description": "`import_skill` (line ~61) builds a harness skill at `<harness>/skills/<name>/` then runs the real `import` — relocate to `<harness>/.claude/skills/<name>/`. The `.temper/skills/` surface authoring (line ~81) is unaffected." },
-        { "path": "tests/requirement_roster.rs", "description": "`import_skill` (line ~68) builds a harness skill at `<harness>/skills/<name>/` then imports — relocate to `<harness>/.claude/skills/<name>/`; the `.temper/skills/` surface (line ~88) is unaffected." },
-        { "path": "tests/temper_toml.rs", "description": "The harness-INPUT skill fixture (line ~87) at `<harness>/skills/<name>/` — relocate to `<harness>/.claude/skills/<name>/`." },
-        { "path": "tests/bundle.rs", "description": "`bundle` imports a harness first (line ~72); relocate its skill fixture (line ~64) from `<harness>/skills/coordinate/` to `<harness>/.claude/skills/coordinate/`. The emitted plugin tree (`out/skills/temper/…`, incl. the `bundle__bundle_is_deterministic` snapshot) is bundle *output* — unaffected; regenerate the snapshot only if a recorded source_path shifts." }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "one `run(project_root, into)` over a standard Claude Code project (`.claude/skills/*/SKILL.md` + `.claude/rules/*.md` under one root) captures skill AND rule rows in a single lock — the exact repro the inbox names; the bare `<harness>/SKILL.md` arg still imports a single skill; a repo-root `skills/` tree yields zero skills (plugin layout, not scanned by the skill kind)."
-      }
-    ],
-    "acceptance": "`temper import <project-root>` and `temper check --harness <project-root>` on a standard Claude Code layout (`.claude/skills/` + `.claude/rules/`) discover skills and rules together from one path; the bare single-skill-dir arg still works; the repo-root `skills/` tree is no longer scanned by the skill kind; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox BUG (first external-harness contact): skills scanned at repo-root `skills/*`, rules at `.claude/rules/*` — no single harness_path caught a standard project. Spec corrected in a74b1c9. Keep the bare `<harness>/SKILL.md` case (cheap; keeps tests/fixtures/coordinate + acceptance.rs green untouched — no snapshot churn); relocate only the tree scan. Surface-side `<ws>/skills/` output unaffected. Wide but atomic test ripple; sole open entry — no parallel conflict."
-  },
-  {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
+    "summary": "Add the `agent` built-in harness kind \u2014 `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the whole surface-language chain it waited on has shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
+      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the whole surface-language chain it waited on has shipped, so the blocker is priority alone \u2014 revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
+          "description": "The Agent IR \u2014 the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
         },
         {
           "path": "packages/agent/PACKAGE.md",
-          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
+          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model \u2014 NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
         },
         {
           "path": "tests/agent_contract.rs",
@@ -106,11 +58,11 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes via blockedBy against any then-open entry touching those files (e.g. IMPORT-SKILL-LOCUS while open)."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms \u2014 one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes via blockedBy against any then-open entry touching those files (e.g. IMPORT-SKILL-LOCUS while open)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
+    "summary": "Ship acquisition channels \u2014 npm optionalDependencies binary wrapper, Homebrew, cargo install \u2014 auto-detected, fail-loud on a missing platform binary",
     "per": {
       "path": "specs/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
@@ -138,6 +90,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest \u2014 reconcile or split, never blindly create a second. Parked until a human sets creds up."
   }
 ]
