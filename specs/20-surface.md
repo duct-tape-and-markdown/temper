@@ -216,7 +216,10 @@ built-in package by default). Slice 1 shipped **skill**; the next kind is **rule
 key) plus a content-faithful body. Its package's clauses forbid the Cursor keys Claude
 Code ignores (`description`, `globs`, `alwaysApply`) — the exact mistake that motivated
 the project (a rule authored with `.mdc` frontmatter loads nothing). `import` scans
-every built-in kind (`skills/*/SKILL.md`, `.claude/rules/*.md`) plus every custom kind
+every built-in kind at its harness locus — **one `harness_path`, the project
+root, captures every kind**: `.claude/skills/*/SKILL.md`, `.claude/rules/*.md`
+(a repo-root `skills/` tree is a *plugin* layout, the plugin kind's business,
+never the project convention) — plus every custom kind
 the assembly declares (`40-composition.md`); `check` dispatches each member to the
 package its kind is bound to. This is the path to self-hosting: `temper`'s own
 `.claude/` is rules, so once the rule kind exists, `temper check` can run on its own
