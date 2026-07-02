@@ -1,5 +1,108 @@
 [
   {
+    "tag": "ADAPTER-EQUIVALENCE-PIN",
+    "summary": "Pin adapter byte-fidelity before the declared-adapter swap: YAML key order, unknown-key preservation, the no-frontmatter rule, and companion copying — as insta snapshots/assertions",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Decision: the adapter faces are declared — a kind names its projection format"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/adapter_fidelity.rs",
+          "description": "The equivalence baseline the declared-adapter collapse must not move: import→apply round-trip is byte-identical, projected YAML frontmatter key ordering is stable, an artifact's unknown frontmatter keys (`extra`) survive verbatim through import/apply, a rule projects with no frontmatter when it declares no fields, and a skill's companion files are copied byte-for-byte. insta snapshots + direct byte assertions over fixtures — the frozen behavior the generic frontmatter adapter (DECLARED-FRONTMATTER-ADAPTER) is later diffed against."
+        }
+      ],
+      "edit": [
+        {
+          "path": "tests/apply.rs",
+          "description": "Add any missing apply round-trip byte-fidelity assertions (YAML key ordering, `extra` preservation, no-frontmatter rule projection) not already covered here — extend the existing snapshots rather than duplicate them."
+        },
+        {
+          "path": "tests/readd.rs",
+          "description": "Pin re-add's parse-back fidelity (a direct on-disk edit lifts into the member document without churning unrelated fields) as the re-add half of the swap baseline, if not already asserted."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/adapter_fidelity.rs",
+        "asserts": "import→apply is byte-identical; projected frontmatter key order is stable; `extra` unknown keys are preserved verbatim; a fieldless rule projects with no frontmatter; skill companions are copied byte-for-byte."
+      }
+    ],
+    "acceptance": "The four byte-fidelity properties (YAML ordering, unknown-key preservation, no-frontmatter rule, companion copying) are pinned by snapshot/assertion over the current per-kind adapters; where a property is already covered the entry reuses that pin and adds only the missing ones; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Must land before any swap (inbox sequencing). Existing pins found on disk: import-idempotence + apply round-trip snapshots, tests/extract_equivalence.rs, and check.rs's IR↔generic feature-parity test. This entry adds only the gaps the inbox names. Tests-only — disjoint from the (parked) engine wave, so it is the sole pickable entry and cannot collide."
+  },
+  {
+    "tag": "DECLARED-FRONTMATTER-ADAPTER",
+    "summary": "Collapse the per-kind adapter modules (src/skill.rs, src/rule.rs) into one generic declaration-driven frontmatter adapter for import/apply/re-add/drift; retire the typed IRs",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Decision: the adapter faces are declared — a kind names its projection format"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "the adapter is declaration-driven, but kinds/skill/KIND.md + kinds/rule/KIND.md carry no `format`/unit-shape keys and build's fence excludes kinds/ (curated std-lib territory, .flume/chain.ts). A human adds the format + unit-shape lines to the two curated KIND.md files (a chore(harness) commit); then this un-parks (after ADAPTER-EQUIVALENCE-PIN)."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "src/frontmatter.rs",
+          "description": "The one generic frontmatter adapter the Decision names — implements the `yaml-frontmatter` projection format once, for every kind that declares it. Import: split the external artifact per the kind's declared unit shape (lone file, id from stem; directory with companions, id from dir name) and lift the kind's declared extraction `field`s into `[clause.<field>]` header tables (over the existing `Document` add_clause/add_satisfies/add_edge machinery). Apply: render the member document back to the harness format byte-deterministically. Drift: compare declared fields with no per-kind serializer. Re-add: re-parse an on-disk edit into the member document. Replaces Skill/Rule::to_document, skill_fields/rule_fields, and the per-kind import/re-add writers."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Teach `CustomKind`/`Governs` the declared projection facts: a closed-vocab `format` (first entry `yaml-frontmatter`) and a unit shape (file vs directory+companions), parsed from the KIND.md header with the new keys added to the closed allowed-key guard (kind.rs:110-118). This entry owns the CustomKind struct edit."
+        },
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod frontmatter;`; remove `pub mod skill;` and `pub mod rule;` (this entry owns these lines)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Replace `import_skill`/`import_rule` and their `existing_surface_*` mirrors with the generic frontmatter adapter driven by the kind definition; generalize `run`'s hardcoded skill/rule loop and the bare-root-skill special case; drop `use crate::skill`/`crate::rule` and the `ImportError::Skill`/`Rule` variants."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Replace `skill_fields`/`rule_fields` with the generic serializer; generalize `diff`/`apply`/`re_add`/`load_last_applied`/`update_lock` off the hardwired [\"skill\",\"rule\"] lists to the registered kind set; drop `use crate::skill`/`crate::rule`."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Make `Workspace` kind-generic (a member list over `Unit`/the generic member type) instead of `Vec<Skill>`/`Vec<RuleArtifact>`; drop the `Skill`/`Rule` imports and the per-kind `Workspace::load` branches. The check gate is already generic; this is the adapter-face `Workspace` the drift/bundle/read faces consume."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Adapt bundle's `Workspace::load` consumption and its `Skill::from_source_dir` test helper to the generic member surface."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Adapt the read family (`why`/`requirements`) narration, which loads the typed `Workspace`, to the generic member surface; features already flow through the generic path unchanged."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Remove the `#[cfg(test)]` `skill_surface_unit`/`rule_surface_unit` parity helpers that build a `Unit` from a `Skill`/`Rule` (the IR↔generic parity they pinned is subsumed once the IR is gone)."
+        }
+      ],
+      "retire": ["src/skill.rs", "src/rule.rs"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/adapter_fidelity.rs",
+        "asserts": "the generic adapter reproduces the pinned baseline exactly — import→apply byte-identical, YAML ordering stable, `extra` preserved, no-frontmatter rule, companions copied — for both skill and rule with zero per-kind engine code."
+      }
+    ],
+    "acceptance": "src/skill.rs and src/rule.rs are deleted; one generic frontmatter adapter reads each kind's declared format + unit shape and drives import/apply/re-add/drift for skill and rule identically; ADAPTER-EQUIVALENCE-PIN's snapshots are unchanged; the built-in/custom split is purely source; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Human-gated: kinds/skill+rule/KIND.md carry no `format`/unit keys and build's fence excludes kinds/. Humans add two KIND.md lines (`format = \"yaml-frontmatter\"` + a unit shape: directory+companions for skill, flat file for rule), then it un-parks. Atomic refactor: add the adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit (clippy forbids interim dead code). Needs ADAPTER-EQUIVALENCE-PIN first."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds.md lists but code lacks — a `fenced` block extractor and key-path (nested) `field` lookup — held until a consumer kind needs them",
     "per": {
@@ -16,7 +119,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement); (2) make `Primitive::Field` honor the key-path its own doc-comment (kind.rs:225) promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:262) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set. This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set. This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
@@ -33,7 +136,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk audit this tick found both. `Primitive::Field` (src/kind.rs:262) does a flat `frontmatter.get(key)` despite its doc-comment (kind.rs:225) saying 'key-path'; a `fenced` block is in 15-kinds.md's markdown-structure list but absent from `Primitive`. Neither breaks anything today (no kind uses them). Kept as ONE entry — both touch src/kind.rs+src/extract.rs, so two parallel opens would conflict. On revival, serialize the shared-file edits against any open entry."
+    "notes": "Disk audit found both. `Primitive::Field` does a flat `frontmatter.get(key)` despite its doc-comment saying 'key-path'; a `fenced` block is in 15-kinds.md's markdown-structure list but absent from `Primitive`. Neither breaks anything today (no kind uses them). Kept as ONE entry — both touch src/kind.rs+src/extract.rs. On revival, serialize the shared-file edits against any open entry (esp. DECLARED-FRONTMATTER-ADAPTER, which also edits src/kind.rs)."
   },
   {
     "tag": "AGENT-KIND",
@@ -44,44 +147,32 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "more built-in kinds is the wrong direction under the requirements/satisfies reframe; the surface-language and read-path unification it would ride have shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
+      "reason": "more built-in kinds is the wrong direction under the requirements/satisfies reframe; and post-adapter-wave the agent kind is mostly curated data (a KIND.md + PACKAGE.md, both outside build's fence) with near-zero engine code — revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
-          "path": "src/agent.rs",
-          "description": "The Agent typed IR — the adapter-face model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed frontmatter (`name`, `description`, optional `tools`/`model`), unknown keys preserved in `extra`, content-faithful body, provenance, `to_document`/`from_dir`. Used by the import parse and apply emit faces (the check read goes through the generic `Unit` loader post-SURFACE-READING-GENERIC)."
-        },
-        {
           "path": "kinds/agent/KIND.md",
-          "description": "The embedded built-in `agent` KIND.md (read side), beside `kinds/skill` and `kinds/rule`: `governs = { root = '.claude/agents', glob = '*.md' }`, composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. Embedded by build.rs like the other built-in kinds — no engine-code extractor."
+          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), beside kinds/skill and kinds/rule: `governs = { root = '.claude/agents', glob = '*.md' }`, the declared projection format + unit shape (post DECLARED-FRONTMATTER-ADAPTER), composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. build.rs auto-embeds it — no engine extractor."
         },
         {
           "path": "packages/agent.anthropic/PACKAGE.md",
-          "description": "The agent kind's built-in package `agent.anthropic` in the one-document medium, embedded with the std-lib by build.rs (the product `packages/` tree, not a `.temper/` member). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`. Per-clause `source` citations to the Claude Code subagent docs."
+          "description": "The agent kind's built-in package `agent.anthropic` (curated product territory, outside build's fence), embedded with the std-lib by build.rs. Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`. Per-clause `source` citations to the Claude Code subagent docs."
         },
         {
           "path": "tests/agent_contract.rs",
-          "description": "Fixture-driven proof mirroring `tests/rule_contract.rs`: one broken agent per clause proving it fires, a clean agent that trips nothing, and an import round-trip insta snapshot proving idempotence."
+          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: one broken agent per clause proving it fires, a clean agent that trips nothing, and an import round-trip insta snapshot proving idempotence — all through the generic adapter + loader, no per-kind engine code."
         }
       ],
       "edit": [
         {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod agent;` beside the other artifact-kind modules (this entry owns the line)."
-        },
-        {
           "path": "src/kind.rs",
-          "description": "Add `\"agent\"` to `BUILTIN_KINDS` so a `[kind.agent]` registration reads as a built-in layer, not a custom kind."
+          "description": "Add `\"agent\"` to the `BUILTIN_KINDS` name-list (kind.rs:30) so a `[kind.agent]` binding reads as a built-in layer, not a custom kind."
         },
         {
           "path": "src/builtin.rs",
-          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const and register it in the built-in package map beside `skill.anthropic`/`rule.anthropic`."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Bind the agent package floor and include `agent` in the gate's generic by-kind loop and the schema `floors` list; the members read through the generic `Unit` loader, so no hand-coded feature fn is added. Wire the import/apply adapter faces to `src/agent.rs`."
+          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const and register it in the built-in package map beside `skill.anthropic`/`rule.anthropic`. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
         }
       ],
       "retire": []
@@ -93,8 +184,8 @@
         "asserts": "each decidable clause of the agent package fires on its broken fixture and stays silent on a clean agent; import of an unchanged agent is idempotent (insta snapshot)."
       }
     ],
-    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands it. Rewritten to the current architecture: `agent` is a typed IR (adapter faces) + embedded KIND.md + `agent.anthropic` package like skill/rule, read through the generic loader — no per-kind Workspace field. On revival, reconcile the exact file set against then-current code and serialize the shared-file edits (lib/kind/builtin/main) against any open entry."
+    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Rewritten for the declared-adapter architecture: no src/agent.rs typed IR — the generic adapter projects it. The agent kind is a curated kinds/agent/KIND.md + packages/agent.anthropic/PACKAGE.md (outside build's fence) plus near-zero engine wiring: add \"agent\" to BUILTIN_KINDS (kind.rs) + an AGENT_PACKAGE binding (builtin.rs); build.rs auto-embeds. Deferred: more built-in kinds is the wrong direction under requirements/satisfies, and blocked on the adapter wave draining."
   },
   {
     "tag": "PACKAGING-CHANNELS",

@@ -1,29 +1,26 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD c4e2155.
-- **Last shipped (trunk):** IMPORT-DISCOVERY-GENERIC (cafad7c) — the
-  extraction/read-path **unification wave has fully drained**: built-in kinds
-  discover off their embedded `kinds/<name>/KIND.md` `governs`, every surface reads
-  through the one generic `Unit` loader, and import discovery is generic. Verified
-  on disk.
-- **This tick:** audited `src/` against the whole corpus — the engine **conforms to
-  current decidable intent**. Present and generic: custom kinds as data
-  (`.temper/kinds/spec/KIND.md`, no `src/spec.rs`), composed extraction over the
-  closed `Primitive` algebra, project-authored packages + admissibility
-  (`.temper/packages/`), the `temper.toml` assembly, coverage/read-verbs/graph
-  (READ-EDGE-UNIFY shipped), drift/apply/re-add, bundle/install/schema/reporters,
-  and the full predicate + governance vocabulary (range/count/unique/membership/
-  degree/acyclic/section_contains). Filed **EXTRACTION-VOCAB-GAPS** (deferred) — the
-  two cited-but-consumer-less primitives (`fenced` block, key-path `field`). Drained
-  inbox: KIND-PROSE-RECONCILE done by hand (kinds/ is curated territory outside
-  build's fence — the revert was correct) → accepted, not re-filed.
-- **Pickable now:** none. AGENT-KIND + EXTRACTION-VOCAB-GAPS deferred;
-  PACKAGING-CHANNELS + COMMUNITY-DOCS parked. All remaining work is **human-gated**:
-  the `(edge-representation-unify)` fork (`[edge.*]` is now dead surface syntax the
-  gate ignores — human to settle the canonical edge form); the spec class-split
-  corpus migration (`.temper/`/`packages/`/`specs/` — outside build's fence); release
-  creds; a chain.ts fence-widen for the root community docs.
+- **Phase:** reconcile. HEAD 6ba251d.
+- **Last shipped (spec):** the "adapter faces are declared" Decision (6ba251d,
+  `specs/15-kinds.md`). Disk audit confirms the read/check path is already fully
+  generic (`Unit::from_member_document` + embedded `KIND.md` extraction); the
+  per-kind typed IRs `src/skill.rs`/`src/rule.rs` now survive **only** at the
+  import/apply/re-add/drift/bundle adapter faces + read narration.
+- **This tick:** drained the DECLARED-ADAPTER WAVE inbox line → filed
+  **ADAPTER-EQUIVALENCE-PIN** (open, tests-only, pickable now — the byte-fidelity
+  baseline the swap must not move) and **DECLARED-FRONTMATTER-ADAPTER** (parked:
+  the generic declaration-driven adapter collapse retiring skill.rs/rule.rs).
+  Rewrote **AGENT-KIND** to the near-zero-engine shape the new architecture makes
+  it (no `src/agent.rs`; curated KIND.md + PACKAGE.md). Kept EXTRACTION-VOCAB-GAPS
+  (deferred), PACKAGING-CHANNELS/COMMUNITY-DOCS (parked).
+- **Pickable now:** ADAPTER-EQUIVALENCE-PIN (sole open entry, disjoint tests).
+- **Human-gated (surfaced, not filed as build work):** add `format =
+  "yaml-frontmatter"` + a unit-shape line to the curated `kinds/skill/KIND.md`
+  and `kinds/rule/KIND.md` (build's fence excludes `kinds/`) — this un-parks
+  DECLARED-FRONTMATTER-ADAPTER. Also still gated: the `(edge-representation-unify)`
+  fork, release creds (PACKAGING-CHANNELS), the chain.ts fence-widen + private
+  vuln reporting (COMMUNITY-DOCS).
 
-Plan continues: no — queue reconciled, inbox drained, no in-fence decidable open
-gap. Remaining work is human-gated (an open fork, dogfood-corpus territory, release
-creds), so there is no pickable build entry; hand off.
+Plan continues: no — queue reconciled, inbox drained, one open entry filed
+(ADAPTER-EQUIVALENCE-PIN); the substantive wave is human-gated on the curated
+KIND.md declarations. Hand to build.
