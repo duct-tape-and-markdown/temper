@@ -1,29 +1,33 @@
 [
   {
     "tag": "REACHABILITY-WIRE",
-    "summary": "Wire the shipped `reachable` graph predicate into the gate — a dead world→member activation edge should become a check-time finding, but main.rs has no caller yet",
+    "summary": "Wire the shipped `reachable` graph predicate into the gate — a dead world→member activation edge becomes a finding; opt-in + severity are assembly-declared (fork resolved)",
     "per": {
       "path": "specs/45-governance.md",
       "section": "The world is a node — reachability is a predicate"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "how a graph-scope reachability fact carries author-declared severity is unsettled (fork reachability-gate-mechanism — acyclic is always-on, degree assembly-declared, the spec says 'the package's clause choice'; a reachability fact ranges over the world node + repo files, not one artifact's features, so it doesn't fit the artifact-scope Predicate a package clause lives in). Both curated activation lines now ship (kinds/skill/KIND.md description-trigger + kinds/rule/KIND.md paths-match, human-authored 9f7d176) and PATHS-MATCH-ABSENCE fixed the absent-field false positive — so the OPEN fork is the sole remaining blocker."
+      "kind": "open"
     },
-    "dependsOnForks": [
-      "reachability-gate-mechanism"
-    ],
     "files": {
       "new": [
         {
           "path": "tests/reachable_gate.rs",
-          "description": "Gate-side proof mirroring the library fixture at tests/graph.rs:460: a fixture custom kind declaring an `activation` plus a package/assembly opting its members into reachability — a dead edge (blank description-trigger field / zero-matching paths glob) surfaces a finding through the wired gate, a live one (including an unscoped rule with no paths field, post-PATHS-MATCH-ABSENCE) stays silent, and the severity follows whatever reachability-gate-mechanism resolves."
+          "description": "Gate-side proof mirroring the library fixture at tests/graph.rs: a fixture kind declaring an `activation` plus an assembly declaration opting reachability in with a severity. A dead edge (blank description-trigger field / present-but-zero-matching paths glob) surfaces a finding through the wired gate; a live one (including an unscoped rule with no `paths` field, post-PATHS-MATCH-ABSENCE) stays silent; absent the assembly opt-in nothing fires at all; and the finding names the world node, the kind, the member, and the dead-edge reason, at the assembly-declared severity."
         }
       ],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Build the `activations` map from the in-scope kind definitions' declared `Activation` (`CustomKind.activation`, kind.rs:89) and collect the repo file set (the `paths-match` liveness input), then dispatch `graph::reachable(&activations, &by_kind, &repo_files)` beside the always-on acyclic/degree graph pass (main.rs:654-666) and extend diagnostics. The opt-in/severity home (an always-on pass like acyclic, an assembly bound like degree, or a new graph-tier package clause) is exactly what reachability-gate-mechanism decides — so whether this also touches src/contract.rs/src/engine.rs is fork-dependent and not committed here."
+          "description": "Build the `activations: BTreeMap<&str, Activation>` map from each in-scope kind definition's declared `Activation` — built-in kind defs via `builtin_kind::definitions()` plus each custom kind's `CustomKind.activation` (kind.rs:89) — and collect the repo file set (the `paths-match` liveness input), then dispatch `graph::reachable(&activations, &by_kind, &repo_files)` beside the always-on acyclic/degree graph pass (main.rs:654-666), gated by the assembly's reachability opt-in and emitted at its declared severity, and extend diagnostics. Reads the opt-in off the `layer` (AuthorLayer) exactly as `degree` reads `layer.requirements()`."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Sweep the stale `reachable` doc comment (graph.rs:338-340, 'the eventual severity is the package clause's choice') to the resolved assembly-declared severity per specs/45 (`reachability-gate-mechanism` option b). Thread the assembly-declared severity into the emitted findings — today unconditionally `Diagnostic::error` (graph.rs:353) — so a required vs advisory reachability dial is honored. No change to the pure `dead_activation`/`declared_globs`/glob mechanics."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Parse the assembly's reachability opt-in + severity declaration into `AuthorLayer`, kind/assembly-level like `degree`'s `[requirement.*].degree` bound (compose.rs parse_degree/DegreeBound). The concrete surface key is build's to choose within the resolved envelope (assembly-declared, opt-in, severity dial — never a member or a package). Rejects unknown keys per the closed-vocab load-guard (specs/10-contracts.md, unknown keys are rejected). NOT contract.rs/engine.rs — reachability is assembly-scope, not a package clause."
         }
       ],
       "retire": []
@@ -32,11 +36,11 @@
     "tests": [
       {
         "path": "tests/reachable_gate.rs",
-        "asserts": "with reachability wired, a member whose declared activation edge is provably dead is a finding at the gate and a reachable member is silent; the finding names the world node, the kind, the member, and the dead-edge reason."
+        "asserts": "with reachability wired and opted in via the assembly, a member whose declared activation edge is provably dead is a finding at the gate at the declared severity, a reachable member is silent, and absent the opt-in nothing fires; the finding names the world node, the kind, the member, and the dead-edge reason."
       }
     ],
-    "acceptance": "`temper check` runs the `reachable` predicate over members of kinds that declare an activation and flags a dead world→member edge; cargo fmt/clippy -D warnings/test all green. (Parked: not built until reachability-gate-mechanism resolves the severity-declaration home — both curated activation lines and PATHS-MATCH-ABSENCE have already shipped.)",
-    "notes": "reachable/world/dead_activation in src/graph.rs:342, library-proven (tests/graph.rs:460); no main.rs caller (654-666 = admissibility/check/acyclic/degree). Both curated activation lines now on disk — kinds/skill/KIND.md description-trigger + kinds/rule/KIND.md paths-match (shipped 9f7d176); PATHS-MATCH-ABSENCE shipped (absent paths = live). Sole remaining blocker: fork reachability-gate-mechanism (severity home unsettled)."
+    "acceptance": "`temper check` runs the `reachable` predicate over members of kinds that declare an activation when the assembly opts reachability in, flags a dead world→member edge at the assembly-declared severity, and stays silent otherwise; the stale graph.rs:338-340 doc comment is swept to name the assembly's declaration; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Fork reachability-gate-mechanism RESOLVED (option b: assembly-declared like `degree`, not a package clause) un-parks this. `reachable`/`world`/`dead_activation` at graph.rs:342, library-proven (tests/graph.rs), no main.rs caller (654-666). Curated skill+rule activation lines both ship (2259667, 9f7d176). Assembly opt-in home is compose.rs, not contract.rs/engine.rs; concrete key is build's within the resolved envelope."
   },
   {
     "tag": "MEMORY-KIND",
