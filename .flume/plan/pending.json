@@ -1,38 +1,5 @@
 [
   {
-    "tag": "PATHS-MATCH-ABSENCE",
-    "summary": "Fix paths-match dead-edge soundness — an absent/blank `paths` field is unconditional loading (live), not dead; only a present field with zero-matching globs is provably dead",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Activation — a kind's inherent world-edges"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "Correct `dead_activation`'s `PathsMatch` branch (graph.rs:375): today `declared_globs` yields an empty vec for an absent/blank `paths` field and the branch marks the member dead — a false positive on every unscoped rule, since the cited harness fact says an absent/blank field falls back to unconditional loading (`specs/15-kinds.md` paths-match bullet; \"rules without a `paths` field are loaded unconditionally\", code.claude.com/docs/en/memory, retrieved 2026-07-02). Guard: mark the edge dead ONLY when at least one glob is declared (`!globs.is_empty()`) and none match; an absent/blank field is live (None). Update the now-stale `declared_globs` doc comment (\"a member declaring none activates never\") to name the unconditional-loading fallback."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "Add a reachability fixture (mod reachability, tests/graph.rs:465) proving an absent/blank `paths` field is reachable: a rule declaring a `paths-match` activation but carrying no `paths` field (or a whitespace-only one) produces no finding — the unscoped-rule case. The existing `a_zero_match_paths_glob_is_unreachable` (present glob `docs/**/*.md` matching zero files) must still fire, pinning the present-vs-absent distinction."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a member whose `paths-match` field is absent or blank stays reachable (no finding — unconditional loading), while a member with a present `paths` glob matching zero repo files is still flagged unreachable."
-      }
-    ],
-    "acceptance": "`dead_activation`'s `PathsMatch` branch leaves a member with an absent/blank activation field reachable (unscoped rules load unconditionally) and flags only a present field whose globs match zero repo files; the existing zero-match test still fires; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox 2026-07-02 (human, post-REACHABILITY): law-3 gap — `dead_activation` (graph.rs:375) reads an absent paths field as dead, but absence => unconditional loading (15-kinds.md paths-match bullet, cited 2026-07-02). One-branch fix: mark dead only when globs are present. Must ship BEFORE REACHABILITY-WIRE un-parks; the human adds kinds/rule/KIND.md's paths-match line only after this drains."
-  },
-  {
     "tag": "REACHABILITY-WIRE",
     "summary": "Wire the shipped `reachable` graph predicate into the gate — a dead world→member activation edge should become a check-time finding, but main.rs has no caller yet",
     "per": {
@@ -43,7 +10,9 @@
       "kind": "parked",
       "reason": "how a graph-scope reachability fact carries author-declared severity is unsettled (fork reachability-gate-mechanism — acyclic is always-on, degree assembly-declared, the spec says 'the package's clause choice'); and the rule kind's `paths-match` activation line is still human-authored (curated kinds/rule/KIND.md, outside build's fence — the human adds it only after PATHS-MATCH-ABSENCE fixes the absent-field false-positive). skill/KIND.md already declares its description-trigger activation, so that half is live"
     },
-    "dependsOnForks": ["reachability-gate-mechanism"],
+    "dependsOnForks": [
+      "reachability-gate-mechanism"
+    ],
     "files": {
       "new": [
         {
