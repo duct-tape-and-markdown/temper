@@ -1,24 +1,25 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD bec3dad.
-- **Last shipped:** ACTIVATION-KEY-PARSE + EDGE-CLAUSE-RETIRE (build ceb8bba/c87d3ab,
-  shipped bec3dad). Verified on disk: typed `Activation` enum (Always /
-  DescriptionTrigger / PathsMatch / Event) + `parse_activation` live in `src/kind.rs`
-  on `CustomKind.activation`, nothing consumes it yet; no `EdgeClause` / `[edge.*]`
-  in `document.rs`/`frontmatter.rs` (only stale comment mentions in read.rs/graph.rs).
-- **This tick:** unblocked **REACHABILITY** (`blockedBy ACTIVATION-KEY-PARSE` → `open`)
-  — its consumer, the typed `Activation`, is now live; confirmed the world node +
-  `reachable` predicate are still absent from `src/graph.rs` (real open work). Scoped
-  it truthfully: pure `fn` over graph.rs only, repo file-set as a *parameter*.
-  Corrected drifted `kind.rs` anchors in MEMORY-KIND/EXTRACTION-VOCAB-GAPS (Primitive
-  361→456, Field-get 404→499, parse_primitive 933→1048). Inbox empty — nothing to drain.
-- **In flight / pickable:** REACHABILITY (`open`, `src/graph.rs` + `tests/graph.rs`
-  only — the sole pickable entry, trivially parallel-safe). The other five stay parked
-  (MEMORY-KIND, PACKAGING-CHANNELS, COMMUNITY-DOCS) or deferred (EXTRACTION-VOCAB-GAPS,
-  AGENT-KIND) — all human-gated.
-- **Next:** build ships REACHABILITY's machinery; then a human wires the gate
-  (main.rs) + a severity-carrying package clause + the curated kinds/skill|rule
-  `activation` lines (outside the fence) for the reachability dogfood to fire.
+- **Phase:** reconcile. HEAD a27b750.
+- **Last shipped:** REACHABILITY (build 50c5a00, chore a27b750). Verified on disk:
+  `world()` + `reachable` + `dead_activation` live in `src/graph.rs`, library-proven
+  in `tests/graph.rs:460` — but `graph::reachable` has **no caller in `main.rs`**;
+  the test file itself notes gate-side wiring is next.
+- **This tick:** filed **REACHABILITY-WIRE** (parked) for that gate-wiring residual,
+  plus the fork `(reachability-gate-mechanism)` naming the undecided seam — how a
+  graph-scope reachability fact carries author-declared severity (acyclic is
+  always-on, degree is assembly-declared, the spec says "the package's clause
+  choice"). Re-verified the five carried entries' anchors on disk (BUILTIN_KINDS
+  kind.rs:30 = ["skill","rule"]; Primitive kind.rs:456; Field-get kind.rs:499;
+  parse_primitive kind.rs:1048; builtin.rs SKILL/RULE_PACKAGE 32/37) — all accurate,
+  no rewrite. Inbox empty.
+- **In flight / pickable:** none. All six entries are parked (REACHABILITY-WIRE,
+  MEMORY-KIND, PACKAGING-CHANNELS, COMMUNITY-DOCS) or deferred (EXTRACTION-VOCAB-GAPS,
+  AGENT-KIND) — every one human-gated: curated `kinds/`+`packages/` data outside
+  build's fence, a fence-widen (chain.ts), release creds, or an unresolved fork.
+- **Next:** human action unblocks the queue — author the curated activation/package
+  data, resolve `(reachability-gate-mechanism)`, widen the fence, or set release
+  creds. No autonomous build work remains until then.
 
-Plan continues: no — queue reconciled, inbox empty, one `open` entry ready. Hand to
-build; building is how the queue drains.
+Plan continues: no — queue reconciled, inbox empty, no pickable entry; the remaining
+work is human-gated, so re-planning would only re-emit the same queue.

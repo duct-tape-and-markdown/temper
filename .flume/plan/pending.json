@@ -1,5 +1,42 @@
 [
   {
+    "tag": "REACHABILITY-WIRE",
+    "summary": "Wire the shipped `reachable` graph predicate into the gate — a dead world→member activation edge should become a check-time finding, but main.rs has no caller yet",
+    "per": {
+      "path": "specs/45-governance.md",
+      "section": "The world is a node — reachability is a predicate"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "the built-in skill/rule kinds declare no `activation` (curated KIND.md, outside build's fence — a human authors it), so a wired pass would gate nothing real; and *how* a graph-scope reachability fact carries author-declared severity is unsettled (see fork reachability-gate-mechanism) — the spec says 'the package's clause choice' but the shipped graph predicates each carry severity differently"
+    },
+    "dependsOnForks": ["reachability-gate-mechanism"],
+    "files": {
+      "new": [
+        {
+          "path": "tests/reachable_gate.rs",
+          "description": "Gate-side proof mirroring the library fixture at tests/graph.rs:460: a fixture custom kind declaring an `activation` plus a package/assembly opting its members into reachability — a dead edge (blank description-trigger field / zero-matching paths glob) surfaces a finding through the wired gate, a live one stays silent, and the severity follows whatever reachability-gate-mechanism resolves."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Build the `activations` map from the in-scope kind definitions' declared `Activation` (`CustomKind.activation`, kind.rs:89) and collect the repo file set (the `paths-match` liveness input), then dispatch `graph::reachable(&activations, &by_kind, &repo_files)` beside the always-on acyclic/degree graph pass (main.rs:654-666) and extend diagnostics. The opt-in/severity home (an always-on pass like acyclic, an assembly bound like degree, or a new graph-tier package clause) is exactly what reachability-gate-mechanism decides — so whether this also touches src/contract.rs/src/engine.rs is fork-dependent and not committed here."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/reachable_gate.rs",
+        "asserts": "with reachability wired, a member whose declared activation edge is provably dead is a finding at the gate and a reachable member is silent; the finding names the world node, the kind, the member, and the dead-edge reason."
+      }
+    ],
+    "acceptance": "`temper check` runs the `reachable` predicate over members of kinds that declare an activation and flags a dead world→member edge; cargo fmt/clippy -D warnings/test all green. (Parked: not built until reachability-gate-mechanism resolves the severity-declaration home and the curated skill/rule `activation` lines are human-authored.)",
+    "notes": "Residual noted in tests/graph.rs:460 (gate-side main.rs wiring is next). reachable/world()/dead_activation live in src/graph.rs, library-proven; no main.rs caller. Built-in skill/rule KIND.md declare no activation (curated, outside fence). Parked on (reachability-gate-mechanism): how a graph-scope fact carries author-declared severity is unsettled — acyclic always-on, degree assembly-declared, spec says 'package's clause choice'."
+  },
+  {
     "tag": "MEMORY-KIND",
     "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
     "per": {

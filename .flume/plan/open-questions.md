@@ -365,6 +365,30 @@ path strings remain in comments).
   needs its `specs/40-composition.md` Decision (the floor is data), then a
   small engine wave. Filed 2026-07-02 from the ladder review.
 
+- `(reachability-gate-mechanism)` — OPEN (dogfood residual; REACHABILITY
+  shipped 50c5a00). The `reachable` graph predicate — world→member
+  activation-edge liveness (`45-governance.md`, "The world is a node") — is
+  library-proven in `src/graph.rs` (`world()`/`reachable`/`dead_activation`)
+  and `tests/graph.rs:460`, but reaches **no gate**: `main.rs` never calls
+  `graph::reachable`. The mechanical half is clear (build the map of each
+  kind's declared `Activation` + the repo file set, dispatch, extend
+  diagnostics beside acyclic/degree at `main.rs:654-666`). The open question is
+  *how reachability carries author-declared severity*. The spec says "what
+  severity it carries is the package's clause choice, like every other
+  predicate here" — yet the three shipped graph-scope predicates each carry it
+  differently: `acyclic` is **always-on** (fixed severity, no clause),
+  `degree` is **assembly-declared** per requirement (opt-in bound), route
+  resolution is always-on. And a reachability *fact* ranges over the world
+  node + repo files, not one artifact's features, so it does not fit the
+  artifact-scope `Predicate` vocabulary a package clause lives in
+  (`src/contract.rs`). Options: (a) always-on like `acyclic` (simplest;
+  strands "package's clause choice"); (b) an assembly/kind-level opt-in with a
+  bound, like `degree`; (c) extend the package clause vocabulary with a
+  graph-tier `reachable` clause plus a mechanism for a package to declare
+  severity over a graph fact. Blocks pending **REACHABILITY-WIRE**; also needs
+  the curated `kinds/skill|rule` `activation` lines (outside build's fence)
+  before the dogfood fires. Human to settle which mechanism.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
