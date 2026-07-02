@@ -7,8 +7,7 @@
       "section": "The extraction algebra — the soundness boundary, as data"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EXTRACT-EQUIVALENCE-PIN"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
