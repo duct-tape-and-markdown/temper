@@ -1,56 +1,5 @@
 [
   {
-    "tag": "REDD-CUSTOM-KINDS",
-    "summary": "`diff`/`re-add` cover custom kinds — scan each registered kind's `governs` locus so hand-edited spec bodies reconcile into `.temper/` instead of the gate reading stale bodies",
-    "per": {
-      "path": "specs/20-surface.md",
-      "section": "Drift / apply — three states, never two (the hard core)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Expose the two custom-kind helpers `diff`/`re_add` will reuse as `pub(crate)` (both are private `fn` today, ~lines 341/377): `discover_kind_units(harness, &governs)` and `import_custom_unit(&kind, file, into)`. `RollupEntry` is already `pub(crate)`. Visibility only, no behavior change — mirroring how `discover_skill_dirs`/`discover_rule_files` are already `pub(crate)` for drift's reuse."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Extend `diff`/`re_add` to scan every registered custom kind, not just the built-in skill/rule fields. `diff` currently hardwires `discover_skill_dirs`/`discover_rule_files`; add a pass that, for each registered custom kind, calls `import::discover_kind_units(harness, &kind.governs)` and classifies each unit against the surface's lock rows (source_path + import_hash). `re_add` re-projects a drifted/added custom unit via `import::import_custom_unit`. `DriftEntry.kind`/`ReAddEntry.kind` change from `&'static str` to `String` to carry dynamic kind names; the `re_add` `updates` tuple key and `fold_lock` follow; `render`/`render_readd` and the in-module unit tests (the `DriftEntry { kind: \"skill\", .. }` literals) follow. `apply`/`ApplyEntry` stay built-in-only (out of scope). Custom-kind surface provenance comes from the `[[<kind>]]` lock rows (custom members are not materialized in `Workspace`)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "The `Diff`/`ReAdd` command arms load only `Workspace::load` today — no assembly. Load the optional `temper.toml` layer and its registered custom kinds (reuse the kind-loading path the `check`/`why` arms use via `load_layer` + `custom_kinds_and_edges`/kinds_dir) and thread the custom-kind definitions into `drift::diff`/`drift::re_add` so their `governs` loci are scanned. Absent a `temper.toml`, behavior is unchanged (built-in kinds only)."
-        },
-        {
-          "path": "tests/readd.rs",
-          "description": "Add a fixture with a registered custom kind (a `spec`-shaped kind over a `governs` locus): a hand-edited on-disk unit re-adds back into the surface tree and refreshes its lock row; an in-sync unit is a no-op. Refresh existing snapshots for the `DriftEntry.kind: String` change."
-        },
-        {
-          "path": "tests/apply.rs",
-          "description": "Refresh any drift-render snapshots affected by the `DriftEntry.kind` type change (kind still renders as its string label; assert no incidental drift)."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Refresh `diff`/`re-add` CLI-output snapshots for the `kind: String` change and the new custom-kind rows."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/readd.rs",
-        "asserts": "a hand-edited on-disk member of an assembly-registered custom kind is reconciled back into `.temper/<governs.root>/<name>/` with its lock row refreshed; an unchanged custom unit is `unchanged`; built-in skill/rule re-add is unregressed."
-      }
-    ],
-    "acceptance": "`temper diff` and `temper re-add` classify and reconcile members of every custom kind the assembly registers (each scanned at its `governs` locus), so editing `specs/*.md` directly no longer leaves `.temper/specs/` stale; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Dogfood defect (0496270: re-add skips custom kinds, so law-8 spec edits are invisible to the gate). Scoped to the reconcile-back directions (diff + re_add); reuses import::discover_kind_units/import_custom_unit (bumped to pub(crate)). `apply` (surface→disk) custom-kind projection is OUT of scope — surfaced, not filed. MEMBER-PUBLISHED-REQUIREMENTS serializes behind this (shared src/main.rs)."
-  },
-  {
     "tag": "MEMBER-PUBLISHED-REQUIREMENTS",
     "summary": "A member header may publish `[requirement.<name>]` tables — same namespace as the assembly roster, joined by `satisfies`, cross-publisher name collisions are admissibility findings",
     "per": {
