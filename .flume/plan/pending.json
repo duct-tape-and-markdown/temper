@@ -1,36 +1,5 @@
 [
   {
-    "tag": "EXTRACT-EQUIVALENCE-PIN",
-    "summary": "Insta-snapshot current `skill_features`/`rule_features` output over real `.claude/` fixtures — the equivalence baseline the extraction-unification swap must hold byte-identical",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "The extraction algebra — the soundness boundary, as data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/extract_equivalence.rs",
-          "description": "Insta snapshots of `extract::skill_features` and `extract::rule_features` over real Claude Code fixtures that mirror the actual on-disk layout (a representative `.claude/skills/<name>/SKILL.md`, the dogfood-shaped `.claude/rules/*.md` — never a layout invented for the test, per `.claude/rules/rust.md`). Snapshot each resulting `Features` (Debug) so a later entry can prove the generic composed path yields feature-for-feature identical output. The committed `.snap` files are the baseline the swap must not change."
-        }
-      ],
-      "edit": [],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/extract_equivalence.rs",
-        "asserts": "the current built-in extractors' `Features` output over real skill/rule fixtures is captured as committed insta snapshots — the fixed target every wave entry diffs against."
-      }
-    ],
-    "acceptance": "committed `.snap` files pin `skill_features`/`rule_features` output over real fixtures; cargo test green with accepted snapshots.",
-    "notes": "Opens the source-not-mechanism wave: pin the built-in extractors' output BEFORE any swap so every later entry diffs a fixed target (inbox ruling). BUILTIN-EXTRACT-GENERIC repoints this test to the generic path; its `.snap` must stay byte-identical — that unchanged snapshot IS the equivalence proof."
-  },
-  {
     "tag": "EMBED-BUILTIN-KINDS",
     "summary": "Embed `kinds/skill/KIND.md` + `kinds/rule/KIND.md` via `build.rs` (beside the packages embed) and expose them as in-crate `CustomKind` definitions",
     "per": {
