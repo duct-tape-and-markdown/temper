@@ -128,6 +128,77 @@ fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
 }
 
 #[test]
+fn a_registered_custom_kind_resolves_from_the_harness_temper_dir() {
+    // The dogfood bug (inbox): `session-start` over a project registering a custom
+    // kind must resolve the kind's authored KIND.md + bound package from the
+    // harness's own `.temper/` — beside its `temper.toml` — not the throwaway scratch
+    // surface the members import into. Before the fix the definition dangled as
+    // `kind::missing_definition` because `gate` read `kinds`/`packages` from the
+    // scratch, which never carries them.
+    let harness = tmpdir("custom-kind-src");
+
+    // The assembly registers a custom `spec` kind and binds its package by name.
+    fs::write(
+        harness.join("temper.toml"),
+        "[kind.spec]\npackage = \"spec\"\n",
+    )
+    .unwrap();
+
+    // The authored kind definition under `.temper/kinds/spec/KIND.md`: a member is a
+    // `specs/*.md` file, extracting a line count (a decidable, trivially-satisfied
+    // feature).
+    let kind_dir = harness.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(
+        kind_dir.join("KIND.md"),
+        "+++\n\
+         governs = { root = \"specs\", glob = \"*.md\" }\n\
+         \n\
+         [[extraction]]\n\
+         primitive = \"line_count\"\n\
+         +++\n\
+         # The spec kind\n\
+         \n\
+         temper's own governing documents.\n",
+    )
+    .unwrap();
+
+    // The bound package under `.temper/packages/spec/PACKAGE.md`: no clauses, so its
+    // members conform trivially — this fixture pins the *resolution*, not the engine.
+    let pkg_dir = harness.join(".temper").join("packages").join("spec");
+    fs::create_dir_all(&pkg_dir).unwrap();
+    fs::write(
+        pkg_dir.join("PACKAGE.md"),
+        "+++\n+++\n# The spec package\n\nNo clauses — resolution is what this pins.\n",
+    )
+    .unwrap();
+
+    // A member source at the `governs` root and a clean skill, so the harness carries
+    // a real custom-kind member alongside a built-in one.
+    let specs = harness.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
+    write_harness(&harness, "coordinate", CLEAN_SKILL);
+
+    let (ok, payload) = run_session_start(&harness);
+
+    // Advisory and, crucially, *emits a payload at all*: before the fix `gate`
+    // propagated a hard `kind::missing_definition` error (KIND.md absent from the
+    // scratch), so `session-start` exited non-zero with no JSON on stdout — and
+    // `run_session_start` would have panicked parsing it.
+    assert!(ok, "the session-start gate must exit zero");
+    let hook = &payload["hookSpecificOutput"];
+    assert_eq!(hook["hookEventName"], "SessionStart");
+    // The registered custom kind resolves cleanly from the harness's `.temper/`, so
+    // the payload is quiet — no verdict, and never the `missing_definition` a
+    // scratch-surface resolution would raise.
+    assert!(
+        hook["additionalContext"].is_null(),
+        "the custom kind must resolve from the harness's .temper/ ⇒ quiet payload, got: {hook}"
+    );
+}
+
+#[test]
 fn the_reporter_caps_additional_context_at_10k() {
     // A synthetic flood far larger than the cap — easier to construct directly
     // than to provoke through a harness, and the cap is the reporter's own

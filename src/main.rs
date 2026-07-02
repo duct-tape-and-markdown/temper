@@ -39,6 +39,14 @@ use temper::schema;
 /// directory under the current working directory (`specs/20-surface.md`).
 const DEFAULT_WORKSPACE: &str = "./.temper";
 
+/// The authored surface directory beside a harness's `temper.toml` — where a
+/// project's own custom-kind definitions (`kinds/<name>/KIND.md`) and packages
+/// (`packages/<name>/PACKAGE.md`) live (`specs/40-composition.md`, "Decision: a
+/// custom kind is an authored `.temper/` artifact"). On the one-shot gate paths
+/// (session-start, `check --harness`) it is the authored root handed to [`gate`],
+/// distinct from the throwaway scratch surface the imported members land in.
+const TEMPER_DIR: &str = ".temper";
+
 /// The optional author-declared contract layer, discovered at the project root —
 /// the invocation directory, beside the harness it governs (`specs/40-composition.md`,
 /// "The author-declared contract — `temper.toml`"). Absent ⇒ the by-kind floor
@@ -228,7 +236,15 @@ fn main() -> miette::Result<ExitCode> {
                 Some(harness) => {
                     let scratch = scratch_surface()?;
                     import::run(&harness, &scratch)?;
-                    let diagnostics = gate(&scratch, &harness.join(TEMPER_TOML))?;
+                    // Members import into the scratch surface, but the authored kinds
+                    // and packages live beside the harness's `temper.toml` — resolve
+                    // them from the harness's own `.temper/`, not the scratch (mirrors
+                    // the session-start one-shot).
+                    let diagnostics = gate(
+                        &scratch,
+                        &harness.join(TEMPER_DIR),
+                        &harness.join(TEMPER_TOML),
+                    )?;
                     // A leftover scratch dir must never fail the run; swallow removal
                     // errors, mirroring the session-start one-shot.
                     let _ = fs::remove_dir_all(&scratch);
@@ -236,7 +252,9 @@ fn main() -> miette::Result<ExitCode> {
                 }
                 None => {
                     let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
-                    gate(&workspace, Path::new(TEMPER_TOML))?
+                    // Two-step: the surface *is* the authored `.temper/`, so members and
+                    // the authored kinds/packages resolve from the one directory.
+                    gate(&workspace, &workspace, Path::new(TEMPER_TOML))?
                 }
             };
 
@@ -378,7 +396,14 @@ fn main() -> miette::Result<ExitCode> {
             // notify-and-approve verdict, never a hard denial.
             let scratch = scratch_surface()?;
             import::run(&harness_path, &scratch)?;
-            let diagnostics = gate(&scratch, &harness_path.join(TEMPER_TOML))?;
+            // Members import into the scratch surface; the authored custom-kind
+            // definitions and bound packages resolve from the harness's own `.temper/`
+            // beside its `temper.toml`, never the scratch (which never carries them).
+            let diagnostics = gate(
+                &scratch,
+                &harness_path.join(TEMPER_DIR),
+                &harness_path.join(TEMPER_TOML),
+            )?;
             // Best-effort cleanup of the scratch surface: a leftover temp dir must
             // never fail the advisory gate, so a removal error is swallowed.
             let _ = fs::remove_dir_all(&scratch);
@@ -422,6 +447,16 @@ fn main() -> miette::Result<ExitCode> {
 /// harness's own, so the roster/graph/custom-kind tiers resolve relative to the
 /// harness under check rather than the process CWD. Absent that file the layer is
 /// `None` and the by-kind floor runs verbatim.
+///
+/// `authored` is the `.temper/` directory the author's own custom kinds and
+/// packages are read from (`<authored>/kinds/<name>/KIND.md`,
+/// `<authored>/packages/<name>/PACKAGE.md`) — kept distinct from `workspace`, the
+/// surface the *imported members* are enumerated from. On the two-step `check`
+/// path the two coincide (both the surface), so behaviour is unchanged. On the
+/// one-shot path (session-start, `check --harness`) they diverge: members import
+/// into a throwaway scratch surface (`workspace`) while the authored KIND.md and
+/// bound package live beside the harness's `temper.toml` (`authored`), so a
+/// registered custom kind's definition resolves from the harness, not the scratch.
 /// Load the author-declared layer for a `temper_toml` path, folding a gitignored
 /// `temper-local.toml` beside it over the committed layer when present
 /// (`specs/40-composition.md`, "a gitignored `temper-local.toml` layers over *it*").
@@ -453,7 +488,11 @@ fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>
     }))
 }
 
-fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagnostic>> {
+fn gate(
+    workspace: &Path,
+    authored: &Path,
+    temper_toml: &Path,
+) -> miette::Result<Vec<check::Diagnostic>> {
     let ws = Workspace::load(workspace)?;
 
     // The optional author-declared layer beside the harness — the committed
@@ -463,20 +502,28 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // (`specs/40-composition.md`, the `temper.toml` Decision).
     let layer = load_layer(temper_toml)?;
 
-    // Where a bound project package resolves from: the surface's own `.temper/packages/`
+    // Where a bound project package resolves from: the *authored* `.temper/packages/`
     // directory. A `[kind.<k>] package = "<name>"` binding resolves a name against the
     // built-in floor ∪ this directory (`specs/20-surface.md`, "Decision: package
     // binding is by artifact kind"): the built-in name (`skill.anthropic`, `rule`)
     // resolves from the embedded floor below, any other name from
     // `<packages_dir>/<name>/PACKAGE.md` via PACKAGE-DOCUMENT's loader. Absent binding ⇒
     // the floor, so this directory is never consulted on the floor-only path.
-    let packages_dir = workspace.join("packages");
+    //
+    // `authored` is the `.temper/` that carries the author's own kinds/packages, which
+    // is *not* the imported `workspace` on the one-shot path: session-start (and
+    // `check --harness`) import members into a throwaway scratch surface, but the
+    // authored KIND.md/PACKAGE.md live beside the harness's `temper.toml`, never in the
+    // scratch. The two-step `check` passes the surface itself, so its resolution is
+    // unchanged.
+    let packages_dir = authored.join("packages");
 
-    // Where a registered custom kind's authored definition resolves from: the surface's
-    // own `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`, "Decision: a custom
+    // Where a registered custom kind's authored definition resolves from: the authored
+    // `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`, "Decision: a custom
     // kind is an authored `.temper/` artifact"). Consulted only when the assembly
-    // registers a custom kind, so the floor-only path never reads it.
-    let kinds_dir = workspace.join("kinds");
+    // registers a custom kind, so the floor-only path never reads it. Resolves from
+    // `authored`, not the imported `workspace`, for the same reason `packages_dir` does.
+    let kinds_dir = authored.join("kinds");
 
     // Dispatch by artifact kind: each kind's features are validated against the
     // *effective* contract for its kind — the package the kind binds (the embedded
