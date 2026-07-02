@@ -15,15 +15,13 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 
-use regex::Regex;
 use serde_json::Value as JsonValue;
 use toml_edit::{DocumentMut, Item, Table};
 
 use crate::compose::Edge;
 use crate::document::Document;
-use crate::extract::{self, FeatureValue, Features};
+use crate::extract::{self, Features};
 
 /// The built-in harness kinds temper ships an engine-code extractor for. A
 /// `[kind.<name>]` registration naming one of these is a built-in layer; any
@@ -240,19 +238,6 @@ pub enum Primitive {
     /// `placement` — the name of the directory the unit sits under
     /// (`Features::source_dir`) — file placement.
     Placement,
-    /// `references` — the backtick-filename references in the body, as a list
-    /// feature named `feature`. The corpus's declared reference syntax
-    /// (`` `NN-name.md` ``), decided at the surface — never grepped prose meaning.
-    References {
-        /// The name the yielded reference-list feature is keyed by.
-        feature: String,
-        /// The reference syntax's own normalization — an optional suffix stripped
-        /// from each extracted value before it becomes the feature value, so a
-        /// later exact id-match resolves without a loose engine fallback
-        /// (`specs/15-kinds.md`). Absent ⇒ the raw reference span; a value not
-        /// ending in the suffix is left unchanged (strip only what it names).
-        strip_suffix: Option<String>,
-    },
 }
 
 impl Primitive {
@@ -266,7 +251,6 @@ impl Primitive {
             Primitive::Sections => "sections",
             Primitive::LineCount => "line_count",
             Primitive::Placement => "placement",
-            Primitive::References { .. } => "references",
         }
     }
 
@@ -288,24 +272,6 @@ impl Primitive {
             Primitive::Placement => {
                 features.source_dir = extract::source_dir_name(&unit.source_path)
             }
-            Primitive::References {
-                feature,
-                strip_suffix,
-            } => {
-                let refs = backtick_filename_refs(&unit.body)
-                    .into_iter()
-                    .map(|reference| match strip_suffix {
-                        Some(suffix) => reference
-                            .strip_suffix(suffix.as_str())
-                            .map(str::to_string)
-                            .unwrap_or(reference),
-                        None => reference,
-                    })
-                    .collect();
-                features
-                    .fields
-                    .insert(feature.clone(), FeatureValue::List(refs));
-            }
         }
     }
 }
@@ -325,7 +291,7 @@ pub struct Unit {
     /// Empty for a frontmatter-less kind (a spec, `90-spec-system.md`).
     pub frontmatter: BTreeMap<String, JsonValue>,
     /// The byte-faithful markdown body (frontmatter stripped) — the locus for
-    /// `headings`, `line_count`, and `references`.
+    /// `headings`, `sections`, and `line_count`.
     pub body: String,
     /// The source path the unit was read from — the `placement` locus.
     pub source_path: PathBuf,
@@ -742,10 +708,6 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
         "sections" => Primitive::Sections,
         "line_count" => Primitive::LineCount,
         "placement" => Primitive::Placement,
-        "references" => Primitive::References {
-            feature: str_param(table, "feature", index, path)?,
-            strip_suffix: opt_str_param(table, "strip_suffix", index, path)?,
-        },
         other => {
             return Err(KindError::UnknownPrimitive {
                 path: path.to_path_buf(),
@@ -755,31 +717,6 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
         }
     };
     Ok(primitive)
-}
-
-/// Read an optional string primitive key: absent ⇒ `Ok(None)`, present-and-a-string
-/// ⇒ `Ok(Some(_))`, present-but-not-a-string ⇒ [`KindError::WrongType`]. The optional
-/// counterpart to [`str_param`], for a primitive parameter that defaults when omitted
-/// (the `references` primitive's declared `strip_suffix` normalization).
-fn opt_str_param(
-    table: &Table,
-    key: &'static str,
-    index: usize,
-    path: &Path,
-) -> Result<Option<String>, KindError> {
-    match table.get(key) {
-        None => Ok(None),
-        Some(item) => {
-            item.as_str()
-                .map(|value| Some(value.to_string()))
-                .ok_or(KindError::WrongType {
-                    path: path.to_path_buf(),
-                    index,
-                    param: key,
-                    expected: "a string",
-                })
-        }
-    }
 }
 
 /// Read a required string primitive key.
@@ -807,78 +744,15 @@ fn str_param(
     }
 }
 
-/// The backtick-filename references in a byte-faithful markdown body, in document
-/// order — the corpus's declared reference syntax (`` `NN-name.md` ``,
-/// `specs/15-kinds.md`). A reference is an inline single-backtick span whose
-/// content is *filename-shaped* (see [`is_filename_reference`]); a span inside a
-/// fenced code block is illustration, not a declared reference, so it is skipped
-/// exactly as heading extraction skips fenced `#`. Prose meaning is never read —
-/// only the surface-decidable span.
-fn backtick_filename_refs(body: &str) -> Vec<String> {
-    // A static literal regex: `Regex::new` over a fixed valid pattern is a
-    // genuine invariant that cannot fail (`.claude/rules/rust.md`).
-    static SPAN: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"`([^`\n]+)`").expect("the inline-code span regex is valid"));
-
-    let mut refs = Vec::new();
-    // The open fence's char and run length, while inside a fenced code block —
-    // the same tracking `crate::extract::body_headings` uses.
-    let mut fence: Option<(char, usize)> = None;
-    for line in body.lines() {
-        if let Some((fence_char, fence_len)) = extract::fence_marker(line) {
-            match fence {
-                Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
-                    fence = None;
-                }
-                Some(_) => {}
-                None => fence = Some((fence_char, fence_len)),
-            }
-            continue;
-        }
-        if fence.is_some() {
-            continue;
-        }
-        for capture in SPAN.captures_iter(line) {
-            let content = &capture[1];
-            if is_filename_reference(content) {
-                refs.push(content.to_string());
-            }
-        }
-    }
-    refs
-}
-
-/// Whether an inline-code span's content is filename-shaped — the decidable rule
-/// that separates a declared reference (`` `15-kinds.md` ``, `` `src/skill.rs` ``)
-/// from ordinary inline code (`` `Features` ``, `` `min_len` ``) or a version
-/// (`` `1.2.0` ``): no internal whitespace, and a final `.<ext>` whose extension
-/// is alphanumeric and carries at least one letter. The letter requirement is
-/// what rejects a numeric version segment, keeping the reference set free of
-/// false positives that would dangle at resolution.
-fn is_filename_reference(span: &str) -> bool {
-    if span.chars().any(char::is_whitespace) {
-        return false;
-    }
-    match span.rsplit_once('.') {
-        Some((stem, ext)) => {
-            !stem.is_empty()
-                && !ext.is_empty()
-                && ext.chars().all(|c| c.is_ascii_alphanumeric())
-                && ext.chars().any(|c| c.is_ascii_alphabetic())
-        }
-        None => false,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::Kind;
+    use crate::extract::{FeatureValue, Kind};
 
-    /// The composed `spec`-shaped extractor the worked example needs now
-    /// (`specs/15-kinds.md`): line count, ATX headings, file placement, and
-    /// backtick-filename references — every primitive the `max_lines`/references
-    /// clauses read.
+    /// The composed `spec`-shaped extractor the worked example needs
+    /// (`specs/15-kinds.md`): line count, ATX headings, and file placement —
+    /// markdown structure only, no body-mined references (the `references`
+    /// primitive is retired; the corpus's edges are declared in member headers).
     fn spec_extraction() -> Extraction {
         let toml = r#"
 [[extraction]]
@@ -889,26 +763,21 @@ primitive = "headings"
 
 [[extraction]]
 primitive = "placement"
-
-[[extraction]]
-primitive = "references"
-feature = "references"
 "#;
         Extraction::parse(toml, Path::new("temper.toml")).unwrap()
     }
 
-    /// A raw spec-shaped unit: no frontmatter, a body carrying two headings, two
-    /// backtick-filename references, non-reference inline code, a version, and a
-    /// filename inside a fenced block (which must be skipped).
+    /// A raw spec-shaped unit: no frontmatter, a body carrying two headings and a
+    /// filename inside a fenced block (which heading/line-count extraction skips).
     fn spec_unit() -> Unit {
         let body = "# Kinds\n\
 \n\
 ## The extraction algebra\n\
 \n\
-Composed like `15-kinds.md` over `10-contracts.md`. Not refs: `Features`, `min_len`, or version `1.2.0`.\n\
+Composed like `15-kinds.md` over `10-contracts.md`.\n\
 \n\
 ```text\n\
-`inside-a-fence.md` is illustration, not a reference\n\
+`inside-a-fence.md` is illustration, not a heading\n\
 ```\n";
         Unit {
             id: "15-kinds".to_string(),
@@ -939,19 +808,9 @@ Composed like `15-kinds.md` over `10-contracts.md`. Not refs: `Features`, `min_l
         // `placement` — the folder the unit sits under.
         assert_eq!(features.source_dir.as_deref(), Some("specs"));
 
-        // `references` — the backtick-filename spans only: the two real filenames,
-        // never `Features`/`min_len` (no extension), the version `1.2.0` (numeric
-        // extension), or the filename inside the fenced block (skipped).
-        assert_eq!(
-            features.field("references"),
-            Some(&FeatureValue::List(vec![
-                "15-kinds.md".to_string(),
-                "10-contracts.md".to_string(),
-            ]))
-        );
-
-        // A frontmatter-less kind composes no `field`, so nothing else is yielded.
-        assert_eq!(features.fields.len(), 1);
+        // A frontmatter-less kind composes no `field`, and body-mined references are
+        // retired — nothing lands in `fields`.
+        assert!(features.fields.is_empty());
     }
 
     #[test]
@@ -1057,111 +916,30 @@ primitive = "paragraph_meaning"
     }
 
     #[test]
-    fn references_strip_suffix_normalizes_each_ref_to_the_member_id() {
-        // The declared normalization maps a backtick-filename value to the id it
-        // names (`specs/15-kinds.md`, "Decision: reference resolution is declared by
-        // the kind"): with `strip_suffix = ".md"`, `` `15-kinds.md` `` becomes the
-        // unit id `15-kinds`, so a later exact id-match resolves.
-        let toml = r#"
-[[extraction]]
-primitive = "references"
-feature = "references"
-strip_suffix = ".md"
-"#;
-        let extraction = Extraction::parse(toml, Path::new("temper.toml")).unwrap();
-        assert_eq!(
-            extraction.primitives(),
-            &[Primitive::References {
-                feature: "references".to_string(),
-                strip_suffix: Some(".md".to_string()),
-            }]
-        );
-
-        let features = extraction.extract(&spec_unit());
-        assert_eq!(
-            features.field("references"),
-            Some(&FeatureValue::List(vec![
-                "15-kinds".to_string(),
-                "10-contracts".to_string(),
-            ]))
-        );
-    }
-
-    #[test]
-    fn references_strip_suffix_leaves_a_non_matching_ref_unchanged() {
-        // The normalization strips only what it names: a ref not ending in the
-        // declared suffix rides through verbatim, so `strip_suffix = ".md"` never
-        // mangles a `` `src/skill.rs` `` reference.
-        let toml = r#"
-[[extraction]]
-primitive = "references"
-feature = "references"
-strip_suffix = ".md"
-"#;
-        let extraction = Extraction::parse(toml, Path::new("temper.toml")).unwrap();
-        let unit = Unit {
-            id: "demo".to_string(),
-            frontmatter: BTreeMap::new(),
-            body: "See `15-kinds.md` and `src/skill.rs`.\n".to_string(),
-            source_path: PathBuf::from("specs/demo.md"),
-            satisfies: Vec::new(),
-        };
-        assert_eq!(
-            extraction.extract(&unit).field("references"),
-            Some(&FeatureValue::List(vec![
-                "15-kinds".to_string(),
-                "src/skill.rs".to_string(),
-            ]))
-        );
-    }
-
-    #[test]
-    fn references_without_strip_suffix_keeps_the_raw_span() {
-        // Absent ⇒ current behavior: the raw backtick-filename span is the value, so
-        // the floor-only path (and the dogfood `spec` KIND.md, no suffix declared) is
-        // byte-unchanged.
-        let extraction = spec_extraction();
-        assert_eq!(
-            extraction.primitives().last(),
-            Some(&Primitive::References {
-                feature: "references".to_string(),
-                strip_suffix: None,
-            })
-        );
-        assert_eq!(
-            extraction.extract(&spec_unit()).field("references"),
-            Some(&FeatureValue::List(vec![
-                "15-kinds.md".to_string(),
-                "10-contracts.md".to_string(),
-            ]))
-        );
-    }
-
-    #[test]
-    fn a_references_strip_suffix_must_be_a_string() {
-        // The declared normalization is a string suffix; a mistyped one is a load
-        // error, exactly as any mistyped primitive parameter is.
-        let toml = "[[extraction]]\nprimitive = \"references\"\nfeature = \"references\"\nstrip_suffix = 7\n";
+    fn the_retired_references_primitive_is_now_an_unknown_extractor() {
+        // Law 8 (`specs/00-intent.md`; `specs/15-kinds.md`, "Decision: no
+        // body-mined references"): `references` grepped prose and called the result
+        // structure. Retired from the vocabulary, a KIND.md still naming it is
+        // rejected exactly as any other out-of-vocabulary primitive is — a mined
+        // edge no longer wears tier-1 clothes.
+        let toml = "[[extraction]]\nprimitive = \"references\"\nfeature = \"references\"\n";
         let err = Extraction::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(
             err,
-            KindError::WrongType {
-                param: "strip_suffix",
-                index: 0,
-                ..
-            }
+            KindError::UnknownPrimitive { ref primitive, index: 0, .. }
+                if primitive == "references"
         ));
     }
 
     #[test]
     fn a_primitive_missing_its_parameter_is_a_load_error() {
-        // `references` names the feature it yields; omitting it is a load error.
-        let toml = "[[extraction]]\nprimitive = \"references\"\n";
+        // `field` names the frontmatter key it reads; omitting it is a load error.
+        let toml = "[[extraction]]\nprimitive = \"field\"\n";
         let err = Extraction::parse(toml, Path::new("temper.toml")).unwrap_err();
         assert!(matches!(
             err,
             KindError::MissingParam {
-                param: "feature",
+                param: "key",
                 index: 0,
                 ..
             }
@@ -1271,7 +1049,7 @@ strip_suffix = ".md"
         // spec-shaped extractor over it yields the same features it would over a
         // freshly-parsed unit — the tie between the generic loader and the check path.
         let root = surface_tmpdir("feed-root").join("specs");
-        let body = "# Kinds\n\nComposed over `10-contracts.md`.\n";
+        let body = "# Kinds\n\nComposed over the predicate half.\n";
         let dir = write_surface(&root, "15-kinds", "specs/15-kinds.md", "SPEC.md", body);
 
         let unit = Unit::from_surface_dir(&dir).unwrap();
@@ -1281,10 +1059,8 @@ strip_suffix = ".md"
         assert_eq!(features.body_lines, 3);
         assert_eq!(features.headings, vec!["Kinds".to_string()]);
         assert_eq!(features.source_dir.as_deref(), Some("specs"));
-        assert_eq!(
-            features.field("references"),
-            Some(&FeatureValue::List(vec!["10-contracts.md".to_string()]))
-        );
+        // The composed `spec` extractor mines no references — `fields` stays empty.
+        assert!(features.fields.is_empty());
     }
 
     #[test]

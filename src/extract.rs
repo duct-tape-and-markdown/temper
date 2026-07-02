@@ -415,12 +415,10 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
 
 /// The fence marker a line carries, if any: the fence character (`` ` `` or
 /// `~`) and its run length (≥3). Up to three leading spaces are allowed before
-/// the run; four or more is an indented code block, not a fence.
-///
-/// `pub(crate)` so the [`crate::kind`] backtick-reference extractor skips fenced
-/// code blocks the same way heading extraction does — a filename in an example
-/// fence is illustration, not a declared reference (`specs/15-kinds.md`).
-pub(crate) fn fence_marker(line: &str) -> Option<(char, usize)> {
+/// the run; four or more is an indented code block, not a fence. Heading and
+/// section extraction use it to skip fenced code — a `#` inside a fence is
+/// illustration, not an ATX heading.
+fn fence_marker(line: &str) -> Option<(char, usize)> {
     let rest = line.trim_start_matches(' ');
     if line.len() - rest.len() >= 4 {
         return None;

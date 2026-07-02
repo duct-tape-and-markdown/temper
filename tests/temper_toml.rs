@@ -438,6 +438,9 @@ fn an_authored_kind_md_carries_the_whole_definition() {
     // the kind's prose (read by no check). `CustomKind::load` reads it back into a typed
     // definition.
     let root = tmpdir("kind-md");
+    // Edges range over *declared structured fields*, never body-mined references
+    // (law 8; `specs/15-kinds.md`): the `depends_on` relationship rides a `field`
+    // primitive, not the retired `references` extractor.
     let kind_md = "+++\n\
 governs = { root = \"specs\", glob = \"*.md\" }\n\
 \n\
@@ -445,11 +448,11 @@ governs = { root = \"specs\", glob = \"*.md\" }\n\
 primitive = \"line_count\"\n\
 \n\
 [[extraction]]\n\
-primitive = \"references\"\n\
-feature = \"references\"\n\
+primitive = \"field\"\n\
+key = \"depends_on\"\n\
 \n\
 [[relationships]]\n\
-field = \"references\"\n\
+field = \"depends_on\"\n\
 to = \"spec\"\n\
 +++\n\
 \n\
@@ -471,16 +474,15 @@ A spec is temper's own governing document.\n";
         spec.extraction.primitives(),
         &[
             Primitive::LineCount,
-            Primitive::References {
-                feature: "references".to_string(),
-                strip_suffix: None,
+            Primitive::Field {
+                key: "depends_on".to_string(),
             },
         ]
     );
     assert_eq!(
         spec.relationships,
         vec![Edge {
-            field: "references".to_string(),
+            field: "depends_on".to_string(),
             from: "spec".to_string(),
             to: "spec".to_string(),
         }]

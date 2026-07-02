@@ -220,7 +220,8 @@ const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
 
 /// The authored `spec` KIND.md definition (`specs/20-surface.md`, "Decision: a kind
 /// definition is `KIND.md`"): it governs `specs/*.md` and composes the spec extractor
-/// (line count, ATX headings, placement, backtick references), header over prose.
+/// (line count, ATX headings, placement) — markdown structure only, no body-mined
+/// references (`specs/15-kinds.md`, "Decision: no body-mined references").
 const SPEC_KIND_MD: &str = "+++\n\
 governs = { root = \"specs\", glob = \"*.md\" }\n\
 \n\
@@ -232,10 +233,6 @@ primitive = \"headings\"\n\
 \n\
 [[extraction]]\n\
 primitive = \"placement\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"references\"\n\
-feature = \"references\"\n\
 +++\n\
 \n\
 # The spec kind\n\
