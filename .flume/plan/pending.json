@@ -74,48 +74,6 @@
     "notes": "From the offering tranche (specs/55-offering.md). Do the relicense now — the Decision's window is 'while there are no external contributors' (clean trunk confirms it). No bare LICENSE file exists on disk; the only license declaration is Cargo.toml `license = \"MIT\"` (Cargo.toml:6), which the edit flips to SPDX `MIT OR Apache-2.0` — nothing to retire. Disjoint from all other open entries: owns Cargo.toml `license` + the LICENSE-* files, touches no source/README."
   },
   {
-    "tag": "OFFERING-COMMUNITY",
-    "summary": "Author the launch community docs — CONTRIBUTING.md (two-sided AI policy), SECURITY.md (evidence bar), and bug/feature issue forms",
-    "per": {
-      "path": "specs/55-offering.md",
-      "section": "The community surface — small, honest, gated"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "CONTRIBUTING.md",
-          "description": "Small and honest: file-a-good-issue, search-first, PRs-by-prior-discussion, and the two-sided AI-authorship policy (outbound — this codebase is agent-built under human specs, stated as fact; inbound — AI-assisted contributions welcome WITH disclosure, contributor must defend the change without the assistant), per the AI-authorship Decision."
-        },
-        {
-          "path": "SECURITY.md",
-          "description": "Private vulnerability reporting plus an explicit evidence bar — a report must demonstrate, not speculate (the unverified-AI-report spam lesson)."
-        },
-        {
-          "path": ".github/ISSUE_TEMPLATE/bug.yml",
-          "description": "A bug issue form: version, OS, repro."
-        },
-        {
-          "path": ".github/ISSUE_TEMPLATE/feature.yml",
-          "description": "A feature-request issue form."
-        },
-        {
-          "path": ".github/ISSUE_TEMPLATE/config.yml",
-          "description": "Optional, if trivial: disable blank issues so reports route through the forms."
-        }
-      ],
-      "edit": [],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "CONTRIBUTING.md, SECURITY.md, and one bug + one feature issue form exist per the community-surface + AI-authorship Decisions; no code surface changes; cargo green.",
-    "notes": "From the offering tranche (specs/55-offering.md). Scope to the launch set ONLY — deliberately NOT GitHub Discussions, a code of conduct, or good-first-issue bait (the Decision defers/rejects them). Enabling private vuln reporting is a GitHub repo setting (human), not a file; SECURITY.md carries the policy + evidence bar. Docs-only; disjoint from LICENSE/README/code entries."
-  },
-  {
     "tag": "OFFERING-README",
     "summary": "Rewrite the README to the ~800-word front-door contract with a regenerable `check` diagnostic as the one hero visual",
     "per": {
