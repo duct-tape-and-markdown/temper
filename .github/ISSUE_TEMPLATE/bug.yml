@@ -1,0 +1,51 @@
+name: Bug report
+description: Something temper does wrong, with a reproduction.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: **search existing issues** (open and closed) first — the
+        bug may already be tracked. A report that reproduces is worth far more
+        than one that describes; the smallest set of files and the exact command
+        that shows the wrong behavior is ideal.
+  - type: input
+    id: version
+    attributes:
+      label: temper version
+      description: Output of `temper --version`, or the commit SHA if built from source.
+      placeholder: "temper 0.x.y (or commit abc1234)"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other (note in the description)
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >-
+        The exact command(s) and the smallest input that trigger the bug.
+        Include the relevant harness files or a minimal snippet if the input
+        matters.
+      placeholder: |
+        1. Given this `.claude/` (or the files below) ...
+        2. Run: temper check --harness
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual
+      description: What you expected to happen, and what actually happened. Paste real output.
+    validations:
+      required: true

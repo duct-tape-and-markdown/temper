@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a capability or change. Discussion precedes code.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Search first** — the idea may already be proposed or intentionally
+        deferred. Opening this is how a change gets agreed before any PR is
+        written; unsolicited large PRs without a prior discussion are hard to
+        accept.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that temper does not let you do today?
+      placeholder: When I ... I have no way to ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should temper do? A concrete command, flag, or behavior is more useful than a wish.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, or other shapes the solution could take.
+    validations:
+      required: false
