@@ -48,6 +48,9 @@ here. The typed fields above are the documented frontmatter; unknown keys ride
 into the same feature map via permissive extraction (`specs/15-kinds.md`,
 "Extending a built-in kind"), so a project convention is already extracted.
 
-This definition must extract feature-for-feature what `skill_features`
-(`src/extract.rs`) extracts today; the unification wave retires that function
-against this file, equivalence pinned by snapshot before the swap.
+This definition is load-bearing, not descriptive: `build.rs` embeds it, the
+engine composes its declared extraction over the IR-derived unit
+(`src/builtin_kind.rs`) — the same generic path a custom kind reads through —
+and `import` discovers the kind off its `governs` locus. The hand-coded
+per-field extractor it replaced is gone; equivalence was pinned by snapshot
+before the swap.
