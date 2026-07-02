@@ -1,22 +1,21 @@
 # Plan state
 
 - **Phase:** reconcile. Queue reconciled to the corpus; inbox empty; tree clean.
-  HEAD 362ae6c.
-- **Last shipped (trunk):** REFERENCE-NORMALIZATION + COMMENT-DIET(compose,main)
-  (362ae6c, build). Verified on disk: `strip_suffix` is on the `references` primitive
-  in src/kind.rs (the kind-declared normalization, `15-kinds.md`); compose.rs/main.rs
-  swept. The engine stays broad — import/check/drift/apply/re-add, bundle, install,
-  schema, reporters, coverage/graph, roster set-scope + graph predicates, custom kinds,
-  read verbs, section_contains, typed extraction.
-- **This tick:** unblocked **COMMENT-DIET(kind)** — its `blockedBy
-  REFERENCE-NORMALIZATION` cleared now that the `strip_suffix` addition has landed, and
-  kind.rs is disjoint from every other open entry, so the sweep is parallel-safe. No new
-  gaps: **CONTRACTS-RETIRE** (dead `contracts/*.toml` mirror — nothing loads it; build.rs
-  embeds `packages/`; only comments + a test-fixture string name it) remains the one
-  code↔spec gap outstanding. Inbox was empty.
-- **Pickable now (8 `open`, all disjoint files):** CONTRACTS-RETIRE (delete-only) and
-  7 COMMENT-DIET sweeps (roster/drift/graph/import/contract/kind — one file each).
-  Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (release creds).
+  HEAD 03f46fd.
+- **Last shipped (trunk):** COMMENT-DIET(roster,drift,graph) (03f46fd, build) —
+  build drained the three shipped sweeps from the queue. Verified on disk:
+  roster.rs/drift.rs/graph.rs carry only the sanctioned comment classes.
+- **This tick:** pure reconcile — no queue change. All four `open` entries verified
+  accurate against disk: CONTRACTS-RETIRE (nothing loads `contracts/`; build.rs
+  embeds `packages/`; only two test string-literals name the string, asserting the
+  retired `contract` key is rejected — not a file load), and the three COMMENT-DIET
+  sweeps still carry heavy comment weight (import 288 / contract 362 / kind 398
+  comment lines) over disjoint single files. No new code↔spec gap surfaced (no
+  TODO/FIXME, no bare-`rule` package leftover — the `"rule"` sites are kind→package
+  bindings). Inbox empty.
+- **Pickable now (4 `open`, all disjoint files):** CONTRACTS-RETIRE (delete-only) and
+  COMMENT-DIET(import/contract/kind) — one file each. Deferred: AGENT-KIND (priority).
+  Parked: PACKAGING-CHANNELS (release creds).
 
-Plan continues: no — queue reconciled, inbox empty, eight disjoint `open` entries are
+Plan continues: no — queue reconciled, inbox empty, four disjoint `open` entries are
 pickable; building drains them.
