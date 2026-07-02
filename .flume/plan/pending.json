@@ -1,43 +1,5 @@
 [
   {
-    "tag": "ADAPTER-EQUIVALENCE-PIN",
-    "summary": "Pin adapter byte-fidelity before the declared-adapter swap: YAML key order, unknown-key preservation, the no-frontmatter rule, and companion copying — as insta snapshots/assertions",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Decision: the adapter faces are declared — a kind names its projection format"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/adapter_fidelity.rs",
-          "description": "The equivalence baseline the declared-adapter collapse must not move: import→apply round-trip is byte-identical, projected YAML frontmatter key ordering is stable, an artifact's unknown frontmatter keys (`extra`) survive verbatim through import/apply, a rule projects with no frontmatter when it declares no fields, and a skill's companion files are copied byte-for-byte. insta snapshots + direct byte assertions over fixtures — the frozen behavior the generic frontmatter adapter (DECLARED-FRONTMATTER-ADAPTER) is later diffed against."
-        }
-      ],
-      "edit": [
-        {
-          "path": "tests/apply.rs",
-          "description": "Add any missing apply round-trip byte-fidelity assertions (YAML key ordering, `extra` preservation, no-frontmatter rule projection) not already covered here — extend the existing snapshots rather than duplicate them."
-        },
-        {
-          "path": "tests/readd.rs",
-          "description": "Pin re-add's parse-back fidelity (a direct on-disk edit lifts into the member document without churning unrelated fields) as the re-add half of the swap baseline, if not already asserted."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/adapter_fidelity.rs",
-        "asserts": "import→apply is byte-identical; projected frontmatter key order is stable; `extra` unknown keys are preserved verbatim; a fieldless rule projects with no frontmatter; skill companions are copied byte-for-byte."
-      }
-    ],
-    "acceptance": "The four byte-fidelity properties (YAML ordering, unknown-key preservation, no-frontmatter rule, companion copying) are pinned by snapshot/assertion over the current per-kind adapters; where a property is already covered the entry reuses that pin and adds only the missing ones; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Must land before any swap (inbox sequencing). Existing pins found on disk: import-idempotence + apply round-trip snapshots, tests/extract_equivalence.rs, and check.rs's IR↔generic feature-parity test. This entry adds only the gaps the inbox names. Tests-only — disjoint from the (parked) engine wave, so it is the sole pickable entry and cannot collide."
-  },
-  {
     "tag": "DECLARED-FRONTMATTER-ADAPTER",
     "summary": "Collapse the per-kind adapter modules (src/skill.rs, src/rule.rs) into one generic declaration-driven frontmatter adapter for import/apply/re-add/drift; retire the typed IRs",
     "per": {
@@ -90,7 +52,10 @@
           "description": "Remove the `#[cfg(test)]` `skill_surface_unit`/`rule_surface_unit` parity helpers that build a `Unit` from a `Skill`/`Rule` (the IR↔generic parity they pinned is subsumed once the IR is gone)."
         }
       ],
-      "retire": ["src/skill.rs", "src/rule.rs"]
+      "retire": [
+        "src/skill.rs",
+        "src/rule.rs"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
