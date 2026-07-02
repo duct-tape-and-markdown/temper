@@ -1,49 +1,18 @@
 //! `temper import` — scan a Claude Code harness into the typed config surface.
 //!
-//! Implements `import` per `specs/20-surface.md` ("Artifact kinds & contract
-//! selection"): `import` scans every **built-in** harness kind at its real Claude
-//! Code locus (`.claude/skills/*/SKILL.md`, `.claude/rules/*.md` — one project-root
-//! `harness_path` captures every kind) *plus* every **custom** kind the active `temper.toml`
-//! declares (`specs/40-composition.md`). Each member is projected as **one authored
-//! document** (`specs/20-surface.md`, "Decision: the member is one document"). For
-//! each skill it writes the surface tree `<into>/skills/<name>/SKILL.md` — the
-//! `+++`-fenced clause-module document projected with [`Skill::to_document`] —
-//! alongside every companion copied byte-for-byte. For each rule it writes the
-//! parallel `<into>/rules/<name>/RULE.md`, projected with [`Rule::to_document`]. The
-//! retired `meta.toml` + body pair is gone: the header and body now live in one file.
+//! specs/20-surface.md, "Artifact kinds & contract selection"; custom kinds
+//! specs/40-composition.md.
 //!
-//! ## Custom kinds are discovered from `temper.toml`, never hardwired
+//! Built-in kinds scan at their real Claude Code locus under `<harness>/.claude/`,
+//! so one project-root `harness_path` captures the whole harness; each is projected
+//! as one authored document ([`import_skill`], [`import_rule`]). Custom kinds are
+//! discovered data-driven off the [`governs`](crate::kind::Governs) locus their
+//! authored `.temper/kinds/<name>/KIND.md` declares — spec discovery is a custom
+//! kind, not a hardwired scan, so absent a `temper.toml` registration the built-ins
+//! import alone. A `<into>/lock.toml` roll-up records one row per artifact.
 //!
-//! A custom kind (a project's own specs, ADRs, playbooks; `specs/15-kinds.md`)
-//! carries no bespoke IR. Its units are discovered **data-driven** from the kind's
-//! declared [`governs`](crate::kind::Governs) locus — a root directory and a filename
-//! glob, read off its authored `.temper/kinds/<name>/KIND.md` definition
-//! ([`CustomKind::load`]) which the assembly registers — and each is projected to
-//! `<into>/<root>/<name>/<KIND>.md`: one member document whose `+++` header carries
-//! `[provenance]` alone (a custom unit's typed header is composed by its extractor,
-//! not re-serialized here) over the byte-faithful whole file as its body. This is why
-//! "temper reads its own `specs/` because its own `temper.toml` declares the `spec`
-//! kind, not because anything is hardwired" (`specs/40-composition.md`): absent a
-//! `temper.toml` custom kind, `import` writes the built-ins only — there is no
-//! phantom `specs/` scan.
-//!
-//! A roll-up index `<into>/lock.toml` records one `[[skill]]`/`[[rule]]` entry
-//! per built-in artifact, then one `[[<kind>]]` entry per custom-kind unit, each
-//! with its provenance and the `last_applied` fingerprint the three-state
-//! drift/apply merge stands on (at import: equal to `import_hash`).
-//!
-//! Every built-in kind scans under `<harness>/.claude/` — its real Claude Code
-//! locus — so one project-root `harness_path` captures the whole harness. A
-//! custom kind sits wherever its `governs` root names (the `spec` kind's
-//! `specs/`, no `.claude/` prefix — temper's own corpus, not a Claude Code
-//! artifact).
-//!
-//! The keystone invariant (`.claude/rules/rust.md`) is idempotence: re-importing
-//! an unchanged harness yields an identical workspace. It holds because every
-//! written artifact is content-derived — headers render deterministically, bodies
-//! and companions are copied verbatim, and the roll-up is built from the artifacts
-//! in a fixed (name-sorted) order — and each write overwrites in place rather than
-//! appending.
+//! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
+//! every write is content-derived, name-sorted, and overwrites in place.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -140,17 +109,6 @@ pub(crate) struct RollupEntry {
 /// Import every built-in artifact plus every declared custom-kind unit under
 /// `harness_path` into the surface workspace `into`.
 ///
-/// Writes `<into>/skills/<name>/{SKILL.md, ...companions}` per skill and
-/// `<into>/rules/<name>/RULE.md` per rule — the built-in kinds — then, for every
-/// custom kind the project-root `<harness_path>/temper.toml` registers, loads its
-/// authored `.temper/kinds/<name>/KIND.md` definition, discovers its
-/// [`governs`](crate::kind::Governs) locus and writes
-/// `<into>/<root>/<name>/<KIND>.md` per unit. Finally the
-/// `<into>/lock.toml` roll-up index carries one `[[skill]]`/`[[rule]]` row per
-/// built-in artifact and one `[[<kind>]]` row per custom-kind unit.
-///
-/// Spec discovery is now just a custom kind like any other — absent a `temper.toml`
-/// declaring one, `import` writes the built-ins only (no phantom `specs/` scan).
 /// Idempotent over an unchanged harness. See the module header for the discovery
 /// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
@@ -166,13 +124,10 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
         rules.push(import_rule(file, into)?);
     }
 
-    // The custom kinds the project-root `temper.toml` *registers* (`[kind.<name>]`
-    // whose name is not a built-in). Each kind's definition — the `governs` locus the
-    // discovery keys on — is the authored artifact `<harness>/.temper/kinds/<name>/KIND.md`
-    // (`specs/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
-    // artifact, registered in the assembly"), not an inline `temper.toml` block. Absent a
-    // `temper.toml` (or none registering a custom kind) ⇒ the built-ins import alone; the
-    // hardwired `specs/*.md` scan is gone.
+    // A custom kind's definition — the `governs` locus discovery keys on — is the
+    // authored `<harness>/.temper/kinds/<name>/KIND.md`, not an inline `temper.toml`
+    // block (specs/40-composition.md). Absent a registered custom kind, only the
+    // built-ins import.
     let layer = AuthorLayer::load(&harness_path.join("temper.toml"))?;
     let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     if let Some(layer) = &layer {
@@ -416,12 +371,9 @@ fn discover_kind_units(harness: &Path, governs: &Governs) -> Result<Vec<PathBuf>
 /// `<into>/<governs.root>/<name>/`, returning the roll-up row for the index.
 ///
 /// A custom kind carries no bespoke IR, so the unit is projected generically as ONE
-/// member document `<KIND>.md` (the kind name upper-cased, `SPEC.md` for the `spec`
-/// kind, mirroring the built-in `SKILL.md` / `RULE.md`): a `+++`-fenced header
-/// carrying `[provenance]` alone (`source_path` + `import_hash`) over the byte-faithful
-/// *whole* file as its body. The whole file is the body — a custom unit's frontmatter,
-/// if any, is preserved verbatim rather than dropped, and its extractor (`crate::kind`)
-/// reads it at `check` time (`specs/15-kinds.md`).
+/// member document `<KIND>.md`: a `[provenance]`-only `+++` header over the *whole*
+/// file byte-faithful. The whole file is the body so a unit's frontmatter, if any,
+/// survives verbatim for its extractor to read at `check` time (`specs/15-kinds.md`).
 fn import_custom_unit(
     kind: &CustomKind,
     source_file: &Path,
