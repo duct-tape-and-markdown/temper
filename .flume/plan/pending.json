@@ -68,8 +68,7 @@
       "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SESSION-START-CUSTOM-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -82,7 +81,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Built-in names resolve from the embedded PACKAGE.md sources via `Contract::load_package` (contract.rs:586) instead of `include_str!(\"../contracts/*.toml\")` (main.rs:59/65). Shares this file with SESSION-START-CUSTOM-KIND — the blockedBy chain serializes both."
+          "description": "Built-in names resolve from the embedded PACKAGE.md sources via `Contract::load_package` (contract.rs:586) instead of `include_str!(\"../contracts/skill.anthropic.toml\")` / `include_str!(\"../contracts/rule.toml\")` (main.rs:67/73). EMBED is now the sole open editor of src/main.rs (SESSION-START-CUSTOM-KIND shipped)."
         },
         {
           "path": "src/bundle.rs",
@@ -107,7 +106,7 @@
       }
     ],
     "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves (skill→skill.anthropic, rule→rule.anthropic); cargo fmt/clippy -D warnings/test green.",
-    "notes": "Un-parked: packages/{skill.anthropic,rule.anthropic}/PACKAGE.md are authored; loader Contract::load_package exists (contract.rs:586). On disk: contracts/{skill.anthropic,rule}.toml still exist, main.rs:59/65 + bundle.rs:122/126,210/216 include_str! them. Last in the main.rs chain (SESSION-START → EMBED). rule→rule.anthropic rename lands here (20-surface.md binds rule→rule.anthropic)."
+    "notes": "Un-blocked: SESSION-START-CUSTOM-KIND shipped (8839794), so EMBED is now the sole open editor of src/main.rs. On disk: contracts/{skill.anthropic,rule}.toml still exist; main.rs:67/73 + bundle.rs:122/126,210/216 include_str! them; Contract::load_package at contract.rs:586; packages/{skill.anthropic,rule.anthropic}/PACKAGE.md authored. rule→rule.anthropic rename lands here (20-surface.md binds rule→rule.anthropic)."
   },
   {
     "tag": "AGENT-KIND",
@@ -168,7 +167,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry that edits main.rs (SESSION-START, EMBED)."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry that edits main.rs (e.g. EMBED)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
