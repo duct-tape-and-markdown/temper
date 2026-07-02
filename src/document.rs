@@ -251,18 +251,6 @@ impl Satisfies {
     }
 }
 
-/// An `[edge.<target>]` clause module (`specs/45-governance.md`, "an edge is a
-/// declared field on the surface"): the member declares a reference/relationship to
-/// `target`, carrying the optional `relation` naming the relationship kind. Authored
-/// on the surface, never imported — the graph's source, never grepped from prose.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EdgeClause {
-    /// The referenced member this edge points at.
-    pub target: String,
-    /// The relationship kind (`depends-on`, `routes-to`, …), if authored.
-    pub relation: Option<String>,
-}
-
 /// A `[requirement.<name>]` clause module **published** on a member header
 /// (`specs/10-contracts.md`, "Decision: a requirement's publisher is any authored
 /// surface document"): the member declares a named obligation — the demand side of
@@ -320,15 +308,6 @@ pub fn add_satisfies(header: &mut DocumentMut, satisfies: &Satisfies) {
         module.insert("rationale", Item::Value(Value::from(rationale.clone())));
     }
     child_table(header, "satisfies").insert(&satisfies.requirement, Item::Table(module));
-}
-
-/// Emit an `[edge.<target>]` module (with its optional `relation`).
-pub fn add_edge(header: &mut DocumentMut, edge: &EdgeClause) {
-    let mut module = Table::new();
-    if let Some(relation) = &edge.relation {
-        module.insert("relation", Item::Value(Value::from(relation.clone())));
-    }
-    child_table(header, "edge").insert(&edge.target, Item::Table(module));
 }
 
 /// Emit a `[requirement.<name>]` module carrying the facets the member publishes
@@ -456,27 +435,6 @@ pub fn satisfies(header: &DocumentMut) -> Vec<Satisfies> {
                     rationale: item
                         .as_table()
                         .and_then(|module| module.get("rationale"))
-                        .and_then(Item::as_str)
-                        .map(str::to_string),
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// The `[edge.<target>]` modules in `header`, in document order.
-pub fn edges(header: &DocumentMut) -> Vec<EdgeClause> {
-    header
-        .get("edge")
-        .and_then(Item::as_table)
-        .map(|table| {
-            table
-                .iter()
-                .map(|(target, item)| EdgeClause {
-                    target: target.to_string(),
-                    relation: item
-                        .as_table()
-                        .and_then(|module| module.get("relation"))
                         .and_then(Item::as_str)
                         .map(str::to_string),
                 })
@@ -619,8 +577,8 @@ value = \"dev-standards\"\n\
 [clause.description]\n\
 value = \"Maintains development standards.\"\n\
 \n\
-[edge.lint-runner]           # an authored relationship\n\
-relation = \"depends-on\"\n\
+[future.annotation]          # a table no kind models — carried verbatim\n\
+note = \"kept as-is\"\n\
 +++\n\
 # Dev standards\n\
 \n\
@@ -663,15 +621,15 @@ Last line, no newline.";
         assert!(out.contains("value = \"renamed\""));
         // Comments — both the leading one and the inline one — survive.
         assert!(out.contains("# every clause governing this member"));
-        assert!(out.contains("# an authored relationship"));
+        assert!(out.contains("# a table no kind models — carried verbatim"));
         // Key order is intact: name still precedes description.
         let name_at = out.find("[clause.name]").unwrap();
         let desc_at = out.find("[clause.description]").unwrap();
         assert!(name_at < desc_at, "table order must be preserved");
         // The old value is gone (it was the one thing patched).
         assert!(!out.contains("value = \"dev-standards\""));
-        // The unrelated edge clause is untouched.
-        assert!(out.contains("\"depends-on\""));
+        // The unrelated unmodelled table is untouched.
+        assert!(out.contains("note = \"kept as-is\""));
         // Whitespace and everything else is intact: only the one value changed,
         // so the whole document differs from the source by exactly that string.
         assert_eq!(out, FIXTURE.replace("dev-standards", "renamed"));
@@ -684,8 +642,12 @@ Last line, no newline.";
         let mut doc = Document::parse(FIXTURE).unwrap();
         doc.header_mut()["clause"]["description"]["value"] = value("changed");
         let out = doc.emit();
-        assert!(out.contains("[edge.lint-runner]           # an authored relationship"));
-        assert!(out.contains("relation = \"depends-on\""));
+        assert!(
+            out.contains(
+                "[future.annotation]          # a table no kind models — carried verbatim"
+            )
+        );
+        assert!(out.contains("note = \"kept as-is\""));
     }
 
     #[test]
@@ -726,7 +688,7 @@ Last line, no newline.";
     #[test]
     fn clause_modules_emit_as_labelled_tables_and_round_trip() {
         // Build a header from clause modules the way a member projector does: field
-        // clauses, an authored satisfies with rationale, an edge, then provenance.
+        // clauses, an authored satisfies with rationale, then provenance.
         let mut header = DocumentMut::new();
         add_clause(&mut header, "name", Value::from("dev-standards"));
         add_clause(&mut header, "allowed-tools", {
@@ -741,13 +703,6 @@ Last line, no newline.";
                 rationale: Some("the home for enforcement".to_string()),
             },
         );
-        add_edge(
-            &mut header,
-            &EdgeClause {
-                target: "lint-runner".to_string(),
-                relation: Some("depends-on".to_string()),
-            },
-        );
         add_provenance(&mut header, "./SKILL.md", "abc123");
         let doc = Document::new(header, "# Body\n".to_string());
         let emitted = doc.emit();
@@ -757,7 +712,6 @@ Last line, no newline.";
         assert!(emitted.contains("[clause.allowed-tools]\nvalue = [\"Bash\"]"));
         assert!(!emitted.contains("[clause]\n"));
         assert!(emitted.contains("[satisfies.engineering-standards]\nrationale ="));
-        assert!(emitted.contains("[edge.lint-runner]\nrelation = \"depends-on\""));
         assert!(emitted.contains("[provenance]\nsource_path = \"./SKILL.md\""));
 
         // The readers recover exactly what was emitted, in order.
@@ -772,13 +726,6 @@ Last line, no newline.";
             vec![Satisfies {
                 requirement: "engineering-standards".to_string(),
                 rationale: Some("the home for enforcement".to_string()),
-            }]
-        );
-        assert_eq!(
-            edges(parsed.header()),
-            vec![EdgeClause {
-                target: "lint-runner".to_string(),
-                relation: Some("depends-on".to_string()),
             }]
         );
         assert_eq!(

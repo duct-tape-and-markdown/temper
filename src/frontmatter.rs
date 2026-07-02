@@ -27,7 +27,7 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 use toml_edit::{Array, DocumentMut, Value};
 use walkdir::WalkDir;
 
-use crate::document::{self, Document, EdgeClause, PublishedRequirement, Satisfies};
+use crate::document::{self, Document, PublishedRequirement, Satisfies};
 use crate::kind::{CustomKind, UnitShape};
 
 /// A member projected through the generic frontmatter adapter: the declared and
@@ -57,9 +57,6 @@ pub struct Member {
     /// `[satisfies.<requirement>]` modules) — authored on the surface, never imported,
     /// so a source parse leaves this empty.
     pub satisfies: Vec<Satisfies>,
-    /// The declared edges to other members (`specs/45-governance.md`) — the header's
-    /// `[edge.<target>]` modules, authored on the surface, never imported.
-    pub edges: Vec<EdgeClause>,
     /// The requirements this member publishes (`specs/10-contracts.md`) — the header's
     /// `[requirement.<name>]` modules, authored on the surface, never imported.
     pub published_requirements: Vec<PublishedRequirement>,
@@ -143,7 +140,7 @@ impl Member {
     /// and `field` extractors: split the YAML frontmatter, derive the id (file stem or
     /// parent directory name), lift the declared fields then the preserved unknown keys
     /// into the projection order, scan companions (directory shape), and hash the
-    /// original bytes for provenance. The authored surface layer (`satisfies`/`edges`/
+    /// original bytes for provenance. The authored surface layer (`satisfies`/
     /// published requirements) is never in the source, so it starts empty.
     ///
     /// The body is taken byte-faithfully from after the closing frontmatter delimiter;
@@ -208,7 +205,6 @@ impl Member {
             body: split_frontmatter(&raw).1.to_string(),
             companions,
             satisfies: Vec::new(),
-            edges: Vec::new(),
             published_requirements: Vec::new(),
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
@@ -220,7 +216,7 @@ impl Member {
     /// Reload a member from its written surface member document `<dir>/<member_doc>`:
     /// parse the `+++`-fenced header, read the `[clause.<field>]` fields (in document
     /// order — the canonical order the emit face wrote), the authored `[satisfies.*]` /
-    /// `[edge.*]` / `[requirement.*]` modules, and `[provenance]`; the body is
+    /// `[requirement.*]` modules, and `[provenance]`; the body is
     /// everything below the header. The id is the surface directory name.
     ///
     /// The inverse of [`Member::to_document`] over the same file: `import_hash` is read
@@ -274,7 +270,6 @@ impl Member {
             body: doc.body().to_string(),
             companions: Vec::new(),
             satisfies: document::satisfies(header),
-            edges: document::edges(header),
             published_requirements,
             provenance: Provenance {
                 source_path: PathBuf::from(source_path),
@@ -299,7 +294,7 @@ impl Member {
         self.fields.iter().any(|(name, _)| name == key)
     }
 
-    /// Carry the authored surface layer (`satisfies` / `edges` / published
+    /// Carry the authored surface layer (`satisfies` / published
     /// requirements) from an existing surface member forward onto this freshly-parsed
     /// source member — **merge rather than clobber** (`specs/20-surface.md`, "three
     /// states, never two"): a re-import or drifted-body `re-add` rebuilds the document
@@ -307,14 +302,13 @@ impl Member {
     /// existing surface and carries it before writing.
     pub fn carry_representation(&mut self, existing: &Member) {
         self.satisfies = existing.satisfies.clone();
-        self.edges = existing.edges.clone();
         self.published_requirements = existing.published_requirements.clone();
     }
 
     /// Project the member to its one authored document: a `+++`-fenced header of clause
     /// modules over the byte-faithful body (`specs/20-surface.md`, "The member
     /// document"). One `[clause.<field>]` module per field in projection order, then the
-    /// authored `[satisfies.*]` / `[edge.*]` / `[requirement.*]` modules, then the
+    /// authored `[satisfies.*]` / `[requirement.*]` modules, then the
     /// generated `[provenance]` last.
     #[must_use]
     pub fn to_document(&self) -> Document {
@@ -326,9 +320,6 @@ impl Member {
         }
         for satisfies in &self.satisfies {
             document::add_satisfies(&mut header, satisfies);
-        }
-        for edge in &self.edges {
-            document::add_edge(&mut header, edge);
         }
         for requirement in &self.published_requirements {
             document::add_requirement(&mut header, requirement);
