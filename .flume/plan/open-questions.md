@@ -362,3 +362,13 @@ from exactly such a line fossilizing. If work touches one, surface it.
   proves the custom-kind story end to end.
 - **CLAUDE.md bootstrap fence** — transitional until the `memory` kind ships
   and the flip ceremony moves it onto the surface.
+  MEMORY-KIND recipe (drained from inbox 2026-07-02, directional — NOT filed as
+  pending until DECLARED-FRONTMATTER-ADAPTER drains): the `memory` kind is the
+  first pure-data managed kind and the recipe's proof — a curated
+  `kinds/memory/KIND.md` + `packages/memory.anthropic/` (humans author, cited to
+  code.claude.com/docs/en/memory): markdown, no frontmatter, dual root locus per
+  `specs/15-kinds.md`. Its `@path` imports are format-EXECUTED reference syntax
+  (law 8's explicit carve-out, `00-intent.md`) — a deliberate extraction-vocab
+  addition, the real consumer that revives EXTRACTION-VOCAB-GAPS. Shipping it
+  unlocks this flip ceremony. File it the tick after DECLARED-FRONTMATTER-ADAPTER
+  ships.

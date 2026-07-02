@@ -1,5 +1,34 @@
 [
   {
+    "tag": "FORMAT-KEY-PARSE",
+    "summary": "Parse optional `format` (closed vocab, first entry yaml-frontmatter) + a unit-shape key on a kind definition into typed inert CustomKind fields the adapter will later consume",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Decision: the adapter faces are declared — a kind names its projection format"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Teach `CustomKind::from_header` two optional header keys the Decision names, without any adapter consuming them yet: `format` — a closed-vocabulary projection format whose only harvested value is `yaml-frontmatter` (any other value is a load error, mirroring the closed extraction-primitive guard); and a unit-shape key — a closed enum distinguishing a lone file (id from the stem) from a directory-with-companions (id from the dir name). Add BOTH to the `matches!` allowed-key guard (kind.rs:110-118) so they parse instead of tripping `KindError::UnknownKey`, and store them as typed `Option` fields on the `CustomKind` struct (kind.rs:60-74) — absent ⇒ `None`, still valid, since today's built-in KIND.md carry neither. Add a `KindError` variant for an out-of-vocab `format`/unit-shape value. The fields are inert: nothing reads them until DECLARED-FRONTMATTER-ADAPTER. Extend the existing `#[cfg(test)] mod tests` (kind.rs:815+) with coverage per the tests entry."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "in the existing `#[cfg(test)] mod tests`: absent `format`/unit-shape keys parse (the built-in-kind default, still valid); `format = \"yaml-frontmatter\"` and each unit-shape variant parse into the typed fields; an unknown `format` value and an unknown unit-shape value are load errors; and a KIND.md header carrying both keys no longer trips `UnknownKey`."
+      }
+    ],
+    "acceptance": "`CustomKind` carries typed optional `format` + unit-shape fields; `from_header` accepts both keys on built-in and project KIND.md, rejects out-of-vocab values, and treats absence as valid; nothing consumes the fields yet; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox sequencing fix: `from_header` (kind.rs:111) rejects unknown keys, and built-in KIND.md parses through that same guard (builtin_kind.rs:81) — a human adding format/unit lines to kinds/{skill,rule}/KIND.md before the parser accepts them turns every check red. Ships FIRST; then the human adds the two curated lines (chore); then DECLARED-FRONTMATTER-ADAPTER un-parks, main green at every step."
+  },
+  {
     "tag": "DECLARED-FRONTMATTER-ADAPTER",
     "summary": "Collapse the per-kind adapter modules (src/skill.rs, src/rule.rs) into one generic declaration-driven frontmatter adapter for import/apply/re-add/drift; retire the typed IRs",
     "per": {
@@ -8,7 +37,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "the adapter is declaration-driven, but kinds/skill/KIND.md + kinds/rule/KIND.md carry no `format`/unit-shape keys and build's fence excludes kinds/ (curated std-lib territory, .flume/chain.ts). A human adds the format + unit-shape lines to the two curated KIND.md files (a chore(harness) commit); then this un-parks. Its ADAPTER-EQUIVALENCE-PIN prerequisite has shipped (4765d5b)."
+      "reason": "the adapter is declaration-driven, but it needs the declared `format`/unit-shape fields parsed onto CustomKind first (FORMAT-KEY-PARSE, filed above), and kinds/skill+rule/KIND.md must then carry the format+unit lines — a human chore, since build's fence excludes kinds/ (curated std-lib territory, .flume/chain.ts). Un-parks once FORMAT-KEY-PARSE ships and the two curated KIND.md lines are added. Its ADAPTER-EQUIVALENCE-PIN prerequisite shipped (4765d5b)."
     },
     "dependsOnForks": [],
     "files": {
@@ -21,7 +50,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Teach `CustomKind`/`Governs` the declared projection facts: a closed-vocab `format` (first entry `yaml-frontmatter`) and a unit shape (file vs directory+companions), parsed from the KIND.md header with the new keys added to the closed allowed-key guard (kind.rs:110-118). This entry owns the CustomKind struct edit."
+          "description": "Consume the declared projection facts FORMAT-KEY-PARSE parsed onto `CustomKind` (the `format` + unit-shape `Option` fields): drive the generic adapter's unit split and byte-render off them. FORMAT-KEY-PARSE owns the struct fields, the header parse, and the closed allowed-key guard (kind.rs:110-118); this entry only reads them (add accessor helpers if needed), never re-parses or re-guards."
         },
         {
           "path": "src/lib.rs",
@@ -65,7 +94,7 @@
       }
     ],
     "acceptance": "src/skill.rs and src/rule.rs are deleted; one generic frontmatter adapter reads each kind's declared format + unit shape and drives import/apply/re-add/drift for skill and rule identically; ADAPTER-EQUIVALENCE-PIN's snapshots are unchanged; the built-in/custom split is purely source; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Human-gated: kinds/skill+rule/KIND.md carry no `format`/unit keys; build's fence excludes kinds/. Humans add two KIND.md lines (`format = \"yaml-frontmatter\"` + a unit shape: directory+companions for skill, flat file for rule), then it un-parks. ADAPTER-EQUIVALENCE-PIN shipped (tests/adapter_fidelity.rs). Atomic: add adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit (clippy forbids interim dead code)."
+    "notes": "Now gated on TWO steps: (1) FORMAT-KEY-PARSE ships the inert format/unit-shape parse (else curated KIND.md lines redden main); (2) humans add `format=\"yaml-frontmatter\"` + a unit shape to kinds/{skill,rule}/KIND.md (directory+companions for skill, flat file for rule; build's fence excludes kinds/). Then it un-parks. ADAPTER-EQUIVALENCE-PIN shipped. Atomic: add adapter, rewire import/drift/check/bundle/main, delete skill.rs+rule.rs in one green commit."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
@@ -76,7 +105,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule/spec) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — a JSON-manifest kind's nested key-path field, or a spec class kind's fenced-block extraction."
+      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule/spec) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — MEMORY-KIND's `@path` executed-reference syntax, a JSON-manifest kind's nested key-path field, or a spec class kind's fenced-block extraction."
     },
     "dependsOnForks": [],
     "files": {
@@ -84,7 +113,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set. This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:220-241); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:263) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set. This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
@@ -101,7 +130,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk audit found both. `Primitive::Field` does a flat `frontmatter.get(key)` despite its doc-comment saying 'key-path'; a `fenced` block is in 15-kinds.md's markdown-structure list but absent from `Primitive`. Neither breaks anything today (no kind uses them). Kept as ONE entry — both touch src/kind.rs+src/extract.rs. On revival, serialize the shared-file edits against any open entry (esp. DECLARED-FRONTMATTER-ADAPTER, which also edits src/kind.rs)."
+    "notes": "Disk audit re-confirmed both gaps this tick: `Primitive` = field/headings/sections/line_count/placement (kind.rs:220-241); `Field` reads flat `frontmatter.get(key)` (kind.rs:263), no key-path. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+src/extract.rs. On revival, serialize the shared-file edits against any open entry (esp. FORMAT-KEY-PARSE / DECLARED-FRONTMATTER-ADAPTER, which also edit src/kind.rs)."
   },
   {
     "tag": "AGENT-KIND",
