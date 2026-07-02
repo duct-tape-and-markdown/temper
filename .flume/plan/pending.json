@@ -1,29 +1,119 @@
 [
   {
+    "tag": "SURFACE-READING-GENERIC",
+    "summary": "Check reads every kind's surface member document through the one generic Unit loader, retiring the skill/rule IR→Unit adapter on the check path",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "A built-in kind is an adapter — two faces"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Collapse the per-kind `skill_features`/`rule_features` dispatch in `gate`/`why`/`requirements` into one generic loop: load each built-in kind's surface members via `Unit::from_surface_dir` (the loader custom kinds already use) and run its embedded `skill`/`rule` KIND.md extraction (`builtin_kind::definition`), so built-in and custom kinds read through one path. The typed `Workspace` is kept for the adapter-face callers (drift/bundle/apply)."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Retire `skill_unit`/`rule_unit` (the IR→Unit adapters) and reshape `skill_features`/`rule_features` to run the embedded extraction over a generically-loaded `Unit` rather than a typed IR, keeping the permissive unknown-key fold. Engine-code IR parse/emit stays only for import/apply/drift, not the check read. Update this module's tests."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Provide the generic per-kind surface-Unit loader the gate reads (mirroring `main::custom_units`), keeping the typed `skills`/`rules` fields on `Workspace` intact so drift/bundle/apply (the adapter faces) are unaffected. Update the `Workspace::load` tests to assert the generic read yields the same features."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Only if `Workspace` is restructured beyond keeping its typed fields: keep the drift/apply/re-add adapter faces on typed IRs (reload `Skill`/`Rule` where needed). No change expected if `Workspace` keeps `skills`/`rules`."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Only if `Workspace` is restructured: keep the skill/rule counts working off whatever `Workspace` exposes. No change expected if the typed fields survive."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/check.rs",
+        "asserts": "loading a written skill/rule surface yields the same extracted features through the generic `Unit` loader that the retired IR→Unit adapter produced."
+      },
+      {
+        "path": "src/builtin_kind.rs",
+        "asserts": "`skill_features`/`rule_features` computed over a generically-loaded `Unit` still fold unknown `[clause.*]` keys and surface `satisfies` off the surface, matching the prior IR-path output."
+      }
+    ],
+    "acceptance": "`temper check` extracts skill/rule features by reading their surface member documents through the same generic `Unit` loader custom kinds use — no IR→Unit adapter on the check path; the typed IRs survive only for import/apply/drift; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Read-path unification tail — `(extraction-source-not-mechanism)`, RESOLVED. The skill/rule surface member document is `[clause.*]`-headed (`Skill::to_document`), so `Unit::from_surface_dir` already lifts its fields — the generic read is feasible. Keep `Workspace` typed for drift/bundle/apply; only the gate's feature extraction goes generic. IMPORT-DISCOVERY-GENERIC is serialized after this (shared drift.rs)."
+  },
+  {
+    "tag": "IMPORT-DISCOVERY-GENERIC",
+    "summary": "Import discovers built-in kinds off their embedded KIND.md `governs` locus, retiring the hardwired `discover_skill_dirs`/`discover_rule_files` scans",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "A built-in kind is an adapter — two faces"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SURFACE-READING-GENERIC" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Drive built-in-kind discovery off the embedded `skill`/`rule` KIND.md `governs` (`builtin_kind::definition`) through one generic scanner, retiring the hardwired `discover_skill_dirs`/`discover_rule_files`. Generalize the `governs` scanner so a subdir glob (`*/SKILL.md`) and a flat glob (`*.md`) both resolve — today `discover_kind_units` globs immediate files only. Preserve the bare-harness-is-a-skill special case (a root `SKILL.md`) and keep the existing import tests green."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Update the drift `added`-axis rescan to call the unified `governs`-keyed discovery for built-in kinds too, replacing the retired `discover_skill_dirs`/`discover_rule_files` calls."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Update the two `import::discover_skill_dirs`/`discover_rule_files` call sites (schema-modeline placement) to the unified `governs`-keyed discovery."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/import.rs",
+        "asserts": "`.claude/skills/*/SKILL.md` (subdir glob) and `.claude/rules/*.md` (flat glob) both discover off the embedded KIND.md `governs`; the bare-root skill still imports; import stays idempotent (byte-identical re-run)."
+      }
+    ],
+    "acceptance": "`temper import` discovers `.claude/skills/*/SKILL.md` and `.claude/rules/*.md` by keying off the embedded built-in KIND.md `governs` through one scanner shared with custom kinds, the bare-root skill case still imports, and drift/install reuse the same discovery; idempotence snapshot holds; gates green.",
+    "notes": "Read-path unification tail, discovery half. Embedded `skill`/`rule` KIND.md now carry `governs` (`.claude/skills` + `*/SKILL.md`; `.claude/rules` + `*.md`), so discovery keys off the declaration like custom kinds. Wrinkle: `discover_kind_units` globs immediate files only, so the skill's `*/SKILL.md` subdir glob needs the scanner generalized. Serialized after SURFACE-READING-GENERIC (shared drift.rs)."
+  },
+  {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
+    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document, read through the generic loader and checked by the embedded `agent.anthropic` package",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "more built-in kinds is the wrong direction under the requirements/satisfies reframe; the surface-language chain it waited on has shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
+      "reason": "more built-in kinds is the wrong direction under the requirements/satisfies reframe; the surface-language and read-path unification it would ride have shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
+          "description": "The Agent typed IR — the adapter-face model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed frontmatter (`name`, `description`, optional `tools`/`model`), unknown keys preserved in `extra`, content-faithful body, provenance, `to_document`/`from_dir`. Used by the import parse and apply emit faces (the check read goes through the generic `Unit` loader post-SURFACE-READING-GENERIC)."
         },
         {
-          "path": "packages/agent/PACKAGE.md",
-          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib by build.rs (the packages/ product tree — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
+          "path": "kinds/agent/KIND.md",
+          "description": "The embedded built-in `agent` KIND.md (read side), beside `kinds/skill` and `kinds/rule`: `governs = { root = '.claude/agents', glob = '*.md' }`, composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. Embedded by build.rs like the other built-in kinds — no engine-code extractor."
+        },
+        {
+          "path": "packages/agent.anthropic/PACKAGE.md",
+          "description": "The agent kind's built-in package `agent.anthropic` in the one-document medium, embedded with the std-lib by build.rs (the product `packages/` tree, not a `.temper/` member). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`. Per-clause `source` citations to the Claude Code subagent docs."
         },
         {
           "path": "tests/agent_contract.rs",
-          "description": "Fixture-driven proof mirroring `tests/rule_contract.rs`: one broken agent per clause proving it fires, a clean agent that trips nothing, and an insta import round-trip proving idempotence."
+          "description": "Fixture-driven proof mirroring `tests/rule_contract.rs`: one broken agent per clause proving it fires, a clean agent that trips nothing, and an import round-trip insta snapshot proving idempotence."
         }
       ],
       "edit": [
@@ -32,16 +122,16 @@
           "description": "Add `pub mod agent;` beside the other artifact-kind modules (this entry owns the line)."
         },
         {
-          "path": "src/check.rs",
-          "description": "Extend `Workspace` with `agents` loaded under `<dir>/agents/*` and a `WorkspaceError` arm; update the load tests."
+          "path": "src/kind.rs",
+          "description": "Add `\"agent\"` to `BUILTIN_KINDS` so a `[kind.agent]` registration reads as a built-in layer, not a custom kind."
         },
         {
-          "path": "src/import.rs",
-          "description": "Discover `.claude/agents/*.md`, project each to one `<into>/agents/<name>/AGENT.md` member document, add an `[[agent]]` lock row per agent."
+          "path": "src/builtin.rs",
+          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const and register it in the built-in package map beside `skill.anthropic`/`rule.anthropic`."
         },
         {
           "path": "src/main.rs",
-          "description": "Bind the agent package, wire admissibility + conformance streams and `by_kind` for the kind; feed agent features via the embedded-KIND extraction driver (post-BUILTIN-EXTRACT-GENERIC path, not a hand-coded feature fn)."
+          "description": "Bind the agent package floor and include `agent` in the gate's generic by-kind loop and the schema `floors` list; the members read through the generic `Unit` loader, so no hand-coded feature fn is added. Wire the import/apply adapter faces to `src/agent.rs`."
         }
       ],
       "retire": []
@@ -53,8 +143,8 @@
         "asserts": "each decidable clause of the agent package fires on its broken fixture and stays silent on a clean agent; import of an unchanged agent is idempotent (insta snapshot)."
       }
     ],
-    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands it. On revival, add the agent KIND definition under kinds/ (embedded like skill/rule) and serialize its shared-file blast radius (lib/check/import/main) via blockedBy against any then-open entry touching those files."
+    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands it. Rewritten to the current architecture: `agent` is a typed IR (adapter faces) + embedded KIND.md + `agent.anthropic` package like skill/rule, read through the generic loader — no per-kind Workspace field. On revival, reconcile the exact file set against then-current code and serialize the shared-file edits (lib/kind/builtin/main) against any open entry."
   },
   {
     "tag": "PACKAGING-CHANNELS",

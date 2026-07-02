@@ -1,23 +1,20 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD f0f64a3.
-- **Last shipped (trunk):** BUILTIN-EXTRACT-GENERIC — built-in extraction now runs
-  through the embedded KIND definitions via the generic driver (verified on disk:
-  `src/builtin_kind.rs`, `build.rs` embeds `kinds/{skill,rule}/KIND.md`, no per-kind
-  `*_features` fn remains). The whole extraction-unification wave is drained.
-- **This tick:** verified the surface is far more built out than the queue implied —
-  all CLI verbs (import/check/diff/apply/re-add/bundle/install/schema/why/
-  requirements) are shipped and tested; coverage/roster/graph, member-published
-  requirements, and the embedded built-in packages (`skill.anthropic`/`rule.anthropic`,
-  the `rule`→`rule.anthropic` rename done in `src/builtin.rs`) all landed. Found one
-  clean spec/code divergence and filed it: **APPLY-REEMIT-PROJECTION** — `apply` still
-  runs the superseded surgical frontmatter-patch model; the live Decision
-  (`specs/20-surface.md`) re-emits the projection deterministically. Inbox empty; no
-  forks moved.
-- **Pickable now:** APPLY-REEMIT-PROJECTION (open, sole — touches drift.rs/main.rs/
-  tests only). AGENT-KIND deferred; PACKAGING-CHANNELS / COMMUNITY-DOCS parked. Sole
-  live OPEN fork: (edge-representation-unify) — confirmed this tick (surface `[edge.*]`
-  never reaches the gate's graph); human to settle the canonical form.
+- **Phase:** reconcile. HEAD 30c15f3.
+- **Last shipped (trunk):** APPLY-REEMIT-PROJECTION — `apply` re-emits each
+  projection deterministically over the three-state drift model (verified on disk:
+  `src/drift.rs`/`src/main.rs` Apply arm; the superseded surgical frontmatter-patch
+  model is gone).
+- **This tick:** drained the inbox's read-path-unification item into two serialized
+  entries — SURFACE-READING-GENERIC (check reads every kind's surface member document
+  through the one generic `Unit` loader; retires the skill/rule IR→Unit adapter on the
+  check path) then IMPORT-DISCOVERY-GENERIC (discovery keys off the embedded built-in
+  KIND.md `governs`), blockedBy the first since both touch `src/drift.rs`. Rewrote the
+  deferred AGENT-KIND to the post-unification architecture (typed IR + embedded KIND.md
+  + `agent.anthropic` package, generic-loader read). Parked trio unchanged (none shipped).
+- **Pickable now:** SURFACE-READING-GENERIC (open, sole). IMPORT-DISCOVERY-GENERIC
+  blockedBy it; AGENT-KIND deferred; PACKAGING-CHANNELS / COMMUNITY-DOCS parked. Sole
+  live OPEN fork: `(edge-representation-unify)` — human to settle the canonical edge form.
 
-Plan continues: no — one open entry filed, disjoint from the parked/deferred set;
-hand to build.
+Plan continues: no — inbox drained, one open entry filed disjoint of the blocked/
+parked/deferred set; hand to build.
