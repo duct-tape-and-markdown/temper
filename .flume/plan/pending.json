@@ -1,44 +1,5 @@
 [
   {
-    "tag": "COVERAGE-CUSTOM-KIND",
-    "summary": "Custom-kind units join coverage — read authored `satisfies` from the member document instead of the hardcoded empty vec",
-    "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Coverage — the one referential check"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind unit from the parsed member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:740 on trunk). This is NOT a new extraction primitive — the `satisfies` binding is a surface-header module (as for skill/rule), threaded onto the composed `Unit` and into its Features. Coverage stays kind-blind by design (specs/15-kinds.md worked example — temper's own `spec` corpus can opt into requirements)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:653-658 on HEAD, skill ⊕ rule cloned into `all_features` only). GRAPH-CUSTOM-KIND already computes the `custom_kinds` features up front (main.rs:540-556) and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
-        },
-        {
-          "path": "tests/coverage.rs",
-          "description": "A custom-kind unit declaring `satisfies` covers a requirement, exactly as a skill/rule does; plus the negative that an unfilled required requirement still fires with a custom member present."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage.rs",
-        "asserts": "a custom-kind unit's authored `satisfies` participates in coverage (kind-blind), and its absence leaves a required requirement unfilled."
-      }
-    ],
-    "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
-    "notes": "A build tick shipped this but its commit was reverted by the `cargo fmt` afterCommit gate; the residue has since been cleared — working tree is CLEAN, HEAD=9732bda (kind.rs:740 still `satisfies: Vec::new()`, main.rs:653-658 chains skill⊕rule into all_features only). Retry from clean HEAD; MUST `cargo fmt --all` before commit. SESSION-START then EMBED serialize behind this (shared src/main.rs)."
-  },
-  {
     "tag": "SESSION-START-CUSTOM-KIND",
     "summary": "Fix `temper session-start` on a project with a registered custom kind — resolve authored `.temper/kinds` + `.temper/packages` from the harness, not the throwaway scratch surface",
     "per": {
@@ -134,32 +95,6 @@
     "tests": [],
     "acceptance": "AGENTS.md exists at root as a contributor-facing doc (build/test/lint + architecture map + pointer to the AI-authorship policy); CLAUDE.md and `.claude/**` are untouched; cargo green.",
     "notes": "Fileable per RESOLVED (launch-front-door-docs). Root doc only, disjoint from every other entry (owns AGENTS.md alone). The chore(harness) boundary holds: this entry must not edit CLAUDE.md or `.claude/**`. CONTRIBUTING.md lives at `.github/CONTRIBUTING.md` (verified on disk), so link there."
-  },
-  {
-    "tag": "CHANGELOG-STUB",
-    "summary": "Add a root CHANGELOG.md stub with an Unreleased section — the pre-1.0 alive-signal named in the front-door status obligation",
-    "per": {
-      "path": "specs/55-offering.md",
-      "section": "The front door — the README is the landing page"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "CHANGELOG.md",
-          "description": "A Keep-a-Changelog-shaped root stub with an `## [Unreleased]` section — the alive-signal the honest-status obligation calls for (small, frequent tagged releases; cadence is the loudest alive-signal). Release-cadence sections fill in at the first tag (PACKAGING-CHANNELS); this ships the stub now."
-        }
-      ],
-      "edit": [],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "CHANGELOG.md exists at root with an Unreleased section; cargo green.",
-    "notes": "Fileable per RESOLVED (launch-front-door-docs) — 'a root stub with an Unreleased section now.' Root doc only, disjoint from every other entry. Release cadence settles at first tag (PACKAGING-CHANNELS)."
   },
   {
     "tag": "EMBED-BUILTIN-PACKAGES",
