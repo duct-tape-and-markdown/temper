@@ -19,7 +19,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:624-629 on trunk, skill ⊕ rule only). GRAPH-CUSTOM-KIND (8f057c7) already computes the `custom_kinds` features up front (main.rs:512-544) and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
+          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:653-658 on HEAD, skill ⊕ rule cloned into `all_features` only). GRAPH-CUSTOM-KIND already computes the `custom_kinds` features up front (main.rs:540-556) and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
         },
         {
           "path": "tests/coverage.rs",
@@ -36,7 +36,7 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
-    "notes": "A build tick shipped this but its commit was reverted by the `cargo fmt` afterCommit gate — the unformatted diff (src/kind.rs, src/main.rs, tests/coverage.rs) sits uncommitted in the working tree, NOT on trunk (HEAD=bebb6aa: kind.rs:740 still `satisfies: Vec::new()`, main.rs:624-629 chains skill⊕rule only). Retry from clean HEAD; MUST `cargo fmt --all` before commit. EMBED-BUILTIN-PACKAGES is serialized behind this (shares src/main.rs)."
+    "notes": "A build tick shipped this but its commit was reverted by the `cargo fmt` afterCommit gate; the residue has since been cleared — working tree is CLEAN, HEAD=9732bda (kind.rs:740 still `satisfies: Vec::new()`, main.rs:653-658 chains skill⊕rule into all_features only). Retry from clean HEAD; MUST `cargo fmt --all` before commit. SESSION-START then EMBED serialize behind this (shared src/main.rs)."
   },
   {
     "tag": "SESSION-START-CUSTOM-KIND",
@@ -55,7 +55,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The one-shot `SessionStart` arm (main.rs:334-359) imports members into a throwaway `scratch_surface()` and calls `gate(&scratch, &harness_path.join(TEMPER_TOML))`. But `gate` derives `packages_dir`/`kinds_dir` from the *workspace* it is handed (the scratch surface, ~main.rs:427), which never carries the project's authored `.temper/kinds/<name>/KIND.md` or `.temper/packages/` — so a registered custom kind dangles as `kind::missing_definition` (kind.rs:573). Give `gate` a separate authored-root parameter for `kinds_dir`/`packages_dir` and pass it from both call sites: `check` uses the workspace itself (behaviour unchanged), the session-start arm uses the harness's own `.temper/` beside its `temper.toml`."
+          "description": "The one-shot `SessionStart` arm (main.rs:363-388) imports members into a throwaway `scratch_surface()` and calls `gate(&scratch, &harness_path.join(TEMPER_TOML))` (main.rs:380). But `gate` (main.rs:456) derives `packages_dir`/`kinds_dir` from the *workspace* it is handed (the scratch surface, main.rs:473/479), which never carries the project's authored `.temper/kinds/<name>/KIND.md` or `.temper/packages/` — so a registered custom kind dangles as `kind::missing_definition`. Give `gate` a separate authored-root parameter for `kinds_dir`/`packages_dir` and pass it from both call sites: `check` uses the workspace itself (behaviour unchanged), the session-start arm uses the harness's own `.temper/` beside its `temper.toml`."
         },
         {
           "path": "tests/session_start.rs",
