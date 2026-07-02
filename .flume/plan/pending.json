@@ -7,8 +7,7 @@
       "section": "Decision: the session-start gate is advisory, not blocking"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "COVERAGE-CUSTOM-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The one-shot `SessionStart` arm (main.rs:363-388) imports members into a throwaway `scratch_surface()` and calls `gate(&scratch, &harness_path.join(TEMPER_TOML))` (main.rs:380). But `gate` (main.rs:456) derives `packages_dir`/`kinds_dir` from the *workspace* it is handed (the scratch surface, main.rs:473/479), which never carries the project's authored `.temper/kinds/<name>/KIND.md` or `.temper/packages/` — so a registered custom kind dangles as `kind::missing_definition`. Give `gate` a separate authored-root parameter for `kinds_dir`/`packages_dir` and pass it from both call sites: `check` uses the workspace itself (behaviour unchanged), the session-start arm uses the harness's own `.temper/` beside its `temper.toml`."
+          "description": "The one-shot `SessionStart` arm (main.rs:363-388) imports members into a throwaway `scratch_surface()` (main.rs:379-380) and calls `gate(&scratch, &harness_path.join(TEMPER_TOML))` (main.rs:381). But `gate` (main.rs:456) derives `packages_dir`/`kinds_dir` from the *workspace* it is handed — the scratch surface (main.rs:473/479) — and `custom_units(workspace, ...)` (main.rs:547) reads imported members from it too. The scratch surface never carries the project's authored `.temper/kinds/<name>/KIND.md` or `.temper/packages/`, so a registered custom kind's definition dangles as `kind::missing_definition`. Give `gate` a separate authored-root parameter feeding `kinds_dir`/`packages_dir` (the KIND.md definition + bound package resolve from the harness's own `.temper/` beside its `temper.toml`), while the imported members keep coming from the workspace. Pass it from both call sites: `check` passes the workspace itself (behaviour unchanged), the session-start arm passes the harness root."
         },
         {
           "path": "tests/session_start.rs",
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "`temper session-start <harness>` on a project with a registered custom kind resolves the authored KIND.md + package from the harness's own `.temper/` and emits the advisory reporter payload (exit 0), instead of failing with kind::missing_definition; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Found dogfooding (inbox): the installed SessionStart hook at temper's own root errors every session — its custom `spec` kind's definition/packages live in `.temper/`, not the scratch import surface. High priority. Serialized behind COVERAGE-CUSTOM-KIND (both edit src/main.rs); EMBED-BUILTIN-PACKAGES now chains behind THIS. Fix is the one-shot path only — `check`'s two-step resolution is already correct."
+    "notes": "Found dogfooding (inbox): the installed SessionStart hook at temper's own root errors every session — its custom `spec` kind's KIND.md/packages live in `.temper/`, not the scratch import surface. High priority. Its old blocker COVERAGE-CUSTOM-KIND has shipped (37c7ea2), so this is now the head of the serialized main.rs chain; EMBED-BUILTIN-PACKAGES chains behind it. Fix is the one-shot path only — `check`'s two-step resolution is already correct."
   },
   {
     "tag": "OFFERING-LICENSE",
@@ -85,7 +84,7 @@
       "new": [
         {
           "path": "AGENTS.md",
-          "description": "The 2025-26 agent-readable contributor doc at repo root: build/test/lint commands (cargo build/test, clippy -D warnings, fmt), a short architecture map of `src/` (the contract engine, kinds, surface, drift), and a pointer to the AI-contribution policy in `.github/CONTRIBUTING.md` (shipped by OFFERING-COMMUNITY, 4e87522). Per the RESOLVED (launch-front-door-docs) fork it is a SEPARATE contributor doc — it does NOT touch `.claude/**` or `CLAUDE.md`, and CLAUDE.md is NOT gutted to source it (the ruff/uv 'CLAUDE.md = @AGENTS.md' move is rejected here; CLAUDE.md is the pipeline's operating harness, the recursive-dogfood fixture)."
+          "description": "The 2025-26 agent-readable contributor doc at repo root: build/test/lint commands (cargo build/test, clippy -D warnings, fmt), a short architecture map of `src/` (the contract engine, kinds, surface, drift), and a pointer to the AI-contribution policy in `.github/CONTRIBUTING.md` (verified on disk). Per the RESOLVED (launch-front-door-docs) fork it is a SEPARATE contributor doc — it does NOT touch `.claude/**` or `CLAUDE.md`, and CLAUDE.md is NOT gutted to source it (the ruff/uv 'CLAUDE.md = @AGENTS.md' move is rejected here; CLAUDE.md is the pipeline's operating harness, the recursive-dogfood fixture)."
         }
       ],
       "edit": [],
@@ -118,7 +117,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Built-in names resolve from the embedded PACKAGE.md sources via `Contract::load_package` (contract.rs:586) instead of `include_str!(\"../contracts/*.toml\")` (main.rs:59/65). Shares this file with COVERAGE-CUSTOM-KIND and SESSION-START-CUSTOM-KIND — the blockedBy chain serializes all three."
+          "description": "Built-in names resolve from the embedded PACKAGE.md sources via `Contract::load_package` (contract.rs:586) instead of `include_str!(\"../contracts/*.toml\")` (main.rs:59/65). Shares this file with SESSION-START-CUSTOM-KIND — the blockedBy chain serializes both."
         },
         {
           "path": "src/bundle.rs",
@@ -126,7 +125,7 @@
         },
         {
           "path": "src/contract.rs",
-          "description": "Retire the TOML-file contract loader (`Contract::load`) once nothing resolves through it; keep `Contract::load_package`."
+          "description": "Retire the TOML-file contract loader (`Contract::load`, contract.rs:536) once nothing resolves through it; keep `Contract::load_package` (contract.rs:586)."
         }
       ],
       "retire": [
@@ -143,7 +142,7 @@
       }
     ],
     "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves (skill→skill.anthropic, rule→rule.anthropic); cargo fmt/clippy -D warnings/test green.",
-    "notes": "Un-parked: packages/{skill.anthropic,rule.anthropic}/PACKAGE.md are authored (966147d); loader Contract::load_package exists (contract.rs:586). On disk: contracts/{skill.anthropic,rule}.toml still exist, main.rs:59/65 + bundle.rs:122/126,210/216 include_str! them. Last in the main.rs chain (COVERAGE → SESSION-START → EMBED). rule→rule.anthropic rename lands here (20-surface.md binds rule→rule.anthropic)."
+    "notes": "Un-parked: packages/{skill.anthropic,rule.anthropic}/PACKAGE.md are authored; loader Contract::load_package exists (contract.rs:586). On disk: contracts/{skill.anthropic,rule}.toml still exist, main.rs:59/65 + bundle.rs:122/126,210/216 include_str! them. Last in the main.rs chain (SESSION-START → EMBED). rule→rule.anthropic rename lands here (20-surface.md binds rule→rule.anthropic)."
   },
   {
     "tag": "AGENT-KIND",
@@ -204,7 +203,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry that edits main.rs (COVERAGE, EMBED)."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry that edits main.rs (SESSION-START, EMBED)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
