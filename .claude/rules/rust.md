@@ -62,3 +62,7 @@ are flume gates, so a violation reverts the commit.
 - Fixtures of deliberately-broken artifacts (one per rule) live under
   `tests/fixtures/`; each rule has a test that proves it fires and that clean
   input does not trip it.
+- **Harness-input fixtures mirror the real Claude Code layout**
+  (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`) — never a layout
+  invented for the test's convenience. A fixture shaped by the code's own
+  assumption cannot falsify it (the import-locus bug hid behind exactly this).
