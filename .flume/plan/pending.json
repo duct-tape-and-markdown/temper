@@ -110,37 +110,6 @@
     "notes": "From the offering tranche (specs/55-offering.md). Do the relicense now — the Decision's window is 'while there are no external contributors' (clean trunk confirms it). No bare LICENSE file exists on disk; the only license declaration is Cargo.toml `license = \"MIT\"` (Cargo.toml:6), flipped to SPDX `MIT OR Apache-2.0` — nothing to retire. Disjoint from all other open entries: owns Cargo.toml `license` + the LICENSE-* files, touches no source/README."
   },
   {
-    "tag": "OFFERING-README",
-    "summary": "Rewrite the README to the ~800-word front-door contract with a regenerable `check` diagnostic as the one hero visual",
-    "per": {
-      "path": "specs/55-offering.md",
-      "section": "The front door — the README is the landing page"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "scripts/gen-demo (capture pipeline) + the committed demo asset",
-          "description": "A scripted terminal-capture pipeline that renders a real `miette` `check` diagnostic and its committed output asset, regenerable from the shipped binary — never a hand-curated screenshot that drifts, per the hero-visual Decision (the demo is a projection of real output)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "README.md",
-          "description": "Rewrite the 37-line stub to the genre-standard short landing page: tagline (category + differentiator — the type checker for the harness, 'makes it good' vs rulesync's 'makes it portable'), badge row, one hero visual (the diagnostic), a highlights list, and a run-before-install `check --harness` quickstart that produces real findings on the reader's own `.claude/`, plus an honest pre-1.0 status line. Everything else links out."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "README.md is the ~800-word front door with the diagnostic hero visual produced by the captioned command; the demo asset is committed and regenerable; cargo green.",
-    "notes": "From the offering tranche (specs/55-offering.md). Two Decisions govern: the front-door shape and 'hero visual is the diagnostic, not a benchmark' — the demo asset must be a committed, regenerable projection of real `check` output, not a drift-prone screenshot. Heavier than the sibling doc entries (the capture pipeline). README.md + scripts/ only; disjoint from the rest. AGENTS.md + CHANGELOG are separate entries below, NOT in scope here."
-  },
-  {
     "tag": "AGENTS-MD",
     "summary": "Author AGENTS.md at root — contributor-facing build/test/lint + architecture map, pointing to the AI-authorship policy; CLAUDE.md stays canonical and untouched",
     "per": {
