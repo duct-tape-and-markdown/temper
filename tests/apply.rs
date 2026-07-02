@@ -1,13 +1,16 @@
 //! `temper apply` — the write direction over the three-state drift engine
-//! (`specs/20-surface.md`, "Drift / apply — three states, never two").
+//! (`specs/20-surface.md`, "Decision: the projection is re-emitted; the surface is
+//! patched").
 //!
 //! Drives the library `drift::apply` over a real imported surface and proves the
-//! four properties the entry names:
+//! properties the entry names:
 //!
-//! - **idempotence** — a clean surface→disk apply, re-run, changes nothing;
-//! - **patch-not-re-emit fidelity** — a surface-only edit patches just the changed
-//!   field and leaves the surrounding frontmatter bytes (comments, other fields)
-//!   exactly as the human wrote them;
+//! - **deterministic re-emission** — apply regenerates each projection full-file
+//!   from the member document; a surface field edit re-renders the whole
+//!   frontmatter, and on-disk-only bytes (a hand-added comment) are dropped rather
+//!   than preserved — a direct projection edit is drift, `re-add`'s to lift;
+//! - **idempotence** — apply twice yields byte-identical output; the re-run changes
+//!   nothing;
 //! - **three-state conflict handling** — a world drift that differs from the
 //!   last-applied fingerprint surfaces a conflict rather than clobbering the source;
 //! - **dry-run writes nothing** — the outcome is reported but not a byte lands.
@@ -42,9 +45,10 @@ fn tmpdir(label: &str) -> PathBuf {
     dir
 }
 
-/// A skill whose frontmatter carries a human comment and a blank line — bytes a
-/// surgical patch must preserve when an unrelated field changes. The body keeps a
-/// missing final newline so the byte-faithful round trip is observable.
+/// A skill whose frontmatter carries a human comment — an on-disk-only byte the
+/// retired surgical patch preserved but deterministic re-emission drops (it is not
+/// surface content, so it is drift, `re-add`'s to lift). The body keeps a missing
+/// final newline so the byte-faithful round trip is observable.
 const SKILL: &str = "---\n\
 name: coordinate\n\
 # a human note that must survive a patch\n\
@@ -127,16 +131,15 @@ fn edit_surface_description(workspace: &Path, new: &str) {
 #[test]
 fn apply_is_idempotent_over_a_clean_surface() {
     let (harness, into) = imported("idem");
-    let before = tree_bytes(&harness);
 
-    // A freshly imported surface already sits on disk: every artifact is unchanged.
+    // The first apply re-emits each projection to its canonical form: the imported
+    // bytes are not yet canonical (frontmatter is regenerated deterministically), so
+    // apply lands the re-emission and advances the lock.
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
-    assert_eq!(outcome(&report, "coordinate"), ApplyOutcome::Unchanged);
-    assert_eq!(outcome(&report, "rust"), ApplyOutcome::Unchanged);
-    assert_eq!(before, tree_bytes(&harness), "a clean apply writes nothing");
+    drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
+    let after_first = tree_bytes(&harness);
 
-    // Re-running changes nothing either — idempotent.
+    // Re-running is the idempotent no-op — every artifact Unchanged, not a byte moves.
     let ws = Workspace::load(&into).unwrap();
     let report = drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
     assert!(
@@ -145,48 +148,57 @@ fn apply_is_idempotent_over_a_clean_surface() {
             .iter()
             .all(|e| e.outcome == ApplyOutcome::Unchanged)
     );
-    assert_eq!(before, tree_bytes(&harness), "the re-run writes nothing");
+    assert_eq!(
+        after_first,
+        tree_bytes(&harness),
+        "apply twice yields byte-identical output"
+    );
 }
 
 #[test]
-fn a_surface_edit_patches_only_the_changed_field() {
-    let (harness, into) = imported("patch");
+fn a_surface_edit_re_emits_the_projection() {
+    let (harness, into) = imported("reemit");
 
     edit_surface_description(&into, "Use when driving a team across many axes.");
 
     let ws = Workspace::load(&into).unwrap();
     let report = drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
     assert_eq!(outcome(&report, "coordinate"), ApplyOutcome::Applied);
-    // The untouched rule stays put.
-    assert_eq!(outcome(&report, "rust"), ApplyOutcome::Unchanged);
 
-    let patched = fs::read_to_string(skill_source(&harness)).unwrap();
-    // The changed field carries the new value...
+    let emitted = fs::read_to_string(skill_source(&harness)).unwrap();
+    // The whole projection is regenerated from the member document: the edited field
+    // carries its new value and the old value is gone.
     assert!(
-        patched.contains("Use when driving a team across many axes."),
-        "the edited description must land on disk, got:\n{patched}"
+        emitted.contains("Use when driving a team across many axes."),
+        "the edited description must land on disk, got:\n{emitted}"
     );
     assert!(
-        !patched.contains("Use when coordinating agents across axes."),
-        "the old description must be gone, got:\n{patched}"
+        !emitted.contains("Use when coordinating agents across axes."),
+        "the old description must be gone, got:\n{emitted}"
     );
-    // ...while every surrounding byte is exactly as the human wrote it: the comment,
-    // the untouched `name` and `version` lines, and the byte-faithful body.
+    // The on-disk-only comment is NOT preserved — re-emission regenerates the
+    // frontmatter from the surface, and a direct projection edit is drift, not
+    // something apply patches around.
     assert!(
-        patched.contains("# a human note that must survive a patch"),
-        "the frontmatter comment must survive, got:\n{patched}"
+        !emitted.contains("# a human note"),
+        "the on-disk-only comment must be dropped by re-emission, got:\n{emitted}"
     );
-    assert!(patched.contains("name: coordinate\n"), "name untouched");
+    // Every surface field is re-rendered deterministically (JSON-flow YAML), and the
+    // body lands byte-faithful (no trailing newline added).
     assert!(
-        patched.contains("version: \"0.3.0\"\n"),
-        "version untouched"
+        emitted.contains("name: \"coordinate\"\n"),
+        "name re-emitted, got:\n{emitted}"
     );
     assert!(
-        patched.ends_with("Drive the team through the playbook."),
-        "the body stays byte-faithful (no trailing newline added), got:\n{patched}"
+        emitted.contains("version: \"0.3.0\"\n"),
+        "version re-emitted, got:\n{emitted}"
+    );
+    assert!(
+        emitted.ends_with("Drive the team through the playbook."),
+        "the body stays byte-faithful, got:\n{emitted}"
     );
 
-    // The patch re-parses to the same typed skill the surface holds — a valid write.
+    // The re-emitted source re-parses to the same typed skill the surface holds.
     let reloaded = Skill::from_source_dir(
         harness
             .join(".claude")
@@ -194,7 +206,7 @@ fn a_surface_edit_patches_only_the_changed_field() {
             .join("coordinate")
             .as_path(),
     )
-    .expect("the patched source must re-parse");
+    .expect("the re-emitted source must re-parse");
     assert_eq!(
         reloaded.description,
         "Use when driving a team across many axes."
@@ -206,7 +218,13 @@ fn a_surface_edit_patches_only_the_changed_field() {
 fn a_world_drift_surfaces_a_conflict_instead_of_clobbering() {
     let (harness, into) = imported("conflict");
 
-    // The human edits the source directly, on disk — a world drift the surface
+    // Reach the re-emit fixpoint first: an apply canonicalizes both projections and
+    // advances the lock, so a later on-disk drift is measured against exactly what
+    // `temper` last wrote (not the pre-canonical imported bytes).
+    let ws = Workspace::load(&into).unwrap();
+    drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
+
+    // The human edits the projection directly, on disk — a world drift the surface
     // knows nothing about. The surface itself is left as imported.
     let source = skill_source(&harness);
     let drifted = fs::read_to_string(&source).unwrap() + "\nA line added straight to disk.\n";
@@ -216,14 +234,14 @@ fn a_world_drift_surfaces_a_conflict_instead_of_clobbering() {
     let report = drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
 
     // The drifted source differs from the last-applied fingerprint, so `apply`
-    // surfaces the choice rather than overwriting the human's on-disk edit.
+    // surfaces the choice rather than re-emitting over the human's on-disk edit.
     assert_eq!(outcome(&report, "coordinate"), ApplyOutcome::Conflicted);
     assert_eq!(
         fs::read_to_string(&source).unwrap(),
         drifted,
-        "a conflict must not clobber the drifted source"
+        "a conflict must not clobber the drifted projection"
     );
-    // The untouched rule still applies cleanly alongside the conflict.
+    // The untouched rule is already at its fixpoint — the re-run is a clean no-op.
     assert_eq!(outcome(&report, "rust"), ApplyOutcome::Unchanged);
 }
 

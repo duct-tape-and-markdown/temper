@@ -7,8 +7,9 @@
 //! it, from the lock), and **real on-disk** — so it can tell a human surface edit
 //! from a world drift and merge rather than clobber. [`diff`] classifies every
 //! artifact into four read-only states (in-sync / drifted / added / removed);
-//! [`apply`] pushes the surface out, patching only the frontmatter fields that
-//! changed; [`re_add`] pulls on-disk edits back in through `import`'s own writers;
+//! [`apply`] pushes the surface out, re-emitting each projection deterministically
+//! from the member document; [`re_add`] pulls on-disk edits back in through
+//! `import`'s own writers;
 //! [`place`] is the whole-file sibling for artifacts temper places rather than
 //! round-trips (specs/50-distribution.md, `install`).
 
@@ -16,8 +17,6 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use gray_matter::Pod;
-use gray_matter::engine::{Engine, YAML};
 use serde_json::Value as JsonValue;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
@@ -338,12 +337,13 @@ pub struct ApplyOptions {
 /// One artifact's outcome from an [`apply`]: what the three-state merge decided.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApplyOutcome {
-    /// The source was patched to match the surface (or, under `--dry-run`, would
-    /// have been). Only reachable when the source had *not* drifted from the
-    /// last-applied fingerprint — a clean surface edit.
+    /// The source was re-emitted to match the surface projection (or, under
+    /// `--dry-run`, would have been). Only reachable when the source had *not*
+    /// drifted from the last-applied fingerprint — a clean surface edit.
     Applied,
-    /// The source already matched the surface projection; nothing to write. The
-    /// idempotent no-op — a re-run of a clean apply lands here for every artifact.
+    /// The re-emitted projection already sat on disk byte-for-byte; nothing to
+    /// write. The idempotent no-op — a re-run of a clean apply lands here for every
+    /// artifact.
     Unchanged,
     /// The source drifted from the last-applied fingerprint *and* the surface wants
     /// something different — a genuine conflict. `apply` surfaces the choice rather
@@ -398,15 +398,15 @@ struct Projection {
     /// the import hash as a baseline when the lock predates this field).
     last_applied: String,
     /// The desired header fields in canonical order (known fields first, then the
-    /// preserved unknown keys). Each value is compared as JSON against the on-disk
-    /// frontmatter to decide whether that one field changed.
+    /// preserved unknown keys). The whole set is re-emitted into a fresh
+    /// frontmatter block — the projection is regenerated, never patched.
     fields: Vec<(String, JsonValue)>,
     /// The desired body — the surface body, projected byte-faithfully.
     body: String,
 }
 
-/// Project the loaded `workspace` surface back onto the harness sources, patching
-/// only changed frontmatter fields over the three-state merge.
+/// Project the loaded `workspace` surface back onto the harness sources,
+/// re-emitting each projection deterministically over the three-state merge.
 ///
 /// `workspace_dir` is the surface root — where the lock (`lock.toml`) carrying the
 /// last-applied fingerprints lives. Each artifact is written to its recorded
@@ -490,18 +490,19 @@ fn project_one(
             });
         }
     };
-    // The source drifted into non-UTF-8 bytes; we cannot faithfully patch it.
+    // The source drifted into non-UTF-8 bytes; we compare against the re-emitted
+    // projection as text, so a non-UTF-8 disk source cannot be a clean match.
     let Ok(real) = String::from_utf8(real_bytes) else {
         return Ok((row(ApplyOutcome::Conflicted), None));
     };
 
-    let desired = project_bytes(&projection.fields, &projection.body, &real);
+    let desired = project_bytes(&projection.fields, &projection.body);
 
     if desired == real {
-        // The projection already sits on disk. If the fingerprint is stale (a benign
-        // world edit that happens to match the surface), reconcile it to the current
-        // bytes so it stops reading as drift; otherwise there is nothing to record and
-        // the lock is left alone.
+        // The re-emitted projection already sits on disk. If the fingerprint is stale
+        // (a benign world edit that happens to match the surface), reconcile it to the
+        // current bytes so it stops reading as drift; otherwise there is nothing to
+        // record and the lock is left alone.
         let real_hash = sha256_hex(real.as_bytes());
         let update = (real_hash != projection.last_applied).then_some(real_hash);
         return Ok((row(ApplyOutcome::Unchanged), update));
@@ -509,7 +510,7 @@ fn project_one(
 
     if sha256_hex(real.as_bytes()) == projection.last_applied {
         // No world drift since the last apply: the on-disk source is exactly what
-        // `temper` last wrote, so patching the surface edit onto it is clean.
+        // `temper` last wrote, so re-emitting the projection over it is clean.
         if !dry_run {
             fs::write(&projection.source_path, desired.as_bytes()).map_err(|source| {
                 DriftError::Write {
@@ -566,192 +567,36 @@ fn rule_fields(rule: &Rule) -> Vec<(String, JsonValue)> {
     fields
 }
 
-/// Project the desired header + body onto the real on-disk source, byte-faithfully
-/// except for the frontmatter fields that changed.
+/// Re-emit the desired projection deterministically: a fresh `---`-delimited
+/// frontmatter block carrying every desired field in order, then the surface body
+/// byte-for-byte.
 ///
-/// The on-disk source is split into its frontmatter and body; the body is replaced
-/// with the surface body and the frontmatter is patched field-by-field
-/// ([`patch_frontmatter`]). A source with no frontmatter takes the body directly
-/// (an empty desired header) or a freshly synthesised block (a rule the surface
-/// gave `paths`/unknown keys but disk has none).
-fn project_bytes(fields: &[(String, JsonValue)], body: &str, real: &str) -> String {
-    match split_source(real) {
-        Some(split) => {
-            let patched = patch_frontmatter(&split.inner, fields);
-            format!("{}{}{}{}", split.open, patched, split.close, body)
-        }
-        None if fields.is_empty() => body.to_string(),
-        None => {
-            let mut frontmatter = String::new();
-            for (key, value) in fields {
-                frontmatter.push_str(&render_field(key, value));
-            }
-            format!("---\n{frontmatter}---\n{body}")
-        }
+/// The projection is *generated*, not patched (`specs/20-surface.md`, "Decision: the
+/// projection is re-emitted; the surface is patched") — the on-disk source is never
+/// read here, so a hand-edited frontmatter comment or reordered field is not
+/// preserved (that is drift, `re-add`'s to lift into the surface). An artifact with
+/// no fields (a rule that carries no `paths`/unknown keys) projects to its body
+/// alone — no empty frontmatter block.
+fn project_bytes(fields: &[(String, JsonValue)], body: &str) -> String {
+    if fields.is_empty() {
+        return body.to_string();
     }
-}
-
-/// A source `.md` split around its frontmatter so a patched frontmatter can be
-/// reassembled without re-emitting the delimiters. `apply` replaces the body
-/// wholesale with the surface body, so only the header region is retained here.
-struct SourceSplit {
-    /// The opening delimiter line, including its trailing newline (`"---\n"`).
-    open: String,
-    /// The frontmatter text between the delimiters (no delimiter lines).
-    inner: String,
-    /// The closing delimiter line, exactly as written (including its newline, if any).
-    close: String,
-}
-
-/// Split a source into [`SourceSplit`], or `None` when it has no leading
-/// `---`-delimited frontmatter block. Mirrors the delimiter detection the skill/rule
-/// loaders use, but keeps the delimiter lines so `apply` can reassemble the file
-/// without re-emitting them.
-fn split_source(raw: &str) -> Option<SourceSplit> {
-    let (first, rest) = raw.split_once('\n')?;
-    if first.trim_end() != "---" {
-        return None;
+    let mut frontmatter = String::new();
+    for (key, value) in fields {
+        frontmatter.push_str(&render_field(key, value));
     }
-
-    let mut offset = 0;
-    for line in rest.split_inclusive('\n') {
-        let content = line.strip_suffix('\n').unwrap_or(line);
-        if content.trim_end() == "---" {
-            return Some(SourceSplit {
-                open: format!("{first}\n"),
-                inner: rest[..offset].to_string(),
-                close: line.to_string(),
-            });
-        }
-        offset += line.len();
-    }
-
-    // Opening delimiter but no close — not a frontmatter block.
-    None
-}
-
-/// Patch the desired fields into a frontmatter's `inner` text, changing only the
-/// fields whose value differs and leaving every other byte — comments, blank lines,
-/// key order, the untouched fields' exact formatting — verbatim.
-///
-/// The inner text is parsed into top-level segments: a *field* segment (a `key:`
-/// line at column 0 plus its indented continuation lines) or a *verbatim* segment
-/// (a comment, blank line, or any other column-0 line). Each field the surface
-/// still carries is compared as JSON against its on-disk value: equal ⇒ the segment
-/// is kept verbatim; changed ⇒ it is re-rendered. A field the surface dropped is
-/// removed; a field the surface added that disk lacks is appended in desired order.
-fn patch_frontmatter(inner: &str, desired: &[(String, JsonValue)]) -> String {
-    let on_disk = parse_frontmatter_json(inner);
-    let mut out = String::new();
-    let mut emitted: HashSet<String> = HashSet::new();
-
-    for segment in parse_segments(inner) {
-        match segment {
-            Segment::Verbatim(text) => out.push_str(&text),
-            Segment::Field { key, text } => {
-                if let Some((_, wanted)) = desired.iter().find(|(k, _)| *k == key) {
-                    let unchanged = on_disk.get(&key).is_some_and(|current| current == wanted);
-                    if unchanged {
-                        out.push_str(&text);
-                    } else {
-                        out.push_str(&render_field(&key, wanted));
-                    }
-                    emitted.insert(key);
-                }
-                // A key the surface dropped is simply not re-emitted.
-            }
-        }
-    }
-
-    // Fields the surface carries that disk did not — append in desired order.
-    for (key, value) in desired {
-        if !emitted.contains(key.as_str()) {
-            out.push_str(&render_field(key, value));
-        }
-    }
-
-    out
-}
-
-/// A top-level segment of a frontmatter's inner text — either a field (a `key:`
-/// line plus its indented continuation) or a run of verbatim bytes (comments,
-/// blank lines, anything else at column 0) preserved untouched.
-enum Segment {
-    Verbatim(String),
-    Field { key: String, text: String },
-}
-
-/// Parse a frontmatter's inner text into ordered [`Segment`]s. Concatenating every
-/// segment's text reproduces `inner` exactly, so an all-verbatim / no-change patch
-/// is byte-identical.
-fn parse_segments(inner: &str) -> Vec<Segment> {
-    let lines: Vec<&str> = inner.split_inclusive('\n').collect();
-    let mut segments = Vec::new();
-    let mut i = 0;
-    while i < lines.len() {
-        if let Some(key) = top_level_key(lines[i]) {
-            let mut text = lines[i].to_string();
-            i += 1;
-            // Continuation lines of a block value are indented; a column-0 line
-            // (next key, comment, or blank) ends the segment.
-            while i < lines.len() && is_indented(lines[i]) {
-                text.push_str(lines[i]);
-                i += 1;
-            }
-            segments.push(Segment::Field { key, text });
-        } else {
-            segments.push(Segment::Verbatim(lines[i].to_string()));
-            i += 1;
-        }
-    }
-    segments
-}
-
-/// The top-level YAML key a line declares (`name: demo` -> `name`), or `None` when
-/// the line is indented, blank, a comment, or carries no `key:`.
-fn top_level_key(line: &str) -> Option<String> {
-    let content = line.strip_suffix('\n').unwrap_or(line);
-    let first = content.chars().next()?;
-    if first.is_whitespace() || first == '#' {
-        return None;
-    }
-    let colon = content.find(':')?;
-    let key = &content[..colon];
-    if key.is_empty() || key.contains('#') {
-        return None;
-    }
-    Some(key.to_string())
-}
-
-/// Whether a line begins with whitespace — a continuation of the preceding block
-/// value. A blank line (`"\n"`) is not indented, so it ends the current field.
-fn is_indented(line: &str) -> bool {
-    line.starts_with(' ') || line.starts_with('\t')
+    format!("---\n{frontmatter}---\n{body}")
 }
 
 /// Render one frontmatter field as `key: <value>\n`. The value is emitted as
 /// compact JSON, which is valid YAML flow — a double-quoted string, a bare number
 /// or bool, a `[..]` sequence — so it round-trips back to the same JSON on the next
-/// parse (keeping `apply` idempotent). Only *changed* or *added* fields are rendered
-/// this way; unchanged fields keep their original block formatting verbatim.
+/// parse (keeping the re-emitted projection idempotent).
 fn render_field(key: &str, value: &JsonValue) -> String {
     // Serializing a `serde_json::Value` is infallible in practice; fall back to a
     // null literal rather than panic on the unreachable error path.
     let rendered = serde_json::to_string(value).unwrap_or_else(|_| "null".to_string());
     format!("{key}: {rendered}\n")
-}
-
-/// Parse a frontmatter's inner text into a JSON map for value comparison, reusing
-/// the same YAML engine the loaders parse with. A non-mapping frontmatter yields an
-/// empty map (every field then reads as "added", never "unchanged").
-fn parse_frontmatter_json(inner: &str) -> std::collections::HashMap<String, JsonValue> {
-    let mut out = std::collections::HashMap::new();
-    if let Pod::Hash(hash) = YAML::parse(inner.trim()) {
-        for (key, pod) in hash {
-            out.insert(key, pod.into());
-        }
-    }
-    out
 }
 
 /// Read the last-applied fingerprints from `<workspace_dir>/lock.toml`, keyed by

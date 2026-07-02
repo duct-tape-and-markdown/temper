@@ -123,16 +123,18 @@ enum Command {
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
     },
-    /// Project the surface back onto its harness sources, patching only changed
-    /// fields over the three-state drift model (`specs/20-surface.md`, the hard
-    /// core). Each artifact writes back to the source path `import` recorded.
+    /// Re-emit the projection deterministically from the surface, over the
+    /// three-state drift model (`specs/20-surface.md`, the hard core). Each
+    /// artifact is regenerated full-file — byte-stable and idempotent — and written
+    /// back to the source path `import` recorded; a direct edit to the projection is
+    /// drift for `re-add` to lift, never something apply patches around.
     Apply {
         /// The surface workspace to project (defaults to `./.temper`). The lock
         /// under it carries the last-applied fingerprints the merge stands on.
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
         /// Compute and report every outcome without writing a single byte — not
-        /// the patched sources, not the updated lock.
+        /// the re-emitted sources, not the updated lock.
         #[arg(long)]
         dry_run: bool,
     },
@@ -332,10 +334,10 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Apply { into, dry_run } => {
-            // The write direction (`specs/20-surface.md`): patch only changed
-            // fields back onto each artifact's recorded provenance path — the
-            // source it came from, so no harness root is re-supplied here (unlike
-            // `diff`, whose harness arg drives its rescan for the "added" axis).
+            // The write direction (`specs/20-surface.md`): re-emit each projection
+            // deterministically onto its recorded provenance path — the source it
+            // came from, so no harness root is re-supplied here (unlike `diff`, whose
+            // harness arg drives its rescan for the "added" axis).
             let ws = Workspace::load(&into)?;
             let report = drift::apply(&ws, &into, drift::ApplyOptions { dry_run })?;
             if dry_run {
