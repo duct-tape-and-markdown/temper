@@ -51,7 +51,9 @@ A kind is defined the same way regardless of origin; what differs is **who owns 
 definition**:
 
 - **Built-in harness kinds** — the artifact kinds of *known harnesses* (Claude Code:
-  `skill`, `rule`, `agent`, `hook`, `command`, MCP, settings, plugin; Codex; …).
+  `skill`, `rule`, `memory` — the `CLAUDE.md` family, with its own format facts:
+  no frontmatter, `@`-imports, dual root locus — `agent`, `hook`, `command`, MCP,
+  settings, plugin; Codex; …).
   **temper-maintained**, because the format is *external and evolving* — a skill's
   shape is the harness's truth, not the author's to invent. They are temper's
   **interface** to each harness, grouped per harness, shipped as the std-lib. The
