@@ -1,0 +1,15 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+Member `00-intent` (spec) — everything that holds it in place:
+
+Requirements it satisfies:
+  • `intent-encoded` — "the north star spec that encodes the requirement"
+      It means: "the corpus carries a north-star intent spec".
+      It is required — at least one member must fill it.
+
+Governing package: its `spec` kind binds the `spec` package, whose clauses check it.
+
+Edges out: it points at no member (it declares no resolved reference).
+Edges in: no member points at it.

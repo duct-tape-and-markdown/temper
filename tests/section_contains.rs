@@ -38,6 +38,7 @@ fn spec_unit(body: &str) -> Unit {
         body: body.to_string(),
         source_path: PathBuf::from("specs/10-contracts.md"),
         satisfies: Vec::new(),
+        satisfies_clauses: Vec::new(),
         published_requirements: Vec::new(),
     }
 }

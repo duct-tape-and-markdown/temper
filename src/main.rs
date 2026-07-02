@@ -407,25 +407,49 @@ fn main() -> miette::Result<ExitCode> {
             let rule_features: Vec<extract::Features> =
                 ws.rules.iter().map(extract::rule_features).collect();
             let kinds_dir = workspace.join("kinds");
-            let (custom_kinds, edges) = match layer.as_ref() {
-                Some(layer) => custom_kinds_and_edges(&workspace, layer, &kinds_dir)?,
-                // No `temper.toml` ⇒ no declared relationships, so no edges.
-                None => (Vec::new(), Vec::new()),
+            let (custom_kinds, edges, custom_members) = match layer.as_ref() {
+                Some(layer) => {
+                    let (custom_kinds, edges) =
+                        custom_kinds_and_edges(&workspace, layer, &kinds_dir)?;
+                    // The forward `satisfies` walk needs each custom member's rationale,
+                    // which the feature view above drops — so load the members whole
+                    // (READ-CUSTOM-SATISFIERS), beside the edge set the walk shares.
+                    let members = custom_members(&workspace, layer, &kinds_dir)?;
+                    (custom_kinds, edges, members)
+                }
+                // No `temper.toml` ⇒ no declared relationships, so no edges, and no
+                // registered custom kinds, so no custom members.
+                None => (Vec::new(), Vec::new(), Vec::new()),
             };
             let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
             print!(
                 "{}",
-                read::why(&ws, layer.as_ref(), &by_kind, &edges, &member)
+                read::why(
+                    &ws,
+                    layer.as_ref(),
+                    &custom_members,
+                    &by_kind,
+                    &edges,
+                    &member
+                )
             );
             Ok(ExitCode::SUCCESS)
         }
         Command::Requirements { name } => {
-            let ws = Workspace::load(Path::new(DEFAULT_WORKSPACE))?;
+            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
+            let ws = Workspace::load(&workspace)?;
             let layer = load_layer(Path::new(TEMPER_TOML))?;
+            // The reverse walk counts custom-kind satisfiers in each requirement's set
+            // and coverage (READ-CUSTOM-SATISFIERS), so load the registered custom
+            // kinds' members the same way `why` does.
+            let custom_members = match layer.as_ref() {
+                Some(layer) => custom_members(&workspace, layer, &workspace.join("kinds"))?,
+                None => Vec::new(),
+            };
             print!(
                 "{}",
-                read::requirements(&ws, layer.as_ref(), name.as_deref())
+                read::requirements(&ws, layer.as_ref(), &custom_members, name.as_deref())
             );
             Ok(ExitCode::SUCCESS)
         }
@@ -722,6 +746,37 @@ fn custom_kinds_and_edges<'a>(
     }
 
     Ok((custom_kinds, edges))
+}
+
+/// Load every registered custom kind's members as the read family sees them
+/// (READ-CUSTOM-SATISFIERS): each member's kind name, its id, and its
+/// rationale-carrying `satisfies` clauses ([`kind::Unit::satisfies_clauses`]). The
+/// read family (`why`/`requirements`) ranges over custom-kind satisfiers exactly as it
+/// does skills/rules, so a custom member filling a requirement is reported rather than
+/// silently absent. Loaded off the same units the gate extracts from — via the shared
+/// [`custom_units`] loader — but carrying the rationale the decidable feature view
+/// drops. A `[kind.<name>]` naming a built-in is a contract layer, not a registration
+/// (`specs/40-composition.md`), so it is skipped.
+fn custom_members(
+    workspace: &Path,
+    layer: &compose::AuthorLayer,
+    kinds_dir: &Path,
+) -> miette::Result<Vec<read::CustomMember>> {
+    let mut members = Vec::new();
+    for name in layer.registered_kinds() {
+        if kind::BUILTIN_KINDS.contains(&name) {
+            continue;
+        }
+        let custom = CustomKind::load(kinds_dir, name)?;
+        for unit in custom_units(workspace, &custom)? {
+            members.push(read::CustomMember {
+                kind: name.to_string(),
+                id: unit.id,
+                satisfies: unit.satisfies_clauses,
+            });
+        }
+    }
+    Ok(members)
 }
 
 /// Assemble the by-kind [`Features`](extract::Features) corpus every set-scope and

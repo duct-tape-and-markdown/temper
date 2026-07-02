@@ -1,0 +1,16 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+Requirement `intent-encoded`:
+
+  It means: "the corpus carries a north-star intent spec".
+  required, filled by 1 member(s)
+
+  Satisfied by:
+    • `00-intent` (spec) — "the north star spec that encodes the requirement"
+
+  Blast radius — removing `intent-encoded` would strand 1 `satisfies` link(s):
+    • `00-intent` (spec) would dangle
+
+  `intent-encoded` is required and rests on a single satisfier — removing `00-intent` (spec) would leave it unfilled, failing the gate.

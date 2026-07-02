@@ -302,6 +302,14 @@ pub struct Unit {
     /// joins coverage exactly as a skill/rule does (`specs/10-contracts.md`). Empty
     /// when the member authors none.
     pub satisfies: Vec<String>,
+    /// The same `[satisfies.<requirement>]` opt-ins **with their authored rationale**
+    /// (`specs/20-surface.md`, "The member document") — the whole [`Satisfies`] clause,
+    /// not just the name coverage reads. The read family (`why`/`requirements`) narrates
+    /// the *why* a custom member fills a requirement (READ-CUSTOM-SATISFIERS), so it
+    /// needs the rationale the decidable [`satisfies`](Unit::satisfies) name-vec drops.
+    /// Populated from the same header parse (`crate::document::satisfies`); empty when
+    /// the member authors none.
+    pub satisfies_clauses: Vec<crate::document::Satisfies>,
     /// The requirements this unit **publishes** — the authored `[requirement.<name>]`
     /// header modules (`specs/10-contracts.md`, "Decision: a requirement's publisher is
     /// any authored surface document"). The demand side of the fill edge, threaded
@@ -351,12 +359,14 @@ impl Unit {
                 field: "provenance",
             })?;
 
-        // Only the requirement name feeds coverage; the per-clause `rationale` is
-        // the human *why*, never a decidable feature, so it is dropped here
-        // (`specs/20-surface.md`).
-        let satisfies = crate::document::satisfies(document.header())
-            .into_iter()
-            .map(|s| s.requirement)
+        // The rationale-carrying clauses are read whole: coverage feeds off the
+        // requirement name alone (the per-clause `rationale` is the human *why*, never
+        // a decidable feature), while the read family narrates the rationale too
+        // (READ-CUSTOM-SATISFIERS). One parse, both consumers (`specs/20-surface.md`).
+        let satisfies_clauses = crate::document::satisfies(document.header());
+        let satisfies = satisfies_clauses
+            .iter()
+            .map(|s| s.requirement.clone())
             .collect();
 
         // The demand side: `[requirement.*]` modules the member publishes, carried
@@ -375,6 +385,7 @@ impl Unit {
             body: document.body().to_string(),
             source_path: PathBuf::from(source_path),
             satisfies,
+            satisfies_clauses,
             published_requirements,
         })
     }
@@ -806,6 +817,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             body: body.to_string(),
             source_path: PathBuf::from("specs/15-kinds.md"),
             satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
             published_requirements: Vec::new(),
         }
     }
@@ -869,6 +881,7 @@ key = "priority"
             body: "# Demo\n".to_string(),
             source_path: PathBuf::from("skills/demo/SKILL.md"),
             satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
             published_requirements: Vec::new(),
         };
 
@@ -899,6 +912,7 @@ key = "priority"
             body: String::new(),
             source_path: PathBuf::from("skills/demo/SKILL.md"),
             satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
             published_requirements: Vec::new(),
         };
         // A key the unit does not carry yields no feature — never a phantom entry.

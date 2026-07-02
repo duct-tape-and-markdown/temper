@@ -20,16 +20,19 @@
 //! "the gate teaches"): full sentences over the author's own artifacts, in the
 //! corpus's vocabulary. The narration is derived, never persisted.
 //!
-//! ## Scope: the built-in opt-in kinds
+//! ## Scope: every opt-in kind, built-in and custom
 //!
 //! This tier reads the members [`Workspace`] carries — the built-in opt-in kinds
-//! (skill ⊕ rule), the same corpus `check` loads for them. Custom-kind members
-//! (temper's own `spec`s) carry `satisfies`/`edge` clauses too, but the read family
-//! does not yet range over them: their rationale and edge clauses are not threaded
-//! through the custom-`Unit` path ([`crate::extract::Features`] deliberately drops
-//! rationale), so a faithful `why`/roster over them is a follow-on. On the current
-//! dogfood no custom-kind member fills a requirement, so the roster the read family
-//! narrates agrees with the gate; when one does, that plumbing lands first.
+//! (skill ⊕ rule) — **and** the custom-kind members the caller threads in as
+//! [`CustomMember`]s (READ-CUSTOM-SATISFIERS): temper's own `spec`s, or any consumer's
+//! custom kind whose member fills a requirement. The decidable
+//! [`crate::extract::Features`] drops the `satisfies` rationale, so a custom member
+//! arrives carrying its rationale-preserving [`crate::document::Satisfies`] clauses
+//! ([`crate::kind::Unit::satisfies_clauses`]) instead — the *why* the read family
+//! narrates whole. So a custom member filling a requirement is no longer silently
+//! absent from either verb; the roster the read family narrates agrees with the gate.
+//! Edge narration already ranges over every kind (it reads the gate's resolved edge
+//! set, READ-EDGE-UNIFY), so only the `satisfies` walk widens here.
 
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -50,32 +53,58 @@ use crate::graph::{self, ResolvedEdge};
 /// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never the
 /// `[edge.<target>]` document clauses (READ-EDGE-UNIFY).
 struct Member {
-    /// The artifact kind (`skill`, `rule`) — part of the identity, since an id is
-    /// unique only within a kind.
-    kind: &'static str,
-    /// The member id (a skill's/rule's name), the node the traversals key on.
+    /// The artifact kind (`skill`, `rule`, or a custom kind's name) — part of the
+    /// identity, since an id is unique only within a kind. Owned rather than
+    /// `&'static`, because a custom kind's name is authored, not a built-in literal.
+    kind: String,
+    /// The member id (a skill's/rule's name, a custom member's id), the node the
+    /// traversals key on.
     id: String,
     /// The requirements this member opts into filling, with their authored rationale.
     satisfies: Vec<Satisfies>,
 }
 
-/// Project the [`Workspace`]'s built-in opt-in artifacts into the read family's
-/// [`Member`] view — skills first, then rules, each name-sorted by the workspace
-/// load, so every traversal below is deterministic without a re-sort.
-fn members(workspace: &Workspace) -> Vec<Member> {
+/// A custom-kind member as the read family needs it (READ-CUSTOM-SATISFIERS): its
+/// kind name, its id, and its rationale-carrying `satisfies` clauses. The caller
+/// threads these in — the [`Workspace`] holds only the built-in kinds, so a custom
+/// member's satisfiers (loaded off [`crate::kind::Unit::satisfies_clauses`]) reach the
+/// read family here rather than through the workspace. Kept whole with rationale,
+/// which the decidable [`Features`] view drops.
+pub struct CustomMember {
+    /// The custom kind's registered name (`spec`, `adr`, …) — the edge node's kind
+    /// and what the narration prints.
+    pub kind: String,
+    /// The member id (its surface directory name).
+    pub id: String,
+    /// The rationale-preserving `satisfies` clauses this member authors.
+    pub satisfies: Vec<Satisfies>,
+}
+
+/// Project every opt-in artifact into the read family's [`Member`] view — the
+/// [`Workspace`]'s built-in kinds (skills, then rules) followed by the caller-threaded
+/// custom-kind members, each group name-sorted by its load, so every traversal below
+/// is deterministic without a re-sort (READ-CUSTOM-SATISFIERS).
+fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
     let mut members = Vec::new();
     for skill in &workspace.skills {
         members.push(Member {
-            kind: "skill",
+            kind: "skill".to_string(),
             id: skill.name.clone(),
             satisfies: skill.satisfies.clone(),
         });
     }
     for rule in &workspace.rules {
         members.push(Member {
-            kind: "rule",
+            kind: "rule".to_string(),
             id: rule.name.clone(),
             satisfies: rule.satisfies.clone(),
+        });
+    }
+    for member in custom {
+        members.push(Member {
+            kind: member.kind.clone(),
+            id: member.id.clone(),
+            satisfies: member.satisfies.clone(),
         });
     }
     members
@@ -125,11 +154,12 @@ fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
 pub fn why(
     workspace: &Workspace,
     layer: Option<&AuthorLayer>,
+    custom: &[CustomMember],
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
     member: &str,
 ) -> String {
-    let members = members(workspace);
+    let members = members(workspace, custom);
     let roster = roster(layer);
     // The resolved edge set the gate ranges over — computed once, filtered per matched
     // node below. One source of truth: the exact arcs `graph::check` resolves.
@@ -139,7 +169,8 @@ pub fn why(
     if matches.is_empty() {
         return format!(
             "No member named `{member}` is in the surface. `why` reads the authored \
-             surface's skills and rules; check the name, or `import` the harness first.\n"
+             surface's members — skills, rules, and every custom kind's members; check \
+             the name, or `import` the harness first.\n"
         );
     }
 
@@ -192,14 +223,14 @@ fn why_one(
         out,
         "Governing package: its `{}` kind binds the `{}` package, whose clauses check it.\n",
         member.kind,
-        bound_package(layer, member.kind),
+        bound_package(layer, &member.kind),
     );
 
     // The edges in and out — the member's node in the **gate's resolved edge set**
     // (`crate::graph::resolved_edges`), not a re-derivation off the `[edge.*]` document
     // clauses (READ-EDGE-UNIFY). A dangling reference resolves to no node, so it appears
     // in neither list — route resolution is the gate's finding to report, not `why`'s.
-    let node: (String, String) = (member.kind.to_string(), member.id.clone());
+    let node: (String, String) = (member.kind.clone(), member.id.clone());
 
     let outgoing: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.from == node).collect();
     if outgoing.is_empty() {
@@ -282,9 +313,10 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 pub fn requirements(
     workspace: &Workspace,
     layer: Option<&AuthorLayer>,
+    custom: &[CustomMember],
     name: Option<&str>,
 ) -> String {
-    let members = members(workspace);
+    let members = members(workspace, custom);
     let roster = roster(layer);
     match name {
         Some(name) => requirement_detail(&members, roster, name),

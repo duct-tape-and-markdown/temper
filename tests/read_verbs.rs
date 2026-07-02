@@ -262,3 +262,103 @@ fn requirements_over_an_undeclared_name_still_exits_zero() {
     );
     assert!(run.stdout.contains("No requirement named `ghost`"));
 }
+
+/// The `temper.toml` for the custom-kind fixture: a `required` requirement plus a
+/// `[kind.spec]` registration binding the `spec` package. A custom-kind member fills
+/// the requirement, so the read family must range over it (READ-CUSTOM-SATISFIERS) —
+/// the silent under-report the verbs exist to prevent.
+const CUSTOM_TEMPER_TOML: &str = "\
+[requirement.intent-encoded]
+means = \"the corpus carries a north-star intent spec\"
+required = true
+
+[kind.spec]
+package = \"spec\"
+";
+
+/// The authored `spec` KIND.md definition (`specs/20-surface.md`, "Decision: a kind
+/// definition is `KIND.md`"): it governs `specs/*.md` and composes the markdown-only
+/// spec extractor. The read family loads its members off this locus.
+const SPEC_KIND_MD: &str = "+++\n\
+governs = { root = \"specs\", glob = \"*.md\" }\n\
+\n\
+[[extraction]]\n\
+primitive = \"line_count\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"headings\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"placement\"\n\
++++\n\
+\n\
+# The spec kind\n\
+\n\
+temper's own governing documents.\n";
+
+/// Author a `spec` custom-kind member surface at `<root>/.temper/specs/<name>/SPEC.md`
+/// carrying a `[satisfies.<requirement>]` opt-in (with its authored rationale) over the
+/// provenance-only header `import` writes. Written directly as the member document a
+/// human authors — the surface language over which the read family walks the forward
+/// `satisfies` edge.
+fn write_spec(root: &Path, name: &str, satisfies: &str, rationale: &str) {
+    let dir = root.join(".temper").join("specs").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    let document = format!(
+        "+++\n\
+         [satisfies.{satisfies}]\n\
+         rationale = \"{rationale}\"\n\
+         \n\
+         [provenance]\n\
+         source_path = \"specs/{name}.md\"\n\
+         import_hash = \"deadbeef\"\n\
+         +++\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    );
+    fs::write(dir.join("SPEC.md"), document).unwrap();
+}
+
+/// Build a fixture whose custom-kind (`spec`) member fills an assembly-published
+/// requirement: the `spec` kind registered + defined, and one member `00-intent`
+/// declaring `[satisfies.intent-encoded]` with a rationale. No skill or rule fills the
+/// requirement, so the custom member is the *only* satisfier — proof the read family
+/// counts it rather than under-reporting.
+fn custom_fixture() -> PathBuf {
+    let root = tmpdir("custom-root");
+    let kind_dir = root.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(kind_dir.join("KIND.md"), SPEC_KIND_MD).unwrap();
+    write_spec(
+        &root,
+        "00-intent",
+        "intent-encoded",
+        "the north star spec that encodes the requirement",
+    );
+    fs::write(root.join("temper.toml"), CUSTOM_TEMPER_TOML).unwrap();
+    root
+}
+
+#[test]
+fn why_narrates_a_custom_kind_member_and_its_satisfies() {
+    let root = custom_fixture();
+    // `00-intent` is a `spec` (a custom kind), and it fills `intent-encoded` — so
+    // `why` narrates the satisfied requirement with its authored rationale and the
+    // `spec` package its kind binds, exactly as it does for a skill/rule
+    // (READ-CUSTOM-SATISFIERS). A custom member is no longer silently absent.
+    let run = read(&root, &["why", "00-intent"]);
+    assert!(run.ok, "why must exit zero: {}", run.stdout);
+    insta::assert_snapshot!("why_custom_spec_member", run.stdout);
+}
+
+#[test]
+fn requirements_counts_a_custom_kind_satisfier() {
+    let root = custom_fixture();
+    // The reverse walk over `intent-encoded` must list the `spec` member in its
+    // satisfier set and count it in coverage (required, filled by one) — the custom
+    // satisfier is in the set, not under-reported (READ-CUSTOM-SATISFIERS).
+    let run = read(&root, &["requirements", "intent-encoded"]);
+    assert!(run.ok, "requirements <name> must exit zero: {}", run.stdout);
+    insta::assert_snapshot!("requirements_custom_satisfier", run.stdout);
+}
