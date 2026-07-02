@@ -1,17 +1,23 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD e38cb59.
-- **Last shipped (trunk):** EMBED-BUILTIN-KINDS — `kinds/{skill,rule}/KIND.md`
-  embedded by `build.rs`, parsed via `builtin_kind::definition` into a `CustomKind`
-  through the project-authored `KIND.md` path (verified on disk: `kinds/` tree,
-  `build.rs` walks it, `src/builtin_kind.rs` present).
-- **This tick:** verified BUILTIN-EXTRACT-GENERIC unbuilt — `skill_features`/
-  `rule_features` still at `extract.rs:238/296`, called at `main.rs` 405–408/541–545;
-  `kind::Unit` + `Extraction::extract` exist for the adapter face. Sole change: its
-  gate flipped `blockedBy EMBED-BUILTIN-KINDS` → `open`. Inbox empty; no forks moved.
-- **Pickable now:** BUILTIN-EXTRACT-GENERIC (open), the last entry of the
-  extraction-unification wave. AGENT-KIND deferred; PACKAGING-CHANNELS /
-  COMMUNITY-DOCS parked. Sole live OPEN fork: (edge-representation-unify).
+- **Phase:** reconcile. HEAD f0f64a3.
+- **Last shipped (trunk):** BUILTIN-EXTRACT-GENERIC — built-in extraction now runs
+  through the embedded KIND definitions via the generic driver (verified on disk:
+  `src/builtin_kind.rs`, `build.rs` embeds `kinds/{skill,rule}/KIND.md`, no per-kind
+  `*_features` fn remains). The whole extraction-unification wave is drained.
+- **This tick:** verified the surface is far more built out than the queue implied —
+  all CLI verbs (import/check/diff/apply/re-add/bundle/install/schema/why/
+  requirements) are shipped and tested; coverage/roster/graph, member-published
+  requirements, and the embedded built-in packages (`skill.anthropic`/`rule.anthropic`,
+  the `rule`→`rule.anthropic` rename done in `src/builtin.rs`) all landed. Found one
+  clean spec/code divergence and filed it: **APPLY-REEMIT-PROJECTION** — `apply` still
+  runs the superseded surgical frontmatter-patch model; the live Decision
+  (`specs/20-surface.md`) re-emits the projection deterministically. Inbox empty; no
+  forks moved.
+- **Pickable now:** APPLY-REEMIT-PROJECTION (open, sole — touches drift.rs/main.rs/
+  tests only). AGENT-KIND deferred; PACKAGING-CHANNELS / COMMUNITY-DOCS parked. Sole
+  live OPEN fork: (edge-representation-unify) — confirmed this tick (surface `[edge.*]`
+  never reaches the gate's graph); human to settle the canonical form.
 
-Plan continues: no — BUILTIN-EXTRACT-GENERIC is pickable and sole-open (nothing
-shares its files); hand to build.
+Plan continues: no — one open entry filed, disjoint from the parked/deferred set;
+hand to build.
