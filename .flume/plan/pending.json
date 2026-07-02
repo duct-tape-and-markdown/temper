@@ -1,45 +1,5 @@
 [
   {
-    "tag": "EMBED-BUILTIN-KINDS",
-    "summary": "Embed `kinds/skill/KIND.md` + `kinds/rule/KIND.md` via `build.rs` (beside the packages embed) and expose them as in-crate `CustomKind` definitions",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "The extraction algebra — the soundness boundary, as data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "The embedded built-in KIND std-lib, mirroring `src/builtin.rs` for packages: `include!` the generated `BUILTIN_KINDS` table and parse a named definition into a `crate::kind::CustomKind` via `CustomKind::from_header` over its `+++`-fenced `KIND.md` header. Accessors `definition(name)`/`definitions()`; `skill`/`rule` resolve from the embedded set with no on-disk config, validated as any kind is. The parse-into-CustomKind path already exists — this only sources the header from embedded product data instead of `.temper/kinds/`."
-        }
-      ],
-      "edit": [
-        {
-          "path": "build.rs",
-          "description": "Also walk the `kinds/` product tree (beside the existing `packages/` walk) and generate `BUILTIN_KINDS: &[(&str, &str)]` — `(name, KIND.md source)` per `kinds/<name>/KIND.md`, `include_str!`-embedded, sorted, with a `rerun-if-changed` per file. Auto-detected exactly like the packages embed: adding a built-in kind needs no edit here."
-        },
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod builtin_kind;` beside `pub mod builtin;` (this entry owns the line)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/builtin_kind.rs",
-        "asserts": "`definition(\"skill\")`/`definition(\"rule\")` parse the embedded `KIND.md` into a `CustomKind` whose composed `Extraction` and `governs` match the hand-authored definitions; an unknown name yields `None`."
-      }
-    ],
-    "acceptance": "the two built-in `KIND.md` definitions ship embedded and resolve in-crate to `CustomKind` values with no on-disk config; cargo fmt/clippy -D warnings/test green.",
-    "notes": "`kinds/**` is human territory — build EMBEDS, never writes (chain.ts NOTE); both definitions are hand-authored (b06f3a0). Mirror the packages embed: `build.rs` emits `BUILTIN_KINDS`; `src/builtin_kind.rs` parses each via the existing `CustomKind::from_header`. No behavior swap yet — extraction still runs the old path until BUILTIN-EXTRACT-GENERIC."
-  },
-  {
     "tag": "BUILTIN-EXTRACT-GENERIC",
     "summary": "Drive built-in skill/rule extraction through the embedded KIND definitions and the generic composed path; retire the hand-coded `skill_features`/`rule_features`",
     "per": {
