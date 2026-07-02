@@ -1,52 +1,17 @@
 //! The extraction algebra — a custom kind's read side, composed from data.
 //!
-//! Models `specs/15-kinds.md` ("The extraction algebra — the soundness boundary,
-//! as data"). Where `crate::contract` is the engine's *predicate* half (what an
-//! artifact must **satisfy**), this is the *extraction* half (what an artifact
-//! **is**, and how it is read):
+//! specs/15-kinds.md. Where `crate::contract` is the engine's predicate half
+//! (what an artifact must satisfy), this is the extraction half (what it *is*,
+//! and how it is read). Extraction is the soundness boundary: a clause is sound
+//! only if its feature is deterministically extractable, so a custom kind carries
+//! no code of its own — its extractor is composed from a closed algebra of
+//! deterministic [`Primitive`]s. That closed vocabulary makes unsound extraction
+//! unsayable: an out-of-vocabulary primitive is a load error, never a per-kind
+//! escape hatch.
 //!
-//! > predicates : contracts  ::  extraction : kinds
-//!
-//! Extraction is **the soundness boundary** — a clause is sound only if its
-//! feature is *deterministically extractable*. A built-in harness kind keeps its
-//! engine-code extractor (its format is external and evolving; `src/skill.rs`),
-//! but a **custom** kind carries no code of its own: its extractor is
-//! **composed from a closed algebra of deterministic extraction primitives**,
-//! the identical mechanism that keeps the predicate algebra too weak to lie. The
-//! closed vocabulary makes unsound extraction ("extract the meaning of paragraph
-//! 3") **unsayable by construction** — an out-of-vocabulary primitive is a load
-//! error, never a per-kind escape hatch (`specs/15-kinds.md`, "Decision:
-//! extraction is a closed algebra, not author parsing").
-//!
-//! ## The vocabulary (harvested from the built-in kinds)
-//!
-//! Each primitive names a locus and yields one deterministic feature into
-//! [`crate::extract::Features`]. The engine implements the primitive; the author
-//! only composes:
-//!
-//! - **`field`** — a frontmatter value at a key, projected as a named field
-//!   feature (kind-preserving, via the shared [`crate::extract`] projector);
-//! - **`headings`** — the body's ATX headings;
-//! - **`sections`** — the body's ATX sections (each heading + the body span
-//!   beneath it), the `## Decision`-block feature a `section_contains` clause
-//!   reads (`specs/10-contracts.md`);
-//! - **`line_count`** — the body's line count (the `max_lines` feature);
-//! - **`placement`** — the source directory the unit sits under;
-//! - **`references`** — the backtick-filename references in the body (`` `NN-name.md` ``,
-//!   the corpus's declared reference syntax; `specs/15-kinds.md`, "Worked
-//!   example: `spec`"), as a named list feature a `references-resolve` clause or
-//!   a declared edge (`crate::graph`) then reads.
-//!
-//! ## Why reuse `crate::extract`, never a second extractor
-//!
-//! Every primitive delegates to the *same* surface extractor the built-in
-//! projectors use ([`crate::extract::body_headings`],
-//! [`body_sections`](crate::extract::body_sections),
-//! [`body_line_count`](crate::extract::body_line_count),
-//! [`source_dir_name`](crate::extract::source_dir_name)). A custom kind that
-//! composes `headings` reads the byte-identical ATX/fence logic a skill does —
-//! there is no forked implementation to drift, so the soundness boundary is one
-//! boundary, not two.
+//! Every primitive delegates to the same surface extractor the built-in
+//! projectors use (`crate::extract`), so the soundness boundary is one boundary,
+//! not a forked implementation that can drift.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -60,20 +25,17 @@ use crate::compose::Edge;
 use crate::document::Document;
 use crate::extract::{self, FeatureValue, Features};
 
-/// The built-in harness kind names temper ships an engine-code extractor for
-/// (`specs/15-kinds.md`, "Two categories of kind — ownership, not mechanism"). A
-/// `[kind.<name>]` registration in the assembly whose name is one of these is a
-/// **built-in layer** (adopt-and-layer its shipped package); any other name
-/// registers a **custom** kind, whose definition is authored under
-/// `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`, "Decision: a custom
-/// kind is an authored `.temper/` artifact, registered in the assembly").
+/// The built-in harness kinds temper ships an engine-code extractor for. A
+/// `[kind.<name>]` registration naming one of these is a built-in layer; any
+/// other name registers a custom kind, defined under
+/// `.temper/kinds/<name>/KIND.md` (`specs/15-kinds.md`; `specs/40-composition.md`).
 pub const BUILTIN_KINDS: &[&str] = &["skill", "rule"];
 
-/// The **file locus** a custom kind reads (`specs/40-composition.md`, "Registering a
-/// custom kind"): the root directory its units live under, and the filename glob that
-/// selects them. `import` discovers a custom kind's units by scanning `root` for files
-/// matching `glob`; file placement is itself an extraction primitive, so the locus is
-/// part of the authored definition, not external config.
+/// The file locus a custom kind reads (`specs/40-composition.md`): the root
+/// directory its units live under, and the filename glob that selects them.
+/// `import` scans `root` for files matching `glob`. File placement is itself an
+/// extraction primitive, so the locus is part of the authored definition, not
+/// external config.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Governs {
     /// The root directory the kind's units sit under (`specs`, `docs/adr`), a path
@@ -84,23 +46,18 @@ pub struct Governs {
     pub glob: String,
 }
 
-/// A custom kind's **authored definition**, loaded from `.temper/kinds/<name>/KIND.md`
-/// (`specs/20-surface.md`, "Decision: a kind definition is `KIND.md` — one document,
-/// same medium"; `specs/40-composition.md`, "Decision: a custom kind is an authored
-/// `.temper/` artifact, registered in the assembly"). The `+++`-fenced header carries
-/// the composed definition — the [`governs`](CustomKind::governs) locus, the composed
-/// [`Extraction`], and the declared [`relationships`](CustomKind::relationships) — and
-/// the body is the kind's own prose (what this class of artifact *is*), read by no
-/// check.
+/// A custom kind's authored definition, loaded from `.temper/kinds/<name>/KIND.md`
+/// (`specs/20-surface.md`; `specs/40-composition.md`). The `+++`-fenced header
+/// carries the [`governs`](CustomKind::governs) locus, the composed
+/// [`Extraction`], and the declared [`relationships`](CustomKind::relationships);
+/// the body is the kind's own prose, read by no check.
 ///
-/// A custom kind is **purely declare-side**: it carries **no clauses**. Its
-/// require-side is a **package** bound in the assembly (`[kind.<name>] package =
-/// "<name>"`), resolved under `.temper/packages/` exactly as a built-in kind binds its
-/// shipped one — every kind refers to a declared package, uniformly.
+/// A custom kind is purely declare-side — it carries no clauses. Its require-side
+/// is a package bound in the assembly, resolved under `.temper/packages/` exactly
+/// as a built-in kind binds its shipped one.
 ///
-/// Not `Eq` — its [`extraction`](CustomKind::extraction) is `Eq`, but keeping the
-/// derive `PartialEq` leaves room for future `f64`-bearing fields without a churn, as
-/// it does for [`Clause`](crate::contract::Clause).
+/// Not `Eq`: keeping the derive `PartialEq` leaves room for future `f64`-bearing
+/// fields without churn, as it does for [`Clause`](crate::contract::Clause).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CustomKind {
     /// The kind's name — the `[kind.<name>]` registration key and the
@@ -109,25 +66,22 @@ pub struct CustomKind {
     /// The file locus the kind reads.
     pub governs: Governs,
     /// The composed extractor over the closed algebra (`specs/15-kinds.md`), parsed
-    /// from the header's `[[extraction]]` array by the shared [`Extraction::from_table`]
-    /// — so an out-of-vocabulary primitive is rejected at load exactly as it is for a
-    /// standalone extraction declaration. Absent ⇒ the vacuous extractor (only the
-    /// intrinsic id).
+    /// from the header's `[[extraction]]` array by [`Extraction::from_table`].
+    /// Absent ⇒ the vacuous extractor (only the intrinsic id).
     pub extraction: Extraction,
-    /// The declared **relationships** — which of the kind's references are edges
-    /// (`specs/15-kinds.md`, "The entity graph is a kind capability"), each an
-    /// [`Edge`] whose `from` is this kind. Parsed from the header's
-    /// `[[relationships]]` array. Absent ⇒ empty (the kind declares no edges).
+    /// The declared relationships — which of the kind's references are edges
+    /// (`specs/15-kinds.md`), each an [`Edge`] whose `from` is this kind. Parsed
+    /// from the header's `[[relationships]]` array. Absent ⇒ empty.
     pub relationships: Vec<Edge>,
 }
 
 impl CustomKind {
-    /// Load a custom kind's authored definition from `<kinds_dir>/<name>/KIND.md` — the
-    /// one home for a project's own artifact kind (`specs/20-surface.md`). A missing
-    /// document is a [`KindError::MissingDefinition`]: the assembly registered the kind,
-    /// so its definition is required, never silently skipped. A malformed fenced
-    /// document, an out-of-vocabulary extraction primitive, a missing/mistyped
-    /// `governs`, or a stray header key each surface as a precise [`KindError`].
+    /// Load a custom kind's authored definition from `<kinds_dir>/<name>/KIND.md`
+    /// (`specs/20-surface.md`). A missing document is a
+    /// [`KindError::MissingDefinition`] — the assembly registered the kind, so its
+    /// definition is required, never silently skipped; a malformed document, an
+    /// out-of-vocabulary primitive, a bad `governs`, or a stray key each surface as
+    /// a precise [`KindError`].
     pub fn load(kinds_dir: &Path, name: &str) -> Result<Self, KindError> {
         let path = kinds_dir.join(name).join("KIND.md");
         let raw = match std::fs::read_to_string(&path) {
@@ -147,15 +101,13 @@ impl CustomKind {
         Self::from_header(document.header().as_table(), name, &path)
     }
 
-    /// Parse a custom kind's definition off a `KIND.md` header table — the composed
-    /// [`governs`](CustomKind::governs) locus, the `[[extraction]]` extractor (via the
-    /// shared [`Extraction::from_table`]), and the `[[relationships]]` edges. The seam
+    /// Parse a custom kind's definition off a `KIND.md` header table — the
+    /// [`governs`](CustomKind::governs) locus, the `[[extraction]]` extractor (via
+    /// [`Extraction::from_table`]), and the `[[relationships]]` edges. The seam
     /// tests drive without touching disk. A header carries only `governs`,
-    /// `extraction`, and `relationships`; a stray key — a leftover `clause` (a custom
-    /// kind carries no clauses; its contract is the bound package), an `entities` table
-    /// (nodes derive from `features.id`), or a typo — is a [`KindError::UnknownKey`],
-    /// rejected rather than silently dropped (`specs/10-contracts.md`, "Decision:
-    /// unknown keys are rejected, not ignored").
+    /// `extraction`, and `relationships`; any stray key is a
+    /// [`KindError::UnknownKey`], rejected rather than silently dropped
+    /// (`specs/10-contracts.md`).
     pub fn from_header(table: &Table, name: &str, path: &Path) -> Result<Self, KindError> {
         for (key, _) in table.iter() {
             if !matches!(key, "governs" | "extraction" | "relationships") {
@@ -208,12 +160,11 @@ fn parse_governs(table: &Table, kind: &str, path: &Path) -> Result<Governs, Kind
 }
 
 /// Parse a `KIND.md` header's `[[relationships]]` array into typed [`Edge`]s, in
-/// declaration order — a reference is a **kind capability** declared under its owning
-/// kind (`specs/15-kinds.md`, "The entity graph is a kind capability"). The owning
-/// `kind` is each edge's source (the implicit `from`); each relationship names its
-/// reference `field` and target `to` kind, both strings. Absent ⇒ an empty vec; not an
-/// array-of-tables ⇒ [`KindError::RelationshipsNotArray`]; a missing/mistyped `field`
-/// or `to` ⇒ a single folded [`KindError::BadRelationship`] naming its position.
+/// declaration order (`specs/15-kinds.md`). The owning `kind` is each edge's source
+/// (the implicit `from`); each relationship names its reference `field` and target
+/// `to` kind, both strings. Absent ⇒ an empty vec; not an array-of-tables ⇒
+/// [`KindError::RelationshipsNotArray`]; a missing/mistyped `field` or `to` ⇒ a
+/// folded [`KindError::BadRelationship`] naming its position.
 fn parse_relationships(table: &Table, kind: &str, path: &Path) -> Result<Vec<Edge>, KindError> {
     let Some(item) = table.get("relationships") else {
         return Ok(Vec::new());
@@ -295,15 +246,11 @@ pub enum Primitive {
     References {
         /// The name the yielded reference-list feature is keyed by.
         feature: String,
-        /// The reference syntax's own **normalization** — an optional declared
-        /// suffix stripped from each extracted value before it becomes the
-        /// feature value, so a later exact id-match resolves without a loose
-        /// engine fallback (`specs/15-kinds.md`, "Decision: reference resolution
-        /// is declared by the kind"). The spec kind declares `".md"`, mapping
-        /// `` `15-kinds.md` `` to the unit id `15-kinds`. Absent ⇒ the value is
-        /// the raw reference span (current behavior). A value not ending in the
-        /// declared suffix is left unchanged — the normalization strips only what
-        /// it names.
+        /// The reference syntax's own normalization — an optional suffix stripped
+        /// from each extracted value before it becomes the feature value, so a
+        /// later exact id-match resolves without a loose engine fallback
+        /// (`specs/15-kinds.md`). Absent ⇒ the raw reference span; a value not
+        /// ending in the suffix is left unchanged (strip only what it names).
         strip_suffix: Option<String>,
     },
 }
@@ -345,10 +292,6 @@ impl Primitive {
                 feature,
                 strip_suffix,
             } => {
-                // The declared normalization runs after extraction and before the
-                // value is a feature: strip the declared suffix so a later exact
-                // id-match resolves (`specs/15-kinds.md`, Decision above). A ref
-                // not ending in the suffix is left as-is — strip only what it names.
                 let refs = backtick_filename_refs(&unit.body)
                     .into_iter()
                     .map(|reference| match strip_suffix {
@@ -387,36 +330,29 @@ pub struct Unit {
     /// The source path the unit was read from — the `placement` locus.
     pub source_path: PathBuf,
     /// The requirements this unit opts into filling — the authored
-    /// `[satisfies.<requirement>]` header modules (`specs/20-surface.md`, "The
-    /// member document"). A *representation* edge the coverage check resolves, not a
-    /// composed feature: it is intrinsic to the surface, threaded through unchanged
-    /// so a custom-kind member joins coverage exactly as a skill/rule does
-    /// (`specs/10-contracts.md`, "Coverage — the one referential check"). Empty when
-    /// the member authors none.
+    /// `[satisfies.<requirement>]` header modules (`specs/20-surface.md`). A
+    /// representation edge the coverage check resolves, not a composed feature:
+    /// intrinsic to the surface, threaded through unchanged so a custom-kind member
+    /// joins coverage exactly as a skill/rule does (`specs/10-contracts.md`). Empty
+    /// when the member authors none.
     pub satisfies: Vec<String>,
 }
 
 impl Unit {
     /// Reload a written custom-unit surface `<root>/<name>/` into a raw [`Unit`]:
-    /// the id is the surface directory name, and its lone `.md` sibling is the member
-    /// **document** (`specs/20-surface.md`, "Decision: the member is one document") —
-    /// a `+++`-fenced header carrying `[provenance]` over the byte-faithful body. The
-    /// body is everything below the header, and `source_path` is read back from the
-    /// `[provenance]` module `import` wrote (`src/import.rs`, `import_custom_unit`).
+    /// the id is the surface directory name, and its lone `.md` sibling is the
+    /// member document (`specs/20-surface.md`) — a `+++`-fenced `[provenance]`
+    /// header over the byte-faithful body, whose `source_path` `import` wrote
+    /// (`src/import.rs`, `import_custom_unit`).
     ///
-    /// This is the **generic** inverse of that projection — keyed on the surface
-    /// shape every custom kind shares (a lone member document), not on any one kind's
-    /// IR. It is the sole reader `check`'s custom-kind path uses — there is no bespoke
-    /// per-kind loader (the built-in `spec` IR that once had one is retired) — so a
-    /// custom kind rooted at *any* `governs.root`, not just `specs/`, is read
-    /// (`specs/40-composition.md`, "Declaring a custom kind").
-    ///
-    /// The document is found by extension, not by the kind's own upper-cased name, so
-    /// one reader serves every custom kind. Frontmatter is left empty: a custom unit's
-    /// document preserves the *whole* source file (frontmatter included) in its body,
-    /// and the composed extractor reads the loci it declares off that body
-    /// (`specs/15-kinds.md`). An unreadable or malformed surface is a [`KindError`],
-    /// never a silent skip.
+    /// The generic inverse of that projection: keyed on the surface shape every
+    /// custom kind shares (a lone member document found by extension), not on any
+    /// one kind's IR, so it is the sole reader `check`'s custom-kind path uses and a
+    /// kind rooted at any `governs.root` — not just `specs/` — is read
+    /// (`specs/40-composition.md`). Frontmatter is left empty: a custom unit's
+    /// document preserves the whole source file in its body, and the composed
+    /// extractor reads the loci it declares off that body (`specs/15-kinds.md`). An
+    /// unreadable or malformed surface is a [`KindError`], never a silent skip.
     pub fn from_surface_dir(dir: &Path) -> Result<Self, KindError> {
         let id = dir
             .file_name()
@@ -442,10 +378,9 @@ impl Unit {
                 field: "provenance",
             })?;
 
-        // The authored `[satisfies.<requirement>]` opt-in modules — the same
-        // surface-header channel a skill/rule carries (`specs/20-surface.md`). Only
-        // the requirement name feeds coverage; the per-clause `rationale` is the
-        // human *why*, never a decidable feature, so it is dropped here.
+        // Only the requirement name feeds coverage; the per-clause `rationale` is
+        // the human *why*, never a decidable feature, so it is dropped here
+        // (`specs/20-surface.md`).
         let satisfies = crate::document::satisfies(document.header())
             .into_iter()
             .map(|s| s.requirement)
@@ -568,10 +503,9 @@ pub enum KindError {
         expected: &'static str,
     },
 
-    /// A primitive names an extractor outside the closed vocabulary. This is the
-    /// trapdoor the closed algebra exists to keep shut — an unsound extractor is
-    /// *unsayable*, so it is rejected at load, never skipped (`specs/15-kinds.md`,
-    /// "Decision: extraction is a closed algebra, not author parsing").
+    /// A primitive names an extractor outside the closed vocabulary — the trapdoor
+    /// the closed algebra exists to keep shut, so it is rejected at load, never
+    /// skipped (`specs/15-kinds.md`).
     #[error("{path}: extraction primitive {index} names unknown extractor `{primitive}`")]
     #[diagnostic(
         code(temper::kind::unknown_primitive),
@@ -617,9 +551,9 @@ pub enum KindError {
     },
 
     /// The assembly registered a custom kind but its authored definition
-    /// `.temper/kinds/<name>/KIND.md` is absent. A registration promises a definition
-    /// (`specs/40-composition.md`, "Registering a custom kind"), so a missing one is a
-    /// hard error, never a silent skip.
+    /// `.temper/kinds/<name>/KIND.md` is absent. A registration promises a
+    /// definition (`specs/40-composition.md`), so a missing one is a hard error,
+    /// never a silent skip.
     #[error("{path}: custom kind `{kind}` is registered but its `KIND.md` definition is missing")]
     #[diagnostic(
         code(temper::kind::missing_definition),
@@ -663,10 +597,8 @@ pub enum KindError {
     },
 
     /// A `KIND.md` header carries a key outside its closed set (`governs`,
-    /// `extraction`, `relationships`). A leftover `clause` (a custom kind carries no
-    /// clauses; its contract is the bound package), an `entities` table (nodes derive
-    /// from `features.id`), or a typo is rejected at load rather than silently dropped
-    /// (`specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored").
+    /// `extraction`, `relationships`) — a leftover `clause`, an `entities` table, or
+    /// a typo — rejected at load rather than silently dropped (`specs/10-contracts.md`).
     #[error("{path}: custom kind `{kind}` definition has unknown key `{key}`")]
     #[diagnostic(
         code(temper::kind::unknown_key),
@@ -785,11 +717,9 @@ impl Extraction {
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: None,
-            // The authored representation binding the coverage check resolves —
-            // threaded off the unit's `[satisfies.*]` header modules, not a composed
-            // primitive (`satisfies` is a surface edge, uniform with skill/rule), so a
-            // custom-kind member joins coverage exactly as a built-in kind's does
-            // (`specs/10-contracts.md`, "Coverage — the one referential check").
+            // `satisfies` is a surface edge threaded through unchanged, not a
+            // composed primitive, so a custom-kind member joins coverage exactly as
+            // a built-in kind's does (`specs/10-contracts.md`).
             satisfies: unit.satisfies.clone(),
         };
         for primitive in &self.primitives {
