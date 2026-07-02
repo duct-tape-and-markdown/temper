@@ -34,12 +34,14 @@ use temper::extract::{self, Features};
 use temper::import;
 use temper::skill::Skill;
 
-/// Load the built-in Anthropic skill contract off the crate root (the real
-/// on-disk template `check` embeds), so the acceptance path validates against the
-/// same clauses the shipped tool does.
+/// The built-in Anthropic skill contract, resolved from the embedded `packages/`
+/// std-lib exactly as the shipped `check` does — so the acceptance path validates
+/// against the same clauses the tool ships (`specs/10-contracts.md`, the
+/// `contracts/` retirement: the built-in resolves from the embedded set by name).
 fn builtin_skill_contract() -> Contract {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts/skill.anthropic.toml");
-    Contract::load(&path).expect("the shipped skill contract should load")
+    temper::builtin::contract(temper::builtin::SKILL_PACKAGE)
+        .expect("the embedded skill package should parse")
+        .expect("the skill package is embedded")
 }
 
 /// The built `temper` binary, located by Cargo at compile time — the custom-kind

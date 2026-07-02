@@ -121,18 +121,25 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
         "temper session-start ."
     );
 
-    // 3. The shipped built-in packages, embedded byte-faithful.
-    let skill_contract = out.join("contracts").join("skill.anthropic.toml");
-    let rule_contract = out.join("contracts").join("rule.toml");
+    // 3. The shipped built-in packages, embedded byte-faithful — the same
+    //    `packages/<name>/PACKAGE.md` authored as product source, shipped verbatim.
+    let skill_package = out
+        .join("packages")
+        .join("skill.anthropic")
+        .join("PACKAGE.md");
+    let rule_package = out
+        .join("packages")
+        .join("rule.anthropic")
+        .join("PACKAGE.md");
     assert_eq!(
-        fs::read_to_string(&skill_contract).unwrap(),
-        include_str!("../contracts/skill.anthropic.toml"),
-        "the embedded skill contract must be byte-faithful"
+        fs::read_to_string(&skill_package).unwrap(),
+        include_str!("../packages/skill.anthropic/PACKAGE.md"),
+        "the embedded skill package must be byte-faithful"
     );
     assert_eq!(
-        fs::read_to_string(&rule_contract).unwrap(),
-        include_str!("../contracts/rule.toml"),
-        "the embedded rule contract must be byte-faithful"
+        fs::read_to_string(&rule_package).unwrap(),
+        include_str!("../packages/rule.anthropic/PACKAGE.md"),
+        "the embedded rule package must be byte-faithful"
     );
 
     // 4. A well-formed marketplace.json listing the plugin.

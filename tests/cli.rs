@@ -354,26 +354,10 @@ fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
     // The docs (hover) channel of the emitted schema (`specs/50-distribution.md`,
     // "The gate at keystroke"): a field clause's `guidance` prose rides its JSON
     // Schema property's `description`, strictly alongside the validation keywords.
-    // Driven through a `temper.toml` layer so the assertion holds against the *real*
-    // `temper schema --kind skill` CLI path (compose ⊕ emit) — the shipped
-    // `contracts/` templates are human-authored territory the build phase never
-    // writes, so guidance authored there is a separate human `chore(harness)`.
+    // The embedded `skill.anthropic` built-in now carries guidance on its clauses
+    // (`specs/10-contracts.md`, the `contracts/` retirement into product source), so
+    // the pure floor — no `temper.toml` layer — already exercises both channels.
     let cwd = tmpdir("schema-guidance");
-    fs::write(
-        cwd.join("temper.toml"),
-        // Override the skill floor's `max_len` on `name` (same identity) to attach
-        // guidance; the floor's other field clauses carry none, so only `name` gets
-        // a `description`.
-        "[kind.skill]\n\
-         [[kind.skill.clause]]\n\
-         severity = \"required\"\n\
-         predicate = \"max_len\"\n\
-         field = \"name\"\n\
-         max = 64\n\
-         guidance = \"Keep the name a short, slug-like identifier — lower-case and hyphenated.\"\n",
-    )
-    .unwrap();
-
     let output = Command::new(BIN)
         .current_dir(&cwd)
         .arg("schema")
@@ -388,26 +372,20 @@ fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    // Docs channel: the guidance rides `name`'s `description`, beside its validation
-    // keywords (`maxLength` et al.), never mixed into them.
-    assert_eq!(
-        json["properties"]["name"]["description"],
-        "Keep the name a short, slug-like identifier — lower-case and hyphenated."
+    // Docs channel: the floor's `name` guidance rides its `description`, beside its
+    // validation keywords (`maxLength`/`pattern` et al.), never mixed into them.
+    assert!(
+        json["properties"]["name"]["description"].is_string(),
+        "the floor's name guidance must ride the property description, got:\n{stdout}"
     );
     assert_eq!(json["properties"]["name"]["maxLength"], 64);
-    // A field with no guidance (`description`) carries no `description` keyword.
-    assert!(
-        json["properties"]["description"]
-            .get("description")
-            .is_none()
-    );
-    // The prose never became a validation keyword: no `enum`/`const` carries it.
+    assert!(json["properties"]["name"]["pattern"].is_string());
+
+    // The prose stays in the docs channel — it never became a validation keyword.
     assert!(json["properties"]["name"].get("enum").is_none());
     assert!(json["properties"]["name"].get("const").is_none());
-
-    // The full emitted schema — the two channels side by side, reviewable at a
-    // glance: every property's validation keywords plus `name`'s lone `description`.
-    insta::assert_snapshot!(stdout);
+    // Guidance never leaks to the schema root, only onto property `description`s.
+    assert!(json.get("description").is_none());
 }
 
 #[test]

@@ -19,6 +19,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
+use temper::builtin;
 use temper::bundle;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
@@ -61,16 +62,15 @@ const TEMPER_TOML: &str = "temper.toml";
 /// layer (or bare floor) runs unchanged.
 const TEMPER_LOCAL_TOML: &str = "temper-local.toml";
 
-/// The built-in Anthropic skill contract — the curated "std-lib" default
-/// (`contracts/skill.anthropic.toml`), embedded at build time so `check` has a
-/// contract to validate against without any on-disk configuration.
-const BUILTIN_SKILL_CONTRACT: &str = include_str!("../contracts/skill.anthropic.toml");
-
-/// The built-in rule contract — the curated default for the `rule` artifact kind
-/// (`contracts/rule.toml`), embedded beside the skill one so `check` validates
-/// each artifact against the contract for *its* kind without any on-disk config
-/// (`specs/20-surface.md`, "contract selection is by artifact kind").
-const BUILTIN_RULE_CONTRACT: &str = include_str!("../contracts/rule.toml");
+/// Resolve a built-in package by name into its floor [`Contract`], failing loud if
+/// the build embedded no package of that name — `check` and `schema` both stand on
+/// the embedded std-lib (`specs/10-contracts.md`, "the assembly binds the built-in
+/// *by name* and it resolves from the embedded set"), so a missing floor is a hard
+/// error, never a silently empty contract.
+fn builtin_floor(name: &str) -> miette::Result<Contract> {
+    builtin::contract(name)?
+        .ok_or_else(|| miette::miette!("built-in package `{name}` is not embedded in this binary"))
+}
 
 /// A typed maintenance surface for the Claude Code harness.
 #[derive(Parser)]
@@ -297,16 +297,12 @@ fn main() -> miette::Result<ExitCode> {
             let packages_dir = Path::new(DEFAULT_WORKSPACE).join("packages");
 
             // The modeled by-kind floors, paired with the kind name the layer keys
-            // on — the identical floors `check` composes above.
+            // on — the identical floors `check` composes above, resolved from the
+            // embedded built-in std-lib (skill → `skill.anthropic`, rule →
+            // `rule.anthropic`).
             let floors: Vec<(&str, Contract)> = vec![
-                (
-                    "skill",
-                    Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?,
-                ),
-                (
-                    "rule",
-                    Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?,
-                ),
+                ("skill", builtin_floor(builtin::SKILL_PACKAGE)?),
+                ("rule", builtin_floor(builtin::RULE_PACKAGE)?),
             ];
 
             let json = match kind.as_deref() {
@@ -534,26 +530,22 @@ fn gate(
     // *and* rules) is judged correctly in one run.
     let skill_features: Vec<extract::Features> =
         ws.skills.iter().map(extract::skill_features).collect();
-    let skill_floor = Contract::parse(BUILTIN_SKILL_CONTRACT, Path::new("skill.anthropic.toml"))?;
 
     let rule_features: Vec<extract::Features> =
         ws.rules.iter().map(extract::rule_features).collect();
-    let rule_floor = Contract::parse(BUILTIN_RULE_CONTRACT, Path::new("rule.toml"))?;
 
-    // The built-in package set, keyed by name (`skill.anthropic`, `rule`) — the embedded
-    // floor a by-name `package` binding resolves against before `.temper/packages/`
-    // (PACKAGE-BINDING's order). A requirement's `package` typing and a `membership`
-    // `conforms_to` both resolve through this, so packages **compose**: a satisfier is
-    // checked by its kind's bound package *and* any package a requirement names
-    // (`specs/10-contracts.md`, the typing facet). Cloned before the floors are consumed
-    // by `effective` below.
-    let package_resolver = compose::PackageResolver::new(
-        std::collections::BTreeMap::from([
-            (skill_floor.name.clone(), skill_floor.clone()),
-            (rule_floor.name.clone(), rule_floor.clone()),
-        ]),
-        packages_dir.clone(),
-    );
+    // The built-in package set, keyed by name (`skill.anthropic`, `rule.anthropic`) —
+    // the embedded std-lib a by-name `package` binding resolves against before
+    // `.temper/packages/` (PACKAGE-BINDING's order). Parsed from the embedded
+    // `packages/<name>/PACKAGE.md` sources: the same document authored as product
+    // source and shipped embedded (`specs/10-contracts.md`, the `contracts/`
+    // retirement). A requirement's `package` typing and a `membership` `conforms_to`
+    // both resolve through this, so packages **compose**: a satisfier is checked by
+    // its kind's bound package *and* any package a requirement names.
+    let builtins = builtin::contracts()?;
+    let skill_floor = builtin_floor(builtin::SKILL_PACKAGE)?;
+    let rule_floor = builtin_floor(builtin::RULE_PACKAGE)?;
+    let package_resolver = compose::PackageResolver::new(builtins, packages_dir.clone());
 
     let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor, &packages_dir)?;
     let rule_contract = compose::effective(layer.as_ref(), "rule", rule_floor, &packages_dir)?;

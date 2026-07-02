@@ -2,11 +2,13 @@
 //!
 //! Models the primitive algebra of `specs/10-contracts.md` ("The primitive
 //! algebra (decidable only)"): a [`Contract`] is a *named set of clauses* over a
-//! fixed, **closed** vocabulary of decidable predicates. It loads from either the
-//! embedded `contracts/*.toml` floor ([`Contract::load`]) or a package authored as
-//! a `PACKAGE.md` fenced document ([`Contract::load_package`],
-//! `specs/10-contracts.md`, "Packages") — a package *carries* a contract, so both
-//! parse the same closed-vocabulary header through one clause parser. There is no
+//! fixed, **closed** vocabulary of decidable predicates. Its authored home is a
+//! package — a `PACKAGE.md` fenced document ([`Contract::load_package`],
+//! `specs/10-contracts.md`, "Packages"), whether a built-in embedded from the
+//! `packages/` product tree ([`crate::builtin`]) or a project's own under
+//! `.temper/packages/`. A package *carries* a contract, and its closed-vocabulary
+//! header parses through the same clause parser [`Contract::parse`] runs over bare
+//! TOML source (the seam tests and the `temper.toml` layer drive). There is no
 //! arbitrary-code clause — adding a predicate is a
 //! deliberate language change, never a per-contract escape hatch (`00-intent.md`
 //! law 3). Loading therefore **rejects an unknown predicate key** rather than
@@ -532,15 +534,6 @@ pub enum ContractError {
 }
 
 impl Contract {
-    /// Load and parse a contract from a TOML file on disk.
-    pub fn load(path: &Path) -> Result<Self, ContractError> {
-        let src = fs::read_to_string(path).map_err(|source| ContractError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        Self::parse(&src, path)
-    }
-
     /// Parse a contract from TOML source. `path` is used only to label
     /// diagnostics, so this is the seam tests drive without touching disk.
     pub fn parse(src: &str, path: &Path) -> Result<Self, ContractError> {
@@ -1254,12 +1247,18 @@ type = "string"
     }
 
     #[test]
-    fn load_reads_a_contract_from_disk() {
+    fn load_package_reads_a_package_document_from_disk() {
+        // The on-disk loader is `load_package`: a `PACKAGE.md` fenced document whose
+        // header carries the same clause vocabulary. Wrapping `REP` in a `+++` header
+        // (empty body ⇒ no package-level guidance) round-trips to the same typed
+        // contract `parse` produces, with the name derived from the parent directory.
         let dir = tmpdir("load");
-        let path = dir.join("skill.contract.toml");
-        fs::write(&path, REP).unwrap();
+        let pkg = dir.join("skill");
+        fs::create_dir_all(&pkg).unwrap();
+        let path = pkg.join("PACKAGE.md");
+        fs::write(&path, format!("+++\n{REP}+++\n")).unwrap();
 
-        let contract = Contract::load(&path).unwrap();
+        let contract = Contract::load_package(&path).unwrap();
         assert_eq!(contract, rep_expected());
     }
 

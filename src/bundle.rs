@@ -77,7 +77,7 @@ description: Use when operating the temper gate on a Claude Code harness — imp
 `temper` is one gate over a Claude Code harness, placed wherever the harness is
 authored, changed, or used. This skill is how to *operate* that gate. It carries no
 opinion about what a good harness is — that lives in the packages
-(`contracts/`), which are data you bind, extend, or fork.
+(`packages/`), which are data you bind, extend, or fork.
 
 ## Run the gate
 
@@ -114,16 +114,6 @@ guesses. That leaves two honest responses, never a third:
 Never paper over a gap. If the contract and the artifact disagree and you are unsure
 which is wrong, surface it rather than guessing which way to bend.
 ";
-
-/// The shipped skill package — the curated Anthropic std-lib default,
-/// embedded at build time and copied byte-faithful into the plugin's `contracts/`
-/// so an installed `temper` has a package to check skills against
-/// (`specs/50-distribution.md`, "the shipped built-in packages ... embedded").
-const SKILL_CONTRACT: &str = include_str!("../contracts/skill.anthropic.toml");
-
-/// The shipped rule package — the curated default for the `rule` kind,
-/// embedded beside the skill one and copied byte-faithful into the plugin.
-const RULE_CONTRACT: &str = include_str!("../contracts/rule.toml");
 
 /// Errors raised while composing the plugin tree — the write side `bundle` owns.
 /// A surface that fails to load bubbles as its own [`WorkspaceError`](crate::check::WorkspaceError);
@@ -204,19 +194,14 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
         &mut files,
     )?;
 
-    // The shipped built-in packages (the std-lib), embedded byte-faithful.
-    write_text(
-        out,
-        Path::new("contracts/skill.anthropic.toml"),
-        SKILL_CONTRACT,
-        &mut files,
-    )?;
-    write_text(
-        out,
-        Path::new("contracts/rule.toml"),
-        RULE_CONTRACT,
-        &mut files,
-    )?;
+    // The shipped built-in packages (the std-lib), embedded byte-faithful. The
+    // *same* `packages/<name>/PACKAGE.md` authored as product source is shipped
+    // verbatim here — one artifact, two provenance roles (`specs/10-contracts.md`,
+    // the `contracts/` retirement). Every embedded built-in ships, keyed by name.
+    for (name, source) in crate::builtin::BUILTIN_PACKAGES {
+        let relative = PathBuf::from("packages").join(name).join("PACKAGE.md");
+        write_text(out, &relative, source, &mut files)?;
+    }
 
     files.sort();
     Ok(BundleReport {
