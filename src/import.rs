@@ -338,7 +338,14 @@ fn existing_surface_rule(out_dir: &Path) -> Option<Rule> {
 /// kind whose corpus does not exist on this harness). Data-driven discovery — the
 /// locus is the kind's own `governs` declaration (`specs/40-composition.md`), never
 /// a hardwired path.
-fn discover_kind_units(harness: &Path, governs: &Governs) -> Result<Vec<PathBuf>, ImportError> {
+///
+/// `pub(crate)` so the drift engine re-runs the same `governs`-keyed scan against a
+/// live harness — every custom kind's members classify through the identical
+/// discovery `import` used (`specs/20-surface.md`, the drift "added" axis).
+pub(crate) fn discover_kind_units(
+    harness: &Path,
+    governs: &Governs,
+) -> Result<Vec<PathBuf>, ImportError> {
     let root = harness.join(&governs.root);
     if !root.is_dir() {
         return Ok(Vec::new());
@@ -374,7 +381,11 @@ fn discover_kind_units(harness: &Path, governs: &Governs) -> Result<Vec<PathBuf>
 /// member document `<KIND>.md`: a `[provenance]`-only `+++` header over the *whole*
 /// file byte-faithful. The whole file is the body so a unit's frontmatter, if any,
 /// survives verbatim for its extractor to read at `check` time (`specs/15-kinds.md`).
-fn import_custom_unit(
+///
+/// `pub(crate)` for the same reason as [`import_skill`]: `re-add` reuses this exact
+/// generic write path to reconcile a drifted or added on-disk custom-kind unit into
+/// the surface, folding the returned row straight into the lock.
+pub(crate) fn import_custom_unit(
     kind: &CustomKind,
     source_file: &Path,
     into: &Path,

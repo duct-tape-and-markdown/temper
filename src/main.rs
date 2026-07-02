@@ -313,9 +313,12 @@ fn main() -> miette::Result<ExitCode> {
         Command::Diff { harness_path, into } => {
             // Read-only (`specs/20-surface.md`): compare the surface against the
             // live harness and print the report — the engine writes nothing;
-            // `apply`/`re-add` own write-back.
+            // `apply`/`re-add` own write-back. Every custom kind the harness's
+            // assembly registers is scanned at its `governs` locus beside the
+            // built-ins, so a hand-edited `specs/*.md` shows as drift.
             let ws = Workspace::load(&into)?;
-            let report = drift::diff(&ws, &harness_path)?;
+            let custom_kinds = load_custom_kinds(&harness_path)?;
+            let report = drift::diff(&ws, &into, &harness_path, &custom_kinds)?;
             print!("{}", drift::render(&report));
             Ok(ExitCode::SUCCESS)
         }
@@ -336,9 +339,11 @@ fn main() -> miette::Result<ExitCode> {
             // The on-disk → surface reconcile (`specs/20-surface.md`): pull every
             // drifted / added harness source back in and refresh the lock. Unlike
             // `apply`, it re-scans the live harness (like `diff`), so it takes the
-            // harness path too.
+            // harness path too. The same custom kinds `diff` scans reconcile back
+            // through `import`'s generic writer.
             let ws = Workspace::load(&into)?;
-            let report = drift::re_add(&ws, &into, &harness_path)?;
+            let custom_kinds = load_custom_kinds(&harness_path)?;
+            let report = drift::re_add(&ws, &into, &harness_path, &custom_kinds)?;
             print!("{}", drift::render_readd(&report));
             Ok(ExitCode::SUCCESS)
         }
@@ -440,6 +445,29 @@ fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>
         Some(base) => base.fold_local(local),
         None => local,
     }))
+}
+
+/// Load every custom kind a harness's assembly registers, mirroring the discovery
+/// [`import::run`] uses: the `temper.toml` beside the harness declares the roster,
+/// and each definition lives in `<harness>/.temper/kinds/<name>/KIND.md`
+/// (`specs/40-composition.md`). The drift engine scans each returned kind's `governs`
+/// locus, so `diff`/`re-add` reconcile custom-kind bodies exactly as `import` projects
+/// them. Absent a `temper.toml`, an empty list — the built-in kinds drift alone.
+fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
+    let Some(layer) = compose::AuthorLayer::load(&harness.join(TEMPER_TOML))? else {
+        return Ok(Vec::new());
+    };
+    let kinds_dir = harness.join(TEMPER_DIR).join("kinds");
+    let mut kinds = Vec::new();
+    for name in layer.registered_kinds() {
+        // A `[kind.<name>]` naming a built-in is a contract layer, not a
+        // registration (`specs/40-composition.md`), so it declares no `governs` locus.
+        if kind::BUILTIN_KINDS.contains(&name) {
+            continue;
+        }
+        kinds.push(CustomKind::load(&kinds_dir, name)?);
+    }
+    Ok(kinds)
 }
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active

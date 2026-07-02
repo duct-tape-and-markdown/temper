@@ -22,6 +22,7 @@ use temper::check::Workspace;
 use temper::document::Satisfies;
 use temper::drift::{self, ReAddOutcome};
 use temper::import;
+use temper::kind::{CustomKind, Unit};
 use temper::rule::Rule;
 use temper::skill::Skill;
 use toml_edit::DocumentMut;
@@ -153,7 +154,7 @@ fn an_unchanged_harness_is_a_noop() {
     let before = tree_bytes(&into);
 
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::re_add(&ws, &into, &harness).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &[]).unwrap();
 
     // Every artifact still hashes to the import baseline — nothing to pull in.
     assert_eq!(outcome(&report, "coordinate"), ReAddOutcome::Unchanged);
@@ -183,7 +184,7 @@ An edited body, straight on disk.\n";
     fs::write(skill_source(&harness), drifted).unwrap();
 
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::re_add(&ws, &into, &harness).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &[]).unwrap();
     assert_eq!(outcome(&report, "coordinate"), ReAddOutcome::Reconciled);
     // The untouched rule stays in sync.
     assert_eq!(outcome(&report, "rust"), ReAddOutcome::Unchanged);
@@ -243,7 +244,7 @@ An edited rule body.\n";
     fs::write(rule_source(&harness), drifted).unwrap();
 
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::re_add(&ws, &into, &harness).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &[]).unwrap();
     assert_eq!(outcome(&report, "rust"), ReAddOutcome::Reconciled);
     assert_eq!(outcome(&report, "coordinate"), ReAddOutcome::Unchanged);
 
@@ -321,7 +322,7 @@ An edited rule body.\n",
     .unwrap();
 
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::re_add(&ws, &into, &harness).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &[]).unwrap();
     assert_eq!(outcome(&report, "coordinate"), ReAddOutcome::Reconciled);
     assert_eq!(outcome(&report, "rust"), ReAddOutcome::Reconciled);
 
@@ -404,7 +405,7 @@ A helping hand.\n",
     .unwrap();
 
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::re_add(&ws, &into, &harness).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &[]).unwrap();
 
     // The new sources are added; the pre-existing artifacts stay in sync.
     assert_eq!(outcome(&report, "helper"), ReAddOutcome::Added);
@@ -439,4 +440,109 @@ A helping hand.\n",
     // The original rows survive alongside the new ones.
     assert!(lock_has_row(&into, "skill", "coordinate"));
     assert!(lock_has_row(&into, "rule", "rust"));
+}
+
+/// A `temper.toml` registering `spec` as a custom kind over a `governs` locus, plus
+/// the authored `KIND.md` definition discovery keys on (`specs/40-composition.md`).
+const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
+const SPEC_KIND_MD: &str = "+++\n\
+governs = { root = \"specs\", glob = \"*.md\" }\n\
+\n\
+[[extraction]]\n\
+primitive = \"headings\"\n\
++++\n\
+\n\
+# The spec kind\n\
+\n\
+temper's own governing documents.\n";
+
+/// The two spec bodies the harness imports as its custom-kind baseline — a spec has
+/// no frontmatter, so the whole file is the byte-faithful body.
+const INTENT_SPEC: &str = "# Intent\n\nThe north star.\n";
+const SURFACE_SPEC: &str = "# The config surface\n\nThe composition write surface.\n";
+
+/// Build a harness carrying the built-in skill + rule *and* a registered `spec`
+/// custom kind over `specs/`, import it, and return `(harness, into, custom_kinds)`
+/// — the custom-kind definitions threaded into `diff`/`re_add`.
+fn imported_with_spec(label: &str) -> (PathBuf, PathBuf, Vec<CustomKind>) {
+    let harness = tmpdir(&format!("{label}-src"));
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("rust.md"), RULE).unwrap();
+
+    // Register the `spec` kind and author its definition beside the harness.
+    fs::write(harness.join("temper.toml"), SPEC_TEMPER_TOML).unwrap();
+    let kind_dir = harness.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(kind_dir.join("KIND.md"), SPEC_KIND_MD).unwrap();
+
+    let specs = harness.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("00-intent.md"), INTENT_SPEC).unwrap();
+    fs::write(specs.join("20-surface.md"), SURFACE_SPEC).unwrap();
+
+    let into = tmpdir(&format!("{label}-into"));
+    import::run(&harness, &into).unwrap();
+
+    let kinds_dir = harness.join(".temper").join("kinds");
+    let custom = vec![CustomKind::load(&kinds_dir, "spec").unwrap()];
+    (harness, into, custom)
+}
+
+#[test]
+fn a_drifted_custom_kind_unit_is_reconciled_into_the_surface() {
+    let (harness, into, custom) = imported_with_spec("spec-drift");
+    let before_hash = lock_field(&into, "spec", "20-surface", "import_hash");
+
+    // A hand edit to a spec straight on disk — the law-8 dogfood case the gate
+    // otherwise reads stale (`specs/20-surface.md`, the hard core).
+    let edited = "# The config surface\n\nAn edit made straight in the spec file.\n";
+    fs::write(harness.join("specs").join("20-surface.md"), edited).unwrap();
+
+    let ws = Workspace::load(&into).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &custom).unwrap();
+
+    // The edited spec reconciles; the untouched spec and the built-ins stay in sync.
+    assert_eq!(outcome(&report, "20-surface"), ReAddOutcome::Reconciled);
+    assert_eq!(outcome(&report, "00-intent"), ReAddOutcome::Unchanged);
+    assert_eq!(outcome(&report, "coordinate"), ReAddOutcome::Unchanged);
+    assert_eq!(outcome(&report, "rust"), ReAddOutcome::Unchanged);
+
+    // The surface member document was rewritten: the whole file reloads as the unit
+    // body byte-faithfully, no longer the stale pre-edit text.
+    let surface = into.join("specs").join("20-surface");
+    let unit = Unit::from_surface_dir(&surface).unwrap();
+    assert_eq!(unit.id, "20-surface");
+    assert_eq!(unit.body, edited);
+
+    // The lock fingerprints track the current source bytes — the drift anchor and
+    // `last_applied` both bumped off the pre-drift baseline to the fresh hash.
+    let after_hash = lock_field(&into, "spec", "20-surface", "import_hash");
+    assert_ne!(after_hash, before_hash, "the import_hash must be bumped");
+    assert_eq!(
+        after_hash,
+        lock_field(&into, "spec", "20-surface", "last_applied"),
+        "last_applied is reconciled to the current source"
+    );
+}
+
+#[test]
+fn an_unchanged_custom_kind_unit_is_a_noop() {
+    let (harness, into, custom) = imported_with_spec("spec-clean");
+    let before = tree_bytes(&into);
+
+    let ws = Workspace::load(&into).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &custom).unwrap();
+
+    // No spec drifted, so every custom unit — and every built-in — is a no-op.
+    assert_eq!(outcome(&report, "20-surface"), ReAddOutcome::Unchanged);
+    assert_eq!(outcome(&report, "00-intent"), ReAddOutcome::Unchanged);
+    assert_eq!(
+        before,
+        tree_bytes(&into),
+        "an in-sync custom-kind re-add must leave every surface byte identical"
+    );
 }

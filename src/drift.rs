@@ -24,6 +24,7 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use crate::check::Workspace;
 use crate::hash::sha256_hex;
 use crate::import;
+use crate::kind::CustomKind;
 use crate::rule::Rule;
 use crate::skill::Skill;
 
@@ -111,9 +112,10 @@ impl DriftState {
 /// which state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DriftEntry {
-    /// The artifact kind — `"skill"` or `"rule"`. Only the built-in kinds have a
-    /// drift axis today; generic custom-kind drift is future work alongside `apply`.
-    pub kind: &'static str,
+    /// The artifact kind — a built-in `"skill"`/`"rule"` or a registered custom
+    /// kind's own name. A `String` because custom kinds carry a dynamic name the
+    /// assembly declares, not one of a fixed built-in set.
+    pub kind: String,
     /// The artifact name (its surface name for a known artifact, or the name the
     /// path structurally implies for an `added` one).
     pub name: String,
@@ -145,7 +147,18 @@ struct SurfaceArtifact {
 ///
 /// Read-only: re-reads each source and re-scans the harness, but writes nothing.
 /// See the module header for the per-state definitions.
-pub fn diff(workspace: &Workspace, harness: &Path) -> miette::Result<DriftReport> {
+///
+/// `workspace_dir` is the surface root — its lock (`lock.toml`) carries the
+/// `[[<kind>]]` provenance rows a custom kind's surface members are judged against
+/// (custom members are not materialized in [`Workspace`]). `custom_kinds` are the
+/// registered custom kinds whose `governs` locus is scanned beside the built-ins;
+/// pass an empty slice for the built-in-only report.
+pub fn diff(
+    workspace: &Workspace,
+    workspace_dir: &Path,
+    harness: &Path,
+    custom_kinds: &[CustomKind],
+) -> miette::Result<DriftReport> {
     let mut entries = Vec::new();
 
     let skills = workspace
@@ -176,6 +189,17 @@ pub fn diff(workspace: &Workspace, harness: &Path) -> miette::Result<DriftReport
     let rules_on_disk = import::discover_rule_files(harness)?;
     entries.extend(classify("rule", &rules, &rules_on_disk)?);
 
+    // Each registered custom kind classifies at its own `governs` locus. Its surface
+    // provenance is the `[[<kind>]]` lock rows (custom members live only in the lock,
+    // not in `Workspace`), and its on-disk corpus is the same `governs`-keyed scan
+    // `import` runs — so a hand-edited `specs/*.md` reconciles instead of the gate
+    // reading a stale surface body (`specs/20-surface.md`, the hard core).
+    for kind in custom_kinds {
+        let surface = lock_surface_artifacts(workspace_dir, &kind.name)?;
+        let on_disk = import::discover_kind_units(harness, &kind.governs)?;
+        entries.extend(classify(&kind.name, &surface, &on_disk)?);
+    }
+
     Ok(DriftReport { entries })
 }
 
@@ -186,7 +210,7 @@ pub fn diff(workspace: &Workspace, harness: &Path) -> miette::Result<DriftReport
 /// unchanged hash ⇒ `in-sync`, changed hash ⇒ `drifted`. Then every scanned path
 /// the surface does not already account for is `added`.
 fn classify(
-    kind: &'static str,
+    kind: &str,
     surface: &[SurfaceArtifact],
     on_disk: &[PathBuf],
 ) -> miette::Result<Vec<DriftEntry>> {
@@ -207,7 +231,7 @@ fn classify(
             }
         };
         entries.push(DriftEntry {
-            kind,
+            kind: kind.to_string(),
             name: artifact.name.clone(),
             source_path: artifact.source_path.clone(),
             state,
@@ -217,7 +241,7 @@ fn classify(
     for path in on_disk {
         if !surface_paths.contains(path.as_path()) {
             entries.push(DriftEntry {
-                kind,
+                kind: kind.to_string(),
                 name: added_name(kind, path),
                 source_path: path.clone(),
                 state: DriftState::Added,
@@ -241,6 +265,46 @@ fn added_name(kind: &str, source_path: &Path) -> String {
     component
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default()
+}
+
+/// Read one custom kind's surface artifacts from the `[[<kind>]]` lock rows —
+/// name + provenance (`source_path`, `import_hash`) — the three columns [`classify`]
+/// judges against. Custom members are not materialized in [`Workspace`], so the lock
+/// is their surface provenance of record (`specs/20-surface.md`, the lock as
+/// state-of-record). A kind with no rows (or no lock array yet) yields an empty list.
+fn lock_surface_artifacts(
+    workspace_dir: &Path,
+    kind: &str,
+) -> Result<Vec<SurfaceArtifact>, DriftError> {
+    let path = workspace_dir.join("lock.toml");
+    let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
+        path: path.clone(),
+        source,
+    })?;
+    let doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse {
+            path: path.clone(),
+            source,
+        })?;
+
+    let mut out = Vec::new();
+    if let Some(rows) = doc.get(kind).and_then(Item::as_array_of_tables) {
+        for row in rows.iter() {
+            if let (Some(name), Some(source_path), Some(import_hash)) = (
+                row.get("name").and_then(Item::as_str),
+                row.get("source_path").and_then(Item::as_str),
+                row.get("import_hash").and_then(Item::as_str),
+            ) {
+                out.push(SurfaceArtifact {
+                    name: name.to_string(),
+                    source_path: PathBuf::from(source_path),
+                    import_hash: import_hash.to_string(),
+                });
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// Render a drift report for the terminal: one `<state>  <kind>  <name>` line per
@@ -827,8 +891,9 @@ impl ReAddOutcome {
 /// what `re_add` did with its on-disk source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReAddEntry {
-    /// The artifact kind — `"skill"` or `"rule"`.
-    pub kind: &'static str,
+    /// The artifact kind — a built-in `"skill"`/`"rule"` or a registered custom
+    /// kind's own name (a `String`, carrying the dynamic name — see [`DriftEntry`]).
+    pub kind: String,
     /// The artifact name — the name the freshly parsed source carries for a
     /// reconciled/added artifact, or its surface name for an unchanged one.
     pub name: String,
@@ -862,12 +927,13 @@ pub fn re_add(
     workspace: &Workspace,
     workspace_dir: &Path,
     harness: &Path,
+    custom_kinds: &[CustomKind],
 ) -> miette::Result<ReAddReport> {
-    let classification = diff(workspace, harness)?;
+    let classification = diff(workspace, workspace_dir, harness, custom_kinds)?;
 
     let mut entries = Vec::new();
     // The rows to fold into the lock, tagged with their kind's array-of-tables key.
-    let mut updates: Vec<(&'static str, import::RollupEntry)> = Vec::new();
+    let mut updates: Vec<(String, import::RollupEntry)> = Vec::new();
 
     for entry in &classification.entries {
         // A removed source has nothing on disk to reconcile in — skip it entirely
@@ -877,7 +943,7 @@ pub fn re_add(
         }
         if entry.state == DriftState::InSync {
             entries.push(ReAddEntry {
-                kind: entry.kind,
+                kind: entry.kind.clone(),
                 name: entry.name.clone(),
                 source_path: entry.source_path.clone(),
                 outcome: ReAddOutcome::Unchanged,
@@ -887,15 +953,24 @@ pub fn re_add(
 
         // Drifted or added: re-project the live source through `import`'s writer for
         // its kind. A skill's source is the `SKILL.md`, so its surface directory is
-        // that file's parent (which the discovery scan always yields).
-        let rollup = match entry.kind {
+        // that file's parent (which the discovery scan always yields). A custom kind
+        // reuses `import`'s generic unit writer, keyed off its own definition.
+        let rollup = match entry.kind.as_str() {
             "skill" => {
                 let dir = entry.source_path.parent().unwrap_or_else(|| Path::new("."));
                 import::import_skill(dir, workspace_dir)?
             }
             "rule" => import::import_rule(&entry.source_path, workspace_dir)?,
-            // No other built-in kind has a drift axis today (mirrors `apply`).
-            _ => continue,
+            name => {
+                // A registered custom kind: re-project the whole file byte-faithfully
+                // through the same generic writer `import` uses. Absent its definition
+                // there is nothing to project against — skip (mirrors the built-in
+                // `_ => continue` guard `apply` keeps).
+                let Some(kind) = custom_kinds.iter().find(|k| k.name == name) else {
+                    continue;
+                };
+                import::import_custom_unit(kind, &entry.source_path, workspace_dir)?
+            }
         };
 
         let outcome = if entry.state == DriftState::Drifted {
@@ -904,7 +979,7 @@ pub fn re_add(
             ReAddOutcome::Added
         };
         entries.push(ReAddEntry {
-            kind: entry.kind,
+            kind: entry.kind.clone(),
             // The name the parsed source carries — for a skill this is its
             // frontmatter `name`, which is what the surface directory was written
             // under, not necessarily the structural name `diff` inferred.
@@ -912,7 +987,7 @@ pub fn re_add(
             source_path: entry.source_path.clone(),
             outcome,
         });
-        updates.push((entry.kind, rollup));
+        updates.push((entry.kind.clone(), rollup));
     }
 
     if !updates.is_empty() {
@@ -929,7 +1004,7 @@ pub fn re_add(
 /// table carrying all four columns.
 fn rewrite_lock_rows(
     workspace_dir: &Path,
-    updates: &[(&'static str, import::RollupEntry)],
+    updates: &[(String, import::RollupEntry)],
 ) -> Result<(), DriftError> {
     let path = workspace_dir.join("lock.toml");
     let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
@@ -944,7 +1019,7 @@ fn rewrite_lock_rows(
         })?;
 
     for (kind, row) in updates {
-        let kind = *kind;
+        let kind = kind.as_str();
         // An added kind may have no array yet (an empty `ArrayOfTables` emits no
         // bytes, so a skill-only lock carries no `[[rule]]` key) — create it.
         if doc.get(kind).and_then(Item::as_array_of_tables).is_none() {
@@ -1168,7 +1243,7 @@ Prefer a clone over a lifetime fight.\n";
         let (harness, into) = imported("clean");
         let ws = Workspace::load(&into).unwrap();
 
-        let report = diff(&ws, &harness).unwrap();
+        let report = diff(&ws, &into, &harness, &[]).unwrap();
 
         assert_eq!(report.entries.len(), 2);
         assert!(report.entries.iter().all(|e| e.state == DriftState::InSync));
@@ -1188,7 +1263,7 @@ Prefer a clone over a lifetime fight.\n";
         let edited = fs::read_to_string(&skill_md).unwrap() + "\nAn extra line.\n";
         fs::write(&skill_md, edited).unwrap();
 
-        let report = diff(&ws, &harness).unwrap();
+        let report = diff(&ws, &into, &harness, &[]).unwrap();
 
         assert_eq!(entry(&report, "coordinate").state, DriftState::Drifted);
         assert_eq!(entry(&report, "rust").state, DriftState::InSync);
@@ -1206,7 +1281,7 @@ Prefer a clone over a lifetime fight.\n";
         )
         .unwrap();
 
-        let report = diff(&ws, &harness).unwrap();
+        let report = diff(&ws, &into, &harness, &[]).unwrap();
 
         let added = entry(&report, "extra");
         assert_eq!(added.state, DriftState::Added);
@@ -1221,7 +1296,7 @@ Prefer a clone over a lifetime fight.\n";
         // Delete a source the surface imported: its path is gone from disk.
         fs::remove_dir_all(harness.join(".claude").join("skills").join("coordinate")).unwrap();
 
-        let report = diff(&ws, &harness).unwrap();
+        let report = diff(&ws, &into, &harness, &[]).unwrap();
 
         assert_eq!(entry(&report, "coordinate").state, DriftState::Removed);
         assert_eq!(entry(&report, "rust").state, DriftState::InSync);
@@ -1232,13 +1307,13 @@ Prefer a clone over a lifetime fight.\n";
         let report = DriftReport {
             entries: vec![
                 DriftEntry {
-                    kind: "skill",
+                    kind: "skill".into(),
                     name: "coordinate".into(),
                     source_path: PathBuf::from("skills/coordinate/SKILL.md"),
                     state: DriftState::Drifted,
                 },
                 DriftEntry {
-                    kind: "rule",
+                    kind: "rule".into(),
                     name: "rust".into(),
                     source_path: PathBuf::from(".claude/rules/rust.md"),
                     state: DriftState::InSync,
