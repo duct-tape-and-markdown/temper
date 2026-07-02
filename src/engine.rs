@@ -405,7 +405,12 @@ fn scalar<'a>(features: &'a Features, field: &str) -> Option<&'a str> {
 /// Map a clause's *declared* severity onto the engine's diagnostic severity:
 /// `required` blocks (`Error`), `advisory` reports (`Warn`). The engine never
 /// chooses — it only translates what the author declared.
-fn severity_of(severity: contract::Severity) -> check::Severity {
+///
+/// `pub` so an assembly-scope dial that shares the author's `required`/`advisory`
+/// vocabulary — the reachability severity (`specs/45-governance.md`) — maps through
+/// the one translation, never a second copy that could drift.
+#[must_use]
+pub fn severity_of(severity: contract::Severity) -> check::Severity {
     match severity {
         contract::Severity::Required => check::Severity::Error,
         contract::Severity::Advisory => check::Severity::Warn,

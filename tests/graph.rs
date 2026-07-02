@@ -458,10 +458,11 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
 }
 
 /// Library-level fixture proof of the `reachable` predicate (`specs/45-governance.md`,
-/// "The world is a node — reachability is a predicate"). Gate-side wiring (main.rs
-/// scanning the real repo file-set) + the severity-carrying package clause are a
-/// follow-on, so the machinery is proven directly over constructed fixtures here rather
-/// than through the binary.
+/// "The world is a node — reachability is a predicate"): the pure machinery over
+/// constructed `Features`, including the assembly-declared severity threaded into the
+/// finding. The gate-side wiring — main.rs scanning the real repo file-set and reading
+/// the assembly's `[reachability]` opt-in — is pinned end-to-end in
+/// `tests/reachable_gate.rs`.
 mod reachability {
     use std::collections::BTreeMap;
 
@@ -527,7 +528,7 @@ mod reachability {
             ("rule", paths_match("paths")),
         ]);
         let files = vec!["src/graph.rs".to_string()];
-        assert!(reachable(&activations, &by_kind, &files).is_empty());
+        assert!(reachable(&activations, &by_kind, &files, Severity::Error).is_empty());
     }
 
     #[test]
@@ -541,13 +542,19 @@ mod reachability {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let activations = BTreeMap::from([("skill", description_trigger("description"))]);
 
-        let diags = reachable(&activations, &by_kind, &[]);
+        let diags = reachable(&activations, &by_kind, &[], Severity::Error);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, "graph.reachable");
         assert_eq!(diags[0].artifact, "standards");
         assert!(diags[0].message.contains("description"));
         assert!(diags[0].message.contains("world"));
+
+        // The dial is the assembly's: the same dead edge at `advisory` is a warn, so a
+        // required-vs-advisory reachability declaration is honored (REACHABILITY-WIRE).
+        let advisory = reachable(&activations, &by_kind, &[], Severity::Warn);
+        assert_eq!(advisory.len(), 1);
+        assert_eq!(advisory[0].severity, Severity::Warn);
     }
 
     #[test]
@@ -562,7 +569,7 @@ mod reachability {
         let activations = BTreeMap::from([("rule", paths_match("paths"))]);
         let files = vec!["src/graph.rs".to_string(), "README.md".to_string()];
 
-        let diags = reachable(&activations, &by_kind, &files);
+        let diags = reachable(&activations, &by_kind, &files, Severity::Error);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "graph.reachable");
         assert_eq!(diags[0].artifact, "style");
@@ -586,7 +593,7 @@ mod reachability {
         // A non-empty repo file-set the absent/blank field is *not* tested against.
         let files = vec!["src/graph.rs".to_string()];
 
-        assert!(reachable(&activations, &by_kind, &files).is_empty());
+        assert!(reachable(&activations, &by_kind, &files, Severity::Error).is_empty());
     }
 
     #[test]
@@ -601,6 +608,6 @@ mod reachability {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let activations: BTreeMap<&str, Activation> = BTreeMap::new();
 
-        assert!(reachable(&activations, &by_kind, &[]).is_empty());
+        assert!(reachable(&activations, &by_kind, &[], Severity::Error).is_empty());
     }
 }

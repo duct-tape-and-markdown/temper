@@ -665,6 +665,44 @@ fn gate(
         // `acyclic`/`check` assemble. Opt-in per requirement.
         diagnostics.extend(graph::degree(layer.requirements(), &edges, &by_kind));
 
+        // `reachable` (`specs/45-governance.md`, "The world is a node"): a member whose
+        // kind declares an activation is dead when the world→member edge is provably so
+        // (a blank description-trigger, a zero-match paths glob). Assembly-scope and
+        // opt-in like `degree` — it runs only when the assembly declares `[reachability]`,
+        // at its declared severity (resolved `reachability-gate-mechanism` option b), so
+        // a deliberate work-in-progress dead edge stays the author's call.
+        if let Some(reachability) = layer.reachability() {
+            // The world's inbound edge into each in-scope kind is that kind's declared
+            // activation: the built-in kinds' via `builtin_kind::definitions()`, each
+            // custom kind's via its own `CustomKind.activation`. A kind declaring none
+            // contributes no edge and no member is subject.
+            let builtin_defs = builtin_kind::definitions()?;
+            let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
+            for (name, def) in &builtin_defs {
+                if let Some(activation) = &def.activation {
+                    activations.insert(name.as_str(), activation.clone());
+                }
+            }
+            for (name, custom, _features) in &custom_kinds {
+                if let Some(activation) = &custom.activation {
+                    activations.insert(name, activation.clone());
+                }
+            }
+
+            // The `paths-match` liveness input: every file under the harness root the
+            // globs are tested against. A dead-edge finding is a true positive only if
+            // the file set is complete, so `repo_file_set` over-collects (nothing is
+            // excluded) — an extra file can only make a glob look live, never forge a
+            // dead edge against a file temper failed to scan.
+            let repo_files = repo_file_set(base_dir);
+            diagnostics.extend(graph::reachable(
+                &activations,
+                &by_kind,
+                &repo_files,
+                engine::severity_of(reachability.severity),
+            ));
+        }
+
         // The requirement-coverage tier (`specs/10-contracts.md`): every `required`
         // requirement must have a resolving home (≥1 artifact opting in via
         // `satisfies`) and every authored `satisfies` must resolve to a declared
@@ -711,6 +749,25 @@ fn gate(
     diagnostics.extend(install::gate_installed(root));
 
     Ok(diagnostics)
+}
+
+/// Every file under `root`, as repo-relative slash-separated paths — the
+/// `paths-match` reachability input (`specs/45-governance.md`, "The world is a node").
+/// A superset is sound (a glob matching an extra file only suppresses a finding); a
+/// *missing* file is not (it could forge a dead-edge false positive, law 3), so nothing
+/// is excluded and an unreadable entry is skipped rather than aborting the gate. Paths
+/// use `/` so a glob authored the harness's way matches on every platform.
+fn repo_file_set(root: &Path) -> Vec<String> {
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
+        let Ok(entry) = entry else { continue };
+        if entry.file_type().is_file()
+            && let Ok(rel) = entry.path().strip_prefix(root)
+        {
+            files.push(rel.to_string_lossy().replace('\\', "/"));
+        }
+    }
+    files
 }
 
 /// Create a fresh throwaway surface directory for the one-shot import — a scratch

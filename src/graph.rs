@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use regex::Regex;
 
-use crate::check::Diagnostic;
+use crate::check::{Diagnostic, Severity};
 use crate::compose::{Edge, EdgeBound, Requirement};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Activation;
@@ -335,14 +335,16 @@ fn out_of_degree(
 /// fires. Members iterate in the corpus's candidate order under each name-sorted kind,
 /// so findings are stable.
 ///
-/// Findings are [`Diagnostic::error`] like every sibling predicate; the eventual
-/// severity is the package clause's choice (`specs/45-governance.md`), applied when a
-/// follow-on gate wires this predicate to the real repo file-set.
+/// `severity` is the **assembly's** declaration (`specs/45-governance.md`, "The world
+/// is a node" — resolved `reachability-gate-mechanism` option b): whether a dead edge
+/// gates, and at what weight, is the assembly's dial like `degree`, never a member's or
+/// a package clause's — a deliberate work-in-progress dead edge stays the author's call.
 #[must_use]
 pub fn reachable(
     activations: &BTreeMap<&str, Activation>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
+    severity: Severity,
 ) -> Vec<Diagnostic> {
     let world = world();
     let mut diagnostics = Vec::new();
@@ -350,7 +352,7 @@ pub fn reachable(
         let members = by_kind.get(kind).copied().unwrap_or(&[]);
         for member in members {
             if let Some(reason) = dead_activation(activation, member, repo_files) {
-                diagnostics.push(unreachable(&world, kind, &member.id, &reason));
+                diagnostics.push(unreachable(&world, kind, &member.id, &reason, severity));
             }
         }
     }
@@ -482,9 +484,11 @@ fn is_regex_meta(c: char) -> bool {
 }
 
 /// The finding for a member whose inbound activation edge from the [`world`] node is
-/// dead — naming the world, the member (kind + id), and the dead-edge reason.
-fn unreachable(world: &Node, kind: &str, id: &str, reason: &str) -> Diagnostic {
-    Diagnostic::error(
+/// dead — naming the world, the member (kind + id), and the dead-edge reason, at the
+/// assembly-declared `severity` (`specs/45-governance.md`).
+fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Severity) -> Diagnostic {
+    Diagnostic::new(
+        severity,
         GRAPH_REACHABLE_RULE,
         id,
         format!(

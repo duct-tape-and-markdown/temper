@@ -40,6 +40,11 @@ pub struct AuthorLayer {
     /// empty when no kind declares any. Parse-only here — [`crate::graph`] assembles
     /// the graph.
     edges: Vec<Edge>,
+    /// The assembly's graph-scope reachability opt-in, parsed from the top-level
+    /// `[reachability]` table (`specs/45-governance.md`). `None` ⇒ the assembly did
+    /// not opt in, so [`crate::graph::reachable`] does not run. Its own assembly-scope
+    /// declaration, distinct from the `kind`/`requirement` maps.
+    reachability: Option<Reachability>,
 }
 
 /// A declared **edge relationship** — a kind capability declared under its owning
@@ -192,6 +197,23 @@ pub struct Membership {
     /// by name and resolved through [`PackageResolver`]. Absent ⇒ `None` (plain
     /// membership). Conformance is decided in [`crate::roster`].
     pub source_package: Option<String>,
+}
+
+/// The assembly's graph-scope **`reachable`** opt-in — declared in a top-level
+/// `[reachability]` table (`specs/45-governance.md`, "The world is a node —
+/// reachability is a predicate"; resolved `reachability-gate-mechanism` option b).
+/// Presence is the opt-in: absent, the [`crate::graph::reachable`] predicate never
+/// runs (like `degree`, temper fabricates no gate the author did not declare). Its
+/// `severity` is the dial a provably-dead world→member activation edge is emitted at —
+/// the assembly's call, since the graph scope is the assembly's and a deliberate
+/// work-in-progress dead edge (a blank-description skill) must stay the author's to
+/// weigh, never a member's or a package clause's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Reachability {
+    /// The severity a dead activation edge gates at, in the author's `required` /
+    /// `advisory` dial — mapped to the diagnostic severity through the one translation
+    /// clauses use ([`crate::engine::severity_of`]).
+    pub severity: contract::Severity,
 }
 
 /// Resolves a **bound package name** to its [`Contract`] in PACKAGE-BINDING's order
@@ -371,16 +393,17 @@ pub enum ComposeError {
         path: PathBuf,
     },
 
-    /// A top-level key other than `kind` or `requirement` — a typo, or the retired
-    /// `[role.*]` surface. Rejected, not ignored: silently dropping a stray root is
-    /// the gap temper exists to catch (`specs/10-contracts.md`, unknown keys rejected).
+    /// A top-level key other than `kind`, `requirement`, or `reachability` — a typo, or
+    /// the retired `[role.*]` surface. Rejected, not ignored: silently dropping a stray
+    /// root is the gap temper exists to catch (`specs/10-contracts.md`, unknown keys
+    /// rejected).
     #[error(
-        "{path}: unknown top-level key `{key}` (temper.toml carries only `kind` and `requirement`)"
+        "{path}: unknown top-level key `{key}` (temper.toml carries only `kind`, `requirement`, and `reachability`)"
     )]
     #[diagnostic(
         code(temper::compose::unknown_root_key),
         help(
-            "a temper.toml declares `[kind.*]` layers/custom kinds and `[requirement.*]` obligations — the `[role.*]` surface was retired into `[requirement.*]`"
+            "a temper.toml declares `[kind.*]` layers/custom kinds, `[requirement.*]` obligations, and the assembly-scope `[reachability]` opt-in — the `[role.*]` surface was retired into `[requirement.*]`"
         )
     )]
     UnknownRootKey {
@@ -535,6 +558,20 @@ pub enum ComposeError {
         index: usize,
     },
 
+    /// The top-level `[reachability]` declaration is malformed — not a table, missing
+    /// its `severity`, a `severity` outside the `required`/`advisory` dial, or carrying
+    /// a stray key. The assembly's graph-scope opt-in carries exactly one key; any miss
+    /// folds here, the way [`parse_degree`] folds a degree bound's malformations
+    /// (`specs/45-governance.md`).
+    #[error(
+        "{path}: `[reachability]` must be a table declaring a `severity` of `required` or `advisory` and no other key"
+    )]
+    #[diagnostic(code(temper::compose::bad_reachability))]
+    BadReachability {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+    },
+
     /// A layered clause is outside the closed vocabulary (or otherwise malformed).
     /// Bubbled verbatim from [`crate::contract`] so the author layer's clauses are
     /// held to the exact same closed-vocabulary contract as a bare one's. Covers a
@@ -570,9 +607,10 @@ impl AuthorLayer {
             })?;
 
         // Unknown top-level keys are rejected, not ignored (`specs/10-contracts.md`) —
-        // the two roots temper models are `kind` and `requirement`.
+        // the roots temper models are `kind`, `requirement`, and the assembly-scope
+        // `reachability` opt-in (`specs/45-governance.md`).
         for (key, _) in doc.as_table().iter() {
-            if !matches!(key, "kind" | "requirement") {
+            if !matches!(key, "kind" | "requirement" | "reachability") {
                 return Err(ComposeError::UnknownRootKey {
                     path: path.to_path_buf(),
                     key: key.to_string(),
@@ -623,11 +661,26 @@ impl AuthorLayer {
             }
         }
 
+        // The assembly's graph-scope reachability opt-in — its own root, parsed like a
+        // `[requirement.<name>]`'s `degree` bound (`specs/45-governance.md`).
+        let reachability = match doc.as_table().get("reachability") {
+            None => None,
+            Some(item) => {
+                let table = item
+                    .as_table_like()
+                    .ok_or_else(|| ComposeError::BadReachability {
+                        path: path.to_path_buf(),
+                    })?;
+                Some(parse_reachability(table, path)?)
+            }
+        };
+
         Ok(Self {
             path: path.to_path_buf(),
             kinds,
             requirements,
             edges,
+            reachability,
         })
     }
 
@@ -645,6 +698,16 @@ impl AuthorLayer {
     #[must_use]
     pub fn edges(&self) -> &[Edge] {
         &self.edges
+    }
+
+    /// The assembly's graph-scope reachability opt-in, if it declared a top-level
+    /// `[reachability]` table (`specs/45-governance.md`). `None` ⇒ the
+    /// [`crate::graph::reachable`] predicate does not run — read off the layer exactly
+    /// as `degree` reads [`requirements`](Self::requirements), the opt-in the gate
+    /// dispatches on.
+    #[must_use]
+    pub fn reachability(&self) -> Option<Reachability> {
+        self.reachability
     }
 
     /// The names of every `[kind.<name>]` registered in the assembly, in name order. A
@@ -723,11 +786,12 @@ impl AuthorLayer {
     /// semantics [`layer_over`] uses. A kind only `local` names is carried in whole; a
     /// kind only the committed layer names is left untouched.
     ///
-    /// **Scope: contract clauses/severity only.** Cross-file requirement-roster and
-    /// relationship merge is out of this tier and under-specified — the committed
-    /// layer's [`requirements`](Self::requirements) and [`edges`](Self::edges) pass
-    /// through unchanged (a story needing local requirements raises an open question).
-    /// A local `package` overrides the base's for that kind.
+    /// **Scope: contract clauses/severity only.** Cross-file requirement-roster,
+    /// relationship, and reachability merge is out of this tier and under-specified —
+    /// the committed layer's [`requirements`](Self::requirements), [`edges`](Self::edges),
+    /// and [`reachability`](Self::reachability) pass through unchanged (a story needing a
+    /// local override raises an open question). A local `package` overrides the base's
+    /// for that kind.
     #[must_use]
     pub fn fold_local(mut self, local: AuthorLayer) -> AuthorLayer {
         for (kind, local_layer) in local.kinds {
@@ -1043,6 +1107,35 @@ fn edge_endpoint(
             Ok(Some(value))
         }
     }
+}
+
+/// Parse the top-level `[reachability]` declaration into a typed [`Reachability`]
+/// (`specs/45-governance.md`, "The world is a node — reachability is a predicate"):
+/// the assembly's graph-scope opt-in, carrying the one `severity` key — the author's
+/// `required` / `advisory` dial. A closed vocabulary of one key, so any stray key, or a
+/// missing / mistyped / out-of-vocabulary `severity`, folds into
+/// [`ComposeError::BadReachability`], the way [`parse_degree`] folds its bound's
+/// malformations. Presence is the opt-in; the caller has already established the table.
+fn parse_reachability(
+    table: &dyn toml_edit::TableLike,
+    path: &Path,
+) -> Result<Reachability, ComposeError> {
+    let bad = || ComposeError::BadReachability {
+        path: path.to_path_buf(),
+    };
+    // A stray key is a typo that would silently disable the dial, so it is rejected,
+    // not ignored (`specs/10-contracts.md`, unknown keys rejected).
+    for (key, _) in table.iter() {
+        if key != "severity" {
+            return Err(bad());
+        }
+    }
+    let severity = match table.get("severity").and_then(|item| item.as_str()) {
+        Some("required") => contract::Severity::Required,
+        Some("advisory") => contract::Severity::Advisory,
+        _ => return Err(bad()),
+    };
+    Ok(Reachability { severity })
 }
 
 /// The requirement's optional `unique` field list: a `unique = ["field", …]` array of
@@ -2262,5 +2355,76 @@ primitive = "line_count"
             matches!(err, ComposeError::KindUnknownKey { ref key, ref kind, .. } if key == "extraction" && kind == "spec"),
             "an inline `extraction` is a retired stray key, got: {err:?}"
         );
+    }
+
+    #[test]
+    fn no_reachability_declaration_is_none() {
+        // The graph-scope opt-in is opt-in: a `temper.toml` declaring no `[reachability]`
+        // leaves it `None`, so `graph::reachable` never runs (`specs/45-governance.md`).
+        let layer = AuthorLayer::parse("[kind.skill]\n", Path::new("temper.toml")).unwrap();
+        assert!(layer.reachability().is_none());
+    }
+
+    #[test]
+    fn a_reachability_declaration_carries_its_severity_dial() {
+        // The assembly opts in and declares the dial — `required` here; the parsed value
+        // is the author's `required`/`advisory` severity, mapped to the gate weight at
+        // dispatch (`specs/45-governance.md`).
+        let required = AuthorLayer::parse(
+            "[reachability]\nseverity = \"required\"\n",
+            Path::new("temper.toml"),
+        )
+        .unwrap();
+        assert_eq!(
+            required.reachability(),
+            Some(Reachability {
+                severity: contract::Severity::Required
+            })
+        );
+
+        let advisory = AuthorLayer::parse(
+            "[reachability]\nseverity = \"advisory\"\n",
+            Path::new("temper.toml"),
+        )
+        .unwrap();
+        assert_eq!(
+            advisory.reachability().map(|r| r.severity),
+            Some(contract::Severity::Advisory)
+        );
+    }
+
+    #[test]
+    fn a_reachability_without_a_severity_is_a_load_error() {
+        // The one required key is `severity` — its absence is not a silent default (that
+        // would fabricate a dial the author never set), so it folds to `BadReachability`.
+        let err = AuthorLayer::parse("[reachability]\n", Path::new("temper.toml")).unwrap_err();
+        assert!(
+            matches!(err, ComposeError::BadReachability { .. }),
+            "an absent severity is a load error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn a_reachability_with_an_out_of_vocab_severity_is_a_load_error() {
+        // The dial is the closed `required`/`advisory` vocabulary; `blocking` is not in
+        // it, rejected at load rather than coerced.
+        let err = AuthorLayer::parse(
+            "[reachability]\nseverity = \"blocking\"\n",
+            Path::new("temper.toml"),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ComposeError::BadReachability { .. }));
+    }
+
+    #[test]
+    fn a_reachability_with_a_stray_key_is_a_load_error() {
+        // A stray key would silently disable or mis-scope the dial — rejected, not
+        // ignored (`specs/10-contracts.md`, unknown keys rejected).
+        let err = AuthorLayer::parse(
+            "[reachability]\nseverity = \"required\"\nkind = \"skill\"\n",
+            Path::new("temper.toml"),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ComposeError::BadReachability { .. }));
     }
 }
