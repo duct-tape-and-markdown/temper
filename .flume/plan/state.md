@@ -1,21 +1,24 @@
 # Plan state
 
 - **Phase:** reconcile. Queue reconciled to the corpus; inbox empty; tree clean.
-  HEAD 03f46fd.
-- **Last shipped (trunk):** COMMENT-DIET(roster,drift,graph) (03f46fd, build) —
-  build drained the three shipped sweeps from the queue. Verified on disk:
-  roster.rs/drift.rs/graph.rs carry only the sanctioned comment classes.
-- **This tick:** pure reconcile — no queue change. All four `open` entries verified
-  accurate against disk: CONTRACTS-RETIRE (nothing loads `contracts/`; build.rs
-  embeds `packages/`; only two test string-literals name the string, asserting the
-  retired `contract` key is rejected — not a file load), and the three COMMENT-DIET
-  sweeps still carry heavy comment weight (import 288 / contract 362 / kind 398
-  comment lines) over disjoint single files. No new code↔spec gap surfaced (no
-  TODO/FIXME, no bare-`rule` package leftover — the `"rule"` sites are kind→package
-  bindings). Inbox empty.
-- **Pickable now (4 `open`, all disjoint files):** CONTRACTS-RETIRE (delete-only) and
-  COMMENT-DIET(import/contract/kind) — one file each. Deferred: AGENT-KIND (priority).
-  Parked: PACKAGING-CHANNELS (release creds).
+  HEAD 502351e.
+- **Last shipped (trunk):** COMMENT-DIET(import,contract,kind) (502351e, build) —
+  the three comment sweeps drained; import/contract/kind now carry only sanctioned
+  comment classes.
+- **This tick:** pure reconcile — no queue change. Verified on disk (two fan-out
+  reads): CONTRACTS-RETIRE is valid — `contracts/{rule,skill.anthropic}.toml` are
+  orphaned, nothing loads them (build.rs embeds `packages/<name>/PACKAGE.md`; the
+  only `contracts/` mentions are spec-pointer comments + one `compose.rs` test
+  literal). Every other shippable corpus feature has landed: package rename to
+  `skill.anthropic`/`rule.anthropic`, `why`/`requirements` read verbs,
+  `section_contains`, `strip_suffix` ref normalization, `lock.toml` rename — all
+  SHIPPED (refreshed those breadcrumbs in open-questions). No new gap fileable; no
+  TODO/FIXME/unimplemented in `src/`. The one live gap — `edge-representation-unify`
+  (authored `[edge.*]` not consumed by the gate's graph, which reads
+  `[[relationships]]`+`references`) — stays an OPEN human fork (canonical form
+  undecided), already recorded. Inbox empty.
+- **Pickable now (1 `open`):** CONTRACTS-RETIRE (delete-only, no shared files).
+  Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (release creds).
 
-Plan continues: no — queue reconciled, inbox empty, four disjoint `open` entries are
-pickable; building drains them.
+Plan continues: no — queue reconciled, inbox empty, CONTRACTS-RETIRE is pickable;
+building drains it.

@@ -160,11 +160,10 @@ now dead code pending deletion (filed CONTRACTS-RETIRE).
   *state-of-record* (provenance + drift/apply fingerprints), a lock (Cargo.lock
   analogy), not an authored index. `specs/20-surface.md` now names it `lock.toml`
   ("The surface: a contract over its contents"; the topology diagram), superseding the
-  `author.toml`↔`temper.toml` name collision. Filed as RENAME-ROLLUP-LOCK — filename
-  plus the docstrings/comments naming it; only `src/import.rs` writes it and nothing
-  reads it back outside import's own tests, so no behavior change and no `.temper/`
-  topology move (the `<into>` dir is the `.temper/` contents root, so `<into>/lock.toml`
-  *is* `.temper/lock.toml`). Kept as the decision record; no dependent still waits.
+  `author.toml`↔`temper.toml` name collision. SHIPPED as RENAME-ROLLUP-LOCK —
+  `src/import.rs` writes `lock.toml` (`LOCK_FILENAME`), `src/drift.rs` reads it, and
+  zero `author.toml` references remain in `src/`. Kept as the decision record; no
+  dependent still waits.
 
 - `(decision-marker-predicate)` — RESOLVED (`specs/10-contracts.md`, structural
   primitives): `section_contains` `{heading, marker}` (every section whose heading
@@ -173,9 +172,9 @@ now dead code pending deletion (filed CONTRACTS-RETIRE).
   requires, authorized by `15-kinds.md`'s worked example and now carried.
   decisions-name-alternatives becomes fileable build work once the spec kind's
   package exists (downstream of the surface-language/package-model machinery).
-  FILED as SECTION-CONTAINS-PREDICATE now that `.temper/packages/spec/PACKAGE.md`
-  exists (its own note flags the predicate as "not yet in the engine"). Kept as
-  the decision record.
+  SHIPPED as SECTION-CONTAINS-PREDICATE — `Predicate::SectionContains {heading,
+  marker}` is parsed in `src/contract.rs` and decided in `src/engine.rs`. Kept as
+  the decision record; no dependent still waits.
 
 - `(read-verbs)` — RESOLVED (`specs/20-surface.md` Decision: "the CLI gains a read
   family — `why` and `requirements`"). Two **read-only traversal verbs** over data
@@ -185,8 +184,9 @@ now dead code pending deletion (filed CONTRACTS-RETIRE).
   blast radius of a removal). Projections, never gates — no new engine semantics, no
   non-zero exit on findings. Rejected: `check` flags as a query surface; a general
   `query` verb. Fileable as build work **after** the surface-language migration,
-  once coverage + graph data exist to read. FILED as READ-VERBS this tick — the
-  migration + coverage/graph data have landed. Kept as the decision record.
+  once coverage + graph data exist to read. SHIPPED as READ-VERBS — `src/read.rs`
+  carries `why`/`requirements`, wired into `main.rs` clap dispatch. Kept as the
+  decision record.
 
 - `(edge-representation-unify)` — OPEN (dogfood catch, 2nd harness). The harness
   carries **two disconnected edge representations**. The surface authors an edge as
@@ -299,9 +299,10 @@ now dead code pending deletion (filed CONTRACTS-RETIRE).
   positive is as unsound as forging one). The engine work this fork was holding —
   wiring custom-kind features into the graph's `by_kind` map so declared edges
   find their sources — is now fileable, with references-resolve downstream of it.
-  by_kind wiring has SHIPPED (custom kinds resolve in the graph); the remaining
-  `strip_suffix` normalization step is FILED as REFERENCE-NORMALIZATION (engine
-  capability only). Wiring the dogfood spec kind's own `[[relationships]]` +
+  by_kind wiring has SHIPPED (custom kinds resolve in the graph); the
+  `strip_suffix` normalization step is SHIPPED too as REFERENCE-NORMALIZATION
+  (`Primitive::References { strip_suffix }` in `src/kind.rs`). Wiring the dogfood
+  spec kind's own `[[relationships]]` +
   `strip_suffix` into `.temper/kinds/spec/KIND.md` is a HUMAN `.temper/` follow-up
   (surfaced, never a build entry — `.temper/**` is human territory). Kept as the
   decision record.

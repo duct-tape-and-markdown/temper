@@ -20,7 +20,7 @@
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "`contracts/rule.toml` and `contracts/skill.anthropic.toml` are gone; cargo build/test/clippy -D warnings stay green — no code loads them (build.rs embeds `packages/`, and the two tests naming the string `contracts/skill.anthropic.toml` assert the retired `contract` key is rejected, not a file load).",
+    "acceptance": "`contracts/rule.toml` and `contracts/skill.anthropic.toml` are gone; cargo build/test/clippy -D warnings stay green — no code loads them (build.rs embeds `packages/<name>/PACKAGE.md`; the only `src/` mentions of `contracts/` are spec-pointer comments plus one test-fixture string literal in `compose.rs` asserting the retired `contract` bundle key is rejected, not a file load).",
     "notes": "The spec's `contracts/` retirement (`10-contracts.md`): the built-in std-lib's authoritative home is the `packages/` product tree, embedded by build.rs — 'one artifact, no contracts/ mirror.' Verified on disk: no `include_str!`/loader reads contracts/; only comments (still accurate — they cite the retirement) and test-fixture string literals name it. Pure deletion, behavior-neutral."
   },
   {
