@@ -7,8 +7,7 @@
       "section": "The extraction algebra — the soundness boundary, as data"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBED-BUILTIN-KINDS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,19 +15,19 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "Add the adapter read face: turn a `Skill`/`Rule` IR into a `crate::kind::Unit` (frontmatter from the typed fields + `extra`, the byte-faithful body, provenance, `satisfies`, `published_requirements`) and run the embedded kind's `Extraction::extract` to yield `extract::Features`. This IR→Unit conversion is the engine-code adapter the source-not-mechanism direction leaves sanctioned; the per-field feature mapping moves into the composed `kinds/*/KIND.md` extraction."
+          "description": "Add the adapter read face: turn a `Skill`/`Rule` IR into a `crate::kind::Unit` (frontmatter from the typed fields + `extra`, the byte-faithful body, provenance, `satisfies`, `published_requirements`) and run the embedded kind's `Extraction::extract` (via `builtin_kind::definition(\"skill\"|\"rule\")`) to yield `extract::Features`. This IR→Unit conversion is the engine-code adapter the source-not-mechanism direction leaves sanctioned; the per-field feature mapping moves into the composed `kinds/*/KIND.md` extraction."
         },
         {
           "path": "src/extract.rs",
-          "description": "Retire `skill_features` and `rule_features` (the hand-coded per-field mappings) and their `#[cfg(test)]` unit tests — symbol retirement as an EDIT, never a `retire` path (inbox fence correction). Keep the shared `pub(crate)` surface extractors (`body_line_count`/`body_headings`/`body_sections`/`source_dir_name`/`json_to_feature`) the composed path already reuses; the `Features`/`FeatureValue`/`Kind`/`Section` types stay."
+          "description": "Retire `skill_features` and `rule_features` (the hand-coded per-field mappings, lines 238/296) and their `#[cfg(test)]` unit tests — symbol retirement as an EDIT, never a `retire` path. Keep the shared `pub(crate)` surface extractors (`body_line_count`/`body_headings`/`body_sections`/`source_dir_name`/`json_to_feature`) the composed path already reuses; the `Features`/`FeatureValue`/`Kind`/`Section` types stay."
         },
         {
           "path": "src/main.rs",
-          "description": "Repoint the built-in feature call sites — `run_check` (~541–545) and the `Why` command (~405–408) — from `extract::skill_features`/`extract::rule_features` to the embedded skill/rule KIND extraction driver in `builtin_kind`. `assemble_by_kind`, the `engine::validate` streams, and coverage/graph tiers are otherwise unchanged (they range over `Features`)."
+          "description": "Repoint the built-in feature call sites — `run_check` (~541–545) and the `Why` command (~405–408) — from `extract::skill_features`/`extract::rule_features` to the embedded skill/rule KIND extraction driver in `builtin_kind`. `assemble_by_kind` (~788), the `engine::validate` streams (564–565), and coverage/graph tiers are otherwise unchanged (they range over `Features`)."
         },
         {
           "path": "tests/extract_equivalence.rs",
-          "description": "Repoint the snapshots from `skill_features`/`rule_features` to the new embedded-extraction driver; the committed `.snap` files MUST remain byte-identical — the unchanged snapshot is the equivalence proof."
+          "description": "Repoint the three snapshot tests from `extract::skill_features`/`extract::rule_features` to the new embedded-extraction driver; the committed `.snap` files MUST remain byte-identical — the unchanged snapshot is the equivalence proof."
         }
       ],
       "retire": []
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "built-in skill/rule `check` features are computed by running the embedded `kinds/*/KIND.md` extraction over an IR-derived `Unit`; `skill_features`/`rule_features` are gone; the pinned equivalence snapshot is unchanged; cargo fmt/clippy -D warnings/test and the self-check gate all green.",
-    "notes": "Completes the wave. `skill_features`/`rule_features` (hand-coded field mapping) retire as an EDIT to src/extract.rs naming the symbols, never a `retire` path (inbox fence correction). Engine code stays only at adapter faces (Skill/Rule IR→Unit; parse/emit). Equivalence proven by the unchanged pin snapshot; blocked serially so no open entry shares these files."
+    "notes": "Completes the extraction-unification wave (blocker EMBED-BUILTIN-KINDS shipped, e38cb59). `skill_features`/`rule_features` retire as an EDIT to src/extract.rs naming the symbols, never a `retire` path. Engine code stays only at adapter faces (Skill/Rule IR→Unit; parse/emit). Equivalence proven by the unchanged pin snapshot; sole open entry so nothing shares its files."
   },
   {
     "tag": "AGENT-KIND",
@@ -80,16 +79,12 @@
           "description": "Extend `Workspace` with `agents` loaded under `<dir>/agents/*` and a `WorkspaceError` arm; update the load tests."
         },
         {
-          "path": "src/extract.rs",
-          "description": "Add `agent_features` mirroring the built-in extraction driver (post-unification this is the embedded KIND path, not a hand-coded feature fn)."
-        },
-        {
           "path": "src/import.rs",
           "description": "Discover `.claude/agents/*.md`, project each to one `<into>/agents/<name>/AGENT.md` member document, add an `[[agent]]` lock row per agent."
         },
         {
           "path": "src/main.rs",
-          "description": "Bind the agent package, wire admissibility + conformance streams and `by_kind` for the kind."
+          "description": "Bind the agent package, wire admissibility + conformance streams and `by_kind` for the kind; feed agent features via the embedded-KIND extraction driver (post-BUILTIN-EXTRACT-GENERIC path, not a hand-coded feature fn)."
         }
       ],
       "retire": []
@@ -102,7 +97,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands it. On revival, add the agent KIND definition under kinds/ (post-unification) and serialize its shared-file blast radius (lib/check/extract/import/main) via blockedBy against any then-open entry touching those files."
+    "notes": "Deferred — more built-in kinds is the wrong direction under the requirements/satisfies reframe; revive only if a story demands it. On revival, add the agent KIND definition under kinds/ (embedded like skill/rule) and serialize its shared-file blast radius (lib/check/import/main) via blockedBy against any then-open entry touching those files."
   },
   {
     "tag": "PACKAGING-CHANNELS",
