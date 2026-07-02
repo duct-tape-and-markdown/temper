@@ -80,6 +80,26 @@ for names or paths — the unsound prose-grep `10-contracts.md`'s referential ru
 forbids (it matched filenames in prose and forged false positives). The field is the
 truth; the prose is payload. (Resolves `(skill-ref-syntax)`.)
 
+### Decision: coupling is a join — a one-way edge never obligates its target
+
+**Chosen:** any relationship that creates **mutual obligation** — "I depend on
+you existing and meaning what you mean" — is a **join**: two independent
+declarations (a published demand, an opt-in claim) that the gate resolves, true
+only where both sides agree, a finding on either dangling half. The fill edge
+(`requirement`/`satisfies`, `10-contracts.md`) is the join mechanism; there is
+no second one. One-way declared edges survive in exactly two classes, and are
+**resolution-checked but obligation-free**: (a) **mirrored harness mechanics**
+(`routes_to` — the runtime follows the pointer whether or not the target
+consents; modeling it two-sided would lie about the harness), and (b)
+**non-obligating annotations** (a citation, a `supersedes` — genuinely
+unilateral; the superseded gets no veto). The self-registering pattern below
+(`degree(incoming) = 0`) is this Decision's shadow form made explicit: an
+artifact declaring that nobody may point at it is consent semantics, and
+consent is the join's whole content. **Rejected:** unilateral dependency edges —
+an obligation the obligated party never declared is un-consented intent (law
+8's social half) and the invisible 2am dependency in corpus form: you delete
+the artifact nothing *appears* to need, and three others dangle.
+
 ## Worked example — self-registering vs routed
 
 A project distinguishes two activation patterns and wants to enforce them:

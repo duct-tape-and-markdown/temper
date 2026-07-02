@@ -70,6 +70,7 @@ The vocabulary; the **owning spec** carries the detail.
 | projection | the on-disk landscape `apply` writes from the surface | `20-surface.md` |
 | **requirement** | the demand-side end of a fill edge, published by the assembly or a member's header: a named obligation (optional `means`, typing `kind`/`package`, multiplicity), joined to a member by `satisfies` — the sole binding, no name-`match` (the contract never guesses); coverage-gated, never judged | `10-contracts.md` |
 | **satisfies** | the member-side end of the same edge: an artifact's opt-in declaration (in its representation) that it fills a requirement — the sole, decidable fill | `10-contracts.md` |
+| **join** | the two-sided relationship mechanism: a demand and a claim that must agree — requirement/satisfies are its ends; the sole carrier of mutual obligation (one-way edges never obligate their target) | `45-governance.md` |
 | entity / relationship | nodes / edges of a kind's dependency graph — declared in headers and structured fields, never mined from prose (law 8) | `15` / `45` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
 | verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |
