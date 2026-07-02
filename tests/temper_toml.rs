@@ -473,6 +473,7 @@ A spec is temper's own governing document.\n";
             Primitive::LineCount,
             Primitive::References {
                 feature: "references".to_string(),
+                strip_suffix: None,
             },
         ]
     );

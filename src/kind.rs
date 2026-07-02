@@ -295,6 +295,16 @@ pub enum Primitive {
     References {
         /// The name the yielded reference-list feature is keyed by.
         feature: String,
+        /// The reference syntax's own **normalization** — an optional declared
+        /// suffix stripped from each extracted value before it becomes the
+        /// feature value, so a later exact id-match resolves without a loose
+        /// engine fallback (`specs/15-kinds.md`, "Decision: reference resolution
+        /// is declared by the kind"). The spec kind declares `".md"`, mapping
+        /// `` `15-kinds.md` `` to the unit id `15-kinds`. Absent ⇒ the value is
+        /// the raw reference span (current behavior). A value not ending in the
+        /// declared suffix is left unchanged — the normalization strips only what
+        /// it names.
+        strip_suffix: Option<String>,
     },
 }
 
@@ -331,8 +341,24 @@ impl Primitive {
             Primitive::Placement => {
                 features.source_dir = extract::source_dir_name(&unit.source_path)
             }
-            Primitive::References { feature } => {
-                let refs = backtick_filename_refs(&unit.body);
+            Primitive::References {
+                feature,
+                strip_suffix,
+            } => {
+                // The declared normalization runs after extraction and before the
+                // value is a feature: strip the declared suffix so a later exact
+                // id-match resolves (`specs/15-kinds.md`, Decision above). A ref
+                // not ending in the suffix is left as-is — strip only what it names.
+                let refs = backtick_filename_refs(&unit.body)
+                    .into_iter()
+                    .map(|reference| match strip_suffix {
+                        Some(suffix) => reference
+                            .strip_suffix(suffix.as_str())
+                            .map(str::to_string)
+                            .unwrap_or(reference),
+                        None => reference,
+                    })
+                    .collect();
                 features
                     .fields
                     .insert(feature.clone(), FeatureValue::List(refs));
@@ -788,6 +814,7 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
         "placement" => Primitive::Placement,
         "references" => Primitive::References {
             feature: str_param(table, "feature", index, path)?,
+            strip_suffix: opt_str_param(table, "strip_suffix", index, path)?,
         },
         other => {
             return Err(KindError::UnknownPrimitive {
@@ -798,6 +825,31 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
         }
     };
     Ok(primitive)
+}
+
+/// Read an optional string primitive key: absent ⇒ `Ok(None)`, present-and-a-string
+/// ⇒ `Ok(Some(_))`, present-but-not-a-string ⇒ [`KindError::WrongType`]. The optional
+/// counterpart to [`str_param`], for a primitive parameter that defaults when omitted
+/// (the `references` primitive's declared `strip_suffix` normalization).
+fn opt_str_param(
+    table: &Table,
+    key: &'static str,
+    index: usize,
+    path: &Path,
+) -> Result<Option<String>, KindError> {
+    match table.get(key) {
+        None => Ok(None),
+        Some(item) => {
+            item.as_str()
+                .map(|value| Some(value.to_string()))
+                .ok_or(KindError::WrongType {
+                    path: path.to_path_buf(),
+                    index,
+                    param: key,
+                    expected: "a string",
+                })
+        }
+    }
 }
 
 /// Read a required string primitive key.
@@ -1071,6 +1123,103 @@ primitive = "paragraph_meaning"
             err,
             KindError::UnknownPrimitive { ref primitive, index: 1, .. }
                 if primitive == "paragraph_meaning"
+        ));
+    }
+
+    #[test]
+    fn references_strip_suffix_normalizes_each_ref_to_the_member_id() {
+        // The declared normalization maps a backtick-filename value to the id it
+        // names (`specs/15-kinds.md`, "Decision: reference resolution is declared by
+        // the kind"): with `strip_suffix = ".md"`, `` `15-kinds.md` `` becomes the
+        // unit id `15-kinds`, so a later exact id-match resolves.
+        let toml = r#"
+[[extraction]]
+primitive = "references"
+feature = "references"
+strip_suffix = ".md"
+"#;
+        let extraction = Extraction::parse(toml, Path::new("temper.toml")).unwrap();
+        assert_eq!(
+            extraction.primitives(),
+            &[Primitive::References {
+                feature: "references".to_string(),
+                strip_suffix: Some(".md".to_string()),
+            }]
+        );
+
+        let features = extraction.extract(&spec_unit());
+        assert_eq!(
+            features.field("references"),
+            Some(&FeatureValue::List(vec![
+                "15-kinds".to_string(),
+                "10-contracts".to_string(),
+            ]))
+        );
+    }
+
+    #[test]
+    fn references_strip_suffix_leaves_a_non_matching_ref_unchanged() {
+        // The normalization strips only what it names: a ref not ending in the
+        // declared suffix rides through verbatim, so `strip_suffix = ".md"` never
+        // mangles a `` `src/skill.rs` `` reference.
+        let toml = r#"
+[[extraction]]
+primitive = "references"
+feature = "references"
+strip_suffix = ".md"
+"#;
+        let extraction = Extraction::parse(toml, Path::new("temper.toml")).unwrap();
+        let unit = Unit {
+            id: "demo".to_string(),
+            frontmatter: BTreeMap::new(),
+            body: "See `15-kinds.md` and `src/skill.rs`.\n".to_string(),
+            source_path: PathBuf::from("specs/demo.md"),
+            satisfies: Vec::new(),
+        };
+        assert_eq!(
+            extraction.extract(&unit).field("references"),
+            Some(&FeatureValue::List(vec![
+                "15-kinds".to_string(),
+                "src/skill.rs".to_string(),
+            ]))
+        );
+    }
+
+    #[test]
+    fn references_without_strip_suffix_keeps_the_raw_span() {
+        // Absent ⇒ current behavior: the raw backtick-filename span is the value, so
+        // the floor-only path (and the dogfood `spec` KIND.md, no suffix declared) is
+        // byte-unchanged.
+        let extraction = spec_extraction();
+        assert_eq!(
+            extraction.primitives().last(),
+            Some(&Primitive::References {
+                feature: "references".to_string(),
+                strip_suffix: None,
+            })
+        );
+        assert_eq!(
+            extraction.extract(&spec_unit()).field("references"),
+            Some(&FeatureValue::List(vec![
+                "15-kinds.md".to_string(),
+                "10-contracts.md".to_string(),
+            ]))
+        );
+    }
+
+    #[test]
+    fn a_references_strip_suffix_must_be_a_string() {
+        // The declared normalization is a string suffix; a mistyped one is a load
+        // error, exactly as any mistyped primitive parameter is.
+        let toml = "[[extraction]]\nprimitive = \"references\"\nfeature = \"references\"\nstrip_suffix = 7\n";
+        let err = Extraction::parse(toml, Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            KindError::WrongType {
+                param: "strip_suffix",
+                index: 0,
+                ..
+            }
         ));
     }
 
