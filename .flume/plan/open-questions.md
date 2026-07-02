@@ -385,9 +385,11 @@ path strings remain in comments).
   strands "package's clause choice"); (b) an assembly/kind-level opt-in with a
   bound, like `degree`; (c) extend the package clause vocabulary with a
   graph-tier `reachable` clause plus a mechanism for a package to declare
-  severity over a graph fact. Blocks pending **REACHABILITY-WIRE**; also needs
-  the curated `kinds/skill|rule` `activation` lines (outside build's fence)
-  before the dogfood fires. Human to settle which mechanism.
+  severity over a graph fact. Blocks pending **REACHABILITY-WIRE**. The curated
+  `kinds/skill|rule` `activation` lines it also needed have **both shipped**
+  (skill `description-trigger` 2259667, rule `paths-match` 9f7d176 — verified on
+  disk), so the severity mechanism is the *only* remaining blocker. Human to
+  settle which mechanism.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
