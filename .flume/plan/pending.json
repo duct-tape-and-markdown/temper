@@ -1,31 +1,5 @@
 [
   {
-    "tag": "AGENTS-MD",
-    "summary": "Author AGENTS.md at root \u2014 contributor-facing build/test/lint + architecture map, pointing to the AI-authorship policy; CLAUDE.md stays canonical and untouched",
-    "per": {
-      "path": "specs/55-offering.md",
-      "section": "The front door \u2014 the README is the landing page"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "AGENTS.md",
-          "description": "The 2025-26 agent-readable contributor doc at repo root: build/test/lint commands (cargo build/test, clippy -D warnings, fmt), a short architecture map of `src/` (the contract engine, kinds, surface, drift), and a pointer to the AI-contribution policy in `.github/CONTRIBUTING.md` (verified on disk). Per the RESOLVED (launch-front-door-docs) fork it is a SEPARATE contributor doc \u2014 it does NOT touch `.claude/**` or `CLAUDE.md`, and CLAUDE.md is NOT gutted to source it (the ruff/uv 'CLAUDE.md = @AGENTS.md' move is rejected here; CLAUDE.md is the pipeline's operating harness, the recursive-dogfood fixture)."
-        }
-      ],
-      "edit": [],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "AGENTS.md exists at root as a contributor-facing doc (build/test/lint + architecture map + pointer to the AI-authorship policy); CLAUDE.md and `.claude/**` are untouched; cargo green.",
-    "notes": "Fileable per RESOLVED (launch-front-door-docs). Root doc only, disjoint from every other entry (owns AGENTS.md alone). The chore(harness) boundary holds: this entry must not edit CLAUDE.md or `.claude/**`. CONTRIBUTING.md lives at `.github/CONTRIBUTING.md` (verified on disk), so link there."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind \u2014 `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
