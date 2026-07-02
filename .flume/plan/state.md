@@ -1,25 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile + inbox drain. HEAD 0496270.
-- **Last shipped (trunk):** law 8 landed in the corpus (750dbc8) and the dogfood
-  `.temper/` was reconciled by hand (0496270, references dropped from the spec
-  KIND.md); `contracts/` retired by hand earlier (b5f0786). CONTRACTS-RETIRE is
-  gone from the queue (shipped) — verified: `contracts/` does not exist on disk.
-- **This tick:** drained the inbox (2 notes) into 3 new pending entries, verified
-  on disk. (1) REFERENCES-RETIRE — `Primitive::References` + `backtick_filename_refs`
-  + `is_filename_reference` + `strip_suffix` still ship in `src/kind.rs` (0496270
-  only touched the dogfood); law 8 retires them. (2) REDD-CUSTOM-KINDS — `drift.rs`
-  `diff`/`re_add` hardwire skills+rules only, so custom-kind (spec) members never
-  reconcile back (the dogfood defect). (3) MEMBER-PUBLISHED-REQUIREMENTS — member
-  headers carry only `[satisfies.*]` today, not `[requirement.*]`; coverage reads
-  `layer.requirements()` alone. Updated `(reference-id-normalization)` →
-  SUPERSEDED. Accepted debt: the specs/ class placement reshuffle is a human
-  ceremony after the engine ships (not a build entry).
-- **Pickable now (2 `open`, disjoint):** REFERENCES-RETIRE (kind.rs +
-  reference_resolution.rs) and REDD-CUSTOM-KINDS (drift.rs + main.rs + drift
-  tests) — no shared file. Serialized: MEMBER-PUBLISHED-REQUIREMENTS blockedBy
-  REDD-CUSTOM-KINDS (both edit main.rs). Deferred: AGENT-KIND (priority). Parked:
-  PACKAGING-CHANNELS (release creds).
+- **Phase:** reconcile + inbox drain. HEAD 9badebe.
+- **Last shipped (trunk):** REFERENCES-RETIRE landed (87da879 build, 9badebe
+  flume) — verified: no `References`/`strip_suffix`/`backtick_filename_refs` in
+  `src/kind.rs`. Dropped from the queue (shipped).
+- **This tick:** reconciled the 4 remaining entries against the corpus + disk.
+  REDD-CUSTOM-KINDS confirmed a real gap (`drift.rs` still hardwires
+  `DriftEntry.kind: &'static str` + `discover_skill_dirs`/`discover_rule_files`;
+  `main.rs` Diff/ReAdd arms only `Workspace::load`) — **rewrote** it to add the
+  `src/import.rs` edit (its reused helpers `discover_kind_units`/
+  `import_custom_unit` are private today and need a `pub(crate)` bump). Verified
+  MEMBER-PUBLISHED-REQUIREMENTS still a gap (`document.rs` parses `Satisfies`/
+  `EdgeClause` only, no `[requirement.*]`; `main.rs` feeds `layer.requirements()`
+  alone). AGENT-KIND/PACKAGING-CHANNELS unchanged (deferred/parked, accurate).
+  Inbox empty; nothing to drain.
+- **Pickable now (1 `open`):** REDD-CUSTOM-KINDS. Serialized behind it:
+  MEMBER-PUBLISHED-REQUIREMENTS (blockedBy — both edit `src/main.rs`). Deferred:
+  AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (release creds).
 
-Plan continues: no — queue reconciled, inbox drained, two disjoint `open` entries
-are pickable; building drains them.
+Plan continues: no — queue reconciled, inbox empty, one `open` entry pickable;
+building drains it.

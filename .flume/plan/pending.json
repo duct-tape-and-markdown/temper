@@ -1,7 +1,7 @@
 [
   {
     "tag": "REDD-CUSTOM-KINDS",
-    "summary": "`diff`/`re-add` cover custom kinds — scan each assembly-registered kind's `governs` locus so hand-edited spec bodies reconcile back into `.temper/` instead of the gate reading stale bodies",
+    "summary": "`diff`/`re-add` cover custom kinds — scan each registered kind's `governs` locus so hand-edited spec bodies reconcile into `.temper/` instead of the gate reading stale bodies",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Drift / apply — three states, never two (the hard core)"
@@ -14,12 +14,16 @@
       "new": [],
       "edit": [
         {
+          "path": "src/import.rs",
+          "description": "Expose the two custom-kind helpers `diff`/`re_add` will reuse as `pub(crate)` (both are private `fn` today, ~lines 341/377): `discover_kind_units(harness, &governs)` and `import_custom_unit(&kind, file, into)`. `RollupEntry` is already `pub(crate)`. Visibility only, no behavior change — mirroring how `discover_skill_dirs`/`discover_rule_files` are already `pub(crate)` for drift's reuse."
+        },
+        {
           "path": "src/drift.rs",
-          "description": "Extend `diff`/`re_add` to scan every registered custom kind, not just the built-in skill/rule fields. `diff` currently hardwires `discover_skill_dirs`/`discover_rule_files`; add a pass that, for each registered custom kind, calls `import::discover_kind_units(harness, &kind.governs)` and classifies each unit against the surface's lock rows (source_path + import_hash). `re_add` re-projects a drifted/added custom unit via `import::import_custom_unit`. `DriftEntry.kind`/`ReAddEntry.kind` change from `&'static str` to `String` to carry dynamic kind names; `render`/`render_readd` follow. Custom-kind surface provenance comes from the `[[<kind>]]` lock rows (custom members are not materialized in `Workspace`)."
+          "description": "Extend `diff`/`re_add` to scan every registered custom kind, not just the built-in skill/rule fields. `diff` currently hardwires `discover_skill_dirs`/`discover_rule_files`; add a pass that, for each registered custom kind, calls `import::discover_kind_units(harness, &kind.governs)` and classifies each unit against the surface's lock rows (source_path + import_hash). `re_add` re-projects a drifted/added custom unit via `import::import_custom_unit`. `DriftEntry.kind`/`ReAddEntry.kind` change from `&'static str` to `String` to carry dynamic kind names; the `re_add` `updates` tuple key and `fold_lock` follow; `render`/`render_readd` and the in-module unit tests (the `DriftEntry { kind: \"skill\", .. }` literals) follow. `apply`/`ApplyEntry` stay built-in-only (out of scope). Custom-kind surface provenance comes from the `[[<kind>]]` lock rows (custom members are not materialized in `Workspace`)."
         },
         {
           "path": "src/main.rs",
-          "description": "The `Diff`/`ReAdd` command arms load only `Workspace::load` today — no assembly. Load the optional `temper.toml` layer and its registered custom kinds (reuse the kind-loading path the `check` arm uses) and thread the custom-kind definitions into `drift::diff`/`drift::re_add` so their `governs` loci are scanned. Absent a `temper.toml`, behavior is unchanged (built-in kinds only)."
+          "description": "The `Diff`/`ReAdd` command arms load only `Workspace::load` today — no assembly. Load the optional `temper.toml` layer and its registered custom kinds (reuse the kind-loading path the `check`/`why` arms use via `load_layer` + `custom_kinds_and_edges`/kinds_dir) and thread the custom-kind definitions into `drift::diff`/`drift::re_add` so their `governs` loci are scanned. Absent a `temper.toml`, behavior is unchanged (built-in kinds only)."
         },
         {
           "path": "tests/readd.rs",
@@ -44,7 +48,7 @@
       }
     ],
     "acceptance": "`temper diff` and `temper re-add` classify and reconcile members of every custom kind the assembly registers (each scanned at its `governs` locus), so editing `specs/*.md` directly no longer leaves `.temper/specs/` stale; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Dogfood defect (commit 0496270 body: re-add skips custom kinds, so law-8 spec edits were invisible to the gate). Scoped to the reconcile-back directions the inbox names (diff + re_add). `apply` (surface→disk) custom-kind projection is OUT of scope — surfaced as a follow-up, not filed. Shares src/main.rs with MEMBER-PUBLISHED-REQUIREMENTS, serialized behind it via blockedBy."
+    "notes": "Dogfood defect (0496270: re-add skips custom kinds, so law-8 spec edits are invisible to the gate). Scoped to the reconcile-back directions (diff + re_add); reuses import::discover_kind_units/import_custom_unit (bumped to pub(crate)). `apply` (surface→disk) custom-kind projection is OUT of scope — surfaced, not filed. MEMBER-PUBLISHED-REQUIREMENTS serializes behind this (shared src/main.rs)."
   },
   {
     "tag": "MEMBER-PUBLISHED-REQUIREMENTS",
@@ -63,15 +67,15 @@
       "edit": [
         {
           "path": "src/document.rs",
-          "description": "Parse `[requirement.<name>]` clause modules on a member header — the same shape the assembly roster carries (`means`, `kind`, `package`, `required`), unknown-key-rejecting (specs/10-contracts.md, \"unknown keys are rejected\"). Surface them as a parsed collection beside the existing `Satisfies` modules, and round-trip them on emit."
+          "description": "Parse `[requirement.<name>]` clause modules on a member header — the same shape the assembly roster carries (`means`, `kind`, `package`, `required`), unknown-key-rejecting (specs/10-contracts.md, \"unknown keys are rejected\"). Surface them as a parsed collection beside the existing `Satisfies` modules (a `requirements(header)` reader mirroring `satisfies(header)`, plus an `add_requirement` emitter), and round-trip them on emit."
         },
         {
           "path": "src/extract.rs",
-          "description": "Carry a member's published requirements into its `Features` (or a parallel per-member collection) so main can gather them across every kind's members, mirroring how `satisfies` is already carried."
+          "description": "Carry a member's published requirements into its `Features` (or a parallel per-member collection) so main can gather them across every kind's members, mirroring how `satisfies` is already carried on `Features`."
         },
         {
           "path": "src/main.rs",
-          "description": "Inside the layered (`if let Some(layer)`) path, union member-published requirements with `layer.requirements()` into the single `BTreeMap<String, Requirement>` fed to `coverage::check` and `roster::*` — reusing `compose::Requirement` (its fields are pub). A name published by two surfaces (assembly ⊕ member, or two members) is one namespace: emit an admissibility finding on collision, never a shadow. `satisfies` fill and the existing coverage gate join them unchanged."
+          "description": "Inside the layered (`if let Some(layer)`) path, union member-published requirements with `layer.requirements()` into the single `BTreeMap<String, Requirement>` fed to `coverage::check` and `roster::{admissibility,check,conformance}` — reusing `compose::Requirement` (its fields are pub). A name published by two surfaces (assembly ⊕ member, or two members) is one namespace: emit an admissibility finding on collision, never a shadow. `satisfies` fill and the existing coverage gate join them unchanged."
         },
         {
           "path": "tests/requirement_roster.rs",
