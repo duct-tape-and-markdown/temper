@@ -360,7 +360,8 @@ pub fn reachable(
 /// Whether a member's declared [`Activation`] edge from the world is **provably dead**,
 /// and why — `Some(reason)` names the dead edge for the finding, `None` leaves the
 /// member reachable. Only the two edges the spec makes decidable can die here: a blank
-/// `description-trigger` field and a `paths-match` field whose globs match no file.
+/// `description-trigger` field and a `paths-match` field whose *present* globs match no
+/// file (an absent/blank `paths` field is unconditional loading, never dead).
 /// `always` (unconditionally live) and `event` (no repo-decidable criterion) never do.
 fn dead_activation(
     activation: &Activation,
@@ -373,9 +374,13 @@ fn dead_activation(
             format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
         }),
         Activation::PathsMatch { field } => {
+            // An absent/blank field is unconditional loading, not a dead edge
+            // (specs/15-kinds.md paths-match bullet): only a *present* glob set that
+            // matches nothing is provably dead.
             let globs = declared_globs(member, field);
-            let live = globs.iter().any(|glob| glob_matches_any(glob, repo_files));
-            (!live).then(|| {
+            let dead = !globs.is_empty()
+                && !globs.iter().any(|glob| glob_matches_any(glob, repo_files));
+            dead.then(|| {
                 format!("its `{field}` globs match no file in the repository, so the harness activates it never")
             })
         }
@@ -396,8 +401,10 @@ fn field_is_blank(member: &Features, field: &str) -> bool {
 
 /// The activation globs a member declares on `field`: a scalar names one glob, a list
 /// names each of several, and an absent field or a map (which carries no glob) names
-/// none. Read off [`Features`] — a declared field, never grepped. Empty globs match no
-/// file, so a `paths-match` member declaring none activates never.
+/// none. Read off [`Features`] — a declared field, never grepped. Declaring none is
+/// *not* a dead edge: an absent/blank `paths` field falls back to unconditional loading
+/// (specs/15-kinds.md paths-match bullet), so the caller only tests for the dead edge
+/// once at least one glob is present.
 fn declared_globs(member: &Features, field: &str) -> Vec<String> {
     match member.field(field) {
         None | Some(FeatureValue::Map) => Vec::new(),

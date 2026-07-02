@@ -571,6 +571,25 @@ mod reachability {
     }
 
     #[test]
+    fn an_absent_or_blank_paths_field_is_reachable() {
+        // An unscoped rule declares a paths-match activation but carries no `paths` field
+        // (or a whitespace-only one) — the harness falls back to unconditional loading
+        // (specs/15-kinds.md paths-match bullet), so the inbound edge is live, not dead.
+        let absent = member("global", None);
+        let blank = member(
+            "blank",
+            Some(("paths", FeatureValue::scalar(Kind::String, "   "))),
+        );
+        let rules = [absent, blank];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        let activations = BTreeMap::from([("rule", paths_match("paths"))]);
+        // A non-empty repo file-set the absent/blank field is *not* tested against.
+        let files = vec!["src/graph.rs".to_string()];
+
+        assert!(reachable(&activations, &by_kind, &files).is_empty());
+    }
+
+    #[test]
     fn a_kind_that_declares_no_activation_is_not_subject() {
         // The corpus holds a skill with a blank `description`, but no kind declares an
         // activation (the map is empty) — the predicate ranges over declared edges only,
