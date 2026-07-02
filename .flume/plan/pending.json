@@ -7,8 +7,7 @@
       "section": "Decision: a requirement's publisher is any authored surface document"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REDD-CUSTOM-KINDS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "a member document's `[requirement.<name>]` tables publish into the one requirement namespace, are gated by the existing coverage check, and collide with other publishers as admissibility findings — the engine support the classed-corpus migration needs (an intent spec declaring the entities an architecture spec must satisfy); cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Engine consequence of law 8 + the classed-corpus Decision (specs/90-spec-system.md). Serialized behind REDD-CUSTOM-KINDS (both edit src/main.rs). Scoped to the layered coverage path; a member-published requirement in a temper.toml-less floor-only harness is out of scope — surfaced, not filed. The specs/ class placement reshuffle + header authoring is a HUMAN ceremony after this ships, never a build tick."
+    "notes": "Engine consequence of law 8 + the classed-corpus Decision (specs/90-spec-system.md). Unblocked: REDD-CUSTOM-KINDS shipped (7333235). Sole open entry, so parallel-safe. Scoped to the layered coverage path; a member-published requirement in a temper.toml-less floor-only harness is out of scope — surfaced, not filed. The specs/ class reshuffle + header authoring is a HUMAN ceremony after this ships, never a build tick."
   },
   {
     "tag": "AGENT-KIND",
