@@ -183,6 +183,24 @@ vocabulary (`template`, requirement-typing `contract`) pending that migration.
   once coverage + graph data exist to read. FILED as READ-VERBS this tick — the
   migration + coverage/graph data have landed. Kept as the decision record.
 
+- `(edge-representation-unify)` — OPEN (dogfood catch, 2nd harness). The harness
+  carries **two disconnected edge representations**. The surface authors an edge as
+  an `[edge.<target>]` clause (`EdgeClause` — read by the read family and emitted by
+  projection), while the gate's graph (`src/graph.rs`) reads a structured `routes_to`
+  field off extracted `Features`, keyed by `[[kind.<name>.relationships]]`, and
+  **never reads `[edge.*]`**. So a surface-authored `[edge.*]` edge does not gate,
+  yet `specs/20-surface.md` ("The member document") and `specs/45-governance.md` call
+  `[edge.<target>]` "the graph's source" and the adapter's projected field its emitted
+  face. Unresolved: how the two unify into one edge set — (a) extraction lifts `[edge.*]`
+  into the graph's edge features (the adapter's inverse-of-projection read face); (b) the
+  graph consumes `EdgeClause`s directly; (c) the structured `routes_to` field is the
+  authored form and `[edge.*]` is retired. Impedance: `[edge.*]` is keyed by
+  target+relation (member-side), a relationship by field+from/to kinds (kind-side), so
+  resolving a target's kind needs both. READ-EDGE-UNIFY fixes only the read↔gate
+  divergence (inbox-directed: read consumes the gate's set); THIS fork is the deeper
+  "one edge set" question — which representation is canonical and how a surface-authored
+  edge reaches the gate's graph. No dependent filed; human to settle the canonical form.
+
 - `(launch-front-door-docs)` — RESOLVED. **AGENTS.md is a separate,
   build-authorable contributor doc; `CLAUDE.md` stays canonical and untouched.**
   This repo's `CLAUDE.md` is not a generic contributor doc — it is the operating

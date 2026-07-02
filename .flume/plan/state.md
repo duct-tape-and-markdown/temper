@@ -1,25 +1,24 @@
 # Plan state
 
 - **Phase:** reconcile. Queue reconciled to the corpus; inbox drained; tree clean.
-  HEAD a74b1c9.
-- **Last shipped (trunk):** AGENTS.md shipped by hand (267599a — dropped from the
-  queue); the spec's one-`harness_path` correction landed (a74b1c9, human). The
-  engine is broad against the corpus — import/check/drift/apply/re-add, bundle,
-  install, schema, reporters, coverage/graph, roster set-scope predicates, custom
-  `.temper/kinds/`, the read verbs (why/requirements), and section_contains all shipped.
-- **This tick:** drained the inbox BUG into **IMPORT-SKILL-LOCUS** (`open`) — code's
-  skill scan root (`<harness>/skills/`) disagrees with the now-corrected spec
-  (`.claude/skills/`), so no single project-root harness_path captures a standard
-  Claude Code project. Verified on disk: `discover_skill_dirs` (src/import.rs) scans
-  `<harness>/skills/` + bare `SKILL.md`; `discover_rule_files` already scans
-  `.claude/rules/`; `check --harness` routes through `import::run` (main.rs:255).
-  Scoped keep-bare-dir (cheap, spec-permitted): relocate only the tree scan, so
-  tests/fixtures/coordinate + acceptance.rs stay green untouched (no snapshot churn);
-  trimmed phantom edits (src/install.rs has no in-module fixture; tests/read_verbs.rs
-  is surface-only). Wide but atomic test ripple scoped in. No other src↔spec gap found.
-- **Pickable now (1 `open`):** IMPORT-SKILL-LOCUS (single atomic scan-locus fix; no
+  HEAD 7de5a75.
+- **Last shipped (trunk):** IMPORT-SKILL-LOCUS hand-shipped (d057e74) — skills scan
+  `.claude/skills/`, so one project-root `harness_path` captures skills + rules.
+  Confirmed on disk: `discover_skill_dirs` (src/import.rs:221) scans
+  `<harness>/.claude/skills/`. The engine stays broad against the corpus —
+  import/check/drift/apply/re-add, bundle, install, schema, reporters, coverage/graph,
+  roster set-scope predicates, custom `.temper/kinds/`, the read verbs, section_contains.
+- **This tick:** drained the inbox BUG into **READ-EDGE-UNIFY** (`open`). `temper why`
+  narrates edges from the surface's `[edge.*]` document clauses (src/read.rs, via
+  `skill.edges`/`rule.edges`), while `graph::check`/`acyclic`/`degree` (src/graph.rs)
+  resolve the gate's graph from `[[kind.relationships]]` over extracted `routes_to`
+  features (src/main.rs check arm) — the two disagree on a `routes_to` edge. Fix
+  (inbox-directed): the read family consumes the gate's resolved edge set, one source of
+  truth. Verified on disk the two edge paths are fully disconnected — extraction never
+  reads `[edge.*]` — so filed the deeper representation fork as `(edge-representation-unify)`.
+- **Pickable now (1 `open`):** READ-EDGE-UNIFY (single atomic edge-source unification; no
   parallel peer). Deferred: AGENT-KIND (priority). Parked: PACKAGING-CHANNELS (human
-  release creds). Forks: all RESOLVED/OPEN decision records with no filed dependents.
+  release creds).
 
-Plan continues: no — inbox drained, queue reconciled, IMPORT-SKILL-LOCUS is pickable
+Plan continues: no — inbox drained, queue reconciled, READ-EDGE-UNIFY is pickable
 `open`; building drains it.

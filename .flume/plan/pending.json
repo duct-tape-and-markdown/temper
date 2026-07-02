@@ -1,25 +1,68 @@
 [
   {
+    "tag": "READ-EDGE-UNIFY",
+    "summary": "`temper why`'s edge walk must range over the gate's resolved edge set (relationships over extracted features), not the private `[edge.*]` document-clause re-derivation",
+    "per": {
+      "path": "specs/20-surface.md",
+      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "Expose the resolved-edge computation so the read family consumes the exact same arcs the gate does — never a private re-derivation. Make `resolved_arcs` (or a `(kind,id)`-node in/out enumeration built from it) `pub(crate)`, keyed `(kind, id)` as today, so `read::why` can look up a member node's incoming/outgoing resolved edges through the one function `graph::check`/`acyclic`/`degree` already range over."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Replace the `EdgeClause`-based edge-in/edge-out traversal (the `Member.edges` field sourced from `skill.edges`/`rule.edges`) with the graph's resolved edge set: `why` takes the same `by_kind` features + `edges` (or the resolved arcs) the check arm builds and narrates the incoming/outgoing edges of the member's `(kind, id)` node from that, so its edge narration cannot disagree with `graph::check`. The `satisfies`/roster walk (the requirement↔`satisfies` edge) is unchanged. Drop the now-unused `EdgeClause` edge import from the read view."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The `Command::Why` arm builds nothing today; make it construct the same `by_kind` Features map + declared `edges` (built-in `layer.edges()` plus each registered custom kind's `[[relationships]]`) the `check` arm builds (main.rs ~634-668), and pass them to `read::why`. Extract that by_kind/edges construction into a shared helper so the read arm and the check arm derive one identical edge set by construction (the inbox's 'one source of truth'). `Command::Requirements` is unaffected (it walks only `satisfies`/roster)."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Rework the edge fixtures + snapshots: author edges via a `temper.toml` `[[kind.rule.relationships]]` declaration (`field = routes_to`, `to = skill`) plus an extracted `routes_to` field on the source member — not `[edge.<target>]` clauses via `skill.edges` — and re-record the `why_dev_standards`/`why_lint_runner` insta snapshots. Assert `why <rule>` shows the outgoing edge and `why <skill>` the incoming one over the same edges `graph::check` resolves, and that a member with no declared edge stays silent."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`why` over a `routes_to`-connected rule→skill pair — declared as a `[[kind.relationships]]` edge over an extracted field, with no `[edge.*]` clause — surfaces the outgoing edge on the rule and the incoming edge on the skill (the exact set `graph::check` resolves), and stays silent when no edge is declared."
+      }
+    ],
+    "acceptance": "`temper why <member>` narrates the incoming/outgoing edges of the exact resolved edge set `graph::check`/`acyclic`/`degree` range over (relationship declarations over extracted features, incl. the `extra` `routes_to` field and custom-kind relationships) — no divergence between the read family and the gate; both derive the edge set from one shared construction; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Dogfood catch (2nd harness): `why` reads `[edge.*]` document clauses while `graph::check` reads relationships over extracted features — they disagree on a `routes_to` edge. Fix per inbox: the read family consumes the gate's resolved set, one source of truth, no private re-derivation. Whether `[edge.*]` should itself feed the graph is a separate fork — see `(edge-representation-unify)`; this entry builds on the gate's edge set as-is, so it needs no fork resolution."
+  },
+  {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind \u2014 `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
+    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` imported as one AGENT.md member document, checked by an authored agent package",
     "per": {
       "path": "specs/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the whole surface-language chain it waited on has shipped, so the blocker is priority alone \u2014 revive only if a story demands the agent kind"
+      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the whole surface-language chain it waited on has shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/agent.rs",
-          "description": "The Agent IR \u2014 the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
+          "description": "The Agent IR — the typed model for a Claude Code subagent at `.claude/agents/<name>.md`, mirroring `src/rule.rs`: typed YAML frontmatter on the projection side (`name`, `description`, optional `tools`/`model`), unknown keys preserved, content-faithful body, provenance. Identity is the path (file stem). The surface member is one AGENT.md document (clause-module header) like every kind."
         },
         {
           "path": "packages/agent/PACKAGE.md",
-          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model \u2014 NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
+          "description": "The agent kind's authored built-in package (clauses + guidance) in the one-document medium, embedded with the std-lib (the EMBED-BUILTIN-PACKAGES model — NOT a contracts/agent.toml). Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`."
         },
         {
           "path": "tests/agent_contract.rs",
@@ -58,11 +101,11 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms \u2014 one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes via blockedBy against any then-open entry touching those files (e.g. IMPORT-SKILL-LOCUS while open)."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes via blockedBy against any then-open entry touching those files (e.g. READ-EDGE-UNIFY, which edits main.rs)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship acquisition channels \u2014 npm optionalDependencies binary wrapper, Homebrew, cargo install \u2014 auto-detected, fail-loud on a missing platform binary",
+    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
     "per": {
       "path": "specs/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
@@ -90,6 +133,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest \u2014 reconcile or split, never blindly create a second. Parked until a human sets creds up."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Parked until a human sets creds up."
   }
 ]
