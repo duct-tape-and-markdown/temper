@@ -1,22 +1,23 @@
-//! Build script — embed the built-in package std-lib into the binary.
+//! Build script — embed the built-in std-lib (packages and kinds) into the binary.
 //!
-//! `temper`'s built-in packages live in a first-class `packages/<name>/PACKAGE.md`
-//! tree at the repo root — *product* source, human-maintained from cited upstream
-//! sources on the product's release cadence (`specs/10-contracts.md`, "Decision: a
-//! package is project-authorable, not vendor-privileged — and is itself a kind":
-//! the authoritative home is product territory, not the dogfood `.temper/`
-//! workspace). This script walks that tree at compile time and generates a
-//! `builtin_packages.rs` that embeds each `PACKAGE.md` verbatim via `include_str!`,
-//! so the shipped binary carries the std-lib with no on-disk configuration and the
-//! *same* document is authored as product source and shipped embedded — one
-//! artifact, no `contracts/` mirror.
+//! `temper`'s built-in std-lib lives in first-class product trees at the repo root:
+//! `packages/<name>/PACKAGE.md` (the require-side contracts) and
+//! `kinds/<name>/KIND.md` (the read-side kind definitions) — *product* source,
+//! human-maintained from cited upstream sources on the product's release cadence
+//! (`specs/10-contracts.md`, "a package is project-authorable, not vendor-
+//! privileged"; `specs/15-kinds.md`, "A built-in kind is an adapter"). This script
+//! walks both trees at compile time and generates `builtin_packages.rs` /
+//! `builtin_kinds.rs` that embed each document verbatim via `include_str!`, so the
+//! shipped binary carries the std-lib with no on-disk configuration and the *same*
+//! document is authored as product source and shipped embedded — one artifact, no
+//! mirror.
 //!
-//! The embed is auto-detected: every directory under `packages/` that carries a
-//! `PACKAGE.md` is embedded, keyed by the directory name (`skill.anthropic`,
-//! `rule.anthropic`, …). Adding a built-in package needs no edit here or to
-//! `Cargo.toml` — drop a `packages/<name>/PACKAGE.md` and it ships. Keeping the
-//! embed in the build script (not a `Cargo.toml` `include`) keeps it off the
-//! manifest so it never collides with unrelated packaging metadata.
+//! Each embed is auto-detected: every directory under the tree that carries the
+//! marker file is embedded, keyed by the directory name (`skill.anthropic`,
+//! `rule.anthropic`; `skill`, `rule`). Adding a built-in needs no edit here or to
+//! `Cargo.toml` — drop a `<name>/<MARKER>` and it ships. Keeping the embed in the
+//! build script (not a `Cargo.toml` `include`) keeps it off the manifest so it
+//! never collides with unrelated packaging metadata.
 
 use std::env;
 use std::fmt::Write as _;
@@ -26,54 +27,79 @@ use std::path::{Path, PathBuf};
 fn main() {
     let manifest_dir =
         env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is always set by cargo");
-    let packages_dir = Path::new(&manifest_dir).join("packages");
+    let manifest_dir = Path::new(&manifest_dir);
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR is always set by cargo");
+    let out_dir = Path::new(&out_dir);
 
-    // Re-run when a package is added, removed, or edited, so the embedded std-lib
+    embed(
+        &manifest_dir.join("packages"),
+        "PACKAGE.md",
+        "BUILTIN_PACKAGES",
+        "package",
+        &out_dir.join("builtin_packages.rs"),
+    );
+    embed(
+        &manifest_dir.join("kinds"),
+        "KIND.md",
+        "BUILTIN_KINDS",
+        "kind",
+        &out_dir.join("builtin_kinds.rs"),
+    );
+}
+
+/// Walk a `<tree>/<name>/<marker>` product tree and generate a `dest` file
+/// declaring `pub static <table>: &[(&str, &str)]` — `(name, marker source)` per
+/// embedded document, sorted by name. Auto-detected: any directory carrying the
+/// marker file is embedded, so adding a built-in needs no edit here.
+fn embed(tree: &Path, marker: &str, table: &str, noun: &str, dest: &Path) {
+    // Re-run when a built-in is added, removed, or edited, so the embedded std-lib
     // never drifts from the authored source.
-    println!("cargo:rerun-if-changed={}", packages_dir.display());
+    println!("cargo:rerun-if-changed={}", tree.display());
 
-    let mut packages: Vec<(String, PathBuf)> = Vec::new();
-    if let Ok(listing) = fs::read_dir(&packages_dir) {
+    let mut entries: Vec<(String, PathBuf)> = Vec::new();
+    if let Ok(listing) = fs::read_dir(tree) {
         for entry in listing {
-            let entry = entry.expect("reading a packages/ dir entry");
+            let entry = entry.expect("reading a std-lib tree dir entry");
             let dir = entry.path();
             if !dir.is_dir() {
                 continue;
             }
-            let package_md = dir.join("PACKAGE.md");
-            if !package_md.is_file() {
+            let doc = dir.join(marker);
+            if !doc.is_file() {
                 continue;
             }
             let name = dir
                 .file_name()
                 .and_then(|stem| stem.to_str())
-                .expect("a package directory name is valid UTF-8")
+                .expect("a std-lib directory name is valid UTF-8")
                 .to_string();
-            println!("cargo:rerun-if-changed={}", package_md.display());
-            packages.push((name, package_md));
+            println!("cargo:rerun-if-changed={}", doc.display());
+            entries.push((name, doc));
         }
     }
     // Sorted so the generated table (and every diagnostic ranging over it) is
     // stable across machines and runs.
-    packages.sort();
+    entries.sort();
 
-    // Emit `BUILTIN_PACKAGES: &[(&str, &str)]` — each entry the package name paired
-    // with its `PACKAGE.md` source, embedded byte-for-byte. Absolute paths so the
-    // `include_str!` resolves regardless of where the generated file is included.
-    let mut code = String::from(
-        "/// Every embedded built-in package: `(name, PACKAGE.md source)`, sorted by\n\
-         /// name. Generated by `build.rs` from the `packages/` product tree.\n\
-         pub static BUILTIN_PACKAGES: &[(&str, &str)] = &[\n",
+    // Emit `<table>: &[(&str, &str)]` — each entry the name paired with its marker
+    // source, embedded byte-for-byte. Absolute paths so the `include_str!` resolves
+    // regardless of where the generated file is included.
+    let mut code = format!(
+        "/// Every embedded built-in {noun}: `(name, {marker} source)`, sorted by\n\
+         /// name. Generated by `build.rs` from the `{tree}` product tree.\n\
+         pub static {table}: &[(&str, &str)] = &[\n",
+        tree = tree
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("a std-lib tree name is valid UTF-8"),
     );
-    for (name, path) in &packages {
+    for (name, path) in &entries {
         let path = path
             .to_str()
-            .expect("a package path under the manifest dir is valid UTF-8");
+            .expect("a std-lib path under the manifest dir is valid UTF-8");
         writeln!(code, "    ({name:?}, include_str!({path:?})),").expect("writing to a String");
     }
     code.push_str("];\n");
 
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR is always set by cargo");
-    let dest = Path::new(&out_dir).join("builtin_packages.rs");
-    fs::write(&dest, code).expect("writing the generated builtin_packages.rs");
+    fs::write(dest, code).expect("writing a generated std-lib embed");
 }
