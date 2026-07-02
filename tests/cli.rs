@@ -127,8 +127,17 @@ fn import(harness: &Path, into: &Path) {
 }
 
 /// Run `temper check <workspace> [extra…]` and return whether it exited zero.
+///
+/// Runs with the CWD set to the workspace itself, which carries no `temper.toml`,
+/// so the run exercises the pure by-kind floor — the same CWD-isolation the
+/// `schema` tests use for the same reason. Without it, an ambient project
+/// `temper.toml` at the process CWD (e.g. temper's own, which registers the `spec`
+/// custom kind) would leak into a foreign workspace that lacks that kind's
+/// definition and abort the load — an artifact of the test harness, not the floor
+/// behaviour these cases pin.
 fn run_check(workspace: &Path, extra: &[&str]) -> bool {
     Command::new(BIN)
+        .current_dir(workspace)
         .arg("check")
         .arg(workspace)
         .args(extra)
@@ -212,6 +221,72 @@ fn import_then_check_dispatches_the_rule_kind_to_the_rule_contract() {
     assert!(
         !check_succeeds(&forbidden_into),
         "a forbidden-key rule must exit non-zero (the rule contract's required clause)"
+    );
+}
+
+/// Run `temper check --harness <harness>` (the one-shot wedge) and return
+/// `(exit-zero, stdout)`.
+fn run_check_harness(harness: &Path) -> (bool, String) {
+    let output = Command::new(BIN)
+        .arg("check")
+        .arg("--harness")
+        .arg(harness)
+        .output()
+        .unwrap();
+    (
+        output.status.success(),
+        String::from_utf8(output.stdout).unwrap(),
+    )
+}
+
+#[test]
+fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
+    // The zero-config wedge (`specs/20-surface.md`, "CLI surface" — `check --harness`
+    // is the one-shot mode): a raw harness is linted directly, no `import` step, and
+    // no surface workspace is written. A forbidden Cursor key trips a `required`
+    // clause ⇒ non-zero, and the finding is on stdout.
+    let harness = tmpdir("one-shot-src");
+    write_rule_harness(&harness, "rust", FORBIDDEN_KEY_RULE);
+
+    let (ok, stdout) = run_check_harness(&harness);
+    assert!(
+        !ok,
+        "check --harness must exit non-zero on a required-clause violation"
+    );
+    assert!(
+        stdout.contains("forbidden_keys"),
+        "the finding must reach stdout, got:\n{stdout}"
+    );
+    // One-shot means no workspace ceremony: the harness is imported internally into a
+    // scratch dir, so no `.temper` surface is left beside it.
+    assert!(
+        !harness.join(".temper").exists(),
+        "check --harness must not write a surface workspace beside the harness"
+    );
+
+    // A clean harness over the same one-shot path exits zero.
+    let clean = tmpdir("one-shot-clean");
+    write_rule_harness(&clean, "rust", CLEAN_RULE);
+    let (ok, _) = run_check_harness(&clean);
+    assert!(ok, "check --harness over a clean harness must exit zero");
+}
+
+#[test]
+fn check_rejects_a_harness_and_workspace_together() {
+    // `--harness` and the positional workspace are the two mutually-exclusive routes
+    // into the gate; supplying both is a usage error, not a silent precedence pick.
+    let ws = tmpdir("conflict-ws");
+    let harness = tmpdir("conflict-harness");
+    let status = Command::new(BIN)
+        .arg("check")
+        .arg(&ws)
+        .arg("--harness")
+        .arg(&harness)
+        .status()
+        .unwrap();
+    assert!(
+        !status.success(),
+        "check <workspace> --harness <path> must be a usage error"
     );
 }
 

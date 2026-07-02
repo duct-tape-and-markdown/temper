@@ -86,6 +86,14 @@ enum Command {
     Check {
         /// The surface workspace to lint (defaults to `./.temper`).
         workspace: Option<PathBuf>,
+        /// The **one-shot mode** (`specs/20-surface.md`, "CLI surface"): lint a raw
+        /// harness directly — import it internally into a throwaway surface, run the
+        /// identical by-kind gate, and touch no workspace on disk. The zero-config
+        /// wedge: `temper check --harness .` finds real problems in a project's own
+        /// `.claude/` before any `import` ceremony. Conflicts with the positional
+        /// `workspace`.
+        #[arg(long, conflicts_with = "workspace")]
+        harness: Option<PathBuf>,
         /// Also fail the run on `advisory` (warn-severity) violations, not just
         /// `required` ones — the strict CI policy from `specs/10-contracts.md`.
         #[arg(long)]
@@ -205,11 +213,32 @@ fn main() -> miette::Result<ExitCode> {
         }
         Command::Check {
             workspace,
+            harness,
             deny_advisories,
             reporter,
         } => {
-            let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
-            let diagnostics = gate(&workspace, Path::new(TEMPER_TOML))?;
+            // Two ways into the same gate (`specs/20-surface.md`, "CLI surface").
+            // `--harness <path>` is the **one-shot** wedge: import the raw harness
+            // into a throwaway scratch surface and gate against the harness's own
+            // `temper.toml`, exactly as the session-start placement does, then tear
+            // the scratch down — no workspace is written. Without it, the author's
+            // two-step path gates an already-imported surface. Both produce the same
+            // diagnostic set shape, so the render + exit-code below is shared.
+            let diagnostics = match harness {
+                Some(harness) => {
+                    let scratch = scratch_surface()?;
+                    import::run(&harness, &scratch)?;
+                    let diagnostics = gate(&scratch, &harness.join(TEMPER_TOML))?;
+                    // A leftover scratch dir must never fail the run; swallow removal
+                    // errors, mirroring the session-start one-shot.
+                    let _ = fs::remove_dir_all(&scratch);
+                    diagnostics
+                }
+                None => {
+                    let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
+                    gate(&workspace, Path::new(TEMPER_TOML))?
+                }
+            };
 
             // Reporters reshape presentation only — the same diagnostic set, a
             // different machine format (`specs/50-distribution.md`, "Outward seams

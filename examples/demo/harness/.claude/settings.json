@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "temper session-start .",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

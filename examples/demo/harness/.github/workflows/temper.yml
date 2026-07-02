@@ -1,0 +1,17 @@
+# Managed by `temper install` — the gate on human change (specs/50-distribution.md).
+name: temper
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the temper gate
+        run: |
+          temper import . --into .temper
+          temper check .temper --reporter github

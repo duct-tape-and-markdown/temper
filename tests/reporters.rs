@@ -204,7 +204,12 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
     let into = tmpdir("sarif-into");
     import(&harness, &into);
 
+    // CWD-isolated to the workspace (which carries no `temper.toml`) so an ambient
+    // project layer at the process CWD — e.g. temper's own, registering the `spec`
+    // custom kind whose definition this foreign workspace lacks — can't leak in and
+    // abort the load. Mirrors the `schema`/`cli` tests' isolation.
     let output = Command::new(BIN)
+        .current_dir(&into)
         .arg("check")
         .arg(&into)
         .arg("--reporter")

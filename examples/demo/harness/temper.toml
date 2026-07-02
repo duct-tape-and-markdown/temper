@@ -1,0 +1,10 @@
+# The demo harness's assembly. The built-in `rule` floor is adopted as-is; this
+# layer only re-authors the `forbidden_keys` clause's guidance so the rendered
+# finding carries the teaching moment (the failure is the teaching moment —
+# specs/10-contracts.md, "Packages").
+[kind.rule]
+[[kind.rule.clause]]
+severity = "required"
+predicate = "forbidden_keys"
+keys = ["description", "globs", "alwaysApply"]
+guidance = "`globs` is a Cursor `.mdc` key — Claude Code ignores it, so this rule silently loads nothing. Scope with `paths` instead, or drop the key."
