@@ -1,24 +1,29 @@
 # Plan state
 
-- **Phase:** reconcile. Queue is reconciled to the corpus; the inbox is empty.
-- **Last shipped (trunk):** PACKAGE-CLAUSE-SOURCE — per-clause `source` citation
-  parsed + preserved (6c51057 / 2bf7529). HEAD is 6c51057.
-- **In flight / anomaly:** COVERAGE-CUSTOM-KIND was **attempted and reverted** by
-  the `cargo fmt` afterCommit gate — its unformatted diff (src/kind.rs, src/main.rs,
-  tests/coverage.rs) sits **uncommitted in the working tree, not on trunk**. The
-  entry stays `open`; build retries from a clean fresh worktree (unaffected by the
-  residue) and must run `cargo fmt --all` before commit. The residue is not plan-
-  writable to clean — a human may `git checkout -- src tests` to clear it.
-- **Pickable now (4, all disjoint / parallel-safe):** COVERAGE-CUSTOM-KIND
-  (kind.rs+main.rs+tests/coverage.rs), OFFERING-LICENSE (Cargo.toml+LICENSE-*),
-  OFFERING-COMMUNITY (new docs+.github/), OFFERING-README (README.md+scripts/). No
-  path is shared across the four. Parked: EMBED-BUILTIN-PACKAGES (human authors
-  packages/*/PACKAGE.md), PACKAGING-CHANNELS (human release creds). Deferred:
-  AGENT-KIND (priority; shares main.rs with COVERAGE on revival).
-- **Inbox:** empty. **Forks:** filed `(launch-front-door-docs)` — AGENTS.md +
-  CHANGELOG launch docs, held on the AGENTS.md⟷CLAUDE.md canonicality question
-  (human territory). No new fork gates a pickable head.
+- **Phase:** reconcile. Queue reconciled to the corpus; inbox drained (three lines
+  routed into pending); no new fork.
+- **Last shipped (trunk):** OFFERING-COMMUNITY — the launch community surface under
+  `.github/` (CONTRIBUTING/SECURITY/issue forms) (bebb6aa / 4e87522). Since the last
+  plan tick the std-lib packages were authored (966147d) and the memory kind joined
+  the corpus enumeration (950257b). HEAD is bebb6aa.
+- **In flight / anomaly:** COVERAGE-CUSTOM-KIND was attempted and **reverted** by the
+  `cargo fmt` afterCommit gate — its unformatted diff (src/kind.rs, src/main.rs,
+  tests/coverage.rs) sits uncommitted in the working tree, not on trunk (HEAD confirms
+  kind.rs:740 `satisfies: Vec::new()`, main.rs:624-629 skill⊕rule only). Stays `open`;
+  build retries from a clean worktree and MUST `cargo fmt --all` before commit. Residue
+  is not plan-writable — a human may `git checkout -- src tests`.
+- **Pickable now (4 disjoint / parallel-safe):** OFFERING-LICENSE (Cargo.toml+LICENSE-*),
+  OFFERING-README (README.md+scripts/), AGENTS-MD (AGENTS.md), CHANGELOG-STUB
+  (CHANGELOG.md) — plus COVERAGE-CUSTOM-KIND (kind.rs+main.rs+coverage.rs), disjoint
+  from those four. **Serialized main.rs chain:** COVERAGE → SESSION-START-CUSTOM-KIND
+  (blockedBy COVERAGE) → EMBED-BUILTIN-PACKAGES (blockedBy SESSION-START) — all three
+  edit src/main.rs, so they ship one at a time. Parked: PACKAGING-CHANNELS (human
+  release creds). Deferred: AGENT-KIND (priority; the newly-enumerated memory kind is
+  deprioritized the same way and left unfiled).
+- **Inbox:** drained (EMBED un-park → filed; front-door docs → AGENTS-MD + CHANGELOG-STUB;
+  the dogfood BUG → SESSION-START-CUSTOM-KIND, high-priority, chained behind COVERAGE).
+  **Forks:** none new.
 
-Plan continues: no — the queue is reconciled, four disjoint `open` entries are
-pickable, the inbox is empty, and the only new gap is surfaced as an open question.
-Building drains the queue from here.
+Plan continues: no — the queue is reconciled, four disjoint `open` docs plus the
+head of the serialized main.rs chain are pickable, and the inbox is drained. Building
+drains the queue from here.

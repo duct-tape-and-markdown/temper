@@ -15,11 +15,11 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Populate `Features.satisfies` for a custom-kind unit from the parsed member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:737-740 on trunk names it a later follow-on). This is NOT a new extraction primitive — the `satisfies` binding is a surface-header module (as for skill/rule), threaded onto the composed `Unit` and into its Features. Coverage stays kind-blind by design (specs/15-kinds.md worked example — temper's own `spec` corpus can opt into requirements)."
+          "description": "Populate `Features.satisfies` for a custom-kind unit from the parsed member document's `[satisfies.*]` modules rather than the hardcoded `satisfies: Vec::new()` in `Kind::extract` (kind.rs:740 on trunk). This is NOT a new extraction primitive — the `satisfies` binding is a surface-header module (as for skill/rule), threaded onto the composed `Unit` and into its Features. Coverage stays kind-blind by design (specs/15-kinds.md worked example — temper's own `spec` corpus can opt into requirements)."
         },
         {
           "path": "src/main.rs",
-          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:624-629 on trunk, skill ⊕ rule only). GRAPH-CUSTOM-KIND (8f057c7) already computes the `custom_kinds` features up front and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
+          "description": "Chain the registered custom kinds' features into `all_features` before `coverage::check` (main.rs:624-629 on trunk, skill ⊕ rule only). GRAPH-CUSTOM-KIND (8f057c7) already computes the `custom_kinds` features up front (main.rs:512-544) and joins them to `by_kind`, so the features are in hand — this only adds them to the coverage chain."
         },
         {
           "path": "tests/coverage.rs",
@@ -36,7 +36,43 @@
       }
     ],
     "acceptance": "A custom-kind unit's authored `satisfies` participates in coverage exactly as a skill/rule does; temper's own `spec` corpus can opt into requirements; cargo fmt/clippy -D warnings/test green.",
-    "notes": "A build tick shipped this but its commit was reverted by the `cargo fmt` afterCommit gate — the unformatted diff (a main.rs `.chain`, a tests/coverage.rs `PACKAGE.md` write) sits uncommitted in the working tree, NOT on trunk (HEAD=6c51057). Retry runs from clean HEAD (kind.rs still `satisfies: Vec::new()`, main.rs chains skill⊕rule only) and MUST `cargo fmt --all` before commit. Disjoint from every other open entry."
+    "notes": "A build tick shipped this but its commit was reverted by the `cargo fmt` afterCommit gate — the unformatted diff (src/kind.rs, src/main.rs, tests/coverage.rs) sits uncommitted in the working tree, NOT on trunk (HEAD=bebb6aa: kind.rs:740 still `satisfies: Vec::new()`, main.rs:624-629 chains skill⊕rule only). Retry from clean HEAD; MUST `cargo fmt --all` before commit. EMBED-BUILTIN-PACKAGES is serialized behind this (shares src/main.rs)."
+  },
+  {
+    "tag": "SESSION-START-CUSTOM-KIND",
+    "summary": "Fix `temper session-start` on a project with a registered custom kind — resolve authored `.temper/kinds` + `.temper/packages` from the harness, not the throwaway scratch surface",
+    "per": {
+      "path": "specs/50-distribution.md",
+      "section": "Decision: the session-start gate is advisory, not blocking"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "COVERAGE-CUSTOM-KIND"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The one-shot `SessionStart` arm (main.rs:334-359) imports members into a throwaway `scratch_surface()` and calls `gate(&scratch, &harness_path.join(TEMPER_TOML))`. But `gate` derives `packages_dir`/`kinds_dir` from the *workspace* it is handed (the scratch surface, ~main.rs:427), which never carries the project's authored `.temper/kinds/<name>/KIND.md` or `.temper/packages/` — so a registered custom kind dangles as `kind::missing_definition` (kind.rs:573). Give `gate` a separate authored-root parameter for `kinds_dir`/`packages_dir` and pass it from both call sites: `check` uses the workspace itself (behaviour unchanged), the session-start arm uses the harness's own `.temper/` beside its `temper.toml`."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Regression fixture: a harness that registers a custom kind (its KIND.md + bound package authored under `.temper/`) passes `session-start` with an advisory payload instead of erroring with kind::missing_definition."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/session_start.rs",
+        "asserts": "`session-start` over a harness with a registered custom kind resolves the authored KIND.md + package from the harness's `.temper/` and exits zero with the reporter payload, never kind::missing_definition."
+      }
+    ],
+    "acceptance": "`temper session-start <harness>` on a project with a registered custom kind resolves the authored KIND.md + package from the harness's own `.temper/` and emits the advisory reporter payload (exit 0), instead of failing with kind::missing_definition; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Found dogfooding (inbox): the installed SessionStart hook at temper's own root errors every session — its custom `spec` kind's definition/packages live in `.temper/`, not the scratch import surface. High priority. Serialized behind COVERAGE-CUSTOM-KIND (both edit src/main.rs); EMBED-BUILTIN-PACKAGES now chains behind THIS. Fix is the one-shot path only — `check`'s two-step resolution is already correct."
   },
   {
     "tag": "OFFERING-LICENSE",
@@ -71,7 +107,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "The repo carries LICENSE-MIT + LICENSE-APACHE and Cargo.toml declares `license = \"MIT OR Apache-2.0\"`; cargo build/fmt/clippy green.",
-    "notes": "From the offering tranche (specs/55-offering.md). Do the relicense now — the Decision's window is 'while there are no external contributors' (clean trunk confirms it). No bare LICENSE file exists on disk; the only license declaration is Cargo.toml `license = \"MIT\"` (Cargo.toml:6), which the edit flips to SPDX `MIT OR Apache-2.0` — nothing to retire. Disjoint from all other open entries: owns Cargo.toml `license` + the LICENSE-* files, touches no source/README."
+    "notes": "From the offering tranche (specs/55-offering.md). Do the relicense now — the Decision's window is 'while there are no external contributors' (clean trunk confirms it). No bare LICENSE file exists on disk; the only license declaration is Cargo.toml `license = \"MIT\"` (Cargo.toml:6), flipped to SPDX `MIT OR Apache-2.0` — nothing to retire. Disjoint from all other open entries: owns Cargo.toml `license` + the LICENSE-* files, touches no source/README."
   },
   {
     "tag": "OFFERING-README",
@@ -102,35 +138,83 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "README.md is the ~800-word front door with the diagnostic hero visual produced by the captioned command; the demo asset is committed and regenerable; cargo green.",
-    "notes": "From the offering tranche (specs/55-offering.md). Two Decisions govern: the front-door shape and 'hero visual is the diagnostic, not a benchmark' — the demo asset must be a committed, regenerable projection of real `check` output, not a drift-prone screenshot. Heavier than the sibling doc entries (the capture pipeline). README.md + scripts/ only; disjoint from the rest. AGENTS.md + CHANGELOG (same section) are held as (launch-front-door-docs), NOT in scope here."
+    "notes": "From the offering tranche (specs/55-offering.md). Two Decisions govern: the front-door shape and 'hero visual is the diagnostic, not a benchmark' — the demo asset must be a committed, regenerable projection of real `check` output, not a drift-prone screenshot. Heavier than the sibling doc entries (the capture pipeline). README.md + scripts/ only; disjoint from the rest. AGENTS.md + CHANGELOG are separate entries below, NOT in scope here."
   },
   {
-    "tag": "EMBED-BUILTIN-PACKAGES",
-    "summary": "Embed the built-in std-lib from temper's own `packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park that validates the reconciled machinery",
+    "tag": "AGENTS-MD",
+    "summary": "Author AGENTS.md at root — contributor-facing build/test/lint + architecture map, pointing to the AI-authorship policy; CLAUDE.md stays canonical and untouched",
     "per": {
-      "path": "specs/10-contracts.md",
-      "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
+      "path": "specs/55-offering.md",
+      "section": "The front door — the README is the landing page"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "the authored sources must exist first: a human authors the built-in `packages/{skill.anthropic,rule.anthropic}/PACKAGE.md` in temper's product tree (product source, not the dogfood workspace — b0cf244) — the resolved (package-surface-sequencing) order, machinery first / dogfood as validation; last in the chain, needs the surface-language chain (MEMBER-DOCUMENT-IMPORT…KIND-AUTHORED-ARTIFACT + GRAPH-CUSTOM-KIND) shipped, which it now is"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
-          "path": "packages/skill.anthropic/PACKAGE.md, packages/rule.anthropic/PACKAGE.md",
-          "description": "The authored built-in package sources in temper's product tree (`10-contracts.md` names the home as product source, not `.temper/`); the embed target replacing `contracts/*.toml`. The `rule` → `rule.anthropic` rename lands here (`specs/10-contracts.md`, built-ins named for their source)."
-        },
+          "path": "AGENTS.md",
+          "description": "The 2025-26 agent-readable contributor doc at repo root: build/test/lint commands (cargo build/test, clippy -D warnings, fmt), a short architecture map of `src/` (the contract engine, kinds, surface, drift), and a pointer to the AI-contribution policy in `.github/CONTRIBUTING.md` (shipped by OFFERING-COMMUNITY, 4e87522). Per the RESOLVED (launch-front-door-docs) fork it is a SEPARATE contributor doc — it does NOT touch `.claude/**` or `CLAUDE.md`, and CLAUDE.md is NOT gutted to source it (the ruff/uv 'CLAUDE.md = @AGENTS.md' move is rejected here; CLAUDE.md is the pipeline's operating harness, the recursive-dogfood fixture)."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "AGENTS.md exists at root as a contributor-facing doc (build/test/lint + architecture map + pointer to the AI-authorship policy); CLAUDE.md and `.claude/**` are untouched; cargo green.",
+    "notes": "Fileable per RESOLVED (launch-front-door-docs). Root doc only, disjoint from every other entry (owns AGENTS.md alone). The chore(harness) boundary holds: this entry must not edit CLAUDE.md or `.claude/**`. CONTRIBUTING.md lives at `.github/CONTRIBUTING.md` (verified on disk), so link there."
+  },
+  {
+    "tag": "CHANGELOG-STUB",
+    "summary": "Add a root CHANGELOG.md stub with an Unreleased section — the pre-1.0 alive-signal named in the front-door status obligation",
+    "per": {
+      "path": "specs/55-offering.md",
+      "section": "The front door — the README is the landing page"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
         {
-          "path": "build.rs (or include_dir wiring)",
-          "description": "Embed the authored package directories into the binary — a sanctioned-crate addition (include_dir / build.rs codegen), folded in per the resolved fork."
+          "path": "CHANGELOG.md",
+          "description": "A Keep-a-Changelog-shaped root stub with an `## [Unreleased]` section — the alive-signal the honest-status obligation calls for (small, frequent tagged releases; cadence is the loudest alive-signal). Release-cadence sections fill in at the first tag (PACKAGING-CHANNELS); this ships the stub now."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "CHANGELOG.md exists at root with an Unreleased section; cargo green.",
+    "notes": "Fileable per RESOLVED (launch-front-door-docs) — 'a root stub with an Unreleased section now.' Root doc only, disjoint from every other entry. Release cadence settles at first tag (PACKAGING-CHANNELS)."
+  },
+  {
+    "tag": "EMBED-BUILTIN-PACKAGES",
+    "summary": "Embed the built-in std-lib from temper's own `packages/` PACKAGE.md sources and retire `contracts/*.toml` — the dogfood un-park validating the reconciled machinery",
+    "per": {
+      "path": "specs/10-contracts.md",
+      "section": "Decision: a package is project-authorable, not vendor-privileged — and is itself a kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SESSION-START-CUSTOM-KIND"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "build.rs",
+          "description": "Embed the authored package directories (`packages/{skill.anthropic,rule.anthropic}/PACKAGE.md`) into the binary via a build script — auto-detected at package root (no Cargo.toml edit needed if it reads the sources and generates `include!`d code; if `include_dir` is used instead, its dependency is added here). Folded in per the resolved (package-surface-sequencing) fork; keeps the embed off Cargo.toml so it never collides with OFFERING-LICENSE."
         }
       ],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Built-in names resolve from the embedded PACKAGE.md sources instead of `include_str!(\"../contracts/*.toml\")` (main.rs:59/65)."
+          "description": "Built-in names resolve from the embedded PACKAGE.md sources via `Contract::load_package` (contract.rs:586) instead of `include_str!(\"../contracts/*.toml\")` (main.rs:59/65). Shares this file with COVERAGE-CUSTOM-KIND and SESSION-START-CUSTOM-KIND — the blockedBy chain serializes all three."
         },
         {
           "path": "src/bundle.rs",
@@ -138,7 +222,7 @@
         },
         {
           "path": "src/contract.rs",
-          "description": "Retire the TOML-file contract loader once nothing resolves through it."
+          "description": "Retire the TOML-file contract loader (`Contract::load`) once nothing resolves through it; keep `Contract::load_package`."
         }
       ],
       "retire": [
@@ -154,8 +238,8 @@
         "asserts": "built-ins resolve from the embedded authored sources; the bundled plugin carries them; nothing references contracts/*.toml."
       }
     ],
-    "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The dogfood finish of the chain. On disk: contracts/{skill.anthropic,rule}.toml still exist, main.rs:59/65 + bundle.rs still include_str! them, packages/ holds only DOSSIER.md. Blocked on human authoring of packages/{skill.anthropic,rule.anthropic}/PACKAGE.md; the embedded contracts floor persists until then. Loader prereq PACKAGE-CLAUSE-SOURCE (per-clause `source` parse) shipped (6c51057)."
+    "acceptance": "One artifact, two provenance roles: the same PACKAGE.md is authored as product source and shipped embedded; `contracts/` is gone; the std-lib resolves (skill→skill.anthropic, rule→rule.anthropic); cargo fmt/clippy -D warnings/test green.",
+    "notes": "Un-parked: packages/{skill.anthropic,rule.anthropic}/PACKAGE.md are authored (966147d); loader Contract::load_package exists (contract.rs:586). On disk: contracts/{skill.anthropic,rule}.toml still exist, main.rs:59/65 + bundle.rs:122/126,210/216 include_str! them. Last in the main.rs chain (COVERAGE → SESSION-START → EMBED). rule→rule.anthropic rename lands here (20-surface.md binds rule→rule.anthropic)."
   },
   {
     "tag": "AGENT-KIND",
@@ -166,7 +250,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the surface-language chain it waited on (through KIND-AUTHORED-ARTIFACT + GRAPH-CUSTOM-KIND) has now shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
+      "reason": "the requirements/satisfies reframe deprioritizes more built-in kinds; the surface-language chain it waited on (through KIND-AUTHORED-ARTIFACT + GRAPH-CUSTOM-KIND) has shipped, so the blocker is priority alone — revive only if a story demands the agent kind"
     },
     "dependsOnForks": [],
     "files": {
@@ -216,7 +300,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the agent package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently with `[[agent]]` lock rows; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry — notably COVERAGE-CUSTOM-KIND, which also edits main.rs."
+    "notes": "Deferred by the requirements/satisfies reframe: more built-in kinds is the wrong direction. Shaped to the surface-language forms — one AGENT.md member document, an authored PACKAGE.md, no meta.toml, no contracts/agent.toml. On revival its shared-surface blast radius (lib/check/extract/import/main) serializes against any then-open entry that edits main.rs (COVERAGE, EMBED)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
