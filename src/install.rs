@@ -331,15 +331,14 @@ struct ModelineTarget {
 /// relative `$schema` reference its modeline points at.
 fn modeline_targets(root: &Path) -> miette::Result<Vec<ModelineTarget>> {
     let mut targets = Vec::new();
-    for dir in import::discover_skill_dirs(root)? {
-        let source = dir.join("SKILL.md");
+    for source in import::discover_builtin(root, "skill")? {
         let schema_ref = schema_ref(root, &source, "skill");
         targets.push(ModelineTarget {
             path: source,
             schema_ref,
         });
     }
-    for source in import::discover_rule_files(root)? {
+    for source in import::discover_builtin(root, "rule")? {
         let schema_ref = schema_ref(root, &source, "rule");
         targets.push(ModelineTarget {
             path: source,

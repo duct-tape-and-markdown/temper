@@ -169,11 +169,8 @@ pub fn diff(
             import_hash: skill.provenance.import_hash.clone(),
         })
         .collect::<Vec<_>>();
-    // A skill's source is the `SKILL.md` inside its discovered directory.
-    let skills_on_disk = import::discover_skill_dirs(harness)?
-        .iter()
-        .map(|dir| dir.join("SKILL.md"))
-        .collect::<Vec<_>>();
+    // The unified `governs`-keyed scan yields a skill's source `SKILL.md` directly.
+    let skills_on_disk = import::discover_builtin(harness, "skill")?;
     entries.extend(classify("skill", &skills, &skills_on_disk)?);
 
     let rules = workspace
@@ -185,7 +182,7 @@ pub fn diff(
             import_hash: rule.provenance.import_hash.clone(),
         })
         .collect::<Vec<_>>();
-    let rules_on_disk = import::discover_rule_files(harness)?;
+    let rules_on_disk = import::discover_builtin(harness, "rule")?;
     entries.extend(classify("rule", &rules, &rules_on_disk)?);
 
     // Each registered custom kind classifies at its own `governs` locus. Its surface

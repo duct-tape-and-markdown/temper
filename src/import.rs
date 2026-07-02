@@ -20,9 +20,10 @@ use std::path::{Path, PathBuf};
 
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
+use crate::builtin_kind;
 use crate::compose::AuthorLayer;
 use crate::document::{self, Document};
-use crate::kind::{BUILTIN_KINDS, CustomKind, Governs};
+use crate::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError};
 use crate::rule::{Rule, RuleError};
 use crate::skill::{Skill, SkillError};
 
@@ -44,6 +45,14 @@ pub enum ImportError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Rule(#[from] RuleError),
+
+    /// A built-in kind's embedded `KIND.md` failed to parse into its definition —
+    /// the `governs` locus discovery keys off. A compiled-in invariant (`build.rs`
+    /// generates the table from validated product source), surfaced rather than
+    /// panicked so discovery stays panic-free (`.claude/rules/rust.md`).
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Kind(#[from] KindError),
 
     /// A custom-kind unit's source file is not valid UTF-8, so its body cannot be
     /// modelled. (A built-in kind reports this through its own IR; a custom unit is
@@ -112,13 +121,18 @@ pub(crate) struct RollupEntry {
 /// Idempotent over an unchanged harness. See the module header for the discovery
 /// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
-    let skill_dirs = discover_skill_dirs(harness_path)?;
-    let mut skills = Vec::with_capacity(skill_dirs.len());
-    for dir in &skill_dirs {
+    let skill_files = discover_builtin(harness_path, "skill")?;
+    let mut skills = Vec::with_capacity(skill_files.len());
+    for file in &skill_files {
+        // A skill's source is its directory (the `SKILL.md`'s parent); the generic
+        // `governs` scan yields the `SKILL.md` files, so recover the dir here.
+        let dir = file
+            .parent()
+            .expect("a discovered SKILL.md path has a parent directory");
         skills.push(import_skill(dir, into)?);
     }
 
-    let rule_files = discover_rule_files(harness_path)?;
+    let rule_files = discover_builtin(harness_path, "rule")?;
     let mut rules = Vec::with_capacity(rule_files.len());
     for file in &rule_files {
         rules.push(import_rule(file, into)?);
@@ -156,79 +170,42 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
     Ok(())
 }
 
-/// Find the skill directories under `harness`: a bare `<harness>` that is itself
-/// a skill dir (has `SKILL.md`), followed by each immediate `.claude/skills/<name>/`
-/// child that has one — the skill kind's real Claude Code locus, so one
-/// project-root `harness_path` captures skills and rules together
-/// (`specs/20-surface.md`; a repo-root `skills/` tree is a *plugin* layout,
-/// not scanned here). Non-skill files and dirs are skipped.
+/// Discover a built-in kind's source files by name, keying off the `governs` its
+/// embedded `KIND.md` declares — the same data-driven scan a custom kind gets, so
+/// `skill`/`rule` are no longer hardwired paths (`specs/15-kinds.md`, "A built-in
+/// kind is an adapter": the emit face's locus is the read face's scan root). The
+/// `skill` locus (`.claude/skills` + `*/SKILL.md`) resolves through the generalized
+/// subdir glob; `rule`'s (`.claude/rules` + `*.md`) is flat. Yields the member
+/// source *files* — for a skill the `SKILL.md`, not its directory.
 ///
-/// `pub(crate)` so the drift engine can re-run the same per-kind scan against a
-/// live harness without duplicating the discovery rules (`specs/20-surface.md`,
-/// the drift "added" axis).
-pub(crate) fn discover_skill_dirs(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
-    let mut dirs = Vec::new();
-
-    if harness.join("SKILL.md").is_file() {
-        dirs.push(harness.to_path_buf());
-    }
-
-    let skills_root = harness.join(".claude").join("skills");
-    if skills_root.is_dir() {
-        let listing = fs::read_dir(&skills_root).map_err(|source| ImportError::ReadDir {
-            path: skills_root.clone(),
-            source,
-        })?;
-        let mut children = Vec::new();
-        for entry in listing {
-            let entry = entry.map_err(|source| ImportError::ReadDir {
-                path: skills_root.clone(),
-                source,
-            })?;
-            let path = entry.path();
-            if path.is_dir() && path.join("SKILL.md").is_file() {
-                children.push(path);
-            }
+/// The bare-harness-is-a-skill case — a `<harness>/SKILL.md`, a project root that is
+/// itself a skill — is Claude Code's own convention, outside the `.claude/skills`
+/// locus the `governs` scan covers, so it is layered on for the `skill` kind only.
+///
+/// `pub(crate)` so drift re-scans the harness, and install's modeline placement
+/// targets the same set, through the identical discovery `import` used
+/// (`specs/20-surface.md`, the drift "added" axis).
+pub(crate) fn discover_builtin(harness: &Path, name: &str) -> Result<Vec<PathBuf>, ImportError> {
+    let mut files = discover_kind_units(harness, &builtin_governs(name)?)?;
+    if name == "skill" {
+        let bare = harness.join("SKILL.md");
+        if bare.is_file() {
+            files.push(bare);
+            // Re-sort so the bare root skill lands in name order beside the children.
+            files.sort();
         }
-        // `read_dir` order is unspecified; sort for deterministic processing.
-        children.sort();
-        dirs.extend(children);
     }
-
-    Ok(dirs)
+    Ok(files)
 }
 
-/// Find the rule source files under `<harness>/.claude/rules/`: every immediate
-/// `*.md` child. Non-markdown files and subdirectories are skipped. Note the root
-/// asymmetry with skills — rules live under `.claude/rules/`, not at the harness
-/// root — which is the spec literal (`specs/20-surface.md`).
-///
-/// `pub(crate)` for the same reason as [`discover_skill_dirs`]: drift re-scans
-/// the harness through the identical discovery the import used.
-pub(crate) fn discover_rule_files(harness: &Path) -> Result<Vec<PathBuf>, ImportError> {
-    let rules_root = harness.join(".claude").join("rules");
-    if !rules_root.is_dir() {
-        return Ok(Vec::new());
-    }
-
-    let listing = fs::read_dir(&rules_root).map_err(|source| ImportError::ReadDir {
-        path: rules_root.clone(),
-        source,
-    })?;
-    let mut files = Vec::new();
-    for entry in listing {
-        let entry = entry.map_err(|source| ImportError::ReadDir {
-            path: rules_root.clone(),
-            source,
-        })?;
-        let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
-            files.push(path);
-        }
-    }
-    // `read_dir` order is unspecified; sort for deterministic processing.
-    files.sort();
-    Ok(files)
+/// The `governs` locus of a built-in kind, read off its embedded `KIND.md` through
+/// the same [`builtin_kind::definition`] parse `check` uses. `name` is always an
+/// embedded built-in (`skill`, `rule`) at every call site, so an absent definition
+/// is a genuine invariant.
+fn builtin_governs(name: &str) -> Result<Governs, ImportError> {
+    let kind = builtin_kind::definition(name)?
+        .expect("a built-in kind name resolves to an embedded KIND.md");
+    Ok(kind.governs)
 }
 
 /// Read one source skill and write its surface tree under `<into>/skills/<name>/`,
@@ -332,46 +309,72 @@ fn existing_surface_rule(out_dir: &Path) -> Option<Rule> {
     Rule::from_dir(out_dir).ok()
 }
 
-/// Discover a custom kind's units under `<harness>/<governs.root>/`: every
-/// immediate file whose name matches `governs.glob`. Non-matching files and
-/// subdirectories are skipped, and a missing root yields an empty list (a declared
-/// kind whose corpus does not exist on this harness). Data-driven discovery — the
-/// locus is the kind's own `governs` declaration (`specs/40-composition.md`), never
-/// a hardwired path.
+/// Discover a kind's units under `<harness>/<governs.root>/` by matching the
+/// `governs.glob` against paths beneath the root. The glob may be **flat** (`*.md` —
+/// immediate files) or carry a **subdirectory** segment (`*/SKILL.md` — a file inside
+/// each matching immediate child); the one scanner resolves both, so it serves every
+/// custom kind and the built-in `skill`/`rule` loci alike. Non-matching entries are
+/// skipped, and a missing root yields an empty list (a declared kind whose corpus
+/// does not exist on this harness). Data-driven discovery — the locus is the kind's
+/// own `governs` declaration (`specs/40-composition.md`), never a hardwired path.
 ///
 /// `pub(crate)` so the drift engine re-runs the same `governs`-keyed scan against a
-/// live harness — every custom kind's members classify through the identical
-/// discovery `import` used (`specs/20-surface.md`, the drift "added" axis).
+/// live harness — every kind's members classify through the identical discovery
+/// `import` used (`specs/20-surface.md`, the drift "added" axis).
 pub(crate) fn discover_kind_units(
     harness: &Path,
     governs: &Governs,
 ) -> Result<Vec<PathBuf>, ImportError> {
     let root = harness.join(&governs.root);
-    if !root.is_dir() {
-        return Ok(Vec::new());
-    }
-
-    let listing = fs::read_dir(&root).map_err(|source| ImportError::ReadDir {
-        path: root.clone(),
-        source,
-    })?;
+    // A glob is a `/`-separated segment list: the final segment matches files, each
+    // earlier one an immediate subdirectory to descend into. `split` always yields at
+    // least one segment.
+    let segments: Vec<&str> = governs.glob.split('/').collect();
     let mut files = Vec::new();
-    for entry in listing {
-        let entry = entry.map_err(|source| ImportError::ReadDir {
-            path: root.clone(),
-            source,
-        })?;
-        let path = entry.path();
-        if path.is_file()
-            && let Some(name) = path.file_name().and_then(|name| name.to_str())
-            && glob_matches(&governs.glob, name)
-        {
-            files.push(path);
-        }
-    }
+    collect_glob(&root, &segments, &mut files)?;
     // `read_dir` order is unspecified; sort for deterministic processing.
     files.sort();
     Ok(files)
+}
+
+/// Walk `dir` collecting every file whose path matches the remaining glob
+/// `segments`. The head segment selects entries at this level; if it is the last,
+/// matching **files** are collected, otherwise matching **subdirectories** are
+/// descended. A missing or non-directory `dir` contributes nothing — a subdir glob
+/// whose intermediate level is absent, or a locus that does not exist on this
+/// harness, both resolve to no units rather than an error.
+fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result<(), ImportError> {
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    let (segment, rest) = segments
+        .split_first()
+        .expect("a governs glob has at least one path segment");
+    let listing = fs::read_dir(dir).map_err(|source| ImportError::ReadDir {
+        path: dir.to_path_buf(),
+        source,
+    })?;
+    for entry in listing {
+        let entry = entry.map_err(|source| ImportError::ReadDir {
+            path: dir.to_path_buf(),
+            source,
+        })?;
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if !glob_matches(segment, name) {
+            continue;
+        }
+        if rest.is_empty() {
+            if path.is_file() {
+                out.push(path);
+            }
+        } else if path.is_dir() {
+            collect_glob(&path, rest, out)?;
+        }
+    }
+    Ok(())
 }
 
 /// Read one discovered custom-kind unit and write its surface tree under
@@ -836,6 +839,67 @@ temper's own governing documents.\n";
             assert!(table.get("body_hash").is_none());
             assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
         }
+    }
+
+    #[test]
+    fn builtin_discovery_keys_off_the_embedded_kind_governs() {
+        // Discovery is driven by the embedded `skill`/`rule` KIND.md `governs`, not a
+        // hardwired path: the skill `*/SKILL.md` subdir glob and the rule `*.md` flat
+        // glob both resolve through the one generalized scanner.
+        let harness = tmpdir("gov-src");
+        write_fixture_harness(&harness);
+
+        // The skill locus (`.claude/skills` + `*/SKILL.md`) yields the `SKILL.md`
+        // files themselves — the subdir glob descended one level.
+        let skills = discover_builtin(&harness, "skill").unwrap();
+        assert_eq!(
+            skills,
+            vec![
+                harness.join(".claude/skills/coordinate").join("SKILL.md"),
+                harness.join(".claude/skills/demo").join("SKILL.md"),
+            ]
+        );
+
+        // The rule locus (`.claude/rules` + `*.md`) is flat — immediate `*.md` files.
+        let rules = discover_builtin(&harness, "rule").unwrap();
+        assert_eq!(
+            rules,
+            vec![
+                harness.join(".claude/rules/collaboration.md"),
+                harness.join(".claude/rules/rust.md"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_subdir_glob_descends_one_level_and_skips_a_dir_without_the_file() {
+        // The generalized `governs` scanner resolves a `*/FILE.md` subdir glob for any
+        // kind, not just the built-in skill: it descends each immediate child and
+        // collects the named file, skipping a child that lacks it and a loose file at
+        // the root (which matches no subdirectory).
+        let harness = tmpdir("subdir-glob-src");
+        let root = harness.join("things");
+        fs::create_dir_all(root.join("alpha")).unwrap();
+        fs::create_dir_all(root.join("beta")).unwrap();
+        fs::create_dir_all(root.join("empty")).unwrap();
+        fs::write(root.join("alpha").join("THING.md"), "a\n").unwrap();
+        fs::write(root.join("beta").join("THING.md"), "b\n").unwrap();
+        // Noise: a subdir without the file, and a loose root file the glob can't reach.
+        fs::write(root.join("empty").join("other.md"), "skip\n").unwrap();
+        fs::write(root.join("THING.md"), "root, unreachable via */\n").unwrap();
+
+        let governs = Governs {
+            root: "things".to_string(),
+            glob: "*/THING.md".to_string(),
+        };
+        let found = discover_kind_units(&harness, &governs).unwrap();
+        assert_eq!(
+            found,
+            vec![
+                root.join("alpha").join("THING.md"),
+                root.join("beta").join("THING.md"),
+            ]
+        );
     }
 
     #[test]
