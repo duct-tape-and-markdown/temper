@@ -1,24 +1,23 @@
-//! `temper diff` / `apply` / `re-add` — the three-state drift engine.
+//! `temper diff` / `apply` — the drift engine.
 //!
-//! specs/architecture/20-surface.md, "Drift / apply — three states, never two".
+//! specs/architecture/20-surface.md, "Drift — one direction, two freshness facts";
+//! "Decision: `re-add` is retired — hand-edits route to the source" (a direct edit
+//! to emitted output is drift routed to the authored source, never merged back).
 //!
-//! Every write direction turns on three states — **desired** (the edited
-//! surface), the **last-applied fingerprint** (the source as `temper` last left
-//! it, from the lock), and **real on-disk** — so it can tell a human surface edit
-//! from a world drift and merge rather than clobber. [`diff`] classifies every
-//! artifact into four read-only states (in-sync / drifted / added / removed);
-//! [`apply`] pushes the surface out, re-emitting each projection deterministically
-//! from the member document; [`re_add`] pulls on-disk edits back in through
-//! `import`'s own writers;
-//! [`place`] is the whole-file sibling for artifacts temper places rather than
-//! round-trips (specs/architecture/50-distribution.md, `install`).
+//! [`diff`] classifies every artifact into four read-only states (in-sync /
+//! drifted / added / removed); [`apply`] pushes the surface out, re-emitting each
+//! projection deterministically over the three states it merges against — desired,
+//! the last-applied fingerprint (from the lock), and real on-disk — so a human edit
+//! is told from a world drift rather than clobbered. [`place`] is the whole-file
+//! sibling for artifacts temper places rather than round-trips
+//! (specs/architecture/50-distribution.md, `install`).
 
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value as JsonValue;
-use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
+use toml_edit::{DocumentMut, Item, value};
 
 use crate::builtin_kind;
 use crate::check::Workspace;
@@ -547,7 +546,7 @@ fn project_one(
 /// The projection is *generated*, not patched (`specs/architecture/20-surface.md`, "Decision: the
 /// projection is re-emitted; the surface is patched") — the on-disk source is never
 /// read here, so a hand-edited frontmatter comment or reordered field is not
-/// preserved (that is drift, `re-add`'s to lift into the surface). An artifact with
+/// preserved (that is drift, routed to the authored source). An artifact with
 /// no fields (a rule that carries no `paths`/unknown keys) projects to its body
 /// alone — no empty frontmatter block.
 fn project_bytes(fields: &[(String, JsonValue)], body: &str) -> String {
@@ -675,237 +674,6 @@ pub fn render_apply(report: &ApplyReport) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// re-add — the on-disk -> surface direction (`specs/architecture/20-surface.md`, the hard core)
-// ---------------------------------------------------------------------------
-
-/// One artifact's outcome from a [`re_add`]: how its live on-disk source was
-/// reconciled back into the surface.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ReAddOutcome {
-    /// A **drifted** source was pulled into an existing surface artifact — its
-    /// member document (header and body) rewritten, and its lock row's fingerprints
-    /// refreshed to the current source bytes.
-    Reconciled,
-    /// An **added** on-disk source the surface did not carry became a new surface
-    /// artifact and gained a new lock row.
-    Added,
-    /// The source still hashes to the import baseline — nothing to pull in.
-    Unchanged,
-}
-
-impl ReAddOutcome {
-    /// The lower-case label used in the rendered report and stable for tests.
-    #[must_use]
-    pub fn label(self) -> &'static str {
-        match self {
-            ReAddOutcome::Reconciled => "reconciled",
-            ReAddOutcome::Added => "added",
-            ReAddOutcome::Unchanged => "unchanged",
-        }
-    }
-}
-
-/// One row of a [`ReAddReport`]: which artifact, of which kind, located where, and
-/// what `re_add` did with its on-disk source.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReAddEntry {
-    /// The artifact kind — a built-in `"skill"`/`"rule"` or a registered custom
-    /// kind's own name (a `String`, carrying the dynamic name — see [`DriftEntry`]).
-    pub kind: String,
-    /// The artifact name — the name the freshly parsed source carries for a
-    /// reconciled/added artifact, or its surface name for an unchanged one.
-    pub name: String,
-    /// The on-disk source path that was pulled into the surface.
-    pub source_path: PathBuf,
-    /// What `re_add` did for this artifact.
-    pub outcome: ReAddOutcome,
-}
-
-/// The typed result of a [`re_add`]: every classified artifact's outcome, in the
-/// [`diff`] report's stable order. Renders nothing itself — [`render_readd`] turns
-/// it into text.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReAddReport {
-    /// Every reconciled, added, or unchanged artifact, across the built-in kinds.
-    pub entries: Vec<ReAddEntry>,
-}
-
-/// Reconcile the live `harness` on disk back into the loaded `workspace` surface,
-/// pulling every drifted or added built-in source into the surface tree and
-/// refreshing the lock.
-///
-/// `workspace_dir` is the surface root — where the artifact trees and the lock
-/// (`lock.toml`) live. The classification is [`diff`]'s own (so "what's on disk"
-/// is answered by the exact scan `import` used); the write is `import`'s own
-/// per-kind projection. A drifted or added source is re-parsed and re-projected;
-/// an in-sync source is a no-op; a removed source is skipped (there is nothing on
-/// disk to pull in). Writes only when something changed — an all-in-sync harness
-/// leaves every surface byte identical.
-pub fn re_add(
-    workspace: &Workspace,
-    workspace_dir: &Path,
-    harness: &Path,
-    custom_kinds: &[CustomKind],
-) -> miette::Result<ReAddReport> {
-    let classification = diff(workspace, workspace_dir, harness, custom_kinds)?;
-
-    // The built-in read-side set, keyed by qualified identity — re-projection resolves
-    // an entry's kind against this instead of re-resolving its bare `name`, so a re-add
-    // over a bare name a second provider also carries never collides on the scan
-    // (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis").
-    let builtins = builtin_kind::definitions()?;
-
-    let mut entries = Vec::new();
-    // The rows to fold into the lock, tagged with their kind's array-of-tables key.
-    let mut updates: Vec<(String, import::RollupEntry)> = Vec::new();
-
-    for entry in &classification.entries {
-        // A removed source has nothing on disk to reconcile in — skip it entirely
-        // (pruning the orphaned surface artifact is a separate direction).
-        if entry.state == DriftState::Removed {
-            continue;
-        }
-        if entry.state == DriftState::InSync {
-            entries.push(ReAddEntry {
-                kind: entry.kind.clone(),
-                name: entry.name.clone(),
-                source_path: entry.source_path.clone(),
-                outcome: ReAddOutcome::Unchanged,
-            });
-            continue;
-        }
-
-        // Drifted or added: re-project the live source through `import`'s writer for
-        // its kind. A built-in frontmatter kind rides the one generic adapter, resolved
-        // from the qualified `definitions()` set by its bare `name` (never a bare
-        // re-resolution that could collide); a custom kind reuses `import`'s generic
-        // whole-file unit writer, keyed off its own definition.
-        let rollup = if let Some(kind) = builtins.values().find(|k| k.name == entry.kind) {
-            import::import_frontmatter_member(kind, harness, &entry.source_path, workspace_dir)?
-        } else {
-            // A registered custom kind: re-project the whole file byte-faithfully
-            // through the same generic writer `import` uses. Absent its definition
-            // there is nothing to project against — skip (mirrors the built-in
-            // `_ => continue` guard `apply` keeps).
-            let Some(kind) = custom_kinds.iter().find(|k| k.name == entry.kind) else {
-                continue;
-            };
-            import::import_custom_unit(kind, harness, &entry.source_path, workspace_dir)?
-        };
-
-        let outcome = if entry.state == DriftState::Drifted {
-            ReAddOutcome::Reconciled
-        } else {
-            ReAddOutcome::Added
-        };
-        entries.push(ReAddEntry {
-            kind: entry.kind.clone(),
-            // The name the parsed source carries — for a skill this is its
-            // frontmatter `name`, which is what the surface directory was written
-            // under, not necessarily the structural name `diff` inferred.
-            name: rollup.name.clone(),
-            source_path: entry.source_path.clone(),
-            outcome,
-        });
-        updates.push((entry.kind.clone(), rollup));
-    }
-
-    if !updates.is_empty() {
-        rewrite_lock_rows(workspace_dir, &updates)?;
-    }
-
-    Ok(ReAddReport { entries })
-}
-
-/// Fold the reconciled/added `updates` into `<workspace_dir>/lock.toml`,
-/// format-preserving via `toml_edit`: an existing row (matched by `source_path`
-/// within its kind's `[[<kind>]]` array) has its `import_hash` and `last_applied`
-/// refreshed in place; an added source with no row yet is appended as a fresh
-/// table carrying all four columns.
-fn rewrite_lock_rows(
-    workspace_dir: &Path,
-    updates: &[(String, import::RollupEntry)],
-) -> Result<(), DriftError> {
-    let path = workspace_dir.join("lock.toml");
-    let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
-        path: path.clone(),
-        source,
-    })?;
-    let mut doc = text
-        .parse::<DocumentMut>()
-        .map_err(|source| DriftError::LockParse {
-            path: path.clone(),
-            source,
-        })?;
-
-    for (kind, row) in updates {
-        let kind = kind.as_str();
-        // An added kind may have no array yet (an empty `ArrayOfTables` emits no
-        // bytes, so a skill-only lock carries no `[[rule]]` key) — create it.
-        if doc.get(kind).and_then(Item::as_array_of_tables).is_none() {
-            doc[kind] = Item::ArrayOfTables(ArrayOfTables::new());
-        }
-        let Some(rows) = doc.get_mut(kind).and_then(Item::as_array_of_tables_mut) else {
-            // Only reachable if the lock holds a non-array under this key; leaving
-            // the row unwritten is safer than clobbering an unexpected shape.
-            continue;
-        };
-
-        // Match by source_path in an immutable pass first, so the mutable borrow
-        // for the in-place patch does not linger into the append arm.
-        let existing = rows.iter().position(|table| {
-            table.get("source_path").and_then(Item::as_str) == Some(&row.source_path)
-        });
-        match existing.and_then(|index| rows.get_mut(index)) {
-            Some(table) => {
-                table["import_hash"] = value(row.import_hash.clone());
-                table["last_applied"] = value(row.last_applied.clone());
-            }
-            None => rows.push(lock_table(row)),
-        }
-    }
-
-    fs::write(&path, doc.to_string()).map_err(|source| DriftError::Write { path, source })
-}
-
-/// Build a fresh `lock.toml` table for an added artifact — the four shared columns
-/// in the same fixed order `import` writes them, so an appended row reads
-/// identically to an imported one.
-fn lock_table(row: &import::RollupEntry) -> Table {
-    let mut table = Table::new();
-    table["name"] = value(row.name.clone());
-    table["source_path"] = value(row.source_path.clone());
-    table["import_hash"] = value(row.import_hash.clone());
-    table["last_applied"] = value(row.last_applied.clone());
-    table
-}
-
-/// Render a re-add report for the terminal: one `<outcome>  <kind>  <name>` line
-/// per entry in the report's stable order, then a one-line tally.
-#[must_use]
-pub fn render_readd(report: &ReAddReport) -> String {
-    let mut out = String::new();
-    let (mut reconciled, mut added, mut unchanged) = (0u32, 0u32, 0u32);
-    for entry in &report.entries {
-        match entry.outcome {
-            ReAddOutcome::Reconciled => reconciled += 1,
-            ReAddOutcome::Added => added += 1,
-            ReAddOutcome::Unchanged => unchanged += 1,
-        }
-        out.push_str(&format!(
-            "{:<10}  {:<5}  {}\n",
-            entry.outcome.label(),
-            entry.kind,
-            entry.name
-        ));
-    }
-    out.push_str(&format!(
-        "\n{reconciled} reconciled, {added} added, {unchanged} unchanged\n"
-    ));
-    out
-}
-
-// ---------------------------------------------------------------------------
 // place — the whole-file direction (`specs/architecture/50-distribution.md`, `install`)
 // ---------------------------------------------------------------------------
 
@@ -920,7 +688,7 @@ pub fn render_readd(report: &ReAddReport) -> String {
 /// `last_applied`), and **real on-disk**. The merge:
 ///
 /// - target **absent** ⇒ [`ApplyOutcome::Applied`] — the placement is *created*
-///   (an `install` onto a harness that does not carry it yet, or a re-add of one a
+///   (an `install` onto a harness that does not carry it yet, or re-placing one a
 ///   human deleted). This is the one divergence from [`apply`], where an absent
 ///   source is a world-deletion conflict: a placement has no prior on-disk source
 ///   to have been deleted, so writing it is the whole point.
@@ -947,7 +715,7 @@ pub fn place(
     let real = match fs::read(path) {
         Ok(bytes) => bytes,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            // Absent: create it (fresh install / re-add). There is nothing on disk
+            // Absent: create it (fresh install / re-place). There is nothing on disk
             // to conflict with, so the placement is always written.
             if !dry_run {
                 write_placement(path, desired)?;

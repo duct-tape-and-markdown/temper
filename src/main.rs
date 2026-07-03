@@ -153,7 +153,7 @@ enum Command {
     /// three-state drift model (`specs/architecture/20-surface.md`, the hard core). Each
     /// artifact is regenerated full-file — byte-stable and idempotent — and written
     /// back to the source path `import` recorded; a direct edit to the projection is
-    /// drift for `re-add` to lift, never something apply patches around.
+    /// drift routed to the authored source, never something apply patches around.
     Apply {
         /// The surface workspace to project (defaults to `./.temper`). The lock
         /// under it carries the last-applied fingerprints the merge stands on.
@@ -163,18 +163,6 @@ enum Command {
         /// the re-emitted sources, not the updated lock.
         #[arg(long)]
         dry_run: bool,
-    },
-    /// Reconcile direct on-disk harness edits back into the surface — the third
-    /// drift direction (`specs/architecture/20-surface.md`). Drifted and added sources are
-    /// pulled into the surface tree and the lock refreshed; an in-sync harness is
-    /// a no-op. A reconcile, not a gate — it exits zero.
-    ReAdd {
-        /// The harness to re-scan for drifted / added on-disk sources.
-        harness_path: PathBuf,
-        /// The surface workspace to reconcile into (defaults to `./.temper`). Its
-        /// lock is refreshed to the current source bytes.
-        #[arg(long, default_value = DEFAULT_WORKSPACE)]
-        into: PathBuf,
     },
     /// The advisory session-start gate (`specs/architecture/50-distribution.md`): check a
     /// harness in one shot and emit the `claude-session-start` reporter payload on
@@ -190,7 +178,7 @@ enum Command {
     /// Project temper's own gate wiring into the harness (`specs/architecture/50-distribution.md`):
     /// the `SessionStart` hook into `.claude/settings.json`, the CI job into
     /// `.github/`, and the schema modeline into each artifact's frontmatter — all
-    /// under the three-state drift engine, so re-running is idempotent and re-adds
+    /// under the three-state drift engine, so re-running is idempotent and re-places
     /// anything a human deleted. `check` then verifies its own gate stays installed.
     Install {
         /// The project root to wire the gate into (defaults to the current
@@ -361,7 +349,7 @@ fn main() -> miette::Result<ExitCode> {
         Command::Diff { harness_path, into } => {
             // Read-only (`specs/architecture/20-surface.md`): compare the surface against the
             // live harness and print the report — the engine writes nothing;
-            // `apply`/`re-add` own write-back. Every custom kind the harness's
+            // `apply` owns write-back. Every custom kind the harness's
             // assembly registers is scanned at its `governs` locus beside the
             // built-ins, so a hand-edited `specs/*.md` shows as drift.
             let ws = Workspace::load(&into)?;
@@ -381,18 +369,6 @@ fn main() -> miette::Result<ExitCode> {
                 println!("dry run — no files written");
             }
             print!("{}", drift::render_apply(&report));
-            Ok(ExitCode::SUCCESS)
-        }
-        Command::ReAdd { harness_path, into } => {
-            // The on-disk → surface reconcile (`specs/architecture/20-surface.md`): pull every
-            // drifted / added harness source back in and refresh the lock. Unlike
-            // `apply`, it re-scans the live harness (like `diff`), so it takes the
-            // harness path too. The same custom kinds `diff` scans reconcile back
-            // through `import`'s generic writer.
-            let ws = Workspace::load(&into)?;
-            let custom_kinds = load_custom_kinds(&harness_path)?;
-            let report = drift::re_add(&ws, &into, &harness_path, &custom_kinds)?;
-            print!("{}", drift::render_readd(&report));
             Ok(ExitCode::SUCCESS)
         }
         Command::SessionStart { harness_path } => {
@@ -646,7 +622,7 @@ fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>
 /// [`import::run`] uses: the `temper.toml` beside the harness declares the roster,
 /// and each definition lives in `<harness>/.temper/kinds/<name>/KIND.md`
 /// (`specs/architecture/40-composition.md`). The drift engine scans each returned kind's `governs`
-/// locus, so `diff`/`re-add` reconcile custom-kind bodies exactly as `import` projects
+/// locus, so `diff` reports custom-kind body drift exactly as `import` projects
 /// them. Absent a `temper.toml`, an empty list — the built-in kinds drift alone.
 fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
     let Some(layer) = compose::AuthorLayer::load(&harness.join(TEMPER_TOML))? else {
