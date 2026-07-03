@@ -23,11 +23,14 @@ graduation, delete over archive.
   held; `specs:` commit 32ea84d; pre-state = `mirror-era` tag). The corpus
   now carries it — authoring face / manifest / carriage / mentions /
   gradient / init/emit; re-add retired; never-climb is law 8 text; .flume/
-  named candidate third landscape. Flume reconciling as of this session.
-  Human residuals: SDK npm scaffolding needs John (like
-  PACKAGING-CHANNELS); template-literal prose tax re-verify in the first
-  altitude slice; the spec corpus's own module migration is a staged human
-  ceremony (15-kinds worked example). Design record:
+  named candidate third landscape. Plan reconciled (9e71a1e): filed
+  `(scripted-altitude-reconcile)` as the frontier fork — corpus decided,
+  code not migrated; floor deltas entangled (one serialized wave), altitude
+  needs SDK scaffolding. TWO ASKS ON JOHN: (a) scaffold the SDK/npm
+  authoring-face surface; (b) rule the floor wave's sequence (or delegate
+  the serialization to plan) — then the blockedBy chain files. Also
+  residual: prose-tax re-verify in the first altitude slice; the corpus's
+  own module migration is a staged ceremony. Design record:
   claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
 - `(default-assembly-as-data)` addendum: subsumed-in-shape by the manifest
   model (a shipped default assembly = embedded manifest data) — formally
