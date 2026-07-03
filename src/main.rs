@@ -747,9 +747,12 @@ fn gate(
             // contributes no edge and no member is subject.
             let builtin_defs = builtin_kind::definitions()?;
             let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
-            for (name, def) in &builtin_defs {
+            for def in builtin_defs.values() {
                 if let Some(activation) = &def.activation {
-                    activations.insert(name.as_str(), activation.clone());
+                    // Key by the kind's bare `name`, not `definitions()`'s qualified map
+                    // key — `by_kind` (the members this edge reaches) is bare-keyed, so
+                    // the activation edge must join it under the same bare name.
+                    activations.insert(def.name.as_str(), activation.clone());
                 }
             }
             for (name, custom, _features) in &custom_kinds {

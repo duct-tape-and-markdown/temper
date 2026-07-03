@@ -72,27 +72,39 @@ pub fn qualified(name: &str) -> Result<Option<String>, KindError> {
     Ok(definition(name)?.map(|kind| kind.qualified_name()))
 }
 
-/// Parse every embedded built-in kind into a `name → CustomKind` map — the built-in
-/// read-side set, the mirror of [`crate::builtin::contracts`] on the require-side. The
-/// map is keyed by each kind's **bare** name (`skill`, `rule`), so the flat and nested
-/// layouts key identically; a two-provider collision under one bare name is surfaced
-/// through [`CustomKind::resolve_bare`] rather than silently overwriting a map entry.
+/// Parse every embedded built-in kind into a `qualified-name → CustomKind` map — the
+/// built-in read-side set, the mirror of [`crate::builtin::contracts`] on the
+/// require-side. The map is keyed by each kind's **qualified identity**
+/// (`qualified_name`: `<provider>.<name>`, or the bare name when a kind declares no
+/// provider), so two providers co-embedding one bare `memory` are distinct entries
+/// under distinct keys — neither overwrites the other, and no caller pays a
+/// qualification tax here (`specs/architecture/15-kinds.md`, "Decision: kind identity
+/// carries a provider axis": nobody pays until two providers actually meet). The bare
+/// collision surfaces only when a caller *binds or looks up* the ambiguous bare name
+/// through [`resolve`]/[`source`]/[`qualified`]/[`definition`], never for unrelated
+/// callers of this whole-set read. Today's built-ins declare no provider, so the keys
+/// are still the bare `skill`, `rule`.
 ///
 /// # Errors
 ///
 /// Returns a [`KindError`] if any embedded `KIND.md` fails to parse into an admissible
-/// [`CustomKind`], or two providers collide under one bare name.
+/// [`CustomKind`].
 pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
-    let kinds = parsed_kinds()?;
-    let set: Vec<CustomKind> = kinds.iter().map(|(_, kind)| kind.clone()).collect();
-    let mut map = BTreeMap::new();
-    for (_, kind) in &kinds {
-        // Route the keying through bare→unique resolution: two providers meeting under
-        // one bare name is a load error, never a silent last-writer-wins overwrite.
-        CustomKind::resolve_bare(&kind.name, &set)?;
-        map.insert(kind.name.clone(), kind.clone());
-    }
-    Ok(map)
+    Ok(definitions_of(
+        parsed_kinds()?.into_iter().map(|(_, kind)| kind),
+    ))
+}
+
+/// Key a set of parsed kinds by qualified identity — the collision-scoping core of
+/// [`definitions`], factored out so the two-provider case is testable without an
+/// embedded fixture. Distinct qualified identities never collide as keys; the embedded
+/// table cannot carry two kinds of the *same* qualified identity, since each derives its
+/// key from its own `kinds/[<provider>/]<name>/` path.
+fn definitions_of(kinds: impl IntoIterator<Item = CustomKind>) -> BTreeMap<String, CustomKind> {
+    kinds
+        .into_iter()
+        .map(|kind| (kind.qualified_name(), kind))
+        .collect()
 }
 
 /// Parse every embedded built-in kind, pairing each with the embedded source it parsed
@@ -264,8 +276,14 @@ mod tests {
 
     #[test]
     fn definitions_carries_exactly_the_two_built_in_kinds() {
+        // Keyed by qualified identity: today's built-ins declare provider `claude-code`,
+        // so the keys are `claude-code.{rule,skill}` — distinct-per-provider identities
+        // that never collide even when a second provider co-embeds the same bare name.
         let all = definitions().unwrap();
-        assert_eq!(all.keys().collect::<Vec<_>>(), vec!["rule", "skill"]);
+        assert_eq!(
+            all.keys().collect::<Vec<_>>(),
+            vec!["claude-code.rule", "claude-code.skill"]
+        );
     }
 
     #[test]
@@ -304,6 +322,72 @@ mod tests {
         let two = vec![skill_of("claude-code"), skill_of("agent-skills")];
         let err = CustomKind::resolve_bare("skill", &two).unwrap_err();
         assert!(matches!(err, KindError::AmbiguousKind { .. }));
+    }
+
+    #[test]
+    fn two_memory_providers_leave_definitions_and_unrelated_lookups_clean() {
+        use toml_edit::DocumentMut;
+
+        // A `<provider>`-qualified kind carrying an arbitrary bare `name` — the shape the
+        // embedded table gains when the human commits the two curated `memory` carriers
+        // (2 KIND.md), each a distinct provider over the `CLAUDE.md`/`AGENTS.md` family.
+        fn kind_of(name: &str, provider: &str) -> CustomKind {
+            let src = format!(
+                "governs = {{ root = \".\", glob = \"{name}.md\" }}\nprovider = \"{provider}\"\n"
+            );
+            let doc = src.parse::<DocumentMut>().unwrap();
+            CustomKind::from_header(
+                doc.as_table(),
+                name,
+                std::path::Path::new("kinds/x/y/KIND.md"),
+            )
+            .unwrap()
+        }
+
+        // Two providers co-embed the bare `memory` kind, alongside the non-colliding
+        // `skill`/`rule`. This is the set that turns `definitions()` red today via eager
+        // per-name resolution.
+        let set = vec![
+            kind_of("skill", "claude-code"),
+            kind_of("rule", "claude-code"),
+            kind_of("memory", "claude-code"),
+            kind_of("memory", "agents-md"),
+        ];
+
+        // `definitions()` succeeds for every caller: keyed by qualified identity, the two
+        // `memory` carriers are distinct entries — the collision costs nobody here.
+        let defs = definitions_of(set.iter().cloned());
+        assert_eq!(
+            defs.keys().collect::<Vec<_>>(),
+            vec![
+                "agents-md.memory",
+                "claude-code.memory",
+                "claude-code.rule",
+                "claude-code.skill",
+            ]
+        );
+
+        // Non-colliding bare lookups stay clean: `skill`/`rule` each resolve to their
+        // unique carrier.
+        for bare in ["skill", "rule"] {
+            assert!(
+                CustomKind::resolve_bare(bare, &set)
+                    .unwrap()
+                    .is_some_and(|kind| kind.name == bare)
+            );
+        }
+
+        // Only the ambiguous bare `memory` errors — naming both qualified candidates so
+        // the author knows what to disambiguate against.
+        let err = CustomKind::resolve_bare("memory", &set).unwrap_err();
+        match err {
+            KindError::AmbiguousKind { name, candidates } => {
+                assert_eq!(name, "memory");
+                assert!(candidates.contains("claude-code.memory"));
+                assert!(candidates.contains("agents-md.memory"));
+            }
+            other => panic!("expected AmbiguousKind for bare `memory`, got {other:?}"),
+        }
     }
 
     /// A fresh, empty temp directory unique to this test run.
