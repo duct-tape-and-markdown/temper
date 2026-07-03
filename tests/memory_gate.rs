@@ -114,10 +114,11 @@ fn write_claude_md_importing(root: &Path, import_line: &str) {
     fs::write(root.join("CLAUDE.md"), body).unwrap();
 }
 
-/// Write a `<root>/temper.toml` so the harness carries an assembly layer — the directive
-/// classing, like reachability and coverage, runs only under the guarded layer tier, so
-/// the wedge path is exercised only when an assembly is present. A benign skill binding
-/// to its own floor package, adding no clause of its own.
+/// Write a `<root>/temper.toml` so the harness carries an assembly layer — the set-scope
+/// roster, reachability, and coverage tiers run only under the guarded layer. Directive
+/// classing itself now runs on the floor (WEDGE-FACT-FLOOR), so the assembly-present cases
+/// below prove the fact still surfaces beside a live assembly. A benign skill binding to
+/// its own floor package, adding no clause of its own.
 fn write_layer(root: &Path) {
     fs::write(
         root.join("temper.toml"),
@@ -173,6 +174,59 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
     assert!(
         findings_for(&findings, "graph.directive-unbacked").is_empty(),
         "a directive resolving to a real member must fire no unbacked-pointer finding, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn an_unbacked_at_import_fires_a_non_gating_advisory_with_no_temper_toml() {
+    let harness = tmpdir("floor-unbacked-import");
+    // The FLOOR-tier wedge (WEDGE-FACT-FLOOR): a discovered CLAUDE.md carrying an unbacked
+    // `@import` and NO `temper.toml`. Directive classing runs on the floor — no assembly —
+    // so the unbacked pointer surfaces with zero config, distinct from the assembly-present
+    // cases above. It is a non-gating advisory: the pure fact is stated, never escalated.
+    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md_importing(&harness, "@docs/missing.md");
+    // No `write_layer` — the harness has no assembly at all.
+
+    let findings = check_harness(&harness);
+    let unbacked = findings_for(&findings, "graph.directive-unbacked");
+
+    // Exactly one unbacked-pointer finding, on the memory member, drawn with zero config.
+    assert_eq!(
+        unbacked.len(),
+        1,
+        "the floor tier surfaces the unbacked `@import` with no temper.toml, got: {findings:#?}"
+    );
+    let finding = unbacked[0];
+    assert!(
+        finding.starts_with("::warning "),
+        "the unbacked pointer is a non-gating advisory (warn), got: {finding}"
+    );
+    assert!(
+        finding.contains("::CLAUDE:"),
+        "the finding names the CLAUDE memory member, got: {finding}"
+    );
+    assert!(
+        finding.contains("docs/missing.md"),
+        "the finding names the unbacked target, got: {finding}"
+    );
+}
+
+#[test]
+fn a_backed_at_import_fires_nothing_with_no_temper_toml() {
+    let harness = tmpdir("floor-backed-import");
+    // The floor tier states only the fact: a CLAUDE.md whose `@path` resolves to a real repo
+    // file (the coordinate skill's on-disk member) is a backed boundary edge, not an unbacked
+    // pointer — so it draws no finding even with zero config. Pairs the fired case above.
+    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
+    // No `write_layer`.
+
+    let findings = check_harness(&harness);
+
+    assert!(
+        findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        "a backed `@import` fires no unbacked-pointer finding on the floor, got: {findings:#?}"
     );
 }
 

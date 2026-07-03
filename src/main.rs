@@ -688,12 +688,37 @@ fn gate(
         member_counts.insert(qualified, features.len());
     }
 
+    // The `paths-match` reachability input and the directive backing-set share one repo
+    // file-set (`specs/architecture/45-governance.md`, "The world is a node"): every file under
+    // the harness root, over-collected so an extra file can only suppress a finding, never
+    // forge one (law 3). Computed once on the FLOOR and read by both the directive classing
+    // below and the reachability predicate under the assembly tier.
+    let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
+    let repo_files = repo_file_set(base_dir);
+
+    // Directive-target classing on the FLOOR tier (`specs/architecture/15-kinds.md`, "Directives";
+    // WEDGE-FACT-FLOOR): an unbacked `@import` is a **pure fact** about the importing member —
+    // the silent-context-loss failure class made author-time — so it surfaces with zero
+    // config, no `temper.toml` required. Over the built-in kinds' members (empty custom slice;
+    // a custom kind's directives ride the assembly tier below, which re-classes the full corpus
+    // for reachability), the unbacked findings extend as a **non-gating advisory**: the fact is
+    // stated, the run never fails on it alone. The graph-scope escalation — reachability closing
+    // over the member-class edges — stays assembly-gated (WEDGE ruling 2026-07-03: an unbacked
+    // import is a pure fact, not a graph-scope opinion like reachability).
+    diagnostics.extend(
+        graph::classify_directives(&collect_directive_members(workspace, &[])?, &repo_files)
+            .findings
+            .into_iter()
+            .map(|mut finding| {
+                finding.severity = Severity::Warn;
+                finding
+            }),
+    );
+
     // The harness-contract tier: set-scope predicates over the parsed roster, each
     // quantified over a requirement's satisfier set (`specs/architecture/10-contracts.md`).
     // Guarded on the layer, so the floor-only path adds nothing here or below.
     if let Some(layer) = layer.as_ref() {
-        let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
-
         // The custom-kind corpus + declared edge set, built through the *shared*
         // [`custom_kinds_and_edges`] helper the `why` read also calls, so gate and
         // read derive one identical edge set (READ-EDGE-UNIFY). Owned here so the
@@ -769,24 +794,16 @@ fn gate(
         // `acyclic`/`check` assemble. Opt-in per requirement.
         diagnostics.extend(graph::degree(layer.requirements(), &edges, &by_kind));
 
-        // The `paths-match` reachability input and the directive backing-set share one
-        // repo file-set (`specs/architecture/45-governance.md`, "The world is a node"): every file
-        // under the harness root, over-collected so an extra file can only suppress a
-        // finding, never forge one (law 3). Computed once and read by both the directive
-        // classing below and the reachability predicate.
-        let repo_files = repo_file_set(base_dir);
-
-        // Directive-target classing (`specs/architecture/15-kinds.md`, "Directives"): resolve every
-        // member's extracted `at-import` targets against the landscape — a target resolving
-        // to another member is a member→member edge, to an ungoverned repo file a backed
-        // boundary edge, to nothing an unbacked-pointer finding on the importing member (the
-        // silent-context-loss failure class made author-time). The join key is provenance
-        // `source_path`, read off the units the features came from. The member-class edges
-        // are produced as resolved edges available to the graph; a later slice closes
-        // reachability over them.
+        // Directive-target classing over the **full** corpus (`specs/architecture/15-kinds.md`,
+        // "Directives"): built-in *and* custom members, so a custom kind's `@import` at a
+        // built-in member resolves to a member→member edge the reachability closure below
+        // consumes (`repo_files` and the file-set come from the floor above). Only the
+        // member-class **edges** are read here — the unbacked findings already surfaced on the
+        // floor as a non-gating advisory (WEDGE-FACT-FLOOR), so they are not re-extended: an
+        // assembly's power over a directive is the graph-scope reachability escalation, not the
+        // unbacked fact, which is the same fact with or without an assembly.
         let directive_members = collect_directive_members(workspace, &custom_kinds)?;
         let directive_classing = graph::classify_directives(&directive_members, &repo_files);
-        diagnostics.extend(directive_classing.findings);
 
         // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
         // kind declares an activation is dead when the world→member edge is provably so
