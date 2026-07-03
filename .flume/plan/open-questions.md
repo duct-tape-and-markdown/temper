@@ -66,9 +66,11 @@ path strings remain in comments).
   next on the following plan reconcile). **PROGRESS (2026-07-03):** two chain
   links have now **shipped** — READD-RETIRE (`build` caa30c4 / `chore` 3804f1c)
   and LOCK-FRESHNESS-FACTS (`build` fa8067d / `chore` 2ef5c4d, carrying the
-  legacy-lock self-migration; the earlier afterMerge revert did not recur). This
-  reconcile flipped **EMIT-VERB `open`** as the new head (MANIFEST-EMIT →
-  MANIFEST-GATE-READ → INIT-ONRAMP → EMIT-OWNED-PLACEMENTS serialized behind it).
+  legacy-lock self-migration; the earlier afterMerge revert did not recur). A
+  **third** has now shipped — EMIT-VERB (`build` 44df9a8 / `chore` f534fe9):
+  `apply`→`emit`, whole re-emit, double-emit verified, three-state merge dropped.
+  This reconcile flipped **MANIFEST-EMIT `open`** as the new head
+  (MANIFEST-GATE-READ → INIT-ONRAMP → EMIT-OWNED-PLACEMENTS serialized behind it).
   These floor entries are NOT `dependsOnForks`-gated on this fork: the human
   unblocked the floor explicitly.
   **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
