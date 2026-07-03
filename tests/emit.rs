@@ -1,23 +1,23 @@
-//! `temper apply` — the write direction over the three-state drift engine
-//! (`specs/architecture/20-surface.md`, "Decision: the projection is re-emitted; the surface is
-//! patched").
+//! `temper emit` — the write direction (`specs/architecture/20-surface.md`,
+//! "Content-faithful, deterministically emitted (law 5)").
 //!
-//! Drives the library `drift::apply` over a real imported surface and proves the
+//! Drives the library `drift::emit` over a real imported surface and proves the
 //! properties the entry names:
 //!
-//! - **deterministic re-emission** — apply regenerates each projection full-file
+//! - **deterministic re-emission** — emit regenerates each projection full-file
 //!   from the member document; a surface field edit re-renders the whole
 //!   frontmatter, and on-disk-only bytes (a hand-added comment) are dropped rather
-//!   than preserved — a direct projection edit is drift, `re-add`'s to lift;
-//! - **idempotence** — apply twice yields byte-identical output; the re-run changes
+//!   than preserved — a direct projection edit is drift routed to the source;
+//! - **idempotence** — emit twice yields byte-identical output; the re-run changes
 //!   nothing;
-//! - **three-state conflict handling** — a world drift that differs from the
-//!   last-applied fingerprint surfaces a conflict rather than clobbering the source;
+//! - **double-emit determinism** — a second emit run reproduces the projection *and*
+//!   the lock byte-for-byte (nondeterminism would be a loud failure, never a churn);
 //! - **dry-run writes nothing** — the outcome is reported but not a byte lands.
 //!
-//! A fifth case pins the fingerprint reconciliation the merge depends on: two
-//! successive surface edits both apply cleanly (the second is *not* misread as a
-//! world drift), which only holds if `apply` advances the last-applied fingerprint.
+//! There is no three-state conflict state: emit re-emits whole, so a hand-edited
+//! projection is overwritten (drift routed to the source), never a mergeable
+//! conflict. A trailing case pins the lock's two freshness facts and that emit
+//! baselines its idempotence on `emit_hash`.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::check::Workspace;
-use temper::drift::{self, ApplyOptions, ApplyOutcome};
+use temper::drift::{self, EmitOptions, EmitOutcome};
 use temper::frontmatter::Member;
 use temper::import;
 
@@ -35,7 +35,7 @@ static COUNTER: AtomicU32 = AtomicU32::new(0);
 fn tmpdir(label: &str) -> PathBuf {
     let id = COUNTER.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(
-        "author-apply-{}-{}-{}",
+        "author-emit-{}-{}-{}",
         std::process::id(),
         id,
         label
@@ -45,10 +45,9 @@ fn tmpdir(label: &str) -> PathBuf {
     dir
 }
 
-/// A skill whose frontmatter carries a human comment — an on-disk-only byte the
-/// retired surgical patch preserved but deterministic re-emission drops (it is not
-/// surface content, so it is drift, `re-add`'s to lift). The body keeps a missing
-/// final newline so the byte-faithful round trip is observable.
+/// A skill whose frontmatter carries a human comment — an on-disk-only byte
+/// deterministic re-emission drops (it is not surface content, so it is drift). The
+/// body keeps a missing final newline so the byte-faithful round trip is observable.
 const SKILL: &str = "---\n\
 name: coordinate\n\
 # a human note that must survive a patch\n\
@@ -111,8 +110,8 @@ fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     out
 }
 
-/// The outcome `apply` reported for `name` in `report`, asserting it is unique.
-fn outcome(report: &drift::ApplyReport, name: &str) -> ApplyOutcome {
+/// The outcome `emit` reported for `name` in `report`, asserting it is unique.
+fn outcome(report: &drift::EmitReport, name: &str) -> EmitOutcome {
     let mut matches = report.entries.iter().filter(|e| e.name == name);
     let found = matches.next().expect("entry should exist");
     assert!(matches.next().is_none(), "entry {name} should be unique");
@@ -120,7 +119,7 @@ fn outcome(report: &drift::ApplyReport, name: &str) -> ApplyOutcome {
 }
 
 /// Rewrite the surface skill's `description` to `new`, exactly as a human editing
-/// the composition surface would, and return the reloaded workspace path.
+/// the composition surface would.
 fn edit_surface_description(workspace: &Path, new: &str) {
     let dir = workspace.join("skills").join("coordinate");
     let mut member = Member::from_surface(&dir, "SKILL.md").unwrap();
@@ -131,29 +130,29 @@ fn edit_surface_description(workspace: &Path, new: &str) {
 }
 
 #[test]
-fn apply_is_idempotent_over_a_clean_surface() {
+fn emit_is_idempotent_over_a_clean_surface() {
     let (harness, into) = imported("idem");
 
-    // The first apply re-emits each projection to its canonical form: the imported
+    // The first emit re-emits each projection to its canonical form: the imported
     // bytes are not yet canonical (frontmatter is regenerated deterministically), so
-    // apply lands the re-emission and advances the lock.
+    // emit lands the re-emission and advances the lock.
     let ws = Workspace::load(&into).unwrap();
-    drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
+    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
     let after_first = tree_bytes(&harness);
 
     // Re-running is the idempotent no-op — every artifact Unchanged, not a byte moves.
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
+    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
     assert!(
         report
             .entries
             .iter()
-            .all(|e| e.outcome == ApplyOutcome::Unchanged)
+            .all(|e| e.outcome == EmitOutcome::Unchanged)
     );
     assert_eq!(
         after_first,
         tree_bytes(&harness),
-        "apply twice yields byte-identical output"
+        "emit twice yields byte-identical output"
     );
 }
 
@@ -164,8 +163,8 @@ fn a_surface_edit_re_emits_the_projection() {
     edit_surface_description(&into, "Use when driving a team across many axes.");
 
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
-    assert_eq!(outcome(&report, "coordinate"), ApplyOutcome::Applied);
+    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
 
     let emitted = fs::read_to_string(skill_source(&harness)).unwrap();
     // The whole projection is regenerated from the member document: the edited field
@@ -180,7 +179,7 @@ fn a_surface_edit_re_emits_the_projection() {
     );
     // The on-disk-only comment is NOT preserved — re-emission regenerates the
     // frontmatter from the surface, and a direct projection edit is drift, not
-    // something apply patches around.
+    // something emit merges around.
     assert!(
         !emitted.contains("# a human note"),
         "the on-disk-only comment must be dropped by re-emission, got:\n{emitted}"
@@ -225,34 +224,37 @@ fn a_surface_edit_re_emits_the_projection() {
 }
 
 #[test]
-fn a_world_drift_surfaces_a_conflict_instead_of_clobbering() {
-    let (harness, into) = imported("conflict");
+fn a_hand_edited_projection_is_overwritten_not_conflicted() {
+    let (harness, into) = imported("reemit-over-drift");
 
-    // Reach the re-emit fixpoint first: an apply canonicalizes both projections and
-    // advances the lock, so a later on-disk drift is measured against exactly what
-    // `temper` last wrote (not the pre-canonical imported bytes).
+    // Reach the re-emit fixpoint first: an emit canonicalizes both projections and
+    // advances the lock.
     let ws = Workspace::load(&into).unwrap();
-    drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
+    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    let canonical = fs::read_to_string(skill_source(&harness)).unwrap();
 
-    // The human edits the projection directly, on disk — a world drift the surface
-    // knows nothing about. The surface itself is left as imported.
+    // A human edits the projection directly, on disk — drift the surface knows
+    // nothing about. The surface itself is left as imported.
     let source = skill_source(&harness);
-    let drifted = fs::read_to_string(&source).unwrap() + "\nA line added straight to disk.\n";
-    fs::write(&source, &drifted).unwrap();
+    fs::write(
+        &source,
+        canonical.clone() + "\nA line added straight to disk.\n",
+    )
+    .unwrap();
 
+    // Emit re-emits the projection whole: the hand edit is overwritten (it is drift
+    // routed to the source, surfaced by config.stale/the guard — not a merge). No
+    // three-state conflict state exists to report.
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
-
-    // The drifted source differs from the last-applied fingerprint, so `apply`
-    // surfaces the choice rather than re-emitting over the human's on-disk edit.
-    assert_eq!(outcome(&report, "coordinate"), ApplyOutcome::Conflicted);
+    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
     assert_eq!(
         fs::read_to_string(&source).unwrap(),
-        drifted,
-        "a conflict must not clobber the drifted projection"
+        canonical,
+        "emit re-emits the canonical projection over a hand edit"
     );
     // The untouched rule is already at its fixpoint — the re-run is a clean no-op.
-    assert_eq!(outcome(&report, "rust"), ApplyOutcome::Unchanged);
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Unchanged);
 }
 
 #[test]
@@ -264,9 +266,17 @@ fn dry_run_reports_the_outcome_but_writes_nothing() {
     let before_lock = fs::read(into.join("lock.toml")).unwrap();
 
     let ws = Workspace::load(&into).unwrap();
-    let report = drift::apply(&ws, &into, ApplyOptions { dry_run: true }).unwrap();
+    let report = drift::emit(
+        &ws,
+        &into,
+        EmitOptions {
+            dry_run: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
     // The report still says what *would* happen...
-    assert_eq!(outcome(&report, "coordinate"), ApplyOutcome::Applied);
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
     // ...but not a byte of the harness or the lock changed.
     assert_eq!(
         before_harness,
@@ -279,43 +289,78 @@ fn dry_run_reports_the_outcome_but_writes_nothing() {
         "--dry-run must not touch the lock fingerprints"
     );
 
-    // A real apply afterwards does land the edit.
+    // A real emit afterwards does land the edit.
     let ws = Workspace::load(&into).unwrap();
-    drift::apply(&ws, &into, ApplyOptions::default()).unwrap();
+    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
     assert!(
         fs::read_to_string(skill_source(&harness))
             .unwrap()
             .contains("A description the dry run must not write."),
-        "the real apply must write what the dry run only reported"
+        "the real emit must write what the dry run only reported"
     );
 }
 
 #[test]
-fn successive_surface_edits_each_apply_cleanly() {
-    // The fingerprint reconciliation the three-state merge depends on: after the
-    // first apply advances the last-applied fingerprint, a *second* surface edit is
-    // read as a clean surface edit — not misdiagnosed as a world drift.
+fn double_emit_reproduces_projection_and_lock_byte_for_byte() {
+    // Determinism, verified at the run level (`specs/architecture/20-surface.md`, law 5):
+    // a second emit over the same surface reproduces every projected byte *and* the
+    // lock exactly. Emit's internal double-emit guard raises on nondeterministic
+    // authoring; this pins the observable property.
+    let (harness, into) = imported("double");
+
+    // The first emit canonicalizes and advances the lock off the stale import baseline.
+    let ws = Workspace::load(&into).unwrap();
+    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    let harness_after_first = tree_bytes(&harness);
+    let lock_after_first = fs::read(into.join("lock.toml")).unwrap();
+
+    // The second emit is byte-identical in both the projection tree and the lock.
+    let ws = Workspace::load(&into).unwrap();
+    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    assert!(
+        report
+            .entries
+            .iter()
+            .all(|e| e.outcome == EmitOutcome::Unchanged),
+        "a second emit finds every projection already at its bytes"
+    );
+    assert_eq!(
+        harness_after_first,
+        tree_bytes(&harness),
+        "double emit reproduces the projection byte-for-byte"
+    );
+    assert_eq!(
+        lock_after_first,
+        fs::read(into.join("lock.toml")).unwrap(),
+        "double emit leaves the lock byte-for-byte identical"
+    );
+}
+
+#[test]
+fn successive_surface_edits_each_emit_cleanly() {
+    // Two successive surface edits both re-emit — emit regenerates whole, so the
+    // second is never misread against the first's fingerprint.
     let (harness, into) = imported("successive");
 
     edit_surface_description(&into, "First edit.");
     let ws = Workspace::load(&into).unwrap();
     assert_eq!(
         outcome(
-            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
             "coordinate"
         ),
-        ApplyOutcome::Applied
+        EmitOutcome::Emitted
     );
 
     edit_surface_description(&into, "Second edit, atop the first.");
     let ws = Workspace::load(&into).unwrap();
     assert_eq!(
         outcome(
-            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
             "coordinate"
         ),
-        ApplyOutcome::Applied,
-        "a second surface edit must apply, not conflict — the fingerprint advanced"
+        EmitOutcome::Emitted,
+        "a second surface edit re-emits, not a no-op"
     );
 
     assert!(
@@ -342,7 +387,7 @@ fn skill_lock_field(workspace: &Path, column: &str) -> Option<String> {
 }
 
 #[test]
-fn the_lock_carries_the_two_freshness_facts_and_apply_baselines_on_emit_hash() {
+fn the_lock_carries_the_two_freshness_facts_and_emit_baselines_on_emit_hash() {
     let (harness, into) = imported("freshness");
 
     // The lock row carries the two freshness facts under their names — and neither
@@ -356,52 +401,57 @@ fn the_lock_carries_the_two_freshness_facts_and_apply_baselines_on_emit_hash() {
     assert_eq!(emit_at_import, source_at_import);
 
     // The imported bytes are not yet canonical (the fixture carries a hand comment and
-    // loose frontmatter), so the first apply re-emits a deterministic projection over
+    // loose frontmatter), so the first emit re-emits a deterministic projection over
     // the source and advances `emit_hash` to that projection's fingerprint — while
     // `source_hash`, the authored-bytes fact, is left untouched.
     let ws = Workspace::load(&into).unwrap();
     assert_eq!(
         outcome(
-            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
             "coordinate"
         ),
-        ApplyOutcome::Applied
+        EmitOutcome::Emitted
     );
     let projected = fs::read_to_string(skill_source(&harness)).unwrap();
     let emit_after = skill_lock_field(&into, "emit_hash").expect("emit_hash column");
     assert_eq!(
         skill_lock_field(&into, "source_hash").as_deref(),
         Some(source_at_import.as_str()),
-        "source_hash — the authored-bytes fact — is untouched by apply"
+        "source_hash — the authored-bytes fact — is untouched by emit"
     );
     assert_ne!(
         emit_after, source_at_import,
-        "apply rewrote emit_hash off the stale import baseline onto the real projection"
+        "emit rewrote emit_hash off the stale import baseline onto the real projection"
     );
 
-    // apply's baseline is `emit_hash`: the projection now on disk matches it, so a
-    // re-run is the idempotent no-op rather than a re-application.
+    // emit's idempotence baselines on the projection: the bytes now on disk match it,
+    // so a re-run is the idempotent no-op rather than a re-emission.
     let ws = Workspace::load(&into).unwrap();
     assert_eq!(
         outcome(
-            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
             "coordinate"
         ),
-        ApplyOutcome::Unchanged,
-        "with real == emit_hash, apply baselines clean"
+        EmitOutcome::Unchanged,
+        "with the projection already on disk, emit no-ops"
     );
 
-    // A world drift *away* from `emit_hash` — a hand-edit straight to the projection —
-    // is measured against the emit fact and surfaces as a conflict, not a clobber.
-    let drifted = projected + "\nA line added straight to disk.\n";
+    // A hand-edit straight to the projection is drift: emit re-emits the canonical
+    // projection over it (surfaced elsewhere by config.stale/the guard), never a merge.
+    let drifted = projected.clone() + "\nA line added straight to disk.\n";
     fs::write(skill_source(&harness), &drifted).unwrap();
     let ws = Workspace::load(&into).unwrap();
     assert_eq!(
         outcome(
-            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
             "coordinate"
         ),
-        ApplyOutcome::Conflicted,
-        "a real hash differing from emit_hash is a conflict"
+        EmitOutcome::Emitted,
+        "a projection differing from the surface re-emits whole"
+    );
+    assert_eq!(
+        fs::read_to_string(skill_source(&harness)).unwrap(),
+        projected,
+        "the canonical projection overwrites the hand edit"
     );
 }

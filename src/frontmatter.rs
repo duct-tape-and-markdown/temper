@@ -5,7 +5,7 @@
 //! Replaces the retired per-kind IRs (`src/skill.rs`, `src/rule.rs`) with one
 //! [`Member`]: `import`/`re-add` split the external artifact per the kind's declared
 //! [`unit_shape`](crate::kind::UnitShape) and lift its declared `field` extractors
-//! into `[clause.<field>]` header tables; `apply` renders the member document back
+//! into `[clause.<field>]` header tables; `emit` renders the member document back
 //! byte-deterministically; drift compares the declared fields with no per-kind
 //! serializer. Built-in and custom kinds ride the same adapter — the built-in/custom
 //! split is purely source.
@@ -43,7 +43,7 @@ pub struct Member {
     pub id: String,
     /// The frontmatter fields in projection order: the kind's declared `field`s
     /// present, in declaration order, then the preserved unknown keys sorted. Both
-    /// `[clause.<field>]` emission and the `apply` YAML projection iterate this, so
+    /// `[clause.<field>]` emission and the `emit` YAML projection iterate this, so
     /// they agree by construction.
     pub fields: Vec<(String, JsonValue)>,
     /// Markdown after the frontmatter, byte-faithful (trailing bytes intact). For a

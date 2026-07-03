@@ -330,7 +330,7 @@ fn gate_installed_summarizes_missing_then_drifted_placements() {
 }
 
 /// The managed-by note's marker — the frontmatter comment prefix `install` writes and
-/// `apply` must never reproduce (kept in step with `install.rs`'s `NOTE_MARKER`).
+/// `emit` must never reproduce (kept in step with `install.rs`'s `NOTE_MARKER`).
 const NOTE_MARKER: &str = "# temper: managed projection";
 
 /// The guard command the `PreToolUse` hook carries after an install at `root`.
@@ -474,13 +474,21 @@ fn the_managed_by_note_is_never_written_by_apply() {
     temper::import::run(&harness, &into).unwrap();
     let ws = temper::check::Workspace::load(&into).unwrap();
 
-    temper::drift::apply(&ws, &into, temper::drift::ApplyOptions { dry_run: false }).unwrap();
+    temper::drift::emit(
+        &ws,
+        &into,
+        temper::drift::EmitOptions {
+            dry_run: false,
+            frozen: false,
+        },
+    )
+    .unwrap();
 
     for rel in [skill_rel, rust_rel] {
         let projected = fs::read_to_string(harness.join(&rel)).unwrap();
         assert!(
             !projected.contains(NOTE_MARKER),
-            "apply must never re-emit the managed-by note, got in {}:\n{projected}",
+            "emit must never re-emit the managed-by note, got in {}:\n{projected}",
             rel.display()
         );
     }

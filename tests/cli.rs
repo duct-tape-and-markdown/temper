@@ -521,10 +521,10 @@ fn diff_reports_the_four_states_and_writes_nothing() {
     assert_eq!(before, snapshot(&into), "diff must write nothing");
 }
 
-/// Run `temper apply --into <ws> [extra…]` and return `(exit-zero, stdout)`.
-fn run_apply(into: &Path, extra: &[&str]) -> (bool, String) {
+/// Run `temper emit --into <ws> [extra…]` and return `(exit-zero, stdout)`.
+fn run_emit(into: &Path, extra: &[&str]) -> (bool, String) {
     let output = Command::new(BIN)
-        .arg("apply")
+        .arg("emit")
         .arg("--into")
         .arg(into)
         .args(extra)
@@ -537,7 +537,7 @@ fn run_apply(into: &Path, extra: &[&str]) -> (bool, String) {
 }
 
 #[test]
-fn apply_projects_a_surface_edit_and_dry_run_writes_nothing() {
+fn emit_projects_a_surface_edit_and_dry_run_writes_nothing() {
     // Import a clean skill, then edit its description in the surface `SKILL.md`
     // document — exactly the field a human recomposes.
     let harness = tmpdir("apply-src");
@@ -559,20 +559,20 @@ fn apply_projects_a_surface_edit_and_dry_run_writes_nothing() {
 
     // A dry run reports the pending write but touches nothing on disk.
     let before = snapshot(&harness);
-    let (ok, stdout) = run_apply(&into, &["--dry-run"]);
-    assert!(ok, "apply --dry-run must exit zero");
+    let (ok, stdout) = run_emit(&into, &["--dry-run"]);
+    assert!(ok, "emit --dry-run must exit zero");
     assert!(
-        stdout.contains("dry run") && stdout.contains("applied"),
-        "the dry run must report the pending apply, got:\n{stdout}"
+        stdout.contains("dry run") && stdout.contains("emitted"),
+        "the dry run must report the pending emit, got:\n{stdout}"
     );
     assert_eq!(before, snapshot(&harness), "a dry run writes nothing");
 
-    // The real apply lands the edited field on the harness source.
-    let (ok, stdout) = run_apply(&into, &[]);
-    assert!(ok, "apply must exit zero");
+    // The real emit lands the edited field on the harness source.
+    let (ok, stdout) = run_emit(&into, &[]);
+    assert!(ok, "emit must exit zero");
     assert!(
-        stdout.contains("applied"),
-        "the report names the applied skill"
+        stdout.contains("emitted"),
+        "the report names the emitted skill"
     );
     assert!(
         fs::read_to_string(&source)
@@ -581,12 +581,12 @@ fn apply_projects_a_surface_edit_and_dry_run_writes_nothing() {
         "the edited description must be projected onto the source"
     );
 
-    // Re-running is idempotent — the second apply finds nothing to do.
-    let (ok, stdout) = run_apply(&into, &[]);
+    // Re-running is idempotent — the second emit finds nothing to do.
+    let (ok, stdout) = run_emit(&into, &[]);
     assert!(ok, "the re-run must exit zero");
     assert!(
         stdout.contains("unchanged"),
-        "a re-applied surface reports unchanged, got:\n{stdout}"
+        "a re-emitted surface reports unchanged, got:\n{stdout}"
     );
 }
 

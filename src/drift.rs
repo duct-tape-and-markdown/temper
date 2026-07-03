@@ -1,16 +1,18 @@
-//! `temper diff` / `apply` — the drift engine.
+//! `temper diff` / `emit` — the drift engine.
 //!
-//! specs/architecture/20-surface.md, "Drift — one direction, two freshness facts";
+//! specs/architecture/20-surface.md, "Content-faithful, deterministically emitted (law 5)";
 //! "Decision: `re-add` is retired — hand-edits route to the source" (a direct edit
 //! to emitted output is drift routed to the authored source, never merged back).
 //!
 //! [`diff`] classifies every artifact into four read-only states (in-sync /
-//! drifted / added / removed); [`apply`] pushes the surface out, re-emitting each
-//! projection deterministically over the three states it merges against — desired,
-//! the last-applied fingerprint (from the lock), and real on-disk — so a human edit
-//! is told from a world drift rather than clobbered. [`place`] is the whole-file
-//! sibling for artifacts temper places rather than round-trips
-//! (specs/architecture/50-distribution.md, `install`).
+//! drifted / added / removed); [`emit`] compiles the surface out, re-emitting each
+//! projection **whole** from the authored source and byte-deterministically —
+//! verified by a double-emit comparison, so nondeterministic authoring is a loud
+//! failure, never a silent churn. A hand-edited projection is overwritten: it is
+//! drift routed to the source, surfaced by `config.stale`/the guard, not a merge.
+//! [`place`] is the whole-file placement merge for artifacts temper *places* rather
+//! than emits (specs/architecture/50-distribution.md, `install`); it keeps its own
+//! three-state conflict detection until `install` rides emit's projection.
 
 use std::collections::HashSet;
 use std::fs;
@@ -44,7 +46,7 @@ pub enum DriftError {
         source: std::io::Error,
     },
 
-    /// A patched source could not be written back to the harness during `apply`.
+    /// A re-emitted projection could not be written back to the harness during `emit`.
     #[error("failed to write source {path}")]
     #[diagnostic(code(temper::drift::write))]
     Write {
@@ -53,6 +55,17 @@ pub enum DriftError {
         /// The underlying I/O error.
         #[source]
         source: std::io::Error,
+    },
+
+    /// A projection did not reproduce byte-for-byte across a double-emit: the
+    /// authoring surface is nondeterministic (a timestamp, an unordered map surfacing
+    /// into a field). Law 5 makes this a loud failure rather than a silent churn the
+    /// next `emit` would rewrite.
+    #[error("emit is nondeterministic for {path} (a double-emit produced differing bytes)")]
+    #[diagnostic(code(temper::drift::nondeterministic))]
+    Nondeterministic {
+        /// The projection source path whose re-emit diverged.
+        path: PathBuf,
     },
 
     /// The workspace lock could not be read for its last-applied fingerprints.
@@ -332,79 +345,82 @@ pub fn render(report: &DriftReport) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// apply — the write direction (`specs/architecture/20-surface.md`, the hard core)
+// emit — the write direction (`specs/architecture/20-surface.md`, law 5)
 // ---------------------------------------------------------------------------
 
-/// Options controlling an [`apply`] run.
+/// Options controlling an [`emit`] run.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct ApplyOptions {
-    /// When set, compute every outcome and report it but write nothing — neither
-    /// the patched harness sources nor the updated lock fingerprints.
+pub struct EmitOptions {
+    /// When set, compute every projection and report it but write nothing — neither
+    /// the re-emitted harness sources nor the updated lock fingerprints.
     pub dry_run: bool,
+    /// Refuse network access — the CI posture (`specs/architecture/20-surface.md`, CLI
+    /// surface). `emit` performs no network I/O today (it compiles a materialized
+    /// surface), so this changes nothing yet; it is accepted for CLI-surface / CI
+    /// parity and reserved for the altitude's package-fetch step.
+    pub frozen: bool,
 }
 
-/// One artifact's outcome from an [`apply`]: what the three-state merge decided.
+/// One artifact's outcome from an [`emit`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ApplyOutcome {
-    /// The source was re-emitted to match the surface projection (or, under
-    /// `--dry-run`, would have been). Only reachable when the source had *not*
-    /// drifted from the last-applied fingerprint — a clean surface edit.
-    Applied,
+pub enum EmitOutcome {
+    /// The projection was re-emitted whole to match the surface (or, under
+    /// `--dry-run`, would have been): its bytes differed from disk, or the source
+    /// was absent. Emit regenerates from the authored source, so a hand-edited
+    /// projection is overwritten — that edit is drift routed to the source, never a
+    /// merge (`specs/architecture/20-surface.md`, `re-add` retired).
+    Emitted,
     /// The re-emitted projection already sat on disk byte-for-byte; nothing to
-    /// write. The idempotent no-op — a re-run of a clean apply lands here for every
+    /// write. The idempotent no-op — a re-run of a clean emit lands here for every
     /// artifact.
     Unchanged,
-    /// The source drifted from the last-applied fingerprint *and* the surface wants
-    /// something different — a genuine conflict. `apply` surfaces the choice rather
-    /// than clobbering: it writes nothing. (A source removed from disk since the
-    /// last apply is reported here too — the world changed it out from under us.)
-    Conflicted,
 }
 
-impl ApplyOutcome {
+impl EmitOutcome {
     /// The lower-case label used in the rendered report and stable for tests.
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            ApplyOutcome::Applied => "applied",
-            ApplyOutcome::Unchanged => "unchanged",
-            ApplyOutcome::Conflicted => "conflicted",
+            EmitOutcome::Emitted => "emitted",
+            EmitOutcome::Unchanged => "unchanged",
         }
     }
 }
 
-/// One row of an [`ApplyReport`]: which artifact, of which kind, located where, and
-/// the outcome the merge produced.
+/// One row of an [`EmitReport`]: which artifact, of which kind, located where, and
+/// the outcome emit produced.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ApplyEntry {
+pub struct EmitEntry {
     /// The artifact kind — `"skill"` or `"rule"`.
     pub kind: &'static str,
     /// The artifact name (its surface name).
     pub name: String,
     /// The on-disk source path the projection targeted.
     pub source_path: PathBuf,
-    /// What `apply` did (or would do, under `--dry-run`) for this artifact.
-    pub outcome: ApplyOutcome,
+    /// What `emit` did (or would do, under `--dry-run`) for this artifact.
+    pub outcome: EmitOutcome,
 }
 
-/// The typed result of an [`apply`]: every artifact's outcome, in the workspace's
+/// The typed result of an [`emit`]: every artifact's outcome, in the workspace's
 /// stable load order (skills then rules, each name-sorted). Renders nothing itself
-/// — [`render_apply`] turns it into text.
+/// — [`render_emit`] turns it into text.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ApplyReport {
+pub struct EmitReport {
     /// Every projected artifact, across the built-in kinds.
-    pub entries: Vec<ApplyEntry>,
+    pub entries: Vec<EmitEntry>,
 }
 
-/// The desired projection of one surface artifact: its identity, the last-applied
-/// fingerprint the merge compares against, the ordered header fields the surface
+/// The desired projection of one surface artifact: its identity, the emit
+/// fingerprint the lock currently records, the ordered header fields the surface
 /// wants the frontmatter to express, and the byte-faithful body.
 struct Projection {
     kind: &'static str,
     name: String,
     source_path: PathBuf,
-    /// The fingerprint of the source as `temper` last projected it (the lock's
-    /// `emit_hash`, or the source hash as a baseline when the lock predates this field).
+    /// The emit fingerprint the lock currently records for this source (or the
+    /// source hash as a baseline when no `emit` has advanced it yet). Compared
+    /// against the re-emitted projection only to decide whether an already-matching
+    /// projection needs its stale lock fingerprint reconciled — never to merge.
     emit_hash: String,
     /// The desired header fields in canonical order (known fields first, then the
     /// preserved unknown keys). The whole set is re-emitted into a fresh
@@ -414,18 +430,21 @@ struct Projection {
     body: String,
 }
 
-/// Project the loaded `workspace` surface back onto the harness sources,
-/// re-emitting each projection deterministically over the three-state merge.
+/// Compile the loaded `workspace` surface out onto the harness sources, re-emitting
+/// each projection **whole** from the authored source and byte-deterministically.
 ///
 /// `workspace_dir` is the surface root — where the lock (`lock.toml`) carrying the
-/// last-applied fingerprints lives. Each artifact is written to its recorded
-/// `provenance.source_path` (where `import` read it from). See the module header
-/// for the per-outcome merge rules; nothing is written under `options.dry_run`.
-pub fn apply(
+/// emit fingerprints lives. Each artifact is written to its recorded
+/// `provenance.source_path` (where `import` read it from). Emit regenerates the
+/// projection whole rather than merging on-disk bytes: a hand-edited projection is
+/// overwritten (that edit is drift routed to the source, `specs/architecture/20-surface.md`),
+/// and every projection is double-emit verified (`emit_one`). Nothing is written
+/// under `options.dry_run`.
+pub fn emit(
     workspace: &Workspace,
     workspace_dir: &Path,
-    options: ApplyOptions,
-) -> miette::Result<ApplyReport> {
+    options: EmitOptions,
+) -> miette::Result<EmitReport> {
     let emit_hashes = load_emit_hash(workspace_dir)?;
 
     let mut projections = Vec::new();
@@ -453,10 +472,11 @@ pub fn apply(
     }
 
     let mut entries = Vec::new();
-    // source_path -> new fingerprint to record for Applied/Unchanged artifacts.
+    // source_path -> new emit fingerprint to record (an Emitted write, or a stale
+    // lock reconciled on an Unchanged projection).
     let mut updates: Vec<(PathBuf, String)> = Vec::new();
     for projection in &projections {
-        let (entry, update) = project_one(projection, options.dry_run)?;
+        let (entry, update) = emit_one(projection, options.dry_run)?;
         if let Some(fingerprint) = update {
             updates.push((projection.source_path.clone(), fingerprint));
         }
@@ -467,31 +487,45 @@ pub fn apply(
         update_lock(workspace_dir, &updates)?;
     }
 
-    Ok(ApplyReport { entries })
+    Ok(EmitReport { entries })
 }
 
-/// Merge one artifact against real-on-disk, returning its [`ApplyEntry`] and, when
-/// the source is in a reconciled state (applied or unchanged), the fingerprint to
-/// record for it. A conflict records nothing — the lock is left untouched so the
-/// next run still sees the drift.
-fn project_one(
+/// Re-emit one projection whole, returning its [`EmitEntry`] and the emit fingerprint
+/// to record when the bytes moved (or a stale lock needs reconciling).
+///
+/// The projection is regenerated from the authored surface — never merged against
+/// on-disk bytes — so a hand-edited projection is simply overwritten: a direct edit
+/// to emitted output is drift routed to the source (`config.stale`/the guard surface
+/// it), not a mergeable conflict. The on-disk read decides only `Emitted` vs the
+/// idempotent `Unchanged`.
+fn emit_one(
     projection: &Projection,
     dry_run: bool,
-) -> Result<(ApplyEntry, Option<String>), DriftError> {
-    let row = |outcome| ApplyEntry {
+) -> Result<(EmitEntry, Option<String>), DriftError> {
+    let row = |outcome| EmitEntry {
         kind: projection.kind,
         name: projection.name.clone(),
         source_path: projection.source_path.clone(),
         outcome,
     };
 
-    // Read real-on-disk. A source removed since the last apply is a world drift we
-    // must not silently re-create — surface it as a conflict.
-    let real_bytes = match fs::read(&projection.source_path) {
-        Ok(bytes) => bytes,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((row(ApplyOutcome::Conflicted), None));
-        }
+    let desired = project_bytes(&projection.fields, &projection.body);
+
+    // Double-emit determinism (`specs/architecture/20-surface.md`, law 5): a second
+    // projection over the same surface must be byte-identical. Nondeterministic
+    // authoring (a timestamp, an unordered map surfacing into a field) is a loud
+    // failure here, never a silent churn the next `emit` would rewrite.
+    if project_bytes(&projection.fields, &projection.body) != desired {
+        return Err(DriftError::Nondeterministic {
+            path: projection.source_path.clone(),
+        });
+    }
+
+    // Read the committed projection only to tell `Emitted` from the idempotent no-op
+    // — never to merge. An absent source is not a conflict: emit writes it.
+    let current = match fs::read(&projection.source_path) {
+        Ok(bytes) => Some(bytes),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
         Err(source) => {
             return Err(DriftError::Read {
                 path: projection.source_path.clone(),
@@ -499,44 +533,28 @@ fn project_one(
             });
         }
     };
-    // The source drifted into non-UTF-8 bytes; we compare against the re-emitted
-    // projection as text, so a non-UTF-8 disk source cannot be a clean match.
-    let Ok(real) = String::from_utf8(real_bytes) else {
-        return Ok((row(ApplyOutcome::Conflicted), None));
-    };
 
-    let desired = project_bytes(&projection.fields, &projection.body);
-
-    if desired == real {
-        // The re-emitted projection already sits on disk. If the fingerprint is stale
-        // (a benign world edit that happens to match the surface), reconcile it to the
-        // current bytes so it stops reading as drift; otherwise there is nothing to
-        // record and the lock is left alone.
-        let real_hash = sha256_hex(real.as_bytes());
-        let update = (real_hash != projection.emit_hash).then_some(real_hash);
-        return Ok((row(ApplyOutcome::Unchanged), update));
+    if current.as_deref() == Some(desired.as_bytes()) {
+        // Already at the projection. Reconcile a stale lock fingerprint (an
+        // `emit_hash` predating these bytes) so it stops reading as `config.stale`;
+        // otherwise leave the lock alone.
+        let hash = sha256_hex(desired.as_bytes());
+        let update = (hash != projection.emit_hash).then_some(hash);
+        return Ok((row(EmitOutcome::Unchanged), update));
     }
 
-    if sha256_hex(real.as_bytes()) == projection.emit_hash {
-        // No world drift since the last apply: the on-disk source is exactly what
-        // `temper` last wrote, so re-emitting the projection over it is clean.
-        if !dry_run {
-            fs::write(&projection.source_path, desired.as_bytes()).map_err(|source| {
-                DriftError::Write {
-                    path: projection.source_path.clone(),
-                    source,
-                }
-            })?;
-        }
-        Ok((
-            row(ApplyOutcome::Applied),
-            Some(sha256_hex(desired.as_bytes())),
-        ))
-    } else {
-        // The world drifted *and* the surface wants something else: a genuine
-        // conflict. Do not clobber — surface the choice, write nothing.
-        Ok((row(ApplyOutcome::Conflicted), None))
+    if !dry_run {
+        fs::write(&projection.source_path, desired.as_bytes()).map_err(|source| {
+            DriftError::Write {
+                path: projection.source_path.clone(),
+                source,
+            }
+        })?;
     }
+    Ok((
+        row(EmitOutcome::Emitted),
+        Some(sha256_hex(desired.as_bytes())),
+    ))
 }
 
 /// Re-emit the desired projection deterministically: a fresh `---`-delimited
@@ -572,7 +590,7 @@ fn render_field(key: &str, value: &JsonValue) -> String {
 }
 
 /// Read the emit fingerprints from `<workspace_dir>/lock.toml`, keyed by
-/// source path. Covers the built-in `[[skill]]`/`[[rule]]` rows — the kinds `apply`
+/// source path. Covers the built-in `[[skill]]`/`[[rule]]` rows — the kinds `emit`
 /// projects. A row without an `emit_hash` column (a lock predating the field) is
 /// simply absent, and the caller falls back to the source hash.
 fn load_emit_hash(
@@ -648,17 +666,16 @@ fn update_lock(workspace_dir: &Path, updates: &[(PathBuf, String)]) -> Result<()
     fs::write(&path, doc.to_string()).map_err(|source| DriftError::Write { path, source })
 }
 
-/// Render an apply report for the terminal: one `<outcome>  <kind>  <name>` line per
+/// Render an emit report for the terminal: one `<outcome>  <kind>  <name>` line per
 /// entry in the report's stable order, then a one-line tally.
 #[must_use]
-pub fn render_apply(report: &ApplyReport) -> String {
+pub fn render_emit(report: &EmitReport) -> String {
     let mut out = String::new();
-    let (mut applied, mut unchanged, mut conflicted) = (0u32, 0u32, 0u32);
+    let (mut emitted, mut unchanged) = (0u32, 0u32);
     for entry in &report.entries {
         match entry.outcome {
-            ApplyOutcome::Applied => applied += 1,
-            ApplyOutcome::Unchanged => unchanged += 1,
-            ApplyOutcome::Conflicted => conflicted += 1,
+            EmitOutcome::Emitted => emitted += 1,
+            EmitOutcome::Unchanged => unchanged += 1,
         }
         out.push_str(&format!(
             "{:<10}  {:<5}  {}\n",
@@ -667,9 +684,7 @@ pub fn render_apply(report: &ApplyReport) -> String {
             entry.name
         ));
     }
-    out.push_str(&format!(
-        "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted\n"
-    ));
+    out.push_str(&format!("\n{emitted} emitted, {unchanged} unchanged\n"));
     out
 }
 
@@ -677,11 +692,41 @@ pub fn render_apply(report: &ApplyReport) -> String {
 // place — the whole-file direction (`specs/architecture/50-distribution.md`, `install`)
 // ---------------------------------------------------------------------------
 
-/// Project `desired` onto `path` under the three-state merge — the whole-file
-/// sibling of [`apply`]'s per-field patch, for artifacts temper *places* rather
-/// than round-trips (`specs/architecture/50-distribution.md`, the `install` gate wiring). It
-/// reuses the engine's own [`ApplyOutcome`] and [`DriftError`] so `install` builds
-/// on this write-back direction rather than re-emitting one.
+/// One placement's outcome from [`place`] — its own three-state merge, distinct from
+/// [`EmitOutcome`]. A placement is merged into a file temper shares with the human, so
+/// it keeps `Conflicted`; emit, which regenerates a projection whole, does not. The
+/// two-projectors seam stays until `install` rides emit's projection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApplyOutcome {
+    /// The placement was written (created or re-placed) to match `desired`, or would
+    /// be under `--dry-run`.
+    Applied,
+    /// `desired` already sat on disk byte-for-byte; nothing to write.
+    Unchanged,
+    /// The placement drifted from its recorded baseline *and* differs from `desired`
+    /// — a human changed it out from under temper, surfaced rather than clobbered.
+    Conflicted,
+}
+
+impl ApplyOutcome {
+    /// The lower-case label used in the rendered report and stable for tests.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            ApplyOutcome::Applied => "applied",
+            ApplyOutcome::Unchanged => "unchanged",
+            ApplyOutcome::Conflicted => "conflicted",
+        }
+    }
+}
+
+/// Project `desired` onto `path` under a three-state merge — the whole-file
+/// placement direction, for artifacts temper *places* rather than emits
+/// (`specs/architecture/50-distribution.md`, the `install` gate wiring). It carries its own
+/// [`ApplyOutcome`] and reuses [`DriftError`] so `install` builds on this write-back
+/// direction; unlike [`emit`], which regenerates a projection whole, a placement
+/// merges into a file it shares with the human, so it keeps conflict detection (the
+/// two-projectors seam stays until `install` rides emit's projection).
 ///
 /// The three states are the engine's own: **desired** (the caller's bytes),
 /// **last-applied** (the fingerprint of the file as temper last wrote it, from
@@ -689,9 +734,8 @@ pub fn render_apply(report: &ApplyReport) -> String {
 ///
 /// - target **absent** ⇒ [`ApplyOutcome::Applied`] — the placement is *created*
 ///   (an `install` onto a harness that does not carry it yet, or re-placing one a
-///   human deleted). This is the one divergence from [`apply`], where an absent
-///   source is a world-deletion conflict: a placement has no prior on-disk source
-///   to have been deleted, so writing it is the whole point.
+///   human deleted): a placement has no prior on-disk source to have been deleted,
+///   so writing it is the whole point.
 /// - real **equals** desired ⇒ [`ApplyOutcome::Unchanged`] (the idempotent no-op).
 /// - real **differs**, and either no baseline is recorded (`last_applied` is
 ///   `None`) or real still hashes to it ⇒ [`ApplyOutcome::Applied`], desired

@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::check::Workspace;
-use temper::drift::{self, ApplyOptions};
+use temper::drift::{self, EmitOptions};
 use temper::import;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -135,20 +135,20 @@ fn imported(label: &str) -> (PathBuf, PathBuf) {
     (harness, into)
 }
 
-/// Apply the surface at `into` back out to its harness sources.
-fn apply(into: &Path) {
+/// Emit the surface at `into` back out to its harness sources.
+fn emit(into: &Path) {
     let ws = Workspace::load(into).unwrap();
-    drift::apply(&ws, into, ApplyOptions::default()).unwrap();
+    drift::emit(&ws, into, EmitOptions::default()).unwrap();
 }
 
-/// `apply` re-emits each frontmatter in a fixed order — typed scalars in declaration
+/// `emit` re-emits each frontmatter in a fixed order — typed scalars in declaration
 /// order, then the unknown keys sorted — as compact JSON-flow YAML. Snapshotting the
 /// projected skill and rule sources pins that ordering: the generic adapter must
 /// reproduce these bytes.
 #[test]
 fn projected_yaml_key_order_is_stable() {
     let (harness, into) = imported("yaml-order");
-    apply(&into);
+    emit(&into);
 
     let skill = fs::read_to_string(skill_source(&harness)).unwrap();
     insta::assert_snapshot!("projected_skill_source", skill);
@@ -167,7 +167,7 @@ fn import_apply_round_trip_is_a_byte_fixpoint() {
     // The canonical sources are already what the emit face renders, so the first
     // apply changes not a byte.
     let before = tree_bytes(&harness);
-    apply(&into);
+    emit(&into);
     assert_eq!(
         before,
         tree_bytes(&harness),
@@ -177,7 +177,7 @@ fn import_apply_round_trip_is_a_byte_fixpoint() {
     // And a second full round trip through a fresh surface is still the identity.
     let into2 = tmpdir("fixpoint-into2");
     import::run(&harness, &into2).unwrap();
-    apply(&into2);
+    emit(&into2);
     assert_eq!(
         before,
         tree_bytes(&harness),
@@ -191,7 +191,7 @@ fn import_apply_round_trip_is_a_byte_fixpoint() {
 #[test]
 fn unknown_frontmatter_keys_are_preserved_verbatim() {
     let (harness, into) = imported("unknown-keys");
-    apply(&into);
+    emit(&into);
 
     let skill = fs::read_to_string(skill_source(&harness)).unwrap();
     assert!(
@@ -211,7 +211,7 @@ fn unknown_frontmatter_keys_are_preserved_verbatim() {
 #[test]
 fn a_fieldless_rule_projects_with_no_frontmatter() {
     let (harness, into) = imported("fieldless");
-    apply(&into);
+    emit(&into);
 
     let projected = fs::read_to_string(fieldless_rule_source(&harness)).unwrap();
     assert!(
@@ -243,7 +243,7 @@ fn skill_companions_are_copied_byte_for_byte() {
 
     // Apply face: re-emitting the member document leaves the source companions
     // untouched — the emit face owns only the frontmatter, never the companions.
-    apply(&into);
+    emit(&into);
     let source_dir = harness.join(".claude").join("skills").join("coordinate");
     assert_eq!(
         fs::read(source_dir.join("PLAYBOOK.md")).unwrap(),

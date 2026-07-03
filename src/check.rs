@@ -535,7 +535,7 @@ key = \"model\"
         )
         .unwrap();
 
-        // Project one agent member onto the surface exactly as `import`/`apply` would.
+        // Project one agent member onto the surface exactly as `import`/`emit` would.
         let ws = tmpdir("third-kind");
         let src = tmpdir("agent-src");
         fs::create_dir_all(src.join("reviewer")).unwrap();

@@ -107,10 +107,10 @@ pub(crate) struct RollupEntry {
     /// "two freshness facts").
     pub(crate) source_hash: String,
     /// SHA-256 of the last emitted projection — the **emit freshness fact**, the
-    /// baseline `apply`'s three-state merge measures a world drift against.
-    /// At import it provisionally equals `source_hash`: no `emit` has run yet, so the
-    /// last thing projected onto the source is the source as imported (`emit` advances
-    /// it once it lands — EMIT-VERB).
+    /// baseline `config.stale` and projection freshness compare a committed output
+    /// against. At import it provisionally equals `source_hash`: no `emit` has run
+    /// yet, so the last thing projected onto the source is the source as imported
+    /// (`emit` advances it once it lands).
     pub(crate) emit_hash: String,
 }
 

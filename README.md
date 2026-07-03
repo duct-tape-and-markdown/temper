@@ -46,9 +46,11 @@ requirement you declared would strand.
 - **Requirements you declare.** In a `temper.toml`, state what your harness *must*
   contain; `temper` answers what fills each requirement and what would strand it —
   the coverage a linter over individual files can't see.
-- **Drift-aware write-back.** `apply` projects surface edits back onto their source
-  files, patching only what changed. Markdown bodies round-trip byte-for-byte;
-  only structured headers are rewritten.
+- **Deterministic emit.** `emit` compiles the surface back onto its projected
+  files, re-emitting each one whole and byte-deterministically — double-emit
+  verified, so nondeterministic authoring is a loud failure, never a silent churn.
+  Authored prose lands byte-for-byte; a hand-edit to a generated file is drift
+  routed to its source, never merged back.
 - **Editor and CI seams.** Emit a JSON Schema for keystroke validation in your
   editor; GitHub-Actions and SARIF reporters land the same verdict inline on PRs
   and in code scanning.
@@ -73,7 +75,7 @@ installed binary is still `temper`.
 
 `temper` is **pre-1.0 and built in the open**, one gated commit at a time. The
 command surface is landing incrementally — `import`, `check`, `schema`, `diff`,
-`apply`, `re-add`, `install`, and `bundle` — so expect sharp edges and breaking
+`emit`, `install`, and `bundle` — so expect sharp edges and breaking
 changes before 1.0. Following the [`ty`](https://github.com/astral-sh/ty) model,
 versions stay `0.x` until the surface stabilizes. Small, frequent, tagged releases
 are the plan, each recorded in the root `CHANGELOG`.

@@ -124,7 +124,7 @@ const NOTE_MARKER: &str = "# temper: managed projection";
 
 /// The managed-by note itself: a frontmatter comment stating the file is generated and
 /// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
-/// stamped by `apply` (law 5 keeps the projection content-faithful; the note is
+/// stamped by `emit` (law 5 keeps the projection content-faithful; the note is
 /// install's, not the surface body's).
 const NOTE_COMMENT: &str = "# temper: managed projection — edit the .temper/ surface, not this generated file (temper re-add lifts a direct edit back).";
 
@@ -647,7 +647,7 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// so re-running neither duplicates nor rewrites the note.
 ///
 /// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note is the
-/// only inserted bytes. The note rides `install`, never `apply` — a YAML comment is
+/// only inserted bytes. The note rides `install`, never `emit` — a YAML comment is
 /// not authored surface content, so the content-faithful projector (law 5) never
 /// re-emits it (`specs/architecture/20-surface.md`).
 fn project_note(source: &str) -> Option<String> {
@@ -679,7 +679,7 @@ fn frontmatter_inner(rest: &str) -> Option<&str> {
 }
 
 /// Render an install report for the terminal: one `<outcome>  <placement>  <path>`
-/// line per entry, then a one-line tally — mirroring [`drift::render_apply`].
+/// line per entry, then a one-line tally — mirroring [`drift::render_emit`].
 #[must_use]
 pub fn render(report: &InstallReport) -> String {
     let mut out = String::new();

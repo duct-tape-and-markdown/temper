@@ -420,7 +420,7 @@ mod tests {
     }
 
     /// Write a member's authored surface member document `<dir>/<member_doc>` exactly
-    /// as `import`/`apply` project it ([`crate::frontmatter::Member::to_document`]),
+    /// as `import`/`emit` project it ([`crate::frontmatter::Member::to_document`]),
     /// then reload it through the generic surface loader `check` reads — the built-in
     /// kind's member-document read (`specs/architecture/15-kinds.md`, "A built-in kind is an
     /// adapter"), one generic adapter, no per-kind IR.

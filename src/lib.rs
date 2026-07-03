@@ -5,7 +5,7 @@
 //! settings) into a single typed, validated config surface, lets a human
 //! reorganize it, lints it against the documented schemas + best practices,
 //! composes artifacts into publishable bundles, and writes changes back to disk
-//! with drift-aware, dry-runnable `apply`.
+//! with drift-aware, dry-runnable `emit`.
 //!
 //! See the evergreen `specs/` corpus for the full design — `specs/intent/00-intent.md`
 //! is the north star, continuously reconciled against this code (there is no

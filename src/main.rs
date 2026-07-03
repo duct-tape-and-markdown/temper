@@ -149,17 +149,22 @@ enum Command {
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
     },
-    /// Re-emit the projection deterministically from the surface, over the
-    /// three-state drift model (`specs/architecture/20-surface.md`, the hard core). Each
-    /// artifact is regenerated full-file — byte-stable and idempotent — and written
-    /// back to the source path `import` recorded; a direct edit to the projection is
-    /// drift routed to the authored source, never something apply patches around.
-    Apply {
+    /// Compile the authoring face: re-emit each projection **whole** from the
+    /// surface, byte-deterministically and double-emit verified
+    /// (`specs/architecture/20-surface.md`, law 5). Each artifact is regenerated full-file —
+    /// byte-stable and idempotent — and written back to the source path `import`
+    /// recorded; a direct edit to the projection is drift routed to the authored
+    /// source, never something emit merges around.
+    Emit {
         /// The surface workspace to project (defaults to `./.temper`). The lock
-        /// under it carries the last-applied fingerprints the merge stands on.
+        /// under it carries the emit fingerprints freshness stands on.
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
-        /// Compute and report every outcome without writing a single byte — not
+        /// Refuse network access — the CI posture (`specs/architecture/20-surface.md`).
+        /// `emit` performs no network I/O today, so this is accepted for CI parity.
+        #[arg(long)]
+        frozen: bool,
+        /// Compute and report every projection without writing a single byte — not
         /// the re-emitted sources, not the updated lock.
         #[arg(long)]
         dry_run: bool,
@@ -349,7 +354,7 @@ fn main() -> miette::Result<ExitCode> {
         Command::Diff { harness_path, into } => {
             // Read-only (`specs/architecture/20-surface.md`): compare the surface against the
             // live harness and print the report — the engine writes nothing;
-            // `apply` owns write-back. Every custom kind the harness's
+            // `emit` owns write-back. Every custom kind the harness's
             // assembly registers is scanned at its `governs` locus beside the
             // built-ins, so a hand-edited `specs/*.md` shows as drift.
             let ws = Workspace::load(&into)?;
@@ -358,17 +363,21 @@ fn main() -> miette::Result<ExitCode> {
             print!("{}", drift::render(&report));
             Ok(ExitCode::SUCCESS)
         }
-        Command::Apply { into, dry_run } => {
-            // The write direction (`specs/architecture/20-surface.md`): re-emit each projection
-            // deterministically onto its recorded provenance path — the source it
-            // came from, so no harness root is re-supplied here (unlike `diff`, whose
-            // harness arg drives its rescan for the "added" axis).
+        Command::Emit {
+            into,
+            frozen,
+            dry_run,
+        } => {
+            // The write direction (`specs/architecture/20-surface.md`, law 5): re-emit each
+            // projection whole onto its recorded provenance path — the source it came
+            // from, so no harness root is re-supplied here (unlike `diff`, whose harness
+            // arg drives its rescan for the "added" axis).
             let ws = Workspace::load(&into)?;
-            let report = drift::apply(&ws, &into, drift::ApplyOptions { dry_run })?;
+            let report = drift::emit(&ws, &into, drift::EmitOptions { dry_run, frozen })?;
             if dry_run {
                 println!("dry run — no files written");
             }
-            print!("{}", drift::render_apply(&report));
+            print!("{}", drift::render_emit(&report));
             Ok(ExitCode::SUCCESS)
         }
         Command::SessionStart { harness_path } => {
