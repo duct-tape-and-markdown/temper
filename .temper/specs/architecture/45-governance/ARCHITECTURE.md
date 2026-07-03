@@ -1,4 +1,10 @@
 +++
+[satisfies.join]
+rationale = "45-governance owns the `join` as the sole sanctioned intra-world edge (the 'coupling is a join' Decision); no other spec defines the two-sided demand/claim edge mechanism"
+
+[satisfies.dependency-graph]
+rationale = "45-governance owns the graph-scope predicates (degree/acyclic) over the relation graph — those predicates ARE the decidable blast-radius mechanism 00-intent's dependency-graph claim demands"
+
 [provenance]
 source_path = "./specs/architecture/45-governance.md"
 import_hash = "0f4646b63ee3ab1cd99139191b00a6aee8d4cbf39d49471b0e88bc6171a041b8"

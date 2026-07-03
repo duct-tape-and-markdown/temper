@@ -1,4 +1,7 @@
 +++
+[satisfies.assembly]
+rationale = "40-composition owns `assembly` — `temper.toml` as the layered binding manifest — and the five-step authoring loop that produces it; the only home for `assembly`"
+
 [provenance]
 source_path = "./specs/architecture/40-composition.md"
 import_hash = "78e65751b399ecf651fa7140c29e11de53f1d54b4fcfea4fa5756bd23fff3b19"

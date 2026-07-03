@@ -1,4 +1,10 @@
 +++
+[satisfies.member]
+rationale = "20-surface owns the member-document format (TOML-fenced header over a byte-faithful markdown body) and its TOML-dialect Decision; the only home for the document format"
+
+[satisfies.projection]
+rationale = "20-surface owns the deterministic, content-faithful projection mechanics (law 5) from member back to the on-disk landscape — the sole architecture home for the emit law"
+
 [provenance]
 source_path = "./specs/architecture/20-surface.md"
 import_hash = "78348abafb37fc5e6f29336f38e597525de2497f45aa4fc1d14e8a59d7d7a060"

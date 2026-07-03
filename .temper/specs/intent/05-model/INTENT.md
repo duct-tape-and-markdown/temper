@@ -1,4 +1,69 @@
 +++
+[requirement.extraction-algebra]
+means = "temper's parse/emit adapter algebra — the closed set of extraction primitives (the soundness boundary) a kind uses to read structure out of an artifact — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.kind]
+means = "the `kind` concept — the declare-side class of artifact (a declared extraction, with its provider-identity axis and activation edges) — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.provider]
+means = "the provider axis that fixes a kind's identity (the `<provider>.<name>` authority whose format a kind mirrors) must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.predicate-algebra]
+means = "the closed vocabulary of decidable predicates a contract is built from must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.requirement-fill]
+means = "the requirement/`satisfies` fill mechanism — a published demand met by an artifact's opt-in claim, coverage-gated — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.package]
+means = "the `package` concept — the reusable, bindable contract unit with its clause/guidance channel split — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.verified-by]
+means = "the `verified_by` external-verifier wiring for the undecidable remainder must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.member]
+means = "the `member` document format — a TOML-fenced header over a byte-faithful markdown body — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.projection]
+means = "the deterministic, content-faithful projection (law 5) from a surface member back to the on-disk landscape must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.assembly]
+means = "the `assembly` concept — `temper.toml` as the layered binding manifest — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.landscape]
+means = "the `landscape` concept — the engine applied as an instance over a corpus of artifacts — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.cross-landscape-seam]
+means = "the cross-landscape seam — a checked relation between two landscapes' entities (e.g. spec ⟷ code) — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.join]
+means = "the `join` concept — the two-sided demand/claim edge that is the sole intra-world relationship — must be given an architecture home"
+kind = "architecture"
+required = true
+
 [provenance]
 source_path = "./specs/intent/05-model.md"
 import_hash = "2ec83c90bf41b66d31c9e14dc536e1504c7b09c6559175ba779da7797d5ca7a2"

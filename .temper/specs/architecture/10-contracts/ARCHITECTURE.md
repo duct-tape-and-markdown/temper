@@ -1,4 +1,19 @@
 +++
+[satisfies.predicate-algebra]
+rationale = "10-contracts owns the closed primitive predicate algebra; its 'primitive algebra' section is the sole definitional home for what a contract may require"
+
+[satisfies.requirement-fill]
+rationale = "10-contracts defines the requirement demand, the `satisfies` opt-in claim, and its two Decisions (publisher-agnostic, total-per-demand) — the only home for the fill mechanism"
+
+[satisfies.package]
+rationale = "10-contracts owns `package` as the reusable bindable contract unit, including its clause/guidance channel split; no other architecture spec defines packages"
+
+[satisfies.verified-by]
+rationale = "10-contracts owns `verified_by` as external-verifier wiring on a contract for the undecidable remainder — its admissibility apparatus is the only home for verifier wiring"
+
+[satisfies.gate-severity]
+rationale = "10-contracts owns severity as a DECLARED (required/advisory) property of a contract — the concrete mechanism that turns 00-intent's law-1 'gate, don't lint' into a decidable blocking verdict"
+
 [provenance]
 source_path = "./specs/architecture/10-contracts.md"
 import_hash = "75d1337d0abff4cea236c1fa5147cd7db48e7712dd40a294a68a09acff138d0e"

@@ -1,4 +1,13 @@
 +++
+[satisfies.landscape]
+rationale = "30-landscapes owns the `landscape` concept — the engine applied as an instance (harness/spec/code) — as its namesake and only definitional home"
+
+[satisfies.cross-landscape-seam]
+rationale = "30-landscapes owns the cross-landscape (spec ⟷ code) seam, including its explicit deferral pending a symbol-extraction primitive; nothing else defines the seam"
+
+[satisfies.behavioral-contract]
+rationale = "30-landscapes owns the fidelity seam separating tier-1 structure from tier-3 prose surplus — the sole architecture elaboration of the behavioral-contract concept 00-intent co-names"
+
 [provenance]
 source_path = "./specs/architecture/30-landscapes.md"
 import_hash = "2b4de49277fb9785d66b74ac71825c08cfa5dad659f91ce23cb0cdaf87db781b"

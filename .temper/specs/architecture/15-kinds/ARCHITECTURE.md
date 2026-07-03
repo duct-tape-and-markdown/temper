@@ -1,4 +1,13 @@
 +++
+[satisfies.extraction-algebra]
+rationale = "15-kinds owns the extraction algebra — the adapter's parse face and the closed primitive set (the soundness boundary) — in its 'extraction algebra' section; the only home"
+
+[satisfies.kind]
+rationale = "15-kinds owns the kind system and the built-in/custom ownership axis; it is the file's namesake and the sole definitional home for `kind`"
+
+[satisfies.provider]
+rationale = "15-kinds owns the provider axis that fixes a kind's identity (`<provider>.<name>`), argued in its kind-identity Decision — no other spec defines provider"
+
 [provenance]
 source_path = "./specs/architecture/15-kinds.md"
 import_hash = "dead96291f1a7bb15e81c18e099fe414d31e3f9fd61fc485398f7f3dd264ba02"

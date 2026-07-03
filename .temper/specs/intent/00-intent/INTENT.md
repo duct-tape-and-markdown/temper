@@ -1,4 +1,24 @@
 +++
+[requirement.the-wedge]
+means = "the zero-config `check --harness` entry point that lints an unconfigured harness with no assembly must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.gate-severity]
+means = "law 1 (gate, don't lint) — a finding carries a blocking-or-advisory severity that is declared, not baked — must be realized by an architecture mechanism"
+kind = "architecture"
+required = true
+
+[requirement.dependency-graph]
+means = "the claim that removing a load-bearing entity surfaces its blast radius — a decidable graph over the corpus — must have an architecture realization"
+kind = "architecture"
+required = true
+
+[requirement.behavioral-contract]
+means = "the fidelity seam distinguishing tier-1 structural fidelity from tier-3 prose surplus must be given an architecture home"
+kind = "architecture"
+required = true
+
 [provenance]
 source_path = "./specs/intent/00-intent.md"
 import_hash = "7dcb4d434557932432236d7abb11e5cbc843d203267a8c7dd542f5c9c24b1ae6"
