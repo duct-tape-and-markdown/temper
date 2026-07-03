@@ -45,6 +45,12 @@ graduation, delete over archive.
 - Placement attempts are integration tests: placing colliding curated files
   flushed five single-provider assumptions; expect the pattern to recur.
 - `cargo-insta` is not installed — accept snapshots by `mv .snap.new .snap`.
+- The session-start gate runs the PATH binary, which goes stale against a
+  fast-moving surface (Jul 3: a 2-day-old binary false-blocked a session with
+  19 phantom danglings). `cargo install --path .` after engine waves. Product
+  gap worth a ruling: the gate can't tell "surface is wrong" from "I am old"
+  — a binary-vs-lock freshness check would make that a clean finding instead
+  of a false red (false gate-blocks erode the gate — law 1's trust).
 
 ## Broad goal: a consolidated v0.1 release + open-source publish
 
