@@ -388,14 +388,15 @@ pub(crate) fn import_custom_unit(
     let out_dir = into.join(&kind.governs.root).join(&name);
     create_dir_all(&out_dir)?;
 
-    // The member is ONE document: a provenance-only `+++` header over the whole
-    // byte-faithful source file as the body, written format-preserving.
-    let mut header = DocumentMut::new();
-    document::add_provenance(&mut header, &source_file.to_string_lossy(), &import_hash);
-    write_bytes(
-        &out_dir.join(body_filename(&kind.name)),
-        Document::new(header, body).emit().as_bytes(),
-    )?;
+    // The member is ONE document: the `+++` header over the whole byte-faithful
+    // source file as the body. Merge, never clobber (`specs/architecture/20-surface.md`,
+    // "three states, never two"): a custom unit builds no `Member`, so the authored
+    // `[requirement.*]`/`[satisfies.*]` tables live only in the existing surface's
+    // header — carry them forward before writing, re-stamping only `[provenance]`,
+    // exactly as the frontmatter path does via `carry_representation`.
+    let body_path = out_dir.join(body_filename(&kind.name));
+    let header = custom_unit_header(&body_path, &source_file.to_string_lossy(), &import_hash);
+    write_bytes(&body_path, Document::new(header, body).emit().as_bytes())?;
 
     Ok(RollupEntry {
         name,
@@ -405,6 +406,34 @@ pub(crate) fn import_custom_unit(
         last_applied: import_hash.clone(),
         import_hash,
     })
+}
+
+/// The header to emit for a custom unit: carry every authored clause table from an
+/// already-written surface document at `body_path` forward, re-stamping only the
+/// generated `[provenance]` module with the fresh drift anchor. This makes the
+/// custom-unit path **merge rather than clobber** (`specs/architecture/20-surface.md`, "three
+/// states, never two") — symmetric with the frontmatter path's `carry_representation`
+/// — so a re-import or drifted-body `re-add` preserves the hand-authored
+/// `[requirement.*]`/`[satisfies.*]` tables instead of wiping them under a bare
+/// provenance header. A first import (or an unreadable/malformed prior surface)
+/// degrades to a fresh provenance-only header.
+fn custom_unit_header(body_path: &Path, source_path: &str, import_hash: &str) -> DocumentMut {
+    let mut header = existing_custom_header(body_path).unwrap_or_default();
+    // Provenance is always freshly generated (the drift anchor), never carried —
+    // drop any carried copy so the re-stamp lands it last, below the authored tables.
+    header.as_table_mut().remove("provenance");
+    document::add_provenance(&mut header, source_path, import_hash);
+    header
+}
+
+/// Parse the header of an already-written custom-unit surface document at `path`, or
+/// `None` if it is absent, unreadable, or malformed — the carrier of the authored
+/// clause tables a re-import must preserve. A missing or malformed prior surface
+/// degrades to "nothing to carry" rather than failing the write, mirroring
+/// [`existing_surface_member`] on the frontmatter path.
+fn existing_custom_header(path: &Path) -> Option<DocumentMut> {
+    let raw = fs::read_to_string(path).ok()?;
+    Some(Document::parse(&raw).ok()?.header().clone())
 }
 
 /// The byte-faithful body filename for a custom kind — the kind name upper-cased

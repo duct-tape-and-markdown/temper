@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::check::Workspace;
-use temper::document::Satisfies;
+use temper::document::{self, Document, PublishedRequirement, Satisfies};
 use temper::drift::{self, ReAddOutcome};
 use temper::frontmatter::Member;
 use temper::import;
@@ -535,6 +535,133 @@ fn a_drifted_custom_kind_unit_is_reconciled_into_the_surface() {
         lock_field(&into, "spec", "20-surface", "last_applied"),
         "last_applied is reconciled to the current source"
     );
+}
+
+/// The `SPEC.md` surface document of the `20-surface` spec unit.
+fn spec_surface_doc(into: &Path) -> PathBuf {
+    into.join("specs").join("20-surface").join("SPEC.md")
+}
+
+/// Author the surface-only representation layer onto a custom-unit surface document
+/// — a published `[requirement.*]` and a `[satisfies.*]` the spec *source* never
+/// carries — in the canonical tables-first, provenance-last layout the tool emits,
+/// so a re-import of the unchanged surface stays byte-stable. This is the 17-join
+/// intent↔architecture trace's shape in miniature: hand-authored tables the
+/// custom-unit re-import must carry forward, never clobber.
+fn author_spec_layer(surface_doc: &Path) {
+    let doc = Document::parse(&fs::read_to_string(surface_doc).unwrap()).unwrap();
+    let (source_path, import_hash) = document::provenance(doc.header()).unwrap();
+    let body = doc.body().to_string();
+
+    let mut header = DocumentMut::new();
+    document::add_requirement(
+        &mut header,
+        &PublishedRequirement {
+            name: "member".to_string(),
+            means: Some("the surface projects one document per member".to_string()),
+            kind: Some("spec".to_string()),
+            package: None,
+            required: true,
+        },
+    );
+    document::add_satisfies(
+        &mut header,
+        &Satisfies {
+            requirement: "projection".to_string(),
+            rationale: Some("20-surface owns the projection contract.".to_string()),
+        },
+    );
+    document::add_provenance(&mut header, &source_path, &import_hash);
+    fs::write(surface_doc, Document::new(header, body).emit()).unwrap();
+}
+
+/// The parsed header of a surface document at `path`.
+fn header_of(path: &Path) -> DocumentMut {
+    Document::parse(&fs::read_to_string(path).unwrap())
+        .unwrap()
+        .header()
+        .clone()
+}
+
+/// Assert the hand-authored `member` requirement and `projection` satisfies survived
+/// on `surface_doc` — the tables `author_spec_layer` wrote, intact after a re-import
+/// or re-add rebuilt the member document from source.
+fn assert_authored_layer_intact(surface_doc: &Path) {
+    let header = header_of(surface_doc);
+    let reqs = document::requirements(&header).unwrap();
+    assert_eq!(
+        reqs.len(),
+        1,
+        "the published requirement is carried forward"
+    );
+    assert_eq!(reqs[0].name, "member");
+    assert_eq!(reqs[0].kind.as_deref(), Some("spec"));
+    assert!(reqs[0].required);
+    let sats = document::satisfies(&header);
+    assert_eq!(sats.len(), 1, "the satisfies clause is carried forward");
+    assert_eq!(sats[0].requirement, "projection");
+    assert_eq!(
+        sats[0].rationale.as_deref(),
+        Some("20-surface owns the projection contract.")
+    );
+}
+
+#[test]
+fn a_drifted_custom_unit_readd_preserves_authored_representation() {
+    let (harness, into, custom) = imported_with_spec("spec-rep-preserve");
+    let surface_doc = spec_surface_doc(&into);
+    author_spec_layer(&surface_doc);
+    let before_hash = lock_field(&into, "spec", "20-surface", "import_hash");
+
+    // Drift only the spec body on disk, so `re-add` genuinely rebuilds the member
+    // document from source — the path that clobbers the authored tables today.
+    let edited = "# The config surface\n\nAn edit made straight in the spec file.\n";
+    fs::write(harness.join("specs").join("20-surface.md"), edited).unwrap();
+
+    let ws = Workspace::load(&into).unwrap();
+    let report = drift::re_add(&ws, &into, &harness, &custom).unwrap();
+    assert_eq!(outcome(&report, "20-surface"), ReAddOutcome::Reconciled);
+
+    // The drifted body was pulled in byte-faithfully...
+    let unit = Unit::from_surface_dir(&into.join("specs").join("20-surface")).unwrap();
+    assert_eq!(unit.body, edited);
+
+    // ...while the hand-authored `[requirement.*]`/`[satisfies.*]` tables survived —
+    // carried forward, not clobbered by a bare provenance header (the data loss the
+    // carry prevents)...
+    assert_authored_layer_intact(&surface_doc);
+
+    // ...and only `[provenance]` was re-stamped to the drifted source's fresh hash,
+    // which the lock row also tracks.
+    let (_, new_hash) = document::provenance(&header_of(&surface_doc)).unwrap();
+    assert_ne!(
+        new_hash, before_hash,
+        "provenance is re-stamped to the drifted body's hash"
+    );
+    assert_eq!(
+        lock_field(&into, "spec", "20-surface", "import_hash"),
+        new_hash,
+        "the lock anchor agrees with the re-stamped surface provenance"
+    );
+}
+
+#[test]
+fn a_reimport_of_an_authored_custom_unit_preserves_representation_and_is_idempotent() {
+    let (harness, into, _custom) = imported_with_spec("spec-rep-reimport");
+    let surface_doc = spec_surface_doc(&into);
+    author_spec_layer(&surface_doc);
+
+    let before = tree_bytes(&into);
+    // A re-import rebuilds every member document from source; carrying the custom
+    // unit's authored tables forward keeps them — and the workspace byte-identical.
+    import::run(&harness, &into).unwrap();
+
+    assert_eq!(
+        before,
+        tree_bytes(&into),
+        "re-importing an authored, unchanged custom-unit surface must not change a byte"
+    );
+    assert_authored_layer_intact(&surface_doc);
 }
 
 #[test]
