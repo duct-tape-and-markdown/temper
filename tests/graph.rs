@@ -486,6 +486,7 @@ mod reachability {
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: Some(id.to_string()),
+            directives: Vec::new(),
             satisfies: Vec::new(),
             published_requirements: Vec::new(),
         }

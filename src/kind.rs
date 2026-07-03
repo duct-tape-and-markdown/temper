@@ -634,6 +634,32 @@ pub enum Primitive {
     /// `placement` — the name of the directory the unit sits under
     /// (`Features::source_dir`) — file placement.
     Placement,
+    /// `directives` — the body's format-executed directive occurrences for the
+    /// named [`syntax`](DirectiveSyntax) (`specs/architecture/15-kinds.md`, "Directives
+    /// — format-executed body syntax"), folded into `Features::directives` in
+    /// document order. Unlike the mining the `references` retirement bans, a directive
+    /// is grammar the format authority documents as *executed*, so its occurrences are
+    /// observed structure, not typography.
+    Directives {
+        /// The directive syntax extracted — the closed per-syntax vocabulary, sole
+        /// member `at-import`.
+        syntax: DirectiveSyntax,
+    },
+}
+
+/// A directive's format-executed body syntax — the closed per-syntax vocabulary the
+/// [`Directives`](Primitive::Directives) primitive ranges over
+/// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax"). The
+/// sole harvested member is [`AtImport`](DirectiveSyntax::AtImport); any other value
+/// is a load error, the closed-vocabulary guard the primitive discriminator carries
+/// applied to the per-syntax face.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DirectiveSyntax {
+    /// `at-import` — an `@path/to/file` occurrence imports the target file into
+    /// context (documented for Claude Code memory files, resolved relative to the
+    /// importing file, absolute allowed; code.claude.com/docs/en/memory, retrieved
+    /// 2026-07-02).
+    AtImport,
 }
 
 impl Primitive {
@@ -647,6 +673,7 @@ impl Primitive {
             Primitive::Sections => "sections",
             Primitive::LineCount => "line_count",
             Primitive::Placement => "placement",
+            Primitive::Directives { .. } => "directives",
         }
     }
 
@@ -668,6 +695,11 @@ impl Primitive {
             Primitive::Placement => {
                 features.source_dir = extract::source_dir_name(&unit.source_path)
             }
+            Primitive::Directives { syntax } => match syntax {
+                DirectiveSyntax::AtImport => {
+                    features.directives = extract::body_at_imports(&unit.body)
+                }
+            },
         }
     }
 }
@@ -949,6 +981,27 @@ pub enum KindError {
         primitive: String,
     },
 
+    /// A `directives` primitive names a `syntax` outside the closed per-syntax
+    /// vocabulary — the same closed-algebra guard the primitive discriminator carries
+    /// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax"),
+    /// applied to the per-syntax face. The sole member is `at-import`; any other value
+    /// is rejected at load, never a per-kind escape hatch into arbitrary body syntax.
+    #[error("{path}: extraction primitive {index} names unknown directive syntax `{syntax}`")]
+    #[diagnostic(
+        code(temper::kind::unknown_directive_syntax),
+        help(
+            "the directive vocabulary is closed — a syntax is admitted only where the format authority documents it as executed, never as a per-kind hatch; the sole member is `at-import`"
+        )
+    )]
+    UnknownDirectiveSyntax {
+        /// The declaration the primitive lives in.
+        path: PathBuf,
+        /// The zero-based primitive index.
+        index: usize,
+        /// The unrecognized directive syntax value.
+        syntax: String,
+    },
+
     /// A written custom-unit surface is missing a required part — its directory
     /// name, its `[provenance]` table, or the `source_path` inside that table.
     /// Reloading is the inverse of the projection `import` writes, so a surface
@@ -1221,6 +1274,7 @@ impl Extraction {
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: None,
+            directives: Vec::new(),
             // `satisfies` is a surface edge threaded through unchanged, not a
             // composed primitive, so a custom-kind member joins coverage exactly as
             // a built-in kind's does (`specs/architecture/10-contracts.md`).
@@ -1249,6 +1303,9 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
         "sections" => Primitive::Sections,
         "line_count" => Primitive::LineCount,
         "placement" => Primitive::Placement,
+        "directives" => Primitive::Directives {
+            syntax: parse_directive_syntax(&str_param(table, "syntax", index, path)?, index, path)?,
+        },
         other => {
             return Err(KindError::UnknownPrimitive {
                 path: path.to_path_buf(),
@@ -1258,6 +1315,26 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
         }
     };
     Ok(primitive)
+}
+
+/// Resolve a `directives` primitive's `syntax` value against the closed per-syntax
+/// vocabulary (`specs/architecture/15-kinds.md`). The sole member is `at-import`; any
+/// other value is a [`KindError::UnknownDirectiveSyntax`], the closed-vocabulary
+/// reject [`parse_primitive`] makes over the primitive discriminator applied to the
+/// per-syntax face.
+fn parse_directive_syntax(
+    syntax: &str,
+    index: usize,
+    path: &Path,
+) -> Result<DirectiveSyntax, KindError> {
+    match syntax {
+        "at-import" => Ok(DirectiveSyntax::AtImport),
+        other => Err(KindError::UnknownDirectiveSyntax {
+            path: path.to_path_buf(),
+            index,
+            syntax: other.to_string(),
+        }),
+    }
 }
 
 /// Read a required string primitive key.

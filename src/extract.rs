@@ -192,6 +192,13 @@ pub struct Features {
     /// The name of the directory the unit was imported from, off provenance
     /// (for `name-matches-dir`). `None` when the source path has no parent.
     pub source_dir: Option<String>,
+    /// The body's format-executed directive occurrences, in document order — the
+    /// `at-import` `@path` targets a `directives` primitive extracts
+    /// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax").
+    /// A body-derived feature like [`headings`](Features::headings)/[`sections`](Features::sections):
+    /// the raw occurrence strings only, resolution/classing a later slice. Empty
+    /// when the kind composes no `directives` primitive.
+    pub directives: Vec<String>,
     /// The requirements this artifact opts into filling — the authored
     /// `[representation].satisfies` bindings, surfaced for the coverage check
     /// (`specs/architecture/20-surface.md`, "Each artifact directory is a representation, not
@@ -392,6 +399,107 @@ pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Extract the `at-import` directive occurrences (`@path/to/file`) from a
+/// byte-faithful markdown body, in document order — the raw path strings, one per
+/// occurrence (`specs/architecture/15-kinds.md`, "Directives — format-executed body
+/// syntax"). An `@` opens an import only at a word boundary (start of line or after
+/// whitespace), so an email `user@host` and a bare `@` in prose yield nothing; the
+/// occurrence is the run of non-whitespace after the `@` (`@path`, absolute allowed;
+/// code.claude.com/docs/en/memory, retrieved 2026-07-02). A `@path` inside a fenced
+/// code block or an inline code span is illustration the harness does not execute
+/// ("imports are not evaluated inside markdown code spans and code blocks", same
+/// retrieval), so it is skipped — the fence exclusion [`body_headings`] makes,
+/// extended to inline spans, is what keeps the extraction sound rather than a guess.
+/// Resolution/classing is a later slice; this yields the raw occurrence strings only.
+///
+/// `pub(crate)` so the data-driven [`crate::kind`] `directives` primitive composes
+/// this exact reader rather than a second one that could drift.
+pub(crate) fn body_at_imports(body: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+    // The open fence's char and run length, while inside a fenced code block — the
+    // identical state `body_headings` tracks, for the identical reason.
+    let mut fence: Option<(char, usize)> = None;
+    for line in body.lines() {
+        if let Some((fence_char, fence_len)) = fence_marker(line) {
+            match fence {
+                Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
+                    fence = None;
+                }
+                Some(_) => {}
+                None => fence = Some((fence_char, fence_len)),
+            }
+            continue;
+        }
+        if fence.is_none() {
+            line_at_imports(line, &mut imports);
+        }
+    }
+    imports
+}
+
+/// Collect the `at-import` occurrences on a single non-fenced line into `imports`,
+/// skipping inline code spans so a `` `@path` `` mention is typography, not an edge.
+/// An `@` opens an import only at a word boundary; the path is the run of
+/// non-whitespace after it.
+fn line_at_imports(line: &str, imports: &mut Vec<String>) {
+    let chars: Vec<char> = line.chars().collect();
+    let mut i = 0;
+    // Whether the previous character was a word boundary — start of line counts, so a
+    // leading `@` opens an import, while an `@` glued to a preceding word (`user@host`)
+    // does not.
+    let mut boundary = true;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '`' {
+            i = skip_code_span(&chars, i);
+            boundary = false;
+            continue;
+        }
+        if c == '@' && boundary {
+            let start = i + 1;
+            let mut end = start;
+            while end < chars.len() && !chars[end].is_whitespace() && chars[end] != '`' {
+                end += 1;
+            }
+            if end > start {
+                imports.push(chars[start..end].iter().collect());
+            }
+            i = end;
+            boundary = false;
+            continue;
+        }
+        boundary = c.is_whitespace();
+        i += 1;
+    }
+}
+
+/// The index just past the inline code span opening at `start` (a run of backticks):
+/// its matching closing run of the same length, or — when nothing closes it — just
+/// past the opening run, leaving the stray backticks as literal text. Mirrors the
+/// CommonMark rule that a run of N backticks is closed only by a run of exactly N.
+fn skip_code_span(chars: &[char], start: usize) -> usize {
+    let mut i = start;
+    while i < chars.len() && chars[i] == '`' {
+        i += 1;
+    }
+    let open_len = i - start;
+    let after_open = i;
+    while i < chars.len() {
+        if chars[i] == '`' {
+            let run_start = i;
+            while i < chars.len() && chars[i] == '`' {
+                i += 1;
+            }
+            if i - run_start == open_len {
+                return i;
+            }
+        } else {
+            i += 1;
+        }
+    }
+    after_open
+}
+
 /// Project an `extra` frontmatter value into a [`FeatureValue`], preserving its
 /// parsed source [`Kind`]: arrays become a list, objects a map, and each scalar
 /// keeps the kind it parsed as (`string`/`integer`/`number`/`boolean`/`null`)
@@ -480,6 +588,50 @@ tail\n";
         let two = &sections[3];
         assert!(two.body.contains("# not a heading"));
         assert!(two.body.contains("tail"));
+    }
+
+    #[test]
+    fn at_imports_are_extracted_in_document_order_and_bare_at_is_skipped() {
+        // Two `@path` occurrences (relative then absolute), a bare `@` in prose, and an
+        // email `user@host` — only the two real imports are edges, in document order.
+        let body = "# Memory\n\
+\n\
+Bring in @config/base.md and @/abs/shared.md here.\n\
+\n\
+Ping me @ the standup, or at user@example.com.\n";
+        assert_eq!(
+            body_at_imports(body),
+            vec!["config/base.md".to_string(), "/abs/shared.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn at_imports_inside_code_are_typography_not_edges() {
+        // A `@path` inside a fenced block or an inline code span is illustration the
+        // harness never executes (code.claude.com/docs/en/memory) — skipped, so the
+        // extractor stays sound. The lone real import outside code is the only edge.
+        let body = "The `@path` syntax is documented; see @real/import.md in context.\n\
+\n\
+```text\n\
+@fenced/not-an-edge.md\n\
+```\n";
+        assert_eq!(body_at_imports(body), vec!["real/import.md".to_string()]);
+    }
+
+    #[test]
+    fn at_imports_are_order_stable_across_re_extraction() {
+        // A pure function of the body — the same body yields the same occurrences,
+        // the property that makes the directive a sound edge input.
+        let body = "@a/one.md and @b/two.md and @c/three.md\n";
+        assert_eq!(body_at_imports(body), body_at_imports(body));
+        assert_eq!(
+            body_at_imports(body),
+            vec![
+                "a/one.md".to_string(),
+                "b/two.md".to_string(),
+                "c/three.md".to_string()
+            ]
+        );
     }
 
     #[test]

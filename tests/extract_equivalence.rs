@@ -24,7 +24,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
 use temper::frontmatter::Member;
-use temper::kind::Unit;
+use temper::kind::{Extraction, KindError, Unit};
 
 /// Path to a fixture under `tests/fixtures/extract_equivalence`, resolved from the
 /// manifest so the test is independent of the process working directory. The tree
@@ -89,6 +89,58 @@ fn skill_features_over_a_real_skill_fixture() {
     let features =
         builtin_kind::skill_features(&unit).expect("the embedded skill extraction should run");
     insta::assert_debug_snapshot!("skill_features_coordinate", features);
+}
+
+/// A raw memory-shaped `Unit` — no frontmatter, its whole body the byte-faithful
+/// markdown a `CLAUDE.md` carries — over an arbitrary `source_path`, for driving a
+/// composed `directives` extractor without touching disk.
+fn memory_unit(body: &str) -> Unit {
+    Unit {
+        id: "CLAUDE".to_string(),
+        frontmatter: std::collections::BTreeMap::new(),
+        body: body.to_string(),
+        source_path: PathBuf::from("CLAUDE.md"),
+        satisfies: Vec::new(),
+        satisfies_clauses: Vec::new(),
+        published_requirements: Vec::new(),
+    }
+}
+
+/// A `directives` primitive with syntax `at-import` composes over a `Unit` and folds
+/// the body's `@path` occurrences into `Features.directives` in document order — the
+/// end-to-end tie from the closed-vocabulary parse through the composed extractor
+/// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax").
+#[test]
+fn a_directives_primitive_extracts_at_imports_in_document_order() {
+    let toml = "[[extraction]]\nprimitive = \"directives\"\nsyntax = \"at-import\"\n";
+    let extraction =
+        Extraction::parse(toml, Path::new("kinds/claude-code/memory/KIND.md")).unwrap();
+
+    // Two real imports (relative then absolute); a bare `@` in prose is not an edge.
+    let unit = memory_unit(
+        "# Project memory\n\nLoad @docs/style.md and @/abs/policy.md here; ping me @ noon.\n",
+    );
+    let features = extraction.extract(&unit);
+    assert_eq!(
+        features.directives,
+        vec!["docs/style.md".to_string(), "/abs/policy.md".to_string()]
+    );
+
+    // Order-stable across re-extraction — the same unit yields the same occurrences.
+    assert_eq!(extraction.extract(&unit).directives, features.directives);
+}
+
+/// An out-of-vocabulary `syntax` is a load error — the closed per-syntax vocabulary
+/// rejects an unknown member exactly as the primitive discriminator rejects an unknown
+/// extractor (`specs/architecture/15-kinds.md`).
+#[test]
+fn an_unknown_directive_syntax_is_a_load_error() {
+    let toml = "[[extraction]]\nprimitive = \"directives\"\nsyntax = \"at-mention\"\n";
+    let err = Extraction::parse(toml, Path::new("kinds/x/KIND.md")).unwrap_err();
+    assert!(matches!(
+        err,
+        KindError::UnknownDirectiveSyntax { ref syntax, index: 0, .. } if syntax == "at-mention"
+    ));
 }
 
 /// The `rule_features` projection over a `.claude/rules/*.md` rule that carries a

@@ -445,6 +445,7 @@ mod tests {
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: source_dir.map(str::to_string),
+            directives: Vec::new(),
             satisfies: Vec::new(),
             published_requirements: Vec::new(),
         }

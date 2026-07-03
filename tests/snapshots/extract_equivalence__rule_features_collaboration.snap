@@ -23,6 +23,7 @@ Features {
     source_dir: Some(
         "rules",
     ),
+    directives: [],
     satisfies: [],
     published_requirements: [],
 }

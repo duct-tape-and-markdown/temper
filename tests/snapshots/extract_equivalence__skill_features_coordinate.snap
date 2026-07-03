@@ -53,6 +53,7 @@ Features {
     source_dir: Some(
         "coordinate",
     ),
+    directives: [],
     satisfies: [],
     published_requirements: [],
 }

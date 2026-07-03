@@ -598,6 +598,7 @@ mod tests {
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: Some(name.to_string()),
+            directives: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
             published_requirements: Vec::new(),
         }
