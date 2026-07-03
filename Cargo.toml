@@ -24,6 +24,11 @@ toml_edit = "0.22"
 # Artifact parsing: frontmatter split + filesystem walk + provenance hashing.
 gray_matter = "0.2"
 walkdir = "2"
+# Discovery walks honor the repo's ignore rules (`.gitignore` + always-exclude
+# `.git`) so a `**` governs glob can't import a vendored dep's memory file
+# (specs/architecture/20-surface.md "discovery respects ignore rules"). ripgrep's
+# engine, so nested files/negation/precedence are not hand-rolled.
+ignore = "0.4"
 sha2 = "0.10"
 
 # Contract engine: the `pattern` primitive (adopt the solved mechanic — never

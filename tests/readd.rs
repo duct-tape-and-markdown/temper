@@ -664,6 +664,68 @@ fn a_reimport_of_an_authored_custom_unit_preserves_representation_and_is_idempot
     assert_authored_layer_intact(&surface_doc);
 }
 
+/// A `temper.toml` + KIND.md registering a `memory` custom kind whose `**/CLAUDE.md`
+/// any-depth glob is exactly the discovery that must honor ignore rules: without the
+/// prune it would import a vendored dependency's `CLAUDE.md` — a different project's
+/// harness, outside the per-project boundary — as a member
+/// (`specs/architecture/20-surface.md`, "discovery respects ignore rules").
+const MEMORY_TEMPER_TOML: &str = "[kind.memory]\npackage = \"memory\"\n";
+const MEMORY_KIND_MD: &str = "+++\n\
+governs = { root = \".\", glob = \"**/CLAUDE.md\" }\n\
+\n\
+[[extraction]]\n\
+primitive = \"headings\"\n\
++++\n\
+\n\
+# The memory kind\n\
+\n\
+Nearest-wins memory files.\n";
+
+#[test]
+fn discovery_honors_ignore_rules_and_always_excludes_git() {
+    let harness = tmpdir("ignore-src");
+
+    // The tracked, first-party memory file at the repo root — the only real member.
+    fs::write(harness.join("CLAUDE.md"), "# Root memory\n").unwrap();
+
+    // A vendored dependency's CLAUDE.md under a gitignored tree — a different
+    // project's harness, which a `**` glob must not lift in as our member.
+    let dep = harness.join("node_modules").join("dep");
+    fs::create_dir_all(&dep).unwrap();
+    fs::write(dep.join("CLAUDE.md"), "# Vendored dep memory — not ours\n").unwrap();
+    fs::write(harness.join(".gitignore"), "node_modules/\n").unwrap();
+
+    // A CLAUDE.md buried inside `.git/` — always excluded, ignore file or not.
+    let git = harness.join(".git");
+    fs::create_dir_all(&git).unwrap();
+    fs::write(
+        git.join("CLAUDE.md"),
+        "# Internal git file — never a member\n",
+    )
+    .unwrap();
+
+    // Register the memory kind so discovery runs over the `**/CLAUDE.md` locus.
+    fs::write(harness.join("temper.toml"), MEMORY_TEMPER_TOML).unwrap();
+    let kind_dir = harness.join(".temper").join("kinds").join("memory");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(kind_dir.join("KIND.md"), MEMORY_KIND_MD).unwrap();
+
+    let into = tmpdir("ignore-into");
+    import::run(&harness, &into).unwrap();
+
+    // Only the tracked root CLAUDE.md is a member: the gitignored dep and the `.git/`
+    // file are never discovered, so the `**` glob imports first-party content alone.
+    let doc = fs::read_to_string(into.join("lock.toml"))
+        .unwrap()
+        .parse::<DocumentMut>()
+        .unwrap();
+    let memory = doc["memory"].as_array_of_tables().unwrap();
+    let names: Vec<&str> = memory.iter().map(|t| t["name"].as_str().unwrap()).collect();
+    assert_eq!(names, vec!["CLAUDE"]);
+    // No surface directory was written for the vendored dependency's tree.
+    assert!(!into.join("node_modules").exists());
+}
+
 #[test]
 fn an_unchanged_custom_kind_unit_is_a_noop() {
     let (harness, into, custom) = imported_with_spec("spec-clean");

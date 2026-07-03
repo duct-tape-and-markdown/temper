@@ -18,8 +18,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
+use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::builtin_kind;
@@ -397,8 +398,14 @@ pub(crate) fn discover_kind_units(
     // earlier one a subdirectory to descend into — a `**` segment descending any
     // number of levels. `split` always yields at least one segment.
     let segments: Vec<&str> = governs.glob.split('/').collect();
+    // A member is authored content; an ignored file is by declaration not authored
+    // here, so discovery sees only what the repo's ignore rules leave in — else a
+    // `**` glob would import a vendored dep's memory file (`specs/architecture/20-surface.md`,
+    // "discovery respects ignore rules"). Resolved off the harness (repo) root so a
+    // root `.gitignore` governs every kind's walk, whatever its `governs.root` depth.
+    let discoverable = discoverable_paths(harness);
     let mut files = Vec::new();
-    collect_glob(&root, &segments, &mut files)?;
+    collect_glob(&root, &segments, &discoverable, &mut files)?;
     // A `**` reaches one file by exactly one path, but `read_dir` order across levels
     // is unspecified; sort for deterministic processing.
     files.sort();
@@ -414,7 +421,16 @@ pub(crate) fn discover_kind_units(
 /// (`specs/architecture/40-composition.md`). A missing or non-directory `dir`
 /// contributes nothing — a subdir glob whose intermediate level is absent, or a locus
 /// that does not exist on this harness, both resolve to no units rather than an error.
-fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result<(), ImportError> {
+///
+/// `discoverable` is the ignore-honoring path set (`.git/` excluded, `.gitignore`
+/// respected): a file or subdirectory absent from it is skipped, so no walk descends a
+/// vendored tree or collects a member the repo does not consider authored.
+fn collect_glob(
+    dir: &Path,
+    segments: &[&str],
+    discoverable: &BTreeSet<PathBuf>,
+    out: &mut Vec<PathBuf>,
+) -> Result<(), ImportError> {
     if !dir.is_dir() {
         return Ok(());
     }
@@ -426,19 +442,25 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
     if *segment == "**" {
         // Zero levels: match the remaining segments right at this level, so
         // `**/AGENTS.md` picks up an `AGENTS.md` directly under the root too.
-        collect_glob(dir, rest, out)?;
+        collect_glob(dir, rest, discoverable, out)?;
         // One-or-more levels: descend into every subdirectory carrying the `**`, so
-        // each nested file is reached by exactly one path (no double-collection).
+        // each nested file is reached by exactly one path (no double-collection). An
+        // ignored subdirectory (a vendored tree, `.git/`) is not descended.
         for entry in read_entries(dir)? {
             let path = entry.path();
-            if path.is_dir() {
-                collect_glob(&path, segments, out)?;
+            if path.is_dir() && discoverable.contains(&normalize(&path)) {
+                collect_glob(&path, segments, discoverable, out)?;
             }
         }
         return Ok(());
     }
     for entry in read_entries(dir)? {
         let path = entry.path();
+        // An ignored entry is not authored here — skip it whether it would be
+        // collected as a file or descended as a subdirectory.
+        if !discoverable.contains(&normalize(&path)) {
+            continue;
+        }
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
@@ -450,10 +472,50 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
                 out.push(path);
             }
         } else if path.is_dir() {
-            collect_glob(&path, rest, out)?;
+            collect_glob(&path, rest, discoverable, out)?;
         }
     }
     Ok(())
+}
+
+/// The set of paths under `harness` that discovery may see — every file and directory
+/// the repo's ignore rules leave in, with `.git/` always excluded
+/// (`specs/architecture/20-surface.md`, "discovery respects ignore rules"). Built with
+/// ripgrep's `ignore` engine so nested `.gitignore` files, negation, and precedence are
+/// honored rather than hand-rolled. Only git's own declaration counts: the machine-global
+/// and ripgrep-specific (`.ignore`) sources are off, and parent directories above the
+/// harness are not consulted — the harness is the per-project boundary. `require_git` is
+/// off so a `.gitignore` is honored even when the harness is not itself a git checkout
+/// (a sub-tree, or a test fixture). Paths are normalized so a `.`-rooted `governs`
+/// (`root = "."`) compares equal to the walk's harness-relative entries.
+fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
+    let mut allowed = BTreeSet::new();
+    let walk = WalkBuilder::new(harness)
+        .hidden(false) // `.claude/` is a dotdir the harness lives in — never hide it.
+        .parents(false)
+        .ignore(false)
+        .git_global(false)
+        .git_ignore(true)
+        .git_exclude(true)
+        .require_git(false)
+        .filter_entry(|entry| entry.file_name() != OsStr::new(".git"))
+        .build();
+    // A walk error (an unreadable entry) drops that entry rather than aborting
+    // discovery — the same tolerance the raw scan takes on `read_dir`.
+    for entry in walk.flatten() {
+        allowed.insert(normalize(entry.path()));
+    }
+    allowed
+}
+
+/// `path` with any `.` (current-dir) components dropped, so a walk entry and a
+/// `harness.join(".")`-rooted discovery path denote the same key in the discoverable
+/// set. Only a standalone `.` component is stripped — a dotted name (`.claude`) is a
+/// normal component and survives.
+fn normalize(path: &Path) -> PathBuf {
+    path.components()
+        .filter(|component| !matches!(component, Component::CurDir))
+        .collect()
 }
 
 /// Read `dir`'s entries into a vector, mapping any failure to an

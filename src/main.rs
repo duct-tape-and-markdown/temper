@@ -1297,3 +1297,36 @@ fn custom_units(workspace_dir: &Path, custom: &CustomKind) -> Result<Vec<Unit>, 
 
     dirs.iter().map(|dir| Unit::from_surface_dir(dir)).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The directive-backing set reads **raw disk**, never ignore-filtered: whether an
+    /// `@import` target is backed is a fact about the filesystem the harness loads
+    /// regardless of `.gitignore`, and law 3 fixes the safe direction — an extra backing
+    /// file only *suppresses* a finding, while pruning one could *forge* an unbacked
+    /// finding on a target that exists (`specs/architecture/20-surface.md`, "the backing
+    /// set reads raw disk"). This is the counterpart to discovery, which *does* prune —
+    /// two sets, two rules, never merged.
+    #[test]
+    fn repo_file_set_stays_raw_disk_including_gitignored_targets() {
+        let root = std::env::temp_dir().join(format!("temper-backing-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let dep = root.join("node_modules").join("dep");
+        fs::create_dir_all(&dep).unwrap();
+        fs::write(root.join(".gitignore"), "node_modules/\n").unwrap();
+        fs::write(root.join("CLAUDE.md"), "# root\n").unwrap();
+        // An `@import` target the harness loads even though `.gitignore` excludes it.
+        fs::write(dep.join("SHARED.md"), "shared\n").unwrap();
+
+        let files = repo_file_set(&root);
+        assert!(
+            files.iter().any(|f| f == "node_modules/dep/SHARED.md"),
+            "the gitignored backing target must still be seen (raw disk): {files:?}"
+        );
+        assert!(files.iter().any(|f| f == "CLAUDE.md"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+}
