@@ -7,8 +7,7 @@
       "section": "The surface: the assembly over its contents"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-EMIT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {

@@ -1,24 +1,25 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD f534fe9.
-- **Last shipped:** EMIT-VERB (`build` 44df9a8 / `chore` f534fe9) — `apply`
-  renamed to `emit`; the projection re-emits whole, byte-deterministic and
-  double-emit verified, and the three-state merge model is dropped. Verified on
-  disk: `Command::Emit` dispatches `drift::emit`/`render_emit` (main.rs:158-380),
-  the `--frozen`/`--dry-run` options stand, no `Apply`/`ApplyOutcome::Conflicted`
-  survive.
-- **This tick:** inbox empty. Reconciled the queue: EMIT-VERB shipped, so
-  MANIFEST-EMIT's dangling `blockedBy` flips to `open` — the new chain head.
-  Verified MANIFEST-EMIT unbuilt on disk — `AuthorLayer` still only *reads* an
-  optional overlay `temper.toml` (compose.rs:26); import writes `lock.toml`, not
-  a serialized manifest.
-- **Pickable now:** **MANIFEST-EMIT** (`open`). Serialized behind it:
-  MANIFEST-GATE-READ → INIT-ONRAMP → EMIT-OWNED-PLACEMENTS (each `blockedBy` the
-  prior). Deferred/parked: EXTRACTION-VOCAB-GAPS, AGENT-KIND (no consumer),
-  PACKAGING-CHANNELS (creds).
-- **What's next:** build ships MANIFEST-EMIT; the next reconcile flips
-  MANIFEST-GATE-READ `open`. Human still owes ask (a) (SDK scaffolding) before any
-  altitude-rung entry can be filed.
+- **Phase:** reconcile. HEAD cdd26ca.
+- **Last shipped:** MANIFEST-EMIT (`build` adbd18a / `chore` cdd26ca) — import
+  serializes the generated-canonical manifest beside `.temper/`: every member's
+  extracted `Features` lands as a `[[member]]` table (`emit_manifest`,
+  main.rs:260), the hand-authored floor is patched format-preserving, the
+  `member` root re-emitted whole. Verified on disk: `compose.rs` parses the
+  `[[member]]` tables (`ManifestMember`, `members` field) but the read side is
+  **inert** — the gate does not yet consume them.
+- **This tick:** inbox empty. Reconciled the queue: MANIFEST-EMIT shipped, so
+  MANIFEST-GATE-READ's dangling `blockedBy` flips to `open` — the new chain
+  head. Verified MANIFEST-GATE-READ unbuilt: `check::surface_units` still ranges
+  the `.temper/` copy tree (check.rs:126, main.rs:438), `drift.rs` carries no
+  `config.stale`/`emit_hash` finding.
+- **Pickable now:** **MANIFEST-GATE-READ** (`open`). Serialized behind it:
+  INIT-ONRAMP → EMIT-OWNED-PLACEMENTS (each `blockedBy` the prior). Deferred:
+  EXTRACTION-VOCAB-GAPS, AGENT-KIND (no consumer). Parked: PACKAGING-CHANNELS
+  (creds).
+- **What's next:** build ships MANIFEST-GATE-READ (manifest becomes the gate's
+  corpus, `config.stale` lands); the next reconcile flips INIT-ONRAMP `open`.
+  Human still owes ask (a) (SDK scaffolding) before any altitude-rung entry.
 
-Plan continues: no — queue reconciled, MANIFEST-EMIT is a pickable head, inbox
-drained. Hand to build; re-planning would re-emit the same queue.
+Plan continues: no — queue reconciled, MANIFEST-GATE-READ is a pickable head,
+inbox drained. Hand to build; re-planning would re-emit the same queue.

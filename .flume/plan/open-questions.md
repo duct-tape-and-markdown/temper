@@ -67,12 +67,15 @@ path strings remain in comments).
   links have now **shipped** — READD-RETIRE (`build` caa30c4 / `chore` 3804f1c)
   and LOCK-FRESHNESS-FACTS (`build` fa8067d / `chore` 2ef5c4d, carrying the
   legacy-lock self-migration; the earlier afterMerge revert did not recur). A
-  **third** has now shipped — EMIT-VERB (`build` 44df9a8 / `chore` f534fe9):
+  **third** shipped — EMIT-VERB (`build` 44df9a8 / `chore` f534fe9):
   `apply`→`emit`, whole re-emit, double-emit verified, three-state merge dropped.
-  This reconcile flipped **MANIFEST-EMIT `open`** as the new head
-  (MANIFEST-GATE-READ → INIT-ONRAMP → EMIT-OWNED-PLACEMENTS serialized behind it).
-  These floor entries are NOT `dependsOnForks`-gated on this fork: the human
-  unblocked the floor explicitly.
+  A **fourth** has now shipped — MANIFEST-EMIT (`build` adbd18a / `chore`
+  cdd26ca): import serializes the generated-canonical manifest (`[[member]]`
+  feature tables) beside `.temper/`, the floor patched format-preserving; the
+  read side stays inert until the gate consumes it. This reconcile flipped
+  **MANIFEST-GATE-READ `open`** as the new head (INIT-ONRAMP →
+  EMIT-OWNED-PLACEMENTS serialized behind it). These floor entries are NOT
+  `dependsOnForks`-gated on this fork: the human unblocked the floor explicitly.
   **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
   authoring-face npm scaffolding, stays **parked on John** (like
   PACKAGING-CHANNELS); no altitude-rung entry (`defineHarness`/`defineKind`,
