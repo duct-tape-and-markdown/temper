@@ -246,25 +246,37 @@ fn dry_run_reports_outcomes_but_writes_nothing() {
 }
 
 #[test]
-fn gate_installed_flags_a_missing_then_drifted_placement() {
+fn gate_installed_summarizes_missing_then_drifted_placements() {
     let root = write_harness("self-verify", true);
 
-    // Before install: every placement is missing, so the self-verify warns for each
-    // (the hook, the CI job, and both frontmatter artifacts' modelines).
+    // Before install: every placement is missing, but the self-verify collapses them
+    // to ONE summary advisory carrying the counts — never one warn per placement,
+    // which on a real target would bury the artifact findings the gate exists to show.
     let before = install::gate_installed(&root);
-    assert!(
-        before
-            .iter()
-            .all(|d| d.severity == temper::check::Severity::Warn),
+    assert_eq!(
+        before.len(),
+        1,
+        "an uninstalled gate yields exactly one summary advisory, got: {before:?}"
+    );
+    let summary = &before[0];
+    assert_eq!(
+        summary.severity,
+        temper::check::Severity::Warn,
         "the self-verify is advisory — never error"
     );
     assert!(
-        before.iter().any(|d| d.artifact.ends_with("settings.json")),
-        "a missing hook is flagged"
+        summary.message.contains("temper install"),
+        "the summary points at the fix, got: {}",
+        summary.message
     );
+    // The counts name every missing placement kind — the per-placement detail folded
+    // into the message body, not sibling diagnostics.
     assert!(
-        before.iter().any(|d| d.artifact.ends_with("temper.yml")),
-        "a missing CI job is flagged"
+        summary.message.contains("session-start hook")
+            && summary.message.contains("ci job")
+            && summary.message.contains("schema modeline"),
+        "the summary carries the missing-placement counts, got: {}",
+        summary.message
     );
 
     // After a full install the gate is clean — nothing to report.
@@ -280,8 +292,16 @@ fn gate_installed_flags_a_missing_then_drifted_placement() {
     fs::write(&ci, "name: not-temper\n").unwrap();
 
     let after = install::gate_installed(&root);
-    assert_eq!(after.len(), 1, "exactly the drifted placement is flagged");
-    assert!(after[0].artifact.ends_with("temper.yml"));
+    assert_eq!(
+        after.len(),
+        1,
+        "a single drifted placement still yields one summary advisory, got: {after:?}"
+    );
+    assert!(
+        after[0].message.contains("ci job"),
+        "the summary names the drifted placement, got: {}",
+        after[0].message
+    );
     assert!(
         after[0].message.contains("temper install"),
         "the diagnostic points at the fix, got: {}",

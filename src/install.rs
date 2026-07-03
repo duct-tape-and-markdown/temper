@@ -25,8 +25,9 @@
 //! [`drift::place`], and the merge re-derives the invariant every run.
 //!
 //! [`gate_installed`] is the read-only shadow: the same placements evaluated
-//! dry-run, with any placement that is missing or drifted surfaced as an advisory
-//! [`Diagnostic`]. `check` folds it in so temper verifies *its own* gate is wired —
+//! dry-run, collapsed to **one** advisory [`Diagnostic`] carrying the missing/drifted
+//! counts (so a real target's ~20 modelines don't bury the artifact findings).
+//! `check` folds it in so temper verifies *its own* gate is wired —
 //! "the harness checking that its self-check is wired" (`specs/architecture/50-distribution.md`).
 //!
 //! **Fail-loud** (`specs/architecture/50-distribution.md`, "Fail-loud delivery"): a placement
@@ -153,32 +154,57 @@ pub fn run(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
 /// `check` self-verify (`specs/architecture/50-distribution.md`, "the harness checking that its
 /// self-check is wired").
 ///
-/// Evaluates the same three placements dry-run: a placement the merge would write
-/// (missing, or drifted away from temper's wiring) surfaces as an **advisory**
-/// [`Diagnostic`] — never `error`, so a not-yet-installed gate nudges without
-/// failing `check`. Best-effort: a hard read/parse error is surfaced by `install`
-/// itself, not this self-verify, so an unreadable placement here yields no
-/// diagnostic rather than aborting the surrounding `check`.
+/// Evaluates the same three placements dry-run and folds every placement the merge
+/// would write (missing, or drifted away from temper's wiring) into **one advisory**
+/// [`Diagnostic`] carrying the counts — never one warn per placement, which on a
+/// real target (~20 modelines) would bury the artifact findings the gate is there to
+/// surface. Always `warn`, never `error`, so a not-yet-installed gate nudges without
+/// failing `check`; empty when every placement is `Unchanged`. Best-effort: a hard
+/// read/parse error is surfaced by `install` itself, not this self-verify, so an
+/// unreadable placement here yields no diagnostic rather than aborting the
+/// surrounding `check`.
 #[must_use]
 pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     let Ok(report) = plan(root, true) else {
         return Vec::new();
     };
-    report
-        .entries
-        .iter()
-        .filter(|entry| entry.outcome != ApplyOutcome::Unchanged)
-        .map(|entry| {
-            Diagnostic::warn(
-                GATE_RULE,
-                entry.path.to_string_lossy().into_owned(),
-                format!(
-                    "temper's {} is not installed or has drifted — run `temper install`",
-                    entry.placement
-                ),
-            )
-        })
-        .collect()
+    // Tally the missing/drifted placements by kind. The hook and CI job are single
+    // placements; modelines are one per modeled artifact, so they collapse to a count.
+    let (mut hook, mut ci, mut modelines) = (false, false, 0u32);
+    for entry in &report.entries {
+        if entry.outcome == ApplyOutcome::Unchanged {
+            continue;
+        }
+        match entry.placement {
+            SESSION_START => hook = true,
+            CI_JOB => ci = true,
+            _ => modelines += 1,
+        }
+    }
+    if !hook && !ci && modelines == 0 {
+        return Vec::new();
+    }
+
+    let mut parts = Vec::new();
+    if hook {
+        parts.push(SESSION_START.to_string());
+    }
+    if ci {
+        parts.push(CI_JOB.to_string());
+    }
+    if modelines > 0 {
+        let plural = if modelines == 1 { "" } else { "s" };
+        parts.push(format!("{modelines} schema modeline{plural}"));
+    }
+
+    vec![Diagnostic::warn(
+        GATE_RULE,
+        root.to_string_lossy().into_owned(),
+        format!(
+            "temper's gate is not installed or has drifted — run `temper install` (missing or drifted: {})",
+            parts.join(", ")
+        ),
+    )]
 }
 
 /// The shared projection both [`run`] and [`gate_installed`] drive: compute each
