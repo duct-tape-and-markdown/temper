@@ -11,6 +11,51 @@ and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror i
 **deleted** (CONTRACTS-RETIRE shipped — no `contracts/` dir on disk; only stale
 path strings remain in comments).
 
+- `(scripted-altitude-reconcile)` — OPEN, the frontier fork. The **scripted-
+  altitude** corpus re-cut landed as new intent (`specs:` 32ea84d, ratified
+  2026-07-03; pre-state = `mirror-era` tag) and the code has **not** migrated to
+  it. The reformulation is decided (`00-intent.md` Decision "the authoring face
+  is a typed library; the gate reads inert data"; `20-surface.md` throughout) —
+  what is OPEN is the **build sequencing + its human prerequisites**, so no floor
+  slice may be filed onto a settled foundation yet. The corpus↔code deltas:
+  (1) **`import` → `init`** — the on-ramp becomes scan → config skeleton over
+  members **in place**, zero file moves (today `import` copies members into
+  `.temper/`; `20-surface.md` "Decision: `init` is the on-ramp, and adoption is a
+  gradient"). (2) **`apply` → `emit`** — compile the authoring face, byte-
+  reproducible + double-emit-verified (`20-surface.md` "Content-faithful,
+  deterministically emitted"). (3) **`re-add` RETIRED** + the three-state merge
+  (desired/last-applied/real) **deleted** — drift collapses to **one authored
+  direction + two freshness facts**: `config.stale` (committed manifest/projection
+  vs lock's `source_hash`+`emit_hash`) and projection hand-edits routed to the
+  authored source (`20-surface.md` "Decision: `re-add` is retired", "Drift — one
+  direction, two freshness facts"). (4) **manifest** — `temper.toml` becomes the
+  **only** artifact the gate reads (today `check` ranges over the imported
+  `.temper/` surface, and the lock carries `last_applied` not `source_hash`/
+  `emit_hash`). (5) **three carriages** (module / document / in-place), one
+  feature shape, every consumer carriage-blind (`20-surface.md` "Member carriage").
+  (6) **mentions** — authored interpolation edges, one-way resolution-checked
+  obligation-free, opt-in per word (law 8's never-climb bound). Already SHIPPED:
+  `impact` (main.rs:546, read::impact — graduated from horizons in the re-cut).
+  Why it is a fork, not a wave of `open` entries: the floor pieces (1)-(4) all
+  rewrite the **same entangled files together** — drift.rs (three-state → config.stale),
+  import.rs (copy → in-place skeleton, shared write path), main.rs (verb rename),
+  install.rs (guard messages + the schema-modeline placement), frontmatter.rs/
+  compose.rs — so they are **not parallel-safe**; and the floor's `config.stale`
+  depends on the emit/manifest model existing, so there is no clean standalone
+  head. The **altitude rung** (the TypeScript authoring face — `defineHarness`/
+  `defineKind`/module members, `temper.config.ts`, mentions) needs **human npm/SDK
+  scaffolding** (like PACKAGING-CHANNELS; the session ledger's residual "SDK npm
+  scaffolding needs John"), and the spec corpus's own module migration is a
+  **staged human ceremony** (`15-kinds.md` worked example). FOLDS IN the ledger's
+  "two projectors, one file" residual: `apply`/`emit` re-emitting a rule drops
+  `install`'s schema modeline + reflows the YAML — under the re-cut *emit owns the
+  projection whole*, so install's placement lines must be **emit-owned** (part of
+  the emit reconception, not a separate stamp). Interim discipline until the wave
+  lands: **do not run bare `apply` on rules** (hand-reverted once this session).
+  Human to (a) scaffold the SDK/authoring-face npm surface and (b) decide the
+  floor-migration wave's serialized sequence; then the wave files as `blockedBy`-
+  chained entries. Design record: claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
+
 - `(extraction-source-not-mechanism)` — RESOLVED (human ruling this session;
   `specs/architecture/15-kinds.md`, "The extraction algebra — the soundness boundary, as data":
   "Today extractors are engine code … The end state is that extraction is composed
@@ -537,3 +582,11 @@ from exactly such a line fossilizing. If work touches one, surface it.
   ceremony: flip both memory kinds' `governs` to the any-depth glob (curated embeds,
   gates green before commit), then verify no node_modules/.git members appear on a
   cascade vet.
+  DATUM (2026-07-03, flip SHIPPED): the human ceremony landed — `chore` 6954475
+  ("the memory kinds govern the whole tree — nested hierarchy live"): both memory
+  kinds' `governs` now move to any-depth globs, proven on the adversarial cascade
+  fixture (agents-md.memory: 0 members from node_modules' recharts AGENTS.md;
+  real surface: 21). The bootstrap fence is **dissolved for memory** — CLAUDE.md
+  is a governed member. Sole residual is the trailing-period `@import` in
+  cascade's CLAUDE.md (grammar-nuance vs real-dead-import: UNVERIFIED, on the
+  session ledger's verify list), not an engine gap.

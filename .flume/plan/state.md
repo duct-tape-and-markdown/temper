@@ -1,22 +1,28 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 9a69e1c.
-- **Last shipped:** WALK-IGNORE-DISCIPLINE (build f419987 / chore 9a69e1c) — the
-  `**` discovery walk now honors `.gitignore` + always-excludes `.git`
-  (`ignore::WalkBuilder`, src/import.rs:493; `ignore = "0.4"` in Cargo.toml).
-- **This tick:** verified the drain on disk and reconciled the residual queue. All
-  3 remaining entries re-confirmed accurate: EXTRACTION-VOCAB-GAPS (`Primitive`
-  still lacks `Fenced`; `Field` still flat `frontmatter.get`, no key-path —
-  src/kind.rs:686), AGENT-KIND (no `agent` in BUILTIN_KINDS, no AGENT_PACKAGE —
-  src/builtin.rs), PACKAGING-CHANNELS (root package.json still the private flume
-  manifest). Launch docs all shipped (README/AGENTS/CHANGELOG +
-  .github/{CONTRIBUTING,SECURITY}.md — pointers resolve). Inbox empty. Updated the
-  memory-flip datum in open-questions: WALK-IGNORE shipped, flip gate now clear.
-- **Pickable now:** **nothing** — the queue is fully human-gated. EXTRACTION-VOCAB-GAPS
-  + AGENT-KIND deferred (no consumer); PACKAGING-CHANNELS parked (release creds).
-- **What's next (human, not plan):** the memory-tree flip ceremony — flip both
-  memory kinds' `governs` to the any-depth glob (curated embeds, human territory),
-  then cascade-vet no node_modules/.git members appear.
+- **Phase:** reconcile. HEAD 3a967d1.
+- **Last shipped:** the memory-tree flip (`chore` 6954475 — both memory kinds'
+  `governs` now any-depth globs, node_modules excluded, real surface 21 members).
+  Last build tick: WALK-IGNORE-DISCIPLINE (f419987). `impact` read verb is on disk
+  (main.rs:546, graduated from horizons by the re-cut).
+- **This tick:** the **scripted-altitude** corpus re-cut landed as new intent
+  (`specs:` 32ea84d — `import`→`init`, `apply`→`emit`, `re-add` RETIRED, drift→
+  `config.stale`, `temper.toml` manifest as the sole gate-read, three carriages,
+  mentions, TypeScript authoring face). Code has **not** migrated. Filed the delta
+  as fork `(scripted-altitude-reconcile)`: the floor pieces rewrite the same
+  entangled files together (drift/import/main/install) so they are not parallel-
+  safe, and the altitude rung needs human SDK scaffolding — a human-sequenced wave,
+  not pickable slices. Recorded the flip shipped. Verified the 3 residual entries'
+  cites survive the re-cut (15-kinds:14, 20-surface:269, 50-distribution:155); all
+  stay human-gated. Inbox empty.
+- **Pickable now:** **nothing** — EXTRACTION-VOCAB-GAPS + AGENT-KIND deferred
+  (no consumer), PACKAGING-CHANNELS parked (release creds), and the scripted-
+  altitude wave is fork-gated on human scaffolding + sequencing.
+- **What's next (human, not plan):** scaffold the authoring-face npm/SDK surface
+  and decide the floor-migration wave's serialized order; then the wave files as
+  `blockedBy`-chained entries. Interim discipline: do not run bare `apply` on
+  rules (the two-projectors hazard folds into `emit`).
 
-Plan continues: no — queue reconciled, the drained entry is recorded, and no
-pickable open work remains (all human-gated); nothing to hand to build.
+Plan continues: no — the corpus delta is captured as a fork, the 3 residual
+entries are reconciled and accurate, and no pickable open work remains (all
+human-gated); re-planning would re-emit an unchanged queue. Hand back to the human.
