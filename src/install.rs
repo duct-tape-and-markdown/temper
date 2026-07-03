@@ -14,6 +14,14 @@
 //! 3. the **schema modeline** (`# yaml-language-server: $schema=…`) inserted into
 //!    each artifact's frontmatter header — the gate at keystroke.
 //!
+//! Plus the assembly's **surface-authority** enforcement artifacts, wired per the
+//! composed `authority` posture (`specs/architecture/20-surface.md`; `Shared` when the
+//! `temper.toml` is absent or declares none): a managed-by **note** rides the
+//! modeline machinery onto every non-memory frontmatter projection (a comment in a
+//! memory `CLAUDE.md` costs context every session), and a `PreToolUse` **guard hook**
+//! at Claude Code's write boundary informs-and-routes under `shared` / blocks under
+//! `surface`. Both are placed and self-audited exactly like the three above.
+//!
 //! Each placement is projected as an ordinary artifact **under the three-state
 //! drift engine** ([`drift::place`]) rather than a bespoke writer: `install`
 //! computes each placement's desired bytes as an *idempotent merge* of temper's
@@ -40,6 +48,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value as JsonValue, json};
 
 use crate::check::Diagnostic;
+use crate::compose::{AuthorLayer, Authority};
 use crate::drift::{self, ApplyOutcome};
 use crate::import;
 
@@ -77,9 +86,47 @@ const SESSION_START: &str = "session-start hook";
 const CI_JOB: &str = "ci job";
 /// The placement label for a schema modeline.
 const MODELINE: &str = "schema modeline";
+/// The placement label for the `PreToolUse` surface-authority guard hook.
+const GUARD_HOOK: &str = "guard hook";
+/// The placement label for a managed-by note.
+const NOTE: &str = "managed-by note";
 
 /// The rule id the self-verify diagnostics ([`gate_installed`]) carry.
 const GATE_RULE: &str = "install.gate-installed";
+
+/// The tool-name matcher the guard hook binds — Claude Code's own write boundary.
+/// The guard binds *this provider's* writes only; the stated, unsolved limit
+/// (`specs/architecture/20-surface.md`) is that other consumers of a shared file are not
+/// instrumented by it.
+const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
+
+/// The stable token every guard command carries, whatever its degree — so a re-install
+/// (or a posture change: `shared`↔`surface`) *replaces* the existing temper guard in
+/// place rather than appending a second one.
+const GUARD_MARKER: &str = "temper-managed projection";
+
+/// The message the guard prints on a hit — carrying [`GUARD_MARKER`] and stating the
+/// limit verbatim: the guard binds only this provider's writes, so other tools writing
+/// a shared file are not bound by it. Deliberately apostrophe-free — the command
+/// single-quotes it for the shell.
+const NOTE_GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — edit the surface and re-emit (temper re-add lifts a direct edit back). This guard binds only Claude Code writes; other tools writes are not bound by it.";
+
+/// The extended-regex the guard command greps the `PreToolUse` payload for: a
+/// `file_path` value under a `.claude/` projection locus. Matching the field (not the
+/// whole payload) keeps a write whose *content* merely mentions `.claude/` from
+/// tripping the guard. Kept deliberately conservative — a false negative routes to CI
+/// (the backstop wall), a false positive would block honest work.
+const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"[^"]*\.claude/"#;
+
+/// The managed-by note's stable marker — the comment prefix its idempotence keys on,
+/// so a second `install` neither duplicates nor rewrites the note.
+const NOTE_MARKER: &str = "# temper: managed projection";
+
+/// The managed-by note itself: a frontmatter comment stating the file is generated and
+/// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
+/// stamped by `apply` (law 5 keeps the projection content-faithful; the note is
+/// install's, not the surface body's).
+const NOTE_COMMENT: &str = "# temper: managed projection — edit the .temper/ surface, not this generated file (temper re-add lifts a direct edit back).";
 
 /// Errors raised while projecting the gate wiring — the read/parse side `install`
 /// owns before it hands a placement's bytes to [`drift::place`] (whose own write
@@ -168,20 +215,23 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     let Ok(report) = plan(root, true) else {
         return Vec::new();
     };
-    // Tally the missing/drifted placements by kind. The hook and CI job are single
-    // placements; modelines are one per modeled artifact, so they collapse to a count.
-    let (mut hook, mut ci, mut modelines) = (false, false, 0u32);
+    // Tally the missing/drifted placements by kind. The hook, guard, and CI job are
+    // single placements; modelines and managed-by notes are one per modeled artifact,
+    // so they collapse to a count.
+    let (mut hook, mut guard, mut ci, mut modelines, mut notes) = (false, false, false, 0u32, 0u32);
     for entry in &report.entries {
         if entry.outcome == ApplyOutcome::Unchanged {
             continue;
         }
         match entry.placement {
             SESSION_START => hook = true,
+            GUARD_HOOK => guard = true,
             CI_JOB => ci = true,
+            NOTE => notes += 1,
             _ => modelines += 1,
         }
     }
-    if !hook && !ci && modelines == 0 {
+    if !hook && !guard && !ci && modelines == 0 && notes == 0 {
         return Vec::new();
     }
 
@@ -189,12 +239,19 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     if hook {
         parts.push(SESSION_START.to_string());
     }
+    if guard {
+        parts.push(GUARD_HOOK.to_string());
+    }
     if ci {
         parts.push(CI_JOB.to_string());
     }
     if modelines > 0 {
         let plural = if modelines == 1 { "" } else { "s" };
         parts.push(format!("{modelines} schema modeline{plural}"));
+    }
+    if notes > 0 {
+        let plural = if notes == 1 { "" } else { "s" };
+        parts.push(format!("{notes} managed-by note{plural}"));
     }
 
     vec![Diagnostic::warn(
@@ -211,15 +268,24 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
 /// placement's desired bytes and route the write through [`drift::place`]. With
 /// `dry_run` set nothing lands, so the self-verify reuses it read-only.
 fn plan(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
+    let authority = load_authority(root)?;
     let mut entries = Vec::new();
 
-    // 1. The SessionStart hook, merged into .claude/settings.json.
+    // 1. The SessionStart hook and the PreToolUse guard, both merged into one
+    //    .claude/settings.json. A single write carries both; the per-hook presence
+    //    drives two placement outcomes so `gate_installed` audits each independently.
     let settings_path = root.join(".claude").join("settings.json");
     let existing = read_optional(&settings_path)?;
-    let desired = project_settings(&settings_path, existing.as_deref())?;
+    let settings = project_settings(&settings_path, existing.as_deref(), authority)?;
+    drift::place(&settings_path, &settings.desired, None, dry_run)?;
     entries.push(InstallEntry {
         placement: SESSION_START,
-        outcome: drift::place(&settings_path, &desired, None, dry_run)?,
+        outcome: placement_outcome(settings.hook_present),
+        path: settings_path.clone(),
+    });
+    entries.push(InstallEntry {
+        placement: GUARD_HOOK,
+        outcome: placement_outcome(settings.guard_present),
         path: settings_path,
     });
 
@@ -231,25 +297,63 @@ fn plan(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
         path: ci_path,
     });
 
-    // 3. The schema modeline, inserted into each modeled artifact's frontmatter.
+    // 3. Per frontmatter projection: the managed-by note, then the schema modeline.
+    //    The note is applied first so the modeline stays the leading frontmatter line,
+    //    and SKIPS memory projections — a comment in a CLAUDE.md costs context every
+    //    session (`specs/architecture/20-surface.md`).
     for target in modeline_targets(root)? {
         let source = fs::read_to_string(&target.path).map_err(|source| InstallError::Read {
             path: target.path.clone(),
             source,
         })?;
+        let mut current = source;
+
+        if !target.is_memory
+            && let Some(desired) = project_note(&current)
+        {
+            let outcome = drift::place(&target.path, &desired, None, dry_run)?;
+            entries.push(InstallEntry {
+                placement: NOTE,
+                outcome,
+                path: target.path.clone(),
+            });
+            current = desired;
+        }
+
         // An artifact with no frontmatter has nothing to validate — skip it rather
         // than synthesise a header a human never wrote.
-        let Some(desired) = project_modeline(&source, &target.schema_ref) else {
-            continue;
-        };
-        entries.push(InstallEntry {
-            placement: MODELINE,
-            outcome: drift::place(&target.path, &desired, None, dry_run)?,
-            path: target.path,
-        });
+        if let Some(desired) = project_modeline(&current, &target.schema_ref) {
+            entries.push(InstallEntry {
+                placement: MODELINE,
+                outcome: drift::place(&target.path, &desired, None, dry_run)?,
+                path: target.path,
+            });
+        }
     }
 
     Ok(InstallReport { entries })
+}
+
+/// The assembly's declared surface-authority posture, read from `<root>/temper.toml`
+/// (`specs/architecture/20-surface.md`, "surface authority is a declared posture").
+/// [`Authority::Shared`] when the file is absent or declares no `authority` — the
+/// default: temper fabricates no enforcement the author did not ask for.
+fn load_authority(root: &Path) -> miette::Result<Authority> {
+    Ok(AuthorLayer::load(&root.join("temper.toml"))?
+        .map(|layer| layer.authority())
+        .unwrap_or_default())
+}
+
+/// Map "was this placement already in its desired state" onto the settings outcomes.
+/// The settings file carries no baseline fingerprint (idempotent placement), so a
+/// placement is only ever [`Applied`](ApplyOutcome::Applied) (absent/drifted) or
+/// [`Unchanged`](ApplyOutcome::Unchanged) — never `Conflicted`.
+fn placement_outcome(present: bool) -> ApplyOutcome {
+    if present {
+        ApplyOutcome::Unchanged
+    } else {
+        ApplyOutcome::Applied
+    }
 }
 
 /// Read a file that may not exist, distinguishing "absent" (`Ok(None)`) from a
@@ -266,16 +370,34 @@ fn read_optional(path: &Path) -> Result<Option<String>, InstallError> {
     }
 }
 
+/// The desired `.claude/settings.json` plus whether each temper hook was already in
+/// its desired state before the merge — so `install` reports the `SessionStart` hook
+/// and the `PreToolUse` guard as distinct placements though they share one file.
+struct SettingsProjection {
+    /// The re-emitted settings JSON (canonical pretty, trailing newline).
+    desired: String,
+    /// Whether the `SessionStart` hook was already present.
+    hook_present: bool,
+    /// Whether the guard hook was already present *at the desired degree* — a posture
+    /// change (`shared`↔`surface`) leaves a differing command, so this reads `false`
+    /// and the guard reports as (re)applied.
+    guard_present: bool,
+}
+
 /// Project the desired `.claude/settings.json` — the existing settings with the
-/// `SessionStart` hook merged in, or a fresh single-hook document when the file is
-/// absent or empty. Idempotent: an already-present temper hook is left alone, so
-/// re-merging reproduces the same bytes.
+/// `SessionStart` hook and the `PreToolUse` guard (at `authority`'s degree) merged in,
+/// or a fresh document when the file is absent or empty. Idempotent: an already-present
+/// temper hook at its desired shape is left alone, so re-merging reproduces the bytes.
 ///
 /// JSON carries no comments and its object order is not semantically meaningful, so
-/// the merge parses, adds the hook if missing, and re-emits canonical pretty JSON —
+/// the merge parses, adds/updates each hook, and re-emits canonical pretty JSON —
 /// there is no format-preserving JSON editor to round-trip through the way
 /// `toml_edit` round-trips the TOML surface.
-fn project_settings(path: &Path, existing: Option<&str>) -> Result<String, InstallError> {
+fn project_settings(
+    path: &Path,
+    existing: Option<&str>,
+    authority: Authority,
+) -> Result<SettingsProjection, InstallError> {
     let mut root = match existing {
         Some(text) if !text.trim().is_empty() => {
             serde_json::from_str::<JsonValue>(text).map_err(|source| InstallError::Settings {
@@ -292,8 +414,12 @@ fn project_settings(path: &Path, existing: Option<&str>) -> Result<String, Insta
             path: path.to_path_buf(),
         })?;
 
-    // `hooks` is an object of event-name -> array-of-groups; ensure ours carries a
-    // `SessionStart` group whose command is the temper binary.
+    // Presence *before* the merge — the per-hook outcome install reports.
+    let guard = guard_command(authority);
+    let hook_present = session_start_present(object);
+    let guard_present = guard_present(object, &guard);
+
+    // `hooks` is an object of event-name -> array-of-groups.
     let hooks = object
         .entry("hooks")
         .or_insert_with(|| json!({}))
@@ -301,6 +427,8 @@ fn project_settings(path: &Path, existing: Option<&str>) -> Result<String, Insta
         .ok_or_else(|| InstallError::SettingsShape {
             path: path.to_path_buf(),
         })?;
+
+    // Ensure a `SessionStart` group whose command is the temper binary.
     let session_start = hooks
         .entry("SessionStart")
         .or_insert_with(|| json!([]))
@@ -308,7 +436,6 @@ fn project_settings(path: &Path, existing: Option<&str>) -> Result<String, Insta
         .ok_or_else(|| InstallError::SettingsShape {
             path: path.to_path_buf(),
         })?;
-
     if !hooks_session_start(session_start) {
         session_start.push(json!({
             "hooks": [
@@ -317,38 +444,138 @@ fn project_settings(path: &Path, existing: Option<&str>) -> Result<String, Insta
         }));
     }
 
+    // Ensure the `PreToolUse` guard at the posture's degree — replacing any existing
+    // temper guard (its command may carry a stale degree) rather than appending.
+    let pre_tool_use = hooks
+        .entry("PreToolUse")
+        .or_insert_with(|| json!([]))
+        .as_array_mut()
+        .ok_or_else(|| InstallError::SettingsShape {
+            path: path.to_path_buf(),
+        })?;
+    upsert_guard(pre_tool_use, &guard);
+
     // A trailing newline keeps the file POSIX-clean; pretty JSON is deterministic,
     // so the whole projection is idempotent.
-    Ok(format!(
+    let desired = format!(
         "{}\n",
         serde_json::to_string_pretty(&root).map_err(|source| InstallError::Settings {
             path: path.to_path_buf(),
             source,
         })?
-    ))
-}
-
-/// Whether a `SessionStart` hook array already carries temper's exec-form command —
-/// the idempotence check, so a second `install` neither duplicates the hook nor
-/// clobbers a human's other `SessionStart` groups.
-fn hooks_session_start(groups: &[JsonValue]) -> bool {
-    groups.iter().any(|group| {
-        group
-            .get("hooks")
-            .and_then(JsonValue::as_array)
-            .is_some_and(|hooks| {
-                hooks.iter().any(|hook| {
-                    hook.get("command").and_then(JsonValue::as_str) == Some(SESSION_START_COMMAND)
-                })
-            })
+    );
+    Ok(SettingsProjection {
+        desired,
+        hook_present,
+        guard_present,
     })
 }
 
-/// One artifact the modeline placement targets: its source path and the `$schema`
-/// reference the modeline points at (relative to the artifact's own directory).
+/// The guard hook's command at `authority`'s degree. Both greps the `PreToolUse`
+/// payload for a `.claude/` `file_path` and, on a hit, states the managed-by message —
+/// then routes (`shared`, advisory: exit 0) or blocks (`surface`, required: exit 2).
+/// Degree maps onto the severity vocabulary (advisory / required) so temper never
+/// escalates past the declared posture (`specs/architecture/20-surface.md`). The message states
+/// the limit verbatim: the guard binds only this provider's writes.
+fn guard_command(authority: Authority) -> String {
+    match authority {
+        // Advisory: inform and route to `re-add`, never block.
+        Authority::Shared => {
+            format!("grep -qE '{GUARD_PATH_MATCH}' && echo '{NOTE_GUARD_MESSAGE}' >&2; exit 0")
+        }
+        // Required: block the write (exit 2) so the projection is not clobbered.
+        Authority::Surface => format!(
+            "grep -qE '{GUARD_PATH_MATCH}' && {{ echo '{NOTE_GUARD_MESSAGE}' >&2; exit 2; }}; exit 0"
+        ),
+    }
+}
+
+/// Whether a `SessionStart` group carrying temper's exec-form command is already
+/// present — the idempotence check, so a second `install` neither duplicates the hook
+/// nor clobbers a human's other `SessionStart` groups.
+fn session_start_present(object: &serde_json::Map<String, JsonValue>) -> bool {
+    object
+        .get("hooks")
+        .and_then(|hooks| hooks.get("SessionStart"))
+        .and_then(JsonValue::as_array)
+        .is_some_and(|groups| hooks_session_start(groups))
+}
+
+/// See [`session_start_present`] — the same check specialized to the array itself,
+/// used mid-merge where only the `SessionStart` array is in hand.
+fn hooks_session_start(groups: &[JsonValue]) -> bool {
+    groups
+        .iter()
+        .any(|group| group_has_command(group, |command| command == SESSION_START_COMMAND))
+}
+
+/// Whether a `PreToolUse` group carrying *this exact* guard command is already present.
+/// A differing command (a posture change) reads `false`, so the guard reports as
+/// (re)applied and [`upsert_guard`] rewrites it.
+fn guard_present(object: &serde_json::Map<String, JsonValue>, guard: &str) -> bool {
+    object
+        .get("hooks")
+        .and_then(|hooks| hooks.get("PreToolUse"))
+        .and_then(JsonValue::as_array)
+        .is_some_and(|groups| {
+            groups
+                .iter()
+                .any(|group| group_has_command(group, |command| command == guard))
+        })
+}
+
+/// Insert or update temper's guard in a `PreToolUse` groups array: an existing temper
+/// guard (identified by [`GUARD_MARKER`], whatever its degree) has its command set to
+/// `guard`, so a posture change rewrites in place; absent, a fresh group is appended.
+fn upsert_guard(groups: &mut Vec<JsonValue>, guard: &str) {
+    for group in groups.iter_mut() {
+        if !group_has_command(group, |command| command.contains(GUARD_MARKER)) {
+            continue;
+        }
+        if let Some(hooks) = group.get_mut("hooks").and_then(JsonValue::as_array_mut) {
+            for hook in hooks.iter_mut() {
+                let is_guard = hook
+                    .get("command")
+                    .and_then(JsonValue::as_str)
+                    .is_some_and(|command| command.contains(GUARD_MARKER));
+                if is_guard {
+                    hook["command"] = json!(guard);
+                }
+            }
+        }
+        return;
+    }
+    groups.push(json!({
+        "matcher": GUARD_MATCHER,
+        "hooks": [
+            { "type": "command", "command": guard }
+        ]
+    }));
+}
+
+/// Whether a hook group carries a `command` string satisfying `pred` — the shared
+/// spine of the `SessionStart` and guard presence checks.
+fn group_has_command(group: &JsonValue, pred: impl Fn(&str) -> bool) -> bool {
+    group
+        .get("hooks")
+        .and_then(JsonValue::as_array)
+        .is_some_and(|hooks| {
+            hooks.iter().any(|hook| {
+                hook.get("command")
+                    .and_then(JsonValue::as_str)
+                    .is_some_and(&pred)
+            })
+        })
+}
+
+/// One artifact the modeline placement targets: its source path, the `$schema`
+/// reference the modeline points at (relative to the artifact's own directory), and
+/// whether it is a **memory** projection — which takes the modeline but skips the
+/// managed-by note (a comment in a `CLAUDE.md` costs context every session).
 struct ModelineTarget {
     path: PathBuf,
     schema_ref: String,
+    is_memory: bool,
 }
 
 /// Discover the modeled artifacts the modeline placement covers — every skill
@@ -367,6 +594,7 @@ fn modeline_targets(root: &Path) -> miette::Result<Vec<ModelineTarget>> {
             targets.push(ModelineTarget {
                 path: source,
                 schema_ref,
+                is_memory: kind.name == "memory",
             });
         }
     }
@@ -410,6 +638,28 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
     }
     let modeline = format!("# yaml-language-server: $schema={schema_ref}");
     Some(format!("---\n{modeline}\n{rest}"))
+}
+
+/// Project an artifact source with the managed-by note inserted as a frontmatter
+/// comment, or `None` when it has no frontmatter to carry it (a memory `CLAUDE.md`
+/// has none, and the caller already skips memory besides). Applied *before* the
+/// modeline so the modeline stays the leading line; idempotent by [`NOTE_MARKER`],
+/// so re-running neither duplicates nor rewrites the note.
+///
+/// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note is the
+/// only inserted bytes. The note rides `install`, never `apply` — a YAML comment is
+/// not authored surface content, so the content-faithful projector (law 5) never
+/// re-emits it (`specs/architecture/20-surface.md`).
+fn project_note(source: &str) -> Option<String> {
+    let rest = source.strip_prefix("---\n")?;
+    let inner = frontmatter_inner(rest)?;
+    if inner
+        .lines()
+        .any(|line| line.trim_start().starts_with(NOTE_MARKER))
+    {
+        return Some(source.to_string());
+    }
+    Some(format!("---\n{NOTE_COMMENT}\n{rest}"))
 }
 
 /// The frontmatter text between the delimiters of `rest` — everything after the

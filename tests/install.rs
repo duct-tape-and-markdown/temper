@@ -130,6 +130,21 @@ fn outcome_for(report: &InstallReport, file: &str) -> ApplyOutcome {
     found.outcome
 }
 
+/// The outcome `install` reported for the placement labeled `placement`, asserting it
+/// is unique — the by-label lookup for placements that share a file (the SessionStart
+/// hook and the guard both land in `settings.json`).
+fn outcome_of(report: &InstallReport, placement: &str) -> ApplyOutcome {
+    let mut matches = report.entries.iter().filter(|e| e.placement == placement);
+    let found = matches
+        .next()
+        .unwrap_or_else(|| panic!("no entry for placement {placement}"));
+    assert!(
+        matches.next().is_none(),
+        "placement {placement} should be unique"
+    );
+    found.outcome
+}
+
 #[test]
 fn install_projects_the_three_placements() {
     let root = write_harness("projects", true);
@@ -148,7 +163,12 @@ fn install_projects_the_three_placements() {
         json["permissions"]["allow"][0], "Bash(cargo test:*)",
         "the merge must preserve the human's existing settings"
     );
-    assert_eq!(outcome_for(&report, "settings.json"), ApplyOutcome::Applied);
+    // The SessionStart hook and the guard share settings.json — each reported by label.
+    assert_eq!(
+        outcome_of(&report, "session-start hook"),
+        ApplyOutcome::Applied
+    );
+    assert_eq!(outcome_of(&report, "guard hook"), ApplyOutcome::Applied);
 
     // 2. The CI job lands as a whole file under .github/workflows/.
     let ci = root.join(".github").join("workflows").join("temper.yml");
@@ -307,6 +327,163 @@ fn gate_installed_summarizes_missing_then_drifted_placements() {
         "the diagnostic points at the fix, got: {}",
         after[0].message
     );
+}
+
+/// The managed-by note's marker — the frontmatter comment prefix `install` writes and
+/// `apply` must never reproduce (kept in step with `install.rs`'s `NOTE_MARKER`).
+const NOTE_MARKER: &str = "# temper: managed projection";
+
+/// The guard command the `PreToolUse` hook carries after an install at `root`.
+fn guard_command(root: &Path) -> String {
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    json["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        .as_str()
+        .expect("the guard hook must carry a command")
+        .to_string()
+}
+
+#[test]
+fn surface_posture_authors_a_blocking_guard_and_notes_non_memory() {
+    let root = write_harness("surface", true);
+    // The assembly declares the enforcing posture; a memory projection sits at the root.
+    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
+    let memory = "# Project memory\n\nHand-authored, no frontmatter.\n";
+    fs::write(root.join("CLAUDE.md"), memory).unwrap();
+
+    // Before install: the self-verify audits BOTH new placements beside the old three.
+    let before = install::gate_installed(&root);
+    assert_eq!(before.len(), 1, "one summary advisory, got: {before:?}");
+    assert!(
+        before[0].message.contains("guard hook") && before[0].message.contains("managed-by note"),
+        "gate-installed audits the guard and the note, got: {}",
+        before[0].message
+    );
+
+    install::run(&root, false).unwrap();
+
+    // The guard blocks (exit 2) under `surface`, and its message states the limit.
+    let guard = guard_command(&root);
+    assert!(
+        guard.contains("exit 2"),
+        "the surface guard must block, got: {guard}"
+    );
+    assert!(
+        guard.contains("other tools writes are not bound by it"),
+        "the guard states the limit verbatim, got: {guard}"
+    );
+
+    // The managed-by note lands on the non-memory frontmatter projections...
+    let skill_md = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
+    assert!(
+        skill_md.contains(NOTE_MARKER),
+        "the note lands on the skill, got:\n{skill_md}"
+    );
+    assert!(
+        rust_md.contains(NOTE_MARKER),
+        "the note lands on the rule, got:\n{rust_md}"
+    );
+
+    // ...but NEVER on the memory projection — a comment there costs context every session.
+    let claude_md = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
+    assert_eq!(
+        claude_md, memory,
+        "the memory projection must be untouched — no note"
+    );
+}
+
+#[test]
+fn shared_posture_authors_a_warning_guard() {
+    // No temper.toml ⇒ the default `shared` posture: the guard informs and routes,
+    // never blocks.
+    let root = write_harness("shared", true);
+    install::run(&root, false).unwrap();
+
+    let guard = guard_command(&root);
+    assert!(
+        !guard.contains("exit 2"),
+        "the shared guard must not block, got: {guard}"
+    );
+    assert!(
+        guard.contains("temper-managed projection") && guard.contains("exit 0"),
+        "the shared guard warns-and-routes (advisory), got: {guard}"
+    );
+    // The note is the universal layer — present under `shared` too.
+    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
+    assert!(rust_md.contains(NOTE_MARKER), "the note lands under shared");
+}
+
+#[test]
+fn a_posture_change_rewrites_the_guard_in_place() {
+    // Install under the default `shared`, then flip the assembly to `surface`: the
+    // guard is REPLACED (block for warn), never a second one appended.
+    let root = write_harness("posture-change", true);
+    install::run(&root, false).unwrap();
+    assert!(!guard_command(&root).contains("exit 2"), "starts advisory");
+
+    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
+    let report = install::run(&root, false).unwrap();
+
+    assert!(
+        guard_command(&root).contains("exit 2"),
+        "the flipped posture blocks"
+    );
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
+    assert_eq!(
+        json["hooks"]["PreToolUse"].as_array().unwrap().len(),
+        1,
+        "a posture change rewrites the guard, never appends a second"
+    );
+    assert_eq!(
+        outcome_of(&report, "guard hook"),
+        ApplyOutcome::Applied,
+        "the rewritten guard reports as (re)applied"
+    );
+}
+
+#[test]
+fn the_managed_by_note_is_never_written_by_apply() {
+    // Install stamps the note onto the sources; import lifts them into a surface (a
+    // YAML comment is not authored content, so it does not round-trip); apply re-emits
+    // the projection from that surface. The note (install's, not the surface body's)
+    // must not survive the applied projection — law 5, content-faithful.
+    let harness = write_harness("apply-no-note", false);
+    install::run(&harness, false).unwrap();
+    // Precondition: the note really is on disk, so a passing assertion below is apply
+    // dropping it — not the note never having been there.
+    let skill_rel = PathBuf::from(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let rust_rel = PathBuf::from(".claude").join("rules").join("rust.md");
+    assert!(
+        fs::read_to_string(harness.join(&skill_rel))
+            .unwrap()
+            .contains(NOTE_MARKER)
+    );
+
+    let into = tmpdir("apply-no-note-into");
+    temper::import::run(&harness, &into).unwrap();
+    let ws = temper::check::Workspace::load(&into).unwrap();
+
+    temper::drift::apply(&ws, &into, temper::drift::ApplyOptions { dry_run: false }).unwrap();
+
+    for rel in [skill_rel, rust_rel] {
+        let projected = fs::read_to_string(harness.join(&rel)).unwrap();
+        assert!(
+            !projected.contains(NOTE_MARKER),
+            "apply must never re-emit the managed-by note, got in {}:\n{projected}",
+            rel.display()
+        );
+    }
 }
 
 #[test]
