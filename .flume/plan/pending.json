@@ -1,5 +1,67 @@
 [
   {
+    "tag": "CUSTOM-UNIT-REPRESENTATION-CARRY",
+    "summary": "Carry the authored representation forward on custom-unit re-import — `import_custom_unit` clobbers hand-authored requirement/satisfies tables with a provenance-only header",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Drift / apply — three states, never two (the hard core)"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "`import_custom_unit` (import.rs:362) writes a provenance-ONLY header (add_provenance over a fresh DocumentMut, import.rs:391-398), NEVER merging an existing surface layer — unlike `import_frontmatter_member` which calls `existing_surface_member`/`Member::carry_representation` (import.rs:240-242) to merge-not-clobber. So a re-import or drifted-body `re-add` of a changed custom-kind source (a spec) rebuilds the document from source and SILENTLY WIPES the hand-authored `[requirement.*]`/`[satisfies.*]` tables (the 17-join intent↔architecture trace, 7d94abc). Fix: before emitting, read any existing surface member's header at `out_dir/<BODY>.md` and carry every authored clause block forward (everything but `[provenance]`, which is freshly stamped), so the custom-unit path merges-not-clobbers exactly as the frontmatter path does (`specs/architecture/20-surface.md`, 'three states, never two' — merge rather than clobber). Custom units build a raw `Document` (no `Member`), so lift the non-provenance header tables from the parsed existing document and re-emit them above the new provenance; byte-faithful body unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/readd.rs",
+        "asserts": "re-add (and re-import) of a custom-unit source whose body drifted preserves the hand-authored `[requirement.*]`/`[satisfies.*]` header tables — they are carried forward, not clobbered by the provenance-only header — while `[provenance]` is re-stamped to the new import hash; re-add of an unchanged unit is idempotent."
+      }
+    ],
+    "acceptance": "A custom-kind (spec) member carrying authored `[requirement.*]`/`[satisfies.*]` survives a re-import/re-add of its drifted source with the tables intact (only `[provenance]` re-stamped); the frontmatter and custom-unit import paths are now symmetric on carry-forward; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Drained from inbox (2026-07-02): the 17-join intent↔architecture trace (7d94abc) rests on `import_custom_unit` NOT wiping the authored tables, but it does — the sole import/re-add path for every custom kind writes a bare provenance header, no carry_representation. Latent (check is clean today, tables are on disk); fires the next re-import. Until it ships, 05-model's source owning-spec column stays the reconcile-durable copy (its DRY dedup is contingent on this slice)."
+  },
+  {
+    "tag": "READ-VERBS-PUBLISHED-DEMANDS",
+    "summary": "Read verbs `why`/`requirements` must range over the composed requirement namespace `check` gates — today they read the assembly roster only, misreporting member-published joins as dangling",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "`roster(layer)` (read.rs:117-121) returns `layer.requirements()` — the ASSEMBLY roster only, blind to member-published `[requirement.*]`. The read family is defined as traversals 'over data `check` already computes' (`specs/architecture/20-surface.md`), and `check` composes the ONE namespace = assembly ∪ member-published (main.rs:648 `union_published_requirements`, `specs/architecture/10-contracts.md` 'a requirement's publisher is any authored surface document'). Consequence: `requirements` lists 2 of 19, and `why <member>` narrates every trace `satisfies` as 'This link dangles' while `check` is green — a falsehood about a healthy graph, worse than a gap. Fix: `why`/`requirements` walk the COMPOSED roster (assembly ∪ member-published), not `roster(layer)`. Accept the composed `&BTreeMap<String, Requirement>` from the caller (main builds it via the same union) rather than re-deriving; the read `Member` view drops `published_requirements`, so the composition source stays main's."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The `Why` (main.rs:425) and `Requirements` (main.rs:477) command arms must build the composed requirement namespace the gate builds and pass it into `read::why`/`read::requirements`, replacing read's internal assembly-only `roster(layer)`. Reuse `union_published_requirements` (main.rs:923) over the same feature stream the gate assembles (skill ⊕ rule ⊕ each custom kind's members) so read and gate agree by construction — the `Requirements` arm today loads only `custom_members`, so it must also gather the built-in + custom features the union reads. Emit the composed roster (collisions are the gate's finding, not re-reported by a read)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`temper requirements` lists member-published requirements (a fixture publishing `[requirement.*]` on a surface member appears in the roster overview and in a named `requirements <name>` detail with its satisfier set); `temper why <member>` narrates a `satisfies` link to a member-published requirement as FILLED with its rationale, never 'This link dangles', matching a green `check`."
+      }
+    ],
+    "acceptance": "`temper why` and `temper requirements` range over the composed assembly ∪ member-published roster `check` gates: `requirements` lists every published obligation (19, not 2) and `why 45-governance` reports its trace joins as live, not dangling; the verbs stay projections (zero exit, no gate); cargo fmt/clippy -D warnings/test green.",
+    "notes": "Drained from inbox (2026-07-02). The misreport is worse than a gap — the verb states a falsehood about a green graph (check composes assembly ∪ member-published at main.rs:648; the read verbs at read.rs:117 do not). Disjoint from CUSTOM-UNIT-REPRESENTATION-CARRY (import.rs) — this touches read.rs/main.rs/read_verbs.rs, so both stay parallel-safe as `open`."
+  },
+  {
     "tag": "MEMORY-KIND",
     "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
     "per": {
