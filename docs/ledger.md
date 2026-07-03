@@ -9,16 +9,25 @@ graduation, delete over archive.
 
 ## Awaiting human ruling
 
-- `(default-assembly-as-data)` fork — open since the adapter wave;
-  recommendation on file: adopt.
+- `(default-assembly-as-data)` fork — recommendation on file: adopt.
+  ELEVATED 07-03: now the keystone of the guidance-layer plan — shipped
+  opinion packages and requirement-set/scenario assemblies both need the
+  floor-as-data mechanism before they can exist.
+- **Guidance-layer curation** (07-03 design session): 4 std-lib guidance
+  deltas drafted and source-verified (eval-first skill authoring; hooks-over-
+  prose now docs-citable; compaction root/nested asymmetry; owner/review-
+  like-code) — mapping doc at
+  claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8. Boundaries
+  settled in conversation: authority = package identity (field practices
+  never enter `*.anthropic`); opinion is opt-in, never the floor; templates
+  scaffold once, never reconcile back; runtime practice is out of lane.
+  Rider: AGENT-KIND's "no story demands it" deferral is challenged by this
+  story — kinds are package sockets (agent, hooks, settings, mcp).
 - `format` frontmatterless vocabulary member — parked until a check needs the
   distinction (vocabulary without a consumer is rejected doctrine).
 
 ## Held ceremonies (human halves queued behind slices)
 
-- **Memory tree flip** (ruled 2026-07-03): flip both memory kinds' `governs`
-  to any-depth globs AFTER `WALK-IGNORE-DISCIPLINE` drains. Curated embeds —
-  human territory, gates green before commit.
 - **Drift re-cut**: rides behind the shipped surface-authority lock
   (`20-surface.md` Decision, ratified 2026-07-03); re-cut content vs structure
   drift in 20-surface + the `drift-engine` join's `means` once the lock
@@ -29,15 +38,13 @@ graduation, delete over archive.
 - **Trailing-period @import** (cascade CLAUDE.md:26, found by the first
   tree-wide vet): our extraction reads the target as `collaboration.md.` —
   unbacked. Whether Claude Code's parser strips trailing punctuation is
-  UNVERIFIED: fetch/test before acting. If it doesn't strip → cascade has a
+  UNVERIFIED — and the live memory docs (fetched 07-03) are silent on it, so
+  only an empirical test settles it. If it doesn't strip → cascade has a
   real dead import (report to John, one-char fix his side); if it does →
   slice a punctuation nuance into the at-import grammar (cited). Either way
   it's a wedge story for the public docs.
-- (Done 07-03: tree flip shipped; cascade honeypot held — node_modules
-  AGENTS.md excluded, 21 members checked.)
 - Lock artifacts: exercise authority = "surface" end to end once installed
   (guard hook blocks, gate-installed enumerates it).
-- (Verified 07-03: WEDGE-FACT-FLOOR fires bare; impact verb narrates.)
 
 ## Standing discipline (lessons paid for)
 
