@@ -7,8 +7,7 @@
       "section": "CLI surface"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "WEDGE-FACT-FLOOR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "`temper impact <member>` prints the deterministic blast radius (unfilled requirements, dangling satisfies, unbacked directive edges, dead reachability) narrated like why/requirements, exit 0 always; logic in src/read.rs, thin dispatch in main.rs; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 2026-07-03 (IMPACT-VERB), graduated from horizons; ratified CLI bullet ec479ee (20-surface.md 'CLI surface'). Read-only, over graph data check already carries — no new engine semantics. blockedBy WEDGE-FACT-FLOOR: both edit src/main.rs, so they serialize (parallel worktrees would conflict on the clap dispatch region). CI-comment placement is a later slice, not this one."
+    "notes": "Ratified CLI bullet ec479ee (20-surface.md 'CLI surface'); graduated from horizons. Read-only over graph data check already carries — no new engine semantics; reuse resolved_edges (READ-EDGE-UNIFY, read.rs:163), not a 2nd build. UNBLOCKED: WEDGE-FACT-FLOOR shipped 3cdd3e6. Disjoint from INSTALL-GUARD (read.rs/main.rs vs install.rs) — parallel-safe. CI-comment placement is a later slice, not this one."
   },
   {
     "tag": "INSTALL-GUARD-ARTIFACTS",
@@ -43,8 +42,7 @@
       "section": "Decision: surface authority is a declared posture, never a baked stance"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "AUTHORITY-POSTURE-PARSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -65,7 +63,7 @@
       }
     ],
     "acceptance": "`temper install` projects the posture's enforcement artifacts — a managed-by note on non-memory projections (never via apply) and a PreToolUse guard hook that warns under shared / blocks under surface — enumerated in gate-installed's audit and reversible; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 2026-07-03 (INSTALL-GUARD-ARTIFACTS), after AUTHORITY-POSTURE-PARSE. Ratified Decision ec479ee. blockedBy AUTHORITY-POSTURE-PARSE: needs `layer.authority()`. Edits src/install.rs + tests/install.rs only — disjoint from IMPACT-VERB (read.rs/main.rs) once both unblock. Memory projections skip the note (law 5); the hook binds one provider's writes — the stated, unsolved limit."
+    "notes": "Ratified Decision ec479ee. UNBLOCKED: AUTHORITY-POSTURE-PARSE shipped fae7292 — `layer.authority()` lands at compose.rs:761. Edits src/install.rs + tests/install.rs only — disjoint from IMPACT-VERB (read.rs/main.rs), parallel-safe. Memory projections skip the note (law 5); the hook binds one provider's writes — the stated, unsolved limit."
   },
   {
     "tag": "WALK-IGNORE-DISCIPLINE",
