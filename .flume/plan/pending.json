@@ -1,5 +1,113 @@
 [
   {
+    "tag": "DIRECTIVES-PRIMITIVE-PARSE",
+    "summary": "Add the `directives` extraction primitive — closed per-syntax vocab, sole member `at-import` (`@path` occurrences), extracted order-stable; parse + adapter face only, no gate wiring",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Directives — format-executed body syntax"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Extend the closed extraction algebra (`specs/architecture/15-kinds.md`, 'Directives — format-executed body syntax') with a `Primitive::Directives { syntax }` variant carrying a typed closed per-syntax vocabulary whose sole member is `at-import` (an unknown syntax value is a load error, exactly like `parse_primitive`'s `UnknownPrimitive` reject over the primitive discriminator). Wire it through `key()` (discriminator string), `parse_primitive` (read the `syntax` param + validate against the closed vocab), and `apply()` (fold the member's extracted `@path` occurrences into the new `Features` field). No gate wiring — this slice only makes the primitive parse, compose, and extract."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Add a `directives` field to `Features` (order-stable target-path occurrences, mirroring how `headings`/`sections` carry body-derived features) and a `body_at_imports`-style reader over the byte-faithful body that yields each `@path/to/file` occurrence in document order and skips prose that merely mentions `@`. Grammar per the cited docs (`@path`, absolute allowed) — resolution/classing is slice 2, this slice only extracts the raw occurrence strings."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/extract_equivalence.rs",
+        "asserts": "a `directives` primitive with syntax `at-import` yields the body's `@path` occurrences in document order and skips a bare `@` in prose; an unknown `syntax` value is a load error (closed-vocab reject); occurrences are order-stable across re-extraction."
+      }
+    ],
+    "acceptance": "`Primitive::Directives { syntax }` is in the closed vocabulary, load-guarded on an unknown syntax, and composes over a `Unit` to yield `Features.directives`; a KIND.md declaring `primitive = \"directives\", syntax = \"at-import\"` extracts the member's `@path` occurrences; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Human adopts the `[[extraction]]` directive line into the memory KIND.md files only AFTER this ships — embeds must parse (the standing red-interim trap). Grammar/citations already in kinds/claude-code/memory/KIND.md prose + the spec. Unknown syntax is a load error like every closed vocab. Shares src/kind.rs+extract.rs with the deferred EXTRACTION-VOCAB-GAPS/AGENT-KIND — serialize those behind this if un-deferred."
+  },
+  {
+    "tag": "DIRECTIVE-TARGET-CLASSING",
+    "summary": "Resolve each extracted directive target at check time — member / backed world file / unbacked pointer; an unresolved target is a finding on the importing member",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Directives — format-executed body syntax"
+    },
+    "gate": { "kind": "blockedBy", "tag": "DIRECTIVES-PRIMITIVE-PARSE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/directive_classing.rs",
+          "description": "Fixture-driven proof of the three verdicts (`specs/architecture/15-kinds.md`, 'Directives'): a member whose `@path` resolves to another member is a member->member edge (no finding, enters the resolved-edge set); a target resolving to an ungoverned repo file is a backed boundary edge (no finding); a target resolving to nothing is an unbacked-pointer finding on the importing member. Relative targets resolve against the importing file's directory."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "In the check gate graph tier (beside the reachability wiring at ~772-812), resolve every member's extracted `Features.directives` targets against the landscape: build a provenance index (member `source_path` -> member) as the join key, reuse the existing `repo_file_set`, resolve each target relative to the importing file's directory (absolute allowed) and classify — member, backed repo file, or nothing. Emit an unbacked-pointer diagnostic per unresolved target, and collect the member-class targets as directive edges available to the graph (slice 3 consumes them for reachability)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Add the directive-target classification helper + the unbacked-pointer diagnostic (a `DIRECTIVE_UNBACKED`-style rule const and constructor, mirroring `dangling`/`unreachable`), and represent a member-class directive occurrence as a graph edge so it lands in the same resolved-edge enumeration the acyclic/degree/reachable predicates read. This slice only produces the finding + the edge; reachability closing over the edge is slice 3."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/directive_classing.rs",
+        "asserts": "a directive target resolving to a member yields a member->member edge and no finding; a target backed by a repo file yields no finding; an unresolved target yields exactly one unbacked-pointer finding keyed to the importing member; relative targets resolve against the importing file's directory."
+      }
+    ],
+    "acceptance": "`temper check` classifies each member's extracted directive targets into member / backed-world / unbacked, emits an unbacked-pointer finding on the importing member for an unresolved target, and threads member-class targets into the resolved-edge set; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Blocked on slice 1 (needs the extracted directive features). Join key is provenance `source_path`; relative targets resolve against the importing file's directory, absolute allowed (code.claude.com/docs/en/memory). Unbacked pointer is the headline finding — 'your CLAUDE.md imports @docs/x.md which doesn't exist.' Member-class targets become the directive edges slice 3's reachability closes over. Shares src/main.rs+graph.rs with slice 3 — serialized by the chain."
+  },
+  {
+    "tag": "REACHABILITY-DIRECTIVE-CLOSURE",
+    "summary": "Close `graph::reachable` over member-target directive edges — a member is reachable if its own activation is live or a reachable member imports it, hop-capped",
+    "per": {
+      "path": "specs/architecture/45-governance.md",
+      "section": "The world is a node — reachability is a predicate"
+    },
+    "gate": { "kind": "blockedBy", "tag": "DIRECTIVE-TARGET-CLASSING" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "Extend `reachable` (`specs/architecture/45-governance.md`, 'The world is a node — reachability is a predicate') to close over the member-class directive edges slice 2 produces: a member is reachable when its own activation edge is live OR a reachable member imports it, the target inheriting the importer's liveness conditionally (imported only by an invocation-gated skill => live exactly when the skill is), hop-capped per the format's documented recursion cap. Take the directive edge set as a new parameter (pure, testable, blast radius stays this module) alongside the existing `activations`/`by_kind`/`repo_files`."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Pass the member-class directive edge set computed in slice 2 into the `graph::reachable` call (~805) so the closure runs at check time; no new tier, the existing `[reachability]` opt-in + assembly-declared severity still gate it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "reachability closes over directive edges: a member with a dead own-activation but imported by a reachable member is live (no finding); a member imported only by a dead member stays dead; the closure is hop-capped."
+      },
+      {
+        "path": "tests/reachable_gate.rs",
+        "asserts": "end-to-end, a zero-match `paths` rule imported by an always-live memory member no longer fires the dead-edge finding (the known false positive is fixed); a genuinely orphaned dead member still fires."
+      }
+    ],
+    "acceptance": "`graph::reachable` treats a member as reachable when a reachable member imports it via a directive edge (hop-capped, conditional inheritance), fixing the false positive where a directive-imported zero-match `paths` rule read as dead; the `[reachability]` opt-in + assembly severity are unchanged; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Blocked on slice 2 (needs member-class directive edges). `reachable` gains a second liveness path: a member is live if its own activation is live OR a reachable member imports it — conditional inheritance, hop-capped per the format docs. Fixes the known false positive: a zero-match `paths` rule imported by an always-live memory member is live, not dead. Shares src/main.rs+graph.rs with slice 2 — serialized."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
     "per": {
@@ -8,7 +116,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule/memory) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — a JSON-manifest kind's nested key-path field, or a spec/class kind's fenced-block extraction. (NB memory's `@path` is a separate edge primitive, not one of these.)"
+      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule/memory) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — a JSON-manifest kind's nested key-path field, or a spec/class kind's fenced-block extraction. (NB `at-import` is the DIRECTIVES wave's directive primitive, a separate edge primitive — not one of these.)"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +124,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/architecture/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, confirmed by kinds/claude-code/memory/KIND.md); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive). This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/architecture/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive). This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
@@ -33,7 +141,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk re-confirmed both gaps: `Primitive` = field/headings/sections/line_count/placement (the memory KIND.md uses four of them); `Field` reads flat `frontmatter.get(key)`, no key-path; load-guard is parse_primitive. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs + src/extract.rs. MEMORY-KIND does NOT revive this: `@path` is a distinct edge primitive, not fenced/key-path."
+    "notes": "Disk re-confirmed both gaps: Primitive = field/headings/sections/line_count/placement; Field reads flat frontmatter.get(key), no key-path; guard is parse_primitive. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+extract.rs. NOT revived by the DIRECTIVES wave (`at-import` is a distinct directive primitive, not fenced/key-path). If un-deferred, serialize behind DIRECTIVES-PRIMITIVE-PARSE — shared src/kind.rs+extract.rs."
   },
   {
     "tag": "AGENT-KIND",

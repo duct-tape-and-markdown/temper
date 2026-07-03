@@ -1,30 +1,33 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD fb1dad3.
-- **Last shipped:** CHECK-MEMBERS-ALL-KINDS (build e92bf62 / chore fb1dad3) — the
-  check gate now dispatches *every* embedded kind's members to its floor package by
-  qualified identity, so a discovered CLAUDE.md fires its `memory.anthropic`
-  `max_lines` advisory instead of being silently skipped. Verified on disk
-  (src/main.rs:655-683; tests/memory_gate.rs green). This unblocked MEMORY-KIND.
-- **This tick:** drained the inbox wedge-UX pair + version drop (added 04ec7eb,
-  after the last plan tick). Filed three `open` entries — WEDGE-INSTALL-SUMMARY
-  (collapse the per-artifact install advisories to one summary),
-  WEDGE-COVERAGE-NOTE (advisory coverage note so wedge silence ≠ "checked"),
-  SKILL-VERSION-EXTRACTION-DROP (re-pin every `version` example field onto
-  `license` so the human can drop the uncited extraction). Flipped MEMORY-KIND to
-  `open` and **narrowed** it: memory_gate.rs already proves max_lines fire/silent,
-  so the residual gap is the frontmatterless File-shaped import round-trip
-  idempotence snapshot (adapter_fidelity covers only a Directory-shaped rule). All
-  four open entries are file-disjoint (verified path-by-path) → parallel-safe.
+- **Phase:** reconcile. HEAD 923d0d9.
+- **Last shipped:** the four-entry wave MEMORY-KIND / WEDGE-INSTALL-SUMMARY /
+  WEDGE-COVERAGE-NOTE / SKILL-VERSION-EXTRACTION-DROP (chore 923d0d9) — memory's
+  File-shaped round-trip is pinned, install self-verify is one summary advisory,
+  the wedge emits a coverage note so silence ≠ "checked", and the `version`
+  example field is re-pinned onto `license`. All four drained from pending.
+- **This tick:** drained the inbox DIRECTIVES wave into three dependency-ordered
+  entries and filed them (per specs/architecture/15-kinds.md "Directives —
+  format-executed body syntax" + 45-governance.md "The world is a node"):
+  DIRECTIVES-PRIMITIVE-PARSE (the `directives`/`at-import` extraction primitive,
+  `open`), DIRECTIVE-TARGET-CLASSING (member/backed/unbacked target classing,
+  `blockedBy` slice 1), REACHABILITY-DIRECTIVE-CLOSURE (reachability closes over
+  directive edges, `blockedBy` slice 2). Verified on disk: `Primitive` still lacks
+  `directives`; the memory KIND.md prose already carries the `@path` grammar +
+  citations (adoption of the `[[extraction]]` line is the human's, post-slice-1).
+  Reconciled the four carried entries — none shipped, all still truthful:
+  EXTRACTION-VOCAB-GAPS + AGENT-KIND stay `deferred` (no consumer / wrong
+  direction), PACKAGING-CHANNELS + COMMUNITY-DOCS stay `parked` (human creds /
+  fence-widen). Refreshed EXTRACTION-VOCAB-GAPS's note to cite the DIRECTIVES
+  collision (both touch src/kind.rs+extract.rs).
 - **Operational note (accepted, not queued):** the session-start
   `requirement.dangling` findings are a **stale installed binary** —
   `cargo install --path .` clears them; a freshly-built `temper check .temper` is
   clean.
-- **Pickable now (all open, disjoint):** MEMORY-KIND (tests/memory_contract.rs),
-  WEDGE-INSTALL-SUMMARY (install.rs), WEDGE-COVERAGE-NOTE (new module + main.rs),
-  SKILL-VERSION-EXTRACTION-DROP (import/frontmatter/engine + tests). Parked (human
-  action): PACKAGING-CHANNELS, COMMUNITY-DOCS. Deferred (no consumer):
-  EXTRACTION-VOCAB-GAPS, AGENT-KIND.
+- **Pickable now:** DIRECTIVES-PRIMITIVE-PARSE (the one `open` entry; slices 2/3
+  serialize behind it via `blockedBy`, sharing src/main.rs+graph.rs). Deferred
+  (no consumer): EXTRACTION-VOCAB-GAPS, AGENT-KIND. Parked (human action):
+  PACKAGING-CHANNELS, COMMUNITY-DOCS.
 
-Plan continues: no — inbox drained, queue reconciled, four disjoint open entries
-filed. Hand to build.
+Plan continues: no — inbox drained into the serialized DIRECTIVES chain, carried
+queue reconciled unchanged, one `open` entry pickable. Hand to build.
