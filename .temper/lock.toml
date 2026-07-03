@@ -7,8 +7,8 @@ last_applied = "2b3d873ddccae994d288fd155bfe98c3a96bdfcaa20e84366c920afbd66b17fa
 [["claude-code.memory"]]
 name = "CLAUDE"
 source_path = "././CLAUDE.md"
-import_hash = "4f27dd54861bcdaa85a2eb03d38b354951eacd6efe0718b597ac8ad54f18f1d9"
-last_applied = "4f27dd54861bcdaa85a2eb03d38b354951eacd6efe0718b597ac8ad54f18f1d9"
+import_hash = "105bdbf54f53471bc5815c071ad94b5483cb41cd72cbe12715b56db8bd45844d"
+last_applied = "105bdbf54f53471bc5815c071ad94b5483cb41cd72cbe12715b56db8bd45844d"
 
 [[rule]]
 name = "collaboration"
@@ -37,8 +37,8 @@ last_applied = "abea94788bb0e3ba3933c03b2f6129e642a3a92e8899b1524101444a83f787f7
 [[architecture]]
 name = "20-surface"
 source_path = "./specs/architecture/20-surface.md"
-import_hash = "78348abafb37fc5e6f29336f38e597525de2497f45aa4fc1d14e8a59d7d7a060"
-last_applied = "78348abafb37fc5e6f29336f38e597525de2497f45aa4fc1d14e8a59d7d7a060"
+import_hash = "f877bb5b60b970c5aa8ab4a3c4d8aa19a10b9ca60600225750e78475858bbbc1"
+last_applied = "f877bb5b60b970c5aa8ab4a3c4d8aa19a10b9ca60600225750e78475858bbbc1"
 
 [[architecture]]
 name = "30-landscapes"

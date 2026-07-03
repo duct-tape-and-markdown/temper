@@ -77,3 +77,12 @@ Gates (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`) validate every tic
 - Search the codebase before implementing — don't assume not implemented.
 - **Never silently fill a spec/product gap — challenge it** (see the
   auto-loaded `collaboration` rule).
+
+## Session ledger
+
+The assistant's cross-session working state — held rulings, queued human
+halves, standing discipline — imported below so every session starts holding
+the board. Maintained in interactive sessions only; no autonomous phase reads
+or writes it.
+
+@docs/ledger.md

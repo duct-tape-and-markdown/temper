@@ -1,7 +1,7 @@
 +++
 [provenance]
 source_path = "././CLAUDE.md"
-import_hash = "4f27dd54861bcdaa85a2eb03d38b354951eacd6efe0718b597ac8ad54f18f1d9"
+import_hash = "105bdbf54f53471bc5815c071ad94b5483cb41cd72cbe12715b56db8bd45844d"
 +++
 # temper
 
@@ -82,3 +82,12 @@ Gates (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`) validate every tic
 - Search the codebase before implementing — don't assume not implemented.
 - **Never silently fill a spec/product gap — challenge it** (see the
   auto-loaded `collaboration` rule).
+
+## Session ledger
+
+The assistant's cross-session working state — held rulings, queued human
+halves, standing discipline — imported below so every session starts holding
+the board. Maintained in interactive sessions only; no autonomous phase reads
+or writes it.
+
+@docs/ledger.md

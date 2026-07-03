@@ -10,7 +10,7 @@ rationale = "20-surface owns the drift model ('Drift / apply — three states, n
 
 [provenance]
 source_path = "./specs/architecture/20-surface.md"
-import_hash = "78348abafb37fc5e6f29336f38e597525de2497f45aa4fc1d14e8a59d7d7a060"
+import_hash = "f877bb5b60b970c5aa8ab4a3c4d8aa19a10b9ca60600225750e78475858bbbc1"
 +++
 # The config surface — author, import, project, drift
 
@@ -302,6 +302,32 @@ a harness you only mirror — and strands fearless refactoring (law 6), which ne
 surface the author authors. `re-add` keeps direct-on-disk editing first-class
 without demoting the surface. (Resolves `(surface-authority)`.)
 
+### Decision: surface authority is a declared posture, never a baked stance
+
+**Chosen:** how firmly the surface owns its projections is the author's
+declaration — an assembly `authority` posture: **`shared`** (the default) keeps
+direct on-disk edits first-class (`re-add` reconciles; guards inform and
+route); **`surface`** opts into enforcement. The enforcement artifacts are
+**install-wired, enumerated, self-audited, reversible** (the `gate-installed`
+pattern): a managed-by **note** on projections whose format tolerates
+cost-free metadata (never stamped by `apply` — law 5 keeps the projection
+content-faithful; memory projections skip the note, a comment there costs
+context every session), and a **guard hook** at the provider's write boundary
+that warns-and-routes under `shared` and blocks under `surface`. Degree maps
+onto the existing severity vocabulary — note = information, warn = advisory,
+block = required — so temper never escalates on its own determination. The
+limit is stated, not solved: the hook binds one provider's writes and shared
+files have other consumers, so surface authority is only as strong as the
+weakest uninstrumented consumer — the note is the only universal layer and
+CI the backstop wall. **Rejected:** (a) baked-in blocking — the tool
+determining invasiveness on an installed surface it was merely invited onto;
+(b) `apply`-stamped notes — the projection is the surface body, and a
+stamping projector breaks law 5 for every downstream byte-comparison; (c)
+framing the hook as a wall — multi-consumer loci (`docs/market-formats.md`)
+make that a false promise. (Ratified 2026-07-03; graduates
+`(surface-authority-lock)` from `docs/horizons.md` — the drift re-cut noted
+there still rides behind the shipped lock.)
+
 ### Decision: the workspace is per-project
 
 **Chosen:** the surface targets a **per-project** harness — the `.claude/` and
@@ -362,6 +388,13 @@ the floor on day one and earn its graph over time.
 - `temper why <member>` — **read**: everything that holds this member in place — the
   requirements it `satisfies` (each with its authored rationale), the package its
   kind binds, its joins in and out (future; Decision below).
+- `temper impact <member>` — **read**: blast radius as a verb — the
+  deterministic tier-1 traversal answering "what strands if this member is
+  removed or renamed": the requirements left unfilled, the `satisfies` left
+  dangling, the directive edges left unbacked, the members whose reachability
+  dies with it — the graph payoff `00-intent.md` promises, over the join,
+  activation, and directive edges the graph already carries. (Ratified
+  2026-07-03; graduates `(impact-verb)` from `docs/horizons.md`.)
 - `temper requirements [<name>]` — **read**: the roster, each requirement with its
   satisfier set and coverage state; with `<name>`, one requirement's satisfiers —
   the reverse walk, and the blast radius a removal would open (future; Decision
