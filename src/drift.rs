@@ -159,6 +159,20 @@ pub fn diff(
 ) -> miette::Result<DriftReport> {
     let mut entries = Vec::new();
 
+    // Thread the parsed built-in kinds through discovery rather than re-resolving each
+    // bare name at the scan: keyed by qualified identity, the set never collides on an
+    // unrelated scan when two providers co-embed one bare name
+    // (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis").
+    let builtins = builtin_kind::definitions()?;
+    let skill_kind = builtins
+        .values()
+        .find(|k| k.name == "skill")
+        .expect("the built-in `skill` kind is embedded product source");
+    let rule_kind = builtins
+        .values()
+        .find(|k| k.name == "rule")
+        .expect("the built-in `rule` kind is embedded product source");
+
     let skills = workspace
         .skills()
         .iter()
@@ -169,7 +183,7 @@ pub fn diff(
         })
         .collect::<Vec<_>>();
     // The unified `governs`-keyed scan yields a skill's source `SKILL.md` directly.
-    let skills_on_disk = import::discover_builtin(harness, "skill")?;
+    let skills_on_disk = import::discover_builtin(harness, skill_kind)?;
     entries.extend(classify("skill", &skills, &skills_on_disk)?);
 
     let rules = workspace
@@ -181,7 +195,7 @@ pub fn diff(
             import_hash: rule.provenance.import_hash.clone(),
         })
         .collect::<Vec<_>>();
-    let rules_on_disk = import::discover_builtin(harness, "rule")?;
+    let rules_on_disk = import::discover_builtin(harness, rule_kind)?;
     entries.extend(classify("rule", &rules, &rules_on_disk)?);
 
     // Each registered custom kind classifies at its own `governs` locus. Its surface
@@ -735,6 +749,12 @@ pub fn re_add(
 ) -> miette::Result<ReAddReport> {
     let classification = diff(workspace, workspace_dir, harness, custom_kinds)?;
 
+    // The built-in read-side set, keyed by qualified identity — re-projection resolves
+    // an entry's kind against this instead of re-resolving its bare `name`, so a re-add
+    // over a bare name a second provider also carries never collides on the scan
+    // (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis").
+    let builtins = builtin_kind::definitions()?;
+
     let mut entries = Vec::new();
     // The rows to fold into the lock, tagged with their kind's array-of-tables key.
     let mut updates: Vec<(String, import::RollupEntry)> = Vec::new();
@@ -756,13 +776,12 @@ pub fn re_add(
         }
 
         // Drifted or added: re-project the live source through `import`'s writer for
-        // its kind. A built-in frontmatter kind rides the one generic adapter, keyed
-        // off its embedded declaration; a custom kind reuses `import`'s generic
+        // its kind. A built-in frontmatter kind rides the one generic adapter, resolved
+        // from the qualified `definitions()` set by its bare `name` (never a bare
+        // re-resolution that could collide); a custom kind reuses `import`'s generic
         // whole-file unit writer, keyed off its own definition.
-        let rollup = if BUILTIN_KINDS.contains(&entry.kind.as_str()) {
-            let kind = builtin_kind::definition(&entry.kind)?
-                .expect("a built-in frontmatter kind resolves to an embedded KIND.md");
-            import::import_frontmatter_member(&kind, harness, &entry.source_path, workspace_dir)?
+        let rollup = if let Some(kind) = builtins.values().find(|k| k.name == entry.kind) {
+            import::import_frontmatter_member(kind, harness, &entry.source_path, workspace_dir)?
         } else {
             // A registered custom kind: re-project the whole file byte-faithfully
             // through the same generic writer `import` uses. Absent its definition

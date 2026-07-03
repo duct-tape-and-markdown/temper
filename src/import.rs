@@ -127,7 +127,7 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
     let builtins = builtin_kind::definitions()?;
     let mut builtin_rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     for kind in builtins.values() {
-        let rows = import_frontmatter_kind(harness_path, into, &kind.name)?;
+        let rows = import_frontmatter_kind(harness_path, into, kind)?;
         builtin_rollups.insert(kind.name.clone(), rows);
     }
 
@@ -163,36 +163,42 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
 }
 
 /// Import every source of one built-in frontmatter kind (`skill`, `rule`) into the
-/// surface, driven by the kind's embedded declaration. Discover the source files off
-/// the kind's `governs` locus, project each through the generic frontmatter adapter,
-/// and return the roll-up rows name-sorted for a stable index.
+/// surface, driven by the already-parsed `kind` its caller holds. Discover the source
+/// files off the kind's `governs` locus, project each through the generic frontmatter
+/// adapter, and return the roll-up rows name-sorted for a stable index.
 ///
-/// The kind name is always an embedded built-in at every call site, so an absent
-/// definition is a genuine invariant surfaced (not panicked) so import stays
-/// panic-free (`.claude/rules/rust.md`).
+/// The parsed `kind` is threaded in, never re-resolved by its bare `name`: [`run`]
+/// already holds it from [`builtin_kind::definitions`], so co-embedding two providers
+/// of one bare name (`agents-md.memory` + `claude-code.memory`) never re-triggers the
+/// `AmbiguousKind` collision on an unrelated scan (`specs/architecture/15-kinds.md`,
+/// "Decision: kind identity carries a provider axis" — nobody pays a qualification tax
+/// until two providers actually meet).
 fn import_frontmatter_kind(
     harness: &Path,
     into: &Path,
-    name: &str,
+    kind: &CustomKind,
 ) -> Result<Vec<RollupEntry>, ImportError> {
-    let kind = builtin_kind::definition(name)?
-        .expect("a built-in frontmatter kind resolves to an embedded KIND.md");
-    let files = discover_builtin(harness, name)?;
+    let files = discover_builtin(harness, kind)?;
     let mut rows = Vec::with_capacity(files.len());
     for file in &files {
-        rows.push(import_frontmatter_member(&kind, harness, file, into)?);
+        rows.push(import_frontmatter_member(kind, harness, file, into)?);
     }
     rows.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(rows)
 }
 
-/// Discover a built-in kind's source files by name, keying off the `governs` its
-/// embedded `KIND.md` declares — the same data-driven scan a custom kind gets, so
-/// `skill`/`rule` are no longer hardwired paths (`specs/architecture/15-kinds.md`, "A built-in
-/// kind is an adapter": the emit face's locus is the read face's scan root). The
-/// `skill` locus (`.claude/skills` + `*/SKILL.md`) resolves through the generalized
-/// subdir glob; `rule`'s (`.claude/rules` + `*.md`) is flat. Yields the member
-/// source *files* — for a skill the `SKILL.md`, not its directory.
+/// Discover a built-in `kind`'s source files, keying off the `governs` its embedded
+/// `KIND.md` declares — the same data-driven scan a custom kind gets, so `skill`/`rule`
+/// are no longer hardwired paths (`specs/architecture/15-kinds.md`, "A built-in kind is
+/// an adapter": the emit face's locus is the read face's scan root). The `skill` locus
+/// (`.claude/skills` + `*/SKILL.md`) resolves through the generalized subdir glob;
+/// `rule`'s (`.claude/rules` + `*.md`) is flat. Yields the member source *files* — for a
+/// skill the `SKILL.md`, not its directory.
+///
+/// The parsed `kind` is threaded in from the caller's `definitions()` set, never
+/// re-resolved by bare `name`: an unrelated scan over a bare name a second provider also
+/// carries must not re-trigger `AmbiguousKind` (`specs/architecture/15-kinds.md`,
+/// "Decision: kind identity carries a provider axis").
 ///
 /// The bare-harness-is-a-skill case — a `<harness>/SKILL.md`, a project root that is
 /// itself a skill — is Claude Code's own convention, outside the `.claude/skills`
@@ -201,9 +207,12 @@ fn import_frontmatter_kind(
 /// `pub(crate)` so drift re-scans the harness, and install's modeline placement
 /// targets the same set, through the identical discovery `import` used
 /// (`specs/architecture/20-surface.md`, the drift "added" axis).
-pub(crate) fn discover_builtin(harness: &Path, name: &str) -> Result<Vec<PathBuf>, ImportError> {
-    let mut files = discover_kind_units(harness, &builtin_governs(name)?)?;
-    if name == "skill" {
+pub(crate) fn discover_builtin(
+    harness: &Path,
+    kind: &CustomKind,
+) -> Result<Vec<PathBuf>, ImportError> {
+    let mut files = discover_kind_units(harness, &kind.governs)?;
+    if kind.name == "skill" {
         let bare = harness.join("SKILL.md");
         if bare.is_file() {
             files.push(bare);
@@ -212,16 +221,6 @@ pub(crate) fn discover_builtin(harness: &Path, name: &str) -> Result<Vec<PathBuf
         }
     }
     Ok(files)
-}
-
-/// The `governs` locus of a built-in kind, read off its embedded `KIND.md` through
-/// the same [`builtin_kind::definition`] parse `check` uses. `name` is always an
-/// embedded built-in (`skill`, `rule`) at every call site, so an absent definition
-/// is a genuine invariant.
-fn builtin_governs(name: &str) -> Result<Governs, ImportError> {
-    let kind = builtin_kind::definition(name)?
-        .expect("a built-in kind name resolves to an embedded KIND.md");
-    Ok(kind.governs)
 }
 
 /// Read one source member of a frontmatter `kind` and write its surface tree under
@@ -986,9 +985,12 @@ temper's own governing documents.\n";
         let harness = tmpdir("gov-src");
         write_fixture_harness(&harness);
 
+        let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
+        let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+
         // The skill locus (`.claude/skills` + `*/SKILL.md`) yields the `SKILL.md`
         // files themselves — the subdir glob descended one level.
-        let skills = discover_builtin(&harness, "skill").unwrap();
+        let skills = discover_builtin(&harness, &skill_kind).unwrap();
         assert_eq!(
             skills,
             vec![
@@ -998,7 +1000,7 @@ temper's own governing documents.\n";
         );
 
         // The rule locus (`.claude/rules` + `*.md`) is flat — immediate `*.md` files.
-        let rules = discover_builtin(&harness, "rule").unwrap();
+        let rules = discover_builtin(&harness, &rule_kind).unwrap();
         assert_eq!(
             rules,
             vec![
@@ -1006,6 +1008,29 @@ temper's own governing documents.\n";
                 harness.join(".claude/rules/rust.md"),
             ]
         );
+    }
+
+    #[test]
+    fn discover_builtin_scans_the_passed_kind_never_re_resolving_by_name() {
+        // Discovery reads the `governs` of the kind it is *handed*, never re-resolving
+        // its bare `name` against the embedded set — so a kind whose bare name a second
+        // provider also carried would still scan without paying the collision
+        // (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider
+        // axis"). Proven with a synthetic `memory` kind: a bare name absent from today's
+        // embedded table, so a by-name re-resolution would find nothing, yet threading
+        // the parsed kind through discovers its member off the kind's own locus.
+        let harness = tmpdir("threaded-discovery");
+        fs::create_dir_all(harness.join("mem")).unwrap();
+        fs::write(harness.join("mem").join("CLAUDE.md"), "# root\n").unwrap();
+
+        let src = "governs = { root = \"mem\", glob = \"*.md\" }\nprovider = \"claude-code\"\n";
+        let doc = src.parse::<DocumentMut>().unwrap();
+        let memory =
+            CustomKind::from_header(doc.as_table(), "memory", Path::new("kinds/x/y/KIND.md"))
+                .unwrap();
+
+        let found = discover_builtin(&harness, &memory).unwrap();
+        assert_eq!(found, vec![harness.join("mem").join("CLAUDE.md")]);
     }
 
     #[test]

@@ -275,15 +275,17 @@ mod tests {
     }
 
     #[test]
-    fn definitions_carries_exactly_the_two_built_in_kinds() {
-        // Keyed by qualified identity: today's built-ins declare provider `claude-code`,
-        // so the keys are `claude-code.{rule,skill}` — distinct-per-provider identities
-        // that never collide even when a second provider co-embeds the same bare name.
+    fn definitions_enumerates_the_embedded_kind_tree_by_qualified_identity() {
+        // The embedded set IS the `kinds/` product tree (`build.rs` walks it and emits
+        // `BUILTIN_KINDS` keyed `<provider>.<name>`), so the enumeration derives from that
+        // tree, never a hardcoded pair: a curated addition (a `memory` carrier) rides in
+        // without re-pinning a literal. Each map key is the kind's qualified identity,
+        // which for the nested tree equals its table key — a mismatch (a dir/`provider`
+        // disagreement) would fail here.
+        let mut expected: Vec<&str> = BUILTIN_KINDS.iter().map(|(key, _)| *key).collect();
+        expected.sort_unstable();
         let all = definitions().unwrap();
-        assert_eq!(
-            all.keys().collect::<Vec<_>>(),
-            vec!["claude-code.rule", "claude-code.skill"]
-        );
+        assert_eq!(all.keys().map(String::as_str).collect::<Vec<_>>(), expected);
     }
 
     #[test]

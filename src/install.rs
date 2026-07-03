@@ -331,19 +331,18 @@ struct ModelineTarget {
 /// relative `$schema` reference its modeline points at.
 fn modeline_targets(root: &Path) -> miette::Result<Vec<ModelineTarget>> {
     let mut targets = Vec::new();
-    for source in import::discover_builtin(root, "skill")? {
-        let schema_ref = schema_ref(root, &source, "skill");
-        targets.push(ModelineTarget {
-            path: source,
-            schema_ref,
-        });
-    }
-    for source in import::discover_builtin(root, "rule")? {
-        let schema_ref = schema_ref(root, &source, "rule");
-        targets.push(ModelineTarget {
-            path: source,
-            schema_ref,
-        });
+    // Iterate the qualified built-in set and thread each parsed kind through discovery,
+    // never re-resolving a bare name at the scan (`specs/architecture/15-kinds.md`,
+    // "Decision: kind identity carries a provider axis"). Covers every embedded built-in,
+    // not just `skill`/`rule`.
+    for kind in crate::builtin_kind::definitions()?.values() {
+        for source in import::discover_builtin(root, kind)? {
+            let schema_ref = schema_ref(root, &source, &kind.name);
+            targets.push(ModelineTarget {
+                path: source,
+                schema_ref,
+            });
+        }
     }
     Ok(targets)
 }
