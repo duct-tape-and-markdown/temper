@@ -225,7 +225,7 @@ fn author_live_note_importing(root: &Path, harness: &Path, member_id: &str, impo
         "+++\n\
          [provenance]\n\
          source_path = \"{}\"\n\
-         import_hash = \"deadbeef\"\n\
+         source_hash = \"deadbeef\"\n\
          +++\n\
          # {member_id}\n\
          \n\

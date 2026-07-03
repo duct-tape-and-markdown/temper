@@ -233,7 +233,7 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
          \n\
          [provenance]\n\
          source_path = \"./.claude/rules/rust.md\"\n\
-         import_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
+         source_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
          +++\n\
          # Rust conventions\n\
          \n\

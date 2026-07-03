@@ -349,7 +349,7 @@ fn write_spec(root: &Path, name: &str, satisfies: &str, rationale: &str) {
          \n\
          [provenance]\n\
          source_path = \"specs/{name}.md\"\n\
-         import_hash = \"deadbeef\"\n\
+         source_hash = \"deadbeef\"\n\
          +++\n\
          # {name}\n\
          \n\
@@ -429,7 +429,7 @@ fn write_publishing_spec(root: &Path, name: &str, requirement: &str, means: &str
          \n\
          [provenance]\n\
          source_path = \"specs/{name}.md\"\n\
-         import_hash = \"deadbeef\"\n\
+         source_hash = \"deadbeef\"\n\
          +++\n\
          # {name}\n\
          \n\

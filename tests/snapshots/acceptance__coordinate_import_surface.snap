@@ -6,8 +6,8 @@ expression: first
 [[skill]]
 name = "coordinate"
 source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
-import_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
-last_applied = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
+source_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
+emit_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
 --- skills/coordinate/PLAYBOOK.md ---
 # Coordinate — playbook
 
@@ -35,7 +35,7 @@ value = ["Task", "Read", "Edit"]
 
 [provenance]
 source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
-import_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
+source_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
 +++
 # Coordinate
 

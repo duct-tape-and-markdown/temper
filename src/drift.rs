@@ -82,7 +82,7 @@ pub enum DriftError {
 /// One artifact's drift state on the real-on-disk vs import-baseline axis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DriftState {
-    /// The source still hashes to the imported `import_hash` — no drift.
+    /// The source still hashes to the imported `source_hash` — no drift.
     InSync,
     /// The source still exists but its bytes changed since import.
     Drifted,
@@ -136,7 +136,7 @@ pub struct DriftReport {
 struct SurfaceArtifact {
     name: String,
     source_path: PathBuf,
-    import_hash: String,
+    source_hash: String,
 }
 
 /// Compare the imported `workspace` surface against the live `harness` on disk,
@@ -178,7 +178,7 @@ pub fn diff(
         .map(|skill| SurfaceArtifact {
             name: skill.id.clone(),
             source_path: skill.provenance.source_path.clone(),
-            import_hash: skill.provenance.import_hash.clone(),
+            source_hash: skill.provenance.source_hash.clone(),
         })
         .collect::<Vec<_>>();
     // The unified `governs`-keyed scan yields a skill's source `SKILL.md` directly.
@@ -191,7 +191,7 @@ pub fn diff(
         .map(|rule| SurfaceArtifact {
             name: rule.id.clone(),
             source_path: rule.provenance.source_path.clone(),
-            import_hash: rule.provenance.import_hash.clone(),
+            source_hash: rule.provenance.source_hash.clone(),
         })
         .collect::<Vec<_>>();
     let rules_on_disk = import::discover_builtin(harness, rule_kind)?;
@@ -227,7 +227,7 @@ fn classify(
 
     for artifact in surface {
         let state = match fs::read(&artifact.source_path) {
-            Ok(bytes) if sha256_hex(&bytes) == artifact.import_hash => DriftState::InSync,
+            Ok(bytes) if sha256_hex(&bytes) == artifact.source_hash => DriftState::InSync,
             Ok(_) => DriftState::Drifted,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => DriftState::Removed,
             Err(source) => {
@@ -276,7 +276,7 @@ fn added_name(kind: &str, source_path: &Path) -> String {
 }
 
 /// Read one custom kind's surface artifacts from the `[[<kind>]]` lock rows —
-/// name + provenance (`source_path`, `import_hash`) — the three columns [`classify`]
+/// name + provenance (`source_path`, `source_hash`) — the three columns [`classify`]
 /// judges against. Custom members are not materialized in [`Workspace`], so the lock
 /// is their surface provenance of record (`specs/architecture/20-surface.md`, the lock as
 /// state-of-record). A kind with no rows (or no lock array yet) yields an empty list.
@@ -299,15 +299,15 @@ fn lock_surface_artifacts(
     let mut out = Vec::new();
     if let Some(rows) = doc.get(kind).and_then(Item::as_array_of_tables) {
         for row in rows.iter() {
-            if let (Some(name), Some(source_path), Some(import_hash)) = (
+            if let (Some(name), Some(source_path), Some(source_hash)) = (
                 row.get("name").and_then(Item::as_str),
                 row.get("source_path").and_then(Item::as_str),
-                row.get("import_hash").and_then(Item::as_str),
+                row.get("source_hash").and_then(Item::as_str),
             ) {
                 out.push(SurfaceArtifact {
                     name: name.to_string(),
                     source_path: PathBuf::from(source_path),
-                    import_hash: import_hash.to_string(),
+                    source_hash: source_hash.to_string(),
                 });
             }
         }
@@ -403,9 +403,9 @@ struct Projection {
     kind: &'static str,
     name: String,
     source_path: PathBuf,
-    /// The fingerprint of the source as `temper` last left it (from the lock, or
-    /// the import hash as a baseline when the lock predates this field).
-    last_applied: String,
+    /// The fingerprint of the source as `temper` last projected it (the lock's
+    /// `emit_hash`, or the source hash as a baseline when the lock predates this field).
+    emit_hash: String,
     /// The desired header fields in canonical order (known fields first, then the
     /// preserved unknown keys). The whole set is re-emitted into a fresh
     /// frontmatter block — the projection is regenerated, never patched.
@@ -426,7 +426,7 @@ pub fn apply(
     workspace_dir: &Path,
     options: ApplyOptions,
 ) -> miette::Result<ApplyReport> {
-    let last_applied = load_last_applied(workspace_dir)?;
+    let emit_hashes = load_emit_hash(workspace_dir)?;
 
     let mut projections = Vec::new();
     for skill in workspace.skills() {
@@ -434,8 +434,8 @@ pub fn apply(
             kind: "skill",
             name: skill.id.clone(),
             source_path: skill.provenance.source_path.clone(),
-            last_applied: fingerprint(&last_applied, skill.provenance.source_path.as_path())
-                .unwrap_or_else(|| skill.provenance.import_hash.clone()),
+            emit_hash: fingerprint(&emit_hashes, skill.provenance.source_path.as_path())
+                .unwrap_or_else(|| skill.provenance.source_hash.clone()),
             fields: skill.fields.clone(),
             body: skill.body.clone(),
         });
@@ -445,8 +445,8 @@ pub fn apply(
             kind: "rule",
             name: rule.id.clone(),
             source_path: rule.provenance.source_path.clone(),
-            last_applied: fingerprint(&last_applied, rule.provenance.source_path.as_path())
-                .unwrap_or_else(|| rule.provenance.import_hash.clone()),
+            emit_hash: fingerprint(&emit_hashes, rule.provenance.source_path.as_path())
+                .unwrap_or_else(|| rule.provenance.source_hash.clone()),
             fields: rule.fields.clone(),
             body: rule.body.clone(),
         });
@@ -513,11 +513,11 @@ fn project_one(
         // current bytes so it stops reading as drift; otherwise there is nothing to
         // record and the lock is left alone.
         let real_hash = sha256_hex(real.as_bytes());
-        let update = (real_hash != projection.last_applied).then_some(real_hash);
+        let update = (real_hash != projection.emit_hash).then_some(real_hash);
         return Ok((row(ApplyOutcome::Unchanged), update));
     }
 
-    if sha256_hex(real.as_bytes()) == projection.last_applied {
+    if sha256_hex(real.as_bytes()) == projection.emit_hash {
         // No world drift since the last apply: the on-disk source is exactly what
         // `temper` last wrote, so re-emitting the projection over it is clean.
         if !dry_run {
@@ -571,11 +571,11 @@ fn render_field(key: &str, value: &JsonValue) -> String {
     format!("{key}: {rendered}\n")
 }
 
-/// Read the last-applied fingerprints from `<workspace_dir>/lock.toml`, keyed by
+/// Read the emit fingerprints from `<workspace_dir>/lock.toml`, keyed by
 /// source path. Covers the built-in `[[skill]]`/`[[rule]]` rows — the kinds `apply`
-/// projects. A row without a `last_applied` column (a lock predating the field) is
-/// simply absent, and the caller falls back to the import hash.
-fn load_last_applied(
+/// projects. A row without an `emit_hash` column (a lock predating the field) is
+/// simply absent, and the caller falls back to the source hash.
+fn load_emit_hash(
     workspace_dir: &Path,
 ) -> Result<std::collections::HashMap<PathBuf, String>, DriftError> {
     let path = workspace_dir.join("lock.toml");
@@ -598,7 +598,7 @@ fn load_last_applied(
         for row in rows.iter() {
             if let (Some(source_path), Some(fingerprint)) = (
                 row.get("source_path").and_then(Item::as_str),
-                row.get("last_applied").and_then(Item::as_str),
+                row.get("emit_hash").and_then(Item::as_str),
             ) {
                 map.insert(PathBuf::from(source_path), fingerprint.to_string());
             }
@@ -607,14 +607,14 @@ fn load_last_applied(
     Ok(map)
 }
 
-/// Look up one source path's last-applied fingerprint in the loaded map.
+/// Look up one source path's emit fingerprint in the loaded map.
 fn fingerprint(map: &std::collections::HashMap<PathBuf, String>, source: &Path) -> Option<String> {
     map.get(source).cloned()
 }
 
 /// Write the reconciled fingerprints back into `<workspace_dir>/lock.toml` in place,
 /// matching each `[[skill]]`/`[[rule]]` row by its `source_path`. Format-preserving
-/// via `toml_edit` — only the `last_applied` values change.
+/// via `toml_edit` — only the `emit_hash` values change.
 fn update_lock(workspace_dir: &Path, updates: &[(PathBuf, String)]) -> Result<(), DriftError> {
     let path = workspace_dir.join("lock.toml");
     let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
@@ -640,7 +640,7 @@ fn update_lock(workspace_dir: &Path, updates: &[(PathBuf, String)]) -> Result<()
                 .iter()
                 .find(|(path, _)| path.as_os_str().to_string_lossy() == source_path)
             {
-                row["last_applied"] = value(fingerprint.clone());
+                row["emit_hash"] = value(fingerprint.clone());
             }
         }
     }

@@ -331,18 +331,19 @@ pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirem
     child_table(header, "requirement").insert(&requirement.name, Item::Table(module));
 }
 
-/// Emit the generated `[provenance]` module — `source_path` + `import_hash`, the
-/// drift anchor (`specs/architecture/20-surface.md`). Always last, so the authored clauses read
-/// first and the generated lock trails them.
-pub fn add_provenance(header: &mut DocumentMut, source_path: &str, import_hash: &str) {
+/// Emit the generated `[provenance]` module — `source_path` + `source_hash`, the
+/// authored-source freshness fact (`specs/architecture/20-surface.md`, "two freshness
+/// facts"). Always last, so the authored clauses read first and the generated lock
+/// trails them.
+pub fn add_provenance(header: &mut DocumentMut, source_path: &str, source_hash: &str) {
     let mut module = Table::new();
     module.insert(
         "source_path",
         Item::Value(Value::from(source_path.to_string())),
     );
     module.insert(
-        "import_hash",
-        Item::Value(Value::from(import_hash.to_string())),
+        "source_hash",
+        Item::Value(Value::from(source_hash.to_string())),
     );
     header
         .as_table_mut()
@@ -516,14 +517,22 @@ fn requirement_bool(value: &Item, name: &str) -> Result<bool, DocumentError> {
     })
 }
 
-/// The generated `[provenance]` module's `(source_path, import_hash)`, or `None`
+/// The generated `[provenance]` module's `(source_path, source_hash)`, or `None`
 /// when it is absent or missing either key — a surface missing what the tool always
 /// writes is malformed, and the caller turns that `None` into a precise error.
+///
+/// The hash reads `source_hash` (the current spelling — LOCK-FRESHNESS-FACTS), falling
+/// back to the pre-rename `import_hash`: the committed `.temper/` dogfood still carries
+/// the old key, and a document a phase cannot re-emit (a human `chore(harness):` owns
+/// that migration) must still read as a well-formed member.
 pub fn provenance(header: &DocumentMut) -> Option<(String, String)> {
     let table = header.get("provenance").and_then(Item::as_table)?;
     let source_path = table.get("source_path").and_then(Item::as_str)?;
-    let import_hash = table.get("import_hash").and_then(Item::as_str)?;
-    Some((source_path.to_string(), import_hash.to_string()))
+    let source_hash = table
+        .get("source_hash")
+        .or_else(|| table.get("import_hash"))
+        .and_then(Item::as_str)?;
+    Some((source_path.to_string(), source_hash.to_string()))
 }
 
 /// Whether `line` is a `+++` fence: its content, with any trailing newline and

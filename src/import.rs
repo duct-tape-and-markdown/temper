@@ -102,15 +102,16 @@ pub(crate) struct RollupEntry {
     pub(crate) name: String,
     /// Path to the original source file, as given relative to the harness arg.
     pub(crate) source_path: String,
-    /// SHA-256 of the original source bytes (the drift anchor).
-    pub(crate) import_hash: String,
-    /// The fingerprint of the source as it was when `temper` last projected the
-    /// surface onto it — the **third state** the three-state merge needs, beside
-    /// desired (the surface) and real (on-disk). It lets `apply` tell a surface
-    /// edit from a world drift (`specs/architecture/20-surface.md`, "three states, never two").
-    /// At import it equals `import_hash`: import writes a complete baseline, so the
-    /// last thing applied to the source *is* the source as imported.
-    pub(crate) last_applied: String,
+    /// SHA-256 of the authored source bytes — the **source freshness fact**, the
+    /// anchor source-drift detection compares against (`specs/architecture/20-surface.md`,
+    /// "two freshness facts").
+    pub(crate) source_hash: String,
+    /// SHA-256 of the last emitted projection — the **emit freshness fact**, the
+    /// baseline `apply`'s three-state merge measures a world drift against.
+    /// At import it provisionally equals `source_hash`: no `emit` has run yet, so the
+    /// last thing projected onto the source is the source as imported (`emit` advances
+    /// it once it lands — EMIT-VERB).
+    pub(crate) emit_hash: String,
 }
 
 /// Import every built-in artifact plus every declared custom-kind unit under
@@ -356,10 +357,11 @@ fn write_member_surface(
     Ok(RollupEntry {
         name: member.id,
         source_path: member.provenance.source_path.to_string_lossy().into_owned(),
-        // At import the last-applied fingerprint is the import hash: the source as
-        // it stands on disk is exactly what the surface was just derived from.
-        last_applied: member.provenance.import_hash.clone(),
-        import_hash: member.provenance.import_hash,
+        // At import the emit fingerprint provisionally equals the source hash: the
+        // source as it stands on disk is exactly what the surface was just derived from,
+        // and no `emit` has yet advanced it.
+        emit_hash: member.provenance.source_hash.clone(),
+        source_hash: member.provenance.source_hash,
     })
 }
 
@@ -591,7 +593,7 @@ fn import_wholefile_unit(
         path: source_file.to_path_buf(),
         source,
     })?;
-    let import_hash = crate::hash::sha256_hex(&bytes);
+    let source_hash = crate::hash::sha256_hex(&bytes);
     let body = String::from_utf8(bytes).map_err(|source| ImportError::NotUtf8 {
         path: source_file.to_path_buf(),
         source,
@@ -608,7 +610,7 @@ fn import_wholefile_unit(
     // header — carry them forward before writing, re-stamping only `[provenance]`,
     // exactly as the frontmatter path does via `carry_representation`.
     let body_path = out_dir.join(body_filename(&kind.name));
-    let header = custom_unit_header(&body_path, &source_file.to_string_lossy(), &import_hash);
+    let header = custom_unit_header(&body_path, &source_file.to_string_lossy(), &source_hash);
     write_bytes(&body_path, Document::new(header, body).emit().as_bytes())?;
 
     // A directory-shaped unit's companions ride beside the body, byte-for-byte — the
@@ -626,10 +628,10 @@ fn import_wholefile_unit(
     Ok(RollupEntry {
         name,
         source_path: source_file.to_string_lossy().into_owned(),
-        // At import the last-applied fingerprint is the import hash (see the built-in
-        // frontmatter member writer).
-        last_applied: import_hash.clone(),
-        import_hash,
+        // At import the emit fingerprint provisionally equals the source hash (see the
+        // built-in frontmatter member writer).
+        emit_hash: source_hash.clone(),
+        source_hash,
     })
 }
 
@@ -667,12 +669,12 @@ fn wholefile_id(kind: &CustomKind, base: &Path, source_file: &Path) -> Result<St
 /// `[requirement.*]`/`[satisfies.*]` tables instead of wiping them under a bare
 /// provenance header. A first import (or an unreadable/malformed prior surface)
 /// degrades to a fresh provenance-only header.
-fn custom_unit_header(body_path: &Path, source_path: &str, import_hash: &str) -> DocumentMut {
+fn custom_unit_header(body_path: &Path, source_path: &str, source_hash: &str) -> DocumentMut {
     let mut header = existing_custom_header(body_path).unwrap_or_default();
-    // Provenance is always freshly generated (the drift anchor), never carried —
+    // Provenance is always freshly generated (the source freshness fact), never carried —
     // drop any carried copy so the re-stamp lands it last, below the authored tables.
     header.as_table_mut().remove("provenance");
-    document::add_provenance(&mut header, source_path, import_hash);
+    document::add_provenance(&mut header, source_path, source_hash);
     header
 }
 
@@ -707,7 +709,7 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 
 /// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per imported member —
 /// the built-in kinds first (key-sorted) then the custom kinds (name-sorted) — each with
-/// `name`, `source_path`, `import_hash`, and the `last_applied` fingerprint. Both maps
+/// `name`, `source_path`, `source_hash`, and the `emit_hash` fingerprint. Both maps
 /// are key-sorted, so the emitted order is deterministic and a third embedded built-in
 /// kind takes its own slot with no code change here. A built-in section's key is the bare
 /// name, or the qualified `<provider>.<name>` where two carriers of one bare name both
@@ -734,7 +736,7 @@ fn write_rollup(
 }
 
 /// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
-/// (`name`, `source_path`, `import_hash`, `last_applied`) in a fixed order, one
+/// (`name`, `source_path`, `source_hash`, `emit_hash`) in a fixed order, one
 /// table per entry.
 fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
     let mut tables = ArrayOfTables::new();
@@ -742,8 +744,8 @@ fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
         let mut table = Table::new();
         table["name"] = value(entry.name.clone());
         table["source_path"] = value(entry.source_path.clone());
-        table["import_hash"] = value(entry.import_hash.clone());
-        table["last_applied"] = value(entry.last_applied.clone());
+        table["source_hash"] = value(entry.source_hash.clone());
+        table["emit_hash"] = value(entry.emit_hash.clone());
         tables.push(table);
     }
     tables
@@ -978,15 +980,19 @@ temper's own governing documents.\n";
         assert_eq!(names, vec!["coordinate", "demo"]);
 
         for table in skills.iter() {
-            let import_hash = table["import_hash"].as_str().unwrap();
-            let last_applied = table["last_applied"].as_str().unwrap();
-            assert_eq!(import_hash.len(), 64);
+            let source_hash = table["source_hash"].as_str().unwrap();
+            let emit_hash = table["emit_hash"].as_str().unwrap();
+            assert_eq!(source_hash.len(), 64);
             assert!(table["source_path"].as_str().unwrap().ends_with("SKILL.md"));
             // The retired `body_hash` column is gone — no production reader.
             assert!(table.get("body_hash").is_none());
-            // The baseline: at import the last-applied fingerprint is the import
-            // hash — the surface was just derived from the source as it stands.
-            assert_eq!(last_applied, import_hash);
+            // The retired pre-rename column names are gone too.
+            assert!(table.get("import_hash").is_none());
+            assert!(table.get("last_applied").is_none());
+            // The baseline: at import the emit fingerprint provisionally equals the
+            // source hash — the surface was just derived from the source as it stands,
+            // and no `emit` has advanced it.
+            assert_eq!(emit_hash, source_hash);
         }
     }
 
@@ -1055,7 +1061,7 @@ temper's own governing documents.\n";
         let rule_names: Vec<&str> = rules.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert_eq!(rule_names, vec!["collaboration", "rust"]);
         for table in rules.iter() {
-            assert_eq!(table["import_hash"].as_str().unwrap().len(), 64);
+            assert_eq!(table["source_hash"].as_str().unwrap().len(), 64);
             assert!(table.get("body_hash").is_none());
             assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
         }
@@ -1233,7 +1239,7 @@ temper's own governing documents.\n";
         let spec_names: Vec<&str> = specs.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert_eq!(spec_names, vec!["00-intent", "20-surface"]);
         for table in specs.iter() {
-            assert_eq!(table["import_hash"].as_str().unwrap().len(), 64);
+            assert_eq!(table["source_hash"].as_str().unwrap().len(), 64);
             assert!(table.get("body_hash").is_none());
             assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
         }
@@ -1295,7 +1301,7 @@ temper's own governing documents.\n";
         assert_eq!(names, vec!["0001-surface"]);
         assert!(
             adrs.iter()
-                .all(|t| t["import_hash"].as_str().unwrap().len() == 64)
+                .all(|t| t["source_hash"].as_str().unwrap().len() == 64)
         );
     }
 

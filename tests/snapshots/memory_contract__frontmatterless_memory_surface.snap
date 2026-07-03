@@ -6,7 +6,7 @@ expression: surface
 +++
 [provenance]
 source_path = "[HARNESS]/CLAUDE.md"
-import_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
+source_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
 +++
 # temper
 
@@ -20,5 +20,5 @@ Keep it correct, clear, well-tested.
 [[memory]]
 name = "CLAUDE"
 source_path = "[HARNESS]/CLAUDE.md"
-import_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
-last_applied = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
+source_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
+emit_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"

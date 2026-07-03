@@ -806,7 +806,7 @@ impl Unit {
             path: doc_path.to_path_buf(),
             source,
         })?;
-        let (source_path, _import_hash) = crate::document::provenance(document.header())
+        let (source_path, _source_hash) = crate::document::provenance(document.header())
             .ok_or_else(|| KindError::SurfaceMissingField {
                 path: doc_path.to_path_buf(),
                 field: "provenance",
@@ -1631,7 +1631,7 @@ primitive = "paragraph_meaning"
         let dir = root.join(name);
         std::fs::create_dir_all(&dir).unwrap();
         let document = format!(
-            "+++\n[provenance]\nsource_path = \"{source_path}\"\nimport_hash = \"deadbeef\"\n+++\n{body}"
+            "+++\n[provenance]\nsource_path = \"{source_path}\"\nsource_hash = \"deadbeef\"\n+++\n{body}"
         );
         std::fs::write(dir.join(body_name), document).unwrap();
         dir
@@ -1712,6 +1712,9 @@ source_path = \"specs/architecture/15-kinds.md\"\n\
 import_hash = \"deadbeef\"\n\
 +++\n\
 # Kinds\n\nBody.\n";
+        // The pre-rename `import_hash` key is deliberate: it exercises the provenance
+        // reader's legacy-key fallback (LOCK-FRESHNESS-FACTS), the path the committed
+        // `.temper/` dogfood still travels until a human `chore(harness):` re-emits it.
         std::fs::write(dir.join("SPEC.md"), document).unwrap();
 
         let unit = Unit::from_surface_dir(&dir).unwrap();

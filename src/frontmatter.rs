@@ -14,8 +14,8 @@
 //! companion are byte-faithful — never re-rendered. Only the structured header is
 //! written, via `toml_edit`. Unknown frontmatter keys are preserved verbatim; the
 //! declared fields lead in declaration order, then the unknown keys sorted, so the
-//! projection is deterministic and `import` idempotent. `import_hash` is the SHA-256
-//! of the original source bytes, the drift anchor.
+//! projection is deterministic and `import` idempotent. `source_hash` is the SHA-256
+//! of the authored source bytes, the source-drift anchor.
 
 use std::ffi::OsStr;
 use std::fs;
@@ -65,13 +65,14 @@ pub struct Member {
 }
 
 /// The import lock for a member: its origin path and a content hash of the original
-/// source bytes. `import_hash` drives drift detection.
+/// source bytes. `source_hash` drives source-drift detection (`specs/architecture/20-surface.md`,
+/// "two freshness facts").
 #[derive(Debug, Clone, PartialEq)]
 pub struct Provenance {
     /// Absolute or workspace-relative path to the source file.
     pub source_path: PathBuf,
-    /// Lowercase hex SHA-256 of the original source bytes.
-    pub import_hash: String,
+    /// Lowercase hex SHA-256 of the authored source bytes.
+    pub source_hash: String,
 }
 
 /// Errors raised while reading or projecting a [`Member`]. Hard failures (missing
@@ -180,7 +181,7 @@ impl Member {
             path: source_file.to_path_buf(),
             source,
         })?;
-        let import_hash = crate::hash::sha256_hex(&bytes);
+        let source_hash = crate::hash::sha256_hex(&bytes);
         let raw = String::from_utf8(bytes).map_err(|source| FrontmatterError::NotUtf8 {
             path: source_file.to_path_buf(),
             source,
@@ -222,7 +223,7 @@ impl Member {
             published_requirements: Vec::new(),
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
-                import_hash,
+                source_hash,
             },
         })
     }
@@ -233,7 +234,7 @@ impl Member {
     /// `[requirement.*]` modules, and `[provenance]`; the body is
     /// everything below the header. The id is the surface directory name.
     ///
-    /// The inverse of [`Member::to_document`] over the same file: `import_hash` is read
+    /// The inverse of [`Member::to_document`] over the same file: `source_hash` is read
     /// back from the provenance module, not recomputed.
     ///
     /// # Errors
@@ -266,7 +267,7 @@ impl Member {
             .filter_map(|(field, item)| document::item_to_json(item).map(|json| (field, json)))
             .collect();
 
-        let (source_path, import_hash) =
+        let (source_path, source_hash) =
             document::provenance(header).ok_or(FrontmatterError::MissingField {
                 path: doc_path.clone(),
                 field: "provenance",
@@ -287,7 +288,7 @@ impl Member {
             published_requirements,
             provenance: Provenance {
                 source_path: PathBuf::from(source_path),
-                import_hash,
+                source_hash,
             },
         })
     }
@@ -341,7 +342,7 @@ impl Member {
         document::add_provenance(
             &mut header,
             &self.provenance.source_path.to_string_lossy(),
-            &self.provenance.import_hash,
+            &self.provenance.source_hash,
         );
         Document::new(header, self.body.clone())
     }

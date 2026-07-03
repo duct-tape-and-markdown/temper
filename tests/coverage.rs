@@ -360,7 +360,7 @@ fn author_custom_spec(root: &Path, member_id: &str, satisfies: &[&str]) {
         header.push_str(&format!("[satisfies.{requirement}]\n"));
     }
     let document = format!(
-        "+++\n{header}[provenance]\nsource_path = \"specs/{member_id}.md\"\nimport_hash = \"deadbeef\"\n+++\n# {member_id}\n\nA spec member.\n"
+        "+++\n{header}[provenance]\nsource_path = \"specs/{member_id}.md\"\nsource_hash = \"deadbeef\"\n+++\n# {member_id}\n\nA spec member.\n"
     );
     fs::write(dir.join("SPEC.md"), document).unwrap();
 }

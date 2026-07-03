@@ -325,3 +325,83 @@ fn successive_surface_edits_each_apply_cleanly() {
         "the second edit must be the one on disk"
     );
 }
+
+/// One column of the sole `[[skill]]` lock row in `workspace`, or `None` if absent.
+fn skill_lock_field(workspace: &Path, column: &str) -> Option<String> {
+    let doc = fs::read_to_string(workspace.join("lock.toml"))
+        .unwrap()
+        .parse::<toml_edit::DocumentMut>()
+        .unwrap();
+    doc.get("skill")?
+        .as_array_of_tables()?
+        .iter()
+        .next()?
+        .get(column)
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
+#[test]
+fn the_lock_carries_the_two_freshness_facts_and_apply_baselines_on_emit_hash() {
+    let (harness, into) = imported("freshness");
+
+    // The lock row carries the two freshness facts under their names — and neither
+    // pre-rename column survives (`specs/architecture/20-surface.md`, "two freshness facts").
+    let source_at_import = skill_lock_field(&into, "source_hash").expect("source_hash column");
+    let emit_at_import = skill_lock_field(&into, "emit_hash").expect("emit_hash column");
+    assert_eq!(source_at_import.len(), 64);
+    assert!(skill_lock_field(&into, "import_hash").is_none());
+    assert!(skill_lock_field(&into, "last_applied").is_none());
+    // At import emit provisionally equals source: no `emit` has advanced it yet.
+    assert_eq!(emit_at_import, source_at_import);
+
+    // The imported bytes are not yet canonical (the fixture carries a hand comment and
+    // loose frontmatter), so the first apply re-emits a deterministic projection over
+    // the source and advances `emit_hash` to that projection's fingerprint — while
+    // `source_hash`, the authored-bytes fact, is left untouched.
+    let ws = Workspace::load(&into).unwrap();
+    assert_eq!(
+        outcome(
+            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            "coordinate"
+        ),
+        ApplyOutcome::Applied
+    );
+    let projected = fs::read_to_string(skill_source(&harness)).unwrap();
+    let emit_after = skill_lock_field(&into, "emit_hash").expect("emit_hash column");
+    assert_eq!(
+        skill_lock_field(&into, "source_hash").as_deref(),
+        Some(source_at_import.as_str()),
+        "source_hash — the authored-bytes fact — is untouched by apply"
+    );
+    assert_ne!(
+        emit_after, source_at_import,
+        "apply rewrote emit_hash off the stale import baseline onto the real projection"
+    );
+
+    // apply's baseline is `emit_hash`: the projection now on disk matches it, so a
+    // re-run is the idempotent no-op rather than a re-application.
+    let ws = Workspace::load(&into).unwrap();
+    assert_eq!(
+        outcome(
+            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            "coordinate"
+        ),
+        ApplyOutcome::Unchanged,
+        "with real == emit_hash, apply baselines clean"
+    );
+
+    // A world drift *away* from `emit_hash` — a hand-edit straight to the projection —
+    // is measured against the emit fact and surfaces as a conflict, not a clobber.
+    let drifted = projected + "\nA line added straight to disk.\n";
+    fs::write(skill_source(&harness), &drifted).unwrap();
+    let ws = Workspace::load(&into).unwrap();
+    assert_eq!(
+        outcome(
+            &drift::apply(&ws, &into, ApplyOptions::default()).unwrap(),
+            "coordinate"
+        ),
+        ApplyOutcome::Conflicted,
+        "a real hash differing from emit_hash is a conflict"
+    );
+}
