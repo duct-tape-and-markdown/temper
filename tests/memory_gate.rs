@@ -105,6 +105,77 @@ fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
         .collect()
 }
 
+/// Write a repo-root `CLAUDE.md` whose body carries the given `@`-import directive on
+/// its own line — the `claude-code.memory` member `import` discovers off its `governs`
+/// locus, its `at-import` target the directive classing resolves against provenance
+/// (`specs/architecture/15-kinds.md`, "Directives").
+fn write_claude_md_importing(root: &Path, import_line: &str) {
+    let body = format!("# Memory\n\nProject guidance.\n\n{import_line}\n");
+    fs::write(root.join("CLAUDE.md"), body).unwrap();
+}
+
+/// Write a `<root>/temper.toml` so the harness carries an assembly layer — the directive
+/// classing, like reachability and coverage, runs only under the guarded layer tier, so
+/// the wedge path is exercised only when an assembly is present. A benign skill binding
+/// to its own floor package, adding no clause of its own.
+fn write_layer(root: &Path) {
+    fs::write(
+        root.join("temper.toml"),
+        "[kind.skill]\npackage = \"skill.anthropic\"\n",
+    )
+    .unwrap();
+}
+
+#[test]
+fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
+    let harness = tmpdir("unbacked-import");
+    // A clean skill so the run is not empty, and a CLAUDE.md importing a path that backs
+    // no member and no repo file — an unbacked pointer. Before the collection generalized
+    // over every kind (DIRECTIVE-MEMBERS-ALL-KINDS), the hardcoded skill/rule pair never
+    // reached the memory member's directives, so this drew no finding (exit 0).
+    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md_importing(&harness, "@docs/missing.md");
+    write_layer(&harness);
+
+    let findings = check_harness(&harness);
+    let unbacked = findings_for(&findings, "graph.directive-unbacked");
+
+    // Exactly one unbacked-pointer finding, on the memory member — the wedge path now
+    // collects the CLAUDE.md's `at-import` targets and classes them.
+    assert_eq!(
+        unbacked.len(),
+        1,
+        "expected exactly one unbacked-pointer finding on the memory member, got: {findings:#?}"
+    );
+    let finding = unbacked[0];
+    assert!(
+        finding.contains("::CLAUDE:"),
+        "the finding names the CLAUDE memory member, got: {finding}"
+    );
+    assert!(
+        finding.contains("docs/missing.md"),
+        "the finding names the unbacked target, got: {finding}"
+    );
+}
+
+#[test]
+fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
+    let harness = tmpdir("backed-import");
+    // The CLAUDE.md imports the coordinate skill member by its provenance locus — a
+    // resolving member→member edge, not an unbacked pointer. The wedge collects the
+    // directive and classes it as backed, so nothing fires.
+    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
+    write_layer(&harness);
+
+    let findings = check_harness(&harness);
+
+    assert!(
+        findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        "a directive resolving to a real member must fire no unbacked-pointer finding, got: {findings:#?}"
+    );
+}
+
 #[test]
 fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
     let harness = tmpdir("over-length");

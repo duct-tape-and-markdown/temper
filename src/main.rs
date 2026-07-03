@@ -784,14 +784,7 @@ fn gate(
         // `source_path`, read off the units the features came from. The member-class edges
         // are produced as resolved edges available to the graph; a later slice closes
         // reachability over them.
-        let directive_members = collect_directive_members(
-            &skill_units,
-            &skill_features,
-            &rule_units,
-            &rule_features,
-            &custom_kinds,
-            workspace,
-        )?;
+        let directive_members = collect_directive_members(workspace, &custom_kinds)?;
         let directive_classing = graph::classify_directives(&directive_members, &repo_files);
         diagnostics.extend(directive_classing.findings);
 
@@ -1021,26 +1014,36 @@ fn assemble_by_kind<'a>(
 /// Pair each member with the provenance `source_path` the directive classing joins on
 /// (`specs/architecture/15-kinds.md`, "Directives"): the decidable [`Features`](extract::Features)
 /// view drops the full path, so it is read off the units the features were extracted
-/// from. Built-in `skill`/`rule` features are index-aligned with the units they came
-/// from; each custom kind's units are re-read in the same sorted order
-/// [`custom_units`] loads them, so the zip aligns. Every member is carried — a directive
-/// may point at a member that imports nothing — with its `directives` occurrences.
+/// from. Every member is carried — a directive may point at a member that imports
+/// nothing — with its `directives` occurrences (empty for a kind composing no
+/// `directives` primitive).
+///
+/// Ranges over **every** embedded built-in kind's members via
+/// [`builtin_kind::definitions`] — not a hardcoded skill/rule pair — so a discovered
+/// `CLAUDE.md` memory member's `at-import` targets reach [`graph::classify_directives`]
+/// and an unbacked `@path` draws its finding (DIRECTIVE-MEMBERS-ALL-KINDS, the same
+/// generalization CHECK-MEMBERS-ALL-KINDS made for clause dispatch). Each kind loads its
+/// members through the one generic surface loader, filtered by
+/// [`CustomKind::owns_source`] so the two `memory` providers sharing the `./MEMORY.md`
+/// locus route to their own carrier, extracts through [`builtin_kind::features`], and
+/// keys by the bare `kind.name` — the keying `by_kind`/`classify_directives` join on.
+/// Each custom kind's units are re-read in the same sorted order [`custom_units`] loads
+/// them, so the zip aligns.
 fn collect_directive_members(
-    skill_units: &[Unit],
-    skill_features: &[extract::Features],
-    rule_units: &[Unit],
-    rule_features: &[extract::Features],
-    custom_kinds: &[CustomKindEntry<'_>],
     workspace: &Path,
+    custom_kinds: &[CustomKindEntry<'_>],
 ) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
-    for (kind, units, features) in [
-        ("skill", skill_units, skill_features),
-        ("rule", rule_units, rule_features),
-    ] {
-        for (unit, feature) in units.iter().zip(features) {
+    for kind in builtin_kind::definitions()?.values() {
+        let units =
+            check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())?;
+        for unit in units
+            .iter()
+            .filter(|unit| kind.owns_source(&unit.source_path))
+        {
+            let feature = builtin_kind::features(kind, unit);
             members.push(graph::DirectiveMember {
-                kind: kind.to_string(),
+                kind: kind.name.clone(),
                 id: feature.id.clone(),
                 source_path: unit.source_path.clone(),
                 directives: feature.directives.clone(),
