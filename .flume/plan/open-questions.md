@@ -527,10 +527,13 @@ from exactly such a line fossilizing. If work touches one, surface it.
   DATUM (2026-07-03): the directive half of the hardcoding also shipped —
   DIRECTIVE-MEMBERS-ALL-KINDS (build 28df927; `collect_directive_members` ranges
   over `builtin_kind::definitions()`, verified src/main.rs:787). And the flip now
-  gains a NEW discovery prerequisite: **WALK-IGNORE-DISCIPLINE** (pending, parked) —
-  the `**` discovery walk honors `.gitignore` + always-excludes `.git` before the
-  memory kinds' `governs` flips to `**/CLAUDE.md`, else a `**` glob imports a
-  vendored dep's CLAUDE.md out of node_modules as a member. Revised flip gate:
-  WALK-IGNORE-DISCIPLINE drains → human flips both memory kinds' `governs` to the
-  any-depth glob. Parked on a written ignore-discipline Decision + the `ignore`
-  crate sanctioned.
+  gained a NEW discovery prerequisite: **WALK-IGNORE-DISCIPLINE**, which has now
+  **SHIPPED** (build f419987 / chore 9a69e1c; verified on disk this tick: `ignore =
+  "0.4"` in Cargo.toml, `collect_glob` walks via `ignore::WalkBuilder` at
+  src/import.rs:493). The `**` discovery walk now honors `.gitignore` +
+  always-excludes `.git`, so a future `**/CLAUDE.md` glob will not import a vendored
+  dep's CLAUDE.md out of node_modules as a member. **The flip gate is now clear** —
+  every engine prerequisite has drained; the sole remaining step is the human
+  ceremony: flip both memory kinds' `governs` to the any-depth glob (curated embeds,
+  gates green before commit), then verify no node_modules/.git members appear on a
+  cascade vet.

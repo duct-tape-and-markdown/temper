@@ -1,22 +1,22 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD b862bf0.
-- **Last shipped:** DIRECTIVE-BACKING-BASE-DIR (build 590b3e0 / chore e6be469).
-- **This tick:** **drained the inbox — WALK-IGNORE-DISCIPLINE un-parks to `open`.**
-  Both parked blockers are closed on disk: the ignore discipline is now a written
-  spec Decision (`specs/architecture/20-surface.md:317`, "discovery respects ignore
-  rules; the backing set reads raw disk" — two sets, two rules, never merged) and
-  the `ignore` crate is sanctioned in CLAUDE.md's tech stack. Re-cited the entry
-  off the stale per-project Decision onto the ignore-rules Decision that actually
-  owns the intent. Verified on disk: `collect_glob` (src/import.rs:417) is the
-  discovery walk to prune; `repo_file_set` (src/main.rs:1001) is the backing set
-  to leave raw; `ignore` is NOT yet in Cargo.toml (build adds it, now sanctioned).
-  Other 3 entries unchanged (re-verified accurate last tick).
-- **Pickable now:** **WALK-IGNORE-DISCIPLINE** (the sole `open` entry — build can
-  ship it). Remaining 3 stay human-gated: PACKAGING-CHANNELS parked (release
-  creds); EXTRACTION-VOCAB-GAPS + AGENT-KIND deferred (no consumer).
-- **After it drains:** the human flips both memory kinds' `governs` to the
-  any-depth glob (standing ruled ceremony, curated embeds — human territory).
+- **Phase:** reconcile. HEAD 9a69e1c.
+- **Last shipped:** WALK-IGNORE-DISCIPLINE (build f419987 / chore 9a69e1c) — the
+  `**` discovery walk now honors `.gitignore` + always-excludes `.git`
+  (`ignore::WalkBuilder`, src/import.rs:493; `ignore = "0.4"` in Cargo.toml).
+- **This tick:** verified the drain on disk and reconciled the residual queue. All
+  3 remaining entries re-confirmed accurate: EXTRACTION-VOCAB-GAPS (`Primitive`
+  still lacks `Fenced`; `Field` still flat `frontmatter.get`, no key-path —
+  src/kind.rs:686), AGENT-KIND (no `agent` in BUILTIN_KINDS, no AGENT_PACKAGE —
+  src/builtin.rs), PACKAGING-CHANNELS (root package.json still the private flume
+  manifest). Launch docs all shipped (README/AGENTS/CHANGELOG +
+  .github/{CONTRIBUTING,SECURITY}.md — pointers resolve). Inbox empty. Updated the
+  memory-flip datum in open-questions: WALK-IGNORE shipped, flip gate now clear.
+- **Pickable now:** **nothing** — the queue is fully human-gated. EXTRACTION-VOCAB-GAPS
+  + AGENT-KIND deferred (no consumer); PACKAGING-CHANNELS parked (release creds).
+- **What's next (human, not plan):** the memory-tree flip ceremony — flip both
+  memory kinds' `governs` to the any-depth glob (curated embeds, human territory),
+  then cascade-vet no node_modules/.git members appear.
 
-Plan continues: no — inbox drained, the un-parked entry is `open` and pickable;
-hand to build.
+Plan continues: no — queue reconciled, the drained entry is recorded, and no
+pickable open work remains (all human-gated); nothing to hand to build.
