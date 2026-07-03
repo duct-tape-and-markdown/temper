@@ -46,15 +46,8 @@ that evidence, not preference, is the bite condition.
 
 ## Entries
 
-- `(impact-verb)` — **Blast radius as a verb.** `temper impact <member>`:
-  deterministic tier-1 traversal answering "what strands if this member is
-  removed or renamed" — the graph payoff `00-intent.md` already promises
-  ("remove a load-bearing entity and the graph lights up every spec, binding,
-  and code symbol that depended on it"), surfaced as a read verb and as the CI
-  comment on harness-touching PRs. *Rents:* the graph (`00-intent.md`), read
-  verbs (`20-surface.md`), CI placement (`50-distribution.md`). *Tensions:*
-  none identified — pure tier-1. *Leaning:* smallest bite here; likely first.
-  *Bite condition:* none beyond ratification; the graph it traverses exists.
+- `(impact-verb)` — RATIFIED → `specs/architecture/20-surface.md`, "CLI
+  surface" (`temper impact <member>`), 2026-07-03.
 
 - `(vet)` — **Check what you install, before you install it.** A verb aimed at
   the *consumer*: run the gate over a plugin or marketplace artifact pre-install
@@ -166,35 +159,8 @@ that evidence, not preference, is the bite condition.
   it. *Bite condition:* corpus migration shipped; then a design session for
   the tag grammar + the code kind's extraction shape.
 
-- `(surface-authority-lock)` — **The authoring surface moves to temper's side;
-  projections get guarded.** Once `.temper/` is authoritative, direct edits to
-  projected artifacts are boundary events, guarded in layers: a managed-by
-  **note** on projections whose format tolerates cost-free metadata (rides the
-  `install` modeline machinery, never `apply` — law 5 keeps the projection
-  content-faithful; a note in `CLAUDE.md` costs context every session, so
-  memory projections skip it); a **PreToolUse hook** that `install` wires,
-  intercepting writes to projected paths and routing to the surface path — a
-  provider-specific artifact of the future hook kind, a member of the
-  landscape it guards; and CI as the universal backstop. *Consent boundary:*
-  the `install` verb — the wedge stays read-only forever; everything install
-  writes is enumerated, self-audited (`gate-installed`), reversible.
-  *Degree:* the existing severity dial — note = information, warn-hook =
-  advisory, block-hook = required — declared in the assembly (an `authority =
-  "shared" | "surface"` posture), default least-invasive; temper never
-  escalates on its own determination. *Rents:* install (`50-distribution.md`),
-  the hook kind + `event` activation (`15-kinds.md`), the drift three-state
-  model (`20-surface.md`). *Tensions:* multi-consumer surfaces — the hook
-  binds one provider's writes; Cursor writing `.claude/skills/` sails past
-  it, and `settings.json` is a shared merge target — so surface authority is
-  only as strong as the weakest uninstrumented consumer; the note is the only
-  universal layer and CI the only true wall. State this limit verbatim, never
-  pretend the hook is a wall. *Follows behind:* the **drift re-cut** — under
-  surface authority, content drift (bytes, three states) demotes to boundary
-  guard + onboarding path while structure drift (unbacked pointers, dangling
-  joins, dead edges) becomes the headline `check` concern; re-cutting
-  `20-surface.md` (and the `drift-engine` join's means) waits until the lock
-  ships and proves the inversion — spec must not lead reality by two steps.
-  *Leaning:* do it, after the current directives/lock-adjacent machinery
-  settles; the invasiveness question is resolved by frame, not open. *Bite
-  condition:* human ratification of the `authority` posture shape; the hook
-  kind existing (or this births it, as code-seam-joins births the code kind).
+- `(surface-authority-lock)` — RATIFIED → `specs/architecture/20-surface.md`,
+  "Decision: surface authority is a declared posture, never a baked stance",
+  2026-07-03. The **drift re-cut** noted in the ratified Decision still rides
+  behind the shipped lock — it re-enters here or the workshop when the lock
+  proves the inversion.
