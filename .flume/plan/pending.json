@@ -1,55 +1,5 @@
 [
   {
-    "tag": "EMIT-VERB",
-    "summary": "Rename `apply`→`emit`: re-emit each projection whole and byte-deterministically, double-emit verified; delete the residual three-state merge model",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Content-faithful, deterministically emitted (law 5)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/emit.rs",
-          "description": "The renamed apply suite driving `temper emit`: idempotence over a clean surface, a surface edit re-emits, --dry-run writes nothing, and a NEW double-emit-determinism assertion (emit twice → byte-identical projection + lock). Carries over tests/apply.rs's cases minus the retired Conflicted-as-world-drift semantics."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Rename the `Apply` command variant to `Emit`, its CLI name to `emit`, and add the `--frozen` (refuse network — CI posture) + keep `--dry-run` flags per the CLI surface (20-surface CLI section); dispatch to `drift::emit`."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Rename `apply`→`emit`/`render_apply`→`render_emit`; make emit re-emit each projection whole from the authored source (project_bytes already does) and add a double-emit verification (emit twice, compare bytes — nondeterminism is a loud failure, never silent churn). Delete the residual desired/last-applied/real merge model + the `Conflicted`-as-world-drift outcome (a hand-edited projection is drift routed to the source, surfaced by config.stale/guard, not a mergeable conflict). Keep emit_hash freshness."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Update the `install::gate_installed`/placement callers that name `drift::apply`/`ApplyOutcome` to the renamed `emit` symbols (install consumes drift::place, unchanged; only the apply-named references move)."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Rename any `apply` driving to `emit`."
-        }
-      ],
-      "retire": [
-        "tests/apply.rs"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "`temper emit` re-emits whole and is idempotent; double-emit yields byte-identical output; --dry-run writes nothing; no three-state conflict state remains."
-      }
-    ],
-    "acceptance": "`temper emit [--frozen] [--dry-run]` compiles each projection whole and byte-deterministically, double-emit verified; the three-state merge model is deleted; a hand-edited projection is drift (not a Conflicted merge state); cargo fmt/clippy -D warnings/test green.",
-    "notes": "apply already re-emits whole; the deltas are the rename, --frozen, the double-emit determinism check, and deleting the desired/last-applied/real internals READD-RETIRE left standing. The two-projectors bug stays LIVE until EMIT-OWNED-PLACEMENTS — do not rely on bare emit over rules until it lands. tests/apply.rs→tests/emit.rs."
-  },
-  {
     "tag": "MANIFEST-EMIT",
     "summary": "Serialize the full manifest at import — bindings, requirements, member features, and edges into `temper.toml`, patch-preserving any hand-authored manifest",
     "per": {
