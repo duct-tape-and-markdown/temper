@@ -455,16 +455,20 @@ from exactly such a line fossilizing. If work touches one, surface it.
   ceremony the file describes.
 - **CLAUDE.md bootstrap fence** — transitional until the `memory` kind ships
   and the flip ceremony moves it onto the surface.
-  MEMORY-KIND recipe: **FILED** as pending MEMORY-KIND (parked) 2026-07-02, the
-  tick after DECLARED-FRONTMATTER-ADAPTER shipped (fab4f79). The `memory` kind is
-  the first pure-data managed kind and the recipe's proof — a curated
-  `kinds/memory/KIND.md` + `packages/memory.anthropic/` (humans author, cited to
-  code.claude.com/docs/en/memory): markdown, no frontmatter, dual root locus per
-  `specs/architecture/15-kinds.md`. Parked because those curated files sit outside build's
-  fence (a human authors them first) and the no-frontmatter format + `@path` edge
-  primitive are deliberate closed-vocab additions to sanction. CORRECTION to the
-  earlier recipe framing: `@path` imports are format-EXECUTED reference syntax
-  (law 8's carve-out, `00-intent.md`) — their *own* edge extraction primitive, NOT
-  EXTRACTION-VOCAB-GAPS's fenced/key-path, so MEMORY-KIND does **not** revive that
-  entry (it stays deferred on its own no-consumer terms). Shipping MEMORY-KIND
-  unlocks this flip ceremony.
+  WAVE FILED (2026-07-02): the human's inbox drained into five dependency-ordered
+  engine slices — MEMORY-COLLISION-SCOPE (open, builtin_kind.rs), then
+  IMPORT-BUILTIN-SCAN-GENERIC (open, import.rs), CHECK-WORKSPACE-KIND-MAP (check.rs
+  + bundle/drift/read), DECLARED-FRONTMATTER-ADAPTER-CUSTOM (import.rs), and
+  RECURSIVE-GOVERNS-PLACEMENT-ID (import.rs + frontmatter.rs); the three import.rs
+  slices serialize via `blockedBy`, slices 1 and 2 are the disjoint `open` pair.
+  The kinds are two **foreign-provider** carriers (`agents-md.memory`,
+  `claude-code.memory`, deliberately colliding on bare `memory`) — curated,
+  human-authored, cited to code.claude.com/docs/en/memory, held outside build's
+  fence and committed only after slice 1 (co-embedding two carriers turns cargo
+  test red today via eager resolution). MEMORY-KIND is now the **parked
+  flip-ceremony validation** entry (tests/memory_contract.rs), not the engine
+  wiring — the wave carries that as generic, data-driven code. CORRECTION carried:
+  `@path` imports are NOT in this wave (a later edge primitive if needed); they are
+  neither the wave's work nor EXTRACTION-VOCAB-GAPS's fenced/key-path, so that entry
+  stays deferred on its own no-consumer terms. Shipping the wave + the curated files
+  unlocks the flip.

@@ -1,47 +1,19 @@
 [
   {
-    "tag": "MEMORY-KIND",
-    "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
+    "tag": "MEMORY-COLLISION-SCOPE",
+    "summary": "Scope bare-name collision to the caller who binds it — `definitions()`/`resolve()` must not fail for every caller when two providers co-embed the same bare `memory` kind",
     "per": {
       "path": "specs/architecture/15-kinds.md",
-      "section": "Two categories of kind — ownership, not mechanism"
+      "section": "Decision: kind identity carries a provider axis"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "the curated kinds/claude-code/memory/KIND.md + packages/memory.anthropic/PACKAGE.md are outside build's fence (curated std-lib — a human authors them, cited to code.claude.com/docs/en/memory); and the no-frontmatter projection format + the `@path` edge extraction primitive are deliberate closed-vocab additions a human must sanction before the engine wiring can land"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
-      "new": [
-        {
-          "path": "kinds/claude-code/memory/KIND.md",
-          "description": "The embedded built-in `memory` KIND.md (curated — humans author it, outside build's fence), under its provider beside kinds/claude-code/skill and kinds/claude-code/rule with a `provider = \"claude-code\"` line. Format facts per specs/architecture/15-kinds.md: no frontmatter, `@`-imports, dual root locus (project `./CLAUDE.md` + user `~/.claude/CLAUDE.md`). Declares a no-frontmatter projection format, markdown-structure extraction over the body, and `@path` imports as declared edges. build.rs auto-embeds it."
-        },
-        {
-          "path": "packages/memory.anthropic/PACKAGE.md",
-          "description": "The memory kind's built-in package `memory.anthropic` (curated product territory, outside build's fence), embedded with the std-lib by build.rs. Decidable clauses only over the memory format, per-clause `source` citations to the Claude Code memory docs (code.claude.com/docs/en/memory); the `@path` imports resolve as a referential clause over the declared edge (never a body grep — law 8)."
-        },
-        {
-          "path": "tests/memory_contract.rs",
-          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: broken/clean memory fixtures through the generic adapter + loader, plus an import round-trip insta snapshot proving idempotence over a no-frontmatter unit."
-        }
-      ],
+      "new": [],
       "edit": [
         {
-          "path": "src/kind.rs",
-          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:545 + parse_primitive load-guard kind.rs:1171). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/architecture/15-kinds.md Decision: extraction is a closed algebra)."
-        },
-        {
-          "path": "src/builtin.rs",
-          "description": "Add a `MEMORY_PACKAGE = \"memory.anthropic\"` const and register the memory kind→package binding beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:37-44). build.rs auto-embeds the PACKAGE.md; no manual embed edit."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "The extractor helpers behind the memory format: an `@path`-import reader over the markdown body yielding declared edges (mirroring body_headings/body_sections), and the no-frontmatter unit read face (empty frontmatter map, body is the whole file)."
-        },
-        {
-          "path": "src/document.rs",
-          "description": "The generic adapter's no-frontmatter format path: split/emit a memory member whose on-disk artifact carries no YAML frontmatter (the `yaml-frontmatter` adapter assumes a fence), byte-deterministic re-emission of the body."
+          "path": "src/builtin_kind.rs",
+          "description": "`definitions()` (builtin_kind.rs:85-96) and `resolve()` (:112-119) call `CustomKind::resolve_bare` for EVERY embedded kind against the whole set and propagate the first `AmbiguousKind` via `?`, so two co-embedded `memory` carriers fail for every caller — stricter than the Decision's 'nobody pays a qualification tax until two providers actually meet'. Scope the collision cost to the caller who binds/references the ambiguous BARE name: `definitions()` keys by qualified (or per-provider) identity without eagerly resolving every bare name; `resolve(name)`/`source(name)`/`qualified(name)`/`definition(name)` still return `AmbiguousKind` only for the specific bare `name` that actually collides. Non-colliding bare names (`skill`, `rule`) and qualified lookups stay clean. Extend the in-file `#[cfg(test)]` mod with a two-`memory`-provider fixture proving `definitions()` succeeds and only a bare-`memory` lookup errors."
         }
       ],
       "retire": []
@@ -49,16 +21,180 @@
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/memory_contract.rs",
-        "asserts": "the memory package's decidable clauses fire on broken fixtures and stay silent on clean; a no-frontmatter memory member imports and re-emits idempotently (insta snapshot); an `@path` import resolves as a declared edge and a dangling one is a coverage finding."
+        "path": "src/builtin_kind.rs",
+        "asserts": "with two providers co-embedding bare `memory`, `definitions()` returns the full set (keyed by qualified identity) and a bare-`skill`/`rule` lookup stays clean; only a bare-`memory` `resolve`/`source`/`qualified` errors `AmbiguousKind`, naming the qualified candidates."
       }
     ],
-    "acceptance": "`temper check` dispatches the CLAUDE.md family to `memory.anthropic`; `temper import` projects memory files as no-frontmatter members idempotently via the generic adapter; the `@path` edge primitive builds the memory graph; cargo fmt/clippy -D warnings/test all green. (Parked: not built until the curated KIND.md/PACKAGE.md are human-authored and the format/primitive additions sanctioned.)",
-    "notes": "Drained from the open-questions CLAUDE.md-bootstrap recipe (DFA shipped, so it's fileable). Memory is the flip-ceremony proof — shipping it moves CLAUDE.md onto the surface. Curated KIND.md/PACKAGE.md are outside build's fence: a human authors them (cited code.claude.com/docs/en/memory), then engine wiring lands. NB `@path` is its own edge primitive, NOT EXTRACTION-VOCAB-GAPS's fenced/key-path — that entry stays deferred, not revived here."
+    "acceptance": "Two providers carrying bare `memory` no longer break `definitions()` for unrelated callers; the collision surfaces only when a bare `memory` is bound/looked up; cargo fmt/clippy -D warnings/test green — unblocking the human to commit the four curated memory files.",
+    "notes": "Inbox wave-1 slice 1 (blocks the wave). After it drains the human commits the four curated files (2 KIND.md + 2 PACKAGE.md) together — co-embedding two `memory` carriers turns cargo test red today via eager resolution. Disjoint from slice 2 (builtin_kind.rs vs import.rs) — both `open`, parallel-safe."
+  },
+  {
+    "tag": "IMPORT-BUILTIN-SCAN-GENERIC",
+    "summary": "Drive `import`'s built-in scan off `builtin_kind::definitions()` instead of the hardcoded `[\"skill\",\"rule\"]` literal, so an embedded third built-in kind discovers its members",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Artifact kinds & package binding"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "`run()`'s built-in scan is hardcoded to `import_frontmatter_kind(.., \"skill\")` / `(.., \"rule\")` (import.rs:123-124) driven by the `crate::kind::BUILTIN_KINDS = [\"skill\",\"rule\"]` literal (also read at import.rs:135). Drive the scan generically off `builtin_kind::definitions()` — iterate every embedded built-in kind, importing each through the one generic frontmatter adapter (the doc comment at import.rs:120-122 already claims 'no per-kind writer'). Preserve the skill-then-rule ordering via the name-sorted keys so the roll-up's byte layout stays stable, and keep the custom-vs-built-in split (import.rs:132-139) reading off the same generic set rather than the literal. Behavior over a skill/rule-only harness is byte-identical; a third embedded kind now discovers its members. Scope stays inside import.rs (query the built-in set through `builtin_kind`, do not edit kind.rs:30)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/import.rs",
+        "asserts": "the generic scan discovers skill and rule members exactly as the hardcoded pair did (idempotent roll-up byte layout unchanged), and iterates every embedded built-in kind rather than the two literals."
+      }
+    ],
+    "acceptance": "`temper import` scans every embedded built-in kind generically off `builtin_kind::definitions()`; a skill/rule-only harness imports byte-identically; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox wave-1 slice 2 (independent). Open beside slice 1 (disjoint files). Slices 3+4 blockedBy this (share/depend on the generic scan); slice 5 follows slice 4. Behavior over a skill/rule-only harness unchanged; the embedded memory kinds discover nothing until this + the human's curated files land."
+  },
+  {
+    "tag": "CHECK-WORKSPACE-KIND-MAP",
+    "summary": "Replace `check::Workspace`'s hardcoded `skills`/`rules` fields with a generic per-kind member map so a third built-in kind's members get clause/package-checked",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: package binding is by artifact kind"
+    },
+    "gate": { "kind": "blockedBy", "tag": "IMPORT-BUILTIN-SCAN-GENERIC" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/check.rs",
+          "description": "`Workspace` hardcodes `skills: Vec<Member>` / `rules: Vec<Member>` (check.rs:34-38) and `load()` (:50-62) reconstructs exactly those two; a third built-in kind's members would be extraction-checked but never clause/package-checked. Replace the two fields with a generic per-kind member map (`BTreeMap<String, Vec<Member>>` keyed by kind name), `load()` iterating `builtin_kind::definitions()` and reconstructing each kind's members through the one generic frontmatter adapter. Provide a small accessor for the readers below. Update the in-file tests (check.rs:360-467) to read off the map."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "reads `ws.skills.len()` / `ws.rules.len()` (bundle.rs:209-210) for the report counts; read the per-kind counts off the generic member map instead, preserving the rendered output."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "iterates `workspace.skills` / `.rules` (drift.rs:163,176,419,430); iterate the generic per-kind map, preserving the skill-then-rule order the drift set depends on."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "iterates `workspace.skills` / `.rules` (read.rs:89,96) to build the read family's member set; iterate the generic per-kind map."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/check.rs",
+        "asserts": "a workspace carrying a third built-in kind loads that kind's members into the generic map and their clauses run; skill/rule loading and the surface-unit feature equivalence are unchanged."
+      }
+    ],
+    "acceptance": "`check` dispatches every built-in kind's members — not just skills/rules — to its bound package; bundle/drift/read read the generic map with unchanged output; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox wave-1 slice 3 (after slice 2). Blast radius: the `Workspace` struct's readers (bundle/drift/read) move to the generic map — none overlap the import.rs slices, so parallel-safe with slice 4. blockedBy slice 2 (needs the generic built-in set)."
+  },
+  {
+    "tag": "DECLARED-FRONTMATTER-ADAPTER-CUSTOM",
+    "summary": "Make the declared `unit_shape`/`format` load-bearing on the custom-kind import path — `import_custom_unit` today ignores both, accidentally correct only for a frontmatterless File-shaped kind",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Decision: the adapter faces are declared — a kind names its projection format"
+    },
+    "gate": { "kind": "blockedBy", "tag": "IMPORT-BUILTIN-SCAN-GENERIC" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "`import_custom_unit` (import.rs:362-409) ignores the kind's declared `unit_shape`/`format`: it derives the unit id from `file_stem` (import.rs:376-386) and treats the whole file as an opaque body — accidentally correct for a frontmatterless File-shaped kind, wrong in general (a Directory-shaped kind, or a frontmatter-bearing custom format). Make the declared `unit_shape`/`format` load-bearing on the custom path: derive id per unit shape (stem for `File`, directory name for `Directory`) and split the artifact per the declared `format` (`yaml-frontmatter` lifts declared fields; absent/File-with-no-format keeps the whole-file byte-faithful body). The seam is named at kind.rs:77-83 (`format`/`unit_shape` 'inert … consumed by nothing yet'). Reuse the generic frontmatter adapter's split rather than opening a second path; keep the existing `[requirement.*]`/`[satisfies.*]` carry-forward intact."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/import.rs",
+        "asserts": "a Directory-shaped custom kind imports with id from the directory name; a frontmatter-bearing custom format splits declared fields into the header; a frontmatterless File-shaped kind is byte-identical to today; all idempotent on re-import."
+      }
+    ],
+    "acceptance": "`import_custom_unit` honors the declared `unit_shape`/`format` for every custom kind, not just the frontmatterless File-shaped accident; the whole-file body path survives for the latter; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox wave-1 slice 4 (independent correctness/generality, not strictly a memory blocker — memory is frontmatterless File-shaped, accidentally already handled). blockedBy slice 2 only to serialize the shared import.rs (disjoint regions still merge-conflict). Makes the declared adapter faces load-bearing on the custom path."
+  },
+  {
+    "tag": "RECURSIVE-GOVERNS-PLACEMENT-ID",
+    "summary": "Add an any-depth `governs.glob` mode and fold directory placement into file-shaped unit identity, so a nested nearest-wins hierarchy discovers members without clobbering same-named files",
+    "per": {
+      "path": "specs/architecture/40-composition.md",
+      "section": "Registering a custom kind"
+    },
+    "gate": { "kind": "blockedBy", "tag": "DECLARED-FRONTMATTER-ADAPTER-CUSTOM" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "(a) `collect_glob`/`glob_matches`/`discover_kind_units` (import.rs:295-349,453-484) express fixed-depth single-`*` segments only; add an any-depth `governs.glob` mode (recursive descent, `**`-style) so a nested nearest-wins hierarchy discovers members at every level, not just the fixed glob depth. (b) `import_custom_unit` collapses same-named nested files to their stem (import.rs:376-381); fold directory placement into file-shaped unit identity so nested `CLAUDE.md`/`AGENTS.md` at different depths do not clobber each other's surface entry. Two halves land together — recursion without placement-folded ids is useless."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "the File-shape id path (frontmatter.rs:186-196) likewise collapses a nested file to its bare stem via `file_stem`; fold directory placement into the id so two nested same-named files get distinct surface ids, symmetric with the custom-path fix in import.rs."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/import.rs",
+        "asserts": "an any-depth `governs.glob` discovers nested units at multiple levels; two nested same-named files (`CLAUDE.md` at root and a subdir) import to distinct surface ids and re-import idempotently."
+      }
+    ],
+    "acceptance": "A custom/built-in kind whose `governs.glob` is any-depth discovers its full nested hierarchy, and nested same-named files carry distinct placement-folded ids; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox wave-1 slice 5 (largest; two halves land together). Models the DEFINING nested nearest-wins hierarchy of both memory formats (agents.md documents nesting; OpenAI's main repo ships 88 AGENTS.md). blockedBy slice 4 to serialize the shared import.rs."
+  },
+  {
+    "tag": "MEMORY-KIND",
+    "summary": "Validate the memory kinds end-to-end once the wave ships and the human commits the curated KIND.md/PACKAGE.md files — discover, clause-check, idempotent round-trip",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Two categories of kind — ownership, not mechanism"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "the curated agents-md.memory + claude-code.memory KIND.md/PACKAGE.md are human-authored (outside build's fence, cited to code.claude.com/docs/en/memory) and are committed only after MEMORY-COLLISION-SCOPE ships; the validation test cannot run until those four files are embedded"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: broken/clean memory fixtures through the generic adapter + loader (clauses fire on broken, silent on clean), plus a no-frontmatter File-shaped import round-trip insta snapshot proving idempotence over a unit with no YAML frontmatter. Runs only once the curated memory KIND.md/PACKAGE.md are embedded."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/memory_contract.rs",
+        "asserts": "the memory package's decidable clauses fire on broken fixtures and stay silent on clean; a no-frontmatter File-shaped memory member imports and re-emits idempotently (insta snapshot); the two bare-`memory` providers resolve by qualified identity with no spurious collision on non-colliding lookups."
+      }
+    ],
+    "acceptance": "With the wave shipped and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
+    "notes": "Engine work is now the wave (slices 1-5 above) + build.rs auto-embed; this entry is the parked flip-ceremony validation. The curated agents-md.memory/claude-code.memory KIND.md+PACKAGE.md are human-authored, outside build's fence, committed after slice 1. `@path` imports are NOT in this wave — a later edge primitive if needed. Shipping this moves CLAUDE.md onto the surface."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
-    "summary": "Extend the extraction algebra with the two primitives 15-kinds.md lists but code lacks — a `fenced` block extractor and key-path (nested) `field` lookup — held until a consumer kind needs them",
+    "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "The extraction algebra — the soundness boundary, as data"
@@ -139,7 +275,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS kind.rs:30 + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Adapter wave drained (DFA shipped). Stays deferred: more built-in kinds is the wrong direction under requirements/satisfies."
+    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS kind.rs:30 + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Stays deferred: more built-in kinds is the wrong direction under requirements/satisfies."
   },
   {
     "tag": "PACKAGING-CHANNELS",
