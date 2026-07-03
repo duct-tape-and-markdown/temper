@@ -226,8 +226,10 @@ mod tests {
                 glob: "*/SKILL.md".to_string(),
             }
         );
-        // The composed extractor mirrors `kinds/skill/KIND.md`: the four documented
-        // frontmatter fields, then the markdown-structure primitives, in order.
+        // The composed extractor mirrors `kinds/claude-code/skill/KIND.md`: the three
+        // documented frontmatter fields (`version` is in neither the agentskills.io
+        // spec nor Claude Code's table — dropped), then the markdown-structure
+        // primitives, in order.
         assert_eq!(
             skill.extraction.primitives(),
             &[
@@ -236,9 +238,6 @@ mod tests {
                 },
                 Primitive::Field {
                     key: "description".to_string()
-                },
-                Primitive::Field {
-                    key: "version".to_string()
                 },
                 Primitive::Field {
                     key: "license".to_string()

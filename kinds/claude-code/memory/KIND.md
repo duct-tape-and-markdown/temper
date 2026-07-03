@@ -5,6 +5,10 @@ unit_shape = "file"
 activation = { via = "always" }
 
 [[extraction]]
+primitive = "directives"
+syntax = "at-import"
+
+[[extraction]]
 primitive = "line_count"
 
 [[extraction]]
@@ -45,8 +49,8 @@ expressible in one fixed-depth `governs` glob today; user scope
 this definition's reach. The `@path` import graph (resolved relative to the
 importing file, absolute allowed, recursion capped at four hops; same doc) is
 **format-executed syntax — a directive** (`specs/architecture/15-kinds.md`,
-"Directives — format-executed body syntax"): this kind adopts the `at-import`
-extraction when it ships, and mention-mining stays retired (law 8,
+"Directives — format-executed body syntax"): this kind declares the `at-import`
+extraction above, and mention-mining stays retired (law 8,
 `specs/intent/00-intent.md`).
 
 Kind identity is qualified `claude-code.memory` — the `provider` header names the
@@ -67,11 +71,9 @@ Built-in means **temper-sourced, not privileged** (`specs/architecture/15-kinds.
 this definition ships embedded exactly as a project's own `.temper/kinds/…`
 definition would, differing only in source. `build.rs` embeds it and the engine
 parses and composes its declared extraction through the generic built-in path
-(`src/builtin_kind.rs`). What is **not** yet wired is discovery: `import`'s
-built-in scan still names only `skill` and `rule` (`src/import.rs`), so a real
-harness's `CLAUDE.md` is not imported off this `governs` locus until that scan is
-generalized — shipping the `KIND.md` makes the kind parseable and resolvable, not
-yet importable. Embedded *alongside* `agents-md.memory`, it also trips the eager
-bare-name resolution in `builtin_kind::definitions()`; that collision is real
-engine behavior, and making it pay only when an assembly references bare `memory`
-is the open work this wave surfaces.
+(`src/builtin_kind.rs`); `import`'s built-in scan drives off the embedded set
+generically, so a real harness's `CLAUDE.md` is discovered off this `governs`
+locus, its members are clause-checked in the gate, and its `at-import` targets
+are classed against provenance (member / backed world file / unbacked pointer)
+with reachability closing over the member-target edges
+(`specs/architecture/45-governance.md`).

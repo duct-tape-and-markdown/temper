@@ -15,10 +15,6 @@ key = "description"
 
 [[extraction]]
 primitive = "field"
-key = "version"
-
-[[extraction]]
-primitive = "field"
 key = "license"
 
 [[extraction]]
