@@ -1,5 +1,34 @@
 [
   {
+    "tag": "DIRECTIVE-MEMBERS-ALL-KINDS",
+    "summary": "Collect at-import directives over every built-in kind's members, not the hardcoded skill/rule pair — so a CLAUDE.md memory member's unbacked `@path` import draws its unbacked-pointer finding",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Directives — format-executed body syntax"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`collect_directive_members` (src/main.rs:1028) hardcodes the skill/rule pair (`for (kind, units, features) in [(\"skill\", ...), (\"rule\", ...)]`) plus custom_kinds, so a discovered memory member's extracted `at-import` directives never reach `graph::classify_directives` — an unbacked `@docs/missing.md` in a CLAUDE.md draws no finding (exit 0). Generalize it exactly as CHECK-MEMBERS-ALL-KINDS (e92bf62) fixed clause dispatch: range over `builtin_kind::definitions()`, loading each kind's members via `check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())`, filtered by `kind.owns_source(&unit.source_path)` (routes the shared `./MEMORY.md` locus between `claude-code.memory`/`agents-md.memory`), extracted through `builtin_kind::features(kind, unit)`, keyed by the bare `kind.name` (matches `by_kind`/classify_directives keying) — replacing the hardcoded skill/rule block, keeping the custom_kinds loop. Simplify the call site (~787) to the reduced signature (workspace + custom_kinds); skill_units/skill_features/rule_units/rule_features are re-derived inside from the definitions walk, so they need not be threaded in. `claude-code.memory` already declares the `directives`/`at-import` extraction (kinds/claude-code/memory/KIND.md:8), so the feature is extracted — only collection misses it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/memory_gate.rs",
+        "asserts": "a harness with a repo-root CLAUDE.md carrying `@docs/missing.md` (an unbacked import) imported + gated fires exactly one unbacked-pointer finding naming the memory member; a CLAUDE.md whose `@path` resolves to a real repo file or member fires none — the wedge path collects memory directives, not just skill/rule."
+      }
+    ],
+    "acceptance": "`collect_directive_members` ranges over every embedded built-in kind's members (via `builtin_kind::definitions()` + `check::surface_units` + `owns_source`), so a memory member's `at-import` targets reach `graph::classify_directives`; an unbacked `@path` in a discovered CLAUDE.md draws one finding; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox 2026-07-02: the at-import pipeline is live end to end EXCEPT collection — the last hardcoded-pair legacy on the wedge path, same shape CHECK-MEMBERS-ALL-KINDS fixed for clause dispatch. Disjoint: only edits src/main.rs + tests/memory_gate.rs; the other 4 entries are deferred/parked (unpicked). tests/directive_classing.rs drives classify_directives directly and is untouched. The read-family half of the same hardcoding stays carved out as `(builtin-workspace-qualified-key)`."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
     "per": {

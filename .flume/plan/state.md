@@ -1,34 +1,32 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 6e64d6f.
-- **Last shipped:** REACHABILITY-DIRECTIVE-CLOSURE (build 1a6c8f1 / chore 6e64d6f)
-  — slice 3, the final slice of the DIRECTIVES wave. Verified on disk
-  (`src/graph.rs`): `reachable` now takes `edges: &[ResolvedEdge]` (l.374) and
-  closes member liveness over the observed `at-import` directive edges, one hop
-  per round to the format's import cap; `main.rs` (~825) passes
-  `&directive_classing.edges`. The whole DIRECTIVES wave — DIRECTIVES-PRIMITIVE-PARSE
-  → DIRECTIVE-TARGET-CLASSING → REACHABILITY-DIRECTIVE-CLOSURE — has shipped and is
-  drained from pending.
-- **This tick:** reconcile-only, no queue edit. Re-verified all 4 remaining entries
-  against disk — every one still accurate: `Primitive` lacks `Fenced` and `Field`
-  still does flat `frontmatter.get(key)` (EXTRACTION-VOCAB-GAPS, `src/kind.rs`); no
-  `kinds/claude-code/agent` and no `packages/agent.anthropic` (AGENT-KIND); root
-  `package.json` is still the private `temper-flume-harness` manifest
-  (PACKAGING-CHANNELS); no root `CONTRIBUTING.md`/`SECURITY.md` (COMMUNITY-DOCS). No
-  new corpus↔code gap is fileable — the open forks that would seed further engine
-  work all await a human decision. Inbox empty; open-questions unchanged.
-- **Operational note (accepted, not queued):** the session-start 19
-  `requirement.dangling` findings are a **stale installed binary** — re-confirmed
-  this tick: a freshly-built `./target/debug/temper check .temper` is clean of them
-  (only advisory `max_lines`/`coverage.*` findings remain). `cargo install --path .`
-  clears the stale global.
-- **Pickable now:** NONE. All 4 entries are human-gated — deferred on a missing
+- **Phase:** reconcile. HEAD d4faece.
+- **Last shipped:** the DIRECTIVES wave (DIRECTIVES-PRIMITIVE-PARSE →
+  DIRECTIVE-TARGET-CLASSING → REACHABILITY-DIRECTIVE-CLOSURE, drained) plus the
+  chore d4faece (`claude-code.memory` adopts at-import). The at-import pipeline is
+  live end to end — extraction, target classing, reachability closure — with one
+  residual gap in *collection* (below).
+- **This tick:** drained the inbox — filed **DIRECTIVE-MEMBERS-ALL-KINDS** (open,
+  the one pickable entry). Verified on disk: `collect_directive_members`
+  (`src/main.rs:1028`) still hardcodes the skill/rule pair + custom_kinds, so a
+  discovered memory member's extracted `at-import` directives never reach
+  `graph::classify_directives` — an unbacked `@path` in a CLAUDE.md draws no
+  finding. `claude-code.memory` does declare the directive extraction
+  (`kinds/claude-code/memory/KIND.md:8`), so only collection misses it. The fix
+  mirrors CHECK-MEMBERS-ALL-KINDS: range over `builtin_kind::definitions()` via
+  `check::surface_units` + `owns_source`. Re-verified all 4 carried entries against
+  disk — every one still accurate (`Primitive` lacks `Fenced`, `Field` flat at
+  kind.rs:686; no agent kind/package; root package.json still `temper-flume-harness`;
+  no CONTRIBUTING/SECURITY). No rewrites.
+- **Pickable now:** DIRECTIVE-MEMBERS-ALL-KINDS (open, edits `src/main.rs` +
+  `tests/memory_gate.rs` — disjoint from the 4 deferred/parked entries, which build
+  won't pick in parallel). The other 4 stay human-gated: deferred on a missing
   consumer (EXTRACTION-VOCAB-GAPS, AGENT-KIND) or parked on human action
-  (PACKAGING-CHANNELS: npm/Homebrew/signing creds; COMMUNITY-DOCS: a `chain.ts`
-  fence-widen + enabling private vulnerability reporting). Autonomous build has
-  nothing to pick until a human un-defers a consumer, provisions a channel, or
-  resolves an open fork.
+  (PACKAGING-CHANNELS creds; COMMUNITY-DOCS a chain.ts fence-widen).
+- **Operational note (accepted, not queued):** the session-start 19
+  `requirement.dangling` findings remain a **stale installed binary** — a freshly
+  built `./target/debug/temper check .temper` is clean of them. `cargo install
+  --path .` clears the stale global.
 
-Plan continues: no — queue reconciled and accurate, inbox empty, no autonomous
-work pickable (every remaining entry is human-gated). Nothing more for plan to do
-this turn; the loop rests until a human acts.
+Plan continues: no — inbox drained, one open entry filed and pickable; hand to
+build.
