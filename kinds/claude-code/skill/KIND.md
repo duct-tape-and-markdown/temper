@@ -1,4 +1,5 @@
 +++
+provider = "claude-code"
 governs = { root = ".claude/skills", glob = "*/SKILL.md" }
 format = "yaml-frontmatter"
 unit_shape = "directory"
@@ -44,6 +45,11 @@ descriptions are loaded into context so Claude knows what's available, but
 full skill content only loads when invoked"
 (https://code.claude.com/docs/en/skills, retrieved 2026-07-02) — so a blank
 `description` is a dead world-edge (`specs/45-governance.md`, reachability).
+
+Kind identity is qualified `claude-code.skill` — the `provider` header names
+the authority that defines the format, and placement mirrors identity
+(`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"); a
+bare `skill` resolves here while unique in the assembly.
 
 Built-in means **temper-sourced, not privileged** (`specs/15-kinds.md`): this
 definition ships embedded with the crate exactly as `packages/skill.anthropic`

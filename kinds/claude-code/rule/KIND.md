@@ -1,4 +1,5 @@
 +++
+provider = "claude-code"
 governs = { root = ".claude/rules", glob = "*.md" }
 format = "yaml-frontmatter"
 unit_shape = "file"
@@ -33,6 +34,11 @@ when Claude reads files matching the pattern," and "rules without a `paths`
 field are loaded unconditionally" (same doc, retrieved 2026-07-02) — so an
 absent field is a live `always`-shaped edge, and only a present glob set
 matching zero repo files is dead (`specs/45-governance.md`, reachability).
+
+Kind identity is qualified `claude-code.rule` — the `provider` header names
+the authority that defines the format, and placement mirrors identity
+(`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"); a
+bare `rule` resolves here while unique in the assembly.
 
 Built-in means **temper-sourced, not privileged** (`specs/15-kinds.md`): this
 definition ships embedded beside `packages/rule.anthropic`, same medium and
