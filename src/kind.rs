@@ -87,6 +87,15 @@ pub struct CustomKind {
     /// built-in KIND.md declare none). Stored inert — REACHABILITY reads it to decide a
     /// member's declared activation edge is dead; nothing consumes it yet.
     pub activation: Option<Activation>,
+    /// The declared **provider** — the authority that *defines* the external format
+    /// this kind mirrors (`specs/15-kinds.md`, "Decision: kind identity carries a
+    /// provider axis"): a tool (`claude-code`) or a standard (`agents-md`). *Any*
+    /// string — the vocabulary is the market's, not the parser's — so a present value
+    /// is admissible verbatim and only a non-string is a load error. Absent ⇒ `None`:
+    /// a project's own kind (`spec`) mirrors nothing external and stays bare. Feeds
+    /// [`qualified_name`](CustomKind::qualified_name); the bare→unique-or-collision
+    /// wiring into the assembly-binding/`satisfies`-typing consumers is BINDING-QUALIFY.
+    pub provider: Option<String>,
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
@@ -183,13 +192,20 @@ impl CustomKind {
     /// adapter faces ([`format`](CustomKind::format), [`unit_shape`](CustomKind::unit_shape),
     /// [`activation`](CustomKind::activation)). The seam tests drive without touching disk.
     /// A header carries only `governs`, `extraction`, `relationships`, `format`,
-    /// `unit_shape`, and `activation`; any stray key is a [`KindError::UnknownKey`],
-    /// rejected rather than silently dropped (`specs/10-contracts.md`).
+    /// `unit_shape`, `activation`, and `provider`; any stray key is a
+    /// [`KindError::UnknownKey`], rejected rather than silently dropped
+    /// (`specs/10-contracts.md`).
     pub fn from_header(table: &Table, name: &str, path: &Path) -> Result<Self, KindError> {
         for (key, _) in table.iter() {
             if !matches!(
                 key,
-                "governs" | "extraction" | "relationships" | "format" | "unit_shape" | "activation"
+                "governs"
+                    | "extraction"
+                    | "relationships"
+                    | "format"
+                    | "unit_shape"
+                    | "activation"
+                    | "provider"
             ) {
                 return Err(KindError::UnknownKey {
                     path: path.to_path_buf(),
@@ -204,6 +220,7 @@ impl CustomKind {
         let format = parse_format(table, name, path)?;
         let unit_shape = parse_unit_shape(table, name, path)?;
         let activation = parse_activation(table, name, path)?;
+        let provider = parse_provider(table, name, path)?;
         Ok(Self {
             name: name.to_string(),
             governs,
@@ -212,6 +229,60 @@ impl CustomKind {
             format,
             unit_shape,
             activation,
+            provider,
+        })
+    }
+
+    /// The kind's **qualified identity** — `<provider>.<name>` when a provider is
+    /// declared, the bare `name` otherwise (`specs/15-kinds.md`, "Decision: kind
+    /// identity carries a provider axis"). A kind that mirrors an external format
+    /// qualifies by the authority defining it; a project's own kind mirrors nothing
+    /// and stays bare, paying no qualification tax until two providers actually meet
+    /// under one bare name (see [`resolve_bare`](CustomKind::resolve_bare)).
+    #[must_use]
+    pub fn qualified_name(&self) -> String {
+        match &self.provider {
+            Some(provider) => format!("{provider}.{}", self.name),
+            None => self.name.clone(),
+        }
+    }
+
+    /// Resolve a **bare** kind reference against a kind set (`specs/15-kinds.md`,
+    /// "Decision: kind identity carries a provider axis"): a bare `name` resolves iff
+    /// exactly one kind in `kinds` carries it, returning that unique kind; two
+    /// providers meeting under one bare name is a collision, a
+    /// [`KindError::AmbiguousKind`] naming the qualified candidates so the author
+    /// qualifies the reference. No kind carrying the name resolves to `Ok(None)` — an
+    /// unknown-reference is the consuming binding's concern (BINDING-QUALIFY), not this
+    /// pure identity mechanism's.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`KindError::AmbiguousKind`] when more than one kind in `kinds` carries
+    /// the bare `name`.
+    pub fn resolve_bare<'a>(
+        name: &str,
+        kinds: &'a [CustomKind],
+    ) -> Result<Option<&'a CustomKind>, KindError> {
+        let mut matches = kinds.iter().filter(|kind| kind.name == name);
+        let Some(first) = matches.next() else {
+            return Ok(None);
+        };
+        if matches.next().is_none() {
+            return Ok(Some(first));
+        }
+        // A collision: name the qualified candidates so the author knows what to
+        // disambiguate against. Re-scan for the full set — the message is worth the
+        // second pass over a handful of kinds (this tool is I/O-bound over tiny files).
+        let candidates = kinds
+            .iter()
+            .filter(|kind| kind.name == name)
+            .map(CustomKind::qualified_name)
+            .collect::<Vec<_>>()
+            .join(", ");
+        Err(KindError::AmbiguousKind {
+            name: name.to_string(),
+            candidates,
         })
     }
 
@@ -425,6 +496,24 @@ fn parse_activation(
         }
     };
     Ok(Some(activation))
+}
+
+/// Parse a `KIND.md` header's optional `provider` key into the declared authority
+/// (`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"). Absent ⇒
+/// `Ok(None)` — a project's own kind mirrors nothing external and stays bare. A present
+/// value is *any string* (the vocabulary is the market's, not the parser's, so there is
+/// no closed set to guard against, unlike [`parse_format`]); only a non-string folds
+/// into a [`KindError::BadProvider`], as [`parse_governs`] folds its locus malformations.
+fn parse_provider(table: &Table, kind: &str, path: &Path) -> Result<Option<String>, KindError> {
+    let Some(item) = table.get("provider") else {
+        return Ok(None);
+    };
+    item.as_str()
+        .map(|provider| Some(provider.to_string()))
+        .ok_or_else(|| KindError::BadProvider {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+        })
 }
 
 /// Render a non-string header value for an [`KindError::OutOfVocab`] diagnostic — its
@@ -864,14 +953,14 @@ pub enum KindError {
     },
 
     /// A `KIND.md` header carries a key outside its closed set (`governs`,
-    /// `extraction`, `relationships`, `format`, `unit_shape`, `activation`) — a leftover
-    /// `clause`, an `entities` table, or a typo — rejected at load rather than silently
-    /// dropped (`specs/10-contracts.md`).
+    /// `extraction`, `relationships`, `format`, `unit_shape`, `activation`, `provider`)
+    /// — a leftover `clause`, an `entities` table, or a typo — rejected at load rather
+    /// than silently dropped (`specs/10-contracts.md`).
     #[error("{path}: custom kind `{kind}` definition has unknown key `{key}`")]
     #[diagnostic(
         code(temper::kind::unknown_key),
         help(
-            "a `KIND.md` definition carries only `governs`, `extraction`, `relationships`, `format`, `unit_shape`, and `activation` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
+            "a `KIND.md` definition carries only `governs`, `extraction`, `relationships`, `format`, `unit_shape`, `activation`, and `provider` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
         )
     )]
     UnknownKey {
@@ -953,6 +1042,40 @@ pub enum KindError {
         path: PathBuf,
         /// The custom kind with the malformed activation declaration.
         kind: String,
+    },
+
+    /// A `KIND.md` header's `provider` is present but is not a string. The provider
+    /// names the authority defining the mirrored format (`specs/15-kinds.md`, "Decision:
+    /// kind identity carries a provider axis"); *any* string is admissible — the
+    /// vocabulary is the market's, not the parser's — so there is no closed set to guard,
+    /// only the type, and a non-string folds into this one error.
+    #[error("{path}: custom kind `{kind}` `provider` must be a string")]
+    #[diagnostic(code(temper::kind::bad_provider))]
+    BadProvider {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The custom kind with the mistyped provider.
+        kind: String,
+    },
+
+    /// A **bare** kind reference resolves to more than one kind — a provider collision
+    /// (`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"). A bare
+    /// name resolves iff exactly one kind in the assembly carries it; two providers
+    /// meeting under one bare name is a load error naming the qualified candidates, so
+    /// the author qualifies the reference as `<provider>.<name>`. Nobody pays the
+    /// qualification tax until two providers actually meet. Carries no `path` — the
+    /// collision is over the assembly's whole kind set, not one `KIND.md`; the consuming
+    /// binding (BINDING-QUALIFY) adds its own locus.
+    #[error("bare kind reference `{name}` is ambiguous — candidates: {candidates}")]
+    #[diagnostic(
+        code(temper::kind::ambiguous_kind),
+        help("qualify the reference as `<provider>.<name>` to name the kind you mean")
+    )]
+    AmbiguousKind {
+        /// The bare name that resolves to more than one kind.
+        name: String,
+        /// The qualified candidates it collides across, comma-joined for the message.
+        candidates: String,
     },
 }
 
@@ -1678,5 +1801,91 @@ activation = { via = \"paths-match\", field = \"paths\" }\n",
                 field: "paths".to_string()
             })
         );
+    }
+
+    #[test]
+    fn a_provider_line_parses_inert_and_absence_is_none() {
+        // Inbox sequencing (`PROVIDER-KEY-PARSE`): a KIND.md that mirrors an external
+        // format declares the authority defining it — `provider = "claude-code"` parses
+        // into the field rather than tripping `UnknownKey`, so a human can add the curated
+        // line. A project's own kind mirrors nothing and stays bare.
+        let claude = kind_from_header("provider = \"claude-code\"\n").unwrap();
+        assert_eq!(claude.provider.as_deref(), Some("claude-code"));
+
+        assert_eq!(kind_from_header("").unwrap().provider, None);
+    }
+
+    #[test]
+    fn a_provider_is_any_string_not_a_closed_vocabulary() {
+        // The vocabulary is the market's, not the parser's (`specs/15-kinds.md`): a
+        // standard-authority provider is as admissible as a tool one, no closed set to
+        // guard against.
+        assert_eq!(
+            kind_from_header("provider = \"agents-md\"\n")
+                .unwrap()
+                .provider
+                .as_deref(),
+            Some("agents-md")
+        );
+    }
+
+    #[test]
+    fn a_non_string_provider_is_a_load_error() {
+        // Only the type is guarded — a non-string provider names no authority, folded
+        // into `BadProvider` as `governs` folds its locus malformations.
+        let err = kind_from_header("provider = 7\n").unwrap_err();
+        assert!(matches!(err, KindError::BadProvider { .. }));
+    }
+
+    #[test]
+    fn qualified_name_is_provider_dot_name_or_the_bare_name() {
+        // A provider qualifies identity as `<provider>.<name>`; absent, identity is the
+        // bare `name` — the qualification tax nobody pays until two providers meet.
+        let qualified = kind_from_header("provider = \"claude-code\"\n").unwrap();
+        assert_eq!(qualified.qualified_name(), "claude-code.spec");
+
+        let bare = kind_from_header("").unwrap();
+        assert_eq!(bare.qualified_name(), "spec");
+    }
+
+    #[test]
+    fn resolve_bare_returns_the_unique_match_or_none() {
+        // A bare name resolves iff exactly one kind carries it. The set here holds two
+        // distinct bare names, so `spec` resolves to its lone `claude-code`-qualified kind.
+        let claude_spec = kind_from_header("provider = \"claude-code\"\n").unwrap();
+        let mut cursor_rule = kind_from_header("provider = \"cursor\"\n").unwrap();
+        cursor_rule.name = "rule".to_string();
+        let kinds = vec![claude_spec, cursor_rule];
+
+        let resolved = CustomKind::resolve_bare("spec", &kinds).unwrap();
+        assert_eq!(
+            resolved.map(CustomKind::qualified_name).as_deref(),
+            Some("claude-code.spec")
+        );
+
+        // A bare name no kind carries resolves to `None`, not an error — an
+        // unknown-reference is the consuming binding's concern (BINDING-QUALIFY).
+        assert!(CustomKind::resolve_bare("hook", &kinds).unwrap().is_none());
+    }
+
+    #[test]
+    fn resolve_bare_reports_a_collision_naming_the_qualified_candidates() {
+        // Two providers meeting under one bare name is the collision the Decision requires
+        // as a load error — `AmbiguousKind` names the qualified candidates so the author
+        // knows what to qualify against.
+        let claude_skill = kind_from_header("provider = \"claude-code\"\n").unwrap();
+        let cursor_skill = kind_from_header("provider = \"cursor\"\n").unwrap();
+        // Both are named `spec` by the shared header helper — the collision under test.
+        let kinds = vec![claude_skill, cursor_skill];
+
+        let err = CustomKind::resolve_bare("spec", &kinds).unwrap_err();
+        match err {
+            KindError::AmbiguousKind { name, candidates } => {
+                assert_eq!(name, "spec");
+                assert!(candidates.contains("claude-code.spec"));
+                assert!(candidates.contains("cursor.spec"));
+            }
+            other => panic!("expected AmbiguousKind, got {other:?}"),
+        }
     }
 }
