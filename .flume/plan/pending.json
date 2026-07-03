@@ -1,38 +1,5 @@
 [
   {
-    "tag": "WALK-IGNORE-DISCIPLINE",
-    "summary": "Discovery walks honor ignore rules (`.gitignore` + always-exclude `.git`) so a `**` governs glob can't import a vendored dep's CLAUDE.md; directive-backing set stays raw disk",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: discovery respects ignore rules; the backing set reads raw disk"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "The `**` discovery walk (`collect_glob`, src/import.rs:417, recurses any-depth) descends everything — so flipping the memory kinds' `governs` to `**/CLAUDE.md`/`**/AGENTS.md` would import a vendored dependency's CLAUDE.md out of node_modules as a member (a different project's harness, outside the per-project boundary). Prune the DISCOVERY walk to honor the repo's ignore rules per the spec Decision: always exclude `.git/`, and skip paths a `.gitignore` excludes — a member is first-party authored content, and an ignored file is by declaration not authored here. Use the `ignore` crate to decide ignored-ness; keep the existing segment/`**` matching. CRITICAL: do NOT touch `repo_file_set` (src/main.rs:1001, the directive-BACKING set) — the harness loads an `@import` target regardless of gitignore, and law 3 fixes the safe direction (an extra backing file only suppresses; pruning forges an unbacked finding). Two sets, two rules, never merged (20-surface.md)."
-        },
-        {
-          "path": "Cargo.toml",
-          "description": "Add the `ignore` crate (ripgrep's gitignore engine) to `[dependencies]` beside `walkdir` — now sanctioned in CLAUDE.md's tech stack with the 20-surface cite. Correct .gitignore semantics (nested files, negation, precedence) are a footgun to hand-roll against the quality bar; excluding `.git` alone is free but honoring `.gitignore` needs the dep."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/readd.rs",
-        "asserts": "a `**`-governed discovery over a harness with a gitignored `node_modules/dep/CLAUDE.md` and a tracked root `CLAUDE.md` imports only the tracked file; `.git` contents are never discovered; the directive-backing set still sees the gitignored file (unbacked findings are not forged)."
-      }
-    ],
-    "acceptance": "Discovery walks respect `.gitignore` and always exclude `.git`, so a `**` governs glob imports only first-party members and never a vendored dep's file; the directive-backing set (`repo_file_set`) stays raw disk; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 2026-07-03 un-parked: ignore discipline is spec'd (20-surface.md discovery-respects-ignore Decision) and the `ignore` crate is sanctioned in CLAUDE.md — both parked blockers closed; re-cited off the per-project Decision. Blocks the memory tree flip (human flips both memory kinds' `governs` to the any-depth glob after drain). Two sets kept distinct — prune discovery (collect_glob), never repo_file_set (law 3). tests/readd.rs is the behavior home."
-  },
-  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
     "per": {
