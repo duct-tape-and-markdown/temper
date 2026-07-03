@@ -1,5 +1,82 @@
 [
   {
+    "tag": "PROVIDER-KEY-PARSE",
+    "summary": "Parse the inert `provider` key on a KIND.md — kind identity becomes qualified `<provider>.<name>` (bare otherwise), plus the bare→unique-or-collision resolution helper",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Decision: kind identity carries a provider axis"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Add `provider: Option<String>` to `CustomKind` (kind.rs:60) and accept `provider` in `from_header`'s closed allowed-key set (kind.rs:188-200) — same red-interim shape as the shipped `format`/`unit_shape`/`activation` keys. A `provider` value is *any string* (the vocabulary is the market's, not the parser's — specs/15-kinds.md); absent ⇒ `None`; a present-but-non-string value is a load error (fold into a `BadProvider`/existing malformation error, mirroring `parse_governs`). Add a `qualified_name()` method: `<provider>.<name>` when a provider is declared, the bare `name` otherwise. Add a pure resolution helper — given a bare name and a slice of kind identities, return the unique qualified match or a `KindError::AmbiguousKind` naming the qualified candidates (the collision load error the Decision requires). The helper is the mechanism; wiring it into the assembly-binding / `satisfies`-typing / BUILTIN_KINDS-lookup consumers is BINDING-QUALIFY, after the human file-move. All inline `#[cfg(test)] mod tests` additions use the existing `kind_from_header` helper (kind.rs:1541)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "a `provider = \"claude-code\"` line parses into `CustomKind.provider` inert (no `UnknownKey`); absent ⇒ `None`; a non-string `provider` is a load error; `qualified_name()` yields `<provider>.<name>` when declared and the bare `name` otherwise; the resolution helper returns the unique bare match against a kind set and an `AmbiguousKind` error naming the qualified candidates on a collision."
+      }
+    ],
+    "acceptance": "`CustomKind` carries an optional `provider`; a curated KIND.md `provider = \"claude-code\"` line parses inert (no `UnknownKey`, red-interim shape); `qualified_name()` is `<provider>.<name>` or the bare name; a bare reference resolves against a kind set to the unique match or an ambiguity load error naming the qualified candidates; a non-string `provider` is a load error; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox (kind-harness-axis) consequence (1); same red-interim shape as FORMAT-KEY-PARSE/ACTIVATION-KEY-PARSE — kind.rs:188 allowed-key set + a parse + the inline mod tests (kind_from_header, kind.rs:1541). `provider` is any string (vocab is the market's). Wiring resolution into consumers + the build.rs nested walk + qualified bindings are BINDING-QUALIFY, parked on the human file-move (2). Curated skill/rule KIND.md gain provider lines only after this ships."
+  },
+  {
+    "tag": "BINDING-QUALIFY",
+    "summary": "Qualify built-in kind bindings — packages bind `<provider>.<name>`, the build.rs embed walk accepts the nested `kinds/<provider>/<name>/` layout, and bare lookups route through provider resolution",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Decision: kind identity carries a provider axis"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "needs PROVIDER-KEY-PARSE (the resolution mechanism) AND the human follow-up — curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines; kinds/** is outside build's fence, so a human authors the move before qualified bindings can resolve or be tested end-to-end"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "build.rs",
+          "description": "Extend the kind embed walk to accept the nested `kinds/<provider>/<name>/KIND.md` layout the human follow-up creates (accepting both flat and nested during the transition — build.rs today walks `kinds/<name>/KIND.md` flat). The generated embedded-kind table carries the provider so a built-in kind's identity is qualified at load."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Thread the provider through the embedded-kind lookup/parse helpers so a built-in kind loads with its qualified identity (`claude-code.skill`), consuming the provider `build.rs` now emits and `CustomKind::from_header` parses."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "`SKILL_PACKAGE`/`RULE_PACKAGE` bindings target the qualified kind names `claude-code.skill`/`claude-code.rule` (builtin.rs:30-37); a published package binds a qualified kind name (specs/15-kinds.md), so the bundle/dossier path enforces qualification."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The `BUILTIN_KINDS.contains(&name)` lookups (main.rs:509, 806, 844) route bare `[kind.<name>]` references through the PROVIDER-KEY-PARSE resolution helper — a bare name resolves to the unique provider-qualified kind, a collision is a load error."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Assembly package binding and `satisfies` typing resolve a bare kind reference through provider resolution to its qualified identity (compose.rs:641,715 built-in/custom split), so a project's bare `[kind.skill]` binding still resolves while a second provider's `skill` would collide loudly."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "after the qualified-binding wave, a bare `[kind.skill]` assembly binding resolves to the unique `claude-code.skill` built-in; a package binds the qualified kind name; a bare reference with two providers carrying the name is an ambiguity load error."
+      }
+    ],
+    "acceptance": "After the human moves the curated kind files, build.rs embeds `kinds/<provider>/<name>/KIND.md`; `SKILL_PACKAGE`/`RULE_PACKAGE` bind the qualified `claude-code.skill`/`claude-code.rule`; a bare `[kind.skill]` binding and `satisfies` typing resolve through provider resolution to the unique claude-code kind; a published package binds a qualified kind name; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox (kind-harness-axis) consequence (3); needs PROVIDER-KEY-PARSE (resolution) + human follow-up (2): curated skill/rule KIND.md moved to kinds/claude-code/* with provider lines (kinds/** outside build's fence). After the move: build.rs walks the nested layout, the embedded kind table carries provider, bindings qualify (claude-code.skill/.rule), published-package-binds-qualified becomes a bundle check. Parked on the human file-move; does NOT touch kind.rs (disjoint from PROVIDER-KEY-PARSE)."
+  },
+  {
     "tag": "MEMORY-KIND",
     "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
     "per": {

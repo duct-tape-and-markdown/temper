@@ -1,24 +1,24 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 5eaf2ff.
-- **Last shipped:** REACHABILITY-WIRE (build 4a4bce2, chore 5eaf2ff) — the
-  `reachable` world→member predicate now gates at assembly-declared severity,
-  and it was the queue's sole pickable. Verified on disk: `EdgeClause`/`[edge.*]`
-  fully gone from `src/` (EDGE-CLAUSE-RETIRE shipped), `activation` parses in
-  KIND.md, `reachable` wired through the gate.
-- **This tick:** re-reconciled the five remaining entries against disk — all
-  stay accurately human-gated (kinds/memory + agent absent, `Primitive` still
-  lacks Fenced/key-path, no `.github/workflows/release.yml`, `package.json` is
-  the private flume manifest, no CONTRIBUTING/SECURITY, build's fence unwidened).
-  Refreshed the `(edge-representation-unify)` datum: its three scoped engine
-  consequences all shipped; the join→graph unification is the OPEN residual
-  awaiting a human decision to file. Inbox empty.
-- **In flight / pickable:** none — every entry is parked (MEMORY-KIND,
-  PACKAGING-CHANNELS, COMMUNITY-DOCS) or deferred (EXTRACTION-VOCAB-GAPS,
-  AGENT-KIND). Each needs a human act: author curated KIND.md/PACKAGE.md, set
-  release creds, widen the fence, or a consumer/fork to land.
-- **Next:** no autonomous build work exists; the loop idles until a human
-  un-gates an entry (curated data, creds, fence-widen) or resolves an open fork.
+- **Phase:** reconcile. HEAD b82be78.
+- **Last shipped:** REACHABILITY-WIRE (build 4a4bce2, chore 5eaf2ff) — the queue's
+  prior sole pickable; then the human resolved `(kind-harness-axis)` (b82be78,
+  cited market sweep 1bda46c).
+- **This tick:** drained the inbox's `(kind-harness-axis)` resolution into two
+  entries — filed **PROVIDER-KEY-PARSE** (open; kind.rs adds the inert `provider`
+  key + qualified-identity + bare→unique-or-collision resolution, red-interim shape
+  like the shipped FORMAT/ACTIVATION key-parses) and **BINDING-QUALIFY** (parked;
+  build.rs nested walk + qualified bindings, needs the human file-move (2), outside
+  build's fence). Re-reconciled the other five against disk — all stay accurately
+  gated (kinds/ = skill+rule only, `Primitive` still field/headings/sections/
+  line_count/placement + flat `Field`, no release.yml, private flume package.json,
+  no CONTRIBUTING/SECURITY). Inbox drained.
+- **In flight / pickable:** PROVIDER-KEY-PARSE (the sole open entry). Everything else
+  is parked (BINDING-QUALIFY, MEMORY-KIND, PACKAGING-CHANNELS, COMMUNITY-DOCS) or
+  deferred (EXTRACTION-VOCAB-GAPS, AGENT-KIND).
+- **Next:** build picks PROVIDER-KEY-PARSE. Its consequence (3) BINDING-QUALIFY then
+  waits on the human follow-up (2) — move curated skill/rule KIND.md to
+  kinds/claude-code/* with `provider = "claude-code"` lines.
 
-Plan continues: no — queue reconciled and truthful; nothing pickable, so
-re-planning it would just re-emit the same human-gated set. Awaits human action.
+Plan continues: no — queue reconciled, inbox drained, one pickable entry filed; hand
+to build.
