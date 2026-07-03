@@ -45,6 +45,28 @@ pub struct AuthorLayer {
     /// not opt in, so [`crate::graph::reachable`] does not run. Its own assembly-scope
     /// declaration, distinct from the `kind`/`requirement` maps.
     reachability: Option<Reachability>,
+    /// The assembly's declared **surface-authority posture**, parsed from the top-level
+    /// `authority` key (`specs/architecture/20-surface.md`, "surface authority is a declared
+    /// posture"). Absent ⇒ [`Authority::Shared`], the default. Inert here — parsed and
+    /// exposed only; the install-wired enforcement artifacts (INSTALL-GUARD-ARTIFACTS)
+    /// are the consumers.
+    authority: Authority,
+}
+
+/// The assembly's **surface-authority posture** — how firmly the surface owns its
+/// projections (`specs/architecture/20-surface.md`, "surface authority is a declared posture,
+/// never a baked stance"): a closed vocabulary the author declares, never a stance
+/// temper bakes in. Defaults to [`Shared`](Authority::Shared).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Authority {
+    /// Direct on-disk edits stay first-class — `re-add` reconciles, guards inform and
+    /// route. The default: temper fabricates no enforcement the author did not ask for
+    /// (`00-intent.md` law 4).
+    #[default]
+    Shared,
+    /// The author opts into enforcement — the managed-by note and the guard hook's
+    /// write-boundary block (the consumers' concern, not this slice's).
+    Surface,
 }
 
 /// A declared **edge relationship** — a kind capability declared under its owning
@@ -393,17 +415,17 @@ pub enum ComposeError {
         path: PathBuf,
     },
 
-    /// A top-level key other than `kind`, `requirement`, or `reachability` — a typo, or
-    /// the retired `[role.*]` surface. Rejected, not ignored: silently dropping a stray
-    /// root is the gap temper exists to catch (`specs/architecture/10-contracts.md`, unknown keys
-    /// rejected).
+    /// A top-level key other than `kind`, `requirement`, `reachability`, or `authority` —
+    /// a typo, or the retired `[role.*]` surface. Rejected, not ignored: silently dropping
+    /// a stray root is the gap temper exists to catch (`specs/architecture/10-contracts.md`, unknown
+    /// keys rejected).
     #[error(
-        "{path}: unknown top-level key `{key}` (temper.toml carries only `kind`, `requirement`, and `reachability`)"
+        "{path}: unknown top-level key `{key}` (temper.toml carries only `kind`, `requirement`, `reachability`, and `authority`)"
     )]
     #[diagnostic(
         code(temper::compose::unknown_root_key),
         help(
-            "a temper.toml declares `[kind.*]` layers/custom kinds, `[requirement.*]` obligations, and the assembly-scope `[reachability]` opt-in — the `[role.*]` surface was retired into `[requirement.*]`"
+            "a temper.toml declares `[kind.*]` layers/custom kinds, `[requirement.*]` obligations, the assembly-scope `[reachability]` opt-in, and the `authority` posture — the `[role.*]` surface was retired into `[requirement.*]`"
         )
     )]
     UnknownRootKey {
@@ -572,6 +594,19 @@ pub enum ComposeError {
         path: PathBuf,
     },
 
+    /// The top-level `authority` posture is outside its closed vocabulary — a value
+    /// other than `shared` or `surface`, or not a string (`specs/architecture/20-surface.md`).
+    /// A closed vocabulary, like `[reachability]`'s `severity`: an unknown value is a
+    /// typo, rejected at load, never silently defaulted.
+    #[error(
+        "{path}: `authority` must be a string of `shared` or `surface` (absent ⇒ `shared`, the default)"
+    )]
+    #[diagnostic(code(temper::compose::bad_authority))]
+    BadAuthority {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+    },
+
     /// A layered clause is outside the closed vocabulary (or otherwise malformed).
     /// Bubbled verbatim from [`crate::contract`] so the author layer's clauses are
     /// held to the exact same closed-vocabulary contract as a bare one's. Covers a
@@ -607,10 +642,11 @@ impl AuthorLayer {
             })?;
 
         // Unknown top-level keys are rejected, not ignored (`specs/architecture/10-contracts.md`) —
-        // the roots temper models are `kind`, `requirement`, and the assembly-scope
-        // `reachability` opt-in (`specs/architecture/45-governance.md`).
+        // the roots temper models are `kind`, `requirement`, the assembly-scope
+        // `reachability` opt-in (`specs/architecture/45-governance.md`), and the `authority`
+        // posture (`specs/architecture/20-surface.md`).
         for (key, _) in doc.as_table().iter() {
-            if !matches!(key, "kind" | "requirement" | "reachability") {
+            if !matches!(key, "kind" | "requirement" | "reachability" | "authority") {
                 return Err(ComposeError::UnknownRootKey {
                     path: path.to_path_buf(),
                     key: key.to_string(),
@@ -676,12 +712,18 @@ impl AuthorLayer {
             }
         };
 
+        // The assembly's surface-authority posture — a top-level string, closed vocabulary
+        // (`specs/architecture/20-surface.md`). Absent ⇒ the `Shared` default; an unknown value is a
+        // load error, like `[reachability]`'s `severity`.
+        let authority = parse_authority(doc.as_table().get("authority"), path)?;
+
         Ok(Self {
             path: path.to_path_buf(),
             kinds,
             requirements,
             edges,
             reachability,
+            authority,
         })
     }
 
@@ -709,6 +751,15 @@ impl AuthorLayer {
     #[must_use]
     pub fn reachability(&self) -> Option<Reachability> {
         self.reachability
+    }
+
+    /// The assembly's declared surface-authority posture (`specs/architecture/20-surface.md`).
+    /// [`Authority::Shared`] when the `temper.toml` declares no `authority` key — the
+    /// default. Inert this slice: exposed for the install-wired consumers
+    /// (INSTALL-GUARD-ARTIFACTS), read by no gate yet.
+    #[must_use]
+    pub fn authority(&self) -> Authority {
+        self.authority
     }
 
     /// The names of every `[kind.<name>]` registered in the assembly, in name order — the
@@ -1145,6 +1196,25 @@ fn parse_reachability(
         _ => return Err(bad()),
     };
     Ok(Reachability { severity })
+}
+
+/// Parse the top-level `authority` posture into a typed [`Authority`]
+/// (`specs/architecture/20-surface.md`, "surface authority is a declared posture"): a closed
+/// vocabulary of `shared`/`surface`. Absent (`None`) ⇒ [`Authority::Shared`], the
+/// default (temper bakes in no stance the author did not declare); any other value —
+/// an unknown string or a non-string — is a [`ComposeError::BadAuthority`], the way
+/// `[reachability]`'s `severity` rejects an out-of-vocabulary value.
+fn parse_authority(item: Option<&toml_edit::Item>, path: &Path) -> Result<Authority, ComposeError> {
+    let Some(item) = item else {
+        return Ok(Authority::Shared);
+    };
+    match item.as_str() {
+        Some("shared") => Ok(Authority::Shared),
+        Some("surface") => Ok(Authority::Surface),
+        _ => Err(ComposeError::BadAuthority {
+            path: path.to_path_buf(),
+        }),
+    }
 }
 
 /// The requirement's optional `unique` field list: a `unique = ["field", …]` array of

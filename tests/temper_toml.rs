@@ -25,7 +25,9 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
-use temper::compose::{AuthorLayer, ComposeError, DegreeBound, Edge, EdgeBound, Requirement};
+use temper::compose::{
+    AuthorLayer, Authority, ComposeError, DegreeBound, Edge, EdgeBound, Requirement,
+};
 use temper::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError, Primitive};
 
 /// The binary under test, located by Cargo at compile time.
@@ -1126,5 +1128,37 @@ The project's own permissive skill package.\n",
         bound.ok,
         "binding the lax project package drops the floor's forbidden_keys ⇒ zero, got:\n{}",
         bound.output
+    );
+}
+
+#[test]
+fn the_authority_posture_parses_as_a_closed_vocabulary() {
+    // `specs/architecture/20-surface.md`, "surface authority is a declared posture": the
+    // top-level `authority` key is a closed vocabulary of `shared`/`surface`, with an
+    // absent key defaulting to `shared` and an unknown value a load error — the same
+    // shape `[reachability]`'s `severity` holds.
+
+    // `surface` opts into enforcement, exposed on the composed layer.
+    let surface = AuthorLayer::parse("authority = \"surface\"\n", Path::new("temper.toml"))
+        .expect("`surface` parses");
+    assert_eq!(surface.authority(), Authority::Surface);
+
+    // `shared` and an absent key both yield the `Shared` default.
+    let shared = AuthorLayer::parse("authority = \"shared\"\n", Path::new("temper.toml"))
+        .expect("`shared` parses");
+    assert_eq!(shared.authority(), Authority::Shared);
+    let absent = AuthorLayer::parse("", Path::new("temper.toml")).expect("an absent key parses");
+    assert_eq!(
+        absent.authority(),
+        Authority::Shared,
+        "an absent `authority` key defaults to `shared`"
+    );
+
+    // Any other value is a load error, like every closed vocabulary.
+    let err = AuthorLayer::parse("authority = \"strict\"\n", Path::new("temper.toml"))
+        .expect_err("an out-of-vocabulary posture must fail the load");
+    assert!(
+        matches!(err, ComposeError::BadAuthority { .. }),
+        "an unknown `authority` value is a `BadAuthority` load error, got: {err:?}"
     );
 }
