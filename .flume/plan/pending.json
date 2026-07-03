@@ -1,52 +1,5 @@
 [
   {
-    "tag": "LOCK-FRESHNESS-FACTS",
-    "summary": "Collapse the lock's three-state baselines (import_hash/last_applied) into two freshness facts — source_hash (authored bytes) and emit_hash (last projection)",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Drift — one direction, two freshness facts (the hard core)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Rename the `RollupEntry` lock columns `import_hash`/`last_applied` (import.rs:106/113) to `source_hash`/`emit_hash`; update the writers `rollup_tables`/`write_rollup` (import.rs:739/719) and the baseline set at import (import.rs:361-362, 631-632). source_hash = the authored source bytes; emit_hash = the last emitted projection (set by emit). Update the inline `#[cfg(test)]` lock-column asserts."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Point apply's baseline compare + `update_lock` at `emit_hash` (was `last_applied`) and the source-drift detection at `source_hash` (was `import_hash`); rename `load_last_applied`→`load_emit_hash`. No verb rename here (apply keeps its name until EMIT-VERB)."
-        },
-        {
-          "path": "src/frontmatter.rs",
-          "description": "Rename the member `Provenance.import_hash` field (frontmatter.rs:74) to `source_hash` and update `to_document`/`from_document` round-trip (frontmatter.rs:183,269,344) so a member document's `[provenance]` carries the freshness fact under its new name."
-        },
-        {
-          "path": "src/document.rs",
-          "description": "Rename the generated `[provenance]` key in `add_provenance`/`read_provenance` (document.rs:337,344,519) from `import_hash` to `source_hash`, keeping the format-preserving emit."
-        },
-        {
-          "path": "tests/apply.rs",
-          "description": "Move the `lock_field` asserts off `last_applied`/`import_hash` onto `emit_hash`/`source_hash`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/apply.rs",
-        "asserts": "the lock rows carry source_hash + emit_hash; apply compares the real projection against emit_hash and rewrites on a stale fingerprint."
-      }
-    ],
-    "acceptance": "The lock and member `[provenance]` carry `source_hash` + `emit_hash`; import writes both (emit_hash provisionally = source_hash until emit runs); apply's baseline is emit_hash; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Field rename + remap, no verb change and no semantics collapse yet (apply still runs the three-state place()). re-add already gone (READD-RETIRE) so there is no reverse reader to migrate. Foundation config.stale (MANIFEST-GATE-READ) stands on. Ripple is wider than the lock: import_hash also lives in frontmatter.rs Provenance + document.rs [provenance] — all move together."
-  },
-  {
     "tag": "EMIT-VERB",
     "summary": "Rename `apply`→`emit`: re-emit each projection whole and byte-deterministically, double-emit verified; delete the residual three-state merge model",
     "per": {
