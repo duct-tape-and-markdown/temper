@@ -524,3 +524,13 @@ from exactly such a line fossilizing. If work touches one, surface it.
   the tick's one pickable entry). Revised ordering: CHECK-MEMBERS-ALL-KINDS (gate
   dispatches memory members) → MEMORY-KIND validation → flip. The read-family half of
   the hardcoding is carved out as the `(builtin-workspace-qualified-key)` fork above.
+  DATUM (2026-07-03): the directive half of the hardcoding also shipped —
+  DIRECTIVE-MEMBERS-ALL-KINDS (build 28df927; `collect_directive_members` ranges
+  over `builtin_kind::definitions()`, verified src/main.rs:787). And the flip now
+  gains a NEW discovery prerequisite: **WALK-IGNORE-DISCIPLINE** (pending, parked) —
+  the `**` discovery walk honors `.gitignore` + always-excludes `.git` before the
+  memory kinds' `governs` flips to `**/CLAUDE.md`, else a `**` glob imports a
+  vendored dep's CLAUDE.md out of node_modules as a member. Revised flip gate:
+  WALK-IGNORE-DISCIPLINE drains → human flips both memory kinds' `governs` to the
+  any-depth glob. Parked on a written ignore-discipline Decision + the `ignore`
+  crate sanctioned.

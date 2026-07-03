@@ -1,7 +1,7 @@
 [
   {
-    "tag": "DIRECTIVE-MEMBERS-ALL-KINDS",
-    "summary": "Collect at-import directives over every built-in kind's members, not the hardcoded skill/rule pair — so a CLAUDE.md memory member's unbacked `@path` import draws its unbacked-pointer finding",
+    "tag": "WEDGE-FACT-FLOOR",
+    "summary": "Hoist directive-target classing to the floor tier (no assembly) as a non-gating advisory — an unbacked `@import` surfaces with zero config; an assembly keeps escalation",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Directives — format-executed body syntax"
@@ -13,7 +13,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "`collect_directive_members` (src/main.rs:1028) hardcodes the skill/rule pair (`for (kind, units, features) in [(\"skill\", ...), (\"rule\", ...)]`) plus custom_kinds, so a discovered memory member's extracted `at-import` directives never reach `graph::classify_directives` — an unbacked `@docs/missing.md` in a CLAUDE.md draws no finding (exit 0). Generalize it exactly as CHECK-MEMBERS-ALL-KINDS (e92bf62) fixed clause dispatch: range over `builtin_kind::definitions()`, loading each kind's members via `check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())`, filtered by `kind.owns_source(&unit.source_path)` (routes the shared `./MEMORY.md` locus between `claude-code.memory`/`agents-md.memory`), extracted through `builtin_kind::features(kind, unit)`, keyed by the bare `kind.name` (matches `by_kind`/classify_directives keying) — replacing the hardcoded skill/rule block, keeping the custom_kinds loop. Simplify the call site (~787) to the reduced signature (workspace + custom_kinds); skill_units/skill_features/rule_units/rule_features are re-derived inside from the definitions walk, so they need not be threaded in. `claude-code.memory` already declares the `directives`/`at-import` extraction (kinds/claude-code/memory/KIND.md:8), so the feature is extracted — only collection misses it."
+          "description": "Directive-target classing (collect_directive_members + graph::classify_directives + extending its findings, today src/main.rs:787-789) lives INSIDE the `if let Some(layer)` guard (src/main.rs:694), so a harness with a CLAUDE.md `@docs/missing.md` and NO temper.toml draws no unbacked-pointer finding (exit 0). The spec says the unbacked pointer IS the importing member's finding — a fact about the member, no assembly condition (15-kinds.md, 'Directives'). Hoist ONLY the directive-target classing out of the layer block so it runs on the FLOOR tier: compute repo_file_set once (shared with reachability), collect built-in-kind directive members (pass an empty custom_kinds slice on the floor — the reduced signature already takes `&[CustomKindEntry]`), classify, extend the unbacked findings as a NON-GATING advisory. Leave set-scope/degree/acyclic/reachability and the member/backed edge consumption inside the layer block untouched — an assembly retains its power to escalate (WEDGE ruling 2026-07-03: an unbacked import is a pure fact, not a graph-scope opinion like reachability). On the floor only the unbacked findings surface; reachability closure over member-class edges stays assembly-gated."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "Add a floor-tier case: a harness with a repo-root CLAUDE.md carrying `@docs/missing.md` and NO temper.toml, run through `check`, fires exactly one unbacked-pointer advisory naming the memory member (non-gating — the run does not exit non-zero on it alone); a CLAUDE.md whose `@path` resolves to a real repo file fires none. Proves the wedge surfaces the fact with zero config, distinct from the existing assembly-present cases."
         }
       ],
       "retire": []
@@ -22,11 +26,138 @@
     "tests": [
       {
         "path": "tests/memory_gate.rs",
-        "asserts": "a harness with a repo-root CLAUDE.md carrying `@docs/missing.md` (an unbacked import) imported + gated fires exactly one unbacked-pointer finding naming the memory member; a CLAUDE.md whose `@path` resolves to a real repo file or member fires none — the wedge path collects memory directives, not just skill/rule."
+        "asserts": "with no temper.toml, an unbacked `@import` in a discovered CLAUDE.md fires one non-gating unbacked-pointer advisory; a backed `@path` fires none — the floor tier now surfaces the fact."
       }
     ],
-    "acceptance": "`collect_directive_members` ranges over every embedded built-in kind's members (via `builtin_kind::definitions()` + `check::surface_units` + `owns_source`), so a memory member's `at-import` targets reach `graph::classify_directives`; an unbacked `@path` in a discovered CLAUDE.md draws one finding; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 2026-07-02: the at-import pipeline is live end to end EXCEPT collection — the last hardcoded-pair legacy on the wedge path, same shape CHECK-MEMBERS-ALL-KINDS fixed for clause dispatch. Disjoint: only edits src/main.rs + tests/memory_gate.rs; the other 4 entries are deferred/parked (unpicked). tests/directive_classing.rs drives classify_directives directly and is untouched. The read-family half of the same hardcoding stays carved out as `(builtin-workspace-qualified-key)`."
+    "acceptance": "Directive-target classing runs on the floor tier (no assembly): an unbacked `@import` in a discovered CLAUDE.md draws one non-gating advisory with zero config, while set-scope/reachability stay assembly-gated and an assembly keeps its escalation power; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox 2026-07-03 (WEDGE-FACT-FLOOR): first contact is the hook, so the zero-config wedge validates everything fact-shaped. Repro of the gap: CLAUDE.md `@docs/missing.md` + no temper.toml → today silence. Edits src/main.rs + tests/memory_gate.rs only. IMPACT-VERB (also main.rs) is serialized behind this via blockedBy."
+  },
+  {
+    "tag": "AUTHORITY-POSTURE-PARSE",
+    "summary": "Parse the assembly's `authority` posture (`shared` | `surface`, default shared, unknown value = load error) onto the composed layer — inert this slice; consumers follow",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: surface authority is a declared posture, never a baked stance"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Add an optional top-level `authority` key to the assembly, mirroring the `reachability` opt-in already parsed here. (1) `AuthorLayer` (src/compose.rs:26) gains an `authority: Authority` field with an accessor `authority()`; (2) an `Authority` enum `{ Shared, Surface }` defaulting to `Shared`; (3) add `\"authority\"` to the accepted top-level-key set (the unknown-key reject at src/compose.rs:613 + its diagnostic help text at ~401/406 which enumerates `kind`/`requirement`/`reachability`); (4) parse the string value in `parse` (~665, beside the reachability arm), a closed vocabulary — `\"shared\"`/`\"surface\"` accepted, absent ⇒ Shared, any other value ⇒ a load error like `bad_reachability` (a new error variant). Inert this slice: parsed + exposed only. Consumers (INSTALL-GUARD-ARTIFACTS) follow — the red-interim parse-first pattern."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "an assembly with `authority = \"surface\"` parses and exposes Surface; `authority = \"shared\"` and an absent key both yield Shared (the default); an unknown value (`authority = \"strict\"`) is a load error, like every closed vocabulary."
+      }
+    ],
+    "acceptance": "`AuthorLayer` carries an `authority` posture (`shared` default / `surface`), parsed from the top-level `authority` key as a closed vocabulary with an unknown-value load error, exposed on the composed layer and admissibility-tested; no consumer reads it yet; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox 2026-07-03 (AUTHORITY-POSTURE-PARSE), the first lock slice. Ratified Decision ec479ee. Mirrors the existing `[reachability]` parse (its own top-level root, closed vocab, dedicated error). Edits src/compose.rs + tests/temper_toml.rs only — disjoint from the other open entries. INSTALL-GUARD-ARTIFACTS blocks on this (needs the parsed posture)."
+  },
+  {
+    "tag": "IMPACT-VERB",
+    "summary": "Add the `temper impact <member>` read verb — deterministic blast-radius traversal (unfilled requirements, dangling satisfies, unbacked directive edges, dead reachability), narrated like why",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "CLI surface"
+    },
+    "gate": { "kind": "blockedBy", "tag": "WEDGE-FACT-FLOOR" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Add an `impact` traversal beside `why`/`requirements` — read-only, over the composed graph `check` already computes (joins, activation, directive edges). Answers 'what strands if <member> is removed or renamed': the requirements it satisfies that would fall below coverage, the `satisfies` edges left dangling, the directive edges (`at-import`) that lose their backing, and the members whose reachability dies with it. Deterministic tier-1 traversal, narrated in full sentences in the corpus vocabulary (the teaching-surface bar, 50-distribution.md 'the gate teaches'); a projection, never a gate — no non-zero exit on findings. Reuse the shared edge/coverage derivation the read family already calls (READ-EDGE-UNIFY), not a second graph build."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add the `impact <member>` subcommand to the clap enum and a thin dispatch arm mapping `read::impact(...)` to stdout + exit 0, beside the existing `why`/`requirements` arms. Logic stays in the library (`.claude/rules/rust.md`)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`impact <member>` names the requirements left unfilled, the `satisfies` left dangling, the directive edges left unbacked, and the members whose reachability dies if the member is removed; it exits 0 (a read, never a gate); an unknown member is a clean error."
+      }
+    ],
+    "acceptance": "`temper impact <member>` prints the deterministic blast radius (unfilled requirements, dangling satisfies, unbacked directive edges, dead reachability) narrated like why/requirements, exit 0 always; logic in src/read.rs, thin dispatch in main.rs; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox 2026-07-03 (IMPACT-VERB), graduated from horizons; ratified CLI bullet ec479ee (20-surface.md 'CLI surface'). Read-only, over graph data check already carries — no new engine semantics. blockedBy WEDGE-FACT-FLOOR: both edit src/main.rs, so they serialize (parallel worktrees would conflict on the clap dispatch region). CI-comment placement is a later slice, not this one."
+  },
+  {
+    "tag": "INSTALL-GUARD-ARTIFACTS",
+    "summary": "`install` wires the posture's enforcement artifacts per authority — a managed-by note on non-memory projections and a PreToolUse guard hook (warn under shared, block under surface)",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: surface authority is a declared posture, never a baked stance"
+    },
+    "gate": { "kind": "blockedBy", "tag": "AUTHORITY-POSTURE-PARSE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Extend `install` (today: SessionStart hook, CI job, schema modelines — src/install.rs) with the two authority-enforcement artifacts, wired per the composed layer's `authority()` posture (read the assembly; Shared when absent). (1) A managed-by NOTE on projections whose format tolerates cost-free metadata — riding the modeline machinery, SKIPPING memory projections (a CLAUDE.md comment costs context every session) and NEVER stamped by `apply` (law 5 keeps projections content-faithful). (2) A PreToolUse guard hook at the provider's write boundary: warn-and-route under `shared`, block under `surface`; degree maps onto note=information / warn=advisory / block=required so temper never escalates on its own determination. Both enumerated in `gate_installed`'s audit (src/install.rs:167) beside the hook/CI/modeline tally, install-wired + reversible (the gate-installed pattern). The guard hook's message states the limit verbatim: other tools' writes are not bound by it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "under `authority = \"surface\"` the guard hook is authored with block semantics and the managed-by note lands on non-memory projections (never a memory one); under `shared` the hook warns-and-routes; `install` is idempotent and `gate_installed` audits both new placements; the note is never written by `apply`."
+      }
+    ],
+    "acceptance": "`temper install` projects the posture's enforcement artifacts — a managed-by note on non-memory projections (never via apply) and a PreToolUse guard hook that warns under shared / blocks under surface — enumerated in gate-installed's audit and reversible; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox 2026-07-03 (INSTALL-GUARD-ARTIFACTS), after AUTHORITY-POSTURE-PARSE. Ratified Decision ec479ee. blockedBy AUTHORITY-POSTURE-PARSE: needs `layer.authority()`. Edits src/install.rs + tests/install.rs only — disjoint from IMPACT-VERB (read.rs/main.rs) once both unblock. Memory projections skip the note (law 5); the hook binds one provider's writes — the stated, unsolved limit."
+  },
+  {
+    "tag": "WALK-IGNORE-DISCIPLINE",
+    "summary": "Discovery walks honor ignore rules (`.gitignore` + always-exclude `.git`) so a `**` governs glob can't import a vendored dep's CLAUDE.md as a member — the directive-backing set stays raw disk",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: the workspace is per-project"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "needs a human ratification: the discovery-ignore-discipline intent isn't yet a written spec Decision (the per-project boundary is the closest owner but doesn't name .gitignore), and correct .gitignore parsing needs a sanctioned-crate call (the `ignore` crate) — build can't add an unsanctioned dep or invent the intent"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "The `**` discovery walk (`collect_glob`, src/import.rs, recurses any-depth) descends everything — so flipping the memory kinds' `governs` to `**/CLAUDE.md`/`**/AGENTS.md` would import a vendored dependency's CLAUDE.md out of node_modules as a member (a different project's harness, outside the per-project boundary). Prune the DISCOVERY walk to honor ignore rules: always exclude `.git`, and skip paths a `.gitignore` excludes — a member is first-party authored content. CRITICAL: do NOT touch `repo_file_set` (src/main.rs, the directive-BACKING set) — the harness loads an `@import` target regardless of gitignore, so pruning the backing set would forge unbacked findings (law 3). Two different sets, kept distinct."
+        },
+        {
+          "path": "Cargo.toml",
+          "description": "Add the `ignore` crate (ripgrep's gitignore engine) to the sanctioned dependency set — correct .gitignore semantics (nested files, negation, precedence) are a footgun to hand-roll against the quality bar. Flagged for human sanction (the sanctioned set is human territory); excluding `.git` alone is free, but honoring `.gitignore` needs the dep."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/readd.rs",
+        "asserts": "a `**`-governed discovery over a harness with a gitignored `node_modules/dep/CLAUDE.md` and a tracked root `CLAUDE.md` imports only the tracked file; `.git` contents are never discovered; the directive-backing set still sees the gitignored file (unbacked findings are not forged)."
+      }
+    ],
+    "acceptance": "Discovery walks respect `.gitignore` and always exclude `.git`, so a `**` governs glob imports only first-party members and never a vendored dep's file; the directive-backing set (`repo_file_set`) stays raw disk; cargo fmt/clippy -D warnings/test green. (Parked: needs a ratified spec Decision + the `ignore` crate sanctioned.)",
+    "notes": "Inbox 2026-07-03 (WALK-IGNORE-DISCIPLINE), blocks the memory tree flip. After it drains, the human flips both memory kinds' `governs` to the any-depth glob (curated embeds, human territory). Parked: the cite (per-project workspace) is the closest owner but the ignore-discipline sentence isn't yet spec'd, and the `ignore` crate needs a human sanction. tests/readd.rs chosen as the discovery-behavior home; swap if a better fixture exists."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
