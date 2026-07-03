@@ -285,7 +285,22 @@ path strings remain in comments).
   as a verifier/advisory tier only, no new concepts. Human fork on scope and
   timing; no dependents; do not let it near the launch wedge.
 
-- `(kind-harness-axis)` — OPEN. Kind identity has no harness axis: bare
+- `(kind-harness-axis)` — RESOLVED (human ruling 2026-07-02, after a cited
+  three-agent market sweep — `docs/market-formats.md`): kind identity carries a
+  **provider** axis (`specs/15-kinds.md` Decision "kind identity carries a
+  provider axis"). Provider = the authority that defines the format (a tool —
+  `claude-code`, `cursor` — or a standard — `agents-md`, `agent-skills`);
+  identity is `<provider>.<name>`; bare names resolve iff unique, collision is
+  a load error; project kinds stay bare; placement mirrors identity
+  (`kinds/claude-code/skill/`); published packages bind qualified. Rejected:
+  vendor axis (Copilot's surfaces diverge; Windsurf changed vendors),
+  active-profile resolution, mandatory qualification. `05-model.md` now splits
+  **provider** (format authority, identity axis) from **harness** (consuming
+  runtime, the world). Build-out: PROVIDER-KEY-PARSE first (parser accepts
+  `provider` inert + qualified/bare resolution + collision diagnostic), then
+  the human moves curated files to `kinds/claude-code/*` and adds provider
+  lines (build.rs embed must walk the nested layout), then binding
+  qualification. Original record: was OPEN. Kind identity has no harness axis: bare
   `skill`/`rule` works while Claude Code is the only harness, but a second
   harness's artifact classes collide — Cursor's "rule" is a different format
   with a different adapter and a different sourced package than Claude Code's.

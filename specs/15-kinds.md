@@ -126,6 +126,37 @@ the kind definition; a typed IR restates it as code, and the two homes drift;
 (b) an author-supplied template language — codegen walking in through the emit
 face, the closed-algebra escape hatch refused everywhere else.
 
+### Decision: kind identity carries a provider axis
+
+**Chosen:** a kind that mirrors an external format declares its **provider** —
+the authority that *defines* that format. A provider is a tool (`claude-code`,
+`cursor`, `codex`) or a standard (`agents-md`, `agent-skills`): the market
+carries both kinds of authority, and neither a vendor nor a consuming-tool
+axis survives the data (`docs/market-formats.md`, retrieved 2026-07-02 — spec
+encodings of any specific format fact re-cite their source directly). Kind
+identity is the qualified name `<provider>.<name>`; a **bare** reference (in
+the assembly, a package binding, `satisfies` typing) resolves iff exactly one
+kind in the assembly carries that bare name, and a collision is a load error
+naming the qualified candidates — nobody pays a qualification tax until two
+providers actually meet. A project's own kinds (`spec`) mirror nothing
+external, declare no provider, and are bare. Placement mirrors identity
+(`kinds/claude-code/skill/KIND.md`), the classed-corpus precedent
+(`90-spec-system.md`). A **published** package binds a qualified kind name —
+publication is where the consumer's assembly is unknowable, so a bare binding
+is a latent collision; the package's own name stays short. The kinds temper
+ships today are **Claude Code's surfaces**: provider `claude-code`, with the
+format's defining standard cited inside the definition where they differ (a
+skill's *format* is agentskills.io's; its locus and activation are Claude
+Code's) — a neutral `agent-skills.skill` kind over `.agents/skills/` is a
+separate kind for the day a consumer demands it. **Rejected:** (a) a
+**vendor** axis (`anthropic.rule`) — one vendor ships divergent surfaces
+(Copilot), and vendors change under a format (Windsurf → Cognition/Devin);
+(b) **active-profile resolution** (bare names meaning different kinds per
+ambient profile) — a name whose meaning depends on context is the inference
+smell in identity form; (c) **mandatory qualification everywhere** — a
+verbosity tax on every author against a collision most projects never have.
+(Resolves `(kind-harness-axis)`.)
+
 ## Extending a built-in kind
 
 A built-in's **extraction is temper's** — it mirrors the real harness format;

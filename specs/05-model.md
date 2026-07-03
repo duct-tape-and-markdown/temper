@@ -76,7 +76,8 @@ The vocabulary; the **owning spec** carries the detail.
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
 | verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |
 | behavioral contract | the prose surplus beyond the declared model (tier-3, human) | `00` / `30` |
-| harness | the external, evolving format a built-in kind-group mirrors | `15` / `50` |
+| **provider** | the authority that defines a format a kind mirrors — a tool or a standard; the kind-identity axis (`<provider>.<name>`) | `15-kinds.md` |
+| harness | the external, evolving **runtime** that consumes a landscape — the world activation edges come from; many harnesses may consume one provider's format | `15` / `45` / `50` |
 | provenance | source path + import hash; the per-artifact drift anchor | `20-surface.md` |
 | diagnostic | a clause violation the engine reports | `10-contracts.md` |
 
