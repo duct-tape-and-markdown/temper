@@ -1,36 +1,5 @@
 [
   {
-    "tag": "IMPORT-BUILTIN-SCAN-GENERIC",
-    "summary": "Drive `import`'s built-in scan off `builtin_kind::definitions()` instead of the hardcoded `[\"skill\",\"rule\"]` literal, so an embedded third built-in kind discovers its members",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Artifact kinds & package binding"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "`run()`'s built-in scan is hardcoded to `import_frontmatter_kind(.., \"skill\")` / `(.., \"rule\")` (import.rs:123-124) driven by the `crate::kind::BUILTIN_KINDS = [\"skill\",\"rule\"]` literal (also read at import.rs:135). Drive the scan generically off `builtin_kind::definitions()` — iterate every embedded built-in kind, importing each through the one generic frontmatter adapter (the doc comment at import.rs:120-122 already claims 'no per-kind writer'). Preserve the skill-then-rule ordering via the name-sorted keys so the roll-up's byte layout stays stable, and keep the custom-vs-built-in split (import.rs:132-139) reading off the same generic set rather than the literal. Behavior over a skill/rule-only harness is byte-identical; a third embedded kind now discovers its members. Scope stays inside import.rs (query the built-in set through `builtin_kind`, do not edit kind.rs:30)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "the generic scan discovers skill and rule members exactly as the hardcoded pair did (idempotent roll-up byte layout unchanged), and iterates every embedded built-in kind rather than the two literals."
-      }
-    ],
-    "acceptance": "`temper import` scans every embedded built-in kind generically off `builtin_kind::definitions()`; a skill/rule-only harness imports byte-identically; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox wave-1 slice 2; now the sole `open` pickable — slice 1 MEMORY-COLLISION-SCOPE shipped (61fa275). Slices 3+4 (CHECK-WORKSPACE-KIND-MAP, DECLARED-FRONTMATTER-ADAPTER-CUSTOM) blockedBy this; slice 5 follows slice 4. Skill/rule-only harness unchanged; the embedded memory kinds discover nothing until this + the human's curated files land."
-  },
-  {
     "tag": "CHECK-WORKSPACE-KIND-MAP",
     "summary": "Replace `check::Workspace`'s hardcoded `skills`/`rules` fields with a generic per-kind member map so a third built-in kind's members get clause/package-checked",
     "per": {
