@@ -26,9 +26,11 @@ graduation, delete over archive.
 
 ## Verify when the loop drains
 
-- WALK-IGNORE-DISCIPLINE (un-parked 07-03 after spec + crate sanction): when
-  it drains, flip both memory kinds' governs to any-depth globs, gates, then
-  verify no node_modules/.git members appear on a cascade vet.
+- (Done 07-03: tree flip shipped + cascade honeypot held — node_modules
+  AGENTS.md excluded, 21 members checked, and the vet found a real trailing-
+  period @import in cascade's CLAUDE.md. Whether Claude Code's parser strips
+  trailing punctuation is UNVERIFIED — verify before deciding if it's their
+  bug or our grammar nuance.)
 - Lock artifacts: exercise authority = "surface" end to end once installed
   (guard hook blocks, gate-installed enumerates it).
 - (Verified 07-03: WEDGE-FACT-FLOOR fires bare; impact verb narrates.)

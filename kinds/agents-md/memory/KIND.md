@@ -1,6 +1,6 @@
 +++
 provider = "agents-md"
-governs = { root = ".", glob = "AGENTS.md" }
+governs = { root = ".", glob = "**/AGENTS.md" }
 unit_shape = "file"
 activation = { via = "always" }
 
@@ -48,12 +48,14 @@ carried for documentation value like the built-in kinds' activation (`src/kind.r
 "Inert until").
 
 The extraction is markdown structure only — line budget, headings, sections,
-placement. `governs` captures the **repo-root** `AGENTS.md` alone (`root = "."`,
-`glob = "AGENTS.md"`); the standard's defining behavior is nested files with
-nearest-wins precedence ("agents automatically read the nearest file in the
-directory tree," https://agents.md/, retrieved 2026-07-02 — the main OpenAI repo
-ships 88 of them), and that arbitrary-depth hierarchy is not expressible in one
-fixed-depth `governs` glob today. Provider-specific *dialect* is deliberately
+placement. `governs` captures **every `AGENTS.md` in the repository**
+(`root = "."`, `glob = "**/AGENTS.md"`) — the standard's defining behavior is
+nested files with nearest-wins precedence ("agents automatically read the
+nearest file in the directory tree," https://agents.md/, retrieved 2026-07-02
+— the main OpenAI repo ships 88 of them). Each nested file is its own member
+with a placement-folded id, and discovery honors the repository's ignore
+rules — a dependency tree's `AGENTS.md` files are not this project's members
+(`specs/architecture/20-surface.md`, "discovery respects ignore rules"). Provider-specific *dialect* is deliberately
 excluded from this base-standard kind: Codex's `AGENTS.override.md` precedence
 file and 32 KiB `project_doc_max_bytes` budget
 (https://developers.openai.com/codex/guides/agents-md, retrieved 2026-07-02),

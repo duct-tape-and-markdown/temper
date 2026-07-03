@@ -1,6 +1,6 @@
 +++
 provider = "claude-code"
-governs = { root = ".", glob = "CLAUDE.md" }
+governs = { root = ".", glob = "**/CLAUDE.md" }
 unit_shape = "file"
 activation = { via = "always" }
 
@@ -38,15 +38,17 @@ statement, precedented by the project's own spec kinds, which declare none.
 The extraction is markdown structure only — line budget, headings, sections,
 placement — the same body-derived surface the `rule` kind carries, and correct
 for a frontmatterless file (the whole file is the unit body, so a `field`
-primitive would have nothing to project). What `governs` captures is the
-**repo-root** `CLAUDE.md` alone (`root = "."`, `glob = "CLAUDE.md"`). Claude
-Code's defining behavior is a *hierarchy* — it "reads `CLAUDE.md` files by
-walking up the directory tree," concatenates every ancestor's file root-to-
+primitive would have nothing to project). `governs` captures **every
+`CLAUDE.md` in the repository** (`root = "."`, `glob = "**/CLAUDE.md"`) —
+Claude Code's defining behavior is a *hierarchy*: it "reads `CLAUDE.md` files
+by walking up the directory tree," concatenates every ancestor's file root-to-
 working-directory, and lazy-loads descendant files when it reads under them
-(same doc, retrieved 2026-07-02). That nested, nearest-last shape is not
-expressible in one fixed-depth `governs` glob today; user scope
-(`~/.claude/CLAUDE.md`) and local scope (`CLAUDE.local.md`) are likewise out of
-this definition's reach. The `@path` import graph (resolved relative to the
+(same doc, retrieved 2026-07-02). Each nested file is its own member with a
+placement-folded id, and discovery honors the repository's ignore rules — a
+dependency tree's files are not this project's members
+(`specs/architecture/20-surface.md`, "discovery respects ignore rules"). User
+scope (`~/.claude/CLAUDE.md`) and local scope (`CLAUDE.local.md`) remain out of
+this definition's reach — out-of-repo and unversioned respectively. The `@path` import graph (resolved relative to the
 importing file, absolute allowed, recursion capped at four hops; same doc) is
 **format-executed syntax — a directive** (`specs/architecture/15-kinds.md`,
 "Directives — format-executed body syntax"): this kind declares the `at-import`
