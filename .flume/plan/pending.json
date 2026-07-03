@@ -1,74 +1,15 @@
 [
   {
-    "tag": "WEDGE-FACT-FLOOR",
-    "summary": "Hoist directive-target classing to the floor tier (no assembly) as a non-gating advisory — an unbacked `@import` surfaces with zero config; an assembly keeps escalation",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Directives — format-executed body syntax"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Directive-target classing (collect_directive_members + graph::classify_directives + extending its findings, today src/main.rs:787-789) lives INSIDE the `if let Some(layer)` guard (src/main.rs:694), so a harness with a CLAUDE.md `@docs/missing.md` and NO temper.toml draws no unbacked-pointer finding (exit 0). The spec says the unbacked pointer IS the importing member's finding — a fact about the member, no assembly condition (15-kinds.md, 'Directives'). Hoist ONLY the directive-target classing out of the layer block so it runs on the FLOOR tier: compute repo_file_set once (shared with reachability), collect built-in-kind directive members (pass an empty custom_kinds slice on the floor — the reduced signature already takes `&[CustomKindEntry]`), classify, extend the unbacked findings as a NON-GATING advisory. Leave set-scope/degree/acyclic/reachability and the member/backed edge consumption inside the layer block untouched — an assembly retains its power to escalate (WEDGE ruling 2026-07-03: an unbacked import is a pure fact, not a graph-scope opinion like reachability). On the floor only the unbacked findings surface; reachability closure over member-class edges stays assembly-gated."
-        },
-        {
-          "path": "tests/memory_gate.rs",
-          "description": "Add a floor-tier case: a harness with a repo-root CLAUDE.md carrying `@docs/missing.md` and NO temper.toml, run through `check`, fires exactly one unbacked-pointer advisory naming the memory member (non-gating — the run does not exit non-zero on it alone); a CLAUDE.md whose `@path` resolves to a real repo file fires none. Proves the wedge surfaces the fact with zero config, distinct from the existing assembly-present cases."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/memory_gate.rs",
-        "asserts": "with no temper.toml, an unbacked `@import` in a discovered CLAUDE.md fires one non-gating unbacked-pointer advisory; a backed `@path` fires none — the floor tier now surfaces the fact."
-      }
-    ],
-    "acceptance": "Directive-target classing runs on the floor tier (no assembly): an unbacked `@import` in a discovered CLAUDE.md draws one non-gating advisory with zero config, while set-scope/reachability stay assembly-gated and an assembly keeps its escalation power; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 2026-07-03 (WEDGE-FACT-FLOOR): first contact is the hook, so the zero-config wedge validates everything fact-shaped. Repro of the gap: CLAUDE.md `@docs/missing.md` + no temper.toml → today silence. Edits src/main.rs + tests/memory_gate.rs only. IMPACT-VERB (also main.rs) is serialized behind this via blockedBy."
-  },
-  {
-    "tag": "AUTHORITY-POSTURE-PARSE",
-    "summary": "Parse the assembly's `authority` posture (`shared` | `surface`, default shared, unknown value = load error) onto the composed layer — inert this slice; consumers follow",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: surface authority is a declared posture, never a baked stance"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Add an optional top-level `authority` key to the assembly, mirroring the `reachability` opt-in already parsed here. (1) `AuthorLayer` (src/compose.rs:26) gains an `authority: Authority` field with an accessor `authority()`; (2) an `Authority` enum `{ Shared, Surface }` defaulting to `Shared`; (3) add `\"authority\"` to the accepted top-level-key set (the unknown-key reject at src/compose.rs:613 + its diagnostic help text at ~401/406 which enumerates `kind`/`requirement`/`reachability`); (4) parse the string value in `parse` (~665, beside the reachability arm), a closed vocabulary — `\"shared\"`/`\"surface\"` accepted, absent ⇒ Shared, any other value ⇒ a load error like `bad_reachability` (a new error variant). Inert this slice: parsed + exposed only. Consumers (INSTALL-GUARD-ARTIFACTS) follow — the red-interim parse-first pattern."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "an assembly with `authority = \"surface\"` parses and exposes Surface; `authority = \"shared\"` and an absent key both yield Shared (the default); an unknown value (`authority = \"strict\"`) is a load error, like every closed vocabulary."
-      }
-    ],
-    "acceptance": "`AuthorLayer` carries an `authority` posture (`shared` default / `surface`), parsed from the top-level `authority` key as a closed vocabulary with an unknown-value load error, exposed on the composed layer and admissibility-tested; no consumer reads it yet; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 2026-07-03 (AUTHORITY-POSTURE-PARSE), the first lock slice. Ratified Decision ec479ee. Mirrors the existing `[reachability]` parse (its own top-level root, closed vocab, dedicated error). Edits src/compose.rs + tests/temper_toml.rs only — disjoint from the other open entries. INSTALL-GUARD-ARTIFACTS blocks on this (needs the parsed posture)."
-  },
-  {
     "tag": "IMPACT-VERB",
     "summary": "Add the `temper impact <member>` read verb — deterministic blast-radius traversal (unfilled requirements, dangling satisfies, unbacked directive edges, dead reachability), narrated like why",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "CLI surface"
     },
-    "gate": { "kind": "blockedBy", "tag": "WEDGE-FACT-FLOOR" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "WEDGE-FACT-FLOOR"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -101,7 +42,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: surface authority is a declared posture, never a baked stance"
     },
-    "gate": { "kind": "blockedBy", "tag": "AUTHORITY-POSTURE-PARSE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "AUTHORITY-POSTURE-PARSE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
