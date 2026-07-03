@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs PROVIDER-KEY-PARSE (the resolution mechanism) AND the human follow-up — curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines; kinds/** is outside build's fence, so a human authors the move before qualified bindings can resolve or be tested end-to-end"
+      "reason": "PROVIDER-KEY-PARSE shipped (c52df4f) — the resolution mechanism is on disk; the sole remaining blocker is the human follow-up: curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines. kinds/** is outside build's fence, so a human authors the move (disk today: flat kinds/skill, kinds/rule, no provider lines) before qualified bindings can resolve or be tested end-to-end"
     },
     "dependsOnForks": [],
     "files": {
@@ -45,7 +45,7 @@
       }
     ],
     "acceptance": "After the human moves the curated kind files, build.rs embeds `kinds/<provider>/<name>/KIND.md`; `SKILL_PACKAGE`/`RULE_PACKAGE` bind the qualified `claude-code.skill`/`claude-code.rule`; a bare `[kind.skill]` binding and `satisfies` typing resolve through provider resolution to the unique claude-code kind; a published package binds a qualified kind name; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox (kind-harness-axis) consequence (3); needs PROVIDER-KEY-PARSE (resolution) + human follow-up (2): curated skill/rule KIND.md moved to kinds/claude-code/* with provider lines (kinds/** outside build's fence). After the move: build.rs walks the nested layout, the embedded kind table carries provider, bindings qualify (claude-code.skill/.rule), published-package-binds-qualified becomes a bundle check. Parked on the human file-move; does NOT touch kind.rs (disjoint from PROVIDER-KEY-PARSE)."
+    "notes": "(kind-harness-axis) consequence (3). PROVIDER-KEY-PARSE shipped (c52df4f): kind.rs parses `provider`, exposes qualified identity + bare→collision resolution. Sole blocker: the human file-move (2) — curated skill/rule KIND.md → kinds/claude-code/* with provider lines (kinds/** outside build's fence). After it: build.rs walks the nested layout, the embedded table carries provider, bindings qualify, published-binds-qualified becomes a bundle check. Disjoint from kind.rs."
   },
   {
     "tag": "MEMORY-KIND",

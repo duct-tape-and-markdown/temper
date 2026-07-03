@@ -1,24 +1,25 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD b82be78.
-- **Last shipped:** REACHABILITY-WIRE (build 4a4bce2, chore 5eaf2ff) — the queue's
-  prior sole pickable; then the human resolved `(kind-harness-axis)` (b82be78,
-  cited market sweep 1bda46c).
-- **This tick:** drained the inbox's `(kind-harness-axis)` resolution into two
-  entries — filed **PROVIDER-KEY-PARSE** (open; kind.rs adds the inert `provider`
-  key + qualified-identity + bare→unique-or-collision resolution, red-interim shape
-  like the shipped FORMAT/ACTIVATION key-parses) and **BINDING-QUALIFY** (parked;
-  build.rs nested walk + qualified bindings, needs the human file-move (2), outside
-  build's fence). Re-reconciled the other five against disk — all stay accurately
-  gated (kinds/ = skill+rule only, `Primitive` still field/headings/sections/
-  line_count/placement + flat `Field`, no release.yml, private flume package.json,
-  no CONTRIBUTING/SECURITY). Inbox drained.
-- **In flight / pickable:** PROVIDER-KEY-PARSE (the sole open entry). Everything else
-  is parked (BINDING-QUALIFY, MEMORY-KIND, PACKAGING-CHANNELS, COMMUNITY-DOCS) or
-  deferred (EXTRACTION-VOCAB-GAPS, AGENT-KIND).
-- **Next:** build picks PROVIDER-KEY-PARSE. Its consequence (3) BINDING-QUALIFY then
-  waits on the human follow-up (2) — move curated skill/rule KIND.md to
-  kinds/claude-code/* with `provider = "claude-code"` lines.
+- **Phase:** reconcile. HEAD 889ddb9.
+- **Last shipped:** PROVIDER-KEY-PARSE (build c52df4f, chore 889ddb9) — kind.rs
+  parses the inert `provider` key, exposes qualified identity (`claude-code.skill`)
+  and bare→unique-or-collision resolution. Verified on disk (`Kind::provider`,
+  `qualified()`, the `BadProvider`/collision diagnostics).
+- **This tick:** reconciled the six-entry queue against disk. Only staleness found:
+  BINDING-QUALIFY's gate still named PROVIDER-KEY-PARSE as a blocker — it shipped, so
+  its build-side dependency is satisfied; refreshed the reason/notes to leave the
+  **human file-move** (kinds still flat `kinds/skill`/`kinds/rule`, no provider lines;
+  build.rs still flat `read_dir`) as its sole remaining blocker. The other five stay
+  accurately gated (BUILTIN_KINDS=["skill","rule"], Primitive still field/headings/
+  sections/line_count/placement + flat Field, no release.yml, private flume
+  package.json, no CONTRIBUTING/SECURITY). Inbox empty.
+- **In flight / pickable:** none — the queue is fully human-gated. Parked:
+  BINDING-QUALIFY (human file-move), MEMORY-KIND / PACKAGING-CHANNELS / COMMUNITY-DOCS
+  (curated files / release creds / fence-widen). Deferred: EXTRACTION-VOCAB-GAPS,
+  AGENT-KIND (no consumer).
+- **Next:** no pickable build entry. Unblocking requires a human act — the
+  `kinds/claude-code/*` file-move + provider lines un-parks BINDING-QUALIFY; the
+  other parks need their own human follow-ups.
 
-Plan continues: no — queue reconciled, inbox drained, one pickable entry filed; hand
-to build.
+Plan continues: no — queue reconciled, inbox empty, no pickable entry; every
+remaining entry waits on a human action, so there is no build work to hand off.
