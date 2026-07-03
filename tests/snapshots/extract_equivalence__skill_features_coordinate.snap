@@ -24,10 +24,6 @@ Features {
             kind: String,
             text: "coordinate",
         },
-        "version": Scalar {
-            kind: String,
-            text: "0.3.0",
-        },
     },
     body_lines: 20,
     headings: [

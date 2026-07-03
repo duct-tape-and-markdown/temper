@@ -1,7 +1,7 @@
 ---
 name: coordinate
 description: Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work.
-version: "0.3.0"
+license: "MIT"
 allowed-tools: ["Task", "Read", "Edit"]
 ---
 # Coordinate

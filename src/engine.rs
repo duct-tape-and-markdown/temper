@@ -526,7 +526,7 @@ mod tests {
         assert!(
             run(
                 Predicate::Optional {
-                    field: "version".to_string()
+                    field: "license".to_string()
                 },
                 any
             )

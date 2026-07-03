@@ -53,7 +53,7 @@ const SKILL: &str = "---\n\
 name: coordinate\n\
 # a human note that must survive a patch\n\
 description: Use when coordinating agents across axes.\n\
-version: \"0.3.0\"\n\
+license: \"MIT\"\n\
 ---\n\
 # Coordinate\n\
 \n\
@@ -192,8 +192,8 @@ fn a_surface_edit_re_emits_the_projection() {
         "name re-emitted, got:\n{emitted}"
     );
     assert!(
-        emitted.contains("version: \"0.3.0\"\n"),
-        "version re-emitted, got:\n{emitted}"
+        emitted.contains("license: \"MIT\"\n"),
+        "license re-emitted, got:\n{emitted}"
     );
     assert!(
         emitted.ends_with("Drive the team through the playbook."),
@@ -219,8 +219,8 @@ fn a_surface_edit_re_emits_the_projection() {
         "Use when driving a team across many axes."
     );
     assert_eq!(
-        reloaded.field("version").and_then(|v| v.as_str()),
-        Some("0.3.0")
+        reloaded.field("license").and_then(|v| v.as_str()),
+        Some("MIT")
     );
 }
 

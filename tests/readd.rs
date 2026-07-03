@@ -46,7 +46,7 @@ fn tmpdir(label: &str) -> PathBuf {
 const SKILL: &str = "---\n\
 name: coordinate\n\
 description: Use when coordinating agents across axes.\n\
-version: \"0.3.0\"\n\
+license: \"MIT\"\n\
 ---\n\
 # Coordinate\n\
 \n\
@@ -175,7 +175,7 @@ fn a_drifted_skill_is_reconciled_into_the_surface() {
     let drifted = "---\n\
 name: coordinate\n\
 description: Edited straight on disk, outside the surface.\n\
-version: \"0.4.0\"\n\
+license: \"Apache-2.0\"\n\
 ---\n\
 # Coordinate\n\
 \n\
@@ -199,8 +199,8 @@ An edited body, straight on disk.\n";
         "Edited straight on disk, outside the surface."
     );
     assert_eq!(
-        reloaded.field("version").and_then(|v| v.as_str()),
-        Some("0.4.0")
+        reloaded.field("license").and_then(|v| v.as_str()),
+        Some("Apache-2.0")
     );
     // ...and the body was pulled in byte-faithfully (frontmatter stripped), below
     // the member document's header.
@@ -309,7 +309,7 @@ fn a_drifted_body_readd_preserves_authored_representation() {
         "---\n\
 name: coordinate\n\
 description: Use when coordinating agents across axes.\n\
-version: \"0.3.0\"\n\
+license: \"MIT\"\n\
 ---\n\
 # Coordinate\n\
 \n\

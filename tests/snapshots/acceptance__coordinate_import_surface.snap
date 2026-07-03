@@ -6,8 +6,8 @@ expression: first
 [[skill]]
 name = "coordinate"
 source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
-import_hash = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
-last_applied = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
+import_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
+last_applied = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
 --- skills/coordinate/PLAYBOOK.md ---
 # Coordinate — playbook
 
@@ -27,15 +27,15 @@ value = "coordinate"
 [clause.description]
 value = "Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work."
 
-[clause.version]
-value = "0.3.0"
+[clause.license]
+value = "MIT"
 
 [clause.allowed-tools]
 value = ["Task", "Read", "Edit"]
 
 [provenance]
 source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
-import_hash = "c2946a0dc37a6f858f8ec2f0638f749fb7fbf5f49ff2111c10e7ea85ffb79f4a"
+import_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
 +++
 # Coordinate
 

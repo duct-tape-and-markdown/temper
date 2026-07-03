@@ -67,7 +67,7 @@ fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 const CANONICAL_SKILL: &str = "---\n\
 name: \"coordinate\"\n\
 description: \"Use when coordinating agents across axes.\"\n\
-version: \"0.3.0\"\n\
+license: \"MIT\"\n\
 team: [\"platform\",\"infra\"]\n\
 ---\n\
 # Coordinate\n\

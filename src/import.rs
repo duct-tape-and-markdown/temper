@@ -730,7 +730,7 @@ mod tests {
     const COORDINATE: &str = "---\n\
 name: coordinate\n\
 description: Use when driving a complex task across a team of agents.\n\
-version: \"0.3.0\"\n\
+license: \"MIT\"\n\
 allowed-tools: [\"Task\", \"Read\"]\n\
 ---\n\
 # Coordinate\n\
@@ -871,8 +871,8 @@ temper's own governing documents.\n";
         let reloaded = Member::from_surface(&coord, "SKILL.md").unwrap();
         assert_eq!(reloaded.id, "coordinate");
         assert_eq!(
-            reloaded.field("version").and_then(|v| v.as_str()),
-            Some("0.3.0")
+            reloaded.field("license").and_then(|v| v.as_str()),
+            Some("MIT")
         );
         assert!(reloaded.has_field("allowed-tools"));
         assert_eq!(

@@ -77,7 +77,7 @@ fn rule_surface_unit(member: &Member, name: &str) -> Unit {
 /// The `skill_features` projection over a real-shaped `.claude/skills/<name>/SKILL.md`
 /// is the fixed target the surface-read unification must hold byte-identical. The
 /// fixture exercises the full surface a skill extractor decides over: typed fields
-/// (`name`/`description`/`version`/`license`), an unknown list key (`allowed-tools`),
+/// (`name`/`description`/`license`), an unknown list key (`allowed-tools`),
 /// multi-level ATX headings with a fence-excluded `#` line and a closing-hash heading,
 /// nested sections, and the imported directory name.
 #[test]

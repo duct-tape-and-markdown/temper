@@ -577,7 +577,7 @@ mod tests {
     const SKILL: &str = "---\n\
 name: demo\n\
 description: Use when demonstrating the generic frontmatter adapter.\n\
-version: \"1.2.0\"\n\
+license: \"MIT\"\n\
 allowed-tools: [\"Bash\", \"Read\"]\n\
 priority: 7\n\
 ---\n\
@@ -603,14 +603,14 @@ Last line, no newline.";
             vec![
                 "name",
                 "description",
-                "version",
+                "license",
                 "allowed-tools",
                 "priority"
             ]
         );
         assert_eq!(
-            member.field("version").and_then(JsonValue::as_str),
-            Some("1.2.0")
+            member.field("license").and_then(JsonValue::as_str),
+            Some("MIT")
         );
         // The body rides below the frontmatter byte-faithfully.
         assert_eq!(
