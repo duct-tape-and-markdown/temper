@@ -1,33 +1,35 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD af54371.
-- **Last shipped:** IMPACT-VERB + INSTALL-GUARD-ARTIFACTS (chore af54371) —
-  the `impact` read verb (src/read.rs) and the surface-authority guard
-  artifacts wired into `install` (src/install.rs). Both dropped from the queue.
-- **This tick:** drained the inbox's DIRECTIVE-PATH-NORMALIZE note by
-  **reproducing it on disk** (`temper check .temper` fires a false
-  `graph.directive-unbacked` on CLAUDE.md → @docs/ledger.md) and **challenging
-  its root cause**. The inbox blamed unnormalized `././` provenance, but
-  `graph::normalize_path` already collapses both sides symmetrically (verified:
-  `check --harness .`, parent `.`, is clean). Real cause: the two-step `check`
-  path passes bare `Path::new("temper.toml")`, whose `.parent()` is `Some("")`
-  (not `None`), so `base_dir=""` and `repo_file_set("")` walks nothing — an
-  empty world file-set forges an unbacked finding on every real `@import` (law
-  3, missing file → false positive). Filed as **DIRECTIVE-BACKING-BASE-DIR**
-  (open) with the correct fix in `gate`'s base_dir line. Re-verified the 5
-  carried parked/deferred entries against disk — all still accurate (no
-  `ignore` crate; `Field` still flat / no `Fenced` at kind.rs; BUILTIN_KINDS =
-  `["skill","rule"]`; package.json still `temper-flume-harness`/private; no
-  CONTRIBUTING/SECURITY).
-- **Pickable now:** DIRECTIVE-BACKING-BASE-DIR (src/main.rs + tests/memory_gate.rs)
-  — the sole open entry, no shared-file contention. WALK-IGNORE-DISCIPLINE and
-  the 4 deferred/parked entries stay human-gated.
-- **Accepted debt (not filed):** the `././CLAUDE.md` source_path provenance is
-  written unnormalized (lock.toml / .temper/CLAUDE/MEMORY.md); harmless given
-  the symmetric compare-side normalize, no consumer needs it normalized.
-- **Operational note (accepted, not queued):** the session-start
-  `requirement.dangling` findings are a **stale installed binary** — a freshly
-  built `./target/debug/temper check .temper` no longer shows them (`cargo
-  install --path .` clears the stale global).
+- **Phase:** reconcile. HEAD e6be469.
+- **Last shipped:** DIRECTIVE-BACKING-BASE-DIR (build 590b3e0 / chore e6be469) —
+  the two-step `check` path now derives a real `base_dir` (bare
+  `Path::new("temper.toml").parent()` was `Some("")`, walking an empty world and
+  forging false `graph.directive-unbacked` findings on every real `@import`).
+  Dropped from the queue.
+- **This tick:** **dropped COMMUNITY-DOCS — it has shipped.** Both launch docs
+  exist tracked in `.github/` (`CONTRIBUTING.md`, `SECURITY.md`), satisfy
+  55-offering's two Decisions (two-sided AI-authorship disclosure;
+  demonstrate-not-speculate evidence bar + private reporting), and `.github/**`
+  is already inside build's fence (chain.ts:156) — so the entry's premise (files
+  missing, fence must be widened) was false. Prior ticks checked root only and
+  missed the `.github/` versions. Re-verified the 4 carried parked/deferred
+  entries on disk — all accurate (no `ignore` crate; `Field` flat / no `Fenced`;
+  BUILTIN_KINDS=`["skill","rule"]`; package.json still `temper-flume-harness`/
+  private, only `.github/workflows/temper.yml` CI, no release.yml).
+- **Pickable now:** none. All 4 queue entries are human-gated (WALK-IGNORE
+  parked on a spec Decision + `ignore` sanction; PACKAGING parked on release
+  creds; EXTRACTION-VOCAB-GAPS + AGENT-KIND deferred, no consumer). v0.1 launch
+  progress now needs human action, not a build tick.
+- **Accepted debt (not filed as build work):** (1) 55-offering says the launch
+  docs are "root-level"; disk has them in `.github/` (README wired there;
+  GitHub recognizes both) — a spec-wording reconciliation for the human, not a
+  file move (moving would break the README links). (2) Enabling GitHub private
+  vulnerability reporting is a repo setting (human), not a file.
+- **Operational note (accepted):** the session-start 19 `requirement.dangling`
+  findings are a **stale global binary** (`~/.cargo/bin/temper`, older than
+  `target/debug/temper`); a fresh `cargo build && ./target/debug/temper check
+  .temper` shows 0. `cargo install --path .` clears it.
 
-Plan continues: no — inbox drained, one disjoint open entry pickable; hand to build.
+Plan continues: no — inbox empty, COMMUNITY-DOCS reconciled out as shipped, the
+remaining queue is entirely human-gated. No pickable entry exists and
+re-planning won't create one; hand back for human unblocking.
