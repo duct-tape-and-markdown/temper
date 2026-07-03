@@ -139,3 +139,29 @@ that evidence, not preference, is the bite condition.
   *Tensions:* none structural; per-format cost is citation diligence.
   *Leaning:* demand-driven — add formats when a real migration asks. *Bite
   condition:* a named format with a citable layout and a user who wants in.
+
+- `(code-seam-joins)` — **The cross-landscape seam as a join, acknowledged in
+  code.** A harness artifact publishes invariant packs (`[requirement.<name>]`
+  — a dev-standards skill naming per-module invariants); the code where each
+  invariant lives *acknowledges* it with a trace tag in a declared grammar
+  (`// satisfies dev-standards.parser-strictness`), and the gate resolves both
+  ends: delete the invariant and the tag dangles, gut the code and the demand
+  dangles. Blast radius crosses the landscape boundary (`impact src/kind.rs`
+  lights up harness artifacts). The tag moves with the code it annotates, so
+  neither join end holds a fragile `file:line` coordinate. *Rents:* the join
+  doctrine (`45-governance.md`), the cross-landscape seam (`30-landscapes.md`
+  — this makes "checked both directions" authored rather than
+  resolution-shaped), set-scope predicates (one invariant, many code sites =
+  a satisfier set; `count`/coverage apply unchanged), and the repo's own
+  DO-178C trace-tag convention (`.claude/rules/rust.md`) — the one-way version
+  already practiced, waiting for its mechanism. *Tensions:* law 8 — a
+  name-mention in a comment is prose; this stays legal only as a **deliberate
+  tag in a grammar the code kind's extraction declares** (authored to be
+  machine-read = a declaration; the code author writing it is the opt-in).
+  Births the **code landscape kind** — extraction over source files, the
+  largest vocabulary addition yet; this use case is its consumer. Tags are
+  comments, paid twice (`rust.md`) — a join half is load-bearing enough to
+  keep. *Leaning:* do it, after the corpus migration proves manifest
+  authoring at scale; it is what the migration makes credible, never a gate on
+  it. *Bite condition:* corpus migration shipped; then a design session for
+  the tag grammar + the code kind's extraction shape.
