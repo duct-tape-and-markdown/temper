@@ -442,7 +442,7 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if !glob_matches(segment, name) {
+        if !crate::kind::glob_matches(segment, name) {
             continue;
         }
         if rest.is_empty() {
@@ -629,46 +629,6 @@ fn existing_custom_header(path: &Path) -> Option<DocumentMut> {
 /// `RULE.md` bodies so a custom kind's surface reads uniformly with them.
 fn body_filename(kind: &str) -> String {
     format!("{}.md", kind.to_uppercase())
-}
-
-/// Whether `glob` matches `name`, treating `*` as "any run of characters (including
-/// empty)" and every other character literally — the minimal in-crate wildcard a
-/// `governs` glob needs (`*.md`), short of pulling in a glob crate for one
-/// metacharacter, kept local so `import` stays self-contained
-/// (`.claude/rules/rust.md`). A standard linear matcher with
-/// single-star backtracking: on a mismatch it falls back to the most recent `*`,
-/// extending what that star consumed by one character.
-fn glob_matches(glob: &str, name: &str) -> bool {
-    let pattern: Vec<char> = glob.chars().collect();
-    let text: Vec<char> = name.chars().collect();
-    let mut pi = 0;
-    let mut ti = 0;
-    // The position of the last `*` in `pattern`, and how much of `text` it had
-    // consumed when we matched it — the backtrack point.
-    let mut star: Option<usize> = None;
-    let mut star_ti = 0;
-    while ti < text.len() {
-        if pi < pattern.len() && pattern[pi] == text[ti] {
-            pi += 1;
-            ti += 1;
-        } else if pi < pattern.len() && pattern[pi] == '*' {
-            star = Some(pi);
-            star_ti = ti;
-            pi += 1;
-        } else if let Some(star_pi) = star {
-            // Mismatch under an open `*`: let the star swallow one more character.
-            pi = star_pi + 1;
-            star_ti += 1;
-            ti = star_ti;
-        } else {
-            return false;
-        }
-    }
-    // Trailing `*`s match the empty remainder.
-    while pi < pattern.len() && pattern[pi] == '*' {
-        pi += 1;
-    }
-    pi == pattern.len()
 }
 
 /// Copy a single companion from the source dir to the surface dir, byte-for-byte,

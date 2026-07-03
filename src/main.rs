@@ -636,22 +636,51 @@ fn gate(
     // The embedded std-lib a by-name `package` binding resolves against before
     // `.temper/packages/` (`specs/architecture/10-contracts.md`). Packages **compose**: a
     // satisfier is checked by its kind's bound package *and* any package a
-    // requirement names.
+    // requirement names. Held for the guarded roster/graph tier below.
     let builtins = builtin::contracts()?;
-    let skill_floor = builtin_floor(builtin::SKILL_PACKAGE)?;
-    let rule_floor = builtin_floor(builtin::RULE_PACKAGE)?;
     let package_resolver = compose::PackageResolver::new(builtins, packages_dir.clone());
 
-    let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor, &packages_dir)?;
-    let rule_contract = compose::effective(layer.as_ref(), "rule", rule_floor, &packages_dir)?;
+    // The generic two-greens over EVERY embedded built-in kind, keyed by qualified
+    // identity (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
+    // kind's members are dispatched to its floor package (⊕ author layer) and validated,
+    // so a discovered CLAUDE.md/AGENTS.md memory member fires its `memory` clauses exactly
+    // as a skill/rule does — no longer silently skipped by a hardcoded skill/rule pair.
+    // Floors bind by QUALIFIED identity, never the bare name: the two `memory` providers
+    // share the bare `memory` by design (86d5b70), so a bare resolve would be ambiguous.
+    // SCOPE: only this validation path generalizes — the roster/graph tier below stays
+    // skill/rule/custom (no memory member publishes a requirement today; folding more
+    // built-ins into the requirement corpus is the separate `(builtin-workspace-qualified-key)`
+    // fork), so `skill_features`/`rule_features` above are still read there.
+    let mut diagnostics = Vec::new();
+    for kind in builtin_kind::definitions()?.values() {
+        let qualified = kind.qualified_name();
+        let package = builtin::floor_package(&qualified).ok_or_else(|| {
+            miette::miette!("built-in kind `{qualified}` ships no floor package binding")
+        })?;
+        // Two greens (`specs/architecture/10-contracts.md`): admissibility — the contract validated
+        // against the definition before it is trusted to judge — then conformance.
+        let contract = compose::effective(
+            layer.as_ref(),
+            &kind.name,
+            builtin_floor(package)?,
+            &packages_dir,
+        )?;
 
-    // Two greens (`specs/architecture/10-contracts.md`): **admissibility** first — each contract
-    // is validated against the definition before it is trusted to judge a harness,
-    // failing the run like a `required` violation — then **conformance**.
-    let mut diagnostics = engine::admissibility(&skill_contract);
-    diagnostics.extend(engine::admissibility(&rule_contract));
-    diagnostics.extend(engine::validate(&skill_contract, &skill_features));
-    diagnostics.extend(engine::validate(&rule_contract, &rule_features));
+        // A discovered member routes to its kind by its source glob: the two `memory`
+        // providers share the surface locus (`./MEMORY.md`), so `owns_source` keeps a
+        // `CLAUDE.md` member off `agents-md.memory` and an `AGENTS.md` member off
+        // `memory.anthropic` — the projected document alone cannot say which governs it.
+        let units =
+            check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())?;
+        let features: Vec<extract::Features> = units
+            .iter()
+            .filter(|unit| kind.owns_source(&unit.source_path))
+            .map(|unit| builtin_kind::features(kind, unit))
+            .collect();
+
+        diagnostics.extend(engine::admissibility(&contract));
+        diagnostics.extend(engine::validate(&contract, &features));
+    }
 
     // The harness-contract tier: set-scope predicates over the parsed roster, each
     // quantified over a requirement's satisfier set (`specs/architecture/10-contracts.md`).

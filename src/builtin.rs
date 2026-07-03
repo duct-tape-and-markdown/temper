@@ -43,6 +43,49 @@ pub const SKILL_PACKAGE: &str = "skill.anthropic";
 /// Anthropic-sourced).
 pub const RULE_PACKAGE: &str = "rule.anthropic";
 
+/// The built-in package temper ships as the floor for the `claude-code.memory` kind —
+/// the documented `CLAUDE.md` contract (`specs/architecture/10-contracts.md`, "named for its
+/// source"). Bound to the **qualified** kind identity in [`QUALIFIED_FLOOR_BINDINGS`]:
+/// the bare `memory` name is ambiguous by design — two providers carry it (86d5b70) —
+/// so unlike skill/rule it can never resolve through the bare→qualified path, and the
+/// floor binds `claude-code.memory` directly.
+pub const MEMORY_ANTHROPIC_PACKAGE: &str = "memory.anthropic";
+
+/// The built-in package temper ships as the floor for the `agents-md.memory` kind — the
+/// `AGENTS.md` contract, bound to its qualified identity exactly as
+/// [`MEMORY_ANTHROPIC_PACKAGE`] is. The AGENTS.md standard constrains almost nothing, so
+/// this package is guidance-only (zero clauses); the binding still routes a discovered
+/// `AGENTS.md` member here rather than to Anthropic's `CLAUDE.md` floor.
+pub const MEMORY_AGENTS_MD_PACKAGE: &str = "memory.agents-md";
+
+/// Each embedded built-in kind's floor package, keyed by the kind's **qualified**
+/// identity `<provider>.<name>` — the binding the `check` gate's per-kind loop resolves
+/// a discovered member's package through (`specs/architecture/20-surface.md`, "Artifact kinds &
+/// package binding"). Qualified, never bare: the two `memory` providers collide on the
+/// bare name by design (86d5b70), so a bare key would be ambiguous; skill/rule qualify
+/// the same way for one uniform table. This is temper's own **published** binding — it
+/// names the qualified kind a consumer's assembly can never mistake for another
+/// provider's (`specs/architecture/15-kinds.md`, "a published package binds a qualified kind name").
+pub const QUALIFIED_FLOOR_BINDINGS: &[(&str, &str)] = &[
+    ("claude-code.skill", SKILL_PACKAGE),
+    ("claude-code.rule", RULE_PACKAGE),
+    ("claude-code.memory", MEMORY_ANTHROPIC_PACKAGE),
+    ("agents-md.memory", MEMORY_AGENTS_MD_PACKAGE),
+];
+
+/// The floor package bound to a built-in kind's **qualified** identity
+/// (`claude-code.memory` → `memory.anthropic`), or `None` if no embedded kind of that
+/// identity ships a floor. The gate's per-kind loop looks each discovered kind's floor
+/// up here by [`qualified_name`](crate::kind::CustomKind::qualified_name)
+/// ([`QUALIFIED_FLOOR_BINDINGS`]).
+#[must_use]
+pub fn floor_package(qualified: &str) -> Option<&'static str> {
+    QUALIFIED_FLOOR_BINDINGS
+        .iter()
+        .find(|(id, _)| *id == qualified)
+        .map(|(_, package)| *package)
+}
+
 /// The embedded `PACKAGE.md` source for a built-in package, or `None` if no package
 /// of that name is embedded.
 #[must_use]

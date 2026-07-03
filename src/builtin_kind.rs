@@ -161,7 +161,10 @@ fn parse(key: &str, src: &str) -> Result<CustomKind, KindError> {
 /// kind definition — a genuine invariant, as it is compiled-in product source
 /// (`build.rs`).
 pub fn skill_features(unit: &Unit) -> Result<Features, KindError> {
-    features_from("skill", unit)
+    Ok(features(
+        &definition("skill")?.expect("the built-in `skill` kind is embedded"),
+        unit,
+    ))
 }
 
 /// Extract a built-in rule's [`Features`] the same way [`skill_features`] does — the
@@ -173,19 +176,28 @@ pub fn skill_features(unit: &Unit) -> Result<Features, KindError> {
 /// Returns a [`KindError`] if the embedded `rule` `KIND.md` is not an admissible
 /// kind definition (a compiled-in invariant).
 pub fn rule_features(unit: &Unit) -> Result<Features, KindError> {
-    features_from("rule", unit)
+    Ok(features(
+        &definition("rule")?.expect("the built-in `rule` kind is embedded"),
+        unit,
+    ))
 }
 
-/// Run the named built-in kind's embedded extraction over `unit`, then fold every
-/// preserved frontmatter key the composed primitives did not name into the feature
-/// map — the built-in adapter's **permissive extraction** (`specs/architecture/15-kinds.md`,
-/// "Extending a built-in kind"): an unknown key on a known artifact is already
-/// extracted, so a clause (a `forbidden_keys`) can range over it. The closed algebra
-/// cannot enumerate unknown keys, so this bulk preservation is the adapter's, while
-/// each documented field is the composed `KIND.md`'s. `or_insert` leaves each field
-/// the composed extractor already yielded untouched.
-fn features_from(name: &str, unit: &Unit) -> Result<Features, KindError> {
-    let kind = definition(name)?.expect("a built-in kind is embedded for every built-in driver");
+/// Run a built-in `kind`'s embedded extraction over `unit`, then fold every preserved
+/// frontmatter key the composed primitives did not name into the feature map — the
+/// built-in adapter's **permissive extraction** (`specs/architecture/15-kinds.md`, "Extending a
+/// built-in kind"): an unknown key on a known artifact is already extracted, so a clause
+/// (a `forbidden_keys`) can range over it. The closed algebra cannot enumerate unknown
+/// keys, so this bulk preservation is the adapter's, while each documented field is the
+/// composed `KIND.md`'s. `or_insert` leaves each field the composed extractor already
+/// yielded untouched.
+///
+/// Takes the resolved [`CustomKind`] rather than a name (the `check` gate holds it from
+/// [`definitions`], and re-resolving by bare name would hit [`KindError::AmbiguousKind`]
+/// for the two `memory` providers that share the bare name), so it is total — the
+/// extraction cannot fail once the definition is in hand. [`skill_features`] /
+/// [`rule_features`] stay the thin resolving callers over the unambiguous built-ins.
+#[must_use]
+pub fn features(kind: &CustomKind, unit: &Unit) -> Features {
     let mut features = kind.extraction.extract(unit);
     for (key, value) in &unit.frontmatter {
         features
@@ -193,7 +205,7 @@ fn features_from(name: &str, unit: &Unit) -> Result<Features, KindError> {
             .entry(key.clone())
             .or_insert_with(|| extract::json_to_feature(value));
     }
-    Ok(features)
+    features
 }
 
 #[cfg(test)]

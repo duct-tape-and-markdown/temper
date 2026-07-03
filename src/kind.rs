@@ -323,6 +323,35 @@ impl CustomKind {
             .next()
             .unwrap_or(&self.governs.root)
     }
+
+    /// Whether a surface member imported from `source_path` belongs to this kind — its
+    /// source filename matches the kind's `governs` glob leaf. The discriminator for kinds
+    /// that **share a surface locus**: the two `memory` providers both project their member
+    /// to `./MEMORY.md` (`claude-code.memory` from `CLAUDE.md`, `agents-md.memory` from
+    /// `AGENTS.md`), so the projected document alone cannot say which package governs it —
+    /// the provenance source name does (`specs/architecture/20-surface.md`). A kind at a unique locus
+    /// (skill's `SKILL.md`, rule's `*.md`) matches its own members, so the filter is a no-op
+    /// there. A member with no readable source name belongs to nothing rather than
+    /// mis-dispatching.
+    #[must_use]
+    pub fn owns_source(&self, source_path: &Path) -> bool {
+        source_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| glob_matches(self.governs.glob_leaf(), name))
+    }
+}
+
+impl Governs {
+    /// The glob's file-matching **leaf** — its final `/`-separated segment
+    /// (`*/SKILL.md` → `SKILL.md`, `CLAUDE.md` → `CLAUDE.md`). Earlier segments select
+    /// subdirectories to descend; the leaf selects the member files under the locus, so it
+    /// is the segment a per-member membership test ([`CustomKind::owns_source`]) matches
+    /// against a source filename.
+    #[must_use]
+    pub fn glob_leaf(&self) -> &str {
+        self.glob.rsplit('/').next().unwrap_or(&self.glob)
+    }
 }
 
 /// Parse a `KIND.md` header's required `governs = { root, glob }` locus: absent ⇒
@@ -522,6 +551,48 @@ fn render_item(item: &Item) -> String {
     item.as_value()
         .map(|value| value.to_string().trim().to_string())
         .unwrap_or_else(|| "a table".to_string())
+}
+
+/// Whether `glob` matches `name`, treating `*` as "any run of characters (including
+/// empty)" and every other character literally — the minimal in-crate wildcard a
+/// `governs` glob segment needs (`*.md`), short of pulling in a glob crate for one
+/// metacharacter. Lives beside [`Governs`], the glob's home, so both `import`'s discovery
+/// scan and a kind's own [`CustomKind::owns_source`] membership test share one matcher
+/// (`.claude/rules/rust.md`). A standard linear matcher with single-star backtracking: on
+/// a mismatch it falls back to the most recent `*`, extending what that star consumed by
+/// one character. Matches one glob *segment*, not a `/`-path — the caller splits a
+/// multi-segment glob and matches each part.
+pub(crate) fn glob_matches(glob: &str, name: &str) -> bool {
+    let pattern: Vec<char> = glob.chars().collect();
+    let text: Vec<char> = name.chars().collect();
+    let mut pi = 0;
+    let mut ti = 0;
+    // The position of the last `*` in `pattern`, and how much of `text` it had
+    // consumed when we matched it — the backtrack point.
+    let mut star: Option<usize> = None;
+    let mut star_ti = 0;
+    while ti < text.len() {
+        if pi < pattern.len() && pattern[pi] == text[ti] {
+            pi += 1;
+            ti += 1;
+        } else if pi < pattern.len() && pattern[pi] == '*' {
+            star = Some(pi);
+            star_ti = ti;
+            pi += 1;
+        } else if let Some(star_pi) = star {
+            // Mismatch under an open `*`: let the star swallow one more character.
+            pi = star_pi + 1;
+            star_ti += 1;
+            ti = star_ti;
+        } else {
+            return false;
+        }
+    }
+    // Trailing `*`s match the empty remainder.
+    while pi < pattern.len() && pattern[pi] == '*' {
+        pi += 1;
+    }
+    pi == pattern.len()
 }
 
 /// A custom kind's composed extractor: an ordered set of deterministic
