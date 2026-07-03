@@ -63,11 +63,14 @@ path strings remain in comments).
   floor delta touches `drift.rs`/`main.rs` and the lock shape is shared across
   import/drift, so no slice is parallel-safe — each entry is `blockedBy` the
   prior, the head `open`, build runs them one tick at a time (a ship unblocks the
-  next on the following plan reconcile). **PROGRESS (2026-07-03):** the chain
-  head READD-RETIRE has **shipped** (`build` caa30c4 / `chore` 3804f1c); the next
-  reconcile flipped **LOCK-FRESHNESS-FACTS `open`** as the new head. These floor
-  entries are NOT `dependsOnForks`-gated on this fork: the human unblocked the
-  floor explicitly.
+  next on the following plan reconcile). **PROGRESS (2026-07-03):** two chain
+  links have now **shipped** — READD-RETIRE (`build` caa30c4 / `chore` 3804f1c)
+  and LOCK-FRESHNESS-FACTS (`build` fa8067d / `chore` 2ef5c4d, carrying the
+  legacy-lock self-migration; the earlier afterMerge revert did not recur). This
+  reconcile flipped **EMIT-VERB `open`** as the new head (MANIFEST-EMIT →
+  MANIFEST-GATE-READ → INIT-ONRAMP → EMIT-OWNED-PLACEMENTS serialized behind it).
+  These floor entries are NOT `dependsOnForks`-gated on this fork: the human
+  unblocked the floor explicitly.
   **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
   authoring-face npm scaffolding, stays **parked on John** (like
   PACKAGING-CHANNELS); no altitude-rung entry (`defineHarness`/`defineKind`,

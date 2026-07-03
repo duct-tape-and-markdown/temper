@@ -7,8 +7,7 @@
       "section": "Content-faithful, deterministically emitted (law 5)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCK-FRESHNESS-FACTS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
