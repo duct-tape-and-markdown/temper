@@ -11,13 +11,15 @@ and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror i
 **deleted** (CONTRACTS-RETIRE shipped — no `contracts/` dir on disk; only stale
 path strings remain in comments).
 
-- `(scripted-altitude-reconcile)` — OPEN, the frontier fork. The **scripted-
-  altitude** corpus re-cut landed as new intent (`specs:` 32ea84d, ratified
-  2026-07-03; pre-state = `mirror-era` tag) and the code has **not** migrated to
-  it. The reformulation is decided (`00-intent.md` Decision "the authoring face
-  is a typed library; the gate reads inert data"; `20-surface.md` throughout) —
-  what is OPEN is the **build sequencing + its human prerequisites**, so no floor
-  slice may be filed onto a settled foundation yet. The corpus↔code deltas:
+- `(scripted-altitude-reconcile)` — OPEN for the **altitude rung only**; the
+  **floor wave is FILED** (2026-07-03, ask (b) discharged — see tail). The
+  **scripted-altitude** corpus re-cut landed as new intent (`specs:` 32ea84d,
+  ratified 2026-07-03; pre-state = `mirror-era` tag) and the code has **not**
+  migrated to it. The reformulation is decided (`00-intent.md` Decision "the
+  authoring face is a typed library; the gate reads inert data"; `20-surface.md`
+  throughout). What remains OPEN is the **altitude rung's human prerequisite**
+  (ask (a), the TS SDK); the floor sequencing (ask (b)) is now settled. The
+  corpus↔code deltas:
   (1) **`import` → `init`** — the on-ramp becomes scan → config skeleton over
   members **in place**, zero file moves (today `import` copies members into
   `.temper/`; `20-surface.md` "Decision: `init` is the on-ramp, and adoption is a
@@ -50,11 +52,24 @@ path strings remain in comments).
   "two projectors, one file" residual: `apply`/`emit` re-emitting a rule drops
   `install`'s schema modeline + reflows the YAML — under the re-cut *emit owns the
   projection whole*, so install's placement lines must be **emit-owned** (part of
-  the emit reconception, not a separate stamp). Interim discipline until the wave
-  lands: **do not run bare `apply` on rules** (hand-reverted once this session).
-  Human to (a) scaffold the SDK/authoring-face npm surface and (b) decide the
-  floor-migration wave's serialized sequence; then the wave files as `blockedBy`-
-  chained entries. Design record: claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
+  the emit reconception, not a separate stamp) — filed as the tail entry
+  EMIT-OWNED-PLACEMENTS. Interim discipline until that lands: **do not run bare
+  `apply`/`emit` on rules** (hand-reverted once this session).
+  **ASK (b) DISCHARGED (2026-07-03):** John delegated the floor-wave sequencing
+  to plan (inbox ruling); this tick FILED it as the serialized `blockedBy` chain
+  **READD-RETIRE → LOCK-FRESHNESS-FACTS → EMIT-VERB → MANIFEST-EMIT →
+  MANIFEST-GATE-READ → INIT-ONRAMP → EMIT-OWNED-PLACEMENTS** (all pure Rust, no
+  npm). A strict linear chain, not a fan-out: the entanglement map showed every
+  floor delta touches `drift.rs`/`main.rs` and the lock shape is shared across
+  import/drift, so no slice is parallel-safe — each entry is `blockedBy` the
+  prior, the head `open`, build runs them one tick at a time (a ship unblocks the
+  next on the following plan reconcile). These floor entries are NOT
+  `dependsOnForks`-gated on this fork: the human unblocked the floor explicitly.
+  **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
+  authoring-face npm scaffolding, stays **parked on John** (like
+  PACKAGING-CHANNELS); no altitude-rung entry (`defineHarness`/`defineKind`,
+  module carriage, `temper.config.ts`, altitude mentions) may be filed until John
+  scaffolds it. Design record: claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
 
 - `(extraction-source-not-mechanism)` — RESOLVED (human ruling this session;
   `specs/architecture/15-kinds.md`, "The extraction algebra — the soundness boundary, as data":

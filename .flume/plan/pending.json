@@ -1,5 +1,273 @@
 [
   {
+    "tag": "READD-RETIRE",
+    "summary": "Retire the `re-add` verb and its projection→surface reverse round-trip — a hand-edit to emitted output is drift routed to the source, never merged back",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: `re-add` is retired — hand-edits route to the source"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Remove the `ReAdd { harness_path, into }` variant from the `Command` clap enum (main.rs:171) and its dispatch arm (main.rs:386 — `drift::re_add` + `drift::render_readd`). No `re-add` subcommand remains; `diff` (the read face) stays."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Delete the reverse-round-trip path: `re_add`/`render_readd`/`ReAddOutcome` and the re-add-only lock rewriters (`rewrite_lock_rows`, `lock_table`). KEEP `update_lock` (apply's writer) and the three-state internals apply still reads (`place`, `load_last_applied`, `DriftState`) — their collapse rides EMIT-VERB, not this entry. A direct edit to emitted output is drift routed to the source (the Decision), no longer a mergeable-back state."
+        }
+      ],
+      "retire": ["tests/readd.rs"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/readd.rs", "asserts": "deleted — the verb it drove is retired." }
+    ],
+    "acceptance": "No `re-add` subcommand; drift.rs carries no projection→surface reverse path; the three-state internals apply still uses remain (collapsed later by EMIT-VERB); cargo fmt/clippy -D warnings/test green.",
+    "notes": "Head of the floor-migration chain (READD-RETIRE→…→EMIT-OWNED-PLACEMENTS), the human-delegated wave (inbox ruling 2026-07-03). Removes ONLY the reverse verb + its code + tests/readd.rs. Keep update_lock; the three-state DELETION is EMIT-VERB's. Every chain entry touches drift.rs/main.rs, so the wave is strictly serial — each blockedBy the prior."
+  },
+  {
+    "tag": "LOCK-FRESHNESS-FACTS",
+    "summary": "Collapse the lock's three-state baselines (import_hash/last_applied) into two freshness facts — source_hash (authored bytes) and emit_hash (last projection)",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Drift — one direction, two freshness facts (the hard core)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "READD-RETIRE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Rename the `RollupEntry` lock columns `import_hash`/`last_applied` (import.rs:106/113) to `source_hash`/`emit_hash`; update the writers `rollup_tables`/`write_rollup` (import.rs:739/719) and the baseline set at import (import.rs:361-362, 631-632). source_hash = the authored source bytes; emit_hash = the last emitted projection (set by emit). Update the inline `#[cfg(test)]` lock-column asserts."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Point apply's baseline compare + `update_lock` at `emit_hash` (was `last_applied`) and the source-drift detection at `source_hash` (was `import_hash`); rename `load_last_applied`→`load_emit_hash`. No verb rename here (apply keeps its name until EMIT-VERB)."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "Rename the member `Provenance.import_hash` field (frontmatter.rs:74) to `source_hash` and update `to_document`/`from_document` round-trip (frontmatter.rs:183,269,344) so a member document's `[provenance]` carries the freshness fact under its new name."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "Rename the generated `[provenance]` key in `add_provenance`/`read_provenance` (document.rs:337,344,519) from `import_hash` to `source_hash`, keeping the format-preserving emit."
+        },
+        {
+          "path": "tests/apply.rs",
+          "description": "Move the `lock_field` asserts off `last_applied`/`import_hash` onto `emit_hash`/`source_hash`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/apply.rs", "asserts": "the lock rows carry source_hash + emit_hash; apply compares the real projection against emit_hash and rewrites on a stale fingerprint." }
+    ],
+    "acceptance": "The lock and member `[provenance]` carry `source_hash` + `emit_hash`; import writes both (emit_hash provisionally = source_hash until emit runs); apply's baseline is emit_hash; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Field rename + remap, no verb change and no semantics collapse yet (apply still runs the three-state place()). re-add already gone (READD-RETIRE) so there is no reverse reader to migrate. Foundation config.stale (MANIFEST-GATE-READ) stands on. Ripple is wider than the lock: import_hash also lives in frontmatter.rs Provenance + document.rs [provenance] — all move together."
+  },
+  {
+    "tag": "EMIT-VERB",
+    "summary": "Rename `apply`→`emit`: re-emit each projection whole and byte-deterministically, double-emit verified; delete the residual three-state merge model",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Content-faithful, deterministically emitted (law 5)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "LOCK-FRESHNESS-FACTS" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        { "path": "tests/emit.rs", "description": "The renamed apply suite driving `temper emit`: idempotence over a clean surface, a surface edit re-emits, --dry-run writes nothing, and a NEW double-emit-determinism assertion (emit twice → byte-identical projection + lock). Carries over tests/apply.rs's cases minus the retired Conflicted-as-world-drift semantics." }
+      ],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Rename the `Apply` command variant to `Emit`, its CLI name to `emit`, and add the `--frozen` (refuse network — CI posture) + keep `--dry-run` flags per the CLI surface (20-surface CLI section); dispatch to `drift::emit`."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Rename `apply`→`emit`/`render_apply`→`render_emit`; make emit re-emit each projection whole from the authored source (project_bytes already does) and add a double-emit verification (emit twice, compare bytes — nondeterminism is a loud failure, never silent churn). Delete the residual desired/last-applied/real merge model + the `Conflicted`-as-world-drift outcome (a hand-edited projection is drift routed to the source, surfaced by config.stale/guard, not a mergeable conflict). Keep emit_hash freshness."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Update the `install::gate_installed`/placement callers that name `drift::apply`/`ApplyOutcome` to the renamed `emit` symbols (install consumes drift::place, unchanged; only the apply-named references move)."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Rename any `apply` driving to `emit`."
+        }
+      ],
+      "retire": ["tests/apply.rs"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/emit.rs", "asserts": "`temper emit` re-emits whole and is idempotent; double-emit yields byte-identical output; --dry-run writes nothing; no three-state conflict state remains." }
+    ],
+    "acceptance": "`temper emit [--frozen] [--dry-run]` compiles each projection whole and byte-deterministically, double-emit verified; the three-state merge model is deleted; a hand-edited projection is drift (not a Conflicted merge state); cargo fmt/clippy -D warnings/test green.",
+    "notes": "apply already re-emits whole; the deltas are the rename, --frozen, the double-emit determinism check, and deleting the desired/last-applied/real internals READD-RETIRE left standing. The two-projectors bug stays LIVE until EMIT-OWNED-PLACEMENTS — do not rely on bare emit over rules until it lands. tests/apply.rs→tests/emit.rs."
+  },
+  {
+    "tag": "MANIFEST-EMIT",
+    "summary": "Serialize the full manifest at import — bindings, requirements, member features, and edges into `temper.toml`, patch-preserving any hand-authored manifest",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Topology: source, contract, output"
+    },
+    "gate": { "kind": "blockedBy", "tag": "EMIT-VERB" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Grow `AuthorLayer` into the full manifest model: beyond the optional overrides it parses today, model+serialize the generated-canonical manifest — kind→package bindings, the requirements roster, member features (per the closed extraction vocabulary), and declared/mention edges. This is the shape both import (write) and check (read, next entry) share."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "At import, serialize that manifest to `temper.toml` — the generated-canonical artifact the gate will read. A hand-authored floor manifest is patched format-preserving (`toml_edit`), NEVER clobbered (20-surface: 'a hand-written manifest is patched format-preserving'). import still writes the `.temper/` document copies + lock here; INIT-ONRAMP drops the copy later."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Add coverage: import writes a temper.toml manifest carrying the bindings/requirements/features/edges; re-import patch-preserves a hand-authored manifest (no clobber, comments/order kept)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/temper_toml.rs", "asserts": "import serializes the manifest (bindings, requirements, member features, edges) into temper.toml; a pre-existing hand-authored manifest is patched format-preserving, not overwritten." }
+    ],
+    "acceptance": "import writes the `temper.toml` manifest serializing every declaration the gate/read verbs consume; a hand-authored floor manifest survives format-preserving; check still reads the `.temper/` copy at this step; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Write-side only — the read flip is MANIFEST-GATE-READ. The manifest is generated-canonical (committed, gate-read, hand-writable at the floor). AuthorLayer becomes the manifest model, shared with the next entry (both edit compose.rs — serial). Keeps the copy tree for now so check stays green until the read flips."
+  },
+  {
+    "tag": "MANIFEST-GATE-READ",
+    "summary": "Make `check` read the `temper.toml` manifest as its gate corpus — manifest + lock + authored sources, not the `.temper/` copy tree; add the `config.stale` finding",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The surface: the assembly over its contents"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MANIFEST-EMIT" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/check.rs",
+          "description": "Flip `Workspace::load`/`surface_units` to read the manifest as the corpus: document/module members arrive pre-extracted from the manifest (bounded by the closed vocabulary), the lock supplies freshness — stop ranging the `.temper/` copy tree as the declaration source. Conformance + admissibility unchanged in shape (two greens); the gate reads no language runtime."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Complete the manifest READER begun in MANIFEST-EMIT: load bindings/requirements/features/edges from `temper.toml` into the structures the roster/graph/coverage tier consumes (today only overrides are read)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Rewire `gate()` (main.rs:681) so the manifest is the primary declaration input (not an optional overlay): load it once, pass its features/edges/roster to conformance/admissibility/graph, and run the freshness check."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Add the `config.stale` finding: the committed manifest/projection does not match the lock's `source_hash`/`emit_hash` pair — one finding pointing at whichever side moved. Exposed to check via the gate."
+        },
+        {
+          "path": "tests/temper_toml.rs",
+          "description": "Rework the layering tests: the manifest is the corpus now, not an overlay over a copy-tree floor. Assert check reads bindings/requirements/features from it and reports config.stale on a mismatched fingerprint."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Update the import→check flow: check now reads the manifest; assert a clean manifest checks green and a stale projection surfaces config.stale."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/temper_toml.rs", "asserts": "check loads the temper.toml manifest as its declaration source (bindings, requirements, member features, edges) and reports config.stale when the committed manifest/projection mismatches the lock." }
+    ],
+    "acceptance": "`check` reads the manifest + lock + authored sources as its gate corpus (no `.temper/` copy ranging, no runtime), validates conformance/admissibility/freshness, and reports `config.stale`; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Biggest entry — the manifest becomes the gate's corpus (20-surface: 'the only thing the gate reads'). config.stale's projection half stands on E2's lock, its manifest half on the manifest here. document-carried members are still copied into `.temper/` (INIT-ONRAMP drops that); in-place live-extraction lands in INIT-ONRAMP when in-place members first appear."
+  },
+  {
+    "tag": "INIT-ONRAMP",
+    "summary": "Rename `import`→`init`: scan an existing harness into a config skeleton over members in place — zero file moves, no `.temper/` copy tree",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: `init` is the on-ramp, and adoption is a gradient"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MANIFEST-GATE-READ" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Rename the `Import` command to `Init` (CLI `init [<harness-path>]`), add a per-member `init --lift` that migrates one member up a carriage rung; dispatch to `import::run` renamed to the init on-ramp."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Drop the copy-to-`.temper/` step: init scans the harness and generates the manifest + skeleton over members IN PLACE (zero file moves, zero reformatting — a 40-artifact harness lands byte-identical, floor-governed, day one). In-place members carry no provenance (the file is its own source). `--lift` is the per-member migration that normalizes framing, never content."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Add the in-place read path: an in-place member's features are LIVE-extracted from its landscape file (`.claude/rules/x.md`), its joins declared in the manifest — no projection, no drift. Document/module members still arrive pre-extracted from the manifest (MANIFEST-GATE-READ)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "emit skips in-place members (no projection to compile); only document/module-carried members emit. In-place members' only freshness fact is the repository's own — they cannot drift."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Rename the `import` helper/driving to `init`; assert init leaves members byte-identical in place (no `.temper/` copy tree) and writes a manifest the gate reads clean."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/cli.rs", "asserts": "`temper init` scans a harness into a manifest + skeleton over members in place — zero file moves, byte-identical members — and `check` reads that manifest green; in-place members live-extract and cannot drift." }
+    ],
+    "acceptance": "`temper init [<harness-path>]` generates the config skeleton over members in place (no copy tree); `init --lift` migrates one member up a rung; check live-extracts in-place members; emit skips them; cargo fmt/clippy -D warnings/test green.",
+    "notes": "The on-ramp flip (Decision: adoption is a gradient — rungs gate-only / init / altitude, one manifest shape). Rejects migration-into-a-mirror (the retired import as a toll booth). Discovery already honors ignore rules + excludes .git (WALK-IGNORE-DISCIPLINE shipped) so an any-depth scan won't import a dep tree's members. Altitude lift (module carriage) needs the parked TS SDK — not this entry."
+  },
+  {
+    "tag": "EMIT-OWNED-PLACEMENTS",
+    "summary": "Reconcile `emit` and `install` so a whole-file re-emit no longer drops install's schema modeline / managed-by note — the two-projectors collision",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: surface authority is a declared posture, never a baked stance"
+    },
+    "gate": { "kind": "blockedBy", "tag": "INIT-ONRAMP" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "emit's `project_bytes` (drift.rs:553) currently re-emits the frontmatter block from `fields` only and never reads the on-disk projection, so it DROPS the schema modeline (a YAML comment) + reflows the YAML on every run. Make emit PRESERVE the install-placed lines: the modeline + managed-by note ride install (never emit-stamped — law 5 keeps the projection content-faithful), so a whole-file re-emit must carry those non-authored metadata lines through instead of clobbering them."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Align the modeline/note placement (`project_modeline` install.rs:630, `project_note` install.rs:653) with emit's preservation so the two projectors no longer fight over the same file: install owns placing/auditing them, emit round-trips them. Ends the `gate_installed` re-nudge loop that papers over emit dropping them."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Add a regression: place the modeline via install, then emit — assert the modeline + managed-by note SURVIVE (are not dropped/reflowed). Keep `the_managed_by_note_is_never_written_by_apply` (rename to emit) — the note still rides install, never emit-stamped."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/install.rs", "asserts": "an install-placed schema modeline + managed-by note survive a subsequent `emit` (preserved, not dropped or reflowed); emit still never stamps them itself." }
+    ],
+    "acceptance": "`emit` re-emits a rule/skill projection without dropping install's schema modeline or managed-by note; the install↔emit re-nudge loop is gone; the note is still install-placed, never emit-stamped (law 5); cargo fmt/clippy -D warnings/test green.",
+    "notes": "The 'two projectors, one file' ledger residual, tail of the wave. Per the surface-authority Decision the modeline/note ride install (never emit-stamped — law 5), so emit's whole-file re-emit must PRESERVE those install-placed lines, not own-and-stamp them. Landing this lifts the interim 'do not run bare apply/emit on rules' discipline."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
     "per": {
@@ -33,7 +301,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk re-confirmed both gaps: `Primitive` (now incl. `Directives`, shipped) still lacks `Fenced`; `Field` reads flat `frontmatter.get(key)`, no key-path; guard is parse_primitive. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+extract.rs. NOT the DIRECTIVES wave's `at-import` (a distinct directive primitive). If un-deferred while AGENT-KIND is open, serialize — shared src/kind.rs."
+    "notes": "Disk re-confirmed both gaps: `Primitive` (now incl. `Directives`, shipped) still lacks `Fenced`; `Field` reads flat `frontmatter.get(key)`, no key-path; guard is parse_primitive. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+extract.rs. NOT the DIRECTIVES wave's `at-import`. No file overlap with the floor-migration chain (kind.rs/extract.rs vs drift/import/check)."
   },
   {
     "tag": "AGENT-KIND",
@@ -82,7 +350,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Stays deferred: wrong direction under requirements/satisfies. NB shares src/kind.rs with EXTRACTION-VOCAB-GAPS and src/builtin.rs — serialize if un-deferred while either is open."
+    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with EXTRACTION-VOCAB-GAPS — serialize if both un-deferred."
   },
   {
     "tag": "PACKAGING-CHANNELS",
