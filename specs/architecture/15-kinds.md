@@ -247,6 +247,55 @@ document. What the declaration buys is the reachability predicate
 edge is dead — a blank skill `description`, a `paths` list matching zero files —
 is decidably unreachable, the harness-shaped analogue of dead code.
 
+## Directives — format-executed body syntax
+
+A **directive** is body-carried syntax the format authority documents as
+**executed** by the harness — not prose that mentions, grammar that *does*. The
+admission test is execution: a documented directive is a declaration that
+happens to live in the body (the body-side analogue of a structured field),
+where a mention is typography forever (the `references` retirement above). The
+vocabulary is closed, adapter-faced, and per-kind: a kind declares a directive
+extraction only where the authority documents the syntax as executed *for that
+kind's artifacts*.
+
+- **`at-import`** — an `@path/to/file` occurrence imports the target file into
+  context: documented for Claude Code memory files, recursion-capped, resolved
+  relative to the importing file (code.claude.com/docs/en/memory, retrieved
+  2026-07-02); Gemini documents the same grammar for its memory files
+  (geminicli.com/docs/cli/gemini-md, retrieved 2026-07-02). Adopted by the
+  shipped memory kinds once the extraction exists — never assumed for a kind
+  whose docs are silent (a skill body's `@` is unmodeled until cited).
+
+A directive yields **edges as facts**: each occurrence is an edge from the
+importing member to a path, resolved at check time against provenance —
+`source_path` is the join key between world paths and members. Three classes,
+three verdicts: a target resolving to a **member** is a member→member observed
+edge (it enters the relation graph, and reachability propagates over it —
+`45-governance.md`); a target resolving to an ungoverned **repo file** is a
+backed boundary edge; a target resolving to **nothing** is an **unbacked
+pointer** — the importing member's finding, the silent-context-loss failure
+class made author-time.
+
+### Decision: directives are observed structure — execution is the admission test
+
+**Chosen:** the extraction algebra admits body-carried syntax iff the format
+authority documents it as executed by the harness — a closed per-syntax
+vocabulary (`at-import`), one adapter face per syntax, declared per kind, cited
+at the point of claim. Directive edges are **observed, never authored**
+(`45-governance.md`, "observed format edges"): temper reads the format's own
+one-way behavior as fact and demands nothing of the target — the gate checks
+the pointer is backed and the graph stays sound, never consent. **Rejected:**
+(a) treating directives as prose — a broken `@path` import is silent context
+loss at runtime, the exact failure class `00-intent.md` moves to author-time;
+law 8 bans mining *mentions*, and this Decision leaves the `references`
+retirement fully in force (mention is not execution); (b) a generic
+reference/link primitive — retired above, stays retired: syntaxes are admitted
+one by one, each cited, never as a pattern language; (c) modeling a
+member-target import as an authored join — the format executes the import
+regardless of any consent ceremony temper invents (the demanded signature
+would be fiction, law 3), and per-import join authoring is trace rot by
+design.
+
 ## A kind definition — one composed object
 
 A kind is the **declare-side** object over the extraction algebra — with no code of
@@ -258,7 +307,9 @@ its own:
   declare as having their home here, and which declared fields are edges (the
   graph capability above);
 - **activation** (optional) — the kind's inherent world-edges (above): how the
-  harness reaches a member, and over which declared field.
+  harness reaches a member, and over which declared field;
+- **directives** (optional) — the format-executed body syntaxes the authority
+  documents for this kind's artifacts (above), each an edge-yielding extraction.
 
 The **require-side** is not part of the kind object — it is a **package** bound to the
 kind (`10-contracts.md`), carrying the clauses (`10-contracts.md`) over those features.

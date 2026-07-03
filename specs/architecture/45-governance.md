@@ -97,8 +97,15 @@ declares `[satisfies.lint-runner]` with its rationale. Delete the runner and
 the demand dangles — the graph lights up, because the obligation was declared
 on both ends.
 
-One-way edges are real, but they are **boundary phenomena** — they exist only
-where temper's world touches the world it does not govern, in exactly two
+One-way edges are real, but they are never **authored** in temper's
+vocabulary. They appear in two places. Inside the world's own formats they are
+**observed format edges**: structure a format authority documents as executed
+— an `@path` import (`15-kinds.md`, "Directives") — which temper extracts as
+fact and never authors; an observed edge carries no obligation either way, so
+its initiator may be a member (a memory file importing a rule) without
+touching the join doctrine — the gate checks it is backed, and reachability
+propagates over it (below). At the **governance boundary**, where temper's
+world touches the world it does not govern, they run in exactly two
 directions:
 
 - **Inbound — activation (world → member).** The harness reaches into the
@@ -134,10 +141,15 @@ runtime and repo temper observes but does not govern. Activation facts
 (`15-kinds.md`) are its edges into members; flattened pointers are members'
 edges out. This makes *dead artifacts* decidable:
 
-- **reachable** — the activation edge a member's kind declares is live. A skill
+- **reachable** — the activation edge a member's kind declares is live, **or a
+  reachable member imports it**: reachability closes over observed directive
+  edges (`15-kinds.md`, "Directives"), the target inheriting the importer's
+  liveness conditionally (imported only by an invocation-gated skill ⇒ live
+  exactly when the skill is), hop-capped as the format documents. A skill
   whose `description` is empty has a dead description-trigger edge (the harness
   has nothing to load); a rule whose `paths` globs match zero files in the repo
-  activates never. Each is an exact fact at check time — whether it gates, and
+  activates never — unless a reachable member imports it. Each is an exact
+  fact at check time — whether it gates, and
   at what severity, is the **assembly's declaration**, like `degree`: the graph
   scope is the assembly's, and a package clause is artifact-scope (the
   declare/require cleave above). A dead edge can be deliberate (a

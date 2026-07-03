@@ -41,12 +41,13 @@ walking up the directory tree," concatenates every ancestor's file root-to-
 working-directory, and lazy-loads descendant files when it reads under them
 (same doc, retrieved 2026-07-02). That nested, nearest-last shape is not
 expressible in one fixed-depth `governs` glob today; user scope
-(`~/.claude/CLAUDE.md`), local scope (`CLAUDE.local.md`), and the `@path` import
-graph (resolved relative to the importing file, absolute allowed, recursion
-capped at four hops; same doc) are likewise out of this definition's reach —
-`@path` lives in prose bodies, and the extraction algebra mines no references
-from prose (`specs/architecture/15-kinds.md`, "Decision: no body-mined
-references"; law 8, `specs/intent/00-intent.md`).
+(`~/.claude/CLAUDE.md`) and local scope (`CLAUDE.local.md`) are likewise out of
+this definition's reach. The `@path` import graph (resolved relative to the
+importing file, absolute allowed, recursion capped at four hops; same doc) is
+**format-executed syntax — a directive** (`specs/architecture/15-kinds.md`,
+"Directives — format-executed body syntax"): this kind adopts the `at-import`
+extraction when it ships, and mention-mining stays retired (law 8,
+`specs/intent/00-intent.md`).
 
 Kind identity is qualified `claude-code.memory` — the `provider` header names the
 authority that defines the format, and placement mirrors identity
