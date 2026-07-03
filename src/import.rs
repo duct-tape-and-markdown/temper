@@ -118,32 +118,84 @@ pub(crate) struct RollupEntry {
 /// Idempotent over an unchanged harness. See the module header for the discovery
 /// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
-    // Drive the built-in scan off the embedded kind set, never a `["skill","rule"]`
-    // literal: every embedded built-in kind imports through the one generic frontmatter
-    // adapter, so a third embedded kind discovers its members with no per-kind writer
-    // (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"). The set is
-    // keyed by qualified identity, but discovery and the roll-up section key are each
-    // kind's own bare `name` — the same name the hardcoded pair passed.
-    let builtins = builtin_kind::definitions()?;
-    let mut builtin_rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
+    run_with_builtins(harness_path, into, &builtin_kind::definitions()?)
+}
+
+/// Import against an explicit embedded kind set — the seam [`run`] drives with
+/// [`builtin_kind::definitions`], factored out so the two-provider co-embedding a bare
+/// name (the shadow and qualified-lock-key cases) is testable without waiting on the
+/// curated carriers landing in the compiled-in table.
+///
+/// `builtins` is keyed by qualified identity (`<provider>.<name>`), so two carriers of
+/// one bare name are distinct entries.
+fn run_with_builtins(
+    harness_path: &Path,
+    into: &Path,
+    builtins: &BTreeMap<String, CustomKind>,
+) -> miette::Result<()> {
+    // A registration owns its bare name outright (`specs/architecture/15-kinds.md`,
+    // "Decision: kind identity carries a provider axis"). Resolve each registered bare
+    // name against the embedded set: a UNIQUE embedded carrier is *layered* (the built-in
+    // scans below; the registration is a require-side package), a name carried by two or
+    // more embedded kinds is *shadowed* (the registration provides its own custom
+    // definition and the ambiguous carriers drop out of the built-in scan — "embedded
+    // kinds collide among themselves only over references no registration claims"), and a
+    // name with no carrier is an ordinary custom kind.
+    let layer = AuthorLayer::load(&harness_path.join("temper.toml"))?;
+    let shadowed: BTreeSet<String> = layer
+        .as_ref()
+        .map(|layer| {
+            layer
+                .registered_kinds()
+                .filter(|name| carrier_count(builtins, name) >= 2)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Built-in scan: every non-shadowed embedded kind that discovers at least one member
+    // (a memberless kind writes no section — an empty `ArrayOfTables` vanishes on the toml
+    // round-trip, so the skip matches that reality). The section key mirrors
+    // `resolve_bare`'s policy: bare while the name is unique among member-discovering
+    // kinds, qualified (`<provider>.<name>`) where two carriers of one bare name both
+    // discover members, so one carrier's rows never clobber another's.
+    let mut discovered: Vec<(String, String, Vec<RollupEntry>)> = Vec::new();
     for kind in builtins.values() {
+        if shadowed.contains(&kind.name) {
+            continue;
+        }
         let rows = import_frontmatter_kind(harness_path, into, kind)?;
-        builtin_rollups.insert(kind.name.clone(), rows);
+        if rows.is_empty() {
+            continue;
+        }
+        discovered.push((kind.name.clone(), kind.qualified_name(), rows));
+    }
+    let mut bare_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for (bare, _, _) in &discovered {
+        *bare_counts.entry(bare.clone()).or_default() += 1;
+    }
+    let mut builtin_rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
+    for (bare, qualified, rows) in discovered {
+        let key = if bare_counts[&bare] > 1 {
+            qualified
+        } else {
+            bare
+        };
+        builtin_rollups.insert(key, rows);
     }
 
     // A custom kind's definition — the `governs` locus discovery keys on — is the
     // authored `<harness>/.temper/kinds/<name>/KIND.md`, not an inline `temper.toml`
-    // block (specs/architecture/40-composition.md). The custom-vs-built-in split reads off the
-    // same embedded set, not a literal: a `[kind.<name>]` naming an embedded built-in's
-    // bare name is a built-in layer, already scanned above. Absent a registered custom
-    // kind, only the built-ins import.
-    let builtin_names: BTreeSet<&str> = builtins.values().map(|kind| kind.name.as_str()).collect();
-    let layer = AuthorLayer::load(&harness_path.join("temper.toml"))?;
+    // block (`specs/architecture/40-composition.md`). A registration with a *unique*
+    // embedded carrier is a built-in layer, already scanned above; one with none (an
+    // ordinary custom kind) or two-plus (shadowing the ambiguous carriers) loads and
+    // scans its own definition. Absent a registered custom kind, only the built-ins
+    // import.
     let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     if let Some(layer) = &layer {
         let kinds_dir = harness_path.join(".temper").join("kinds");
         for name in layer.registered_kinds() {
-            if builtin_names.contains(name) {
+            if carrier_count(builtins, name) == 1 {
                 continue;
             }
             let kind = CustomKind::load(&kinds_dir, name)?;
@@ -160,6 +212,14 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
     write_rollup(into, &builtin_rollups, &custom)?;
 
     Ok(())
+}
+
+/// How many embedded kinds carry the bare `name` — zero (an ordinary custom kind), one
+/// (a layerable built-in), or two-plus (an ambiguous set a registration shadows). The
+/// `builtins` map is keyed by qualified identity, so two providers of one bare name count
+/// as two.
+fn carrier_count(builtins: &BTreeMap<String, CustomKind>, name: &str) -> usize {
+    builtins.values().filter(|kind| kind.name == name).count()
 }
 
 /// Import every source of one built-in frontmatter kind (`skill`, `rule`) into the
@@ -624,14 +684,16 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 }
 
 /// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per imported member —
-/// the built-in kinds first (name-sorted) then the custom kinds (name-sorted) — each
-/// with `name`, `source_path`, `import_hash`, and the `last_applied` fingerprint. Both
-/// maps are name-keyed, so the emitted order is deterministic and a third embedded
-/// built-in kind takes its own name-sorted slot with no code change here.
+/// the built-in kinds first (key-sorted) then the custom kinds (name-sorted) — each with
+/// `name`, `source_path`, `import_hash`, and the `last_applied` fingerprint. Both maps
+/// are key-sorted, so the emitted order is deterministic and a third embedded built-in
+/// kind takes its own slot with no code change here. A built-in section's key is the bare
+/// name, or the qualified `<provider>.<name>` where two carriers of one bare name both
+/// discovered members ([`run_with_builtins`]).
 ///
-/// An empty kind renders to no bytes (an empty `ArrayOfTables` emits nothing), so
-/// a harness with only some kinds yields exactly the rows it has — a skill-only
-/// harness with no declared custom kind emits `[[skill]]` rows and nothing else.
+/// The caller filters memberless built-in kinds before this point, matching the toml
+/// round-trip reality: an empty `ArrayOfTables` emits nothing, so a written-then-vanished
+/// section would break idempotence against a re-parse that never sees it.
 fn write_rollup(
     into: &Path,
     builtins: &BTreeMap<String, Vec<RollupEntry>>,
@@ -1245,9 +1307,12 @@ temper's own governing documents.\n";
     #[test]
     fn builtin_scan_is_generic_over_the_embedded_kind_set() {
         // The scan is driven off `builtin_kind::definitions()`, not the old
-        // `["skill","rule"]` literal: every embedded built-in kind gets its own roll-up
-        // section, keyed by its bare name, so a third embedded kind would be discovered
-        // here without a code change — the guarantee the hardcoded pair could not give.
+        // `["skill","rule"]` literal: an embedded built-in kind gets its own roll-up
+        // section — keyed by its bare name while unique — so a third embedded kind would
+        // be discovered here without a code change. A section is written *exactly* for a
+        // kind that discovered members, never for every embedded kind: an empty
+        // `ArrayOfTables` vanishes on the toml round-trip, so a memberless section could
+        // not survive a re-parse anyway.
         let harness = tmpdir("generic-src");
         write_fixture_harness(&harness);
         let into = tmpdir("generic-into");
@@ -1259,21 +1324,21 @@ temper's own governing documents.\n";
             .parse::<DocumentMut>()
             .unwrap();
 
-        // Every embedded built-in kind — read off `definitions()` by its bare name, the
-        // key the roll-up uses — has its section. The scan iterates the whole set, not a
-        // literal, so this ranges over exactly the embedded kinds.
+        // The embedded set carries at least skill and rule, and the fixture gives each
+        // members — so each writes a bare-keyed section (unique among member-discovering
+        // kinds). No section exists for a kind that discovered nothing.
         let builtins = crate::builtin_kind::definitions().unwrap();
         let bare_names: Vec<&str> = builtins.values().map(|kind| kind.name.as_str()).collect();
         assert!(
             bare_names.contains(&"skill") && bare_names.contains(&"rule"),
             "the embedded set must carry at least skill and rule"
         );
-        for name in &bare_names {
+        for name in ["skill", "rule"] {
             assert!(
                 doc.get(name)
                     .and_then(|item| item.as_array_of_tables())
-                    .is_some(),
-                "roll-up is missing a section for embedded built-in kind `{name}`"
+                    .is_some_and(|rows| !rows.is_empty()),
+                "roll-up is missing the section for member-discovering kind `{name}`"
             );
         }
 
@@ -1297,6 +1362,160 @@ temper's own governing documents.\n";
         // change a single byte of its deterministic, name-sorted layout.
         let first = tree_bytes(&into);
         run(&harness, &into).unwrap();
+        assert_eq!(first, tree_bytes(&into));
+    }
+
+    /// A `<provider>`-qualified embedded carrier of a given bare `name`, scanning `root`
+    /// with `glob` — the shape the compiled-in table gains once the curated carriers land.
+    /// A built-in kind rides the frontmatter face, so it needs no declared `format`.
+    fn embedded_carrier(name: &str, provider: &str, root: &str, glob: &str) -> CustomKind {
+        let src = format!(
+            "governs = {{ root = \"{root}\", glob = \"{glob}\" }}\nprovider = \"{provider}\"\n"
+        );
+        let doc = src.parse::<DocumentMut>().unwrap();
+        CustomKind::from_header(doc.as_table(), name, Path::new("kinds/x/y/KIND.md")).unwrap()
+    }
+
+    #[test]
+    fn a_registration_shadows_two_embedded_carriers_of_its_bare_name() {
+        // Two providers co-embed a bare `memory` kind; the project registers its own
+        // `memory` custom kind over `**/MEMORY.md`. Registration owns the bare name: the
+        // embedded carriers are shadowed and the project kind imports its members — never
+        // silently preempted (`specs/architecture/15-kinds.md`, "Decision: kind identity
+        // carries a provider axis").
+        let harness = tmpdir("shadow-src");
+        write_fixture_harness(&harness);
+        register_custom_kind(
+            &harness,
+            "memory",
+            "+++\n\
+governs = { root = \"memory\", glob = \"**/MEMORY.md\" }\n\
+unit_shape = \"file\"\n\
++++\n\
+# The memory kind\n",
+        );
+        let mem = harness.join("memory");
+        fs::create_dir_all(mem.join("api")).unwrap();
+        fs::write(mem.join("MEMORY.md"), "root memory\n").unwrap();
+        fs::write(mem.join("api").join("MEMORY.md"), "api memory\n").unwrap();
+
+        // The two carriers scan the *same* `memory` locus, so an un-shadowed carrier would
+        // preempt the project kind (symptom A) or clobber its lock rows (symptom C).
+        let mut builtins = builtin_kind::definitions().unwrap();
+        for provider in ["agents-md", "claude-code"] {
+            let carrier = embedded_carrier("memory", provider, "memory", "**/MEMORY.md");
+            builtins.insert(carrier.qualified_name(), carrier);
+        }
+
+        let into = tmpdir("shadow-into");
+        run_with_builtins(&harness, &into, &builtins).unwrap();
+
+        let doc = fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        // The project's `memory` kind imported its members — not preempted by the carriers.
+        let names: Vec<&str> = doc["memory"]
+            .as_array_of_tables()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["MEMORY", "api-MEMORY"]);
+        // The shadowed carriers wrote no section under either qualified identity.
+        assert!(doc.get("agents-md.memory").is_none());
+        assert!(doc.get("claude-code.memory").is_none());
+        // The members are real on disk, folded to distinct placement ids.
+        assert!(
+            into.join("memory")
+                .join("MEMORY")
+                .join("MEMORY.md")
+                .is_file()
+        );
+        assert!(
+            into.join("memory")
+                .join("api-MEMORY")
+                .join("MEMORY.md")
+                .is_file()
+        );
+    }
+
+    #[test]
+    fn a_memberless_embedded_kind_writes_no_lock_section() {
+        // An embedded carrier whose locus holds no members discovers nothing, so it writes
+        // no section — matching the toml round-trip reality (an empty `ArrayOfTables`
+        // vanishes). The fixture has no `memory/` corpus, so the carrier is memberless.
+        let harness = tmpdir("memberless-src");
+        write_fixture_harness(&harness);
+
+        let mut builtins = builtin_kind::definitions().unwrap();
+        let carrier = embedded_carrier("memory", "claude-code", "memory", "**/MEMORY.md");
+        builtins.insert(carrier.qualified_name(), carrier);
+
+        let into = tmpdir("memberless-into");
+        run_with_builtins(&harness, &into, &builtins).unwrap();
+
+        let doc = fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        // No section under the bare name nor the qualified one — the carrier found nothing.
+        assert!(doc.get("memory").is_none());
+        assert!(doc.get("claude-code.memory").is_none());
+        // The member-discovering kinds still write their bare-keyed sections.
+        assert!(doc.get("skill").is_some());
+        assert!(doc.get("rule").is_some());
+    }
+
+    #[test]
+    fn two_co_discovering_carriers_key_their_lock_rows_by_qualified_identity() {
+        // Two embedded carriers of the bare `memory` name BOTH discover members in one
+        // harness, with no registration shadowing them. Each keys its roll-up rows by
+        // qualified identity — `agents-md.memory` vs `claude-code.memory` — so neither
+        // clobbers the other (symptom C): `resolve_bare`'s bare-while-unique,
+        // qualified-where-two-meet policy, mirrored on the lock key.
+        let harness = tmpdir("qualified-src");
+        write_fixture_harness(&harness);
+        fs::create_dir_all(harness.join("agents")).unwrap();
+        fs::write(harness.join("agents").join("MEMORY.md"), "a\n").unwrap();
+        fs::create_dir_all(harness.join("cc")).unwrap();
+        fs::write(harness.join("cc").join("MEMORY.md"), "c\n").unwrap();
+
+        // Distinct loci, so both carriers find exactly one member each and their surfaces
+        // never overlap.
+        let mut builtins = builtin_kind::definitions().unwrap();
+        let a = embedded_carrier("memory", "agents-md", "agents", "*.md");
+        let c = embedded_carrier("memory", "claude-code", "cc", "*.md");
+        builtins.insert(a.qualified_name(), a);
+        builtins.insert(c.qualified_name(), c);
+
+        let into = tmpdir("qualified-into");
+        run_with_builtins(&harness, &into, &builtins).unwrap();
+
+        let doc = fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        // Bare `memory` is not a key — two carriers meet, so each qualifies.
+        assert!(doc.get("memory").is_none());
+        assert_eq!(
+            doc["agents-md.memory"].as_array_of_tables().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            doc["claude-code.memory"]
+                .as_array_of_tables()
+                .unwrap()
+                .len(),
+            1
+        );
+        // skill and rule stay bare — each unique among member-discovering kinds.
+        assert!(doc.get("skill").is_some());
+        assert!(doc.get("rule").is_some());
+
+        // Deterministic and idempotent even with the qualified keys in play.
+        let first = tree_bytes(&into);
+        run_with_builtins(&harness, &into, &builtins).unwrap();
         assert_eq!(first, tree_bytes(&into));
     }
 
