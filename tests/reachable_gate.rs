@@ -158,6 +158,83 @@ fn reachability_toml(severity: &str) -> String {
     format!("[reachability]\nseverity = \"{severity}\"\n")
 }
 
+/// Import a rules-only harness into `<root>/.temper`, returning the harness dir so a
+/// caller can author a custom-kind member whose provenance `source_path` lands in the
+/// *same* coordinate system `import` records (an absolute path rooted at the harness) —
+/// the join key the directive classing resolves a member→member edge over.
+fn import_rules(root: &Path, rules: &[(&str, String)]) -> PathBuf {
+    let harness = tmpdir("harness");
+    // Both surface roots created so `import` scans a well-formed tree even with no skills.
+    fs::create_dir_all(harness.join(".claude").join("skills")).unwrap();
+    let rules_root = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules_root).unwrap();
+    for (name, md) in rules {
+        fs::write(rules_root.join(format!("{name}.md")), md).unwrap();
+    }
+
+    let status = Command::new(BIN)
+        .arg("import")
+        .arg(&harness)
+        .arg("--into")
+        .arg(root.join(".temper"))
+        .status()
+        .unwrap();
+    assert!(status.success(), "import should succeed: {status}");
+    harness
+}
+
+/// Author a custom `note` kind whose members compose the `at-import` directive and
+/// declare no activation (⇒ unconditionally live, an always-reachable importer), a
+/// no-clause bound package, and one member `member_id` importing `import_target` (a path
+/// relative to the member's directory). The member's provenance `source_path` is set
+/// consistent with the harness coordinate system `import` records — an absolute path
+/// rooted at `harness` — so the directive resolves to the imported target member and a
+/// member→member edge forms. This is the wired directive-edge path (a memory member
+/// would be the natural importer, but the built-in `memory` kind is not yet fed into the
+/// directive classing corpus).
+fn author_live_note_importing(root: &Path, harness: &Path, member_id: &str, import_target: &str) {
+    let kind = root.join(".temper").join("kinds").join("note");
+    fs::create_dir_all(&kind).unwrap();
+    fs::write(
+        kind.join("KIND.md"),
+        "+++\n\
+         governs = { root = \"notes\", glob = \"*.md\" }\n\
+         \n\
+         [[extraction]]\n\
+         primitive = \"directives\"\n\
+         syntax = \"at-import\"\n\
+         +++\n\
+         # The note kind\n\
+         \n\
+         Notes import other members via `@`-directives.\n",
+    )
+    .unwrap();
+
+    let pkg = root.join(".temper").join("packages").join("note");
+    fs::create_dir_all(&pkg).unwrap();
+    fs::write(
+        pkg.join("PACKAGE.md"),
+        "+++\n+++\n# The note package\n\nNo clauses — the closure is what this pins.\n",
+    )
+    .unwrap();
+
+    let dir = root.join(".temper").join("notes").join(member_id);
+    fs::create_dir_all(&dir).unwrap();
+    let source_path = harness.join("notes").join(format!("{member_id}.md"));
+    let document = format!(
+        "+++\n\
+         [provenance]\n\
+         source_path = \"{}\"\n\
+         import_hash = \"deadbeef\"\n\
+         +++\n\
+         # {member_id}\n\
+         \n\
+         See @{import_target} for the details.\n",
+        source_path.display()
+    );
+    fs::write(dir.join("NOTE.md"), document).unwrap();
+}
+
 #[test]
 fn a_dead_description_trigger_fires_at_the_declared_required_severity() {
     let root = tmpdir("dead-desc-required");
@@ -288,6 +365,54 @@ fn absent_the_opt_in_a_dead_edge_is_silent() {
     assert!(
         !run.output.contains("graph.reachable"),
         "the reachability predicate does not run without the assembly opt-in, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_dead_member_a_reachable_member_imports_is_rescued_while_an_orphan_still_fires() {
+    let root = tmpdir("import-rescue");
+    // Two rules, each scoped to a glob matching no repo file — both have a dead own
+    // paths-match world-edge. `scoped` is imported by an always-live note member; `orphan`
+    // is imported by nobody.
+    let harness = import_rules(
+        &root,
+        &[
+            ("scoped", paths_rule("nowhere/**/*.md")),
+            ("orphan", paths_rule("nowhere/**/*.md")),
+        ],
+    );
+    // The unconditionally-live note member imports `scoped` via an `@`-directive — the
+    // observed member→member edge reachability closes over.
+    author_live_note_importing(&root, &harness, "importer", "../.claude/rules/scoped.md");
+    write_temper_toml(
+        &root,
+        &format!(
+            "[kind.note]\npackage = \"note\"\n{}",
+            reachability_toml("required")
+        ),
+    );
+
+    let run = check_in(&root);
+    // `orphan` is genuinely unreachable — its own edge is dead and nothing imports it — so
+    // it still fires and fails the run: the closure narrows the finding, it does not mute
+    // the predicate.
+    assert!(
+        !run.ok,
+        "a genuinely orphaned dead member must still fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("graph.reachable") && run.output.contains("orphan"),
+        "the orphaned dead member still fires the reachability finding, got:\n{}",
+        run.output
+    );
+    // `scoped` is reached by the live importer, so its dead own-edge is inherited-live —
+    // the false positive (a directive-imported zero-match `paths` rule reading as dead) is
+    // fixed, and no finding names it.
+    assert!(
+        !run.output.contains("scoped"),
+        "a dead member a reachable member imports must NOT fire the dead-edge finding, got:\n{}",
         run.output
     );
 }

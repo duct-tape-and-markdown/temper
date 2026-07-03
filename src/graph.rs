@@ -10,7 +10,8 @@
 //! kind, checked before the graph is trusted), [`acyclic`] (no circular import),
 //! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
 //! [`reachable`] (a member's inbound activation edge from the distinguished [`world`]
-//! node is live, `specs/architecture/45-governance.md`, "The world is a node"). The first four
+//! node is live, or a reachable member imports it — closing over the observed directive
+//! edges, `specs/architecture/45-governance.md`, "The world is a node"). The first four
 //! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
 //! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 
@@ -48,6 +49,12 @@ const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
 /// observed body structure, `specs/architecture/15-kinds.md`, "Directives"). Lets a reader
 /// tell a directive edge from a declared reference edge in the one resolved-edge set.
 const DIRECTIVE_FIELD: &str = "at-import";
+
+/// The maximum import-recursion depth reachability propagates a live importer's
+/// liveness across — the `at-import` grammar is recursion-capped at five hops
+/// (code.claude.com/docs/en/memory, retrieved 2026-07-02), so an import chain
+/// deeper than this loads nothing at runtime and cannot carry liveness either.
+const MAX_IMPORT_HOPS: usize = 5;
 
 /// A node in the artifact-level reference graph: `(kind, id)`. An id is unique only
 /// *within* a kind and an edge resolves only within its target kind, so the kind is
@@ -332,22 +339,28 @@ fn out_of_degree(
 }
 
 /// Check the graph-scope **`reachable`** predicate (`specs/architecture/45-governance.md`, "The
-/// world is a node — reachability is a predicate"): for each member of a kind that
-/// declares an [`Activation`], return a finding when the inbound activation edge from
-/// the [`world`] node is provably dead — a `description-trigger` member whose named
-/// field is blank (the harness loads nothing) or a `paths-match` member whose globs
-/// match no file in `repo_files` (the harness activates it never). Each is an exact
-/// fact at check time.
+/// world is a node — reachability is a predicate"): a member is reachable when its own
+/// inbound activation edge from the [`world`] node is live **or a reachable member
+/// imports it** — the closure over the observed directive edges. Return a finding only
+/// for a member whose own activation edge is provably dead — a `description-trigger`
+/// field that is blank (the harness loads nothing) or a `paths-match` glob set matching
+/// no file in `repo_files` (the harness activates it never) — *and* that no live
+/// importer reaches. Each is an exact fact at check time.
 ///
 /// `activations` maps a kind to the single [`Activation`] its definition declares;
 /// `by_kind` is the same corpus map the other predicates read; `repo_files` is the
-/// repo file-set the `paths-match` globs are tested against — a **parameter**, not a
-/// graph dependency, so the blast radius stays this module and the predicate is pure
-/// and testable. A kind that declares no activation contributes no entry to
-/// `activations` and is not subject; an `always` edge is unconditionally live and an
-/// `event` edge carries no repo-decidable dead criterion the spec names, so neither
-/// fires. Members iterate in the corpus's candidate order under each name-sorted kind,
-/// so findings are stable.
+/// repo file-set the `paths-match` globs are tested against; `edges` is the observed
+/// member→member directive edge set ([`classify_directives`]'s `edges`) reachability
+/// closes over. All are **parameters**, not graph dependencies, so the blast radius
+/// stays this module and the predicate is pure and testable. A kind that declares no
+/// activation contributes no entry to `activations` and is not subject to a *finding*,
+/// but its members are unconditionally live and so can carry liveness across an import
+/// edge (a memory member that imports a rule); an `always` edge is unconditionally live
+/// and an `event` edge carries no repo-decidable dead criterion the spec names, so
+/// neither fires. Liveness propagates along a directive edge from a live importer to
+/// its target, hop-capped at [`MAX_IMPORT_HOPS`] as the format documents, so the target
+/// inherits the importer's liveness conditionally. Members iterate in the corpus's
+/// candidate order under each name-sorted kind, so findings are stable.
 ///
 /// `severity` is the **assembly's** declaration (`specs/architecture/45-governance.md`, "The world
 /// is a node" — resolved `reachability-gate-mechanism` option b): whether a dead edge
@@ -358,19 +371,79 @@ pub fn reachable(
     activations: &BTreeMap<&str, Activation>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
+    edges: &[ResolvedEdge],
     severity: Severity,
 ) -> Vec<Diagnostic> {
     let world = world();
+    // The reachability closure: every member reachable from the world — own activation
+    // live, or reached along a directive edge from a live importer within the hop cap.
+    let live = live_members(activations, by_kind, repo_files, edges);
     let mut diagnostics = Vec::new();
     for (kind, activation) in activations {
         let members = by_kind.get(kind).copied().unwrap_or(&[]);
         for member in members {
+            // Fire only when the own edge is dead *and* no live importer reaches the
+            // member — conditional inheritance: a dead-own member imported by a reachable
+            // one is live, so it stays silent.
             if let Some(reason) = dead_activation(activation, member, repo_files) {
-                diagnostics.push(unreachable(&world, kind, &member.id, &reason, severity));
+                let node = ((*kind).to_string(), member.id.clone());
+                if !live.contains(&node) {
+                    diagnostics.push(unreachable(&world, kind, &member.id, &reason, severity));
+                }
             }
         }
     }
     diagnostics
+}
+
+/// The set of members reachable from the [`world`] node — the closure the [`reachable`]
+/// predicate consults. Seeds every member whose **own** activation edge is live (its
+/// kind declares no activation ⇒ unconditionally live, or [`dead_activation`] finds the
+/// edge live), then propagates liveness along the observed directive `edges` from a live
+/// importer to its target, breadth-first and capped at [`MAX_IMPORT_HOPS`] hops (the
+/// `at-import` recursion depth the format documents) — a target reached within the cap
+/// of a live importer inherits its liveness.
+fn live_members(
+    activations: &BTreeMap<&str, Activation>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    repo_files: &[String],
+    edges: &[ResolvedEdge],
+) -> BTreeSet<Node> {
+    // Seed: every member whose own world-edge is live. A kind absent from `activations`
+    // declares no activation, so its members load unconditionally and seed the closure —
+    // `by_kind` carries every kind, so an always-live importer is in scope.
+    let mut live: BTreeSet<Node> = BTreeSet::new();
+    for (kind, members) in by_kind {
+        for member in *members {
+            let own_live = match activations.get(kind) {
+                None => true,
+                Some(activation) => dead_activation(activation, member, repo_files).is_none(),
+            };
+            if own_live {
+                live.insert(((*kind).to_string(), member.id.clone()));
+            }
+        }
+    }
+
+    // Propagate along directive edges, one hop per round, capped at the format's import
+    // recursion depth. Each newly-live node expands exactly once, the round after it
+    // goes live, so a chain longer than the cap carries no liveness — as the runtime's
+    // recursion cap loads nothing past it.
+    let mut frontier: BTreeSet<Node> = live.iter().cloned().collect();
+    for _ in 0..MAX_IMPORT_HOPS {
+        let mut next: BTreeSet<Node> = BTreeSet::new();
+        for edge in edges {
+            if frontier.contains(&edge.from) && !live.contains(&edge.to) {
+                live.insert(edge.to.clone());
+                next.insert(edge.to.clone());
+            }
+        }
+        if next.is_empty() {
+            break;
+        }
+        frontier = next;
+    }
+    live
 }
 
 /// Whether a member's declared [`Activation`] edge from the world is **provably dead**,

@@ -826,6 +826,7 @@ fn gate(
                 &activations,
                 &by_kind,
                 &repo_files,
+                &directive_classing.edges,
                 engine::severity_of(reachability.severity),
             ));
         }
