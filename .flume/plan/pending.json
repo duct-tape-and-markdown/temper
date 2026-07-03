@@ -7,8 +7,7 @@
       "section": "Drift — one direction, two freshness facts (the hard core)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "READD-RETIRE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
