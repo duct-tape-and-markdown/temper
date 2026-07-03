@@ -1,45 +1,15 @@
 [
   {
-    "tag": "DIRECTIVES-PRIMITIVE-PARSE",
-    "summary": "Add the `directives` extraction primitive — closed per-syntax vocab, sole member `at-import` (`@path` occurrences), extracted order-stable; parse + adapter face only, no gate wiring",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Directives — format-executed body syntax"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Extend the closed extraction algebra (`specs/architecture/15-kinds.md`, 'Directives — format-executed body syntax') with a `Primitive::Directives { syntax }` variant carrying a typed closed per-syntax vocabulary whose sole member is `at-import` (an unknown syntax value is a load error, exactly like `parse_primitive`'s `UnknownPrimitive` reject over the primitive discriminator). Wire it through `key()` (discriminator string), `parse_primitive` (read the `syntax` param + validate against the closed vocab), and `apply()` (fold the member's extracted `@path` occurrences into the new `Features` field). No gate wiring — this slice only makes the primitive parse, compose, and extract."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Add a `directives` field to `Features` (order-stable target-path occurrences, mirroring how `headings`/`sections` carry body-derived features) and a `body_at_imports`-style reader over the byte-faithful body that yields each `@path/to/file` occurrence in document order and skips prose that merely mentions `@`. Grammar per the cited docs (`@path`, absolute allowed) — resolution/classing is slice 2, this slice only extracts the raw occurrence strings."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/extract_equivalence.rs",
-        "asserts": "a `directives` primitive with syntax `at-import` yields the body's `@path` occurrences in document order and skips a bare `@` in prose; an unknown `syntax` value is a load error (closed-vocab reject); occurrences are order-stable across re-extraction."
-      }
-    ],
-    "acceptance": "`Primitive::Directives { syntax }` is in the closed vocabulary, load-guarded on an unknown syntax, and composes over a `Unit` to yield `Features.directives`; a KIND.md declaring `primitive = \"directives\", syntax = \"at-import\"` extracts the member's `@path` occurrences; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Human adopts the `[[extraction]]` directive line into the memory KIND.md files only AFTER this ships — embeds must parse (the standing red-interim trap). Grammar/citations already in kinds/claude-code/memory/KIND.md prose + the spec. Unknown syntax is a load error like every closed vocab. Shares src/kind.rs+extract.rs with the deferred EXTRACTION-VOCAB-GAPS/AGENT-KIND — serialize those behind this if un-deferred."
-  },
-  {
     "tag": "DIRECTIVE-TARGET-CLASSING",
     "summary": "Resolve each extracted directive target at check time — member / backed world file / unbacked pointer; an unresolved target is a finding on the importing member",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Directives — format-executed body syntax"
     },
-    "gate": { "kind": "blockedBy", "tag": "DIRECTIVES-PRIMITIVE-PARSE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DIRECTIVES-PRIMITIVE-PARSE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
@@ -77,7 +47,10 @@
       "path": "specs/architecture/45-governance.md",
       "section": "The world is a node — reachability is a predicate"
     },
-    "gate": { "kind": "blockedBy", "tag": "DIRECTIVE-TARGET-CLASSING" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DIRECTIVE-TARGET-CLASSING"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
