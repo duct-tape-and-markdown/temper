@@ -1,3 +1,15 @@
+[["agents-md.memory"]]
+name = "AGENTS"
+source_path = "././AGENTS.md"
+import_hash = "2b3d873ddccae994d288fd155bfe98c3a96bdfcaa20e84366c920afbd66b17fa"
+last_applied = "2b3d873ddccae994d288fd155bfe98c3a96bdfcaa20e84366c920afbd66b17fa"
+
+[["claude-code.memory"]]
+name = "CLAUDE"
+source_path = "././CLAUDE.md"
+import_hash = "4f27dd54861bcdaa85a2eb03d38b354951eacd6efe0718b597ac8ad54f18f1d9"
+last_applied = "4f27dd54861bcdaa85a2eb03d38b354951eacd6efe0718b597ac8ad54f18f1d9"
+
 [[rule]]
 name = "collaboration"
 source_path = "./.claude/rules/collaboration.md"
@@ -19,8 +31,8 @@ last_applied = "75d1337d0abff4cea236c1fa5147cd7db48e7712dd40a294a68a09acff138d0e
 [[architecture]]
 name = "15-kinds"
 source_path = "./specs/architecture/15-kinds.md"
-import_hash = "dead96291f1a7bb15e81c18e099fe414d31e3f9fd61fc485398f7f3dd264ba02"
-last_applied = "dead96291f1a7bb15e81c18e099fe414d31e3f9fd61fc485398f7f3dd264ba02"
+import_hash = "abea94788bb0e3ba3933c03b2f6129e642a3a92e8899b1524101444a83f787f7"
+last_applied = "abea94788bb0e3ba3933c03b2f6129e642a3a92e8899b1524101444a83f787f7"
 
 [[architecture]]
 name = "20-surface"
@@ -43,8 +55,8 @@ last_applied = "78e65751b399ecf651fa7140c29e11de53f1d54b4fcfea4fa5756bd23fff3b19
 [[architecture]]
 name = "45-governance"
 source_path = "./specs/architecture/45-governance.md"
-import_hash = "0f4646b63ee3ab1cd99139191b00a6aee8d4cbf39d49471b0e88bc6171a041b8"
-last_applied = "0f4646b63ee3ab1cd99139191b00a6aee8d4cbf39d49471b0e88bc6171a041b8"
+import_hash = "b60ca723f724ef0c5b3efa8a0c7e37adc6aa6eb1ad04783d6249a883a52346ff"
+last_applied = "b60ca723f724ef0c5b3efa8a0c7e37adc6aa6eb1ad04783d6249a883a52346ff"
 
 [[architecture]]
 name = "50-distribution"
