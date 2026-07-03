@@ -1,0 +1,24 @@
+---
+source: tests/memory_contract.rs
+expression: surface
+---
+--- CLAUDE/MEMORY.md ---
++++
+[provenance]
+source_path = "[HARNESS]/CLAUDE.md"
+import_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
++++
+# temper
+
+Guidance the harness reads into every session.
+
+## Conventions
+
+Prefer a clone over a lifetime fight.   
+Keep it correct, clear, well-tested.
+--- lock.toml ---
+[[memory]]
+name = "CLAUDE"
+source_path = "[HARNESS]/CLAUDE.md"
+import_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
+last_applied = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
