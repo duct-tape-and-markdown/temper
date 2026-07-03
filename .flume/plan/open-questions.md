@@ -486,10 +486,13 @@ from exactly such a line fossilizing. If work touches one, surface it.
   short-circuit at import.rs:146 skips it as a built-in layer), and a memberless
   carrier's empty roll-up section vanishes on round-trip. The Decision now rules it
   (`15-kinds.md`: "an explicit registration owns its bare name outright" — a
-  registration shadows unbound embedded carriers). Filed **REGISTERED-KIND-SHADOWS-EMBEDDED**
-  (open this tick, sole pickable): registration wins its bare name in import,
-  memberless kinds write no section, two co-discovering carriers qualify their lock
-  keys. This is now the LAST engine prerequisite — it must ship before the human
-  commits the four curated files (per the inbox repro: co-embedding a second bare-`memory`
-  carrier reddens `cargo test` today). Ordering: REGISTERED-KIND-SHADOWS-EMBEDDED →
-  human curated-file commit → MEMORY-KIND validation → flip.
+  registration shadows unbound embedded carriers). **REGISTERED-KIND-SHADOWS-EMBEDDED
+  has now SHIPPED** (build 9fec9ab / chore c75075c; verified on disk this tick):
+  `src/import.rs` shadows a registered bare-`memory` kind over its two-plus co-embedded
+  carriers (the `builtin_names.contains` short-circuit no longer preempts a registration),
+  skips a memberless embedded kind so it writes no empty section, and keys two
+  co-discovering carriers' roll-up rows by qualified identity (`resolve_bare`). That was
+  the **last engine prerequisite** — the memory engine wave is now fully drained and
+  generic; nothing engine-side blocks the flip. The SOLE remaining prerequisite is the
+  human authoring/committing the four curated memory files (still absent on disk).
+  Ordering: human curated-file commit → MEMORY-KIND validation → flip.

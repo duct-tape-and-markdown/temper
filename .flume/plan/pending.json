@@ -1,14 +1,14 @@
 [
   {
     "tag": "MEMORY-KIND",
-    "summary": "Validate the memory kinds end-to-end once REGISTERED-KIND-SHADOWS-EMBEDDED ships and the human commits the curated KIND.md/PACKAGE.md — discover, clause-check, idempotent round-trip",
+    "summary": "Validate the memory kinds end-to-end once the human commits the four curated KIND.md/PACKAGE.md — discover, clause-check, idempotent round-trip (all engine prerequisites now shipped)",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Two categories of kind — ownership, not mechanism"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the engine wave AND SCAN-QUALIFIED-IDENTITY both shipped, but a second placement attempt surfaced a precedence gap now filed as REGISTERED-KIND-SHADOWS-EMBEDDED (2 red import tests: a registered bare-`memory` kind is preempted by co-embedded carriers). Per the inbox repro, that fix must ship BEFORE the four curated memory files can be committed. So this now waits on: (1) REGISTERED-KIND-SHADOWS-EMBEDDED landing, THEN (2) the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, cited to code.claude.com/docs/en/memory) — absent on disk today. Once both, this validation runs"
+      "reason": "the full memory engine wave, SCAN-QUALIFIED-IDENTITY, AND REGISTERED-KIND-SHADOWS-EMBEDDED have ALL shipped (verified on disk: import.rs shadows a registered bare-`memory` kind over co-embedded carriers, skips memberless carriers, qualifies co-discovering lock keys — 9fec9ab/c75075c). NO engine prerequisite remains. The sole blocker is the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, cited to code.claude.com/docs/en/memory) — still absent on disk (kinds/ carries only claude-code/{rule,skill}; packages/ only rule.anthropic + skill.anthropic). Once those four files land, this validation runs"
     },
     "dependsOnForks": [],
     "files": {
@@ -28,8 +28,8 @@
         "asserts": "the memory package's decidable clauses fire on broken fixtures and stay silent on clean; a no-frontmatter File-shaped memory member imports and re-emits idempotently (insta snapshot); the two bare-`memory` providers resolve by qualified identity with no spurious collision on non-colliding lookups."
       }
     ],
-    "acceptance": "With the wave shipped, SCAN-QUALIFIED-IDENTITY + REGISTERED-KIND-SHADOWS-EMBEDDED landed, and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
-    "notes": "Engine wave (5 slices) + SCAN-QUALIFIED-IDENTITY SHIPPED. New engine prerequisite: REGISTERED-KIND-SHADOWS-EMBEDDED (filed open this tick) must ship before the curated files commit (inbox repro: co-embedding a second bare-`memory` carrier reddens import today). Flip-ceremony validation still parks on the human committing the four curated files (absent on disk). `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
+    "acceptance": "With every engine prerequisite shipped and the four curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
+    "notes": "Engine wave (5 slices) + SCAN-QUALIFIED-IDENTITY + REGISTERED-KIND-SHADOWS-EMBEDDED all SHIPPED (verified on disk) — no engine prerequisite remains. Flip-ceremony validation parks solely on the human committing the four curated memory files (absent on disk). `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
