@@ -1,0 +1,15 @@
+---
+source: tests/read_verbs.rs
+assertion_line: 527
+expression: run.stdout
+---
+Member `00-intent` (spec) — the blast radius if it is removed or renamed:
+
+Requirements left unfilled: none — every requirement it fills has another satisfier, so its removal drops no requirement to zero coverage.
+
+`satisfies` left dangling (it alone publishes these demands, so removing it leaves each opt-in resolving to nothing):
+  • `45-governance` (spec) fills `governance`, which only `00-intent` publishes — its `satisfies` link would dangle.
+
+Directive edges left unbacked: none — no member `@import`s it, so removing it leaves no import pointing at nothing.
+
+Reachability that dies with it: none — no member depends on it to reach the harness, so removing it leaves every other member as reachable as before.

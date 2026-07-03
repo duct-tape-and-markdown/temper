@@ -230,6 +230,16 @@ enum Command {
         /// A single requirement to walk in reverse; omitted ⇒ the whole roster.
         name: Option<String>,
     },
+    /// Read (`specs/architecture/20-surface.md`): narrate a member's **blast radius** — what
+    /// strands if it is removed or renamed: the requirements it alone fills (left
+    /// unfilled), the `satisfies` onto demands it alone publishes (left dangling), the
+    /// `@import` edges pointing at it (left unbacked), and the members reachable only
+    /// through it (gone dead). The deterministic tier-1 traversal over the graph `check`
+    /// carries; never gates, exits zero.
+    Impact {
+        /// The member (a skill, rule, or custom-kind member) to trace the blast radius of.
+        member: String,
+    },
 }
 
 /// The machine format `check` renders its diagnostic set in
@@ -530,6 +540,79 @@ fn main() -> miette::Result<ExitCode> {
             print!(
                 "{}",
                 read::requirements(&ws, &custom_members, &roster, name.as_deref())
+            );
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Impact { member } => {
+            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
+            let layer = load_layer(Path::new(TEMPER_TOML))?;
+
+            // The blast radius reads the same graph inputs the gate's predicates range
+            // over (READ-EDGE-UNIFY): the by-kind feature corpus, the composed roster,
+            // the observed directive edges, and each kind's activation — so `impact`
+            // cannot disagree with a green `check`.
+            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
+            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
+            let skill_features: Vec<extract::Features> = skill_units
+                .iter()
+                .map(builtin_kind::skill_features)
+                .collect::<Result<_, _>>()?;
+            let rule_features: Vec<extract::Features> = rule_units
+                .iter()
+                .map(builtin_kind::rule_features)
+                .collect::<Result<_, _>>()?;
+            let kinds_dir = workspace.join("kinds");
+            let custom_kinds = match layer.as_ref() {
+                Some(layer) => custom_kinds_and_edges(&workspace, layer, &kinds_dir)?.0,
+                None => Vec::new(),
+            };
+            let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
+            let roster = composed_roster(
+                layer.as_ref(),
+                &skill_features,
+                &rule_features,
+                &custom_kinds,
+            );
+            // The assembly's own roster, kept distinct from the composed one so `impact`
+            // can tell a demand a member alone publishes from one the assembly carries.
+            let empty_roster = BTreeMap::new();
+            let assembly = layer
+                .as_ref()
+                .map_or(&empty_roster, compose::AuthorLayer::requirements);
+
+            // The world→member activation edges and the observed `@import` directive
+            // edges the reachability strand closes over — the same derivation the gate's
+            // `reachable` runs (`specs/architecture/45-governance.md`). Keyed by bare kind name,
+            // the keying `by_kind` and the directive classing join on.
+            let builtin_defs = builtin_kind::definitions()?;
+            let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
+            for def in builtin_defs.values() {
+                if let Some(activation) = &def.activation {
+                    activations.insert(def.name.as_str(), activation.clone());
+                }
+            }
+            for (name, custom, _features) in &custom_kinds {
+                if let Some(activation) = &custom.activation {
+                    activations.insert(name, activation.clone());
+                }
+            }
+
+            let base_dir = Path::new(".");
+            let repo_files = repo_file_set(base_dir);
+            let directive_members = collect_directive_members(&workspace, &custom_kinds)?;
+            let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
+
+            print!(
+                "{}",
+                read::impact(
+                    assembly,
+                    &roster,
+                    &by_kind,
+                    &activations,
+                    &repo_files,
+                    &directive_edges,
+                    &member,
+                )
             );
             Ok(ExitCode::SUCCESS)
         }

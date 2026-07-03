@@ -1,0 +1,15 @@
+---
+source: tests/read_verbs.rs
+assertion_line: 283
+expression: run.stdout
+---
+Member `dev-standards` (skill) — the blast radius if it is removed or renamed:
+
+Requirements left unfilled (it is the only member filling them):
+  • `engineering-standards` — required, so removing `dev-standards` leaves it unfilled and fails the gate.
+
+`satisfies` left dangling: none — it publishes no requirement that another member fills and no other surface publishes.
+
+Directive edges left unbacked: none — no member `@import`s it, so removing it leaves no import pointing at nothing.
+
+Reachability that dies with it: none — no member depends on it to reach the harness, so removing it leaves every other member as reachable as before.

@@ -1,0 +1,14 @@
+---
+source: tests/read_verbs.rs
+assertion_line: 293
+expression: run.stdout
+---
+Member `lint-runner` (skill) — the blast radius if it is removed or renamed:
+
+Requirements left unfilled: none — every requirement it fills has another satisfier, so its removal drops no requirement to zero coverage.
+
+`satisfies` left dangling: none — it publishes no requirement that another member fills and no other surface publishes.
+
+Directive edges left unbacked: none — no member `@import`s it, so removing it leaves no import pointing at nothing.
+
+Reachability that dies with it: none — no member depends on it to reach the harness, so removing it leaves every other member as reachable as before.

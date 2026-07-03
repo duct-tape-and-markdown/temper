@@ -396,6 +396,62 @@ pub fn reachable(
     diagnostics
 }
 
+/// The members whose reachability **dies** if the node `removed` is deleted or renamed
+/// (`specs/architecture/20-surface.md`, `impact`): every member live now that is no longer live
+/// once `removed`, and every directive edge touching it, is excised from the graph. The
+/// blast radius the graph promises (`specs/architecture/30-landscapes.md` law 6), read over the
+/// same [`live_members`] closure [`reachable`] stands on so the read agrees with the gate
+/// (READ-EDGE-UNIFY). `removed` itself is excluded — a removed member is trivially gone,
+/// not orphaned. Returned in sorted `(kind, id)` order for a stable narration.
+///
+/// A member drops out only through the *import* path: its own activation is dead and its
+/// sole live route was a directive edge from `removed` (or a chain through it), so
+/// re-running the closure without `removed` — and without any directive edge into or out
+/// of it — leaves it unreached. A member with a live own activation never drops, so this
+/// is silent unless `removed` was carrying another's liveness.
+#[must_use]
+pub(crate) fn reachability_orphaned(
+    removed: &Node,
+    activations: &BTreeMap<&str, Activation>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    repo_files: &[String],
+    edges: &[ResolvedEdge],
+) -> Vec<Node> {
+    let live_before = live_members(activations, by_kind, repo_files, edges);
+
+    // The graph with `removed` excised: its kind loses the member, and every directive
+    // edge touching it (in or out) goes with it. Owned so the reduced corpus outlives
+    // the borrowed `by_kind` view the closure reads.
+    let mut owned: BTreeMap<&str, Vec<Features>> = BTreeMap::new();
+    for (&kind, members) in by_kind {
+        let kept: Vec<Features> = members
+            .iter()
+            .filter(|features| !(kind == removed.0 && features.id == removed.1))
+            .cloned()
+            .collect();
+        owned.insert(kind, kept);
+    }
+    let reduced_by_kind: BTreeMap<&str, &[Features]> = owned
+        .iter()
+        .map(|(&kind, members)| (kind, members.as_slice()))
+        .collect();
+    let reduced_edges: Vec<ResolvedEdge> = edges
+        .iter()
+        .filter(|edge| edge.from != *removed && edge.to != *removed)
+        .map(|edge| ResolvedEdge {
+            from: edge.from.clone(),
+            field: edge.field.clone(),
+            to: edge.to.clone(),
+        })
+        .collect();
+    let live_after = live_members(activations, &reduced_by_kind, repo_files, &reduced_edges);
+
+    live_before
+        .into_iter()
+        .filter(|node| node != removed && !live_after.contains(node))
+        .collect()
+}
+
 /// The set of members reachable from the [`world`] node — the closure the [`reachable`]
 /// predicate consults. Seeds every member whose **own** activation edge is live (its
 /// kind declares no activation ⇒ unconditionally live, or [`dead_activation`] finds the

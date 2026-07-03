@@ -264,6 +264,43 @@ fn requirements_over_an_undeclared_name_still_exits_zero() {
     assert!(run.stdout.contains("No requirement named `ghost`"));
 }
 
+#[test]
+fn impact_traces_the_blast_radius_of_a_load_bearing_member() {
+    let root = fixture();
+    // `dev-standards` is the *sole* satisfier of the required `engineering-standards`
+    // (removing it fails the gate) and is the target of `collaboration`'s `routes_to`
+    // reference — but `routes_to` is a reference edge, not an `@import` directive, so no
+    // directive edge points at it and no member's reachability rides on it. So the
+    // blast radius names the unfilled requirement and reads "none" on the other three
+    // strands — the deterministic tier-1 traversal, narrated like `why`.
+    let run = read(&root, &["impact", "dev-standards"]);
+    assert!(run.ok, "impact must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout.contains("fails the gate"),
+        "the sole satisfier of a required requirement must surface as unfilled: {}",
+        run.stdout
+    );
+    insta::assert_snapshot!("impact_dev_standards", run.stdout);
+}
+
+#[test]
+fn impact_stays_quiet_for_a_member_nothing_rests_on() {
+    let root = fixture();
+    // `lint-runner` fills nothing, publishes nothing, is imported by nobody, and carries
+    // no member's reachability — every strand reads "none", the clean floor case.
+    let run = read(&root, &["impact", "lint-runner"]);
+    assert!(run.ok, "impact must exit zero: {}", run.stdout);
+    insta::assert_snapshot!("impact_lint_runner", run.stdout);
+}
+
+#[test]
+fn impact_over_an_unknown_member_still_exits_zero() {
+    let root = fixture();
+    let run = read(&root, &["impact", "ghost"]);
+    assert!(run.ok, "impact over an unknown member must exit zero");
+    assert!(run.stdout.contains("No member named `ghost`"));
+}
+
 /// The `temper.toml` for the custom-kind fixture: a `required` requirement plus a
 /// `[kind.spec]` registration binding the `spec` package. A custom-kind member fills
 /// the requirement, so the read family must range over it (READ-CUSTOM-SATISFIERS) —
@@ -469,4 +506,23 @@ fn why_narrates_a_satisfies_to_a_member_published_requirement_as_filled() {
         run.stdout
     );
     insta::assert_snapshot!("why_member_published_satisfier", run.stdout);
+}
+
+#[test]
+fn impact_dangles_the_satisfiers_of_a_sole_publisher() {
+    let root = published_fixture();
+    // `00-intent` alone publishes `governance`, which `45-governance` satisfies. Removing
+    // `00-intent` drops the demand from the namespace, so `45-governance`'s `satisfies`
+    // would dangle — the second blast-radius strand, over a member-published demand the
+    // composed roster carries (READ-VERBS-PUBLISHED-DEMANDS).
+    let run = read(&root, &["impact", "00-intent"]);
+    assert!(run.ok, "impact must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout.contains(
+            "`45-governance` (spec) fills `governance`, which only `00-intent` publishes"
+        ),
+        "removing the sole publisher must dangle its satisfiers: {}",
+        run.stdout
+    );
+    insta::assert_snapshot!("impact_sole_publisher", run.stdout);
 }
