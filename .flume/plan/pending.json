@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "two blockers remain, both non-build: (1) EMBED-NESTED-WALK must ship (build.rs tolerance for the nested layout); (2) the human follow-up — curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines. kinds/** is outside build's fence, so a human authors the move (disk today: flat kinds/skill, kinds/rule, no provider lines) before qualified bindings can resolve or be tested end-to-end"
+      "reason": "one blocker remains, non-build: the human file-move — curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines. kinds/** is outside build's fence, so a human authors the move (disk today: flat kinds/skill, kinds/rule, no provider lines) before qualified bindings can resolve or be tested end-to-end. EMBED-NESTED-WALK shipped (c65c2ed): build.rs walks the nested layout, builtin_kind resolves bare→unique."
     },
     "dependsOnForks": [],
     "files": {
@@ -37,7 +37,7 @@
       }
     ],
     "acceptance": "After EMBED-NESTED-WALK ships and the human moves the curated kind files, build.rs embeds `kinds/<provider>/<name>/KIND.md`; `SKILL_PACKAGE`/`RULE_PACKAGE` bind the qualified `claude-code.skill`/`claude-code.rule`; a bare `[kind.skill]` binding and `satisfies` typing resolve through provider resolution to the unique claude-code kind; a published package binds a qualified kind name; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "(kind-harness-axis) consequence (3). PROVIDER-KEY-PARSE shipped: kind.rs parses `provider`, exposes qualified identity + bare→collision resolution. build.rs tolerance + builtin_kind resolution now owned by EMBED-NESTED-WALK. Remaining blockers: EMBED-NESTED-WALK shipping + the human file-move (skill/rule KIND.md → kinds/claude-code/* with provider lines, outside build's fence). After both: bindings qualify, published-binds-qualified becomes a bundle check."
+    "notes": "(kind-harness-axis) consequence (3). PROVIDER-KEY-PARSE + EMBED-NESTED-WALK both shipped (kind.rs parses `provider` + resolve_bare; build.rs walks nested, builtin_kind resolves bare→unique — verified on disk). Only blocker left: the human file-move (skill/rule KIND.md → kinds/claude-code/* with provider lines, outside build's fence). After it: bindings qualify, published-binds-qualified becomes a bundle check."
   },
   {
     "tag": "MEMORY-KIND",

@@ -300,12 +300,12 @@ path strings remain in comments).
   `provider` inert + qualified/bare resolution + collision diagnostic), then
   the human moves curated files to `kinds/claude-code/*` and adds provider
   lines (build.rs embed must walk the nested layout), then binding
-  qualification. FILED: PROVIDER-KEY-PARSE (shipped c52df4f); EMBED-NESTED-WALK
-  as pending (open, 2026-07-02 inbox drain — build.rs tolerates the nested layout
-  + builtin_kind lookups resolve bare→unique, the build-side predecessor to the
-  file-move); BINDING-QUALIFY as pending (parked on EMBED-NESTED-WALK + the human
-  file-move); the file-move + provider lines are the human follow-up (2), not a
-  build entry.
+  qualification. FILED + SHIPPED: PROVIDER-KEY-PARSE (c52df4f) and
+  EMBED-NESTED-WALK (c65c2ed) — build.rs tolerates the nested layout
+  (`collect_qualified`, dormant over the flat tree), builtin_kind lookups resolve
+  bare→unique, verified on disk. BINDING-QUALIFY remains pending, now parked on the
+  human file-move **alone** (EMBED-NESTED-WALK has shipped); the file-move + provider
+  lines are the human follow-up (2), not a build entry.
   Original record: was OPEN. Kind identity has no harness axis: bare
   `skill`/`rule` works while Claude Code is the only harness, but a second
   harness's artifact classes collide — Cursor's "rule" is a different format
