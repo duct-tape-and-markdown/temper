@@ -1,14 +1,51 @@
 [
   {
+    "tag": "SCAN-QUALIFIED-IDENTITY",
+    "summary": "Import/drift scans hold the parsed kind but re-resolve it by bare name — co-embedding two `memory` providers reddens tests; thread qualified identity through instead",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Decision: kind identity carries a provider axis"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "`run` already holds the parsed `CustomKind` from `definitions()` (import.rs:129) but passes its bare `.name` into `import_frontmatter_kind`, which re-resolves via `builtin_kind::definition(name)` (import.rs:178) and again in `builtin_governs`→`definition(name)` (import.rs:222). Thread the already-parsed kind through `import_frontmatter_kind`/`discover_builtin`/`builtin_governs` instead of re-resolving by bare name, so co-embedding two providers of one bare name (`agents-md.memory` + `claude-code.memory`) never throws AmbiguousKind on an unrelated scan (`specs/architecture/15-kinds.md`, Decision: kind identity carries a provider axis — nobody pays a qualification tax until two providers actually meet). Inline import test module rides along."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The drift re-project path re-resolves the entry's kind by bare name: `builtin_kind::definition(&entry.kind)` (drift.rs:763 — NOT the inbox's :1030, which is a test helper `import::run`). Carry the qualified identity through — resolve against the same `definitions()` set the scan already built (keyed by qualified name), not a bare re-resolution — so a drift/re-add over a two-provider bare name never collides when no caller referenced bare. Inline drift test module rides along."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Re-pin the enumeration test `definitions_carries_exactly_the_two_built_in_kinds` (builtin_kind.rs:278) — it hardcodes `[\"claude-code.rule\", \"claude-code.skill\"]` and breaks on any new curated embed. Derive its expectation from the `kinds/` product tree (embeds == tree) so a curated memory KIND.md addition doesn't redden it. Add a collision-scoping proof (a synthetic test-only second bare-name kind co-embedded) beside the existing `resolve_bare` test (builtin_kind.rs:290) if it does not already cover the scan path."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/builtin_kind.rs",
+        "asserts": "with a synthetic test-only second bare-name kind co-embedded, `definitions()` and the import/drift scans stay green; only a caller that *binds or looks up* the ambiguous bare name gets `AmbiguousKind`; the enumeration test derives its expectation from the kinds/ tree, not a literal pair."
+      }
+    ],
+    "acceptance": "With a synthetic/test-only second bare-name kind co-embedded, import/drift/check scans stay green and only a caller binding or referencing bare `memory` gets the collision; the enumeration test derives from the kinds/ tree; cargo fmt/clippy -D warnings/test all green. Shipping this lets the human commit the four held curated memory KIND.md/PACKAGE.md without reddening the suite.",
+    "notes": "Inbox 2026-07-02 (human), all sites verified on disk: scans iterate qualified `definitions()` (import.rs:129) but re-resolve bare (import.rs:178,222; drift.rs:763 — inbox's :1030 is a test helper). Sole `open` entry, disjoint from every other (they touch kind.rs/extract.rs/builtin.rs/docs, never import/drift/builtin_kind). Unblocks the human commit of the curated memory files → then MEMORY-KIND's flip-ceremony validation."
+  },
+  {
     "tag": "MEMORY-KIND",
-    "summary": "Validate the memory kinds end-to-end once the wave ships and the human commits the curated KIND.md/PACKAGE.md files — discover, clause-check, idempotent round-trip",
+    "summary": "Validate the memory kinds end-to-end once SCAN-QUALIFIED-IDENTITY ships and the human commits the curated KIND.md/PACKAGE.md — discover, clause-check, idempotent round-trip",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Two categories of kind — ownership, not mechanism"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the engine wave has fully shipped (RECURSIVE-GOVERNS-PLACEMENT-ID landed 26e296e, verified on disk); this now parks purely on the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, outside build's fence, cited to code.claude.com/docs/en/memory) — the validation test cannot run until those files are embedded"
+      "reason": "the engine wave has fully shipped (RECURSIVE-GOVERNS-PLACEMENT-ID landed 26e296e, verified on disk); this parks on the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, outside build's fence, cited to code.claude.com/docs/en/memory) — but that commit is itself gated on SCAN-QUALIFIED-IDENTITY shipping first: co-embedding two bare `memory` providers reddens import/drift today via bare-name re-resolution (inbox 2026-07-02), so the files can't land until that fix does. Order: SCAN ships → human commits curated files → this validation runs"
     },
     "dependsOnForks": [],
     "files": {
@@ -28,8 +65,8 @@
         "asserts": "the memory package's decidable clauses fire on broken fixtures and stay silent on clean; a no-frontmatter File-shaped memory member imports and re-emits idempotently (insta snapshot); the two bare-`memory` providers resolve by qualified identity with no spurious collision on non-colliding lookups."
       }
     ],
-    "acceptance": "With the wave shipped and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
-    "notes": "Engine wave (5 slices) fully SHIPPED — RECURSIVE landed 26e296e, verified on disk (collect_glob recurses `**`; wholefile_id folds placement). This is the parked flip-ceremony validation, now blocked purely on the human authoring/committing the four curated memory KIND.md+PACKAGE.md (kinds/ today holds only claude-code/{rule,skill}). `@path` imports are NOT in this wave. Shipping moves CLAUDE.md onto the surface."
+    "acceptance": "With the wave shipped, SCAN-QUALIFIED-IDENTITY landed, and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
+    "notes": "Engine wave (5 slices) SHIPPED. Flip-ceremony validation, still parked on the human committing the four curated memory KIND.md+PACKAGE.md — but SCAN-QUALIFIED-IDENTITY must ship FIRST: co-embedding two bare `memory` providers reddens import/drift today via bare re-resolution (inbox 2026-07-02). Order: SCAN ships → human commits curated files → this validates. `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
