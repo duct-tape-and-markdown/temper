@@ -1,14 +1,14 @@
 [
   {
     "tag": "MEMORY-KIND",
-    "summary": "Validate the memory kinds end-to-end once SCAN-QUALIFIED-IDENTITY ships and the human commits the curated KIND.md/PACKAGE.md — discover, clause-check, idempotent round-trip",
+    "summary": "Validate the memory kinds end-to-end once the human commits the curated KIND.md/PACKAGE.md (SCAN-QUALIFIED-IDENTITY has shipped) — discover, clause-check, idempotent round-trip",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Two categories of kind — ownership, not mechanism"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the engine wave has fully shipped (RECURSIVE-GOVERNS-PLACEMENT-ID landed 26e296e, verified on disk); this parks on the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, outside build's fence, cited to code.claude.com/docs/en/memory) — but that commit is itself gated on SCAN-QUALIFIED-IDENTITY shipping first: co-embedding two bare `memory` providers reddens import/drift today via bare-name re-resolution (inbox 2026-07-02), so the files can't land until that fix does. Order: SCAN ships → human commits curated files → this validation runs"
+      "reason": "the engine wave AND its SCAN-QUALIFIED-IDENTITY unblocker have both shipped (SCAN: build 7ae7240 / chore 61e4e6f, verified on disk — import/drift thread the qualified kind, no bare re-resolution, so co-embedding two `memory` providers no longer reddens scans). This now parks SOLELY on the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, outside build's fence, cited to code.claude.com/docs/en/memory) — absent on disk today (kinds/claude-code holds only skill+rule; packages only skill.anthropic+rule.anthropic). Once those files are committed, this validation runs"
     },
     "dependsOnForks": [],
     "files": {
@@ -29,7 +29,7 @@
       }
     ],
     "acceptance": "With the wave shipped, SCAN-QUALIFIED-IDENTITY landed, and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
-    "notes": "Engine wave (5 slices) SHIPPED. Flip-ceremony validation, still parked on the human committing the four curated memory KIND.md+PACKAGE.md — but SCAN-QUALIFIED-IDENTITY must ship FIRST: co-embedding two bare `memory` providers reddens import/drift today via bare re-resolution (inbox 2026-07-02). Order: SCAN ships → human commits curated files → this validates. `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
+    "notes": "Engine wave (5 slices) + SCAN-QUALIFIED-IDENTITY both SHIPPED (verified on disk: import/drift thread the qualified kind, no bare re-resolution; builtin_kind enumeration derives from the kinds/ tree). Flip-ceremony validation now parks SOLELY on the human committing the four curated memory KIND.md+PACKAGE.md (absent on disk today). `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",

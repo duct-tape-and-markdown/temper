@@ -1,27 +1,25 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 7405f21.
-- **Last shipped:** RECURSIVE-GOVERNS-PLACEMENT-ID (build 007178e, chore 26e296e) —
-  the final slice of the memory engine wave; all five slices have landed and are
-  re-verified on disk (`collect_glob` recurses `**`, `wholefile_id` folds placement,
-  `resolve_bare` carries qualified-identity/collision resolution).
-- **This tick:** drained the inbox — filed **SCAN-QUALIFIED-IDENTITY** (`open`), the
-  engine bug the human found by placing the four curated memory files locally: the
-  generic import/drift scans iterate the qualified `definitions()` set but then
-  RE-RESOLVE each kind by its bare name (`import.rs:178,222`; `drift.rs:763` — the
-  inbox's `:1030` is a test helper), so co-embedding two `memory` providers throws
-  `AmbiguousKind` on scans no caller ever pointed at bare. All three sites verified
-  on disk. It also re-pins the hardcoded enumeration test (`builtin_kind.rs:278`) to
-  derive from the `kinds/` tree. Refreshed MEMORY-KIND's gate/notes: its human file
-  commit is now gated on SCAN shipping first. No other entry moved; all cites still
-  resolve.
+- **Phase:** reconcile. HEAD 61e4e6f.
+- **Last shipped:** SCAN-QUALIFIED-IDENTITY (build 7ae7240, chore 61e4e6f) —
+  import/drift scans now thread the qualified kind instead of re-resolving by bare
+  name; the `builtin_kind` enumeration test derives from the `kinds/` tree, not a
+  hardcoded pair. Re-verified on disk.
+- **This tick:** advanced **MEMORY-KIND**'s gate. Its SCAN-QUALIFIED-IDENTITY
+  blocker has shipped, so it no longer waits on any engine fix — it now parks
+  SOLELY on the human authoring/committing the four curated memory KIND.md/PACKAGE.md
+  (`agents-md.memory` + `claude-code.memory`), still absent on disk
+  (`kinds/claude-code/` holds only skill+rule; `packages/` only skill.anthropic +
+  rule.anthropic). Refreshed its summary/gate/notes and the open-questions bootstrap-
+  fence datum. Inbox empty; no other entry moved; all cites resolve.
 - **Operational note (accepted, not queued):** the 17 `requirement.dangling`
-  session-start findings are a **stale installed binary** — the freshly-built
-  binary's `temper check .temper` is clean; `cargo install --path .` clears them.
-- **Pickable now:** SCAN-QUALIFIED-IDENTITY (sole `open`, disjoint from every other
-  entry — they touch kind.rs/extract.rs/builtin.rs/docs, never import/drift/
-  builtin_kind). Parked (human action): MEMORY-KIND, PACKAGING-CHANNELS,
-  COMMUNITY-DOCS. Deferred (no consumer): EXTRACTION-VOCAB-GAPS, AGENT-KIND.
+  session-start findings are a **stale installed binary** — `cargo install --path .`
+  clears them; the freshly-built binary's `temper check .temper` is clean.
+- **Pickable now:** none — every entry is human-gated. Parked (human action):
+  MEMORY-KIND (curated memory file commit), PACKAGING-CHANNELS (release creds),
+  COMMUNITY-DOCS (fence-widen + private reporting). Deferred (no consumer):
+  EXTRACTION-VOCAB-GAPS, AGENT-KIND.
 
-Plan continues: no — inbox drained, one pickable `open` entry filed and disjoint
-from all; hand to build.
+Plan continues: no — inbox drained, queue reconciled, no `open` work exists; the
+queue rests entirely on human action (curated memory file commit, release creds,
+fence-widen).

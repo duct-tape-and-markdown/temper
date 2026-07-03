@@ -467,11 +467,13 @@ from exactly such a line fossilizing. If work touches one, surface it.
   human-authored, cited to code.claude.com/docs/en/memory, held outside build's
   fence and committed only after the wave. DATUM (2026-07-02): that
   "co-embedding turns cargo test red today" is now precisely diagnosed and
-  filed as **SCAN-QUALIFIED-IDENTITY** (`open`, pickable): the generic
-  import/drift scans iterate the qualified `definitions()` set but re-resolve
-  each kind by its bare name (import.rs:178,222; drift.rs:763), so two `memory`
-  carriers throw `AmbiguousKind` on scans no caller pointed at bare. The human
-  file commit is gated on that fix shipping first. MEMORY-KIND is the **parked
+  filed as **SCAN-QUALIFIED-IDENTITY**, which has now **SHIPPED** (build 7ae7240 /
+  chore 61e4e6f; verified on disk — import/drift thread the qualified kind, no bare
+  re-resolution; the `builtin_kind` enumeration test derives from the `kinds/` tree,
+  not a hardcoded pair). The scans no longer re-resolve each kind by its bare name, so
+  co-embedding two `memory` carriers no longer throws `AmbiguousKind`. The human file
+  commit is no longer engine-blocked — it is the sole remaining prerequisite for the
+  flip, and those four curated files are still absent on disk. MEMORY-KIND is the **parked
   flip-ceremony validation** entry (tests/memory_contract.rs), not the engine
   wiring — the wave carries that as generic, data-driven code. CORRECTION carried:
   `@path` imports are NOT in this wave (a later edge primitive if needed); they are
