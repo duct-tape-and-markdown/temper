@@ -7,8 +7,7 @@
       "section": "Directives — format-executed body syntax"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DIRECTIVES-PRIMITIVE-PARSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -38,7 +37,7 @@
       }
     ],
     "acceptance": "`temper check` classifies each member's extracted directive targets into member / backed-world / unbacked, emits an unbacked-pointer finding on the importing member for an unresolved target, and threads member-class targets into the resolved-edge set; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Blocked on slice 1 (needs the extracted directive features). Join key is provenance `source_path`; relative targets resolve against the importing file's directory, absolute allowed (code.claude.com/docs/en/memory). Unbacked pointer is the headline finding — 'your CLAUDE.md imports @docs/x.md which doesn't exist.' Member-class targets become the directive edges slice 3's reachability closes over. Shares src/main.rs+graph.rs with slice 3 — serialized by the chain."
+    "notes": "Slice 1 shipped (99b1b45): `Features.directives` populated via `extract::body_at_imports`; this consumes it. Join key is provenance `source_path`; relative targets resolve against the importing file's dir, absolute allowed (code.claude.com/docs/en/memory). Unbacked pointer is the headline finding. Member-class targets become the directive edges slice 3's reachability closes over. Shares src/main.rs+graph.rs with slice 3 — serialized by the chain."
   },
   {
     "tag": "REACHABILITY-DIRECTIVE-CLOSURE",
@@ -114,7 +113,7 @@
       }
     ],
     "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk re-confirmed both gaps: Primitive = field/headings/sections/line_count/placement; Field reads flat frontmatter.get(key), no key-path; guard is parse_primitive. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+extract.rs. NOT revived by the DIRECTIVES wave (`at-import` is a distinct directive primitive, not fenced/key-path). If un-deferred, serialize behind DIRECTIVES-PRIMITIVE-PARSE — shared src/kind.rs+extract.rs."
+    "notes": "Disk re-confirmed both gaps: `Primitive` (now incl. `Directives`, shipped) still lacks `Fenced`; `Field` reads flat `frontmatter.get(key)`, no key-path; guard is parse_primitive. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+extract.rs. NOT the DIRECTIVES wave's `at-import` (a distinct directive primitive). If un-deferred while AGENT-KIND is open, serialize — shared src/kind.rs."
   },
   {
     "tag": "AGENT-KIND",

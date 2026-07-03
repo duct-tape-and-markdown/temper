@@ -1,33 +1,27 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 923d0d9.
-- **Last shipped:** the four-entry wave MEMORY-KIND / WEDGE-INSTALL-SUMMARY /
-  WEDGE-COVERAGE-NOTE / SKILL-VERSION-EXTRACTION-DROP (chore 923d0d9) — memory's
-  File-shaped round-trip is pinned, install self-verify is one summary advisory,
-  the wedge emits a coverage note so silence ≠ "checked", and the `version`
-  example field is re-pinned onto `license`. All four drained from pending.
-- **This tick:** drained the inbox DIRECTIVES wave into three dependency-ordered
-  entries and filed them (per specs/architecture/15-kinds.md "Directives —
-  format-executed body syntax" + 45-governance.md "The world is a node"):
-  DIRECTIVES-PRIMITIVE-PARSE (the `directives`/`at-import` extraction primitive,
-  `open`), DIRECTIVE-TARGET-CLASSING (member/backed/unbacked target classing,
-  `blockedBy` slice 1), REACHABILITY-DIRECTIVE-CLOSURE (reachability closes over
-  directive edges, `blockedBy` slice 2). Verified on disk: `Primitive` still lacks
-  `directives`; the memory KIND.md prose already carries the `@path` grammar +
-  citations (adoption of the `[[extraction]]` line is the human's, post-slice-1).
-  Reconciled the four carried entries — none shipped, all still truthful:
-  EXTRACTION-VOCAB-GAPS + AGENT-KIND stay `deferred` (no consumer / wrong
-  direction), PACKAGING-CHANNELS + COMMUNITY-DOCS stay `parked` (human creds /
-  fence-widen). Refreshed EXTRACTION-VOCAB-GAPS's note to cite the DIRECTIVES
-  collision (both touch src/kind.rs+extract.rs).
-- **Operational note (accepted, not queued):** the session-start
-  `requirement.dangling` findings are a **stale installed binary** —
-  `cargo install --path .` clears them; a freshly-built `temper check .temper` is
-  clean.
-- **Pickable now:** DIRECTIVES-PRIMITIVE-PARSE (the one `open` entry; slices 2/3
-  serialize behind it via `blockedBy`, sharing src/main.rs+graph.rs). Deferred
-  (no consumer): EXTRACTION-VOCAB-GAPS, AGENT-KIND. Parked (human action):
-  PACKAGING-CHANNELS, COMMUNITY-DOCS.
+- **Phase:** reconcile. HEAD d4699ec.
+- **Last shipped:** DIRECTIVES-PRIMITIVE-PARSE (build 99b1b45 / chore d4699ec) —
+  slice 1 of the DIRECTIVES wave. Verified on disk: `Primitive::Directives {
+  syntax }` is in the closed vocabulary (`src/kind.rs`), `parse_directive_syntax`
+  resolves `at-import` (rejecting others as `UnknownDirectiveSyntax`), and the
+  extractor folds occurrences into `Features::directives` via
+  `extract::body_at_imports`.
+- **This tick:** slice 1 shipped, so **DIRECTIVE-TARGET-CLASSING flips `open`**
+  (its `blockedBy DIRECTIVES-PRIMITIVE-PARSE` cleared). Verified on disk it has
+  NOT shipped — no directive classing / unbacked-pointer diagnostic in
+  `src/graph.rs`|`src/main.rs`, no `tests/directive_classing.rs`; its file anchors
+  still hold (`main.rs` reachable wiring ~772-812 / `repo_file_set` @804;
+  `graph.rs` `dangling`/`unreachable` mirror + `GRAPH_REACHABLE_RULE`).
+  REACHABILITY-DIRECTIVE-CLOSURE stays `blockedBy DIRECTIVE-TARGET-CLASSING`
+  (shared src/main.rs+graph.rs — serialized). Refreshed EXTRACTION-VOCAB-GAPS's
+  note (dropped the stale serialize-behind-shipped-slice-1 line). Inbox empty.
+- **Operational note (accepted, not queued):** the session-start 19
+  `requirement.dangling` findings are a **stale installed binary** — `cargo
+  install --path .` clears them; a freshly-built `temper check .temper` is clean.
+- **Pickable now:** DIRECTIVE-TARGET-CLASSING (the one `open` entry; slice 3
+  serializes behind it). Deferred (no consumer): EXTRACTION-VOCAB-GAPS,
+  AGENT-KIND. Parked (human action): PACKAGING-CHANNELS, COMMUNITY-DOCS.
 
-Plan continues: no — inbox drained into the serialized DIRECTIVES chain, carried
-queue reconciled unchanged, one `open` entry pickable. Hand to build.
+Plan continues: no — slice 1 shipped, slice 2 unblocked to `open`, carried queue
+reconciled, inbox empty. Hand to build.
