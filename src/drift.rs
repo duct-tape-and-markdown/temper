@@ -160,7 +160,7 @@ pub fn diff(
     let mut entries = Vec::new();
 
     let skills = workspace
-        .skills
+        .skills()
         .iter()
         .map(|skill| SurfaceArtifact {
             name: skill.id.clone(),
@@ -173,7 +173,7 @@ pub fn diff(
     entries.extend(classify("skill", &skills, &skills_on_disk)?);
 
     let rules = workspace
-        .rules
+        .rules()
         .iter()
         .map(|rule| SurfaceArtifact {
             name: rule.id.clone(),
@@ -416,7 +416,7 @@ pub fn apply(
     let last_applied = load_last_applied(workspace_dir)?;
 
     let mut projections = Vec::new();
-    for skill in &workspace.skills {
+    for skill in workspace.skills() {
         projections.push(Projection {
             kind: "skill",
             name: skill.id.clone(),
@@ -427,7 +427,7 @@ pub fn apply(
             body: skill.body.clone(),
         });
     }
-    for rule in &workspace.rules {
+    for rule in workspace.rules() {
         projections.push(Projection {
             kind: "rule",
             name: rule.id.clone(),

@@ -14,6 +14,7 @@
 //! [`render`] presents the set with `miette`. It is distinct from a
 //! [`WorkspaceError`] (a hard failure that aborts the load).
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,44 +22,86 @@ use std::path::{Path, PathBuf};
 use miette::GraphicalReportHandler;
 
 use crate::frontmatter::{FrontmatterError, Member};
-use crate::kind::{KindError, Unit};
+use crate::kind::{CustomKind, KindError, Unit};
 
-/// The loaded config surface: every built-in artifact `check` lints. Carries the
-/// skills and rules as generic frontmatter [`Member`]s (`specs/architecture/15-kinds.md`, "A
-/// built-in kind is an adapter"); later built-in artifact kinds (hooks, agents, …)
-/// extend this struct so a cross-artifact clause can reach the whole harness at once.
-/// Custom project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are
-/// read generically through [`Unit::from_surface_dir`](crate::kind::Unit::from_surface_dir),
-/// not materialized as a field here.
+/// The loaded config surface: every built-in artifact `check` lints. Carries each
+/// built-in kind's members as generic frontmatter [`Member`]s (`specs/architecture/15-kinds.md`,
+/// "A built-in kind is an adapter"), keyed by the kind's bare name in a per-kind map so
+/// every built-in kind's members — not just skills and rules — reach the readers that
+/// range over the workspace (drift/bundle/apply/read), and a cross-artifact clause can
+/// reach the whole harness at once.
+///
+/// Custom project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are read
+/// generically through [`Unit::from_surface_dir`](crate::kind::Unit::from_surface_dir),
+/// not materialized here.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Workspace {
-    /// The skill members reconstructed from `<workspace>/skills/<name>/`.
-    pub skills: Vec<Member>,
-    /// The rule members reconstructed from `<workspace>/rules/<name>/`.
-    pub rules: Vec<Member>,
+    /// Each built-in kind's members, keyed by the kind's bare name (`skill`, `rule`, …).
+    /// A kind with no surface members is present with an empty vector; each vector is
+    /// name-sorted by its load. Private so the readers reach it through the accessors
+    /// below, which fix the kind key at one call site.
+    members: BTreeMap<String, Vec<Member>>,
 }
 
 impl Workspace {
-    /// Load a workspace from its surface directory by reconstructing every skill
-    /// under `<dir>/skills/*` and every rule under `<dir>/rules/*` through the one
-    /// generic frontmatter adapter ([`Member::from_surface`]) — no per-kind IR.
+    /// Load a workspace from its surface directory by reconstructing every built-in
+    /// kind's members through the one generic frontmatter adapter
+    /// ([`Member::from_surface`]) — no per-kind IR. The kind set is the embedded
+    /// built-in std-lib ([`builtin_kind::definitions`](crate::builtin_kind::definitions)),
+    /// so adding a built-in kind extends the workspace with no change here.
     ///
     /// A child is treated as an artifact surface only when it holds its kind's member
-    /// document (`SKILL.md`, `RULE.md`), so stray files and partial directories are
+    /// document (`SKILL.md`, `RULE.md`, …), so stray files and partial directories are
     /// skipped rather than erroring. Each kind is returned name-sorted (the directory
     /// listing order is unspecified) so the diagnostic set is stable across runs.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`WorkspaceError`] if the built-in kind set fails to parse, a surface
+    /// directory cannot be enumerated, or a member document is unreadable or malformed.
     pub fn load(dir: &Path) -> Result<Self, WorkspaceError> {
-        let mut skills = Vec::new();
-        for skill_dir in &surface_dirs(&dir.join("skills"), "SKILL.md")? {
-            skills.push(Member::from_surface(skill_dir, "SKILL.md")?);
-        }
+        Self::load_kinds(dir, crate::builtin_kind::definitions()?.values())
+    }
 
-        let mut rules = Vec::new();
-        for rule_dir in &surface_dirs(&dir.join("rules"), "RULE.md")? {
-            rules.push(Member::from_surface(rule_dir, "RULE.md")?);
+    /// Load a workspace over an explicit built-in `kinds` set — the generic core of
+    /// [`load`](Self::load), factored out so a third built-in kind's members can be
+    /// exercised without waiting on the embedded set to grow. Each kind's members land
+    /// under its bare name, read from `<dir>/<subdir>/*` by the kind's own
+    /// [`surface_subdir`](CustomKind::surface_subdir) and
+    /// [`member_document`](CustomKind::member_document).
+    fn load_kinds<'a>(
+        dir: &Path,
+        kinds: impl IntoIterator<Item = &'a CustomKind>,
+    ) -> Result<Self, WorkspaceError> {
+        let mut members = BTreeMap::new();
+        for kind in kinds {
+            let doc = kind.member_document();
+            let mut kind_members = Vec::new();
+            for member_dir in &surface_dirs(&dir.join(kind.surface_subdir()), &doc)? {
+                kind_members.push(Member::from_surface(member_dir, &doc)?);
+            }
+            members.insert(kind.name.clone(), kind_members);
         }
+        Ok(Self { members })
+    }
 
-        Ok(Self { skills, rules })
+    /// This kind's loaded members, name-sorted, or an empty slice when the workspace
+    /// carries none — the generic accessor the readers range over.
+    #[must_use]
+    pub fn members(&self, kind: &str) -> &[Member] {
+        self.members.get(kind).map_or(&[], Vec::as_slice)
+    }
+
+    /// The skill members — the built-in `skill` kind's slice off the generic map.
+    #[must_use]
+    pub fn skills(&self) -> &[Member] {
+        self.members("skill")
+    }
+
+    /// The rule members — the built-in `rule` kind's slice off the generic map.
+    #[must_use]
+    pub fn rules(&self) -> &[Member] {
+        self.members("rule")
     }
 }
 
@@ -361,10 +404,10 @@ Prefer a clone.\n";
 
         let loaded = Workspace::load(&ws).unwrap();
 
-        assert_eq!(loaded.skills.len(), 1);
-        assert_eq!(loaded.skills[0].id, "demo");
+        assert_eq!(loaded.skills().len(), 1);
+        assert_eq!(loaded.skills()[0].id, "demo");
         assert_eq!(
-            loaded.skills[0].field("version").and_then(|v| v.as_str()),
+            loaded.skills()[0].field("version").and_then(|v| v.as_str()),
             Some("1.0.0")
         );
     }
@@ -379,15 +422,15 @@ Prefer a clone.\n";
         let loaded = Workspace::load(&ws).unwrap();
 
         // Skills load as before, and rules load name-sorted beside them.
-        assert_eq!(loaded.skills.len(), 1);
-        let rule_names: Vec<&str> = loaded.rules.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(loaded.skills().len(), 1);
+        let rule_names: Vec<&str> = loaded.rules().iter().map(|r| r.id.as_str()).collect();
         assert_eq!(rule_names, vec!["collaboration", "rust"]);
         assert_eq!(
-            loaded.rules[1].field("paths"),
+            loaded.rules()[1].field("paths"),
             Some(&serde_json::json!(["src/**/*.rs"]))
         );
         // The no-frontmatter rule carries no `paths`.
-        assert!(!loaded.rules[0].has_field("paths"));
+        assert!(!loaded.rules()[0].has_field("paths"));
     }
 
     #[test]
@@ -418,7 +461,7 @@ Body.\n";
         // The id, the typed `name` field, and the unknown key all land exactly as the
         // retired IR→Unit adapter produced — the documented fields off the composed
         // `field` primitives, the unknown key folded in permissively.
-        assert_eq!(skill_features.id, typed.skills[0].id);
+        assert_eq!(skill_features.id, typed.skills()[0].id);
         assert_eq!(
             skill_features.field("name"),
             Some(&FeatureValue::scalar(Kind::String, "demo"))
@@ -434,11 +477,11 @@ Body.\n";
         // generic read's source directory equals the typed skill's.
         assert_eq!(
             skill_features.source_dir,
-            extract::source_dir_name(&typed.skills[0].provenance.source_path)
+            extract::source_dir_name(&typed.skills()[0].provenance.source_path)
         );
 
         let rule_features = builtin_kind::rule_features(&rule_units[0]).unwrap();
-        assert_eq!(rule_features.id, typed.rules[0].id);
+        assert_eq!(rule_features.id, typed.rules()[0].id);
         assert_eq!(
             rule_features.field("paths"),
             Some(&FeatureValue::List(vec!["src/**/*.rs".to_string()]))
@@ -454,7 +497,7 @@ Body.\n";
         fs::create_dir_all(ws.join("skills").join("empty")).unwrap();
 
         let loaded = Workspace::load(&ws).unwrap();
-        let names: Vec<&str> = loaded.skills.iter().map(|s| s.id.as_str()).collect();
+        let names: Vec<&str> = loaded.skills().iter().map(|s| s.id.as_str()).collect();
         // The member id is the surface directory name (`directory` shape), so the two
         // surfaces are `alpha` and `bravo`, name-sorted, and the stray dir was skipped.
         assert_eq!(names, vec!["alpha", "bravo"]);
@@ -464,7 +507,64 @@ Body.\n";
     fn load_of_a_workspace_without_skills_dir_is_empty() {
         let ws = tmpdir("nodir");
         let loaded = Workspace::load(&ws).unwrap();
-        assert!(loaded.skills.is_empty());
+        assert!(loaded.skills().is_empty());
+    }
+
+    #[test]
+    fn load_places_a_third_built_in_kinds_members_in_the_generic_map() {
+        use toml_edit::DocumentMut;
+
+        // A synthetic third built-in kind — an `agent` under `.claude/agents/<name>/
+        // AGENT.md`, the shape the embedded set gains when the next kind ships. Its
+        // member document is `AGENT.md`, its surface subdir `agents`, and it extracts a
+        // `model` field — the clause value a bound `agent` package would range over. With
+        // only skill/rule hardwired, this kind's members loaded nowhere.
+        let agent_src = "\
+governs = { root = \".claude/agents\", glob = \"*/AGENT.md\" }
+unit_shape = \"directory\"
+
+[[extraction]]
+primitive = \"field\"
+key = \"model\"
+";
+        let doc = agent_src.parse::<DocumentMut>().unwrap();
+        let agent = crate::kind::CustomKind::from_header(
+            doc.as_table(),
+            "agent",
+            Path::new("kinds/agent/KIND.md"),
+        )
+        .unwrap();
+
+        // Project one agent member onto the surface exactly as `import`/`apply` would.
+        let ws = tmpdir("third-kind");
+        let src = tmpdir("agent-src");
+        fs::create_dir_all(src.join("reviewer")).unwrap();
+        fs::write(
+            src.join("reviewer").join("AGENT.md"),
+            "---\nmodel: opus\n---\n# Reviewer\n\nBody.\n",
+        )
+        .unwrap();
+        let member = Member::from_source(&agent, &src.join("reviewer").join("AGENT.md")).unwrap();
+        let dir = ws.join("agents").join("reviewer");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("AGENT.md"), member.to_document().emit()).unwrap();
+
+        // Load over skill + rule + the third kind: the agent members land under the bare
+        // kind name in the generic map, and their reconstructed clause value — what a
+        // bound `agent` package's clauses run over — is present, no longer stranded.
+        let kinds = vec![builtin("skill"), builtin("rule"), agent];
+        let loaded = Workspace::load_kinds(&ws, &kinds).unwrap();
+
+        let agents = loaded.members("agent");
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].id, "reviewer");
+        assert_eq!(
+            agents[0].field("model").and_then(|v| v.as_str()),
+            Some("opus")
+        );
+        // The third kind is additive: skill/rule stay reachable through the same map.
+        assert!(loaded.skills().is_empty());
+        assert!(loaded.rules().is_empty());
     }
 
     #[test]

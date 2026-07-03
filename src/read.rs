@@ -86,14 +86,14 @@ pub struct CustomMember {
 /// is deterministic without a re-sort (READ-CUSTOM-SATISFIERS).
 fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
     let mut members = Vec::new();
-    for skill in &workspace.skills {
+    for skill in workspace.skills() {
         members.push(Member {
             kind: "skill".to_string(),
             id: skill.id.clone(),
             satisfies: skill.satisfies.clone(),
         });
     }
-    for rule in &workspace.rules {
+    for rule in workspace.rules() {
         members.push(Member {
             kind: "rule".to_string(),
             id: rule.id.clone(),

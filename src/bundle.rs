@@ -206,8 +206,8 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     files.sort();
     Ok(BundleReport {
         files,
-        skills: ws.skills.len(),
-        rules: ws.rules.len(),
+        skills: ws.skills().len(),
+        rules: ws.rules().len(),
     })
 }
 
