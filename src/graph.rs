@@ -15,6 +15,7 @@
 //! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Component, Path, PathBuf};
 
 use regex::Regex;
 
@@ -39,14 +40,25 @@ const GRAPH_DEGREE_RULE: &str = "graph.degree";
 /// The diagnostic `rule` id every reachability finding reports under.
 const GRAPH_REACHABLE_RULE: &str = "graph.reachable";
 
+/// The diagnostic `rule` id every unbacked-pointer directive finding reports under.
+const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
+
+/// The reference `field` a directive-produced [`ResolvedEdge`] records — the
+/// `at-import` syntax that observed it, not a frontmatter field (a directive edge is
+/// observed body structure, `specs/architecture/15-kinds.md`, "Directives"). Lets a reader
+/// tell a directive edge from a declared reference edge in the one resolved-edge set.
+const DIRECTIVE_FIELD: &str = "at-import";
+
 /// A node in the artifact-level reference graph: `(kind, id)`. An id is unique only
 /// *within* a kind and an edge resolves only within its target kind, so the kind is
 /// part of the identity — else a same-named rule and skill collapse into one node and
 /// forge or mask a cycle.
 ///
-/// `pub(crate)` so the read family (`crate::read`) keys a member's resolved in/out
-/// edges on the *same* `(kind, id)` node the gate does (READ-EDGE-UNIFY).
-pub(crate) type Node = (String, String);
+/// Exposed so the read family (`crate::read`) keys a member's resolved in/out
+/// edges on the *same* `(kind, id)` node the gate does (READ-EDGE-UNIFY), and so the
+/// directive classing ([`classify_directives`]) names the endpoints of the edges it
+/// yields.
+pub type Node = (String, String);
 
 /// The distinguished **world** node — the harness runtime and repo `temper` observes
 /// but does not govern (`specs/architecture/45-governance.md`, "The world is a node — reachability
@@ -64,8 +76,10 @@ pub(crate) fn world() -> Node {
 /// one arc-resolution enumeration [`resolved_arcs`] folds into adjacency and
 /// `crate::read` narrates per node, so gate and read range over one identical edge set
 /// (READ-EDGE-UNIFY). Retains the reference `field` an arc drops, so a reader can see
-/// which declared reference produced the edge.
-pub(crate) struct ResolvedEdge {
+/// which declared reference produced the edge. Also the type [`classify_directives`]
+/// yields a member-class directive occurrence as, so an observed `@import` edge enters
+/// the same enumeration a declared reference edge does.
+pub struct ResolvedEdge {
     /// The source node `(kind, id)` carrying the reference.
     pub from: Node,
     /// The reference field the edge was declared under (`routes_to`).
@@ -494,6 +508,150 @@ fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Sever
         format!(
             "the activation edge from the {} node to {kind} `{id}` is dead — {reason}",
             world.0
+        ),
+    )
+}
+
+/// One member the directive classing ranges over: its `(kind, id)` identity, the
+/// provenance `source_path` that is the join key between world paths and members
+/// (`specs/architecture/15-kinds.md`, "Directives"), and its extracted `at-import` target
+/// occurrences in document order. The caller builds it off the units the features were
+/// extracted from — the full path the decidable [`Features`] view drops — carrying
+/// *every* member (a directive may point at a member that itself imports nothing) with
+/// its `directives` (empty for a kind composing no `directives` primitive).
+pub struct DirectiveMember {
+    /// The member's kind name (`skill`, `memory`, a custom kind).
+    pub kind: String,
+    /// The member's id — the `Features::id`, named in a finding and an edge endpoint.
+    pub id: String,
+    /// The provenance source path the member was imported from — the classing join key.
+    pub source_path: PathBuf,
+    /// The member's extracted `at-import` occurrences: raw target strings in document
+    /// order (`Features::directives`).
+    pub directives: Vec<String>,
+}
+
+/// The outcome of classifying a corpus's directive occurrences
+/// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax"): the
+/// member→member edges the member-class occurrences resolved to, and the
+/// unbacked-pointer findings for the occurrences that resolved to neither a member nor
+/// a repo file.
+pub struct DirectiveClassing {
+    /// The member-class occurrences as resolved edges — each an observed import from
+    /// one member to another, of the same [`ResolvedEdge`] type the declared-edge
+    /// enumeration yields, so it enters the one resolved-edge set the graph predicates
+    /// read. Reachability closing over them is a later slice.
+    pub edges: Vec<ResolvedEdge>,
+    /// The unbacked-pointer findings — one per occurrence resolving to nothing, keyed
+    /// to the importing member.
+    pub findings: Vec<Diagnostic>,
+}
+
+/// Classify each member's extracted `at-import` directive occurrences against the
+/// landscape (`specs/architecture/15-kinds.md`, "Directives"): resolve every target
+/// relative to the importing member's file directory (an absolute target as-is;
+/// code.claude.com/docs/en/memory, retrieved 2026-07-02) and sort it into one of three
+/// classes — a **member** (the resolved path is another member's provenance
+/// `source_path`, yielding a member→member [`ResolvedEdge`]), a **backed repo file**
+/// (the path is present in `repo_files`, a one-way boundary edge that neither errors
+/// nor enters the member graph), or **nothing** (an *unbacked pointer* — the importing
+/// member's finding, the silent-context-loss failure class made author-time).
+///
+/// `members` carries every member so the provenance index is complete — a target may
+/// point at a member that imports nothing. `repo_files` is the repo file-set
+/// [`reachable`] also reads. Members and their targets iterate in the caller's order,
+/// so the edge and finding sets are stable. Member class beats repo-file class: a
+/// member *is* a repo file, and the stronger classification (it enters the graph) wins.
+#[must_use]
+pub fn classify_directives(
+    members: &[DirectiveMember],
+    repo_files: &[String],
+) -> DirectiveClassing {
+    // The provenance index — normalized `source_path` → node — the join between a
+    // resolved target path and the member it names.
+    let index: BTreeMap<PathBuf, Node> = members
+        .iter()
+        .map(|member| {
+            (
+                normalize_path(&member.source_path),
+                (member.kind.clone(), member.id.clone()),
+            )
+        })
+        .collect();
+    // The repo file-set, normalized the identical way so a resolved target joins it.
+    let repo: BTreeSet<PathBuf> = repo_files
+        .iter()
+        .map(|file| normalize_path(Path::new(file)))
+        .collect();
+
+    let mut edges = Vec::new();
+    let mut findings = Vec::new();
+    for member in members {
+        for target in &member.directives {
+            let resolved = resolve_directive_target(&member.source_path, target);
+            if let Some(to) = index.get(&resolved) {
+                edges.push(ResolvedEdge {
+                    from: (member.kind.clone(), member.id.clone()),
+                    field: DIRECTIVE_FIELD.to_string(),
+                    to: to.clone(),
+                });
+            } else if !repo.contains(&resolved) {
+                // Neither a member nor a repo file: an unbacked pointer that loads
+                // nothing. A backed repo file is a one-way boundary edge — no finding,
+                // no member edge.
+                findings.push(unbacked_pointer(&member.id, target));
+            }
+        }
+    }
+    DirectiveClassing { edges, findings }
+}
+
+/// Resolve a directive target against the importing member's file: an absolute target
+/// as authored, a relative one joined onto the importing file's directory
+/// (`specs/architecture/15-kinds.md`, "Directives"), then lexically normalized so `.`/`..`
+/// segments join the index cleanly.
+fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
+    let target = Path::new(target);
+    let joined = if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        importing
+            .parent()
+            .map_or_else(|| target.to_path_buf(), |dir| dir.join(target))
+    };
+    normalize_path(&joined)
+}
+
+/// Lexically normalize a path — drop `.` and resolve `..` against a preceding normal
+/// segment — **without touching disk**: a provenance path need not exist under the
+/// check CWD, and both the index keys and a resolved target must normalize the identical
+/// way to join. A leading `..` with nothing to pop is kept, so an out-of-tree target
+/// stays distinct rather than silently rooting.
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut out: Vec<Component> = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir if matches!(out.last(), Some(Component::Normal(_))) => {
+                out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    out.into_iter().collect()
+}
+
+/// The finding for an **unbacked pointer** — a directive occurrence resolving to
+/// neither a member nor a repo file (`specs/architecture/15-kinds.md`, "Directives"): the
+/// importing member imports a path that loads nothing, the silent-context-loss failure
+/// class caught at author-time. Mirrors [`dangling`]/[`unreachable`]: an error naming
+/// the importing member and the dead target.
+fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
+    Diagnostic::error(
+        GRAPH_DIRECTIVE_UNBACKED_RULE,
+        importing,
+        format!(
+            "`{importing}` imports `@{target}`, which resolves to no member and no repository file — an unbacked pointer that loads nothing"
         ),
     )
 }

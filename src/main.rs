@@ -769,6 +769,32 @@ fn gate(
         // `acyclic`/`check` assemble. Opt-in per requirement.
         diagnostics.extend(graph::degree(layer.requirements(), &edges, &by_kind));
 
+        // The `paths-match` reachability input and the directive backing-set share one
+        // repo file-set (`specs/architecture/45-governance.md`, "The world is a node"): every file
+        // under the harness root, over-collected so an extra file can only suppress a
+        // finding, never forge one (law 3). Computed once and read by both the directive
+        // classing below and the reachability predicate.
+        let repo_files = repo_file_set(base_dir);
+
+        // Directive-target classing (`specs/architecture/15-kinds.md`, "Directives"): resolve every
+        // member's extracted `at-import` targets against the landscape — a target resolving
+        // to another member is a member→member edge, to an ungoverned repo file a backed
+        // boundary edge, to nothing an unbacked-pointer finding on the importing member (the
+        // silent-context-loss failure class made author-time). The join key is provenance
+        // `source_path`, read off the units the features came from. The member-class edges
+        // are produced as resolved edges available to the graph; a later slice closes
+        // reachability over them.
+        let directive_members = collect_directive_members(
+            &skill_units,
+            &skill_features,
+            &rule_units,
+            &rule_features,
+            &custom_kinds,
+            workspace,
+        )?;
+        let directive_classing = graph::classify_directives(&directive_members, &repo_files);
+        diagnostics.extend(directive_classing.findings);
+
         // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
         // kind declares an activation is dead when the world→member edge is provably so
         // (a blank description-trigger, a zero-match paths glob). Assembly-scope and
@@ -796,12 +822,6 @@ fn gate(
                 }
             }
 
-            // The `paths-match` liveness input: every file under the harness root the
-            // globs are tested against. A dead-edge finding is a true positive only if
-            // the file set is complete, so `repo_file_set` over-collects (nothing is
-            // excluded) — an extra file can only make a glob look live, never forge a
-            // dead edge against a file temper failed to scan.
-            let repo_files = repo_file_set(base_dir);
             diagnostics.extend(graph::reachable(
                 &activations,
                 &by_kind,
@@ -995,6 +1015,48 @@ fn assemble_by_kind<'a>(
         by_kind.insert(*name, features.as_slice());
     }
     by_kind
+}
+
+/// Pair each member with the provenance `source_path` the directive classing joins on
+/// (`specs/architecture/15-kinds.md`, "Directives"): the decidable [`Features`](extract::Features)
+/// view drops the full path, so it is read off the units the features were extracted
+/// from. Built-in `skill`/`rule` features are index-aligned with the units they came
+/// from; each custom kind's units are re-read in the same sorted order
+/// [`custom_units`] loads them, so the zip aligns. Every member is carried — a directive
+/// may point at a member that imports nothing — with its `directives` occurrences.
+fn collect_directive_members(
+    skill_units: &[Unit],
+    skill_features: &[extract::Features],
+    rule_units: &[Unit],
+    rule_features: &[extract::Features],
+    custom_kinds: &[CustomKindEntry<'_>],
+    workspace: &Path,
+) -> miette::Result<Vec<graph::DirectiveMember>> {
+    let mut members = Vec::new();
+    for (kind, units, features) in [
+        ("skill", skill_units, skill_features),
+        ("rule", rule_units, rule_features),
+    ] {
+        for (unit, feature) in units.iter().zip(features) {
+            members.push(graph::DirectiveMember {
+                kind: kind.to_string(),
+                id: feature.id.clone(),
+                source_path: unit.source_path.clone(),
+                directives: feature.directives.clone(),
+            });
+        }
+    }
+    for (name, custom, features) in custom_kinds {
+        for (unit, feature) in custom_units(workspace, custom)?.iter().zip(features) {
+            members.push(graph::DirectiveMember {
+                kind: (*name).to_string(),
+                id: feature.id.clone(),
+                source_path: unit.source_path.clone(),
+                directives: feature.directives.clone(),
+            });
+        }
+    }
+    Ok(members)
 }
 
 /// The composed requirement namespace the read family (`why`/`requirements`) ranges
