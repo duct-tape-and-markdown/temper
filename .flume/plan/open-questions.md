@@ -480,3 +480,16 @@ from exactly such a line fossilizing. If work touches one, surface it.
   neither the wave's work nor EXTRACTION-VOCAB-GAPS's fenced/key-path, so that entry
   stays deferred on its own no-consumer terms. Shipping the wave + the curated files
   unlocks the flip.
+  DATUM (2026-07-02, precedence gap): a *second* placement attempt surfaced that
+  `AmbiguousKind` was not the whole story — a project kind bare-named `memory` is
+  *silently preempted* by the co-embedded carriers (the `builtin_names.contains`
+  short-circuit at import.rs:146 skips it as a built-in layer), and a memberless
+  carrier's empty roll-up section vanishes on round-trip. The Decision now rules it
+  (`15-kinds.md`: "an explicit registration owns its bare name outright" — a
+  registration shadows unbound embedded carriers). Filed **REGISTERED-KIND-SHADOWS-EMBEDDED**
+  (open this tick, sole pickable): registration wins its bare name in import,
+  memberless kinds write no section, two co-discovering carriers qualify their lock
+  keys. This is now the LAST engine prerequisite — it must ship before the human
+  commits the four curated files (per the inbox repro: co-embedding a second bare-`memory`
+  carrier reddens `cargo test` today). Ordering: REGISTERED-KIND-SHADOWS-EMBEDDED →
+  human curated-file commit → MEMORY-KIND validation → flip.

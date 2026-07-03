@@ -1,14 +1,43 @@
 [
   {
+    "tag": "REGISTERED-KIND-SHADOWS-EMBEDDED",
+    "summary": "A registered kind shadows unbound embedded carriers of its bare name in import; memberless embedded kinds write no lock section; co-discovering carriers qualify their lock keys",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Decision: kind identity carries a provider axis"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Three coupled fixes in the one file the symptoms live in, per the Decision's new ruling 'an explicit registration owns its bare name outright'. (1) Registration shadows unbound embedded carriers: `run()` (import.rs:120-163) skips any registered kind whose bare name a built-in carries via `if builtin_names.contains(name) { continue }` (import.rs:146) — so a project-registered bare-`memory` kind is silently preempted by the co-embedded `agents-md.memory` + `claude-code.memory` carriers and its `**/MEMORY.md` members never import (symptom A, doc[\"memory\"] absent, import.rs:1443). Fix: a registered kind wins its bare name — scan it as the custom kind AND drop the embedded carriers of that same bare name from the built-in scan (registration is the loudest declaration of intent). (2) Memberless embedded kind writes no lock section: `write_rollup` (import.rs:641-643) emits an `ArrayOfTables` for every built-in kind including empty ones; an empty AoT vanishes on toml round-trip so a memberless carrier's section is absent after re-parse (symptom B, import.rs:1271) — make the skip deterministic: a kind with zero discovered members writes no section, matching the round-trip reality. (3) Lock-key when two co-embedded carriers BOTH discover members in one harness: the `builtin_rollups` map is keyed by bare `name` (import.rs:131), so a second carrier clobbers the first's rows — mirror `resolve_bare`'s policy: bare while the name is unique among member-discovering kinds, qualified (`<provider>.<name>`) where two carriers meet, never clobbering one kind's rows with another's. Also re-pin the two inline tests in this file's `#[cfg(test)] mod`: `builtin_scan_is_generic_over_the_embedded_kind_set` (import.rs:1246) to assert a lock section exactly for kinds with discovered members (not every embedded kind); `an_any_depth_glob_discovers_a_nested_hierarchy_with_placement_folded_ids` (import.rs:1408) stays green with carriers co-embedded. Add a new test proving a registered bare-`memory` kind imports its members with two `memory` carriers embedded (registration shadows them, fail-loud never silent-skip)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/import.rs",
+        "asserts": "a project-registered bare-`memory` kind imports its `**/MEMORY.md` members even with `agents-md.memory` + `claude-code.memory` co-embedded (registration shadows the unbound carriers, no silent skip); a memberless embedded kind writes no lock section; two co-embedded carriers that both discover members write distinct qualified lock keys, never clobbering."
+      }
+    ],
+    "acceptance": "With two bare-`memory` carriers co-embedded, `temper import` of a harness registering a project `memory` kind discovers that kind's members (registration owns the bare name); a memberless embedded carrier writes no lock section; two co-discovering carriers key their lock rows by qualified identity; cargo fmt/clippy -D warnings/test green. Draining this unblocks the human's held four curated memory files.",
+    "notes": "Inbox slice (2026-07-02). Two red import tests: symptom A — a registered `memory` kind is skipped by the `builtin_names.contains` short-circuit (import.rs:146), preempted by embedded carriers (silent skip); symptom B — an empty ArrayOfTables vanishes on round-trip so a memberless carrier's section is absent (import.rs:1271). Lock-key: bare while unique, qualified where carriers co-discover. Single file; sole open entry, parallel-safe. Unblocks the held memory file commit → MEMORY-KIND flip."
+  },
+  {
     "tag": "MEMORY-KIND",
-    "summary": "Validate the memory kinds end-to-end once the human commits the curated KIND.md/PACKAGE.md (SCAN-QUALIFIED-IDENTITY has shipped) — discover, clause-check, idempotent round-trip",
+    "summary": "Validate the memory kinds end-to-end once REGISTERED-KIND-SHADOWS-EMBEDDED ships and the human commits the curated KIND.md/PACKAGE.md — discover, clause-check, idempotent round-trip",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Two categories of kind — ownership, not mechanism"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the engine wave AND its SCAN-QUALIFIED-IDENTITY unblocker have both shipped (SCAN: build 7ae7240 / chore 61e4e6f, verified on disk — import/drift thread the qualified kind, no bare re-resolution, so co-embedding two `memory` providers no longer reddens scans). This now parks SOLELY on the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, outside build's fence, cited to code.claude.com/docs/en/memory) — absent on disk today (kinds/claude-code holds only skill+rule; packages only skill.anthropic+rule.anthropic). Once those files are committed, this validation runs"
+      "reason": "the engine wave AND SCAN-QUALIFIED-IDENTITY both shipped, but a second placement attempt surfaced a precedence gap now filed as REGISTERED-KIND-SHADOWS-EMBEDDED (2 red import tests: a registered bare-`memory` kind is preempted by co-embedded carriers). Per the inbox repro, that fix must ship BEFORE the four curated memory files can be committed. So this now waits on: (1) REGISTERED-KIND-SHADOWS-EMBEDDED landing, THEN (2) the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, cited to code.claude.com/docs/en/memory) — absent on disk today. Once both, this validation runs"
     },
     "dependsOnForks": [],
     "files": {
@@ -28,8 +57,8 @@
         "asserts": "the memory package's decidable clauses fire on broken fixtures and stay silent on clean; a no-frontmatter File-shaped memory member imports and re-emits idempotently (insta snapshot); the two bare-`memory` providers resolve by qualified identity with no spurious collision on non-colliding lookups."
       }
     ],
-    "acceptance": "With the wave shipped, SCAN-QUALIFIED-IDENTITY landed, and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
-    "notes": "Engine wave (5 slices) + SCAN-QUALIFIED-IDENTITY both SHIPPED (verified on disk: import/drift thread the qualified kind, no bare re-resolution; builtin_kind enumeration derives from the kinds/ tree). Flip-ceremony validation now parks SOLELY on the human committing the four curated memory KIND.md+PACKAGE.md (absent on disk today). `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
+    "acceptance": "With the wave shipped, SCAN-QUALIFIED-IDENTITY + REGISTERED-KIND-SHADOWS-EMBEDDED landed, and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
+    "notes": "Engine wave (5 slices) + SCAN-QUALIFIED-IDENTITY SHIPPED. New engine prerequisite: REGISTERED-KIND-SHADOWS-EMBEDDED (filed open this tick) must ship before the curated files commit (inbox repro: co-embedding a second bare-`memory` carrier reddens import today). Flip-ceremony validation still parks on the human committing the four curated files (absent on disk). `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
