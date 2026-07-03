@@ -7,8 +7,7 @@
       "section": "Decision: package binding is by artifact kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "IMPORT-BUILTIN-SCAN-GENERIC"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "`check` dispatches every built-in kind's members — not just skills/rules — to its bound package; bundle/drift/read read the generic map with unchanged output; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox wave-1 slice 3 (after slice 2). Blast radius: the `Workspace` struct's readers (bundle/drift/read) move to the generic map — none overlap the import.rs slices, so parallel-safe with slice 4. blockedBy slice 2 (needs the generic built-in set)."
+    "notes": "Inbox wave-1 slice 3. Now open (slice 2 IMPORT-BUILTIN-SCAN-GENERIC shipped, 78195e0). Blast radius: the `Workspace` struct's readers (bundle/drift/read) move to the generic map — none touch import.rs, so parallel-safe with slice 4 (DECLARED, also open, disjoint import.rs)."
   },
   {
     "tag": "DECLARED-FRONTMATTER-ADAPTER-CUSTOM",
@@ -51,8 +50,7 @@
       "section": "Decision: the adapter faces are declared — a kind names its projection format"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "IMPORT-BUILTIN-SCAN-GENERIC"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -73,7 +71,7 @@
       }
     ],
     "acceptance": "`import_custom_unit` honors the declared `unit_shape`/`format` for every custom kind, not just the frontmatterless File-shaped accident; the whole-file body path survives for the latter; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox wave-1 slice 4 (independent correctness/generality, not strictly a memory blocker — memory is frontmatterless File-shaped, accidentally already handled). blockedBy slice 2 only to serialize the shared import.rs (disjoint regions still merge-conflict). Makes the declared adapter faces load-bearing on the custom path."
+    "notes": "Inbox wave-1 slice 4 (independent correctness/generality, not strictly a memory blocker — memory is frontmatterless File-shaped, accidentally already handled). Now open (slice 2 shipped). Shares import.rs with slice 5 (RECURSIVE), which is serialized behind it. Makes the declared adapter faces load-bearing on the custom path."
   },
   {
     "tag": "RECURSIVE-GOVERNS-PLACEMENT-ID",
