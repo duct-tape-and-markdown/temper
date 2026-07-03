@@ -1,34 +1,5 @@
 [
   {
-    "tag": "PROVIDER-KEY-PARSE",
-    "summary": "Parse the inert `provider` key on a KIND.md — kind identity becomes qualified `<provider>.<name>` (bare otherwise), plus the bare→unique-or-collision resolution helper",
-    "per": {
-      "path": "specs/15-kinds.md",
-      "section": "Decision: kind identity carries a provider axis"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add `provider: Option<String>` to `CustomKind` (kind.rs:60) and accept `provider` in `from_header`'s closed allowed-key set (kind.rs:188-200) — same red-interim shape as the shipped `format`/`unit_shape`/`activation` keys. A `provider` value is *any string* (the vocabulary is the market's, not the parser's — specs/15-kinds.md); absent ⇒ `None`; a present-but-non-string value is a load error (fold into a `BadProvider`/existing malformation error, mirroring `parse_governs`). Add a `qualified_name()` method: `<provider>.<name>` when a provider is declared, the bare `name` otherwise. Add a pure resolution helper — given a bare name and a slice of kind identities, return the unique qualified match or a `KindError::AmbiguousKind` naming the qualified candidates (the collision load error the Decision requires). The helper is the mechanism; wiring it into the assembly-binding / `satisfies`-typing / BUILTIN_KINDS-lookup consumers is BINDING-QUALIFY, after the human file-move. All inline `#[cfg(test)] mod tests` additions use the existing `kind_from_header` helper (kind.rs:1541)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "a `provider = \"claude-code\"` line parses into `CustomKind.provider` inert (no `UnknownKey`); absent ⇒ `None`; a non-string `provider` is a load error; `qualified_name()` yields `<provider>.<name>` when declared and the bare `name` otherwise; the resolution helper returns the unique bare match against a kind set and an `AmbiguousKind` error naming the qualified candidates on a collision."
-      }
-    ],
-    "acceptance": "`CustomKind` carries an optional `provider`; a curated KIND.md `provider = \"claude-code\"` line parses inert (no `UnknownKey`, red-interim shape); `qualified_name()` is `<provider>.<name>` or the bare name; a bare reference resolves against a kind set to the unique match or an ambiguity load error naming the qualified candidates; a non-string `provider` is a load error; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Inbox (kind-harness-axis) consequence (1); same red-interim shape as FORMAT-KEY-PARSE/ACTIVATION-KEY-PARSE — kind.rs:188 allowed-key set + a parse + the inline mod tests (kind_from_header, kind.rs:1541). `provider` is any string (vocab is the market's). Wiring resolution into consumers + the build.rs nested walk + qualified bindings are BINDING-QUALIFY, parked on the human file-move (2). Curated skill/rule KIND.md gain provider lines only after this ships."
-  },
-  {
     "tag": "BINDING-QUALIFY",
     "summary": "Qualify built-in kind bindings — packages bind `<provider>.<name>`, the build.rs embed walk accepts the nested `kinds/<provider>/<name>/` layout, and bare lookups route through provider resolution",
     "per": {
