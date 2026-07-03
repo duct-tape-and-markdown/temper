@@ -24,14 +24,19 @@ use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::builtin_kind;
-use crate::compose::AuthorLayer;
+use crate::compose::{self, AuthorLayer, ManifestMember};
 use crate::document::{self, Document};
 use crate::frontmatter::{self, FrontmatterError, Member};
-use crate::kind::{CustomKind, Format, Governs, KindError, UnitShape};
+use crate::kind::{CustomKind, Format, Governs, KindError, Unit, UnitShape};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
 /// written at the workspace root (`specs/architecture/20-surface.md`, "Topology").
 const LOCK_FILENAME: &str = "lock.toml";
+
+/// Filename of the generated-canonical **manifest** — the assembly + its emitted member
+/// features — written beside the `.temper/` workspace at the project root
+/// (`specs/architecture/20-surface.md`, "Topology": the only thing the gate reads).
+const MANIFEST_FILENAME: &str = "temper.toml";
 
 /// Errors raised while importing a harness. Distinct from a [`FrontmatterError`]
 /// (which a malformed source member produces) by also covering the surface-write
@@ -85,6 +90,30 @@ pub enum ImportError {
         /// The underlying I/O error.
         #[source]
         source: std::io::Error,
+    },
+
+    /// The existing manifest could not be read to patch it format-preserving
+    /// (`specs/architecture/20-surface.md`, "a hand-written manifest is patched format-preserving").
+    #[error("failed to read manifest {path}")]
+    #[diagnostic(code(temper::import::manifest_read))]
+    ManifestRead {
+        /// The manifest path that failed to read.
+        path: PathBuf,
+        /// The underlying I/O error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// The existing manifest is not valid TOML, so it cannot be patched
+    /// format-preserving — a hand-authored manifest must round-trip through `toml_edit`.
+    #[error("failed to parse manifest {path} as TOML")]
+    #[diagnostic(code(temper::import::manifest_toml))]
+    ManifestToml {
+        /// The manifest that failed to parse.
+        path: PathBuf,
+        /// The TOML parse error.
+        #[source]
+        source: toml_edit::TomlError,
     },
 }
 
@@ -214,6 +243,130 @@ fn run_with_builtins(
     write_rollup(into, &builtin_rollups, &custom)?;
 
     Ok(())
+}
+
+/// Serialize the imported harness's **manifest** to `temper.toml` beside the `.temper/`
+/// workspace — the generated-canonical artifact the gate reads
+/// (`specs/architecture/20-surface.md`, "Topology"). Every imported member's extracted
+/// [`Features`](crate::extract::Features) lands as a `[[member]]` table; a hand-authored
+/// floor manifest (its bindings, requirements, relationships, and comments) is patched
+/// **format-preserving** via `toml_edit` and **never clobbered** — only the
+/// generated-canonical `member` root is re-emitted whole.
+///
+/// The manifest lives at the workspace's parent (`into.parent()`), the project root a
+/// real `temper import .` targets. A throwaway one-shot import (`check --harness`,
+/// session-start's surfaceless fallback) imports into a scratch surface and does **not**
+/// call this, so the harness it lints is never mutated.
+///
+/// Write-side only: the gate reads these members at MANIFEST-GATE-READ. `check` still
+/// extracts the `.temper/` copy tree until then, so the copy tree stays authoritative and
+/// the manifest members ride along inert.
+///
+/// # Errors
+///
+/// Returns an error if a member surface cannot be read, an embedded kind definition is
+/// malformed, or the existing manifest cannot be read/parsed for patching.
+pub fn emit_manifest(harness_path: &Path, into: &Path) -> miette::Result<()> {
+    let members = collect_manifest_members(harness_path, into)?;
+    // The manifest is a *sibling* of `.temper/` at the project root, not inside it; a
+    // parentless `into` (a bare relative workspace) falls back to the workspace itself.
+    let manifest_path = into.parent().unwrap_or(into).join(MANIFEST_FILENAME);
+    let mut doc = load_manifest(&manifest_path)?;
+    compose::write_manifest_members(&mut doc, &members);
+    write_bytes(&manifest_path, doc.to_string().as_bytes())?;
+    Ok(())
+}
+
+/// Gather every imported member's [`ManifestMember`] — the bare kind name paired with the
+/// exact [`Features`](crate::extract::Features) `check` extracts — by re-reading the
+/// surface `into` through the same loader the gate uses, so a serialized member equals a
+/// live extraction. Built-in kinds take the permissive extraction (`builtin_kind::features`
+/// folds unknown frontmatter keys a `forbidden_keys` clause ranges over); a registered
+/// custom kind takes its declared-field extraction. Sorted by kind then id, so the emitted
+/// manifest is byte-stable across imports (the lock roll-up's discipline).
+fn collect_manifest_members(harness: &Path, into: &Path) -> miette::Result<Vec<ManifestMember>> {
+    let builtins = builtin_kind::definitions()?;
+    let mut members = Vec::new();
+    for kind in builtins.values() {
+        for unit in surface_units_for(into, kind.surface_subdir(), &kind.member_document())? {
+            members.push(ManifestMember {
+                kind: kind.name.clone(),
+                features: builtin_kind::features(kind, &unit),
+            });
+        }
+    }
+    // A registered custom kind (one with no embedded carrier — a bare name a built-in
+    // already carries is a layer, scanned above) extracts off its `governs.root` surface.
+    if let Some(layer) = AuthorLayer::load(&harness.join(MANIFEST_FILENAME))? {
+        let kinds_dir = harness.join(".temper").join("kinds");
+        for name in layer.registered_kinds() {
+            if carrier_count(&builtins, name) == 1 {
+                continue;
+            }
+            let kind = CustomKind::load(&kinds_dir, name)?;
+            for unit in surface_units_for(into, &kind.governs.root, &kind.member_document())? {
+                members.push(ManifestMember {
+                    kind: kind.name.clone(),
+                    features: kind.extraction.extract(&unit),
+                });
+            }
+        }
+    }
+    members.sort_by(|a, b| {
+        a.kind
+            .cmp(&b.kind)
+            .then_with(|| a.features.id.cmp(&b.features.id))
+    });
+    Ok(members)
+}
+
+/// Load an existing manifest at `path` as a format-preserving [`DocumentMut`], or a fresh
+/// empty document when none is there (a first import creates the manifest). A malformed
+/// existing manifest is a hard error, never silently overwritten — patch-preserving
+/// requires a parseable base.
+fn load_manifest(path: &Path) -> Result<DocumentMut, ImportError> {
+    match fs::read_to_string(path) {
+        Ok(src) => src
+            .parse::<DocumentMut>()
+            .map_err(|source| ImportError::ManifestToml {
+                path: path.to_path_buf(),
+                source,
+            }),
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(DocumentMut::new()),
+        Err(source) => Err(ImportError::ManifestRead {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
+}
+
+/// Load every surface member of one kind under `<into>/<subdir>/*/<member_doc>` as a
+/// generic [`Unit`], name-sorted — the identical read `check`'s `surface_units` performs,
+/// so the features this yields match the gate's exactly. A missing subdir (a kind with no
+/// imported members) yields an empty list.
+fn surface_units_for(
+    into: &Path,
+    subdir: &str,
+    member_doc: &str,
+) -> Result<Vec<Unit>, ImportError> {
+    let dir = into.join(subdir);
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut member_dirs: Vec<PathBuf> = read_entries(&dir)?
+        .into_iter()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir() && path.join(member_doc).is_file())
+        .collect();
+    member_dirs.sort();
+    let mut units = Vec::with_capacity(member_dirs.len());
+    for member_dir in &member_dirs {
+        units.push(Unit::from_member_document(
+            member_dir,
+            &member_dir.join(member_doc),
+        )?);
+    }
+    Ok(units)
 }
 
 /// How many embedded kinds carry the bare `name` — zero (an ordinary custom kind), one

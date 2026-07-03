@@ -253,6 +253,11 @@ fn main() -> miette::Result<ExitCode> {
     match Cli::parse().command {
         Command::Import { harness_path, into } => {
             import::run(&harness_path, &into)?;
+            // Persistent import serializes the generated-canonical manifest beside the
+            // workspace (`specs/architecture/20-surface.md`, "Topology"); the one-shot gate paths
+            // (`check --harness`, session-start) import into a scratch surface and skip it,
+            // so a lint never mutates the harness.
+            import::emit_manifest(&harness_path, &into)?;
             Ok(ExitCode::SUCCESS)
         }
         Command::Check {

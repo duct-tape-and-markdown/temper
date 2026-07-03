@@ -16,9 +16,11 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use toml_edit::{DocumentMut, Table};
+use toml_edit::{Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, Value, value};
 
 use crate::contract::{self, Clause, Contract, ContractError};
+use crate::document::{self, PublishedRequirement};
+use crate::extract::{self, FeatureValue, Features, Kind, Section};
 
 /// The author-declared layer parsed from a project-root `temper.toml`: a per-kind
 /// set of package bindings and clause overrides to apply over the bound package.
@@ -51,6 +53,15 @@ pub struct AuthorLayer {
     /// exposed only; the install-wired enforcement artifacts (INSTALL-GUARD-ARTIFACTS)
     /// are the consumers.
     authority: Authority,
+    /// The **serialized member features** parsed from the top-level `[[member]]` tables
+    /// (`specs/architecture/20-surface.md`, "Topology"): the generated-canonical, pre-extracted
+    /// form of every imported member. Its own root, distinct from the authored
+    /// `kind`/`requirement` maps — `import` regenerates it whole while patching the
+    /// author's bindings/requirements format-preserving. Empty when the manifest carries
+    /// none. Inert on the read side until MANIFEST-GATE-READ flips the gate to consume it
+    /// in place of the `.temper/` copy tree; parsed here so a re-import and the gate load
+    /// round-trip the whole manifest without choking on the emitted section.
+    members: Vec<ManifestMember>,
 }
 
 /// The assembly's **surface-authority posture** — how firmly the surface owns its
@@ -89,6 +100,27 @@ pub struct Edge {
     /// kind must be one `temper` models, else no route can resolve (a
     /// graph-admissibility concern, [`crate::graph`]).
     pub to: String,
+}
+
+/// One **member's serialized features** in the manifest — a `[[member]]` table
+/// (`specs/architecture/20-surface.md`, "Topology": member features serialize into the
+/// manifest, the pre-extracted form the gate reads). It pairs the bare `kind` a member
+/// is checked under with the deterministically-extracted [`Features`] `import` (or the
+/// altitude's `emit`) baked in: the frontmatter fields, the body facts (line count,
+/// headings, sections, source dir, directives), and the representation edges
+/// (`satisfies`, published requirements). Generated-canonical — regenerated whole each
+/// `import`, never hand-tended — so the whole `member` root is re-emitted, distinct from
+/// the hand-authored bindings/requirements the tool patches format-preserving.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ManifestMember {
+    /// The bare kind name the member is checked under (`skill`, `rule`, a custom kind's
+    /// name) — the key `check` groups members by (`assemble_by_kind`), so the manifest
+    /// carries it explicitly rather than nesting members under a per-kind table.
+    pub kind: String,
+    /// The member's deterministically-extracted [`Features`] — the exact value the gate
+    /// consumes, so a serialized member round-trips to the same features a live
+    /// extraction yields.
+    pub features: Features,
 }
 
 /// A named **requirement** — the harness's named obligation, declared in a top-level
@@ -415,17 +447,17 @@ pub enum ComposeError {
         path: PathBuf,
     },
 
-    /// A top-level key other than `kind`, `requirement`, `reachability`, or `authority` —
-    /// a typo, or the retired `[role.*]` surface. Rejected, not ignored: silently dropping
-    /// a stray root is the gap temper exists to catch (`specs/architecture/10-contracts.md`, unknown
-    /// keys rejected).
+    /// A top-level key other than `kind`, `requirement`, `reachability`, `authority`, or
+    /// `member` — a typo, or the retired `[role.*]` surface. Rejected, not ignored:
+    /// silently dropping a stray root is the gap temper exists to catch
+    /// (`specs/architecture/10-contracts.md`, unknown keys rejected).
     #[error(
-        "{path}: unknown top-level key `{key}` (temper.toml carries only `kind`, `requirement`, `reachability`, and `authority`)"
+        "{path}: unknown top-level key `{key}` (temper.toml carries only `kind`, `requirement`, `reachability`, `authority`, and `member`)"
     )]
     #[diagnostic(
         code(temper::compose::unknown_root_key),
         help(
-            "a temper.toml declares `[kind.*]` layers/custom kinds, `[requirement.*]` obligations, the assembly-scope `[reachability]` opt-in, and the `authority` posture — the `[role.*]` surface was retired into `[requirement.*]`"
+            "a temper.toml declares `[kind.*]` layers/custom kinds, `[requirement.*]` obligations, the assembly-scope `[reachability]` opt-in, the `authority` posture, and the emitted `[[member]]` feature tables — the `[role.*]` surface was retired into `[requirement.*]`"
         )
     )]
     UnknownRootKey {
@@ -607,6 +639,32 @@ pub enum ComposeError {
         path: PathBuf,
     },
 
+    /// The top-level `member` key is present but is not an array of `[[member]]`
+    /// feature tables — its own root, distinct from the `kind`/`requirement` maps
+    /// (`specs/architecture/20-surface.md`, "Topology").
+    #[error("{path}: `member` must be an array of `[[member]]` feature tables")]
+    #[diagnostic(code(temper::compose::member_root_not_array))]
+    MemberRootNotArray {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+    },
+
+    /// A `[[member]]` table is malformed — missing or mistyped its required `kind`/`name`
+    /// strings, or carrying a `headings`/`directives`/`satisfies`/`section`/`published`
+    /// facet of the wrong TOML shape. Any miss folds here, the way [`parse_count`] folds a
+    /// count bound's malformations. A generated section should never be malformed; a
+    /// hand-edited one that is fails loudly, never silently degrading a member's features.
+    #[error(
+        "{path}: `[[member]]` #{index} is malformed (each carries a `kind` and `name` string, an optional `line_count`/`source_dir`, string-array `headings`/`directives`/`satisfies`, a `[member.field]` table, and `[[member.section]]`/`[[member.published]]` tables)"
+    )]
+    #[diagnostic(code(temper::compose::bad_member))]
+    BadMember {
+        /// The malformed `temper.toml`.
+        path: PathBuf,
+        /// The zero-based position of the malformed member in declaration order.
+        index: usize,
+    },
+
     /// A layered clause is outside the closed vocabulary (or otherwise malformed).
     /// Bubbled verbatim from [`crate::contract`] so the author layer's clauses are
     /// held to the exact same closed-vocabulary contract as a bare one's. Covers a
@@ -646,7 +704,10 @@ impl AuthorLayer {
         // `reachability` opt-in (`specs/architecture/45-governance.md`), and the `authority`
         // posture (`specs/architecture/20-surface.md`).
         for (key, _) in doc.as_table().iter() {
-            if !matches!(key, "kind" | "requirement" | "reachability" | "authority") {
+            if !matches!(
+                key,
+                "kind" | "requirement" | "reachability" | "authority" | "member"
+            ) {
                 return Err(ComposeError::UnknownRootKey {
                     path: path.to_path_buf(),
                     key: key.to_string(),
@@ -717,6 +778,21 @@ impl AuthorLayer {
         // load error, like `[reachability]`'s `severity`.
         let authority = parse_authority(doc.as_table().get("authority"), path)?;
 
+        // The emitted member-features root — the generated-canonical, pre-extracted form
+        // (`specs/architecture/20-surface.md`, "Topology"). Its own array root, parsed like the
+        // lock's roll-up rows: each `[[member]]` table into a typed [`ManifestMember`].
+        let mut members = Vec::new();
+        if let Some(item) = doc.as_table().get("member") {
+            let array =
+                item.as_array_of_tables()
+                    .ok_or_else(|| ComposeError::MemberRootNotArray {
+                        path: path.to_path_buf(),
+                    })?;
+            for (index, table) in array.iter().enumerate() {
+                members.push(parse_member(table, index, path)?);
+            }
+        }
+
         Ok(Self {
             path: path.to_path_buf(),
             kinds,
@@ -724,6 +800,7 @@ impl AuthorLayer {
             edges,
             reachability,
             authority,
+            members,
         })
     }
 
@@ -760,6 +837,16 @@ impl AuthorLayer {
     #[must_use]
     pub fn authority(&self) -> Authority {
         self.authority
+    }
+
+    /// The manifest's serialized member features, in declaration order
+    /// (`specs/architecture/20-surface.md`, "Topology"). Empty when the manifest declares no
+    /// `[[member]]` tables. Inert until MANIFEST-GATE-READ flips the gate to read these
+    /// pre-extracted features in place of a live extraction over the `.temper/` copy tree;
+    /// exposed now so the shape `import` writes and the shape the gate will read are one.
+    #[must_use]
+    pub fn members(&self) -> &[ManifestMember] {
+        &self.members
     }
 
     /// The names of every `[kind.<name>]` registered in the assembly, in name order — the
@@ -1337,6 +1424,305 @@ fn requirement_str(
             }
         }))
         .transpose(),
+    }
+}
+
+/// Re-emit the manifest's `[[member]]` root whole into `doc` from the freshly-extracted
+/// `members`, replacing any prior member section and leaving every other root — the
+/// hand-authored `kind`/`requirement`/`reachability`/`authority` declarations and their
+/// comments — untouched (`specs/architecture/20-surface.md`, "a hand-written manifest is patched
+/// format-preserving… an emitted [section] is re-emitted whole"). The member root is
+/// **generated-canonical**: it carries nothing of the human's, so it is rebuilt each
+/// import rather than merged. An empty `members` drops the root entirely (an empty
+/// array-of-tables would vanish on the toml round-trip anyway).
+pub fn write_manifest_members(doc: &mut DocumentMut, members: &[ManifestMember]) {
+    // The member root is generated-canonical — regenerated whole, never merged — so drop
+    // any prior section first, then re-emit. Removing before inserting makes a re-import
+    // byte-stable: whether the base already carried a `member` root or not, the write is
+    // the same "append the fresh root to a member-less document" operation, so a second
+    // import over the first's output reproduces it exactly.
+    doc.as_table_mut().remove("member");
+    if members.is_empty() {
+        return;
+    }
+    let mut tables = ArrayOfTables::new();
+    for member in members {
+        tables.push(member_to_table(member));
+    }
+    doc["member"] = Item::ArrayOfTables(tables);
+}
+
+/// Serialize one member's features into its `[[member]]` table: the bare `kind`, the
+/// `name` (id), the body facts (`line_count`, `source_dir`, `headings`, `directives`),
+/// the fill edges (`satisfies`), the `[member.field]` frontmatter table, and the
+/// `[[member.section]]`/`[[member.published]]` sub-tables. Every empty/absent facet is
+/// omitted so a member with no sections (or no unknown keys) stays terse, and an absent
+/// facet round-trips back to the same empty default.
+fn member_to_table(member: &ManifestMember) -> Table {
+    let features = &member.features;
+    let mut table = Table::new();
+    table["kind"] = value(member.kind.clone());
+    table["name"] = value(features.id.clone());
+    // A `usize` line count cannot exceed `i64::MAX` for any real body; the saturating
+    // fallback keeps the emit total rather than panicking on the impossible case.
+    table["line_count"] = value(i64::try_from(features.body_lines).unwrap_or(i64::MAX));
+    if let Some(source_dir) = &features.source_dir {
+        table["source_dir"] = value(source_dir.clone());
+    }
+    if !features.headings.is_empty() {
+        table["headings"] = value(str_array(&features.headings));
+    }
+    if !features.directives.is_empty() {
+        table["directives"] = value(str_array(&features.directives));
+    }
+    if !features.satisfies.is_empty() {
+        table["satisfies"] = value(str_array(&features.satisfies));
+    }
+    if !features.fields.is_empty() {
+        let mut fields = Table::new();
+        for (key, feature) in &features.fields {
+            if let Some(val) = feature_to_value(feature) {
+                fields[key.as_str()] = Item::Value(val);
+            }
+        }
+        table["field"] = Item::Table(fields);
+    }
+    if !features.sections.is_empty() {
+        let mut sections = ArrayOfTables::new();
+        for section in &features.sections {
+            let mut entry = Table::new();
+            entry["heading"] = value(section.heading.clone());
+            entry["body"] = value(section.body.clone());
+            sections.push(entry);
+        }
+        table["section"] = Item::ArrayOfTables(sections);
+    }
+    if !features.published_requirements.is_empty() {
+        let mut published = ArrayOfTables::new();
+        for requirement in &features.published_requirements {
+            published.push(published_to_table(requirement));
+        }
+        table["published"] = Item::ArrayOfTables(published);
+    }
+    table
+}
+
+/// Serialize a published requirement into a `[[member.published]]` table — the same
+/// facets a header `[requirement.<name>]` module carries (`means`, `kind`, `package`,
+/// `required`), each optional facet omitted when absent so it round-trips to `None`.
+fn published_to_table(requirement: &PublishedRequirement) -> Table {
+    let mut table = Table::new();
+    table["name"] = value(requirement.name.clone());
+    if let Some(means) = &requirement.means {
+        table["means"] = value(means.clone());
+    }
+    if let Some(kind) = &requirement.kind {
+        table["kind"] = value(kind.clone());
+    }
+    if let Some(package) = &requirement.package {
+        table["package"] = value(package.clone());
+    }
+    if requirement.required {
+        table["required"] = value(true);
+    }
+    table
+}
+
+/// Serialize one [`FeatureValue`] into a TOML scalar/array/inline-table, or `None` for a
+/// value TOML cannot carry (a `null` scalar — dropped exactly as the surface projection
+/// drops it). A scalar re-emits in its parsed source kind so the reload re-infers the
+/// same [`Kind`]; a list re-emits as a string array (features stringify list elements);
+/// a map has no payload, so it re-emits as an empty inline table.
+fn feature_to_value(feature: &FeatureValue) -> Option<Value> {
+    match feature {
+        FeatureValue::Scalar {
+            kind: Kind::String,
+            text,
+        } => Some(Value::from(text.clone())),
+        FeatureValue::Scalar {
+            kind: Kind::Integer,
+            text,
+        } => Some(
+            text.parse::<i64>()
+                .map_or_else(|_| Value::from(text.clone()), Value::from),
+        ),
+        FeatureValue::Scalar {
+            kind: Kind::Number,
+            text,
+        } => Some(
+            text.parse::<f64>()
+                .map_or_else(|_| Value::from(text.clone()), Value::from),
+        ),
+        FeatureValue::Scalar {
+            kind: Kind::Boolean,
+            text,
+        } => Some(Value::from(text == "true")),
+        // A `null`, `list`, or `map` *kind* on a `Scalar` cannot occur by construction
+        // (the extractor keys those to `List`/`Map`); a null scalar TOML cannot carry.
+        FeatureValue::Scalar { .. } => None,
+        FeatureValue::List(items) => Some(Value::Array(str_array(items))),
+        FeatureValue::Map => Some(Value::InlineTable(InlineTable::new())),
+    }
+}
+
+/// A TOML string [`Array`] over borrowed strings — the shape `headings`/`directives`/
+/// `satisfies`/a list field re-emit as.
+fn str_array(items: &[String]) -> Array {
+    let mut array = Array::new();
+    for item in items {
+        array.push(item.as_str());
+    }
+    array
+}
+
+/// Parse one `[[member]]` table into a typed [`ManifestMember`], reconstructing the exact
+/// [`Features`] a live extraction yields — the inverse of [`member_to_table`], so a
+/// serialized member round-trips. Any missing/mistyped facet folds into a single
+/// [`ComposeError::BadMember`] naming its position.
+fn parse_member(table: &Table, index: usize, path: &Path) -> Result<ManifestMember, ComposeError> {
+    let bad = || ComposeError::BadMember {
+        path: path.to_path_buf(),
+        index,
+    };
+    let kind = member_str(table, "kind").ok_or_else(bad)?;
+    let id = member_str(table, "name").ok_or_else(bad)?;
+    let body_lines = match table.get("line_count") {
+        None => 0,
+        Some(item) => item
+            .as_integer()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(bad)?,
+    };
+    let source_dir = match table.get("source_dir") {
+        None => None,
+        Some(item) => Some(item.as_str().ok_or_else(bad)?.to_string()),
+    };
+    let headings = member_str_array(table, "headings", &bad)?;
+    let directives = member_str_array(table, "directives", &bad)?;
+    let satisfies = member_str_array(table, "satisfies", &bad)?;
+    let fields = parse_member_fields(table);
+    let sections = parse_member_sections(table, &bad)?;
+    let published_requirements = parse_member_published(table, &bad)?;
+    Ok(ManifestMember {
+        kind,
+        features: Features {
+            id,
+            fields,
+            body_lines,
+            headings,
+            sections,
+            source_dir,
+            directives,
+            satisfies,
+            published_requirements,
+        },
+    })
+}
+
+/// Read one required string key off a `[[member]]` table: present and a TOML string ⇒
+/// `Some`, else `None` (which [`parse_member`] reports as a [`ComposeError::BadMember`]).
+fn member_str(table: &Table, key: &str) -> Option<String> {
+    Some(table.get(key)?.as_str()?.to_string())
+}
+
+/// Read an optional string-array facet off a `[[member]]` table (`headings`, `directives`,
+/// `satisfies`): absent ⇒ an empty vec; present-but-not-an-array-of-strings ⇒ the folded
+/// [`ComposeError::BadMember`].
+fn member_str_array(
+    table: &Table,
+    key: &str,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<Vec<String>, ComposeError> {
+    match table.get(key) {
+        None => Ok(Vec::new()),
+        Some(item) => {
+            let array = item.as_array().ok_or_else(bad)?;
+            let mut out = Vec::with_capacity(array.len());
+            for element in array.iter() {
+                out.push(element.as_str().ok_or_else(bad)?.to_string());
+            }
+            Ok(out)
+        }
+    }
+}
+
+/// Rebuild a member's frontmatter `fields` from its `[member.field]` table: each value
+/// travels back through the surface's `Item`→JSON→[`FeatureValue`] path
+/// ([`document::item_to_json`] + [`extract::json_to_feature`]), so a scalar re-infers its
+/// [`Kind`] exactly as extraction does. An absent or malformed `field` table yields no
+/// fields (a member may legitimately carry none) — the round-trip's empty default.
+fn parse_member_fields(table: &Table) -> BTreeMap<String, FeatureValue> {
+    let mut fields = BTreeMap::new();
+    if let Some(sub) = table.get("field").and_then(Item::as_table) {
+        for (key, item) in sub.iter() {
+            if let Some(json) = document::item_to_json(item) {
+                fields.insert(key.to_string(), extract::json_to_feature(&json));
+            }
+        }
+    }
+    fields
+}
+
+/// Rebuild a member's body `sections` from its `[[member.section]]` tables — each a
+/// `heading`/`body` string pair. Absent ⇒ empty; a malformed entry folds into
+/// [`ComposeError::BadMember`].
+fn parse_member_sections(
+    table: &Table,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<Vec<Section>, ComposeError> {
+    let Some(item) = table.get("section") else {
+        return Ok(Vec::new());
+    };
+    let array = item.as_array_of_tables().ok_or_else(bad)?;
+    let mut sections = Vec::with_capacity(array.len());
+    for entry in array.iter() {
+        let heading = member_str(entry, "heading").ok_or_else(bad)?;
+        let body = member_str(entry, "body").ok_or_else(bad)?;
+        sections.push(Section { heading, body });
+    }
+    Ok(sections)
+}
+
+/// Rebuild a member's `published_requirements` from its `[[member.published]]` tables —
+/// the demand side of the fill edge, each carrying the same facets a header
+/// `[requirement.<name>]` module does. Absent ⇒ empty; a malformed entry folds into
+/// [`ComposeError::BadMember`].
+fn parse_member_published(
+    table: &Table,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<Vec<PublishedRequirement>, ComposeError> {
+    let Some(item) = table.get("published") else {
+        return Ok(Vec::new());
+    };
+    let array = item.as_array_of_tables().ok_or_else(bad)?;
+    let mut published = Vec::with_capacity(array.len());
+    for entry in array.iter() {
+        let name = member_str(entry, "name").ok_or_else(bad)?;
+        let required = match entry.get("required") {
+            None => false,
+            Some(item) => item.as_bool().ok_or_else(bad)?,
+        };
+        published.push(PublishedRequirement {
+            name,
+            means: opt_member_str(entry, "means", bad)?,
+            kind: opt_member_str(entry, "kind", bad)?,
+            package: opt_member_str(entry, "package", bad)?,
+            required,
+        });
+    }
+    Ok(published)
+}
+
+/// Read an optional string key off a `[[member.published]]` table: absent ⇒ `None`,
+/// present-but-not-a-string ⇒ the folded [`ComposeError::BadMember`].
+fn opt_member_str(
+    table: &Table,
+    key: &str,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<Option<String>, ComposeError> {
+    match table.get(key) {
+        None => Ok(None),
+        Some(item) => Some(item.as_str().ok_or_else(bad).map(str::to_string)).transpose(),
     }
 }
 
@@ -2505,5 +2891,161 @@ primitive = "line_count"
         )
         .unwrap_err();
         assert!(matches!(err, ComposeError::BadReachability { .. }));
+    }
+
+    // ---- serialized member features (the emitted `[[member]]` root) --------
+
+    /// A member carrying every facet — scalar/list/map/int/bool fields, body facts,
+    /// sections, satisfies, and a published requirement — the exhaustive round-trip
+    /// subject.
+    fn full_member() -> ManifestMember {
+        let mut fields = BTreeMap::new();
+        fields.insert(
+            "name".to_string(),
+            FeatureValue::scalar(Kind::String, "coordinate"),
+        );
+        fields.insert(
+            "allowed-tools".to_string(),
+            FeatureValue::List(vec!["Task".to_string(), "Read".to_string()]),
+        );
+        fields.insert(
+            "priority".to_string(),
+            FeatureValue::scalar(Kind::Integer, "3"),
+        );
+        fields.insert(
+            "enabled".to_string(),
+            FeatureValue::scalar(Kind::Boolean, "true"),
+        );
+        fields.insert("meta".to_string(), FeatureValue::Map);
+        ManifestMember {
+            kind: "skill".to_string(),
+            features: Features {
+                id: "coordinate".to_string(),
+                fields,
+                body_lines: 4,
+                headings: vec!["Coordinate".to_string()],
+                sections: vec![Section {
+                    heading: "Coordinate".to_string(),
+                    body: "Drive the team through the playbook.".to_string(),
+                }],
+                source_dir: Some("coordinate".to_string()),
+                directives: vec!["./PLAYBOOK.md".to_string()],
+                satisfies: vec!["dev-standards".to_string()],
+                published_requirements: vec![PublishedRequirement {
+                    name: "task-planning".to_string(),
+                    means: Some("the harness plans tasks".to_string()),
+                    kind: Some("skill".to_string()),
+                    package: None,
+                    required: true,
+                }],
+            },
+        }
+    }
+
+    #[test]
+    fn a_serialized_member_round_trips_back_to_the_same_features() {
+        // The write shape and the read shape are one: serializing a member into the
+        // `[[member]]` root and reparsing yields the exact `Features` a live extraction
+        // does — the invariant MANIFEST-GATE-READ leans on.
+        let member = full_member();
+        let mut doc = DocumentMut::new();
+        write_manifest_members(&mut doc, std::slice::from_ref(&member));
+
+        let layer = AuthorLayer::parse(&doc.to_string(), Path::new("temper.toml")).unwrap();
+        assert_eq!(layer.members(), std::slice::from_ref(&member));
+    }
+
+    #[test]
+    fn a_minimal_member_round_trips_with_every_optional_facet_absent() {
+        // A member with no fields, headings, sections, directives, satisfies, or
+        // published requirements: the emitted table omits each empty facet, and the
+        // reparse restores the same empty defaults — absence round-trips.
+        let member = ManifestMember {
+            kind: "spec".to_string(),
+            features: Features {
+                id: "00-intent".to_string(),
+                fields: BTreeMap::new(),
+                body_lines: 0,
+                headings: Vec::new(),
+                sections: Vec::new(),
+                source_dir: None,
+                directives: Vec::new(),
+                satisfies: Vec::new(),
+                published_requirements: Vec::new(),
+            },
+        };
+        let mut doc = DocumentMut::new();
+        write_manifest_members(&mut doc, std::slice::from_ref(&member));
+        // The terse table carries only the two required keys and the line count.
+        let emitted = doc.to_string();
+        assert!(!emitted.contains("headings"));
+        assert!(!emitted.contains("[member.field]"));
+
+        let layer = AuthorLayer::parse(&emitted, Path::new("temper.toml")).unwrap();
+        assert_eq!(layer.members(), std::slice::from_ref(&member));
+    }
+
+    #[test]
+    fn writing_no_members_drops_the_member_root_entirely() {
+        // An empty member set removes the root — an empty array-of-tables would vanish on
+        // the toml round-trip anyway, so the emit matches the reparse (no phantom root).
+        let mut doc = "[kind.skill]\npackage = \"skill.anthropic\"\n"
+            .parse::<DocumentMut>()
+            .unwrap();
+        write_manifest_members(&mut doc, &[]);
+        assert!(!doc.to_string().contains("member"));
+        // The hand-authored binding is untouched.
+        assert!(doc.to_string().contains("[kind.skill]"));
+    }
+
+    #[test]
+    fn the_member_root_re_emits_whole_while_the_authored_roots_are_preserved() {
+        // Patch-preservation: writing members over a hand-authored manifest replaces the
+        // member root wholesale but leaves the authored binding/requirement (and their
+        // comments) verbatim.
+        let mut doc = "# hand-authored — keep me\n\
+[kind.skill]\n\
+package = \"skill.anthropic\"\n\
+\n\
+[requirement.dev-standards]\n\
+required = true\n\
+\n\
+[[member]]\n\
+kind = \"skill\"\n\
+name = \"stale\"\n\
+line_count = 1\n"
+            .parse::<DocumentMut>()
+            .unwrap();
+        write_manifest_members(&mut doc, std::slice::from_ref(&full_member()));
+
+        let out = doc.to_string();
+        assert!(out.contains("# hand-authored — keep me"));
+        assert!(out.contains("[kind.skill]"));
+        assert!(out.contains("[requirement.dev-standards]"));
+        // The stale member is gone, replaced by the freshly-emitted one.
+        assert!(!out.contains("stale"));
+        assert!(out.contains("name = \"coordinate\""));
+
+        // And the whole thing reparses (the gate load never chokes on the emitted root).
+        let layer = AuthorLayer::parse(&out, Path::new("temper.toml")).unwrap();
+        assert_eq!(layer.members(), std::slice::from_ref(&full_member()));
+        assert!(layer.requirements().contains_key("dev-standards"));
+    }
+
+    #[test]
+    fn a_member_root_that_is_not_an_array_is_a_load_error() {
+        // The `member` root is its own array-of-tables namespace; a scalar in its place
+        // is malformed, rejected as a non-array root.
+        let err = AuthorLayer::parse("member = 7\n", Path::new("temper.toml")).unwrap_err();
+        assert!(matches!(err, ComposeError::MemberRootNotArray { .. }));
+    }
+
+    #[test]
+    fn a_member_missing_its_required_name_is_a_load_error() {
+        // Each `[[member]]` carries a `kind` and a `name`; a member missing one folds into
+        // a single `BadMember` naming its position.
+        let err = AuthorLayer::parse("[[member]]\nkind = \"skill\"\n", Path::new("temper.toml"))
+            .unwrap_err();
+        assert!(matches!(err, ComposeError::BadMember { index: 0, .. }));
     }
 }

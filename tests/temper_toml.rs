@@ -28,6 +28,7 @@ use temper::builtin_kind;
 use temper::compose::{
     AuthorLayer, Authority, ComposeError, DegreeBound, Edge, EdgeBound, Requirement,
 };
+use temper::extract::FeatureValue;
 use temper::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError, Primitive};
 
 /// The binary under test, located by Cargo at compile time.
@@ -1160,5 +1161,154 @@ fn the_authority_posture_parses_as_a_closed_vocabulary() {
     assert!(
         matches!(err, ComposeError::BadAuthority { .. }),
         "an unknown `authority` value is a `BadAuthority` load error, got: {err:?}"
+    );
+}
+
+// ---- manifest emit: import serializes member features ------------------------
+//
+// `specs/architecture/20-surface.md`, "Topology": every imported member's extracted
+// features serialize into `temper.toml`, the generated-canonical manifest the gate
+// reads; a hand-authored floor manifest is patched format-preserving, never clobbered.
+// These drive the real `temper import` in the persistent layout (harness == project
+// root, `--into <root>/.temper`), so the manifest lands beside the workspace exactly as
+// a real invocation writes it.
+
+/// A rule the persistent-layout harness carries beside its skill, so the manifest
+/// serializes more than one kind.
+const HOUSE_RULE: &str = "---\n\
+paths:\n\
+  - \"src/**\"\n\
+---\n\
+# House rules\n\
+\n\
+Keep it tidy.\n";
+
+/// Build a persistent-layout harness at `root`: a clean skill and a rule under
+/// `root/.claude`, the project root a real `temper import .` targets.
+fn write_skill_and_rule_harness(root: &Path) {
+    let skill = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), CLEAN_SKILL).unwrap();
+
+    let rules = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("house.md"), HOUSE_RULE).unwrap();
+}
+
+/// Run `temper import <root> --into <root>/.temper` — the persistent import that
+/// serializes the manifest beside the workspace.
+fn run_import(root: &Path) {
+    let status = Command::new(BIN)
+        .arg("import")
+        .arg(root)
+        .arg("--into")
+        .arg(root.join(".temper"))
+        .status()
+        .unwrap();
+    assert!(status.success(), "import should succeed: {status}");
+}
+
+#[test]
+fn import_serializes_the_manifest_with_member_features() {
+    let root = tmpdir("manifest-emit");
+    write_skill_and_rule_harness(&root);
+    run_import(&root);
+
+    let manifest = root.join("temper.toml");
+    assert!(
+        manifest.is_file(),
+        "import writes the manifest beside the `.temper/` workspace"
+    );
+    let layer = AuthorLayer::load(&manifest)
+        .unwrap()
+        .expect("the emitted manifest loads");
+
+    // A member per imported artifact, keyed by bare kind, carrying its pre-extracted
+    // features — the frontmatter fields and body facts the gate consumes.
+    let skill = layer
+        .members()
+        .iter()
+        .find(|m| m.kind == "skill" && m.features.id == "coordinate")
+        .expect("the skill member is serialized");
+    assert_eq!(
+        skill
+            .features
+            .field("name")
+            .and_then(FeatureValue::as_scalar),
+        Some("coordinate")
+    );
+    assert!(skill.features.has_field("description"));
+    assert_eq!(skill.features.headings, vec!["Coordinate".to_string()]);
+    assert_eq!(skill.features.source_dir.as_deref(), Some("coordinate"));
+
+    let rule = layer
+        .members()
+        .iter()
+        .find(|m| m.kind == "rule")
+        .expect("the rule member is serialized");
+    assert_eq!(rule.features.id, "house");
+    assert!(
+        rule.features.has_field("paths"),
+        "the rule's `paths` frontmatter field rode into the manifest"
+    );
+}
+
+#[test]
+fn re_import_patch_preserves_a_hand_authored_manifest() {
+    let root = tmpdir("manifest-patch");
+    write_skill_and_rule_harness(&root);
+
+    // A hand-authored floor manifest: a comment, a package binding, and a requirement —
+    // the bindings/requirements a gate-only harness hand-writes.
+    write_temper_toml(
+        &root,
+        "# floor manifest — keep this comment\n\
+[kind.skill]\n\
+package = \"skill.anthropic\"\n\
+\n\
+[requirement.dev-standards]\n\
+means = \"the harness maintains dev standards\"\n\
+required = true\n",
+    );
+
+    run_import(&root);
+    let after_first = fs::read_to_string(root.join("temper.toml")).unwrap();
+
+    // The hand-authored content survives verbatim — comment, binding, requirement — and
+    // the member features are patched in beside it (never a clobbering rewrite).
+    assert!(
+        after_first.contains("# floor manifest — keep this comment"),
+        "the author's comment survives, got:\n{after_first}"
+    );
+    assert!(after_first.contains("[kind.skill]"));
+    assert!(after_first.contains("package = \"skill.anthropic\""));
+    assert!(after_first.contains("[requirement.dev-standards]"));
+    assert!(after_first.contains("the harness maintains dev standards"));
+    assert!(
+        after_first.contains("[[member]]"),
+        "member features are patched into the manifest, got:\n{after_first}"
+    );
+
+    // The whole manifest still loads — the authored requirement and the emitted members
+    // coexist in one round-trippable file.
+    let layer = AuthorLayer::load(&root.join("temper.toml"))
+        .unwrap()
+        .expect("the patched manifest loads");
+    assert!(layer.requirements().contains_key("dev-standards"));
+    assert!(
+        layer
+            .members()
+            .iter()
+            .any(|m| m.features.id == "coordinate"),
+        "the skill member is serialized alongside the authored requirement"
+    );
+
+    // Re-import is byte-stable: the generated member root regenerates identically and the
+    // authored content is left untouched.
+    run_import(&root);
+    let after_second = fs::read_to_string(root.join("temper.toml")).unwrap();
+    assert_eq!(
+        after_first, after_second,
+        "a re-import must not churn the manifest"
     );
 }
