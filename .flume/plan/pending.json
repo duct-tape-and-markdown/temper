@@ -1,44 +1,5 @@
 [
   {
-    "tag": "REACHABILITY-DIRECTIVE-CLOSURE",
-    "summary": "Close `graph::reachable` over member-target directive edges — a member is reachable if its own activation is live or a reachable member imports it, hop-capped",
-    "per": {
-      "path": "specs/architecture/45-governance.md",
-      "section": "The world is a node — reachability is a predicate"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "Extend `reachable` (`specs/architecture/45-governance.md`, 'The world is a node — reachability is a predicate', l.144-148) to close over the member-class directive edges `classify_directives` now returns as `DirectiveClassing.edges` (the `ResolvedEdge` set, shipped by DIRECTIVE-TARGET-CLASSING). Today `reachable` only flags a member whose OWN activation is dead (`dead_activation` per member over `activations`/`by_kind`). Add the second liveness path: seed the live set with every member whose own activation edge is live (or whose kind declares none => always live), then propagate liveness along directive edges (a `from`-live edge makes its `to` live), hop-capped per the format's documented recursion cap; a member with a dead own-activation fires the finding only if it is NOT reached by a live importer — conditional inheritance (imported only by an invocation-gated skill => live exactly when the skill is). Take the directive edge set (`&[ResolvedEdge]`) as a new parameter (pure, testable, blast radius stays this module) alongside the existing `activations`/`by_kind`/`repo_files`/`severity`; `by_kind` already carries every kind's members (skill/rule/custom) so importer liveness is computable."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Pass `directive_classing.edges` (computed at ~795, currently only `.findings` is consumed) into the `graph::reachable` call (~825) so the closure runs at check time; no new tier, the existing `layer.reachability()` opt-in + assembly-declared severity still gate it."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "reachability closes over directive edges: a member with a dead own-activation but imported by a reachable member is live (no finding); a member imported only by a dead member stays dead; the closure is hop-capped."
-      },
-      {
-        "path": "tests/reachable_gate.rs",
-        "asserts": "end-to-end, a zero-match `paths` rule imported by an always-live memory member no longer fires the dead-edge finding (the known false positive is fixed); a genuinely orphaned dead member still fires."
-      }
-    ],
-    "acceptance": "`graph::reachable` treats a member as reachable when a reachable member imports it via a directive edge (hop-capped, conditional inheritance), fixing the false positive where a directive-imported zero-match `paths` rule read as dead; the `[reachability]` opt-in + assembly severity are unchanged; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Slice 3, now open — DIRECTIVE-TARGET-CLASSING shipped (feeaaca); `DirectiveClassing.edges` exists but `main.rs` consumes only `.findings`. `reachable` gains a second liveness path: live if own activation is live OR a reachable member imports it — conditional inheritance, hop-capped. Fixes the false positive: a zero-match `paths` rule imported by an always-live memory member reads live, not dead. Sole open entry; no parallel conflict."
-  },
-  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
     "per": {
