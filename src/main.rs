@@ -69,6 +69,31 @@ fn builtin_floor(name: &str) -> miette::Result<Contract> {
         .ok_or_else(|| miette::miette!("built-in package `{name}` is not embedded in this binary"))
 }
 
+/// temper's own **published** floor bindings (`specs/architecture/15-kinds.md`, "a published package
+/// binds a qualified kind name"): each embedded built-in kind, by the bare name the
+/// author writes, paired with the package name its floor loads from. The bare name
+/// resolves to its qualified identity through the embedded set ([`builtin_floors`]).
+const BUILTIN_FLOOR_BINDINGS: &[(&str, &str)] = &[
+    ("skill", builtin::SKILL_PACKAGE),
+    ("rule", builtin::RULE_PACKAGE),
+];
+
+/// The built-in floors keyed by their **qualified** kind identity (`claude-code.skill`),
+/// resolved through the embedded set's provider axis (`specs/architecture/15-kinds.md`, "Decision:
+/// kind identity carries a provider axis"). temper ships each package bound to the
+/// qualified kind name a consumer's assembly can never mistake for another provider's;
+/// a two-provider collision under one bare name would surface as a load error here.
+fn builtin_floors() -> miette::Result<Vec<(String, Contract)>> {
+    let mut floors = Vec::with_capacity(BUILTIN_FLOOR_BINDINGS.len());
+    for (name, package) in BUILTIN_FLOOR_BINDINGS {
+        let id = builtin_kind::qualified(name)?.ok_or_else(|| {
+            miette::miette!("built-in kind `{name}` is not embedded in this binary")
+        })?;
+        floors.push((id, builtin_floor(package)?));
+    }
+    Ok(floors)
+}
+
 /// A typed maintenance surface for the Claude Code harness.
 #[derive(Parser)]
 #[command(name = "temper", version, about, long_about = None)]
@@ -290,29 +315,30 @@ fn main() -> miette::Result<ExitCode> {
             // default rather than a caller-supplied one.
             let packages_dir = Path::new(DEFAULT_WORKSPACE).join("packages");
 
-            let floors: Vec<(&str, Contract)> = vec![
-                ("skill", builtin_floor(builtin::SKILL_PACKAGE)?),
-                ("rule", builtin_floor(builtin::RULE_PACKAGE)?),
-            ];
+            // Keyed by each kind's **qualified** identity (`claude-code.skill`), the
+            // published-binding form (`specs/architecture/15-kinds.md`).
+            let floors = builtin_floors()?;
 
             let json = match kind.as_deref() {
-                // An unknown kind is a hard error, never a silent empty schema.
+                // An unknown kind is a hard error, never a silent empty schema. A request
+                // resolves either bare (`skill`) or fully qualified (`claude-code.skill`):
+                // the qualified identity's bare component is its last dotted segment.
                 Some(requested) => {
-                    let floor = floors
-                        .into_iter()
-                        .find_map(|(name, floor)| (name == requested).then_some((name, floor)));
+                    let floor = floors.into_iter().find(|(name, _)| {
+                        name == requested || name.rsplit('.').next() == Some(requested)
+                    });
                     let (name, floor) = floor.ok_or_else(|| {
                         miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
                     })?;
-                    let contract = compose::effective(layer.as_ref(), name, floor, &packages_dir)?;
+                    let contract = compose::effective(layer.as_ref(), &name, floor, &packages_dir)?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
                     for (name, floor) in floors {
                         let contract =
-                            compose::effective(layer.as_ref(), name, floor, &packages_dir)?;
-                        map.insert(name.to_string(), schema::emit(&contract));
+                            compose::effective(layer.as_ref(), &name, floor, &packages_dir)?;
+                        map.insert(name, schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
                 }
@@ -504,9 +530,11 @@ fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
     let kinds_dir = harness.join(TEMPER_DIR).join("kinds");
     let mut kinds = Vec::new();
     for name in layer.registered_kinds() {
-        // A `[kind.<name>]` naming a built-in is a contract layer, not a
+        // A bare `[kind.<name>]` resolving to a built-in is a contract layer, not a
         // registration (`specs/architecture/40-composition.md`), so it declares no `governs` locus.
-        if kind::BUILTIN_KINDS.contains(&name) {
+        // Routed through provider resolution (`specs/architecture/15-kinds.md`): a bare name resolves
+        // to its unique provider-qualified kind, and a two-provider collision is a load error.
+        if builtin_kind::definition(name)?.is_some() {
             continue;
         }
         kinds.push(CustomKind::load(&kinds_dir, name)?);
@@ -803,7 +831,9 @@ fn custom_kinds_and_edges<'a>(
 ) -> miette::Result<(Vec<CustomKindEntry<'a>>, Vec<compose::Edge>)> {
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
     for name in layer.registered_kinds() {
-        if kind::BUILTIN_KINDS.contains(&name) {
+        // Provider resolution splits built-in layers from custom registrations
+        // (`specs/architecture/15-kinds.md`): a bare name resolving to an embedded kind is a layer.
+        if builtin_kind::definition(name)?.is_some() {
             continue;
         }
         let custom = CustomKind::load(kinds_dir, name)?;
@@ -841,7 +871,9 @@ fn custom_members(
 ) -> miette::Result<Vec<read::CustomMember>> {
     let mut members = Vec::new();
     for name in layer.registered_kinds() {
-        if kind::BUILTIN_KINDS.contains(&name) {
+        // Provider resolution splits built-in layers from custom registrations
+        // (`specs/architecture/15-kinds.md`), the same test the gate applies.
+        if builtin_kind::definition(name)?.is_some() {
             continue;
         }
         let custom = CustomKind::load(kinds_dir, name)?;

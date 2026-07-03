@@ -57,6 +57,21 @@ pub fn definition(name: &str) -> Result<Option<CustomKind>, KindError> {
     Ok(resolve(name)?.map(|(_, kind)| kind))
 }
 
+/// The **qualified identity** of the built-in kind a bare `name` resolves to —
+/// `<provider>.<name>` (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a
+/// provider axis"), or `None` if no embedded kind carries the bare name. The one
+/// resolution the qualified-binding consumers route through: a bare `skill` resolves
+/// to the unique `claude-code.skill`, and a two-provider collision surfaces as a load
+/// error rather than a silent wrong identity.
+///
+/// # Errors
+///
+/// Returns a [`KindError`] when an embedded `KIND.md` fails to parse, or two providers
+/// collide under the bare `name` ([`KindError::AmbiguousKind`]).
+pub fn qualified(name: &str) -> Result<Option<String>, KindError> {
+    Ok(definition(name)?.map(|kind| kind.qualified_name()))
+}
+
 /// Parse every embedded built-in kind into a `name → CustomKind` map — the built-in
 /// read-side set, the mirror of [`crate::builtin::contracts`] on the require-side. The
 /// map is keyed by each kind's **bare** name (`skill`, `rule`), so the flat and nested

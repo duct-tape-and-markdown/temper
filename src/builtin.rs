@@ -27,13 +27,20 @@ use crate::contract::{Contract, ContractError};
 // `crate::builtin::BUILTIN_PACKAGES`.
 include!(concat!(env!("OUT_DIR"), "/builtin_packages.rs"));
 
-/// The built-in package bound to the `skill` kind by default — Anthropic's
-/// documented skill contract (`specs/architecture/10-contracts.md`, "named for its source").
+/// The built-in package temper ships as the floor for the `claude-code.skill` kind —
+/// Anthropic's documented skill contract (`specs/architecture/10-contracts.md`, "named for its
+/// source"). temper's own **published** binding names the *qualified* kind identity
+/// (`specs/architecture/15-kinds.md`, "a published package binds a qualified kind name"): publication
+/// is where the consumer's assembly is unknowable, so a bare binding would be a latent
+/// collision. The package's own name stays short — the kind axis it binds is what
+/// qualifies, resolved through the embedded set (`crate::builtin_kind::qualified`).
 pub const SKILL_PACKAGE: &str = "skill.anthropic";
 
-/// The built-in package bound to the `rule` kind by default — Anthropic's
-/// documented rule contract. Renamed from the bare `rule` (`specs/architecture/10-contracts.md`,
-/// "named for its source": the clauses are equally Anthropic-sourced).
+/// The built-in package temper ships as the floor for the `claude-code.rule` kind —
+/// Anthropic's documented rule contract, bound to the qualified kind identity exactly
+/// as [`SKILL_PACKAGE`] is (`specs/architecture/15-kinds.md`). Renamed from the bare `rule`
+/// (`specs/architecture/10-contracts.md`, "named for its source": the clauses are equally
+/// Anthropic-sourced).
 pub const RULE_PACKAGE: &str = "rule.anthropic";
 
 /// The embedded `PACKAGE.md` source for a built-in package, or `None` if no package

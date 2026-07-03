@@ -637,8 +637,9 @@ impl AuthorLayer {
                 // the owning `name` each edge's source (`specs/architecture/15-kinds.md`).
                 edges.extend(parse_relationships(table, name, path)?);
                 // Every `[kind.<name>]` parses uniformly into a package binding ⊕
-                // clause overrides; whether the name registers a custom kind is the
-                // caller's concern (against `kind::BUILTIN_KINDS`).
+                // clause overrides; whether the bare name resolves to a built-in kind
+                // (a layer) or registers a custom one is the caller's concern, routed
+                // through provider resolution (`crate::builtin_kind::definition`).
                 kinds.insert(name.to_string(), parse_kind_layer(table, name, path)?);
             }
         }
@@ -710,11 +711,13 @@ impl AuthorLayer {
         self.reachability
     }
 
-    /// The names of every `[kind.<name>]` registered in the assembly, in name order. A
-    /// caller separates built-in layers from custom-kind registrations by matching each
-    /// name against [`crate::kind::BUILTIN_KINDS`]: a non-built-in name registers a
-    /// **custom kind**, whose definition loads from `.temper/kinds/<name>/KIND.md`
-    /// ([`crate::kind::CustomKind::load`]).
+    /// The names of every `[kind.<name>]` registered in the assembly, in name order — the
+    /// **bare** names the author writes. A caller separates built-in layers from custom-kind
+    /// registrations by resolving each bare name through provider resolution
+    /// ([`crate::builtin_kind::definition`]): a name resolving to an embedded built-in is a
+    /// contract layer, one resolving to none registers a **custom kind** whose definition
+    /// loads from `.temper/kinds/<name>/KIND.md` ([`crate::kind::CustomKind::load`]), and two
+    /// providers under one bare name is a load error (`specs/architecture/15-kinds.md`).
     pub fn registered_kinds(&self) -> impl Iterator<Item = &str> {
         self.kinds.keys().map(String::as_str)
     }
@@ -744,7 +747,13 @@ impl AuthorLayer {
         floor: Contract,
         packages_dir: &Path,
     ) -> Result<Contract, ComposeError> {
-        let Some(layer) = self.kinds.get(kind) else {
+        // The assembly keys its `[kind.<name>]` layer by the **bare** name the author
+        // writes (`skill`), while a caller may pass the *qualified* floor identity
+        // (`claude-code.skill`, `specs/architecture/15-kinds.md`) — resolve to the bare component so a
+        // qualified floor still finds its bare layer. A bare or provider-less name is
+        // its own last dotted component, so this is identity for `skill`/`spec`.
+        let lookup = kind.rsplit('.').next().unwrap_or(kind);
+        let Some(layer) = self.kinds.get(lookup) else {
             return Ok(floor);
         };
 

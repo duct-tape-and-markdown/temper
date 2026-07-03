@@ -24,6 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use temper::builtin_kind;
 use temper::compose::{AuthorLayer, ComposeError, DegreeBound, Edge, EdgeBound, Requirement};
 use temper::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError, Primitive};
 
@@ -396,6 +397,66 @@ package = "spec"
     // `spec` is a custom kind (not a built-in); `skill` is a built-in layer.
     assert!(!BUILTIN_KINDS.contains(&"spec"));
     assert!(BUILTIN_KINDS.contains(&"skill"));
+}
+
+#[test]
+fn a_bare_kind_binding_resolves_to_the_unique_qualified_builtin() {
+    // The qualified-binding wave: a bare `[kind.skill]` assembly binding (and a
+    // requirement's `kind` typing) resolves through provider resolution to the unique
+    // provider-qualified built-in (`specs/architecture/15-kinds.md`, "Decision: kind identity carries
+    // a provider axis"). temper ships each built-in package bound to that qualified
+    // identity — the published-binding form, since a consumer's assembly is unknowable.
+    assert_eq!(
+        builtin_kind::qualified("skill").unwrap().as_deref(),
+        Some("claude-code.skill"),
+        "the `skill.anthropic` floor binds the qualified kind `claude-code.skill`"
+    );
+    assert_eq!(
+        builtin_kind::qualified("rule").unwrap().as_deref(),
+        Some("claude-code.rule")
+    );
+    // A `[kind.skill]` binding is a built-in layer, not a custom registration — the split
+    // the gate routes through recognizes the bare name as an embedded built-in kind.
+    assert!(builtin_kind::definition("skill").unwrap().is_some());
+    // A project's own kind mirrors nothing external: it declares no provider, stays bare,
+    // and resolves to no built-in — it registers a custom kind instead.
+    assert!(builtin_kind::qualified("spec").unwrap().is_none());
+    assert!(builtin_kind::definition("spec").unwrap().is_none());
+}
+
+#[test]
+fn a_bare_reference_with_two_providers_carrying_the_name_is_an_ambiguity_load_error() {
+    // Two providers meeting under one bare name is a collision — a load error naming the
+    // qualified candidates so the author qualifies the reference (`specs/architecture/15-kinds.md`).
+    // The real embedded set carries only `claude-code`, so the collision is exercised over
+    // a synthetic two-provider set through the very resolution helper the bindings route
+    // through, never a silent wrong-kind pick.
+    fn skill_of(provider: &str) -> CustomKind {
+        let src = format!(
+            "governs = {{ root = \".claude/skills\", glob = \"*/SKILL.md\" }}\nprovider = \"{provider}\"\n"
+        );
+        let doc = src.parse::<toml_edit::DocumentMut>().unwrap();
+        CustomKind::from_header(doc.as_table(), "skill", Path::new("kinds/x/skill/KIND.md"))
+            .unwrap()
+    }
+
+    // One provider: the bare name resolves to its unique qualified carrier.
+    let one = vec![skill_of("claude-code")];
+    assert_eq!(
+        CustomKind::resolve_bare("skill", &one)
+            .unwrap()
+            .map(CustomKind::qualified_name)
+            .as_deref(),
+        Some("claude-code.skill")
+    );
+
+    // Two providers: an ambiguity load error, naming the bare name it collides on.
+    let two = vec![skill_of("claude-code"), skill_of("agent-skills")];
+    let err = CustomKind::resolve_bare("skill", &two).unwrap_err();
+    assert!(
+        matches!(err, KindError::AmbiguousKind { ref name, .. } if name == "skill"),
+        "two providers under one bare name must be an ambiguity load error, got: {err:?}"
+    );
 }
 
 #[test]
