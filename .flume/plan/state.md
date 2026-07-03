@@ -1,29 +1,33 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 4e1a811.
-- **Last shipped:** WEDGE-FACT-FLOOR (build 3cdd3e6 — directive-target classing
-  hoisted to the FLOOR tier, verified on disk src/main.rs:694-709: computed once
-  and read by both floor and assembly, so a no-temper.toml CLAUDE.md `@import` now
-  classes) and AUTHORITY-POSTURE-PARSE (build fae7292 — the assembly's `authority`
-  posture parses onto the composed layer; `layer.authority()` at src/compose.rs:761,
-  closed `shared`/`surface` vocab, absent ⇒ Shared).
-- **This tick:** unblocked the two downstream entries whose upstreams just shipped.
-  IMPACT-VERB (was blockedBy WEDGE-FACT-FLOOR) and INSTALL-GUARD-ARTIFACTS (was
-  blockedBy AUTHORITY-POSTURE-PARSE) both flip to `open` — verified neither has
-  shipped (no `impact` in read.rs/main.rs; no authority/guard in install.rs) and
-  their blast radii are disjoint (read.rs/main.rs/read_verbs.rs vs
-  install.rs/install.rs test), so they run parallel-safe. Inbox empty (no drain).
-  Re-verified the 5 carried parked/deferred entries against disk — all still
-  accurate (no `Fenced`/flat `Field` at kind.rs:616/686; BUILTIN_KINDS still
+- **Phase:** reconcile. HEAD af54371.
+- **Last shipped:** IMPACT-VERB + INSTALL-GUARD-ARTIFACTS (chore af54371) —
+  the `impact` read verb (src/read.rs) and the surface-authority guard
+  artifacts wired into `install` (src/install.rs). Both dropped from the queue.
+- **This tick:** drained the inbox's DIRECTIVE-PATH-NORMALIZE note by
+  **reproducing it on disk** (`temper check .temper` fires a false
+  `graph.directive-unbacked` on CLAUDE.md → @docs/ledger.md) and **challenging
+  its root cause**. The inbox blamed unnormalized `././` provenance, but
+  `graph::normalize_path` already collapses both sides symmetrically (verified:
+  `check --harness .`, parent `.`, is clean). Real cause: the two-step `check`
+  path passes bare `Path::new("temper.toml")`, whose `.parent()` is `Some("")`
+  (not `None`), so `base_dir=""` and `repo_file_set("")` walks nothing — an
+  empty world file-set forges an unbacked finding on every real `@import` (law
+  3, missing file → false positive). Filed as **DIRECTIVE-BACKING-BASE-DIR**
+  (open) with the correct fix in `gate`'s base_dir line. Re-verified the 5
+  carried parked/deferred entries against disk — all still accurate (no
+  `ignore` crate; `Field` still flat / no `Fenced` at kind.rs; BUILTIN_KINDS =
   `["skill","rule"]`; package.json still `temper-flume-harness`/private; no
-  CONTRIBUTING/SECURITY; no `ignore` crate).
-- **Pickable now:** IMPACT-VERB (src/read.rs + src/main.rs + tests/read_verbs.rs)
-  and INSTALL-GUARD-ARTIFACTS (src/install.rs + tests/install.rs) — disjoint,
-  parallel-safe. WALK-IGNORE-DISCIPLINE + the 4 deferred/parked entries stay
-  human-gated.
-- **Operational note (accepted, not queued):** the session-start 19
-  `requirement.dangling` findings remain a **stale installed binary** — a freshly
-  built `./target/debug/temper check .temper` is clean. `cargo install --path .`
-  clears the stale global.
+  CONTRIBUTING/SECURITY).
+- **Pickable now:** DIRECTIVE-BACKING-BASE-DIR (src/main.rs + tests/memory_gate.rs)
+  — the sole open entry, no shared-file contention. WALK-IGNORE-DISCIPLINE and
+  the 4 deferred/parked entries stay human-gated.
+- **Accepted debt (not filed):** the `././CLAUDE.md` source_path provenance is
+  written unnormalized (lock.toml / .temper/CLAUDE/MEMORY.md); harmless given
+  the symmetric compare-side normalize, no consumer needs it normalized.
+- **Operational note (accepted, not queued):** the session-start
+  `requirement.dangling` findings are a **stale installed binary** — a freshly
+  built `./target/debug/temper check .temper` no longer shows them (`cargo
+  install --path .` clears the stale global).
 
-Plan continues: no — inbox drained, two disjoint open entries pickable; hand to build.
+Plan continues: no — inbox drained, one disjoint open entry pickable; hand to build.
