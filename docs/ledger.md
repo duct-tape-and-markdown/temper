@@ -9,10 +9,6 @@ graduation, delete over archive.
 
 ## Awaiting human ruling
 
-- `(default-assembly-as-data)` fork — recommendation on file: adopt.
-  ELEVATED 07-03: now the keystone of the guidance-layer plan — shipped
-  opinion packages and requirement-set/scenario assemblies both need the
-  floor-as-data mechanism before they can exist.
 - **Guidance-layer curation** (07-03 design session): 4 std-lib guidance
   deltas drafted and source-verified (eval-first skill authoring; hooks-over-
   prose now docs-citable; compaction root/nested asymmetry; owner/review-
@@ -23,30 +19,19 @@ graduation, delete over archive.
   scaffold once, never reconcile back; runtime practice is out of lane.
   Rider: AGENT-KIND's "no story demands it" deferral is challenged by this
   story — kinds are package sockets (agent, hooks, settings, mcp).
-- **Surface reformulation v2 — "the scripted altitude"** (07-03 design
-  session; John strongly endorsed, NOT yet ratified — needs his cold read):
-  members become typed TS modules, composition = imports, `temper emit`
-  compiles the library → `.claude/` + inert manifest TOML + lock
-  (double-emit determinism); gate stays Rust, no Node. Inverts the ratified
-  20-surface authority Decision's *medium* (the mirror was illegible:
-  same-medium source/output; .ts→.md reads as src→dist). Flume bridge rides
-  behind it: .flume/ as third landscape (pending.json citation-resolution
-  checks = the custom-kind story's next demo), prompts join the library,
-  `temper check` as a tick gate → the flume fence ratchets open under
-  contract. Prototype + full cost ledger:
-  claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07. Path if it
-  survives: hands-on SPIKE (config + two member modules + throwaway emit,
-  byte-diff against current .claude/) BEFORE any corpus re-cut. Riders: SDK
-  becomes load-bearing product; npm supply chain at emit; template-literal
-  prose tax accepted verbally 07-03 — re-verify in the spike. Subsumes the
-  pull-model membership idea; reshapes (default-assembly-as-data) and the
-  guidance-layer plan (opinion packages/templates become typed imports).
-  Final rung (§9-10): spec kind — requirements as exports, satisfies as
-  imports (the intent graph IS the module graph); prose as tagged-template
-  program over the ontology, mentions = declared one-way edges (law 8's
-  mention/edge split dissolves). HARD RIDER: interpolation opt-in per
-  mention forever — a mention-completeness check is the mining swamp
-  rebuilt (law 4); never file one.
+- **Scripted altitude: RATIFIED, corpus re-cut LANDED** (07-03, cold read
+  held; `specs:` commit 32ea84d; pre-state = `mirror-era` tag). The corpus
+  now carries it — authoring face / manifest / carriage / mentions /
+  gradient / init/emit; re-add retired; never-climb is law 8 text; .flume/
+  named candidate third landscape. Flume reconciling as of this session.
+  Human residuals: SDK npm scaffolding needs John (like
+  PACKAGING-CHANNELS); template-literal prose tax re-verify in the first
+  altitude slice; the spec corpus's own module migration is a staged human
+  ceremony (15-kinds worked example). Design record:
+  claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
+- `(default-assembly-as-data)` addendum: subsumed-in-shape by the manifest
+  model (a shipped default assembly = embedded manifest data) — formally
+  close it or let plan carry the reconcile.
 - `format` frontmatterless vocabulary member — parked until a check needs the
   distinction (vocabulary without a consumer is rejected doctrine).
 
@@ -69,6 +54,12 @@ graduation, delete over archive.
   it's a wedge story for the public docs.
 - Lock artifacts: exercise authority = "surface" end to end once installed
   (guard hook blocks, gate-installed enumerates it).
+- **Two projectors, one file** (07-03, hit during the re-cut): `apply`'s
+  re-emission of a rule drops `install`'s schema modeline + reflows the
+  YAML — hand-reverted this session. Under the re-cut spec emit owns the
+  projection whole, so install's placements must ride emit or declare their
+  lines as emit-owned. Needs an entry; don't run bare `apply` on rules
+  until it lands.
 
 ## Standing discipline (lessons paid for)
 
