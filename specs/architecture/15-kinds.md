@@ -139,7 +139,11 @@ the assembly, a package binding, `satisfies` typing) resolves iff exactly one
 kind in the assembly carries that bare name, and a collision is a load error
 naming the qualified candidates — nobody pays a qualification tax until two
 providers actually meet. A project's own kinds (`spec`) mirror nothing
-external, declare no provider, and are bare. Placement mirrors identity
+external, declare no provider, and are bare — and an **explicit registration
+owns its bare name outright**: a kind the assembly registers shadows any
+unbound embedded carrier of the same bare name (registration is the loudest
+declaration of intent there is), so embedded kinds collide among themselves
+only over references no registration claims. Placement mirrors identity
 (`kinds/claude-code/skill/KIND.md`), the classed-corpus precedent
 (`90-spec-system.md`). A **published** package binds a qualified kind name —
 publication is where the consumer's assembly is unknowable, so a bare binding
