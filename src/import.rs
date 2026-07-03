@@ -15,7 +15,7 @@
 //! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
 //! every write is content-derived, name-sorted, and overwrites in place.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -25,7 +25,7 @@ use crate::builtin_kind;
 use crate::compose::AuthorLayer;
 use crate::document::{self, Document};
 use crate::frontmatter::{FrontmatterError, Member};
-use crate::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError};
+use crate::kind::{CustomKind, Governs, KindError};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
 /// written at the workspace root (`specs/architecture/20-surface.md`, "Topology").
@@ -117,22 +117,32 @@ pub(crate) struct RollupEntry {
 /// Idempotent over an unchanged harness. See the module header for the discovery
 /// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
-    // The built-in frontmatter kinds ride one generic adapter driven by each kind's
-    // declared format + unit shape (`specs/architecture/15-kinds.md`) — no per-kind writer. Ordered
-    // skill-then-rule so the roll-up's byte layout is stable.
-    let skills = import_frontmatter_kind(harness_path, into, "skill")?;
-    let rules = import_frontmatter_kind(harness_path, into, "rule")?;
+    // Drive the built-in scan off the embedded kind set, never a `["skill","rule"]`
+    // literal: every embedded built-in kind imports through the one generic frontmatter
+    // adapter, so a third embedded kind discovers its members with no per-kind writer
+    // (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"). The set is
+    // keyed by qualified identity, but discovery and the roll-up section key are each
+    // kind's own bare `name` — the same name the hardcoded pair passed.
+    let builtins = builtin_kind::definitions()?;
+    let mut builtin_rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
+    for kind in builtins.values() {
+        let rows = import_frontmatter_kind(harness_path, into, &kind.name)?;
+        builtin_rollups.insert(kind.name.clone(), rows);
+    }
 
     // A custom kind's definition — the `governs` locus discovery keys on — is the
     // authored `<harness>/.temper/kinds/<name>/KIND.md`, not an inline `temper.toml`
-    // block (specs/architecture/40-composition.md). Absent a registered custom kind, only the
-    // built-ins import.
+    // block (specs/architecture/40-composition.md). The custom-vs-built-in split reads off the
+    // same embedded set, not a literal: a `[kind.<name>]` naming an embedded built-in's
+    // bare name is a built-in layer, already scanned above. Absent a registered custom
+    // kind, only the built-ins import.
+    let builtin_names: BTreeSet<&str> = builtins.values().map(|kind| kind.name.as_str()).collect();
     let layer = AuthorLayer::load(&harness_path.join("temper.toml"))?;
     let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     if let Some(layer) = &layer {
         let kinds_dir = harness_path.join(".temper").join("kinds");
         for name in layer.registered_kinds() {
-            if BUILTIN_KINDS.contains(&name) {
+            if builtin_names.contains(name) {
                 continue;
             }
             let kind = CustomKind::load(&kinds_dir, name)?;
@@ -146,7 +156,7 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
         }
     }
 
-    write_rollup(into, &skills, &rules, &custom)?;
+    write_rollup(into, &builtin_rollups, &custom)?;
 
     Ok(())
 }
@@ -495,23 +505,24 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
     Ok(())
 }
 
-/// Write the `<into>/lock.toml` roll-up: one `[[skill]]` table per imported
-/// skill, then one `[[rule]]` table per imported rule, then one `[[<kind>]]` table
-/// per imported custom-kind unit (custom kinds in name order), each with `name`,
-/// `source_path`, `import_hash`, and the `last_applied` fingerprint.
+/// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per imported member —
+/// the built-in kinds first (name-sorted) then the custom kinds (name-sorted) — each
+/// with `name`, `source_path`, `import_hash`, and the `last_applied` fingerprint. Both
+/// maps are name-keyed, so the emitted order is deterministic and a third embedded
+/// built-in kind takes its own name-sorted slot with no code change here.
 ///
 /// An empty kind renders to no bytes (an empty `ArrayOfTables` emits nothing), so
 /// a harness with only some kinds yields exactly the rows it has — a skill-only
 /// harness with no declared custom kind emits `[[skill]]` rows and nothing else.
 fn write_rollup(
     into: &Path,
-    skills: &[RollupEntry],
-    rules: &[RollupEntry],
+    builtins: &BTreeMap<String, Vec<RollupEntry>>,
     custom: &BTreeMap<String, Vec<RollupEntry>>,
 ) -> Result<(), ImportError> {
     let mut doc = DocumentMut::new();
-    doc["skill"] = Item::ArrayOfTables(rollup_tables(skills));
-    doc["rule"] = Item::ArrayOfTables(rollup_tables(rules));
+    for (kind, rows) in builtins {
+        doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(rows));
+    }
     for (kind, units) in custom {
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(units));
     }
@@ -1085,5 +1096,63 @@ temper's own governing documents.\n";
         // The built-ins are still imported — the skill and rule rows are present.
         assert_eq!(doc["skill"].as_array_of_tables().unwrap().len(), 2);
         assert_eq!(doc["rule"].as_array_of_tables().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn builtin_scan_is_generic_over_the_embedded_kind_set() {
+        // The scan is driven off `builtin_kind::definitions()`, not the old
+        // `["skill","rule"]` literal: every embedded built-in kind gets its own roll-up
+        // section, keyed by its bare name, so a third embedded kind would be discovered
+        // here without a code change — the guarantee the hardcoded pair could not give.
+        let harness = tmpdir("generic-src");
+        write_fixture_harness(&harness);
+        let into = tmpdir("generic-into");
+
+        run(&harness, &into).unwrap();
+
+        let doc = fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+
+        // Every embedded built-in kind — read off `definitions()` by its bare name, the
+        // key the roll-up uses — has its section. The scan iterates the whole set, not a
+        // literal, so this ranges over exactly the embedded kinds.
+        let builtins = crate::builtin_kind::definitions().unwrap();
+        let bare_names: Vec<&str> = builtins.values().map(|kind| kind.name.as_str()).collect();
+        assert!(
+            bare_names.contains(&"skill") && bare_names.contains(&"rule"),
+            "the embedded set must carry at least skill and rule"
+        );
+        for name in &bare_names {
+            assert!(
+                doc.get(name)
+                    .and_then(|item| item.as_array_of_tables())
+                    .is_some(),
+                "roll-up is missing a section for embedded built-in kind `{name}`"
+            );
+        }
+
+        // Skill and rule members are discovered exactly as the hardcoded pair did.
+        let skills: Vec<&str> = doc["skill"]
+            .as_array_of_tables()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(skills, vec!["coordinate", "demo"]);
+        let rules: Vec<&str> = doc["rule"]
+            .as_array_of_tables()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(rules, vec!["collaboration", "rust"]);
+
+        // The roll-up is idempotent: a second import into the same workspace does not
+        // change a single byte of its deterministic, name-sorted layout.
+        let first = tree_bytes(&into);
+        run(&harness, &into).unwrap();
+        assert_eq!(first, tree_bytes(&into));
     }
 }
