@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "the curated agents-md.memory + claude-code.memory KIND.md/PACKAGE.md are human-authored (outside build's fence, cited to code.claude.com/docs/en/memory) and are committed only after MEMORY-COLLISION-SCOPE ships; the validation test cannot run until those four files are embedded"
+      "reason": "the engine wave has fully shipped (RECURSIVE-GOVERNS-PLACEMENT-ID landed 26e296e, verified on disk); this now parks purely on the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, outside build's fence, cited to code.claude.com/docs/en/memory) — the validation test cannot run until those files are embedded"
     },
     "dependsOnForks": [],
     "files": {
@@ -29,7 +29,7 @@
       }
     ],
     "acceptance": "With the wave shipped and the curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
-    "notes": "Engine work is now the wave (slices 1-5 above) + build.rs auto-embed; this entry is the parked flip-ceremony validation. The curated agents-md.memory/claude-code.memory KIND.md+PACKAGE.md are human-authored, outside build's fence, committed after slice 1. `@path` imports are NOT in this wave — a later edge primitive if needed. Shipping this moves CLAUDE.md onto the surface."
+    "notes": "Engine wave (5 slices) fully SHIPPED — RECURSIVE landed 26e296e, verified on disk (collect_glob recurses `**`; wholefile_id folds placement). This is the parked flip-ceremony validation, now blocked purely on the human authoring/committing the four curated memory KIND.md+PACKAGE.md (kinds/ today holds only claude-code/{rule,skill}). `@path` imports are NOT in this wave. Shipping moves CLAUDE.md onto the surface."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",

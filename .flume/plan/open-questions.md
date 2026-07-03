@@ -455,16 +455,17 @@ from exactly such a line fossilizing. If work touches one, surface it.
   ceremony the file describes.
 - **CLAUDE.md bootstrap fence** — transitional until the `memory` kind ships
   and the flip ceremony moves it onto the surface.
-  WAVE FILED (2026-07-02): the human's inbox drained into five dependency-ordered
-  engine slices — MEMORY-COLLISION-SCOPE (open, builtin_kind.rs), then
-  IMPORT-BUILTIN-SCAN-GENERIC (open, import.rs), CHECK-WORKSPACE-KIND-MAP (check.rs
-  + bundle/drift/read), DECLARED-FRONTMATTER-ADAPTER-CUSTOM (import.rs), and
-  RECURSIVE-GOVERNS-PLACEMENT-ID (import.rs + frontmatter.rs); the three import.rs
-  slices serialize via `blockedBy`, slices 1 and 2 are the disjoint `open` pair.
-  The kinds are two **foreign-provider** carriers (`agents-md.memory`,
+  WAVE SHIPPED (2026-07-02): the five dependency-ordered engine slices —
+  MEMORY-COLLISION-SCOPE, IMPORT-BUILTIN-SCAN-GENERIC, CHECK-WORKSPACE-KIND-MAP,
+  DECLARED-FRONTMATTER-ADAPTER-CUSTOM, RECURSIVE-GOVERNS-PLACEMENT-ID — have all
+  landed (RECURSIVE 26e296e; re-verified on disk this tick: `collect_glob`
+  recurses `**` any-depth import.rs:358-398, `wholefile_id` folds placement via
+  `fold_file_id` import.rs:535 / frontmatter.rs:478-533, `resolve_bare` gives the
+  qualified-identity/collision resolution kind.rs:263-284). Engine is done and
+  generic. The kinds are two **foreign-provider** carriers (`agents-md.memory`,
   `claude-code.memory`, deliberately colliding on bare `memory`) — curated,
   human-authored, cited to code.claude.com/docs/en/memory, held outside build's
-  fence and committed only after slice 1 (co-embedding two carriers turns cargo
+  fence and committed only after the wave (co-embedding two carriers turns cargo
   test red today via eager resolution). MEMORY-KIND is now the **parked
   flip-ceremony validation** entry (tests/memory_contract.rs), not the engine
   wiring — the wave carries that as generic, data-driven code. CORRECTION carried:

@@ -1,29 +1,30 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 2cc26ff.
-- **Last shipped:** CHECK-WORKSPACE-KIND-MAP (build ef73b49) + DECLARED-FRONTMATTER-ADAPTER-CUSTOM
-  (build 247e203), chore 2cc26ff — the memory wave's slices 3+4. `check::Workspace`
-  now keys members by kind (`load()` iterates `builtin_kind::definitions()`), and
-  `import_custom_unit` branches on the declared `format`: `yaml-frontmatter` rides
-  `Member::from_source`, no-format keeps the whole file byte-faithful, and the id
-  derives per the declared `unit_shape` in `wholefile_id` — both verified on disk.
-- **This tick:** reconcile-only. Slice 4 shipped → RECURSIVE-GOVERNS-PLACEMENT-ID's
-  `blockedBy DECLARED` is satisfied; unlocked it to `open` and refreshed its drifted
-  cites — DECLARED split `import_custom_unit` into `wholefile_id` (import.rs:479-501) +
-  the `from_source` File face (frontmatter.rs:186-196), and the glob scan is
-  `discover_kind_units`/`collect_glob` (import.rs:326-380) + `glob_matches` (:545). No
-  other entry moved; inbox empty; no new corpus↔src gap. Open questions unchanged.
+- **Phase:** reconcile. HEAD 26e296e.
+- **Last shipped:** RECURSIVE-GOVERNS-PLACEMENT-ID (build 007178e, chore 26e296e) —
+  the **final** slice of the memory engine wave. With it, all five slices
+  (MEMORY-COLLISION-SCOPE → IMPORT-BUILTIN-SCAN-GENERIC → CHECK-WORKSPACE-KIND-MAP →
+  DECLARED-FRONTMATTER-ADAPTER-CUSTOM → RECURSIVE) have landed. Re-verified on disk
+  this tick: `collect_glob` recurses `**` any-depth (import.rs:358-398), `wholefile_id`
+  folds placement via `fold_file_id` (import.rs:535 / frontmatter.rs:478-533), and
+  `resolve_bare` carries qualified-identity/collision resolution (kind.rs:263-284).
+- **This tick:** reconcile-only. Recorded the memory engine wave as fully drained:
+  refreshed MEMORY-KIND's now-satisfied gate reason + notes (it parks purely on the
+  human committing the four curated memory KIND.md/PACKAGE.md — kinds/ on disk still
+  holds only `claude-code/{rule,skill}`, packages only `{rule,skill}.anthropic`), and
+  flipped the open-questions bootstrap-fence note from WAVE FILED → WAVE SHIPPED. No
+  other pending entry moved; their cited spec sections all still resolve. Inbox empty;
+  no new corpus↔src gap; open forks unchanged.
 - **Operational note (accepted, not queued):** the 17 `requirement.dangling`
-  session-start findings are a **stale installed binary** — re-verified this tick:
-  the freshly-built binary's `temper check .temper` is clean (only advisory `max_lines`
-  on the deliberate long-spec fixtures, exit 0); the stale `~/.cargo/bin/temper`
-  reproduces the old findings. Fix is `cargo install --path .`, not spec/build work.
-  (`temper check .` errors on a missing `kinds/architecture/KIND.md` — that is the
-  wrong workspace; the dogfood is checked via `check .temper`, per install.rs.)
-- **Pickable now:** RECURSIVE-GOVERNS-PLACEMENT-ID (sole `open`; the last engine slice
-  of the memory wave). Parked: MEMORY-KIND (flip-ceremony validation, curated files),
-  PACKAGING-CHANNELS, COMMUNITY-DOCS (human action). Deferred: EXTRACTION-VOCAB-GAPS,
-  AGENT-KIND (no consumer). OPEN forks stay human-to-settle.
+  session-start findings are a **stale installed binary** — the freshly-built binary's
+  `temper check .temper` is clean; the stale `~/.cargo/bin/temper` reproduces the old
+  findings. Fix is `cargo install --path .`, not spec/build work.
+- **Pickable now:** none `open`. Parked (human action): MEMORY-KIND (commit curated
+  memory files → flip ceremony), PACKAGING-CHANNELS (release creds), COMMUNITY-DOCS
+  (fence-widen + private reporting). Deferred (no consumer): EXTRACTION-VOCAB-GAPS,
+  AGENT-KIND. OPEN forks stay human-to-settle.
 
-Plan continues: no — queue reconciled against disk, inbox empty, one `open` entry
-pickable. Hand to build; shipping RECURSIVE drains the last engine slice of the wave.
+Plan continues: no — queue reconciled against disk, inbox empty, memory engine wave
+fully drained. Every remaining entry is parked (human action) or deferred (no
+consumer); no `open` engine work for build to pick until a human commits the curated
+memory files, widens the fence, or sets release creds.
