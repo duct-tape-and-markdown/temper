@@ -12,7 +12,7 @@ and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror i
 path strings remain in comments).
 
 - `(extraction-source-not-mechanism)` — RESOLVED (human ruling this session;
-  `specs/15-kinds.md`, "The extraction algebra — the soundness boundary, as data":
+  `specs/architecture/15-kinds.md`, "The extraction algebra — the soundness boundary, as data":
   "Today extractors are engine code … The end state is that extraction is composed
   from a closed algebra"). The built-in/custom split is **source, never
   mechanism**: every member's *extraction* runs through the one generic composed
@@ -56,7 +56,7 @@ path strings remain in comments).
   waits; kept as the decision record.
 
 - `(contract-name-field)` — RESOLVED + SHIPPED (88246bf). Option B
-  (`specs/10-contracts.md` Decision: "a contract is identified by its path/role,
+  (`specs/architecture/10-contracts.md` Decision: "a contract is identified by its path/role,
   not an internal name"). The hand-applied chore dropped `MissingName` and made
   `Contract.name` default to the file stem when the data file declares none
   (kept as `String`, not `Option`, since a display label always exists) — the
@@ -64,7 +64,7 @@ path strings remain in comments).
   Chain head SKILL-CONTRACT-TEMPLATE is now `open`. Kept as the decision record;
   no dependent still waits on it.
 
-- `(regex-crate)` — RESOLVED (`specs/10-contracts.md` Decision: "`allowed_chars`,
+- `(regex-crate)` — RESOLVED (`specs/architecture/10-contracts.md` Decision: "`allowed_chars`,
   not a general `pattern` clause"). `regex` was already sanctioned for *solved
   mechanics*; the live decision is to **not** expose an arbitrary `pattern =
   "<regex>"` clause — it is expressive enough to be an unsound proxy. The
@@ -72,13 +72,13 @@ path strings remain in comments).
   `[a-z0-9-]`); a genuine *format* need gets a narrow named predicate, never a
   general regex clause. Kept as the decision record; no dependent still waits.
 
-- `(contract-selection)` — RESOLVED (`specs/20-surface.md` Decision: "contract
+- `(contract-selection)` — RESOLVED (`specs/architecture/20-surface.md` Decision: "contract
   selection is by artifact kind"). `check` maps each artifact to the built-in
   contract for its kind (skill → `contracts/skill.anthropic.toml`, rule →
   `contracts/rule.toml`), embedded as defaults. A per-workspace override is a
   later extension, not the default. Unblocks the rule artifact kind.
 
-- `(skill-ref-syntax)` — RESOLVED (`specs/45-governance.md` Decision: "a reference
+- `(skill-ref-syntax)` — RESOLVED (`specs/architecture/45-governance.md` Decision: "a reference
   is a declared edge on the surface, never grepped prose"). A reference is a
   **declared structured field** authored on the surface (the reference syntax),
   projected alongside any prose; the graph is built from these edges — never
@@ -89,7 +89,7 @@ path strings remain in comments).
   build (edge extraction + the graph) is the graph-scope frontier, downstream of a
   graph foundation.
 
-- `(model-declaration-format)` — RESOLVED + now CARRIED (`specs/40-composition.md`
+- `(model-declaration-format)` — RESOLVED + now CARRIED (`specs/architecture/40-composition.md`
   "Declaring a custom kind" + its Decision "a custom kind is declared in `temper.toml`,
   extraction and all"). The domain model is **not** a separate declared format: a spec
   is a **custom kind** (`15-kinds.md`) whose entities are declared by the kind's
@@ -100,14 +100,14 @@ path strings remain in comments).
   concrete `[kind.<name>]` surface, built by the KIND-* chain (KIND-DECLARATION-PARSE …
   KIND-EDGE-RELATIONSHIPS). Kept as the decision record; no dependent still waits.
 
-- `(workspace-scope)` — RESOLVED (`specs/20-surface.md` Decision: "the workspace is
+- `(workspace-scope)` — RESOLVED (`specs/architecture/20-surface.md` Decision: "the workspace is
   per-project"). The surface targets a **per-project** harness — the `.claude/` +
   co-located artifacts of one project, located by the explicit path `import`/`check`
   already take. Rejected (for now): mirroring the global `~/.claude`, or both; the
   global config is a later landscape root, not a redesign. Was the last fork gating
   the `apply`/`install` write-back path — now fork-free.
 
-- `(yaml-writeback)` — RESOLVED, then SUPERSEDED (`specs/20-surface.md` Decision:
+- `(yaml-writeback)` — RESOLVED, then SUPERSEDED (`specs/architecture/20-surface.md` Decision:
   "the projection is re-emitted; the surface is patched"). The original resolution
   (patch changed YAML fields surgically, never re-emit) was load-bearing when
   `.claude/` was a peer surface humans hand-curated. Under the surface-language
@@ -116,14 +116,14 @@ path strings remain in comments).
   the surface's own TOML is patched format-preserving (`toml_edit`). YAML exists
   only on the generated side. Kept as the decision record.
 
-- `(surface-authority)` — RESOLVED (`specs/20-surface.md` Decision: "the surface is
+- `(surface-authority)` — RESOLVED (`specs/architecture/20-surface.md` Decision: "the surface is
   the source of truth"). The composition surface is canonical; `.claude/` + `specs/`
   are a projection of it (`apply`), and direct on-disk edits are reconciled back with
   `re-add`. The read-only-lens framing was rejected (it contradicts law 7 and strands
   fearless refactoring). With `(yaml-writeback)` + `(workspace-scope)` now both
   RESOLVED, the `apply` path is fork-free.
 
-- `(field-type-lattice)` — RESOLVED (`specs/10-contracts.md` Decision: "the `type`
+- `(field-type-lattice)` — RESOLVED (`specs/architecture/10-contracts.md` Decision: "the `type`
   vocabulary is a closed scalar/container lattice"). The `type` primitive ranges over
   a fixed closed set — `string`, `integer`, `number`, `boolean`, `list`, `map`,
   `null` — taken from the source scalar's *parsed* type; a richer type language
@@ -135,11 +135,11 @@ path strings remain in comments).
   TYPE-PRIMITIVE both drained. Kept as the decision record; no dependent still waits.
 
 - `(harness-contract-provisioning)` — RESOLVED, both halves.
-  *Home/selection* (`specs/40-composition.md` Decision: "the author-declared contract
+  *Home/selection* (`specs/architecture/40-composition.md` Decision: "the author-declared contract
   lives in `temper.toml`, layered"): an optional `temper.toml` at the project root
   layers over the by-kind built-in floor and holds adoptions, overrides, and the
   harness roster — rejected alternatives: a field in the *generated* `author.toml`,
-  or the shipped templates as the author's home. *`verified_by`* (`specs/10-contracts.md`,
+  or the shipped templates as the author's home. *`verified_by`* (`specs/architecture/10-contracts.md`,
   "`verified_by` — where behavior goes"): "wired" is a **referential** clause — the
   named verifier must *resolve* (test target / CI job / path exists) or admissibility
   fails; a string-present check was rejected (a dangling verifier is a silent no-op).
@@ -149,7 +149,7 @@ path strings remain in comments).
   `conforms-to` + admissibility (including `verified_by` resolving to a real path); all
   wired into `check` in `main.rs`. Kept as the decision record; no dependent still waits.
 
-- `(binary-bootstrap)` — RESOLVED (`specs/50-distribution.md` Decision: "acquisition
+- `(binary-bootstrap)` — RESOLVED (`specs/architecture/50-distribution.md` Decision: "acquisition
   rides the ecosystem's package managers"). Ship the prebuilt binary through npm with
   platform-specific `optionalDependencies` (the common `.claude/`-project route), plus
   standalone release binaries, Homebrew, and `cargo install`, channel auto-detected;
@@ -174,14 +174,14 @@ path strings remain in comments).
 - `(rollup-index-rename)` — RESOLVED (inbox decision, spec-confirmed). The generated
   roll-up index is renamed `author.toml` → **`lock.toml`** — the contents' generated
   *state-of-record* (provenance + drift/apply fingerprints), a lock (Cargo.lock
-  analogy), not an authored index. `specs/20-surface.md` now names it `lock.toml`
+  analogy), not an authored index. `specs/architecture/20-surface.md` now names it `lock.toml`
   ("The surface: a contract over its contents"; the topology diagram), superseding the
   `author.toml`↔`temper.toml` name collision. SHIPPED as RENAME-ROLLUP-LOCK —
   `src/import.rs` writes `lock.toml` (`LOCK_FILENAME`), `src/drift.rs` reads it, and
   zero `author.toml` references remain in `src/`. Kept as the decision record; no
   dependent still waits.
 
-- `(decision-marker-predicate)` — RESOLVED (`specs/10-contracts.md`, structural
+- `(decision-marker-predicate)` — RESOLVED (`specs/architecture/10-contracts.md`, structural
   primitives): `section_contains` `{heading, marker}` (every section whose heading
   starts with the declared text carries the declared marker) is now enumerated in
   the predicate vocabulary's home — the deliberate language addition law 3
@@ -192,7 +192,7 @@ path strings remain in comments).
   marker}` is parsed in `src/contract.rs` and decided in `src/engine.rs`. Kept as
   the decision record; no dependent still waits.
 
-- `(read-verbs)` — RESOLVED (`specs/20-surface.md` Decision: "the CLI gains a read
+- `(read-verbs)` — RESOLVED (`specs/architecture/20-surface.md` Decision: "the CLI gains a read
   family — `why` and `requirements`"). Two **read-only traversal verbs** over data
   `check` already computes: `temper why <member>` walks the requirement↔`satisfies`
   edge forward (requirements filled + rationale, governing package, edges);
@@ -210,7 +210,7 @@ path strings remain in comments).
   projection), while the gate's graph (`src/graph.rs`) reads a structured `routes_to`
   field off extracted `Features`, keyed by `[[kind.<name>.relationships]]`, and
   **never reads `[edge.*]`**. So a surface-authored `[edge.*]` edge does not gate,
-  yet `specs/20-surface.md` ("The member document") and `specs/45-governance.md` call
+  yet `specs/architecture/20-surface.md` ("The member document") and `specs/architecture/45-governance.md` call
   `[edge.<target>]` "the graph's source" and the adapter's projected field its emitted
   face. Unresolved: how the two unify into one edge set — (a) extraction lifts `[edge.*]`
   into the graph's edge features (the adapter's inverse-of-projection read face); (b) the
@@ -227,7 +227,7 @@ path strings remain in comments).
   option (c) but with the clause orphaned, not retired. THIS fork is the deeper "one edge
   set" question — which representation is canonical and how a surface-authored edge reaches
   the gate's graph. No dependent filed; human to settle the canonical form.
-  DATUM (2026-07-02): `specs/45-governance.md` gained the Decision "coupling
+  DATUM (2026-07-02): `specs/architecture/45-governance.md` gained the Decision "coupling
   is a join — a one-way edge never obligates its target" (`05-model.md` names
   `join`). It sharpens this fork's frame: `requirement`/`satisfies` is the sole
   two-sided join (mutual obligation); one-way declared edges (`routes_to` mirrored
@@ -263,9 +263,9 @@ path strings remain in comments).
   ruff/uv "`CLAUDE.md` = `@AGENTS.md`" gutting is rejected here. AGENTS.md is
   fileable build work: contributor-facing (build/test/lint commands, architecture
   map, pointer to the AI-contribution policy in CONTRIBUTING.md per
-  `specs/55-offering.md`); it does NOT touch `.claude/**` or `CLAUDE.md` (the
+  `specs/intent/55-offering.md`); it does NOT touch `.claude/**` or `CLAUDE.md` (the
   chore(harness) boundary holds). CHANGELOG.md: fileable as a root stub with an
-  Unreleased section now (the alive-signal, `specs/55-offering.md`); release
+  Unreleased section now (the alive-signal, `specs/intent/55-offering.md`); release
   cadence is settled at first tag (PACKAGING-CHANNELS). When temper's own surface
   eventually governs the harness, both docs become projections and the
   canonicality question dissolves.
@@ -287,7 +287,7 @@ path strings remain in comments).
 
 - `(kind-harness-axis)` — RESOLVED (human ruling 2026-07-02, after a cited
   three-agent market sweep — `docs/market-formats.md`): kind identity carries a
-  **provider** axis (`specs/15-kinds.md` Decision "kind identity carries a
+  **provider** axis (`specs/architecture/15-kinds.md` Decision "kind identity carries a
   provider axis"). Provider = the authority that defines the format (a tool —
   `claude-code`, `cursor` — or a standard — `agents-md`, `agent-skills`);
   identity is `<provider>.<name>`; bare names resolve iff unique, collision is
@@ -340,7 +340,7 @@ path strings remain in comments).
   face is open. Explicitly out of scope for the package-authoring session and
   the launch wedge; human fork, no dependents filed.
 
-- `(project-name)` — RESOLVED, provisionally (`specs/55-offering.md` Decision:
+- `(project-name)` — RESOLVED, provisionally (`specs/intent/55-offering.md` Decision:
   "the name stays `temper`, carried on scoped registries"). Keep the name; the
   contested registries are routed around: crate `temper-cli` (binary stays
   `temper`), npm scoped/prefixed, own Homebrew tap — the audience installs via
@@ -351,7 +351,7 @@ path strings remain in comments).
   human due-diligence item before launch. PACKAGING-CHANNELS uses the scoped
   names. Kept as the decision record.
 
-- `(kind-artifact-format)` — RESOLVED (`specs/20-surface.md` Decision: "a kind
+- `(kind-artifact-format)` — RESOLVED (`specs/architecture/20-surface.md` Decision: "a kind
   definition is `KIND.md` — one document, same medium"). A custom kind is authored
   as `.temper/kinds/<name>/KIND.md`, a surface-language document like every other
   artifact: the TOML-fenced header carries the definition (`governs`, composed
@@ -364,8 +364,8 @@ path strings remain in comments).
   record.
 
 - `(reference-id-normalization)` — RESOLVED, then **SUPERSEDED** by law 8
-  (`specs/15-kinds.md` Decision: "no body-mined references — the `references`
-  primitive is retired"; `specs/00-intent.md` law 8). The earlier resolution
+  (`specs/architecture/15-kinds.md` Decision: "no body-mined references — the `references`
+  primitive is retired"; `specs/intent/00-intent.md` law 8). The earlier resolution
   declared a per-kind reference *normalization* (`strip_suffix = ".md"`,
   `` `15-kinds.md` `` → `15-kinds`) for a backtick-filename syntax **mined from
   the member body**. Law 8 retires the whole body-mining primitive: relationships
@@ -375,7 +375,7 @@ path strings remain in comments).
   REFERENCES-RETIRE: drop `Primitive::References` + `strip_suffix` +
   `backtick_filename_refs` + `is_filename_reference` from `src/kind.rs`). The spec
   corpus's real edges are the header `[edge.*]` / `satisfies` declarations of the
-  classed corpus (`specs/90-spec-system.md`), never extracted from bodies. Kept as
+  classed corpus (`specs/process/90-spec-system.md`), never extracted from bodies. Kept as
   the decision record; the fork is closed by the retirement, not by wiring.
 
 - `(default-assembly-as-data)` — OPEN. The built-in floor's zero-config
@@ -385,7 +385,7 @@ path strings remain in comments).
   assembly** — shipped declared data beside `kinds/` and `packages/`, same
   source-not-mechanism move — so "what temper does with zero config" is
   readable, cited, and overridable rather than coded. Recommendation: adopt;
-  needs its `specs/40-composition.md` Decision (the floor is data), then a
+  needs its `specs/architecture/40-composition.md` Decision (the floor is data), then a
   small engine wave. Filed 2026-07-02 from the ladder review.
 
 - `(reachability-gate-mechanism)` — RESOLVED (human ruling 2026-07-02): option
@@ -459,7 +459,7 @@ from exactly such a line fossilizing. If work touches one, surface it.
   the first pure-data managed kind and the recipe's proof — a curated
   `kinds/memory/KIND.md` + `packages/memory.anthropic/` (humans author, cited to
   code.claude.com/docs/en/memory): markdown, no frontmatter, dual root locus per
-  `specs/15-kinds.md`. Parked because those curated files sit outside build's
+  `specs/architecture/15-kinds.md`. Parked because those curated files sit outside build's
   fence (a human authors them first) and the no-frontmatter format + `@path` edge
   primitive are deliberate closed-vocab additions to sanction. CORRECTION to the
   earlier recipe framing: `@path` imports are format-EXECUTED reference syntax

@@ -3,20 +3,17 @@
     "tag": "BINDING-QUALIFY",
     "summary": "Qualify built-in kind bindings — packages bind `<provider>.<name>`, bare `[kind.<name>]` references route through provider resolution, and a two-provider collision is a load error",
     "per": {
-      "path": "specs/15-kinds.md",
+      "path": "specs/architecture/15-kinds.md",
       "section": "Decision: kind identity carries a provider axis"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "one blocker remains, non-build: the human file-move — curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines. kinds/** is outside build's fence, so a human authors the move (disk today: flat kinds/skill, kinds/rule, no provider lines) before qualified bindings can resolve or be tested end-to-end. EMBED-NESTED-WALK shipped (c65c2ed): build.rs walks the nested layout, builtin_kind resolves bare→unique."
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/builtin.rs",
-          "description": "`SKILL_PACKAGE`/`RULE_PACKAGE` bindings target the qualified kind names `claude-code.skill`/`claude-code.rule` (builtin.rs:33-40); a published package binds a qualified kind name (specs/15-kinds.md), so the bundle/dossier path enforces qualification."
+          "description": "`SKILL_PACKAGE`/`RULE_PACKAGE` bindings target the qualified kind names `claude-code.skill`/`claude-code.rule` (builtin.rs:33-40); a published package binds a qualified kind name (specs/architecture/15-kinds.md), so the bundle/dossier path enforces qualification."
         },
         {
           "path": "src/main.rs",
@@ -36,26 +33,26 @@
         "asserts": "after the qualified-binding wave, a bare `[kind.skill]` assembly binding resolves to the unique `claude-code.skill` built-in; a package binds the qualified kind name; a bare reference with two providers carrying the name is an ambiguity load error."
       }
     ],
-    "acceptance": "After EMBED-NESTED-WALK ships and the human moves the curated kind files, build.rs embeds `kinds/<provider>/<name>/KIND.md`; `SKILL_PACKAGE`/`RULE_PACKAGE` bind the qualified `claude-code.skill`/`claude-code.rule`; a bare `[kind.skill]` binding and `satisfies` typing resolve through provider resolution to the unique claude-code kind; a published package binds a qualified kind name; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "(kind-harness-axis) consequence (3). PROVIDER-KEY-PARSE + EMBED-NESTED-WALK both shipped (kind.rs parses `provider` + resolve_bare; build.rs walks nested, builtin_kind resolves bare→unique — verified on disk). Only blocker left: the human file-move (skill/rule KIND.md → kinds/claude-code/* with provider lines, outside build's fence). After it: bindings qualify, published-binds-qualified becomes a bundle check."
+    "acceptance": "build.rs embeds `kinds/claude-code/<name>/KIND.md` (shipped); `SKILL_PACKAGE`/`RULE_PACKAGE` bind the qualified `claude-code.skill`/`claude-code.rule`; a bare `[kind.skill]` binding and `satisfies` typing resolve through provider resolution to the unique claude-code kind; a published package binds a qualified kind name; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "(kind-harness-axis) consequence (3). PROVIDER-KEY-PARSE + EMBED-NESTED-WALK shipped; the human file-move landed (3cf756b) — kinds/claude-code/{skill,rule}/KIND.md carry `provider = \"claude-code\"`, embeds key qualified. All blockers cleared, un-parked. Remaining engine work: qualify the floor tuples + route bare `[kind.*]` refs through resolve_bare; published-binds-qualified becomes a bundle/dossier check."
   },
   {
     "tag": "MEMORY-KIND",
     "summary": "Add the `memory` built-in kind — CLAUDE.md family (no frontmatter, dual root locus, `@path` imports); the first pure-data managed kind, unlocking the CLAUDE.md-onto-surface flip",
     "per": {
-      "path": "specs/15-kinds.md",
+      "path": "specs/architecture/15-kinds.md",
       "section": "Two categories of kind — ownership, not mechanism"
     },
     "gate": {
       "kind": "parked",
-      "reason": "the curated kinds/memory/KIND.md + packages/memory.anthropic/PACKAGE.md are outside build's fence (curated std-lib — a human authors them, cited to code.claude.com/docs/en/memory); and the no-frontmatter projection format + the `@path` edge extraction primitive are deliberate closed-vocab additions a human must sanction before the engine wiring can land"
+      "reason": "the curated kinds/claude-code/memory/KIND.md + packages/memory.anthropic/PACKAGE.md are outside build's fence (curated std-lib — a human authors them, cited to code.claude.com/docs/en/memory); and the no-frontmatter projection format + the `@path` edge extraction primitive are deliberate closed-vocab additions a human must sanction before the engine wiring can land"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
-          "path": "kinds/memory/KIND.md",
-          "description": "The embedded built-in `memory` KIND.md (curated — humans author it, outside build's fence), beside kinds/skill and kinds/rule. Format facts per specs/15-kinds.md: no frontmatter, `@`-imports, dual root locus (project `./CLAUDE.md` + user `~/.claude/CLAUDE.md`). Declares a no-frontmatter projection format, markdown-structure extraction over the body, and `@path` imports as declared edges. build.rs auto-embeds it."
+          "path": "kinds/claude-code/memory/KIND.md",
+          "description": "The embedded built-in `memory` KIND.md (curated — humans author it, outside build's fence), under its provider beside kinds/claude-code/skill and kinds/claude-code/rule with a `provider = \"claude-code\"` line. Format facts per specs/architecture/15-kinds.md: no frontmatter, `@`-imports, dual root locus (project `./CLAUDE.md` + user `~/.claude/CLAUDE.md`). Declares a no-frontmatter projection format, markdown-structure extraction over the body, and `@path` imports as declared edges. build.rs auto-embeds it."
         },
         {
           "path": "packages/memory.anthropic/PACKAGE.md",
@@ -69,7 +66,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:456 + parse_primitive load-guard kind.rs:1051). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/15-kinds.md Decision: extraction is a closed algebra)."
+          "description": "Engine wiring (inside the fence): add \"memory\" to BUILTIN_KINDS (kind.rs:30); add the no-frontmatter projection-format vocab entry beside `yaml-frontmatter` (the declared-adapter face); add an `@path`-import edge extraction primitive to the closed `Primitive` vocab (enum kind.rs:456 + parse_primitive load-guard kind.rs:1051). All are deliberate closed-vocab additions harvested because the memory kind demands them (specs/architecture/15-kinds.md Decision: extraction is a closed algebra)."
         },
         {
           "path": "src/builtin.rs",
@@ -100,7 +97,7 @@
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds.md lists but code lacks — a `fenced` block extractor and key-path (nested) `field` lookup — held until a consumer kind needs them",
     "per": {
-      "path": "specs/15-kinds.md",
+      "path": "specs/architecture/15-kinds.md",
       "section": "The extraction algebra — the soundness boundary, as data"
     },
     "gate": {
@@ -113,11 +110,11 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:456-489); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:498) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:1051). This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Two closed-vocabulary additions to `Primitive` (`specs/architecture/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement, kind.rs:456-489); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` (kind.rs:498) so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive, kind.rs:1051). This entry owns both edits so they don't collide in parallel worktrees."
         },
         {
           "path": "src/extract.rs",
-          "description": "The extractor helpers behind the two primitives: a `body_fenced_blocks`-style reader over the markdown body (mirroring `body_headings`/`body_sections`), and key-path traversal for the field extractor (walk nested TOML/JSON tables to the leaf before `json_to_feature`, kind-preserving per the `type` lattice, `specs/10-contracts.md`)."
+          "description": "The extractor helpers behind the two primitives: a `body_fenced_blocks`-style reader over the markdown body (mirroring `body_headings`/`body_sections`), and key-path traversal for the field extractor (walk nested TOML/JSON tables to the leaf before `json_to_feature`, kind-preserving per the `type` lattice, `specs/architecture/10-contracts.md`)."
         }
       ],
       "retire": []
@@ -136,7 +133,7 @@
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document, read through the generic loader and checked by the embedded `agent.anthropic` package",
     "per": {
-      "path": "specs/20-surface.md",
+      "path": "specs/architecture/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
     "gate": {
@@ -147,8 +144,8 @@
     "files": {
       "new": [
         {
-          "path": "kinds/agent/KIND.md",
-          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), beside kinds/skill and kinds/rule: `governs = { root = '.claude/agents', glob = '*.md' }`, the declared `yaml-frontmatter` projection format + unit shape, composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. build.rs auto-embeds it — no engine extractor."
+          "path": "kinds/claude-code/agent/KIND.md",
+          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), under its provider beside kinds/claude-code/skill and kinds/claude-code/rule with a `provider = \"claude-code\"` line: `governs = { root = '.claude/agents', glob = '*.md' }`, the declared `yaml-frontmatter` projection format + unit shape, composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. build.rs auto-embeds it — no engine extractor."
         },
         {
           "path": "packages/agent.anthropic/PACKAGE.md",
@@ -179,13 +176,13 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS kind.rs:30 + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Adapter wave drained (DFA shipped). Stays deferred: more built-in kinds is the wrong direction under requirements/satisfies."
+    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS kind.rs:30 + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Adapter wave drained (DFA shipped). Stays deferred: more built-in kinds is the wrong direction under requirements/satisfies."
   },
   {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
     "per": {
-      "path": "specs/50-distribution.md",
+      "path": "specs/architecture/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
     },
     "gate": {
@@ -203,7 +200,7 @@
       "edit": [
         {
           "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`, confirmed on disk). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering the harness manifest. Scoped/prefixed names per the resolved (project-name) fork."
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`, confirmed on disk). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/architecture/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering the harness manifest. Scoped/prefixed names per the resolved (project-name) fork."
         }
       ],
       "retire": []
@@ -217,7 +214,7 @@
     "tag": "COMMUNITY-DOCS",
     "summary": "Add CONTRIBUTING.md and SECURITY.md — the two missing launch community docs (two-sided AI-authorship disclosure; vuln-reporting evidence bar)",
     "per": {
-      "path": "specs/55-offering.md",
+      "path": "specs/intent/55-offering.md",
       "section": "The community surface — small, honest, gated"
     },
     "gate": {
@@ -241,7 +238,7 @@
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "CONTRIBUTING.md and SECURITY.md exist at root, matching specs/55's launch-set Decisions (two-sided disclosure; demonstrate-not-speculate); the fence has been widened so build's entry-fence preflight admits them.",
-    "notes": "Launch set (specs/55). Already on disk: README, AGENTS.md, CHANGELOG.md, LICENSE-MIT/APACHE, issue forms (.github/ISSUE_TEMPLATE/{bug,feature,config}.yml). Missing only CONTRIBUTING.md + SECURITY.md. Both are root-level per the spec but outside build's root-docs fence — parked on a human fence-widen (chain.ts) + enabling private reporting. Parked entries are skipped by the entry-fence gate, so this files cleanly."
+    "acceptance": "CONTRIBUTING.md and SECURITY.md exist at root, matching specs/intent/55-offering.md's launch-set Decisions (two-sided disclosure; demonstrate-not-speculate); the fence has been widened so build's entry-fence preflight admits them.",
+    "notes": "Launch set (specs/intent/55-offering.md). Already on disk: README, AGENTS.md, CHANGELOG.md, LICENSE-MIT/APACHE, issue forms (.github/ISSUE_TEMPLATE/{bug,feature,config}.yml). Missing only CONTRIBUTING.md + SECURITY.md. Both root-level per the spec but outside build's root-docs fence — parked on a human fence-widen (chain.ts) + enabling private reporting. Parked entries are skipped by the entry-fence gate, so this files cleanly."
   }
 ]
