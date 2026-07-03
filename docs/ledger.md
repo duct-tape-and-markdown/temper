@@ -26,11 +26,15 @@ graduation, delete over archive.
 
 ## Verify when the loop drains
 
-- (Done 07-03: tree flip shipped + cascade honeypot held — node_modules
-  AGENTS.md excluded, 21 members checked, and the vet found a real trailing-
-  period @import in cascade's CLAUDE.md. Whether Claude Code's parser strips
-  trailing punctuation is UNVERIFIED — verify before deciding if it's their
-  bug or our grammar nuance.)
+- **Trailing-period @import** (cascade CLAUDE.md:26, found by the first
+  tree-wide vet): our extraction reads the target as `collaboration.md.` —
+  unbacked. Whether Claude Code's parser strips trailing punctuation is
+  UNVERIFIED: fetch/test before acting. If it doesn't strip → cascade has a
+  real dead import (report to John, one-char fix his side); if it does →
+  slice a punctuation nuance into the at-import grammar (cited). Either way
+  it's a wedge story for the public docs.
+- (Done 07-03: tree flip shipped; cascade honeypot held — node_modules
+  AGENTS.md excluded, 21 members checked.)
 - Lock artifacts: exercise authority = "surface" end to end once installed
   (guard hook blocks, gate-installed enumerates it).
 - (Verified 07-03: WEDGE-FACT-FLOOR fires bare; impact verb narrates.)
