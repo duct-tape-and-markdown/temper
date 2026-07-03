@@ -1,31 +1,31 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 7383907.
-- **Last shipped:** BINDING-QUALIFY (build fd4d142, chore ad2d3a9) — the
-  `(kind-harness-axis)` build-out is fully landed; kind bindings resolve through
-  qualified provider identity.
-- **This tick:** drained the inbox (2 human notes) into two new **open** entries —
-  CUSTOM-UNIT-REPRESENTATION-CARRY (`import_custom_unit`, import.rs:391, writes a
-  provenance-only header with no `carry_representation`, so a re-import silently
-  wipes the hand-authored `[requirement.*]`/`[satisfies.*]` trace) and
-  READ-VERBS-PUBLISHED-DEMANDS (`read.rs:117` reads the assembly roster only, so
-  `requirements` lists 2 of 19 and `why 45-governance` misreports live joins as
-  dangling while `check` is green). Both confirmed on disk; file sets disjoint
-  (import.rs vs read.rs/main.rs), so both are parallel-safe `open`. The 5 existing
-  parked/deferred entries reconciled clean — all cited line numbers verified
-  (kind.rs:30/545/588/1171, builtin.rs:37-44), none shipped.
+- **Phase:** reconcile. HEAD 459f140.
+- **Last shipped:** CUSTOM-UNIT-REPRESENTATION-CARRY + READ-VERBS-PUBLISHED-DEMANDS
+  (build 320444a/74409e0, chore 459f140) — the two dogfood fixes landed:
+  `import_custom_unit` now carries the hand-authored `[requirement.*]`/`[satisfies.*]`
+  trace forward on re-import, and the read family ranges over the composed
+  requirement namespace (not the assembly roster only).
+- **This tick:** reconciled the 5 remaining entries clean — every cited line
+  verified on disk (kind.rs:30 `["skill","rule"]`, :545 Primitive still
+  field/headings/sections/line_count/placement, :588 flat `frontmatter.get`,
+  :1171 parse_primitive; builtin.rs:37/44). None shipped: no
+  `kinds/claude-code/{memory,agent}`, no `packages/{memory,agent}.anthropic`, no
+  CONTRIBUTING.md/SECURITY.md on disk. Inbox empty — nothing to drain. No new gap
+  to file; the residuals (join→graph unification; the OPEN strategic forks) are
+  human-to-settle, not fileable.
 - **Session-start note (accepted, not queued):** the 17 `requirement.dangling`
-  findings in the session banner are a **stale installed binary**
-  (`~/.cargo/bin/temper` predates the member-published-requirements union) — the
-  freshly-built binary's `check` and `session-start` are both clean. Fix is
-  operational (`cargo install --path .`), not spec/build work.
-- **In flight / pickable:** CUSTOM-UNIT-REPRESENTATION-CARRY and
-  READ-VERBS-PUBLISHED-DEMANDS (both `open`). Parked: MEMORY-KIND,
-  PACKAGING-CHANNELS, COMMUNITY-DOCS. Deferred: EXTRACTION-VOCAB-GAPS, AGENT-KIND.
-- **Next:** build picks the two open dogfood-fix entries. The parked/deferred queue
-  still awaits human action; the OPEN strategic forks (edge-representation-unify,
-  default-assembly-as-data, eval-capability, multi-harness-projection) stay
-  human-to-settle.
+  findings in the banner are a **stale installed binary** (`~/.cargo/bin/temper`
+  predates the member-published-requirements union) — the freshly-built binary's
+  `check`/`session-start` are clean. Fix is operational (`cargo install --path .`),
+  not spec/build work.
+- **In flight / pickable:** none `open`. Parked: MEMORY-KIND, PACKAGING-CHANNELS,
+  COMMUNITY-DOCS. Deferred: EXTRACTION-VOCAB-GAPS, AGENT-KIND. All await human
+  action (author curated KIND.md/PACKAGE.md; set release creds; widen build's
+  root-docs fence; or a consumer kind). The OPEN forks (edge-representation-unify,
+  default-assembly-as-data, eval-capability, multi-harness-projection,
+  kind-harness-axis directory shape, reachability residuals) stay human-to-settle.
 
-Plan continues: no — inbox drained into two disjoint pickable `open` entries, the
-existing queue reconciled clean. Building is how the queue drains; hand to build.
+Plan continues: no — queue reconciled clean, inbox empty, no pickable `open`
+work remains. The whole queue is blocked on human action; nothing for build to
+drain until a human un-parks an entry or settles a fork.
