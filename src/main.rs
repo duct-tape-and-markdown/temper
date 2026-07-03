@@ -19,6 +19,7 @@ use temper::check::{self, Severity, Workspace};
 use temper::compose;
 use temper::contract::Contract;
 use temper::coverage;
+use temper::coverage_note;
 use temper::document;
 use temper::drift;
 use temper::engine;
@@ -652,6 +653,10 @@ fn gate(
     // built-ins into the requirement corpus is the separate `(builtin-workspace-qualified-key)`
     // fork), so `skill_features`/`rule_features` above are still read there.
     let mut diagnostics = Vec::new();
+    // Per-kind checked-member counts, keyed by qualified identity — carried out of
+    // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
+    // so "checked N members" is stated rather than left as bare silence.
+    let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
     for kind in builtin_kind::definitions()?.values() {
         let qualified = kind.qualified_name();
         let package = builtin::floor_package(&qualified).ok_or_else(|| {
@@ -680,6 +685,7 @@ fn gate(
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
+        member_counts.insert(qualified, features.len());
     }
 
     // The harness-contract tier: set-scope predicates over the parsed roster, each
@@ -848,6 +854,18 @@ fn gate(
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
     diagnostics.extend(install::gate_installed(root));
+
+    // The wedge's advisory coverage note (`specs/architecture/50-distribution.md`,
+    // "Fail-loud delivery — the invariant"): state which built-in kinds checked how
+    // many members, and name the known Claude Code surfaces present on disk that no
+    // kind governs, so the gate's silence about an unmodeled surface never reads as
+    // "checked". Warn-only over the embedded built-in kind set — it leaves the run's
+    // exit code and the session-start verdict unchanged.
+    diagnostics.extend(coverage_note::check(
+        root,
+        &builtin_kind::definitions()?,
+        &member_counts,
+    ));
 
     Ok(diagnostics)
 }

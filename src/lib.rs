@@ -22,6 +22,7 @@ pub mod check;
 pub mod compose;
 pub mod contract;
 pub mod coverage;
+pub mod coverage_note;
 pub mod document;
 pub mod drift;
 pub mod engine;
