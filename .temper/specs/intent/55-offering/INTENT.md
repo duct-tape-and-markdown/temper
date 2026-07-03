@@ -1,9 +1,13 @@
 +++
-# Intent by authorship, not by trace: 55-offering publishes no entity
-# requirement. Its deliverables (dual license, README/hero visual, the name,
-# AI-authorship policy) are realized by hand-written repo files, not by any
-# architecture mechanism — a required requirement here would be a permanent
-# requirement.unfilled fake-red (law 3). Empty manifest is deliberate.
+# Intent by authorship; ONE demand — the delivery on-ramp below. The offering's
+# other deliverables (dual license, README/hero visual, the name, AI-authorship
+# policy) are realized by hand-written repo files, not architecture mechanisms —
+# demands for them would be permanent requirement.unfilled fake-reds (law 3).
+[requirement.delivery]
+means = "the offering's on-ramp — prebuilt-binary install, the companion plugin, the CI gate: the channels 55-offering stakes the launch on — must be given an architecture home"
+kind = "architecture"
+required = true
+
 [provenance]
 source_path = "./specs/intent/55-offering.md"
 import_hash = "a9980239faa7e6dc3fb23c7e22e343718e866e3ce4c2913ee469ace8d3d9817d"

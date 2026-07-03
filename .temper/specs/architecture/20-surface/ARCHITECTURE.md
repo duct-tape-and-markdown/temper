@@ -5,6 +5,9 @@ rationale = "20-surface owns the member-document format (TOML-fenced header over
 [satisfies.projection]
 rationale = "20-surface owns the deterministic, content-faithful projection mechanics (law 5) from member back to the on-disk landscape — the sole architecture home for the emit law"
 
+[satisfies.drift-engine]
+rationale = "20-surface owns the drift model ('Drift / apply — three states, never two') and the reconcile verbs (import / apply / re-add) that read it"
+
 [provenance]
 source_path = "./specs/architecture/20-surface.md"
 import_hash = "78348abafb37fc5e6f29336f38e597525de2497f45aa4fc1d14e8a59d7d7a060"

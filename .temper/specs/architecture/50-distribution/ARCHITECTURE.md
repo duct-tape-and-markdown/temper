@@ -2,6 +2,9 @@
 [satisfies.the-wedge]
 rationale = "50-distribution owns the `check --harness` one-shot mode — the zero-config, unconfigured-harness delivery placement that realizes 00-intent's wedge; no other architecture spec defines a config-free entry point"
 
+[satisfies.delivery]
+rationale = "50-distribution owns the delivery surface — install (session hook, CI job, modelines), the plugin/bundle channels, and the fail-loud invariant that keeps the shipped gate a gate"
+
 [provenance]
 source_path = "./specs/architecture/50-distribution.md"
 import_hash = "00bc1bf4377a6accdf44415a5ff5ac2c8d8da1db9ad0be01cdaec6a9a5187a93"

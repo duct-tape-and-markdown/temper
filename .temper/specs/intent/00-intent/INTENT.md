@@ -19,6 +19,11 @@ means = "the fidelity seam distinguishing tier-1 structural fidelity from tier-3
 kind = "architecture"
 required = true
 
+[requirement.drift-engine]
+means = "the drift/projection engine — 'core, not optional': the three-state divergence between surface, projection, and world that import/apply/re-add reconcile — must be given an architecture home"
+kind = "architecture"
+required = true
+
 [provenance]
 source_path = "./specs/intent/00-intent.md"
 import_hash = "7dcb4d434557932432236d7abb11e5cbc843d203267a8c7dd542f5c9c24b1ae6"
