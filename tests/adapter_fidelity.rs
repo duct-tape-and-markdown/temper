@@ -1,4 +1,4 @@
-//! The adapter byte-fidelity baseline (`specs/15-kinds.md`, "Decision: the adapter
+//! The adapter byte-fidelity baseline (`specs/architecture/15-kinds.md`, "Decision: the adapter
 //! faces are declared — a kind names its projection format").
 //!
 //! The frozen equivalence the declared-adapter collapse must not move: the

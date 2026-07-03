@@ -1,7 +1,7 @@
 +++
 # An inadmissible package: `word_count` is not in the closed vocabulary, so this
 # package is rejected at load — the exact unsound-proxy trapdoor the algebra keeps
-# shut (`specs/10-contracts.md`, "Decision: kill the heuristic rule registry"). It
+# shut (`specs/architecture/10-contracts.md`, "Decision: kill the heuristic rule registry"). It
 # reaches temper's parser exactly as the clean package does; the difference is the
 # definition check, not the medium.
 

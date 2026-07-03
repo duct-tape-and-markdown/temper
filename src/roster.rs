@@ -1,6 +1,6 @@
 //! Roster checks — the set-scope predicates, conformance, and admissibility passes
-//! over a parsed harness contract's named requirements (`specs/10-contracts.md`;
-//! `specs/45-governance.md`, "The set scope").
+//! over a parsed harness contract's named requirements (`specs/architecture/10-contracts.md`;
+//! `specs/architecture/45-governance.md`, "The set scope").
 //!
 //! Three decidable passes read the same parsed requirements: [`check`] gates the
 //! author-declared `count`/`unique`/`membership` predicates over each requirement's
@@ -18,23 +18,23 @@ use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
 /// The diagnostic `rule` id every set-scope `count` finding reports under
-/// (`specs/45-governance.md`, "The set scope (the roster)").
+/// (`specs/architecture/45-governance.md`, "The set scope (the roster)").
 const REQUIREMENT_COUNT_RULE: &str = "requirement.count";
 
 /// The diagnostic `rule` id every conformance finding reports under — a requirement's
-/// `conforms-to` clause (`specs/10-contracts.md`).
+/// `conforms-to` clause (`specs/architecture/10-contracts.md`).
 const REQUIREMENT_CONFORMS_TO_RULE: &str = "requirement.conforms-to";
 
 /// The diagnostic `rule` id every roster-admissibility finding reports under
-/// (`specs/10-contracts.md`, "Decision: the contract is itself checked — admissibility").
+/// (`specs/architecture/10-contracts.md`, "Decision: the contract is itself checked — admissibility").
 const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
 
 /// The diagnostic `rule` id every set-scope `unique` finding reports under
-/// (`specs/45-governance.md`, "The set scope (the roster)").
+/// (`specs/architecture/45-governance.md`, "The set scope (the roster)").
 const REQUIREMENT_UNIQUE_RULE: &str = "requirement.unique";
 
 /// The diagnostic `rule` id every set-scope `membership` finding reports under
-/// (`specs/45-governance.md`, "The set scope (the roster)").
+/// (`specs/architecture/45-governance.md`, "The set scope (the roster)").
 const REQUIREMENT_MEMBERSHIP_RULE: &str = "requirement.membership";
 
 /// Whether an artifact opts into the requirement named `requirement` — its
@@ -69,7 +69,7 @@ fn candidates_for<'a>(
 }
 
 /// The requirement's **satisfier set** — its `kind`-typed candidates that opt in via
-/// `satisfies` (`specs/45-governance.md`, "The set scope"). The set every set-scope
+/// `satisfies` (`specs/architecture/45-governance.md`, "The set scope"). The set every set-scope
 /// predicate quantifies over.
 fn satisfiers_for<'a>(
     requirement: &Requirement,
@@ -113,7 +113,7 @@ pub fn check(
 
         // `count` is an author-declared gate — it fires whenever declared, mutually
         // exclusive with `required` (which coverage gates as ≥1).
-        // specs/45-governance.md, "The set scope"
+        // specs/architecture/45-governance.md, "The set scope"
         if let Some(bound) = &requirement.count
             && !(bound.min..=bound.max).contains(&satisfiers.len())
         {
@@ -121,14 +121,14 @@ pub fn check(
         }
 
         // `unique` is orthogonal to `count`, so it fires regardless of it.
-        // specs/45-governance.md, "The set scope"
+        // specs/architecture/45-governance.md, "The set scope"
         for field in &requirement.unique {
             diagnostics.extend(duplicates(requirement, field, &satisfiers));
         }
 
         // S₂'s kind may differ from the requirement's own, so the source set is built
         // off the full `by_kind` map, not `satisfiers`. Orthogonal to `count`/`unique`.
-        // specs/45-governance.md, "The set scope"
+        // specs/architecture/45-governance.md, "The set scope"
         if let Some(membership) = &requirement.membership {
             diagnostics.extend(out_of_set(
                 requirement,
@@ -143,7 +143,7 @@ pub fn check(
 }
 
 /// Run the `conforms-to` half of a requirement over the parsed roster
-/// (`specs/10-contracts.md`, the `package` typing facet): validate each
+/// (`specs/architecture/10-contracts.md`, the `package` typing facet): validate each
 /// `package`-binding requirement's satisfiers against the resolved package's contract,
 /// retagging every finding under [`REQUIREMENT_CONFORMS_TO_RULE`] and naming the
 /// requirement the satisfier broke. Packages **compose** — this is *in addition to* the
@@ -182,7 +182,7 @@ pub fn conformance(
 }
 
 /// Validate the harness roster against **the definition** — admissibility
-/// (`specs/10-contracts.md`, "Decision: the contract is itself checked —
+/// (`specs/architecture/10-contracts.md`, "Decision: the contract is itself checked —
 /// admissibility"). Each requirement's own definition must pass a check *before* the
 /// roster is used to judge anything; every finding is [`Diagnostic::error`] (an
 /// inadmissible requirement cannot be trusted) and names the requirement it indicts.
@@ -198,7 +198,7 @@ pub fn conformance(
 /// - **(c)** any `verified_by` path exists relative to `base_dir` (a dangling verifier
 ///   is the silent no-op `00-intent.md` law 1 forbids).
 /// - **(d)** a declared `count` bound is well-ordered (`min <= max`), mirroring
-///   `range`'s `min > max` rejection (`specs/45-governance.md`).
+///   `range`'s `min > max` rejection (`specs/architecture/45-governance.md`).
 /// - **(e)** a `membership` `conforms_to` reference, held to (b)'s bar.
 ///
 /// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `resolver`
@@ -274,7 +274,7 @@ pub fn admissibility(
         }
 
         // (d) An inverted `count` bound (`min > max`) admits no cardinality —
-        // inadmissible, mirroring `range`'s rejection (`specs/45-governance.md`).
+        // inadmissible, mirroring `range`'s rejection (`specs/architecture/45-governance.md`).
         if let Some(bound) = &requirement.count
             && bound.min > bound.max
         {
@@ -344,13 +344,13 @@ fn conformance_finding(requirement: &Requirement, finding: &Diagnostic) -> Diagn
         ),
     )
     // Carry the broken clause's guidance through the recast: the teaching moment
-    // survives the requirement re-framing (`specs/10-contracts.md`, "Packages").
+    // survives the requirement re-framing (`specs/architecture/10-contracts.md`, "Packages").
     .with_guidance(finding.guidance.clone())
 }
 
 /// The finding for a requirement whose satisfier-set cardinality falls outside its
 /// declared `count` bound — naming the requirement, the count, the kind, the
-/// satisfiers, and the `[min, max]` bound it missed (`specs/45-governance.md`, "The set
+/// satisfiers, and the `[min, max]` bound it missed (`specs/architecture/45-governance.md`, "The set
 /// scope").
 fn out_of_band(
     requirement: &Requirement,
@@ -384,7 +384,7 @@ fn out_of_band(
 }
 
 /// The set-scope `unique` findings for one declared `field` over a requirement's
-/// satisfier set (`specs/45-governance.md`, "The set scope"): group the satisfiers
+/// satisfier set (`specs/architecture/45-governance.md`, "The set scope"): group the satisfiers
 /// by the field's extracted scalar value and emit one error per value two or more
 /// satisfiers share. A satisfier missing the field carries no value to collide on, so
 /// it is silently skipped — a missing field is no collision. Values are grouped in a
@@ -427,7 +427,7 @@ fn duplicate(
 }
 
 /// The set-scope `membership` findings for one requirement over its satisfier set
-/// (`specs/45-governance.md`, "The set scope"): build the allowed set from the
+/// (`specs/architecture/45-governance.md`, "The set scope"): build the allowed set from the
 /// source feature `G` extracted over the S₂ satisfier set — the `source_kind`
 /// artifacts opting into the `source` requirement (R₂) — then emit one error per S₁
 /// satisfier whose declared field-`F` scalar is absent from that set. A satisfier
@@ -442,7 +442,7 @@ fn duplicate(
 /// set is stable across runs.
 ///
 /// When the membership carries a `conforms_to` **typed-reference** constraint
-/// (`specs/45-governance.md`, "The set scope"), S₂ is first narrowed to the source
+/// (`specs/architecture/45-governance.md`, "The set scope"), S₂ is first narrowed to the source
 /// satisfiers that *also* conform to that **package** — resolved through `resolver` and
 /// validated by [`engine::validate`], the same machinery [`conformance`] runs — so
 /// the allowed set is drawn only from the right *kind* of thing. A source that trips
@@ -461,7 +461,7 @@ fn out_of_set(
         .copied()
         .unwrap_or(&[]);
     // S₂ is the satisfier set of the named source requirement over `source_kind` — an
-    // opt-in satisfier set, not a name glob (`specs/45-governance.md`, "each set an
+    // opt-in satisfier set, not a name glob (`specs/architecture/45-governance.md`, "each set an
     // opt-in satisfier set").
     let mut matched: Vec<&Features> = source
         .iter()

@@ -7,7 +7,7 @@ rationale = "the path-scoped home for the Rust bar: diagnostics discipline, roun
 
 [provenance]
 source_path = "./.claude/rules/rust.md"
-import_hash = "5168b1ac38309b1bd6885ac8fe887b51764079541ca938c4657ac05eba4131d2"
+import_hash = "b0d1ca36f03c3a9b9a660bc0860e4f584e05f9d59bf81c41b3c4138b2c9eb1b0"
 +++
 
 # Rust conventions — author
@@ -48,7 +48,7 @@ are flume gates, so a violation reverts the commit.
   alternative, ordering constraints, workarounds); invariants, units, edge
   behavior (`BTreeMap` for stable output); checklist warnings ("change X → also
   Y"); a what-summary only above code genuinely denser than the sentence. Spec
-  citations are **terse pointer tags** (`// specs/20-surface.md, drift`), never
+  citations are **terse pointer tags** (`// specs/architecture/20-surface.md, drift`), never
   prose recaps — the DO-178C trace-tag form. Cut: restated spec narrative (a
   second, unchecked home for intent that drifts), narration of ordinary code,
   compliance narration ("per §X we…" — commit-message material). Comments are

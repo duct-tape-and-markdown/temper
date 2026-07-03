@@ -4,7 +4,7 @@ rationale = "the unconditional rule that makes pushback the default: challenge g
 
 [provenance]
 source_path = "./.claude/rules/collaboration.md"
-import_hash = "b595e34a60c47d903564837e88347dda9132808e863af255b9ca9b8840d37fed"
+import_hash = "7f52c4f395f91f4a318972a8dcb9b567c859b3a5ccc8bdf584cc0824380c8844"
 +++
 # Collaboration — pushback is the point
 
@@ -38,7 +38,7 @@ fill it silently.
   `skills/*/SKILL.md`, reality says `.claude/skills/`, and nothing forced
   anyone to look.
 - The product already holds this bar for its own std-lib (per-clause `source`,
-  `specs/10-contracts.md`). The project holds itself to the bar it ships.
+  `specs/architecture/10-contracts.md`). The project holds itself to the bar it ships.
 
 ## Investigation discipline
 

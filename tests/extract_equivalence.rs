@@ -1,4 +1,4 @@
-//! The extraction equivalence baseline (`specs/15-kinds.md`, "The extraction
+//! The extraction equivalence baseline (`specs/architecture/15-kinds.md`, "The extraction
 //! algebra — the soundness boundary, as data").
 //!
 //! Pins the built-in extractors' output — now the composed generic path,

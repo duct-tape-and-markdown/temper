@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render captured `temper` output into a terminal-card SVG — the README hero asset.
 
-The demo is a *projection* of the tool's real output (specs/55-offering.md, the
+The demo is a *projection* of the tool's real output (specs/intent/55-offering.md, the
 hero-visual Decision), never a hand-curated screenshot. This script reads the exact
 bytes `temper check` emitted on stdin and paints them into a dark terminal card,
 colouring each line by miette's own diagnostic structure (the severity glyph, the

@@ -1,6 +1,6 @@
 //! `temper diff` / `apply` / `re-add` — the three-state drift engine.
 //!
-//! specs/20-surface.md, "Drift / apply — three states, never two".
+//! specs/architecture/20-surface.md, "Drift / apply — three states, never two".
 //!
 //! Every write direction turns on three states — **desired** (the edited
 //! surface), the **last-applied fingerprint** (the source as `temper` last left
@@ -11,7 +11,7 @@
 //! from the member document; [`re_add`] pulls on-disk edits back in through
 //! `import`'s own writers;
 //! [`place`] is the whole-file sibling for artifacts temper places rather than
-//! round-trips (specs/50-distribution.md, `install`).
+//! round-trips (specs/architecture/50-distribution.md, `install`).
 
 use std::collections::HashSet;
 use std::fs;
@@ -188,7 +188,7 @@ pub fn diff(
     // provenance is the `[[<kind>]]` lock rows (custom members live only in the lock,
     // not in `Workspace`), and its on-disk corpus is the same `governs`-keyed scan
     // `import` runs — so a hand-edited `specs/*.md` reconciles instead of the gate
-    // reading a stale surface body (`specs/20-surface.md`, the hard core).
+    // reading a stale surface body (`specs/architecture/20-surface.md`, the hard core).
     for kind in custom_kinds {
         let surface = lock_surface_artifacts(workspace_dir, &kind.name)?;
         let on_disk = import::discover_kind_units(harness, &kind.governs)?;
@@ -265,7 +265,7 @@ fn added_name(kind: &str, source_path: &Path) -> String {
 /// Read one custom kind's surface artifacts from the `[[<kind>]]` lock rows —
 /// name + provenance (`source_path`, `import_hash`) — the three columns [`classify`]
 /// judges against. Custom members are not materialized in [`Workspace`], so the lock
-/// is their surface provenance of record (`specs/20-surface.md`, the lock as
+/// is their surface provenance of record (`specs/architecture/20-surface.md`, the lock as
 /// state-of-record). A kind with no rows (or no lock array yet) yields an empty list.
 fn lock_surface_artifacts(
     workspace_dir: &Path,
@@ -319,7 +319,7 @@ pub fn render(report: &DriftReport) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// apply — the write direction (`specs/20-surface.md`, the hard core)
+// apply — the write direction (`specs/architecture/20-surface.md`, the hard core)
 // ---------------------------------------------------------------------------
 
 /// Options controlling an [`apply`] run.
@@ -530,7 +530,7 @@ fn project_one(
 /// frontmatter block carrying every desired field in order, then the surface body
 /// byte-for-byte.
 ///
-/// The projection is *generated*, not patched (`specs/20-surface.md`, "Decision: the
+/// The projection is *generated*, not patched (`specs/architecture/20-surface.md`, "Decision: the
 /// projection is re-emitted; the surface is patched") — the on-disk source is never
 /// read here, so a hand-edited frontmatter comment or reordered field is not
 /// preserved (that is drift, `re-add`'s to lift into the surface). An artifact with
@@ -661,7 +661,7 @@ pub fn render_apply(report: &ApplyReport) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// re-add — the on-disk -> surface direction (`specs/20-surface.md`, the hard core)
+// re-add — the on-disk -> surface direction (`specs/architecture/20-surface.md`, the hard core)
 // ---------------------------------------------------------------------------
 
 /// One artifact's outcome from a [`re_add`]: how its live on-disk source was
@@ -887,12 +887,12 @@ pub fn render_readd(report: &ReAddReport) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// place — the whole-file direction (`specs/50-distribution.md`, `install`)
+// place — the whole-file direction (`specs/architecture/50-distribution.md`, `install`)
 // ---------------------------------------------------------------------------
 
 /// Project `desired` onto `path` under the three-state merge — the whole-file
 /// sibling of [`apply`]'s per-field patch, for artifacts temper *places* rather
-/// than round-trips (`specs/50-distribution.md`, the `install` gate wiring). It
+/// than round-trips (`specs/architecture/50-distribution.md`, the `install` gate wiring). It
 /// reuses the engine's own [`ApplyOutcome`] and [`DriftError`] so `install` builds
 /// on this write-back direction rather than re-emitting one.
 ///
@@ -964,7 +964,7 @@ pub fn place(
 /// Write a placement's bytes to `path`, creating any missing parent directories.
 /// Both failures surface as [`DriftError::Write`] so a placement that cannot be
 /// written **errors loudly** rather than silently skipping
-/// (`specs/50-distribution.md`, "Fail-loud delivery").
+/// (`specs/architecture/50-distribution.md`, "Fail-loud delivery").
 fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|source| DriftError::Write {

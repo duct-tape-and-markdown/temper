@@ -12,9 +12,9 @@
 
 ## Source of truth
 
-**Read `specs/00-intent.md` (the north star) first**, then the rest of the
+**Read `specs/intent/00-intent.md` (the north star) first**, then the rest of the
 evergreen `specs/` corpus — the source of truth for intent and contract
-(`specs/90-spec-system.md` says how specs work). It is not a release line: plan
+(`specs/process/90-spec-system.md` says how specs work). It is not a release line: plan
 reconciles code against the living corpus every tick; build executes one entry
 at a time against its cited spec section. Intent is human-authored, never written
 by a phase.

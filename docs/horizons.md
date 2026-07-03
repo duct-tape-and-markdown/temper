@@ -3,7 +3,7 @@
 Product opportunities surfaced in design sessions, parked here until the human
 ratifies one as a bite. **Nothing in this file is contract.** It lives in
 `docs/`, not `specs/`, deliberately: plan reconciles `specs/` against code every
-tick (`specs/90-spec-system.md`), so an un-ratified idea placed there would be
+tick (`specs/process/90-spec-system.md`), so an un-ratified idea placed there would be
 read as intent by the autonomous loop — a derived layer must never receive
 intent the human hasn't authored (`00-intent.md` law 4). This file is upstream
 of the corpus, not part of it.

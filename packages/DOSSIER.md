@@ -1,7 +1,7 @@
 # Built-in package citation dossier — authoring-session working material
 
 Input to authoring `packages/{skill.anthropic,rule.anthropic}/PACKAGE.md`
-(`specs/10-contracts.md`, "named for its source, and cited to it"). Each entry
+(`specs/architecture/10-contracts.md`, "named for its source, and cited to it"). Each entry
 becomes a per-clause `source` stamp; the guidance quotes seed the guidance
 channel. All sources retrieved **2026-07-01**. This file is consumed by the
 session, then kept as the audit-trail companion or deleted — session's call.

@@ -34,7 +34,7 @@
 
 # TASK
 
-`specs/` is the evergreen source of truth (see `specs/90-spec-system.md`). It is
+`specs/` is the evergreen source of truth (see `specs/process/90-spec-system.md`). It is
 not a release target — it is the current intent, and your job is to reconcile the
 code against it. The spec is law: if code and spec disagree on intent, the spec
 wins.
@@ -69,7 +69,7 @@ wins.
    "FIRST-TAG" }` so build picks them one at a time. A shared file is the signal;
    `blockedBy` is the mechanism. (Real failure: GOV-RANGE and GOV-COUNT both edited
    `src/compose.rs` and spun the loop to a standstill.)
-   Honor the law in `specs/00-intent.md`: only decidable contract clauses become
+   Honor the law in `specs/intent/00-intent.md`: only decidable contract clauses become
    checks; behavior is delegated, never guessed. Do not re-introduce heuristic
    rules the corpus rejected.
    Keep `summary` a **terse one-liner** — the *what*, not the *how*. It is hard-

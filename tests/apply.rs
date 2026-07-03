@@ -1,5 +1,5 @@
 //! `temper apply` — the write direction over the three-state drift engine
-//! (`specs/20-surface.md`, "Decision: the projection is re-emitted; the surface is
+//! (`specs/architecture/20-surface.md`, "Decision: the projection is re-emitted; the surface is
 //! patched").
 //!
 //! Drives the library `drift::apply` over a real imported surface and proves the

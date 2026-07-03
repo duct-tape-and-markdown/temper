@@ -1,4 +1,4 @@
-//! Acceptance for the advisory session-start gate (`specs/50-distribution.md`,
+//! Acceptance for the advisory session-start gate (`specs/architecture/50-distribution.md`,
 //! "Decision: the session-start gate is advisory, not blocking").
 //!
 //! Two surfaces of the same gate. The **one-shot verb** — `temper session-start

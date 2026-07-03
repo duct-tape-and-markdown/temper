@@ -1,10 +1,10 @@
 //! `temper check` — the workspace-load and diagnostic surface.
 //!
-//! Implements the loading half of the `check` gate (`specs/20-surface.md`, "CLI
+//! Implements the loading half of the `check` gate (`specs/architecture/20-surface.md`, "CLI
 //! surface" — the verb that validates against the active contract): reconstruct
 //! the typed config surface into a [`Workspace`] IR, and carry the [`Diagnostic`]
 //! value the generic engine emits. The clauses themselves are validated by the
-//! generic engine over the closed algebra ([`crate::engine`], `specs/10-contracts.md`,
+//! generic engine over the closed algebra ([`crate::engine`], `specs/architecture/10-contracts.md`,
 //! "The engine is generic; everything is an instance") — there is no per-rule code
 //! here; the heuristic rule registry it replaced is retired ("Decision: kill the
 //! heuristic rule registry").
@@ -24,7 +24,7 @@ use crate::frontmatter::{FrontmatterError, Member};
 use crate::kind::{KindError, Unit};
 
 /// The loaded config surface: every built-in artifact `check` lints. Carries the
-/// skills and rules as generic frontmatter [`Member`]s (`specs/15-kinds.md`, "A
+/// skills and rules as generic frontmatter [`Member`]s (`specs/architecture/15-kinds.md`, "A
 /// built-in kind is an adapter"); later built-in artifact kinds (hooks, agents, …)
 /// extend this struct so a cross-artifact clause can reach the whole harness at once.
 /// Custom project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are
@@ -68,7 +68,7 @@ impl Workspace {
 /// document `member_doc` (`SKILL.md`, `RULE.md`) is reloaded through the same
 /// [`Unit::from_member_document`] a custom kind's [`Unit::from_surface_dir`] uses — so
 /// built-in and custom kinds read the surface through **one loader**, with no IR→Unit
-/// adapter on the check path (`specs/15-kinds.md`, "A built-in kind is an adapter").
+/// adapter on the check path (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter").
 ///
 /// The member document is targeted by the built-in's own name, not the lone-`.md`
 /// heuristic, so a skill's markdown companion (a `PLAYBOOK.md`) never confuses the
@@ -138,13 +138,13 @@ pub enum WorkspaceError {
     },
 
     /// A built-in kind's surface member could not be reconstructed through the
-    /// generic frontmatter adapter (`specs/15-kinds.md`).
+    /// generic frontmatter adapter (`specs/architecture/15-kinds.md`).
     #[error(transparent)]
     #[diagnostic(transparent)]
     Frontmatter(#[from] FrontmatterError),
 
     /// A built-in kind's surface member document could not be read generically
-    /// (`specs/15-kinds.md`, "A built-in kind is an adapter") — the check read's
+    /// (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter") — the check read's
     /// hard failure, distinct from the typed-IR reconstruction faces above.
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -181,7 +181,7 @@ pub struct Diagnostic {
     /// The human-readable finding, the diagnostic's `Display`.
     pub message: String,
     /// The **colocated guidance** of the clause that produced this finding, if it
-    /// carried any (`specs/10-contracts.md`, "Packages"): the hover-sized *why*,
+    /// carried any (`specs/architecture/10-contracts.md`, "Packages"): the hover-sized *why*,
     /// delivered just-in-time on the violation — the failure is the teaching
     /// moment. Advisory-only prose that never gates (it played no part in deciding
     /// this finding, only in explaining it), surfaced on the rendered help line
@@ -226,7 +226,7 @@ impl Diagnostic {
 
     /// Attach a clause's [`guidance`](crate::contract::Clause::guidance) to this
     /// finding — the just-in-time delivery of the hover-sized *why* on the
-    /// violation (`specs/10-contracts.md`, "Packages"). A builder so the base
+    /// violation (`specs/architecture/10-contracts.md`, "Packages"). A builder so the base
     /// constructors stay guidance-free (most findings carry none); a `None`
     /// argument is a no-op, leaving the finding unguided.
     #[must_use]
@@ -250,7 +250,7 @@ impl miette::Diagnostic for Diagnostic {
 
     fn help(&self) -> Option<Box<dyn fmt::Display + '_>> {
         // The colocated guidance rides the help line beneath the artifact — the
-        // violation is the teaching moment (`specs/10-contracts.md`, "Packages").
+        // violation is the teaching moment (`specs/architecture/10-contracts.md`, "Packages").
         Some(Box::new(match &self.guidance {
             Some(guidance) => format!("artifact: {}\n{guidance}", self.artifact),
             None => format!("artifact: {}", self.artifact),

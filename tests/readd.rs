@@ -1,5 +1,5 @@
 //! `temper re-add` — the on-disk → surface direction, the third drift direction
-//! (`specs/20-surface.md`, "Drift / apply — three states, never two"; "the surface
+//! (`specs/architecture/20-surface.md`, "Drift / apply — three states, never two"; "the surface
 //! is the source of truth", where `re-add` keeps direct on-disk editing
 //! first-class).
 //!
@@ -451,7 +451,7 @@ A helping hand.\n",
 }
 
 /// A `temper.toml` registering `spec` as a custom kind over a `governs` locus, plus
-/// the authored `KIND.md` definition discovery keys on (`specs/40-composition.md`).
+/// the authored `KIND.md` definition discovery keys on (`specs/architecture/40-composition.md`).
 const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
 const SPEC_KIND_MD: &str = "+++\n\
 governs = { root = \"specs\", glob = \"*.md\" }\n\
@@ -506,7 +506,7 @@ fn a_drifted_custom_kind_unit_is_reconciled_into_the_surface() {
     let before_hash = lock_field(&into, "spec", "20-surface", "import_hash");
 
     // A hand edit to a spec straight on disk — the law-8 dogfood case the gate
-    // otherwise reads stale (`specs/20-surface.md`, the hard core).
+    // otherwise reads stale (`specs/architecture/20-surface.md`, the hard core).
     let edited = "# The config surface\n\nAn edit made straight in the spec file.\n";
     fs::write(harness.join("specs").join("20-surface.md"), edited).unwrap();
 

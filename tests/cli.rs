@@ -1,5 +1,5 @@
-//! End-to-end CLI acceptance over the documented surface (`specs/20-surface.md`,
-//! "CLI surface"; `specs/10-contracts.md`, the contract engine `check` runs).
+//! End-to-end CLI acceptance over the documented surface (`specs/architecture/20-surface.md`,
+//! "CLI surface"; `specs/architecture/10-contracts.md`, the contract engine `check` runs).
 //!
 //! Spawns the built `temper` binary via `CARGO_BIN_EXE_temper` and drives the
 //! documented round trip — `temper import <harness> --into <tmp>` then
@@ -107,7 +107,7 @@ alwaysApply: true\n\
 This frontmatter loads nothing in Claude Code.\n";
 
 /// Write a one-rule harness at `<root>/.claude/rules/<name>.md` — the location
-/// `import` scans for the rule kind (`specs/20-surface.md`).
+/// `import` scans for the rule kind (`specs/architecture/20-surface.md`).
 fn write_rule_harness(root: &Path, name: &str, rule_md: &str) {
     let dir = root.join(".claude").join("rules");
     fs::create_dir_all(&dir).unwrap();
@@ -241,7 +241,7 @@ fn run_check_harness(harness: &Path) -> (bool, String) {
 
 #[test]
 fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
-    // The zero-config wedge (`specs/20-surface.md`, "CLI surface" — `check --harness`
+    // The zero-config wedge (`specs/architecture/20-surface.md`, "CLI surface" — `check --harness`
     // is the one-shot mode): a raw harness is linted directly, no `import` step, and
     // no surface workspace is written. A forbidden Cursor key trips a `required`
     // clause ⇒ non-zero, and the finding is on stdout.
@@ -292,7 +292,7 @@ fn check_rejects_a_harness_and_workspace_together() {
 
 #[test]
 fn self_host_check_is_clean_over_tempers_own_rules() {
-    // The bootstrap proof (`specs/00-intent.md`): import `temper`'s OWN repo —
+    // The bootstrap proof (`specs/intent/00-intent.md`): import `temper`'s OWN repo —
     // whose `.claude/rules/` carries `rust.md` (`paths:`) and `collaboration.md`
     // (no frontmatter) — and `check` its own house clean. `CARGO_MANIFEST_DIR` is
     // the crate root, the harness root `import` scans for `.claude/rules/`.
@@ -351,11 +351,11 @@ fn schema_kind_skill_emits_the_skill_floor_decidable_clauses() {
 
 #[test]
 fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
-    // The docs (hover) channel of the emitted schema (`specs/50-distribution.md`,
+    // The docs (hover) channel of the emitted schema (`specs/architecture/50-distribution.md`,
     // "The gate at keystroke"): a field clause's `guidance` prose rides its JSON
     // Schema property's `description`, strictly alongside the validation keywords.
     // The embedded `skill.anthropic` built-in now carries guidance on its clauses
-    // (`specs/10-contracts.md`, the `contracts/` retirement into product source), so
+    // (`specs/architecture/10-contracts.md`, the `contracts/` retirement into product source), so
     // the pure floor — no `temper.toml` layer — already exercises both channels.
     let cwd = tmpdir("schema-guidance");
     let output = Command::new(BIN)

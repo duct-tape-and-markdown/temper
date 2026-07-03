@@ -1,6 +1,6 @@
 //! The reporter family — the gate's machine-format placements.
 //!
-//! Implements the reporters of `specs/50-distribution.md` ("Outward seams —
+//! Implements the reporters of `specs/architecture/50-distribution.md` ("Outward seams —
 //! Reporters"): **one reporter family, every placement**. Each member serializes
 //! the same merged `check::Diagnostic` set into a different machine format — it
 //! never re-judges the harness, so the gate's verdict is identical whichever
@@ -33,14 +33,14 @@
 //! verdict so it always survives truncation of a long finding list. The payload
 //! is built through `serde_json`, so every message is escaped correctly and the
 //! output is valid JSON by construction — the binary owns the output contract,
-//! no shell wrapper and no hand-escaping (`specs/50-distribution.md`).
+//! no shell wrapper and no hand-escaping (`specs/architecture/50-distribution.md`).
 
 use serde_json::json;
 
 use crate::check::{self, Diagnostic, Severity};
 
 /// Claude Code's cap on the `additionalContext` string a `SessionStart` hook may
-/// inject (`specs/50-distribution.md`). The rendered verdict is truncated to fit.
+/// inject (`specs/architecture/50-distribution.md`). The rendered verdict is truncated to fit.
 pub const ADDITIONAL_CONTEXT_CAP: usize = 10_000;
 
 /// The `hookEventName` Claude Code expects in a `SessionStart` hook's
@@ -122,14 +122,14 @@ fn cap(text: &str) -> String {
     format!("{head}…")
 }
 
-/// The SARIF version this reporter emits (`specs/50-distribution.md`, "Outward
+/// The SARIF version this reporter emits (`specs/architecture/50-distribution.md`, "Outward
 /// seams — Reporters": SARIF for code-scanning). 2.1.0 is the OASIS standard
 /// GitHub code-scanning and the wider ecosystem ingest.
 const SARIF_VERSION: &str = "2.1.0";
 
 /// Render the diagnostic set as GitHub Actions workflow-command lines — one
 /// `::error` / `::warning::` annotation per finding, so findings surface inline on
-/// the PR (`specs/50-distribution.md`, "Outward seams — Reporters").
+/// the PR (`specs/architecture/50-distribution.md`, "Outward seams — Reporters").
 ///
 /// Each line carries the rule as the annotation `title=` and the finding message
 /// as the command body; the [`Severity`] picks the command (`error` / `warning`).
@@ -160,7 +160,7 @@ pub fn github(diagnostics: &[Diagnostic]) -> String {
 }
 
 /// Render the diagnostic set as a SARIF 2.1.0 log for code-scanning ingestion
-/// (`specs/50-distribution.md`, "Outward seams — Reporters"): one run, driver
+/// (`specs/architecture/50-distribution.md`, "Outward seams — Reporters"): one run, driver
 /// `temper`, one `results` entry per diagnostic.
 ///
 /// Each result maps the rule to `ruleId`, the message to `message.text`, the

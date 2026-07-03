@@ -1,5 +1,5 @@
 //! The read family — `why` and `requirements`, two read-only traversals over the
-//! requirement↔`satisfies` edge (`specs/20-surface.md`, "Decision: the CLI gains a
+//! requirement↔`satisfies` edge (`specs/architecture/20-surface.md`, "Decision: the CLI gains a
 //! read family — `why` and `requirements`").
 //!
 //! [`why`] walks the edge **forward** (this member → the requirements it fills, with
@@ -16,7 +16,7 @@
 //! (the read family is not the gate; a reporting verb whose exit code CI trusts is
 //! exactly what the Decision rejects).
 //!
-//! The output is a **teaching surface**, not a table dump (`specs/50-distribution.md`,
+//! The output is a **teaching surface**, not a table dump (`specs/architecture/50-distribution.md`,
 //! "the gate teaches"): full sentences over the author's own artifacts, in the
 //! corpus's vocabulary. The narration is derived, never persisted.
 //!
@@ -47,7 +47,7 @@ use crate::graph::{self, ResolvedEdge};
 /// A member as the read family sees it: its kind, its id, and the requirements it opts
 /// into filling (each with its authored rationale). Built off the typed [`Workspace`]
 /// artifacts — the `satisfies` the surface language authors on each member document
-/// (`specs/20-surface.md`, "The member document"), which the decidable
+/// (`specs/architecture/20-surface.md`, "The member document"), which the decidable
 /// [`crate::extract::Features`] view drops the rationale from but the read family needs
 /// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
 /// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never the
@@ -122,7 +122,7 @@ fn roster(layer: Option<&AuthorLayer>) -> &BTreeMap<String, Requirement> {
 }
 
 /// The package the `kind`'s members are checked against — the author layer's explicit
-/// binding, else the kind's built-in floor package (`specs/20-surface.md`, "Decision:
+/// binding, else the kind's built-in floor package (`specs/architecture/20-surface.md`, "Decision:
 /// package binding is by artifact kind": skill → `skill.anthropic`, rule →
 /// `rule.anthropic`).
 fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
@@ -139,7 +139,7 @@ fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
 /// `temper why <member>` — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
 /// own `means`), the package its kind binds, and its resolved edges in and out
-/// (`specs/20-surface.md`, "Decision: the CLI gains a read family"). A read, never a
+/// (`specs/architecture/20-surface.md`, "Decision: the CLI gains a read family"). A read, never a
 /// gate — the caller prints this and exits zero on every input, including a name no
 /// member bears.
 ///
@@ -306,8 +306,8 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 /// `temper requirements [<name>]` — narrate the requirement roster. Without a name it
 /// is the forward roster view: each requirement with its satisfier set and coverage
 /// state. With a name it is the reverse walk over that one requirement: its satisfiers
-/// and the blast radius a removal would strand (`specs/20-surface.md`, "Decision: the
-/// CLI gains a read family"; the traversal payoff of `specs/30-landscapes.md` law 6).
+/// and the blast radius a removal would strand (`specs/architecture/20-surface.md`, "Decision: the
+/// CLI gains a read family"; the traversal payoff of `specs/architecture/30-landscapes.md` law 6).
 /// A read, never a gate — the caller prints this and exits zero on every input.
 #[must_use]
 pub fn requirements(
@@ -325,7 +325,7 @@ pub fn requirements(
 }
 
 /// The forward roster view — every requirement, its satisfier set, and its coverage
-/// state, in name order (`specs/10-contracts.md`, the coverage gate's vocabulary:
+/// state, in name order (`specs/architecture/10-contracts.md`, the coverage gate's vocabulary:
 /// `required` + unfilled is an error, advisory unfilled never gates).
 fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -> String {
     if roster.is_empty() {
@@ -364,7 +364,7 @@ fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -
 /// `satisfies` link would dangle, and, for a `required` requirement resting on a
 /// single satisfier, that removing that one member leaves it unfilled and fails the
 /// gate ("removing a load-bearing entity surfaces its blast radius",
-/// `specs/30-landscapes.md` law 6).
+/// `specs/architecture/30-landscapes.md` law 6).
 fn requirement_detail(
     members: &[Member],
     roster: &BTreeMap<String, Requirement>,
@@ -467,7 +467,7 @@ fn satisfiers_of<'a>(members: &'a [Member], name: &str) -> Vec<(&'a Member, &'a 
 
 /// The coverage-state clause for a requirement given whether it is `required` and how
 /// many members satisfy it — the vocabulary the coverage gate reports in
-/// (`specs/10-contracts.md`): a `required` requirement with no satisfier is unfilled,
+/// (`specs/architecture/10-contracts.md`): a `required` requirement with no satisfier is unfilled,
 /// which `check` reports as an error; an advisory one is never a gate.
 fn coverage_state(required: bool, satisfier_count: usize) -> String {
     match (required, satisfier_count) {

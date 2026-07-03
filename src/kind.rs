@@ -1,6 +1,6 @@
 //! The extraction algebra — a custom kind's read side, composed from data.
 //!
-//! specs/15-kinds.md. Where `crate::contract` is the engine's predicate half
+//! specs/architecture/15-kinds.md. Where `crate::contract` is the engine's predicate half
 //! (what an artifact must satisfy), this is the extraction half (what it *is*,
 //! and how it is read). Extraction is the soundness boundary: a clause is sound
 //! only if its feature is deterministically extractable, so a custom kind carries
@@ -26,10 +26,10 @@ use crate::extract::{self, Features};
 /// The built-in harness kinds temper ships an engine-code extractor for. A
 /// `[kind.<name>]` registration naming one of these is a built-in layer; any
 /// other name registers a custom kind, defined under
-/// `.temper/kinds/<name>/KIND.md` (`specs/15-kinds.md`; `specs/40-composition.md`).
+/// `.temper/kinds/<name>/KIND.md` (`specs/architecture/15-kinds.md`; `specs/architecture/40-composition.md`).
 pub const BUILTIN_KINDS: &[&str] = &["skill", "rule"];
 
-/// The file locus a custom kind reads (`specs/40-composition.md`): the root
+/// The file locus a custom kind reads (`specs/architecture/40-composition.md`): the root
 /// directory its units live under, and the filename glob that selects them.
 /// `import` scans `root` for files matching `glob`. File placement is itself an
 /// extraction primitive, so the locus is part of the authored definition, not
@@ -45,7 +45,7 @@ pub struct Governs {
 }
 
 /// A custom kind's authored definition, loaded from `.temper/kinds/<name>/KIND.md`
-/// (`specs/20-surface.md`; `specs/40-composition.md`). The `+++`-fenced header
+/// (`specs/architecture/20-surface.md`; `specs/architecture/40-composition.md`). The `+++`-fenced header
 /// carries the [`governs`](CustomKind::governs) locus, the composed
 /// [`Extraction`], and the declared [`relationships`](CustomKind::relationships);
 /// the body is the kind's own prose, read by no check.
@@ -63,32 +63,32 @@ pub struct CustomKind {
     pub name: String,
     /// The file locus the kind reads.
     pub governs: Governs,
-    /// The composed extractor over the closed algebra (`specs/15-kinds.md`), parsed
+    /// The composed extractor over the closed algebra (`specs/architecture/15-kinds.md`), parsed
     /// from the header's `[[extraction]]` array by [`Extraction::from_table`].
     /// Absent ⇒ the vacuous extractor (only the intrinsic id).
     pub extraction: Extraction,
     /// The declared relationships — which of the kind's references are edges
-    /// (`specs/15-kinds.md`), each an [`Edge`] whose `from` is this kind. Parsed
+    /// (`specs/architecture/15-kinds.md`), each an [`Edge`] whose `from` is this kind. Parsed
     /// from the header's `[[relationships]]` array. Absent ⇒ empty.
     pub relationships: Vec<Edge>,
     /// The declared projection format — how a member's on-disk artifact is shaped
-    /// (`specs/15-kinds.md`, "the adapter faces are declared"). A closed vocabulary;
+    /// (`specs/architecture/15-kinds.md`, "the adapter faces are declared"). A closed vocabulary;
     /// absent ⇒ `None` (today's built-in KIND.md declare none). Inert until
     /// DECLARED-FRONTMATTER-ADAPTER: parsed and typed, consumed by nothing yet.
     pub format: Option<Format>,
     /// The declared unit shape — whether a member is a lone file (id from the stem)
     /// or a directory with companions (id from the directory name)
-    /// (`specs/15-kinds.md`). A closed enum; absent ⇒ `None`. Inert alongside
+    /// (`specs/architecture/15-kinds.md`). A closed enum; absent ⇒ `None`. Inert alongside
     /// [`format`](CustomKind::format).
     pub unit_shape: Option<UnitShape>,
-    /// The declared activation — the kind's inherent world-edges (`specs/15-kinds.md`,
+    /// The declared activation — the kind's inherent world-edges (`specs/architecture/15-kinds.md`,
     /// "Activation — a kind's inherent world-edges"): how the harness reaches a member,
     /// and over which declared field. A closed vocabulary; absent ⇒ `None` (today's
     /// built-in KIND.md declare none). Stored inert — REACHABILITY reads it to decide a
     /// member's declared activation edge is dead; nothing consumes it yet.
     pub activation: Option<Activation>,
     /// The declared **provider** — the authority that *defines* the external format
-    /// this kind mirrors (`specs/15-kinds.md`, "Decision: kind identity carries a
+    /// this kind mirrors (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a
     /// provider axis"): a tool (`claude-code`) or a standard (`agents-md`). *Any*
     /// string — the vocabulary is the market's, not the parser's — so a present value
     /// is admissible verbatim and only a non-string is a load error. Absent ⇒ `None`:
@@ -99,7 +99,7 @@ pub struct CustomKind {
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
-/// member's on-disk artifact is shaped (`specs/15-kinds.md`, "Decision: the adapter
+/// member's on-disk artifact is shaped (`specs/architecture/15-kinds.md`, "Decision: the adapter
 /// faces are declared"). The engine implements each format once, generically; the
 /// first and only harvested entry is [`YamlFrontmatter`](Format::YamlFrontmatter).
 /// Any other value is a load error, the same closed-vocabulary guard the extraction
@@ -112,7 +112,7 @@ pub enum Format {
 }
 
 /// A kind's declared **unit shape** — the format fact that varies per kind
-/// (`specs/15-kinds.md`): whether a member's on-disk artifact is a lone file, its
+/// (`specs/architecture/15-kinds.md`): whether a member's on-disk artifact is a lone file, its
 /// identity the filename stem, or a directory with companions, its identity the
 /// directory name. A closed enum; any other value is a load error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -126,7 +126,7 @@ pub enum UnitShape {
 }
 
 /// A kind's declared **activation** — its inherent world-edges, the inbound
-/// boundary edges of the relation graph (`specs/15-kinds.md`, "Activation — a
+/// boundary edges of the relation graph (`specs/architecture/15-kinds.md`, "Activation — a
 /// kind's inherent world-edges"): how the harness reaches a member, per-kind
 /// mechanics over per-member data. A closed vocabulary harvested from the kinds
 /// temper ships; any other value is a load error, the same closed-vocabulary guard
@@ -162,7 +162,7 @@ pub enum Activation {
 
 impl CustomKind {
     /// Load a custom kind's authored definition from `<kinds_dir>/<name>/KIND.md`
-    /// (`specs/20-surface.md`). A missing document is a
+    /// (`specs/architecture/20-surface.md`). A missing document is a
     /// [`KindError::MissingDefinition`] — the assembly registered the kind, so its
     /// definition is required, never silently skipped; a malformed document, an
     /// out-of-vocabulary primitive, a bad `governs`, or a stray key each surface as
@@ -194,7 +194,7 @@ impl CustomKind {
     /// A header carries only `governs`, `extraction`, `relationships`, `format`,
     /// `unit_shape`, `activation`, and `provider`; any stray key is a
     /// [`KindError::UnknownKey`], rejected rather than silently dropped
-    /// (`specs/10-contracts.md`).
+    /// (`specs/architecture/10-contracts.md`).
     pub fn from_header(table: &Table, name: &str, path: &Path) -> Result<Self, KindError> {
         for (key, _) in table.iter() {
             if !matches!(
@@ -234,7 +234,7 @@ impl CustomKind {
     }
 
     /// The kind's **qualified identity** — `<provider>.<name>` when a provider is
-    /// declared, the bare `name` otherwise (`specs/15-kinds.md`, "Decision: kind
+    /// declared, the bare `name` otherwise (`specs/architecture/15-kinds.md`, "Decision: kind
     /// identity carries a provider axis"). A kind that mirrors an external format
     /// qualifies by the authority defining it; a project's own kind mirrors nothing
     /// and stays bare, paying no qualification tax until two providers actually meet
@@ -247,7 +247,7 @@ impl CustomKind {
         }
     }
 
-    /// Resolve a **bare** kind reference against a kind set (`specs/15-kinds.md`,
+    /// Resolve a **bare** kind reference against a kind set (`specs/architecture/15-kinds.md`,
     /// "Decision: kind identity carries a provider axis"): a bare `name` resolves iff
     /// exactly one kind in `kinds` carries it, returning that unique kind; two
     /// providers meeting under one bare name is a collision, a
@@ -287,7 +287,7 @@ impl CustomKind {
     }
 
     /// The kind's declared frontmatter fields, in declaration order — the `field`
-    /// extraction primitives' keys (`specs/15-kinds.md`, "the adapter faces are
+    /// extraction primitives' keys (`specs/architecture/15-kinds.md`, "the adapter faces are
     /// declared"). The generic frontmatter adapter (`crate::frontmatter`) lifts these
     /// into the leading `[clause.<field>]` tables, before the preserved unknown keys.
     #[must_use]
@@ -355,7 +355,7 @@ fn parse_governs(table: &Table, kind: &str, path: &Path) -> Result<Governs, Kind
 }
 
 /// Parse a `KIND.md` header's `[[relationships]]` array into typed [`Edge`]s, in
-/// declaration order (`specs/15-kinds.md`). The owning `kind` is each edge's source
+/// declaration order (`specs/architecture/15-kinds.md`). The owning `kind` is each edge's source
 /// (the implicit `from`); each relationship names its reference `field` and target
 /// `to` kind, both strings. Absent ⇒ an empty vec; not an array-of-tables ⇒
 /// [`KindError::RelationshipsNotArray`]; a missing/mistyped `field` or `to` ⇒ a
@@ -397,7 +397,7 @@ fn parse_relationships(table: &Table, kind: &str, path: &Path) -> Result<Vec<Edg
 }
 
 /// Parse a `KIND.md` header's optional `format` key into a typed [`Format`]
-/// (`specs/15-kinds.md`, "the adapter faces are declared"). Absent ⇒ `Ok(None)`,
+/// (`specs/architecture/15-kinds.md`, "the adapter faces are declared"). Absent ⇒ `Ok(None)`,
 /// still valid — today's built-in KIND.md declare none. A non-string or an
 /// out-of-vocabulary string is a [`KindError::OutOfVocab`], the closed-vocabulary
 /// guard the extraction primitives carry applied to the projection-format face.
@@ -420,7 +420,7 @@ fn parse_format(table: &Table, kind: &str, path: &Path) -> Result<Option<Format>
 }
 
 /// Parse a `KIND.md` header's optional unit-shape key into a typed [`UnitShape`]
-/// (`specs/15-kinds.md`). Absent ⇒ `Ok(None)`; a non-string or an out-of-vocabulary
+/// (`specs/architecture/15-kinds.md`). Absent ⇒ `Ok(None)`; a non-string or an out-of-vocabulary
 /// string is a [`KindError::OutOfVocab`], folding every malformation into one error
 /// as [`parse_format`] does for the projection face.
 fn parse_unit_shape(
@@ -447,7 +447,7 @@ fn parse_unit_shape(
 }
 
 /// Parse a `KIND.md` header's optional `activation` key into a typed [`Activation`]
-/// (`specs/15-kinds.md`, "Activation — a kind's inherent world-edges"). Absent ⇒
+/// (`specs/architecture/15-kinds.md`, "Activation — a kind's inherent world-edges"). Absent ⇒
 /// `Ok(None)` — today's built-in KIND.md declare none. The value is an inline table
 /// naming its vocab entry in `via`, plus (for the three field-carrying variants) the
 /// declared frontmatter `field` it ranges over. A `via` outside the closed vocabulary
@@ -499,7 +499,7 @@ fn parse_activation(
 }
 
 /// Parse a `KIND.md` header's optional `provider` key into the declared authority
-/// (`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"). Absent ⇒
+/// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis"). Absent ⇒
 /// `Ok(None)` — a project's own kind mirrors nothing external and stays bare. A present
 /// value is *any string* (the vocabulary is the market's, not the parser's, so there is
 /// no closed set to guard against, unlike [`parse_format`]); only a non-string folds
@@ -540,7 +540,7 @@ pub struct Extraction {
 /// A single extraction primitive from the closed vocabulary. Each names a locus
 /// on the surface and the feature it yields — every one *deterministically
 /// extractable*, so a clause over its feature is a true positive
-/// (`specs/15-kinds.md`).
+/// (`specs/architecture/15-kinds.md`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Primitive {
     /// `field` — project the frontmatter value at `key` into the named field
@@ -555,7 +555,7 @@ pub enum Primitive {
     Headings,
     /// `sections` — the body's ATX sections (each heading + the body span beneath
     /// it), in document order (`Features::sections`) — the `## Decision`-block
-    /// feature a `section_contains` clause decides over (`specs/10-contracts.md`).
+    /// feature a `section_contains` clause decides over (`specs/architecture/10-contracts.md`).
     Sections,
     /// `line_count` — the body's line count (`Features::body_lines`), the
     /// `max_lines` feature.
@@ -621,14 +621,14 @@ pub struct Unit {
     /// The source path the unit was read from — the `placement` locus.
     pub source_path: PathBuf,
     /// The requirements this unit opts into filling — the authored
-    /// `[satisfies.<requirement>]` header modules (`specs/20-surface.md`). A
+    /// `[satisfies.<requirement>]` header modules (`specs/architecture/20-surface.md`). A
     /// representation edge the coverage check resolves, not a composed feature:
     /// intrinsic to the surface, threaded through unchanged so a custom-kind member
-    /// joins coverage exactly as a skill/rule does (`specs/10-contracts.md`). Empty
+    /// joins coverage exactly as a skill/rule does (`specs/architecture/10-contracts.md`). Empty
     /// when the member authors none.
     pub satisfies: Vec<String>,
     /// The same `[satisfies.<requirement>]` opt-ins **with their authored rationale**
-    /// (`specs/20-surface.md`, "The member document") — the whole [`Satisfies`] clause,
+    /// (`specs/architecture/20-surface.md`, "The member document") — the whole [`Satisfies`] clause,
     /// not just the name coverage reads. The read family (`why`/`requirements`) narrates
     /// the *why* a custom member fills a requirement (READ-CUSTOM-SATISFIERS), so it
     /// needs the rationale the decidable [`satisfies`](Unit::satisfies) name-vec drops.
@@ -636,7 +636,7 @@ pub struct Unit {
     /// the member authors none.
     pub satisfies_clauses: Vec<crate::document::Satisfies>,
     /// The requirements this unit **publishes** — the authored `[requirement.<name>]`
-    /// header modules (`specs/10-contracts.md`, "Decision: a requirement's publisher is
+    /// header modules (`specs/architecture/10-contracts.md`, "Decision: a requirement's publisher is
     /// any authored surface document"). The demand side of the fill edge, threaded
     /// through unchanged so a custom-kind member (an intent `spec`) publishes into the
     /// one requirement namespace exactly as the assembly does. Empty when the member
@@ -647,7 +647,7 @@ pub struct Unit {
 impl Unit {
     /// Reload a written custom-unit surface `<root>/<name>/` into a raw [`Unit`]:
     /// the id is the surface directory name, and its lone `.md` sibling is the
-    /// member document (`specs/20-surface.md`) — a `+++`-fenced `[provenance]`
+    /// member document (`specs/architecture/20-surface.md`) — a `+++`-fenced `[provenance]`
     /// header over the byte-faithful body, whose `source_path` `import` wrote
     /// (`src/import.rs`, `import_custom_unit`).
     ///
@@ -655,10 +655,10 @@ impl Unit {
     /// custom kind shares (a lone member document found by extension), not on any
     /// one kind's IR, so it is the sole reader `check`'s custom-kind path uses and a
     /// kind rooted at any `governs.root` — not just `specs/` — is read
-    /// (`specs/40-composition.md`). The `[clause.<field>]` header values are lifted
+    /// (`specs/architecture/40-composition.md`). The `[clause.<field>]` header values are lifted
     /// into `frontmatter`, so the `field` primitive ranges over a custom member's
     /// declared fields exactly as it does a built-in's parsed frontmatter
-    /// (`specs/20-surface.md`); a member carrying no clause tables reloads with empty
+    /// (`specs/architecture/20-surface.md`); a member carrying no clause tables reloads with empty
     /// frontmatter, its whole source file preserved in the body. An unreadable or
     /// malformed surface is a [`KindError`], never a silent skip.
     pub fn from_surface_dir(dir: &Path) -> Result<Self, KindError> {
@@ -674,10 +674,10 @@ impl Unit {
     /// whose surface may carry markdown companions (a skill's `PLAYBOOK.md`) names its
     /// own member document instead — `SKILL.md`, `RULE.md` — so the companion never
     /// confuses the read. Both faces then read the surface through this one path
-    /// (`specs/15-kinds.md`, "A built-in kind is an adapter"): the `[clause.*]` header
+    /// (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter"): the `[clause.*]` header
     /// lifts into `frontmatter`, `[satisfies.*]`/`[requirement.*]` into the edge sets,
     /// the body byte-faithful. The id is the surface directory name — the member's
-    /// home, never a field it sets (`specs/15-kinds.md`, "the emit face owns the
+    /// home, never a field it sets (`specs/architecture/15-kinds.md`, "the emit face owns the
     /// locus").
     ///
     /// # Errors
@@ -712,7 +712,7 @@ impl Unit {
         // The rationale-carrying clauses are read whole: coverage feeds off the
         // requirement name alone (the per-clause `rationale` is the human *why*, never
         // a decidable feature), while the read family narrates the rationale too
-        // (READ-CUSTOM-SATISFIERS). One parse, both consumers (`specs/20-surface.md`).
+        // (READ-CUSTOM-SATISFIERS). One parse, both consumers (`specs/architecture/20-surface.md`).
         let satisfies_clauses = crate::document::satisfies(document.header());
         let satisfies = satisfies_clauses
             .iter()
@@ -720,7 +720,7 @@ impl Unit {
             .collect();
 
         // The demand side: `[requirement.*]` modules the member publishes, carried
-        // through unchanged into the one namespace the gate unions (`specs/10-contracts.md`).
+        // through unchanged into the one namespace the gate unions (`specs/architecture/10-contracts.md`).
         let published_requirements =
             crate::document::requirements(document.header()).map_err(|source| {
                 KindError::Document {
@@ -731,7 +731,7 @@ impl Unit {
 
         // The `[clause.<field>]` header values are the member's typed fields — lift
         // each into `frontmatter` so the `field` primitive ranges over a custom member
-        // exactly as it does a built-in's parsed frontmatter (`specs/20-surface.md`). A
+        // exactly as it does a built-in's parsed frontmatter (`specs/architecture/20-surface.md`). A
         // clause whose `value` is JSON-null-unrepresentable is dropped, never invented.
         let frontmatter = crate::document::clauses(document.header())
             .into_iter()
@@ -861,7 +861,7 @@ pub enum KindError {
 
     /// A primitive names an extractor outside the closed vocabulary — the trapdoor
     /// the closed algebra exists to keep shut, so it is rejected at load, never
-    /// skipped (`specs/15-kinds.md`).
+    /// skipped (`specs/architecture/15-kinds.md`).
     #[error("{path}: extraction primitive {index} names unknown extractor `{primitive}`")]
     #[diagnostic(
         code(temper::kind::unknown_primitive),
@@ -908,7 +908,7 @@ pub enum KindError {
 
     /// The assembly registered a custom kind but its authored definition
     /// `.temper/kinds/<name>/KIND.md` is absent. A registration promises a
-    /// definition (`specs/40-composition.md`), so a missing one is a hard error,
+    /// definition (`specs/architecture/40-composition.md`), so a missing one is a hard error,
     /// never a silent skip.
     #[error("{path}: custom kind `{kind}` is registered but its `KIND.md` definition is missing")]
     #[diagnostic(
@@ -925,7 +925,7 @@ pub enum KindError {
     },
 
     /// A `KIND.md` header names no `governs` locus — a custom kind that reads no files
-    /// is meaningless, so the locus is required (`specs/40-composition.md`).
+    /// is meaningless, so the locus is required (`specs/architecture/40-composition.md`).
     #[error("{path}: custom kind `{kind}` is missing required key `governs`")]
     #[diagnostic(
         code(temper::kind::missing_governs),
@@ -955,7 +955,7 @@ pub enum KindError {
     /// A `KIND.md` header carries a key outside its closed set (`governs`,
     /// `extraction`, `relationships`, `format`, `unit_shape`, `activation`, `provider`)
     /// — a leftover `clause`, an `entities` table, or a typo — rejected at load rather
-    /// than silently dropped (`specs/10-contracts.md`).
+    /// than silently dropped (`specs/architecture/10-contracts.md`).
     #[error("{path}: custom kind `{kind}` definition has unknown key `{key}`")]
     #[diagnostic(
         code(temper::kind::unknown_key),
@@ -1004,7 +1004,7 @@ pub enum KindError {
 
     /// A `KIND.md` header's `format` or `unit_shape` key names a value outside its
     /// closed vocabulary — the same closed-algebra guard the extraction primitives
-    /// carry (`specs/15-kinds.md`, "the adapter faces are declared"), applied to the
+    /// carry (`specs/architecture/15-kinds.md`, "the adapter faces are declared"), applied to the
     /// declared adapter faces. Rejected at load, never silently coerced; a non-string
     /// value folds into this error too.
     #[error(
@@ -1028,7 +1028,7 @@ pub enum KindError {
     /// inline table, missing its `via` vocab entry, or a field-carrying variant
     /// (`description-trigger`/`paths-match`/`event`) missing the declared `field` string
     /// it ranges over. A `via` *value* outside the vocabulary is an [`OutOfVocab`] instead
-    /// (`specs/15-kinds.md`); any structural miss collapses into this one error, as
+    /// (`specs/architecture/15-kinds.md`); any structural miss collapses into this one error, as
     /// [`BadGoverns`] does for the locus.
     ///
     /// [`OutOfVocab`]: KindError::OutOfVocab
@@ -1045,7 +1045,7 @@ pub enum KindError {
     },
 
     /// A `KIND.md` header's `provider` is present but is not a string. The provider
-    /// names the authority defining the mirrored format (`specs/15-kinds.md`, "Decision:
+    /// names the authority defining the mirrored format (`specs/architecture/15-kinds.md`, "Decision:
     /// kind identity carries a provider axis"); *any* string is admissible — the
     /// vocabulary is the market's, not the parser's — so there is no closed set to guard,
     /// only the type, and a non-string folds into this one error.
@@ -1059,7 +1059,7 @@ pub enum KindError {
     },
 
     /// A **bare** kind reference resolves to more than one kind — a provider collision
-    /// (`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"). A bare
+    /// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis"). A bare
     /// name resolves iff exactly one kind in the assembly carries it; two providers
     /// meeting under one bare name is a load error naming the qualified candidates, so
     /// the author qualifies the reference as `<provider>.<name>`. Nobody pays the
@@ -1103,7 +1103,7 @@ impl Extraction {
     }
 
     /// Parse the composed extractor off a table carrying an `[[extraction]]`
-    /// array — the `[kind.<name>.extraction]` declaration (`specs/15-kinds.md`).
+    /// array — the `[kind.<name>.extraction]` declaration (`specs/architecture/15-kinds.md`).
     /// Public so the author-composition tier (`crate::compose`) can compose a
     /// custom kind's extractor off a `[kind.<name>]` table without duplicating
     /// this closed-vocabulary parser, exactly as it reuses
@@ -1152,7 +1152,7 @@ impl Extraction {
             source_dir: None,
             // `satisfies` is a surface edge threaded through unchanged, not a
             // composed primitive, so a custom-kind member joins coverage exactly as
-            // a built-in kind's does (`specs/10-contracts.md`).
+            // a built-in kind's does (`specs/architecture/10-contracts.md`).
             satisfies: unit.satisfies.clone(),
             // The demand side rides through the same way — a published `[requirement.*]`
             // is authored surface state, never a composed feature.
@@ -1220,7 +1220,7 @@ mod tests {
     use crate::extract::{FeatureValue, Kind};
 
     /// The composed `spec`-shaped extractor the worked example needs
-    /// (`specs/15-kinds.md`): line count, ATX headings, and file placement —
+    /// (`specs/architecture/15-kinds.md`): line count, ATX headings, and file placement —
     /// markdown structure only, no body-mined references (the `references`
     /// primitive is retired; the corpus's edges are declared in member headers).
     fn spec_extraction() -> Extraction {
@@ -1253,7 +1253,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             id: "15-kinds".to_string(),
             frontmatter: BTreeMap::new(),
             body: body.to_string(),
-            source_path: PathBuf::from("specs/15-kinds.md"),
+            source_path: PathBuf::from("specs/architecture/15-kinds.md"),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
             published_requirements: Vec::new(),
@@ -1277,8 +1277,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             vec!["Kinds".to_string(), "The extraction algebra".to_string()]
         );
 
-        // `placement` — the folder the unit sits under.
-        assert_eq!(features.source_dir.as_deref(), Some("specs"));
+        // `placement` — the folder the unit sits under (the class directory).
+        assert_eq!(features.source_dir.as_deref(), Some("architecture"));
 
         // A frontmatter-less kind composes no `field`, and body-mined references are
         // retired — nothing lands in `fields`.
@@ -1291,7 +1291,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let unit = spec_unit();
 
         // Extraction is a pure function of the surface — the soundness boundary
-        // (`specs/15-kinds.md`): the same unit yields the same features every run.
+        // (`specs/architecture/15-kinds.md`): the same unit yields the same features every run.
         let first = extraction.extract(&unit);
         let second = extraction.extract(&unit);
         assert_eq!(first, second);
@@ -1393,7 +1393,7 @@ primitive = "paragraph_meaning"
 
     #[test]
     fn the_retired_references_primitive_is_now_an_unknown_extractor() {
-        // Law 8 (`specs/00-intent.md`; `specs/15-kinds.md`, "Decision: no
+        // Law 8 (`specs/intent/00-intent.md`; `specs/architecture/15-kinds.md`, "Decision: no
         // body-mined references"): `references` grepped prose and called the result
         // structure. Retired from the vocabulary, a KIND.md still naming it is
         // rejected exactly as any other out-of-vocabulary primitive is — a mined
@@ -1526,7 +1526,13 @@ primitive = "paragraph_meaning"
         // freshly-parsed unit — the tie between the generic loader and the check path.
         let root = surface_tmpdir("feed-root").join("specs");
         let body = "# Kinds\n\nComposed over the predicate half.\n";
-        let dir = write_surface(&root, "15-kinds", "specs/15-kinds.md", "SPEC.md", body);
+        let dir = write_surface(
+            &root,
+            "15-kinds",
+            "specs/architecture/15-kinds.md",
+            "SPEC.md",
+            body,
+        );
 
         let unit = Unit::from_surface_dir(&dir).unwrap();
         let features = spec_extraction().extract(&unit);
@@ -1534,7 +1540,7 @@ primitive = "paragraph_meaning"
         assert_eq!(features.id, "15-kinds");
         assert_eq!(features.body_lines, 3);
         assert_eq!(features.headings, vec!["Kinds".to_string()]);
-        assert_eq!(features.source_dir.as_deref(), Some("specs"));
+        assert_eq!(features.source_dir.as_deref(), Some("architecture"));
         // The composed `spec` extractor mines no references — `fields` stays empty.
         assert!(features.fields.is_empty());
     }
@@ -1543,7 +1549,7 @@ primitive = "paragraph_meaning"
     fn from_surface_dir_lifts_clause_fields_into_frontmatter() {
         // A custom member carrying `[clause.<field>]` header tables reloads with those
         // fields in `frontmatter` — the generic reader that closes the built-in/custom
-        // asymmetry (`specs/20-surface.md`): a custom member's declared fields are the
+        // asymmetry (`specs/architecture/20-surface.md`): a custom member's declared fields are the
         // `field` primitive's locus, like a built-in's parsed frontmatter.
         let root = surface_tmpdir("clause-fields").join("specs");
         let dir = root.join("15-kinds");
@@ -1554,7 +1560,7 @@ value = \"15-kinds\"\n\
 [clause.priority]\n\
 value = 7\n\
 [provenance]\n\
-source_path = \"specs/15-kinds.md\"\n\
+source_path = \"specs/architecture/15-kinds.md\"\n\
 import_hash = \"deadbeef\"\n\
 +++\n\
 # Kinds\n\nBody.\n";
@@ -1595,7 +1601,7 @@ import_hash = \"deadbeef\"\n\
         let dir = write_surface(
             &root,
             "00-intent",
-            "specs/00-intent.md",
+            "specs/intent/00-intent.md",
             "SPEC.md",
             "# Intent\n\nBody.\n",
         );
@@ -1817,7 +1823,7 @@ activation = { via = \"paths-match\", field = \"paths\" }\n",
 
     #[test]
     fn a_provider_is_any_string_not_a_closed_vocabulary() {
-        // The vocabulary is the market's, not the parser's (`specs/15-kinds.md`): a
+        // The vocabulary is the market's, not the parser's (`specs/architecture/15-kinds.md`): a
         // standard-authority provider is as admissible as a tool one, no closed set to
         // guard against.
         assert_eq!(

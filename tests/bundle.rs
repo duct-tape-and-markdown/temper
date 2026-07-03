@@ -1,4 +1,4 @@
-//! Acceptance for `temper bundle` (`specs/50-distribution.md`, "The plugin — the
+//! Acceptance for `temper bundle` (`specs/architecture/50-distribution.md`, "The plugin — the
 //! Claude-Code-native delivery").
 //!
 //! Proves the four properties the entry names:

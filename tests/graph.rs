@@ -1,5 +1,5 @@
 //! End-to-end acceptance over the harness reference graph — route resolution
-//! against a `temper.toml`-declared edge field (`specs/45-governance.md`, "The
+//! against a `temper.toml`-declared edge field (`specs/architecture/45-governance.md`, "The
 //! harness is a graph too — and references are declared edges").
 //!
 //! Drives the built `temper` binary so the whole path is pinned: importing a
@@ -176,7 +176,7 @@ const MUTUAL_ROUTES_EDGES: &str = "[[kind.rule.relationships]]\n\
 /// A `temper.toml` declaring one `routes_to` relationship on the `rule` kind
 /// (its owning kind the edge source), targeting skills — the harness reference
 /// graph the cases build. A reference is a kind capability, declared under the
-/// owning kind's `[[kind.<name>.relationships]]` array (`specs/15-kinds.md`).
+/// owning kind's `[[kind.<name>.relationships]]` array (`specs/architecture/15-kinds.md`).
 const ROUTES_TO_EDGE: &str = "[[kind.rule.relationships]]\n\
      field = \"routes_to\"\n\
      to = \"skill\"\n";
@@ -457,7 +457,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
     );
 }
 
-/// Library-level fixture proof of the `reachable` predicate (`specs/45-governance.md`,
+/// Library-level fixture proof of the `reachable` predicate (`specs/architecture/45-governance.md`,
 /// "The world is a node — reachability is a predicate"): the pure machinery over
 /// constructed `Features`, including the assembly-declared severity threaded into the
 /// finding. The gate-side wiring — main.rs scanning the real repo file-set and reading
@@ -581,7 +581,7 @@ mod reachability {
     fn an_absent_or_blank_paths_field_is_reachable() {
         // An unscoped rule declares a paths-match activation but carries no `paths` field
         // (or a whitespace-only one) — the harness falls back to unconditional loading
-        // (specs/15-kinds.md paths-match bullet), so the inbound edge is live, not dead.
+        // (specs/architecture/15-kinds.md paths-match bullet), so the inbound edge is live, not dead.
         let absent = member("global", None);
         let blank = member(
             "blank",

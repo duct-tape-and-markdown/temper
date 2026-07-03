@@ -4,8 +4,8 @@
 //! `packages/<name>/PACKAGE.md` (the require-side contracts) and
 //! `kinds/<name>/KIND.md` (the read-side kind definitions) — *product* source,
 //! human-maintained from cited upstream sources on the product's release cadence
-//! (`specs/10-contracts.md`, "a package is project-authorable, not vendor-
-//! privileged"; `specs/15-kinds.md`, "A built-in kind is an adapter"). This script
+//! (`specs/architecture/10-contracts.md`, "a package is project-authorable, not vendor-
+//! privileged"; `specs/architecture/15-kinds.md`, "A built-in kind is an adapter"). This script
 //! walks both trees at compile time and generates `builtin_packages.rs` /
 //! `builtin_kinds.rs` that embed each document verbatim via `include_str!`, so the
 //! shipped binary carries the std-lib with no on-disk configuration and the *same*
@@ -20,7 +20,7 @@
 //! never collides with unrelated packaging metadata.
 //!
 //! The *kinds* walk additionally tolerates the nested provider layout
-//! (`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"): a
+//! (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis"): a
 //! provider-level directory whose subdirectories carry `KIND.md` keys each
 //! `<provider>.<name>` qualified, beside a flat `<name>/KIND.md` keyed bare. It is
 //! the build-side predecessor to the human file-move — dormant while the kinds tree
@@ -65,7 +65,7 @@ fn main() {
 ///
 /// When `nested` (the kinds walk only), a directory that carries no marker directly
 /// is treated as a provider-level directory: its marker-carrying subdirectories embed
-/// keyed `<provider>.<name>` qualified (`specs/15-kinds.md`). A directory carrying the
+/// keyed `<provider>.<name>` qualified (`specs/architecture/15-kinds.md`). A directory carrying the
 /// marker itself always keys bare, so the flat and nested layouts coexist.
 fn embed(tree: &Path, marker: &str, table: &str, noun: &str, nested: bool, dest: &Path) {
     // Re-run when a built-in is added, removed, or edited, so the embedded std-lib
@@ -123,7 +123,7 @@ fn embed(tree: &Path, marker: &str, table: &str, noun: &str, nested: bool, dest:
 }
 
 /// Collect the marker-carrying subdirectories of a provider-level directory, keying
-/// each `<provider>.<name>` (`specs/15-kinds.md`, "Placement mirrors identity"). Only
+/// each `<provider>.<name>` (`specs/architecture/15-kinds.md`, "Placement mirrors identity"). Only
 /// the kinds walk descends here; a package name is its own namespace, so the packages
 /// walk never calls this.
 fn collect_qualified(

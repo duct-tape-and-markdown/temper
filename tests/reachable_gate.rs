@@ -1,5 +1,5 @@
 //! End-to-end acceptance for the **wired** `reachable` predicate
-//! (`specs/45-governance.md`, "The world is a node — reachability is a predicate").
+//! (`specs/architecture/45-governance.md`, "The world is a node — reachability is a predicate").
 //!
 //! The library fixture (`tests/graph.rs`'s `reachability` module) proves the predicate
 //! over constructed `Features`; this drives the built binary so the whole gate path is

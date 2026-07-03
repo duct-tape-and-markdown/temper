@@ -1,5 +1,5 @@
 //! The reporter family — machine formats over one diagnostic source
-//! (`specs/50-distribution.md`, "Outward seams — Reporters").
+//! (`specs/architecture/50-distribution.md`, "Outward seams — Reporters").
 //!
 //! Two layers of proof. First, the library reporters ([`temper::reporter::github`]
 //! / [`temper::reporter::sarif`]) are driven over a hand-built diagnostic set: the

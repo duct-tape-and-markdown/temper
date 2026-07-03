@@ -4,8 +4,8 @@
 > contract engine isn't built yet (the flume loop is building toward it). This is
 > a worked example of what `temper`'s *own* config could look like once the
 > engine exists — a target the build can aim at, and a concrete read on the model
-> in `specs/`. Every clause here is consistent with `specs/10-contracts.md` and
-> `specs/30-landscapes.md`. When the engine lands, the real config supersedes
+> in `specs/`. Every clause here is consistent with `specs/architecture/10-contracts.md` and
+> `specs/architecture/30-landscapes.md`. When the engine lands, the real config supersedes
 > this; until then, treat it as a picture, not a promise.
 
 The point of the picture: `temper` governs *itself*. The harness it manages, the
@@ -28,7 +28,7 @@ that's what self-hosting should feel like.
 
 The `contracts/` and `model/` files are the *config* — the author-declared
 intent. The imported surface (`.temper/skills/...`, `author.toml`) is the
-*subject* the contracts are checked against (`specs/20-surface.md`).
+*subject* the contracts are checked against (`specs/architecture/20-surface.md`).
 
 ## An artifact contract (skills) — `contracts/skill.toml`
 
@@ -118,37 +118,37 @@ min_count = 1
 ## The declared model (the graph) — `model/domain.toml`
 
 The prose specs *bind to* this. This is the structure; the prose is the meaning
-(`specs/30-landscapes.md`).
+(`specs/architecture/30-landscapes.md`).
 
 ```toml
 [[entity]]
 name = "Primitive"
-owned_by = "specs/10-contracts.md"
+owned_by = "specs/architecture/10-contracts.md"
 depends_on = []
 
 [[entity]]
 name = "Contract"
-owned_by = "specs/10-contracts.md"
+owned_by = "specs/architecture/10-contracts.md"
 depends_on = ["Primitive", "Extractor"]
 
 [[entity]]
 name = "Landscape"
-owned_by = "specs/30-landscapes.md"
+owned_by = "specs/architecture/30-landscapes.md"
 depends_on = ["Contract"]
 
 [[entity]]
 name = "Extractor"
-owned_by = "specs/30-landscapes.md"
+owned_by = "specs/architecture/30-landscapes.md"
 depends_on = []
 
 [[entity]]
 name = "Surface"
-owned_by = "specs/20-surface.md"
+owned_by = "specs/architecture/20-surface.md"
 depends_on = ["Provenance"]
 ```
 
 A spec binds with one minimal marker — *declared, not a template* (this resolves
-`specs/90-spec-system.md`'s "no frontmatter": it's a comment, invisible in render):
+`specs/process/90-spec-system.md`'s "no frontmatter": it's a comment, invisible in render):
 
 ```markdown
 <!-- owns: Contract, Primitive -->
@@ -161,9 +161,9 @@ A spec binds with one minimal marker — *declared, not a template* (this resolv
 ```
 $ temper graph --blast Primitive
 
-Primitive            specs/10-contracts.md
-└─ Contract          specs/10-contracts.md        (depends_on Primitive)
-   └─ Landscape      specs/30-landscapes.md        (depends_on Contract)
+Primitive            specs/architecture/10-contracts.md
+└─ Contract          specs/architecture/10-contracts.md        (depends_on Primitive)
+   └─ Landscape      specs/architecture/30-landscapes.md        (depends_on Contract)
 └─ src/contract/primitive.rs::Primitive            (spec⟷code seam)
 
   removing `Primitive` perturbs 3 entities, 2 specs, 1 code symbol.
@@ -203,7 +203,7 @@ What each line *is*:
 
 - the harness rows = the **harness contract** (roles filled + conforming);
 - `⊘ verified_by … not run` = the **delegation seam** — `temper` proves the judge
-  is *wired*, never runs it (`specs/10-contracts.md`, `verified_by`);
+  is *wired*, never runs it (`specs/architecture/10-contracts.md`, `verified_by`);
 - `✗ coverage: VerdictTier …` = a real **tier-1 catch** — and it's catching a
   naming slip in the live corpus: `VerdictTier` is named in `00-intent.md` but
   bound to no spec. "Name the same concept the same way," now structural;

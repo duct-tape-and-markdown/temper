@@ -1,5 +1,5 @@
 //! End-to-end acceptance over the author-declared `temper.toml` layer
-//! (`specs/40-composition.md`, "Decision: the author-declared contract lives in
+//! (`specs/architecture/40-composition.md`, "Decision: the author-declared contract lives in
 //! `temper.toml`, layered").
 //!
 //! Drives the built `temper` binary so the *whole* path is pinned — `temper.toml`
@@ -127,7 +127,7 @@ fn write_temper_toml(root: &Path, contents: &str) {
 }
 
 /// Write `<root>/temper-local.toml` — the gitignored personal override layer that
-/// folds over the committed `temper.toml` (`specs/40-composition.md`).
+/// folds over the committed `temper.toml` (`specs/architecture/40-composition.md`).
 fn write_temper_local(root: &Path, contents: &str) {
     fs::write(root.join("temper-local.toml"), contents).unwrap();
 }
@@ -359,7 +359,7 @@ sections = [\"Usage\"]\n",
 // ---- custom-kind registration + authored KIND.md definition -----------------
 //
 // A custom kind is *registered* in the assembly (`[kind.<name>]` binds a package by
-// name) and *defined* under `.temper/kinds/<name>/KIND.md` (`specs/40-composition.md`,
+// name) and *defined* under `.temper/kinds/<name>/KIND.md` (`specs/architecture/40-composition.md`,
 // "Decision: a custom kind is an authored `.temper/` artifact, registered in the
 // assembly"). The fully-inline `[kind.<name>]` definition is retired: a `governs`/
 // `extraction` key under a kind table is now a stray key, rejected at load. The
@@ -439,7 +439,7 @@ fn an_authored_kind_md_carries_the_whole_definition() {
     // definition.
     let root = tmpdir("kind-md");
     // Edges range over *declared structured fields*, never body-mined references
-    // (law 8; `specs/15-kinds.md`): the `depends_on` relationship rides a `field`
+    // (law 8; `specs/architecture/15-kinds.md`): the `depends_on` relationship rides a `field`
     // primitive, not the retired `references` extractor.
     let kind_md = "+++\n\
 governs = { root = \"specs\", glob = \"*.md\" }\n\
@@ -492,7 +492,7 @@ A spec is temper's own governing document.\n";
 #[test]
 fn a_registered_kind_with_no_kind_md_is_a_load_error() {
     // A registration promises a definition — a missing `KIND.md` is a hard error, never
-    // a silent skip (`specs/40-composition.md`, "Registering a custom kind").
+    // a silent skip (`specs/architecture/40-composition.md`, "Registering a custom kind").
     let root = tmpdir("kind-md-missing");
     let kinds_dir = root.join(".temper").join("kinds");
     let err = CustomKind::load(&kinds_dir, "spec").unwrap_err();
@@ -553,7 +553,7 @@ fn a_kind_md_with_a_stray_header_key_is_a_load_error() {
     // A `KIND.md` header carries only `governs`, `extraction`, and `relationships`. A
     // leftover `clause` (a custom kind carries no clauses — its contract is the bound
     // package) or an `entities` table (nodes derive from `features.id`) must fail
-    // loudly, not be silently dropped (`specs/10-contracts.md`, "Decision: unknown keys
+    // loudly, not be silently dropped (`specs/architecture/10-contracts.md`, "Decision: unknown keys
     // are rejected, not ignored").
     let root = tmpdir("kind-md-stray");
     let kind_md = "+++\n\
@@ -689,7 +689,7 @@ degree = { incoming = { min = -1 } }
 #[test]
 fn a_requirement_parses_into_a_typed_value_with_means_verbatim() {
     // `[requirement.<name>]` is the harness's named-obligation namespace
-    // (`specs/10-contracts.md`, "Requirements — the harness's named obligations"): an
+    // (`specs/architecture/10-contracts.md`, "Requirements — the harness's named obligations"): an
     // optional `means` string stated in meaning, and an optional `required` coverage
     // flag. `means` is carried *verbatim* and never interpreted (law 3 — no proxy);
     // `required = true` parses through as declared.
@@ -742,7 +742,7 @@ means = "the harness maintains dev standards"
 #[test]
 fn a_requirement_with_no_means_parses() {
     // `means` is optional too — the unified requirement's *only* mandatory element is
-    // its name (`specs/10-contracts.md`, "all facets optional except its name"), so a
+    // its name (`specs/architecture/10-contracts.md`, "all facets optional except its name"), so a
     // requirement carrying only structural facets parses, `means` left `None`.
     let toml = r#"
 [requirement.linter]
@@ -768,7 +768,7 @@ requirement = "dev-standards"
 
 // ---- unknown keys are rejected, not ignored ---------------------------------
 //
-// `specs/10-contracts.md`, "Decision: unknown keys are rejected, not ignored": a
+// `specs/architecture/10-contracts.md`, "Decision: unknown keys are rejected, not ignored": a
 // misspelled key in any parsed contract-surface table must fail admissibility, not
 // silently degrade the gate it was meant to arm. One case per parsed table, plus a
 // clean-table control that must still parse untouched.
@@ -809,7 +809,7 @@ requird = true
 fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
     // The name-`match` selector is eradicated — fill is opt-in `satisfies` alone. A
     // leftover `match = {…}` is no longer a facet but an unknown key, rejected at parse
-    // rather than silently dropped (`specs/10-contracts.md`, "Decision: unknown keys
+    // rather than silently dropped (`specs/architecture/10-contracts.md`, "Decision: unknown keys
     // are rejected, not ignored"; the MATCH-ERADICATE migration).
     let toml = r#"
 [requirement.planner]
@@ -844,7 +844,7 @@ required = true
 #[test]
 fn the_retired_contract_bundle_key_on_a_requirement_is_an_unknown_key() {
     // `contract = "<path>"` — a requirement adopting a contract bundle by path — retired
-    // into the by-name `package` facet (`specs/10-contracts.md`, the typing facet). A
+    // into the by-name `package` facet (`specs/architecture/10-contracts.md`, the typing facet). A
     // leftover `contract` key is rejected at parse, not silently dropped.
     let toml = r#"
 [requirement.linter]
@@ -861,7 +861,7 @@ contract = "contracts/skill.anthropic.toml"
 #[test]
 fn inline_clauses_on_a_requirement_are_an_unknown_key() {
     // Inline clauses under a requirement retired — clauses live only in packages
-    // (`specs/10-contracts.md`, the typing facet). A leftover `[[requirement.*.clause]]`
+    // (`specs/architecture/10-contracts.md`, the typing facet). A leftover `[[requirement.*.clause]]`
     // array is an unknown `clause` key, rejected at parse.
     let toml = r#"
 [requirement.linter]
@@ -956,7 +956,7 @@ required = true
 // ---- package binding by name ------------------------------------------------
 //
 // `[kind.<k>] package = "<name>"` binds a kind to a package by *name*, resolved
-// against the built-in floor ∪ `.temper/packages/` (`specs/20-surface.md`,
+// against the built-in floor ∪ `.temper/packages/` (`specs/architecture/20-surface.md`,
 // "Decision: package binding is by artifact kind"). The retired `adopt = "<path>"`
 // key is now a stray key, and an unresolvable name is a precise load error.
 

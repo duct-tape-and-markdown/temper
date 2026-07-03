@@ -44,21 +44,21 @@ holds it to the directory. Activation is the description trigger: "skill
 descriptions are loaded into context so Claude knows what's available, but
 full skill content only loads when invoked"
 (https://code.claude.com/docs/en/skills, retrieved 2026-07-02) — so a blank
-`description` is a dead world-edge (`specs/45-governance.md`, reachability).
+`description` is a dead world-edge (`specs/architecture/45-governance.md`, reachability).
 
 Kind identity is qualified `claude-code.skill` — the `provider` header names
 the authority that defines the format, and placement mirrors identity
-(`specs/15-kinds.md`, "Decision: kind identity carries a provider axis"); a
+(`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis"); a
 bare `skill` resolves here while unique in the assembly.
 
-Built-in means **temper-sourced, not privileged** (`specs/15-kinds.md`): this
+Built-in means **temper-sourced, not privileged** (`specs/architecture/15-kinds.md`): this
 definition ships embedded with the crate exactly as `packages/skill.anthropic`
 does — same medium, same schema as a project's own custom kind, differing only
 in where it sources from. The harness adapter faces (parsing the YAML
 frontmatter in, emitting it back out) remain engine code, because that format
 is Claude Code's to define; everything the *contract* ranges over is declared
 here. The typed fields above are the documented frontmatter; unknown keys ride
-into the same feature map via permissive extraction (`specs/15-kinds.md`,
+into the same feature map via permissive extraction (`specs/architecture/15-kinds.md`,
 "Extending a built-in kind"), so a project convention is already extracted.
 
 This definition is load-bearing, not descriptive: `build.rs` embeds it, the

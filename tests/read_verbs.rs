@@ -1,5 +1,5 @@
 //! End-to-end proofs over the read family — `why` and `requirements`, the two
-//! read-only traversals of the requirement↔`satisfies` edge (`specs/20-surface.md`,
+//! read-only traversals of the requirement↔`satisfies` edge (`specs/architecture/20-surface.md`,
 //! "Decision: the CLI gains a read family — `why` and `requirements`").
 //!
 //! Drives the built `temper` binary over a fixture surface so the whole path is
@@ -277,7 +277,7 @@ required = true
 package = \"spec\"
 ";
 
-/// The authored `spec` KIND.md definition (`specs/20-surface.md`, "Decision: a kind
+/// The authored `spec` KIND.md definition (`specs/architecture/20-surface.md`, "Decision: a kind
 /// definition is `KIND.md`"): it governs `specs/*.md` and composes the markdown-only
 /// spec extractor. The read family loads its members off this locus.
 const SPEC_KIND_MD: &str = "+++\n\

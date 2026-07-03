@@ -30,7 +30,7 @@ fill it silently.
   `skills/*/SKILL.md`, reality says `.claude/skills/`, and nothing forced
   anyone to look.
 - The product already holds this bar for its own std-lib (per-clause `source`,
-  `specs/10-contracts.md`). The project holds itself to the bar it ships.
+  `specs/architecture/10-contracts.md`). The project holds itself to the bar it ships.
 
 ## Investigation discipline
 

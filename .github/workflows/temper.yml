@@ -1,4 +1,4 @@
-# Managed by `temper install` — the gate on human change (specs/50-distribution.md).
+# Managed by `temper install` — the gate on human change (specs/architecture/50-distribution.md).
 name: temper
 
 on:

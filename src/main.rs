@@ -2,7 +2,7 @@
 //!
 //! A thin `clap` dispatch over the [`temper`] library: parse args, run the
 //! generic contract engine, map the result to an exit code. Every subcommand
-//! mirrors the CLI surface of `specs/20-surface.md`; all logic lives in the
+//! mirrors the CLI surface of `specs/architecture/20-surface.md`; all logic lives in the
 //! library so `tests/` can drive it.
 
 use std::collections::BTreeMap;
@@ -33,36 +33,36 @@ use temper::roster;
 use temper::schema;
 
 /// The surface workspace default for `--into` / the `check` argument
-/// (`specs/20-surface.md`): a `.temper` directory under the cwd.
+/// (`specs/architecture/20-surface.md`): a `.temper` directory under the cwd.
 const DEFAULT_WORKSPACE: &str = "./.temper";
 
 /// The authored surface directory beside a harness's `temper.toml`, holding its
 /// custom-kind definitions (`kinds/<name>/KIND.md`) and packages
-/// (`packages/<name>/PACKAGE.md`) — `specs/40-composition.md`. On the one-shot
+/// (`packages/<name>/PACKAGE.md`) — `specs/architecture/40-composition.md`. On the one-shot
 /// gate paths (session-start, `check --harness`) it is the authored root handed
 /// to [`gate`], distinct from the throwaway scratch surface the members land in.
 const TEMPER_DIR: &str = ".temper";
 
 /// The optional author-declared contract layer, discovered at the project root
-/// beside the harness it governs (`specs/40-composition.md`). Absent ⇒ the
+/// beside the harness it governs (`specs/architecture/40-composition.md`). Absent ⇒ the
 /// by-kind floor runs unchanged.
 const TEMPER_TOML: &str = "temper.toml";
 
 /// The gitignored personal override layer discovered beside [`TEMPER_TOML`]
-/// (`specs/40-composition.md`): `temper.toml` is committed project policy,
+/// (`specs/architecture/40-composition.md`): `temper.toml` is committed project policy,
 /// `temper-local.toml` a developer's personal clause/severity override that
 /// layers over it. Absent ⇒ the committed layer (or bare floor) runs unchanged.
 const TEMPER_LOCAL_TOML: &str = "temper-local.toml";
 
 /// The diagnostic `rule` id a cross-publisher requirement-name collision reports
-/// under (`specs/10-contracts.md`, "Decision: a requirement's publisher is any
+/// under (`specs/architecture/10-contracts.md`, "Decision: a requirement's publisher is any
 /// authored surface document"): one namespace, so two surfaces publishing one name
 /// is an admissibility finding, never a shadow. Shares the roster's admissibility
 /// tag — a malformed namespace is inadmissible, decided before it judges anything.
 const REQUIREMENT_COLLISION_RULE: &str = "requirement.admissibility";
 
 /// Resolve a built-in package by name into its floor [`Contract`], failing loud
-/// if the build embedded no package of that name (`specs/10-contracts.md`) — a
+/// if the build embedded no package of that name (`specs/architecture/10-contracts.md`) — a
 /// missing floor is a hard error, never a silently empty contract.
 fn builtin_floor(name: &str) -> miette::Result<Contract> {
     builtin::contract(name)?
@@ -94,21 +94,21 @@ enum Command {
         workspace: Option<PathBuf>,
         /// One-shot mode: lint a raw harness directly — import it internally into
         /// a throwaway surface, run the identical by-kind gate, and write no
-        /// workspace (`specs/20-surface.md`). Conflicts with `workspace`.
+        /// workspace (`specs/architecture/20-surface.md`). Conflicts with `workspace`.
         #[arg(long, conflicts_with = "workspace")]
         harness: Option<PathBuf>,
         /// Also fail the run on `advisory` (warn-severity) violations, not just
-        /// `required` ones — the strict CI policy (`specs/10-contracts.md`).
+        /// `required` ones — the strict CI policy (`specs/architecture/10-contracts.md`).
         #[arg(long)]
         deny_advisories: bool,
-        /// The machine format for the diagnostic set (`specs/50-distribution.md`,
+        /// The machine format for the diagnostic set (`specs/architecture/50-distribution.md`,
         /// reporters). Presentation only — the exit-code verdict is identical
         /// whichever is chosen.
         #[arg(long, value_enum, default_value_t = Reporter::Terminal)]
         reporter: Reporter,
     },
     /// Emit the active per-kind contract as an editor JSON Schema (the keystroke
-    /// gate — `specs/50-distribution.md`, "The gate at keystroke").
+    /// gate — `specs/architecture/50-distribution.md`, "The gate at keystroke").
     Schema {
         /// Emit only this artifact kind's schema (`skill`, `rule`); omitted ⇒ a
         /// JSON object mapping each modeled kind to its schema.
@@ -124,7 +124,7 @@ enum Command {
         into: PathBuf,
     },
     /// Re-emit the projection deterministically from the surface, over the
-    /// three-state drift model (`specs/20-surface.md`, the hard core). Each
+    /// three-state drift model (`specs/architecture/20-surface.md`, the hard core). Each
     /// artifact is regenerated full-file — byte-stable and idempotent — and written
     /// back to the source path `import` recorded; a direct edit to the projection is
     /// drift for `re-add` to lift, never something apply patches around.
@@ -139,7 +139,7 @@ enum Command {
         dry_run: bool,
     },
     /// Reconcile direct on-disk harness edits back into the surface — the third
-    /// drift direction (`specs/20-surface.md`). Drifted and added sources are
+    /// drift direction (`specs/architecture/20-surface.md`). Drifted and added sources are
     /// pulled into the surface tree and the lock refreshed; an in-sync harness is
     /// a no-op. A reconcile, not a gate — it exits zero.
     ReAdd {
@@ -150,7 +150,7 @@ enum Command {
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
     },
-    /// The advisory session-start gate (`specs/50-distribution.md`): check a
+    /// The advisory session-start gate (`specs/architecture/50-distribution.md`): check a
     /// harness in one shot and emit the `claude-session-start` reporter payload on
     /// stdout for a Claude Code `SessionStart` hook. Takes a *harness* path, not a
     /// surface workspace, and always exits zero — a failing contract routes
@@ -161,7 +161,7 @@ enum Command {
         /// `temper.toml` kinds).
         harness_path: PathBuf,
     },
-    /// Project temper's own gate wiring into the harness (`specs/50-distribution.md`):
+    /// Project temper's own gate wiring into the harness (`specs/architecture/50-distribution.md`):
     /// the `SessionStart` hook into `.claude/settings.json`, the CI job into
     /// `.github/`, and the schema modeline into each artifact's frontmatter — all
     /// under the three-state drift engine, so re-running is idempotent and re-adds
@@ -176,7 +176,7 @@ enum Command {
         dry_run: bool,
     },
     /// Compose the imported surface into a publishable Claude Code plugin +
-    /// `marketplace.json` (`specs/50-distribution.md`): the operate-the-gate skill,
+    /// `marketplace.json` (`specs/architecture/50-distribution.md`): the operate-the-gate skill,
     /// the `SessionStart` hook, and the shipped built-in packages embedded.
     /// Deterministic and byte-faithful where it carries prose, so re-running
     /// reproduces an identical tree.
@@ -188,7 +188,7 @@ enum Command {
         #[arg(long, default_value = "./plugin")]
         out: PathBuf,
     },
-    /// Read (`specs/20-surface.md`): narrate everything that holds a member in
+    /// Read (`specs/architecture/20-surface.md`): narrate everything that holds a member in
     /// place — the requirements it `satisfies` (each with its rationale), the
     /// package its kind binds, and its declared edges in and out. The forward walk
     /// of the requirement↔`satisfies` edge; never gates, always exits zero.
@@ -196,7 +196,7 @@ enum Command {
         /// The member (a skill or rule name) to walk the edge forward from.
         member: String,
     },
-    /// Read (`specs/20-surface.md`): narrate the requirement roster — each
+    /// Read (`specs/architecture/20-surface.md`): narrate the requirement roster — each
     /// requirement with its satisfier set and coverage state; with a `<name>`,
     /// that one's satisfiers and the blast radius a removal would strand. The
     /// reverse walk of the requirement↔`satisfies` edge; never gates, exits zero.
@@ -207,7 +207,7 @@ enum Command {
 }
 
 /// The machine format `check` renders its diagnostic set in
-/// (`specs/50-distribution.md`, reporters). Every variant reshapes *presentation
+/// (`specs/architecture/50-distribution.md`, reporters). Every variant reshapes *presentation
 /// only*; none re-judges the harness, so the exit-code verdict is identical.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum Reporter {
@@ -232,7 +232,7 @@ fn main() -> miette::Result<ExitCode> {
             deny_advisories,
             reporter,
         } => {
-            // Two ways into the same gate (`specs/20-surface.md`). `--harness` is
+            // Two ways into the same gate (`specs/architecture/20-surface.md`). `--harness` is
             // the one-shot wedge: import into a throwaway scratch surface, gate
             // against the harness's own `temper.toml` as session-start does, tear
             // the scratch down. Without it, the two-step path gates an
@@ -280,7 +280,7 @@ fn main() -> miette::Result<ExitCode> {
             })
         }
         Command::Schema { kind } => {
-            // The keystroke placement of the gate (`specs/50-distribution.md`):
+            // The keystroke placement of the gate (`specs/architecture/50-distribution.md`):
             // emit the *active* contract per kind — the same floor ⊕ `temper.toml`
             // layer `check` gates against — as an editor JSON Schema.
             let layer = load_layer(Path::new(TEMPER_TOML))?;
@@ -322,7 +322,7 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Diff { harness_path, into } => {
-            // Read-only (`specs/20-surface.md`): compare the surface against the
+            // Read-only (`specs/architecture/20-surface.md`): compare the surface against the
             // live harness and print the report — the engine writes nothing;
             // `apply`/`re-add` own write-back. Every custom kind the harness's
             // assembly registers is scanned at its `governs` locus beside the
@@ -334,7 +334,7 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Apply { into, dry_run } => {
-            // The write direction (`specs/20-surface.md`): re-emit each projection
+            // The write direction (`specs/architecture/20-surface.md`): re-emit each projection
             // deterministically onto its recorded provenance path — the source it
             // came from, so no harness root is re-supplied here (unlike `diff`, whose
             // harness arg drives its rescan for the "added" axis).
@@ -347,7 +347,7 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::ReAdd { harness_path, into } => {
-            // The on-disk → surface reconcile (`specs/20-surface.md`): pull every
+            // The on-disk → surface reconcile (`specs/architecture/20-surface.md`): pull every
             // drifted / added harness source back in and refresh the lock. Unlike
             // `apply`, it re-scans the live harness (like `diff`), so it takes the
             // harness path too. The same custom kinds `diff` scans reconcile back
@@ -470,7 +470,7 @@ fn main() -> miette::Result<ExitCode> {
 
 /// Load the author-declared layer for a `temper_toml` path, folding a gitignored
 /// `temper-local.toml` beside it over the committed layer when present
-/// (`specs/40-composition.md`). Discovered in the *same* directory as the
+/// (`specs/architecture/40-composition.md`). Discovered in the *same* directory as the
 /// committed file, so both `check` (project root) and the session-start gate
 /// (harness root) find it beside the file they already read. Absent local ⇒ the
 /// committed layer (or bare floor) is returned verbatim.
@@ -494,7 +494,7 @@ fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>
 /// Load every custom kind a harness's assembly registers, mirroring the discovery
 /// [`import::run`] uses: the `temper.toml` beside the harness declares the roster,
 /// and each definition lives in `<harness>/.temper/kinds/<name>/KIND.md`
-/// (`specs/40-composition.md`). The drift engine scans each returned kind's `governs`
+/// (`specs/architecture/40-composition.md`). The drift engine scans each returned kind's `governs`
 /// locus, so `diff`/`re-add` reconcile custom-kind bodies exactly as `import` projects
 /// them. Absent a `temper.toml`, an empty list — the built-in kinds drift alone.
 fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
@@ -505,7 +505,7 @@ fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
     let mut kinds = Vec::new();
     for name in layer.registered_kinds() {
         // A `[kind.<name>]` naming a built-in is a contract layer, not a
-        // registration (`specs/40-composition.md`), so it declares no `governs` locus.
+        // registration (`specs/architecture/40-composition.md`), so it declares no `governs` locus.
         if kind::BUILTIN_KINDS.contains(&name) {
             continue;
         }
@@ -516,7 +516,7 @@ fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts — the shared gate behind both `check` and the session-start
-/// reporter (`specs/10-contracts.md`, both greens).
+/// reporter (`specs/architecture/10-contracts.md`, both greens).
 ///
 /// `authored` is the `.temper/` the author's own kinds/packages are read from,
 /// kept distinct from `workspace` (the surface imported members are enumerated
@@ -531,25 +531,25 @@ fn gate(
     temper_toml: &Path,
 ) -> miette::Result<Vec<check::Diagnostic>> {
     // Absent `temper.toml` ⇒ `None` and the by-kind floor runs verbatim; present
-    // ⇒ it layers over the floor per kind below (`specs/40-composition.md`).
+    // ⇒ it layers over the floor per kind below (`specs/architecture/40-composition.md`).
     let layer = load_layer(temper_toml)?;
 
     // A bound package resolves against the built-in floor ∪ this directory
-    // (`specs/20-surface.md`); absent a binding the floor runs, so it is never read
+    // (`specs/architecture/20-surface.md`); absent a binding the floor runs, so it is never read
     // on the floor-only path. Rooted at `authored`, not `workspace` (see fn doc),
     // so a one-shot gate reads it from the harness, not the scratch.
     let packages_dir = authored.join("packages");
 
     // A registered custom kind's definition resolves from
-    // `<authored>/kinds/<name>/KIND.md` (`specs/40-composition.md`) — read only
+    // `<authored>/kinds/<name>/KIND.md` (`specs/architecture/40-composition.md`) — read only
     // when the assembly registers one, so the floor-only path never touches it.
     let kinds_dir = authored.join("kinds");
 
     // Each kind's features are validated against its *effective* contract (bound
     // package ⊕ author layer) and merged into one set; the generic engine holds no
-    // per-kind opinion, so a mixed harness is judged in one run (`specs/20-surface.md`).
+    // per-kind opinion, so a mixed harness is judged in one run (`specs/architecture/20-surface.md`).
     // Read each built-in kind's surface members through the one generic `Unit` loader
-    // custom kinds use (`specs/15-kinds.md`, "A built-in kind is an adapter") — no
+    // custom kinds use (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter") — no
     // IR→Unit adapter on the check path; the typed `Workspace` survives for
     // drift/bundle/apply and the read family (`why`/`requirements`).
     let skill_units = check::surface_units(workspace, "skills", "SKILL.md")?;
@@ -565,7 +565,7 @@ fn gate(
         .collect::<Result<_, _>>()?;
 
     // The embedded std-lib a by-name `package` binding resolves against before
-    // `.temper/packages/` (`specs/10-contracts.md`). Packages **compose**: a
+    // `.temper/packages/` (`specs/architecture/10-contracts.md`). Packages **compose**: a
     // satisfier is checked by its kind's bound package *and* any package a
     // requirement names.
     let builtins = builtin::contracts()?;
@@ -576,7 +576,7 @@ fn gate(
     let skill_contract = compose::effective(layer.as_ref(), "skill", skill_floor, &packages_dir)?;
     let rule_contract = compose::effective(layer.as_ref(), "rule", rule_floor, &packages_dir)?;
 
-    // Two greens (`specs/10-contracts.md`): **admissibility** first — each contract
+    // Two greens (`specs/architecture/10-contracts.md`): **admissibility** first — each contract
     // is validated against the definition before it is trusted to judge a harness,
     // failing the run like a `required` violation — then **conformance**.
     let mut diagnostics = engine::admissibility(&skill_contract);
@@ -585,7 +585,7 @@ fn gate(
     diagnostics.extend(engine::validate(&rule_contract, &rule_features));
 
     // The harness-contract tier: set-scope predicates over the parsed roster, each
-    // quantified over a requirement's satisfier set (`specs/10-contracts.md`).
+    // quantified over a requirement's satisfier set (`specs/architecture/10-contracts.md`).
     // Guarded on the layer, so the floor-only path adds nothing here or below.
     if let Some(layer) = layer.as_ref() {
         let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
@@ -611,7 +611,7 @@ fn gate(
             .cloned()
             .collect();
 
-        // The one requirement namespace (`specs/10-contracts.md`, "Decision: a
+        // The one requirement namespace (`specs/architecture/10-contracts.md`, "Decision: a
         // requirement's publisher is any authored surface document"): the assembly's
         // `[requirement.*]` unioned with every member's published `[requirement.*]`.
         // A name published by two surfaces is one obligation, not a shadow — the
@@ -623,7 +623,7 @@ fn gate(
 
         // Admissibility before conformance here too: each requirement's own
         // definition is validated before the roster is trusted to judge the harness
-        // (`specs/10-contracts.md`).
+        // (`specs/architecture/10-contracts.md`).
         diagnostics.extend(roster::admissibility(
             &requirements,
             &by_kind,
@@ -632,7 +632,7 @@ fn gate(
         ));
 
         // The set-scope predicates: each requirement's `count` / `unique` /
-        // `membership` gate over its satisfier set (`specs/45-governance.md`).
+        // `membership` gate over its satisfier set (`specs/architecture/45-governance.md`).
         diagnostics.extend(roster::check(&requirements, &by_kind, &package_resolver));
 
         // The `conforms-to` half: each requirement's satisfiers validated against
@@ -646,26 +646,26 @@ fn gate(
         ));
 
         // The graph scope: build the reference graph over the declared edges (a
-        // reference is a kind capability, `specs/15-kinds.md`) and check route
+        // reference is a kind capability, `specs/architecture/15-kinds.md`) and check route
         // resolution — a declared reference must resolve to a real artifact of the
-        // target kind (`specs/45-governance.md`). Admissibility before conformance:
+        // target kind (`specs/architecture/45-governance.md`). Admissibility before conformance:
         // an edge naming no reference field or targeting an unmodeled kind is
         // reported once and skipped by the route check.
         diagnostics.extend(graph::admissibility(&edges, &by_kind));
         diagnostics.extend(graph::check(&edges, &by_kind));
 
-        // `acyclic` (`specs/45-governance.md`): the resolved graph must contain no
+        // `acyclic` (`specs/architecture/45-governance.md`): the resolved graph must contain no
         // cycle — a circular import loads nothing, so every finding is a true
         // positive. Always-on over the whole edge set, like route resolution above.
         diagnostics.extend(graph::acyclic(&edges, &by_kind));
 
-        // `degree` (`specs/45-governance.md`): a requirement declares an in/out
+        // `degree` (`specs/architecture/45-governance.md`): a requirement declares an in/out
         // edge-count bound every satisfier's degree must fall inside, so it takes
         // the requirements *and* the edges, reusing the arc resolution
         // `acyclic`/`check` assemble. Opt-in per requirement.
         diagnostics.extend(graph::degree(layer.requirements(), &edges, &by_kind));
 
-        // `reachable` (`specs/45-governance.md`, "The world is a node"): a member whose
+        // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
         // kind declares an activation is dead when the world→member edge is provably so
         // (a blank description-trigger, a zero-match paths glob). Assembly-scope and
         // opt-in like `degree` — it runs only when the assembly declares `[reachability]`,
@@ -703,18 +703,18 @@ fn gate(
             ));
         }
 
-        // The requirement-coverage tier (`specs/10-contracts.md`): every `required`
+        // The requirement-coverage tier (`specs/architecture/10-contracts.md`): every `required`
         // requirement must have a resolving home (≥1 artifact opting in via
         // `satisfies`) and every authored `satisfies` must resolve to a declared
         // requirement. Kind-blind: it ranges over every opt-in-capable artifact —
         // built-in kinds *and* each custom kind's members — so temper's own `spec`
-        // corpus can opt in exactly as a skill does (`specs/15-kinds.md`). The
+        // corpus can opt in exactly as a skill does (`specs/architecture/15-kinds.md`). The
         // requirement set is the *unioned* namespace, so a member-published obligation
         // is gated here exactly as an assembly-published one.
         diagnostics.extend(coverage::check(&requirements, &all_features));
 
         // The custom-kind conformance tier: each registered custom kind runs the
-        // same two greens the built-in kinds do (`specs/15-kinds.md`), but through
+        // same two greens the built-in kinds do (`specs/architecture/15-kinds.md`), but through
         // its own authored extractor (features computed above) and its bound package
         // rather than inline clauses.
         for (name, _custom, features) in &custom_kinds {
@@ -737,7 +737,7 @@ fn gate(
         }
     }
 
-    // The install self-verify (`specs/50-distribution.md`): temper checking its
+    // The install self-verify (`specs/architecture/50-distribution.md`): temper checking its
     // *own* gate is wired. Advisory (warn) only — a not-yet-installed gate nudges
     // without failing the run, and the session-start reporter ignores warn
     // severity. Read relative to the `temper.toml` parent (the CWD for `check`, the
@@ -752,7 +752,7 @@ fn gate(
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the
-/// `paths-match` reachability input (`specs/45-governance.md`, "The world is a node").
+/// `paths-match` reachability input (`specs/architecture/45-governance.md`, "The world is a node").
 /// A superset is sound (a glob matching an extra file only suppresses a finding); a
 /// *missing* file is not (it could forge a dead-edge false positive, law 3), so nothing
 /// is excluded and an unreadable entry is skipped rather than aborting the gate. Paths
@@ -794,7 +794,7 @@ type CustomKindEntry<'a> = (&'a str, CustomKind, Vec<extract::Features>);
 /// private re-derivation).
 ///
 /// A `[kind.<name>]` whose name is a built-in is a contract layer, not a
-/// registration, so it is skipped (`specs/40-composition.md`). The returned names
+/// registration, so it is skipped (`specs/architecture/40-composition.md`). The returned names
 /// borrow `layer`, so it outlives the corpus.
 fn custom_kinds_and_edges<'a>(
     workspace: &Path,
@@ -816,7 +816,7 @@ fn custom_kinds_and_edges<'a>(
     }
 
     // A built-in kind declares its edges in the assembly (`layer.edges()`), a
-    // custom kind in its own `KIND.md` (`specs/15-kinds.md`).
+    // custom kind in its own `KIND.md` (`specs/architecture/15-kinds.md`).
     let mut edges: Vec<compose::Edge> = layer.edges().to_vec();
     for (_name, custom, _features) in &custom_kinds {
         edges.extend(custom.relationships.iter().cloned());
@@ -833,7 +833,7 @@ fn custom_kinds_and_edges<'a>(
 /// silently absent. Loaded off the same units the gate extracts from — via the shared
 /// [`custom_units`] loader — but carrying the rationale the decidable feature view
 /// drops. A `[kind.<name>]` naming a built-in is a contract layer, not a registration
-/// (`specs/40-composition.md`), so it is skipped.
+/// (`specs/architecture/40-composition.md`), so it is skipped.
 fn custom_members(
     workspace: &Path,
     layer: &compose::AuthorLayer,
@@ -876,7 +876,7 @@ fn assemble_by_kind<'a>(
 
 /// Union the assembly's published `[requirement.*]` roster with every member's
 /// published `[requirement.*]` into the single requirement namespace the gate judges
-/// (`specs/10-contracts.md`, "Decision: a requirement's publisher is any authored
+/// (`specs/architecture/10-contracts.md`, "Decision: a requirement's publisher is any authored
 /// surface document"). `satisfies` fills whichever surface published the demand, so
 /// one namespace is the whole point.
 ///
@@ -940,7 +940,7 @@ fn to_requirement(published: &document::PublishedRequirement) -> compose::Requir
 /// reloaded via [`Unit::from_surface_dir`]. Keyed on the declared locus, never the
 /// kind name: temper reads its own `specs/` because its `temper.toml` roots a kind
 /// there, and a kind rooted anywhere else is read the same way
-/// (`specs/40-composition.md`).
+/// (`specs/architecture/40-composition.md`).
 ///
 /// A surface directory holds the kind's `<KIND>.md` member document, name-sorted
 /// for stable output. No directory at the root ⇒ no units, and the contract's

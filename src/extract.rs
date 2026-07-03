@@ -1,7 +1,7 @@
 //! Extraction — an artifact's surface-decidable feature set.
 //!
 //! Models the "Extraction is the soundness boundary" section of
-//! `specs/30-landscapes.md` (generalized by `specs/20-surface.md`, "The IR"): a
+//! `specs/architecture/30-landscapes.md` (generalized by `specs/architecture/20-surface.md`, "The IR"): a
 //! per-kind extractor projects a parsed artifact into a [`Features`] map the
 //! generic contract engine reads. A contract clause is sound only because the
 //! feature it names is **deterministically extractable** — so [`Features`]
@@ -28,7 +28,7 @@ use std::path::Path;
 use serde_json::Value as JsonValue;
 
 /// A field's parsed source kind — the closed scalar/container lattice the `type`
-/// primitive ranges over (`specs/10-contracts.md`, "Decision: the `type`
+/// primitive ranges over (`specs/architecture/10-contracts.md`, "Decision: the `type`
 /// vocabulary is a closed scalar/container lattice"). Taken from the *parsed*
 /// YAML/JSON value, not its stringified form: a sound `type` check needs the
 /// extractor to preserve the source kind rather than collapse every scalar to a
@@ -71,7 +71,7 @@ impl Kind {
 
     /// Parse a declared type name into its [`Kind`], or `None` if it is not one
     /// of the closed lattice's names. This is the single home of the lattice's
-    /// name table (`specs/10-contracts.md`, "Decision: the `type` vocabulary is
+    /// name table (`specs/architecture/10-contracts.md`, "Decision: the `type` vocabulary is
     /// a closed scalar/container lattice"); the contract parser maps a declared
     /// `type` through here rather than duplicating the spelling.
     #[must_use]
@@ -150,7 +150,7 @@ impl FeatureValue {
 
 /// One ATX **section** of a markdown body: a heading paired with the body span
 /// beneath it, up to the next heading of the same or a shallower level. The
-/// feature a `section_contains` clause decides over (`specs/10-contracts.md`, the
+/// feature a `section_contains` clause decides over (`specs/architecture/10-contracts.md`, the
 /// `section_contains` structural primitive) — its [`heading`](Section::heading) is
 /// matched by the clause's declared prefix, its [`body`](Section::body) searched
 /// for the declared marker. Surface-decidable like every other feature: a heading
@@ -184,7 +184,7 @@ pub struct Features {
     pub headings: Vec<String>,
     /// The body's ATX [`Section`]s (heading + the body span beneath it), in
     /// document order — the feature a `section_contains` clause decides over
-    /// (`specs/10-contracts.md`, the `section_contains` structural primitive). A
+    /// (`specs/architecture/10-contracts.md`, the `section_contains` structural primitive). A
     /// superset of [`headings`](Features::headings): where `headings` carries only
     /// each heading's text, a section pairs it with its body span so a marker check
     /// has prose to search.
@@ -194,7 +194,7 @@ pub struct Features {
     pub source_dir: Option<String>,
     /// The requirements this artifact opts into filling — the authored
     /// `[representation].satisfies` bindings, surfaced for the coverage check
-    /// (`specs/20-surface.md`, "Each artifact directory is a representation, not
+    /// (`specs/architecture/20-surface.md`, "Each artifact directory is a representation, not
     /// a copy"). This is a *representation* edge the coverage resolver reads, NOT
     /// a contract-checkable frontmatter field — so it lives here, distinct from
     /// `fields`, and never resolves through [`Features::field`]. The authored
@@ -202,7 +202,7 @@ pub struct Features {
     /// decidable feature.
     pub satisfies: Vec<String>,
     /// The requirements this artifact **publishes** — the authored
-    /// `[requirement.<name>]` header modules (`specs/10-contracts.md`, "Decision: a
+    /// `[requirement.<name>]` header modules (`specs/architecture/10-contracts.md`, "Decision: a
     /// requirement's publisher is any authored surface document"). The demand side of
     /// the fill edge, carried beside `satisfies` (the fill side) so the gate gathers
     /// every member's published obligations across every kind and unions them with the
@@ -233,7 +233,7 @@ impl Features {
 /// [`crate::kind`] composer read it the identical way rather than each writing
 /// `body.lines().count()` inline.
 ///
-/// `pub(crate)` so the closed extraction algebra (`specs/15-kinds.md`, "The
+/// `pub(crate)` so the closed extraction algebra (`specs/architecture/15-kinds.md`, "The
 /// extraction algebra") composes the *same* deterministic extractor a built-in
 /// kind's engine code uses, never a second implementation that could drift.
 pub(crate) fn body_line_count(body: &str) -> usize {
@@ -248,7 +248,7 @@ pub(crate) fn body_line_count(body: &str) -> usize {
 /// trimmed off.
 ///
 /// `pub(crate)` so the data-driven [`crate::kind`] composer reuses this exact
-/// ATX/fence logic rather than reimplementing it (`specs/15-kinds.md`).
+/// ATX/fence logic rather than reimplementing it (`specs/architecture/15-kinds.md`).
 pub(crate) fn body_headings(body: &str) -> Vec<String> {
     let mut headings = Vec::new();
     // The open fence's char and run length, while inside a fenced code block.
@@ -278,7 +278,7 @@ pub(crate) fn body_headings(body: &str) -> Vec<String> {
 /// Extract the ATX **sections** of a byte-faithful markdown body: each heading
 /// paired with the body span beneath it, up to the next heading of the same or a
 /// shallower level (a deeper subsection stays part of its parent's span). The
-/// feature a `section_contains` clause reads (`specs/10-contracts.md`, the
+/// feature a `section_contains` clause reads (`specs/architecture/10-contracts.md`, the
 /// `section_contains` structural primitive). A heading (and any `#` line) inside a
 /// fenced code block opens no section — the same exclusion [`body_headings`] makes,
 /// tracked the identical way — so a fenced marker never splits the prose. Heading
@@ -287,7 +287,7 @@ pub(crate) fn body_headings(body: &str) -> Vec<String> {
 ///
 /// `pub(crate)` so the data-driven [`crate::kind`] `sections` primitive composes
 /// this exact splitter rather than a second one that could drift from the heading
-/// logic (`specs/15-kinds.md`).
+/// logic (`specs/architecture/15-kinds.md`).
 pub(crate) fn body_sections(body: &str) -> Vec<Section> {
     let lines: Vec<&str> = body.lines().collect();
     // First pass: the heading lines *outside* fenced code, each with its line
@@ -383,7 +383,7 @@ fn atx_heading(line: &str) -> Option<(usize, String)> {
 /// Code discovers it under), off its `provenance.source_path`.
 ///
 /// `pub(crate)` so the data-driven [`crate::kind`] composer reads the file
-/// placement feature the identical way (`specs/15-kinds.md`).
+/// placement feature the identical way (`specs/architecture/15-kinds.md`).
 pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
     source_path
         .parent()
@@ -397,12 +397,12 @@ pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
 /// keeps the kind it parsed as (`string`/`integer`/`number`/`boolean`/`null`)
 /// alongside its text. Stringifying every scalar to a bare string — the slice-1
 /// shortcut — would make a `type` check undecidable; recording the kind here is
-/// the precondition that check needs (`specs/10-contracts.md`, the `type`
+/// the precondition that check needs (`specs/architecture/10-contracts.md`, the `type`
 /// lattice Decision).
 ///
 /// `pub(crate)` so the [`crate::kind`] `field` extraction primitive projects a
 /// declared frontmatter value into a [`FeatureValue`] through the same
-/// kind-preserving path, never a second projector (`specs/15-kinds.md`).
+/// kind-preserving path, never a second projector (`specs/architecture/15-kinds.md`).
 pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
     match value {
         JsonValue::Array(items) => {

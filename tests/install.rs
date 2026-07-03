@@ -1,5 +1,5 @@
 //! `temper install` — projecting the gate's wiring under the three-state drift
-//! engine (`specs/50-distribution.md`, "Decision: `install` projects the gate's
+//! engine (`specs/architecture/50-distribution.md`, "Decision: `install` projects the gate's
 //! wiring; drift keeps it synced").
 //!
 //! Drives the library `install::run` / `install::gate_installed` over a real

@@ -8,10 +8,10 @@ config doesn't encode.
 
 `specs/` (evergreen) → `.flume/plan/` → `src/` (+ `tests/`, `Cargo.toml`, docs) → git log
 
-The `specs/` corpus is the evergreen source of truth (`specs/90-spec-system.md`),
+The `specs/` corpus is the evergreen source of truth (`specs/process/90-spec-system.md`),
 authored only in interactive sessions under explicit direction, never by an
 autonomous phase. It is **not** a release line: plan reconciles code against the
-living corpus every tick — there is no frozen ship target. `specs/00-intent.md`
+living corpus every tick — there is no frozen ship target. `specs/intent/00-intent.md`
 is the north star.
 
 | Layer | Author | Phase | Commit prefix  |

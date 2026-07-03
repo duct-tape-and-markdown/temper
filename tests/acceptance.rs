@@ -1,5 +1,5 @@
-//! Acceptance over the documented round trip (`specs/20-surface.md`, "CLI
-//! surface"; `specs/10-contracts.md`, the contract engine).
+//! Acceptance over the documented round trip (`specs/architecture/20-surface.md`, "CLI
+//! surface"; `specs/architecture/10-contracts.md`, the contract engine).
 //!
 //! Pins the whole vertical slice — typed IR, sidecar topology, contract engine,
 //! diagnostics UX — driving the library `import` plus the generic
@@ -13,7 +13,7 @@
 //!   reduced, decidable-only surviving-clause set;
 //! - the slice acceptance end to end: `import <fixture>` then validate reproduces
 //!   the expected diagnostics, and re-running `import` produces no diff;
-//! - the custom-kind acceptance (`specs/15-kinds.md`, "Worked example: `spec`"):
+//! - the custom-kind acceptance (`specs/architecture/15-kinds.md`, "Worked example: `spec`"):
 //!   over a corpus whose `temper.toml` declares the `spec` kind, `temper check`
 //!   dispatches each spec through its composed extractor and contract — an
 //!   over-length spec trips the advisory `max_lines`, exiting zero absent
@@ -38,7 +38,7 @@ use temper::kind::Unit;
 
 /// The built-in Anthropic skill contract, resolved from the embedded `packages/`
 /// std-lib exactly as the shipped `check` does — so the acceptance path validates
-/// against the same clauses the tool ships (`specs/10-contracts.md`, the
+/// against the same clauses the tool ships (`specs/architecture/10-contracts.md`, the
 /// `contracts/` retirement: the built-in resolves from the embedded set by name).
 fn builtin_skill_contract() -> Contract {
     temper::builtin::contract(temper::builtin::SKILL_PACKAGE)
@@ -217,7 +217,7 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
 
     // check <tmp> — a well-formed skill trips no contract clause, so it is clean.
     // The gate reads each skill's surface member document through the one generic
-    // `Unit` loader (`specs/15-kinds.md`, "A built-in kind is an adapter").
+    // `Unit` loader (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter").
     let units = check::surface_units(&into, "skills", "SKILL.md").unwrap();
     let features: Vec<Features> = units
         .iter()
@@ -241,15 +241,15 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
 }
 
 /// A `temper.toml` *registering* the `spec` custom kind exactly as temper's own does
-/// (`specs/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
+/// (`specs/architecture/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
 /// artifact, registered in the assembly"): the whole require-side wiring is the package
 /// binding. The definition and the package are authored artifacts, below.
 const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
 
-/// The authored `spec` KIND.md definition (`specs/20-surface.md`, "Decision: a kind
+/// The authored `spec` KIND.md definition (`specs/architecture/20-surface.md`, "Decision: a kind
 /// definition is `KIND.md`"): it governs `specs/*.md` and composes the spec extractor
 /// (line count, ATX headings, placement) — markdown structure only, no body-mined
-/// references (`specs/15-kinds.md`, "Decision: no body-mined references").
+/// references (`specs/architecture/15-kinds.md`, "Decision: no body-mined references").
 const SPEC_KIND_MD: &str = "+++\n\
 governs = { root = \"specs\", glob = \"*.md\" }\n\
 \n\
@@ -268,7 +268,7 @@ primitive = \"placement\"\n\
 temper's own governing documents.\n";
 
 /// The authored `spec` **package** — the require-side the kind binds
-/// (`specs/40-composition.md`): one advisory `max_lines` clause. The shipped budget is
+/// (`specs/architecture/40-composition.md`): one advisory `max_lines` clause. The shipped budget is
 /// ~150 (`90-spec-system.md`); this fixture uses a small one so a short over-length spec
 /// trips it without a 150-line corpus.
 const SPEC_PACKAGE_MD: &str = "+++\n\
@@ -319,7 +319,7 @@ fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> bool {
         .success()
 }
 
-/// The custom-kind acceptance (`specs/15-kinds.md`, "Worked example: `spec`"):
+/// The custom-kind acceptance (`specs/architecture/15-kinds.md`, "Worked example: `spec`"):
 /// over a corpus whose `temper.toml` declares the `spec` kind, `temper check`
 /// dispatches each spec through the composed data extractor and the kind's own
 /// contract. The over-length spec trips the advisory `max_lines` (warn), which
@@ -358,7 +358,7 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
 /// A custom kind rooted **outside** `specs/` — proof the check path loads units
 /// from a *generic* surface loader keyed on each kind's declared `governs.root`,
 /// not the retired `root == "specs"` special case that read `Workspace.specs`
-/// (`specs/40-composition.md`, "Declaring a custom kind"). The `adr` kind governs
+/// (`specs/architecture/40-composition.md`, "Declaring a custom kind"). The `adr` kind governs
 /// `adr/*.md`; `check` reads its units from `<ws>/adr/*` through
 /// `Unit::from_surface_dir`, so its contract fires over the extracted features
 /// exactly as the `spec` kind's does — a root the built-in `Workspace` never

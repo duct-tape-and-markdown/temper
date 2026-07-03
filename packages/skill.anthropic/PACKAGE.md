@@ -1,6 +1,6 @@
 +++
 # skill.anthropic — the built-in package for the `skill` kind.
-# PRODUCT SOURCE, human-curated (specs/10-contracts.md: "product source, not the
+# PRODUCT SOURCE, human-curated (specs/architecture/10-contracts.md: "product source, not the
 # dogfood"); the build embeds this as the shipped std-lib default, never writes it.
 # Checking posture: Anthropic's documented contract — the Agent Skills spec
 # (agentskills.io) plus Anthropic's platform validation. Claude Code's runtime is
@@ -117,7 +117,7 @@ the clause's guidance says so.
 guidance instead): whether the description *actually* triggers well or reads
 third-person (semantic); vagueness / no-op detection (semantic); gerund naming
 (judgment). Two *decidable* spec rules are also absent, pending a vocabulary
-addition (a narrow shape predicate — `specs/10-contracts.md` governs additions):
+addition (a narrow shape predicate — `specs/architecture/10-contracts.md` governs additions):
 the name must not start/end with a hyphen and must not contain consecutive
 hyphens; likewise the platform's "no XML tags in the description."
 

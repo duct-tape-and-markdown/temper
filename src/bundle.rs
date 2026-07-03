@@ -1,6 +1,6 @@
 //! `temper bundle` — compose the imported surface into a publishable plugin.
 //!
-//! Implements the `bundle` verb of `specs/50-distribution.md` ("The plugin — the
+//! Implements the `bundle` verb of `specs/architecture/50-distribution.md` ("The plugin — the
 //! Claude-Code-native delivery"). Distribution is *placing the one gate*; the plugin
 //! is the Claude-Code-native placement, and `bundle` is the verb that produces it.
 //! `temper` ships as a plugin bundling three things:
@@ -56,7 +56,7 @@ const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: imp
      session-start gate — with the std-lib packages embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
-/// itself, checking the project it is installed into (`specs/50-distribution.md`,
+/// itself, checking the project it is installed into (`specs/architecture/50-distribution.md`,
 /// "the hook is the temper binary itself"). Matches the wiring `temper install`
 /// projects into `.claude/settings.json`, so the plugin and `install` deliver the
 /// same gate.
@@ -121,7 +121,7 @@ which is wrong, surface it rather than guessing which way to bend.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum BundleError {
     /// A plugin file or directory could not be written. Fail-loud
-    /// (`specs/50-distribution.md`, "Fail-loud delivery"): a placement that cannot be
+    /// (`specs/architecture/50-distribution.md`, "Fail-loud delivery"): a placement that cannot be
     /// written is a hard error, never a silent skip.
     #[error("failed to write {path}")]
     #[diagnostic(code(temper::bundle::write))]
@@ -196,7 +196,7 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
 
     // The shipped built-in packages (the std-lib), embedded byte-faithful. The
     // *same* `packages/<name>/PACKAGE.md` authored as product source is shipped
-    // verbatim here — one artifact, two provenance roles (`specs/10-contracts.md`,
+    // verbatim here — one artifact, two provenance roles (`specs/architecture/10-contracts.md`,
     // the `contracts/` retirement). Every embedded built-in ships, keyed by name.
     for (name, source) in crate::builtin::BUILTIN_PACKAGES {
         let relative = PathBuf::from("packages").join(name).join("PACKAGE.md");
@@ -224,7 +224,7 @@ fn plugin_manifest() -> JsonValue {
 }
 
 /// The `marketplace.json` manifest listing this one plugin — the channel `temper` is
-/// distributed through (`specs/50-distribution.md`, "distributed through a
+/// distributed through (`specs/architecture/50-distribution.md`, "distributed through a
 /// marketplace"). The plugin's `source` is `.`: the marketplace root *is* the plugin
 /// root, so the generated tree is a self-contained, installable bundle.
 fn marketplace_manifest() -> JsonValue {

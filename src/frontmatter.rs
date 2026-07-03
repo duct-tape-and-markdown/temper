@@ -1,5 +1,5 @@
 //! The generic `yaml-frontmatter` adapter — one declaration-driven projection for
-//! every kind that names it (`specs/15-kinds.md`, "Decision: the adapter faces are
+//! every kind that names it (`specs/architecture/15-kinds.md`, "Decision: the adapter faces are
 //! declared — a kind names its projection format").
 //!
 //! Replaces the retired per-kind IRs (`src/skill.rs`, `src/rule.rs`) with one
@@ -39,7 +39,7 @@ use crate::kind::{CustomKind, UnitShape};
 pub struct Member {
     /// The member id — the surface directory name (`directory` shape) or the file
     /// stem (`file` shape). The emit face's locus follows from it
-    /// (`specs/15-kinds.md`), never a field the member sets.
+    /// (`specs/architecture/15-kinds.md`), never a field the member sets.
     pub id: String,
     /// The frontmatter fields in projection order: the kind's declared `field`s
     /// present, in declaration order, then the preserved unknown keys sorted. Both
@@ -53,11 +53,11 @@ pub struct Member {
     /// `scripts/**`), relative to the source directory and sorted. Empty for a
     /// file-shaped unit and for a surface reload.
     pub companions: Vec<PathBuf>,
-    /// The requirements this member opts into filling (`specs/20-surface.md`, the
+    /// The requirements this member opts into filling (`specs/architecture/20-surface.md`, the
     /// `[satisfies.<requirement>]` modules) — authored on the surface, never imported,
     /// so a source parse leaves this empty.
     pub satisfies: Vec<Satisfies>,
-    /// The requirements this member publishes (`specs/10-contracts.md`) — the header's
+    /// The requirements this member publishes (`specs/architecture/10-contracts.md`) — the header's
     /// `[requirement.<name>]` modules, authored on the surface, never imported.
     pub published_requirements: Vec<PublishedRequirement>,
     /// Where the member came from and the hash of its original bytes.
@@ -145,7 +145,7 @@ impl Member {
     ///
     /// The body is taken byte-faithfully from after the closing frontmatter delimiter;
     /// a source with no frontmatter parses to no fields and a whole-file body — the
-    /// permissive read the built-in adapters shared (`specs/15-kinds.md`).
+    /// permissive read the built-in adapters shared (`specs/architecture/15-kinds.md`).
     ///
     /// # Errors
     ///
@@ -296,7 +296,7 @@ impl Member {
 
     /// Carry the authored surface layer (`satisfies` / published
     /// requirements) from an existing surface member forward onto this freshly-parsed
-    /// source member — **merge rather than clobber** (`specs/20-surface.md`, "three
+    /// source member — **merge rather than clobber** (`specs/architecture/20-surface.md`, "three
     /// states, never two"): a re-import or drifted-body `re-add` rebuilds the document
     /// from source, which never carries the authored layer, so the caller loads the
     /// existing surface and carries it before writing.
@@ -306,7 +306,7 @@ impl Member {
     }
 
     /// Project the member to its one authored document: a `+++`-fenced header of clause
-    /// modules over the byte-faithful body (`specs/20-surface.md`, "The member
+    /// modules over the byte-faithful body (`specs/architecture/20-surface.md`, "The member
     /// document"). One `[clause.<field>]` module per field in projection order, then the
     /// authored `[satisfies.*]` / `[requirement.*]` modules, then the
     /// generated `[provenance]` last.

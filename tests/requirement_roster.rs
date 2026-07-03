@@ -1,7 +1,7 @@
 //! End-to-end acceptance over the harness-contract roster — conformance and the
 //! set-scope predicates (`count` / `unique` / `membership`), each quantified over a
-//! requirement's **satisfier set** (`specs/10-contracts.md`, "Requirements — the
-//! harness's named obligations"; `specs/45-governance.md`, "The set scope").
+//! requirement's **satisfier set** (`specs/architecture/10-contracts.md`, "Requirements — the
+//! harness's named obligations"; `specs/architecture/45-governance.md`, "The set scope").
 //!
 //! Drives the built `temper` binary so the whole path is pinned: `temper.toml`
 //! discovery at the project root, parsing its `[requirement.<name>]` tables onto the
@@ -710,7 +710,7 @@ fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
 
     // The name-`match` selector is gone — fill is opt-in `satisfies` alone. A leftover
     // `match = {…}` is no longer a facet but an unknown key, rejected loudly at load
-    // rather than silently dropped (`specs/10-contracts.md`, "Decision: unknown keys
+    // rather than silently dropped (`specs/architecture/10-contracts.md`, "Decision: unknown keys
     // are rejected, not ignored").
     write_temper_toml(
         &root,

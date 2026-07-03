@@ -1,6 +1,6 @@
 //! The embedded built-in kind std-lib.
 //!
-//! specs/15-kinds.md, "A built-in kind is an adapter". `temper` ships the read-side
+//! specs/architecture/15-kinds.md, "A built-in kind is an adapter". `temper` ships the read-side
 //! definitions of the known-harness kinds (`skill`, `rule`) as first-party product
 //! source in a `kinds/<name>/KIND.md` tree at the repo root — the same medium and
 //! schema as a project's own `.temper/kinds/<name>/KIND.md`, differing only in where
@@ -31,7 +31,7 @@ include!(concat!(env!("OUT_DIR"), "/builtin_kinds.rs"));
 /// or `None` if none carries it. A bare name resolves to its unique carrier whether the
 /// embedded table keys it bare (`skill`, today's flat tree) or `<provider>.<name>`
 /// qualified (`claude-code.skill`, post file-move) — the same bare→unique-or-collision
-/// resolution the assembly binds through (`specs/15-kinds.md`, "Decision: kind identity
+/// resolution the assembly binds through (`specs/architecture/15-kinds.md`, "Decision: kind identity
 /// carries a provider axis").
 ///
 /// # Errors
@@ -121,7 +121,7 @@ fn parse(key: &str, src: &str) -> Result<CustomKind, KindError> {
 
 /// Extract a built-in skill's [`Features`] by running the embedded `skill`
 /// `KIND.md` extraction over a generically-loaded surface [`Unit`] — the same
-/// composed path every kind reads (`specs/15-kinds.md`, "The extraction algebra"),
+/// composed path every kind reads (`specs/architecture/15-kinds.md`, "The extraction algebra"),
 /// with **no IR→Unit adapter on the check read**: the caller loads the surface
 /// member document through [`Unit::from_member_document`](crate::kind::Unit::from_member_document),
 /// exactly as a custom kind's members load, so built-in and custom kinds read the
@@ -151,7 +151,7 @@ pub fn rule_features(unit: &Unit) -> Result<Features, KindError> {
 
 /// Run the named built-in kind's embedded extraction over `unit`, then fold every
 /// preserved frontmatter key the composed primitives did not name into the feature
-/// map — the built-in adapter's **permissive extraction** (`specs/15-kinds.md`,
+/// map — the built-in adapter's **permissive extraction** (`specs/architecture/15-kinds.md`,
 /// "Extending a built-in kind"): an unknown key on a known artifact is already
 /// extracted, so a clause (a `forbidden_keys`) can range over it. The closed algebra
 /// cannot enumerate unknown keys, so this bulk preservation is the adapter's, while
@@ -310,7 +310,7 @@ mod tests {
     /// Write a member's authored surface member document `<dir>/<member_doc>` exactly
     /// as `import`/`apply` project it ([`crate::frontmatter::Member::to_document`]),
     /// then reload it through the generic surface loader `check` reads — the built-in
-    /// kind's member-document read (`specs/15-kinds.md`, "A built-in kind is an
+    /// kind's member-document read (`specs/architecture/15-kinds.md`, "A built-in kind is an
     /// adapter"), one generic adapter, no per-kind IR.
     fn surface_unit(
         member: &crate::frontmatter::Member,

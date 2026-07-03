@@ -106,7 +106,7 @@ const testGate = shellGate({
 });
 
 /**
- * The self-hosting gate (`specs/00-intent.md` finish line): temper checks its
+ * The self-hosting gate (`specs/intent/00-intent.md` finish line): temper checks its
  * own harness surface (temper.toml + .temper/ + .claude/) after every merge.
  * Advisories report without failing (exit 0); a `required` violation — broken
  * conformance, coverage, or admissibility on temper's own house — reverts the

@@ -1,7 +1,7 @@
 +++
 # rule.anthropic — the built-in package for the `rule` kind (`.claude/rules/*.md`).
 # PRODUCT SOURCE, human-curated; the build embeds this, never writes it.
-# Renamed from the bare `rule` per specs/10-contracts.md ("named for its source"):
+# Renamed from the bare `rule` per specs/architecture/10-contracts.md ("named for its source"):
 # these clauses are Anthropic-sourced exactly as skill.anthropic's are.
 # All sources retrieved 2026-07-01.
 

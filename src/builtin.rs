@@ -3,7 +3,7 @@
 //! `temper` ships a set of first-party packages — the curated Anthropic contracts
 //! for the built-in artifact kinds (`skill.anthropic`, `rule.anthropic`). Their
 //! authoritative home is the `packages/<name>/PACKAGE.md` product tree at the repo
-//! root (`specs/10-contracts.md`, "Decision: a package is project-authorable, not
+//! root (`specs/architecture/10-contracts.md`, "Decision: a package is project-authorable, not
 //! vendor-privileged — and is itself a kind"): the *same* `PACKAGE.md` is authored
 //! as product source and shipped **embedded** by the build. `build.rs` walks that
 //! tree and generates the [`BUILTIN_PACKAGES`] table this module re-exports, so a
@@ -28,11 +28,11 @@ use crate::contract::{Contract, ContractError};
 include!(concat!(env!("OUT_DIR"), "/builtin_packages.rs"));
 
 /// The built-in package bound to the `skill` kind by default — Anthropic's
-/// documented skill contract (`specs/10-contracts.md`, "named for its source").
+/// documented skill contract (`specs/architecture/10-contracts.md`, "named for its source").
 pub const SKILL_PACKAGE: &str = "skill.anthropic";
 
 /// The built-in package bound to the `rule` kind by default — Anthropic's
-/// documented rule contract. Renamed from the bare `rule` (`specs/10-contracts.md`,
+/// documented rule contract. Renamed from the bare `rule` (`specs/architecture/10-contracts.md`,
 /// "named for its source": the clauses are equally Anthropic-sourced).
 pub const RULE_PACKAGE: &str = "rule.anthropic";
 
@@ -62,7 +62,7 @@ pub fn contract(name: &str) -> Result<Option<Contract>, ContractError> {
 
 /// Parse every embedded built-in package into a `name → Contract` map — the
 /// built-in set a by-name package binding resolves against before a project's own
-/// `.temper/packages/` (`specs/20-surface.md`, "Decision: package binding is by
+/// `.temper/packages/` (`specs/architecture/20-surface.md`, "Decision: package binding is by
 /// artifact kind"; the resolution order [`crate::compose::PackageResolver`] runs).
 pub fn contracts() -> Result<BTreeMap<String, Contract>, ContractError> {
     let mut map = BTreeMap::new();

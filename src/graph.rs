@@ -1,16 +1,16 @@
 //! The harness reference graph — route resolution over declared edges
-//! (`specs/45-governance.md`, "The harness is a graph too").
+//! (`specs/architecture/45-governance.md`, "The harness is a graph too").
 //!
 //! The harness is a graph: skills and rules pointing at each other through
 //! **declared** reference fields, read off [`Features`], never grepped from a body
-//! (`specs/10-contracts.md`, the referential primitive). Nodes are `(kind, id)`
+//! (`specs/architecture/10-contracts.md`, the referential primitive). Nodes are `(kind, id)`
 //! across every kind; edges are the [`Edge`] relationships declared on the surface.
 //! Five checks range over it: [`check`] (route resolution — a reference resolves to a
 //! real target), [`admissibility`] (each edge names its field and a modeled target
 //! kind, checked before the graph is trusted), [`acyclic`] (no circular import),
 //! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
 //! [`reachable`] (a member's inbound activation edge from the distinguished [`world`]
-//! node is live, `specs/45-governance.md`, "The world is a node"). The first four
+//! node is live, `specs/architecture/45-governance.md`, "The world is a node"). The first four
 //! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
 //! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 
@@ -49,7 +49,7 @@ const GRAPH_REACHABLE_RULE: &str = "graph.reachable";
 pub(crate) type Node = (String, String);
 
 /// The distinguished **world** node — the harness runtime and repo `temper` observes
-/// but does not govern (`specs/45-governance.md`, "The world is a node — reachability
+/// but does not govern (`specs/architecture/45-governance.md`, "The world is a node — reachability
 /// is a predicate"). Activation facts are its edges *into* members; [`reachable`]
 /// decides whether the edge the world would use to reach a given member is live. Keyed
 /// like any [`Node`] under a reserved `world` kind no artifact kind collides with, so a
@@ -75,7 +75,7 @@ pub(crate) struct ResolvedEdge {
 }
 
 /// Check **route resolution** over the harness reference graph
-/// (`specs/45-governance.md`): for each declared [`Edge`], read its reference field
+/// (`specs/architecture/45-governance.md`): for each declared [`Edge`], read its reference field
 /// off every source artifact and return an error-severity [`Diagnostic`] for any
 /// route that resolves to no artifact of the target kind.
 ///
@@ -114,11 +114,11 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
 }
 
 /// Validate the declared edges against **the definition** — admissibility
-/// (`specs/10-contracts.md`, "the contract is itself checked"): each edge earns trust
+/// (`specs/architecture/10-contracts.md`, "the contract is itself checked"): each edge earns trust
 /// *before* the graph judges the harness. Every finding is [`Diagnostic::error`] and
 /// names the edge.
 ///
-/// Two decidable clauses (`specs/45-governance.md`): **(a)** the reference `field` is
+/// Two decidable clauses (`specs/architecture/45-governance.md`): **(a)** the reference `field` is
 /// non-empty — an empty field names no reference syntax; **(b)** the target kind is
 /// one `temper` models — an unmodeled `to` has no artifacts, so every route over the
 /// edge would dangle, making the fault the declaration's, reported once here while
@@ -156,7 +156,7 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
     diagnostics
 }
 
-/// Check **acyclicity** over the harness reference graph (`specs/45-governance.md`,
+/// Check **acyclicity** over the harness reference graph (`specs/architecture/45-governance.md`,
 /// "The graph scope"): build the artifact-level graph from the same resolved arcs
 /// [`check`] uses and return an error-severity [`Diagnostic`] naming a cycle if one
 /// exists. A cycle is a circular import that loads nothing — a true positive.
@@ -186,7 +186,7 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
     Vec::new()
 }
 
-/// Check the graph-scope **`degree`** predicate (`specs/45-governance.md`, "The graph
+/// Check the graph-scope **`degree`** predicate (`specs/architecture/45-governance.md`, "The graph
 /// scope"; worked example "self-registering vs routed"): for each requirement
 /// declaring a [`DegreeBound`](crate::compose::DegreeBound), return an error-severity
 /// [`Diagnostic`] per satisfier node whose in/out edge count over the resolved arcs
@@ -317,7 +317,7 @@ fn out_of_degree(
     )
 }
 
-/// Check the graph-scope **`reachable`** predicate (`specs/45-governance.md`, "The
+/// Check the graph-scope **`reachable`** predicate (`specs/architecture/45-governance.md`, "The
 /// world is a node — reachability is a predicate"): for each member of a kind that
 /// declares an [`Activation`], return a finding when the inbound activation edge from
 /// the [`world`] node is provably dead — a `description-trigger` member whose named
@@ -335,7 +335,7 @@ fn out_of_degree(
 /// fires. Members iterate in the corpus's candidate order under each name-sorted kind,
 /// so findings are stable.
 ///
-/// `severity` is the **assembly's** declaration (`specs/45-governance.md`, "The world
+/// `severity` is the **assembly's** declaration (`specs/architecture/45-governance.md`, "The world
 /// is a node" — resolved `reachability-gate-mechanism` option b): whether a dead edge
 /// gates, and at what weight, is the assembly's dial like `degree`, never a member's or
 /// a package clause's — a deliberate work-in-progress dead edge stays the author's call.
@@ -377,7 +377,7 @@ fn dead_activation(
         }),
         Activation::PathsMatch { field } => {
             // An absent/blank field is unconditional loading, not a dead edge
-            // (specs/15-kinds.md paths-match bullet): only a *present* glob set that
+            // (specs/architecture/15-kinds.md paths-match bullet): only a *present* glob set that
             // matches nothing is provably dead.
             let globs = declared_globs(member, field);
             let dead = !globs.is_empty()
@@ -405,7 +405,7 @@ fn field_is_blank(member: &Features, field: &str) -> bool {
 /// names each of several, and an absent field or a map (which carries no glob) names
 /// none. Read off [`Features`] — a declared field, never grepped. Declaring none is
 /// *not* a dead edge: an absent/blank `paths` field falls back to unconditional loading
-/// (specs/15-kinds.md paths-match bullet), so the caller only tests for the dead edge
+/// (specs/architecture/15-kinds.md paths-match bullet), so the caller only tests for the dead edge
 /// once at least one glob is present.
 fn declared_globs(member: &Features, field: &str) -> Vec<String> {
     match member.field(field) {
@@ -427,7 +427,7 @@ fn declared_globs(member: &Features, field: &str) -> Vec<String> {
 }
 
 /// Whether `glob` matches at least one path in `files`, decided over a regex compiled
-/// from the glob (the sanctioned `regex` crate — `specs/45-governance.md` leaves
+/// from the glob (the sanctioned `regex` crate — `specs/architecture/45-governance.md` leaves
 /// zero-match globs to this module). A glob `temper` cannot compile is treated as
 /// matching, so the gate never cries wolf on a pattern it failed to understand — though
 /// [`glob_to_regex`] is total, so that branch is defensive only.
@@ -485,7 +485,7 @@ fn is_regex_meta(c: char) -> bool {
 
 /// The finding for a member whose inbound activation edge from the [`world`] node is
 /// dead — naming the world, the member (kind + id), and the dead-edge reason, at the
-/// assembly-declared `severity` (`specs/45-governance.md`).
+/// assembly-declared `severity` (`specs/architecture/45-governance.md`).
 fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Severity) -> Diagnostic {
     Diagnostic::new(
         severity,

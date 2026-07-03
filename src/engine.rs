@@ -1,7 +1,7 @@
 //! The generic contract engine — evaluate a [`Contract`]'s clauses over
 //! extracted [`Features`].
 //!
-//! Implements `specs/10-contracts.md` ("Decision: kill the heuristic rule
+//! Implements `specs/architecture/10-contracts.md` ("Decision: kill the heuristic rule
 //! registry"): rules no longer live in a hardcoded `all_rules()` registry with
 //! the tool's opinions buried in `if` statements. Instead an author-declared
 //! contract (a closed set of decidable clauses) is validated by *this* one
@@ -14,7 +14,7 @@
 //! decidable predicate and, on a false predicate, emits a [`check::Diagnostic`]:
 //!
 //! - **severity** is the clause's *declared* weight — `required` ⇒ [`Error`],
-//!   `advisory` ⇒ [`Warn`] — never a tool-baked split (`specs/10-contracts.md`,
+//!   `advisory` ⇒ [`Warn`] — never a tool-baked split (`specs/architecture/10-contracts.md`,
 //!   "Severity is declared, not baked").
 //! - **rule** is the clause key (the predicate's TOML discriminator, e.g.
 //!   `max_len`), so a finding names the clause that produced it.
@@ -64,7 +64,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
                         message,
                     )
                     // The clause's colocated guidance rides its own violation — the
-                    // just-in-time teaching moment (`specs/10-contracts.md`).
+                    // just-in-time teaching moment (`specs/architecture/10-contracts.md`).
                     .with_guidance(clause.guidance.clone()),
                 );
             }
@@ -75,7 +75,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 
 /// Validate a contract against **the definition** — the closed algebra itself —
 /// returning an error-severity [`Diagnostic`] per inadmissible clause. This is
-/// *admissibility* (`specs/10-contracts.md`, "Decision: the contract is itself
+/// *admissibility* (`specs/architecture/10-contracts.md`, "Decision: the contract is itself
 /// checked — admissibility"): the contract earns trust the way a harness does,
 /// by passing a check, before it is used to check anything.
 ///
@@ -116,7 +116,7 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
 /// `forbidden_keys` over no keys forbids nothing), which the author cannot have
 /// meant; and (2) no **held-back** predicate is used as a working clause —
 /// `dependency-exists` names no decidable reference syntax or extractor, so it is
-/// inadmissible until it does (`specs/10-contracts.md`, "The primitive algebra").
+/// inadmissible until it does (`specs/architecture/10-contracts.md`, "The primitive algebra").
 fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
     match predicate {
         // `dependency-exists` is held back — like the full `pattern` primitive.
@@ -154,7 +154,7 @@ fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
         }
         // An inverted bound (`min > max`) admits no value at all — a vacuous
         // clause the author cannot have meant, so the contract carrying it fails
-        // admissibility (`specs/45-governance.md`, "reject min>max").
+        // admissibility (`specs/architecture/45-governance.md`, "reject min>max").
         Predicate::Range { field, min, max } if min > max => {
             vec![format!(
                 "`range` clause on field `{field}` has min {min} greater than max {max}"
@@ -407,7 +407,7 @@ fn scalar<'a>(features: &'a Features, field: &str) -> Option<&'a str> {
 /// chooses — it only translates what the author declared.
 ///
 /// `pub` so an assembly-scope dial that shares the author's `required`/`advisory`
-/// vocabulary — the reachability severity (`specs/45-governance.md`) — maps through
+/// vocabulary — the reachability severity (`specs/architecture/45-governance.md`) — maps through
 /// the one translation, never a second copy that could drift.
 #[must_use]
 pub fn severity_of(severity: contract::Severity) -> check::Severity {

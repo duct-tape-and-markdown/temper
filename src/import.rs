@@ -1,7 +1,7 @@
 //! `temper import` — scan a Claude Code harness into the typed config surface.
 //!
-//! specs/20-surface.md, "Artifact kinds & contract selection"; custom kinds
-//! specs/40-composition.md.
+//! specs/architecture/20-surface.md, "Artifact kinds & contract selection"; custom kinds
+//! specs/architecture/40-composition.md.
 //!
 //! Built-in kinds scan at their real Claude Code locus under `<harness>/.claude/`,
 //! so one project-root `harness_path` captures the whole harness; each is projected
@@ -28,7 +28,7 @@ use crate::frontmatter::{FrontmatterError, Member};
 use crate::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
-/// written at the workspace root (`specs/20-surface.md`, "Topology").
+/// written at the workspace root (`specs/architecture/20-surface.md`, "Topology").
 const LOCK_FILENAME: &str = "lock.toml";
 
 /// Errors raised while importing a harness. Distinct from a [`FrontmatterError`]
@@ -37,7 +37,7 @@ const LOCK_FILENAME: &str = "lock.toml";
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ImportError {
     /// A source member could not be read or projected through the generic
-    /// frontmatter adapter (`specs/15-kinds.md`).
+    /// frontmatter adapter (`specs/architecture/15-kinds.md`).
     #[error(transparent)]
     #[diagnostic(transparent)]
     Frontmatter(#[from] FrontmatterError),
@@ -94,7 +94,7 @@ pub enum ImportError {
 /// `pub(crate)` so the `re-add` drift direction can take the row a per-kind writer
 /// produced and fold it straight into the lock — reusing `import`'s single
 /// round-trip write path rather than re-deriving the fingerprints
-/// (`specs/20-surface.md`, "Drift / apply — three states").
+/// (`specs/architecture/20-surface.md`, "Drift / apply — three states").
 pub(crate) struct RollupEntry {
     /// Artifact name (and its `<kind>/<name>/` surface directory).
     pub(crate) name: String,
@@ -105,7 +105,7 @@ pub(crate) struct RollupEntry {
     /// The fingerprint of the source as it was when `temper` last projected the
     /// surface onto it — the **third state** the three-state merge needs, beside
     /// desired (the surface) and real (on-disk). It lets `apply` tell a surface
-    /// edit from a world drift (`specs/20-surface.md`, "three states, never two").
+    /// edit from a world drift (`specs/architecture/20-surface.md`, "three states, never two").
     /// At import it equals `import_hash`: import writes a complete baseline, so the
     /// last thing applied to the source *is* the source as imported.
     pub(crate) last_applied: String,
@@ -118,14 +118,14 @@ pub(crate) struct RollupEntry {
 /// rules and the invariant.
 pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
     // The built-in frontmatter kinds ride one generic adapter driven by each kind's
-    // declared format + unit shape (`specs/15-kinds.md`) — no per-kind writer. Ordered
+    // declared format + unit shape (`specs/architecture/15-kinds.md`) — no per-kind writer. Ordered
     // skill-then-rule so the roll-up's byte layout is stable.
     let skills = import_frontmatter_kind(harness_path, into, "skill")?;
     let rules = import_frontmatter_kind(harness_path, into, "rule")?;
 
     // A custom kind's definition — the `governs` locus discovery keys on — is the
     // authored `<harness>/.temper/kinds/<name>/KIND.md`, not an inline `temper.toml`
-    // block (specs/40-composition.md). Absent a registered custom kind, only the
+    // block (specs/architecture/40-composition.md). Absent a registered custom kind, only the
     // built-ins import.
     let layer = AuthorLayer::load(&harness_path.join("temper.toml"))?;
     let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
@@ -177,7 +177,7 @@ fn import_frontmatter_kind(
 
 /// Discover a built-in kind's source files by name, keying off the `governs` its
 /// embedded `KIND.md` declares — the same data-driven scan a custom kind gets, so
-/// `skill`/`rule` are no longer hardwired paths (`specs/15-kinds.md`, "A built-in
+/// `skill`/`rule` are no longer hardwired paths (`specs/architecture/15-kinds.md`, "A built-in
 /// kind is an adapter": the emit face's locus is the read face's scan root). The
 /// `skill` locus (`.claude/skills` + `*/SKILL.md`) resolves through the generalized
 /// subdir glob; `rule`'s (`.claude/rules` + `*.md`) is flat. Yields the member
@@ -189,7 +189,7 @@ fn import_frontmatter_kind(
 ///
 /// `pub(crate)` so drift re-scans the harness, and install's modeline placement
 /// targets the same set, through the identical discovery `import` used
-/// (`specs/20-surface.md`, the drift "added" axis).
+/// (`specs/architecture/20-surface.md`, the drift "added" axis).
 pub(crate) fn discover_builtin(harness: &Path, name: &str) -> Result<Vec<PathBuf>, ImportError> {
     let mut files = discover_kind_units(harness, &builtin_governs(name)?)?;
     if name == "skill" {
@@ -215,14 +215,14 @@ fn builtin_governs(name: &str) -> Result<Governs, ImportError> {
 
 /// Read one source member of a frontmatter `kind` and write its surface tree under
 /// `<into>/<subdir>/<id>/`, returning the roll-up row for the index. The one write
-/// path for every frontmatter kind (`specs/15-kinds.md`, "the adapter faces are
+/// path for every frontmatter kind (`specs/architecture/15-kinds.md`, "the adapter faces are
 /// declared"): the member document via [`Member::to_document`], plus the copied
 /// companions of a directory-shaped unit. The surface subdir is the kind's declared
 /// `governs` leaf, the member document its declared name (`SKILL.md`, `RULE.md`).
 ///
 /// `pub(crate)` so `re-add` reuses this exact round-trip write path when it pulls a
 /// drifted or added on-disk source back into the surface, rather than re-implementing
-/// the projection (`specs/20-surface.md`, "Drift / apply").
+/// the projection (`specs/architecture/20-surface.md`, "Drift / apply").
 pub(crate) fn import_frontmatter_member(
     kind: &CustomKind,
     source_file: &Path,
@@ -234,7 +234,7 @@ pub(crate) fn import_frontmatter_member(
     // Merge, never clobber: the source carries no authored clauses (they are
     // surface-only state), so a re-import or drifted-body `re-add` rebuilds the
     // document from source and would wipe the authored `satisfies`/`edges`. Carry
-    // any existing surface layer forward before writing (`specs/20-surface.md`,
+    // any existing surface layer forward before writing (`specs/architecture/20-surface.md`,
     // "three states, never two").
     let member_doc = kind.member_document();
     if let Some(existing) = existing_surface_member(&out_dir, &member_doc) {
@@ -287,11 +287,11 @@ fn existing_surface_member(out_dir: &Path, member_doc: &str) -> Option<Member> {
 /// custom kind and the built-in `skill`/`rule` loci alike. Non-matching entries are
 /// skipped, and a missing root yields an empty list (a declared kind whose corpus
 /// does not exist on this harness). Data-driven discovery — the locus is the kind's
-/// own `governs` declaration (`specs/40-composition.md`), never a hardwired path.
+/// own `governs` declaration (`specs/architecture/40-composition.md`), never a hardwired path.
 ///
 /// `pub(crate)` so the drift engine re-runs the same `governs`-keyed scan against a
 /// live harness — every kind's members classify through the identical discovery
-/// `import` used (`specs/20-surface.md`, the drift "added" axis).
+/// `import` used (`specs/architecture/20-surface.md`, the drift "added" axis).
 pub(crate) fn discover_kind_units(
     harness: &Path,
     governs: &Governs,
@@ -354,7 +354,7 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
 /// A custom kind carries no bespoke IR, so the unit is projected generically as ONE
 /// member document `<KIND>.md`: a `[provenance]`-only `+++` header over the *whole*
 /// file byte-faithful. The whole file is the body so a unit's frontmatter, if any,
-/// survives verbatim for its extractor to read at `check` time (`specs/15-kinds.md`).
+/// survives verbatim for its extractor to read at `check` time (`specs/architecture/15-kinds.md`).
 ///
 /// `pub(crate)` for the same reason as [`import_frontmatter_member`]: `re-add` reuses
 /// this exact generic write path to reconcile a drifted or added on-disk custom-kind
@@ -617,11 +617,11 @@ The surface is temper's composition write surface, no trailing newline.";
     /// A `temper.toml` *registering* `spec` as a custom kind — the whole require-side
     /// wiring is the package binding; the definition (the `governs` locus discovery
     /// keys on) lives in the authored `.temper/kinds/spec/KIND.md` fixture below
-    /// (`specs/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
+    /// (`specs/architecture/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
     /// artifact, registered in the assembly").
     const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
 
-    /// The authored `spec` KIND.md definition (`specs/20-surface.md`, "Decision: a kind
+    /// The authored `spec` KIND.md definition (`specs/architecture/20-surface.md`, "Decision: a kind
     /// definition is `KIND.md`"): the `+++` header carries the `governs` locus and the
     /// composed extraction, the body the kind's prose. `import` reads the locus to
     /// discover units.

@@ -85,10 +85,10 @@ exists precisely because agents author harnesses). See
 
 ## Learn more
 
-- **Why it exists** — [`specs/00-intent.md`](specs/00-intent.md), the north star.
-- **The contract model** — [`specs/10-contracts.md`](specs/10-contracts.md).
-- **The config surface** — [`specs/20-surface.md`](specs/20-surface.md).
-- **Distribution & the gate** — [`specs/50-distribution.md`](specs/50-distribution.md).
+- **Why it exists** — [`specs/intent/00-intent.md`](specs/intent/00-intent.md), the north star.
+- **The contract model** — [`specs/architecture/10-contracts.md`](specs/architecture/10-contracts.md).
+- **The config surface** — [`specs/architecture/20-surface.md`](specs/architecture/20-surface.md).
+- **Distribution & the gate** — [`specs/architecture/50-distribution.md`](specs/architecture/50-distribution.md).
 - **Contributing** — [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) ·
   **Security** — [`.github/SECURITY.md`](.github/SECURITY.md).
 

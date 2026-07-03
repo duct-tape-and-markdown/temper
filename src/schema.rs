@@ -1,6 +1,6 @@
 //! Schema emission — project the active contract into an editor JSON Schema.
 //!
-//! Implements `specs/50-distribution.md` ("The gate at keystroke — the emitted
+//! Implements `specs/architecture/50-distribution.md` ("The gate at keystroke — the emitted
 //! schema"): `temper schema [--kind]` emits a JSON Schema **from the active
 //! contract** (the by-kind floor ⊕ `temper.toml`, via [`crate::compose::effective`])
 //! so an editor validates a harness artifact's frontmatter at keystroke — the one
@@ -113,7 +113,7 @@ pub fn emit(contract: &Contract) -> Value {
     }
 
     // The docs (hover) channel, emitted **strictly alongside** the validation
-    // keywords above, never mixed into them (`specs/50-distribution.md`, "The gate
+    // keywords above, never mixed into them (`specs/architecture/50-distribution.md`, "The gate
     // at keystroke"): a field clause's advisory `guidance` prose rides its JSON
     // Schema property's `description`. This is the on-law guarantee made concrete —
     // taste can only become documentation, never a squiggle. Guidance on a

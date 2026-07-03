@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerate the README hero asset (examples/demo/demo.svg).
 #
-# The capture pipeline behind specs/55-offering.md's hero-visual Decision: the demo
+# The capture pipeline behind specs/intent/55-offering.md's hero-visual Decision: the demo
 # is a *projection* of `temper`'s real output, never a hand-curated screenshot that
 # drifts. It runs the shipped binary over the committed demo harness and renders the
 # exact diagnostic it emits into a terminal-card SVG. Rerun whenever the output

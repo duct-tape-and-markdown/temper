@@ -1,6 +1,6 @@
 //! `temper install` — project the gate's wiring into the harness.
 //!
-//! Implements the `install` verb of `specs/50-distribution.md` ("Decision:
+//! Implements the `install` verb of `specs/architecture/50-distribution.md` ("Decision:
 //! `install` projects the gate's wiring; drift keeps it synced"). Distribution is
 //! not a second product; it is *placing the one gate* at every moment a harness is
 //! authored, changes, or is used. `install` writes the placements a plugin cannot
@@ -27,9 +27,9 @@
 //! [`gate_installed`] is the read-only shadow: the same placements evaluated
 //! dry-run, with any placement that is missing or drifted surfaced as an advisory
 //! [`Diagnostic`]. `check` folds it in so temper verifies *its own* gate is wired —
-//! "the harness checking that its self-check is wired" (`specs/50-distribution.md`).
+//! "the harness checking that its self-check is wired" (`specs/architecture/50-distribution.md`).
 //!
-//! **Fail-loud** (`specs/50-distribution.md`, "Fail-loud delivery"): a placement
+//! **Fail-loud** (`specs/architecture/50-distribution.md`, "Fail-loud delivery"): a placement
 //! that cannot be written is a hard [`InstallError`] / [`drift::DriftError`], never
 //! a silent skip — the gate's transport inherits the gate's soundness bar.
 
@@ -43,7 +43,7 @@ use crate::drift::{self, ApplyOutcome};
 use crate::import;
 
 /// The exec-form command Claude Code runs at session start: the `temper` binary
-/// itself, checking the project root (`specs/50-distribution.md`, "the hook is the
+/// itself, checking the project root (`specs/architecture/50-distribution.md`, "the hook is the
 /// temper binary itself"). The `.` is the harness under the running project.
 const SESSION_START_COMMAND: &str = "temper session-start .";
 
@@ -51,7 +51,7 @@ const SESSION_START_COMMAND: &str = "temper session-start .";
 /// the gate on human change, running `temper check` on pull requests. A file
 /// temper owns wholesale, so it is placed rather than merged.
 const CI_WORKFLOW: &str = "\
-# Managed by `temper install` — the gate on human change (specs/50-distribution.md).
+# Managed by `temper install` — the gate on human change (specs/architecture/50-distribution.md).
 name: temper
 
 on:
@@ -150,7 +150,7 @@ pub fn run(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
 }
 
 /// Report whether temper's own gate is installed and undrifted at `root` — the
-/// `check` self-verify (`specs/50-distribution.md`, "the harness checking that its
+/// `check` self-verify (`specs/architecture/50-distribution.md`, "the harness checking that its
 /// self-check is wired").
 ///
 /// Evaluates the same three placements dry-run: a placement the merge would write

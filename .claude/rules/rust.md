@@ -44,7 +44,7 @@ are flume gates, so a violation reverts the commit.
   alternative, ordering constraints, workarounds); invariants, units, edge
   behavior (`BTreeMap` for stable output); checklist warnings ("change X → also
   Y"); a what-summary only above code genuinely denser than the sentence. Spec
-  citations are **terse pointer tags** (`// specs/20-surface.md, drift`), never
+  citations are **terse pointer tags** (`// specs/architecture/20-surface.md, drift`), never
   prose recaps — the DO-178C trace-tag form. Cut: restated spec narrative (a
   second, unchecked home for intent that drifts), narration of ordinary code,
   compliance narration ("per §X we…" — commit-message material). Comments are

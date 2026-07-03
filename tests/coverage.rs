@@ -1,5 +1,5 @@
 //! End-to-end acceptance over requirement coverage — the referential shadow of the
-//! meaningful contract (`specs/10-contracts.md`, "Requirements and `satisfies` — the
+//! meaningful contract (`specs/architecture/10-contracts.md`, "Requirements and `satisfies` — the
 //! meaningful contract").
 //!
 //! Drives the built `temper` binary so the whole path is pinned: `temper.toml`
@@ -369,7 +369,7 @@ fn author_custom_spec(root: &Path, member_id: &str, satisfies: &[&str]) {
 fn a_custom_kind_units_satisfies_covers_a_requirement() {
     let root = tmpdir("custom-covered");
     // A custom-kind member opts into the required requirement — coverage is kind-blind
-    // (`specs/15-kinds.md`, the worked example: temper's own `spec` corpus can opt into
+    // (`specs/architecture/15-kinds.md`, the worked example: temper's own `spec` corpus can opt into
     // requirements), so the spec member fills it exactly as a skill would.
     author_custom_spec(&root, "core.spec", &["domain-model"]);
     write_temper_toml(
@@ -420,7 +420,7 @@ required = true\n",
 fn a_means_less_required_requirement_still_gates() {
     let root = tmpdir("means-less");
     import_skill(&root, "dev-standards", CLEAN_SKILL);
-    // The unified requirement makes `means` optional (`specs/10-contracts.md`, "all
+    // The unified requirement makes `means` optional (`specs/architecture/10-contracts.md`, "all
     // facets optional except its name"), but coverage keys off `required`, not
     // `means`: a `required` requirement with no `means` and nothing opting in still
     // fires UNFILLED and blocks the run.

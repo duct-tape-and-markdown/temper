@@ -1,8 +1,8 @@
-//! Pins the shipped Anthropic skill built-in package (`specs/10-contracts.md`,
+//! Pins the shipped Anthropic skill built-in package (`specs/architecture/10-contracts.md`,
 //! "Packages — best practices as data").
 //!
 //! `packages/skill.anthropic/PACKAGE.md` is the std-lib skill contract — curated
-//! product source the build *embeds* (`specs/10-contracts.md`, the `contracts/`
+//! product source the build *embeds* (`specs/architecture/10-contracts.md`, the `contracts/`
 //! retirement) and resolves by name. This test loads it through the same embedded
 //! path the shipped `check` uses ([`temper::builtin::contract`]) and pins the exact
 //! decidable clause vector it carries.
@@ -13,7 +13,7 @@
 //! weak proxies, out of the closed algebra entirely) are absent, because any extra
 //! or missing clause breaks the equality. The built-in carries no internal `name`,
 //! so its display label derives to `skill.anthropic` from the package directory
-//! (`specs/10-contracts.md`: a package is identified by its binding, not a name).
+//! (`specs/architecture/10-contracts.md`: a package is identified by its binding, not a name).
 //! The clause *vocabulary* is pinned; the guidance/citation prose is product
 //! territory, so it is asserted present, not pinned verbatim.
 
@@ -141,7 +141,7 @@ fn skill_builtin_carries_the_decidable_clause_vector() {
 }
 
 /// A built-in package's clauses are *cited* and carry guidance — each pairs a
-/// `source` provenance of taste with the hover-sized why (`specs/10-contracts.md`,
+/// `source` provenance of taste with the hover-sized why (`specs/architecture/10-contracts.md`,
 /// "a built-in package's clauses ... it is the expected posture"). Pinning presence
 /// (not text) keeps the update ritual honest — walk the clauses, re-check their
 /// citations — without coupling the build test to product prose.
@@ -166,7 +166,7 @@ fn every_skill_builtin_clause_is_guided_and_cited() {
 /// registry-kill decision: the built-in encodes *only* decidable predicates — every
 /// clause is a true/false fact over the artifact, never a semantic guess
 /// (third-person / has-trigger / companion-refs were undecidable and stay prose
-/// guidance, `specs/10-contracts.md`).
+/// guidance, `specs/architecture/10-contracts.md`).
 #[test]
 fn skill_builtin_encodes_only_decidable_clauses() {
     let kinds: BTreeSet<&str> = skill_builtin()
@@ -192,7 +192,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
 }
 
 /// Both shipped built-in packages are themselves admissible — they pass the second
-/// green (`specs/10-contracts.md`, "Decision: the contract is itself checked —
+/// green (`specs/architecture/10-contracts.md`, "Decision: the contract is itself checked —
 /// admissibility"). Every embedded package parses (closed vocabulary + charset
 /// ranges enforced at load) and carries no vacuous list clause, so
 /// `engine::admissibility` returns no findings.
@@ -213,7 +213,7 @@ fn the_shipped_built_in_packages_are_admissible() {
 }
 
 /// A contract text carrying `guidance` on a field clause parses it onto the clause
-/// (`specs/50-distribution.md`, "The gate at keystroke"), and it plays *no part* in
+/// (`specs/architecture/50-distribution.md`, "The gate at keystroke"), and it plays *no part* in
 /// admissibility — it is advisory-only, never a gate input (`00-intent.md` law 3).
 /// The same contract's `guidance` projects to the emitted schema's property
 /// `description`, strictly beside the validation keywords and never mixed into them.
@@ -298,7 +298,7 @@ guidance = 42
 }
 
 /// A clause may carry a `source` citation beside its `guidance` — the *provenance
-/// of taste* a built-in package's clauses are expected to record (`specs/10-contracts.md`,
+/// of taste* a built-in package's clauses are expected to record (`specs/architecture/10-contracts.md`,
 /// "Decision: a built-in package is named for its source, and cited to it"). The
 /// loader parses and *preserves* it verbatim; a clause without one still loads,
 /// carrying `None`. `source` is preserved metadata, not a predicate — admitting it
@@ -387,10 +387,10 @@ source = 42
 
 // --- PACKAGE.md — a package authored as one fenced document -------------------
 //
-// A package is authored the same way as any member (`specs/20-surface.md`): one
+// A package is authored the same way as any member (`specs/architecture/20-surface.md`): one
 // `PACKAGE.md` whose fenced header carries the `[[clause]]` tables and whose body
 // is the package-level guidance. It loads straight into the [`Contract`] model
-// (`specs/10-contracts.md`, "Packages" — the resolved PACKAGE-MODEL-RECONCILE
+// (`specs/architecture/10-contracts.md`, "Packages" — the resolved PACKAGE-MODEL-RECONCILE
 // fold), the same loader the embedded built-in std-lib parses through. These cases
 // exercise the document form over on-disk fixtures.
 
@@ -431,7 +431,7 @@ fn a_package_document_loads_the_expected_mirror_clauses() {
 
 /// A package is identified by *where it lives*: its display name derives from the
 /// containing directory's stem, never an internal `name` field
-/// (`specs/10-contracts.md`, "Decision: a package is identified by its binding").
+/// (`specs/architecture/10-contracts.md`, "Decision: a package is identified by its binding").
 #[test]
 fn a_package_display_name_is_its_directory_stem() {
     let package =
@@ -484,7 +484,7 @@ fn a_malformed_package_document_is_a_load_error() {
 }
 
 /// A failing clause's colocated `guidance` rides its diagnostic — the just-in-time
-/// teaching moment (`specs/10-contracts.md`, "Packages"). The `guided` package's
+/// teaching moment (`specs/architecture/10-contracts.md`, "Packages"). The `guided` package's
 /// `required name` clause carries guidance; a member missing `name` trips it, and
 /// the emitted [`Diagnostic`](temper::check::Diagnostic) carries that guidance so
 /// the violation teaches. A clause is a gate; its guidance is never one — the

@@ -1,10 +1,10 @@
 //! Composition — layer an optional author-declared `temper.toml` over the
-//! embedded by-kind floor contracts (`specs/40-composition.md`).
+//! embedded by-kind floor contracts (`specs/architecture/40-composition.md`).
 //!
 //! A `temper.toml` carries per-kind `[kind.<k>]` layers (bind a package by name,
 //! then override/extend its clauses), top-level `[requirement.<name>]` obligations
-//! (`specs/10-contracts.md`), and per-kind `[[kind.<name>.relationships]]` edges
-//! (`specs/15-kinds.md`). Clauses parse through the same closed-vocabulary
+//! (`specs/architecture/10-contracts.md`), and per-kind `[[kind.<name>.relationships]]` edges
+//! (`specs/architecture/15-kinds.md`). Clauses parse through the same closed-vocabulary
 //! [`crate::contract`] parser a bare contract uses, so the author layer earns no
 //! escape hatch the floor lacks. A non-built-in `[kind.<name>]` *registers* a custom
 //! kind whose definition lives in `.temper/kinds/<name>/KIND.md`
@@ -31,24 +31,24 @@ pub struct AuthorLayer {
     /// the author did not name falls through to the floor unchanged.
     kinds: BTreeMap<String, KindLayer>,
     /// The named requirements parsed from top-level `[requirement.<name>]` tables,
-    /// keyed by name (`specs/10-contracts.md`). Its own namespace, distinct from the
+    /// keyed by name (`specs/architecture/10-contracts.md`). Its own namespace, distinct from the
     /// `kind` map; empty when the `temper.toml` declares none.
     requirements: BTreeMap<String, Requirement>,
     /// The declared edge relationships gathered off every kind's
     /// `[[kind.<name>.relationships]]` array, in declaration order
-    /// (`specs/15-kinds.md`). Each edge's `from` is the owning kind that declared it;
+    /// (`specs/architecture/15-kinds.md`). Each edge's `from` is the owning kind that declared it;
     /// empty when no kind declares any. Parse-only here — [`crate::graph`] assembles
     /// the graph.
     edges: Vec<Edge>,
     /// The assembly's graph-scope reachability opt-in, parsed from the top-level
-    /// `[reachability]` table (`specs/45-governance.md`). `None` ⇒ the assembly did
+    /// `[reachability]` table (`specs/architecture/45-governance.md`). `None` ⇒ the assembly did
     /// not opt in, so [`crate::graph::reachable`] does not run. Its own assembly-scope
     /// declaration, distinct from the `kind`/`requirement` maps.
     reachability: Option<Reachability>,
 }
 
 /// A declared **edge relationship** — a kind capability declared under its owning
-/// kind's `[[kind.<name>.relationships]]` array (`specs/15-kinds.md`). The owning
+/// kind's `[[kind.<name>.relationships]]` array (`specs/architecture/15-kinds.md`). The owning
 /// kind is the edge *source* (the implicit `from`); the relationship names its
 /// reference `field` and the target `to` kind. [`crate::graph`] reads the field off
 /// each source artifact into edges, then flags any route that resolves to no
@@ -70,7 +70,7 @@ pub struct Edge {
 }
 
 /// A named **requirement** — the harness's named obligation, declared in a top-level
-/// `[requirement.<name>]` table (`specs/10-contracts.md`). **Every facet is optional
+/// `[requirement.<name>]` table (`specs/architecture/10-contracts.md`). **Every facet is optional
 /// except the name.** Fill is by the artifact's opt-in `satisfies` alone — there is
 /// no name-`match` selector.
 ///
@@ -99,19 +99,19 @@ pub struct Requirement {
     /// law 4). Mutually exclusive with [`count`](Requirement::count): `required` is
     /// the ≥1-satisfier shorthand, `count` the general cardinality form.
     pub required: bool,
-    /// The set-scope `count` predicate (`specs/45-governance.md`): the satisfier-set
+    /// The set-scope `count` predicate (`specs/architecture/45-governance.md`): the satisfier-set
     /// size must land in `[min, max]`. Absent ⇒ `None`. The general form of
     /// `required`; the two are mutually exclusive.
     pub count: Option<CountBound>,
-    /// The set-scope `unique` predicate (`specs/45-governance.md`): each named field's
+    /// The set-scope `unique` predicate (`specs/architecture/45-governance.md`): each named field's
     /// extracted scalar must not repeat across the satisfiers. Absent ⇒ empty (no
     /// uniqueness gate). Checked in [`crate::roster`].
     pub unique: Vec<String>,
-    /// The set-scope `membership` predicate (`specs/45-governance.md`): a declared
+    /// The set-scope `membership` predicate (`specs/architecture/45-governance.md`): a declared
     /// field of every satisfier (S₁) must lie in a *corpus-derived* set drawn from a
     /// second satisfier set (S₂). Absent ⇒ `None`. Checked in [`crate::roster`].
     pub membership: Option<Membership>,
-    /// The graph-scope `degree` bound (`specs/45-governance.md`): the in/out edge
+    /// The graph-scope `degree` bound (`specs/architecture/45-governance.md`): the in/out edge
     /// count of every satisfier must land in the declared bound. Declared on the
     /// requirement but ranging over the *edge* graph, so checked in [`crate::graph`],
     /// not [`crate::roster`]. Absent ⇒ `None`.
@@ -122,7 +122,7 @@ pub struct Requirement {
 }
 
 /// An inclusive `[min, max]` bound on the cardinality of a requirement's satisfier
-/// set — the set-scope `count` predicate (`specs/45-governance.md`). An inverted
+/// set — the set-scope `count` predicate (`specs/architecture/45-governance.md`). An inverted
 /// `min > max` bound admits nothing and is rejected as inadmissible
 /// ([`crate::roster`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,7 +135,7 @@ pub struct CountBound {
 
 /// The graph-scope `degree` predicate — an inclusive bound on the **incoming** and/or
 /// **outgoing** edge count of every satisfier over the harness reference graph
-/// (`specs/45-governance.md`). At least one direction is present (an empty `degree`
+/// (`specs/architecture/45-governance.md`). At least one direction is present (an empty `degree`
 /// constrains nothing — rejected at parse). Decided against the resolved arcs in
 /// [`crate::graph`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -165,7 +165,7 @@ pub struct EdgeBound {
 impl EdgeBound {
     /// Whether `degree` lands inside this inclusive bound — `min <= degree <= max`
     /// with an absent endpoint imposing no limit on that side. The decidable core of
-    /// the graph-scope `degree` check (`specs/45-governance.md`).
+    /// the graph-scope `degree` check (`specs/architecture/45-governance.md`).
     #[must_use]
     pub fn admits(self, degree: usize) -> bool {
         self.min.is_none_or(|min| degree >= min) && self.max.is_none_or(|max| degree <= max)
@@ -174,7 +174,7 @@ impl EdgeBound {
 
 /// A set-scope `membership` predicate over a requirement's satisfier set (S₁): a
 /// declared field of every satisfier must lie in a *corpus-derived* set, not a static
-/// `enum` (`specs/45-governance.md`). The allowed set is `source_feature` extracted
+/// `enum` (`specs/architecture/45-governance.md`). The allowed set is `source_feature` extracted
 /// over the S₂ satisfier set — the `source_kind` artifacts that opt into the `source`
 /// requirement (R₂). S₂ may name a different kind than the requirement's own, so the
 /// check ranges over the whole by-kind map. Decided in [`crate::roster`].
@@ -200,7 +200,7 @@ pub struct Membership {
 }
 
 /// The assembly's graph-scope **`reachable`** opt-in — declared in a top-level
-/// `[reachability]` table (`specs/45-governance.md`, "The world is a node —
+/// `[reachability]` table (`specs/architecture/45-governance.md`, "The world is a node —
 /// reachability is a predicate"; resolved `reachability-gate-mechanism` option b).
 /// Presence is the opt-in: absent, the [`crate::graph::reachable`] predicate never
 /// runs (like `degree`, temper fabricates no gate the author did not declare). Its
@@ -217,7 +217,7 @@ pub struct Reachability {
 }
 
 /// Resolves a **bound package name** to its [`Contract`] in PACKAGE-BINDING's order
-/// (`specs/20-surface.md`): a built-in name resolves from the embedded set first, any
+/// (`specs/architecture/20-surface.md`): a built-in name resolves from the embedded set first, any
 /// other name loads `<packages_dir>/<name>/PACKAGE.md`. The single order every by-name
 /// binding resolves through (a requirement's `package`, a `membership`'s
 /// `conforms_to`), so packages **compose**.
@@ -244,7 +244,7 @@ impl PackageResolver {
     }
 
     /// Resolve a bound package `name` to the [`Contract`] the engine validates a
-    /// requirement's filler against (`specs/10-contracts.md`, the `package` typing
+    /// requirement's filler against (`specs/architecture/10-contracts.md`, the `package` typing
     /// facet's `conforms-to` half):
     ///
     /// - `Ok(Some)` — the name is a built-in package, or an on-disk
@@ -337,7 +337,7 @@ pub enum ComposeError {
 
     /// A `[kind.<k>]` layer binds a package name that resolves to nothing — neither
     /// the kind's built-in floor nor a project package under `.temper/packages/`
-    /// (`specs/20-surface.md`). A name matching neither is rejected, never silently
+    /// (`specs/architecture/20-surface.md`). A name matching neither is rejected, never silently
     /// ignored.
     #[error(
         "{path}: `[kind.{kind}]` binds unknown package `{package}` (resolve the built-in `{builtin}` or a project package under `{packages_dir}`)"
@@ -367,7 +367,7 @@ pub enum ComposeError {
     /// A built-in `[kind.<k>]` layer carries a key outside its closed set (`package`,
     /// `clause`, `relationships`). Rejected, not ignored — a typo that quietly
     /// disables a binding or clause is the silent gap temper exists to catch
-    /// (`specs/10-contracts.md`, unknown keys rejected).
+    /// (`specs/architecture/10-contracts.md`, unknown keys rejected).
     #[error("{path}: `[kind.{kind}]` has unknown key `{key}`")]
     #[diagnostic(
         code(temper::compose::kind_unknown_key),
@@ -395,7 +395,7 @@ pub enum ComposeError {
 
     /// A top-level key other than `kind`, `requirement`, or `reachability` — a typo, or
     /// the retired `[role.*]` surface. Rejected, not ignored: silently dropping a stray
-    /// root is the gap temper exists to catch (`specs/10-contracts.md`, unknown keys
+    /// root is the gap temper exists to catch (`specs/architecture/10-contracts.md`, unknown keys
     /// rejected).
     #[error(
         "{path}: unknown top-level key `{key}` (temper.toml carries only `kind`, `requirement`, and `reachability`)"
@@ -511,7 +511,7 @@ pub enum ComposeError {
 
     /// A `[requirement.<name>]` carries a key outside its closed facet set. Rejected,
     /// not ignored — a typo that quietly disables the gate it was meant to arm is the
-    /// silent gap temper exists to catch (`specs/10-contracts.md`, unknown keys
+    /// silent gap temper exists to catch (`specs/architecture/10-contracts.md`, unknown keys
     /// rejected).
     #[error("{path}: `[requirement.{name}]` has unknown key `{key}`")]
     #[diagnostic(
@@ -562,7 +562,7 @@ pub enum ComposeError {
     /// its `severity`, a `severity` outside the `required`/`advisory` dial, or carrying
     /// a stray key. The assembly's graph-scope opt-in carries exactly one key; any miss
     /// folds here, the way [`parse_degree`] folds a degree bound's malformations
-    /// (`specs/45-governance.md`).
+    /// (`specs/architecture/45-governance.md`).
     #[error(
         "{path}: `[reachability]` must be a table declaring a `severity` of `required` or `advisory` and no other key"
     )]
@@ -606,9 +606,9 @@ impl AuthorLayer {
                 source,
             })?;
 
-        // Unknown top-level keys are rejected, not ignored (`specs/10-contracts.md`) —
+        // Unknown top-level keys are rejected, not ignored (`specs/architecture/10-contracts.md`) —
         // the roots temper models are `kind`, `requirement`, and the assembly-scope
-        // `reachability` opt-in (`specs/45-governance.md`).
+        // `reachability` opt-in (`specs/architecture/45-governance.md`).
         for (key, _) in doc.as_table().iter() {
             if !matches!(key, "kind" | "requirement" | "reachability") {
                 return Err(ComposeError::UnknownRootKey {
@@ -634,7 +634,7 @@ impl AuthorLayer {
                         kind: name.to_string(),
                     })?;
                 // Relationships are a kind capability gathered off every kind table,
-                // the owning `name` each edge's source (`specs/15-kinds.md`).
+                // the owning `name` each edge's source (`specs/architecture/15-kinds.md`).
                 edges.extend(parse_relationships(table, name, path)?);
                 // Every `[kind.<name>]` parses uniformly into a package binding ⊕
                 // clause overrides; whether the name registers a custom kind is the
@@ -662,7 +662,7 @@ impl AuthorLayer {
         }
 
         // The assembly's graph-scope reachability opt-in — its own root, parsed like a
-        // `[requirement.<name>]`'s `degree` bound (`specs/45-governance.md`).
+        // `[requirement.<name>]`'s `degree` bound (`specs/architecture/45-governance.md`).
         let reachability = match doc.as_table().get("reachability") {
             None => None,
             Some(item) => {
@@ -701,7 +701,7 @@ impl AuthorLayer {
     }
 
     /// The assembly's graph-scope reachability opt-in, if it declared a top-level
-    /// `[reachability]` table (`specs/45-governance.md`). `None` ⇒ the
+    /// `[reachability]` table (`specs/architecture/45-governance.md`). `None` ⇒ the
     /// [`crate::graph::reachable`] predicate does not run — read off the layer exactly
     /// as `degree` reads [`requirements`](Self::requirements), the opt-in the gate
     /// dispatches on.
@@ -721,7 +721,7 @@ impl AuthorLayer {
 
     /// The package the `[kind.<name>]` registration binds by name, if it named one.
     /// `None` when the kind is unregistered or bound no explicit package — for a custom
-    /// kind the caller then defaults to the kind's own name (`specs/40-composition.md`).
+    /// kind the caller then defaults to the kind's own name (`specs/architecture/40-composition.md`).
     #[must_use]
     pub fn kind_package(&self, kind: &str) -> Option<&str> {
         self.kinds
@@ -733,7 +733,7 @@ impl AuthorLayer {
     /// **package it binds**. A kind the author did not name returns `floor` unchanged.
     ///
     /// The bound package resolves against `floor` ∪ `.temper/packages/`
-    /// (`specs/20-surface.md`): an omitted `package`, or the kind's built-in name,
+    /// (`specs/architecture/20-surface.md`): an omitted `package`, or the kind's built-in name,
     /// takes `floor`; any other name loads `<packages_dir>/<name>/PACKAGE.md`, and one
     /// resolving to neither is a [`ComposeError::UnknownPackage`]. The layer's clauses
     /// then fold over that base — **override** the base clause sharing an identity, else
@@ -781,7 +781,7 @@ impl AuthorLayer {
     }
 
     /// Fold a gitignored **`temper-local.toml`** layer over this committed one
-    /// (`specs/40-composition.md`) — committed project policy, then a personal
+    /// (`specs/architecture/40-composition.md`) — committed project policy, then a personal
     /// clause/severity override on top, with the *same* override/extend clause
     /// semantics [`layer_over`] uses. A kind only `local` names is carried in whole; a
     /// kind only the committed layer names is left untouched.
@@ -880,7 +880,7 @@ fn parse_kind_layer(table: &Table, kind: &str, path: &Path) -> Result<KindLayer,
 }
 
 /// Parse one kind's `[[kind.<name>.relationships]]` array into typed [`Edge`]s, in
-/// declaration order, the owning `kind` each edge's source (`specs/15-kinds.md`).
+/// declaration order, the owning `kind` each edge's source (`specs/architecture/15-kinds.md`).
 /// Absent ⇒ an empty vec. The key must be an array-of-tables, else
 /// [`ComposeError::RelationshipsNotArray`]; a malformed element is a single folded
 /// [`ComposeError::BadRelationship`] naming its position.
@@ -934,13 +934,13 @@ fn relationship_str(table: &Table, key: &str) -> Option<String> {
 }
 
 /// Parse one `[requirement.<name>]` table into the typed [`Requirement`]
-/// (`specs/10-contracts.md`). Every facet is optional except the name. Typing is
+/// (`specs/architecture/10-contracts.md`). Every facet is optional except the name. Typing is
 /// `kind`/`package` **by name** — never inline clauses; a `contract`/`clause`/`match`
 /// key is an unknown-key reject (below). Fill is by opt-in `satisfies` alone. Each
 /// malformed facet is a load error.
 fn parse_requirement(table: &Table, name: &str, path: &Path) -> Result<Requirement, ComposeError> {
     // The closed facet set below; a stray key is a typo that would silently drop
-    // meaning or disable a gate, so it is rejected, not ignored (`specs/10-contracts.md`,
+    // meaning or disable a gate, so it is rejected, not ignored (`specs/architecture/10-contracts.md`,
     // unknown keys rejected). The retired `contract` bundle key and inline `clause`
     // array fall here too.
     for (key, _) in table.iter() {
@@ -1025,7 +1025,7 @@ fn count_bound(table: &dyn toml_edit::TableLike, key: &str) -> Option<usize> {
 }
 
 /// The requirement's optional `degree` bound: an inline `degree = { incoming, outgoing
-/// }` table of graph-scope in/out edge-count bounds (`specs/45-governance.md`). Absent
+/// }` table of graph-scope in/out edge-count bounds (`specs/architecture/45-governance.md`). Absent
 /// ⇒ `None`. At least one direction must be named, each a `{ min?, max? }` table with
 /// at least one non-negative, well-ordered endpoint. Any malformation collapses to
 /// [`ComposeError::RequirementBadDegree`]. Decided against the resolved arcs in
@@ -1110,7 +1110,7 @@ fn edge_endpoint(
 }
 
 /// Parse the top-level `[reachability]` declaration into a typed [`Reachability`]
-/// (`specs/45-governance.md`, "The world is a node — reachability is a predicate"):
+/// (`specs/architecture/45-governance.md`, "The world is a node — reachability is a predicate"):
 /// the assembly's graph-scope opt-in, carrying the one `severity` key — the author's
 /// `required` / `advisory` dial. A closed vocabulary of one key, so any stray key, or a
 /// missing / mistyped / out-of-vocabulary `severity`, folds into
@@ -1124,7 +1124,7 @@ fn parse_reachability(
         path: path.to_path_buf(),
     };
     // A stray key is a typo that would silently disable the dial, so it is rejected,
-    // not ignored (`specs/10-contracts.md`, unknown keys rejected).
+    // not ignored (`specs/architecture/10-contracts.md`, unknown keys rejected).
     for (key, _) in table.iter() {
         if key != "severity" {
             return Err(bad());
@@ -1139,7 +1139,7 @@ fn parse_reachability(
 }
 
 /// The requirement's optional `unique` field list: a `unique = ["field", …]` array of
-/// declared field names (`specs/45-governance.md`). Absent ⇒ an empty vec; any
+/// declared field names (`specs/architecture/45-governance.md`). Absent ⇒ an empty vec; any
 /// malformation collapses to [`ComposeError::RequirementBadUnique`]. Grouping the
 /// matched fillers by each is left to [`crate::roster`].
 fn parse_unique(table: &Table, name: &str, path: &Path) -> Result<Vec<String>, ComposeError> {
@@ -1159,7 +1159,7 @@ fn parse_unique(table: &Table, name: &str, path: &Path) -> Result<Vec<String>, C
 }
 
 /// The requirement's optional `membership` predicate: an inline `membership = { field,
-/// kind, source, feature }` table (`specs/45-governance.md`). Absent ⇒ `None`; any
+/// kind, source, feature }` table (`specs/architecture/45-governance.md`). Absent ⇒ `None`; any
 /// malformation collapses to [`ComposeError::RequirementBadMembership`]. Deciding
 /// membership against the corpus is left to [`crate::roster`].
 fn parse_membership(
@@ -1190,7 +1190,7 @@ fn parse_membership(
 }
 
 /// The optional `conforms_to` constraint on a `membership`'s source set — a **typed
-/// reference** naming a package by name (`specs/45-governance.md`), so S₂ is narrowed
+/// reference** naming a package by name (`specs/architecture/45-governance.md`), so S₂ is narrowed
 /// to the source artifacts that also conform to it. Absent ⇒ `None` (plain
 /// membership). A non-string value folds into
 /// [`ComposeError::RequirementBadMembership`].
@@ -1429,7 +1429,7 @@ min = 1
     #[test]
     fn a_layered_clause_carries_and_overrides_its_guidance_string() {
         // The docs-channel `guidance` layers exactly as severity/predicate do
-        // (`specs/50-distribution.md`): an *override* (same identity) replaces the
+        // (`specs/architecture/50-distribution.md`): an *override* (same identity) replaces the
         // whole floor clause, so its guidance replaces the floor's; an *extend*
         // (fresh identity) appends its clause, guidance and all. A floor whose
         // `max_len` on `name` carries guidance, overridden by a layer clause that
@@ -1702,7 +1702,7 @@ means = "the harness maintains dev standards"
     #[test]
     fn a_requirement_with_no_means_parses() {
         // `means` is optional too — a requirement may carry only structural facets
-        // (`specs/10-contracts.md`, "all facets optional except its name").
+        // (`specs/architecture/10-contracts.md`, "all facets optional except its name").
         let toml = r#"
 [requirement.linter]
 kind = "rule"
@@ -1736,7 +1736,7 @@ package = "release-command"
     #[test]
     fn an_inline_clause_array_on_a_requirement_is_an_unknown_key() {
         // Inline clauses under a requirement retired — clauses live only in packages
-        // (`specs/10-contracts.md`, the typing facet). A leftover `[[requirement.*.clause]]`
+        // (`specs/architecture/10-contracts.md`, the typing facet). A leftover `[[requirement.*.clause]]`
         // array is no longer a facet but an unknown `clause` key, rejected at parse
         // rather than silently dropped.
         let toml = r#"
@@ -1773,7 +1773,7 @@ package = "skill.anthropic"
     #[test]
     fn the_retired_contract_bundle_key_is_an_unknown_key() {
         // `contract = "<path>"` — a requirement adopting a contract bundle by path —
-        // retired: typing is `package` by name (`specs/10-contracts.md`, the typing
+        // retired: typing is `package` by name (`specs/architecture/10-contracts.md`, the typing
         // facet). A leftover `contract` key is rejected at parse rather than silently
         // dropped, the require-side vocabulary migration.
         let toml = r#"
@@ -1793,7 +1793,7 @@ contract = "contracts/skill.anthropic.toml"
     fn a_match_key_is_rejected_as_an_unknown_key() {
         // The name-`match` selector is eradicated — fill is opt-in `satisfies` alone.
         // A leftover `match = {…}` is no longer a facet but an unknown key, rejected at
-        // parse rather than silently dropped (`specs/10-contracts.md`, "Decision:
+        // parse rather than silently dropped (`specs/architecture/10-contracts.md`, "Decision:
         // unknown keys are rejected, not ignored").
         let toml = r#"
 [requirement.linter]
@@ -2327,7 +2327,7 @@ package = "spec"
     fn an_inline_governs_definition_is_a_retired_stray_key() {
         // The inline custom-kind definition is retired: a `governs` locus under a kind
         // table is no longer a declaration but a stray key, rejected at load exactly as
-        // any other (`specs/40-composition.md`, "Decision: a custom kind is an authored
+        // any other (`specs/architecture/40-composition.md`, "Decision: a custom kind is an authored
         // `.temper/` artifact"). The definition belongs in KIND.md.
         let toml = r#"
 [kind.spec]
@@ -2360,7 +2360,7 @@ primitive = "line_count"
     #[test]
     fn no_reachability_declaration_is_none() {
         // The graph-scope opt-in is opt-in: a `temper.toml` declaring no `[reachability]`
-        // leaves it `None`, so `graph::reachable` never runs (`specs/45-governance.md`).
+        // leaves it `None`, so `graph::reachable` never runs (`specs/architecture/45-governance.md`).
         let layer = AuthorLayer::parse("[kind.skill]\n", Path::new("temper.toml")).unwrap();
         assert!(layer.reachability().is_none());
     }
@@ -2369,7 +2369,7 @@ primitive = "line_count"
     fn a_reachability_declaration_carries_its_severity_dial() {
         // The assembly opts in and declares the dial — `required` here; the parsed value
         // is the author's `required`/`advisory` severity, mapped to the gate weight at
-        // dispatch (`specs/45-governance.md`).
+        // dispatch (`specs/architecture/45-governance.md`).
         let required = AuthorLayer::parse(
             "[reachability]\nseverity = \"required\"\n",
             Path::new("temper.toml"),
@@ -2419,7 +2419,7 @@ primitive = "line_count"
     #[test]
     fn a_reachability_with_a_stray_key_is_a_load_error() {
         // A stray key would silently disable or mis-scope the dial — rejected, not
-        // ignored (`specs/10-contracts.md`, unknown keys rejected).
+        // ignored (`specs/architecture/10-contracts.md`, unknown keys rejected).
         let err = AuthorLayer::parse(
             "[reachability]\nseverity = \"required\"\nkind = \"skill\"\n",
             Path::new("temper.toml"),

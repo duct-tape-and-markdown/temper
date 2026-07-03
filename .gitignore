@@ -11,7 +11,7 @@
 /.flume/awake/
 /.flume/prior-attempts/
 
-# temper's own surface (`.temper/`) IS committed — surface-authority (`specs/20-surface.md`).
+# temper's own surface (`.temper/`) IS committed — surface-authority (`specs/architecture/20-surface.md`).
 # It carries the authored `[representation]` layer (`satisfies` + `rationale`) that the
 # root `temper.toml` requirements are filled by; those links have no source-side home, so
 # committing the surface is what makes the coverage dogfood persistent. Bodies duplicate
