@@ -1,34 +1,5 @@
 [
   {
-    "tag": "DIRECTIVE-BACKING-BASE-DIR",
-    "summary": "Two-step `check` forges false `directive-unbacked` findings — `base_dir` from bare `temper.toml` is empty, so `repo_file_set` walks nothing and every real `@import` reads unbacked",
-    "per": {
-      "path": "specs/architecture/45-governance.md",
-      "section": "The world is a node — reachability is a predicate"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "In `gate` (src/main.rs:779) `base_dir = temper_toml.parent().unwrap_or_else(|| Path::new(\".\"))` resolves to the EMPTY path `\"\"` on the two-step `check` path: the `Command::Check` None-arm (main.rs:296) passes `Path::new(TEMPER_TOML)` (bare `\"temper.toml\"`), and `Path::new(\"temper.toml\").parent()` is `Some(\"\")` — NOT `None` — so the `.` fallback never fires. `repo_file_set(Path::new(\"\"))` then walks nothing (`WalkDir::new(\"\")` yields only an Err, skipped ⇒ empty vec), so the world/backing file-set is empty and EVERY directive target resolves to an unbacked pointer (and every `paths-match` activation would read dead) — the missing-file false-positive law 3 forbids (repo_file_set doc, main.rs:987). Fix the base_dir computation to treat an empty parent as the current dir: `temper_toml.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or_else(|| Path::new(\".\"))`. Localized to the one base_dir line; `repo_file_set`, `classify_directives`, and the one-shot `--harness` path (temper_toml is `<harness>/temper.toml`, parent non-empty) are unchanged. NOTE: this is NOT the inbox's proposed provenance-normalization fix — `graph::normalize_path` already collapses the `././` source_path symmetrically on both sides; the empty backing set is the true cause."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/memory_gate.rs",
-        "asserts": "over the TWO-STEP `check` path (default workspace, bare relative `temper.toml` from the fixture cwd — the route the existing `--harness` cases never exercise): a harness whose `CLAUDE.md` `@import`s a real repo-root sibling, imported to a `.temper/` surface then gated, fires NO `graph.directive-unbacked` on the backed edge; removing the sibling brings the advisory back (the backing check stays live, not disabled)."
-      }
-    ],
-    "acceptance": "The two-step `check` path resolves `base_dir` to the harness root (not `\"\"`), so `repo_file_set` enumerates the whole repo and a backed `@import` (CLAUDE.md → @docs/ledger.md) fires no `graph.directive-unbacked`; deleting the target still fires it; the one-shot `--harness` path is unchanged; cargo fmt/clippy -D warnings/test green. Live: `temper check .temper` on this repo no longer flags `CLAUDE`.",
-    "notes": "Inbox 2026-07-03 (DIRECTIVE-PATH-NORMALIZE) — CHALLENGED. Inbox root cause (unnormalized `././` provenance) is wrong: `graph::normalize_path` already collapses both sides. Real cause: two-step `check` passes bare `Path::new(\"temper.toml\")`; `.parent()` is `Some(\"\")` not `None`, so base_dir=\"\" and repo_file_set is empty. Repro: `check .temper` fires it; `check --harness .` clean. Cosmetic debt (unfiled): `././CLAUDE.md` provenance stays unnormalized, harmless."
-  },
-  {
     "tag": "WALK-IGNORE-DISCIPLINE",
     "summary": "Discovery walks honor ignore rules (`.gitignore` + always-exclude `.git`) so a `**` governs glob can't import a vendored dep's CLAUDE.md as a member — the directive-backing set stays raw disk",
     "per": {
