@@ -150,7 +150,7 @@ pub fn run(harness_path: &Path, into: &Path) -> miette::Result<()> {
             let unit_files = discover_kind_units(harness_path, &kind.governs)?;
             let mut units = Vec::with_capacity(unit_files.len());
             for file in &unit_files {
-                units.push(import_custom_unit(&kind, file, into)?);
+                units.push(import_custom_unit(&kind, harness_path, file, into)?);
             }
             units.sort_by(|a, b| a.name.cmp(&b.name));
             custom.insert(name.to_string(), units);
@@ -180,7 +180,7 @@ fn import_frontmatter_kind(
     let files = discover_builtin(harness, name)?;
     let mut rows = Vec::with_capacity(files.len());
     for file in &files {
-        rows.push(import_frontmatter_member(&kind, file, into)?);
+        rows.push(import_frontmatter_member(&kind, harness, file, into)?);
     }
     rows.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(rows)
@@ -236,10 +236,14 @@ fn builtin_governs(name: &str) -> Result<Governs, ImportError> {
 /// the projection (`specs/architecture/20-surface.md`, "Drift / apply").
 pub(crate) fn import_frontmatter_member(
     kind: &CustomKind,
+    harness: &Path,
     source_file: &Path,
     into: &Path,
 ) -> Result<RollupEntry, ImportError> {
-    let member = Member::from_source(kind, source_file)?;
+    // The scan root the member's placement folds against — the same locus discovery
+    // scanned it from, so a nested file-shaped unit (a recursive `rule`) gets a
+    // placement-folded id rather than a clobbered bare stem (`from_source_rooted`).
+    let member = Member::from_source_rooted(kind, source_file, &harness.join(&kind.governs.root))?;
     // A built-in surfaces under the `governs.root` leaf (`.claude/skills` → `skills`),
     // dropping the harness-specific prefix; a custom kind under its full `governs.root`
     // (`docs/adr`). That single derivation is the only thing the two frontmatter faces
@@ -313,12 +317,14 @@ fn existing_surface_member(out_dir: &Path, member_doc: &str) -> Option<Member> {
 
 /// Discover a kind's units under `<harness>/<governs.root>/` by matching the
 /// `governs.glob` against paths beneath the root. The glob may be **flat** (`*.md` —
-/// immediate files) or carry a **subdirectory** segment (`*/SKILL.md` — a file inside
-/// each matching immediate child); the one scanner resolves both, so it serves every
-/// custom kind and the built-in `skill`/`rule` loci alike. Non-matching entries are
-/// skipped, and a missing root yields an empty list (a declared kind whose corpus
-/// does not exist on this harness). Data-driven discovery — the locus is the kind's
-/// own `governs` declaration (`specs/architecture/40-composition.md`), never a hardwired path.
+/// immediate files), carry a **fixed subdirectory** segment (`*/SKILL.md` — a file
+/// inside each matching immediate child), or open with the **any-depth** wildcard
+/// `**` (`**/AGENTS.md` — the named file at every level of a nested hierarchy); the
+/// one scanner resolves all three, so it serves every custom kind and the built-in
+/// `skill`/`rule` loci alike. Non-matching entries are skipped, and a missing root
+/// yields an empty list (a declared kind whose corpus does not exist on this
+/// harness). Data-driven discovery — the locus is the kind's own `governs`
+/// declaration (`specs/architecture/40-composition.md`), never a hardwired path.
 ///
 /// `pub(crate)` so the drift engine re-runs the same `governs`-keyed scan against a
 /// live harness — every kind's members classify through the identical discovery
@@ -329,12 +335,13 @@ pub(crate) fn discover_kind_units(
 ) -> Result<Vec<PathBuf>, ImportError> {
     let root = harness.join(&governs.root);
     // A glob is a `/`-separated segment list: the final segment matches files, each
-    // earlier one an immediate subdirectory to descend into. `split` always yields at
-    // least one segment.
+    // earlier one a subdirectory to descend into — a `**` segment descending any
+    // number of levels. `split` always yields at least one segment.
     let segments: Vec<&str> = governs.glob.split('/').collect();
     let mut files = Vec::new();
     collect_glob(&root, &segments, &mut files)?;
-    // `read_dir` order is unspecified; sort for deterministic processing.
+    // A `**` reaches one file by exactly one path, but `read_dir` order across levels
+    // is unspecified; sort for deterministic processing.
     files.sort();
     Ok(files)
 }
@@ -342,25 +349,36 @@ pub(crate) fn discover_kind_units(
 /// Walk `dir` collecting every file whose path matches the remaining glob
 /// `segments`. The head segment selects entries at this level; if it is the last,
 /// matching **files** are collected, otherwise matching **subdirectories** are
-/// descended. A missing or non-directory `dir` contributes nothing — a subdir glob
-/// whose intermediate level is absent, or a locus that does not exist on this
-/// harness, both resolve to no units rather than an error.
+/// descended. A `**` head is the any-depth wildcard — it matches zero or more
+/// directory levels, so a nested nearest-wins hierarchy (the agents.md / `CLAUDE.md`
+/// memory nesting) is discovered at every level, not just the fixed glob depth
+/// (`specs/architecture/40-composition.md`). A missing or non-directory `dir`
+/// contributes nothing — a subdir glob whose intermediate level is absent, or a locus
+/// that does not exist on this harness, both resolve to no units rather than an error.
 fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result<(), ImportError> {
     if !dir.is_dir() {
         return Ok(());
     }
-    let (segment, rest) = segments
-        .split_first()
-        .expect("a governs glob has at least one path segment");
-    let listing = fs::read_dir(dir).map_err(|source| ImportError::ReadDir {
-        path: dir.to_path_buf(),
-        source,
-    })?;
-    for entry in listing {
-        let entry = entry.map_err(|source| ImportError::ReadDir {
-            path: dir.to_path_buf(),
-            source,
-        })?;
+    let Some((segment, rest)) = segments.split_first() else {
+        // `**` recurses with the same segments, so it can bottom out at an empty list
+        // (a trailing `**` with nothing left to match): nothing more to collect here.
+        return Ok(());
+    };
+    if *segment == "**" {
+        // Zero levels: match the remaining segments right at this level, so
+        // `**/AGENTS.md` picks up an `AGENTS.md` directly under the root too.
+        collect_glob(dir, rest, out)?;
+        // One-or-more levels: descend into every subdirectory carrying the `**`, so
+        // each nested file is reached by exactly one path (no double-collection).
+        for entry in read_entries(dir)? {
+            let path = entry.path();
+            if path.is_dir() {
+                collect_glob(&path, segments, out)?;
+            }
+        }
+        return Ok(());
+    }
+    for entry in read_entries(dir)? {
         let path = entry.path();
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
@@ -377,6 +395,24 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
         }
     }
     Ok(())
+}
+
+/// Read `dir`'s entries into a vector, mapping any failure to an
+/// [`ImportError::ReadDir`]. Collected eagerly so a level can be scanned twice — the
+/// `**` wildcard both matches files at a level and descends its subdirectories —
+/// without re-implementing the error mapping at each read.
+fn read_entries(dir: &Path) -> Result<Vec<fs::DirEntry>, ImportError> {
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(dir).map_err(|source| ImportError::ReadDir {
+        path: dir.to_path_buf(),
+        source,
+    })? {
+        entries.push(entry.map_err(|source| ImportError::ReadDir {
+            path: dir.to_path_buf(),
+            source,
+        })?);
+    }
+    Ok(entries)
 }
 
 /// Read one discovered custom-kind unit and write its surface tree under
@@ -399,16 +435,21 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
 /// unit into the surface, folding the returned row straight into the lock.
 pub(crate) fn import_custom_unit(
     kind: &CustomKind,
+    harness: &Path,
     source_file: &Path,
     into: &Path,
 ) -> Result<RollupEntry, ImportError> {
     match kind.format {
         Some(Format::YamlFrontmatter) => {
-            let member = Member::from_source(kind, source_file)?;
+            // Fold placement against the `governs` root so a nested same-named unit
+            // (`sub/AGENTS.md`) keeps a distinct surface id, symmetric with the
+            // whole-file path below (`from_source_rooted`, `wholefile_id`).
+            let member =
+                Member::from_source_rooted(kind, source_file, &harness.join(&kind.governs.root))?;
             let out_dir = into.join(&kind.governs.root).join(&member.id);
             write_member_surface(kind, member, &out_dir, source_file.parent())
         }
-        None => import_wholefile_unit(kind, source_file, into),
+        None => import_wholefile_unit(kind, harness, source_file, into),
     }
 }
 
@@ -421,6 +462,7 @@ pub(crate) fn import_custom_unit(
 /// rather than losing its siblings.
 fn import_wholefile_unit(
     kind: &CustomKind,
+    harness: &Path,
     source_file: &Path,
     into: &Path,
 ) -> Result<RollupEntry, ImportError> {
@@ -433,7 +475,7 @@ fn import_wholefile_unit(
         path: source_file.to_path_buf(),
         source,
     })?;
-    let name = wholefile_id(kind, source_file)?;
+    let name = wholefile_id(kind, &harness.join(&kind.governs.root), source_file)?;
 
     let out_dir = into.join(&kind.governs.root).join(&name);
     create_dir_all(&out_dir)?;
@@ -471,12 +513,14 @@ fn import_wholefile_unit(
 }
 
 /// The member id for a whole-file custom unit, derived per the kind's declared
-/// [`unit_shape`](UnitShape): the parent directory name for `Directory`, the filename
-/// stem for `File` (or an absent shape, which defaults to a lone file). Mirrors the id
-/// derivation [`Member::from_source`] runs for the frontmatter face, so both faces name
-/// a unit the same way. A source path yielding no id component for its shape is a
+/// [`unit_shape`](UnitShape): the parent directory name for `Directory`, and for `File`
+/// (or an absent shape, defaulting to a lone file) the placement-folded stem relative to
+/// the `governs`-root directory `base` (`frontmatter::fold_file_id`). It shares that
+/// fold with the frontmatter face ([`Member::from_source_rooted`]), so both faces name a
+/// nested unit the same way — a nested `sub/AGENTS.md` gets a distinct id, not a
+/// clobbered bare stem. A source path yielding no id component for its shape is a
 /// [`FrontmatterError::NoId`], the same error the frontmatter face raises.
-fn wholefile_id(kind: &CustomKind, source_file: &Path) -> Result<String, ImportError> {
+fn wholefile_id(kind: &CustomKind, base: &Path, source_file: &Path) -> Result<String, ImportError> {
     let id = match kind.unit_shape {
         Some(UnitShape::Directory) => source_file
             .parent()
@@ -486,18 +530,11 @@ fn wholefile_id(kind: &CustomKind, source_file: &Path) -> Result<String, ImportE
             .ok_or(FrontmatterError::NoId {
                 path: source_file.to_path_buf(),
                 shape: "directory",
-            })?,
-        Some(UnitShape::File) | None => {
-            source_file
-                .file_stem()
-                .and_then(OsStr::to_str)
-                .ok_or(FrontmatterError::NoId {
-                    path: source_file.to_path_buf(),
-                    shape: "file",
-                })?
-        }
+            })?
+            .to_string(),
+        Some(UnitShape::File) | None => frontmatter::fold_file_id(base, source_file)?,
     };
-    Ok(id.to_string())
+    Ok(id)
 }
 
 /// The header to emit for a custom unit: carry every authored clause table from an
@@ -1335,6 +1372,133 @@ key = \"title\"\n\
             .map(|t| t["name"].as_str().unwrap())
             .collect();
         assert_eq!(names, vec!["deploy"]);
+
+        // Idempotent on re-import.
+        let first = tree_bytes(&into);
+        run(&harness, &into).unwrap();
+        assert_eq!(first, tree_bytes(&into));
+    }
+
+    #[test]
+    fn an_any_depth_glob_discovers_a_nested_hierarchy_with_placement_folded_ids() {
+        // A memory-format custom kind (no format ⇒ whole-file byte-faithful) whose
+        // `governs.glob` opens with the any-depth `**` wildcard, modelling the nested
+        // nearest-wins hierarchy of `AGENTS.md`/`CLAUDE.md`: a `MEMORY.md` at the root
+        // and at two deeper levels, every one discovered — not just the fixed glob
+        // depth — and each folded to a distinct surface id by its placement.
+        let harness = tmpdir("recursive-src");
+        write_fixture_harness(&harness);
+        register_custom_kind(
+            &harness,
+            "memory",
+            "+++\n\
+governs = { root = \"memory\", glob = \"**/MEMORY.md\" }\n\
+unit_shape = \"file\"\n\
++++\n\
+# The memory kind\n",
+        );
+        let root = harness.join("memory");
+        fs::create_dir_all(root.join("api").join("db")).unwrap();
+        fs::write(root.join("MEMORY.md"), "root memory\n").unwrap();
+        fs::write(root.join("api").join("MEMORY.md"), "api memory\n").unwrap();
+        fs::write(root.join("api").join("db").join("MEMORY.md"), "db memory\n").unwrap();
+        // Noise the glob must skip: a same-named file is the whole point, but a
+        // differently-named sibling at depth is not a member.
+        fs::write(root.join("api").join("NOTES.md"), "not a member\n").unwrap();
+
+        let into = tmpdir("recursive-into");
+        run(&harness, &into).unwrap();
+
+        // Every level is discovered, and the root vs nested files carry distinct,
+        // placement-folded ids rather than collapsing onto one clobbered `MEMORY` dir.
+        let doc = fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        let names: Vec<&str> = doc["memory"]
+            .as_array_of_tables()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["MEMORY", "api-MEMORY", "api-db-MEMORY"]);
+
+        // Each id is a real, separate surface directory carrying its own body — no
+        // clobber (three same-named sources, three distinct surfaces).
+        for (name, body) in [
+            ("MEMORY", "root memory\n"),
+            ("api-MEMORY", "api memory\n"),
+            ("api-db-MEMORY", "db memory\n"),
+        ] {
+            let surface = into.join("memory").join(name);
+            let document = fs::read_to_string(surface.join("MEMORY.md")).unwrap();
+            assert!(document.starts_with("+++\n[provenance]\n"));
+            assert!(document.ends_with(body));
+        }
+
+        // Re-import into the same workspace changes not a single byte.
+        let first = tree_bytes(&into);
+        run(&harness, &into).unwrap();
+        assert_eq!(first, tree_bytes(&into));
+    }
+
+    #[test]
+    fn an_any_depth_glob_folds_placement_on_the_frontmatter_face_too() {
+        // The frontmatter face folds placement identically: a `yaml-frontmatter`
+        // file-shaped kind with an any-depth glob imports two nested same-named files
+        // to distinct surface ids, symmetric with the whole-file face above — both
+        // faces name a nested unit the same way.
+        let harness = tmpdir("recursive-fm-src");
+        write_fixture_harness(&harness);
+        register_custom_kind(
+            &harness,
+            "log",
+            "+++\n\
+governs = { root = \"logs\", glob = \"**/LOG.md\" }\n\
+format = \"yaml-frontmatter\"\n\
+unit_shape = \"file\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"field\"\n\
+key = \"title\"\n\
++++\n\
+# The log kind\n",
+        );
+        let logs = harness.join("logs");
+        fs::create_dir_all(logs.join("2026")).unwrap();
+        fs::write(logs.join("LOG.md"), "---\ntitle: Root\n---\n# Root log\n").unwrap();
+        fs::write(
+            logs.join("2026").join("LOG.md"),
+            "---\ntitle: Yearly\n---\n# Yearly log\n",
+        )
+        .unwrap();
+
+        let into = tmpdir("recursive-fm-into");
+        run(&harness, &into).unwrap();
+
+        // Distinct placement-folded surface ids, each reloading through the generic
+        // adapter with its own declared field and body.
+        let doc = fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        let names: Vec<&str> = doc["log"]
+            .as_array_of_tables()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["2026-LOG", "LOG"]);
+
+        let root = Member::from_surface(&into.join("logs").join("LOG"), "LOG.md").unwrap();
+        assert_eq!(root.id, "LOG");
+        assert_eq!(root.field("title").and_then(|v| v.as_str()), Some("Root"));
+        let nested = Member::from_surface(&into.join("logs").join("2026-LOG"), "LOG.md").unwrap();
+        assert_eq!(nested.id, "2026-LOG");
+        assert_eq!(
+            nested.field("title").and_then(|v| v.as_str()),
+            Some("Yearly")
+        );
 
         // Idempotent on re-import.
         let first = tree_bytes(&into);

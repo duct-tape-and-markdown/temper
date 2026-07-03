@@ -762,7 +762,7 @@ pub fn re_add(
         let rollup = if BUILTIN_KINDS.contains(&entry.kind.as_str()) {
             let kind = builtin_kind::definition(&entry.kind)?
                 .expect("a built-in frontmatter kind resolves to an embedded KIND.md");
-            import::import_frontmatter_member(&kind, &entry.source_path, workspace_dir)?
+            import::import_frontmatter_member(&kind, harness, &entry.source_path, workspace_dir)?
         } else {
             // A registered custom kind: re-project the whole file byte-faithfully
             // through the same generic writer `import` uses. Absent its definition
@@ -771,7 +771,7 @@ pub fn re_add(
             let Some(kind) = custom_kinds.iter().find(|k| k.name == entry.kind) else {
                 continue;
             };
-            import::import_custom_unit(kind, &entry.source_path, workspace_dir)?
+            import::import_custom_unit(kind, harness, &entry.source_path, workspace_dir)?
         };
 
         let outcome = if entry.state == DriftState::Drifted {

@@ -152,6 +152,30 @@ impl Member {
     /// Returns a [`FrontmatterError`] if the source cannot be read, is not UTF-8, or
     /// yields no id for its declared shape.
     pub fn from_source(kind: &CustomKind, source_file: &Path) -> Result<Self, FrontmatterError> {
+        // No scan-root context: a file-shaped unit folds no placement (its immediate
+        // parent is the base, so the relative placement is empty — the bare stem). The
+        // import driver, which knows the `governs` root, calls
+        // [`from_source_rooted`](Member::from_source_rooted) so a nested unit folds.
+        let base = source_file.parent().unwrap_or(source_file);
+        Self::from_source_rooted(kind, source_file, base)
+    }
+
+    /// Import a member as [`from_source`](Member::from_source), but resolve a
+    /// file-shaped unit's id against the `governs`-root directory `base`: a unit nested
+    /// below `base` folds its placement into the id (`specs/architecture/40-composition.md`,
+    /// "Registering a custom kind" — file placement is an extraction primitive), so two
+    /// nested same-named files (`sub/AGENTS.md` and a root `AGENTS.md`) carry distinct
+    /// surface ids rather than collapsing to one bare stem. A directory-shaped unit is
+    /// unaffected — its id is its own directory name, already distinct per member.
+    ///
+    /// # Errors
+    ///
+    /// As [`from_source`](Member::from_source).
+    pub fn from_source_rooted(
+        kind: &CustomKind,
+        source_file: &Path,
+        base: &Path,
+    ) -> Result<Self, FrontmatterError> {
         let bytes = fs::read(source_file).map_err(|source| FrontmatterError::Io {
             path: source_file.to_path_buf(),
             source,
@@ -183,17 +207,7 @@ impl Member {
                 (id, scan_companions(dir, name)?)
             }
             // `file` shape, or an undeclared shape defaulting to a lone file.
-            Some(UnitShape::File) | None => {
-                let id = source_file
-                    .file_stem()
-                    .and_then(OsStr::to_str)
-                    .ok_or_else(|| FrontmatterError::NoId {
-                        path: source_file.to_path_buf(),
-                        shape: "file",
-                    })?
-                    .to_string();
-                (id, Vec::new())
-            }
+            Some(UnitShape::File) | None => (fold_file_id(base, source_file)?, Vec::new()),
         };
 
         let parsed = parse_frontmatter(&raw);
@@ -440,6 +454,59 @@ pub(crate) fn scan_companions(
     }
     companions.sort();
     Ok(companions)
+}
+
+/// Derive a **file-shaped** unit's surface id, folding the directory placement below
+/// the `governs`-root directory `base` into it (`specs/architecture/40-composition.md`,
+/// "Registering a custom kind" — file placement is an extraction primitive). A unit
+/// directly under `base` keeps its bare filename stem — the common flat case, unchanged
+/// — while a nested one prefixes its placement path, the placement components and the
+/// stem joined with `-` into one surface-directory component. This is what stops a
+/// nested nearest-wins hierarchy (agents.md / `CLAUDE.md` memory nesting) from
+/// collapsing two same-named files at different depths onto one clobbered surface entry.
+///
+/// Both adapter faces share it — the frontmatter face
+/// ([`Member::from_source_rooted`]) and the whole-file face
+/// (`import::wholefile_id`) — so a nested unit is named identically whichever path
+/// imports it. A source not under `base` (a caller with no root context) folds no
+/// placement, degrading to the bare stem rather than erroring.
+///
+/// # Errors
+///
+/// Returns [`FrontmatterError::NoId`] if the source has no filename stem, or a
+/// placement component that is not valid UTF-8 — the same failure a bare stem raises.
+pub(crate) fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, FrontmatterError> {
+    let no_id = || FrontmatterError::NoId {
+        path: source_file.to_path_buf(),
+        shape: "file",
+    };
+    let stem = source_file
+        .file_stem()
+        .and_then(OsStr::to_str)
+        .ok_or_else(no_id)?;
+
+    // Placement = the directories between the scan root and the file. `.` components
+    // (a `base` that named the current dir) carry no placement and are skipped, so the
+    // flat case reduces to the bare stem.
+    let placement = source_file
+        .strip_prefix(base)
+        .ok()
+        .and_then(Path::parent)
+        .filter(|dirs| !dirs.as_os_str().is_empty());
+    let Some(dirs) = placement else {
+        return Ok(stem.to_string());
+    };
+
+    let mut parts = Vec::new();
+    for component in dirs.iter() {
+        let part = component.to_str().ok_or_else(no_id)?;
+        if part == "." {
+            continue;
+        }
+        parts.push(part);
+    }
+    parts.push(stem);
+    Ok(parts.join("-"))
 }
 
 /// Convert a JSON value to a `toml_edit` value, rendering objects as inline tables.
