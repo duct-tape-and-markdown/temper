@@ -776,7 +776,15 @@ fn gate(
     // the harness root, over-collected so an extra file can only suppress a finding, never
     // forge one (law 3). Computed once on the FLOOR and read by both the directive classing
     // below and the reachability predicate under the assembly tier.
-    let base_dir = temper_toml.parent().unwrap_or_else(|| Path::new("."));
+    // `Path::new("temper.toml").parent()` is `Some("")`, not `None` — the two-step
+    // `check` route passes a bare relative `temper.toml`, so an unfiltered `.parent()`
+    // yields the empty path and `repo_file_set` walks nothing (WalkDir on "" yields only
+    // an Err, skipped ⇒ empty set), forging a `directive-unbacked` on every real import
+    // (law 3). Treat an empty parent as the current dir.
+    let base_dir = temper_toml
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
     let repo_files = repo_file_set(base_dir);
 
     // Directive-target classing on the FLOOR tier (`specs/architecture/15-kinds.md`, "Directives";
