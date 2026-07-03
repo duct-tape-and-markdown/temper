@@ -1,41 +1,14 @@
 [
   {
-    "tag": "MEMORY-COLLISION-SCOPE",
-    "summary": "Scope bare-name collision to the caller who binds it — `definitions()`/`resolve()` must not fail for every caller when two providers co-embed the same bare `memory` kind",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Decision: kind identity carries a provider axis"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`definitions()` (builtin_kind.rs:85-96) and `resolve()` (:112-119) call `CustomKind::resolve_bare` for EVERY embedded kind against the whole set and propagate the first `AmbiguousKind` via `?`, so two co-embedded `memory` carriers fail for every caller — stricter than the Decision's 'nobody pays a qualification tax until two providers actually meet'. Scope the collision cost to the caller who binds/references the ambiguous BARE name: `definitions()` keys by qualified (or per-provider) identity without eagerly resolving every bare name; `resolve(name)`/`source(name)`/`qualified(name)`/`definition(name)` still return `AmbiguousKind` only for the specific bare `name` that actually collides. Non-colliding bare names (`skill`, `rule`) and qualified lookups stay clean. Extend the in-file `#[cfg(test)]` mod with a two-`memory`-provider fixture proving `definitions()` succeeds and only a bare-`memory` lookup errors."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/builtin_kind.rs",
-        "asserts": "with two providers co-embedding bare `memory`, `definitions()` returns the full set (keyed by qualified identity) and a bare-`skill`/`rule` lookup stays clean; only a bare-`memory` `resolve`/`source`/`qualified` errors `AmbiguousKind`, naming the qualified candidates."
-      }
-    ],
-    "acceptance": "Two providers carrying bare `memory` no longer break `definitions()` for unrelated callers; the collision surfaces only when a bare `memory` is bound/looked up; cargo fmt/clippy -D warnings/test green — unblocking the human to commit the four curated memory files.",
-    "notes": "Inbox wave-1 slice 1 (blocks the wave). After it drains the human commits the four curated files (2 KIND.md + 2 PACKAGE.md) together — co-embedding two `memory` carriers turns cargo test red today via eager resolution. Disjoint from slice 2 (builtin_kind.rs vs import.rs) — both `open`, parallel-safe."
-  },
-  {
     "tag": "IMPORT-BUILTIN-SCAN-GENERIC",
     "summary": "Drive `import`'s built-in scan off `builtin_kind::definitions()` instead of the hardcoded `[\"skill\",\"rule\"]` literal, so an embedded third built-in kind discovers its members",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "Artifact kinds & package binding"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -64,7 +37,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: package binding is by artifact kind"
     },
-    "gate": { "kind": "blockedBy", "tag": "IMPORT-BUILTIN-SCAN-GENERIC" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "IMPORT-BUILTIN-SCAN-GENERIC"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -105,7 +81,10 @@
       "path": "specs/architecture/15-kinds.md",
       "section": "Decision: the adapter faces are declared — a kind names its projection format"
     },
-    "gate": { "kind": "blockedBy", "tag": "IMPORT-BUILTIN-SCAN-GENERIC" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "IMPORT-BUILTIN-SCAN-GENERIC"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -134,7 +113,10 @@
       "path": "specs/architecture/40-composition.md",
       "section": "Registering a custom kind"
     },
-    "gate": { "kind": "blockedBy", "tag": "DECLARED-FRONTMATTER-ADAPTER-CUSTOM" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DECLARED-FRONTMATTER-ADAPTER-CUSTOM"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
