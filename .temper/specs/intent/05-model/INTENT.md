@@ -35,7 +35,7 @@ kind = "architecture"
 required = true
 
 [requirement.member]
-means = "the `member` document format — a TOML-fenced header over a byte-faithful markdown body — must be given an architecture home"
+means = "the `member` concept — one artifact instance in one of three carriages (module-carried on the authoring face, document-carried at the floor, in-place in the landscape), one feature shape however carried — must be given an architecture home"
 kind = "architecture"
 required = true
 
@@ -45,7 +45,22 @@ kind = "architecture"
 required = true
 
 [requirement.assembly]
-means = "the `assembly` concept — `temper.toml` as the layered binding manifest — must be given an architecture home"
+means = "the `assembly` concept — the layered binding declaration, authored on the authoring face or hand-written at the floor, serialized as the manifest — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.authoring-face]
+means = "the authoring face — the typed module library (members, kinds, packages, the assembly as typed values) that emit compiles — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.manifest]
+means = "the manifest — the inert, gate-read serialization (`temper.toml` + the lock) that every check, read verb, and CI placement consumes with no language runtime — must be given an architecture home"
+kind = "architecture"
+required = true
+
+[requirement.mention]
+means = "the mention — an authored prose interpolation of a declared value: a one-way, resolution-checked, obligation-free edge, opt-in per word forever (law 8) — must be given an architecture home"
 kind = "architecture"
 required = true
 
@@ -112,11 +127,13 @@ in a package, not the whole of it (`00-intent.md` positioning).
                                                                  │
    kind + its artifact-scope contract = a TYPE  ◄────conformance─┘
 
-   SURFACE ── compose, then project ──► LANDSCAPE (.claude/, specs/, code)
-   (authored source of truth:          a corpus of ARTIFACTs (≥1 kinds),
-    temper.toml = the ASSEMBLY,        governed by the assembly via
-    .temper/ = kinds incl. package)    REQUIREMENTS (roster) · ENTITIES (graph)
-        ▲ import / re-add                       │
+   AUTHORING FACE ── emit (checked) ──► MANIFEST + LANDSCAPE (.claude/, specs/)
+   (the typed library: members,        the inert serialization the gate reads,
+    kinds, packages, the ASSEMBLY      beside the projected corpus of ARTIFACTs,
+    as typed values; the floor         governed by the assembly via
+    hand-writes the manifest and       REQUIREMENTS (roster) · ENTITIES (graph)
+    keeps members in place)                     │
+        ▲ init (one-time lift)                  │
         └───────────────────────────────  a PACKAGE binds a kind's contract (require-side)
 ```
 
@@ -132,12 +149,16 @@ The vocabulary; the **owning spec** carries the detail.
 | **contract** | the require-side: clauses over a kind's features (never a synonym for `temper.toml` or a package) | `10-contracts.md` |
 | clause | one predicate application; carries severity + fact/opinion | `10` / `15` |
 | **package** | a reusable, bindable bundle of a kind's contract (decidable clauses) + guidance (prose, never gates), two separate channels; itself a kind, checked by the definition; shipped *or* project-authored (non-privileged) | `10-contracts.md` |
-| **assembly** | `temper.toml`: binds packages to kinds, declares requirements (the roster) + relationships-that-must-exist — the extensional set/graph-arity layer | `40-composition.md` |
+| **assembly** | the layered binding declaration: binds packages to kinds, declares requirements (the roster) + relationships-that-must-exist — authored on the face or hand-written at the floor, serialized as the manifest | `40-composition.md` |
+| **authoring face** | the typed module library — members, kinds, packages, the assembly as typed values; composition is an import; `emit` compiles it | `20-surface.md` |
+| **manifest** | the inert, gate-read serialization (`temper.toml` + the lock); every check, read verb, and placement consumes it offline, no runtime | `20-surface.md` |
+| emit | the checked compile: authoring face → projection + manifest; byte-reproducible or it is a finding | `20-surface.md` |
 | **artifact** | an instance of a kind (typed fields, content-faithful body, `extra` unknown-key catch-all, companions, provenance) | `20-surface.md` |
-| **member** | the role an instance artifact plays (a `skill`/`rule`/`spec`) vs a governing package/kind; a role, not a directory | `20-surface.md` |
+| **member** | the role an instance artifact plays vs a governing package/kind; carried one of three ways — **module-carried** (a typed value on the face), **document-carried** (the floor's header-over-body document), **in-place** (the landscape file itself is the member) — one feature shape however carried | `20-surface.md` |
+| **mention** | an authored prose interpolation of a declared value: a one-way, resolution-checked, obligation-free edge; opt-in per word, forever (law 8) | `45-governance.md` |
 | **landscape** | a corpus of artifacts (≥1 kinds) governed by the assembly | `30-landscapes.md` |
-| **surface** | the authored source of truth; projects to the landscape | `20-surface.md` |
-| projection | the on-disk landscape `apply` writes from the surface | `20-surface.md` |
+| **surface** | the authored source of truth (the face at the altitude; manifest + in-place members at the floor); compiles to the landscape | `20-surface.md` |
+| projection | the on-disk landscape `emit` writes from the surface | `20-surface.md` |
 | **requirement** | the demand-side end of a fill edge, published by the assembly or a member's header: a named obligation (optional `means`, typing `kind`/`package`, multiplicity), joined to a member by `satisfies` — the sole binding, no name-`match` (the contract never guesses); coverage-gated, never judged | `10-contracts.md` |
 | **satisfies** | the member-side end of the same edge: an artifact's opt-in declaration (in its representation) that it fills a requirement — the sole, decidable fill | `10-contracts.md` |
 | **join** | the two-sided relationship mechanism: a demand and a claim that must agree — requirement/satisfies are its ends; every intra-world edge is one (one-way edges exist only at the governance boundary) | `45-governance.md` |
@@ -163,9 +184,16 @@ The vocabulary; the **owning spec** carries the detail.
   a kind declares entities, the **relationships-that-must-exist** (the graph).
 - an author *adopts / extends / forks* a **package** and binds it in the assembly, and
   declares **custom kinds** as authored artifacts under `.temper/` (`40-composition.md`).
-- a **surface** is the authored source (`temper.toml` + `.temper/`); `apply`
-  **projects** it to the landscape on disk; `import` / `re-add` reconcile back (drift,
-  `20-surface.md`).
+- a **surface** is the authored source — at the altitude, the **authoring face**
+  (the typed library); at the floor, a hand-written manifest over **in-place**
+  members. **emit** compiles the face to the landscape on disk plus the
+  **manifest**; `init` lifts an existing harness up once; a hand-edit to the
+  projection is a drift finding routed to the authored source, never
+  reverse-parsed (`20-surface.md`).
+- a **mention** interpolates a declared value into authored prose — a declared
+  one-way edge the gate resolution-checks and the obligation graph ignores
+  (`45-governance.md`); the module graph of the face and the join graph carry
+  the same intent at two grains.
 - landscapes reference each other: a declared **entity** in one may require a
   corresponding entity/symbol in another — the **cross-landscape seam** (spec ⟷
   code), checked both directions (`30-landscapes.md`).

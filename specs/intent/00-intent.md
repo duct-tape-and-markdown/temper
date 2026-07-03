@@ -61,11 +61,14 @@ These bind every part of the tool and every change to it.
 5. **Content-faithful authorship; deterministic projection; provenance is
    load-bearing.** `temper` never rewords, synthesizes, or drops authored prose —
    the words are the human's, wherever they sit. Projection is byte-deterministic
-   and idempotent: the same surface emits the same landscape, every time. Import
-   is a one-time *parse into the surface language* — a migration, free to
-   normalize framing, never to alter content; after it the surface is the single
-   authored home. Every member carries `source_path` + `import_hash` — the drift
-   anchor. (`20-surface.md`.)
+   and idempotent: the same surface emits the same landscape, every time — and
+   **emit**, the compile from the authoring face to the manifest and projection
+   (`20-surface.md`), is byte-reproducible and mechanically checked, so
+   nondeterminism in authoring code is detected, never trusted. A migration into
+   the surface (`init`'s lift) is one-time — free to normalize framing, never to
+   alter content; after it the surface is the single authored home. The lock
+   carries every member's provenance fingerprints — the drift anchor.
+   (`20-surface.md`.)
 
 6. **Fearless harness refactoring.** Because conformance is checkable, the author
    can reshape, dedupe, and compose the harness and re-verify — the original
@@ -83,16 +86,22 @@ These bind every part of the tool and every change to it.
 
 8. **The model is declared, never mined.** An entity or relationship exists
    because an author declared it on a structured surface — a header clause, a
-   frontmatter field, the assembly, or a syntax the external format itself
+   frontmatter field, the assembly, an authored interpolation in prose (a
+   **mention**, `20-surface.md` — the author marks the word a reference;
+   nothing is grepped), or a syntax the external format itself
    executes (a `CLAUDE.md` `@path` import is the harness's structure, not
-   prose) — never because prose mentioned a name or a path. Inter-artifact
+   prose) — never because prose merely named a thing. Inter-artifact
    relationships are **authored intent**, not mechanics
    the tool reconstructs from bodies; a mined edge is a guess wearing tier-1
-   clothes, false in both directions (a mention is not an edge; an edge is not
-   always mentioned), and law 3's false-positive machine by another door. A
-   check may read authored content (a line count, a marker in a section); it
-   may never derive model *structure* from it. (`45-governance.md` decides the
-   reference case; this is the cross-cutting law it instantiates.)
+   clothes, false in both directions (an unmarked mention is not an edge; an
+   edge is not always mentioned), and law 3's false-positive machine by another
+   door. A check may read authored content (a line count, a marker in a
+   section); it may never derive model *structure* from it. The bound runs
+   both ways: a mention is opt-in per word, forever — plain prose is a fully
+   legal member, and a completeness demand over mentions ("this paragraph
+   should have modeled its nouns") would rebuild the mining swamp from the
+   declaration side; law 4 holds at the finest grain. (`45-governance.md`
+   decides the reference case; this is the cross-cutting law it instantiates.)
 
 ## One engine, every layer an instance
 
@@ -135,9 +144,10 @@ stands on its own without it.)
 ## Positioning
 
 The **product** is a **declarative configuration model for the agent harness**: the
-author composes the whole harness at one altitude — the **assembly** (`temper.toml`)
-binding **packages** to **kinds** over the authored **members** in `.temper/` — and
-`temper` projects it into the project. The **typed gate** is the *differentiating
+author composes the whole harness at one altitude — the **authoring face**
+(`20-surface.md`): the **assembly** (authored as the config, serialized as the
+`temper.toml` **manifest**) binding **packages** to **kinds** over the authored
+**members** — and `temper` **emits** it into the project. The **typed gate** is the *differentiating
 guarantee* that model uniquely offers: because the surface is declared, malformed
 harness config is caught at author-time, not at the 2am page. The declarative model is
 why you reach for `temper`; the gate is why you reach for it over a dotfiles manager.
@@ -200,3 +210,26 @@ The linter framing makes `temper` optional and external to the work and strands
 law 6 (you cannot fearlessly refactor a surface you do not author); the
 composition framing makes `temper` the place the harness *lives*. The checker is
 one face of that surface, never the whole tool.
+
+## Decision: the authoring face is a typed library; the gate reads inert data
+
+**Chosen:** the altitude's authoring medium is a **typed module library** — the
+**authoring face** (`20-surface.md`): members, kinds, packages, and the assembly
+authored as typed values that **emit** compiles into the projection plus one
+inert **manifest** (`temper.toml` + the lock). All Turing-completeness is
+quarantined at authoring time; the gate, CI, and every read verb consume only
+declared data, offline, with no language runtime — law 3's "no `if` to hide an
+opinion in" holds where opinions are *checked*, which is the only place it
+must. The manifest stays hand-authorable — the no-Node floor of the adoption
+gradient (`20-surface.md`) — so declared data remains the escape hatch, never
+the toll. The prior same-medium mirror (markdown members shadowing markdown
+projections) is retired as **illegible**: source and output in one medium read
+as a copy that isn't, where a module compiling to an artifact reads as
+src→dist — the relationship every author already trusts. (Ratified 2026-07-03;
+the pre-reformulation state is the `mirror-era` tag.) **Rejected:** (a)
+script-as-canonical configuration — the gate executing author code to learn
+the contract dissolves decidability, determinism, and the offline gate in one
+move; (b) keeping the same-medium mirror — the dogfood showed the posture
+illegible even to its own author; (c) the typed face as the *only* medium —
+mandatory Node in every consumer's path, where law 2 demands a declared-data
+floor no runtime can hold hostage.

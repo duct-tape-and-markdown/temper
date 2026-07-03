@@ -7,7 +7,7 @@ same source — the **assembly** (built-in **packages** ⊕ the author's `temper
 
 | Moment | Placement | Form of the gate |
 | ------ | --------- | ---------------- |
-| Keystroke | editor schema | the decidable contract as JIT validation (`temper schema`) |
+| Keystroke | the face's types + TSDoc (altitude); editor schema (floor, `temper schema`) | the decidable contract as JIT validation, guidance as hover |
 | Session start | `SessionStart` hook | **advisory** — checks, surfaces the verdict, instructs notify-and-approve (cannot block; Decision below) |
 | Human change | CI job on PRs | "gate, don't lint," where humans collaborate |
 | On demand | the CLI | the author runs it |
@@ -35,7 +35,7 @@ too. (Build's writable paths must include the plugin tree for the loop to author
 ### Decision: the skill is mechanics, never taste
 
 **Chosen:** the bundled skill teaches the agent to *operate the gate* — when to
-`import` / `check`, how to read a diagnostic, and when to **challenge the contract**
+`init` / `emit` / `check`, how to read a diagnostic, and when to **challenge the contract**
 versus fix the artifact (the `collaboration` reflex) — and the **model's vocabulary
 itself** (the cleave: kind reads, package judges, member fills, assembly binds),
 because an agent cannot operate a verdict spoken in words it does not hold.
@@ -78,7 +78,7 @@ contract failing.)
 
 **Chosen:** `temper install` **projects** the gate's integration points — the
 `SessionStart` hook into `.claude/settings.json`, the CI job into `.github/`, the
-schema modeline into artifact headers — as ordinary artifacts under the three-state
+schema modeline into artifact headers — as ordinary artifacts under the
 drift engine (`20-surface.md`). It complements the plugin rather than duplicating
 it: the plugin carries the hook in its own `hooks.json`, while `install` delivers
 the placements a plugin *cannot* — CI workflows and schema modelines live in *your*
@@ -89,12 +89,17 @@ detect staleness (Lefthook's approach). `temper` already owns principled drift; 
 second staleness mechanism would be redundant and could disagree with the first.
 Installing the gate is just projection.
 
-## The gate at keystroke — the emitted schema
+## The gate at keystroke — two spellings of one channel pair
 
-`temper schema [--kind <k>]` emits a JSON Schema **from the assembly and its bound
+At the **altitude**, the keystroke placement is the toolchain itself: the
+SDK's types deliver the decidable contract as compile-time validation (an
+inexpressible clause is unwritable — `10-contracts.md`, the two walls) and
+TSDoc delivers guidance as hover — tsc serving both channels with no temper
+daemon in the loop. At the **floor**, `temper schema [--kind <k>]` emits a
+JSON Schema **from the assembly and its bound
 packages** and wires it into frontmatter via the `# yaml-language-server: $schema=…`
 modeline (the path that makes JSON Schema validate `.md` frontmatter today, no daemon;
-served over LSP later). It carries two channels — which map exactly onto a package's
+served over LSP later). Both spellings carry two channels — which map exactly onto a package's
 two: a bound package's **contract** clauses become the validation channel, its
 **guidance** becomes the docs channel — and the split is the on-law guarantee:
 
@@ -155,10 +160,20 @@ uses — **npm** with platform-specific `optionalDependencies` (the route most
 release binaries, Homebrew, and `cargo install`; the channel is auto-detected
 (Biome's `BIOME_DISTRIBUTION` pattern). Fail-loud is *intrinsic* — a missing
 platform binary is an install error, not a silent skip — which is why this
-satisfies the invariant above. **Rejected:** a single bespoke installer, or
+satisfies the invariant above. The **authoring-face SDK and packages ride the
+same registry**: the SDK is an ordinary npm package versioned against the
+manifest schema, and a published package is a pure-data module (clauses +
+guidance + citations) whose emitted TOML is reviewable in the consumer's diff.
+The trust boundary is stated, not hidden: a config-time import is code
+execution at authoring time — devDependency-tier trust — bounded by `emit
+--frozen` in CI and by vendoring any package as plain TOML for zero-trust
+setups; the gate itself never touches the registry. **Rejected:** a single
+bespoke installer, or
 assuming a globally-`PATH`'d binary as the only route; the first strands the common
-JS-project case, the second fails silently when absent. (Resolves
-`(binary-bootstrap)`.)
+JS-project case, the second fails silently when absent; a bespoke package
+registry for contracts — the ecosystem's registry already carries versioning,
+lockfiles, and provenance discipline. (Resolves
+`(binary-bootstrap)`; SDK/package channel per the 2026-07-03 reformulation.)
 
 ## Outward seams
 
@@ -167,8 +182,8 @@ JS-project case, the second fails silently when absent. (Resolves
   where the team reviews), plus a **`claude-session-start`** reporter that emits the
   hook payload directly (the gate above). One reporter family, every placement
   (Biome's `ci` / reporter model; `miette` already structures the diagnostics).
-- **Migrate, with a fix.** `import` from a foreign tool (a Cursor `.mdc`, a
-  rulesync export) is migration that *corrects on the way in*: the `rule.toml`
+- **Migrate, with a fix.** `init` over a foreign tool’s artifacts (a Cursor `.mdc`, a
+  rulesync export) is migration that *corrects on the way in*: the rule package’s
   `forbidden_keys` clause catches the inert `globs` / `alwaysApply` keys at the
   on-ramp — the motivating bug, fixed at import. Positioning made concrete.
 - **`bundle`.** Composes an imported harness into a publishable plugin +

@@ -81,14 +81,35 @@ ownership axis cuts across both kinds and packages (`05-model.md`).
 
 ## A built-in kind is an adapter — two faces
 
-A built-in kind mediates between its harness format and the surface language
-(`20-surface.md`): it **parses** the external format into the member document —
-the `import` on-ramp; drift detection and `re-add` reuse this face — and
-**emits** the member document back out (`apply`'s projection, deterministic).
-Extraction — the features clauses range over — reads the **member document**:
-the surface is canonical, and `check` never ranges over generated output. A
-custom kind typically has no external format to adapt — its members are born on
-the surface, and its projection can be near-identity.
+A built-in kind mediates between its harness format and the surface
+(`20-surface.md`): it **parses** the external format into the member's feature
+shape — the read face, serving in-place extraction, `init`'s lift, and drift
+detection — and **emits** a member back out to the format (`emit`'s
+projection, deterministic). A member's features have **two sources, one
+shape** (Decision below): extracted through the read face (in-place and
+document-carried members) or declared as the module's typed fields
+(module-carried members) — and every consumer downstream of the manifest is
+carriage-blind. The surface is canonical; `check` never ranges over generated
+output except to verify freshness. A custom kind typically has no external
+format to adapt — its members are born on the surface, and its projection can
+be near-identity.
+
+### Decision: features have two sources, one shape — the algebra bounds both
+
+**Chosen:** a module-carried member arrives **pre-extracted** — its declared
+typed fields *are* its features, and the manifest schema bounds what a module
+may declare to exactly the closed extraction vocabulary (the SDK's types are
+that vocabulary spelled as types, `10-contracts.md`); an in-place or
+document-carried member is **extracted** through the kind's composed read
+face. One feature shape lands in the manifest either way, so the soundness
+boundary holds unmoved: nothing reaches a predicate that the algebra could
+not have decidably read. **Rejected:** (a) modules declaring features outside
+the vocabulary (a computed feature, a semantic summary) — the manifest schema
+rejects what extraction could not have produced, or declaration becomes the
+algebra's escape hatch; (b) re-extracting a module's emitted projection to
+"verify" its declaration — checking generated output against its own source,
+circular by construction; the declaration is authored truth exactly as a
+frontmatter field is.
 
 The emit face also owns the **locus**: a member's projection target derives from
 the kind's locus plus the member's id — a built-in's locus is the harness's own
@@ -99,7 +120,7 @@ never sets its own destination — it declares *what it is*, and where it lands
 follows from what it is; `provenance.source_path` is a record of where an
 imported member came from, never a setting. Nor is import a lifecycle
 prerequisite: a member born on the surface projects identically, its drift
-baseline established by the lock at first `apply` rather than by an import
+baseline established by the lock at first `emit` rather than by a lifted
 hash.
 
 ### Decision: the adapter faces are declared — a kind names its projection format
@@ -110,11 +131,11 @@ facts that vary per kind: unit shape (a lone file, identity from the stem; a
 directory with companions, identity from the directory name). The first and
 only harvested entry is `yaml-frontmatter` (YAML frontmatter over a markdown
 body — the Claude Code family's shape). The engine implements each format
-**once, generically**: `import`/`re-add` split the artifact per the declaration
-and lift the kind's declared fields into `[clause.<field>]` tables; `apply`
-renders them back byte-deterministically; drift compares declared fields with
+**once, generically**: the read face splits the artifact per the declaration
+and lifts the kind's declared fields into the feature shape; `emit`
+renders members back byte-deterministically; drift compares declared fields with
 no per-kind serializer. Built-in and custom kinds ride the same adapter — a
-custom kind declaring a format gets import/re-add/apply for free — and the
+custom kind declaring a format gets init/extraction/emit for free — and the
 per-kind adapter modules (`src/skill.rs`, `src/rule.rs`) retire into one
 generic frontmatter adapter: the built-in/custom split becomes purely *source*.
 The vocabulary is harvested from the kinds temper ships (it must be able to
@@ -339,12 +360,16 @@ the current engine-code scaffold is superseded.
 
 ## Worked example: temper's own spec corpus, custom kinds
 
-temper governs its `specs/` with custom kinds — authored under temper's own
-`.temper/kinds/` and registered in the assembly (`40-composition.md`) by the
+temper governs its `specs/` with custom kinds — authored in temper's own
+library and registered in the assembly (`40-composition.md`) by the
 mechanism above, not shipped in the crate. The corpus is **classed** — `intent`,
 `architecture`, `process`, each class a kind governed by placement, paired by
-declared demands and `satisfies` claims in member headers (`90-spec-system.md`,
-which owns the class structure):
+declared demands and `satisfies` claims (`90-spec-system.md`,
+which owns the class structure). Its members are document-carried today; the
+corpus's target carriage is module-carried — requirements as exported values,
+`satisfies` as imports, the intent graph riding the module graph
+(`20-surface.md`) — reached by a staged human ceremony exactly as the classed
+migration was:
 
 - **extraction:** ATX headings, `## Decision` blocks, line count, placement —
   markdown structure only, no body-mined references (Decision above). The

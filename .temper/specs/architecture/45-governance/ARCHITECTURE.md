@@ -5,6 +5,9 @@ rationale = "45-governance owns the `join` as the sole sanctioned intra-world ed
 [satisfies.dependency-graph]
 rationale = "45-governance owns the graph-scope predicates (degree/acyclic) over the relation graph — those predicates ARE the decidable blast-radius mechanism 00-intent's dependency-graph claim demands"
 
+[satisfies.mention]
+rationale = "45-governance owns the mention's edge class — the readmitted one-way annotation edge: declared, resolution-checked, obligation-free, ignored by the obligation graph — in its join taxonomy; 20-surface owns the authoring mechanics"
+
 [provenance]
 source_path = "./specs/architecture/45-governance.md"
 import_hash = "b60ca723f724ef0c5b3efa8a0c7e37adc6aa6eb1ad04783d6249a883a52346ff"
@@ -141,9 +144,31 @@ nothing *appears* to need, and three others dangle; (b) the `[edge.<target>]`
 clause as a surface mechanism — it either duplicates a join (then author the
 join) or smuggles (a); retired from `20-surface.md`'s header vocabulary; (c)
 obligation-free annotation edges (a citation, a `supersedes`) — genuinely
-unilateral, but with zero consumers today they are vocabulary without a
-requirement; readmit only when a real consumer arrives, and as data the
-obligation graph ignores.
+unilateral, but with zero consumers *at the time*: vocabulary without a
+requirement, readmitted only when a real consumer arrives, and as data the
+obligation graph ignores. **The consumer arrived**: the **mention**
+(`20-surface.md`, the 2026-07-03 reformulation) is exactly that readmission —
+the Decision below.
+
+### Decision: the mention is the readmitted one-way annotation class
+
+**Chosen:** an authored prose interpolation of a declared value — a
+**mention** — is a declared one-way edge of precisely the class rejected-(c)
+above reserved: **resolution-checked** (a mention names a declared value or
+it does not compile / does not pass the gate — it can never dangle),
+**obligation-free** (it obligates neither end: the obligation graph ignores
+it, coverage never counts it, deleting a mentioned value is not blocked by
+its mentions), and **reported as citation, never fallout** (`impact` lists
+mentions separately from join and reachability consequences). It satisfies
+law 8 by construction — the author marks the word a reference; nothing is
+mined — and its admission changes no join semantics: the join remains the
+sole obligating edge. **Rejected:** (a) mentions as obligating edges — a
+paragraph citing a concept must not pin that concept against refactoring;
+citation-weight obligation is how documentation calcifies a model; (b)
+mention edges mined from unmarked prose — the `references` retirement
+(`15-kinds.md`) stays fully in force: an unmarked name is typography,
+permanently; (c) mention-completeness demands — inadmissible by definition
+(`20-surface.md`, the opt-in Decision; law 8's never-climb bound).
 
 ## The world is a node — reachability is a predicate
 

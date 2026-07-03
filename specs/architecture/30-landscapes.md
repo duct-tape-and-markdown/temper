@@ -11,8 +11,15 @@ prose) and the cross-landscape seam.
 Every landscape is read by a **kind**: an extractor (the soundness boundary) plus a
 contract. The extraction algebra, the built-in/custom split, and the entity-graph
 capability are the kind system (`15-kinds.md`). A landscape beyond the harness is
-just another kind — the **spec corpus** is governed by a custom `spec` kind; **code**
-is a third landscape with its own kind.
+just another kind — the **spec corpus** is governed by custom spec kinds; **code**
+is a third landscape with its own kind. The **build pipeline's own artifacts**
+(`.flume/` — work orders citing spec sections, fork slugs, prompt documents)
+are the sanctioned *candidate* third instance in practice: its `pending.json`
+entries already declare cross-landscape edges (a `per` citation names a spec
+path + section; `dependsOnForks` names open-question slugs), so
+citation-resolution over them would be the seam's first live check — each
+widening of the pipeline's governance is a fresh human ruling, never an
+assumption (the fence, `docs/ledger.md`'s asymmetry list).
 
 ## The spec landscape
 

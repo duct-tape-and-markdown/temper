@@ -97,6 +97,15 @@ Every primitive is decidable: given the surface, each clause is unambiguously
 true or false. A violation is therefore always a true positive — which is what
 earns the hard gate.
 
+The closed vocabulary is delivered twice, one algebra behind two walls
+(`20-surface.md`): on the **authoring face** it is spelled as the SDK's
+types — a clause outside the vocabulary is unwritable at the keystroke, and
+per-clause guidance rides the hover — and at the **gate** it is the
+admissibility reject every consumer meets regardless of editor or carriage.
+The typing wall is a courtesy; the gate wall is the authority. Neither adds a
+predicate the other lacks: the SDK's types are generated from the same
+definition the engine enforces, so the two walls cannot drift apart.
+
 ## Requirements — the harness's named obligations
 
 A **requirement** is a named obligation on the harness: *something must be present to
@@ -233,8 +242,10 @@ scratch. The documented best practices (Anthropic skill mechanics, Pocock's invo
 axis, the cascade harness-economy model) ship as **built-in packages**, adopted,
 extended, forked, or ignored — never hardcoded checks.
 
-A package is authored in the same medium as any member (`20-surface.md`): **one
-document** — `PACKAGE.md` — whose structured header carries the clauses and whose
+A package rides the same carriages as any member (`20-surface.md`): a typed
+value on the authoring face (clauses as typed objects, guidance as their doc
+text — distributable as a pure-data npm module, `50-distribution.md`), or one
+floor document — `PACKAGE.md` — whose structured header carries the clauses and whose
 prose is the guidance. It carries **two semantically separate channels**, and the
 split is load-bearing (`00-intent.md` law 2; `50-distribution.md`) — enforced by
 the algebra, not the filesystem (Decision below):
@@ -322,7 +333,7 @@ territory, maintained from its cited upstream sources on the product's release
 cadence (the exact symmetry of a built-in kind's extraction being engine code:
 both faces of the harness adapter are the product's), validated by admissibility
 in the test suite, and **embedded** by the build as the shipped std-lib. The
-documents are still authored in the surface language — the medium is dogfooded —
+documents are still authored as floor documents — the medium is dogfooded —
 but they are **not** members of temper's own `.temper/` workspace: that surface
 is a *consumer instance*, and it binds the built-ins by name exactly as a
 stranger's assembly would. Conflating the two would make the dogfood workspace

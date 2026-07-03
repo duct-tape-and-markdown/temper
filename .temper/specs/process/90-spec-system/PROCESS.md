@@ -137,7 +137,17 @@ load-bearing terms — search before coining a new one. Note the recent migratio
 assembly`; name-`match` retired (opt-in `satisfies` is the sole fill);
 `byte-faithful` narrowed to literal byte-for-byte copies (companions, the
 deterministic projection) — authored prose is **`content-faithful`** (law 5:
-never reworded, synthesized, or dropped).
+never reworded, synthesized, or dropped). The 2026-07-03 reformulation
+(`mirror-era` tag) coined: **authoring face** (the typed library),
+**manifest** (the inert gate-read serialization; the assembly's serialized
+form — the assembly remains the concept), **emit** (the checked compile),
+**carriage** (module-carried / document-carried / in-place), **mention** (an
+authored prose interpolation edge), **adoption gradient** (gate-only → `init`
+→ altitude); retired: `import` (→ `init`), `re-add`, `apply` (→ `emit`), the
+`surface language` as the sole member medium (→ the floor's document
+carriage). This corpus's own module-carriage migration is a staged human
+ceremony ahead (`15-kinds.md`, worked example) — until it lands, these
+members stay document-carried.
 
 ## Decisions
 

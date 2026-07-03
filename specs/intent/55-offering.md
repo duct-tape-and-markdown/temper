@@ -125,7 +125,7 @@ Sequencing is plan's; posture is contract:
   `check --harness` against the most-starred public Claude Code setups and
   publish what it finds — temper's CPython moment, reproducible by any reader
   on their own repo with one command. Show, never claim.
-- **Every shipped capability is a relaunch moment** (`apply`, the graph verbs,
+- **Every shipped capability is a relaunch moment** (`emit`, the graph verbs,
   `bundle`) — rolling discovery beats one launch day, and the channels reward
   substance-per-post.
 
