@@ -1,42 +1,15 @@
 [
   {
-    "tag": "READD-RETIRE",
-    "summary": "Retire the `re-add` verb and its projection→surface reverse round-trip — a hand-edit to emitted output is drift routed to the source, never merged back",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: `re-add` is retired — hand-edits route to the source"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Remove the `ReAdd { harness_path, into }` variant from the `Command` clap enum (main.rs:171) and its dispatch arm (main.rs:386 — `drift::re_add` + `drift::render_readd`). No `re-add` subcommand remains; `diff` (the read face) stays."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Delete the reverse-round-trip path: `re_add`/`render_readd`/`ReAddOutcome` and the re-add-only lock rewriters (`rewrite_lock_rows`, `lock_table`). KEEP `update_lock` (apply's writer) and the three-state internals apply still reads (`place`, `load_last_applied`, `DriftState`) — their collapse rides EMIT-VERB, not this entry. A direct edit to emitted output is drift routed to the source (the Decision), no longer a mergeable-back state."
-        }
-      ],
-      "retire": ["tests/readd.rs"]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "tests/readd.rs", "asserts": "deleted — the verb it drove is retired." }
-    ],
-    "acceptance": "No `re-add` subcommand; drift.rs carries no projection→surface reverse path; the three-state internals apply still uses remain (collapsed later by EMIT-VERB); cargo fmt/clippy -D warnings/test green.",
-    "notes": "Head of the floor-migration chain (READD-RETIRE→…→EMIT-OWNED-PLACEMENTS), the human-delegated wave (inbox ruling 2026-07-03). Removes ONLY the reverse verb + its code + tests/readd.rs. Keep update_lock; the three-state DELETION is EMIT-VERB's. Every chain entry touches drift.rs/main.rs, so the wave is strictly serial — each blockedBy the prior."
-  },
-  {
     "tag": "LOCK-FRESHNESS-FACTS",
     "summary": "Collapse the lock's three-state baselines (import_hash/last_applied) into two freshness facts — source_hash (authored bytes) and emit_hash (last projection)",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "Drift — one direction, two freshness facts (the hard core)"
     },
-    "gate": { "kind": "blockedBy", "tag": "READD-RETIRE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "READD-RETIRE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -66,7 +39,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/apply.rs", "asserts": "the lock rows carry source_hash + emit_hash; apply compares the real projection against emit_hash and rewrites on a stale fingerprint." }
+      {
+        "path": "tests/apply.rs",
+        "asserts": "the lock rows carry source_hash + emit_hash; apply compares the real projection against emit_hash and rewrites on a stale fingerprint."
+      }
     ],
     "acceptance": "The lock and member `[provenance]` carry `source_hash` + `emit_hash`; import writes both (emit_hash provisionally = source_hash until emit runs); apply's baseline is emit_hash; cargo fmt/clippy -D warnings/test green.",
     "notes": "Field rename + remap, no verb change and no semantics collapse yet (apply still runs the three-state place()). re-add already gone (READD-RETIRE) so there is no reverse reader to migrate. Foundation config.stale (MANIFEST-GATE-READ) stands on. Ripple is wider than the lock: import_hash also lives in frontmatter.rs Provenance + document.rs [provenance] — all move together."
@@ -78,11 +54,17 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Content-faithful, deterministically emitted (law 5)"
     },
-    "gate": { "kind": "blockedBy", "tag": "LOCK-FRESHNESS-FACTS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LOCK-FRESHNESS-FACTS"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": "tests/emit.rs", "description": "The renamed apply suite driving `temper emit`: idempotence over a clean surface, a surface edit re-emits, --dry-run writes nothing, and a NEW double-emit-determinism assertion (emit twice → byte-identical projection + lock). Carries over tests/apply.rs's cases minus the retired Conflicted-as-world-drift semantics." }
+        {
+          "path": "tests/emit.rs",
+          "description": "The renamed apply suite driving `temper emit`: idempotence over a clean surface, a surface edit re-emits, --dry-run writes nothing, and a NEW double-emit-determinism assertion (emit twice → byte-identical projection + lock). Carries over tests/apply.rs's cases minus the retired Conflicted-as-world-drift semantics."
+        }
       ],
       "edit": [
         {
@@ -102,11 +84,16 @@
           "description": "Rename any `apply` driving to `emit`."
         }
       ],
-      "retire": ["tests/apply.rs"]
+      "retire": [
+        "tests/apply.rs"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/emit.rs", "asserts": "`temper emit` re-emits whole and is idempotent; double-emit yields byte-identical output; --dry-run writes nothing; no three-state conflict state remains." }
+      {
+        "path": "tests/emit.rs",
+        "asserts": "`temper emit` re-emits whole and is idempotent; double-emit yields byte-identical output; --dry-run writes nothing; no three-state conflict state remains."
+      }
     ],
     "acceptance": "`temper emit [--frozen] [--dry-run]` compiles each projection whole and byte-deterministically, double-emit verified; the three-state merge model is deleted; a hand-edited projection is drift (not a Conflicted merge state); cargo fmt/clippy -D warnings/test green.",
     "notes": "apply already re-emits whole; the deltas are the rename, --frozen, the double-emit determinism check, and deleting the desired/last-applied/real internals READD-RETIRE left standing. The two-projectors bug stays LIVE until EMIT-OWNED-PLACEMENTS — do not rely on bare emit over rules until it lands. tests/apply.rs→tests/emit.rs."
@@ -118,7 +105,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Topology: source, contract, output"
     },
-    "gate": { "kind": "blockedBy", "tag": "EMIT-VERB" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMIT-VERB"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -140,7 +130,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/temper_toml.rs", "asserts": "import serializes the manifest (bindings, requirements, member features, edges) into temper.toml; a pre-existing hand-authored manifest is patched format-preserving, not overwritten." }
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "import serializes the manifest (bindings, requirements, member features, edges) into temper.toml; a pre-existing hand-authored manifest is patched format-preserving, not overwritten."
+      }
     ],
     "acceptance": "import writes the `temper.toml` manifest serializing every declaration the gate/read verbs consume; a hand-authored floor manifest survives format-preserving; check still reads the `.temper/` copy at this step; cargo fmt/clippy -D warnings/test green.",
     "notes": "Write-side only — the read flip is MANIFEST-GATE-READ. The manifest is generated-canonical (committed, gate-read, hand-writable at the floor). AuthorLayer becomes the manifest model, shared with the next entry (both edit compose.rs — serial). Keeps the copy tree for now so check stays green until the read flips."
@@ -152,7 +145,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "The surface: the assembly over its contents"
     },
-    "gate": { "kind": "blockedBy", "tag": "MANIFEST-EMIT" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-EMIT"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -186,7 +182,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/temper_toml.rs", "asserts": "check loads the temper.toml manifest as its declaration source (bindings, requirements, member features, edges) and reports config.stale when the committed manifest/projection mismatches the lock." }
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "check loads the temper.toml manifest as its declaration source (bindings, requirements, member features, edges) and reports config.stale when the committed manifest/projection mismatches the lock."
+      }
     ],
     "acceptance": "`check` reads the manifest + lock + authored sources as its gate corpus (no `.temper/` copy ranging, no runtime), validates conformance/admissibility/freshness, and reports `config.stale`; cargo fmt/clippy -D warnings/test green.",
     "notes": "Biggest entry — the manifest becomes the gate's corpus (20-surface: 'the only thing the gate reads'). config.stale's projection half stands on E2's lock, its manifest half on the manifest here. document-carried members are still copied into `.temper/` (INIT-ONRAMP drops that); in-place live-extraction lands in INIT-ONRAMP when in-place members first appear."
@@ -198,7 +197,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: `init` is the on-ramp, and adoption is a gradient"
     },
-    "gate": { "kind": "blockedBy", "tag": "MANIFEST-GATE-READ" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-GATE-READ"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -228,7 +230,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/cli.rs", "asserts": "`temper init` scans a harness into a manifest + skeleton over members in place — zero file moves, byte-identical members — and `check` reads that manifest green; in-place members live-extract and cannot drift." }
+      {
+        "path": "tests/cli.rs",
+        "asserts": "`temper init` scans a harness into a manifest + skeleton over members in place — zero file moves, byte-identical members — and `check` reads that manifest green; in-place members live-extract and cannot drift."
+      }
     ],
     "acceptance": "`temper init [<harness-path>]` generates the config skeleton over members in place (no copy tree); `init --lift` migrates one member up a rung; check live-extracts in-place members; emit skips them; cargo fmt/clippy -D warnings/test green.",
     "notes": "The on-ramp flip (Decision: adoption is a gradient — rungs gate-only / init / altitude, one manifest shape). Rejects migration-into-a-mirror (the retired import as a toll booth). Discovery already honors ignore rules + excludes .git (WALK-IGNORE-DISCIPLINE shipped) so an any-depth scan won't import a dep tree's members. Altitude lift (module carriage) needs the parked TS SDK — not this entry."
@@ -240,7 +245,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: surface authority is a declared posture, never a baked stance"
     },
-    "gate": { "kind": "blockedBy", "tag": "INIT-ONRAMP" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "INIT-ONRAMP"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -262,7 +270,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/install.rs", "asserts": "an install-placed schema modeline + managed-by note survive a subsequent `emit` (preserved, not dropped or reflowed); emit still never stamps them itself." }
+      {
+        "path": "tests/install.rs",
+        "asserts": "an install-placed schema modeline + managed-by note survive a subsequent `emit` (preserved, not dropped or reflowed); emit still never stamps them itself."
+      }
     ],
     "acceptance": "`emit` re-emits a rule/skill projection without dropping install's schema modeline or managed-by note; the install↔emit re-nudge loop is gone; the note is still install-placed, never emit-stamped (law 5); cargo fmt/clippy -D warnings/test green.",
     "notes": "The 'two projectors, one file' ledger residual, tail of the wave. Per the surface-authority Decision the modeline/note ride install (never emit-stamped — law 5), so emit's whole-file re-emit must PRESERVE those install-placed lines, not own-and-stamp them. Landing this lifts the interim 'do not run bare apply/emit on rules' discipline."
