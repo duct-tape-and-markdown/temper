@@ -10,7 +10,7 @@ rationale = "20-surface owns the drift model ('Drift / apply — three states, n
 
 [provenance]
 source_path = "./specs/architecture/20-surface.md"
-import_hash = "f877bb5b60b970c5aa8ab4a3c4d8aa19a10b9ca60600225750e78475858bbbc1"
+import_hash = "d7c0c33e33b28dc7d07beb648691c7ba785fa92189ebfd75164d91b34f7f5528"
 +++
 # The config surface — author, import, project, drift
 
@@ -327,6 +327,22 @@ framing the hook as a wall — multi-consumer loci (`docs/market-formats.md`)
 make that a false promise. (Ratified 2026-07-03; graduates
 `(surface-authority-lock)` from `docs/horizons.md` — the drift re-cut noted
 there still rides behind the shipped lock.)
+
+### Decision: discovery respects ignore rules; the backing set reads raw disk
+
+**Chosen:** member **discovery** — the `governs` walks `import` and the scans
+run — always excludes `.git/` and honors the repository's ignore rules
+(`.gitignore`): a member is **authored content**, and an ignored file is by
+declaration not authored here (an any-depth memory glob must not import a
+dependency tree's `AGENTS.md` files as the project's own members). The
+**directive-backing file set** is the opposite case and stays **raw disk**:
+whether an `@import` target is backed is a fact about the filesystem the
+harness reads, and law 3 fixes the safe direction — an extra file in the
+backing set can only *suppress* a finding, pruning it can *forge* one. Two
+sets, two rules, never merged. **Rejected:** (a) raw-disk discovery — strangers'
+files as members; (b) ignore-filtered backing — forged unbacked findings on
+targets that exist; (c) a temper-specific ignore file — the repository already
+declares what it considers authored, and a second vocabulary would drift.
 
 ### Decision: the workspace is per-project
 

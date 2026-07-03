@@ -26,11 +26,12 @@ graduation, delete over archive.
 
 ## Verify when the loop drains
 
-- `WEDGE-FACT-FLOOR`: broken-import advisory fires on a no-assembly harness.
-- `IMPACT-VERB`: run `temper impact 45-governance` — expect join + directive
-  + reachability fallout, narrated.
-- Lock train (`AUTHORITY-POSTURE-PARSE` → `INSTALL-GUARD-ARTIFACTS`): posture
-  parses inert first; guard artifacts enumerate in `gate-installed`.
+- WALK-IGNORE-DISCIPLINE (un-parked 07-03 after spec + crate sanction): when
+  it drains, flip both memory kinds' governs to any-depth globs, gates, then
+  verify no node_modules/.git members appear on a cascade vet.
+- Lock artifacts: exercise authority = "surface" end to end once installed
+  (guard hook blocks, gate-installed enumerates it).
+- (Verified 07-03: WEDGE-FACT-FLOOR fires bare; impact verb narrates.)
 
 ## Standing discipline (lessons paid for)
 

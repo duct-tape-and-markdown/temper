@@ -1,7 +1,7 @@
 +++
 [provenance]
 source_path = "././CLAUDE.md"
-import_hash = "105bdbf54f53471bc5815c071ad94b5483cb41cd72cbe12715b56db8bd45844d"
+import_hash = "8efc5ddab71fff9b644d39be67f9a4d5dd5ef13f23c10c2ad970bae99c261951"
 +++
 # temper
 
@@ -42,8 +42,9 @@ This repo carries **two distinct harnesses**; do not conflate them:
 - **Rust**, edition 2024, toolchain 1.96+. `cargo` is the build/test/lint driver.
 - Key crates (sanctioned set; see Cargo.toml): `clap`, `miette` + `thiserror`, `serde`,
   `toml_edit` (format-preserving round-trip keystone), `gray_matter`, `walkdir`,
-  `sha2`, `regex` (the charset mechanics behind `allowed_chars` — no author-facing
-  `pattern` clause), `insta` (snapshot tests).
+  `ignore` (gitignore-honoring discovery walks — `specs/architecture/20-surface.md`,
+  "discovery respects ignore rules"), `sha2`, `regex` (the charset mechanics behind
+  `allowed_chars` — no author-facing `pattern` clause), `insta` (snapshot tests).
 - **flume** control plane (`.flume/`) runs on Node via `@dtmd/flume` (pnpm).
 
 Conventions live in `.claude/rules/*.md`, auto-loaded by Claude Code at launch

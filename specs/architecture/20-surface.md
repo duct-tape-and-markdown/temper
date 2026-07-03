@@ -314,6 +314,22 @@ make that a false promise. (Ratified 2026-07-03; graduates
 `(surface-authority-lock)` from `docs/horizons.md` — the drift re-cut noted
 there still rides behind the shipped lock.)
 
+### Decision: discovery respects ignore rules; the backing set reads raw disk
+
+**Chosen:** member **discovery** — the `governs` walks `import` and the scans
+run — always excludes `.git/` and honors the repository's ignore rules
+(`.gitignore`): a member is **authored content**, and an ignored file is by
+declaration not authored here (an any-depth memory glob must not import a
+dependency tree's `AGENTS.md` files as the project's own members). The
+**directive-backing file set** is the opposite case and stays **raw disk**:
+whether an `@import` target is backed is a fact about the filesystem the
+harness reads, and law 3 fixes the safe direction — an extra file in the
+backing set can only *suppress* a finding, pruning it can *forge* one. Two
+sets, two rules, never merged. **Rejected:** (a) raw-disk discovery — strangers'
+files as members; (b) ignore-filtered backing — forged unbacked findings on
+targets that exist; (c) a temper-specific ignore file — the repository already
+declares what it considers authored, and a second vocabulary would drift.
+
 ### Decision: the workspace is per-project
 
 **Chosen:** the surface targets a **per-project** harness — the `.claude/` and
