@@ -1,45 +1,5 @@
 [
   {
-    "tag": "DIRECTIVE-TARGET-CLASSING",
-    "summary": "Resolve each extracted directive target at check time — member / backed world file / unbacked pointer; an unresolved target is a finding on the importing member",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Directives — format-executed body syntax"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/directive_classing.rs",
-          "description": "Fixture-driven proof of the three verdicts (`specs/architecture/15-kinds.md`, 'Directives'): a member whose `@path` resolves to another member is a member->member edge (no finding, enters the resolved-edge set); a target resolving to an ungoverned repo file is a backed boundary edge (no finding); a target resolving to nothing is an unbacked-pointer finding on the importing member. Relative targets resolve against the importing file's directory."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "In the check gate graph tier (beside the reachability wiring at ~772-812), resolve every member's extracted `Features.directives` targets against the landscape: build a provenance index (member `source_path` -> member) as the join key, reuse the existing `repo_file_set`, resolve each target relative to the importing file's directory (absolute allowed) and classify — member, backed repo file, or nothing. Emit an unbacked-pointer diagnostic per unresolved target, and collect the member-class targets as directive edges available to the graph (slice 3 consumes them for reachability)."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Add the directive-target classification helper + the unbacked-pointer diagnostic (a `DIRECTIVE_UNBACKED`-style rule const and constructor, mirroring `dangling`/`unreachable`), and represent a member-class directive occurrence as a graph edge so it lands in the same resolved-edge enumeration the acyclic/degree/reachable predicates read. This slice only produces the finding + the edge; reachability closing over the edge is slice 3."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/directive_classing.rs",
-        "asserts": "a directive target resolving to a member yields a member->member edge and no finding; a target backed by a repo file yields no finding; an unresolved target yields exactly one unbacked-pointer finding keyed to the importing member; relative targets resolve against the importing file's directory."
-      }
-    ],
-    "acceptance": "`temper check` classifies each member's extracted directive targets into member / backed-world / unbacked, emits an unbacked-pointer finding on the importing member for an unresolved target, and threads member-class targets into the resolved-edge set; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Slice 1 shipped (99b1b45): `Features.directives` populated via `extract::body_at_imports`; this consumes it. Join key is provenance `source_path`; relative targets resolve against the importing file's dir, absolute allowed (code.claude.com/docs/en/memory). Unbacked pointer is the headline finding. Member-class targets become the directive edges slice 3's reachability closes over. Shares src/main.rs+graph.rs with slice 3 — serialized by the chain."
-  },
-  {
     "tag": "REACHABILITY-DIRECTIVE-CLOSURE",
     "summary": "Close `graph::reachable` over member-target directive edges — a member is reachable if its own activation is live or a reachable member imports it, hop-capped",
     "per": {
