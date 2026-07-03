@@ -41,6 +41,12 @@ graduation, delete over archive.
   prose tax accepted verbally 07-03 — re-verify in the spike. Subsumes the
   pull-model membership idea; reshapes (default-assembly-as-data) and the
   guidance-layer plan (opinion packages/templates become typed imports).
+  Final rung (§9-10): spec kind — requirements as exports, satisfies as
+  imports (the intent graph IS the module graph); prose as tagged-template
+  program over the ontology, mentions = declared one-way edges (law 8's
+  mention/edge split dissolves). HARD RIDER: interpolation opt-in per
+  mention forever — a mention-completeness check is the mining swamp
+  rebuilt (law 4); never file one.
 - `format` frontmatterless vocabulary member — parked until a check needs the
   distinction (vocabulary without a consumer is rejected doctrine).
 
