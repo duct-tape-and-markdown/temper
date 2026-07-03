@@ -16,6 +16,7 @@
 //! every write is content-derived, name-sorted, and overwrites in place.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -24,8 +25,8 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use crate::builtin_kind;
 use crate::compose::AuthorLayer;
 use crate::document::{self, Document};
-use crate::frontmatter::{FrontmatterError, Member};
-use crate::kind::{CustomKind, Governs, KindError};
+use crate::frontmatter::{self, FrontmatterError, Member};
+use crate::kind::{CustomKind, Format, Governs, KindError, UnitShape};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
 /// written at the workspace root (`specs/architecture/20-surface.md`, "Topology").
@@ -238,20 +239,40 @@ pub(crate) fn import_frontmatter_member(
     source_file: &Path,
     into: &Path,
 ) -> Result<RollupEntry, ImportError> {
-    let mut member = Member::from_source(kind, source_file)?;
+    let member = Member::from_source(kind, source_file)?;
+    // A built-in surfaces under the `governs.root` leaf (`.claude/skills` → `skills`),
+    // dropping the harness-specific prefix; a custom kind under its full `governs.root`
+    // (`docs/adr`). That single derivation is the only thing the two frontmatter faces
+    // differ on — the write path below is shared.
     let out_dir = into.join(kind.surface_subdir()).join(&member.id);
+    write_member_surface(kind, member, &out_dir, source_file.parent())
+}
 
+/// Write a projected [`Member`] to its surface directory `out_dir` and return the
+/// roll-up row — the shared write path for every `yaml-frontmatter` kind, built-in or
+/// custom. Carry any authored surface layer forward, write the one member document,
+/// and copy a directory-shaped unit's companions. The two faces differ only in how
+/// `out_dir` is derived (its leaf for a built-in, the full `governs.root` for a custom
+/// kind); everything downstream of that is identical, so it rides one path rather than
+/// a forked re-implementation (`specs/architecture/15-kinds.md`, "Built-in and custom kinds ride
+/// the same adapter").
+fn write_member_surface(
+    kind: &CustomKind,
+    mut member: Member,
+    out_dir: &Path,
+    source_dir: Option<&Path>,
+) -> Result<RollupEntry, ImportError> {
     // Merge, never clobber: the source carries no authored clauses (they are
     // surface-only state), so a re-import or drifted-body `re-add` rebuilds the
     // document from source and would wipe the authored `satisfies`/`edges`. Carry
     // any existing surface layer forward before writing (`specs/architecture/20-surface.md`,
     // "three states, never two").
     let member_doc = kind.member_document();
-    if let Some(existing) = existing_surface_member(&out_dir, &member_doc) {
+    if let Some(existing) = existing_surface_member(out_dir, &member_doc) {
         member.carry_representation(&existing);
     }
 
-    create_dir_all(&out_dir)?;
+    create_dir_all(out_dir)?;
 
     // The member is ONE document: the `+++`-fenced clause-module header over the
     // byte-faithful body, written format-preserving — never a lossy re-serialize.
@@ -262,9 +283,9 @@ pub(crate) fn import_frontmatter_member(
 
     // A directory-shaped unit's companions ride beside the member document, copied
     // byte-for-byte from the source directory (the member file's parent).
-    if let Some(source_dir) = source_file.parent() {
+    if let Some(source_dir) = source_dir {
         for companion in &member.companions {
-            copy_companion(source_dir, &out_dir, companion)?;
+            copy_companion(source_dir, out_dir, companion)?;
         }
     }
 
@@ -359,17 +380,46 @@ fn collect_glob(dir: &Path, segments: &[&str], out: &mut Vec<PathBuf>) -> Result
 }
 
 /// Read one discovered custom-kind unit and write its surface tree under
-/// `<into>/<governs.root>/<name>/`, returning the roll-up row for the index.
+/// `<into>/<governs.root>/<id>/`, returning the roll-up row for the index. The
+/// declared adapter faces are **load-bearing** here (`specs/architecture/15-kinds.md`, "the
+/// adapter faces are declared"): the id derives per the kind's
+/// [`unit_shape`](UnitShape) (the file stem for `File`, the directory name for
+/// `Directory`), and the artifact is split per its [`format`](Format).
 ///
-/// A custom kind carries no bespoke IR, so the unit is projected generically as ONE
-/// member document `<KIND>.md`: a `[provenance]`-only `+++` header over the *whole*
-/// file byte-faithful. The whole file is the body so a unit's frontmatter, if any,
-/// survives verbatim for its extractor to read at `check` time (`specs/architecture/15-kinds.md`).
+/// - `yaml-frontmatter` rides the same generic adapter a built-in does
+///   ([`Member::from_source`]): the declared `field`s lift into `[clause.<field>]`
+///   header tables, the body is byte-faithful below the frontmatter, and a
+///   directory-shaped unit's companions travel along.
+/// - No declared format keeps the *whole* file byte-faithful as the body under a
+///   `[provenance]`-only header — the frontmatterless shape (a spec), where a unit's
+///   leading `---`, if any, is prose to preserve, not frontmatter to lift.
 ///
 /// `pub(crate)` for the same reason as [`import_frontmatter_member`]: `re-add` reuses
 /// this exact generic write path to reconcile a drifted or added on-disk custom-kind
 /// unit into the surface, folding the returned row straight into the lock.
 pub(crate) fn import_custom_unit(
+    kind: &CustomKind,
+    source_file: &Path,
+    into: &Path,
+) -> Result<RollupEntry, ImportError> {
+    match kind.format {
+        Some(Format::YamlFrontmatter) => {
+            let member = Member::from_source(kind, source_file)?;
+            let out_dir = into.join(&kind.governs.root).join(&member.id);
+            write_member_surface(kind, member, &out_dir, source_file.parent())
+        }
+        None => import_wholefile_unit(kind, source_file, into),
+    }
+}
+
+/// Project a custom unit whose kind declares **no** format: the whole source file is
+/// the byte-faithful body under a `[provenance]`-only `+++` header, so a unit's
+/// frontmatter — or a leading `---` that is really prose (a spec) — survives verbatim
+/// for its extractor to read at `check` time (`specs/architecture/15-kinds.md`). The id derives
+/// per the kind's [`unit_shape`](UnitShape), and a directory-shaped unit's companions
+/// ride beside the body, so a `Directory`-shaped frontmatterless kind is imported whole
+/// rather than losing its siblings.
+fn import_wholefile_unit(
     kind: &CustomKind,
     source_file: &Path,
     into: &Path,
@@ -383,30 +433,32 @@ pub(crate) fn import_custom_unit(
         path: source_file.to_path_buf(),
         source,
     })?;
-    let name = source_file
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .map(str::to_string)
-        .ok_or_else(|| ImportError::Write {
-            path: source_file.to_path_buf(),
-            source: std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "source file has no stem to name the unit",
-            ),
-        })?;
+    let name = wholefile_id(kind, source_file)?;
 
     let out_dir = into.join(&kind.governs.root).join(&name);
     create_dir_all(&out_dir)?;
 
     // The member is ONE document: the `+++` header over the whole byte-faithful
     // source file as the body. Merge, never clobber (`specs/architecture/20-surface.md`,
-    // "three states, never two"): a custom unit builds no `Member`, so the authored
+    // "three states, never two"): a whole-file unit builds no `Member`, so the authored
     // `[requirement.*]`/`[satisfies.*]` tables live only in the existing surface's
     // header — carry them forward before writing, re-stamping only `[provenance]`,
     // exactly as the frontmatter path does via `carry_representation`.
     let body_path = out_dir.join(body_filename(&kind.name));
     let header = custom_unit_header(&body_path, &source_file.to_string_lossy(), &import_hash);
     write_bytes(&body_path, Document::new(header, body).emit().as_bytes())?;
+
+    // A directory-shaped unit's companions ride beside the body, byte-for-byte — the
+    // same treatment the frontmatter adapter gives them, so the shape is honored
+    // regardless of whether the kind declares a format.
+    if kind.unit_shape == Some(UnitShape::Directory)
+        && let Some(source_dir) = source_file.parent()
+    {
+        let member_name = source_file.file_name().unwrap_or_else(|| OsStr::new(""));
+        for companion in frontmatter::scan_companions(source_dir, member_name)? {
+            copy_companion(source_dir, &out_dir, &companion)?;
+        }
+    }
 
     Ok(RollupEntry {
         name,
@@ -416,6 +468,36 @@ pub(crate) fn import_custom_unit(
         last_applied: import_hash.clone(),
         import_hash,
     })
+}
+
+/// The member id for a whole-file custom unit, derived per the kind's declared
+/// [`unit_shape`](UnitShape): the parent directory name for `Directory`, the filename
+/// stem for `File` (or an absent shape, which defaults to a lone file). Mirrors the id
+/// derivation [`Member::from_source`] runs for the frontmatter face, so both faces name
+/// a unit the same way. A source path yielding no id component for its shape is a
+/// [`FrontmatterError::NoId`], the same error the frontmatter face raises.
+fn wholefile_id(kind: &CustomKind, source_file: &Path) -> Result<String, ImportError> {
+    let id = match kind.unit_shape {
+        Some(UnitShape::Directory) => source_file
+            .parent()
+            .filter(|dir| !dir.as_os_str().is_empty())
+            .and_then(Path::file_name)
+            .and_then(OsStr::to_str)
+            .ok_or(FrontmatterError::NoId {
+                path: source_file.to_path_buf(),
+                shape: "directory",
+            })?,
+        Some(UnitShape::File) | None => {
+            source_file
+                .file_stem()
+                .and_then(OsStr::to_str)
+                .ok_or(FrontmatterError::NoId {
+                    path: source_file.to_path_buf(),
+                    shape: "file",
+                })?
+        }
+    };
+    Ok(id.to_string())
 }
 
 /// The header to emit for a custom unit: carry every authored clause table from an
@@ -1151,6 +1233,162 @@ temper's own governing documents.\n";
 
         // The roll-up is idempotent: a second import into the same workspace does not
         // change a single byte of its deterministic, name-sorted layout.
+        let first = tree_bytes(&into);
+        run(&harness, &into).unwrap();
+        assert_eq!(first, tree_bytes(&into));
+    }
+
+    /// A body whose trailing bytes (no final newline) must survive the frontmatter
+    /// split intact.
+    const PLAYBOOK_SOURCE: &str = "---\n\
+title: Deploy\n\
+owner: platform\n\
+---\n\
+# Deploy playbook\n\
+\n\
+Run the steps.   \n\
+No final newline.";
+
+    /// Register a custom kind under `temper.toml` and author its `KIND.md` definition
+    /// (`+++`-fenced header) under `.temper/kinds/<name>/` — the discovery wiring both
+    /// the frontmatter and whole-file custom paths key off.
+    fn register_custom_kind(root: &Path, name: &str, kind_md: &str) {
+        fs::write(
+            root.join("temper.toml"),
+            format!("[kind.{name}]\npackage = \"{name}\"\n"),
+        )
+        .unwrap();
+        let kind_dir = root.join(".temper").join("kinds").join(name);
+        fs::create_dir_all(&kind_dir).unwrap();
+        fs::write(kind_dir.join("KIND.md"), kind_md).unwrap();
+    }
+
+    #[test]
+    fn a_directory_shaped_frontmatter_custom_kind_ids_from_the_dir_and_lifts_fields() {
+        // A custom kind whose declared `unit_shape`/`format` are load-bearing: a
+        // directory-shaped `yaml-frontmatter` kind. The id is the directory name (not the
+        // file stem), the declared `title` lifts into the header, and the companion rides
+        // along — none of which the old whole-file path honored.
+        let harness = tmpdir("dir-fm-src");
+        write_fixture_harness(&harness);
+        register_custom_kind(
+            &harness,
+            "playbook",
+            "+++\n\
+governs = { root = \"playbooks\", glob = \"*/PLAYBOOK.md\" }\n\
+format = \"yaml-frontmatter\"\n\
+unit_shape = \"directory\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"field\"\n\
+key = \"title\"\n\
++++\n\
+# The playbook kind\n",
+        );
+        let deploy = harness.join("playbooks").join("deploy");
+        fs::create_dir_all(deploy.join("scripts")).unwrap();
+        fs::write(deploy.join("PLAYBOOK.md"), PLAYBOOK_SOURCE).unwrap();
+        fs::write(deploy.join("scripts").join("run.sh"), SCRIPT).unwrap();
+
+        let into = tmpdir("dir-fm-into");
+        run(&harness, &into).unwrap();
+
+        // The surface dir is named for the *directory* (`directory` shape), not the
+        // `PLAYBOOK.md` stem — the id derivation the declared `unit_shape` buys.
+        let surface = into.join("playbooks").join("deploy");
+        assert!(surface.join("PLAYBOOK.md").is_file());
+
+        // The declared `title` lifts into a `[clause.*]` header table (the unknown
+        // `owner` key follows it) — the frontmatter is split, not preserved whole.
+        let document = fs::read_to_string(surface.join("PLAYBOOK.md")).unwrap();
+        assert!(document.contains("[clause.title]\nvalue = \"Deploy\""));
+        assert!(document.contains("[clause.owner]\nvalue = \"platform\""));
+
+        // The member reloads through the generic adapter: id from the dir, declared
+        // field readable, body byte-faithful below the header (trailing bytes intact).
+        let member = Member::from_surface(&surface, "PLAYBOOK.md").unwrap();
+        assert_eq!(member.id, "deploy");
+        assert_eq!(
+            member.field("title").and_then(|v| v.as_str()),
+            Some("Deploy")
+        );
+        assert_eq!(
+            member.body,
+            "# Deploy playbook\n\nRun the steps.   \nNo final newline."
+        );
+
+        // The directory-shaped unit's companion rode along byte-for-byte.
+        assert_eq!(
+            fs::read(surface.join("scripts").join("run.sh")).unwrap(),
+            SCRIPT
+        );
+
+        // The roll-up carries a `[[playbook]]` row keyed by the directory-name id.
+        let doc = fs::read_to_string(into.join("lock.toml"))
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        let names: Vec<&str> = doc["playbook"]
+            .as_array_of_tables()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, vec!["deploy"]);
+
+        // Idempotent on re-import.
+        let first = tree_bytes(&into);
+        run(&harness, &into).unwrap();
+        assert_eq!(first, tree_bytes(&into));
+    }
+
+    #[test]
+    fn a_file_shaped_frontmatter_custom_format_splits_declared_fields() {
+        // A file-shaped `yaml-frontmatter` custom kind: the id is the file stem, and the
+        // declared field splits into the header with the body byte-faithful below it —
+        // the frontmatter is lifted, not carried whole as the frontmatterless path does.
+        let harness = tmpdir("file-fm-src");
+        write_fixture_harness(&harness);
+        register_custom_kind(
+            &harness,
+            "note",
+            "+++\n\
+governs = { root = \"notes\", glob = \"*.md\" }\n\
+format = \"yaml-frontmatter\"\n\
+unit_shape = \"file\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"field\"\n\
+key = \"title\"\n\
++++\n\
+# The note kind\n",
+        );
+        let notes = harness.join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(
+            notes.join("idea.md"),
+            "---\ntitle: An idea\n---\n# Idea\n\nBody, no final newline.",
+        )
+        .unwrap();
+
+        let into = tmpdir("file-fm-into");
+        run(&harness, &into).unwrap();
+
+        // The surface dir is named for the file stem (`file` shape).
+        let surface = into.join("notes").join("idea");
+        let document = fs::read_to_string(surface.join("NOTE.md")).unwrap();
+        assert!(document.contains("[clause.title]\nvalue = \"An idea\""));
+
+        let member = Member::from_surface(&surface, "NOTE.md").unwrap();
+        assert_eq!(member.id, "idea");
+        assert_eq!(
+            member.field("title").and_then(|v| v.as_str()),
+            Some("An idea")
+        );
+        // The body is everything below the frontmatter, byte-faithful.
+        assert_eq!(member.body, "# Idea\n\nBody, no final newline.");
+
+        // Idempotent on re-import.
         let first = tree_bytes(&into);
         run(&harness, &into).unwrap();
         assert_eq!(first, tree_bytes(&into));

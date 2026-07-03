@@ -406,7 +406,14 @@ fn split_frontmatter(raw: &str) -> (Option<&str>, &str) {
 /// Walk a directory-shaped unit's source directory and collect its companion files —
 /// every file except the member document `member` itself — as paths relative to `dir`,
 /// sorted for determinism.
-fn scan_companions(dir: &Path, member: &OsStr) -> Result<Vec<PathBuf>, FrontmatterError> {
+///
+/// `pub(crate)` so the whole-file custom import path (`src/import.rs`) copies a
+/// `Directory`-shaped frontmatterless unit's companions through the identical scan the
+/// frontmatter face uses, rather than a second implementation that could drift.
+pub(crate) fn scan_companions(
+    dir: &Path,
+    member: &OsStr,
+) -> Result<Vec<PathBuf>, FrontmatterError> {
     let mut companions = Vec::new();
     for entry in WalkDir::new(dir).min_depth(1).sort_by_file_name() {
         let entry = entry.map_err(|err| FrontmatterError::Io {
