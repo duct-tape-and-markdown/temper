@@ -461,12 +461,24 @@ fn main() -> miette::Result<ExitCode> {
             };
             let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
+            // The forward walk narrates a `satisfies` join over the **composed**
+            // requirement namespace the gate judges (assembly ∪ member-published,
+            // READ-VERBS-PUBLISHED-DEMANDS), so a member-published demand reads as
+            // filled — never the false "This link dangles" over a green graph.
+            let roster = composed_roster(
+                layer.as_ref(),
+                &skill_features,
+                &rule_features,
+                &custom_kinds,
+            );
+
             print!(
                 "{}",
                 read::why(
                     &ws,
                     layer.as_ref(),
                     &custom_members,
+                    &roster,
                     &by_kind,
                     &edges,
                     &member
@@ -478,16 +490,45 @@ fn main() -> miette::Result<ExitCode> {
             let workspace = PathBuf::from(DEFAULT_WORKSPACE);
             let ws = Workspace::load(&workspace)?;
             let layer = load_layer(Path::new(TEMPER_TOML))?;
-            // The reverse walk counts custom-kind satisfiers in each requirement's set
-            // and coverage (READ-CUSTOM-SATISFIERS), so load the registered custom
-            // kinds' members the same way `why` does.
-            let custom_members = match layer.as_ref() {
-                Some(layer) => custom_members(&workspace, layer, &workspace.join("kinds"))?,
-                None => Vec::new(),
+
+            // The reverse walk ranges over the composed requirement namespace the gate
+            // judges — assembly ∪ member-published (READ-VERBS-PUBLISHED-DEMANDS) — so a
+            // member-published obligation appears in the roster exactly as `check`
+            // counts it. That needs the same member feature stream the union reads:
+            // the built-in kinds' features (through the shared `Unit` loader) plus each
+            // registered custom kind's, which both publish and satisfy requirements.
+            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
+            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
+            let skill_features: Vec<extract::Features> = skill_units
+                .iter()
+                .map(builtin_kind::skill_features)
+                .collect::<Result<_, _>>()?;
+            let rule_features: Vec<extract::Features> = rule_units
+                .iter()
+                .map(builtin_kind::rule_features)
+                .collect::<Result<_, _>>()?;
+            let kinds_dir = workspace.join("kinds");
+            // Custom kinds carry both the members' published requirements (folded into
+            // the composed roster) and their satisfier rows (READ-CUSTOM-SATISFIERS).
+            let (custom_kinds, custom_members) = match layer.as_ref() {
+                Some(layer) => {
+                    let (custom_kinds, _edges) =
+                        custom_kinds_and_edges(&workspace, layer, &kinds_dir)?;
+                    let members = custom_members(&workspace, layer, &kinds_dir)?;
+                    (custom_kinds, members)
+                }
+                None => (Vec::new(), Vec::new()),
             };
+            let roster = composed_roster(
+                layer.as_ref(),
+                &skill_features,
+                &rule_features,
+                &custom_kinds,
+            );
+
             print!(
                 "{}",
-                read::requirements(&ws, layer.as_ref(), &custom_members, name.as_deref())
+                read::requirements(&ws, &custom_members, &roster, name.as_deref())
             );
             Ok(ExitCode::SUCCESS)
         }
@@ -904,6 +945,33 @@ fn assemble_by_kind<'a>(
         by_kind.insert(*name, features.as_slice());
     }
     by_kind
+}
+
+/// The composed requirement namespace the read family (`why`/`requirements`) ranges
+/// over — the assembly's `[requirement.*]` roster unioned with every member's published
+/// `[requirement.*]`, the exact namespace the `check` gate judges
+/// ([`union_published_requirements`], READ-VERBS-PUBLISHED-DEMANDS). Ranging over it,
+/// not the assembly roster alone, is what makes a read agree with a green `check`: a
+/// member-published join reads as live, never misreported as dangling. Collisions are
+/// the gate's admissibility finding, discarded here — a read never re-reports them
+/// (`specs/architecture/20-surface.md`, the read family "never gates"). Absent a `temper.toml` the
+/// gate composes no roster, so this is empty too.
+fn composed_roster(
+    layer: Option<&compose::AuthorLayer>,
+    skill_features: &[extract::Features],
+    rule_features: &[extract::Features],
+    custom_kinds: &[CustomKindEntry<'_>],
+) -> BTreeMap<String, compose::Requirement> {
+    let Some(layer) = layer else {
+        return BTreeMap::new();
+    };
+    let all_features: Vec<extract::Features> = skill_features
+        .iter()
+        .chain(rule_features.iter())
+        .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
+        .cloned()
+        .collect();
+    union_published_requirements(layer.requirements(), &all_features).0
 }
 
 /// Union the assembly's published `[requirement.*]` roster with every member's

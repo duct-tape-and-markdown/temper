@@ -1,0 +1,16 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+Requirement `governance`:
+
+  It means: "the corpus declares a governance model an architecture doc must satisfy".
+  required, filled by 1 member(s)
+
+  Satisfied by:
+    • `45-governance` (spec) — "the home for the governance model"
+
+  Blast radius — removing `governance` would strand 1 `satisfies` link(s):
+    • `45-governance` (spec) would dangle
+
+  `governance` is required and rests on a single satisfier — removing `45-governance` (spec) would leave it unfilled, failing the gate.

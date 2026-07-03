@@ -363,3 +363,110 @@ fn requirements_counts_a_custom_kind_satisfier() {
     assert!(run.ok, "requirements <name> must exit zero: {}", run.stdout);
     insta::assert_snapshot!("requirements_custom_satisfier", run.stdout);
 }
+
+/// The `temper.toml` for the member-published fixture: it declares **no**
+/// `[requirement.*]` of its own — the whole roster is published on a surface member
+/// (`00-intent` publishes `[requirement.governance]`). It only registers the `spec`
+/// kind so its members load. Proof the read family ranges over the composed namespace
+/// `check` gates (assembly ∪ member-published, READ-VERBS-PUBLISHED-DEMANDS), not the
+/// empty assembly roster: a read blind to member-published demands shows nothing here.
+const PUBLISHED_TEMPER_TOML: &str = "\
+[kind.spec]
+package = \"spec\"
+";
+
+/// Author a `spec` member that **publishes** a `[requirement.<name>]` demand — the
+/// intent-spec role: an intent document declares the entities an architecture doc must
+/// satisfy (`specs/architecture/20-surface.md`, "`requirement` clauses"). The demand lives on the
+/// member document, not the assembly, so it reaches the roster only through the
+/// composition `check` performs and the read family must mirror
+/// (READ-VERBS-PUBLISHED-DEMANDS).
+fn write_publishing_spec(root: &Path, name: &str, requirement: &str, means: &str) {
+    let dir = root.join(".temper").join("specs").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    let document = format!(
+        "+++\n\
+         [requirement.{requirement}]\n\
+         means = \"{means}\"\n\
+         required = true\n\
+         \n\
+         [provenance]\n\
+         source_path = \"specs/{name}.md\"\n\
+         import_hash = \"deadbeef\"\n\
+         +++\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    );
+    fs::write(dir.join("SPEC.md"), document).unwrap();
+}
+
+/// Build a fixture whose requirement roster is published **entirely on a surface
+/// member**: `00-intent` publishes `[requirement.governance]` and `45-governance`
+/// satisfies it — the intent↔architecture join, on member documents, with no assembly
+/// `[requirement.*]`. The join is exactly the shape the entry names: `check` composes
+/// assembly ∪ member-published and reports it live, so a read reading the assembly
+/// roster alone would misreport `45-governance`'s `satisfies` as dangling.
+fn published_fixture() -> PathBuf {
+    let root = tmpdir("published-root");
+    let kind_dir = root.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(kind_dir.join("KIND.md"), SPEC_KIND_MD).unwrap();
+    write_publishing_spec(
+        &root,
+        "00-intent",
+        "governance",
+        "the corpus declares a governance model an architecture doc must satisfy",
+    );
+    write_spec(
+        &root,
+        "45-governance",
+        "governance",
+        "the home for the governance model",
+    );
+    fs::write(root.join("temper.toml"), PUBLISHED_TEMPER_TOML).unwrap();
+    root
+}
+
+#[test]
+fn requirements_lists_a_member_published_requirement() {
+    let root = published_fixture();
+    // The roster is published entirely on a member (`00-intent`), not the assembly, so
+    // a read blind to member-published demands would show an empty roster. It must list
+    // `governance` with its satisfier `45-governance` (READ-VERBS-PUBLISHED-DEMANDS).
+    let run = read(&root, &["requirements"]);
+    assert!(run.ok, "requirements must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout.contains("governance"),
+        "the member-published requirement must appear in the roster: {}",
+        run.stdout
+    );
+    insta::assert_snapshot!("requirements_member_published", run.stdout);
+}
+
+#[test]
+fn requirements_detail_walks_a_member_published_requirement() {
+    let root = published_fixture();
+    // The named reverse walk resolves `governance` (a member-published demand) and lists
+    // its satisfier set — not "No requirement named `governance` is published".
+    let run = read(&root, &["requirements", "governance"]);
+    assert!(run.ok, "requirements <name> must exit zero: {}", run.stdout);
+    insta::assert_snapshot!("requirements_member_published_detail", run.stdout);
+}
+
+#[test]
+fn why_narrates_a_satisfies_to_a_member_published_requirement_as_filled() {
+    let root = published_fixture();
+    // `45-governance` satisfies `governance`, published by `00-intent`. Reading the
+    // assembly roster alone (empty here) narrated this join as "This link dangles" over
+    // a green `check` — a falsehood. It must now read FILLED, with the requirement's
+    // `means` (READ-VERBS-PUBLISHED-DEMANDS).
+    let run = read(&root, &["why", "45-governance"]);
+    assert!(run.ok, "why must exit zero: {}", run.stdout);
+    assert!(
+        !run.stdout.contains("This link dangles"),
+        "a live member-published join must not narrate as dangling: {}",
+        run.stdout
+    );
+    insta::assert_snapshot!("why_member_published_satisfier", run.stdout);
+}

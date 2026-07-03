@@ -1,0 +1,9 @@
+---
+source: tests/read_verbs.rs
+expression: run.stdout
+---
+The requirement roster (1 requirement):
+
+  • `governance` — required, filled by 1 member(s)
+      It means: "the corpus declares a governance model an architecture doc must satisfy".
+      ← `45-governance` (spec)

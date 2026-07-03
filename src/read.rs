@@ -110,17 +110,6 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
     members
 }
 
-/// The requirement roster the read family walks — the `[requirement.<name>]` tables
-/// on the author layer, or an empty roster when the harness carries no `temper.toml`.
-/// Borrowed from the layer so the name-sorted `BTreeMap` iteration order carries
-/// through to the narration.
-fn roster(layer: Option<&AuthorLayer>) -> &BTreeMap<String, Requirement> {
-    // A shared empty roster so the floor-only path (no `temper.toml`) narrates a
-    // zero-requirement roster rather than special-casing the absence at each call.
-    static EMPTY: BTreeMap<String, Requirement> = BTreeMap::new();
-    layer.map_or(&EMPTY, AuthorLayer::requirements)
-}
-
 /// The package the `kind`'s members are checked against — the author layer's explicit
 /// binding, else the kind's built-in floor package (`specs/architecture/20-surface.md`, "Decision:
 /// package binding is by artifact kind": skill → `skill.anthropic`, rule →
@@ -150,17 +139,25 @@ fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
 /// So `why`'s edge narration cannot disagree with the gate (READ-EDGE-UNIFY): a
 /// `routes_to` edge the gate resolves is the exact edge `why` narrates, and a member
 /// with no resolved edge stays silent.
+///
+/// The `roster` is the **composed** requirement namespace `check` gates — the assembly
+/// `[requirement.*]` unioned with every member's published `[requirement.*]`
+/// (`specs/architecture/10-contracts.md`, "a requirement's publisher is any authored surface
+/// document"; built by the caller through the gate's own `union_published_requirements`,
+/// READ-VERBS-PUBLISHED-DEMANDS). Ranging over it — not the assembly roster alone — is
+/// why a `satisfies` link to a member-published demand narrates as filled, matching a
+/// green `check` rather than misreporting the join as dangling.
 #[must_use]
 pub fn why(
     workspace: &Workspace,
     layer: Option<&AuthorLayer>,
     custom: &[CustomMember],
+    roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
     member: &str,
 ) -> String {
     let members = members(workspace, custom);
-    let roster = roster(layer);
     // The resolved edge set the gate ranges over — computed once, filtered per matched
     // node below. One source of truth: the exact arcs `graph::check` resolves.
     let resolved = graph::resolved_edges(edges, by_kind);
@@ -309,15 +306,19 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 /// and the blast radius a removal would strand (`specs/architecture/20-surface.md`, "Decision: the
 /// CLI gains a read family"; the traversal payoff of `specs/architecture/30-landscapes.md` law 6).
 /// A read, never a gate — the caller prints this and exits zero on every input.
+///
+/// The `roster` is the **composed** requirement namespace `check` gates (assembly ∪
+/// member-published, READ-VERBS-PUBLISHED-DEMANDS), built by the caller through the
+/// gate's own union — so `requirements` lists every published obligation, not the
+/// assembly's `[requirement.*]` alone.
 #[must_use]
 pub fn requirements(
     workspace: &Workspace,
-    layer: Option<&AuthorLayer>,
     custom: &[CustomMember],
+    roster: &BTreeMap<String, Requirement>,
     name: Option<&str>,
 ) -> String {
     let members = members(workspace, custom);
-    let roster = roster(layer);
     match name {
         Some(name) => requirement_detail(&members, roster, name),
         None => roster_overview(&members, roster),
@@ -329,8 +330,9 @@ pub fn requirements(
 /// `required` + unfilled is an error, advisory unfilled never gates).
 fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -> String {
     if roster.is_empty() {
-        return "The assembly declares no requirements — the roster is empty. \
-                Declare `[requirement.<name>]` in `temper.toml` to name an obligation.\n"
+        return "No requirements are published — the roster is empty. Declare \
+                `[requirement.<name>]` in `temper.toml`, or publish one on a member \
+                document, to name an obligation.\n"
             .to_string();
     }
 
@@ -375,7 +377,8 @@ fn requirement_detail(
     let Some(requirement) = roster.get(name) else {
         // An undeclared name is not an error here — it is a read. Narrate that it is
         // undeclared, and if any member opts into it anyway, that those links dangle.
-        let mut out = format!("No requirement named `{name}` is declared in the assembly.\n");
+        let mut out =
+            format!("No requirement named `{name}` is published in the composed roster.\n");
         if !satisfiers.is_empty() {
             let _ = writeln!(
                 &mut out,
