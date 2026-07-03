@@ -7,8 +7,7 @@
       "section": "Registering a custom kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DECLARED-FRONTMATTER-ADAPTER-CUSTOM"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "src/import.rs",
-          "description": "(a) `collect_glob`/`glob_matches`/`discover_kind_units` (import.rs:295-349,453-484) express fixed-depth single-`*` segments only; add an any-depth `governs.glob` mode (recursive descent, `**`-style) so a nested nearest-wins hierarchy discovers members at every level, not just the fixed glob depth. (b) `import_custom_unit` collapses same-named nested files to their stem (import.rs:376-381); fold directory placement into file-shaped unit identity so nested `CLAUDE.md`/`AGENTS.md` at different depths do not clobber each other's surface entry. Two halves land together — recursion without placement-folded ids is useless."
+          "description": "(a) `discover_kind_units`/`collect_glob` (import.rs:326-380) split `governs.glob` on `/` into fixed-depth segments and `glob_matches` (import.rs:545) is a single-`*` matcher — fixed-depth only; add an any-depth `governs.glob` mode (recursive descent, `**`-style) so a nested nearest-wins hierarchy discovers members at every level, not just the fixed glob depth. (b) after DECLARED split the custom path, the wholefile File-shape id derives from `file_stem` in `wholefile_id` (import.rs:479-501) and collapses same-named nested files to their bare stem; fold directory placement into the id so nested `CLAUDE.md`/`AGENTS.md` at different depths do not clobber each other's surface entry. Two halves land together — recursion without placement-folded ids is useless."
         },
         {
           "path": "src/frontmatter.rs",
-          "description": "the File-shape id path (frontmatter.rs:186-196) likewise collapses a nested file to its bare stem via `file_stem`; fold directory placement into the id so two nested same-named files get distinct surface ids, symmetric with the custom-path fix in import.rs."
+          "description": "the frontmatter face's File-shape id branch in `Member::from_source` (frontmatter.rs:186-196) likewise collapses a nested file to its bare stem via `file_stem`; fold directory placement into the id so two nested same-named files get distinct surface ids, symmetric with the `wholefile_id` fix in import.rs — both adapter faces must name a nested unit the same way."
         }
       ],
       "retire": []
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "A custom/built-in kind whose `governs.glob` is any-depth discovers its full nested hierarchy, and nested same-named files carry distinct placement-folded ids; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox wave-1 slice 5 (largest; two halves land together). Models the DEFINING nested nearest-wins hierarchy of both memory formats (agents.md documents nesting; OpenAI's main repo ships 88 AGENTS.md). blockedBy slice 4 to serialize the shared import.rs."
+    "notes": "Wave slice 5 (last; two halves land together — recursion is useless without placement-folded ids). Models the nested nearest-wins hierarchy of both memory formats (agents.md nesting; OpenAI ships 88 AGENTS.md). Was blockedBy DECLARED-FRONTMATTER-ADAPTER-CUSTOM (shipped 247e203, which split import_custom_unit → wholefile_id + the from_source face); now the sole open engine slice. The concrete placement→id scheme is build's to pick within the acceptance."
   },
   {
     "tag": "MEMORY-KIND",

@@ -1,30 +1,29 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 78195e0.
-- **Last shipped:** IMPORT-BUILTIN-SCAN-GENERIC (build aa825bd, chore 78195e0) —
-  the memory wave's slice 2: `import::run` drives the built-in scan off
-  `builtin_kind::definitions()`, never a `["skill","rule"]` literal, so a third
-  embedded kind discovers its members through the one generic frontmatter adapter.
-  Verified on disk: import.rs:120-134 iterates `definitions()`, and the custom
-  split reads off the same embedded set (`builtin_names`), not a literal.
-- **This tick:** reconcile-only. Slice 2 shipped → unlocked its two disjoint
-  dependents to `open`: CHECK-WORKSPACE-KIND-MAP (check.rs + bundle/drift/read) and
-  DECLARED-FRONTMATTER-ADAPTER-CUSTOM (import.rs). Re-verified every cite on disk —
-  `Workspace { skills, rules }` (check.rs:34-38) + `load()` (:50-62); bundle.rs:209
-  reads `.skills.len()`/`.rules.len()`; drift.rs:162/176/419/430 and read.rs:89/96
-  iterate the two fields; `import_custom_unit` (import.rs:372-409) still derives id
-  from `file_stem` and ignores the declared `unit_shape`/`format` — all accurate, no
-  entry rewritten. Refreshed the two unlocked entries' stale "blockedBy slice 2"
-  notes. Inbox empty; no new corpus↔src gap.
+- **Phase:** reconcile. HEAD 2cc26ff.
+- **Last shipped:** CHECK-WORKSPACE-KIND-MAP (build ef73b49) + DECLARED-FRONTMATTER-ADAPTER-CUSTOM
+  (build 247e203), chore 2cc26ff — the memory wave's slices 3+4. `check::Workspace`
+  now keys members by kind (`load()` iterates `builtin_kind::definitions()`), and
+  `import_custom_unit` branches on the declared `format`: `yaml-frontmatter` rides
+  `Member::from_source`, no-format keeps the whole file byte-faithful, and the id
+  derives per the declared `unit_shape` in `wholefile_id` — both verified on disk.
+- **This tick:** reconcile-only. Slice 4 shipped → RECURSIVE-GOVERNS-PLACEMENT-ID's
+  `blockedBy DECLARED` is satisfied; unlocked it to `open` and refreshed its drifted
+  cites — DECLARED split `import_custom_unit` into `wholefile_id` (import.rs:479-501) +
+  the `from_source` File face (frontmatter.rs:186-196), and the glob scan is
+  `discover_kind_units`/`collect_glob` (import.rs:326-380) + `glob_matches` (:545). No
+  other entry moved; inbox empty; no new corpus↔src gap. Open questions unchanged.
 - **Operational note (accepted, not queued):** the 17 `requirement.dangling`
-  session-start findings are a **stale installed binary** (`~/.cargo/bin/temper`
-  predates the member-published-requirements union) — the freshly-built binary's
-  `check` is clean. Fix is `cargo install --path .`, not spec/build work.
-- **Pickable now:** CHECK-WORKSPACE-KIND-MAP + DECLARED-FRONTMATTER-ADAPTER-CUSTOM
-  (both `open`, disjoint files → parallel-safe). Then RECURSIVE-GOVERNS-PLACEMENT-ID
-  (blockedBy DECLARED, shares import.rs). Parked: MEMORY-KIND, PACKAGING-CHANNELS,
-  COMMUNITY-DOCS (human action). Deferred: EXTRACTION-VOCAB-GAPS, AGENT-KIND (no
-  consumer). OPEN forks stay human-to-settle.
+  session-start findings are a **stale installed binary** — re-verified this tick:
+  the freshly-built binary's `temper check .temper` is clean (only advisory `max_lines`
+  on the deliberate long-spec fixtures, exit 0); the stale `~/.cargo/bin/temper`
+  reproduces the old findings. Fix is `cargo install --path .`, not spec/build work.
+  (`temper check .` errors on a missing `kinds/architecture/KIND.md` — that is the
+  wrong workspace; the dogfood is checked via `check .temper`, per install.rs.)
+- **Pickable now:** RECURSIVE-GOVERNS-PLACEMENT-ID (sole `open`; the last engine slice
+  of the memory wave). Parked: MEMORY-KIND (flip-ceremony validation, curated files),
+  PACKAGING-CHANNELS, COMMUNITY-DOCS (human action). Deferred: EXTRACTION-VOCAB-GAPS,
+  AGENT-KIND (no consumer). OPEN forks stay human-to-settle.
 
-Plan continues: no — queue reconciled against disk, inbox empty, two disjoint
-`open` entries pickable. Hand to build; building is how the wave drains.
+Plan continues: no — queue reconciled against disk, inbox empty, one `open` entry
+pickable. Hand to build; shipping RECURSIVE drains the last engine slice of the wave.
