@@ -1,21 +1,60 @@
 [
   {
+    "tag": "CHECK-MEMBERS-ALL-KINDS",
+    "summary": "The check gate validates every embedded kind's members against its floor package — a discovered CLAUDE.md/AGENTS.md memory member fires its memory-package clauses instead of being silently skipped",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Artifact kinds & package binding"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "The repro as a test: a harness dir with a >200-line CLAUDE.md (plus a clean skill so the run isn't empty) through the one-shot `check --harness` route fires exactly one `memory.anthropic` max_lines advisory; a <200-line CLAUDE.md fires none; the existing skill/rule findings still fire unchanged (no regression). Drives the CLI the way session-start does (import into a scratch surface, then check), mirroring tests/acceptance.rs's harness-dir fixtures."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`check_gate` hardcodes the skill/rule pair (surface_units + skill_features/rule_features + skill_contract/rule_contract + two engine::validate calls, ~624-654) so a discovered memory member is never checked. Replace the fixed two-kind validation with a generic loop over `builtin_kind::definitions()` (keyed by qualified identity): for each embedded kind load its members via its own `surface_subdir()`/`member_document()` (`check::surface_units`), extract via the generic `builtin_kind::features(kind.name, unit)`, resolve its effective contract off its floor package (see builtin.rs), and run admissibility+validate. SCOPE BOUNDARY: only the validation (two-greens) path generalizes; the `layer`-guarded roster/graph tier stays skill/rule/custom exactly as today — no memory member publishes/satisfies a requirement, so folding additional built-in kinds into the requirement corpus is out of scope (its bare-name keying is the separate `(builtin-workspace-qualified-key)` fork). Keep computing skill_features/rule_features for that guarded branch if simplest, or reuse the loop's per-kind features; the Why/Requirements read arms and the shared helpers (assemble_by_kind/composed_roster) are untouched."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "Add the two `memory` floor package name consts beside SKILL_PACKAGE/RULE_PACKAGE — `memory.anthropic` (binds `claude-code.memory`) and `memory.agents-md` (binds `agents-md.memory`) — and their floor bindings so `check` dispatches a discovered CLAUDE.md/AGENTS.md member to its package. NB: bare `memory` is AMBIGUOUS (two providers collide on the bare name by design, 86d5b70), so these bindings key by QUALIFIED kind identity, NOT the bare->qualified `builtin_kind::qualified` resolve `BUILTIN_FLOOR_BINDINGS` uses for skill/rule. The gate's per-kind loop looks each qualified kind's floor package up here."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Expose a generic `pub fn features(name: &str, unit: &Unit) -> Result<Features, KindError>` (promote/rename the private `features_from`, builtin_kind.rs:187) so the gate extracts any embedded kind's features without a per-kind wrapper. Keep `skill_features`/`rule_features` as the thin two callers they already are (transitional per `(extraction-source-not-mechanism)`)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/memory_gate.rs",
+        "asserts": "a >200-line CLAUDE.md checked via `check --harness` fires exactly one `memory.anthropic` max_lines advisory; a <200-line CLAUDE.md fires none; skill/rule findings are unaffected."
+      }
+    ],
+    "acceptance": "`temper check --harness <dir>` over a harness whose CLAUDE.md exceeds 200 lines fires the `memory.anthropic` max_lines advisory — the memory member is dispatched to its floor package like skill/rule, no longer silently skipped; the two-provider `memory` floors resolve by qualified identity with no AmbiguousKind; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Repro confirmed: a 251-line CLAUDE.md via `check --harness` fires zero clause advisories, yet import projects it to CLAUDE/MEMORY.md — discovery works; the gap is check_gate hardcoding the skill/rule surface_units. Bare `memory` is ambiguous (two providers), so bind floors by qualified identity. Scope: the validation loop only — the roster/graph tier stays skill/rule/custom (no memory member publishes a requirement today). The four curated memory files landed in 86d5b70; state.md was stale."
+  },
+  {
     "tag": "MEMORY-KIND",
-    "summary": "Validate the memory kinds end-to-end once the human commits the four curated KIND.md/PACKAGE.md — discover, clause-check, idempotent round-trip (all engine prerequisites now shipped)",
+    "summary": "Prove the memory kinds end-to-end once the gate checks memory members: broken/clean fixtures fire/stay-silent; a frontmatterless File-shaped member round-trips idempotently (flip ceremony)",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Two categories of kind — ownership, not mechanism"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "the full memory engine wave, SCAN-QUALIFIED-IDENTITY, AND REGISTERED-KIND-SHADOWS-EMBEDDED have ALL shipped (verified on disk: import.rs shadows a registered bare-`memory` kind over co-embedded carriers, skips memberless carriers, qualifies co-discovering lock keys — 9fec9ab/c75075c). NO engine prerequisite remains. The sole blocker is the human authoring/committing the four curated memory KIND.md/PACKAGE.md (agents-md.memory + claude-code.memory, cited to code.claude.com/docs/en/memory) — still absent on disk (kinds/ carries only claude-code/{rule,skill}; packages/ only rule.anthropic + skill.anthropic). Once those four files land, this validation runs"
-    },
+    "gate": { "kind": "blockedBy", "tag": "CHECK-MEMBERS-ALL-KINDS" },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "tests/memory_contract.rs",
-          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: broken/clean memory fixtures through the generic adapter + loader (clauses fire on broken, silent on clean), plus a no-frontmatter File-shaped import round-trip insta snapshot proving idempotence over a unit with no YAML frontmatter. Runs only once the curated memory KIND.md/PACKAGE.md are embedded."
+          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: broken/clean memory fixtures through the generic adapter + loader (the max_lines advisory fires on an over-budget CLAUDE.md, silent on a lean one), plus a no-frontmatter File-shaped import round-trip insta snapshot proving idempotence over a unit with no YAML frontmatter. Runs once CHECK-MEMBERS-ALL-KINDS has the gate dispatching memory members."
         }
       ],
       "edit": [],
@@ -28,8 +67,8 @@
         "asserts": "the memory package's decidable clauses fire on broken fixtures and stay silent on clean; a no-frontmatter File-shaped memory member imports and re-emits idempotently (insta snapshot); the two bare-`memory` providers resolve by qualified identity with no spurious collision on non-colliding lookups."
       }
     ],
-    "acceptance": "With every engine prerequisite shipped and the four curated files committed, `temper check` dispatches an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
-    "notes": "Engine wave (5 slices) + SCAN-QUALIFIED-IDENTITY + REGISTERED-KIND-SHADOWS-EMBEDDED all SHIPPED (verified on disk) — no engine prerequisite remains. Flip-ceremony validation parks solely on the human committing the four curated memory files (absent on disk). `@path` imports NOT in scope. Shipping moves CLAUDE.md onto the surface."
+    "acceptance": "With the gate dispatching memory members (CHECK-MEMBERS-ALL-KINDS shipped) and the four curated files on disk, `temper check` routes an imported CLAUDE.md/AGENTS.md family member to its `memory` package and its clauses fire; `temper import` projects the no-frontmatter File-shaped member idempotently (insta snapshot); cargo fmt/clippy -D warnings/test green — moving CLAUDE.md onto the surface (flip ceremony).",
+    "notes": "The four curated memory files ARE on disk now (86d5b70) — this no longer parks on the human commit; state.md was stale. The remaining blocker is the gate dispatching memory members to their package (CHECK-MEMBERS-ALL-KINDS). Once green, this adds the contract test — per-clause broken fixtures, clean-silent, frontmatterless import idempotence snapshot — and the flip moves CLAUDE.md onto the surface. `@path` imports NOT in scope."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
@@ -101,7 +140,7 @@
         },
         {
           "path": "src/builtin.rs",
-          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:37-44) and register its kind→package binding. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
+          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:37-44) and register its kind->package binding. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
         }
       ],
       "retire": []
@@ -114,7 +153,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS kind.rs:30 + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Stays deferred: more built-in kinds is the wrong direction under requirements/satisfies."
+    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS kind.rs:30 + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Stays deferred: wrong direction under requirements/satisfies. NB shares src/builtin.rs with CHECK-MEMBERS-ALL-KINDS — serialize if un-deferred while that is open."
   },
   {
     "tag": "PACKAGING-CHANNELS",

@@ -426,6 +426,24 @@ path strings remain in comments).
   disk), so the severity mechanism is the *only* remaining blocker. Human to
   settle which mechanism.
 
+- `(builtin-workspace-qualified-key)` — OPEN (dogfood residual, surfaced by the
+  memory kinds). The built-in `check::Workspace` map (`src/check.rs` `load_kinds`)
+  and `src/read.rs` `members()` key built-in members by **bare** kind name, and
+  `members()` hardcodes `skills()`/`rules()`. Two same-bare-name providers
+  (`claude-code.memory` + `agents-md.memory`, deliberately colliding on `memory`,
+  86d5b70) therefore collide under one `"memory"` map key, and the read family's
+  member enumeration never ranges over a memory member at all. CHECK-MEMBERS-ALL-KINDS
+  sidesteps this on the **gate** path — it loads per **qualified** kind via the free
+  `check::surface_units`, so the max_lines advisory fires without touching the map —
+  but `why`/`requirements` will not enumerate a memory satisfier, and a
+  two-provider harness loses one member from the `Workspace` map. The fix has a real
+  mechanism question: re-keying the map by qualified identity breaks the
+  `skills()`/`rules()` accessors (they'd need a bare→qualified resolution, and a
+  requirement/edge referencing `kind = "memory"` is itself ambiguous). No live
+  consumer today — temper's own `.temper/` carries no memory member until the flip —
+  so this is deliberately unfiled. Human to settle the accessor/lookup keying before
+  the read family is generalized over all embedded kinds.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
@@ -493,6 +511,16 @@ from exactly such a line fossilizing. If work touches one, surface it.
   skips a memberless embedded kind so it writes no empty section, and keys two
   co-discovering carriers' roll-up rows by qualified identity (`resolve_bare`). That was
   the **last engine prerequisite** — the memory engine wave is now fully drained and
-  generic; nothing engine-side blocks the flip. The SOLE remaining prerequisite is the
-  human authoring/committing the four curated memory files (still absent on disk).
-  Ordering: human curated-file commit → MEMORY-KIND validation → flip.
+  generic; nothing engine-side blocks the flip.
+  DATUM (2026-07-02, files landed + a residual engine gap): the four curated memory
+  files **are now on disk** (86d5b70: `kinds/{claude-code,agents-md}/memory/KIND.md`
+  + `packages/memory.{anthropic,agents-md}/PACKAGE.md`) — the human-file prerequisite
+  the whole block above tracked is **met**; every "still absent on disk" line above is
+  superseded. But shipping them surfaced a residual engine gap the wave did not close
+  (inbox 87a34f8, verified this tick): `check`'s member-assembly still **hardcodes the
+  skill/rule pair**, so a discovered CLAUDE.md is imported (projected to
+  `CLAUDE/MEMORY.md`) yet never dispatched to its `memory.anthropic` package — a
+  >200-line CLAUDE.md fires no advisory. Filed as **CHECK-MEMBERS-ALL-KINDS** (open,
+  the tick's one pickable entry). Revised ordering: CHECK-MEMBERS-ALL-KINDS (gate
+  dispatches memory members) → MEMORY-KIND validation → flip. The read-family half of
+  the hardcoding is carved out as the `(builtin-workspace-qualified-key)` fork above.
