@@ -23,6 +23,24 @@ graduation, delete over archive.
   scaffold once, never reconcile back; runtime practice is out of lane.
   Rider: AGENT-KIND's "no story demands it" deferral is challenged by this
   story — kinds are package sockets (agent, hooks, settings, mcp).
+- **Surface reformulation v2 — "the scripted altitude"** (07-03 design
+  session; John strongly endorsed, NOT yet ratified — needs his cold read):
+  members become typed TS modules, composition = imports, `temper emit`
+  compiles the library → `.claude/` + inert manifest TOML + lock
+  (double-emit determinism); gate stays Rust, no Node. Inverts the ratified
+  20-surface authority Decision's *medium* (the mirror was illegible:
+  same-medium source/output; .ts→.md reads as src→dist). Flume bridge rides
+  behind it: .flume/ as third landscape (pending.json citation-resolution
+  checks = the custom-kind story's next demo), prompts join the library,
+  `temper check` as a tick gate → the flume fence ratchets open under
+  contract. Prototype + full cost ledger:
+  claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07. Path if it
+  survives: hands-on SPIKE (config + two member modules + throwaway emit,
+  byte-diff against current .claude/) BEFORE any corpus re-cut. Riders: SDK
+  becomes load-bearing product; npm supply chain at emit; template-literal
+  prose tax accepted verbally 07-03 — re-verify in the spike. Subsumes the
+  pull-model membership idea; reshapes (default-assembly-as-data) and the
+  guidance-layer plan (opinion packages/templates become typed imports).
 - `format` frontmatterless vocabulary member — parked until a check needs the
   distinction (vocabulary without a consumer is rejected doctrine).
 
