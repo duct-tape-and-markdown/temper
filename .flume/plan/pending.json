@@ -1,34 +1,59 @@
 [
   {
-    "tag": "BINDING-QUALIFY",
-    "summary": "Qualify built-in kind bindings — packages bind `<provider>.<name>`, the build.rs embed walk accepts the nested `kinds/<provider>/<name>/` layout, and bare lookups route through provider resolution",
+    "tag": "EMBED-NESTED-WALK",
+    "summary": "build.rs kind embed walk accepts the nested `kinds/<provider>/<name>/` layout (qualified key) beside the flat one; built-in-kind lookups route through bare→unique resolution",
     "per": {
       "path": "specs/15-kinds.md",
       "section": "Decision: kind identity carries a provider axis"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "PROVIDER-KEY-PARSE shipped (c52df4f) — the resolution mechanism is on disk; the sole remaining blocker is the human follow-up: curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines. kinds/** is outside build's fence, so a human authors the move (disk today: flat kinds/skill, kinds/rule, no provider lines) before qualified bindings can resolve or be tested end-to-end"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "build.rs",
-          "description": "Extend the kind embed walk to accept the nested `kinds/<provider>/<name>/KIND.md` layout the human follow-up creates (accepting both flat and nested during the transition — build.rs today walks `kinds/<name>/KIND.md` flat). The generated embedded-kind table carries the provider so a built-in kind's identity is qualified at load."
+          "description": "Today `embed()` walks exactly `<tree>/<name>/<marker>` and keys by dir name (build.rs:52-79), so `kinds/claude-code/skill/KIND.md` would be silently skipped. Extend the *kinds* walk (only — the packages walk stays flat; package names are their own namespace) to accept BOTH layouts as transitional tolerance: a dir directly carrying `KIND.md` keys **bare** (`skill`), a provider-level dir whose subdirs carry `KIND.md` keys **qualified** (`claude-code.skill` = `<provider>.<name>`). Today's flat tree embeds bare unchanged — the nested branch is dormant until the human file-move. Parametrize/split the shared `embed()` so only the kinds invocation descends a provider level."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "Thread the provider through the embedded-kind lookup/parse helpers so a built-in kind loads with its qualified identity (`claude-code.skill`), consuming the provider `build.rs` now emits and `CustomKind::from_header` parses."
-        },
+          "description": "The generated [`BUILTIN_KINDS`] table can now carry qualified keys (`claude-code.skill`). Route the bare-name lookups — `source`, `definition`, `skill_features`/`rule_features` via `features_from`, and the `definitions()` map's keying — through the PROVIDER-KEY-PARSE bare→unique resolution (`CustomKind::resolve_bare`, kind.rs:263): a bare `skill` resolves to the unique carrier of that name (bare `skill` today, `claude-code.skill` post-move), a collision is a load error. Behavior-preserving over today's flat/bare table."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/builtin_kind.rs",
+        "asserts": "the existing unit tests (`skill`/`rule` definitions, `definitions_carries_exactly_the_two_built_in_kinds`, the feature drivers) stay green over the flat/bare table — a bare lookup still resolves — proving the resolution wiring is behavior-preserving today; add a resolve-over-qualified-set unit test driving `resolve_bare` so a bare `skill` finds a synthetic `claude-code.skill` and a two-provider collision errors."
+      }
+    ],
+    "acceptance": "build.rs's kinds walk accepts both the flat `kinds/<name>/KIND.md` and the nested `kinds/<provider>/<name>/KIND.md` layouts (nested keys qualified, flat bare); the packages walk stays flat; built-in-kind lookups resolve a bare name through `resolve_bare` (unique-or-collision); the current flat tree embeds unchanged and all existing tests pass; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Inbox drain (EMBED-NESTED-WALK). The build-side predecessor to the human file-move: makes build.rs tolerant BEFORE the move so `kinds/claude-code/skill/KIND.md` embeds rather than being silently skipped. Buildable now — nested branch dormant, resolution a no-op over today's bare table. After it ships the human moves kinds/skill→kinds/claude-code/skill (+rule) with `provider` lines; then BINDING-QUALIFY un-parks. (kind-harness-axis)."
+  },
+  {
+    "tag": "BINDING-QUALIFY",
+    "summary": "Qualify built-in kind bindings — packages bind `<provider>.<name>`, bare `[kind.<name>]` references route through provider resolution, and a two-provider collision is a load error",
+    "per": {
+      "path": "specs/15-kinds.md",
+      "section": "Decision: kind identity carries a provider axis"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "two blockers remain, both non-build: (1) EMBED-NESTED-WALK must ship (build.rs tolerance for the nested layout); (2) the human follow-up — curated skill/rule KIND.md moved to kinds/claude-code/skill|rule with `provider = \"claude-code\"` lines. kinds/** is outside build's fence, so a human authors the move (disk today: flat kinds/skill, kinds/rule, no provider lines) before qualified bindings can resolve or be tested end-to-end"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
         {
           "path": "src/builtin.rs",
-          "description": "`SKILL_PACKAGE`/`RULE_PACKAGE` bindings target the qualified kind names `claude-code.skill`/`claude-code.rule` (builtin.rs:30-37); a published package binds a qualified kind name (specs/15-kinds.md), so the bundle/dossier path enforces qualification."
+          "description": "`SKILL_PACKAGE`/`RULE_PACKAGE` bindings target the qualified kind names `claude-code.skill`/`claude-code.rule` (builtin.rs:33-40); a published package binds a qualified kind name (specs/15-kinds.md), so the bundle/dossier path enforces qualification."
         },
         {
           "path": "src/main.rs",
-          "description": "The `BUILTIN_KINDS.contains(&name)` lookups (main.rs:509, 806, 844) route bare `[kind.<name>]` references through the PROVIDER-KEY-PARSE resolution helper — a bare name resolves to the unique provider-qualified kind, a collision is a load error."
+          "description": "The `kind::BUILTIN_KINDS.contains(&name)` lookups (main.rs:509, 806, 844) — over the bare name-list `[\"skill\",\"rule\"]` (kind.rs:30) — route bare `[kind.<name>]` references through the PROVIDER-KEY-PARSE resolution helper so a bare name resolves to the unique provider-qualified kind and a collision is a load error; the floor tuples (main.rs:294-295) target the qualified names."
         },
         {
           "path": "src/compose.rs",
@@ -44,8 +69,8 @@
         "asserts": "after the qualified-binding wave, a bare `[kind.skill]` assembly binding resolves to the unique `claude-code.skill` built-in; a package binds the qualified kind name; a bare reference with two providers carrying the name is an ambiguity load error."
       }
     ],
-    "acceptance": "After the human moves the curated kind files, build.rs embeds `kinds/<provider>/<name>/KIND.md`; `SKILL_PACKAGE`/`RULE_PACKAGE` bind the qualified `claude-code.skill`/`claude-code.rule`; a bare `[kind.skill]` binding and `satisfies` typing resolve through provider resolution to the unique claude-code kind; a published package binds a qualified kind name; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "(kind-harness-axis) consequence (3). PROVIDER-KEY-PARSE shipped (c52df4f): kind.rs parses `provider`, exposes qualified identity + bare→collision resolution. Sole blocker: the human file-move (2) — curated skill/rule KIND.md → kinds/claude-code/* with provider lines (kinds/** outside build's fence). After it: build.rs walks the nested layout, the embedded table carries provider, bindings qualify, published-binds-qualified becomes a bundle check. Disjoint from kind.rs."
+    "acceptance": "After EMBED-NESTED-WALK ships and the human moves the curated kind files, build.rs embeds `kinds/<provider>/<name>/KIND.md`; `SKILL_PACKAGE`/`RULE_PACKAGE` bind the qualified `claude-code.skill`/`claude-code.rule`; a bare `[kind.skill]` binding and `satisfies` typing resolve through provider resolution to the unique claude-code kind; a published package binds a qualified kind name; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "(kind-harness-axis) consequence (3). PROVIDER-KEY-PARSE shipped: kind.rs parses `provider`, exposes qualified identity + bare→collision resolution. build.rs tolerance + builtin_kind resolution now owned by EMBED-NESTED-WALK. Remaining blockers: EMBED-NESTED-WALK shipping + the human file-move (skill/rule KIND.md → kinds/claude-code/* with provider lines, outside build's fence). After both: bindings qualify, published-binds-qualified becomes a bundle check."
   },
   {
     "tag": "MEMORY-KIND",
@@ -81,7 +106,7 @@
         },
         {
           "path": "src/builtin.rs",
-          "description": "Add a `MEMORY_PACKAGE = \"memory.anthropic\"` const and register the memory kind→package binding beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:32-37). build.rs auto-embeds the PACKAGE.md; no manual embed edit."
+          "description": "Add a `MEMORY_PACKAGE = \"memory.anthropic\"` const and register the memory kind→package binding beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:33-40). build.rs auto-embeds the PACKAGE.md; no manual embed edit."
         },
         {
           "path": "src/extract.rs",
@@ -174,7 +199,7 @@
         },
         {
           "path": "src/builtin.rs",
-          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:32-37) and register its kind→package binding. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
+          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE (builtin.rs:33-40) and register its kind→package binding. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
         }
       ],
       "retire": []
