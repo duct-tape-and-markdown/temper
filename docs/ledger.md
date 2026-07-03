@@ -46,9 +46,22 @@ graduation, delete over archive.
   flushed five single-provider assumptions; expect the pattern to recur.
 - `cargo-insta` is not installed — accept snapshots by `mv .snap.new .snap`.
 
+## Broad goal: a consolidated v0.1 release + open-source publish
+
+Set 2026-07-03. Steer sessions toward shipping, not just deepening:
+
+- **README stands alone**: the operational story (what it does, run it, read
+  the findings) lives IN the README — no reader sent into `specs/` to
+  understand the product; specs stay the internal contract.
+- **Public-facing docs**: a plain-language docs set — the jargon in this repo
+  (joins, worlds, arities, flattening) is internal vocabulary; the public
+  docs speak user (broken imports, dead rules, drift, one gate).
+- **Release mechanics**: PACKAGING-CHANNELS (needs John's credentials),
+  COMMUNITY-DOCS fence widen, prebuilt binaries per 55-offering's launch
+  Decision, version/tag discipline.
+- Weigh new machinery against this goal — depth that v0.1 doesn't need can
+  wait (the horizons file exists for a reason).
+
 ## Standing offers on the human board
 
-- PACKAGING-CHANNELS (needs release credentials), COMMUNITY-DOCS fence widen,
-  MEMORY-KIND's `@path`-edge design is DONE (directives shipped) — the old
-  parked note is superseded.
 - `(code-seam-joins)`: unblocked, wants its tag-grammar design session.
