@@ -28,7 +28,7 @@
       }
     ],
     "acceptance": "`temper import` scans every embedded built-in kind generically off `builtin_kind::definitions()`; a skill/rule-only harness imports byte-identically; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox wave-1 slice 2 (independent). Open beside slice 1 (disjoint files). Slices 3+4 blockedBy this (share/depend on the generic scan); slice 5 follows slice 4. Behavior over a skill/rule-only harness unchanged; the embedded memory kinds discover nothing until this + the human's curated files land."
+    "notes": "Inbox wave-1 slice 2; now the sole `open` pickable — slice 1 MEMORY-COLLISION-SCOPE shipped (61fa275). Slices 3+4 (CHECK-WORKSPACE-KIND-MAP, DECLARED-FRONTMATTER-ADAPTER-CUSTOM) blockedBy this; slice 5 follows slice 4. Skill/rule-only harness unchanged; the embedded memory kinds discover nothing until this + the human's curated files land."
   },
   {
     "tag": "CHECK-WORKSPACE-KIND-MAP",
