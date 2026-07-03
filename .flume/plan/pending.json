@@ -1,44 +1,5 @@
 [
   {
-    "tag": "MANIFEST-EMIT",
-    "summary": "Serialize the full manifest at import — bindings, requirements, member features, and edges into `temper.toml`, patch-preserving any hand-authored manifest",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Topology: source, contract, output"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Grow `AuthorLayer` into the full manifest model: beyond the optional overrides it parses today, model+serialize the generated-canonical manifest — kind→package bindings, the requirements roster, member features (per the closed extraction vocabulary), and declared/mention edges. This is the shape both import (write) and check (read, next entry) share."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "At import, serialize that manifest to `temper.toml` — the generated-canonical artifact the gate will read. A hand-authored floor manifest is patched format-preserving (`toml_edit`), NEVER clobbered (20-surface: 'a hand-written manifest is patched format-preserving'). import still writes the `.temper/` document copies + lock here; INIT-ONRAMP drops the copy later."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "Add coverage: import writes a temper.toml manifest carrying the bindings/requirements/features/edges; re-import patch-preserves a hand-authored manifest (no clobber, comments/order kept)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "import serializes the manifest (bindings, requirements, member features, edges) into temper.toml; a pre-existing hand-authored manifest is patched format-preserving, not overwritten."
-      }
-    ],
-    "acceptance": "import writes the `temper.toml` manifest serializing every declaration the gate/read verbs consume; a hand-authored floor manifest survives format-preserving; check still reads the `.temper/` copy at this step; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Write-side only — the read flip is MANIFEST-GATE-READ. The manifest is generated-canonical (committed, gate-read, hand-writable at the floor). AuthorLayer becomes the manifest model, shared with the next entry (both edit compose.rs — serial). Keeps the copy tree for now so check stays green until the read flips."
-  },
-  {
     "tag": "MANIFEST-GATE-READ",
     "summary": "Make `check` read the `temper.toml` manifest as its gate corpus — manifest + lock + authored sources, not the `.temper/` copy tree; add the `config.stale` finding",
     "per": {
