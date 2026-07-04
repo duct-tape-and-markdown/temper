@@ -21,14 +21,14 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## The one open design thread
 
-- **The SDK is the product** (John's ruling 07-04: "the sdk is the thing I
-  want; the engine was a means" — build-down applies to the ENGINE, never
-  the SDK): DRAFT v3, all amendments + cited interface research folded,
-  awaiting John's cold read after a sleep —
-  claude.ai/code/artifact/5ef1905d-a4f1-4fd0-b553-3b3a1a9a7b1f. Biome is
-  the boundary blueprint (Rust core behind one npm front door). One
-  ceremony administers this + the de-jargon pass. Flume's queue is
-  human-gated on exactly this; nothing is pickable until it lands.
+- **The SDK is the product: RATIFIED + ADMINISTERED** (`specs:` 71d0d30,
+  Δ1–Δ6 + the vocabulary re-cut in one ceremony; pre-state = `manifest-era`
+  tag; record: claude.ai/code/artifact/5ef1905d-a4f1-4fd0-b553-3b3a1a9a7b1f).
+  Loop running the in-fence slices (emit refusals, contract/ dir, assembly
+  artifacts — additive; no demolition entries, all sunsets evidence-gated).
+  NEXT after the wave: the dogfood migration onto the SDK — a session+John
+  ceremony, the flagship demo and every sunset's evidence gate. The genre
+  projection carrier is a named open; the pilot decides.
 
 ## Parked (pointers only)
 
