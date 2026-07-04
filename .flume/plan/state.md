@@ -1,28 +1,29 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD a5d7950.
-- **Last shipped:** **CONTRACT-DIR** (`build` 375a1cc / `chore` a5d7950) — the
-  byte-parity corpus promoted into a shared top-level `contract/` dir (`manifest/`
-  + `schema/` goldens + README), backed by Rust-first schema gen (schemars +
-  ts-rs, Cargo.toml). Verified on disk; build pruned it from the queue. **The
-  ratified SDK wave has fully drained** — no in-fence ratification item remains.
-- **This tick:** reconciled against disk. CONTRACT-DIR shipped and was already
-  pruned. All three carried entries hold, premises re-checked on disk:
-  EXTRACTION-VOCAB-GAPS + AGENT-KIND deferred (no consumer — `Primitive::Field`
-  flat-reads `unit.frontmatter.get(key)` at kind.rs:836; `kinds/claude-code/`
-  carries only memory/rule/skill, no `agent/`), PACKAGING-CHANNELS parked (root
-  package.json still private `temper-flume-harness`). Confirmed no hidden drift
-  from `(extraction-source-not-mechanism)`: `skill_features`/`rule_features` are
-  now thin `features(&definition(..), unit)` wrappers over the one generic
-  composed path (builtin_kind.rs:163) — the intended end state, not scaffolding
-  to retire. Inbox empty.
-- **Pickable now:** **none** — the queue is deferred/deferred/parked only. No
-  `open` head; the in-fence work has drained.
-- **What's next:** the remaining work is human, not a pending entry — the dogfood
-  migration onto the SDK authoring face (ledger's TS-primary ceremony) and
-  PACKAGING-CHANNELS's release creds. No-demolition holds (D6): engine-side
-  retirements stay evidence-gated behind that migration.
+- **Phase:** reconcile. HEAD 90a15f5.
+- **Last shipped:** CONTRACT-DIR (`build` 375a1cc / `chore` a5d7950). Both the
+  in-fence SDK ratification wave (emit refusals → contract/ dir → assembly
+  artifacts) and the scripted-altitude floor/altitude chains have fully drained.
+- **This tick:** drained the inbox — John's dogfood-migration ruling. Filed the
+  ruled next SDK slice **MEMORY-PROJECTION-SDK** (`open`): SDK emit projects a
+  module-carried memory to its root `CLAUDE.md`/`AGENTS.md` locus (frontmatterless
+  body-alone) with a lock row — today memory lands in the manifest but projects
+  nowhere (`sdk/src/project.ts` `isProjectedKind` = rule/skill only, verified).
+  Routed the four pilot-evidence seams to open-questions as forks
+  (`sdk-placement-round-through`, `gate-kind-spelling-and-unknown-kind`,
+  `gate-reads-assembly-artifacts`, `module-carriage-manifest-shape`) — all four
+  share `sdk/src/{emit,project,manifest}.ts` with the memory slice, so they are
+  held (not filed as competing open entries) until ruled. The three carried
+  entries hold, premises re-checked on disk: EXTRACTION-VOCAB-GAPS + AGENT-KIND
+  deferred (`BUILTIN_KINDS = ["skill","rule"]`, kind.rs:30; no `agent/` kind),
+  PACKAGING-CHANNELS parked.
+- **Pickable now:** **MEMORY-PROJECTION-SDK** — the one `open` head. Fits build's
+  fence (`sdk/**`); the `sdk test` gate validates it at afterMerge.
+- **What's next:** the dogfood's full migration onto the SDK is the ledger's
+  TS-primary human ceremony (not a pending entry); the four SDK seam forks each
+  become the next serialized SDK entry once ruled. Accepted minor debt (commit
+  body): the lock `source_path` dialect (`.claude/...` vs `./.claude/...`) — noted
+  under the manifest-shape fork, not separately filed.
 
-Plan continues: no — queue reconciled and truthful, inbox empty, and no pickable
-`open` head remains (all entries deferred/parked). Remaining work needs a human
-ceremony, not a build tick; nothing to hand to build.
+Plan continues: no — one truthful `open` head filed (MEMORY-PROJECTION-SDK), inbox
+drained, forks recorded. Hand to build; the queue drains by building.
