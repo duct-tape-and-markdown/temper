@@ -325,7 +325,12 @@ const build: Phase = {
   concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
-  gates: [fmtGate, clippyGate, testGate, selfCheckGate, sdkGate],
+  // selfCheckGate DEACTIVATED for the six-noun demolition wave (John's
+  // "let's go" ruling, 2026-07-04): the wave retires the manifest path the
+  // self-check reads, so the dogfood validates the finished version at wave
+  // end (90-spec-system, the engine-wave provision), never mid-demolition.
+  // The session re-arms it after the confirmation pass.
+  gates: [fmtGate, clippyGate, testGate, sdkGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
       throw new Error("build phase requires an assignedEntry");
