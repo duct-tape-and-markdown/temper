@@ -1,31 +1,31 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD eff71a1.
-- **Last shipped:** INIT-ONRAMP (`build` f7a830b / `chore` eff71a1) — the on-ramp
-  is now `init`: scan a harness into a `temper.toml` manifest over its members
-  **in place**, zero `.temper/` copy tree (`main.rs:273`, `Command::Init` →
-  `import::init`, per `20-surface.md` "Decision: `init` is the on-ramp"). Sixth
-  and penultimate link of the floor `blockedBy` chain.
-- **This tick:** inbox empty. Reconciled: INIT-ONRAMP shipped, so
-  EMIT-OWNED-PLACEMENTS's `blockedBy INIT-ONRAMP` is discharged → **flips to
-  `open`**, the chain tail and sole open head. Verified it unbuilt on disk:
-  `project_bytes` (`drift.rs:576`, called from the double-emit verify at 518-524)
-  still re-emits frontmatter from `fields` only, never reading the on-disk
-  projection — so a whole-file emit drops install's schema modeline
-  (`project_modeline` install.rs:630) + reflows the YAML; `project_note`
-  (install.rs:653) and `the_managed_by_note_is_never_written_by_apply`
-  (tests/install.rs:453) still stand. Corrected the entry's one stale line-ref
-  (553 → 576).
-- **Pickable now:** **EMIT-OWNED-PLACEMENTS** (`open`) — emit preserves install's
-  modeline/managed-by lines instead of clobbering them; ends the `gate_installed`
-  re-nudge loop; lifts the interim "do not run bare `apply`/`emit` on rules"
-  discipline. Deferred: EXTRACTION-VOCAB-GAPS, AGENT-KIND (no consumer). Parked:
-  PACKAGING-CHANNELS (human creds).
-- **What's next:** build ships EMIT-OWNED-PLACEMENTS — the last floor-wave link;
-  once it lands the whole `scripted-altitude` **floor** chain has drained (only
-  the altitude rung stays parked on John's SDK/npm ask (a)). Human still owes the
-  accepted-debt `temper.toml`+lock regen (∉ build's fence) so the manifest-read
-  path exercises the dogfood, not just fixtures.
+- **Phase:** reconcile. HEAD b31e787.
+- **Last shipped:** EMIT-OWNED-PLACEMENTS (`build` caf4cab / `chore` b31e787) —
+  the **seventh and last** link of the scripted-altitude floor chain. emit reads
+  the committed projection before its whole-file re-emit and rounds install's
+  placement lines through (`install::placement_lines` drift.rs:538,
+  `project_bytes(…, placements)` drift.rs:589); the modeline/managed-by note now
+  survive re-emit and `gate_installed` stops re-nudging. The interim "don't run
+  bare `emit` on rules" discipline is retired.
+- **This tick:** inbox empty. Reconciled: EMIT-OWNED-PLACEMENTS shipped (verified
+  on disk) → **the whole scripted-altitude floor chain has fully drained** (all
+  seven links landed). Confirmed the two deferred entries still hold on disk:
+  `Primitive` has no `Fenced` variant (kind.rs), `Features::field` is a flat
+  `fields.get(name)` (extract.rs:226) with no key-path; no `agent` kind under
+  `kinds/claude-code/`. Launch-doc surface is complete on disk (AGENTS/CHANGELOG/
+  README/dual-LICENSE/CONTRIBUTING/SECURITY/issue-forms all present) — no gap to
+  file there.
+- **Pickable now:** **none `open`.** Remaining queue is all held: deferred
+  EXTRACTION-VOCAB-GAPS + AGENT-KIND (no consumer kind), parked PACKAGING-CHANNELS
+  (human release creds). The **altitude rung** stays parked on John's SDK/npm ask
+  (a); no altitude entry may be filed until he scaffolds it.
+- **What's next:** nothing for build to pick — the floor is done and every open
+  frontier is human-blocked (altitude SDK ask (a); packaging creds) or awaits a
+  consumer (the deferred kinds). Human still owes the accepted-debt
+  `temper.toml`+lock regen via `emit` (∉ build's fence) so the manifest-read path
+  exercises the dogfood, not just fixtures — the sole floor follow-on.
 
-Plan continues: no — queue reconciled, EMIT-OWNED-PLACEMENTS is a pickable `open`
-head, inbox empty. Hand to build; re-planning would re-emit the same queue.
+Plan continues: no — queue reconciled, floor chain fully drained, inbox empty,
+and no un-blocked gap remains to file. Re-planning would re-emit the same held
+queue. Work resumes when a human unblocks the altitude rung or packaging.

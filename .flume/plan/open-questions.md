@@ -12,10 +12,11 @@ and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror i
 path strings remain in comments).
 
 - `(scripted-altitude-reconcile)` — OPEN for the **altitude rung only**; the
-  **floor wave is FILED** (2026-07-03, ask (b) discharged — see tail). The
-  **scripted-altitude** corpus re-cut landed as new intent (`specs:` 32ea84d,
-  ratified 2026-07-03; pre-state = `mirror-era` tag) and the code has **not**
-  migrated to it. The reformulation is decided (`00-intent.md` Decision "the
+  **floor wave has fully SHIPPED** (2026-07-03, ask (b) discharged and all seven
+  serialized links landed — see tail). The **scripted-altitude** corpus re-cut
+  landed as new intent (`specs:` 32ea84d, ratified 2026-07-03; pre-state =
+  `mirror-era` tag) and the code's **floor has now migrated to it**; only the
+  altitude rung is unmigrated. The reformulation is decided (`00-intent.md` Decision "the
   authoring face is a typed library; the gate reads inert data"; `20-surface.md`
   throughout). What remains OPEN is the **altitude rung's human prerequisite**
   (ask (a), the TS SDK); the floor sequencing (ask (b)) is now settled. The
@@ -53,8 +54,10 @@ path strings remain in comments).
   `install`'s schema modeline + reflows the YAML — under the re-cut *emit owns the
   projection whole*, so install's placement lines must be **emit-owned** (part of
   the emit reconception, not a separate stamp) — filed as the tail entry
-  EMIT-OWNED-PLACEMENTS. Interim discipline until that lands: **do not run bare
-  `apply`/`emit` on rules** (hand-reverted once this session).
+  EMIT-OWNED-PLACEMENTS, now **SHIPPED** (see tail): emit reads the committed
+  projection before re-emitting and rounds install's placement lines through, so
+  the two projectors agree by construction. The interim "do not run bare
+  `apply`/`emit` on rules" discipline is **RETIRED**.
   **ASK (b) DISCHARGED (2026-07-03):** John delegated the floor-wave sequencing
   to plan (inbox ruling); this tick FILED it as the serialized `blockedBy` chain
   **READD-RETIRE → LOCK-FRESHNESS-FACTS → EMIT-VERB → MANIFEST-EMIT →
@@ -82,15 +85,19 @@ path strings remain in comments).
   **sixth** has now shipped — INIT-ONRAMP (`build` f7a830b / `chore` eff71a1):
   `import`→`init`, scan into a `temper.toml` manifest over members **in place**,
   zero `.temper/` copy tree (`main.rs:273`, `Command::Init` → `import::init`).
-  This reconcile discharged **EMIT-OWNED-PLACEMENTS**'s `blockedBy INIT-ONRAMP`
-  → it flips `open` as the chain **tail** (last floor link; verified unbuilt —
-  `project_bytes` drift.rs:576 still re-emits from `fields` only and drops
-  install's schema modeline on a whole-file re-emit). ACCEPTED DEBT (out of build's
-  fence): temper's own committed `temper.toml`+lock still predate MANIFEST-EMIT
-  (zero `[[member]]` tables), so the manifest-read path is exercised against
-  fixtures, not the dogfood — regenerating them via `emit` is a human
-  `chore(harness)` (`temper.toml` ∉ `BUILD_WRITABLE_PATHS`), a follow-on beside
-  EMIT-OWNED-PLACEMENTS. These floor entries are NOT
+  The **seventh and last** has now shipped — EMIT-OWNED-PLACEMENTS (`build`
+  caf4cab / `chore` b31e787): emit reads the committed projection before its
+  whole-file re-emit and rounds install's placement lines through (`install::
+  placement_lines` drift.rs:538, `project_bytes(…, placements)` drift.rs:589),
+  install exposes the single predicate deciding which lines are its own, so the
+  modeline/managed-by note survive re-emit and `gate_installed` stops re-nudging.
+  **THE FLOOR CHAIN HAS FULLY DRAINED** — all seven links shipped; the code has
+  reconciled to the scripted-altitude corpus's floor. ACCEPTED DEBT (out of
+  build's fence): temper's own committed `temper.toml`+lock still predate
+  MANIFEST-EMIT (zero `[[member]]` tables), so the manifest-read path is
+  exercised against fixtures, not the dogfood — regenerating them via `emit` is a
+  human `chore(harness)` (`temper.toml` ∉ `BUILD_WRITABLE_PATHS`), the sole floor
+  follow-on. These floor entries were NOT
   `dependsOnForks`-gated on this fork: the human unblocked the floor explicitly.
   **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
   authoring-face npm scaffolding, stays **parked on John** (like
