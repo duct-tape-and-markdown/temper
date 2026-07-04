@@ -1,22 +1,24 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD f8dabad.
-- **Last shipped:** both SDK-seam chain heads — GATE-KIND-RESOLVE (`build` ff493d9)
-  and SDK-CARRIAGE-CONVERGE (`build` 1d2b9fd), shipped together (`chore` f8dabad).
-  The Rust gate now resolves a manifest member's qualified kind to its bare key
-  before dispatch; the SDK `toManifestMember` sectionizes per heading like the importer.
-- **This tick:** verified both heads landed on disk and neither follower's work
-  has — `src/assembly_artifacts.rs` is absent, and `projectMember` (project.ts:136)
-  still calls `projectBytes(fields, body)` without the `placements` arg. So both
-  serialized followers unblock: **GATE-READS-ASSEMBLY** and
-  **SDK-PLACEMENT-ROUNDTHROUGH** flip `blockedBy → open`. They are cross-language
-  disjoint (`src/**`+`tests/**` vs `sdk/**`), so both `open` and parallel-safe.
-  Inbox empty. Carried entries hold: EXTRACTION-VOCAB-GAPS deferred (kind.rs:836),
-  AGENT-KIND deferred, PACKAGING-CHANNELS parked.
-- **Pickable now:** GATE-READS-ASSEMBLY and SDK-PLACEMENT-ROUNDTHROUGH (both `open`,
-  disjoint). No followers remain behind them — these are the tails of the two chains.
-- **What's next:** build ships the two tails in parallel. Once both land, the four
-  ruled SDK seams are fully closed and the dogfood's full migration onto the SDK is
-  the ledger's TS-primary human ceremony (not a pending entry).
+- **Phase:** reconcile. HEAD e1a1fb5.
+- **Last shipped:** both SDK-seam chain tails — GATE-READS-ASSEMBLY (`build`
+  ed97588) and SDK-PLACEMENT-ROUNDTHROUGH (`build` 2377f4e), shipped together
+  (`chore` e1a1fb5). Verified on disk: `src/assembly_artifacts.rs` + `main.rs:853`
+  `assembly_artifacts::load` reads roster.toml/bindings.toml as the gate's
+  assembly source; `sdk/src/project.ts:250` threads `committedPlacements` through
+  `projectBytes`. With these, **all four ruled SDK seams are closed.**
+- **This tick:** confirmed both tails landed and are already dropped from the
+  queue. No corpus↔src drift to file — the queue is fully reconciled. Inbox empty.
+  The three carried entries all still hold on disk: EXTRACTION-VOCAB-GAPS deferred
+  (kind.rs:836 still flat-reads `frontmatter.get(key)`, no consumer), AGENT-KIND
+  deferred (no `agent` kind under kinds/claude-code/, no AGENT_PACKAGE), and
+  PACKAGING-CHANNELS parked (package.json still the private flume manifest).
+- **Pickable now:** none. Every remaining entry is deferred or parked — no `open`
+  entry exists. The pipeline is idle pending human action.
+- **What's next (human, not a pending entry):** the dogfood's full migration onto
+  the SDK is the ledger's TS-primary reformulation ceremony (session + John).
+  Reviving any carried entry also needs a human (a consumer for
+  EXTRACTION-VOCAB-GAPS / AGENT-KIND; npm creds for PACKAGING-CHANNELS).
 
-Plan continues: no — queue reconciled, two disjoint `open` tails pickable. Hand to build.
+Plan continues: no — queue reconciled, no `open` work remains; forward motion
+now needs a human ceremony, not a build tick.
