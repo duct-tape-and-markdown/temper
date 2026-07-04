@@ -62,6 +62,13 @@ pub struct AuthorLayer {
     /// in place of the `.temper/` copy tree; parsed here so a re-import and the gate load
     /// round-trip the whole manifest without choking on the emitted section.
     members: Vec<ManifestMember>,
+    /// The **in-place members** parsed from the `source`-bearing `[[member]]` tables
+    /// (`specs/architecture/20-surface.md`, "In-place"): the harness landscape files that
+    /// *are* their own members, live-extracted at check time. Its own list, distinct from
+    /// the pre-extracted `members` above — a `[[member]]` table routes here when it
+    /// carries a `source` path, there when it bakes features. Empty when the manifest
+    /// declares no in-place members (any pre-`init` or altitude-only manifest).
+    inplace: Vec<InPlaceMember>,
 }
 
 /// The assembly's **surface-authority posture** — how firmly the surface owns its
@@ -121,6 +128,31 @@ pub struct ManifestMember {
     /// consumes, so a serialized member round-trips to the same features a live
     /// extraction yields.
     pub features: Features,
+}
+
+/// One **in-place member** declared in the manifest (`specs/architecture/20-surface.md`,
+/// "In-place — the landscape file itself is the member"): a `[[member]]` table that
+/// carries a `source` path instead of pre-extracted features. The harness file at
+/// `source` *is* the member — its features are **live-extracted** at check time (no
+/// projection, no provenance, no drift; the file is its own source), and only the joins
+/// it participates in — `satisfies` and published requirements — are declared here,
+/// because the harness format is not temper's to annotate. On a fresh `init` a member
+/// arrives **unrecognized** (empty joins); recognition accrues member-by-member.
+#[derive(Debug, Clone, PartialEq)]
+pub struct InPlaceMember {
+    /// The bare kind name the member is checked under (`skill`, `rule`).
+    pub kind: String,
+    /// The member id — its surface name, the id a live extraction yields.
+    pub name: String,
+    /// The landscape file that *is* the member, a slash path relative to the harness
+    /// root (`.claude/rules/x.md`). The gate reads and extracts it live.
+    pub source: String,
+    /// The requirements this member opts into filling, declared in the assembly (the
+    /// harness file carries no temper annotation). Empty until recognition accrues.
+    pub satisfies: Vec<String>,
+    /// The requirements this member publishes, declared in the assembly. Empty until
+    /// recognition accrues.
+    pub published: Vec<PublishedRequirement>,
 }
 
 /// A named **requirement** — the harness's named obligation, declared in a top-level
@@ -781,7 +813,12 @@ impl AuthorLayer {
         // The emitted member-features root — the generated-canonical, pre-extracted form
         // (`specs/architecture/20-surface.md`, "Topology"). Its own array root, parsed like the
         // lock's roll-up rows: each `[[member]]` table into a typed [`ManifestMember`].
+        // A `[[member]]` table carrying a `source` path is **in-place** — the landscape
+        // file is the member, features live-extracted at check (`specs/architecture/20-surface.md`);
+        // one baking features is document/module-carried, pre-extracted here. One array,
+        // two carriages, routed by the presence of `source`.
         let mut members = Vec::new();
+        let mut inplace = Vec::new();
         if let Some(item) = doc.as_table().get("member") {
             let array =
                 item.as_array_of_tables()
@@ -789,7 +826,11 @@ impl AuthorLayer {
                         path: path.to_path_buf(),
                     })?;
             for (index, table) in array.iter().enumerate() {
-                members.push(parse_member(table, index, path)?);
+                if table.contains_key("source") {
+                    inplace.push(parse_inplace_member(table, index, path)?);
+                } else {
+                    members.push(parse_member(table, index, path)?);
+                }
             }
         }
 
@@ -801,6 +842,7 @@ impl AuthorLayer {
             reachability,
             authority,
             members,
+            inplace,
         })
     }
 
@@ -847,6 +889,16 @@ impl AuthorLayer {
     #[must_use]
     pub fn members(&self) -> &[ManifestMember] {
         &self.members
+    }
+
+    /// The manifest's **in-place members**, in declaration order
+    /// (`specs/architecture/20-surface.md`, "In-place"). Empty when the manifest declares none.
+    /// The gate resolves each against the harness root and **live-extracts** its features
+    /// from the landscape file — no projection, no drift — in place of the pre-extracted
+    /// [`member_corpus`](Self::member_corpus) it reads for document/module carriage.
+    #[must_use]
+    pub fn inplace_members(&self) -> &[InPlaceMember] {
+        &self.inplace
     }
 
     /// The manifest's serialized member features grouped by **bare kind name** — the
@@ -1460,20 +1512,56 @@ fn requirement_str(
 /// import rather than merged. An empty `members` drops the root entirely (an empty
 /// array-of-tables would vanish on the toml round-trip anyway).
 pub fn write_manifest_members(doc: &mut DocumentMut, members: &[ManifestMember]) {
-    // The member root is generated-canonical — regenerated whole, never merged — so drop
-    // any prior section first, then re-emit. Removing before inserting makes a re-import
-    // byte-stable: whether the base already carried a `member` root or not, the write is
-    // the same "append the fresh root to a member-less document" operation, so a second
-    // import over the first's output reproduces it exactly.
+    write_members(doc, members, &[]);
+}
+
+/// Re-emit the `[[member]]` root whole from both carriages: the pre-extracted
+/// `extracted` members (document/module — features baked) and the `inplace` members
+/// (the landscape file is the member — a `source` path, joins only, no features). The
+/// generated-canonical superset of [`write_manifest_members`]: `init` writes the in-place
+/// scan, `init --lift` writes the mixed set as one member migrates a rung
+/// (`specs/architecture/20-surface.md`, "adoption is a gradient"). The root is regenerated whole
+/// — see [`write_manifest_members`] for why removing before inserting keeps a re-write
+/// byte-stable. An empty pair drops the root entirely.
+pub fn write_members(
+    doc: &mut DocumentMut,
+    extracted: &[ManifestMember],
+    inplace: &[InPlaceMember],
+) {
     doc.as_table_mut().remove("member");
-    if members.is_empty() {
+    if extracted.is_empty() && inplace.is_empty() {
         return;
     }
     let mut tables = ArrayOfTables::new();
-    for member in members {
+    for member in extracted {
         tables.push(member_to_table(member));
     }
+    for member in inplace {
+        tables.push(inplace_member_to_table(member));
+    }
     doc["member"] = Item::ArrayOfTables(tables);
+}
+
+/// Serialize one in-place member into its `[[member]]` table: the bare `kind`, `name`,
+/// the `source` path that IS the member, and its declared join edges (`satisfies`,
+/// `[[member.published]]`). No feature facets — the gate live-extracts those from the
+/// landscape file. Each empty join is omitted so an unrecognized member stays terse.
+fn inplace_member_to_table(member: &InPlaceMember) -> Table {
+    let mut table = Table::new();
+    table["kind"] = value(member.kind.clone());
+    table["name"] = value(member.name.clone());
+    table["source"] = value(member.source.clone());
+    if !member.satisfies.is_empty() {
+        table["satisfies"] = value(str_array(&member.satisfies));
+    }
+    if !member.published.is_empty() {
+        let mut published = ArrayOfTables::new();
+        for requirement in &member.published {
+            published.push(published_to_table(requirement));
+        }
+        table["published"] = Item::ArrayOfTables(published);
+    }
+    table
 }
 
 /// Serialize one member's features into its `[[member]]` table: the bare `kind`, the
@@ -1640,6 +1728,35 @@ fn parse_member(table: &Table, index: usize, path: &Path) -> Result<ManifestMemb
             satisfies,
             published_requirements,
         },
+    })
+}
+
+/// Parse one `source`-bearing `[[member]]` table into a typed [`InPlaceMember`] — the
+/// inverse of [`inplace_member_to_table`]. Carries the `kind`, `name`, and `source`
+/// (all required strings) plus the declared join edges (`satisfies`,
+/// `[[member.published]]`); no feature facets, since the gate live-extracts those from
+/// the landscape file. Any missing/mistyped facet folds into a single
+/// [`ComposeError::BadMember`] naming its position.
+fn parse_inplace_member(
+    table: &Table,
+    index: usize,
+    path: &Path,
+) -> Result<InPlaceMember, ComposeError> {
+    let bad = || ComposeError::BadMember {
+        path: path.to_path_buf(),
+        index,
+    };
+    let kind = member_str(table, "kind").ok_or_else(bad)?;
+    let name = member_str(table, "name").ok_or_else(bad)?;
+    let source = member_str(table, "source").ok_or_else(bad)?;
+    let satisfies = member_str_array(table, "satisfies", &bad)?;
+    let published = parse_member_published(table, &bad)?;
+    Ok(InPlaceMember {
+        kind,
+        name,
+        source,
+        satisfies,
+        published,
     })
 }
 

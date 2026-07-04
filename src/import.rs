@@ -1,16 +1,16 @@
-//! `temper import` — scan a Claude Code harness into the typed config surface.
+//! `temper init` — scan a Claude Code harness into the typed config surface.
 //!
-//! specs/architecture/20-surface.md, "Artifact kinds & contract selection"; custom kinds
-//! specs/architecture/40-composition.md.
+//! specs/architecture/20-surface.md, "Decision: `init` is the on-ramp, and adoption is a
+//! gradient"; custom kinds specs/architecture/40-composition.md.
 //!
-//! Built-in kinds scan at their real Claude Code locus under `<harness>/.claude/`,
-//! so one project-root `harness_path` captures the whole harness; each is projected
-//! as one authored document through the generic frontmatter adapter
-//! ([`import_frontmatter_member`]). Custom kinds are
-//! discovered data-driven off the [`governs`](crate::kind::Governs) locus their
-//! authored `.temper/kinds/<name>/KIND.md` declares — spec discovery is a custom
-//! kind, not a hardwired scan, so absent a `temper.toml` registration the built-ins
-//! import alone. A `<into>/lock.toml` roll-up records one row per artifact.
+//! [`init`] is the on-ramp: it scans the built-in-kind harness members at their real
+//! Claude Code locus under `<harness>/.claude/` and writes a manifest over them **in
+//! place** — a `[[member]]` table per member naming its landscape file, zero file moves,
+//! zero copy tree (`specs/architecture/20-surface.md`, the gradient's `init` rung). [`lift`]
+//! migrates one member up a carriage rung. [`run`] is the retained document-carriage
+//! projection (`specs/architecture/15-kinds.md`, the generic frontmatter adapter) the one-shot
+//! gate paths, `emit`, and `diff` still ride: it copies each member into `<into>/` as a
+//! `+++`-headed document and records one `<into>/lock.toml` roll-up row per artifact.
 //!
 //! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
 //! every write is content-derived, name-sorted, and overwrites in place.
@@ -24,7 +24,7 @@ use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::builtin_kind;
-use crate::compose::{self, AuthorLayer, ManifestMember};
+use crate::compose::{self, AuthorLayer, InPlaceMember, ManifestMember};
 use crate::document::{self, Document};
 use crate::frontmatter::{self, FrontmatterError, Member};
 use crate::kind::{CustomKind, Format, Governs, KindError, Unit, UnitShape};
@@ -242,6 +242,178 @@ fn run_with_builtins(
 
     write_rollup(into, &builtin_rollups, &custom)?;
 
+    Ok(())
+}
+
+/// The on-ramp (`specs/architecture/20-surface.md`, "Decision: `init` is the on-ramp"): scan
+/// `harness_path` for its built-in-kind members and write a manifest over them **in
+/// place** — zero file moves, zero copy tree, zero reformatting. Each member lands as a
+/// `source`-bearing `[[member]]` table naming its landscape file; a 40-artifact harness
+/// is governed by the floor day one, byte-identical to the harness it was the day
+/// before. Members arrive **unrecognized** (no `satisfies`, no published requirements);
+/// recognition accrues member-by-member from the author's own declared requirements
+/// failing coverage, never from on-ramp ceremony.
+///
+/// The `<harness>/temper.toml` is patched **format-preserving** — the hand-authored
+/// bindings, requirements, and comments survive; only the generated-canonical `member`
+/// root is re-emitted whole. Any **already-lifted** member (a document/module-carried
+/// `[[member]]` a prior [`lift`] wrote) is preserved and **not** re-scanned as in-place,
+/// so `init` composes with the gradient rather than clobbering a climbed member. In-place
+/// carriage is built-in-kind only — a custom project kind is an authored `.temper/`
+/// artifact (document/module carriage), not one of the floor's harness members
+/// (`specs/architecture/20-surface.md`, "In-place — the floor's harness members").
+///
+/// # Errors
+///
+/// Returns an error if the harness cannot be scanned, a member source cannot be read, or
+/// the existing manifest cannot be read/parsed for patching.
+pub fn init(harness_path: &Path) -> miette::Result<()> {
+    let manifest_path = harness_path.join(MANIFEST_FILENAME);
+    let mut doc = load_manifest(&manifest_path)?;
+
+    // Preserve any already-lifted (document/module-carried) members, and skip re-scanning
+    // them as in-place — the gradient climbs per member, so init must not knock a lifted
+    // member back down a rung.
+    let extracted: Vec<ManifestMember> = AuthorLayer::load(&manifest_path)?
+        .map(|layer| layer.members().to_vec())
+        .unwrap_or_default();
+    let lifted: BTreeSet<(String, String)> = extracted
+        .iter()
+        .map(|member| (member.kind.clone(), member.features.id.clone()))
+        .collect();
+
+    let inplace = scan_inplace_members(harness_path, &lifted)?;
+    compose::write_members(&mut doc, &extracted, &inplace);
+    write_bytes(&manifest_path, doc.to_string().as_bytes())?;
+    Ok(())
+}
+
+/// Scan every built-in kind's members under `harness` and model each as an
+/// [`InPlaceMember`] naming its landscape file (a slash path relative to `harness`),
+/// name-sorted per kind for a byte-stable manifest. `lifted` names the `(kind, id)`
+/// members a prior [`lift`] already climbed to document/module carriage; those are
+/// skipped so a member is never carried twice. Built-in-kind only — a custom kind's units
+/// are authored `.temper/` artifacts, not in-place harness members.
+fn scan_inplace_members(
+    harness: &Path,
+    lifted: &BTreeSet<(String, String)>,
+) -> miette::Result<Vec<InPlaceMember>> {
+    let builtins = builtin_kind::definitions()?;
+    let mut members = Vec::new();
+    for kind in builtins.values() {
+        for file in discover_builtin(harness, kind)? {
+            let member =
+                Member::from_source_rooted(kind, &file, &harness.join(&kind.governs.root))?;
+            if lifted.contains(&(kind.name.clone(), member.id.clone())) {
+                continue;
+            }
+            members.push(InPlaceMember {
+                kind: kind.name.clone(),
+                name: member.id,
+                source: rel_slash(harness, &file),
+                satisfies: Vec::new(),
+                published: Vec::new(),
+            });
+        }
+    }
+    members.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.name.cmp(&b.name)));
+    Ok(members)
+}
+
+/// `file` as a slash-separated path relative to the harness root — the form an in-place
+/// `[[member]]` records its `source` as, so the gate resolves `harness_root.join(source)`
+/// on every platform. Falls back to the whole path when `file` is not under `harness`.
+fn rel_slash(harness: &Path, file: &Path) -> String {
+    file.strip_prefix(harness)
+        .unwrap_or(file)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+/// The per-member migration up a carriage rung (`specs/architecture/20-surface.md`, "adoption is a
+/// gradient"; "`--lift` … normalizes framing, never content"): lift the in-place member
+/// `member_name` into **document carriage** — project it into `<harness>/.temper/` as a
+/// `+++`-headed member document (via [`import_frontmatter_member`], body byte-identical),
+/// then rewrite its `[[member]]` from the `source`-bearing in-place form to the
+/// pre-extracted document form. The rest of the manifest — every other in-place member,
+/// the hand-authored bindings and requirements — is preserved. The member's declared
+/// joins carry across the lift, since framing normalizes but the recognition it earned
+/// must not be dropped.
+///
+/// Lift to **module carriage** (the altitude) needs the parked TypeScript SDK, so this is
+/// the reachable rung today: the document form is the same data hand-spellable
+/// (`specs/architecture/20-surface.md`, "the document form is the same data hand-spelled").
+/// Built-in-kind only, matching [`init`]'s in-place scan.
+///
+/// # Errors
+///
+/// Returns an error if the harness carries no manifest, names no in-place member
+/// `member_name`, names an unknown built-in kind, or the projection/manifest write fails.
+pub fn lift(harness_path: &Path, member_name: &str) -> miette::Result<()> {
+    let manifest_path = harness_path.join(MANIFEST_FILENAME);
+    let layer = AuthorLayer::load(&manifest_path)?.ok_or_else(|| {
+        miette::miette!(
+            "no {MANIFEST_FILENAME} at {} — run `temper init` before lifting a member",
+            harness_path.display()
+        )
+    })?;
+
+    let target = layer
+        .inplace_members()
+        .iter()
+        .find(|member| member.name == member_name)
+        .ok_or_else(|| miette::miette!("no in-place member `{member_name}` in the manifest"))?
+        .clone();
+
+    let builtins = builtin_kind::definitions()?;
+    let kind = builtins
+        .values()
+        .find(|kind| kind.name == target.kind)
+        .ok_or_else(|| {
+            miette::miette!(
+                "in-place member `{member_name}` names unknown built-in kind `{}`",
+                target.kind
+            )
+        })?;
+
+    // Project the member into document carriage under `<harness>/.temper/` — the body
+    // rides byte-identical, only the `+++` framing is added.
+    let into = harness_path.join(".temper");
+    let source_file = harness_path.join(&target.source);
+    let row = import_frontmatter_member(kind, harness_path, &source_file, &into)?;
+
+    // Re-extract the now-document-carried member's features for the pre-extracted manifest
+    // form, reading the surface through the same loader the gate uses; the recognition the
+    // in-place member earned rides across the lift, not the empty joins a fresh projection
+    // would carry.
+    let member_doc = kind.member_document();
+    let out_dir = into.join(kind.surface_subdir()).join(&row.name);
+    let unit = Unit::from_member_document(&out_dir, &out_dir.join(&member_doc))?;
+    let mut features = builtin_kind::features(kind, &unit);
+    features.satisfies = target.satisfies.clone();
+    features.published_requirements = target.published.clone();
+
+    let mut extracted: Vec<ManifestMember> = layer.members().to_vec();
+    extracted.push(ManifestMember {
+        kind: target.kind.clone(),
+        features,
+    });
+    extracted.sort_by(|a, b| {
+        a.kind
+            .cmp(&b.kind)
+            .then_with(|| a.features.id.cmp(&b.features.id))
+    });
+    let mut inplace: Vec<InPlaceMember> = layer
+        .inplace_members()
+        .iter()
+        .filter(|member| member.name != member_name)
+        .cloned()
+        .collect();
+    inplace.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.name.cmp(&b.name)));
+
+    let mut doc = load_manifest(&manifest_path)?;
+    compose::write_members(&mut doc, &extracted, &inplace);
+    write_bytes(&manifest_path, doc.to_string().as_bytes())?;
     Ok(())
 }
 

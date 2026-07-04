@@ -24,6 +24,7 @@ use temper::document;
 use temper::drift;
 use temper::engine;
 use temper::extract;
+use temper::frontmatter;
 use temper::graph;
 use temper::import;
 use temper::install;
@@ -105,7 +106,25 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Scan the harness into the typed config surface (+ provenance lock).
+    /// The on-ramp (`specs/architecture/20-surface.md`): scan an existing harness into a
+    /// config skeleton over its members **in place** — a manifest naming each landscape
+    /// file, zero file moves, no copy tree. `--lift <member>` migrates one member up a
+    /// carriage rung.
+    Init {
+        /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`).
+        /// Defaults to the current directory.
+        #[arg(default_value = ".")]
+        harness_path: PathBuf,
+        /// Migrate one member up a carriage rung instead of scanning: lift the named
+        /// in-place member into document carriage (`specs/architecture/20-surface.md`).
+        #[arg(long, value_name = "MEMBER")]
+        lift: Option<String>,
+    },
+    /// Project a harness into the document-carriage surface workspace (+ provenance
+    /// lock) — the retained copy-tree projection `emit`/`diff` and the document-carried
+    /// gate ride (`specs/architecture/15-kinds.md`, the generic frontmatter adapter). The
+    /// on-ramp is `init` (members in place, no copy tree); this is the deliberate rung-3
+    /// materialization a member/harness climbs into.
     Import {
         /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`),
         /// or a bare skill dir.
@@ -251,9 +270,19 @@ enum Reporter {
 
 fn main() -> miette::Result<ExitCode> {
     match Cli::parse().command {
+        Command::Init { harness_path, lift } => {
+            // The on-ramp writes the manifest over members IN PLACE — no `.temper/` copy
+            // tree (`specs/architecture/20-surface.md`, "Decision: `init` is the on-ramp"). `--lift`
+            // migrates one member up a carriage rung instead of re-scanning.
+            match lift {
+                Some(member) => import::lift(&harness_path, &member)?,
+                None => import::init(&harness_path)?,
+            }
+            Ok(ExitCode::SUCCESS)
+        }
         Command::Import { harness_path, into } => {
             import::run(&harness_path, &into)?;
-            // Persistent import serializes the generated-canonical manifest beside the
+            // The document-carriage projection serializes its manifest beside the
             // workspace (`specs/architecture/20-surface.md`, "Topology"); the one-shot gate paths
             // (`check --harness`, session-start) import into a scratch surface and skip it,
             // so a lint never mutates the harness.
@@ -688,19 +717,44 @@ fn gate(
     // when the assembly registers one, so the floor-only path never touches it.
     let kinds_dir = authored.join("kinds");
 
+    // The harness root the in-place members' `source` paths resolve against — the
+    // directory the manifest lives in (the CWD for a two-step `check`, the harness path
+    // for the one-shot gate). Reused for the file-set/directive tier below.
+    let harness_root = temper_toml
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+
     // The member-feature corpus (`specs/architecture/20-surface.md`, "the only thing the gate
-    // reads"): when the assembly's manifest carries `[[member]]` tables, those pre-extracted
-    // features ARE the corpus — the gate ranges no `.temper/` copy tree and reads no language
-    // runtime. When it carries none (a floor manifest not yet holding its members — temper's
-    // own dogfood, any pre-`emit` harness), the gate falls back to extracting the authored
-    // sources through the one generic `Unit` loader (`specs/architecture/15-kinds.md`, "A built-in
-    // kind is an adapter"); `import`/`emit` extract identically, so a consistently-imported
-    // harness gates the same either way. Keyed by bare kind name; the typed `Workspace`
-    // still survives for drift/bundle/apply and the read family (`why`/`requirements`).
-    let manifest_corpus = layer
-        .as_ref()
-        .map(compose::AuthorLayer::member_corpus)
-        .filter(|corpus| !corpus.is_empty());
+    // reads"): a document/module-carried `[[member]]` arrives **pre-extracted** (its baked
+    // features ARE the corpus), while an **in-place** member (a `source`-bearing table) is
+    // **live-extracted** from its landscape file here — no projection, no drift, the file
+    // is its own source. When the manifest carries neither (a floor manifest not yet
+    // holding its members — temper's own dogfood, any pre-`init` harness), the gate falls
+    // back to extracting the authored sources through the one generic `Unit` loader
+    // (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter"). Keyed by bare kind name;
+    // the typed `Workspace` still survives for drift/bundle/apply and the read family.
+    let manifest_corpus = {
+        let mut corpus = layer
+            .as_ref()
+            .map(compose::AuthorLayer::member_corpus)
+            .unwrap_or_default();
+        if let Some(layer) = layer.as_ref() {
+            for member in layer.inplace_members() {
+                let features = live_extract_inplace(harness_root, member)?;
+                corpus
+                    .entry(member.kind.clone())
+                    .or_default()
+                    .push(features);
+            }
+        }
+        // Keep each kind's slice name-sorted for a stable diagnostic set — a lifted
+        // (pre-extracted) member and the live in-place ones can interleave.
+        for slice in corpus.values_mut() {
+            slice.sort_by(|a, b| a.id.cmp(&b.id));
+        }
+        (!corpus.is_empty()).then_some(corpus)
+    };
 
     // Each kind's features are validated against its *effective* contract (bound
     // package ⊕ author layer) and merged into one set; the generic engine holds no
@@ -1025,6 +1079,65 @@ fn gate(
     diagnostics.extend(drift::config_stale(workspace));
 
     Ok(diagnostics)
+}
+
+/// Live-extract an in-place member's [`Features`](extract::Features) from its landscape
+/// file (`specs/architecture/20-surface.md`, "In-place — … features are extracted"): read the raw
+/// harness file at `<harness_root>/<source>`, parse its frontmatter + body through the
+/// generic adapter, and run the member's built-in kind extractor — the same composed
+/// extraction the copy-tree read runs, so an in-place member gates identically to a
+/// document-carried one. The joins are **declared in the manifest** (the harness file
+/// carries no temper annotation), so the member's `satisfies`/published requirements are
+/// grafted from the assembly rather than mined from the file. The file is its own source:
+/// re-read every check, it cannot drift.
+///
+/// In-place carriage is built-in-kind only (a custom kind's units are authored `.temper/`
+/// artifacts), so a member naming a non-built-in kind is a hard error rather than a silent
+/// skip.
+///
+/// # Errors
+///
+/// Returns an error if the kind is not a built-in, or the landscape file is unreadable or
+/// malformed.
+fn live_extract_inplace(
+    harness_root: &Path,
+    member: &compose::InPlaceMember,
+) -> miette::Result<extract::Features> {
+    let path = harness_root.join(&member.source);
+    // Route to the built-in kind by bare name, then by which owns the source glob — so the
+    // two `memory` providers (`CLAUDE.md` vs `AGENTS.md`) that share the bare `memory`
+    // resolve to the right one rather than colliding on an ambiguous bare lookup
+    // (`specs/architecture/15-kinds.md`, "kind identity carries a provider axis").
+    let builtins = builtin_kind::definitions()?;
+    let kind = builtins
+        .values()
+        .filter(|kind| kind.name == member.kind)
+        .find(|kind| kind.owns_source(&path))
+        .or_else(|| builtins.values().find(|kind| kind.name == member.kind))
+        .ok_or_else(|| {
+            miette::miette!(
+                "in-place member `{}` names non-built-in kind `{}` (in-place carriage is built-in-kind only)",
+                member.name,
+                member.kind
+            )
+        })?;
+    let source = frontmatter::Member::from_source(kind, &path)?;
+    // The id is the manifest's recorded name (the surface identity), not re-derived; the
+    // extractor reads frontmatter/body/placement off the raw harness file.
+    let unit = Unit {
+        id: member.name.clone(),
+        frontmatter: source.fields.iter().cloned().collect(),
+        body: source.body.clone(),
+        source_path: source.provenance.source_path.clone(),
+        satisfies: Vec::new(),
+        satisfies_clauses: Vec::new(),
+        published_requirements: Vec::new(),
+    };
+    let mut features = builtin_kind::features(kind, &unit);
+    // The join edges are the assembly's declaration, not a fact mined from the file.
+    features.satisfies = member.satisfies.clone();
+    features.published_requirements = member.published.clone();
+    Ok(features)
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the

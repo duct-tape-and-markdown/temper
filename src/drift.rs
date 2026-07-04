@@ -440,6 +440,12 @@ struct Projection {
 /// overwritten (that edit is drift routed to the source, `specs/architecture/20-surface.md`),
 /// and every projection is double-emit verified (`emit_one`). Nothing is written
 /// under `options.dry_run`.
+///
+/// **In-place members are skipped.** emit compiles the authored library (the copy-tree
+/// [`Workspace`]) out; an in-place member is its own source with no projection to compile
+/// (`specs/architecture/20-surface.md`, "In-place members cannot drift"), so it never enters the
+/// [`Workspace`] emit ranges over — only document/module-carried members carry a lock row
+/// and a projection.
 pub fn emit(
     workspace: &Workspace,
     workspace_dir: &Path,
@@ -835,6 +841,10 @@ const CONFIG_STALE_RULE: &str = "config.stale";
 /// read is **skipped** — law 3's safe direction, since absent evidence must never *forge*
 /// a staleness finding (a removed source is the drift engine's `removed` state, not this
 /// freshness fact). A missing or malformed lock yields no findings for the same reason.
+///
+/// An in-place member carries **no lock row** (`init` writes no copy tree, no lock — the
+/// landscape file is its own source), so it contributes no freshness fact here: an
+/// in-place member cannot drift (`specs/architecture/20-surface.md`).
 #[must_use]
 pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
     let path = workspace_dir.join("lock.toml");
@@ -1057,6 +1067,33 @@ Prefer a clone over a lifetime fight.\n";
         let outcome = place(&target, "name: changed\n", None, true).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "name: temper\n");
+    }
+
+    #[test]
+    fn an_in_place_harness_has_no_lock_and_cannot_drift() {
+        // `init` writes the manifest over members IN PLACE — no `.temper/` copy tree, no
+        // lock (`specs/architecture/20-surface.md`, the on-ramp). The landscape file is its own
+        // source, so there is no emit fingerprint to diverge from: `config_stale` reads
+        // the workspace lock and finds none, so an in-place member yields no freshness
+        // finding. This is the drift-free half of "In-place members cannot drift."
+        let harness = tmpdir("inplace-no-drift");
+        let skill = harness.join(".claude").join("skills").join("coordinate");
+        fs::create_dir_all(&skill).unwrap();
+        fs::write(skill.join("SKILL.md"), SKILL).unwrap();
+
+        import::init(&harness).unwrap();
+
+        // The manifest lands in place; no copy tree and no lock are written.
+        assert!(harness.join("temper.toml").is_file());
+        assert!(!harness.join(".temper").exists());
+        assert!(!harness.join("lock.toml").exists());
+
+        // No lock ⇒ no freshness finding, even after the source is edited (a live
+        // re-extraction picks the edit up; there is nothing to be stale against).
+        assert!(config_stale(&harness).is_empty());
+        let edited = fs::read_to_string(skill.join("SKILL.md")).unwrap() + "\nExtra.\n";
+        fs::write(skill.join("SKILL.md"), edited).unwrap();
+        assert!(config_stale(&harness).is_empty());
     }
 
     #[test]
