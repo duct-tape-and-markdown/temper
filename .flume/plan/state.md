@@ -1,30 +1,34 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 4bdc612.
-- **Last shipped:** the scripted-altitude floor chain (7/7, drained) + the
-  addressable-corpus ratification (`specs:` 52f149c) with the dogfood manifest
-  regenerated. Inbox carried the ratified floor slice's routing.
-- **This tick:** drained the inbox (2 lines). Filed the **addressable-corpus
-  floor engine** as a serialized chain — FENCED-PRIMITIVE (open) →
-  GENRE-MANIFEST-LEAF → IMPACT-LEAF-GRAIN → CONTEXT-VERB — each `blockedBy` the
-  prior (they share extract.rs/kind.rs then read.rs/main.rs; not parallel-safe).
-  Also filed INSTALL-DRIFT-STRINGS (open) — reword install's placed managed-by
-  note/guard off the retired `re-add` verb (inbox line 1). Split
-  EXTRACTION-VOCAB-GAPS: its `Fenced` half graduated to FENCED-PRIMITIVE (consumer
-  arrived); the key-path `field` half stays deferred. AGENT-KIND (deferred),
-  PACKAGING-CHANNELS (parked) verified still holding.
-- **Pickable now:** **two `open`, disjoint** — INSTALL-DRIFT-STRINGS
-  (src/install.rs) and FENCED-PRIMITIVE (src/kind.rs, src/extract.rs). No shared
-  path. The rest of the genre chain is `blockedBy` and un-blocks one link per
-  ship on the following reconcile.
-- **What's next:** build ships the two open entries, then the genre chain
-  link-by-link. NOT build's work (inbox points 2–4): the corpus genre *package*
-  (packages/**, kinds/** genre declarations) is out-of-fence — the interactive
-  session lands it after the engine chain ships (parse-first, red-interim lesson);
-  altitude authoring stays on ask (a); rung-3 adoption is a staged human ceremony
-  per document. Accepted floor debt still open: temper's own `temper.toml`+lock
-  predate MANIFEST-EMIT — a human `chore(harness)` `emit` regen.
+- **Phase:** reconcile. HEAD 80216ad.
+- **Last shipped:** the two disjoint `open` heads drained — FENCED-PRIMITIVE
+  (`build` 3278caf: the closed-vocab `Fenced` primitive → `body_fenced_blocks`
+  /`FencedBlock`, raw fenced blocks serialized into the `[[member]]` manifest at
+  compose.rs ~1842) and INSTALL-DRIFT-STRINGS (`build` bb76342: install's placed
+  managed-by note/guard reworded off the retired `re-add` verb). Both shipped +
+  chore'd (`80216ad`).
+- **This tick:** inbox empty; nothing new to file. Verified on disk that the
+  `Fenced` primitive landed (kind.rs `Primitive::Fenced`, extract.rs
+  `FencedBlock`, compose.rs fenced-block serialization) → flipped
+  **GENRE-MANIFEST-LEAF** from `blockedBy FENCED-PRIMITIVE` to **open** (its
+  upstream shipped) and refreshed its compose.rs description/notes. Confirmed
+  GenreValue/`genres` NOT yet on disk (no type, no kind field), so the entry is
+  live work, not shipped. The rest of the addressable-corpus chain
+  (IMPACT-LEAF-GRAIN → CONTEXT-VERB) stays `blockedBy`; downstream refs re-checked
+  accurate (main.rs Impact ~626, read.rs has `impact` but no `context`).
+  EXTRACTION-VOCAB-GAPS (deferred, key-path half), AGENT-KIND (deferred),
+  PACKAGING-CHANNELS (parked) all hold.
+- **Pickable now:** **one `open`** — GENRE-MANIFEST-LEAF (kind.rs/extract.rs/
+  compose.rs + tests/genre_leaf.rs). The chain un-blocks one link per ship on the
+  following reconcile.
+- **What's next:** build ships GENRE-MANIFEST-LEAF, then IMPACT-LEAF-GRAIN, then
+  CONTEXT-VERB (the last link, coverage disclosure bound in). NOT build's work:
+  the corpus genre *package* (packages/**, kinds/** genre declarations) is
+  out-of-fence — the interactive session lands it after the engine chain ships;
+  altitude authoring stays on ask (a). Accepted floor debt still open: temper's
+  own `temper.toml`+lock predate MANIFEST-EMIT — a human `chore(harness)` `emit`
+  regen.
 
-Plan continues: no — inbox drained, queue reconciled, two disjoint `open` entries
-ready. Building is how the chain drains; re-planning would re-emit the same held
-queue.
+Plan continues: no — inbox empty, queue reconciled, GENRE-MANIFEST-LEAF is a
+live `open` head. Building is how the chain drains; re-planning the same held
+queue would spin.

@@ -7,8 +7,7 @@
       "section": "Genre values — prose that declares its own anatomy"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "FENCED-PRIMITIVE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -29,7 +28,7 @@
         },
         {
           "path": "src/compose.rs",
-          "description": "Serialize `Features.genres` into the `[[member]]` manifest table in one shape and deserialize it back (the `member_to_table` / member round-trip, ~lines 1573 + the round-trip test at ~3087): genre values are serialized whole (`15-kinds.md`), leaf fields as strings, sibling collections as keyed sub-tables, format-preserving via `toml_edit`. Every consumer stays carriage-blind — a document-carried and a (future) module-carried genre value serialize identically."
+          "description": "Serialize `Features.genres` into the `[[member]]` manifest table in one shape and deserialize it back (the member round-trip; FENCED-PRIMITIVE already serializes raw `fenced_blocks` at compose.rs ~1842 — the typed genre layer sits beside it, round-trip test near the fenced-blocks case ~3108): genre values are serialized whole (`15-kinds.md`), leaf fields as strings, sibling collections as keyed sub-tables, format-preserving via `toml_edit`. Every consumer stays carriage-blind — a document-carried and a (future) module-carried genre value serialize identically."
         }
       ],
       "retire": []
@@ -42,7 +41,7 @@
       }
     ],
     "acceptance": "A kind declaring `genres` extracts each genre fence into a genre value with structural leaf addresses and keyed sibling collections; the value serializes whole into the manifest and round-trips idempotently through `toml_edit`; an unfenced block stays plain prose; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The manifest leaf schema — the read family (IMPACT-LEAF-GRAIN, CONTEXT-VERB) consumes it. Genre-value *predicates* and the corpus's own genre declarations (packages/**, kinds/**) are OUT of fence — the interactive session lands them after this ships (inbox point 2). blockedBy FENCED-PRIMITIVE (shares kind.rs/extract.rs; composes its primitive)."
+    "notes": "The manifest leaf schema — the read family (IMPACT-LEAF-GRAIN, CONTEXT-VERB) consumes it. FENCED-PRIMITIVE shipped (raw `fenced_blocks` + primitive), so this now composes it into typed genre values. Genre-value *predicates* and the corpus's own genre declarations (packages/**, kinds/**) are OUT of fence — the interactive session lands them after this ships."
   },
   {
     "tag": "IMPACT-LEAF-GRAIN",
