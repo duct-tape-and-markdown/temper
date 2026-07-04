@@ -112,14 +112,13 @@ const testGate = shellGate({
  * conformance, coverage, or admissibility on temper's own house — reverts the
  * entry.
  *
- * DEACTIVATED during engine waves (John's ruling, 2026-07-03): the dogfood is
- * a **confirmation of a finished version, never a live constraint while the
- * engine underneath it is changing** — both self-gate reverts this week
- * (LOCK-FRESHNESS-FACTS, MANIFEST-GATE-READ) were the live dogfood tripping on
- * its own committed artifacts mid-migration, not real regressions. At each
- * wave's end the interactive session runs the confirmation pass (rebuild,
- * re-import, `temper check`, one commit) and re-wires this gate into `gates`
- * below before the next non-engine work.
+ * DEACTIVATED during engine waves (John's ruling, 2026-07-03; captured in
+ * `specs/process/90-spec-system.md`, the entity paragraph): the dogfood is a
+ * **confirmation of a finished version, never a live constraint while the
+ * engine underneath it is changing**. At each engine wave's end the
+ * interactive session runs the confirmation pass (rebuild, re-import,
+ * `temper check`, one commit) and re-wires this gate into `gates` below.
+ * Re-armed 2026-07-03 after the rung/install wave's confirmation pass.
  */
 const selfCheckGate = shellGate({
   name: "temper check (self)",
@@ -129,7 +128,22 @@ const selfCheckGate = shellGate({
   failHint:
     "temper's own surface went red — fix the code or the harness, never bypass the self-check.",
 });
-void selfCheckGate; // deactivated — see the ruling above; re-wire at wave end.
+
+/**
+ * The SDK gate — resolves `(sdk-build-gate)`: `sdk/**` is TypeScript inside a
+ * cargo-gated pipeline, so without this a TS slice would pass every gate
+ * trivially while its own compiler and tests never run. `pnpm --dir sdk test`
+ * runs tsc + node --test; afterMerge (serial, on the trunk, where
+ * sdk/node_modules exists). Cheap when sdk/ is untouched — tsc on a tiny tree.
+ */
+const sdkGate = shellGate({
+  name: "sdk test",
+  when: "afterMerge",
+  cmd: "pnpm",
+  args: ["--dir", "sdk", "test"],
+  failHint:
+    "The SDK's tsc or tests failed — fix the slice; if node_modules is missing on the trunk, run `pnpm --dir sdk install`.",
+});
 
 // ---------- phases ----------
 
@@ -305,9 +319,7 @@ const build: Phase = {
   concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
-  // selfCheckGate deactivated for the engine wave — dogfood is confirmation,
-  // not a live constraint (the ruling at its definition). Re-wire at wave end.
-  gates: [fmtGate, clippyGate, testGate],
+  gates: [fmtGate, clippyGate, testGate, selfCheckGate, sdkGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
       throw new Error("build phase requires an assignedEntry");
