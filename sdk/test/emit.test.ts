@@ -30,6 +30,7 @@ import {
   fromFile,
   lockRow,
   md,
+  memory,
   projectBytes,
   projectionPath,
   projectMember,
@@ -478,10 +479,13 @@ for (const [label, member, expected, emitHash, expectedPath] of PROJECTION_CORPU
 test("projectionPath maps the built-in projected kinds; others are a loud error", () => {
   assert.equal(projectionPath("claude-code.rule", "rust"), ".claude/rules/rust.md");
   assert.equal(projectionPath("claude-code.skill", "coordinate"), ".claude/skills/coordinate/SKILL.md");
+  // A memory projects a root `<name>.md` — `CLAUDE.md`, `AGENTS.md`.
+  assert.equal(projectionPath("claude-code.memory", "CLAUDE"), "CLAUDE.md");
+  assert.equal(projectionPath("agents-md.memory", "AGENTS"), "AGENTS.md");
   // A bare kind name resolves the same way — the locus keys on the last dotted segment.
   assert.equal(projectionPath("rule", "x"), ".claude/rules/x.md");
-  // Memory (`CLAUDE.md`) and custom kinds carry no `.claude/**` projection.
-  assert.throws(() => projectionPath("claude-code.memory", "root"), /no `\.claude\/\*\*` projection/);
+  // A custom kind carries no projection — a loud error, never a guessed path.
+  assert.throws(() => projectionPath("acme.widget", "gadget"), /no projection/);
 });
 
 test("projectBytes: fieldless body-only, and null fields drop from the frontmatter", () => {
@@ -609,4 +613,93 @@ test("writeEmit lands the manifest, lock, and projection on disk", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Memory projection — a module-carried memory (`CLAUDE.md` / `AGENTS.md`) has no
+// frontmatter (`kinds/claude-code/memory/KIND.md`, "There is **no frontmatter**"),
+// so the whole file is the body and it projects body-alone to the root `<name>.md`
+// with a lock row. SDK-ahead under TS-primary: the Rust projector carries no memory
+// locus, so this pins the body-alone contract, not a cross-tool byte-parity fixture.
+// ---------------------------------------------------------------------------
+
+test("a module-carried memory projects its frontmatterless body to CLAUDE.md", () => {
+  const claudeBody = "# Project\n\nThe house rules Claude reads each session.\n";
+  const harness = defineHarness({
+    members: [memory({ name: "CLAUDE", body: md`
+      # Project
+
+      The house rules Claude reads each session.
+    ` })],
+  });
+
+  const result = emit(harness);
+
+  // One projection, at the root `CLAUDE.md` locus, whose bytes are the body alone —
+  // no `---` frontmatter block, the memory kind declaring none.
+  assert.deepEqual(result.projections.map((p) => p.path), ["CLAUDE.md"]);
+  const projection = result.projections[0];
+  assert.equal(projection.bytes, claudeBody);
+  assert.doesNotMatch(projection.bytes, /^---$/m);
+
+  // A lock row keyed on that path, both fingerprints sha256 of the body-alone bytes.
+  const hash = sha256Hex(claudeBody);
+  assert.match(result.lock, /^\[\[memory\]\]$/m);
+  assert.match(result.lock, /source_path = "CLAUDE\.md"/);
+  assert.match(result.lock, new RegExp(`source_hash = "${hash}"`));
+  assert.match(result.lock, new RegExp(`emit_hash = "${hash}"`));
+
+  // The seam agrees: projectMember over the manifest member lands the same file.
+  const manifestMember = toManifestMember(harness.members[0]);
+  const direct = projectMember(manifestMember);
+  assert.equal(direct.path, "CLAUDE.md");
+  assert.equal(direct.bytes, claudeBody);
+  assert.equal(lockRow(manifestMember.kind, direct).sourcePath, "CLAUDE.md");
+});
+
+test("emit stays double-emit stable with a memory alongside rule and skill", () => {
+  function mixedHarness() {
+    return defineHarness({
+      members: [
+        rule({
+          name: "rust",
+          fields: { paths: ["src/**/*.rs"] },
+          body: md`
+            # Rust conventions
+
+            Errors via miette/thiserror; clippy clean under -D warnings.
+          `,
+        }),
+        skill({
+          name: "coordinate",
+          fields: { description: "Use when driving a complex task across a team of agents." },
+          body: md`
+            # Coordinate
+
+            Drive the team.
+          `,
+        }),
+        memory({ name: "CLAUDE", body: md`
+          # Project
+
+          The house rules Claude reads each session.
+        ` }),
+      ],
+    });
+  }
+
+  const a = emit(mixedHarness());
+  const b = emit(mixedHarness());
+  assert.equal(a.manifest, b.manifest);
+  assert.equal(a.lock, b.lock);
+  assert.deepEqual(
+    a.projections.map((p) => `${p.path} ${p.bytes}`),
+    b.projections.map((p) => `${p.path} ${p.bytes}`),
+  );
+  // The memory rides in alongside the rule/skill projections — three loci, one each.
+  assert.deepEqual(a.projections.map((p) => p.path).sort(), [
+    ".claude/rules/rust.md",
+    ".claude/skills/coordinate/SKILL.md",
+    "CLAUDE.md",
+  ]);
 });

@@ -26,7 +26,7 @@ export function sha256Hex(text: string): string {
 
 /** One lock row: a member's identity and the two freshness fingerprints. */
 export interface LockRow {
-  /** The bare kind name — the `[[<kind>]]` array key (`rule`, `skill`). */
+  /** The bare kind name — the `[[<kind>]]` array key (`rule`, `skill`, `memory`). */
   readonly kind: string;
   /** The member id — its `[[<kind>]]` `name` column. */
   readonly name: string;

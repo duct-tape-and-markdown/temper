@@ -9,17 +9,27 @@
  * never stamps metadata into the projection (law 5); the managed-by note and the
  * schema modeline ride `install`, not emit.
  *
- * Only the built-in projected kinds have a `.claude/**` locus: `rule`
- * (`.claude/rules/<name>.md`) and `skill` (`.claude/skills/<name>/SKILL.md`),
- * the two kinds the Rust projector emits (`BUILTIN_KINDS`). A member of any other
- * kind has no projection here and is a loud error — never a silently faked path.
+ * The built-in projected kinds and their loci: `rule`
+ * (`.claude/rules/<name>.md`), `skill` (`.claude/skills/<name>/SKILL.md`), and
+ * `memory` (the root `<name>.md` — `CLAUDE.md`, `AGENTS.md`). Rule and skill are
+ * the two kinds the Rust projector emits (`BUILTIN_KINDS`); memory projection is
+ * SDK-ahead under TS-primary — the Rust projector carries no memory locus, so
+ * there is no byte-parity fixture to pin it against, only the frontmatterless
+ * body-alone contract the memory kind declares (`kinds/claude-code/memory/KIND.md`,
+ * "There is **no frontmatter**"). A member of any other kind has no projection
+ * here and is a loud error — never a silently faked path.
+ *
+ * Scope: a module-carried memory is **locus-less** (no `source_dir`), so this
+ * projects the root memory only — the dogfood's `CLAUDE.md` and `AGENTS.md` both
+ * sit at the root. Nested/placement-folded memory loci await an unfiled
+ * nested-locus declaration mechanism.
  */
 
 import type { ManifestMember } from "./manifest.js";
 
 /** One projected harness file: where it lands and the byte-faithful content. */
 export interface Projection {
-  /** The `.claude/**` slash path, relative to the harness root. */
+  /** The slash path relative to the harness root (`.claude/**`, or a root memory). */
   readonly path: string;
   /** The whole-file projection bytes — frontmatter (if any) over the body. */
   readonly bytes: string;
@@ -32,26 +42,29 @@ function bareKind(kind: string): string {
 }
 
 /**
- * Whether a member of `kind` has a `.claude/**` projection — the built-in
- * projected kinds (`rule`, `skill`). Memory (`CLAUDE.md`) and custom kinds carry
- * no projection, so emit lands them in the manifest but writes neither a
- * projection file nor a lock fingerprint for them.
+ * Whether a member of `kind` has a projection — the built-in projected kinds
+ * (`rule`, `skill`, `memory`). A memory projects a frontmatterless `CLAUDE.md` /
+ * `AGENTS.md` at the harness root; a custom kind carries no projection, so emit
+ * lands it in the manifest but writes neither a projection file nor a lock
+ * fingerprint for it.
  */
 export function isProjectedKind(kind: string): boolean {
   const bare = bareKind(kind);
-  return bare === "rule" || bare === "skill";
+  return bare === "rule" || bare === "skill" || bare === "memory";
 }
 
 /**
- * The `.claude/**` locus a member of `kind` named `name` projects onto — the
- * built-in projected kinds' harness paths (`specs/architecture/20-surface.md`,
+ * The harness locus a member of `kind` named `name` projects onto — the
+ * built-in projected kinds' paths (`specs/architecture/20-surface.md`,
  * "Artifact kinds & package binding"): a rule is a flat `.claude/rules/<name>.md`,
- * a skill a `.claude/skills/<name>/SKILL.md` under its own directory.
+ * a skill a `.claude/skills/<name>/SKILL.md` under its own directory, and a
+ * memory the root `<name>.md` (`CLAUDE.md`, `AGENTS.md`) — the memory KIND.md
+ * roots discovery at `.` (`kinds/claude-code/memory/KIND.md`), and a locus-less
+ * module-carried memory projects only that root file.
  *
  * # Throws
- * If the kind is not a projected built-in — memory (`CLAUDE.md`) and custom kinds
- * have no `.claude/**` projection, so a request for one is a loud error rather
- * than a guessed path.
+ * If the kind is not a projected built-in — a custom kind has no projection, so a
+ * request for one is a loud error rather than a guessed path.
  */
 export function projectionPath(kind: string, name: string): string {
   switch (bareKind(kind)) {
@@ -59,10 +72,13 @@ export function projectionPath(kind: string, name: string): string {
       return `.claude/rules/${name}.md`;
     case "skill":
       return `.claude/skills/${name}/SKILL.md`;
+    case "memory":
+      return `${name}.md`;
     default:
       throw new Error(
-        `kind \`${kind}\` has no \`.claude/**\` projection — only the built-in ` +
-          `\`rule\` and \`skill\` kinds are projected (specs/architecture/20-surface.md).`,
+        `kind \`${kind}\` has no projection — only the built-in ` +
+          `\`rule\`, \`skill\`, and \`memory\` kinds are projected ` +
+          `(specs/architecture/20-surface.md).`,
       );
   }
 }

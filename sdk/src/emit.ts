@@ -416,7 +416,7 @@ export function emitManifestMembers(harness: Harness, options: EmitOptions = {})
 export interface EmitResult {
   /** The manifest's `[[member]]` section — every member, kind-then-name ordered. */
   readonly manifest: string;
-  /** The `.claude/**` projection files, one per projected (rule/skill) member. */
+  /** The projection files, one per projected (rule/skill/memory) member. */
   readonly projections: readonly Projection[];
   /** The `lock.toml` bytes — a freshness row per projected member. */
   readonly lock: string;
@@ -438,9 +438,10 @@ export interface EmitResult {
  * lock fingerprint agree by construction. The whole result is double-emit verified
  * — nondeterministic authoring is a loud failure, never a silent churn (law 5).
  *
- * Only the built-in projected kinds (`rule`, `skill`) carry a `.claude/**`
- * projection and a lock row; a memory or custom member lands in the manifest but
- * projects nowhere ([`isProjectedKind`]).
+ * The built-in projected kinds (`rule`, `skill`, `memory`) each carry a
+ * projection and a lock row — a rule/skill under `.claude/**`, a memory a
+ * frontmatterless root `CLAUDE.md`/`AGENTS.md`; a custom member lands in the
+ * manifest but projects nowhere ([`isProjectedKind`]).
  */
 export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
   refuseBrokenSource(harness);
