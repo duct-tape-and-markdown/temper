@@ -38,6 +38,7 @@ import type { Projection } from "./project.js";
 import { isProjectedKind, projectMember } from "./project.js";
 import type { LockRow } from "./lock.js";
 import { lockRow, stampLock } from "./lock.js";
+import { BINDINGS_PATH, ROSTER_PATH, assemblyArtifacts } from "./assembly_artifacts.js";
 
 // ---------------------------------------------------------------------------
 // Field values — the FeatureValue projection of `feature_to_value`
@@ -419,6 +420,14 @@ export interface EmitResult {
   readonly projections: readonly Projection[];
   /** The `lock.toml` bytes — a freshness row per projected member. */
   readonly lock: string;
+  /**
+   * The two locus-less assembly-fact artifacts — the kind bindings and the
+   * requirement roster (`specs/architecture/20-surface.md`, "the bindings, the
+   * roster — are emitted as small committed temper-owned artifacts"). Additive:
+   * the manifest/projection/lock above are unchanged, so their byte-parity holds.
+   */
+  readonly bindings: string;
+  readonly roster: string;
 }
 
 /**
@@ -444,10 +453,13 @@ export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
     const projected = members.filter((member) => isProjectedKind(member.kind));
     const projections = projected.map(projectMember);
     const rows: LockRow[] = projected.map((member, i) => lockRow(member.kind, projections[i]));
+    const { bindings, roster } = assemblyArtifacts(harness);
     return {
       manifest: emitDocument(members),
       projections,
       lock: stampLock(rows),
+      bindings,
+      roster,
     };
   };
   const first = compile();
@@ -455,6 +467,8 @@ export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
   if (
     first.manifest !== second.manifest ||
     first.lock !== second.lock ||
+    first.bindings !== second.bindings ||
+    first.roster !== second.roster ||
     !sameProjections(first.projections, second.projections)
   ) {
     throw new Error(
@@ -475,15 +489,19 @@ function sameProjections(a: readonly Projection[], b: readonly Projection[]): bo
 
 /**
  * Run a full [`emit`] and write its artifacts under `targetDir`: the manifest to
- * `temper.toml`, the lock to `lock.toml`, and each projection to its `.claude/**`
- * path (parent directories created). Whole-file writes — a projection is
- * regenerated, never patched, so a hand-edited projection is overwritten (that
- * edit is drift routed to the source, `specs/architecture/20-surface.md`).
+ * `temper.toml`, the lock to `lock.toml`, the two assembly-fact artifacts
+ * (`bindings.toml`, `roster.toml`) beside them, and each projection to its
+ * `.claude/**` path (parent directories created). Whole-file writes — a
+ * projection is regenerated, never patched, so a hand-edited projection is
+ * overwritten (that edit is drift routed to the source,
+ * `specs/architecture/20-surface.md`).
  */
 export function writeEmit(harness: Harness, targetDir: string, options: EmitOptions = {}): EmitResult {
   const result = emit(harness, options);
   writeFileSync(join(targetDir, "temper.toml"), result.manifest);
   writeFileSync(join(targetDir, "lock.toml"), result.lock);
+  writeFileSync(join(targetDir, BINDINGS_PATH), result.bindings);
+  writeFileSync(join(targetDir, ROSTER_PATH), result.roster);
   for (const projection of result.projections) {
     const path = join(targetDir, projection.path);
     mkdirSync(dirname(path), { recursive: true });

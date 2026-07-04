@@ -46,3 +46,12 @@ export {
 
 export type { LockRow } from "./lock.js";
 export { lockRow, sha256Hex, stampLock } from "./lock.js";
+
+export type { AssemblyArtifacts } from "./assembly_artifacts.js";
+export {
+  BINDINGS_PATH,
+  ROSTER_PATH,
+  assemblyArtifacts,
+  serializeBindings,
+  serializeRoster,
+} from "./assembly_artifacts.js";
