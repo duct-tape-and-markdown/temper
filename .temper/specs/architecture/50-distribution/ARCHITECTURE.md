@@ -7,7 +7,7 @@ rationale = "50-distribution owns the delivery surface — install (session hook
 
 [provenance]
 source_path = "./specs/architecture/50-distribution.md"
-import_hash = "00bc1bf4377a6accdf44415a5ff5ac2c8d8da1db9ad0be01cdaec6a9a5187a93"
+source_hash = "ed135a7d6e853c3ce9eed2e3cf259c4eab6d64062ffa805454376b613eb2ff28"
 +++
 # Distribution — delivering the gate
 

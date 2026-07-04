@@ -10,7 +10,7 @@ required = true
 
 [provenance]
 source_path = "./specs/intent/55-offering.md"
-import_hash = "a9980239faa7e6dc3fb23c7e22e343718e866e3ce4c2913ee469ace8d3d9817d"
+source_hash = "234cc710cfe2dbdabc819af9785cfcd953e9a2b0aa1440ef1f06963a8bbcf446"
 +++
 # The offering — the public front door and the road to adoption
 

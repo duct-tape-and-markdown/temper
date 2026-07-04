@@ -16,7 +16,7 @@ rationale = "10-contracts owns severity as a DECLARED (required/advisory) proper
 
 [provenance]
 source_path = "./specs/architecture/10-contracts.md"
-import_hash = "75d1337d0abff4cea236c1fa5147cd7db48e7712dd40a294a68a09acff138d0e"
+source_hash = "e4a8824d9dde26b40b2d34b2c36afe69edb367420ba8be5cbedc20994cf2094e"
 +++
 # Contracts — the two-layer model
 

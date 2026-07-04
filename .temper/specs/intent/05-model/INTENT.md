@@ -81,7 +81,7 @@ required = true
 
 [provenance]
 source_path = "./specs/intent/05-model.md"
-import_hash = "2ec83c90bf41b66d31c9e14dc536e1504c7b09c6559175ba779da7797d5ca7a2"
+source_hash = "e7c00a3dc23a83d6266fa4248d3ed4b7452ac8b9e79bae8d7c8dc83d87f7d8b5"
 +++
 # The domain model — temper's own concepts
 

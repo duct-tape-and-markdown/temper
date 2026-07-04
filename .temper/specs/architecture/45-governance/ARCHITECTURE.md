@@ -10,7 +10,7 @@ rationale = "45-governance owns the mention's edge class — the readmitted one-
 
 [provenance]
 source_path = "./specs/architecture/45-governance.md"
-import_hash = "b60ca723f724ef0c5b3efa8a0c7e37adc6aa6eb1ad04783d6249a883a52346ff"
+source_hash = "eec68656a65ffe1f27c9472ee31f6924cc40552fcbdee06854b777ec82687bef"
 +++
 # Governance — powering up the wider contract scopes
 

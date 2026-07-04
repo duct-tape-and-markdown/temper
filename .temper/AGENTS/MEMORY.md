@@ -1,7 +1,7 @@
 +++
 [provenance]
 source_path = "././AGENTS.md"
-import_hash = "2b3d873ddccae994d288fd155bfe98c3a96bdfcaa20e84366c920afbd66b17fa"
+source_hash = "2b3d873ddccae994d288fd155bfe98c3a96bdfcaa20e84366c920afbd66b17fa"
 +++
 # AGENTS.md
 

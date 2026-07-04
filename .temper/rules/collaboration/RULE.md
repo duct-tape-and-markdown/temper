@@ -4,7 +4,7 @@ rationale = "the unconditional rule that makes pushback the default: challenge g
 
 [provenance]
 source_path = "./.claude/rules/collaboration.md"
-import_hash = "7f52c4f395f91f4a318972a8dcb9b567c859b3a5ccc8bdf584cc0824380c8844"
+source_hash = "7f52c4f395f91f4a318972a8dcb9b567c859b3a5ccc8bdf584cc0824380c8844"
 +++
 # Collaboration — pushback is the point
 

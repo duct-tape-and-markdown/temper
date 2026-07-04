@@ -26,7 +26,7 @@ required = true
 
 [provenance]
 source_path = "./specs/intent/00-intent.md"
-import_hash = "7dcb4d434557932432236d7abb11e5cbc843d203267a8c7dd542f5c9c24b1ae6"
+source_hash = "b49564c037a17ea808f063e7511634846942031d26f45afd2b717d651190c7ef"
 +++
 # Intent — the north star
 

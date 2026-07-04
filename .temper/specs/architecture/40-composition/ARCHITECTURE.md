@@ -4,7 +4,7 @@ rationale = "40-composition owns `assembly` — the layered binding declaration,
 
 [provenance]
 source_path = "./specs/architecture/40-composition.md"
-import_hash = "78e65751b399ecf651fa7140c29e11de53f1d54b4fcfea4fa5756bd23fff3b19"
+source_hash = "e9f0d602dca058d69f0528cf5328d75ec554bd512fe5783288df5b7991eb5463"
 +++
 # Composition — authoring the harness from temper's altitude
 

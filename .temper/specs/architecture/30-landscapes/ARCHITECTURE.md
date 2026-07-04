@@ -10,7 +10,7 @@ rationale = "30-landscapes owns the fidelity seam separating tier-1 structure fr
 
 [provenance]
 source_path = "./specs/architecture/30-landscapes.md"
-import_hash = "2b4de49277fb9785d66b74ac71825c08cfa5dad659f91ce23cb0cdaf87db781b"
+source_hash = "5fc5b82f450a39557b4b579df4beb62d03d4ae8afc73779ef83ff35ca0038d88"
 +++
 # Landscapes — instances of the engine
 

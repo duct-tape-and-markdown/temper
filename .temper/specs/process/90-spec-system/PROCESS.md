@@ -1,7 +1,7 @@
 +++
 [provenance]
 source_path = "./specs/process/90-spec-system.md"
-import_hash = "9089c89fe595e958c7d69ff2706c3cd45afbc15659f573ba9dda6f2bbbda97c1"
+source_hash = "453eb4695ec08ee6fa822f6e3ba241a0c139c9cd34847505920747858e2cab8a"
 +++
 # Spec system — how `temper` is specified
 
