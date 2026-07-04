@@ -10,232 +10,191 @@ rationale = "45-governance owns the mention's edge class — the readmitted one-
 
 [provenance]
 source_path = "./specs/architecture/45-governance.md"
-source_hash = "d35ad96193350c1a83f0859e66415310a48ebb157fa0dab79bc02c6bdd9a2848"
+source_hash = "e043a2b24a63cb6b62b8c060abb8c85e337fc7b0153f05ba11250a997b777e36"
 +++
-# Governance — powering up the wider contract scopes
+# Governance — the wider contract scopes
 
-A contract has three scopes by **arity** (`05-model.md`) — over one artifact, over a
-matched **set**, over the **relation graph** — not three landscapes; a single harness
-draws on all three (it is itself a graph, below). The per-artifact scope is a
-**package**'s (it says what a member *is*); the **set** scope (the roster of
-requirements) and the **graph** scope (the model's entities + edges) are the
-**assembly**'s (what the environment *contains and connects*) — the intensional/
-extensional line (`40-composition.md`). The artifact scope has a rich predicate set
-(`10-contracts.md`); the two wider scopes have almost none — just a requirement's
-presence and a descriptive graph. But *governing* an environment is corpus-wide and
-quantified — "every agent…", "at most N…", "no cycles" — which lives at exactly those
-two assembly scopes. This file gives them their predicates. Every one is a **decidable
-fact**, never a guess, so the gate never cries wolf (`00-intent.md` law 3): the wider
-scopes gain *quantification*, not *fuzziness*.
+A judge is a compiled predicate over (features, graph), and it runs at one of
+three **scopes** — **node** (one member), **node-set** (a matched set of
+members), **edge** (the relation graph) — behind one admissibility stage in the
+engine's extract → assemble → judge pipeline. Scopes are the judge's
+vocabulary, not modules: the same clause algebra, quantified wider. The node
+scope has a rich predicate set (`10-contracts.md`); this file gives the two
+wider scopes theirs. *Governing* a harness is corpus-wide and quantified —
+"every agent…", "at most N…", "nothing unreachable" — which lives at exactly
+these two scopes. Every predicate here is a **decidable fact**, never a guess,
+so the gate never cries wolf (`00-intent.md` law 3): the wider scopes gain
+*quantification*, not *fuzziness*.
 
-## The set scope (the roster) — predicates over a matched set
+## One graph
 
-A requirement's set is its **satisfier set** — the artifacts that opt in via
-`satisfies`, kind-typed (`10-contracts.md`); there is no name-`match` selector (a name
-pattern is the contract guessing, eradicated). Lift from "fill one slot" to "quantify
-over the satisfier set" and the roster scope gains its predicates:
+The judge sees one graph. **Nodes** are the members — at file grain and at
+block grain: a genre member inside a host document is a node like any other
+(`15-kinds.md`) — plus one distinguished node, **the world** (below).
+**Edges** are one enumeration with several sources:
 
-- **count** — `|artifacts satisfying R| ∈ [min, max]` ("at most N planners," "exactly
-  one release-tool"). This also makes the cascade harness-economy package — cited in
-  `10-contracts.md` but otherwise inexpressible — real. A whole-*kind* population
-  constraint quantifies over the requirement's `kind` (every artifact of the kind);
-  an intent *subset* quantifies over its opt-in satisfiers.
-- **membership** — `field F of every artifact satisfying R₁ ∈ { feature G over
-  artifacts satisfying R₂ }` ("every agent's `model` is one of the approved set;" "a
-  hook's binary is one the manifest declares"), each set an opt-in satisfier set.
-- **typed reference** — membership where R₂'s set is "artifacts of kind K conforming
-  to package C": a reference resolves *to the right kind of thing*.
-- **unique** — a field is unique across the satisfier set (today only `name` is).
+- **declared reference fields** — a member's typed field naming another member;
+- **satisfies** — a member's opt-in claim against a published requirement
+  (`40-composition.md`);
+- **embed and mention directives** — authored prose interpolations
+  (`20-surface.md`);
+- **registrations** — a member's declared coupling to the world.
 
-Each is exact membership/count over deterministically-extracted features of a finite
-corpus — decidable, a fact, a true positive every time.
+All of them are **declared** (law 8): an edge exists because an author put it
+on a structured surface, never because prose named a thing. Declaring an edge
+and demanding properties of it are opposite sides of the declare/require
+cleave (`40-composition.md`): the declaration lives on the member; the demand
+— a degree, a count, a reachability severity — lives in the assembly, never
+smuggled into the member's own declaration.
 
-## The graph scope (the model) — predicates over the relation graph
+### Decision: one reference concept, one dangling-rule family
 
-The dependency graph (`15-kinds.md`) is *descriptive*: it yields blast-radius.
-Governance makes it *prescriptive*:
+**Chosen:** a reference is one concept — a declared edge — however it is
+spelled: a reference field, a `satisfies`, an embed or mention directive. One
+rule family governs resolution: every reference resolves to a node or it is a
+**dangling finding**; the finding's debug label speaks the source's vocabulary
+(`10-contracts.md`), but the judge is one. **Rejected:** (a) per-source
+dangling checkers — a reference-field checker, a satisfies checker, a
+directive checker — three implementations of one fact, drifting
+independently; (b) inferring edges by scanning prose for names or paths — the
+mined edge is a guess wearing tier-1 clothes, false in both directions (law
+8); the declaration is the truth, the prose is payload. (Resolves
+`(skill-ref-syntax)`.)
 
-- **degree** — in/out edge counts on a node ("self-registering artifact: zero
-  incoming"; "routed artifact: at least one incoming").
-- **acyclic** — the reference graph has no cycle (a circular import loads nothing).
+Two of the sources are **prose reference intents**, and they are distinct edge
+species (`20-surface.md`): an **embed** pulls the target's content into the
+referencing prose — today's `CLAUDE.md` `@path` import is the embed's harness
+spelling (`15-kinds.md`) — so meaning flows along it; a **mention** names a
+member and nothing flows. The species differ in consequence, not in
+resolution: both are resolution-checked (a mention can never dangle past the
+gate), but a mention is **obligation-free** — it obligates neither end,
+coverage never counts it, deleting a mentioned member is never blocked by its
+mentions — and `explain` reports mentions as **citation, never fallout**. The
+citer is told, which is the entire point. An obligating mention is how
+documentation calcifies a model; a paragraph citing a concept must not pin it
+against refactoring.
 
-## The harness is a graph too — and references are declared edges
+## The node-set scope — predicates over a matched set
 
-The graph is not spec-only. The **harness** is a graph: skills and rules coupled
-to each other. To govern its shape, temper needs the edges — and inside the
-world an edge is a **join**, never grepped from prose and never authored
-one-sided. A rule that routes to a skill is temper's intent on *both* ends: the
-rule publishes the demand (`[requirement.<name>]`), the skill opts in
-(`[satisfies.<name>]`), and the gate resolves them (`20-surface.md`) —
-**alongside** the prose that says the same thing for the agent. temper builds
-the graph from the join; the prose rides along content-faithful; where the
-harness must *execute* the coupling, the kind's emit face flattens the join
-into the projection's one-way structured field (`15-kinds.md`) — derived from
-the join, never authored as a pointer.
+A requirement's set is its **satisfier set** — the members that opt in via
+`satisfies`, kind-typed; there is no name-pattern selector (a name match is
+the contract guessing). A whole-*kind* population demand quantifies over the
+kind's member set instead; an intent *subset* quantifies over its opt-in
+satisfiers. The predicates spell as fields on the requirement
+(`40-composition.md`) and compile to node-set judges:
 
-So governance does not demand you rewrite your prose — it **adds the structure it
-needs and plants it.** This is why the write surface is load-bearing for
-governance: a pure linter can only nag about what is on disk; temper can carry in
-the structure a contract requires.
+- **count** — a *measurement* over the satisfier set:
+  `|satisfiers| ∈ [min, max]` ("at most N planners", "exactly one
+  release-tool").
+- **unique** — a field is unique across the satisfier set.
+- **membership** — a field of every satisfier takes its value from a declared
+  **source set** (a feature over another requirement's satisfiers, or over a
+  kind's members): "every agent's `model` is one of the approved set". What
+  the target must *be* is not membership's job — conformance demands ride as
+  inline clauses on the expectation itself (`40-composition.md`).
 
-Hold one line, because it is where the declare/require cleave (`05-model.md`) is
-easiest to blur: **declaring an edge and requiring it are opposite sides.** Each
-half of a join is a declared clause on its own member (declare-side); the demand
-that the join *agree*, or that a node's *degree* hold, or that the graph be
-*acyclic*, is a predicate in the **assembly** (require-side). Same edge, two
-sides — so the predicates below live in the assembly, never smuggled into the
-member's own declaration.
+### Decision: `required` is posture, `count` is measurement
 
-### Decision: a reference is a declared edge on the surface, never grepped prose
+**Chosen:** `required` on a requirement is the **posture declaration** — it
+states what the absence of any satisfier *means*: gate-blocking or advisory
+(`00-intent.md` laws 1 and 4 in one field). `count` is a **predicate** — a
+measurement over the satisfier set. They are different kinds of thing and are
+never merged: one answers "how does the gate treat an unfilled demand", the
+other answers "how many fills are admissible". **Rejected:** folding them —
+`required` as "the `count ≥ 1` shorthand" — which welds an enforcement
+posture to a cardinality and leaves no spelling for "advisory, but if filled,
+exactly once".
 
-**Chosen:** an artifact references another through **declared structure** —
-inside the world, the paired join clauses (the Decision below); at the boundary,
-syntax the external format itself executes (law 8's carve-out) — authored on the
-surface and projected alongside any prose; the graph is built from these
-declarations. **Rejected:** inferring edges by scanning prose
-for names or paths — the unsound prose-grep `10-contracts.md`'s referential rule
-forbids (it matched filenames in prose and forged false positives). The declaration
-is the truth; the prose is payload. (Resolves `(skill-ref-syntax)`.)
+## The edge scope — predicates over the relation graph
 
-### Decision: coupling is a join — one-way edges exist only at the governance boundary
+The graph is *descriptive* by construction — it yields blast radius (below).
+The edge scope makes it *prescriptive*:
 
-**Chosen:** any relationship between two members of temper's world is a
-**join**: two independent declarations — a published demand
-(`[requirement.<name>]`) and an opt-in claim (`[satisfies.<name>]`) — that the
-gate resolves, true only where both sides agree, a finding on either dangling
-half (`10-contracts.md`). The fill edge is the join mechanism and there is no
-second one: there is no free-standing edge clause. A member that needs another
-member *publishes the demand*; the needed member *opts in* — a skill that
-dispatches to a runner publishes `[requirement.lint-runner]`, and the runner
-declares `[satisfies.lint-runner]` with its rationale. Delete the runner and
-the demand dangles — the graph lights up, because the obligation was declared
-on both ends.
+- **degree** — in/out edge counts on a node. Two idioms are the documented
+  cases: a **self-registering** member engages the harness through its own
+  registration and must not be pointed at — `degree(incoming) = 0`; a
+  **routed** member is reached by being referenced — `degree(incoming) ≥ 1`.
+  General `[min, max]` degree bands are legal in principle but held to the
+  entry gate: admitted when a consumer lands, not before.
+- **acyclic** — the embed graph has no cycle (a circular import loads
+  nothing).
+- **reachable** — graph reachability from the world (below).
 
-One-way edges are real, but they are never **authored** in temper's
-vocabulary. They appear in two places. Inside the world's own formats they are
-**observed format edges**: structure a format authority documents as executed
-— an `@path` import (`15-kinds.md`, "Directives") — which temper extracts as
-fact and never authors; an observed edge carries no obligation either way, so
-its initiator may be a member (a memory file importing a rule) without
-touching the join doctrine — the gate checks it is backed, and reachability
-propagates over it (below). At the **governance boundary**, where temper's
-world touches the world it does not govern, they run in exactly two
-directions:
+## The world — registration's other endpoint
 
-- **Inbound — activation (world → member).** The harness reaches into the
-  landscape by its own mechanics: it loads a skill's `description` into context
-  and the body on invocation; it applies a rule when the agent reads files
-  matching its `paths` globs; it loads `CLAUDE.md` in full at launch. These
-  edges are the *harness's* intent, not an author's — nobody on the surface
-  consents to them, and modeling them as joins would forge a signature the
-  world never gave. A kind declares them as **activation facts**
-  (`15-kinds.md`); the gate checks **reachability** (below), never consent.
-- **Outbound — flattening (member → world).** A join whose meaning the harness
-  must *execute* is projected by the kind's emit face into the one-way
-  structured field the harness format defines. The pointer in the projection is
-  **derived from the join**, never authored as one — and a pointer found in the
-  landscape with no join behind it is a **drift finding**: un-consented intent
-  sitting in the world.
+The world is the harness runtime and repo temper observes but does not
+govern, present in the graph as one distinguished node. **Registration** is
+the fact that couples a member to it: a skill registers a description
+trigger, a rule registers a path scope (or unconditional), a hook registers
+for an event, an MCP server registers a connection — one fact, spelled
+per-kind, declared with the kind (`15-kinds.md`). The world is the other
+endpoint of every registration edge. These edges are the *harness's*
+mechanics, not another member's intent — no member consents to being loaded —
+so they are facts the extractor reads, never obligations between members.
 
-**Rejected:** (a) unilateral member-to-member dependency edges — an obligation
-the obligated party never declared is un-consented intent (law 8's social half)
-and the invisible 2am dependency in corpus form: you delete the artifact
-nothing *appears* to need, and three others dangle; (b) the `[edge.<target>]`
-clause as a surface mechanism — it either duplicates a join (then author the
-join) or smuggles (a); retired from `20-surface.md`'s header vocabulary; (c)
-obligation-free annotation edges (a citation, a `supersedes`) — genuinely
-unilateral, but with zero consumers *at the time*: vocabulary without a
-requirement, readmitted only when a real consumer arrives, and as data the
-obligation graph ignores. **The consumer arrived**: the **mention**
-(`20-surface.md`, the 2026-07-03 reformulation) is exactly that readmission —
-the Decision below.
+**Reachability is graph reachability from the world.** The closure runs over
+registration edges and then over **embed** edges — an embedded member
+inherits its embedder's liveness conditionally (embedded only by an
+invocation-gated skill ⇒ live exactly when the skill is), hop-capped as the
+format authority documents (`15-kinds.md`). Mentions do not propagate
+liveness: naming is not loading. A **dead registration that no live
+embed-chain rescues is the finding**: a skill whose description is empty has
+nothing for the harness to load; a rule whose path scope matches zero files
+activates never. Each is an exact fact at check time — whether it gates, and
+at what severity, is the **assembly's dial**, carried on the clause like any
+severity (`40-composition.md`). A dead edge can be deliberate — a
+work-in-progress skill with a blank description — so the dial is the
+author's, declared where edge-scope demands live, never baked into the engine.
 
-### Decision: the mention is the readmitted one-way annotation class
+**Blast radius is the same closure inverted**: remove a node and the judge
+lights every node whose reachability, reference, or requirement depended on
+it. The inversion reaches block grain — a genre member's removal lights the
+requirements it satisfied — and `explain` reports it, with mentions listed as
+citation, separately from fallout.
 
-**Chosen:** an authored prose interpolation of a declared value — a
-**mention** — is a declared one-way edge of precisely the class rejected-(c)
-above reserved: **resolution-checked** (a mention names a declared value or
-it does not compile / does not pass the gate — it can never dangle),
-**obligation-free** (it obligates neither end: the obligation graph ignores
-it, coverage never counts it, deleting a mentioned value is not blocked by
-its mentions), and **reported as citation, never fallout** (`impact` lists
-mentions separately from join and reachability consequences). It satisfies
-law 8 by construction — the author marks the word a reference; nothing is
-mined — and its admission changes no join semantics: the join remains the
-sole obligating edge. **Rejected:** (a) mentions as obligating edges — a
-paragraph citing a concept must not pin that concept against refactoring;
-citation-weight obligation is how documentation calcifies a model; (b)
-mention edges mined from unmarked prose — the `references` retirement
-(`15-kinds.md`) stays fully in force: an unmarked name is typography,
-permanently; (c) mention-completeness demands — inadmissible by definition
-(`20-surface.md`, the opt-in Decision; law 8's opt-in bound).
+## Genre members govern cross-kind — and law 8's line
 
-The class gains **address grain**, not new semantics: a declared one-way
-edge (a mention, a citation) may target a **leaf address** (`20-surface.md`,
-genre values) — resolution-checked against the manifest's serialized shape,
-obligation-free exactly as above, reported by `impact` as citation at the
-leaf it names. Deleting or rewording a cited leaf is never blocked by its
-citations; the citer is told, which is the entire point.
+A genre member is a node with the full member surface (`15-kinds.md`), so the
+wider scopes quantify over it like any file: a decision block `satisfies` an
+adr requirement; a `count` measures the declared decisions of a corpus; a
+dangling reference from inside a block is the same finding at a finer
+address. The line that keeps this out of the mining swamp is law 8's bound,
+stated precisely:
 
-## The world is a node — reachability is a predicate
-
-The relation graph gains one distinguished node: **the world** — the harness
-runtime and repo temper observes but does not govern. Activation facts
-(`15-kinds.md`) are its edges into members; flattened pointers are members'
-edges out. This makes *dead artifacts* decidable:
-
-- **reachable** — the activation edge a member's kind declares is live, **or a
-  reachable member imports it**: reachability closes over observed directive
-  edges (`15-kinds.md`, "Directives"), the target inheriting the importer's
-  liveness conditionally (imported only by an invocation-gated skill ⇒ live
-  exactly when the skill is), hop-capped as the format documents. A skill
-  whose `description` is empty has a dead description-trigger edge (the harness
-  has nothing to load); a rule whose `paths` globs match zero files in the repo
-  activates never — unless a reachable member imports it. Each is an exact
-  fact at check time — whether it gates, and
-  at what severity, is the **assembly's declaration**, like `degree`: the graph
-  scope is the assembly's, and a package clause is artifact-scope (the
-  declare/require cleave above). A dead edge can be deliberate (a
-  work-in-progress skill with a blank description), so the dial is the
-  author's — declared where graph-scope demands live, never smuggled into a
-  member or a package.
+- **Nothing quantifies over genre adoption in prose.** "This document should
+  have declared its decisions as blocks" is inadmissible by definition —
+  plain prose is a fully legal member, forever, and a demand over what prose
+  *could have* declared rebuilds the mining swamp from the declaration side.
+- **Structural demands over typed fields are legal.** Where a kind author
+  types a field as a genre collection (`20-surface.md`, the composed
+  posture), demands over that field are ordinary structure — the opt-in
+  moved to the kind author, and quantifying over what *is* declared is
+  exactly what this file exists to do.
 
 ## Worked example — self-registering vs routed
 
-A project distinguishes two activation patterns and wants to enforce them:
+A project distinguishes two coupling patterns and wants to enforce them: its
+self-registering members must not accumulate hidden routes
+(`degree(incoming) = 0`), and its routed members must actually be routed
+(`degree(incoming) ≥ 1`, every reference resolving). The author declares
+which pattern each member follows; temper checks the graph matches. All of it
+is counts over declared edges — sound.
 
-- a **self-registering** artifact engages Claude through its own frontmatter + hooks
-  and must **not** be pointed at → `degree(incoming) = 0`.
-- a **routed** artifact is reached by being pointed at and must be reachable →
-  `degree(incoming) ≥ 1`, and every route's join **agrees**.
+## Held to the entry gate
 
-The author declares which pattern each artifact follows; temper checks the harness
-graph matches. All three are counts over declared edges — sound.
-
-## Also in scope
-
-- **numeric `range` `{min, max}`** over `integer` / `number` — a value bound is a
-  fact, wrongly excluded when the `type` lattice rejected JSON-Schema ranges
-  (`10-contracts.md`). A narrow named predicate, the corpus's own escape for a
-  genuine need — now enumerated in `10-contracts.md`'s field primitives (the
-  vocabulary's home).
-
-## Held back, and loose ends
-
-- **Conditionals** (`if field=X then require Y`) are decidable but are where proxies
-  re-enter — an implication can stand in for a judgment. **Fenced** like `pattern`
-  (`10-contracts.md`); admit only when a concrete sound need appears.
-- Open, related: **harness-version pinning** (a `profile` declaring which format
-  version a built-in kind targets, `15-kinds.md`); **`verified_by` "wired" → "wired
-  and gating"** for surface-resident verifiers; and whether the flagship "a hook
-  command that doesn't resolve" check is tier-1 (over a declared reference) or
-  delegated.
+- **General degree bands** (above) — admitted when a consumer lands.
+- **Conditionals** (`if field = X then require Y`) — decidable, but where
+  proxies re-enter: an implication can stand in for a judgment. Fenced;
+  admitted only when a concrete sound need appears.
+- **`verified_by` "wired" → "wired and gating"** for surface-resident
+  verifiers — open, tracked with the requirement's `verifiedBy`
+  (`40-composition.md`).
 
 ### Decision: governance predicates are facts, never proxies
 
-**Chosen:** every predicate here is exact and decidable over extracted features —
-count, membership, degree, acyclicity, range — so each violation is a true positive
-and earns the hard gate. **Rejected:** expressive governance (arbitrary logic,
-unfenced conditionals, regex over the corpus) that can encode an unsound proxy.
-"Too weak to lie" holds at every scope (`00-intent.md` law 3), not just the artifact
-one.
+**Chosen:** every predicate here is exact and decidable over extracted
+features and declared edges — count, unique, membership, degree, acyclicity,
+reachability, resolution — so each violation is a true positive and earns the
+hard gate. **Rejected:** expressive governance (arbitrary logic, unfenced
+conditionals, regex over the corpus) that can encode an unsound proxy. "Too
+weak to lie" holds at every scope (`00-intent.md` law 3), not just the node.

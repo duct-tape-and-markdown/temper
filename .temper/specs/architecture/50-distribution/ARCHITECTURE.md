@@ -7,204 +7,224 @@ rationale = "50-distribution owns the delivery surface — install (session hook
 
 [provenance]
 source_path = "./specs/architecture/50-distribution.md"
-source_hash = "21d3e24c8cdf409fd30a5b41908dd524c89e2a9a50a86c0661eafb95fef96f21"
+source_hash = "47deec544b21c78301ba682d4669f20ebbcb5a580b7984e123c606f87ced3e68"
 +++
 # Distribution — delivering the gate
 
 Distribution is not a second product; it is **placing the one gate** at every
-moment a harness is authored, changes, or is used. Every placement emits from the
-same source — the **assembly** (built-in **packages** ⊕ the author's `temper.toml`,
-`40-composition.md`) — so a placement can never drift from the gate it delivers:
+moment a harness is authored, changes, or is used. Every placement runs the same
+compiled program — clauses compiled from SDK values, riding the lock
+(`20-surface.md`) or embedded in the engine as the default program — so a
+placement can never drift from the gate it delivers:
 
 | Moment | Placement | Form of the gate |
 | ------ | --------- | ---------------- |
-| Keystroke | the SDK's types + TSDoc; editor schema for in-place members (`temper schema`) | the decidable contract as JIT validation, guidance as hover |
-| Session start | `SessionStart` hook | **advisory** — checks, surfaces the verdict, instructs notify-and-approve (cannot block; Decision below) |
-| Human change | CI job on PRs | "gate, don't lint," where humans collaborate |
+| Keystroke | tsc over the SDK (posture 3); editor JSON Schema generated from compiled clauses (postures 1–2) | the decidable contract as JIT validation, guidance as hover |
+| Session start | `SessionStart` hook → the session-start reporter | **advisory** — surfaces the verdict, instructs notify-and-approve (law 1) |
+| Human change | a two-line user-authored CI job | hard gate + integrity: re-emit `--frozen`, byte-compare |
 | On demand | the CLI | the author runs it |
 
-Same assembly, four placements, shifted as far left as the work allows.
-Consumption is self-hosting aimed outward: the placements `temper` carries against
-its own `.claude/` are the ones a stranger installs against theirs — no separate
-external finish line (`00-intent.md`).
+Same program, four placements, shifted as far left as the work allows.
+Consumption is self-hosting aimed outward: the placements `temper` carries
+against its own `.claude/` are the ones a stranger installs against theirs — no
+separate external finish line (`00-intent.md`).
+
+## Three channels
+
+1. **The SDK** — ordinary npm packages: the core (`temper`) and provider
+   modules (`@temper/claude-code`, carrying the built-in kinds and the built-in
+   floors as exported values). A **floor distributes as an exported clause
+   array**: adoption is an import, overriding is a spread (`10-contracts.md`).
+   Because identity travels by import (`15-kinds.md`), the channel *is* the
+   registry — npm already carries versioning, lockfiles, and provenance
+   discipline; there is no second registry and no on-disk package format to
+   publish. The trust boundary is stated, not hidden: importing a floor or
+   kind is code execution at authoring time — devDependency-tier trust,
+   bounded by CI's `emit --frozen` byte-compare — and the gate itself never
+   touches the registry.
+2. **The engine binary** — pinned by the SDK at an exact version (per-platform
+   `optionalDependencies`, the shape npm-distributed native tools already use),
+   and also acquirable standalone for harnesses with no `package.json`.
+3. **The plugin / bundle** — a harness-installable bundle whose hook runs the
+   gate, produced by `temper bundle` (`20-surface.md`), publishable with a
+   `marketplace.json`. Project-authored kinds and floors publish through
+   channel 1 like any module; `bundle` delivers the *gate* into a harness, not
+   clauses.
+
+## The stranger gate
+
+A bare `temper check` — the binary alone, with the compiled default program
+embedded at build time — gates any harness: **no Node, no SDK, no toolchain**.
+This is the downstream-checker positioning made concrete: `rulesync` makes a
+harness portable, marketplaces distribute artifacts, and `temper` sits
+downstream of both, checking what you installed — the same two greens
+(`00-intent.md`, self-hosting) aimed outward. The normative property is
+**no-runtime checking**: the engine, and every placement that invokes it,
+consumes committed artifacts plus the lock, offline, with no language runtime.
+The engine's own implementation language is the open fork `(engine-language)`;
+specs state the property, never the language.
 
 ## The plugin — the Claude-Code-native delivery
 
-`temper` ships as a Claude Code plugin bundling three things: the **skill** (how to
-operate the gate), the **`SessionStart` hook** (law 1), and the **shipped built-in
-packages** (the std-lib, embedded — so an installed `temper` has something to
-check against). It is distributed through a marketplace, and it is `temper`'s first
-plugin dogfood — the artifact kind `temper` exists to project.
-
-The plugin is a **vendored surface** — generated and checked in, **built by flume
-per spec** today and by `temper bundle` (self-packaging, below) in time; it is *not*
-hand-curated like `.claude/` or the `packages/` std-lib sources (product territory,
-`10-contracts.md`). Its files are
-an instance of what `temper` projects, so `temper check` will in time gate the plugin
-too. (Build's writable paths must include the plugin tree for the loop to author it.)
+The plugin bundles the **skill** (how to operate the gate) and the
+**`SessionStart` hook**; the engine it invokes carries the embedded default
+program, so an installed `temper` has something to check against before its
+host ever touches the SDK. The plugin is a generated surface — an instance of
+what `temper` projects, itself gated by `temper check` — and the dogfood target
+is that `temper`'s own plugin is produced by `temper bundle`: the tool
+distributes itself with its own verb.
 
 ### Decision: the skill is mechanics, never taste
 
 **Chosen:** the bundled skill teaches the agent to *operate the gate* — when to
-`init` / `emit` / `check`, how to read a diagnostic, and when to **challenge the contract**
-versus fix the artifact (the `collaboration` reflex) — and the **model's vocabulary
-itself** (the cleave: kind reads, package judges, member fills, assembly binds),
-because an agent cannot operate a verdict spoken in words it does not hold.
-Vocabulary is mechanics, not taste. **Rejected:** a skill that
-advises *what a good harness is* ("write triggers like this," "keep descriptions
-tight"). That advice is the tool's taste, and law 2 forbids hardcoding it; it lives
-in **packages** (data, adopted by choice), never in skill prose. The split is
-the dogfood of law 2 — the skill runs the checker, the **packages** carry the opinions.
+`init` / `emit` / `check`, how to read a finding, when to **challenge the
+contract** versus fix the artifact (the `collaboration` reflex) — and the
+model's own vocabulary (the six nouns: harness, member, kind, clause,
+requirement, prose), because an agent cannot operate a verdict spoken in words
+it does not hold. Vocabulary is mechanics, not taste. **Rejected:** a skill
+that advises *what a good harness is* ("write triggers like this"). That advice
+is the tool's taste, and law 2 forbids hardcoding it; it lives in **floors**
+(exported clause data, adopted by choice), never in skill prose. The skill runs
+the checker; the floors carry the opinions.
 
-### Decision: the session-start gate is advisory, not blocking
+### Decision: session start is advisory — a check reporter, not a verb
 
-**Chosen:** the `SessionStart` hook **is the `temper` binary itself** (exec-form
-command — Claude Code spawns it and reads JSON from its stdout), which checks the
-project in one shot and, on a failing contract, emits the verdict as
-`additionalContext` with an instruction to notify the user and get approval before
-continuing. No shell wrapper, no external deps, no escaping — the binary owns the
-output contract (a `claude-session-start` reporter; see Reporters below), capped to
-Claude Code's 10k `additionalContext` limit. (This is `check --harness <path>` — the one-shot
-import-internally mode the CLI surface names, `20-surface.md` — not the two-step
-import-then-check of the author workflow.) **On a project that carries an
-authored surface** (an assembly + `.temper/` exist), the hook checks the
-*surface* — the two-step path — never a fresh import: a fresh import discards
-recognition (the authored `satisfies` links), so every filled requirement would
-read unfilled — a false positive on clean input, the exact failure law 3
-forbids. The one-shot import is the fallback for a surfaceless harness. It does
-not block.
-**Rejected:** a hard block at session start (a `PreToolUse` hook denying the
-agent's first action). Two reasons: Claude Code's `SessionStart` *cannot* block (it
-only injects context and shows stderr), and — the deeper one — a hard block on a
-live session is hostile, and **a hostile gate gets disabled** (law 3's failure
-mode, arriving through a UX door instead of a false-positive one). The hard block
-lives where it is cheap — CI, the author's terminal, the keystroke schema; at
-session start the gate routes through the human. The **posture is author-declared**
-(`10-contracts.md`, severity is declared): the author tunes how firmly a failing
-contract is surfaced, default advisory. (Fail-loud still holds: a hook that cannot
-*run* `temper` errors loudly — that is the gate being unable to check, not a
-contract failing.)
+**Chosen:** the `SessionStart` hook is the engine binary itself (exec-form
+command — Claude Code spawns it and reads JSON from its stdout) running `check`
+with the **session-start reporter**: on a failing contract it emits the verdict
+as `additionalContext` — capped to Claude Code's 10k `additionalContext`
+limit — with an instruction to notify the user and get approval before
+continuing. No shell wrapper, no second code path: the placement is a reporter
+over the one diagnostic source, so it can never disagree with the terminal. On
+a temper-adopted harness it checks the committed artifacts against the lock's
+program; on a stranger harness, the embedded default program (the stranger
+gate above). It does not block. **Rejected:** (a) a hard block at session
+start — Claude Code's `SessionStart` *cannot* block (it only injects context
+and shows stderr), and, the deeper reason, a hard block on a live session is
+hostile, and a hostile gate gets disabled (law 3's failure mode through a UX
+door). The hard block lives where it is cheap — CI, the author's terminal, the
+keystroke wall; at session start the gate routes through the human, and the
+enforcement posture at each placement is author-declared (law 1), default
+advisory here. (b) A dedicated `session-start` verb — a reporter that grew a
+CLI surface of its own is a second placement to keep in sync with the first.
 
-## Decision: `install` projects the gate's wiring; drift keeps it synced
+## Decision: `install` is two placements, one mechanism
 
-**Chosen:** `temper install` **projects** the gate's integration points — the
-`SessionStart` hook into `.claude/settings.json`, the CI job into `.github/`, the
-schema modeline into artifact headers — as ordinary artifacts under the
-drift engine (`20-surface.md`). It complements the plugin rather than duplicating
-it: the plugin carries the hook in its own `hooks.json`, while `install` delivers
-the placements a plugin *cannot* — CI workflows and schema modelines live in *your*
-repo — and wires the gate for users who run the binary without the plugin.
-`temper check` then verifies *its own gate is installed and undrifted*: the harness checking that its self-check is wired (law 1,
-turned on itself). **Rejected:** a bespoke per-integration checksum or lockfile to
-detect staleness (Lefthook's approach). `temper` already owns principled drift; a
-second staleness mechanism would be redundant and could disagree with the first.
-Installing the gate is just projection.
+**Chosen:** `temper install` places exactly two things — the `SessionStart`
+hook entry in `.claude/settings.json`, and the **managed header lines** in
+authored artifacts (the schema modeline and the managed-by note) — and both are
+**content-keyed**: each managed line carries a fingerprint of its own content,
+so staleness is detected by the same one mechanism everywhere, and `temper
+check` verifies its own gate is installed and undrifted (law 1, turned on
+itself). **Rejected:** (a) a bespoke per-integration checksum or lockfile
+(Lefthook's approach) — a second staleness mechanism could disagree with the
+first; (b) an install-managed CI workflow file — CI is *your* repo's territory,
+and a managed workflow is a generated file nobody reads that still needs its
+own drift story. The CI placement is instead a **documented two-line
+user-authored job** (below).
 
-## The gate at keystroke — two spellings of one channel pair
+The installed `PreToolUse` guard's posture is the open fork `(guard-posture)`:
+advisory forever, versus a `temper guard` subcommand reading the hook's stdin
+payload. Either way the generated-shell grep — a shell script pattern-matching
+tool input — is rejected: pattern-matching prose is mining (law 8), and a
+generated script is a second implementation of the gate's judgment. The guard
+installed today is advisory-only (always exit 0); whether that is the end state
+is exactly what the fork decides.
 
-In the SDK, the keystroke placement is the toolchain itself: the
-types deliver the decidable contract as compile-time validation (an
-inexpressible clause is unwritable — `10-contracts.md`, the two walls) and
-TSDoc delivers guidance as hover — tsc serving both channels with no temper
-daemon in the loop. For **in-place members**, `temper schema [--kind <k>]`
-emits a JSON Schema **from the assembly and its bound
-packages** and wires it into frontmatter via the `# yaml-language-server: $schema=…`
-modeline (the path that makes JSON Schema validate `.md` frontmatter today, no daemon;
-served over LSP later). Both spellings carry two channels — which map exactly onto a package's
-two: a bound package's **contract** clauses become the validation channel, its
-**guidance** becomes the docs channel — and the split is the on-law guarantee:
+## The gate at keystroke — one wall, two spellings by posture
 
-- **validation** (the squiggle) — the **decidable clauses only**; a true positive
-  by construction, so it never cries wolf at keystroke (law 3).
-- **docs** (hover) — per-field guidance prose, the best-practice text `10` keeps
-  *out of checks*; advisory, never gates.
+The keystroke placement follows the authoring posture (`20-surface.md`):
 
-Taste cannot become a squiggle — the closed algebra has no syntax for it, and
-neither does the schema — so it can only ride the docs channel. The **medium
-enforces law 2**: the editor delivers the decidable contract as validation and the
-guidance as documentation, and cannot confuse the two.
+- **Posture 3 (fully composed):** the toolchain is the wall. The SDK's plain
+  interfaces deliver the decidable contract as compile-time validation — an
+  inexpressible clause is unwritable — and TSDoc delivers guidance as hover.
+  tsc serves both channels; no temper process is in the loop.
+- **Postures 1–2 (prose and embedded genres):** `temper schema [--kind <k>]`
+  generates a JSON Schema **from the compiled clauses** — the same rows the
+  gate judges — covering frontmatter and typed fenced blocks, wired via the
+  `# yaml-language-server: $schema=…` modeline (the managed header line
+  `install` places; the path that makes JSON Schema validate `.md` frontmatter
+  with no daemon).
 
-## The gate teaches — one vocabulary, four placements
+Both spellings carry the clause's two channels, and the split is the on-law
+guarantee: **validation** (the squiggle) is the decidable predicates only — a
+true positive by construction, never crying wolf at keystroke (law 3) — and
+**docs** (hover) is the clause's guidance, advisory, never gating. Taste cannot
+become a squiggle: neither the type system nor the schema has syntax for it, so
+it can only ride the docs channel. The medium enforces law 2.
 
-The surface's **primary author is an agent** (`00-intent.md`, positioning), and an
-author who does not hold the model cannot author under it — so teaching the model
-is not documentation off to the side; it is a delivery concern of the gate itself.
-Four channels, four moments of contact, all placements above:
+## Reporters — one diagnostic source, three targets
 
-- **the skill** — the primer, *before authoring*: the vocabulary and the cleave,
-  the authoring loop, how to read a verdict (mechanics per the Decision above).
-- **the diagnostic** — JIT, *at the moment of failure*: a failing clause carries
-  its package's colocated guidance (`10-contracts.md`) — the violation is the
-  teaching moment. **Model-level failures teach the model itself**: a dangling
-  `satisfies`, an unbound kind, an inadmissible package confuse the *cleave*, not
-  a clause, and their diagnostics carry the engine's own guidance ("a `satisfies`
-  names a requirement; requirements are declared in the assembly") — guidance with
-  no package to live in, because it is the engine's.
-- **the read verbs** — teaching by rendering, *during exploration*: `why` /
-  `requirements` (`20-surface.md`) narrate the model over the author's own
-  artifacts — the fastest teacher there is.
-- **the schema docs channel** — hover, *at keystroke* (above).
+`temper check` emits every placement's output from one diagnostic source, and
+findings carry the compiled debug labels, so every reporter speaks the author's
+vocabulary:
+
+- **terminal** — the author's placement.
+- **SARIF** — CI's machine format; uploaded, it lands findings as code-scanning
+  annotations where the team reviews.
+- **session-start** — the hook payload (the Decision above).
+
+**Cut:** a GitHub workflow-command reporter (`::error file=…`) — SARIF upload
+already covers inline annotation, and a second CI dialect is a second surface
+to drift. The CI placement is a documented two-line job the user authors: run
+`temper check`, and — where the harness is SDK-emitted — re-run `emit --frozen`
+and byte-compare, the integrity check that makes law 5's byte-reproducibility
+mechanical. Two lanes, both offline on the check side: the toolchain lane
+proves the committed artifacts are what the source emits; the engine lane
+gates them.
+
+## The gate teaches — one vocabulary, every placement
+
+The surface's primary author is an agent (`00-intent.md`, positioning), and an
+author who does not hold the model cannot author under it — so teaching is a
+delivery concern of the gate itself. Four moments of contact:
+
+- **the skill** — the primer, *before authoring* (the Decision above).
+- **the finding** — JIT, *at the moment of failure*: a failing clause carries
+  its colocated guidance and cite (`10-contracts.md`) — the violation is the
+  teaching moment. Model-level failures (a dangling `satisfies`, an unfillable
+  requirement) carry the engine's own guidance, because they confuse the model,
+  not a clause.
+- **`explain`** — teaching by rendering, *during exploration*: the read verb
+  (`20-surface.md`) narrates requirements, reachability, and blast radius over
+  the author's own artifacts — the fastest teacher there is.
+- **the docs channel** — hover, *at keystroke* (above).
 
 ### Decision: every placement speaks the corpus's vocabulary — no synonyms
 
-**Chosen:** the corpus's nouns — kind, package, member, assembly, requirement,
-clause, `satisfies`, edge — are API. Every placement (skill prose, diagnostic
-text, read-verb output, schema docs) uses exactly these, one name per concept.
-**Rejected:** per-surface "friendlier" wording. A synonym forks the reader's
-mental model — the silent-drift failure `temper` hunts, reintroduced in its own
-mouth — and the audience that most needs the teaching (the agent) is precisely
-the one that pattern-matches on exact terms.
+**Chosen:** the model's nouns — harness, member, kind, clause, requirement,
+prose, `expect`/`require`, `satisfies`, registration — are API. Every placement
+(skill prose, finding text, `explain` output, schema docs) uses exactly these,
+one name per concept. **Rejected:** per-surface "friendlier" wording. A synonym
+forks the reader's mental model — the silent-drift failure `temper` hunts,
+reintroduced in its own mouth — and the audience that most needs the teaching
+(the agent) is precisely the one that pattern-matches on exact terms.
 
 ## Fail-loud delivery — the invariant
 
-A placement that cannot run `temper` must **error, never silently skip**. A
-`SessionStart` hook that no-ops because the binary is absent is precisely "a rule
-that silently doesn't load" — the 2am failure `temper` exists to kill
-(`00-intent.md`). The gate's transport inherits the gate's soundness bar: if it
+A placement that cannot run the engine must **error, never silently skip**. A
+`SessionStart` hook that no-ops because the binary is absent is precisely "a
+rule that silently doesn't load" — the 2am failure `temper` exists to kill
+(`00-intent.md`). This is why the SDK **pins** its engine rather than assuming
+a `PATH`'d binary, and why a missing platform binary is an install error, not a
+runtime shrug: the gate's transport inherits the gate's soundness bar. If it
 cannot check, it fails loud; it does not wave the session through.
 
-## Decision: acquisition rides the ecosystem's package managers
+## Version lockstep — the seam is not a format
 
-**Chosen:** ship the prebuilt binary through the channels the ecosystem already
-uses — **npm** with platform-specific `optionalDependencies` (the route most
-`.claude/` projects can take, since they carry a `package.json`), plus standalone
-release binaries, Homebrew, and `cargo install`; the channel is auto-detected
-(Biome's `BIOME_DISTRIBUTION` pattern). Fail-loud is *intrinsic* — a missing
-platform binary is an install error, not a silent skip — which is why this
-satisfies the invariant above. The **SDK is the product's front door and rides the
-same registry**: an ordinary npm package versioned against the interchange
-schema (the contract fixtures, both implementations tested against one
-golden set), distributed per the ecosystem's proven shape (per-platform
-binaries via optionalDependencies, a WASM fallback path named); a published
-package is a pure-data module (clauses + guidance + citations) whose emitted
-TOML is reviewable in the consumer's diff. CI runs two lanes: the toolchain
-lane re-emits `--frozen` and byte-compares (declare-side integrity); the
-engine lane checks committed artifacts offline (no toolchain).
-The trust boundary is stated, not hidden: a config-time import is code
-execution at authoring time — devDependency-tier trust — bounded by `emit
---frozen` in CI and by vendoring any package as plain TOML for zero-trust
-setups; the gate itself never touches the registry. **Rejected:** a single
-bespoke installer, or
-assuming a globally-`PATH`'d binary as the only route; the first strands the common
-JS-project case, the second fails silently when absent; a bespoke package
-registry for contracts — the ecosystem's registry already carries versioning,
-lockfiles, and provenance discipline. (Resolves
-`(binary-bootstrap)`; SDK/package channel per the 2026-07-03 reformulation.)
+The SDK pins its engine at an exact version, and the in-flight JSON between
+them — the compiled program the SDK pipes to the engine — is **internal**,
+versioned in lockstep, never a public format. The committed seam is artifacts
+plus the lock; integrity is CI re-emitting `--frozen` and byte-comparing
+(`20-surface.md`). The entry gate holds here as everywhere: a stable seam
+format is earned by a consumer who needs it, not designed in advance. Until
+that consumer lands, "the SDK and its pinned engine agree" is the only
+compatibility promise, and it is enforced by the pin.
 
-## Outward seams
+## Migration — `init` corrects on the way in
 
-- **Reporters.** `temper check` emits machine formats from one diagnostic source —
-  GitHub annotations inline on the PR and **SARIF** for code-scanning (findings land
-  where the team reviews), plus a **`claude-session-start`** reporter that emits the
-  hook payload directly (the gate above). One reporter family, every placement
-  (Biome's `ci` / reporter model; `miette` already structures the diagnostics).
-- **Migrate, with a fix.** `init` over a foreign tool’s artifacts (a Cursor `.mdc`, a
-  rulesync export) is migration that *corrects on the way in*: the rule package’s
-  `forbidden_keys` clause catches the inert `globs` / `alwaysApply` keys at the
-  on-ramp — the motivating bug, fixed at import. Positioning made concrete.
-- **`bundle`.** Composes an imported harness into a publishable plugin +
-  `marketplace.json` (`20-surface.md`). Project-authored **packages** publish through
-  this same channel — a package is a first-class publishable artifact, not vendor-only;
-  the built-in std-lib packages are merely the first-party instances. The dogfood
-  target: `temper`'s own plugin is itself producible by `bundle` — `temper` distributes
-  itself with its own verb.
+`init` over a foreign tool's artifacts (a Cursor `.mdc`, a rulesync export) is
+migration that fixes at the on-ramp: the rule floor's clause against inert keys
+catches stranded `globs` / `alwaysApply` at import — the motivating bug, caught
+where it enters. `temper` sits downstream of the tools that move artifacts, and
+the gate meets them at the door.
