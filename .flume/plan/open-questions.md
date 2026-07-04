@@ -78,14 +78,19 @@ path strings remain in comments).
   (main.rs:700, keyed by bare kind), carrying the inbox-recommended legacy
   fallback — a manifest with zero `[[member]]` tables (temper's own pre-`emit`
   dogfood) falls back to live `check::surface_units` extraction, so the gate
-  never reads an empty corpus and the self-gate red does not recur. This
-  reconcile flipped **INIT-ONRAMP `open`** as the new head (EMIT-OWNED-PLACEMENTS
-  serialized behind it on shared `src/drift.rs`). ACCEPTED DEBT (out of build's
+  never reads an empty corpus and the self-gate red does not recur. A
+  **sixth** has now shipped — INIT-ONRAMP (`build` f7a830b / `chore` eff71a1):
+  `import`→`init`, scan into a `temper.toml` manifest over members **in place**,
+  zero `.temper/` copy tree (`main.rs:273`, `Command::Init` → `import::init`).
+  This reconcile discharged **EMIT-OWNED-PLACEMENTS**'s `blockedBy INIT-ONRAMP`
+  → it flips `open` as the chain **tail** (last floor link; verified unbuilt —
+  `project_bytes` drift.rs:576 still re-emits from `fields` only and drops
+  install's schema modeline on a whole-file re-emit). ACCEPTED DEBT (out of build's
   fence): temper's own committed `temper.toml`+lock still predate MANIFEST-EMIT
   (zero `[[member]]` tables), so the manifest-read path is exercised against
   fixtures, not the dogfood — regenerating them via `emit` is a human
   `chore(harness)` (`temper.toml` ∉ `BUILD_WRITABLE_PATHS`), a follow-on beside
-  INIT-ONRAMP. These floor entries are NOT
+  EMIT-OWNED-PLACEMENTS. These floor entries are NOT
   `dependsOnForks`-gated on this fork: the human unblocked the floor explicitly.
   **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
   authoring-face npm scaffolding, stays **parked on John** (like

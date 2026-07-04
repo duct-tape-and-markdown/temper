@@ -7,8 +7,7 @@
       "section": "Decision: surface authority is a declared posture, never a baked stance"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INIT-ONRAMP"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "emit's `project_bytes` (drift.rs:553) currently re-emits the frontmatter block from `fields` only and never reads the on-disk projection, so it DROPS the schema modeline (a YAML comment) + reflows the YAML on every run. Make emit PRESERVE the install-placed lines: the modeline + managed-by note ride install (never emit-stamped — law 5 keeps the projection content-faithful), so a whole-file re-emit must carry those non-authored metadata lines through instead of clobbering them."
+          "description": "emit's `project_bytes` (drift.rs:576, called from the desired/double-emit-verify at drift.rs:518-524) currently re-emits the frontmatter block from `fields` only and never reads the on-disk projection, so it DROPS the schema modeline (a YAML comment) + reflows the YAML on every run. Make emit PRESERVE the install-placed lines: the modeline + managed-by note ride install (never emit-stamped — law 5 keeps the projection content-faithful), so a whole-file re-emit must carry those non-authored metadata lines through instead of clobbering them."
         },
         {
           "path": "src/install.rs",
