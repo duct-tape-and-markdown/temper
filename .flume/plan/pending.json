@@ -1,44 +1,5 @@
 [
   {
-    "tag": "EMIT-OWNED-PLACEMENTS",
-    "summary": "Reconcile `emit` and `install` so a whole-file re-emit no longer drops install's schema modeline / managed-by note — the two-projectors collision",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: surface authority is a declared posture, never a baked stance"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "emit's `project_bytes` (drift.rs:576, called from the desired/double-emit-verify at drift.rs:518-524) currently re-emits the frontmatter block from `fields` only and never reads the on-disk projection, so it DROPS the schema modeline (a YAML comment) + reflows the YAML on every run. Make emit PRESERVE the install-placed lines: the modeline + managed-by note ride install (never emit-stamped — law 5 keeps the projection content-faithful), so a whole-file re-emit must carry those non-authored metadata lines through instead of clobbering them."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Align the modeline/note placement (`project_modeline` install.rs:630, `project_note` install.rs:653) with emit's preservation so the two projectors no longer fight over the same file: install owns placing/auditing them, emit round-trips them. Ends the `gate_installed` re-nudge loop that papers over emit dropping them."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Add a regression: place the modeline via install, then emit — assert the modeline + managed-by note SURVIVE (are not dropped/reflowed). Keep `the_managed_by_note_is_never_written_by_apply` (rename to emit) — the note still rides install, never emit-stamped."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "an install-placed schema modeline + managed-by note survive a subsequent `emit` (preserved, not dropped or reflowed); emit still never stamps them itself."
-      }
-    ],
-    "acceptance": "`emit` re-emits a rule/skill projection without dropping install's schema modeline or managed-by note; the install↔emit re-nudge loop is gone; the note is still install-placed, never emit-stamped (law 5); cargo fmt/clippy -D warnings/test green.",
-    "notes": "The 'two projectors, one file' ledger residual, tail of the wave. Per the surface-authority Decision the modeline/note ride install (never emit-stamped — law 5), so emit's whole-file re-emit must PRESERVE those install-placed lines, not own-and-stamp them. Landing this lifts the interim 'do not run bare apply/emit on rules' discipline."
-  },
-  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
     "per": {
