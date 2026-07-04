@@ -25,6 +25,25 @@ many-to-one projections; permissions derived from member `needs`), one
 implementation behind a JSON pipe (SDK implements no semantics). Prior fork
 resolutions above stand as history; their spec anchors moved in the re-cut.
 Plan must re-reconcile the whole pending queue against the new corpus.
+DATUM (2026-07-04, corpus catch-up c74a542): John swept the four un-recut
+files to the six-noun vocabulary — 00-intent (law 2 + Positioning speak
+floors/`expect`/`require`, the SDK Decision drops the fixtures'-schema
+framing, the genre Decision re-cut to kind-at-the-block-locus),
+30-landscapes (clause attachment over package binding, the three postures),
+90-spec-system, 55-offering (the retired `check --harness` spelling → bare
+`temper check`; the graph verbs → `explain`), plus `verified_by` →
+`verifiedBy` and `impact` → `explain` corpus-wide, and two-line touches to
+20-surface/45-governance. **Reconciled: no law changed, no fork resolved, no
+cited intent moved, no pending entry affected** (PACKAGING-CHANNELS cites
+50-distribution "Three channels", untouched). Every renamed concept
+(`verifiedBy`, `explain`, floors/clauses) is the SDK-primary authoring face
+— human-ceremony-gated; the `impact`→`explain` collapse is
+`(explain-target-disambiguation)` below, human-disambiguation-gated. Nothing
+pickable un-gated. The **residual** catch-up deltas the ceremony's "what's
+next" names — 50-distribution's `(engine-language)` pointer (still "the open
+fork" at 50-distribution:53) and the `temper guard` Decision
+(`(guard-posture)`) — did **not** land here; 50-distribution was untouched,
+so both stay human-to-do.
 DONE (2026-07-04, post-merge reconcile): **AGENT-KIND, COMMAND-KIND, and
 SETTINGS-KIND are RETIRED from pending** — every mechanism they named is
 rejected by the re-cut: there is no `KIND.md` (15-kinds "Decision: field
