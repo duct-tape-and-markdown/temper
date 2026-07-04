@@ -21,14 +21,14 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## The one open design thread
 
-- **TS-primary** ("temper is an authoring tool; the output is the harness;
-  the TOML is internal"): DRAFT v2 + a five-point adversarial pass, awaiting
-  John's cold read after a cooling period —
-  claude.ai/code/artifact/5ef1905d-a4f1-4fd0-b553-3b3a1a9a7b1f. Unresolved
-  inside it: the Node/Rust split (full enforcement needs the toolchain lane;
-  the offline binary checks artifacts only). The five amendments are not yet
-  folded — fold on John's word, then ceremony. Flume's queue is human-gated
-  on exactly this; nothing is pickable until it lands.
+- **The SDK is the product** (John's ruling 07-04: "the sdk is the thing I
+  want; the engine was a means" — build-down applies to the ENGINE, never
+  the SDK): DRAFT v3, all amendments + cited interface research folded,
+  awaiting John's cold read after a sleep —
+  claude.ai/code/artifact/5ef1905d-a4f1-4fd0-b553-3b3a1a9a7b1f. Biome is
+  the boundary blueprint (Rust core behind one npm front door). One
+  ceremony administers this + the de-jargon pass. Flume's queue is
+  human-gated on exactly this; nothing is pickable until it lands.
 
 ## Parked (pointers only)
 
