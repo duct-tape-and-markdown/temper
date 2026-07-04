@@ -75,26 +75,29 @@ different, unbuilt foundation, gated on the SDK-primary scaffolding (publish
 `@temper/claude-code`, npm scoping — the ledger's "SDK npm scaffolding needs
 John"). Re-file only once that foundation lands.
 
-The dominant corpus↔code gap is now the **six-noun engine demolition**: the
-code is manifest-era (commits + reads a `temper.toml` manifest as the gate's
-corpus — 20-surface rejects exactly that, (b); parses `KIND.md`/`PACKAGE.md`
-grammars — retired; resolves qualified/bare string identity — retired). It
-is frame-scale, deeply entangled (every piece touches builtin.rs / kind.rs /
-main.rs / import.rs / drift.rs), and its foundation (SDK as canonical
-authoring surface + committed-artifacts+lock as the only gate corpus + the
-compiled default program) is human-ceremony-gated. Plan decomposes it
-**evidence-gated per entry** as clean disjoint slices surface — it does not
-invent the wave shape on the unbuilt foundation. First landed slice
-**INSTALL-RETIRE-CI-PLACEMENT SHIPPED** (5bc2ee2 — install.rs no longer
-projects a CI workflow; CI is a documented user-authored job, 50-distribution).
-No *new* clean disjoint slice has surfaced since: every remaining demolition
-delta (manifest-corpus retirement, KIND.md/PACKAGE.md grammar removal, string-
-identity removal) rewrites the same entangled files together on the human-
-ceremony-gated foundation, so plan holds rather than invent parallel-unsafe
-work. The two localized wrong-today items still open in code (the corpus-
-rejected guard grep, `(guard-posture)`; the read-family CLI split,
-`(explain-target-disambiguation)`) are both fork-gated below — neither is a
-free-standing pickable slice today.
+The dominant corpus↔code gap is the **six-noun engine demolition**: the code
+is manifest-era (commits + reads a `temper.toml` manifest as the gate's corpus
+— 20-surface rejects exactly that, (b); parses `KIND.md`/`PACKAGE.md` grammars
+— retired; resolves qualified/bare string identity — retired). It is
+frame-scale, deeply entangled (every piece touches builtin.rs / kind.rs /
+main.rs / import.rs / drift.rs).
+**UNBLOCKED + FILED (2026-07-04, John's go-ruling, inbox "let's go").** The
+foundation is no longer human-ceremony-gated: the merged six-noun corpus IS
+the ratified foundation, git is the rollback story, the per-tick gates (fmt,
+clippy, test, sdk) are the only technical gates, and the dogfood self-gate is
+deactivated for the wave. Plan filed the **full** demolition + rebuild (no
+longer evidence-gated per slice) as one **linear serialized chain** in John's
+build order — the entanglement above is precisely why it is serialized, not a
+parallel fan-out: LOCK-DECLARATION-ROWS (open head) → GATE-CORPUS-ARTIFACTS-LOCK
+→ SDK-RECUT-CORPUS-FACE → CLI-COLLAPSE (+ temper guard) → MANIFEST-MACHINERY-
+RETIRE → KIND-PACKAGE-PARSE-RETIRE → EXPLAIN-UNIFY (terminal, fork-gated).
+Build drains it one tick at a time; a ship unblocks the next link on the
+following reconcile. Prior landed slice **INSTALL-RETIRE-CI-PLACEMENT** (5bc2ee2
+— install.rs no longer projects a CI workflow) stands. The two localized
+wrong-today items now ride the chain: the corpus-rejected guard grep
+(`(guard-posture)`) is replaced by the `temper guard` subcommand at CLI-COLLAPSE;
+the read-family CLI split (`(explain-target-disambiguation)`) is EXPLAIN-UNIFY —
+still fork-gated (the one design question the wave cannot reach without John).
 
 New forks from the ceremony:
 
@@ -170,11 +173,14 @@ New forks from the ceremony:
   already carved one slice, guard messages ride the same rewrite). A bare
   advisory `temper guard` with no posture is degenerate (it does what the exit-0
   grep already does) and still co-edits the demolition's install.rs, so it is
-  **not** a clean disjoint pickable slice today. Until the foundation lands, the
-  grep in `install::guard_command` (src/install.rs:454, verified on disk this
-  tick) persists as a live corpus↔code contradiction, accepted debt. Re-file the
-  subcommand entry once the SDK-primary posture model + install demolition land.
-  Kept as the decision record; John's hand (the foundation ceremony) next.
+  **not** a clean disjoint pickable slice today. DISCHARGED (2026-07-04, John's
+  go-ruling): blocker (ii)'s sequencing dissolves — the SDK-primary posture model
+  and the install/distribution demolition are now the FILED chain, and the guard
+  rides it. The `temper guard` subcommand is filed inside **CLI-COLLAPSE** (John's
+  step 4, "temper guard lands"), blockedBy SDK-RECUT-CORPUS-FACE (which carries
+  the needs/posture model). The exit-0 grep in `install::guard_command`
+  (src/install.rs:454) persists as accepted debt only until CLI-COLLAPSE lands.
+  Kept as the decision record.
 - `(explain-target-disambiguation)` — OPEN (dogfood catch, 2026-07-04). The
   re-cut ratified **one read verb** (`20-surface.md`, "Decision: one read verb
   — `explain`"), explicitly rejecting "(c) a verb per question (why /
@@ -186,11 +192,13 @@ New forks from the ceremony:
   does **not** specify how a single positional `<target>` resolves across the four
   target species — member, requirement, an address at leaf grain, a neighborhood.
   Member-name vs requirement-name collision is the live crux. Plan must not invent
-  the disambiguation (collaboration rule); a pending EXPLAIN-UNIFY declares
-  `dependsOnForks: ["explain-target-disambiguation"]` once ruled. NB the read
-  family's data source is itself rewritten by the demolition (check →
-  committed-artifacts+lock), so this collapse is best sequenced with/after it.
-  Human to settle the target-resolution mechanism.
+  the disambiguation (collaboration rule). FILED (2026-07-04) as pending
+  **EXPLAIN-UNIFY**, `dependsOnForks: ["explain-target-disambiguation"]`,
+  `blockedBy KIND-PACKAGE-PARSE-RETIRE` — the terminal leaf of the demolition
+  chain, sequenced after the read family's data source is rewritten (check →
+  committed-artifacts+lock), blocking nothing. It stays unpickable until John
+  rules the target-resolution mechanism; this is the one design question the
+  go-ruling'd wave cannot reach on its own. Human to settle it.
 - `(local-overrides)` — OPEN (surfaced by the 40-composition re-cut, which
   carries the OPEN: marker). The dialect era's committed-plus-gitignored
   personal-override layer (temper-local.toml) has no stated spelling in the
