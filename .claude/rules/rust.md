@@ -1,9 +1,7 @@
 ---
+# temper: managed projection — edit the .temper/ surface, not this generated file (temper re-add lifts a direct edit back).
 # yaml-language-server: $schema=../../.temper/schema/rule.json
-paths:
-  - "src/**/*.rs"
-  - "tests/**/*.rs"
-  - "benches/**/*.rs"
+paths: ["src/**/*.rs","tests/**/*.rs","benches/**/*.rs"]
 ---
 
 # Rust conventions — author

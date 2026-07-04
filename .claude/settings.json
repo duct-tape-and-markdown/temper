@@ -12,6 +12,17 @@
         "matcher": "Edit|Write"
       }
     ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "grep -qE '\"file_path\"[[:space:]]*:[[:space:]]*\"[^\"]*\\.claude/' && echo 'temper-managed projection: .claude/ is projected from the .temper/ surface — edit the surface and re-emit (temper re-add lifts a direct edit back). This guard binds only Claude Code writes; other tools writes are not bound by it.' >&2; exit 0",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
