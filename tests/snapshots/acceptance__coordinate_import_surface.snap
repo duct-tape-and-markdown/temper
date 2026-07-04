@@ -8,6 +8,88 @@ name = "coordinate"
 source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md"
 source_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
 emit_hash = "76151e8a66f5ec811c310494ac14f39a244e8a536ec9bc681e34fd6a34df8438"
+
+[[declaration.kind]]
+name = "skill"
+provider = "claude-code"
+governs_root = ".claude/skills"
+governs_glob = "*/SKILL.md"
+format = "yaml-frontmatter"
+unit_shape = "directory"
+activation = "description-trigger(description)"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "required"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "min_len"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_len"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "deny"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "name-matches-dir"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "required"
+field = "description"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "min_len"
+field = "description"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_len"
+field = "description"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_len"
+field = "compatibility"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "forbidden_keys"
+severity = "required"
+
+[[declaration.assembly]]
+fact = "authority"
+value = "shared"
 --- skills/coordinate/PLAYBOOK.md ---
 # Coordinate — playbook
 

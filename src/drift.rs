@@ -19,7 +19,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value as JsonValue;
-use toml_edit::{DocumentMut, Item, value};
+use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, TableLike, value};
 
 use crate::builtin_kind;
 use crate::check::Workspace;
@@ -932,6 +932,330 @@ pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
         }
     }
     findings
+}
+
+// ---------------------------------------------------------------------------
+// declaration rows — the program's erased declarations
+// (`specs/architecture/20-surface.md`, "The lock and drift"; `specs/architecture/40-composition.md`)
+// ---------------------------------------------------------------------------
+
+/// The lock's **declaration-row family** — the composed program's erased declarations
+/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"), beside the
+/// per-member provenance and emit-fingerprint rows. Four sub-families: the program's
+/// [kind facts](KindFactRow), its [clauses](ClauseRow), its [requirements](RequirementRow),
+/// and its assembly facts ([`AssemblyFactRow`], `specs/architecture/40-composition.md`).
+///
+/// Written into the lock by the extraction (`import`, [`Declarations::write_into`]) and
+/// read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison —
+/// the gate read lands next in the chain; `SDK-RECUT-CORPUS-FACE` moves the producer from
+/// the current extraction to the SDK. Every column is an owned `String` so the read and
+/// write sides are the same shape: the lock is the vocabulary, not a typed IR.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Declarations {
+    /// The kind facts — one per kind in the program (`specs/architecture/15-kinds.md`).
+    pub kinds: Vec<KindFactRow>,
+    /// The clauses of every kind's effective contract (`specs/architecture/10-contracts.md`).
+    pub clauses: Vec<ClauseRow>,
+    /// The named requirements the assembly declares (`specs/architecture/10-contracts.md`).
+    pub requirements: Vec<RequirementRow>,
+    /// The assembly-scope facts — authority, reachability, edges
+    /// (`specs/architecture/40-composition.md`; `specs/architecture/45-governance.md`).
+    pub assembly: Vec<AssemblyFactRow>,
+}
+
+/// One kind's declaration row — its identity and declared runtime facts
+/// (`specs/architecture/15-kinds.md`, "a kind's runtime residue is its five declaration facts").
+/// The optional facts are omitted from the lock when the kind declares none, so the row
+/// round-trips to exactly what was written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KindFactRow {
+    /// The bare kind name.
+    pub name: String,
+    /// The declared provider authority, when the kind qualifies by one.
+    pub provider: Option<String>,
+    /// The `governs` locus root directory.
+    pub governs_root: String,
+    /// The `governs` locus filename glob.
+    pub governs_glob: String,
+    /// The declared projection format label, when declared.
+    pub format: Option<String>,
+    /// The declared unit-shape label, when declared.
+    pub unit_shape: Option<String>,
+    /// The declared activation label, when declared.
+    pub activation: Option<String>,
+}
+
+/// One clause of a kind's effective contract, reduced to the columns the lock records:
+/// which kind it governs, the predicate's key, the field it targets (when it names one),
+/// and its declared severity (`specs/architecture/10-contracts.md`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClauseRow {
+    /// The kind whose contract carries the clause.
+    pub kind: String,
+    /// The predicate's clause key (`required`, `max_len`, …).
+    pub predicate: String,
+    /// The field (or marker) the predicate constrains, when it names one.
+    pub field: Option<String>,
+    /// The clause's declared severity (`required` / `advisory`).
+    pub severity: String,
+}
+
+/// One named requirement's declaration row (`specs/architecture/10-contracts.md`), reduced to
+/// the scalar facets the lock records; the set-scope bounds (`count`/`unique`/`membership`/
+/// `degree`) are the SDK producer's to record (`SDK-RECUT-CORPUS-FACE`), not this bootstrap.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequirementRow {
+    /// The requirement's name.
+    pub name: String,
+    /// The kind that may fill it, when typed by one.
+    pub kind: Option<String>,
+    /// The package the filler must conform to, when bound.
+    pub package: Option<String>,
+    /// Whether an unfilled requirement blocks the gate.
+    pub required: bool,
+    /// The external verifier for the behavioral remainder, when declared.
+    pub verified_by: Option<String>,
+}
+
+/// One assembly-scope fact — the graph/assembly declarations the harness binds
+/// (`specs/architecture/40-composition.md`): a `fact` discriminator (`authority`,
+/// `reachability`, `edge`) plus the columns that fact carries. Absent columns are omitted
+/// from the lock, so each row round-trips to exactly what its producer wrote.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssemblyFactRow {
+    /// The fact discriminator: `authority`, `reachability`, or `edge`.
+    pub fact: String,
+    /// The scalar value an `authority`/`reachability` fact carries (its posture/severity).
+    pub value: Option<String>,
+    /// An `edge` fact's source kind.
+    pub from: Option<String>,
+    /// An `edge` fact's reference field.
+    pub field: Option<String>,
+    /// An `edge` fact's target kind.
+    pub to: Option<String>,
+}
+
+impl Declarations {
+    /// Serialize the declaration families into `doc` under an implicit `[declaration]`
+    /// table — `[[declaration.kind]]`, `[[declaration.clause]]`, `[[declaration.requirement]]`,
+    /// `[[declaration.assembly]]` — each family in its producer's order so a re-emit is
+    /// byte-identical (law 5). An empty family writes no array (an empty `ArrayOfTables`
+    /// vanishes on the toml round-trip, so omitting it keeps write and re-parse symmetric),
+    /// and an all-empty set writes no `[declaration]` table at all.
+    pub(crate) fn write_into(&self, doc: &mut DocumentMut) {
+        let mut table = Table::new();
+        // Implicit: only the `[[declaration.<family>]]` sub-headers render, never a bare
+        // `[declaration]` line.
+        table.set_implicit(true);
+        insert_family(
+            &mut table,
+            "kind",
+            self.kinds.iter().map(KindFactRow::to_table),
+        );
+        insert_family(
+            &mut table,
+            "clause",
+            self.clauses.iter().map(ClauseRow::to_table),
+        );
+        insert_family(
+            &mut table,
+            "requirement",
+            self.requirements.iter().map(RequirementRow::to_table),
+        );
+        insert_family(
+            &mut table,
+            "assembly",
+            self.assembly.iter().map(AssemblyFactRow::to_table),
+        );
+        if !table.is_empty() {
+            doc["declaration"] = Item::Table(table);
+        }
+    }
+}
+
+/// Read the lock's declaration-row family back into a typed [`Declarations`]
+/// (`specs/architecture/20-surface.md`, "The lock and drift"): the gate's read side over the
+/// rows the extraction wrote. A missing or malformed lock, or one with no `[declaration]`
+/// table (any pre-recut lock), yields an empty set rather than an error — absent evidence
+/// forges no finding (law 3), the same tolerance [`config_stale`] takes.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock exists but cannot be read or parsed as TOML.
+pub fn read_declarations(workspace_dir: &Path) -> miette::Result<Declarations> {
+    let path = workspace_dir.join("lock.toml");
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(Declarations::default());
+        }
+        Err(source) => return Err(DriftError::LockRead { path, source }.into()),
+    };
+    let doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse { path, source })?;
+    Ok(declarations_from_doc(&doc))
+}
+
+/// Extract the four declaration families off a parsed lock's `[declaration]` table. A row
+/// missing a required column is skipped rather than erroring — a generated section is never
+/// malformed, and a hand-edited broken row degrades to absent, the tolerant read the other
+/// lock readers take.
+fn declarations_from_doc(doc: &DocumentMut) -> Declarations {
+    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+        return Declarations::default();
+    };
+    Declarations {
+        kinds: family(table, "kind", KindFactRow::from_table),
+        clauses: family(table, "clause", ClauseRow::from_table),
+        requirements: family(table, "requirement", RequirementRow::from_table),
+        assembly: family(table, "assembly", AssemblyFactRow::from_table),
+    }
+}
+
+/// Push a family's rows as an `[[declaration.<key>]]` array-of-tables, but only when
+/// non-empty (an empty array vanishes on the toml round-trip).
+fn insert_family(table: &mut Table, key: &str, rows: impl Iterator<Item = Table>) {
+    let mut array = ArrayOfTables::new();
+    for row in rows {
+        array.push(row);
+    }
+    if !array.is_empty() {
+        table.insert(key, Item::ArrayOfTables(array));
+    }
+}
+
+/// Read one `[[declaration.<key>]]` family off the lock's declaration table, parsing each
+/// table through `parse` and dropping any malformed row.
+fn family<T>(table: &dyn TableLike, key: &str, parse: impl Fn(&Table) -> Option<T>) -> Vec<T> {
+    table
+        .get(key)
+        .and_then(Item::as_array_of_tables)
+        .map(|array| array.iter().filter_map(parse).collect())
+        .unwrap_or_default()
+}
+
+/// One required/optional string column off a declaration row — `None` when absent (or not
+/// a string), which a required column treats as a malformed, skipped row.
+fn str_col(table: &Table, key: &str) -> Option<String> {
+    table.get(key).and_then(Item::as_str).map(str::to_string)
+}
+
+impl KindFactRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("name", value(self.name.clone()));
+        if let Some(provider) = &self.provider {
+            table.insert("provider", value(provider.clone()));
+        }
+        table.insert("governs_root", value(self.governs_root.clone()));
+        table.insert("governs_glob", value(self.governs_glob.clone()));
+        if let Some(format) = &self.format {
+            table.insert("format", value(format.clone()));
+        }
+        if let Some(unit_shape) = &self.unit_shape {
+            table.insert("unit_shape", value(unit_shape.clone()));
+        }
+        if let Some(activation) = &self.activation {
+            table.insert("activation", value(activation.clone()));
+        }
+        table
+    }
+
+    fn from_table(table: &Table) -> Option<Self> {
+        Some(Self {
+            name: str_col(table, "name")?,
+            provider: str_col(table, "provider"),
+            governs_root: str_col(table, "governs_root")?,
+            governs_glob: str_col(table, "governs_glob")?,
+            format: str_col(table, "format"),
+            unit_shape: str_col(table, "unit_shape"),
+            activation: str_col(table, "activation"),
+        })
+    }
+}
+
+impl ClauseRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("kind", value(self.kind.clone()));
+        table.insert("predicate", value(self.predicate.clone()));
+        if let Some(field) = &self.field {
+            table.insert("field", value(field.clone()));
+        }
+        table.insert("severity", value(self.severity.clone()));
+        table
+    }
+
+    fn from_table(table: &Table) -> Option<Self> {
+        Some(Self {
+            kind: str_col(table, "kind")?,
+            predicate: str_col(table, "predicate")?,
+            field: str_col(table, "field"),
+            severity: str_col(table, "severity")?,
+        })
+    }
+}
+
+impl RequirementRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("name", value(self.name.clone()));
+        if let Some(kind) = &self.kind {
+            table.insert("kind", value(kind.clone()));
+        }
+        if let Some(package) = &self.package {
+            table.insert("package", value(package.clone()));
+        }
+        table.insert("required", value(self.required));
+        if let Some(verified_by) = &self.verified_by {
+            table.insert("verified_by", value(verified_by.clone()));
+        }
+        table
+    }
+
+    fn from_table(table: &Table) -> Option<Self> {
+        Some(Self {
+            name: str_col(table, "name")?,
+            kind: str_col(table, "kind"),
+            package: str_col(table, "package"),
+            required: table
+                .get("required")
+                .and_then(Item::as_bool)
+                .unwrap_or(false),
+            verified_by: str_col(table, "verified_by"),
+        })
+    }
+}
+
+impl AssemblyFactRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("fact", value(self.fact.clone()));
+        if let Some(value_col) = &self.value {
+            table.insert("value", value(value_col.clone()));
+        }
+        if let Some(from) = &self.from {
+            table.insert("from", value(from.clone()));
+        }
+        if let Some(field) = &self.field {
+            table.insert("field", value(field.clone()));
+        }
+        if let Some(to) = &self.to {
+            table.insert("to", value(to.clone()));
+        }
+        table
+    }
+
+    fn from_table(table: &Table) -> Option<Self> {
+        Some(Self {
+            fact: str_col(table, "fact")?,
+            value: str_col(table, "value"),
+            from: str_col(table, "from"),
+            field: str_col(table, "field"),
+            to: str_col(table, "to"),
+        })
+    }
 }
 
 #[cfg(test)]

@@ -23,11 +23,14 @@ use std::path::{Component, Path, PathBuf};
 use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
+use crate::builtin;
 use crate::builtin_kind;
-use crate::compose::{self, AuthorLayer, InPlaceMember, ManifestMember};
+use crate::compose::{self, AuthorLayer, Authority, InPlaceMember, ManifestMember, Requirement};
+use crate::contract::{Clause, Severity};
 use crate::document::{self, Document};
+use crate::drift::{AssemblyFactRow, ClauseRow, Declarations, KindFactRow, RequirementRow};
 use crate::frontmatter::{self, FrontmatterError, Member};
-use crate::kind::{CustomKind, Format, Governs, KindError, Unit, UnitShape};
+use crate::kind::{Activation, CustomKind, Format, Governs, KindError, Unit, UnitShape};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
 /// written at the workspace root (`specs/architecture/20-surface.md`, "Topology").
@@ -191,6 +194,10 @@ fn run_with_builtins(
     // kinds, qualified (`<provider>.<name>`) where two carriers of one bare name both
     // discover members, so one carrier's rows never clobber another's.
     let mut discovered: Vec<(String, String, Vec<RollupEntry>)> = Vec::new();
+    // The member-discovering built-in kinds, retained for the lock's declaration rows: a
+    // kind fact and floor clauses are recorded for exactly the kinds that carry a member
+    // section (`specs/architecture/20-surface.md`, "The lock and drift").
+    let mut program_builtin_kinds: Vec<CustomKind> = Vec::new();
     for kind in builtins.values() {
         if shadowed.contains(&kind.name) {
             continue;
@@ -199,6 +206,7 @@ fn run_with_builtins(
         if rows.is_empty() {
             continue;
         }
+        program_builtin_kinds.push(kind.clone());
         discovered.push((kind.name.clone(), kind.qualified_name(), rows));
     }
     let mut bare_counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -223,6 +231,7 @@ fn run_with_builtins(
     // scans its own definition. Absent a registered custom kind, only the built-ins
     // import.
     let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
+    let mut program_custom_kinds: Vec<CustomKind> = Vec::new();
     if let Some(layer) = &layer {
         let kinds_dir = harness_path.join(".temper").join("kinds");
         for name in layer.registered_kinds() {
@@ -237,10 +246,16 @@ fn run_with_builtins(
             }
             units.sort_by(|a, b| a.name.cmp(&b.name));
             custom.insert(name.to_string(), units);
+            program_custom_kinds.push(kind);
         }
     }
 
-    write_rollup(into, &builtin_rollups, &custom)?;
+    let declarations = collect_declarations(
+        &program_builtin_kinds,
+        &program_custom_kinds,
+        layer.as_ref(),
+    )?;
+    write_rollup(into, &builtin_rollups, &custom, &declarations)?;
 
     Ok(())
 }
@@ -1044,10 +1059,16 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 /// The caller filters memberless built-in kinds before this point, matching the toml
 /// round-trip reality: an empty `ArrayOfTables` emits nothing, so a written-then-vanished
 /// section would break idempotence against a re-parse that never sees it.
+///
+/// After the per-member sections come the program's **declaration rows** — kind facts,
+/// clauses, requirements, assembly facts under an implicit `[declaration]` table
+/// (`specs/architecture/20-surface.md`, "The lock and drift"); the drift/gate side reads them
+/// through [`crate::drift::read_declarations`].
 fn write_rollup(
     into: &Path,
     builtins: &BTreeMap<String, Vec<RollupEntry>>,
     custom: &BTreeMap<String, Vec<RollupEntry>>,
+    declarations: &Declarations,
 ) -> Result<(), ImportError> {
     let mut doc = DocumentMut::new();
     for (kind, rows) in builtins {
@@ -1056,9 +1077,176 @@ fn write_rollup(
     for (kind, units) in custom {
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(units));
     }
+    declarations.write_into(&mut doc);
 
     create_dir_all(into)?;
     write_bytes(&into.join(LOCK_FILENAME), doc.to_string().as_bytes())
+}
+
+/// Gather the composed program's **declaration rows** for the lock
+/// (`specs/architecture/20-surface.md`, "The lock and drift"): a kind fact per kind in play, the
+/// clauses of each built-in kind's floor contract, the assembly's requirements, and its
+/// assembly-scope facts. Sourced from the current extraction — the SDK becomes the producer
+/// at `SDK-RECUT-CORPUS-FACE`.
+///
+/// `builtin_kinds` are the member-discovering built-in kinds (the ones the lock carries a
+/// `[[<kind>]]` section for); `custom_kinds` the registered custom kinds. Clauses are the
+/// **floor** contract's only: a custom kind's contract is a bound package, and author-layer
+/// overrides fold over the floor — both the SDK producer's to resolve, not this bootstrap's.
+fn collect_declarations(
+    builtin_kinds: &[CustomKind],
+    custom_kinds: &[CustomKind],
+    layer: Option<&AuthorLayer>,
+) -> miette::Result<Declarations> {
+    // Kind facts cover every kind in play, name-sorted for a stable lock.
+    let mut kinds: Vec<KindFactRow> = builtin_kinds
+        .iter()
+        .chain(custom_kinds)
+        .map(kind_fact)
+        .collect();
+    kinds.sort_by(|a, b| a.name.cmp(&b.name));
+
+    // Clauses: each built-in kind's floor contract, in the caller's (name-sorted) order.
+    let mut clauses = Vec::new();
+    for kind in builtin_kinds {
+        if let Some(package) = builtin::floor_package(&kind.qualified_name())
+            && let Some(contract) = builtin::contract(package)?
+        {
+            clauses.extend(
+                contract
+                    .clauses
+                    .iter()
+                    .map(|clause| clause_row(&kind.name, clause)),
+            );
+        }
+    }
+
+    let requirements = layer
+        .map(|layer| layer.requirements().values().map(requirement_row).collect())
+        .unwrap_or_default();
+
+    Ok(Declarations {
+        kinds,
+        clauses,
+        requirements,
+        assembly: assembly_facts(layer),
+    })
+}
+
+/// One kind's declaration row — identity plus its declared runtime facts, each optional
+/// fact folded to its label (`specs/architecture/15-kinds.md`).
+fn kind_fact(kind: &CustomKind) -> KindFactRow {
+    KindFactRow {
+        name: kind.name.clone(),
+        provider: kind.provider.clone(),
+        governs_root: kind.governs.root.clone(),
+        governs_glob: kind.governs.glob.clone(),
+        format: kind.format.map(format_label),
+        unit_shape: kind.unit_shape.map(unit_shape_label),
+        activation: kind.activation.as_ref().map(activation_label),
+    }
+}
+
+/// One clause's declaration row — the kind it governs, the predicate key, the field it
+/// targets (when it names one), and its declared severity (`specs/architecture/10-contracts.md`).
+fn clause_row(kind: &str, clause: &Clause) -> ClauseRow {
+    ClauseRow {
+        kind: kind.to_string(),
+        predicate: clause.predicate.key().to_string(),
+        field: clause.predicate.target().map(str::to_string),
+        severity: severity_label(clause.severity).to_string(),
+    }
+}
+
+/// One requirement's declaration row — its name and scalar facets
+/// (`specs/architecture/10-contracts.md`).
+fn requirement_row(requirement: &Requirement) -> RequirementRow {
+    RequirementRow {
+        name: requirement.name.clone(),
+        kind: requirement.kind.clone(),
+        package: requirement.package.clone(),
+        required: requirement.required,
+        verified_by: requirement.verified_by.clone(),
+    }
+}
+
+/// The assembly-scope facts, in a stable order: authority (always declared — absent ⇒ the
+/// `shared` default, so it anchors the family for every harness), then reachability when the
+/// assembly opts in, then one row per declared edge in declaration order
+/// (`specs/architecture/40-composition.md`; `specs/architecture/45-governance.md`).
+fn assembly_facts(layer: Option<&AuthorLayer>) -> Vec<AssemblyFactRow> {
+    let mut facts = Vec::new();
+    let authority = layer.map(AuthorLayer::authority).unwrap_or_default();
+    facts.push(AssemblyFactRow {
+        fact: "authority".to_string(),
+        value: Some(authority_label(authority).to_string()),
+        from: None,
+        field: None,
+        to: None,
+    });
+    if let Some(reachability) = layer.and_then(AuthorLayer::reachability) {
+        facts.push(AssemblyFactRow {
+            fact: "reachability".to_string(),
+            value: Some(severity_label(reachability.severity).to_string()),
+            from: None,
+            field: None,
+            to: None,
+        });
+    }
+    if let Some(layer) = layer {
+        for edge in layer.edges() {
+            facts.push(AssemblyFactRow {
+                fact: "edge".to_string(),
+                value: None,
+                from: Some(edge.from.clone()),
+                field: Some(edge.field.clone()),
+                to: Some(edge.to.clone()),
+            });
+        }
+    }
+    facts
+}
+
+/// The lock label for a kind's declared projection format.
+fn format_label(format: Format) -> String {
+    match format {
+        Format::YamlFrontmatter => "yaml-frontmatter".to_string(),
+    }
+}
+
+/// The lock label for a kind's declared unit shape.
+fn unit_shape_label(shape: UnitShape) -> String {
+    match shape {
+        UnitShape::File => "file".to_string(),
+        UnitShape::Directory => "directory".to_string(),
+    }
+}
+
+/// The lock label for a kind's declared activation — the field-carrying variants render
+/// `via(field)`, matching the spec's `description-trigger(description)` shorthand.
+fn activation_label(activation: &Activation) -> String {
+    match activation {
+        Activation::Always => "always".to_string(),
+        Activation::DescriptionTrigger { field } => format!("description-trigger({field})"),
+        Activation::PathsMatch { field } => format!("paths-match({field})"),
+        Activation::Event { field } => format!("event({field})"),
+    }
+}
+
+/// The lock label for a clause or reachability severity.
+fn severity_label(severity: Severity) -> &'static str {
+    match severity {
+        Severity::Required => "required",
+        Severity::Advisory => "advisory",
+    }
+}
+
+/// The lock label for the assembly's surface-authority posture.
+fn authority_label(authority: Authority) -> &'static str {
+    match authority {
+        Authority::Shared => "shared",
+        Authority::Surface => "surface",
+    }
 }
 
 /// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns

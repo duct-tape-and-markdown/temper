@@ -22,3 +22,20 @@ name = "CLAUDE"
 source_path = "[HARNESS]/CLAUDE.md"
 source_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
 emit_hash = "ac49ac59b424c499550609d5d0bf3d074121166255a954701ede021a9ff524ec"
+
+[[declaration.kind]]
+name = "memory"
+provider = "claude-code"
+governs_root = "."
+governs_glob = "**/CLAUDE.md"
+unit_shape = "file"
+activation = "always"
+
+[[declaration.clause]]
+kind = "memory"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.assembly]]
+fact = "authority"
+value = "shared"
