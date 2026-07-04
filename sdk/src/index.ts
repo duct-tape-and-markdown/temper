@@ -13,6 +13,7 @@ export { fromFile, md } from "./prose.js";
 export type {
   ManifestGenreValue,
   ManifestMember,
+  ManifestPublishedRequirement,
   ManifestSection,
 } from "./manifest.js";
 
@@ -25,4 +26,4 @@ export { customMember, memory, rule, skill } from "./members.js";
 export type { Harness, KindBinding, Requirement } from "./assembly.js";
 export { defineHarness } from "./assembly.js";
 
-export { emitManifestMembers, toManifestMember } from "./emit.js";
+export { emitManifestMembers, serializeManifestMember, toManifestMember } from "./emit.js";

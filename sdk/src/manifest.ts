@@ -35,9 +35,27 @@ export interface ManifestGenreValue {
 }
 
 /**
+ * A requirement a member **publishes** — the demand side of a fill edge, a
+ * `[[member.published]]` table. Mirrors the Rust `PublishedRequirement`
+ * (`src/document.rs`): `name` always, the rest optional, `required` omitted
+ * when false.
+ */
+export interface ManifestPublishedRequirement {
+  readonly name: string;
+  readonly means?: string;
+  readonly kind?: string;
+  readonly package?: string;
+  readonly required?: boolean;
+}
+
+/**
  * One member's serialized features — a `[[member]]` table. Every carriage
  * (module, document, in-place) lands here identically; every consumer is
  * carriage-blind (`specs/architecture/20-surface.md`, the carriage Decision).
+ * Key order mirrors the Rust `member_to_table` (`src/compose.rs`): `kind`,
+ * `name`, `line_count`, `source_dir?`, `headings?`, `satisfies?`, the
+ * `[member.field]` frontmatter table, `[[member.section]]`, `[[member.genre]]`,
+ * `[[member.published]]` — the exact serialization the gate reparses.
  */
 export interface ManifestMember {
   readonly kind: string;
@@ -46,6 +64,9 @@ export interface ManifestMember {
   readonly source_dir?: string;
   readonly headings: readonly string[];
   readonly satisfies: readonly string[];
+  /** Frontmatter fields (a rule's `paths`, a skill's `description`). */
+  readonly fields: Readonly<Record<string, unknown>>;
   readonly sections: readonly ManifestSection[];
   readonly genres: readonly ManifestGenreValue[];
+  readonly published: readonly ManifestPublishedRequirement[];
 }
