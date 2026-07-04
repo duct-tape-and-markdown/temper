@@ -1,58 +1,82 @@
 /**
- * temper's authoring face — the typed module library
- * (`specs/intent/00-intent.md`, the authoring-face Decision;
- * `specs/architecture/20-surface.md`). Author members, kinds, genre values,
- * and the assembly as typed values; `emit` compiles them into the inert
- * manifest the gate reads — all Turing-completeness quarantined at authoring
- * time.
+ * temper's authoring face — the six-noun model as a typed module library
+ * (`specs/intent/00-intent.md`, the SDK Decision; `specs/architecture/20-surface.md`).
+ * A harness author imports plain nouns — the built-in kinds, `harness()`, the
+ * clause and requirement constructors, `needs`, and the three prose constructors —
+ * and composes members as typed values. `emit` compiles the whole into the
+ * declaration rows the engine reads, a byte-faithful projection, and the lock;
+ * every type erases at the seam, and Turing-completeness stays quarantined at
+ * authoring time.
  */
 
-export type { Body, Mention, Mentionable, Prose, ProseAsset } from "./prose.js";
-export { fromFile, md } from "./prose.js";
+// Prose — three constructors, one field type.
+export type { Blocks, File, Mention, Mentionable, Prose, Text } from "./prose.js";
+export { blocks, file, renderText, text } from "./prose.js";
 
+// Genre values — posture-3 composed values for `blocks()`.
+export type { Alternative, GenreValue } from "./genres.js";
+export { bound, decision, genreValue, law } from "./genres.js";
+
+// Needs — the derived permission union's source.
+export type { Capability } from "./needs.js";
+export { bash, capability, permissionUnion } from "./needs.js";
+
+// Contracts — clauses, predicates, requirements.
+export type { Clause, Predicate, Requirement, Severity } from "./contract.js";
+export {
+  allowedChars,
+  clause,
+  forbiddenKeys,
+  maxLen,
+  maxLines,
+  minLen,
+  nameMatchesDir,
+  required,
+  requireSections,
+  requirement,
+  type,
+} from "./contract.js";
+
+// The engine room — kinds and genres as typed constructors.
 export type {
-  ManifestGenreValue,
-  ManifestMember,
-  ManifestPublishedRequirement,
-  ManifestSection,
-} from "./manifest.js";
+  EdgeField,
+  Format,
+  KindDefinition,
+  KindFacts,
+  Locus,
+  Member,
+  MemberInit,
+  Registration,
+  UnitShape,
+} from "./kind.js";
+export { genre, kind } from "./kind.js";
 
-export type { Alternative } from "./genres.js";
-export { bound, decision, genre, law } from "./genres.js";
+// The face nouns — the built-in Claude Code kinds.
+export type { Memory, Rule, Skill } from "./builtins.js";
+export { memory, rule, skill } from "./builtins.js";
 
-export type { Member, PublishedRequirement, SatisfiesClaim } from "./members.js";
-export { customMember, memory, rule, skill } from "./members.js";
+// The assembly — `harness()` and its five fields.
+export type { ExpectBinding, Harness } from "./assembly.js";
+export { harness } from "./assembly.js";
 
-export type { Harness, KindBinding, Requirement } from "./assembly.js";
-export { defineHarness } from "./assembly.js";
+// Declaration rows — the erased program the seam carries.
+export type {
+  AssemblyFactRow,
+  ClauseRow,
+  Declarations,
+  KindFactRow,
+  RequirementRow,
+} from "./declarations.js";
+export { SEAM_VERSION, compileDeclarations, declarationsToJson } from "./declarations.js";
 
-export type { EmitOptions, EmitResult, ResolveOptions } from "./emit.js";
-export {
-  emit,
-  emitManifestMembers,
-  serializeManifestMember,
-  toManifestMember,
-  writeEmit,
-} from "./emit.js";
+// Projection — the byte-faithful `.claude/**` write.
+export type { Projection, ProjectionInput, ProjectOptions } from "./project.js";
+export { placementLines, projectBytes, projectMember, projectionPath, renderField } from "./project.js";
 
-export type { Projection, ProjectOptions } from "./project.js";
-export {
-  isProjectedKind,
-  placementLines,
-  projectBytes,
-  projectionPath,
-  projectMember,
-  renderField,
-} from "./project.js";
-
+// The lock — rollup rows plus declaration rows.
 export type { LockRow } from "./lock.js";
 export { lockRow, sha256Hex, stampLock } from "./lock.js";
 
-export type { AssemblyArtifacts } from "./assembly_artifacts.js";
-export {
-  BINDINGS_PATH,
-  ROSTER_PATH,
-  assemblyArtifacts,
-  serializeBindings,
-  serializeRoster,
-} from "./assembly_artifacts.js";
+// Emit — the compile to the committed seam.
+export type { EmitOptions, EmitResult, ResolveOptions } from "./emit.js";
+export { emit, writeEmit } from "./emit.js";

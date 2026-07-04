@@ -1,19 +1,35 @@
 /**
- * Genre values — prose that declares its own anatomy
- * (`specs/architecture/20-surface.md`; ratified `specs/intent/00-intent.md`,
- * the genre Decision). A genre value's meaning-carrying fields are prose
- * leaves: authored strings, law-5 protected one by one. The constructors
- * here are the module-carried spelling; the document-carried spelling is the
- * TOML genre fence — one manifest shape either way, every consumer
- * carriage-blind.
+ * Genre values — prose that declares its own anatomy (`specs/architecture/15-kinds.md`,
+ * "A genre is a kind at the block locus"; ratified `specs/intent/00-intent.md`, the
+ * genre Decision). A genre value's meaning-carrying fields are prose leaves —
+ * authored strings, law-5 protected one by one — plus keyed sibling collections.
+ * These constructors carry the **shape only**: any predicate over a genre value
+ * (a decision names at least one rejected alternative) is a clause some module
+ * ships, never here (`15-kinds.md`, the genre Decision).
  *
- * These constructors carry the **shape only**. Any predicate over a genre
- * value (a decision names at least one rejected alternative) belongs to the
- * bound package, never here — the same ownership line as everywhere
- * (`specs/architecture/15-kinds.md`, "genres (optional)").
+ * They are the posture-3 spelling — fully composed values passed to `blocks()`
+ * (`20-surface.md`). The byte-identical posture-2 fence render awaits
+ * `(genre-fence-format)`, deferred until its first consumer lands.
  */
 
-import type { ManifestGenreValue } from "./manifest.js";
+/**
+ * A genre value serialized whole: leaves are authored strings keyed by field
+ * name; sibling collections are keyed at every level (`rejected."baked-projection"`),
+ * never positional — leaf addresses are structural and keyed (`20-surface.md`,
+ * the leaf-address Decision).
+ */
+export interface GenreValue {
+  /** The genre name — `decision`, `law`, `bound`, or a project's own. */
+  readonly genre: string;
+  /** The value's key — the identity a leaf address carries (`surface-authority`). */
+  readonly key: string;
+  /** Prose leaves: authored strings, law-5 protected one by one. */
+  readonly leaves: Readonly<Record<string, string>>;
+  /** Keyed sibling collections: collection → entry key → field → authored string. */
+  readonly collections: Readonly<
+    Record<string, Readonly<Record<string, Readonly<Record<string, string>>>>>
+  >;
+}
 
 /** A rejected alternative: keyed by option slug, its rationale a prose leaf. */
 export interface Alternative {
@@ -22,15 +38,14 @@ export interface Alternative {
 
 /**
  * The `decision` genre — the Chosen/Rejected convention, typed. Sibling
- * collections are keyed by option slug, never positional: positional
- * addresses die on insertion and reorder, which is exactly when impact must
- * survive (the leaf-address Decision).
+ * collections are keyed by option slug, never positional: positional addresses
+ * die on insertion and reorder, which is exactly when impact must survive.
  */
 export function decision(init: {
   key: string;
   chosen: string;
   rejected?: Readonly<Record<string, Alternative>>;
-}): ManifestGenreValue {
+}): GenreValue {
   return {
     genre: "decision",
     key: init.key,
@@ -48,7 +63,7 @@ export function law(init: {
   key: string;
   statement: string;
   bounds?: Readonly<Record<string, { claim: string }>>;
-}): ManifestGenreValue {
+}): GenreValue {
   return {
     genre: "law",
     key: init.key,
@@ -67,7 +82,7 @@ export function bound(init: {
   claim: string;
   deferred: string;
   unlock: string;
-}): ManifestGenreValue {
+}): GenreValue {
   return {
     genre: "bound",
     key: init.key,
@@ -77,12 +92,12 @@ export function bound(init: {
 }
 
 /** A project's own genre — the same machinery, an author-declared shape. */
-export function genre(init: {
+export function genreValue(init: {
   genre: string;
   key: string;
   leaves: Readonly<Record<string, string>>;
-  collections?: ManifestGenreValue["collections"];
-}): ManifestGenreValue {
+  collections?: GenreValue["collections"];
+}): GenreValue {
   return {
     genre: init.genre,
     key: init.key,

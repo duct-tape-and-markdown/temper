@@ -1,229 +1,69 @@
 /**
- * Emit — the compile from the authoring face to the inert manifest
- * (`specs/architecture/20-surface.md`, "Content-faithful, deterministically
- * emitted (law 5)"). Members serialize into the manifest's `[[member]]` /
- * `[member.field]` / `[[member.section]]` / `[[member.genre]]` /
- * `[[member.published]]` schema, **byte-identical** to the Rust emitter's
- * `toml_edit` output: a member emitted here reparses on the Rust side with no
- * loss, and `temper emit` and this face agree to the byte.
- *
- * Byte-parity is not a coincidence — it is a port. The string/key encoder below
- * mirrors `toml_write` 0.1.2 (`TomlStringBuilder::as_default` and the
- * `write_toml_value` escaper) and the table layout mirrors `toml_edit` 0.22.27
- * (`DocumentMut`'s `visit_table`: one blank line before every table header but
- * the document's first, `DEFAULT_TABLE_DECOR = ("\n", "")`). The double-emit
- * discipline still runs in-process: emit twice, compare bytes, fail loud on any
- * divergence.
- *
- * SCAFFOLD BOUNDS — stated, not hidden:
- * - Projection writing (members → `.claude/**`) and lock stamping are
- *   deliberately absent — each is a named altitude entry, never silently faked
- *   here. `fromFile` asset resolution and mention resolution-checking are
- *   resolved at emit (below), the `20-surface.md` "Mentions" contract.
+ * Emit — the compile from the six-noun face to the committed seam
+ * (`specs/architecture/20-surface.md`, "Emit — total, byte-reproducible, refusing";
+ * "The seam — one implementation"). The SDK implements **no semantics**: emit
+ * produces plain data — the declaration rows the engine reads (the internal
+ * versioned JSON pipe and the lock's `[declaration]` families), a byte-faithful
+ * `.claude/**` projection, and the lock. Emit is total (members are the only
+ * source), refuses before it writes a byte on a broken source, and is
+ * byte-reproducible — double-emit verified at every run (law 5).
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
 
 import type { Harness } from "./assembly.js";
-import type { Member } from "./members.js";
-import { renderInline } from "./prose.js";
-import type {
-  ManifestGenreValue,
-  ManifestMember,
-  ManifestPublishedRequirement,
-  ManifestSection,
-} from "./manifest.js";
-import { encodeKey, encodeString, joinSections, keyValue, sortedKeys, stringArray } from "./toml.js";
-import type { Projection } from "./project.js";
-import { isProjectedKind, projectMember } from "./project.js";
+import type { Member } from "./kind.js";
+import { renderText } from "./prose.js";
+import { permissionUnion } from "./needs.js";
+import type { Projection, ProjectionInput } from "./project.js";
+import { projectMember } from "./project.js";
 import type { LockRow } from "./lock.js";
 import { lockRow, stampLock } from "./lock.js";
-import { BINDINGS_PATH, ROSTER_PATH, assemblyArtifacts } from "./assembly_artifacts.js";
+import type { Declarations } from "./declarations.js";
+import { compileDeclarations, declarationsToJson } from "./declarations.js";
 
-// ---------------------------------------------------------------------------
-// Field values — the FeatureValue projection of `feature_to_value`
-// (`src/compose.rs`): scalars in their kind, a list as a string array, a map
-// as an empty inline table, a null omitted.
-// ---------------------------------------------------------------------------
-
-/** A `[member.field]` value, or `null` to omit the field (the Rust `null`→`None` drop). */
-function encodeFieldValue(name: string, value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === "string") return encodeString(value);
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (typeof value === "number") {
-    if (Number.isInteger(value)) return String(value);
-    throw new Error(
-      `field \`${name}\`: non-integer number ${value} — float field emission is not in ` +
-        `byte-parity scope; the Rust f64 spelling is unverified here.`,
-    );
-  }
-  if (Array.isArray(value)) {
-    // A list re-emits as a string array — `str_array` over the stringified
-    // elements, exactly as the extractor stringifies a list field.
-    return "[" + value.map((el) => encodeString(String(el))).join(", ") + "]";
-  }
-  // A map has no payload — an empty inline table, the `FeatureValue::Map` spelling.
-  if (typeof value === "object") return "{}";
-  throw new Error(
-    `field \`${name}\`: value of type ${typeof value} has no manifest spelling — ` +
-      `only strings, booleans, integers, string lists, and maps are byte-parity modelled.`,
-  );
-}
-
-/** The `[[member.genre]]` value serialized whole — leaves flat, collections keyed. */
-function genreSections(genre: ManifestGenreValue): string[] {
-  const sections: string[] = [];
-  sections.push(
-    "[[member.genre]]\n" +
-      keyValue("genre", encodeString(genre.genre)) +
-      keyValue("key", encodeString(genre.key)),
-  );
-  const leafKeys = sortedKeys(genre.leaves);
-  if (leafKeys.length > 0) {
-    sections.push(
-      "[member.genre.leaves]\n" +
-        leafKeys.map((field) => keyValue(field, encodeString(genre.leaves[field]))).join(""),
-    );
-  }
-  const collectionNames = sortedKeys(genre.collections);
-  if (collectionNames.length > 0) {
-    // The parent `[member.genre.collections]` table carries only sub-tables, but
-    // `toml_edit` still emits its (childless) header — it is not implicit.
-    sections.push("[member.genre.collections]\n");
-    for (const name of collectionNames) {
-      const path = `member.genre.collections.${encodeKey(name)}`;
-      sections.push(`[${path}]\n`);
-      const entries = genre.collections[name];
-      for (const entryKey of sortedKeys(entries)) {
-        const leaves = entries[entryKey];
-        sections.push(
-          `[${path}.${encodeKey(entryKey)}]\n` +
-            sortedKeys(leaves)
-              .map((field) => keyValue(field, encodeString(leaves[field])))
-              .join(""),
-        );
-      }
-    }
-  }
-  return sections;
-}
-
-/** A published requirement's `[[member.published]]` table — optional facets omitted. */
-function publishedSection(requirement: ManifestPublishedRequirement): string {
-  let block = "[[member.published]]\n";
-  block += keyValue("name", encodeString(requirement.name));
-  if (requirement.means !== undefined) block += keyValue("means", encodeString(requirement.means));
-  if (requirement.kind !== undefined) block += keyValue("kind", encodeString(requirement.kind));
-  if (requirement.package !== undefined) {
-    block += keyValue("package", encodeString(requirement.package));
-  }
-  if (requirement.required) block += keyValue("required", "true");
-  return block;
-}
-
-/** Every table section a member serializes into, in `member_to_table` key order. */
-function memberSections(member: ManifestMember): string[] {
-  const sections: string[] = [];
-
-  let head = "[[member]]\n";
-  head += keyValue("kind", encodeString(member.kind));
-  head += keyValue("name", encodeString(member.name));
-  head += keyValue("line_count", String(member.line_count));
-  if (member.source_dir !== undefined) {
-    head += keyValue("source_dir", encodeString(member.source_dir));
-  }
-  if (member.headings.length > 0) head += keyValue("headings", stringArray(member.headings));
-  if (member.satisfies.length > 0) head += keyValue("satisfies", stringArray(member.satisfies));
-  sections.push(head);
-
-  // `[member.field]` — emitted whenever the frontmatter carries any key, even if
-  // every value is a dropped null (the Rust `!fields.is_empty()` gate).
-  const fieldKeys = sortedKeys(member.fields);
-  if (fieldKeys.length > 0) {
-    let body = "[member.field]\n";
-    for (const key of fieldKeys) {
-      const repr = encodeFieldValue(key, member.fields[key]);
-      if (repr !== null) body += keyValue(key, repr);
-    }
-    sections.push(body);
-  }
-
-  for (const section of member.sections) {
-    sections.push(
-      "[[member.section]]\n" +
-        keyValue("heading", encodeString(section.heading)) +
-        keyValue("body", encodeString(section.body)),
-    );
-  }
-
-  for (const genre of member.genres) sections.push(...genreSections(genre));
-
-  for (const requirement of member.published) sections.push(publishedSection(requirement));
-
-  return sections;
-}
-
-/** The manifest's `[[member]]` root — every section joined the `toml_edit` way. */
-function emitDocument(members: readonly ManifestMember[]): string {
-  return joinSections(members.flatMap(memberSections));
-}
-
-/**
- * Serialize one member's `[[member]]` tables — byte-identical to the Rust
- * emitter's output for the same member (`src/compose.rs` `write_member_table`).
- * The seam the byte-parity fixtures pin.
- */
-export function serializeManifestMember(member: ManifestMember): string {
-  return emitDocument([member]);
-}
-
-/**
- * How emit resolves the two body carriages a module-carried member can hold
- * (`specs/architecture/20-surface.md`, "Mentions"). Resolution happens **at
- * emit, not at authoring** — the address set is the whole harness's declared
- * values, unknown to any one member in isolation.
- */
+/** How a `file()` asset's module-relative path resolves at emit. */
 export interface ResolveOptions {
-  /**
-   * The addresses a mention may name — every declared value in the harness
-   * (member `kind:name`, requirement name, genre leaf). A mention outside it is
-   * a loud emit error: a mention cannot dangle (`45-governance.md`). Absent, no
-   * address resolves, so any mention fails loud — a standalone member cannot
-   * carry a resolvable mention; that is emit's job.
-   */
-  readonly mentionable?: ReadonlySet<string>;
-  /** Base dir a `fromFile` module-relative path resolves against (default: cwd). */
+  /** Base dir a `file()` module-relative path resolves against (default: cwd). */
   readonly baseDir?: string;
+  /** The addresses a mention may name — resolution-checked; a mention cannot dangle. */
+  readonly mentionable?: ReadonlySet<string>;
 }
 
 /**
- * Resolve a member's authored body to its final manifest text: a `fromFile`
- * asset is read into the body; an inline body's mentions are resolution-checked
- * (loud on a dangling address) and rendered by the one display rule. The words
- * themselves are never reworded (law 5) — a mention only substitutes its target's
- * display form, and an asset is copied byte-for-byte.
+ * Resolve a member's prose to its final body bytes: a `file()` asset is read in
+ * byte-for-byte; a `text` body's mentions are resolution-checked (loud on a
+ * dangling address) and rendered by the one display rule; a `blocks()` body is
+ * refused until the fence format lands. The words are never reworded (law 5).
  *
  * # Throws
- * If a `fromFile` asset does not exist, or a mention names an address no
- * declared value carries.
+ * If a `file()` asset does not resolve, a mention names no declared value, or a
+ * `blocks()` body is projected before `(genre-fence-format)` lands.
  */
 function resolveBody(member: Member, options: ResolveOptions): string {
-  if (member.body.kind === "fromFile") {
-    const assetPath = resolvePath(options.baseDir ?? process.cwd(), member.body.path);
+  const prose = member.prose;
+  if (prose === undefined) return "";
+  if (prose.kind === "file") {
+    const assetPath = resolvePath(options.baseDir ?? process.cwd(), prose.path);
     try {
       return readFileSync(assetPath, "utf8");
     } catch (cause) {
       throw new Error(
-        `member \`${member.name}\`: fromFile asset \`${member.body.path}\` did not resolve ` +
+        `member \`${member.name}\`: file() asset \`${prose.path}\` did not resolve ` +
           `(looked at \`${assetPath}\`).`,
         { cause },
       );
     }
   }
+  if (prose.kind === "blocks") {
+    throw new Error(
+      `member \`${member.name}\`: a blocks() body renders through the genre fence format, ` +
+        `deferred until its first consumer lands ((genre-fence-format), specs/architecture/15-kinds.md).`,
+    );
+  }
   const mentionable = options.mentionable ?? new Set<string>();
-  for (const mention of member.body.mentions) {
+  for (const mention of prose.mentions) {
     if (!mentionable.has(mention.target.address)) {
       throw new Error(
         `member \`${member.name}\`: mention of \`${mention.target.address}\` resolves to no ` +
@@ -231,207 +71,31 @@ function resolveBody(member: Member, options: ResolveOptions): string {
       );
     }
   }
-  return renderInline(member.body);
+  return renderText(prose);
 }
 
-// ---------------------------------------------------------------------------
-// Body extraction — a faithful port of the Rust importer's heading/section
-// logic (`src/extract.rs`: `fence_marker`, `atx_heading`, `body_sections`), so a
-// module-carried member's manifest `line_count`/`headings`/`sections` match what
-// the importer produces from the same body byte-for-byte
-// (`specs/architecture/20-surface.md`, the carriage Decision — every consumer
-// carriage-blind). A member projected to disk and re-imported must re-extract
-// the identical `[[member.section]]` tables.
-// ---------------------------------------------------------------------------
-
-/** One heading line outside fenced code: its line index, level, and stripped text. */
-interface Head {
-  readonly index: number;
-  readonly level: number;
-  readonly text: string;
-}
-
-/**
- * The body's lines the Rust `str::lines` way: split on `\n`, a trailing newline
- * opens no line (so a body ending in `\n` counts one fewer than a naive
- * `split`), a trailing `\r` is stripped from each line, and the empty body has
- * zero lines. The count is [`line_count`](ManifestMember.line_count); the array is
- * the span [`bodySections`] slices.
- */
-function bodyLines(body: string): string[] {
-  if (body === "") return [];
-  const parts = body.split("\n");
-  if (parts[parts.length - 1] === "") parts.pop();
-  return parts.map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
-}
-
-/**
- * The fence marker a line carries — the fence char (`` ` `` or `~`) and its run
- * length (≥3), up to three leading spaces allowed (four is an indented code
- * block). A port of the Rust `fence_marker`: heading extraction skips fenced code
- * so a `#` inside a fence is illustration, never a section boundary.
- */
-function fenceMarker(line: string): { readonly char: string; readonly len: number } | null {
-  const rest = line.replace(/^ +/, "");
-  if (line.length - rest.length >= 4) return null;
-  const char = rest[0];
-  if (char !== "`" && char !== "~") return null;
-  let len = 0;
-  while (rest[len] === char) len += 1;
-  return len >= 3 ? { char, len } : null;
-}
-
-/**
- * The level and stripped text of an ATX heading on this line, or `null` — a port
- * of the Rust `atx_heading`: up to three leading spaces, a `#`..`######` run (the
- * level), then whitespace or end of line; the text has the marker run and an
- * optional closing `#` run (space-separated, CommonMark) stripped exactly as the
- * importer strips them.
- */
-function atxHeading(line: string): { readonly level: number; readonly text: string } | null {
-  const rest = line.replace(/^ +/, "");
-  if (line.length - rest.length >= 4) return null;
-  let level = 0;
-  while (rest[level] === "#") level += 1;
-  if (level === 0 || level > 6) return null;
-  const after = rest.slice(level);
-  // The `#` run must be followed by whitespace or end the line, else it is content.
-  if (after.length > 0 && after[0] !== " " && after[0] !== "\t") return null;
-  const text = after.trim();
-  // A trailing `#` run closes the heading only when whitespace separates it from
-  // the text; a `#` glued to a word stays content.
-  const stripped = text.replace(/#+$/, "");
-  if (stripped === "") return { level, text: "" };
-  if (stripped.length !== text.length && /[ \t]$/.test(stripped)) {
-    return { level, text: stripped.replace(/[ \t]+$/, "") };
-  }
-  return { level, text };
-}
-
-/** The body's heading lines outside fenced code, in document order — the section boundaries. */
-function headingScan(lines: readonly string[]): Head[] {
-  const heads: Head[] = [];
-  let fence: { readonly char: string; readonly len: number } | null = null;
-  lines.forEach((line, index) => {
-    const marker = fenceMarker(line);
-    if (marker) {
-      if (fence && marker.char === fence.char && marker.len >= fence.len) fence = null;
-      else if (!fence) fence = marker;
-      return;
-    }
-    if (fence === null) {
-      const heading = atxHeading(line);
-      if (heading) heads.push({ index, level: heading.level, text: heading.text });
-    }
-  });
-  return heads;
-}
-
-/**
- * The body's ATX sections — one per heading, its span the intervening lines up to
- * the next heading of the same or a shallower level (a deeper subsection nests in
- * its parent's span), the heading line itself split out. A port of the Rust
- * `body_sections`, so a re-import round-trips.
- */
-function bodySections(lines: readonly string[], heads: readonly Head[]): ManifestSection[] {
-  return heads.map((head, position) => {
-    const next = heads.slice(position + 1).find((candidate) => candidate.level <= head.level);
-    const end = next ? next.index : lines.length;
-    return { heading: head.text, body: lines.slice(head.index + 1, end).join("\n") };
-  });
-}
-
-/** The parsed-shape view of one authored member, for tests and tooling. */
-export function toManifestMember(member: Member, options: ResolveOptions = {}): ManifestMember {
-  const body = resolveBody(member, options);
-  const lines = bodyLines(body);
-  const heads = headingScan(lines);
-  const published: ManifestPublishedRequirement[] = Object.keys(member.requirements)
-    .sort()
-    .map((name) => {
-      const requirement = member.requirements[name];
-      return {
-        name,
-        means: requirement.means,
-        kind: requirement.kind,
-        ...(requirement.required ? { required: true } : {}),
-      };
-    });
-  return {
-    kind: member.kind,
-    name: member.name,
-    line_count: lines.length,
-    headings: heads.map((head) => head.text),
-    satisfies: Object.keys(member.satisfies).sort(),
-    fields: member.fields,
-    body,
-    sections: bodySections(lines, heads),
-    genres: member.genres,
-    published,
-  };
-}
-
-/**
- * Every requirement name a `satisfies` claim may fill — the roster the
- * assembly declares plus every demand a member publishes
- * (`specs/architecture/20-surface.md`: "`satisfies` and published
- * `requirement`s remain the graph's whole source"). A `satisfies` naming none
- * of these is a dangling join; a `required` name absent from every member's
- * `satisfies` is an unfilled required requirement. Both refusals read this set.
- */
+/** Every requirement name a `satisfies` claim may fill — assembly `require` ∪ member `requires`. */
 function declaredRequirements(harness: Harness): Set<string> {
   const set = new Set<string>();
-  for (const name of Object.keys(harness.requirements)) set.add(name);
+  for (const name of Object.keys(harness.require)) set.add(name);
   for (const member of harness.members) {
-    for (const name of Object.keys(member.requirements)) set.add(name);
+    for (const name of Object.keys(member.requires)) set.add(name);
   }
   return set;
 }
 
-/**
- * Every address a mention may name — the harness's declared values, the one-way
- * edge's resolution set (`specs/architecture/45-governance.md`, "the mention is
- * the readmitted one-way annotation class"). A member is `kind:name`; a
- * requirement (assembly-declared or member-published) is its name; a genre leaf
- * is its member-qualified structural address (`member.genre-key.field`, sibling
- * collections keyed at every level — `20-surface.md`, the leaf-address Decision).
- * Section anchors are a later producer — no Mentionable helper mints one yet.
- */
+/** Every address a mention may name — declared requirement names ∪ each member's `kind:name`. */
 function declaredAddresses(harness: Harness): Set<string> {
   const set = declaredRequirements(harness);
-  for (const member of harness.members) {
-    set.add(`${member.kind}:${member.name}`);
-    for (const genre of member.genres) {
-      for (const field of Object.keys(genre.leaves)) {
-        set.add(`${member.name}.${genre.key}.${field}`);
-      }
-      for (const [collection, entries] of Object.entries(genre.collections)) {
-        for (const [entry, leaves] of Object.entries(entries)) {
-          for (const field of Object.keys(leaves)) {
-            set.add(`${member.name}.${genre.key}.${collection}.${entry}.${field}`);
-          }
-        }
-      }
-    }
-  }
+  for (const member of harness.members) set.add(`${member.kind}:${member.name}`);
   return set;
 }
 
 /**
- * The two **declare-side** refusals emit runs before it compiles a single byte
- * (`specs/architecture/20-surface.md`, "Emit refuses before it writes"): a
- * broken source yields no output, never silent bytes.
- *
- * 1. **Dangling join** — every member `satisfies` claim must name a declared
- *    requirement (harness-level or member-published). A `satisfies` resolving
- *    to nothing is a join with no far end.
- * 2. **Unfilled required requirement** — a requirement marked `required`, whether
- *    the assembly declares it or a member publishes it, must be filled by some
- *    member's `satisfies`. A required demand nobody meets is a loud error.
- *
- * Mentions already refuse in {@link resolveBody}; the genre-value-violating-its-
- * bound-package refusal the spec also lists stays out of scope — the SDK carries
- * no package model yet.
+ * The two declare-side refusals emit runs before it compiles a byte
+ * (`20-surface.md`, "Emit refuses before it writes"): a `satisfies` claim naming
+ * no declared requirement (a dangling join), and a `required` requirement no
+ * member fills (an unfilled required requirement).
  *
  * # Throws
  * On a dangling `satisfies` join or an unfilled `required` requirement.
@@ -440,7 +104,7 @@ function refuseBrokenSource(harness: Harness): void {
   const requirements = declaredRequirements(harness);
   const filled = new Set<string>();
   for (const member of harness.members) {
-    for (const name of Object.keys(member.satisfies)) {
+    for (const name of member.satisfies) {
       if (!requirements.has(name)) {
         throw new Error(
           `member \`${member.name}\`: \`satisfies\` claims requirement \`${name}\`, which no ` +
@@ -452,15 +116,12 @@ function refuseBrokenSource(harness: Harness): void {
     }
   }
 
-  // A `required` demand — from the assembly roster or a member's own publication —
-  // that no member fills. `member.name` labels the source so the diagnostic points
-  // at the unmet publisher, not just the bare requirement name.
   const requiredSources: [string, string][] = [];
-  for (const [name, requirement] of Object.entries(harness.requirements)) {
+  for (const [name, requirement] of Object.entries(harness.require)) {
     if (requirement.required) requiredSources.push([name, "the assembly"]);
   }
   for (const member of harness.members) {
-    for (const [name, requirement] of Object.entries(member.requirements)) {
+    for (const [name, requirement] of Object.entries(member.requires)) {
       if (requirement.required) requiredSources.push([name, `member \`${member.name}\``]);
     }
   }
@@ -475,92 +136,70 @@ function refuseBrokenSource(harness: Harness): void {
   }
 }
 
-/** The harness's members as manifest members, deterministically kind-then-name ordered. */
-function orderedMembers(harness: Harness, options: ResolveOptions): ManifestMember[] {
+/** A member is projected iff its kind lives at a path locus (a genre member is not). */
+function isProjected(member: Member): boolean {
+  return member.facts.locus.kind === "at";
+}
+
+/** The harness's projected members as projection inputs, deterministically kind-then-name ordered. */
+function orderedProjectionInputs(harness: Harness, options: ResolveOptions): ProjectionInput[] {
   return [...harness.members]
+    .filter(isProjected)
     .sort(
       (a, b) =>
         (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
         (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
     )
-    .map((member) => toManifestMember(member, options));
+    .map((member) => ({
+      facts: member.facts,
+      name: member.name,
+      fields: member.fields,
+      body: resolveBody(member, options),
+    }));
 }
 
-/** Emit-time inputs beyond the harness — where `fromFile` assets resolve from. */
+/** Emit-time inputs beyond the harness — asset base dir and the committed-projection read root. */
 export interface EmitOptions {
-  /** Base dir a `fromFile` module-relative path resolves against (default: cwd). */
+  /** Base dir a `file()` asset's module-relative path resolves against (default: cwd). */
   readonly baseDir?: string;
   /**
-   * The harness root the **committed** projection is read from so a re-emit carries
-   * install's placement lines (the schema modeline + managed-by note) through the
-   * whole-file re-emit, mirroring the Rust projector's read at `projection.source_path`
-   * (`src/drift.rs`; `specs/architecture/20-surface.md`, the two-projectors seam).
-   * Absent — the default — reads no committed projection, so a fresh emit carries no
-   * placements; [`writeEmit`] passes its `targetDir` here so a re-emit preserves them.
+   * The harness root the committed projection is read from so a re-emit carries
+   * install's placement lines through the whole-file re-emit (`20-surface.md`, the
+   * two-projectors seam). Absent reads no committed projection; [`writeEmit`]
+   * passes its `targetDir` here so a re-emit preserves them.
    */
   readonly projectionDir?: string;
 }
 
 /**
- * Compile the harness's members to manifest TOML — double-emit verified:
- * nondeterminism in authoring code is a loud failure, never silent churn
- * (law 5, the emit bullet). Bodies resolve here, not at authoring: `fromFile`
- * assets are read in and mentions are resolution-checked against the whole
- * harness's declared values.
- */
-export function emitManifestMembers(harness: Harness, options: EmitOptions = {}): string {
-  refuseBrokenSource(harness);
-  const resolve: ResolveOptions = {
-    mentionable: declaredAddresses(harness),
-    baseDir: options.baseDir,
-  };
-  const first = emitDocument(orderedMembers(harness, resolve));
-  const second = emitDocument(orderedMembers(harness, resolve));
-  if (first !== second) {
-    throw new Error(
-      "double-emit divergence: two passes over the same harness produced different bytes — " +
-        "authoring code is nondeterministic (a timestamp? an unordered map?).",
-    );
-  }
-  return first;
-}
-
-/**
- * A full emit's compiled artifacts — the three provenance classes emit produces
- * (`specs/architecture/20-surface.md`, "Topology"): the generated-canonical
- * manifest, the generated `.claude/**` projection, and the generated lock. The
- * whole set is a pure function of the harness, so [`emit`] double-verifies it and
- * [`writeEmit`] lands it on disk.
+ * A full emit's compiled outputs — the seam the engine reads plus the on-disk
+ * projection and lock (`20-surface.md`, "The seam"). All are a pure function of
+ * the harness, so [`emit`] double-verifies them and [`writeEmit`] lands them.
  */
 export interface EmitResult {
-  /** The manifest's `[[member]]` section — every member, kind-then-name ordered. */
-  readonly manifest: string;
   /** The projection files, one per projected (rule/skill/memory) member. */
   readonly projections: readonly Projection[];
-  /** The `lock.toml` bytes — a freshness row per projected member. */
+  /** The `lock.toml` bytes — rollup rows plus the `[declaration]` families. */
   readonly lock: string;
+  /** The declaration rows — the erased program the lock and JSON pipe both carry. */
+  readonly declarations: Declarations;
+  /** The internal versioned JSON pipe to the engine — not a designed IR. */
+  readonly seam: string;
   /**
-   * The two locus-less assembly-fact artifacts — the kind bindings and the
-   * requirement roster (`specs/architecture/20-surface.md`, "the bindings, the
-   * roster — are emitted as small committed temper-owned artifacts"). Additive:
-   * the manifest/projection/lock above are unchanged, so their byte-parity holds.
+   * The derived permission list — the union of every member's `needs`, deduped and
+   * sorted (`20-surface.md`, "The permission list is derived, never authored").
+   * Folds into the settings artifact once hook/MCP members land; carried here as
+   * data until then.
    */
-  readonly bindings: string;
-  readonly roster: string;
+  readonly permissions: readonly string[];
 }
 
 /**
- * Compile the whole face in one deterministic pass: the manifest, the `.claude/**`
- * projection, and the lock whose fingerprints the drift engine reads. Bodies
- * resolve once (`fromFile` assets read in, mentions resolution-checked against the
- * harness's declared values) and feed all three outputs, so a projection and its
- * lock fingerprint agree by construction. The whole result is double-emit verified
- * — nondeterministic authoring is a loud failure, never a silent churn (law 5).
- *
- * The built-in projected kinds (`rule`, `skill`, `memory`) each carry a
- * projection and a lock row — a rule/skill under `.claude/**`, a memory a
- * frontmatterless root `CLAUDE.md`/`AGENTS.md`; a custom member lands in the
- * manifest but projects nowhere ([`isProjectedKind`]).
+ * Compile the whole face in one deterministic pass: the projection, the lock (its
+ * rollup and its declaration rows), the JSON pipe, and the derived permission
+ * union. Prose resolves once (`file()` assets read in, mentions resolution-checked
+ * against the harness's declared values). Double-emit verified — nondeterministic
+ * authoring is a loud failure, never a silent churn (law 5).
  */
 export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
   refuseBrokenSource(harness);
@@ -569,31 +208,23 @@ export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
     baseDir: options.baseDir,
   };
   const compile = (): EmitResult => {
-    const members = orderedMembers(harness, resolve);
-    const projected = members.filter((member) => isProjectedKind(member.kind));
-    // Read the committed projection (when a `projectionDir` is set) so install's
-    // placement lines ride the re-emit — the two-projectors seam. Reads are of
-    // committed bytes, never a clock, so the double-emit purity check below holds.
-    const projections = projected.map((member) =>
-      projectMember(member, { projectionDir: options.projectionDir }),
-    );
-    const rows: LockRow[] = projected.map((member, i) => lockRow(member.kind, projections[i]));
-    const { bindings, roster } = assemblyArtifacts(harness);
+    const inputs = orderedProjectionInputs(harness, resolve);
+    const projections = inputs.map((input) => projectMember(input, { projectionDir: options.projectionDir }));
+    const rows: LockRow[] = inputs.map((input, i) => lockRow(input.facts.name, projections[i]));
+    const declarations = compileDeclarations(harness);
     return {
-      manifest: emitDocument(members),
       projections,
-      lock: stampLock(rows),
-      bindings,
-      roster,
+      lock: stampLock(rows, declarations),
+      declarations,
+      seam: declarationsToJson(declarations),
+      permissions: permissionUnion(harness.members.flatMap((member) => [...member.needs])),
     };
   };
   const first = compile();
   const second = compile();
   if (
-    first.manifest !== second.manifest ||
     first.lock !== second.lock ||
-    first.bindings !== second.bindings ||
-    first.roster !== second.roster ||
+    first.seam !== second.seam ||
     !sameProjections(first.projections, second.projections)
   ) {
     throw new Error(
@@ -606,31 +237,19 @@ export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
 
 /** Whether two projection lists are byte-identical, path and bytes both. */
 function sameProjections(a: readonly Projection[], b: readonly Projection[]): boolean {
-  return (
-    a.length === b.length &&
-    a.every((p, i) => p.path === b[i].path && p.bytes === b[i].bytes)
-  );
+  return a.length === b.length && a.every((p, i) => p.path === b[i].path && p.bytes === b[i].bytes);
 }
 
 /**
- * Run a full [`emit`] and write its artifacts under `targetDir`: the manifest to
- * `temper.toml`, the lock to `lock.toml`, the two assembly-fact artifacts
- * (`bindings.toml`, `roster.toml`) beside them, and each projection to its
- * `.claude/**` path (parent directories created). Whole-file writes — a
- * projection is regenerated, never patched, so a hand-edited projection is
- * overwritten (that edit is drift routed to the source,
- * `specs/architecture/20-surface.md`).
+ * Run a full [`emit`] and write its committed artifacts under `targetDir`: the
+ * lock to `lock.toml` and each projection to its `.claude/**` path (parent
+ * directories created). Whole-file writes — a projection is regenerated, never
+ * patched. The JSON pipe is in-flight, not a committed artifact, so it is not
+ * written (`20-surface.md`, "the committed seam" is artifacts plus lock).
  */
 export function writeEmit(harness: Harness, targetDir: string, options: EmitOptions = {}): EmitResult {
-  // Read the committed projection from the very directory being written, so a
-  // re-emit round-trips install's placement lines (the schema modeline + managed-by
-  // note) rather than clobbering them (`specs/architecture/20-surface.md`, the
-  // two-projectors seam). An explicit `projectionDir` still wins.
   const result = emit(harness, { ...options, projectionDir: options.projectionDir ?? targetDir });
-  writeFileSync(join(targetDir, "temper.toml"), result.manifest);
   writeFileSync(join(targetDir, "lock.toml"), result.lock);
-  writeFileSync(join(targetDir, BINDINGS_PATH), result.bindings);
-  writeFileSync(join(targetDir, ROSTER_PATH), result.roster);
   for (const projection of result.projections) {
     const path = join(targetDir, projection.path);
     mkdirSync(dirname(path), { recursive: true });

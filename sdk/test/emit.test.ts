@@ -1,19 +1,17 @@
 /**
- * Byte-parity — the SDK emitter compiles to the exact inert manifest the Rust
- * `toml_edit` emitter produces (`specs/architecture/20-surface.md`,
- * "Content-faithful, deterministically emitted (law 5)"). Each manifest fixture
- * below is read from the **shared `contract/` corpus** — the one golden set both
- * implementations test against (`specs/architecture/50-distribution.md`,
- * acquisition Decision). The Rust suite (`tests/contract_fixtures.rs`) is the sole
- * producer of those goldens: it emits them through `write_manifest_members`
- * (`src/compose.rs`, the same path `temper emit` covers) and byte-matches them.
- * A `serializeManifestMember` that diverges by one byte fails here — key order,
- * table-vs-header choice, string escaping (basic / literal / multiline), blank-
- * line placement, and array spelling all pinned by the shared file.
+ * Emit — the six-noun face compiled to the committed seam
+ * (`specs/architecture/20-surface.md`, "Emit — total"; "The seam — one
+ * implementation"). A harness authored in the face (`harness()`, `kind<T>()`,
+ * clause values, `needs`, `file()`/`text`/`blocks()`) emits three things: the
+ * declaration rows the engine reads (the lock's `[declaration]` families + the
+ * internal JSON pipe), a byte-faithful `.claude/**` projection, and the lock.
  *
- * The goldens carry raw backslashes (a TOML literal string like `'path\to'`) and
- * a trailing newline (`toml_edit` terminates the last value line); reading them
- * from disk keeps them byte-exact with no `String.raw` transcription to drift.
+ * The projection byte fixtures are known-good Rust projector output, captured by
+ * running `temper import` + `temper emit` over the identical member; the paired
+ * `emit_hash` is the fingerprint that Rust `emit` stamped, so the SDK's stamped
+ * fingerprint must equal it for the lock to agree cross-tool. The declaration-row
+ * bytes match the Rust lock's `[declaration]` shape (`src/drift.rs`) — the
+ * byte-parity lockstep two writers keep until single-writer lands.
  */
 
 import assert from "node:assert/strict";
@@ -23,436 +21,37 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import {
-  decision,
-  defineHarness,
+  bash,
+  clause,
+  compileDeclarations,
+  declarationsToJson,
   emit,
-  emitManifestMembers,
-  fromFile,
+  file,
+  genre,
+  harness,
   lockRow,
-  md,
+  maxLines,
   memory,
   placementLines,
   projectBytes,
   projectionPath,
   projectMember,
+  required,
   rule,
-  serializeManifestMember,
   sha256Hex,
   skill,
   stampLock,
-  toManifestMember,
+  text,
   writeEmit,
 } from "../src/index.js";
-import type { ManifestMember } from "../src/index.js";
-
-/**
- * The shared byte-parity goldens under `contract/manifest/` — resolved from this
- * test file's location so the read is CWD-independent. The Rust suite produces
- * them; this suite consumes the identical bytes (`specs/architecture/50-distribution.md`,
- * "both implementations tested against one golden set"). The compiled test runs from
- * `sdk/dist/test/`, so `contract/` at the repo root is three segments up.
- */
-const CONTRACT_MANIFEST = new URL("../../../contract/manifest/", import.meta.url);
-function golden(name: string): string {
-  return readFileSync(new URL(name, CONTRACT_MANIFEST), "utf8");
-}
-
-// ---------------------------------------------------------------------------
-// The shared fixture corpus — one hand-built ManifestMember per fixture, paired
-// with the byte-exact Rust emitter output for that same member.
-// ---------------------------------------------------------------------------
-
-/** A rule: a string-list field, a fill edge, headings, and a multiline body. */
-const RULE_MEMBER: ManifestMember = {
-  kind: "claude-code.rule",
-  name: "rust",
-  line_count: 3,
-  headings: ["Rust conventions"],
-  satisfies: ["engineering-standards"],
-  fields: { paths: ["src/**/*.rs"] },
-  body: "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.",
-  sections: [
-    {
-      heading: "Rust conventions",
-      body: "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.",
-    },
-  ],
-  genres: [],
-  published: [],
-};
-
-const RULE_TOML = golden("rule.toml");
-
-/** A skill: a field whose value forces a multiline-basic string, plus a demand. */
-const SKILL_MEMBER: ManifestMember = {
-  kind: "claude-code.skill",
-  name: "coordinate",
-  line_count: 2,
-  headings: ["Coordinate"],
-  satisfies: [],
-  fields: { description: 'Use when "coordinating" agents.\nSecond line.' },
-  body: "Drive the team.",
-  sections: [{ heading: "Coordinate", body: "Drive the team." }],
-  genres: [],
-  published: [{ name: "playbook", means: "a shared playbook exists", kind: "skill", required: true }],
-};
-
-const SKILL_TOML = golden("skill.toml");
-
-/** A decision genre value: flat leaves and a keyed sibling collection. */
-const DECISION_MEMBER: ManifestMember = {
-  kind: "decision",
-  name: "05-surface-authority",
-  line_count: 1,
-  headings: [],
-  satisfies: [],
-  fields: {},
-  body: "",
-  sections: [],
-  genres: [
-    {
-      genre: "decision",
-      key: "surface-authority",
-      leaves: {
-        because: "law 7 needs an authored surface",
-        chosen: "the composition surface is canonical",
-      },
-      collections: {
-        rejected: { "baked-projection": { because: "a stamping projector breaks law 5" } },
-      },
-    },
-  ],
-  published: [],
-};
-
-const DECISION_TOML = golden("decision.toml");
-
-/** A memory member: a boolean field, a backslash string (Rust picks a literal
- * string), and a genre with no collections. */
-const MEMORY_MEMBER: ManifestMember = {
-  kind: "claude-code.memory",
-  name: "root",
-  line_count: 5,
-  headings: [],
-  satisfies: [],
-  fields: { "disable-model-invocation": true, note: "path\\to" },
-  body: "",
-  sections: [],
-  genres: [{ genre: "bound", key: "reachability", leaves: { claim: "the world is a node" }, collections: {} }],
-  published: [],
-};
-
-const MEMORY_TOML = golden("memory.toml");
-
-/** A decision whose `rejected` collection is declared but empty — the parent and
- * the collection header still emit, childless (the Rust `Table::new()` is not
- * implicit). */
-const EMPTY_REJECTED_MEMBER: ManifestMember = {
-  kind: "decision",
-  name: "06-sole",
-  line_count: 1,
-  headings: [],
-  satisfies: [],
-  fields: {},
-  body: "",
-  sections: [],
-  genres: [
-    {
-      genre: "decision",
-      key: "sole",
-      leaves: { chosen: "one option, no alternatives" },
-      collections: { rejected: {} },
-    },
-  ],
-  published: [],
-};
-
-const EMPTY_REJECTED_TOML = golden("empty-rejected.toml");
-
-const CORPUS: readonly (readonly [string, ManifestMember, string])[] = [
-  ["rule", RULE_MEMBER, RULE_TOML],
-  ["skill", SKILL_MEMBER, SKILL_TOML],
-  ["decision", DECISION_MEMBER, DECISION_TOML],
-  ["memory", MEMORY_MEMBER, MEMORY_TOML],
-  ["empty rejected collection", EMPTY_REJECTED_MEMBER, EMPTY_REJECTED_TOML],
-];
-
-for (const [label, member, expected] of CORPUS) {
-  test(`byte-parity: ${label} serializes byte-identical to the Rust emitter`, () => {
-    assert.equal(serializeManifestMember(member), expected);
-  });
-
-  test(`double-emit: ${label} is byte-stable`, () => {
-    assert.equal(serializeManifestMember(member), serializeManifestMember(member));
-  });
-}
-
-// The corpus, kind-then-name sorted exactly as `write_manifest_members` received
-// it — byte-identical to the multi-member manifest root. The blank-line-before-
-// every-header-but-the-first rule, verified across member boundaries.
-const CORPUS_TOML = golden("corpus.toml");
-
-test("byte-parity: the whole corpus matches the Rust multi-member manifest root", () => {
-  // A member's block, standalone, has no leading blank; the document inserts one
-  // blank line before every block but the first — so join-with-blank reconstructs
-  // exactly what `write_manifest_members` emits over the sorted slice.
-  const sorted = CORPUS.map(([, member]) => member).sort(
-    (a, b) =>
-      (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
-      (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
-  );
-  assert.equal(sorted.map(serializeManifestMember).join("\n"), CORPUS_TOML);
-});
-
-// ---------------------------------------------------------------------------
-// The authoring face end to end — emit sorts, maps every member through
-// `toManifestMember`, and lands on the byte-parity serializer.
-// ---------------------------------------------------------------------------
-
-const surfaceAuthority = decision({
-  key: "surface-authority",
-  chosen: "the assembly declares the posture; enforcement reads it",
-  rejected: {
-    "baked-projection": { because: "bakes a stance law 2 says the author owns" },
-  },
-});
-
-function harness() {
-  return defineHarness({
-    // The requirement the rust rule below fills — declared so its `satisfies`
-    // resolves (emit refuses a dangling join, `refuseBrokenSource`).
-    requirements: {
-      "engineering-standards": {
-        means: "the repo carries a rule fixing the engineering bar",
-        kind: "claude-code.rule",
-      },
-    },
-    members: [
-      rule({
-        name: "rust",
-        fields: { paths: ["src/**/*.rs"] },
-        satisfies: {
-          "engineering-standards": { rationale: "carries the Rust conventions" },
-        },
-        body: md`
-          # Rust conventions
-
-          Errors via miette/thiserror; clippy clean under -D warnings.
-        `,
-        genres: [surfaceAuthority],
-      }),
-    ],
-  });
-}
-
-test("emit lands every member on the byte-parity serializer", () => {
-  const toml = emitManifestMembers(harness());
-  // The entry point equals the serializer over the same sorted, mapped members —
-  // so the byte-parity the fixtures pin holds through `emit`, not just the seam.
-  const sorted = [...harness().members]
-    .sort(
-      (a, b) =>
-        (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
-        (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
-    )
-    .map((member) => toManifestMember(member));
-  assert.equal(toml, sorted.map(serializeManifestMember).join("\n"));
-  // And it carries the expected schema.
-  assert.match(toml, /^\[\[member\]\]$/m);
-  assert.match(toml, /kind = "claude-code\.rule"/);
-  assert.match(toml, /satisfies = \["engineering-standards"\]/);
-  assert.match(toml, /^\[\[member\.section\]\]$/m);
-  assert.match(toml, /^\[member\.genre\.collections\.rejected\.baked-projection\]$/m);
-  assert.doesNotMatch(toml, /rejected\.0/);
-});
-
-test("double-emit over a harness is byte-stable", () => {
-  assert.equal(emitManifestMembers(harness()), emitManifestMembers(harness()));
-});
-
-test("the leaf address rides structure: member + genre key + field path", () => {
-  const manifest = toManifestMember(harness().members[0]);
-  const value = manifest.genres[0];
-  assert.equal(value.key, "surface-authority");
-  assert.equal(value.collections.rejected["baked-projection"].because.length > 0, true);
-});
-
-test("a multi-heading module-carried member sectionizes per heading like the importer", () => {
-  const dir = mkdtempSync(join(tmpdir(), "temper-sections-"));
-  try {
-    // The exact body the Rust `body_sections` test pins (`src/extract.rs`): a top
-    // `#`, two `##` decisions, a `###` subsection nested in the first, and a fenced
-    // `#` that is illustration, not a heading.
-    const body =
-      "# Title\n\n## Decision: one\nChosen: A. Rejected: B.\n\n### Sub\ndetail\n\n" +
-      "## Decision: two\n```sh\n# not a heading\n```\ntail\n";
-    writeFileSync(join(dir, "doc.md"), body);
-    const member = rule({ name: "doc", body: fromFile("./doc.md") });
-
-    const manifest = toManifestMember(member, { baseDir: dir });
-
-    // One section per heading, heading line split out — the importer's shape, not
-    // the old single whole-body section keyed on a name fallback.
-    const expectedHeadings = ["Title", "Decision: one", "Sub", "Decision: two"];
-    assert.deepEqual(manifest.headings, expectedHeadings);
-    assert.deepEqual(
-      manifest.sections.map((section) => section.heading),
-      expectedHeadings,
-    );
-
-    // `Decision: one` runs to the next same-or-shallower heading, so its span
-    // absorbs the nested `### Sub`; the fenced `#` never split off a section.
-    const one = manifest.sections[1];
-    assert.match(one.body, /Chosen: A\. Rejected: B\./);
-    assert.match(one.body, /### Sub/);
-    assert.match(one.body, /detail/);
-    // The heading line itself is split out — no `## Decision: one` inside its body.
-    assert.doesNotMatch(one.body, /^## Decision: one$/m);
-    const two = manifest.sections[3];
-    assert.match(two.body, /# not a heading/);
-    assert.match(two.body, /tail/);
-
-    // `line_count` is the body's real count — 13 — the trailing newline opening no
-    // phantom line (the naive `split("\n")` would over-count to 14).
-    assert.equal(manifest.line_count, 13);
-    assert.equal(body.split("\n").length, 14);
-
-    // The whole body survives untouched for projection, beside the extraction.
-    assert.equal(manifest.body, body);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Body resolution — `fromFile` assets read in, mentions resolution-checked and
-// rendered by the display rule (`specs/architecture/20-surface.md`, "Mentions").
-// Resolution happens at emit against the whole harness's declared values.
-// ---------------------------------------------------------------------------
-
-test("a fromFile body resolves, emits, and stays byte-parity", () => {
-  const dir = mkdtempSync(join(tmpdir(), "temper-fromfile-"));
-  try {
-    // A trailing newline forces the same multiline-basic spelling the Rust
-    // emitter picks for an asset read from disk — the parity the fixture pins.
-    const content = "# Long rule\n\nBody line one.\nBody line two.\n";
-    writeFileSync(join(dir, "long.md"), content);
-    const member = rule({ name: "long", body: fromFile("./long.md") });
-    const harness = defineHarness({ members: [member] });
-
-    const toml = emitManifestMembers(harness, { baseDir: dir });
-    // The asset extracts per-heading like the importer: the single `# Long rule`
-    // heading's section body is the span beneath it, heading line split out. The
-    // trailing newline opens no line, so `line_count` is 4 (not the naive 5).
-    const expected: ManifestMember = {
-      kind: "claude-code.rule",
-      name: "long",
-      line_count: 4,
-      headings: ["Long rule"],
-      satisfies: [],
-      fields: {},
-      body: content,
-      sections: [{ heading: "Long rule", body: "\nBody line one.\nBody line two." }],
-      genres: [],
-      published: [],
-    };
-    assert.equal(toml, serializeManifestMember(expected));
-    // Byte-deterministic: a second emit over the unchanged asset is identical.
-    assert.equal(toml, emitManifestMembers(harness, { baseDir: dir }));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test("a missing fromFile asset is a loud emit error", () => {
-  const harness = defineHarness({
-    members: [rule({ name: "long", body: fromFile("./absent.md") })],
-  });
-  assert.throws(() => emitManifestMembers(harness, { baseDir: tmpdir() }), /did not resolve/);
-});
-
-test("a resolved mention renders to its declared value's display form", () => {
-  const target = rule({ name: "rust", body: md`# Rust` });
-  const citer = rule({
-    name: "citations",
-    body: md`
-      # Citations
-
-      A ${{ address: "claude-code.rule:rust", display: "rust" }} is declared.
-    `,
-  });
-  const harness = defineHarness({ members: [target, citer] });
-
-  const toml = emitManifestMembers(harness);
-  // The display rule substituted the target's form; the surrounding words and
-  // spacing are the author's, and no interpolation marker survives (law 5).
-  assert.match(toml, /A rust is declared\./);
-  assert.doesNotMatch(toml, /\u0000/);
-
-  // The rendered member is byte-identical to the same words authored inline — the
-  // `# Citations` heading's section body is the span beneath it, heading split out.
-  const rendered = serializeManifestMember(
-    toManifestMember(citer, { mentionable: new Set(["claude-code.rule:rust"]) }),
-  );
-  const inline: ManifestMember = {
-    kind: "claude-code.rule",
-    name: "citations",
-    line_count: 3,
-    headings: ["Citations"],
-    satisfies: [],
-    fields: {},
-    body: "# Citations\n\nA rust is declared.\n",
-    sections: [{ heading: "Citations", body: "\nA rust is declared." }],
-    genres: [],
-    published: [],
-  };
-  assert.equal(rendered, serializeManifestMember(inline));
-  // Byte-deterministic across a second emit.
-  assert.equal(toml, emitManifestMembers(harness));
-});
-
-test("an unresolved mention is a loud emit error", () => {
-  const citer = rule({
-    name: "citations",
-    body: md`A ${{ address: "claude-code.rule:ghost", display: "ghost" }} is declared.`,
-  });
-  assert.throws(
-    () => emitManifestMembers(defineHarness({ members: [citer] })),
-    /a mention cannot dangle/,
-  );
-});
+import type { ProjectionInput } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Projection byte-parity — the SDK projector compiles a member to its `.claude/**`
-// harness file byte-identical to the Rust emit projector (`src/drift.rs`
-// `project_bytes`). Each fixture below is **known-good Rust output**, captured by
-// running `temper import` + `temper emit` over the identical member and reading
-// the projected file byte-for-byte (`specs/architecture/20-surface.md`, law 5).
-// The paired `emit_hash` is the fingerprint that same Rust `emit` stamped into the
-// lock — `sha256` of the projected bytes — so the SDK's stamped fingerprint must
-// equal it for the lock to agree cross-tool.
+// file byte-identical to the Rust emit projector (`src/drift.rs` `project_bytes`).
 // ---------------------------------------------------------------------------
 
-/** A rule with a `paths` field: a `---`-frontmatter block over the body. */
-const RULE_PROJECTION_MEMBER: ManifestMember = {
-  kind: "claude-code.rule",
-  name: "rust",
-  line_count: 4,
-  headings: ["Rust conventions"],
-  satisfies: [],
-  fields: { paths: ["src/**/*.rs"] },
-  body: "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.\n",
-  sections: [
-    {
-      heading: "Rust conventions",
-      body: "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.\n",
-    },
-  ],
-  genres: [],
-  published: [],
-};
-
-const RULE_PROJECTION = String.raw`---
+const RULE_PROJECTION = `---
 paths: ["src/**/*.rs"]
 ---
 # Rust conventions
@@ -461,24 +60,7 @@ Errors via miette/thiserror; clippy clean under -D warnings.
 `;
 const RULE_EMIT_HASH = "f3c0876a42c602e8d6b65775cb7346312a6f963ea48a904d7d4b1b8181586b86";
 
-/** A skill: frontmatter carries `name` then `description`, in that declared order. */
-const SKILL_PROJECTION_MEMBER: ManifestMember = {
-  kind: "claude-code.skill",
-  name: "coordinate",
-  line_count: 3,
-  headings: ["Coordinate"],
-  satisfies: [],
-  fields: {
-    name: "coordinate",
-    description: "Use when driving a complex task across a team of agents.",
-  },
-  body: "# Coordinate\n\nDrive the team.\n",
-  sections: [{ heading: "Coordinate", body: "# Coordinate\n\nDrive the team.\n" }],
-  genres: [],
-  published: [],
-};
-
-const SKILL_PROJECTION = String.raw`---
+const SKILL_PROJECTION = `---
 name: "coordinate"
 description: "Use when driving a complex task across a team of agents."
 ---
@@ -488,74 +70,73 @@ Drive the team.
 `;
 const SKILL_EMIT_HASH = "8d9d761634c1fc9f3705e5095ed8c97a5bcb64b20bbfb08c05d65c7f75374d6a";
 
-/** A fieldless rule projects to its body alone — no frontmatter block. */
-const PLAIN_PROJECTION_MEMBER: ManifestMember = {
-  kind: "claude-code.rule",
-  name: "plain",
-  line_count: 3,
-  headings: ["Plain rule"],
-  satisfies: [],
-  fields: {},
-  body: "# Plain rule\n\nNo frontmatter here.\n",
-  sections: [{ heading: "Plain rule", body: "# Plain rule\n\nNo frontmatter here.\n" }],
-  genres: [],
-  published: [],
-};
-
 const PLAIN_PROJECTION = "# Plain rule\n\nNo frontmatter here.\n";
 const PLAIN_EMIT_HASH = "7a2c466d149cadddec9ca7a2669a659877a7eac785eecb4a80bc643c12346e33";
 
-const PROJECTION_CORPUS: readonly (readonly [string, ManifestMember, string, string, string])[] = [
-  ["rule", RULE_PROJECTION_MEMBER, RULE_PROJECTION, RULE_EMIT_HASH, ".claude/rules/rust.md"],
-  [
-    "skill",
-    SKILL_PROJECTION_MEMBER,
-    SKILL_PROJECTION,
-    SKILL_EMIT_HASH,
-    ".claude/skills/coordinate/SKILL.md",
-  ],
-  ["fieldless rule", PLAIN_PROJECTION_MEMBER, PLAIN_PROJECTION, PLAIN_EMIT_HASH, ".claude/rules/plain.md"],
+/** A member built via the face, plus the resolved projection input emit hands the projector. */
+function ruleInput(): ProjectionInput {
+  const member = rule({
+    name: "rust",
+    paths: ["src/**/*.rs"],
+    prose: text`
+      # Rust conventions
+
+      Errors via miette/thiserror; clippy clean under -D warnings.
+    `,
+  });
+  return { facts: member.facts, name: member.name, fields: member.fields, body: "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.\n" };
+}
+
+function skillInput(): ProjectionInput {
+  const member = skill({
+    name: "coordinate",
+    description: "Use when driving a complex task across a team of agents.",
+    prose: text`# Coordinate\n\nDrive the team.\n`,
+  });
+  return { facts: member.facts, name: member.name, fields: member.fields, body: "# Coordinate\n\nDrive the team.\n" };
+}
+
+function plainInput(): ProjectionInput {
+  const member = rule({ name: "plain", prose: text`# Plain rule\n\nNo frontmatter here.\n` });
+  return { facts: member.facts, name: member.name, fields: member.fields, body: "# Plain rule\n\nNo frontmatter here.\n" };
+}
+
+const PROJECTION_CORPUS: ReadonlyArray<
+  readonly [string, () => ProjectionInput, string, string, string]
+> = [
+  ["rule", ruleInput, RULE_PROJECTION, RULE_EMIT_HASH, ".claude/rules/rust.md"],
+  ["skill", skillInput, SKILL_PROJECTION, SKILL_EMIT_HASH, ".claude/skills/coordinate/SKILL.md"],
+  ["fieldless rule", plainInput, PLAIN_PROJECTION, PLAIN_EMIT_HASH, ".claude/rules/plain.md"],
 ];
 
-for (const [label, member, expected, emitHash, expectedPath] of PROJECTION_CORPUS) {
+for (const [label, build, expected, emitHash, expectedPath] of PROJECTION_CORPUS) {
   test(`projection byte-parity: ${label} projects byte-identical to the Rust projector`, () => {
-    const projection = projectMember(member);
+    const projection = projectMember(build());
     assert.equal(projection.path, expectedPath);
     assert.equal(projection.bytes, expected);
   });
 
   test(`lock fingerprint agreement: ${label}'s SDK emit_hash matches the Rust emitter`, () => {
-    const projection = projectMember(member);
-    // The Rust `emit` stamped `sha256(projection)` as the lock's emit_hash; the SDK
-    // hashes the same bytes and must land on the same fingerprint.
+    const projection = projectMember(build());
     assert.equal(sha256Hex(projection.bytes), emitHash);
-
-    // A module-carried member's projection is its own state-of-record, so a fresh
-    // stamp records source_hash == emit_hash == sha256(projection) — the baseline a
-    // Rust import-then-emit lands on for a byte-identical projection.
-    const row = lockRow(member.kind, projection);
+    const row = lockRow(build().facts.name, projection);
     assert.equal(row.emitHash, emitHash);
     assert.equal(row.sourceHash, emitHash);
     assert.equal(row.sourcePath, expectedPath);
   });
 }
 
-test("projectionPath maps the built-in projected kinds; others are a loud error", () => {
-  assert.equal(projectionPath("claude-code.rule", "rust"), ".claude/rules/rust.md");
-  assert.equal(projectionPath("claude-code.skill", "coordinate"), ".claude/skills/coordinate/SKILL.md");
-  // A memory projects a root `<name>.md` — `CLAUDE.md`, `AGENTS.md`.
-  assert.equal(projectionPath("claude-code.memory", "CLAUDE"), "CLAUDE.md");
-  assert.equal(projectionPath("agents-md.memory", "AGENTS"), "AGENTS.md");
-  // A bare kind name resolves the same way — the locus keys on the last dotted segment.
-  assert.equal(projectionPath("rule", "x"), ".claude/rules/x.md");
-  // A custom kind carries no projection — a loud error, never a guessed path.
-  assert.throws(() => projectionPath("acme.widget", "gadget"), /no projection/);
+test("projectionPath maps the built-in projected kinds; a genre is a loud error", () => {
+  assert.equal(projectionPath(rule.facts, "rust"), ".claude/rules/rust.md");
+  assert.equal(projectionPath(skill.facts, "coordinate"), ".claude/skills/coordinate/SKILL.md");
+  assert.equal(projectionPath(memory.facts, "CLAUDE"), "CLAUDE.md");
+  // A genre member lives inside a host document — no standalone projection.
+  const spec = genre<Record<never, never>>({ name: "decision-block", withinHosts: ["spec"] });
+  assert.throws(() => projectionPath(spec.facts, "x"), /is a genre/);
 });
 
 test("projectBytes: fieldless body-only, and null fields drop from the frontmatter", () => {
-  // A dropped-null field with no surviving field is body-only, no `---` block.
   assert.equal(projectBytes([["paths", null]], "# Body\n"), "# Body\n");
-  // A surviving field forces the block; the null one is omitted.
   assert.equal(
     projectBytes(
       [
@@ -569,18 +150,319 @@ test("projectBytes: fieldless body-only, and null fields drop from the frontmatt
 });
 
 // ---------------------------------------------------------------------------
-// Lock stamping — the `[[<kind>]]` roll-up (`src/import.rs` `write_rollup`): kinds
-// sorted, rows name-sorted, four columns in fixed order, one blank line before
-// every table header but the first (the `toml_edit` layout the manifest shares).
+// The full emit — projection + lock + declaration rows + JSON pipe + permissions,
+// one deterministic pass over the six-noun face.
 // ---------------------------------------------------------------------------
 
-test("stampLock lays out `[[<kind>]]` rows the toml_edit way", () => {
-  const rustRow = lockRow("claude-code.rule", projectMember(RULE_PROJECTION_MEMBER));
-  const plainRow = lockRow("claude-code.rule", projectMember(PLAIN_PROJECTION_MEMBER));
-  const skillRow = lockRow("claude-code.skill", projectMember(SKILL_PROJECTION_MEMBER));
+function projectedHarness() {
+  return harness({
+    members: [
+      rule({
+        name: "rust",
+        paths: ["src/**/*.rs"],
+        prose: text`
+          # Rust conventions
 
-  // Passed skill-first, rule-out-of-order — stampLock sorts kinds (rule < skill) and
-  // rows within a kind (plain < rust), the deterministic order the Rust lock carries.
+          Errors via miette/thiserror; clippy clean under -D warnings.
+        `,
+      }),
+      skill({
+        name: "coordinate",
+        description: "Use when driving a complex task across a team of agents.",
+        prose: text`
+          # Coordinate
+
+          Drive the team.
+        `,
+      }),
+    ],
+  });
+}
+
+test("emit compiles projection + lock + declarations + seam in one pass", () => {
+  const result = emit(projectedHarness());
+
+  const paths = result.projections.map((p) => p.path);
+  assert.deepEqual(paths, [".claude/rules/rust.md", ".claude/skills/coordinate/SKILL.md"]);
+  for (const projection of result.projections) {
+    assert.match(result.lock, new RegExp(`emit_hash = "${sha256Hex(projection.bytes)}"`));
+  }
+
+  // The lock carries both rollup rows and the declaration families.
+  assert.match(result.lock, /^\[\[rule\]\]$/m);
+  assert.match(result.lock, /^\[\[skill\]\]$/m);
+  assert.match(result.lock, /^\[\[declaration\.kind\]\]$/m);
+  assert.match(result.lock, /^\[\[declaration\.assembly\]\]$/m);
+
+  // The JSON pipe carries the same declarations, versioned.
+  const seam = JSON.parse(result.seam);
+  assert.equal(seam.version, 1);
+  assert.deepEqual(
+    seam.kinds.map((k: { name: string }) => k.name),
+    ["rule", "skill"],
+  );
+});
+
+test("emit is byte-stable across a double pass", () => {
+  const a = emit(projectedHarness());
+  const b = emit(projectedHarness());
+  assert.equal(a.lock, b.lock);
+  assert.equal(a.seam, b.seam);
+  assert.deepEqual(
+    a.projections.map((p) => `${p.path} ${p.bytes}`),
+    b.projections.map((p) => `${p.path} ${p.bytes}`),
+  );
+});
+
+test("writeEmit lands the lock and projections on disk; the JSON pipe is not written", () => {
+  const dir = mkdtempSync(join(tmpdir(), "temper-emit-"));
+  try {
+    const result = writeEmit(projectedHarness(), dir);
+    assert.equal(readFileSync(join(dir, "lock.toml"), "utf8"), result.lock);
+    for (const projection of result.projections) {
+      assert.equal(readFileSync(join(dir, projection.path), "utf8"), projection.bytes);
+    }
+    // The seam is in-flight, not a committed artifact.
+    assert.throws(() => readFileSync(join(dir, "seam.json"), "utf8"));
+    // The retired manifest/roster/bindings dialect is gone — no temper.toml written.
+    assert.throws(() => readFileSync(join(dir, "temper.toml"), "utf8"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Declaration rows — the four families, byte-identical to the Rust lock's
+// `[declaration]` shape (`src/drift.rs`), so the two writers stay in lockstep.
+// ---------------------------------------------------------------------------
+
+function fullHarness() {
+  return harness({
+    members: [
+      rule({
+        name: "rust",
+        paths: ["src/**/*.rs"],
+        needs: [bash("git diff")],
+        satisfies: ["dev-standards"],
+        prose: text`# Rust`,
+      }),
+    ],
+    expect: [
+      {
+        kind: rule,
+        clauses: [
+          clause(maxLines(300), { severity: "advisory" }),
+          clause(required("paths"), { severity: "required" }),
+        ],
+      },
+    ],
+    require: {
+      "dev-standards": {
+        means: "the harness maintains development standards",
+        kind: rule,
+        required: true,
+        verifiedBy: "tests/dev-standards.test.ts",
+      },
+    },
+    reachability: "advisory",
+  });
+}
+
+const EXPECTED_DECLARATIONS = `[[declaration.kind]]
+name = "rule"
+governs_root = ".claude/rules"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+activation = "paths-match(paths)"
+
+[[declaration.clause]]
+kind = "rule"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.clause]]
+kind = "rule"
+predicate = "required"
+field = "paths"
+severity = "required"
+
+[[declaration.requirement]]
+name = "dev-standards"
+kind = "rule"
+required = true
+verified_by = "tests/dev-standards.test.ts"
+
+[[declaration.assembly]]
+fact = "authority"
+value = "shared"
+
+[[declaration.assembly]]
+fact = "reachability"
+value = "advisory"
+`;
+
+test("declaration rows serialize to the Rust lock's `[declaration]` byte shape", () => {
+  // Declaration-only (no rollup) isolates the four-family byte shape.
+  assert.equal(stampLock([], compileDeclarations(fullHarness())), EXPECTED_DECLARATIONS);
+});
+
+test("the full emit lock carries the rollup rows then the declaration families", () => {
+  const result = emit(fullHarness());
+  // The rollup row precedes the declaration table, joined the toml_edit way.
+  const rollup = `[[rule]]\nname = "rust"\n`;
+  assert.ok(result.lock.startsWith(rollup), "the rollup row leads the lock");
+  assert.ok(result.lock.endsWith(EXPECTED_DECLARATIONS), "the declaration families close the lock");
+  // Exactly one blank line joins the rollup's last row to the first declaration header.
+  assert.match(result.lock, /emit_hash = "[0-9a-f]{64}"\n\n\[\[declaration\.kind\]\]/);
+});
+
+test("the JSON pipe carries the reduced declaration rows and the pinned version", () => {
+  const declarations = compileDeclarations(fullHarness());
+  const seam = JSON.parse(declarationsToJson(declarations));
+  assert.equal(seam.version, 1);
+  assert.deepEqual(seam.clauses, [
+    { kind: "rule", predicate: "max_lines", severity: "advisory" },
+    { kind: "rule", predicate: "required", field: "paths", severity: "required" },
+  ]);
+  assert.deepEqual(seam.requirements, [
+    { name: "dev-standards", kind: "rule", required: true, verified_by: "tests/dev-standards.test.ts" },
+  ]);
+});
+
+test("needs derive the permission union, deduped and sorted, never authored twice", () => {
+  const twoNeeds = harness({
+    members: [
+      rule({ name: "a", needs: [bash("git status"), bash("git diff")], prose: text`# A` }),
+      rule({ name: "b", needs: [bash("git diff")], prose: text`# B` }),
+    ],
+  });
+  const result = emit(twoNeeds);
+  assert.deepEqual(result.permissions, ["Bash(git diff)", "Bash(git status)"]);
+});
+
+// ---------------------------------------------------------------------------
+// Kinds in play — a genre carries no locus-bearing kind fact and no projection.
+// ---------------------------------------------------------------------------
+
+test("a genre member neither projects nor takes a kind-fact row", () => {
+  const decisionBlock = genre<Record<never, never>>({ name: "decision-block", withinHosts: ["spec"] });
+  const mixed = harness({
+    members: [
+      rule({ name: "rust", prose: text`# Rust` }),
+      decisionBlock({ name: "surface-authority" }),
+    ],
+  });
+  const result = emit(mixed);
+  // Only the rule projects — the genre lives inside a host document.
+  assert.deepEqual(result.projections.map((p) => p.path), [".claude/rules/rust.md"]);
+  // The declaration kinds carry the rule, never the genre (residue inherits through the host).
+  assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
+});
+
+// ---------------------------------------------------------------------------
+// Body resolution — `file()` assets read in, `text` mentions resolution-checked,
+// `blocks()` refused until the fence format lands (`20-surface.md`, "Prose").
+// ---------------------------------------------------------------------------
+
+test("a file() body resolves and projects byte-faithfully", () => {
+  const dir = mkdtempSync(join(tmpdir(), "temper-file-"));
+  try {
+    const content = "# Long rule\n\nBody line one.\nBody line two.\n";
+    writeFileSync(join(dir, "long.md"), content);
+    const h = harness({ members: [rule({ name: "long", paths: ["src/**"], prose: file("./long.md") })] });
+
+    const result = emit(h, { baseDir: dir });
+    const projection = result.projections[0];
+    assert.equal(projection.path, ".claude/rules/long.md");
+    assert.equal(projection.bytes, `---\npaths: ["src/**"]\n---\n${content}`);
+    // Byte-deterministic across a second emit over the unchanged asset.
+    assert.equal(result.lock, emit(h, { baseDir: dir }).lock);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a missing file() asset is a loud emit error", () => {
+  const h = harness({ members: [rule({ name: "long", prose: file("./absent.md") })] });
+  assert.throws(() => emit(h, { baseDir: tmpdir() }), /did not resolve/);
+});
+
+test("a resolved mention renders to its declared value's display form", () => {
+  const citer = rule({
+    name: "citations",
+    prose: text`A ${{ address: "rule:rust", display: "rust" }} is declared.`,
+  });
+  const h = harness({ members: [rule({ name: "rust", prose: text`# Rust` }), citer] });
+
+  const result = emit(h);
+  const projection = result.projections.find((p) => p.path === ".claude/rules/citations.md")!;
+  assert.match(projection.bytes, /A rust is declared\./);
+  assert.doesNotMatch(projection.bytes, / /);
+});
+
+test("an unresolved mention is a loud emit error", () => {
+  const citer = rule({
+    name: "citations",
+    prose: text`A ${{ address: "rule:ghost", display: "ghost" }} is declared.`,
+  });
+  assert.throws(() => emit(harness({ members: [citer] })), /a mention cannot dangle/);
+});
+
+test("a blocks() body is refused until the genre fence format lands", () => {
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        // A blocks() body composes now; its render awaits (genre-fence-format).
+        prose: { kind: "blocks", values: [] },
+      }),
+    ],
+  });
+  assert.throws(() => emit(h), /genre-fence-format/);
+});
+
+// ---------------------------------------------------------------------------
+// Memory projection — a frontmatterless body projected to the root `CLAUDE.md`.
+// ---------------------------------------------------------------------------
+
+test("a module-carried memory projects its frontmatterless body to CLAUDE.md", () => {
+  const claudeBody = "# Project\n\nThe house rules Claude reads each session.\n";
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: text`
+          # Project
+
+          The house rules Claude reads each session.
+        `,
+      }),
+    ],
+  });
+
+  const result = emit(h);
+  assert.deepEqual(result.projections.map((p) => p.path), ["CLAUDE.md"]);
+  const projection = result.projections[0];
+  assert.equal(projection.bytes, claudeBody);
+  assert.doesNotMatch(projection.bytes, /^---$/m);
+
+  const hash = sha256Hex(claudeBody);
+  assert.match(result.lock, /^\[\[memory\]\]$/m);
+  assert.match(result.lock, /source_path = "CLAUDE\.md"/);
+  assert.match(result.lock, new RegExp(`emit_hash = "${hash}"`));
+});
+
+// ---------------------------------------------------------------------------
+// Lock rollup layout — `[[<kind>]]` rows, kinds then rows name-sorted, four
+// columns in fixed order, one blank line before every table header but the first.
+// ---------------------------------------------------------------------------
+
+test("stampLock lays out `[[<kind>]]` rollup rows the toml_edit way", () => {
+  const rustRow = lockRow("rule", projectMember(ruleInput()));
+  const plainRow = lockRow("rule", projectMember(plainInput()));
+  const skillRow = lockRow("skill", projectMember(skillInput()));
+
   const lock = stampLock([skillRow, rustRow, plainRow]);
   const expected =
     `[[rule]]\n` +
@@ -604,232 +486,37 @@ test("stampLock lays out `[[<kind>]]` rows the toml_edit way", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The full emit — manifest + projection + lock in one deterministic pass over the
-// authoring face (`specs/architecture/20-surface.md`, "Topology": the three
-// provenance classes emit produces).
+// Placement round-through — install's frontmatter placements (schema modeline +
+// managed-by note) ride the whole-file re-emit (`20-surface.md`, the two-projectors
+// seam). Those lines ride `install`, never `emit`.
 // ---------------------------------------------------------------------------
 
-function projectedHarness() {
-  return defineHarness({
-    members: [
-      rule({
-        name: "rust",
-        fields: { paths: ["src/**/*.rs"] },
-        body: md`
-          # Rust conventions
-
-          Errors via miette/thiserror; clippy clean under -D warnings.
-        `,
-      }),
-      skill({
-        name: "coordinate",
-        fields: { description: "Use when driving a complex task across a team of agents." },
-        body: md`
-          # Coordinate
-
-          Drive the team.
-        `,
-      }),
-    ],
-  });
-}
-
-test("emit compiles manifest + projection + lock in one pass", () => {
-  const result = emit(projectedHarness());
-
-  // The manifest equals the standalone manifest emitter over the same harness.
-  assert.equal(result.manifest, emitManifestMembers(projectedHarness()));
-
-  // One projection per projected member, at its `.claude/**` locus, each with a
-  // lock row whose fingerprint is sha256 of the very bytes projected.
-  const paths = result.projections.map((p) => p.path);
-  assert.deepEqual(paths, [".claude/rules/rust.md", ".claude/skills/coordinate/SKILL.md"]);
-  for (const projection of result.projections) {
-    assert.match(result.lock, new RegExp(`emit_hash = "${sha256Hex(projection.bytes)}"`));
-  }
-
-  // The lock carries a `[[rule]]` and a `[[skill]]` row; source_hash == emit_hash.
-  assert.match(result.lock, /^\[\[rule\]\]$/m);
-  assert.match(result.lock, /^\[\[skill\]\]$/m);
-});
-
-test("emit is byte-stable across a double pass", () => {
-  const a = emit(projectedHarness());
-  const b = emit(projectedHarness());
-  assert.equal(a.manifest, b.manifest);
-  assert.equal(a.lock, b.lock);
-  assert.deepEqual(
-    a.projections.map((p) => `${p.path} ${p.bytes}`),
-    b.projections.map((p) => `${p.path} ${p.bytes}`),
-  );
-});
-
-test("writeEmit lands the manifest, lock, and projection on disk", () => {
-  const dir = mkdtempSync(join(tmpdir(), "temper-emit-"));
-  try {
-    const result = writeEmit(projectedHarness(), dir);
-
-    assert.equal(readFileSync(join(dir, "temper.toml"), "utf8"), result.manifest);
-    assert.equal(readFileSync(join(dir, "lock.toml"), "utf8"), result.lock);
-    for (const projection of result.projections) {
-      assert.equal(readFileSync(join(dir, projection.path), "utf8"), projection.bytes);
-    }
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Memory projection — a module-carried memory (`CLAUDE.md` / `AGENTS.md`) has no
-// frontmatter (`kinds/claude-code/memory/KIND.md`, "There is **no frontmatter**"),
-// so the whole file is the body and it projects body-alone to the root `<name>.md`
-// with a lock row. SDK-ahead under TS-primary: the Rust projector carries no memory
-// locus, so this pins the body-alone contract, not a cross-tool byte-parity fixture.
-// ---------------------------------------------------------------------------
-
-test("a module-carried memory projects its frontmatterless body to CLAUDE.md", () => {
-  const claudeBody = "# Project\n\nThe house rules Claude reads each session.\n";
-  const harness = defineHarness({
-    members: [memory({ name: "CLAUDE", body: md`
-      # Project
-
-      The house rules Claude reads each session.
-    ` })],
-  });
-
-  const result = emit(harness);
-
-  // One projection, at the root `CLAUDE.md` locus, whose bytes are the body alone —
-  // no `---` frontmatter block, the memory kind declaring none.
-  assert.deepEqual(result.projections.map((p) => p.path), ["CLAUDE.md"]);
-  const projection = result.projections[0];
-  assert.equal(projection.bytes, claudeBody);
-  assert.doesNotMatch(projection.bytes, /^---$/m);
-
-  // A lock row keyed on that path, both fingerprints sha256 of the body-alone bytes.
-  const hash = sha256Hex(claudeBody);
-  assert.match(result.lock, /^\[\[memory\]\]$/m);
-  assert.match(result.lock, /source_path = "CLAUDE\.md"/);
-  assert.match(result.lock, new RegExp(`source_hash = "${hash}"`));
-  assert.match(result.lock, new RegExp(`emit_hash = "${hash}"`));
-
-  // The seam agrees: projectMember over the manifest member lands the same file.
-  const manifestMember = toManifestMember(harness.members[0]);
-  const direct = projectMember(manifestMember);
-  assert.equal(direct.path, "CLAUDE.md");
-  assert.equal(direct.bytes, claudeBody);
-  assert.equal(lockRow(manifestMember.kind, direct).sourcePath, "CLAUDE.md");
-});
-
-test("emit stays double-emit stable with a memory alongside rule and skill", () => {
-  function mixedHarness() {
-    return defineHarness({
-      members: [
-        rule({
-          name: "rust",
-          fields: { paths: ["src/**/*.rs"] },
-          body: md`
-            # Rust conventions
-
-            Errors via miette/thiserror; clippy clean under -D warnings.
-          `,
-        }),
-        skill({
-          name: "coordinate",
-          fields: { description: "Use when driving a complex task across a team of agents." },
-          body: md`
-            # Coordinate
-
-            Drive the team.
-          `,
-        }),
-        memory({ name: "CLAUDE", body: md`
-          # Project
-
-          The house rules Claude reads each session.
-        ` }),
-      ],
-    });
-  }
-
-  const a = emit(mixedHarness());
-  const b = emit(mixedHarness());
-  assert.equal(a.manifest, b.manifest);
-  assert.equal(a.lock, b.lock);
-  assert.deepEqual(
-    a.projections.map((p) => `${p.path} ${p.bytes}`),
-    b.projections.map((p) => `${p.path} ${p.bytes}`),
-  );
-  // The memory rides in alongside the rule/skill projections — three loci, one each.
-  assert.deepEqual(a.projections.map((p) => p.path).sort(), [
-    ".claude/rules/rust.md",
-    ".claude/skills/coordinate/SKILL.md",
-    "CLAUDE.md",
-  ]);
-});
-
-// ---------------------------------------------------------------------------
-// Placement round-through — install's frontmatter placements (the schema modeline
-// + managed-by note) ride the whole-file re-emit, mirroring the Rust
-// EMIT-OWNED-PLACEMENTS resolution (`src/drift.rs` reads `install::placement_lines`
-// off the committed projection and re-emits them first). Those lines ride `install`,
-// never `emit` — law 5 keeps the projection content-faithful — so a re-emit
-// round-trips the ones already on disk (`specs/architecture/20-surface.md`, the
-// two-projectors seam) instead of clobbering them.
-// ---------------------------------------------------------------------------
-
-// The two install-placed comments as they land on disk: the schema modeline first
-// (install inserts it last, at the top), the managed-by note second — the on-disk
-// order `placement_lines` reads and the projector re-emits (`src/install.rs`).
 const MODELINE = "# yaml-language-server: $schema=../../.temper/schema/rule.json";
 const NOTE =
   "# temper: managed projection — a direct edit here is drift; edit the owning " +
   ".temper/ module or document and re-run temper emit, never this generated file.";
-
-// The committed projection install produced: the two placements atop the `paths`
-// field, over the same body RULE_PROJECTION carries. Re-emitting the manifest member
-// against this file must reproduce it byte-for-byte.
 const RULE_PROJECTION_WITH_PLACEMENTS =
   `---\n${MODELINE}\n${NOTE}\npaths: ["src/**/*.rs"]\n---\n` +
   "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.\n";
 
 test("placementLines reads install's modeline + note in on-disk order; nothing else", () => {
   assert.deepEqual(placementLines(RULE_PROJECTION_WITH_PLACEMENTS), [MODELINE, NOTE]);
-  // A fieldless body-only projection has no frontmatter to carry a placement.
   assert.deepEqual(placementLines(PLAIN_PROJECTION), []);
-  // The placement-free projection carries none — the `paths` field is not a comment.
   assert.deepEqual(placementLines(RULE_PROJECTION), []);
 });
 
 test("projectMember rounds a committed projection's placement lines through the re-emit", () => {
   const dir = mkdtempSync(join(tmpdir(), "temper-placements-"));
   try {
-    // Lay down the committed projection install would have written, then re-emit the
-    // manifest member against it. The two placement lines survive, byte-identical to
-    // the Rust projector's output.
     const path = join(dir, ".claude/rules/rust.md");
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, RULE_PROJECTION_WITH_PLACEMENTS);
 
-    const preserved = projectMember(RULE_PROJECTION_MEMBER, { projectionDir: dir });
-    assert.equal(preserved.path, ".claude/rules/rust.md");
+    const preserved = projectMember(ruleInput(), { projectionDir: dir });
     assert.equal(preserved.bytes, RULE_PROJECTION_WITH_PLACEMENTS);
 
-    // Without the committed read, the projection is the placement-free baseline — the
-    // seam only carries what install already placed on disk, never fabricating it.
-    const fresh = projectMember(RULE_PROJECTION_MEMBER);
-    assert.equal(fresh.bytes, RULE_PROJECTION);
-
-    // An absent committed file is not an error: emit writes it fresh (no placements).
-    const emptyDir = mkdtempSync(join(tmpdir(), "temper-placements-absent-"));
-    try {
-      assert.equal(
-        projectMember(RULE_PROJECTION_MEMBER, { projectionDir: emptyDir }).bytes,
-        RULE_PROJECTION,
-      );
-    } finally {
-      rmSync(emptyDir, { recursive: true, force: true });
-    }
+    // Without the committed read, the projection is the placement-free baseline.
+    assert.equal(projectMember(ruleInput()).bytes, RULE_PROJECTION);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -838,7 +525,6 @@ test("projectMember rounds a committed projection's placement lines through the 
 test("writeEmit re-emit preserves install's placements the second time round", () => {
   const dir = mkdtempSync(join(tmpdir(), "temper-emit-placements-"));
   try {
-    // First emit: a fresh projection, no placements yet.
     writeEmit(projectedHarness(), dir);
     const rulePath = join(dir, ".claude/rules/rust.md");
     assert.equal(readFileSync(rulePath, "utf8"), RULE_PROJECTION);
@@ -846,15 +532,8 @@ test("writeEmit re-emit preserves install's placements the second time round", (
     // Simulate `install`: splice the modeline + note atop the rule's frontmatter.
     writeFileSync(rulePath, RULE_PROJECTION_WITH_PLACEMENTS);
 
-    // Second emit reads the committed projection (writeEmit defaults projectionDir to
-    // targetDir), so the two placement lines survive the whole-file re-emit.
     const result = writeEmit(projectedHarness(), dir);
     assert.equal(readFileSync(rulePath, "utf8"), RULE_PROJECTION_WITH_PLACEMENTS);
-    const ruleProjection = result.projections.find((p) => p.path === ".claude/rules/rust.md");
-    assert.equal(ruleProjection?.bytes, RULE_PROJECTION_WITH_PLACEMENTS);
-
-    // The lock fingerprint tracks the placement-carrying bytes — the state-of-record
-    // matches what is actually on disk.
     assert.match(result.lock, new RegExp(`emit_hash = "${sha256Hex(RULE_PROJECTION_WITH_PLACEMENTS)}"`));
   } finally {
     rmSync(dir, { recursive: true, force: true });

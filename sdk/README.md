@@ -1,35 +1,57 @@
-# temper-sdk — the authoring face (scaffold)
+# temper-sdk — the authoring face
 
-The typed module library the ratified corpus names as temper's altitude
-authoring medium (`specs/intent/00-intent.md`, "the authoring face is a typed
-library; the gate reads inert data"; `specs/architecture/20-surface.md`,
-"Member carriage"). Authors compose members, genre values, and the assembly
-as typed values; `emit` compiles them into the inert manifest — the gate,
-CI, and every read verb consume only declared data, offline, no Node.
+The typed module library the ratified corpus names as temper's authoring
+medium (`specs/intent/00-intent.md`, the SDK Decision; `specs/architecture/20-surface.md`,
+"The seam — one implementation"). A harness author composes members as typed
+values in the **six-noun model**; `emit` compiles the whole into the declaration
+rows the engine reads, a byte-faithful `.claude/**` projection, and the lock. The
+SDK implements **no semantics** — every type erases at the seam, and the engine
+consumes only declared data, offline, no Node.
 
-## What is real in this scaffold
+## The six-noun face
 
-- **The typed vocabulary**: `rule()` / `skill()` / `memory()` /
-  `customMember()`, `defineHarness()`, the `md` dedenting prose template,
-  `fromFile`, and the genre constructors `decision()` / `law()` / `bound()` /
-  `genre()` — TSDoc on every export (tsc is the keystroke channel; hover is
-  the guidance channel, `specs/architecture/50-distribution.md`).
-- **The manifest schema types**, mirroring the Rust `[[member]]` /
-  `[[member.section]]` / `[[member.genre]]` tables the gate reads.
-- **`emit`**: the full compile in one deterministic pass — the manifest
-  (members → TOML), the `.claude/**` **projection**, and the **lock** whose
-  `source_hash`/`emit_hash` fingerprints the drift engine reads; all three
-  **double-emit verified in-process** (law 5's discipline). `writeEmit` lands
-  them on disk. `emitManifestMembers` remains the manifest-only seam.
-- **Body resolution**: `fromFile` assets read in and mentions
-  resolution-checked against the harness's declared values, at emit.
-- Tests: `pnpm test` (tsc + `node --test`), including byte-parity of the
-  manifest, the projection, and the lock fingerprints against real Rust output.
+- **`harness()`** — the assembly as one typed value: `members · expect ·
+  require · settings · reachability` (`specs/architecture/40-composition.md`).
+- **`kind<T>()` / `genre<T>()`** — the engine room: a kind is a typed
+  constructor plus five facts of runtime residue (label, locus, layout,
+  registration, edge fields — `specs/architecture/15-kinds.md`). The built-in
+  Claude Code kinds `rule` / `skill` / `memory` are ordinary `kind<T>()` values.
+- **Clause values** — `clause(predicate, { severity, guidance, cite })` over the
+  closed predicate algebra (`required`, `maxLines`, …); a floor is an exported
+  clause array, adopted by spread in `expect` (`specs/architecture/10-contracts.md`).
+- **`needs`** — the capabilities a member uses (`bash("git diff")`); emit derives
+  the permission union, so a permission is never authored twice.
+- **`file()` / `` text`…` `` / `blocks()`** — the three prose constructors, one
+  field type; the author's words land byte-identical to their authored text.
 
-## Stated bounds — each a named follow-on slice, never silently faked
+## What `emit` produces
 
-- **Projection covers the built-in projected kinds** (`rule`, `skill`); a
-  memory (`CLAUDE.md`) or custom-kind member lands in the manifest but projects
-  nowhere and stamps no lock row — the two kinds the Rust projector emits.
-- **Publish name/scope** pending the PACKAGING-CHANNELS ruling (needs
-  registry credentials); `private: true` until then.
+One deterministic pass over the harness, double-emit verified (law 5):
+
+- **Declaration rows** — the erased program (kind facts, clauses, requirements,
+  assembly facts) on the internal versioned JSON pipe and in the lock's
+  `[declaration]` families, byte-matching the Rust lock shape (`src/drift.rs`) —
+  the byte-parity lockstep two writers keep until single-writer lands.
+- **A byte-faithful projection** — each `rule` / `skill` / `memory` member
+  compiled whole to its `.claude/**` locus; install's placement lines round-trip.
+- **The lock** — rollup provenance/emit fingerprints plus the declaration rows.
+
+Emit is **total** (members are the only source), **refuses** before it writes on
+a broken source (a dangling `satisfies`, an unfilled `required`, an unresolved
+mention), and is **byte-reproducible**. `writeEmit` lands the lock and the
+projection on disk; the JSON pipe is in-flight, not a committed artifact.
+
+## Stated bounds — each a named follow-on, never silently faked
+
+- **`blocks()` composes now, renders later** — the shared genre fence format is
+  `(genre-fence-format)`, deferred until its first consumer; emit refuses to
+  project a `blocks()` body until then.
+- **The permission union is carried as data** — the fold into the settings
+  artifact lands with the hook/MCP kinds it folds many-to-one.
+- **Publish name/scope** pending the PACKAGING-CHANNELS ruling; `private: true`.
+
+## Tests
+
+`pnpm --dir sdk test` — `tsc` (the keystroke wall) then `node --test`, including
+projection byte-parity and lock fingerprints against real Rust output, and the
+declaration-row byte shape against the Rust `[declaration]` families.

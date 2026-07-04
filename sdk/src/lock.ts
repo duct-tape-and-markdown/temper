@@ -1,22 +1,21 @@
 /**
- * Lock stamping — the generated state-of-record the drift engine reads
- * (`specs/architecture/20-surface.md`, "The lock"; "Drift — one direction, two
- * freshness facts"). For every projected member the lock carries a `[[<kind>]]`
- * row of four columns — `name`, `source_path`, `source_hash`, `emit_hash` —
- * matching the Rust lock (`src/import.rs` `RollupEntry` / `rollup_tables`).
+ * The lock — tool-written provenance, emit fingerprints, and the program's
+ * declaration rows (`specs/architecture/20-surface.md`, "The lock and drift").
+ * Two row families: a per-member `[[<kind>]]` rollup (`name`, `source_path`,
+ * `source_hash`, `emit_hash`) and the `[declaration]` table's four sub-families
+ * (`[[declaration.kind]]`, `[[declaration.clause]]`, `[[declaration.requirement]]`,
+ * `[[declaration.assembly]]`). Both are byte-identical to the Rust lock
+ * (`src/import.rs` `write_rollup`, `src/drift.rs` `Declarations::write_into`) — the
+ * byte-parity lockstep two writers keep until single-writer lands.
  *
- * The two fingerprints are SHA-256 hex, computed the same way as the Rust
- * `hash::sha256_hex` (lowercase hex over the raw UTF-8 bytes), so an SDK-emitted
- * lock and a Rust-emitted lock agree for the same face. A module-carried member's
- * `.claude/**` projection is its own state-of-record — the surface was just
- * derived from it — so a fresh emit stamps `source_hash == emit_hash ==
- * sha256(projection bytes)`, exactly the baseline a Rust `import` records before
- * any later `emit` advances the emit fingerprint.
+ * Fingerprints are SHA-256 hex over raw UTF-8 (`hash::sha256_hex`), so an
+ * SDK-emitted lock and a Rust-emitted lock agree for the same harness.
  */
 
 import { createHash } from "node:crypto";
 
 import type { Projection } from "./project.js";
+import type { Declarations } from "./declarations.js";
 import { joinSections, keyValue, encodeString } from "./toml.js";
 
 /** Lowercase hex SHA-256 of `text`'s UTF-8 bytes — the Rust `sha256_hex` port. */
@@ -24,7 +23,7 @@ export function sha256Hex(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
-/** One lock row: a member's identity and the two freshness fingerprints. */
+/** One rollup row: a member's identity and the two freshness fingerprints. */
 export interface LockRow {
   /** The bare kind name — the `[[<kind>]]` array key (`rule`, `skill`, `memory`). */
   readonly kind: string;
@@ -38,31 +37,8 @@ export interface LockRow {
   readonly emitHash: string;
 }
 
-/** The bare kind name (`claude-code.skill` → `skill`) the lock array keys on. */
-function bareKind(kind: string): string {
-  const parts = kind.split(".");
-  return parts[parts.length - 1];
-}
-
-/**
- * The lock row a projection stamps: both fingerprints are `sha256(projection
- * bytes)`, the fresh-emit baseline (`source_hash == emit_hash`) a Rust import then
- * emit lands on for a byte-identical projection.
- */
-export function lockRow(kind: string, projection: Projection): LockRow {
-  const hash = sha256Hex(projection.bytes);
-  return {
-    kind: bareKind(kind),
-    name: projectionName(projection),
-    sourcePath: projection.path,
-    sourceHash: hash,
-    emitHash: hash,
-  };
-}
-
 /** The member name a projection encodes — the path's identity segment. */
 function projectionName(projection: Projection): string {
-  // `.claude/rules/<name>.md` → `<name>`; `.claude/skills/<name>/SKILL.md` → `<name>`.
   const segments = projection.path.split("/");
   const last = segments[segments.length - 1];
   if (last === "SKILL.md") return segments[segments.length - 2];
@@ -70,23 +46,35 @@ function projectionName(projection: Projection): string {
 }
 
 /**
- * Serialize the lock rows to `lock.toml` bytes — one `[[<kind>]]` array-of-tables
- * per kind, kinds name-sorted then rows name-sorted, byte-identical to the Rust
- * `write_rollup`'s `toml_edit` output. Each row emits the four columns in the
- * fixed `name`/`source_path`/`source_hash`/`emit_hash` order, and the whole
- * document carries exactly one blank line before every table header but the first.
+ * The rollup row a projection stamps: both fingerprints are `sha256(projection
+ * bytes)`, the fresh-emit baseline (`source_hash == emit_hash`) a Rust import then
+ * emit lands on for a byte-identical projection.
  */
-export function stampLock(rows: readonly LockRow[]): string {
+export function lockRow(kind: string, projection: Projection): LockRow {
+  const hash = sha256Hex(projection.bytes);
+  return {
+    kind,
+    name: projectionName(projection),
+    sourcePath: projection.path,
+    sourceHash: hash,
+    emitHash: hash,
+  };
+}
+
+/** The rollup sections — one `[[<kind>]]` table per member, kinds then rows name-sorted. */
+function rollupSections(rows: readonly LockRow[]): string[] {
   const byKind = new Map<string, LockRow[]>();
   for (const row of rows) {
     const bucket = byKind.get(row.kind);
     if (bucket) bucket.push(row);
     else byKind.set(row.kind, [row]);
   }
-
   const sections: string[] = [];
   for (const kind of [...byKind.keys()].sort()) {
-    const kindRows = byKind.get(kind)!.slice().sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    const kindRows = byKind
+      .get(kind)!
+      .slice()
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const row of kindRows) {
       sections.push(
         `[[${kind}]]\n` +
@@ -97,5 +85,74 @@ export function stampLock(rows: readonly LockRow[]): string {
       );
     }
   }
+  return sections;
+}
+
+/** A `key = "value"\n` line for a present string column, or "" to omit an absent one. */
+function optionalColumn(key: string, value: string | undefined): string {
+  return value === undefined ? "" : keyValue(key, encodeString(value));
+}
+
+/**
+ * The `[declaration]` table's sections, in the fixed family order kind · clause ·
+ * requirement · assembly, each row a `[[declaration.<family>]]` table with its
+ * columns in the Rust `to_table` order. An empty family writes nothing — an empty
+ * array vanishes on the toml round-trip.
+ */
+function declarationSections(declarations: Declarations): string[] {
+  const sections: string[] = [];
+  for (const row of declarations.kinds) {
+    sections.push(
+      "[[declaration.kind]]\n" +
+        keyValue("name", encodeString(row.name)) +
+        optionalColumn("provider", row.provider) +
+        keyValue("governs_root", encodeString(row.governs_root)) +
+        keyValue("governs_glob", encodeString(row.governs_glob)) +
+        optionalColumn("format", row.format) +
+        optionalColumn("unit_shape", row.unit_shape) +
+        optionalColumn("activation", row.activation),
+    );
+  }
+  for (const row of declarations.clauses) {
+    sections.push(
+      "[[declaration.clause]]\n" +
+        keyValue("kind", encodeString(row.kind)) +
+        keyValue("predicate", encodeString(row.predicate)) +
+        optionalColumn("field", row.field) +
+        keyValue("severity", encodeString(row.severity)),
+    );
+  }
+  for (const row of declarations.requirements) {
+    sections.push(
+      "[[declaration.requirement]]\n" +
+        keyValue("name", encodeString(row.name)) +
+        optionalColumn("kind", row.kind) +
+        optionalColumn("package", row.package) +
+        keyValue("required", row.required ? "true" : "false") +
+        optionalColumn("verified_by", row.verified_by),
+    );
+  }
+  for (const row of declarations.assembly) {
+    sections.push(
+      "[[declaration.assembly]]\n" +
+        keyValue("fact", encodeString(row.fact)) +
+        optionalColumn("value", row.value) +
+        optionalColumn("from", row.from) +
+        optionalColumn("field", row.field) +
+        optionalColumn("to", row.to),
+    );
+  }
+  return sections;
+}
+
+/**
+ * Serialize the lock — the rollup rows then the declaration families, joined the
+ * `toml_edit` way (exactly one blank line before every table header but the
+ * document's first). An all-empty declaration set contributes no sections, so a
+ * memberless lock is empty and a rollup-only lock carries no `[declaration]` rows.
+ */
+export function stampLock(rows: readonly LockRow[], declarations?: Declarations): string {
+  const sections = [...rollupSections(rows)];
+  if (declarations !== undefined) sections.push(...declarationSections(declarations));
   return joinSections(sections);
 }
