@@ -492,6 +492,89 @@ fn the_note_and_guard_name_the_ratified_drift_remedy() {
     );
 }
 
+#[test]
+fn a_reworded_managed_by_note_re_places_and_a_current_one_stays_unchanged() {
+    // Content-drift awareness (`specs/architecture/50-distribution.md`, "drift keeps it
+    // synced"): presence-based keying returned any marked note verbatim, so a note
+    // reworded after INSTALL-DRIFT-STRINGS never refreshed and `gate_installed` passed
+    // the stale bytes forever. The fix keys idempotence on the note's bytes.
+    let root = write_harness("note-content-drift", true);
+    install::run(&root, false).unwrap();
+
+    let rust_path = root.join(".claude").join("rules").join("rust.md");
+    let placed = fs::read_to_string(&rust_path).unwrap();
+    // Capture the current note line verbatim so the stale variant is a genuine reword
+    // of THIS wording, not a guess at what install writes.
+    let current_note = placed
+        .lines()
+        .find(|l| l.trim_start().starts_with(NOTE_MARKER))
+        .expect("install placed a marked note")
+        .to_string();
+
+    // Hand-drift the on-disk note to a retired wording — a marked line whose body
+    // differs from the current NOTE_COMMENT. This is the post-reword state install
+    // used to leave untouched.
+    let stale_note = format!("{NOTE_MARKER} — retired wording, re-run the old re-add verb.");
+    let drifted = placed.replacen(&current_note, &stale_note, 1);
+    fs::write(&rust_path, &drifted).unwrap();
+
+    let report = install::run(&root, false).unwrap();
+    let note_entry = |file: &str| {
+        report
+            .entries
+            .iter()
+            .find(|e| e.placement == "managed-by note" && e.path.to_string_lossy().ends_with(file))
+            .unwrap_or_else(|| panic!("no managed-by note entry for {file}"))
+    };
+    // The reworded note re-places (not Unchanged); the already-current note on the
+    // skill stays Unchanged — a matching body is left byte-verbatim.
+    assert_ne!(
+        note_entry("rust.md").outcome,
+        ApplyOutcome::Unchanged,
+        "a reworded note must re-place, not report Unchanged"
+    );
+    assert_eq!(
+        note_entry("SKILL.md").outcome,
+        ApplyOutcome::Unchanged,
+        "an already-current note must stay Unchanged"
+    );
+
+    // The splice restores the exact current projection — the stale body is gone and no
+    // other byte (modeline, fields, body) shifted.
+    let after = fs::read_to_string(&rust_path).unwrap();
+    assert_eq!(
+        after, placed,
+        "the reworded note re-places to the current projection byte-for-byte"
+    );
+    assert!(
+        !after.contains("retired wording"),
+        "the retired note body must be gone, got:\n{after}"
+    );
+    // With the note re-synced, the self-verify no longer flags it as drifted.
+    assert!(
+        install::gate_installed(&root).is_empty(),
+        "a re-placed note leaves the gate undrifted, got: {:?}",
+        install::gate_installed(&root)
+    );
+
+    // A second install is a byte-for-byte no-op: every placement Unchanged.
+    let before_second = tree_bytes(&root);
+    let second = install::run(&root, false).unwrap();
+    assert!(
+        second
+            .entries
+            .iter()
+            .all(|e| e.outcome == ApplyOutcome::Unchanged),
+        "a second install is idempotent, got: {:?}",
+        second.entries
+    );
+    assert_eq!(
+        before_second,
+        tree_bytes(&root),
+        "the idempotent re-run must not change a single byte"
+    );
+}
+
 /// The schema modeline's marker — the frontmatter comment `install` places and `emit`
 /// round-trips (kept in step with `install.rs`'s `MODELINE_MARKER`).
 const MODELINE_MARKER: &str = "# yaml-language-server:";

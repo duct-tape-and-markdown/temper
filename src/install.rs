@@ -118,8 +118,10 @@ const NOTE_GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is project
 /// (the backstop wall), a false positive would block honest work.
 const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"[^"]*\.claude/"#;
 
-/// The managed-by note's stable marker — the comment prefix its idempotence keys on,
-/// so a second `install` neither duplicates nor rewrites the note.
+/// The managed-by note's stable marker — the comment prefix that *locates* an already
+/// placed note (so a second `install` never duplicates it); whether that note is then
+/// left verbatim or re-placed keys on the line's bytes vs [`NOTE_COMMENT`], not this
+/// prefix (`project_note`, content-drift-aware).
 const NOTE_MARKER: &str = "# temper: managed projection";
 
 /// The schema modeline's stable marker — the frontmatter comment prefix `install` keys
@@ -648,21 +650,34 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// Project an artifact source with the managed-by note inserted as a frontmatter
 /// comment, or `None` when it has no frontmatter to carry it (a memory `CLAUDE.md`
 /// has none, and the caller already skips memory besides). Applied *before* the
-/// modeline so the modeline stays the leading line; idempotent by [`NOTE_MARKER`],
-/// so re-running neither duplicates nor rewrites the note.
+/// modeline so the modeline stays the leading line.
 ///
-/// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note is the
-/// only inserted bytes. The note rides `install`, never `emit` — a YAML comment is
-/// not authored surface content, so the content-faithful projector (law 5) never
+/// **Content-drift-aware** (`specs/architecture/50-distribution.md`, "drift keeps it
+/// synced"): idempotence keys on the note's *bytes*, not the bare [`NOTE_MARKER`]
+/// prefix. A marked line whose body still matches [`NOTE_COMMENT`] is returned
+/// verbatim (no churn); a marked line carrying a retired wording — the reword that
+/// [`NOTE_COMMENT`] shipped — is *re-placed*, splicing the current [`NOTE_COMMENT`]
+/// over the stale line so a changed placement re-places instead of reporting
+/// `Unchanged`. Presence-only keying let a stale note pass `gate_installed` forever.
+///
+/// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note line is
+/// the only rewritten bytes. The note rides `install`, never `emit` — a YAML comment
+/// is not authored surface content, so the content-faithful projector (law 5) never
 /// re-emits it (`specs/architecture/20-surface.md`).
 fn project_note(source: &str) -> Option<String> {
     let rest = source.strip_prefix("---\n")?;
     let inner = frontmatter_inner(rest)?;
-    if inner
+    if let Some(existing) = inner
         .lines()
-        .any(|line| line.trim_start().starts_with(NOTE_MARKER))
+        .find(|line| line.trim_start().starts_with(NOTE_MARKER))
     {
-        return Some(source.to_string());
+        if existing == NOTE_COMMENT {
+            return Some(source.to_string());
+        }
+        // Stale wording: splice the current note over the marked line, leaving every
+        // other byte — the modeline, the other fields, the body — untouched. The
+        // marker is distinctive, so the first occurrence is this note line.
+        return Some(source.replacen(existing, NOTE_COMMENT, 1));
     }
     Some(format!("---\n{NOTE_COMMENT}\n{rest}"))
 }
