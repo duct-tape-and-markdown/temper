@@ -11,6 +11,67 @@ and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror i
 **deleted** (CONTRACTS-RETIRE shipped — no `contracts/` dir on disk; only stale
 path strings remain in comments).
 
+## The six-noun model ceremony (2026-07-04, John + session) — corpus re-cut
+
+The architecture corpus was re-cut in one ceremony to the six-noun model
+(record: claude.ai/code/artifact/417f8f03-19d9-4036-a200-30e27b0f78db; the
+session ledger carries the pointer). Ratified: types erase at the seam (no
+KIND.md/PACKAGE.md grammars, no manifest-as-corpus), the engine is kind- and
+schema-blind, registration generalizes activation (the world is its endpoint),
+the package noun dissolves into `expect` clause arrays, genres are kinds at the
+block locus, three equal authoring postures with a byte-stable fence bridge,
+emit is total (members are the only source; settings.json/.mcp.json are
+many-to-one projections; permissions derived from member `needs`), one
+implementation behind a JSON pipe (SDK implements no semantics). Prior fork
+resolutions above stand as history; their spec anchors moved in the re-cut.
+Plan must re-reconcile the whole pending queue against the new corpus —
+entries citing KIND.md/PACKAGE.md curation (AGENT-KIND, COMMAND-KIND,
+SETTINGS-KIND) rest on retired mechanisms and need re-scoping or retirement.
+
+New forks from the ceremony:
+
+- `(engine-language)` — OPEN. One implementation ruled; its language is not.
+  Keep the engine in Rust vs rewrite in TS (single-language repo, no pipe).
+  EVIDENCE (2026-07-04, this container, warm cache): release binary
+  `temper session-start .` ≈ 0.001 s; bare `node -e ''` ≈ 0.026–0.178 s;
+  `npx --no-install <bin>` ≈ 0.32–0.73 s. Hook placements (session-start now,
+  any per-tool-call guard later) favor the binary by ~25–700×. Rewrite also
+  discards the review-certified engine core (engine.rs decision table,
+  document.rs byte-proven round-trip) — fails the entry-gate principle applied
+  to rewrites. Session recommendation: keep the engine; John rules.
+- `(mention-marker)` — OPEN. The posture-2 markdown spelling of a mention
+  (`${x}` in TS prose). The embed spelling exists (`@path`); the mention needs
+  its authored marker. Blocks posture-2 mention edges only.
+- `(genre-fence-format)` — OPEN. The shared template of postures 2/3 (fence
+  syntax for genre members in markdown). Acceptance test: byte-stable
+  posture-2 ↔ posture-3 round-trip. Blocks embedded-genre authoring.
+- `(settings-residual)` — OPEN. Which harness-level fields remain on
+  `harness()` once members absorb their registrations (hooks → settings.json,
+  mcp → .mcp.json, permissions derived from `needs`). Needs a cited audit of
+  Claude Code's settings surface.
+- `(guard-posture)` — OPEN (was a ledger verify-queue item). The PreToolUse
+  guard: advisory-only forever vs a `temper guard` subcommand reading stdin.
+  The generated-shell grep is rejected either way. `(engine-language)`'s
+  latency evidence bears on this (a per-tool-call guard at node startup cost
+  is user-hostile).
+- `(local-overrides)` — OPEN (surfaced by the 40-composition re-cut, which
+  carries the OPEN: marker). The dialect era's committed-plus-gitignored
+  personal-override layer (temper-local.toml) has no stated spelling in the
+  one-value assembly model. Candidate directions: a local harness module
+  composed by convention, or an engine-side severity overlay; neither is
+  ruled. Blocks nothing until someone needs a personal override.
+
+Bugs filed by the ceremony's review (wrong today, independent of demolition
+sequencing — plan should file as pending entries on next reconcile):
+1. read.rs:147-156 — floor-binding fallback narrates any non-rule kind as
+   bound to the skill floor (wrong-by-default `explain` output).
+2. drift.rs:635,672 — iterates the stale 2-entry BUILTIN_KINDS const
+   (kind.rs:30) while four kinds are embedded; memory kinds invisible to
+   drift classification.
+3. import.rs:697-704, 1007-1015 — authored-layer carry-forward silently
+   degrades to "nothing to carry" on an unreadable prior surface (data-loss
+   edge; moot when document carriage is demolished, real until then).
+
 ## SDK dogfood-migration seams (surfaced by the 2026-07-04 pilot) — ALL RULED
 
 The dogfood-migration pilot (temper's two live rules authored through the SDK,
