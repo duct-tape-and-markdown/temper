@@ -7,8 +7,7 @@
       "section": "The seam — one implementation"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GATE-CORPUS-ARTIFACTS-LOCK"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
