@@ -1,91 +1,5 @@
 [
   {
-    "tag": "RUNG-DECODIFY-CODE",
-    "summary": "De-codify the rung in code: rework the genre-ordinal and carriage strings onto fact language — the ratified corpus names postures, ordinals are out of contract text",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "Rework the leaf-grain coverage disclosure off the `below rung 3` ordinal onto the ratified fact phrasing — `N documents carry no genre values — not represented at leaf grain` (20-surface, the read-family Decision, line ~583). Fix the document/documents verb agreement (`1 document carries` / `N documents carry`). Sweep the `rung 3`/`mixed-rung` wording out of the disclosure strings AND the doc comments at ~507/597/628/668 (the coverage-disclosure altitude sense only; leave the admissibility-recursion sense untouched — it lives only in specs)."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Reword `up a carriage rung` onto the named carriage move — `into a richer carriage (in-place → document → module)` (20-surface, CLI surface, line ~519) — in the module header (~9-10), the comment at ~276, and the `init --lift` doc comments at ~333/344. No behavior change; strings/comments only."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Reword the `carriage rung`/`rung-3 on-ramp`/`mixed-rung` strings and clap help onto fact language (~112/118/126/261/289): the carriage-move help becomes the named `in-place → document → module` move, the leaf-read help becomes `carry no genre values`. Strings/help/comments only."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Reword the `migrates a rung` doc comment (~1524) onto the named carriage move. Comment only."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Rename `init_lift_migrates_one_member_up_a_carriage_rung` and its comment (~309-310) off the rung ordinal onto the carriage-move phrasing; assertions unchanged."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Update the coverage assertion (`1 document below rung 3`, ~772) and the `rung 3`/`mixed-rung` comments (~666/704/711/722/765) to the ratified `carry no genre values` phrasing."
-        },
-        {
-          "path": "tests/snapshots/read_verbs__context_leaf_grain.snap",
-          "description": "Update the `Coverage: 1 document below rung 3 …` line to the reworded fact phrasing (accept by `mv .snap.new .snap` — cargo-insta is not installed)."
-        },
-        {
-          "path": "tests/snapshots/read_verbs__impact_leaf_grain.snap",
-          "description": "Update the `Coverage: 0 documents below rung 3 …` line to the reworded fact phrasing (accept by `mv .snap.new .snap`)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "the leaf-grain coverage disclosure reads `N document(s) carr(y/ies) no genre values — not represented at leaf grain`, with correct singular/plural agreement, on both the found and not-found answers."
-      }
-    ],
-    "acceptance": "`rg -i rung src/ tests/` returns empty; the coverage disclosure and carriage-move help read the ratified fact language (`carry no genre values`; `into a richer carriage (in-place → document → module)`); cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 07-03 (`specs:` d4a6999). Pure rewording — no behavior change; the two read_verbs snapshots re-accept. Disjoint from INSTALL-NOTE-CONTENT-DRIFT (no shared file), so both may run in parallel."
-  },
-  {
-    "tag": "INSTALL-NOTE-CONTENT-DRIFT",
-    "summary": "Make `install`'s managed-by note content-drift-aware: a reworded note body re-places instead of reporting `unchanged`, so `gate-installed` stops passing a stale note",
-    "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Decision: `install` projects the gate's wiring; drift keeps it synced"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`project_note` (~658) is presence-based: it keys idempotence on the `NOTE_MARKER` prefix alone, so a frontmatter already carrying a marked note line is returned verbatim even when that line's bytes differ from the current `NOTE_COMMENT` — a reworded note (post-INSTALL-DRIFT-STRINGS) never refreshes and drift reports `Unchanged`. Compare the placed note's bytes against `NOTE_COMMENT`: when the marked line differs, replace it (splice the current `NOTE_COMMENT` in place of the stale line); when it matches, stay verbatim (still idempotent). `drift keeps it synced` means a changed placement re-places."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a projection whose frontmatter carries a marked note with retired body text re-places to the current `NOTE_COMMENT` on install (outcome not `Unchanged`); an already-current note stays `Unchanged`; a second install is idempotent."
-      }
-    ],
-    "acceptance": "A stale managed-by note body re-places on the next `install` and `gate_installed` no longer reports it undrifted; a current note is left byte-verbatim and idempotent; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox 07-03. Interim workaround was a hand-cycle (delete line, re-run install). Scoped to `project_note` in install.rs + tests/install.rs — disjoint from RUNG-DECODIFY-CODE. NB the modeline (`project_modeline`) is also presence-based but its content is a stable schema ref; align it only if the entry proves it needs it — don't widen scope silently."
-  },
-  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {
@@ -177,8 +91,13 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Content-faithful, deterministically emitted (law 5)"
     },
-    "gate": { "kind": "parked", "reason": "sdk/** is TS; build's validation gates are cargo-only (chain.ts) so a build tick can't run the SDK's tsc/node --test — a human must wire a `sdk` gate into chain.ts (`.flume/`, human territory) before this ships. See `(sdk-build-gate)`. Publish name/scope still parked on PACKAGING-CHANNELS." },
-    "dependsOnForks": ["sdk-build-gate"],
+    "gate": {
+      "kind": "parked",
+      "reason": "sdk/** is TS; build's validation gates are cargo-only (chain.ts) so a build tick can't run the SDK's tsc/node --test — a human must wire a `sdk` gate into chain.ts (`.flume/`, human territory) before this ships. See `(sdk-build-gate)`. Publish name/scope still parked on PACKAGING-CHANNELS."
+    },
+    "dependsOnForks": [
+      "sdk-build-gate"
+    ],
     "files": {
       "new": [],
       "edit": [
@@ -210,8 +129,13 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Mentions — prose that declares its own references"
     },
-    "gate": { "kind": "blockedBy", "tag": "SDK-EMIT-BYTE-PARITY" },
-    "dependsOnForks": ["sdk-build-gate"],
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-EMIT-BYTE-PARITY"
+    },
+    "dependsOnForks": [
+      "sdk-build-gate"
+    ],
     "files": {
       "new": [],
       "edit": [
@@ -247,8 +171,13 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Content-faithful, deterministically emitted (law 5)"
     },
-    "gate": { "kind": "blockedBy", "tag": "SDK-BODY-RESOLUTION" },
-    "dependsOnForks": ["sdk-build-gate"],
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-BODY-RESOLUTION"
+    },
+    "dependsOnForks": [
+      "sdk-build-gate"
+    ],
     "files": {
       "new": [
         {
