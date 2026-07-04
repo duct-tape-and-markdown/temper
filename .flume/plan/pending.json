@@ -7,8 +7,7 @@
       "section": "The surface: the assembly over its contents"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-EMIT-REFUSALS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -42,7 +41,7 @@
       }
     ],
     "acceptance": "`emit` returns and `writeEmit` writes the two temper-owned assembly artifacts (bindings, roster); output is double-emit stable; the manifest/projection/lock bytes are unchanged and the engine read path is untouched; `pnpm --dir sdk test` green.",
-    "notes": "Ratified reconcile, in-fence item (2c). Additive by design: the engine still reads the existing manifest until its sunset (D6, evidence-gated behind the dogfood migration — no demolition here). Blocked on SDK-EMIT-REFUSALS: both touch sdk/src/emit.ts."
+    "notes": "Ratified reconcile, in-fence item (2c). Additive by design: the engine still reads the existing manifest until its sunset (D6, evidence-gated behind the dogfood migration — no demolition here). SDK-EMIT-REFUSALS shipped (173f4fa) — this is now the pickable head; sdk/** only, in-fence, emit surface stable."
   },
   {
     "tag": "CONTRACT-DIR",
