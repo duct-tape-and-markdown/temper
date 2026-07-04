@@ -7,8 +7,7 @@
       "section": "The seam — one implementation"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCK-DECLARATION-ROWS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {

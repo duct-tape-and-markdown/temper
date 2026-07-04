@@ -1,29 +1,26 @@
 # Plan state
 
-- **Phase:** demolition-wave filed. HEAD 146a646 (+ this plan commit). Inbox drained.
-- **This tick:** John's go-ruling (inbox 2026-07-04, "let's go") UNBLOCKED the
-  six-noun engine demolition. Filed it as one **linear serialized chain**
-  (build-order per John's own enumeration), because the blast radii are deeply
-  entangled — manifest/KIND/PACKAGE references span nearly every src file, so a
-  parallel fan-out would conflict-and-revert. Chain: LOCK-DECLARATION-ROWS
-  (open head) → GATE-CORPUS-ARTIFACTS-LOCK → SDK-RECUT-CORPUS-FACE → CLI-COLLAPSE
-  (+ temper guard) → MANIFEST-MACHINERY-RETIRE → KIND-PACKAGE-PARSE-RETIRE →
-  EXPLAIN-UNIFY (terminal, fork-gated). PACKAGING-CHANNELS stays parked on human
-  creds. Self-gate deactivated for the wave (chain.ts, John's commit); dogfood
-  artifacts go stale by design; session runs the wave-end confirmation + re-arm.
-- **In flight:** LOCK-DECLARATION-ROWS is the one pickable `open` entry; the
-  rest of the chain is `blockedBy` its predecessor, drained one tick at a time
-  (a ship unblocks the next on the following reconcile).
-- **Fork-gated tail:** EXPLAIN-UNIFY carries `dependsOnForks:
-  ["explain-target-disambiguation"]` — the corpus does not specify how one
-  `explain <target>` resolves across member/requirement/address/neighborhood
-  (member-vs-requirement name collision). It is a terminal leaf blocking nothing;
-  John must rule the target-resolution mechanism before build picks it.
-- **What's next:** build drains the chain from LOCK-DECLARATION-ROWS; plan
-  re-reconciles per green tick and unblocks the next link. Human halves:
-  explain's target resolution; PACKAGING-CHANNELS creds; the session's
-  fence-side .claude/specs migration onto the SDK face once emit lands.
+- **Phase:** demolition-wave draining. HEAD 5df6de9 (+ this plan commit). Inbox
+  empty; no corpus change since last reconcile.
+- **Last shipped:** LOCK-DECLARATION-ROWS (build 957e83b / chore 5df6de9) — the
+  lock grew a declaration-row family (`[[declaration.{kind,clause,requirement,
+  assembly}]]`) beside provenance + emit fingerprints; `drift::read_declarations`
+  reads it back. Verified on disk: the reader exists but is **not yet wired** into
+  the gate — `check` still reads `temper.toml`-as-corpus (main.rs:435-508). So the
+  next link is real, unshipped work.
+- **This tick:** LOCK-DECLARATION-ROWS shipping unblocks its successor —
+  **GATE-CORPUS-ARTIFACTS-LOCK** flips `blockedBy → open` (the gate re-points its
+  corpus read to the lock's declaration rows + committed `.claude/**` artifacts).
+  One-line reconcile; nothing else in the chain moved.
+- **In flight:** GATE-CORPUS-ARTIFACTS-LOCK is the one pickable `open` head; the
+  chain tail stays serialized behind it — SDK-RECUT-CORPUS-FACE →
+  CLI-COLLAPSE (+ temper guard) → MANIFEST-MACHINERY-RETIRE →
+  KIND-PACKAGE-PARSE-RETIRE → EXPLAIN-UNIFY (terminal, fork-gated on
+  `(explain-target-disambiguation)`). PACKAGING-CHANNELS parked on human creds.
+- **What's next:** build drains from GATE-CORPUS-ARTIFACTS-LOCK; plan re-reconciles
+  per green tick and unblocks the next link. Human halves: explain's target
+  resolution; PACKAGING-CHANNELS creds; the session's fence-side migration once
+  emit lands.
 
-Plan continues: no — the demolition wave is filed as a serialized chain with a
-pickable open head, inbox drained, state re-derived. Building is how the queue
-drains now; the next moves are build (the chain) and John (explain's fork).
+Plan continues: no — the queue is reconciled to the shipped LOCK entry, a
+pickable `open` head exists, inbox is empty. Building is how the queue drains now.
