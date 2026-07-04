@@ -73,8 +73,8 @@ emit_hash = "8f401011bbe3e24636485a822d2faffff925f240c84448b7e330dc5132f9cb5c"
 [[intent]]
 name = "05-model"
 source_path = "./specs/intent/05-model.md"
-source_hash = "4979c7a957259933bbcaf0a2c1eb636b1f7912d1c815789c465f6aada836aaa1"
-emit_hash = "4979c7a957259933bbcaf0a2c1eb636b1f7912d1c815789c465f6aada836aaa1"
+source_hash = "b1fbcb469537b7704022adbfdbd1cce4552c59c1b0663ef04ee74f2c237d8408"
+emit_hash = "b1fbcb469537b7704022adbfdbd1cce4552c59c1b0663ef04ee74f2c237d8408"
 
 [[intent]]
 name = "55-offering"

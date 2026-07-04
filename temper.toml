@@ -5218,359 +5218,297 @@ required = true
 [[member]]
 kind = "intent"
 name = "05-model"
-line_count = 158
+line_count = 132
 source_dir = "intent"
-headings = ["The domain model — temper's own concepts", "The spine: two algebras, one type", "The concepts", "The relationships", "Contract scope is quantification arity — one engine, a widening lens", "The two cross-cutting axes", "Reflexive"]
+headings = ["The domain model — temper's own concepts", "The spine: two algebras, two walls", "The six nouns", "The relationships", "The two cross-cutting axes", "Reflexive"]
 
 [[member.section]]
 heading = "The domain model — temper's own concepts"
-body = """
+body = '''
 
 The concept vocabulary of temper itself and how the pieces relate. Each concept is
 detailed in its **owning spec**; this file owns the **relationships** between them.
-Reflexively, it is the model temper's own `spec` kind would declare for this corpus
+Reflexively, it is the model temper's own spec kinds declare for this corpus
 (`15-kinds.md`) — the compiler describing itself in its own types.
 
-## The spine: two algebras, one type
+## The spine: two algebras, two walls
 
 temper is built from two **closed algebras** — fixed vocabularies deliberately *too
 weak to lie* (`10-contracts.md`):
 
-- the **extraction algebra** bounds what may be **read** (`15-kinds.md`);
-- the **predicate algebra** bounds what may be **required** (`10-contracts.md`).
+- the **extraction algebra** bounds what may be **read**: the SDK's typed field and
+  feature constructors, lowered onto four generic mechanics — frontmatter, sections,
+  fenced blocks, directives (`15-kinds.md`);
+- the **predicate algebra** bounds what may be **required**: the closed clause
+  vocabulary, judged at three scopes (`10-contracts.md`, `45-governance.md`).
 
-Each composes into one of two declarations: a **kind** is a declared *extraction*
-(how to read a class of artifact); a **contract** is a declared set of *clauses*
-(what an artifact must satisfy). They are a **pipeline, not a mirror**: extraction
-reads an artifact into *features*, and a contract's predicates are checked over those
-features. So extraction is the **soundness boundary** — the predicate algebra can
-only require what extraction can decidably read.
+They are a **pipeline, not a mirror**: extraction reads members into features, and
+clauses are judged over (features, graph). Extraction is the **soundness boundary** —
+a clause is sound only if its feature is deterministically extractable.
 
-A kind and its **artifact-scope contract** together are a **type** — the narrowest,
-sharpest pairing. Widen what the contract quantifies over and it stops being a type
-(the three arities below).
-
-The two algebras are the **declare-side** and the **require-side** of one cleave, and
-they land in distinct homes. What you *declare* — a **kind** (extraction + entities +
-relationships) — is the schema-ish structure. What you *require* — a **contract**
-(clauses) — is carried by a **package** bound to that kind. The **assembly**
-(`temper.toml`) composes the two: it binds packages to kinds and declares the roster +
-relationships that must hold across the corpus. A per-artifact type-check is one clause
-in a package, not the whole of it (`00-intent.md` positioning).
+The cleave: what you **declare** is a **kind** — a typed constructor whose runtime
+residue is five facts. What you **require** is **clause data attached in the
+assembly** by two quantifiers — `expect` (universal: every member of a kind owes
+these) and `require` (existential: the harness must contain a fill). A kind and the
+`expect` clauses over it are a **type**; both algebras reach the author twice — the
+**keystroke wall** (tsc over the SDK's plain interfaces) and the **conformance wall**
+(the gate over committed artifacts plus the lock).
 
 ```
-   EXTRACTION algebra                  PREDICATE algebra
-   (what may be READ —                 (what may be REQUIRED)
-    the soundness boundary)
-        │ composes                          │ composes
-        ▼                                    ▼
-      KIND ── reads artifact into ─► features ─ checked by ─► CONTRACT
-                                                                 │
-   kind + its artifact-scope contract = a TYPE  ◄────conformance─┘
-
-   SDK ────── emit (checked) ──────► LANDSCAPE (.claude/, specs/) + LOCK
-   (the typed library: members,        the committed harness artifacts the
-    kinds, packages, the ASSEMBLY      engine reads, governed by the assembly
-    as typed values; unadopted         via REQUIREMENTS (roster) · ENTITIES
-    members live in place)             (graph)  │
-        ▲ init (one-time lift)                  │
-        └───────────────────────────────  a PACKAGE binds a kind's contract (require-side)
+        SDK  (the only authoring surface — implements no semantics)
+  members · kinds · genres · clauses · harness()     every type ERASES at the seam
+        │
+        ├── emit (total · byte-reproducible · refusing) ──► committed artifacts + LOCK
+        │                                                    (the committed seam)
+        ▼                                                          │
+   plain data (in-flight, internal, version-pinned)                ▼
+        ENGINE  (the only implementation: emit · lock · gate · explain)
+        extract ─► assemble (one graph + the WORLD node) ─► judge (node · node-set · edge)
 ```
 
-## The concepts
+## The six nouns
 
-The vocabulary; the **owning spec** carries the detail.
+**harness, member, kind, clause, requirement, prose** — the vocabulary every
+placement speaks (`50-distribution.md`, no synonyms). The table adds the supporting
+concepts they derive.
 
 | Concept | Is | Owning spec |
 |---|---|---|
-| extraction algebra | closed vocabulary of deterministic extractors (the soundness boundary) | `15-kinds.md` |
-| predicate algebra | closed vocabulary of decidable predicates | `10-contracts.md` |
-| **kind** | the declare-side: a class of artifact = a declared extraction (+ optional entities/relationships) | `15-kinds.md` |
-| **contract** | the require-side: clauses over a kind's features (never a synonym for `temper.toml` or a package) | `10-contracts.md` |
-| clause | one predicate application; carries severity + fact/opinion | `10` / `15` |
-| **package** | a reusable, bindable bundle of a kind's contract (decidable clauses) + guidance (prose, never gates), two separate channels; itself a kind, checked by the definition; shipped *or* project-authored (non-privileged) | `10-contracts.md` |
-| **assembly** | the layered binding declaration: binds packages to kinds, declares requirements (the roster) + relationships-that-must-exist — authored in the SDK, locusless facts emitted as temper-owned artifacts | `40-composition.md` |
-| **SDK** | the typed module library — members, kinds, packages, the assembly as typed values; composition is an import; `emit` compiles it into the harness artifacts | `20-surface.md` |
-| **interchange** | the member schema — the in-memory contract between the SDK and the engine, pinned by the contract fixtures; never a committed file. The **lock** is the committed freshness anchor | `20-surface.md` |
-| emit | the checked compile: SDK → harness artifacts + lock; refuses on declare-side failures; byte-reproducible or it is a finding | `20-surface.md` |
-| **artifact** | an instance of a kind (typed fields, content-faithful body, `extra` unknown-key catch-all, companions, provenance) | `20-surface.md` |
-| **member** | the role an instance artifact plays vs a governing package/kind; carried one of three ways — **module-carried** (a typed value in the SDK), **document-carried** (migration-era header-over-body document), **in-place** (the landscape file itself is the member) — one feature shape however carried | `20-surface.md` |
-| **mention** | an authored prose interpolation of a declared value: a one-way, resolution-checked, obligation-free edge; opt-in per word, forever (law 8) | `45-governance.md` |
-| **landscape** | a corpus of artifacts (≥1 kinds) governed by the assembly | `30-landscapes.md` |
-| **surface** | the authored source of truth (the SDK; in-place members where unadopted); compiles to the landscape | `20-surface.md` |
-| projection | the on-disk landscape `emit` writes from the surface | `20-surface.md` |
-| **requirement** | the demand-side end of a fill edge, published by the assembly or a member's header: a named obligation (optional `means`, typing `kind`/`package`, multiplicity), joined to a member by `satisfies` — the sole binding, no name-`match` (the contract never guesses); coverage-gated, never judged | `10-contracts.md` |
-| **satisfies** | the member-side end of the same edge: an artifact's opt-in declaration (in its representation) that it fills a requirement — the sole, decidable fill | `10-contracts.md` |
-| **join** | the two-sided relationship mechanism: a demand and a claim that must agree — requirement/satisfies are its ends; every intra-world edge is one (one-way edges exist only at the governance boundary) | `45-governance.md` |
-| **world** | the ungoverned exterior (harness runtime, repo) as one distinguished graph node; touches members only via boundary edges — activation in (`15-kinds.md`), flattened pointers out | `45-governance.md` |
-| entity / relationship | nodes / edges of a kind's dependency graph — declared in headers and structured fields, never mined from prose (law 8); member-to-member edges are joins | `15` / `45` |
+| **harness** | the assembly value — `harness()`: members · expect · require · settings · reachability, one typed value erasing to lock rows; no configuration dialect | `40-composition.md` |
+| **member** | the unit of authorship and the only source: name · prose? · satisfies? · requires? · needs? · typed flat fields; lives at file grain or block grain | `20-surface.md` |
+| **kind** | a class of member: a typed constructor (plain interface, tsc-checked) plus five facts of runtime residue — label, locus, layout, registration, edge fields | `15-kinds.md` |
+| **clause** | the atom of a contract: predicate · severity · guidance · cite — an SDK value that erases to compiled data; every clause decidable | `10-contracts.md` |
+| **requirement** | a named obligation on the harness: means · kind · required · count? · unique? · membership? · degree? · verifiedBy?; filled only by a member's opt-in `satisfies` (the join) | `10-contracts.md` |
+| **prose** | a typed field, never a wrapper: `file()` \| `` text`…` `` \| `blocks(…)`; the author's words byte-untouched (law 5); carries the two reference intents | `20-surface.md` |
+| genre | a kind at the block locus: members are typed fenced blocks inside host documents — full member surface, cross-kind fills, registration inherited through the host | `15-kinds.md` |
+| `expect` / `require` | the two quantifiers attaching all clause data in the assembly: universal (shape of every member of a kind) and existential (the harness contains a fill) | `40-composition.md` |
+| floor | a shared contract as nothing but an exported clause array: adoption is an import, override is a spread; shipped and project floors are the same type | `10-contracts.md` |
+| `satisfies` | the member-side end of the fill join: a string key naming a requirement, resolved at emit; dangling ⇒ finding | `40-composition.md` |
+| `needs` | the member's declared capabilities; emit derives the settings permission list from their union — a permission is never authored twice | `20-surface.md` |
+| registration | the declared member↔world edge — the kind's per-spelling fact (trigger, path scope, event, connection) over the member's data; generalizes activation | `15-kinds.md` |
+| the world | the ungoverned exterior (harness runtime, repo) as one distinguished node — the other endpoint of every registration; reachability is closure from it | `45-governance.md` |
+| mention / embed | the two prose reference intents: `${x}` names (an edge, obligation-free, citation never fallout); `${embed(x)}` pulls content (lock-fingerprinted); both resolution-checked | `20-surface.md` |
+| directive | format-executed body syntax (the `@path` import) — admitted per-kind iff the format authority documents execution; yields observed edges | `15-kinds.md` |
+| posture | the three equal authoring forms — plain prose, embedded genres, fully composed; 2 ⇄ 3 round-trips byte-stable; `init`'s lift is the move at scale | `15-kinds.md` |
+| SDK | the only authoring surface: types, constructors, one JSON pipe; implements no semantics; pins its engine | `20-surface.md` |
+| engine | the only implementation — emit, lock, gate, explain; kind- and schema-blind; checks with no language runtime (the stranger gate carries an embedded default program) | `20-surface.md` / `50-distribution.md` |
+| emit | the total compile: every artifact a projection of members (settings and `.mcp.json` many-to-one); refuses on declare-side failures; double-emit verified | `20-surface.md` |
+| the lock | tool-written, never composed: provenance rows, emit fingerprints, declaration rows — the committed seam beside the artifacts; drift is one comparison, disk vs lock | `20-surface.md` |
+| `init` | the one-time lift onto the surface — per member, byte-stable on content; drift routes to the authored source, never a reverse parse | `20-surface.md` |
+| guidance / cite | the clause's two data channels: teaching prose that cannot gate (no path from prose to predicate), and the external-fact source (URL + retrieved date) | `10-contracts.md` |
+| severity | `required` \| `advisory`, author-declared per clause; the delivery posture at each placement is likewise declared, never baked | `10-contracts.md` / `50-distribution.md` |
+| scope | what one compiled predicate ranges over: **node** (one member), **node-set** (a satisfier set or kind population), **edge** (the one graph) | `45-governance.md` |
+| conformance / admissibility | the two greens: the harness satisfies its attached clauses; the declarations satisfy the fixed, engine-owned definition — one stage, before any conformance pass | `10-contracts.md` |
+| verifier (`verifiedBy`) | wired delegation for the behavioral remainder: temper checks the judge resolves and is wired, never runs it | `10-contracts.md` |
+| landscape | a corpus of artifacts (≥1 kinds) governed by the assembly; a new landscape is more kinds, never engine code | `30-landscapes.md` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
-| verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |
-| behavioral contract | the prose surplus beyond the declared model (tier-3, human) | `00` / `30` |
-| **provider** | the authority that defines a format a kind mirrors — a tool or a standard; the kind-identity axis (`<provider>.<name>`) | `15-kinds.md` |
-| harness | the external, evolving **runtime** that consumes a landscape — the world activation edges come from; many harnesses may consume one provider's format | `15` / `45` / `50` |
-| provenance | source path + import hash; the per-artifact drift anchor | `20-surface.md` |
-| diagnostic | a clause violation the engine reports | `10-contracts.md` |
+| provider module | a provider is an npm module (`@temper/claude-code`); kind identity travels **by import, never by string** — collision is impossible | `15-kinds.md` |
+| `explain` | the one read verb: every read question is one graph walked from a different corner; projections, never gates; discloses coverage | `20-surface.md` |
+
+Dissolved by the six-noun re-cut (2026-07-04; pre-states: the `manifest-era`,
+`bound-prose-era`, `mirror-era` tags): the **package** noun (an exported clause
+array needs no carrier artifact, identity rules, or layering machinery); the
+**manifest as the gate's corpus** (the committed seam is artifacts + lock; CI's
+`emit --frozen` byte-compare is the integrity check); hand-authored **kind/package
+grammar files**; the **artifact/member role split** (the member *is* the unit —
+"artifact" now names only the emitted on-disk output); the **carriage gradient**
+(three equal postures, no adoption ladder).
 
 ## The relationships
 
-- a **kind** *reads* an **artifact** into **features**; the **contract** a **package**
-  carries *validates* those features (conformance).
-- an **artifact** is an *instance of* a **kind** and *lives in* a **landscape**; the
-  ones a package checks play the **member** role.
-- a **landscape** is governed by the **assembly** layered over the by-kind
-  built-in defaults — which **bind** a **package** to each kind (dispatching its
-  artifact-scope contract per member), declares **requirements** (the roster) and, when
-  a kind declares entities, the **relationships-that-must-exist** (the graph).
-- an author *adopts / extends / forks* a **package** and binds it in the assembly, and
-  declares **custom kinds** as authored artifacts under `.temper/` (`40-composition.md`).
-- a **surface** is the authored source — the **SDK** (the typed library),
-  with unadopted members living **in place**. **emit** compiles the SDK to
-  the landscape on disk plus the **lock**; `init` adopts an existing harness
-  once; a hand-edit to the projection is a drift finding routed to the
-  authored source, never reverse-parsed (`20-surface.md`).
-- a **mention** interpolates a declared value into authored prose — a declared
-  one-way edge the gate resolution-checks and the obligation graph ignores
-  (`45-governance.md`); the module graph of the face and the join graph carry
-  the same intent at two grains.
-- landscapes reference each other: a declared **entity** in one may require a
-  corresponding entity/symbol in another — the **cross-landscape seam** (spec ⟷
-  code), checked both directions (`30-landscapes.md`).
-- a **verifier** is named by a `verified_by` clause on a **requirement**; temper checks
-  it **resolves and is wired**, never runs it (`10-contracts.md`).
-- two checks: **conformance** = a landscape satisfies the assembly (an artifact
-  conforms to its bound package / a roster is filled + wired / a model resolves);
-  **admissibility** = the assembly and each package ⊨ the definition (the algebras +
-  structural rules). Two greens (`00`).
-
-## Contract scope is quantification arity — one engine, a widening lens
-
-The three instances of `10-contracts.md` are the same engine widening only in *what
-each predicate ranges over* — its **arity** — never in the landscape it runs in.
-Only the narrowest (over one artifact) is a *type* (a kind's dual); the wider arities
-are the same engine, not types. **Arity is not a landscape:** harness, spec, and code
-(`30-landscapes.md`) each draw on whichever arities their contract needs — a harness
-is itself a graph (`45-governance.md`) and uses all three; no landscape *owns* a
-scope. `type` / `interface` / `schema` are how each arity *reads*, not what it *is*.
-
-| Scope (arity) | predicate ranges over | reads as |
-|---|---|---|
-| **artifact** | one matched artifact's features | a **type** |
-| **set** (a requirement's fillers) | the *set* of artifacts filling a requirement — count, membership, unique | an **interface / trait** |
-| **graph** (the model) | a relation graph of declared edges — degree, acyclic | a **schema / ontology** |
+- a **kind** declares how its members are read (five facts over generic extraction)
+  and where they live (two loci: `at(path)`, `genre(within hosts)`).
+- the **assembly** lists members, attaches every demand (`expect` universal,
+  `require` existential), holds the settings residual and the reachability dial.
+- a **requirement** and a member's **`satisfies`** are two ends of one edge; unfilled
+  and dangling are the same diagnostic from opposite sides. A member's own
+  **`requires`** publishes demands from where the concept lives.
+- the judge sees **one graph**: members (file and block grain) plus the world;
+  edges from reference fields, `satisfies`, embeds and mentions, registrations —
+  all declared, never mined (law 8).
+- **reachability** is closure from the world over registration then embed edges
+  (mentions never propagate liveness); **blast radius** is the same closure
+  inverted, reported by `explain` with citations separate from fallout.
+- **emit** compiles the whole surface to committed artifacts plus the lock;
+  **drift** is disk vs lock, remedied at the authored source; CI re-runs
+  `emit --frozen` and byte-compares.
+- two checks, two greens: **admissibility** (declarations ⊨ the definition — the
+  fixed, un-authorable algebra) then **conformance** (harness ⊨ its clauses).
 
 ## The two cross-cutting axes
 
-**Ownership — built-in vs custom.** *Who* owns a kind / package: **built-in**
-(temper-maintained — the interface to known harnesses) or **custom** (author-defined
-— project kinds and packages). Not a separate mechanism; it cuts across kinds
-(harness vs project) and packages (shipped vs project-authored, `base ∪ custom`) —
-the *same* non-privilege for both (`15-kinds.md`).
+**Ownership — by module.** Built-in kinds and floors ship as a published SDK module
+(`@temper/claude-code`) plus the engine's embedded default program; custom kinds are
+the project's own modules, same constructor, same five facts. No privilege either
+way (`15-kinds.md`).
 
 **Verdict tier — which check resolves where.** Orthogonal to severity: **tier-1**
-structural decides via a **clause** (decidable → the hard gate); **tier-2** judged
-decides via a **judge** (advisory, deferred); **tier-3** intent delegates to a
-**verifier** over the **behavioral contract** (human). A clause is always tier-1;
-its severity (required / advisory) is the separate axis. (`00-intent.md`.)
+structural decides via a compiled clause (decidable → the hard gate); **tier-2**
+judged is deferred; **tier-3** intent delegates to a wired **verifier** over the
+behavioral contract (human territory). A clause is always tier-1; its severity is
+the separate axis (`00-intent.md`).
 
 ## Reflexive
 
-Every concept is an instance of itself: this corpus is a **landscape**; its files are
-**member artifacts** of the three placement-classed **kinds** (`intent` /
-`architecture` / `process`, `specs/process/90-spec-system.md`); checked by the
-**contract** each class's **package** carries; and the **entities + relationships**
-of this model are what those kinds would declare for
-temper's own corpus. The engine governs the harness that builds it (`00-intent.md`
-self-hosting) — and, here, the model that defines it."""
+Every concept is an instance of itself: this corpus is a **landscape**; its files
+are **members** of the three placement-classed custom kinds (`intent` /
+`architecture` / `process`, `90-spec-system.md`); its decisions are **genre**
+members-in-waiting (the postures stay equal); the clauses over it ride the
+project's own module. The engine governs the harness that builds it
+(`00-intent.md` self-hosting) — and, here, the model that defines it.'''
 
 [[member.section]]
-heading = "The spine: two algebras, one type"
+heading = "The spine: two algebras, two walls"
 body = """
 
 temper is built from two **closed algebras** — fixed vocabularies deliberately *too
 weak to lie* (`10-contracts.md`):
 
-- the **extraction algebra** bounds what may be **read** (`15-kinds.md`);
-- the **predicate algebra** bounds what may be **required** (`10-contracts.md`).
+- the **extraction algebra** bounds what may be **read**: the SDK's typed field and
+  feature constructors, lowered onto four generic mechanics — frontmatter, sections,
+  fenced blocks, directives (`15-kinds.md`);
+- the **predicate algebra** bounds what may be **required**: the closed clause
+  vocabulary, judged at three scopes (`10-contracts.md`, `45-governance.md`).
 
-Each composes into one of two declarations: a **kind** is a declared *extraction*
-(how to read a class of artifact); a **contract** is a declared set of *clauses*
-(what an artifact must satisfy). They are a **pipeline, not a mirror**: extraction
-reads an artifact into *features*, and a contract's predicates are checked over those
-features. So extraction is the **soundness boundary** — the predicate algebra can
-only require what extraction can decidably read.
+They are a **pipeline, not a mirror**: extraction reads members into features, and
+clauses are judged over (features, graph). Extraction is the **soundness boundary** —
+a clause is sound only if its feature is deterministically extractable.
 
-A kind and its **artifact-scope contract** together are a **type** — the narrowest,
-sharpest pairing. Widen what the contract quantifies over and it stops being a type
-(the three arities below).
-
-The two algebras are the **declare-side** and the **require-side** of one cleave, and
-they land in distinct homes. What you *declare* — a **kind** (extraction + entities +
-relationships) — is the schema-ish structure. What you *require* — a **contract**
-(clauses) — is carried by a **package** bound to that kind. The **assembly**
-(`temper.toml`) composes the two: it binds packages to kinds and declares the roster +
-relationships that must hold across the corpus. A per-artifact type-check is one clause
-in a package, not the whole of it (`00-intent.md` positioning).
+The cleave: what you **declare** is a **kind** — a typed constructor whose runtime
+residue is five facts. What you **require** is **clause data attached in the
+assembly** by two quantifiers — `expect` (universal: every member of a kind owes
+these) and `require` (existential: the harness must contain a fill). A kind and the
+`expect` clauses over it are a **type**; both algebras reach the author twice — the
+**keystroke wall** (tsc over the SDK's plain interfaces) and the **conformance wall**
+(the gate over committed artifacts plus the lock).
 
 ```
-   EXTRACTION algebra                  PREDICATE algebra
-   (what may be READ —                 (what may be REQUIRED)
-    the soundness boundary)
-        │ composes                          │ composes
-        ▼                                    ▼
-      KIND ── reads artifact into ─► features ─ checked by ─► CONTRACT
-                                                                 │
-   kind + its artifact-scope contract = a TYPE  ◄────conformance─┘
-
-   SDK ────── emit (checked) ──────► LANDSCAPE (.claude/, specs/) + LOCK
-   (the typed library: members,        the committed harness artifacts the
-    kinds, packages, the ASSEMBLY      engine reads, governed by the assembly
-    as typed values; unadopted         via REQUIREMENTS (roster) · ENTITIES
-    members live in place)             (graph)  │
-        ▲ init (one-time lift)                  │
-        └───────────────────────────────  a PACKAGE binds a kind's contract (require-side)
+        SDK  (the only authoring surface — implements no semantics)
+  members · kinds · genres · clauses · harness()     every type ERASES at the seam
+        │
+        ├── emit (total · byte-reproducible · refusing) ──► committed artifacts + LOCK
+        │                                                    (the committed seam)
+        ▼                                                          │
+   plain data (in-flight, internal, version-pinned)                ▼
+        ENGINE  (the only implementation: emit · lock · gate · explain)
+        extract ─► assemble (one graph + the WORLD node) ─► judge (node · node-set · edge)
 ```
 """
 
 [[member.section]]
-heading = "The concepts"
-body = """
+heading = "The six nouns"
+body = '''
 
-The vocabulary; the **owning spec** carries the detail.
+**harness, member, kind, clause, requirement, prose** — the vocabulary every
+placement speaks (`50-distribution.md`, no synonyms). The table adds the supporting
+concepts they derive.
 
 | Concept | Is | Owning spec |
 |---|---|---|
-| extraction algebra | closed vocabulary of deterministic extractors (the soundness boundary) | `15-kinds.md` |
-| predicate algebra | closed vocabulary of decidable predicates | `10-contracts.md` |
-| **kind** | the declare-side: a class of artifact = a declared extraction (+ optional entities/relationships) | `15-kinds.md` |
-| **contract** | the require-side: clauses over a kind's features (never a synonym for `temper.toml` or a package) | `10-contracts.md` |
-| clause | one predicate application; carries severity + fact/opinion | `10` / `15` |
-| **package** | a reusable, bindable bundle of a kind's contract (decidable clauses) + guidance (prose, never gates), two separate channels; itself a kind, checked by the definition; shipped *or* project-authored (non-privileged) | `10-contracts.md` |
-| **assembly** | the layered binding declaration: binds packages to kinds, declares requirements (the roster) + relationships-that-must-exist — authored in the SDK, locusless facts emitted as temper-owned artifacts | `40-composition.md` |
-| **SDK** | the typed module library — members, kinds, packages, the assembly as typed values; composition is an import; `emit` compiles it into the harness artifacts | `20-surface.md` |
-| **interchange** | the member schema — the in-memory contract between the SDK and the engine, pinned by the contract fixtures; never a committed file. The **lock** is the committed freshness anchor | `20-surface.md` |
-| emit | the checked compile: SDK → harness artifacts + lock; refuses on declare-side failures; byte-reproducible or it is a finding | `20-surface.md` |
-| **artifact** | an instance of a kind (typed fields, content-faithful body, `extra` unknown-key catch-all, companions, provenance) | `20-surface.md` |
-| **member** | the role an instance artifact plays vs a governing package/kind; carried one of three ways — **module-carried** (a typed value in the SDK), **document-carried** (migration-era header-over-body document), **in-place** (the landscape file itself is the member) — one feature shape however carried | `20-surface.md` |
-| **mention** | an authored prose interpolation of a declared value: a one-way, resolution-checked, obligation-free edge; opt-in per word, forever (law 8) | `45-governance.md` |
-| **landscape** | a corpus of artifacts (≥1 kinds) governed by the assembly | `30-landscapes.md` |
-| **surface** | the authored source of truth (the SDK; in-place members where unadopted); compiles to the landscape | `20-surface.md` |
-| projection | the on-disk landscape `emit` writes from the surface | `20-surface.md` |
-| **requirement** | the demand-side end of a fill edge, published by the assembly or a member's header: a named obligation (optional `means`, typing `kind`/`package`, multiplicity), joined to a member by `satisfies` — the sole binding, no name-`match` (the contract never guesses); coverage-gated, never judged | `10-contracts.md` |
-| **satisfies** | the member-side end of the same edge: an artifact's opt-in declaration (in its representation) that it fills a requirement — the sole, decidable fill | `10-contracts.md` |
-| **join** | the two-sided relationship mechanism: a demand and a claim that must agree — requirement/satisfies are its ends; every intra-world edge is one (one-way edges exist only at the governance boundary) | `45-governance.md` |
-| **world** | the ungoverned exterior (harness runtime, repo) as one distinguished graph node; touches members only via boundary edges — activation in (`15-kinds.md`), flattened pointers out | `45-governance.md` |
-| entity / relationship | nodes / edges of a kind's dependency graph — declared in headers and structured fields, never mined from prose (law 8); member-to-member edges are joins | `15` / `45` |
+| **harness** | the assembly value — `harness()`: members · expect · require · settings · reachability, one typed value erasing to lock rows; no configuration dialect | `40-composition.md` |
+| **member** | the unit of authorship and the only source: name · prose? · satisfies? · requires? · needs? · typed flat fields; lives at file grain or block grain | `20-surface.md` |
+| **kind** | a class of member: a typed constructor (plain interface, tsc-checked) plus five facts of runtime residue — label, locus, layout, registration, edge fields | `15-kinds.md` |
+| **clause** | the atom of a contract: predicate · severity · guidance · cite — an SDK value that erases to compiled data; every clause decidable | `10-contracts.md` |
+| **requirement** | a named obligation on the harness: means · kind · required · count? · unique? · membership? · degree? · verifiedBy?; filled only by a member's opt-in `satisfies` (the join) | `10-contracts.md` |
+| **prose** | a typed field, never a wrapper: `file()` \| `` text`…` `` \| `blocks(…)`; the author's words byte-untouched (law 5); carries the two reference intents | `20-surface.md` |
+| genre | a kind at the block locus: members are typed fenced blocks inside host documents — full member surface, cross-kind fills, registration inherited through the host | `15-kinds.md` |
+| `expect` / `require` | the two quantifiers attaching all clause data in the assembly: universal (shape of every member of a kind) and existential (the harness contains a fill) | `40-composition.md` |
+| floor | a shared contract as nothing but an exported clause array: adoption is an import, override is a spread; shipped and project floors are the same type | `10-contracts.md` |
+| `satisfies` | the member-side end of the fill join: a string key naming a requirement, resolved at emit; dangling ⇒ finding | `40-composition.md` |
+| `needs` | the member's declared capabilities; emit derives the settings permission list from their union — a permission is never authored twice | `20-surface.md` |
+| registration | the declared member↔world edge — the kind's per-spelling fact (trigger, path scope, event, connection) over the member's data; generalizes activation | `15-kinds.md` |
+| the world | the ungoverned exterior (harness runtime, repo) as one distinguished node — the other endpoint of every registration; reachability is closure from it | `45-governance.md` |
+| mention / embed | the two prose reference intents: `${x}` names (an edge, obligation-free, citation never fallout); `${embed(x)}` pulls content (lock-fingerprinted); both resolution-checked | `20-surface.md` |
+| directive | format-executed body syntax (the `@path` import) — admitted per-kind iff the format authority documents execution; yields observed edges | `15-kinds.md` |
+| posture | the three equal authoring forms — plain prose, embedded genres, fully composed; 2 ⇄ 3 round-trips byte-stable; `init`'s lift is the move at scale | `15-kinds.md` |
+| SDK | the only authoring surface: types, constructors, one JSON pipe; implements no semantics; pins its engine | `20-surface.md` |
+| engine | the only implementation — emit, lock, gate, explain; kind- and schema-blind; checks with no language runtime (the stranger gate carries an embedded default program) | `20-surface.md` / `50-distribution.md` |
+| emit | the total compile: every artifact a projection of members (settings and `.mcp.json` many-to-one); refuses on declare-side failures; double-emit verified | `20-surface.md` |
+| the lock | tool-written, never composed: provenance rows, emit fingerprints, declaration rows — the committed seam beside the artifacts; drift is one comparison, disk vs lock | `20-surface.md` |
+| `init` | the one-time lift onto the surface — per member, byte-stable on content; drift routes to the authored source, never a reverse parse | `20-surface.md` |
+| guidance / cite | the clause's two data channels: teaching prose that cannot gate (no path from prose to predicate), and the external-fact source (URL + retrieved date) | `10-contracts.md` |
+| severity | `required` \| `advisory`, author-declared per clause; the delivery posture at each placement is likewise declared, never baked | `10-contracts.md` / `50-distribution.md` |
+| scope | what one compiled predicate ranges over: **node** (one member), **node-set** (a satisfier set or kind population), **edge** (the one graph) | `45-governance.md` |
+| conformance / admissibility | the two greens: the harness satisfies its attached clauses; the declarations satisfy the fixed, engine-owned definition — one stage, before any conformance pass | `10-contracts.md` |
+| verifier (`verifiedBy`) | wired delegation for the behavioral remainder: temper checks the judge resolves and is wired, never runs it | `10-contracts.md` |
+| landscape | a corpus of artifacts (≥1 kinds) governed by the assembly; a new landscape is more kinds, never engine code | `30-landscapes.md` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
-| verifier (`verified_by`) | external check for the undecidable remainder | `10-contracts.md` |
-| behavioral contract | the prose surplus beyond the declared model (tier-3, human) | `00` / `30` |
-| **provider** | the authority that defines a format a kind mirrors — a tool or a standard; the kind-identity axis (`<provider>.<name>`) | `15-kinds.md` |
-| harness | the external, evolving **runtime** that consumes a landscape — the world activation edges come from; many harnesses may consume one provider's format | `15` / `45` / `50` |
-| provenance | source path + import hash; the per-artifact drift anchor | `20-surface.md` |
-| diagnostic | a clause violation the engine reports | `10-contracts.md` |
-"""
+| provider module | a provider is an npm module (`@temper/claude-code`); kind identity travels **by import, never by string** — collision is impossible | `15-kinds.md` |
+| `explain` | the one read verb: every read question is one graph walked from a different corner; projections, never gates; discloses coverage | `20-surface.md` |
+
+Dissolved by the six-noun re-cut (2026-07-04; pre-states: the `manifest-era`,
+`bound-prose-era`, `mirror-era` tags): the **package** noun (an exported clause
+array needs no carrier artifact, identity rules, or layering machinery); the
+**manifest as the gate's corpus** (the committed seam is artifacts + lock; CI's
+`emit --frozen` byte-compare is the integrity check); hand-authored **kind/package
+grammar files**; the **artifact/member role split** (the member *is* the unit —
+"artifact" now names only the emitted on-disk output); the **carriage gradient**
+(three equal postures, no adoption ladder).
+'''
 
 [[member.section]]
 heading = "The relationships"
 body = """
 
-- a **kind** *reads* an **artifact** into **features**; the **contract** a **package**
-  carries *validates* those features (conformance).
-- an **artifact** is an *instance of* a **kind** and *lives in* a **landscape**; the
-  ones a package checks play the **member** role.
-- a **landscape** is governed by the **assembly** layered over the by-kind
-  built-in defaults — which **bind** a **package** to each kind (dispatching its
-  artifact-scope contract per member), declares **requirements** (the roster) and, when
-  a kind declares entities, the **relationships-that-must-exist** (the graph).
-- an author *adopts / extends / forks* a **package** and binds it in the assembly, and
-  declares **custom kinds** as authored artifacts under `.temper/` (`40-composition.md`).
-- a **surface** is the authored source — the **SDK** (the typed library),
-  with unadopted members living **in place**. **emit** compiles the SDK to
-  the landscape on disk plus the **lock**; `init` adopts an existing harness
-  once; a hand-edit to the projection is a drift finding routed to the
-  authored source, never reverse-parsed (`20-surface.md`).
-- a **mention** interpolates a declared value into authored prose — a declared
-  one-way edge the gate resolution-checks and the obligation graph ignores
-  (`45-governance.md`); the module graph of the face and the join graph carry
-  the same intent at two grains.
-- landscapes reference each other: a declared **entity** in one may require a
-  corresponding entity/symbol in another — the **cross-landscape seam** (spec ⟷
-  code), checked both directions (`30-landscapes.md`).
-- a **verifier** is named by a `verified_by` clause on a **requirement**; temper checks
-  it **resolves and is wired**, never runs it (`10-contracts.md`).
-- two checks: **conformance** = a landscape satisfies the assembly (an artifact
-  conforms to its bound package / a roster is filled + wired / a model resolves);
-  **admissibility** = the assembly and each package ⊨ the definition (the algebras +
-  structural rules). Two greens (`00`).
-"""
-
-[[member.section]]
-heading = "Contract scope is quantification arity — one engine, a widening lens"
-body = """
-
-The three instances of `10-contracts.md` are the same engine widening only in *what
-each predicate ranges over* — its **arity** — never in the landscape it runs in.
-Only the narrowest (over one artifact) is a *type* (a kind's dual); the wider arities
-are the same engine, not types. **Arity is not a landscape:** harness, spec, and code
-(`30-landscapes.md`) each draw on whichever arities their contract needs — a harness
-is itself a graph (`45-governance.md`) and uses all three; no landscape *owns* a
-scope. `type` / `interface` / `schema` are how each arity *reads*, not what it *is*.
-
-| Scope (arity) | predicate ranges over | reads as |
-|---|---|---|
-| **artifact** | one matched artifact's features | a **type** |
-| **set** (a requirement's fillers) | the *set* of artifacts filling a requirement — count, membership, unique | an **interface / trait** |
-| **graph** (the model) | a relation graph of declared edges — degree, acyclic | a **schema / ontology** |
+- a **kind** declares how its members are read (five facts over generic extraction)
+  and where they live (two loci: `at(path)`, `genre(within hosts)`).
+- the **assembly** lists members, attaches every demand (`expect` universal,
+  `require` existential), holds the settings residual and the reachability dial.
+- a **requirement** and a member's **`satisfies`** are two ends of one edge; unfilled
+  and dangling are the same diagnostic from opposite sides. A member's own
+  **`requires`** publishes demands from where the concept lives.
+- the judge sees **one graph**: members (file and block grain) plus the world;
+  edges from reference fields, `satisfies`, embeds and mentions, registrations —
+  all declared, never mined (law 8).
+- **reachability** is closure from the world over registration then embed edges
+  (mentions never propagate liveness); **blast radius** is the same closure
+  inverted, reported by `explain` with citations separate from fallout.
+- **emit** compiles the whole surface to committed artifacts plus the lock;
+  **drift** is disk vs lock, remedied at the authored source; CI re-runs
+  `emit --frozen` and byte-compares.
+- two checks, two greens: **admissibility** (declarations ⊨ the definition — the
+  fixed, un-authorable algebra) then **conformance** (harness ⊨ its clauses).
 """
 
 [[member.section]]
 heading = "The two cross-cutting axes"
 body = """
 
-**Ownership — built-in vs custom.** *Who* owns a kind / package: **built-in**
-(temper-maintained — the interface to known harnesses) or **custom** (author-defined
-— project kinds and packages). Not a separate mechanism; it cuts across kinds
-(harness vs project) and packages (shipped vs project-authored, `base ∪ custom`) —
-the *same* non-privilege for both (`15-kinds.md`).
+**Ownership — by module.** Built-in kinds and floors ship as a published SDK module
+(`@temper/claude-code`) plus the engine's embedded default program; custom kinds are
+the project's own modules, same constructor, same five facts. No privilege either
+way (`15-kinds.md`).
 
 **Verdict tier — which check resolves where.** Orthogonal to severity: **tier-1**
-structural decides via a **clause** (decidable → the hard gate); **tier-2** judged
-decides via a **judge** (advisory, deferred); **tier-3** intent delegates to a
-**verifier** over the **behavioral contract** (human). A clause is always tier-1;
-its severity (required / advisory) is the separate axis. (`00-intent.md`.)
+structural decides via a compiled clause (decidable → the hard gate); **tier-2**
+judged is deferred; **tier-3** intent delegates to a wired **verifier** over the
+behavioral contract (human territory). A clause is always tier-1; its severity is
+the separate axis (`00-intent.md`).
 """
 
 [[member.section]]
 heading = "Reflexive"
 body = """
 
-Every concept is an instance of itself: this corpus is a **landscape**; its files are
-**member artifacts** of the three placement-classed **kinds** (`intent` /
-`architecture` / `process`, `specs/process/90-spec-system.md`); checked by the
-**contract** each class's **package** carries; and the **entities + relationships**
-of this model are what those kinds would declare for
-temper's own corpus. The engine governs the harness that builds it (`00-intent.md`
-self-hosting) — and, here, the model that defines it."""
+Every concept is an instance of itself: this corpus is a **landscape**; its files
+are **members** of the three placement-classed custom kinds (`intent` /
+`architecture` / `process`, `90-spec-system.md`); its decisions are **genre**
+members-in-waiting (the postures stay equal); the clauses over it ride the
+project's own module. The engine governs the harness that builds it
+(`00-intent.md` self-hosting) — and, here, the model that defines it."""
 
 [[member.fenced]]
 info = ""
 content = """
-   EXTRACTION algebra                  PREDICATE algebra
-   (what may be READ —                 (what may be REQUIRED)
-    the soundness boundary)
-        │ composes                          │ composes
-        ▼                                    ▼
-      KIND ── reads artifact into ─► features ─ checked by ─► CONTRACT
-                                                                 │
-   kind + its artifact-scope contract = a TYPE  ◄────conformance─┘
-
-   SDK ────── emit (checked) ──────► LANDSCAPE (.claude/, specs/) + LOCK
-   (the typed library: members,        the committed harness artifacts the
-    kinds, packages, the ASSEMBLY      engine reads, governed by the assembly
-    as typed values; unadopted         via REQUIREMENTS (roster) · ENTITIES
-    members live in place)             (graph)  │
-        ▲ init (one-time lift)                  │
-        └───────────────────────────────  a PACKAGE binds a kind's contract (require-side)"""
+        SDK  (the only authoring surface — implements no semantics)
+  members · kinds · genres · clauses · harness()     every type ERASES at the seam
+        │
+        ├── emit (total · byte-reproducible · refusing) ──► committed artifacts + LOCK
+        │                                                    (the committed seam)
+        ▼                                                          │
+   plain data (in-flight, internal, version-pinned)                ▼
+        ENGINE  (the only implementation: emit · lock · gate · explain)
+        extract ─► assemble (one graph + the WORLD node) ─► judge (node · node-set · edge)"""
 
 [[member.published]]
 name = "extraction-algebra"
