@@ -617,8 +617,9 @@ from exactly such a line fossilizing. If work touches one, surface it.
   change at 0.22.25, "Reduced escaping in strings", plus earlier precedents): a
   `toml_edit` version-bump entry is a **contract event** — it must re-run the SDK
   byte-parity fixtures and reconcile both writers in the *same* entry, never
-  bump-and-ship. The byte-parity fixtures (CONTRACT-DIR promotes them to
-  `contract/`) are the tripwire.
+  bump-and-ship. The byte-parity fixtures (CONTRACT-DIR promoted them to
+  `contract/`, shipped 375a1cc — `contract/{manifest,schema}/` goldens) are the
+  tripwire.
 - **`kinds/` + `packages/` are curated, fence-excluded** — kept because
   built-in definitions encode cited external facts; humans author, build
   embeds.
