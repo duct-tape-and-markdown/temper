@@ -44,6 +44,21 @@ next" names — 50-distribution's `(engine-language)` pointer (still "the open
 fork" at 50-distribution:53) and the `temper guard` Decision
 (`(guard-posture)`) — did **not** land here; 50-distribution was untouched,
 so both stay human-to-do.
+DATUM (2026-07-04, corpus catch-up 146a646): John swept the five ruled forks'
+stale "open" wording out of the corpus ("a stale 'open' is itself a latent
+reference") — `(engine-language)` now non-normative-not-open
+(10-contracts/20-surface/50-distribution), the **`temper guard` Decision**
+landed (50-distribution + 20-surface, `(guard-posture)`), `(mention-marker)`
+`${address}`-across-postures encoded (15-kinds/20-surface),
+`(settings-residual)` narrowed to project scope with the five-scope external
+fact (40-composition), `(genre-fence-format)` marked deferred-to-the-pilot
+(15-kinds). **Reconciled: no law changed, no fork newly resolved (all five
+were already RESOLVED on plan's filed recs), no cited intent moved, no pending
+entry affected** — PACKAGING-CHANNELS cites 50-distribution "Three channels"
+(line 21, untouched; the diff hit ~50 + ~113-125). The residual both-human-
+to-do above is **discharged**: both landed. Each fork's record below carries
+its corpus-delta note. Nothing pickable un-gated — `(guard-posture)`'s
+blocker (i) clears but (ii) still gates (see its record).
 DONE (2026-07-04, post-merge reconcile): **AGENT-KIND, COMMAND-KIND, and
 SETTINGS-KIND are RETIRED from pending** — every mechanism they named is
 rejected by the re-cut: there is no `KIND.md` (15-kinds "Decision: field
@@ -91,16 +106,20 @@ New forks from the ceremony:
   vs `npx` ≈ 0.32–0.73 s at the hook placements — binary favored ~25–700×) and
   the entry-gate-applied-to-rewrites argument (a rewrite discards the
   review-certified engine.rs decision table + document.rs byte-proven
-  round-trip). CORPUS CATCH-UP (John's hand): 50-distribution:53 still calls
-  this "the open fork `(engine-language)`" — cosmetic staleness, no behavior
-  rides it. Kept as the decision record; no dependent waits.
+  round-trip). CORPUS CATCH-UP DONE (146a646, John's hand): 10-contracts,
+  20-surface, and 50-distribution now say "deliberately non-normative
+  (`(engine-language)` resolved: Rust today, stated nowhere as contract)"; the
+  stale "open fork" wording is gone. No behavior rode it. Kept as the decision
+  record; no dependent waits.
 - `(mention-marker)` — RESOLVED (John 07-04, inbox): **`${address}` in
   posture-2 markdown too** — one mention spelling across all three postures
   (the no-synonyms rule applied to syntax), byte-stable 2⇄3 for free, **not**
   recognized inside code spans or fenced blocks. The embed spelling stays
   `@path`. Blocks posture-2 mention edges only — gated on the posture-2/SDK
   authoring foundation (the same human-ceremony gate as the demolition); no
-  pending entry today. Kept as the decision record.
+  pending entry today. CORPUS DELTA DONE (146a646): 20-surface + 15-kinds now
+  state `${address}` in posture-2 markdown, not inside code spans/fences.
+  Kept as the decision record.
 - `(genre-fence-format)` — RESOLVED (John 07-04, inbox): **deferred to the
   genre-adoption pilot.** Entry gate applied to the fence: no posture-2 author
   exists (zero fences in the corpus; the pilot is parked on this fork), so the
@@ -111,7 +130,10 @@ New forks from the ceremony:
   TS value shape outward, not from a Rust/TOML prior. Constraint survives
   whatever grammar wins: prose leaves render byte-exactly (law 5); the
   acceptance test (byte-stable posture-2 ↔ posture-3) is unchanged. No pending
-  entry — the pilot is not itself a pending entry. Kept as the decision record.
+  entry — the pilot is not itself a pending entry. CORPUS DELTA DONE (146a646):
+  15-kinds now marks the fence "deliberately undesigned until its first
+  consumer — the genre-adoption pilot", the TOML-fence prior explicitly
+  unbinding. Kept as the decision record.
 - `(settings-residual)` — RESOLVED (John 07-04, inbox): **focus project
   scope** — emit owns the whole project `.claude/settings.json` (typed
   project-harness facts + passthrough); personal preferences belong to the
@@ -124,7 +146,11 @@ New forks from the ceremony:
   not govern — the gating fields (enabledPlugins, marketplace lists) are
   project-harness facts, the rulesync-downstream positioning's eventual reach;
   named, not designed. Feeds the settings kind (retired from pending +
-  foundation-gated, six-noun ceremony above); no pending entry today. Kept as
+  foundation-gated, six-noun ceremony above); no pending entry today. CORPUS
+  DELTA DONE (146a646): 40-composition now narrows the residual to project
+  scope with the five-scope external fact cited (managed > CLI > local >
+  project > user, code.claude.com/docs/en/settings, retrieved 2026-07-04); the
+  exact typed field list stays open with the settings member design. Kept as
   the decision record.
 - `(guard-posture)` — RESOLVED (John 07-04, inbox): **a `temper guard`
   subcommand** reading the `PreToolUse` stdin payload in the engine; whether it
@@ -133,14 +159,22 @@ New forks from the ceremony:
   (pattern-matching prose is mining, law 8; a generated script is a second
   implementation of the gate's judgment). Keep-Rust latency (~1 ms) is what
   makes the per-tool-call placement viable — `(engine-language)` bears directly.
-  NOT YET FILEABLE as a pending entry: (i) the corpus still frames it as the
-  **open fork** (50-distribution:115-121, "The guard installed today is
-  advisory-only") and carries no `temper guard` Decision, so the ruling awaits
-  John's 50-distribution delta; (ii) the subcommand rests on the
-  surface-authority posture model (note/warn/block) and the install/distribution
-  demolition — foundation-gated. Until both land, the grep in
-  `install::guard_command` (src/install.rs:454) persists as a live corpus↔code
-  contradiction, accepted debt. Kept as the decision record; John's hand next.
+  NOT YET FILEABLE as a pending entry — blocker (i) NOW DISCHARGED (146a646):
+  50-distribution + 20-surface carry the **`temper guard` Decision** (the guard
+  IS the subcommand, blocking per the author's declared posture, default
+  advisory; the always-exit-0 grep is "the migration-era state the subcommand
+  replaces"). But (ii) STILL GATES: the subcommand rests on the surface-authority
+  posture model (note/warn/block — member `needs`, the six-noun model the engine
+  does not yet carry) and the install/distribution demolition (its locus,
+  `install::guard_command`, is entangled demolition territory — INSTALL-RETIRE-CI
+  already carved one slice, guard messages ride the same rewrite). A bare
+  advisory `temper guard` with no posture is degenerate (it does what the exit-0
+  grep already does) and still co-edits the demolition's install.rs, so it is
+  **not** a clean disjoint pickable slice today. Until the foundation lands, the
+  grep in `install::guard_command` (src/install.rs:454, verified on disk this
+  tick) persists as a live corpus↔code contradiction, accepted debt. Re-file the
+  subcommand entry once the SDK-primary posture model + install demolition land.
+  Kept as the decision record; John's hand (the foundation ceremony) next.
 - `(explain-target-disambiguation)` — OPEN (dogfood catch, 2026-07-04). The
   re-cut ratified **one read verb** (`20-surface.md`, "Decision: one read verb
   — `explain`"), explicitly rejecting "(c) a verb per question (why /
