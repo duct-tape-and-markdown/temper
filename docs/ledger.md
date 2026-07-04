@@ -9,6 +9,18 @@ graduation, delete over archive.
 
 ## Awaiting human ruling
 
+- **TS-primary, TOML internalized: DRAFTED for cold read** (07-03; direction
+  ruled in session — "im down to require node"; the no-Node floor was the
+  assistant's own hedge, provenance stated in the record §1). One authored
+  surface; manifest = pure dist (read escape hatch: inspect/diff/vendor);
+  document carriage + genre fence rescope to migration-era, sunset BY
+  EVIDENCE (SDK completes → dogfood migrates to the face → per-piece
+  ceremonies); gate posture/wedge/genre-never-climb untouched; carriage
+  never-climb repealed; floor-mention deferral closes. Record + deltas
+  (D1–D4, Δ1–Δ5): claude.ai/code/artifact/5ef1905d-a4f1-4fd0-b553-3b3a1a9a7b1f.
+  NO pending entries before ratification; no demolition entries before the
+  dogfood proof.
+
 - **Guidance-layer curation** (07-03 design session): 4 std-lib guidance
   deltas drafted and source-verified (eval-first skill authoring; hooks-over-
   prose now docs-citable; compaction root/nested asymmetry; owner/review-
