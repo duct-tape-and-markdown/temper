@@ -1,56 +1,5 @@
 [
   {
-    "tag": "SDK-RECUT-CORPUS-FACE",
-    "summary": "The SDK re-cuts to the six-noun face — harness(), kind<T>(), clause values, needs, file()/text/blocks, one JSON pipe to the engine",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The seam — one implementation"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "Re-cut the authoring face to the six-noun model: `harness()` (members · expect · require · settings · reachability, 40-composition); `kind<T>()`/`genre<T>()` constructors with the five runtime facts (15-kinds); clauses as values; `needs` (permissions derived at emit from their union, 20-surface); the three Prose constructors `file()`/`` text`…` ``/`blocks()`. Every type erases at the seam — the SDK implements no semantics, piping one internal versioned JSON of declaration rows to the engine (20-surface, 'The seam — one implementation'). Emit stays total, byte-reproducible, double-emit verified."
-        },
-        {
-          "path": "sdk/src/members.ts",
-          "description": "Members become typed values with flat top-level typed fields (no `fields:` bag), `satisfies`/`requires`/`needs`, prose as a typed field (20-surface, 'The member'). Kind identity travels by import, never by string (15-kinds)."
-        },
-        {
-          "path": "sdk/src/manifest.ts",
-          "description": "The SDK no longer authors a `temper.toml`/roster/bindings dialect (40-composition Decision rejects it); its output is the compiled declaration rows on the JSON pipe + the lock's declaration rows. Retire the manifest-authoring shape here, or fold it into the lock/seam producer."
-        },
-        {
-          "path": "sdk/src/assembly.ts",
-          "description": "`harness()` compiles the assembly to declaration rows; `expect` binding is the spread of an exported clause array (a floor), no binding table (40-composition, 'Binding is implicit')."
-        },
-        {
-          "path": "sdk/src/project.ts",
-          "description": "Projection writes the `.claude/**` artifacts byte-faithfully; the permission list is the derived union of members' `needs`; hook/MCP members fold many-to-one into settings/`.mcp.json` (20-surface, 'Emit — total')."
-        },
-        {
-          "path": "sdk/src/lock.ts",
-          "description": "The lock stamps provenance + emit fingerprints + the NEW declaration rows the engine reads (matching LOCK-DECLARATION-ROWS' row shape — the byte-parity lockstep, kept in sync)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test",
-        "asserts": "harness()/kind<T>()/clause values/needs/file()/text/blocks compile; emit produces the declaration-row seam + byte-faithful projection + lock; double-emit byte-stable (validated by the afterMerge `sdk test` gate)"
-      }
-    ],
-    "acceptance": "The SDK authors a harness in the six-noun face and emits declaration rows (the engine's seam) + a byte-faithful projection + the lock; the `sdk test` gate is green.",
-    "notes": "Cross-language (sdk/*.ts), validated by the afterMerge `sdk test` gate ((sdk-build-gate) RESOLVED). Serialized in-chain (not parallel) because it defines the seam the engine reads and the posture/needs model later links carry. Two byte-parity writers stay in lockstep until single-writer lands (human-gated)."
-  },
-  {
     "tag": "CLI-COLLAPSE",
     "summary": "The CLI collapses to init·check·emit·install·bundle·schema — retire import/diff/session-start/why/requirements/impact/context; temper guard lands",
     "per": {
