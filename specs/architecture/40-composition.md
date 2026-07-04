@@ -1,181 +1,162 @@
-# Composition — authoring the harness in the SDK
+# Composition — the assembly
 
-`temper` is the **composition write surface** (`20-surface.md`): the author
-composes the harness here and `temper` projects it into the project. This file
-owns the **assembly** — how an author moves from "here is my harness" to "here is
-the assembly that gates it": which **package** binds each kind, what the roster
-requires, and where custom kinds live. It is `00-intent.md` law 2 (the author
-declares; built-ins are overridable data) made into a workflow, and it closes the
-home-and-selection half of `(harness-contract-provisioning)` — the
-`verified_by`-wired half is settled in `10-contracts.md`.
+The **assembly** is where a harness becomes one thing. `harness()` takes the
+whole — the members, the demands over them, the residual settings, the
+reachability dial — as **one typed value**, authored in the SDK
+(`20-surface.md`). Like every SDK type it erases at the seam: the engine never
+sees the constructor, only the plain data it compiles to, riding the lock as
+rows. This spec owns that value and how the parts compose.
 
-## Built-ins are the default, not the ceiling
+```
+Harness = members · expect · require · settings · reachability
+```
 
-`check` gates every harness against the **built-in package for each artifact
-kind** (`20-surface.md`, "package binding is by artifact kind"). That is the
-default: it needs no author input and is what makes self-host green today. But a
-built-in package is `temper`'s curated default, and the *harness*-level layer —
-requirements, rosters, the `verified_by` seam (`10-contracts.md`) — is **specific to
-one harness and cannot be a built-in**. Until the author can declare on top of
-the defaults, law 2 is only half-real: the packages are data, but the consumer cannot
-adopt, fork, or extend them. The **assembly** is what completes it.
+There is no second authoring surface for the assembly — no configuration
+dialect, no merge precedence between files. Composing two partial harnesses is
+ordinary code (a spread, a concat, a function), typed at the keystroke. Every
+assembly fact has exactly one home; what ships is still one inert set of
+committed artifacts plus the lock (`00-intent.md`, the SDK Decision). Because
+the assembly is code *producing* declared data, harness **families** cost the
+model nothing: a monorepo maps its workspace list to per-package members; a
+scenario baseline is a function instantiated with parameters.
 
-## The assembly — authored in the SDK
+Absent any authored assembly, the engine's embedded default program — the
+compiled built-in floor (`50-distribution.md`) — still gates the harness kinds,
+so SDK-less checking never runs ungated.
 
-The author's declaration is the **assembly** — authored as the SDK's config
-module (`defineHarness` in `temper.config.ts`); its locusless facts —
-bindings, the roster — are emitted as small committed temper-owned artifacts
-(`20-surface.md`). (A hand-written `temper.toml` assembly is the
-migration-era spelling, supported until its sunset ceremony.) It is
-**optional** — absent, `check` runs the by-kind defaults unchanged. Present,
-it **layers over** them — and a
-gitignored local layer over *it* for personal overrides (the
-committed-plus-local split Lefthook proves); it never replaces the by-kind
-dispatch (which `(contract-selection)` settled — no global active-contract, no
-`--contract` flag). It is a **binding declaration**, not a store of
-definitions: the heavy authored material (packages, custom kinds, member
-modules) lives in the library (`20-surface.md`), and the assembly *references*
-it. It does five things:
+## `members` — the roster is the import graph
 
-- **Select the members** — the member list is the config's imports, so the
-  roster is the import graph: an authored module nobody imports is visible
-  shelf stock (the toolchain flags the unused import before the gate does); a
-  selected module that fails to resolve never compiles. For in-place members,
-  membership is the kinds' `governs` discovery, unchanged.
-- **Bind a package** — name the package a kind is checked against (its built-in by
-  default, made visible; or a project-authored one), so no one
-  writes a contract from scratch.
-- **Extend / override** — add clauses, flip a clause's severity (`required` ⟷
-  `advisory`), or fork a package for a kind — typed operations in the SDK;
-  plain tables in a migration-era assembly.
-- **Declare requirements** — named obligations filled by a member's opt-in `satisfies`
-  (never a name-`match` — the contract never guesses), `required` or not, optionally
-  typed and `verified_by`-wired (`10-contracts.md`, "Requirements"), plus the
-  **relationships-that-must-exist** and compositional constraints (count / unique /
-  degree / acyclic, `45-governance.md`). This is the interface/graph tier — the
-  extensional part no built-in can carry.
-- **Register a custom kind** — point at a project-specific kind (specs, ADRs, playbooks)
-  authored in the library and bind its package (see *Registering a custom
-  kind* below). Built-in kinds are adopted; custom kinds are authored below and
-  registered here.
+The member list is the assembly's imports. An authored member module nobody
+lists is visible shelf stock — the toolchain flags the unused import before
+the gate does; a listed member that fails to resolve never compiles. Members
+themselves (their fields, their prose, their authoring postures) are
+`20-surface.md`'s; kinds and genres, the values that construct them, are
+`15-kinds.md`'s. The assembly only *contains* them.
 
-Because the SDK's assembly is ordinary code *producing* declared data,
-harness **families** are functions over it — a monorepo mapping its workspace
-list to per-package rules, a scenario baseline instantiated with parameters —
-capability that costs the model nothing: what ships is still one inert
-set of committed artifacts per harness (`00-intent.md`, the SDK Decision).
+## `expect` and `require` — the two demand forms
 
-The assembly — defaults ⊕ the authored layer, with the packages it binds — is also the single
-source of the editor schema `temper` emits (`50-distribution.md`): the same declaration
-that gates the harness delivers each package's decidable clauses as keystroke
-validation and its guidance prose as hover docs. One source, the gate *and* the
-authoring aid.
+All demands are stated in one vocabulary — `Clause` and `Requirement`,
+owned by `10-contracts.md` — under two quantifiers:
 
-### Decision: the assembly lives at the project root, layered — one manifest shape
+- **`expect` is universal**: every member of a kind owes these clauses. It is
+  keyed by the kind **value** (an import, never a string — identity travels by
+  import), and it maps each kind to a clause array.
+- **`require` is existential**: the harness must **contain** a fill. Each
+  entry is a `Requirement` (means · kind · required · count? · unique? ·
+  membership? · degree? · verifiedBy? — the shape and the
+  posture-vs-measurement split of `required`/`count` are `10-contracts.md`'s),
+  keyed by a string the fill's `satisfies` names.
 
-**Chosen:** an optional assembly at the project root — `temper.config.ts`,
-layered over the by-kind built-in defaults, holding the author's member
-selection, package bindings, overrides, and harness roster, referencing the
-library's authored material; its locusless facts emitted as temper-owned
-artifacts. **Rejected:** (a) authored intent in the *generated* lock —
-breaks round-trip (law 5) and blurs authored-vs-derived; (b) the shipped
-built-in packages as the author's home — those are the std-lib you adopt
-*from*, not where you declare; (c) two assembly schemas for two carriages —
-the migration-era hand TOML and the SDK's emitted data are one schema, or
-migration is a fork. Three provenance classes — **authored** (the SDK +
-migration-era documents), **generated** (`lock.toml`, the projection, the
-temper-owned artifacts), **shipped** (built-in packages) — keep the surface
-honest. (Resolves the home/selection half of
-`(harness-contract-provisioning)`; carriage per the 2026-07-03 reformulation.)
+A genre is a kind at the block locus (`15-kinds.md`), so both forms reach
+block-grain members unchanged: `expect` can key a genre; a `require` entry can
+be filled by a block inside a host document.
 
-## `temper.toml` binds; packages check
+The pair in use:
 
-`temper.toml` is the **assembly**: it does not itself carry the clauses that check a
-member — it *binds* the **package** that does (`20-surface.md`). The contract-over-
-contents relation still holds, but one level up: the assembly composes what governs
-(bindings + roster), each bound **package** checks its members' shape, and the
-**definition** grounds both. This is **stratification, not contradiction** — the
-assembly is authored by you *and* governs the corpus, exactly as a `trait` is authored
-*and* is the contract its `impl`s meet. So the assembly and each package are checked
-for **admissibility** (well-formed against the algebras, never against themselves) and
-the members for **conformance**; and it all layers defaults ⊕ the authored assembly (adopt the
-std-lib packages, author your own). The root/`.temper/` split is the authored boundary
-between *what binds* and *what is bound* — not a config file sitting incidentally beside
-a workspace.
+```ts
+import { skill, skillFloor } from "@temper/claude-code";
 
-## Registering a custom kind
+export default harness({
+  members: [...skills, ...rules, deployHook],
+  expect: {
+    [skill.key]: [...skillFloor, descriptionUnder(1024)],
+  },
+  require: {
+    "deploy-checklist": requirement({
+      means: "a release is never cut without the checklist skill",
+      kind: skill,
+      required: true,
+      verifiedBy: "ci:deploy-checklist-eval",
+    }),
+  },
+});
+```
 
-A built-in kind is **adopted** — its extraction is temper's, you only bind its package
-(above). A **custom** kind is **authored in the library** — `defineKind({...})`
-in the SDK, or a migration-era `KIND.md` document; one definition shape, two spellings
-(`20-surface.md`, the kind-carriage Decision) — the one home for a project's
-own artifact kind (its specs, ADRs,
-playbooks) — and **registered** in the assembly. Its definition composes the algebras
-(`15-kinds.md`):
+`expect` here says *every* skill meets the floor plus one local clause;
+`require` says *some* skill must exist whose `satisfies` includes
+`"deploy-checklist"`, absence blocks the gate, and the behavioral half is
+delegated to a wired verifier. Universal shape, existential presence — the two
+halves of `00-intent.md` law 2's "the author declares a contract."
 
-- **`governs`** — the file locus the kind reads (root + glob; file placement is
-  itself an extraction primitive).
-- **extraction** — the composed extractors, each a primitive at a locus naming the
-  feature it yields (a frontmatter field, an ATX heading, a `## Decision` block, a
-  line count).
-- **relationships** (optional) — which **declared structured fields** are edges
-  (`45-governance.md`; never mined from prose bodies — law 8, `00-intent.md`).
-  Each unit is itself a node (its id), and **entities** are declared in member
-  headers (`15-kinds.md`) — so `relationships` is all a kind adds to yield the
-  dependency graph the governance graph predicates act on (`45-governance.md`,
-  `30-landscapes.md`).
-- **its package** — the require-side, **always a bound package** under
-  `.temper/packages/`, exactly as a built-in kind binds one. A custom kind is *purely
-  declare-side*; it never carries clauses itself. `[kind.<name>] package = "<name>"` in
-  the assembly is the whole require-side wiring — uniform with every built-in kind
-  (see the Decision below).
+## Binding is implicit — a floor is a clause array
 
-Discovery reads kinds from the assembly's registrations: it always scans the built-in
-harness kinds, **plus every custom kind the assembly registers** — absent a
-registration, built-ins only. temper reads its own `specs/` because its own assembly
-registers the spec kinds, not because anything is hardwired.
+A **floor** is nothing but an exported clause array. `@temper/claude-code`
+exports one per built-in kind; a project exports its own the same way.
+Adoption is the import; the spread inside `expect` is the entire binding;
+overriding is composing the array — append a clause, filter one out, wrap one
+with a different severity. There is no binding record, no package-to-kind
+table: the question "which contract governs this kind?" is answered by
+reading the `expect` entry, and nowhere else.
 
-### Decision: a custom kind is an authored library artifact, registered in the assembly
+## Decision: `satisfies` keys are strings, resolved at emit
 
-**Chosen:** a custom kind's **declare-side** — extraction + entities/relationships — is
-**authored in the library** (`defineKind` in the SDK; a migration-era `KIND.md`), composed from the closed
-algebras and **registered** by the assembly; its **require-side is always a bound
-package** in the library, *never inline* — identical to how a built-in kind
-binds one. **Every kind refers to a declared package**; a kind is purely declare-side,
-uniformly. This is the format `(model-declaration-format)` was forwarded to but never
-carried: the spec landscape's *model* is just the `spec` kind's declared entities +
-relationships, now with a real, `git mv`-able, drift-tracked surface. **Rejected:** (a)
-inlining the whole definition under `[kind.<name>]` in `temper.toml` — reinflates the
-assembly into a god-file; (b) letting a *custom* kind carry its contract **inline** in
-its definition — the same god-file one level down, and worse than built-ins (which
-can't), forking the cleave so a kind is sometimes declare-only and sometimes both; (c) a
-bespoke `model.toml` or per-file frontmatter markers — a second declaration mechanism
-when a spec is a kind like any other; (d) a per-kind engine-code extractor (`15-kinds.md`
-Decision) — the soundness escape hatch. One mechanism authors every landscape; every
-kind binds a package.
+**Chosen:** a member's `satisfies` names a requirement by string key; the keys
+are resolved when the harness is assembled, and the graph flags a dangling key
+(a `satisfies` no requirement declares, a requirement no member fills) as a
+finding. This is the one place in the model where identity travels by name
+rather than by import — deliberately: the assembly stays **downstream of
+members**. A member module is a leaf other harnesses can also list.
+**Rejected:** requirement values imported into members — it inverts the
+dependency direction, making every member module depend on the assembly that
+lists it, so no member could be shared across harnesses and the member/assembly
+layering collapses into a cycle. The string key costs one dangling-reference
+check the graph already knows how to make.
+
+## `settings` — the residual
+
+`settings` holds the harness-level fields that have no member home (e.g.
+`autoMemoryEnabled`). Emit projects them into the settings artifact alongside
+the folded member registrations (`20-surface.md`; emit is total and members
+are the only other source). The list only shrinks: as members absorb their
+registrations, fields leave it. Which fields remain is the open fork
+`(settings-residual)`.
+
+## `reachability` — the dead-registration dial
+
+Registration edges, the world node, and reachability-from-the-world are
+`45-governance.md`'s predicate. The assembly holds the **opt-in dial**: whether
+a member unreachable from the world — registered by nothing, embedded by
+nothing — is a finding at all, and at what severity. That is the assembly's
+call, never the engine's taste (`00-intent.md` law 2). Absent the dial,
+dead registrations produce no findings.
+
+## Decision: one authored assembly, no configuration dialect
+
+**Chosen:** the assembly is authored SDK-side as one typed value; its facts
+ride the lock as rows; the same declaration is the single source of the editor
+schema `temper` emits (`50-distribution.md`). **Rejected:** (a) a hand-authored
+`temper.toml` — or its decomposition into `roster.toml` / `bindings.toml` — a
+permanent second authoring surface restating in tables what the SDK states in
+types, each dialect demanding its own docs, keystroke channel, and
+format-preserving patcher; (b) kind-binding tables (`KindBinding` records,
+package-to-kind maps) — binding is already the spread in `expect`, and a table
+is a second spelling of an import; (c) a package noun with layering machinery —
+defaults ⊕ authored ⊕ local precedence rules re-derive at read time what the
+author can state directly: composition is code, and precedence is the
+evaluation order the author writes.
+
+OPEN: the committed-plus-gitignored personal-override split the dialect era
+carried has no stated spelling in the one-value model — proposed slug
+`(local-overrides)`.
 
 ## The authoring loop
 
-Composition is one loop, all of it on the write surface:
+1. **Author** members (`20-surface.md`) and list them.
+2. **Adopt** floors in `expect`; compose local clauses over them.
+3. **Declare** `require` entries and wire their verifiers.
+4. **Check** — tsc at the keystroke; the engine's judges at the gate
+   (`45-governance.md`).
+5. **Emit** — the compile into the committed artifacts and the lock
+   (`20-surface.md`), byte-reproducible, content-faithful.
 
-1. **Bind** a package to each kind (or take the default).
-2. **Extend / override** to fit the harness.
-3. **Declare** requirements + relationships and **wire** their verifiers.
-4. **Check** — `conformance` *and* `admissibility` (`10-contracts.md`): the members
-   fill their bound packages, and the assembly + each package stand up to the
-   definition. An author-declared package is checked before it is trusted to gate.
-5. **Emit** — `emit` compiles the surface into the project and the manifest
-   (`20-surface.md`), byte-reproducible and checked, prose content-faithful.
-
-Steps 1–3 are authoring; 4 is the gate over both checks; 5 is the compile. The loop
-is what law 7 ("compose everything; gate the decidable") looks like in use.
+The loop is `00-intent.md` law 7 — compose everything; gate the decidable —
+in use, and law 6's fearless refactoring is why it stays cheap to re-run.
 
 ## Scope boundary
 
-This file provisions the **assembly** (requirements / relationships / `verified_by`
-over the Claude Code harness). The **spec-landscape model** is a **custom kind**
-(`15-kinds.md`) — its entities are declared by the kind's extraction, its
-relationships by declared edges (`45-governance.md`), and it is authored under
-`.temper/kinds/` and registered in the assembly (above). This resolves the old
-`(model-declaration-format)` fork: there is no bespoke spec-model format — a spec is a
-kind like any other.
+This spec owns the assembly value and its five fields. The clause and
+requirement vocabulary is `10-contracts.md`'s; kinds, genres, and loci are
+`15-kinds.md`'s; members, postures, emit, and the lock are `20-surface.md`'s;
+the graph, the judges, and the registration predicate are `45-governance.md`'s.
+A landscape is just more kinds (`30-landscapes.md`) — nothing here is
+harness-specific except the built-in floor the example imports.
