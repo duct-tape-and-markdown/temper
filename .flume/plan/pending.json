@@ -1,5 +1,91 @@
 [
   {
+    "tag": "RUNG-DECODIFY-CODE",
+    "summary": "De-codify the rung in code: rework the genre-ordinal and carriage strings onto fact language — the ratified corpus names postures, ordinals are out of contract text",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Rework the leaf-grain coverage disclosure off the `below rung 3` ordinal onto the ratified fact phrasing — `N documents carry no genre values — not represented at leaf grain` (20-surface, the read-family Decision, line ~583). Fix the document/documents verb agreement (`1 document carries` / `N documents carry`). Sweep the `rung 3`/`mixed-rung` wording out of the disclosure strings AND the doc comments at ~507/597/628/668 (the coverage-disclosure altitude sense only; leave the admissibility-recursion sense untouched — it lives only in specs)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Reword `up a carriage rung` onto the named carriage move — `into a richer carriage (in-place → document → module)` (20-surface, CLI surface, line ~519) — in the module header (~9-10), the comment at ~276, and the `init --lift` doc comments at ~333/344. No behavior change; strings/comments only."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Reword the `carriage rung`/`rung-3 on-ramp`/`mixed-rung` strings and clap help onto fact language (~112/118/126/261/289): the carriage-move help becomes the named `in-place → document → module` move, the leaf-read help becomes `carry no genre values`. Strings/help/comments only."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Reword the `migrates a rung` doc comment (~1524) onto the named carriage move. Comment only."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Rename `init_lift_migrates_one_member_up_a_carriage_rung` and its comment (~309-310) off the rung ordinal onto the carriage-move phrasing; assertions unchanged."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Update the coverage assertion (`1 document below rung 3`, ~772) and the `rung 3`/`mixed-rung` comments (~666/704/711/722/765) to the ratified `carry no genre values` phrasing."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__context_leaf_grain.snap",
+          "description": "Update the `Coverage: 1 document below rung 3 …` line to the reworded fact phrasing (accept by `mv .snap.new .snap` — cargo-insta is not installed)."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__impact_leaf_grain.snap",
+          "description": "Update the `Coverage: 0 documents below rung 3 …` line to the reworded fact phrasing (accept by `mv .snap.new .snap`)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "the leaf-grain coverage disclosure reads `N document(s) carr(y/ies) no genre values — not represented at leaf grain`, with correct singular/plural agreement, on both the found and not-found answers."
+      }
+    ],
+    "acceptance": "`rg -i rung src/ tests/` returns empty; the coverage disclosure and carriage-move help read the ratified fact language (`carry no genre values`; `into a richer carriage (in-place → document → module)`); cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox 07-03 (`specs:` d4a6999). Pure rewording — no behavior change; the two read_verbs snapshots re-accept. Disjoint from INSTALL-NOTE-CONTENT-DRIFT (no shared file), so both may run in parallel."
+  },
+  {
+    "tag": "INSTALL-NOTE-CONTENT-DRIFT",
+    "summary": "Make `install`'s managed-by note content-drift-aware: a reworded note body re-places instead of reporting `unchanged`, so `gate-installed` stops passing a stale note",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Decision: `install` projects the gate's wiring; drift keeps it synced"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`project_note` (~658) is presence-based: it keys idempotence on the `NOTE_MARKER` prefix alone, so a frontmatter already carrying a marked note line is returned verbatim even when that line's bytes differ from the current `NOTE_COMMENT` — a reworded note (post-INSTALL-DRIFT-STRINGS) never refreshes and drift reports `Unchanged`. Compare the placed note's bytes against `NOTE_COMMENT`: when the marked line differs, replace it (splice the current `NOTE_COMMENT` in place of the stale line); when it matches, stay verbatim (still idempotent). `drift keeps it synced` means a changed placement re-places."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a projection whose frontmatter carries a marked note with retired body text re-places to the current `NOTE_COMMENT` on install (outcome not `Unchanged`); an already-current note stays `Unchanged`; a second install is idempotent."
+      }
+    ],
+    "acceptance": "A stale managed-by note body re-places on the next `install` and `gate_installed` no longer reports it undrifted; a current note is left byte-verbatim and idempotent; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox 07-03. Interim workaround was a hand-cycle (delete line, re-run install). Scoped to `project_note` in install.rs + tests/install.rs — disjoint from RUNG-DECODIFY-CODE. NB the modeline (`project_modeline`) is also presence-based but its content is a stable schema ref; align it only if the entry proves it needs it — don't widen scope silently."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {
@@ -8,7 +94,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "no consumer — the Fenced half graduated to FENCED-PRIMITIVE (its genre-fence consumer arrived); the remaining key-path half has none. `Primitive::Field` reads a flat `fields.get(key)`, so a nested `a.b.c` path can't be read — but no current kind (skill/rule/memory) declares a nested key-path field. Revive when a kind demands it (a JSON-manifest kind's nested key-path field). NB `at-import` is the DIRECTIVES wave's edge primitive, not this."
+      "reason": "no consumer — the Fenced half graduated to FENCED-PRIMITIVE (its genre-fence consumer arrived); the remaining key-path half has none. `Primitive::Field` reads a flat `fields.get(key)`, so a nested `a.b.c` path can't be read — but no current kind (skill/rule/memory) declares a nested key-path field. Revive when a kind demands it (a JSON-manifest kind's nested key-path field)."
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +119,7 @@
       }
     ],
     "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes it.)",
-    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. The addressable-corpus floor chain has now fully drained (CONTEXT-VERB shipped) — nothing engine-side is live against it. Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
+    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. The addressable-corpus floor chain has fully drained — nothing engine-side is live against it. Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
   },
   {
     "tag": "AGENT-KIND",
@@ -85,6 +171,118 @@
     "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero. Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with EXTRACTION-VOCAB-GAPS — serialize the two if both un-defer."
   },
   {
+    "tag": "SDK-EMIT-BYTE-PARITY",
+    "summary": "Bring the SDK emitter to byte-parity with the Rust `toml_edit` manifest output — the altitude authoring face compiles to the exact inert manifest the gate reads",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Content-faithful, deterministically emitted (law 5)"
+    },
+    "gate": { "kind": "parked", "reason": "sdk/** is TS; build's validation gates are cargo-only (chain.ts) so a build tick can't run the SDK's tsc/node --test — a human must wire a `sdk` gate into chain.ts (`.flume/`, human territory) before this ships. See `(sdk-build-gate)`. Publish name/scope still parked on PACKAGING-CHANNELS." },
+    "dependsOnForks": ["sdk-build-gate"],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "The scaffold serializer emits valid TOML of the right schema (`[[member]]`/`[[member.section]]`/`[[member.genre]]` — confirmed matching src/compose.rs `write_member_table`/`genre_to_table` and tests/genre_leaf.rs). This slice closes the scaffold's stated `byte-parity` bound: match the Rust emitter's exact `toml_edit` spelling — key order, table vs inline-table choice, string escaping, multiline-literal form, blank-line placement — so a member emitted by the SDK is byte-identical to the same member emitted by `temper emit`. Fail loud on any residual divergence."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Byte-parity fixtures pinned against known-good Rust emitter output (the same members tests/genre_leaf.rs / tests/emit.rs cover), asserting byte-identical manifest text and the double-emit invariant."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a member emitted by the SDK serializer is byte-identical to the Rust emitter's manifest output for the same member (leaves, keyed collections, sections, satisfies), and double-emit produces identical bytes."
+      }
+    ],
+    "acceptance": "The SDK's `emitManifestMembers` output is byte-identical to `temper emit`'s manifest for a shared fixture corpus; `pnpm --dir sdk test` (tsc + node --test) green. (Parked: not shipped until the sdk gate is wired.)",
+    "notes": "Inbox 07-03 (`sdk:` a13ad53, sdk/** in fence). Head of the altitude authoring wave; ask (a) scaffold now landed. Serialized successors: SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK (they share emit.ts). Genre schema confirmed against compose.rs — no manifest-shape mismatch, exact-spelling parity only."
+  },
+  {
+    "tag": "SDK-BODY-RESOLUTION",
+    "summary": "Resolve member bodies before emit: `fromFile` asset resolution and opt-in mention resolution-checking — the two scaffold bounds `bodyText` throws on today",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Mentions — prose that declares its own references"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SDK-EMIT-BYTE-PARITY" },
+    "dependsOnForks": ["sdk-build-gate"],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`bodyText` throws on both `fromFile` and any mention today (the scaffold's stated bounds). Resolve them: `fromFile` reads the referenced asset into the body before serialize; mentions are resolution-checked one-way, obligation-free, opt-in per word (20-surface, `a mention is opt-in per word — no completeness check, ever`; law 8's never-climb bound) — an unresolved mention is a loud emit error, never a silent pass. No prose grep; only declared mention edges."
+        },
+        {
+          "path": "sdk/src/members.ts",
+          "description": "Thread the resolved body/mention set through the `Member` shape so `emit.ts` and `toManifestMember` consume resolved bodies. Keep the fromFile vs inline body union; resolution happens at emit, not at authoring."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Extend with fromFile-resolved bodies and mention-resolution cases (resolved mention renders; unresolved mention fails loud)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a `fromFile` body resolves and emits; a resolved mention renders to its declared value's form; an unresolved mention is a loud emit error; emit stays byte-deterministic."
+      }
+    ],
+    "acceptance": "SDK emit resolves `fromFile` bodies and resolution-checks mentions (loud on unresolved), staying byte-parity with the Rust emitter; `pnpm --dir sdk test` green. (Parked behind SDK-EMIT-BYTE-PARITY + the sdk gate.)",
+    "notes": "Inbox 07-03. Combines the scaffold's `fromFile` + `mention` bounds (both edit `bodyText`) into one slice so emit.ts is touched by one entry at a time. blockedBy SDK-EMIT-BYTE-PARITY (shared emit.ts); build picks it after parity ships."
+  },
+  {
+    "tag": "SDK-PROJECTION-LOCK",
+    "summary": "SDK emit writes the harness projection (members → `.claude/**`) and stamps the lock's freshness fingerprints — the last two scaffold bounds, both deliberately absent today",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Content-faithful, deterministically emitted (law 5)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SDK-BODY-RESOLUTION" },
+    "dependsOnForks": ["sdk-build-gate"],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/src/project.ts",
+          "description": "Projection writing: compile each member to its harness format under `.claude/**` (the projection half of emit), whole-file re-emit, byte-faithful. Mirrors the Rust emit projector; the emit orchestrator calls it after the manifest is serialized."
+        },
+        {
+          "path": "sdk/src/lock.ts",
+          "description": "Lock stamping: compute and write the `source_hash`/`emit_hash` freshness fingerprints the drift engine reads (`config.stale`), matching the Rust lock's hash inputs so an SDK-emitted lock and a Rust-emitted lock agree for the same face."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export `project`/`lock` and wire them into the emit entry so a full `emit` compiles manifest + projection + lock in one deterministic pass."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Cover projection byte-fidelity and lock-fingerprint agreement with the Rust emitter for a shared fixture."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "SDK projection output matches the Rust projector byte-for-byte for a shared member, and the SDK-stamped lock's `source_hash`/`emit_hash` match the Rust lock for the same face."
+      }
+    ],
+    "acceptance": "A full SDK `emit` writes the manifest, the `.claude/**` projection, and a lock whose fingerprints agree with the Rust emitter; `pnpm --dir sdk test` green. (Parked behind SDK-BODY-RESOLUTION + the sdk gate.)",
+    "notes": "Inbox 07-03. Closes the scaffold's remaining bounds (projection writing, lock stamping). New modules (project.ts/lock.ts) plus index.ts wiring; blockedBy SDK-BODY-RESOLUTION for the shared emit orchestration. Last link of the altitude authoring wave."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
     "per": {
@@ -106,7 +304,7 @@
       "edit": [
         {
           "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`, confirmed on disk). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/architecture/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering the harness manifest. Scoped/prefixed names per the resolved (project-name) fork."
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`, confirmed on disk). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/architecture/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering the harness manifest. Scoped/prefixed names per the resolved (project-name) fork. NB distinct from sdk/package.json (the authoring-face manifest)."
         }
       ],
       "retire": []
@@ -114,6 +312,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB: root `package.json` already exists as the *private* flume manifest — reconcile or split, never blindly create a second. Only `.github/workflows/temper.yml` (CI) exists — no release.yml yet. Parked until a human sets creds up."
+    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB root `package.json` is the *private* flume manifest (≠ sdk/package.json) — reconcile or split, never blindly create a second. Only `.github/workflows/temper.yml` (CI) exists — no release.yml yet. Parked until a human sets creds up."
   }
 ]

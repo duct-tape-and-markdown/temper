@@ -99,11 +99,58 @@ path strings remain in comments).
   human `chore(harness)` (`temper.toml` ∉ `BUILD_WRITABLE_PATHS`), the sole floor
   follow-on. These floor entries were NOT
   `dependsOnForks`-gated on this fork: the human unblocked the floor explicitly.
-  **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
-  authoring-face npm scaffolding, stays **parked on John** (like
-  PACKAGING-CHANNELS); no altitude-rung entry (`defineHarness`/`defineKind`,
-  module carriage, `temper.config.ts`, altitude mentions) may be filed until John
-  scaffolds it. Design record: claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
+  **ALTITUDE RUNG — ask (a) DISCHARGED (2026-07-03):** John delegated the
+  scaffold and it landed (`sdk:` a13ad53; `sdk/**` entered build's fence,
+  7a0f56f). The scaffold (`sdk/`: emit.ts + members/genres/assembly/manifest,
+  package.json `temper-sdk` private, node --test) names its own bounds, each
+  failing loud if reached: byte-parity with the Rust `toml_edit` output,
+  projection writing, lock stamping, `fromFile` resolution, mention
+  resolution-checking. Confirmed this tick: its manifest schema
+  (`[[member]]`/`[[member.section]]`/`[[member.genre]]` with
+  `[member.genre.leaves]`/`[member.genre.collections.*]`) **matches** compose.rs
+  (`genre_to_table`/`write_member_table`) and tests/genre_leaf.rs — no
+  schema-shape mismatch; the byte-parity slice reconciles exact spelling only.
+  The follow-on slices are now FILED as the serialized altitude wave
+  **SDK-EMIT-BYTE-PARITY → SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK** (they
+  share `emit.ts`, so serialized, not parallel). But they do **not** ship until
+  `(sdk-build-gate)` below resolves — build's validation gates are cargo-only, so
+  a TS slice would land unvalidated. Publish name/scope still parked on
+  PACKAGING-CHANNELS. Design record:
+  claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
+
+- `(sdk-build-gate)` — OPEN (surfaced 2026-07-03 draining the SDK-scaffold
+  inbox line). `sdk/**` is TypeScript and now in build's fence, but the flume
+  **validation gates are cargo-only** — `.flume/chain.ts` states it outright
+  ("The project is Rust, so the validation gates are cargo, not pnpm/tsc/vitest";
+  fmt afterCommit, clippy+test afterMerge). A build tick that ships an SDK slice
+  would pass those gates *trivially* (no Rust changed) while the SDK's own
+  `tsc -p` + `node --test` never run — unvalidated TS landing green, the exact
+  "silent gap reads as done" the collaboration rule forbids. So every SDK-*
+  altitude entry is **parked on this fork**. The fix is a human `.flume/` edit
+  (plan and build both write neither): wire a `sdk` gate into `chain.ts` — a
+  `shellGate` running `pnpm --dir sdk test` (or `npm`), placement per
+  CHAIN-AUTHORING (cheap structural afterCommit / full test afterMerge), fenced
+  to fire only when a tick touches `sdk/**`. Analogous to PACKAGING-CHANNELS
+  (parked on human setup), not a product-intent fork — a pipeline-plumbing
+  prerequisite. Human to wire the gate; the SDK wave un-parks the tick after.
+
+- `(display-rule-emit-face)` — OPEN (surfaced 2026-07-03 draining the
+  display-rule inbox line). The ratified corpus carries "a genre value is
+  rendered by one corpus-wide **display rule** per genre — emit-owned,
+  byte-deterministic" (`specs/architecture/20-surface.md`, "The display rule owns
+  connective tissue" / law-5 append), but **no code stands behind it**: emit has
+  no projection face for custom kinds at all, so a fenced genre value (a spec
+  Decision/Law/Bound) would sit in the `specs/` projection as **raw TOML**,
+  failing the migration protocol's acceptance test (residual = connective tissue
+  only). This is why the corpus's **rung-3 pilot** (45-governance or 15-kinds, a
+  staged human ceremony) is BLOCKED. It is **entangled**, not standalone: a
+  display rule presupposes the custom-kind emit/projection face (the spec-kind
+  emit + module-carriage work, altitude/`(sdk-build-gate)` territory), which does
+  not exist. Not forced into pending — the inbox says the pilot is patient and
+  not to force it if entangled. The fork: does the display rule ship as its own
+  narrow engine slice (a per-genre projection formatter over the manifest's genre
+  tables, reusing the mention rule), or does it ride the broader custom-kind emit
+  face? Human to settle scope/sequencing; no dependents filed.
 
 - `(extraction-source-not-mechanism)` — RESOLVED (human ruling this session;
   `specs/architecture/15-kinds.md`, "The extraction algebra — the soundness boundary, as data":
