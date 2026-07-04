@@ -12,6 +12,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
+use temper::assembly_artifacts;
 use temper::builtin;
 use temper::builtin_kind;
 use temper::bundle;
@@ -835,7 +836,25 @@ fn gate(
 ) -> miette::Result<Vec<check::Diagnostic>> {
     // Absent `temper.toml` ⇒ `None` and the by-kind floor runs verbatim; present
     // ⇒ it layers over the floor per kind below (`specs/architecture/40-composition.md`).
-    let layer = load_layer(temper_toml)?;
+    let mut layer = load_layer(temper_toml)?;
+
+    // The temper-owned assembly-fact artifacts (`roster.toml`/`bindings.toml`) sit beside
+    // `temper.toml` (`specs/architecture/20-surface.md`, "the bindings, the roster — are emitted
+    // as small committed temper-owned artifacts"). When present, the gate reads its
+    // requirement roster + kind bindings from them as the assembly source, so an
+    // SDK-emitted members-only manifest resolves its `satisfies` instead of dangling. The
+    // manifest layer's own inline roster/bindings, if any, take precedence (merge fills
+    // only what it left absent). Located beside the manifest — the CWD for a two-step
+    // `check`, the harness path for the one-shot gate.
+    let assembly_dir = temper_toml
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    if let Some(artifacts) = assembly_artifacts::load(assembly_dir)? {
+        layer
+            .get_or_insert_with(|| compose::AuthorLayer::empty(temper_toml))
+            .merge_assembly(artifacts.requirements, artifacts.bindings);
+    }
 
     // A bound package resolves against the built-in floor ∪ this directory
     // (`specs/architecture/20-surface.md`); absent a binding the floor runs, so it is never read

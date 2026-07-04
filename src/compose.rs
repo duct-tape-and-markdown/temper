@@ -1037,6 +1037,53 @@ impl AuthorLayer {
         }
         self
     }
+
+    /// An empty layer labelled by `path` — no bindings, requirements, edges, or members.
+    /// The base the temper-owned assembly-fact artifacts merge into when they sit beside a
+    /// `temper.toml` too thin to have parsed into a layer (or none at all), so the roster
+    /// still gates.
+    #[must_use]
+    pub fn empty(path: &Path) -> Self {
+        Self {
+            path: path.to_path_buf(),
+            kinds: BTreeMap::new(),
+            requirements: BTreeMap::new(),
+            edges: Vec::new(),
+            reachability: None,
+            authority: Authority::default(),
+            members: Vec::new(),
+            inplace: Vec::new(),
+        }
+    }
+
+    /// Fold the temper-owned assembly-fact artifacts (`roster.toml`/`bindings.toml`) into
+    /// this layer as the **assembly source** (`specs/architecture/20-surface.md`, "the bindings,
+    /// the roster — are emitted as small committed temper-owned artifacts"): the SDK emits
+    /// a members-only `temper.toml` and lands the roster + bindings beside it, so the gate
+    /// reads its requirements and kind bindings from the artifacts rather than only the
+    /// manifest layer.
+    ///
+    /// A requirement or binding the hand-written `temper.toml` **already** declares wins —
+    /// the migration-era inline spelling takes precedence, so the artifacts only *fill*
+    /// what the manifest layer left absent (for an SDK members-only manifest, that is the
+    /// whole roster and every binding). `bindings` is keyed by bare kind name and folds in
+    /// as a package-only `[kind.<name>]` layer, the same shape a hand-written binding
+    /// parses into.
+    pub fn merge_assembly(
+        &mut self,
+        requirements: BTreeMap<String, Requirement>,
+        bindings: BTreeMap<String, String>,
+    ) {
+        for (name, requirement) in requirements {
+            self.requirements.entry(name).or_insert(requirement);
+        }
+        for (kind, package) in bindings {
+            self.kinds.entry(kind).or_insert_with(|| KindLayer {
+                package: Some(package),
+                clauses: Vec::new(),
+            });
+        }
+    }
 }
 
 /// Fold an `overlay` of clauses over a `base` clause list in place, with a layer's
