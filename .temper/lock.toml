@@ -31,20 +31,20 @@ emit_hash = "e4a8824d9dde26b40b2d34b2c36afe69edb367420ba8be5cbedc20994cf2094e"
 [[architecture]]
 name = "15-kinds"
 source_path = "./specs/architecture/15-kinds.md"
-source_hash = "e0a7bef87289b9d89601f3fe2719ea09d73bd41fb2eb2d3d872c76ca767541dc"
-emit_hash = "e0a7bef87289b9d89601f3fe2719ea09d73bd41fb2eb2d3d872c76ca767541dc"
+source_hash = "17696cfeff9c2fc848a12edd73f44f7996806cd37f02b99fc8d041a148ef84e6"
+emit_hash = "17696cfeff9c2fc848a12edd73f44f7996806cd37f02b99fc8d041a148ef84e6"
 
 [[architecture]]
 name = "20-surface"
 source_path = "./specs/architecture/20-surface.md"
-source_hash = "76eedc456b409139f3afdeb46fcde24933da6659d30ed4048dea80718d93483d"
-emit_hash = "76eedc456b409139f3afdeb46fcde24933da6659d30ed4048dea80718d93483d"
+source_hash = "66e397b0bebf5f1e5f105b27a25fc7ba950c850411dc7d22bb361f4d7deeb233"
+emit_hash = "66e397b0bebf5f1e5f105b27a25fc7ba950c850411dc7d22bb361f4d7deeb233"
 
 [[architecture]]
 name = "30-landscapes"
 source_path = "./specs/architecture/30-landscapes.md"
-source_hash = "d185adba2cd81d14eb86d23cd101c2d97482064e7084421bd37f380adae4dbad"
-emit_hash = "d185adba2cd81d14eb86d23cd101c2d97482064e7084421bd37f380adae4dbad"
+source_hash = "dc4576dea39b0b3caaab22de2648ecae3e36845bde6df96b287fa48234eb0826"
+emit_hash = "dc4576dea39b0b3caaab22de2648ecae3e36845bde6df96b287fa48234eb0826"
 
 [[architecture]]
 name = "40-composition"
@@ -85,5 +85,5 @@ emit_hash = "234cc710cfe2dbdabc819af9785cfcd953e9a2b0aa1440ef1f06963a8bbcf446"
 [[process]]
 name = "90-spec-system"
 source_path = "./specs/process/90-spec-system.md"
-source_hash = "8c5ebfd16d7070badc01868e86b8070339b28e9617e2fc8c2be23e64017b9db6"
-emit_hash = "8c5ebfd16d7070badc01868e86b8070339b28e9617e2fc8c2be23e64017b9db6"
+source_hash = "f5a71c52d2c22e66c629bcd029fda5acaedc83c45ee50c2abdc6592a68ad81f4"
+emit_hash = "f5a71c52d2c22e66c629bcd029fda5acaedc83c45ee50c2abdc6592a68ad81f4"

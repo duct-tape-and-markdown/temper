@@ -16,7 +16,7 @@ rationale = "20-surface owns the manifest — the inert `temper.toml` + lock ser
 
 [provenance]
 source_path = "./specs/architecture/20-surface.md"
-source_hash = "76eedc456b409139f3afdeb46fcde24933da6659d30ed4048dea80718d93483d"
+source_hash = "66e397b0bebf5f1e5f105b27a25fc7ba950c850411dc7d22bb361f4d7deeb233"
 +++
 # The config surface — author, emit, project, drift
 

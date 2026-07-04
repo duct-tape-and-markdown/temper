@@ -10,7 +10,7 @@ rationale = "15-kinds owns the provider axis that fixes a kind's identity (`<pro
 
 [provenance]
 source_path = "./specs/architecture/15-kinds.md"
-source_hash = "e0a7bef87289b9d89601f3fe2719ea09d73bd41fb2eb2d3d872c76ca767541dc"
+source_hash = "17696cfeff9c2fc848a12edd73f44f7996806cd37f02b99fc8d041a148ef84e6"
 +++
 # Kinds — the extraction algebra and the kind system
 

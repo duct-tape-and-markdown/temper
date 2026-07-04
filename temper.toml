@@ -1664,10 +1664,10 @@ derives from — self-hosting (`00-intent.md`) extended from `.claude/` to
 
 The corpus's genre target: `decision`, `law`, and `bound` genres declared on
 the spec kinds, harvested from the corpus's own conventions. The
-decisions-name-alternatives predicate keeps both spellings: at rung 2 it
-stays the decision-block shape check over extracted headings (clause
-features, never leaves); over genre values it is a schema fact. Migration
-between rungs is the same staged human ceremony as the classed migration —
+decisions-name-alternatives predicate keeps both spellings: over extracted
+headings it stays the decision-block shape check (clause features, never
+leaves); over genre values it is a schema fact. Migration between postures
+is the same staged human ceremony as the classed migration —
 per document, never demanded (`30-landscapes.md`, the gradient)."""
 
 [[member.section]]
@@ -2284,16 +2284,16 @@ derives from — self-hosting (`00-intent.md`) extended from `.claude/` to
 
 The corpus's genre target: `decision`, `law`, and `bound` genres declared on
 the spec kinds, harvested from the corpus's own conventions. The
-decisions-name-alternatives predicate keeps both spellings: at rung 2 it
-stays the decision-block shape check over extracted headings (clause
-features, never leaves); over genre values it is a schema fact. Migration
-between rungs is the same staged human ceremony as the classed migration —
+decisions-name-alternatives predicate keeps both spellings: over extracted
+headings it stays the decision-block shape check (clause features, never
+leaves); over genre values it is a schema fact. Migration between postures
+is the same staged human ceremony as the classed migration —
 per document, never demanded (`30-landscapes.md`, the gradient)."""
 
 [[member]]
 kind = "architecture"
 name = "20-surface"
-line_count = 589
+line_count = 590
 source_dir = "architecture"
 headings = ["The config surface — author, emit, project, drift", "The surface: the assembly over its contents", "Topology: source, contract, output", "The IR", "Member carriage — module, document, in-place", "Decision: three carriages, one feature shape", "Decision: the member module's prose is a field, never a wrapper", "Decision: the data dialect is TOML; the authoring face is TypeScript", "Decision: a kind definition rides the same carriages as a member", "Mentions — prose that declares its own references", "Decision: a mention is opt-in per word — no completeness check, ever", "Genre values — prose that declares its own anatomy", "Decision: leaf addresses are structural and keyed, never positional", "Decision: the floor spelling is a genre fence", "Artifact kinds & package binding", "Decision: package binding is by artifact kind", "Content-faithful, deterministically emitted (law 5)", "Drift — one direction, two freshness facts (the hard core)", "Decision: `re-add` is retired — hand-edits route to the source", "Decision: the surface is the source of truth", "Decision: surface authority is a declared posture, never a baked stance", "Decision: discovery respects ignore rules; the backing set reads raw disk", "Decision: the workspace is per-project", "Decision: the projection is re-emitted; the authored floor is patched", "Decision: `init` is the on-ramp, and adoption is a gradient", "CLI surface", "Decision: the CLI gains a read family — `why` and `requirements`"]
 satisfies = ["member", "projection", "drift-engine", "authoring-face", "manifest"]
@@ -2596,7 +2596,7 @@ its serialization) — the body-side analogue of a structured field
 primitive with a TOML parse into the one manifest shape. **Rejected:**
 (a) promoting the heading/bold convention (`### Decision:` + `**Chosen:**`)
 to model structure — deriving graph leaves from prose typography is law 8's
-mining ban; the rung-2 decision-block extraction (`15-kinds.md`, worked
+mining ban; the heading-level decision-block extraction (`15-kinds.md`, worked
 example) keeps exactly its current standing: clause features, never leaves;
 (b) a bespoke marker grammar — the dialect Decision already rejected owning
 a parser ecosystem forever, and inside a fence there is no markdown tooling
@@ -2798,8 +2798,8 @@ the harness it was the day before. Members arrive **unrecognized** — fully
 functional — and **recognition** (the intent-encoding: `satisfies` +
 rationale, joins) accrues member-by-member; the pressure to recognize comes
 from the author's own declared requirements failing coverage — the right
-instrument — never from on-ramp ceremony. Adoption then climbs a **gradient**,
-per member, all three rungs one engine and one manifest shape:
+instrument — never from on-ramp ceremony. Adoption then follows a **gradient**,
+per member, all three postures one engine and one manifest shape:
 
 1. **gate-only** — hand-written manifest, in-place members, no Node anywhere;
 2. **`init`** — the generated skeleton, still in place;
@@ -2818,7 +2818,7 @@ up front — unchanged from the original resolution.
 
 - `temper init [<harness-path>]` — the on-ramp: scan → config skeleton over
   members in place (Decision above); per-member `init --lift` migrates a
-  member up a carriage rung.
+  member into a richer carriage (in-place → document → module).
 - `temper emit [--frozen] [--dry-run]` — compile the authoring face: members
   to their harness formats, the assembly to the manifest, fingerprints to the
   lock; double-emit verified, `--frozen` refuses network (CI posture,
@@ -2880,9 +2880,10 @@ citations separately from fallout (`45-governance.md`); `context <address>`
 emits a member's or leaf's declared neighborhood — genre slot, siblings,
 citers, satisfied requirements — the pre-edit context bundle for the primary
 author. Both consume only the manifest: offline, tier-1, no runtime. And
-both **disclose coverage**: under the gradient a mixed-rung corpus is the
+both **disclose coverage**: under the gradient a mixed-posture corpus is the
 standing state, not an edge case, so every leaf-grain answer names what it
-cannot see ("N documents below rung 3 — not represented at leaf grain"). An
+cannot see ("N documents carry no genre values — not represented at leaf
+grain"). An
 incomplete answer wearing complete clothes erodes the read verbs exactly as
 a false gate-block erodes the gate (law 1); the disclosure ships with the
 verbs, never after.
@@ -3287,7 +3288,7 @@ its serialization) — the body-side analogue of a structured field
 primitive with a TOML parse into the one manifest shape. **Rejected:**
 (a) promoting the heading/bold convention (`### Decision:` + `**Chosen:**`)
 to model structure — deriving graph leaves from prose typography is law 8's
-mining ban; the rung-2 decision-block extraction (`15-kinds.md`, worked
+mining ban; the heading-level decision-block extraction (`15-kinds.md`, worked
 example) keeps exactly its current standing: clause features, never leaves;
 (b) a bespoke marker grammar — the dialect Decision already rejected owning
 a parser ecosystem forever, and inside a fence there is no markdown tooling
@@ -3332,7 +3333,7 @@ its serialization) — the body-side analogue of a structured field
 primitive with a TOML parse into the one manifest shape. **Rejected:**
 (a) promoting the heading/bold convention (`### Decision:` + `**Chosen:**`)
 to model structure — deriving graph leaves from prose typography is law 8's
-mining ban; the rung-2 decision-block extraction (`15-kinds.md`, worked
+mining ban; the heading-level decision-block extraction (`15-kinds.md`, worked
 example) keeps exactly its current standing: clause features, never leaves;
 (b) a bespoke marker grammar — the dialect Decision already rejected owning
 a parser ecosystem forever, and inside a fence there is no markdown tooling
@@ -3558,8 +3559,8 @@ the harness it was the day before. Members arrive **unrecognized** — fully
 functional — and **recognition** (the intent-encoding: `satisfies` +
 rationale, joins) accrues member-by-member; the pressure to recognize comes
 from the author's own declared requirements failing coverage — the right
-instrument — never from on-ramp ceremony. Adoption then climbs a **gradient**,
-per member, all three rungs one engine and one manifest shape:
+instrument — never from on-ramp ceremony. Adoption then follows a **gradient**,
+per member, all three postures one engine and one manifest shape:
 
 1. **gate-only** — hand-written manifest, in-place members, no Node anywhere;
 2. **`init`** — the generated skeleton, still in place;
@@ -3702,8 +3703,8 @@ the harness it was the day before. Members arrive **unrecognized** — fully
 functional — and **recognition** (the intent-encoding: `satisfies` +
 rationale, joins) accrues member-by-member; the pressure to recognize comes
 from the author's own declared requirements failing coverage — the right
-instrument — never from on-ramp ceremony. Adoption then climbs a **gradient**,
-per member, all three rungs one engine and one manifest shape:
+instrument — never from on-ramp ceremony. Adoption then follows a **gradient**,
+per member, all three postures one engine and one manifest shape:
 
 1. **gate-only** — hand-written manifest, in-place members, no Node anywhere;
 2. **`init`** — the generated skeleton, still in place;
@@ -3725,7 +3726,7 @@ body = """
 
 - `temper init [<harness-path>]` — the on-ramp: scan → config skeleton over
   members in place (Decision above); per-member `init --lift` migrates a
-  member up a carriage rung.
+  member into a richer carriage (in-place → document → module).
 - `temper emit [--frozen] [--dry-run]` — compile the authoring face: members
   to their harness formats, the assembly to the manifest, fingerprints to the
   lock; double-emit verified, `--frozen` refuses network (CI posture,
@@ -3787,9 +3788,10 @@ citations separately from fallout (`45-governance.md`); `context <address>`
 emits a member's or leaf's declared neighborhood — genre slot, siblings,
 citers, satisfied requirements — the pre-edit context bundle for the primary
 author. Both consume only the manifest: offline, tier-1, no runtime. And
-both **disclose coverage**: under the gradient a mixed-rung corpus is the
+both **disclose coverage**: under the gradient a mixed-posture corpus is the
 standing state, not an edge case, so every leaf-grain answer names what it
-cannot see ("N documents below rung 3 — not represented at leaf grain"). An
+cannot see ("N documents carry no genre values — not represented at leaf
+grain"). An
 incomplete answer wearing complete clothes erodes the read verbs exactly as
 a false gate-block erodes the gate (law 1); the disclosure ships with the
 verbs, never after.
@@ -3823,9 +3825,10 @@ citations separately from fallout (`45-governance.md`); `context <address>`
 emits a member's or leaf's declared neighborhood — genre slot, siblings,
 citers, satisfied requirements — the pre-edit context bundle for the primary
 author. Both consume only the manifest: offline, tier-1, no runtime. And
-both **disclose coverage**: under the gradient a mixed-rung corpus is the
+both **disclose coverage**: under the gradient a mixed-posture corpus is the
 standing state, not an edge case, so every leaf-grain answer names what it
-cannot see ("N documents below rung 3 — not represented at leaf grain"). An
+cannot see ("N documents carry no genre values — not represented at leaf
+grain"). An
 incomplete answer wearing complete clothes erodes the read verbs exactly as
 a false gate-block erodes the gate (law 1); the disclosure ships with the
 verbs, never after.
@@ -3892,20 +3895,20 @@ a **genre vocabulary** for the prose's own recurring forms (`00-intent.md`, the
 genre Decision). Declaring the model makes the otherwise-undecidable structural —
 each entity has one declared home (DRY), bindings resolve to declared names (naming
 consistency), every declared entity has an owning spec (coverage). Adoption is a
-gradient of four rungs, never-climb between every pair — no check may demand a
-document climb, and a corpus may sit at different rungs per document forever:
+gradient of four postures — never-climb between every pair: no check may
+demand a document move, and a corpus may mix postures per document forever:
 
-1. **Plain document** — markdown, extracted features. The floor.
-2. **Bound prose** — the document plus a declared model; mentions opt-in per
-   word (`20-surface.md`).
-3. **Embedded genres** — the document remains the authored artifact; the
-   author opts specific blocks into genre values (the genre fence,
-   `20-surface.md`) where the structure pays.
-4. **Dissolved document** — the value tree is the source; the document is
-   emitted projection. Prose survives as **leaves**: authored strings inside
-   genre values — addressable, law-5-protected one by one.
+- **Plain document** — markdown, extracted features. The floor.
+- **Bound prose** — the document plus a declared model; mentions opt-in per
+  word (`20-surface.md`).
+- **Embedded genres** — the document remains the authored artifact; the
+  author opts specific blocks into genre values (the genre fence,
+  `20-surface.md`) where the structure pays.
+- **Dissolved document** — the value tree is the source; the document is
+  emitted projection. Prose survives as **leaves**: authored strings inside
+  genre values — addressable, law-5-protected one by one.
 
-The model is **declared, not templated**, at every rung; a corpus with a small
+The model is **declared, not templated**, at every posture; a corpus with a small
 model pays little, one reconciled against code pays the modeling tax and is
 repaid in coherence (`00-intent.md` honest bound — coherence, never
 correctness; a contract-clean spec can still model the wrong domain).
@@ -3998,20 +4001,20 @@ a **genre vocabulary** for the prose's own recurring forms (`00-intent.md`, the
 genre Decision). Declaring the model makes the otherwise-undecidable structural —
 each entity has one declared home (DRY), bindings resolve to declared names (naming
 consistency), every declared entity has an owning spec (coverage). Adoption is a
-gradient of four rungs, never-climb between every pair — no check may demand a
-document climb, and a corpus may sit at different rungs per document forever:
+gradient of four postures — never-climb between every pair: no check may
+demand a document move, and a corpus may mix postures per document forever:
 
-1. **Plain document** — markdown, extracted features. The floor.
-2. **Bound prose** — the document plus a declared model; mentions opt-in per
-   word (`20-surface.md`).
-3. **Embedded genres** — the document remains the authored artifact; the
-   author opts specific blocks into genre values (the genre fence,
-   `20-surface.md`) where the structure pays.
-4. **Dissolved document** — the value tree is the source; the document is
-   emitted projection. Prose survives as **leaves**: authored strings inside
-   genre values — addressable, law-5-protected one by one.
+- **Plain document** — markdown, extracted features. The floor.
+- **Bound prose** — the document plus a declared model; mentions opt-in per
+  word (`20-surface.md`).
+- **Embedded genres** — the document remains the authored artifact; the
+  author opts specific blocks into genre values (the genre fence,
+  `20-surface.md`) where the structure pays.
+- **Dissolved document** — the value tree is the source; the document is
+  emitted projection. Prose survives as **leaves**: authored strings inside
+  genre values — addressable, law-5-protected one by one.
 
-The model is **declared, not templated**, at every rung; a corpus with a small
+The model is **declared, not templated**, at every posture; a corpus with a small
 model pays little, one reconciled against code pays the modeling tax and is
 repaid in coherence (`00-intent.md` honest bound — coherence, never
 correctness; a contract-clean spec can still model the wrong domain).
@@ -7709,7 +7712,7 @@ or writes it.
 [[member]]
 kind = "process"
 name = "90-spec-system"
-line_count = 178
+line_count = 190
 source_dir = "process"
 headings = ["Spec system — how `temper` is specified", "What a spec is", "The corpus is classed — three kinds by placement", "Decision: classes are kinds, discriminated by placement", "Evergreen, not release lines", "The depth rule — how deep a spec goes", "DRY — one fact, one home", "External facts carry citations", "Naming consistency — the one hard rule", "Decisions", "The corpus"]
 
@@ -7804,15 +7807,27 @@ agent) at every tier, and the `specs:` ceremony is the authority moment — a
 cold read over a reviewable diff, never a formality. No autonomous phase
 lands spec text: build proposes (leave the entry, surface the question)
 instead of writing — the loop shapes and implements intent, it never invents
-it (`00-intent.md` law 4; `.claude/rules/collaboration.md`). As a document
-climbs the genre gradient to rung 3+ (`30-landscapes.md`), an autonomous
-phase MAY gain **draft rights on its leaves — propose-only**: a leaf edit is
+it (`00-intent.md` law 4; `.claude/rules/collaboration.md`). As a document's spec
+text adopts genre values (`30-landscapes.md`), an autonomous phase MAY gain
+**draft rights on its leaves — propose-only**: a leaf edit is
 a typed, resolution-checked, impact-visible graph event where a prose edit
 is an opaque diff, so the review the ceremony rests on becomes mechanical
 rather than heroic. The authority tier never loosens; only the drafting tier
 widens, per document, with the structure that makes review possible.
 Never-climb still holds: draft rights are a consequence a document's author
 may collect, never a pressure to climb. (Ruled 2026-07-03.)
+
+The entities stay distinct, because blurring them is how process drifts
+(ruled 2026-07-03): **temper is the product**; **flume is the code path** —
+spec diff to plan to build, the only route code changes take; **the
+dogfood** — temper applied to this repo's own harness and corpus — is a
+**confirmation of a finished version, never a live constraint while the
+engine under it is changing**. During an engine wave the self-check gate is
+deactivated and the dogfood's committed artifacts are left stale by design;
+at wave end one confirmation pass (rebuild, re-import, `temper check`, one
+commit) validates the new version and re-arms the gate. **The interactive
+session builds specs with the human and governs flume — it does not
+hand-execute work the pipeline owns.**
 
 ## The depth rule — how deep a spec goes
 
@@ -7995,15 +8010,27 @@ agent) at every tier, and the `specs:` ceremony is the authority moment — a
 cold read over a reviewable diff, never a formality. No autonomous phase
 lands spec text: build proposes (leave the entry, surface the question)
 instead of writing — the loop shapes and implements intent, it never invents
-it (`00-intent.md` law 4; `.claude/rules/collaboration.md`). As a document
-climbs the genre gradient to rung 3+ (`30-landscapes.md`), an autonomous
-phase MAY gain **draft rights on its leaves — propose-only**: a leaf edit is
+it (`00-intent.md` law 4; `.claude/rules/collaboration.md`). As a document's spec
+text adopts genre values (`30-landscapes.md`), an autonomous phase MAY gain
+**draft rights on its leaves — propose-only**: a leaf edit is
 a typed, resolution-checked, impact-visible graph event where a prose edit
 is an opaque diff, so the review the ceremony rests on becomes mechanical
 rather than heroic. The authority tier never loosens; only the drafting tier
 widens, per document, with the structure that makes review possible.
 Never-climb still holds: draft rights are a consequence a document's author
 may collect, never a pressure to climb. (Ruled 2026-07-03.)
+
+The entities stay distinct, because blurring them is how process drifts
+(ruled 2026-07-03): **temper is the product**; **flume is the code path** —
+spec diff to plan to build, the only route code changes take; **the
+dogfood** — temper applied to this repo's own harness and corpus — is a
+**confirmation of a finished version, never a live constraint while the
+engine under it is changing**. During an engine wave the self-check gate is
+deactivated and the dogfood's committed artifacts are left stale by design;
+at wave end one confirmation pass (rebuild, re-import, `temper check`, one
+commit) validates the new version and re-arms the gate. **The interactive
+session builds specs with the human and governs flume — it does not
+hand-execute work the pipeline owns.**
 """
 
 [[member.section]]
