@@ -22,8 +22,8 @@
  *   resolved at emit (below), the `20-surface.md` "Mentions" contract.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve as resolvePath } from "node:path";
 
 import type { Harness } from "./assembly.js";
 import type { Member } from "./members.js";
@@ -33,181 +33,11 @@ import type {
   ManifestMember,
   ManifestPublishedRequirement,
 } from "./manifest.js";
-
-// ---------------------------------------------------------------------------
-// String & key encoding — a faithful port of `toml_write` 0.1.2 (src/string.rs).
-// The auto style-detection and the escaper are reproduced exactly so a value
-// emitted here is byte-identical to `toml_edit`'s `value(String)` output.
-// ---------------------------------------------------------------------------
-
-type Encoding = "literal" | "basic" | "mlliteral" | "mlbasic";
-
-interface StringMetrics {
-  readonly maxSingle: number;
-  readonly maxDouble: number;
-  readonly escapeCodes: boolean;
-  readonly escape: boolean;
-  readonly newline: boolean;
-}
-
-/** `ValueMetrics::calculate` — the run-length and escape facts style choice reads. */
-function stringMetrics(s: string): StringMetrics {
-  let maxSingle = 0;
-  let maxDouble = 0;
-  let escapeCodes = false;
-  let escape = false;
-  let newline = false;
-  let prevSingle = 0;
-  let prevDouble = 0;
-  for (const ch of s) {
-    const cp = ch.codePointAt(0)!;
-    if (cp === 0x27) {
-      prevSingle += 1;
-      maxSingle = Math.max(maxSingle, prevSingle);
-    } else {
-      prevSingle = 0;
-    }
-    if (cp === 0x22) {
-      prevDouble += 1;
-      maxDouble = Math.max(maxDouble, prevDouble);
-    } else {
-      prevDouble = 0;
-    }
-    // The arm order mirrors the Rust match: `\` then `\t` (allowed) then `\n`
-    // then the general control range.
-    if (cp === 0x5c) escape = true;
-    else if (cp === 0x09) {
-      /* horizontal tab is always allowed — neutral */
-    } else if (cp === 0x0a) newline = true;
-    else if (cp <= 0x1f || cp === 0x7f) escapeCodes = true;
-  }
-  return { maxSingle, maxDouble, escapeCodes, escape, newline };
-}
-
-/** `TomlStringBuilder::as_default` — the fall-through style preference. */
-function chooseEncoding(m: StringMetrics): Encoding {
-  // as_basic_pretty
-  if (!(m.escapeCodes || m.escape || m.maxDouble > 0 || m.newline)) return "basic";
-  // as_literal
-  if (!(m.escapeCodes || m.maxSingle > 0 || m.newline)) return "literal";
-  // as_ml_basic_pretty
-  if (!(m.escapeCodes || m.escape || m.maxDouble > 2)) return "mlbasic";
-  // as_ml_literal
-  if (!(m.escapeCodes || m.maxSingle > 2)) return "mlliteral";
-  // fallback: the escaped forms
-  return m.newline ? "mlbasic" : "basic";
-}
-
-/** The basic/multiline-basic escaper from `write_toml_value` (the `escaped` branch). */
-function escapeBasic(s: string, isMl: boolean): string {
-  const maxSeqDouble = isMl ? 2 : 0;
-  let out = "";
-  let seqDouble = 0;
-  for (const ch of s) {
-    const cp = ch.codePointAt(0)!;
-    if (cp === 0x22) {
-      seqDouble += 1;
-      if (seqDouble > maxSeqDouble) {
-        out += '\\"';
-        seqDouble = 0;
-        continue;
-      }
-      out += '"';
-      continue;
-    }
-    seqDouble = 0;
-    switch (cp) {
-      case 0x08:
-        out += "\\b";
-        break;
-      case 0x09:
-        out += "\\t";
-        break;
-      case 0x0a:
-        // A literal newline survives inside a multiline string; a basic string
-        // escapes it.
-        out += isMl ? "\n" : "\\n";
-        break;
-      case 0x0c:
-        out += "\\f";
-        break;
-      case 0x0d:
-        out += "\\r";
-        break;
-      case 0x5c:
-        out += "\\\\";
-        break;
-      default:
-        if (cp <= 0x1f || cp === 0x7f) {
-          out += "\\u" + cp.toString(16).toUpperCase().padStart(4, "0");
-        } else {
-          out += ch;
-        }
-    }
-  }
-  return out;
-}
-
-/** A TOML string *value* — the exact bytes `toml_edit`'s `value(String)` emits. */
-function encodeString(s: string): string {
-  const m = stringMetrics(s);
-  const enc = chooseEncoding(m);
-  const delimiter =
-    enc === "literal" ? "'" : enc === "basic" ? '"' : enc === "mlliteral" ? "'''" : '"""';
-  const isMl = enc === "mlliteral" || enc === "mlbasic";
-  const escaped = enc === "basic" || enc === "mlbasic";
-  let out = delimiter;
-  if (m.newline && isMl) out += "\n";
-  out += escaped ? escapeBasic(s, isMl) : s;
-  out += delimiter;
-  return out;
-}
-
-interface KeyMetrics {
-  readonly unquoted: boolean;
-  readonly single: boolean;
-  readonly double: boolean;
-  readonly escapeCodes: boolean;
-  readonly escape: boolean;
-}
-
-/** `KeyMetrics::calculate` — whether a key may be bare, and its escape facts. */
-function keyMetrics(s: string): KeyMetrics {
-  let unquoted = s.length > 0;
-  let single = false;
-  let double = false;
-  let escapeCodes = false;
-  let escape = false;
-  for (const ch of s) {
-    const cp = ch.codePointAt(0)!;
-    const wordByte =
-      (cp >= 0x61 && cp <= 0x7a) ||
-      (cp >= 0x41 && cp <= 0x5a) ||
-      (cp >= 0x30 && cp <= 0x39) ||
-      cp === 0x2d ||
-      cp === 0x5f;
-    if (!wordByte) unquoted = false;
-    if (cp === 0x27) single = true;
-    else if (cp === 0x22) double = true;
-    else if (cp === 0x5c) escape = true;
-    else if (cp === 0x09) {
-      /* tab allowed */
-    } else if (cp <= 0x1f || cp === 0x7f) escapeCodes = true;
-  }
-  return { unquoted, single, double, escapeCodes, escape };
-}
-
-/** A TOML *key* — bare where it can be, else `toml_edit`'s `TomlKeyBuilder::as_default`. */
-function encodeKey(s: string): string {
-  const m = keyMetrics(s);
-  if (m.unquoted) return s;
-  // as_basic_pretty
-  if (!(m.escapeCodes || m.escape || m.double)) return '"' + escapeBasic(s, false) + '"';
-  // as_literal
-  if (!(m.escapeCodes || m.single)) return "'" + s + "'";
-  // as_basic (fallback)
-  return '"' + escapeBasic(s, false) + '"';
-}
+import { encodeKey, encodeString, joinSections, keyValue, sortedKeys, stringArray } from "./toml.js";
+import type { Projection } from "./project.js";
+import { isProjectedKind, projectMember } from "./project.js";
+import type { LockRow } from "./lock.js";
+import { lockRow, stampLock } from "./lock.js";
 
 // ---------------------------------------------------------------------------
 // Field values — the FeatureValue projection of `feature_to_value`
@@ -238,28 +68,6 @@ function encodeFieldValue(name: string, value: unknown): string | null {
     `field \`${name}\`: value of type ${typeof value} has no manifest spelling — ` +
       `only strings, booleans, integers, string lists, and maps are byte-parity modelled.`,
   );
-}
-
-// ---------------------------------------------------------------------------
-// Table layout — `toml_edit`'s `visit_table`. Each table is one "section"
-// string (header line + its scalar `key = value` lines). The document joins
-// every section across every member with exactly one blank line before each
-// section but the first (`DEFAULT_TABLE_DECOR = ("\n", "")`, first table `("", …)`).
-// ---------------------------------------------------------------------------
-
-/** One `key = value\n` line, the key/value decor `toml_edit` renders (`key = value`). */
-function keyValue(key: string, valueRepr: string): string {
-  return `${encodeKey(key)} = ${valueRepr}\n`;
-}
-
-/** A TOML string array — `["a", "b"]`, no leading space, `, ` between elements. */
-function stringArray(values: readonly string[]): string {
-  return "[" + values.map(encodeString).join(", ") + "]";
-}
-
-/** Sorted keys — the stable order `toml_edit` gets for free from its `BTreeMap`s. */
-function sortedKeys(record: Readonly<Record<string, unknown>>): string[] {
-  return Object.keys(record).sort();
 }
 
 /** The `[[member.genre]]` value serialized whole — leaves flat, collections keyed. */
@@ -357,8 +165,7 @@ function memberSections(member: ManifestMember): string[] {
 
 /** The manifest's `[[member]]` root — every section joined the `toml_edit` way. */
 function emitDocument(members: readonly ManifestMember[]): string {
-  const sections = members.flatMap(memberSections);
-  return sections.map((section, i) => (i === 0 ? "" : "\n") + section).join("");
+  return joinSections(members.flatMap(memberSections));
 }
 
 /**
@@ -522,4 +329,90 @@ export function emitManifestMembers(harness: Harness, options: EmitOptions = {})
     );
   }
   return first;
+}
+
+/**
+ * A full emit's compiled artifacts — the three provenance classes emit produces
+ * (`specs/architecture/20-surface.md`, "Topology"): the generated-canonical
+ * manifest, the generated `.claude/**` projection, and the generated lock. The
+ * whole set is a pure function of the harness, so [`emit`] double-verifies it and
+ * [`writeEmit`] lands it on disk.
+ */
+export interface EmitResult {
+  /** The manifest's `[[member]]` section — every member, kind-then-name ordered. */
+  readonly manifest: string;
+  /** The `.claude/**` projection files, one per projected (rule/skill) member. */
+  readonly projections: readonly Projection[];
+  /** The `lock.toml` bytes — a freshness row per projected member. */
+  readonly lock: string;
+}
+
+/**
+ * Compile the whole face in one deterministic pass: the manifest, the `.claude/**`
+ * projection, and the lock whose fingerprints the drift engine reads. Bodies
+ * resolve once (`fromFile` assets read in, mentions resolution-checked against the
+ * harness's declared values) and feed all three outputs, so a projection and its
+ * lock fingerprint agree by construction. The whole result is double-emit verified
+ * — nondeterministic authoring is a loud failure, never a silent churn (law 5).
+ *
+ * Only the built-in projected kinds (`rule`, `skill`) carry a `.claude/**`
+ * projection and a lock row; a memory or custom member lands in the manifest but
+ * projects nowhere ([`isProjectedKind`]).
+ */
+export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
+  const resolve: ResolveOptions = {
+    mentionable: declaredAddresses(harness),
+    baseDir: options.baseDir,
+  };
+  const compile = (): EmitResult => {
+    const members = orderedMembers(harness, resolve);
+    const projected = members.filter((member) => isProjectedKind(member.kind));
+    const projections = projected.map(projectMember);
+    const rows: LockRow[] = projected.map((member, i) => lockRow(member.kind, projections[i]));
+    return {
+      manifest: emitDocument(members),
+      projections,
+      lock: stampLock(rows),
+    };
+  };
+  const first = compile();
+  const second = compile();
+  if (
+    first.manifest !== second.manifest ||
+    first.lock !== second.lock ||
+    !sameProjections(first.projections, second.projections)
+  ) {
+    throw new Error(
+      "double-emit divergence: two passes over the same harness produced different bytes — " +
+        "authoring code is nondeterministic (a timestamp? an unordered map?).",
+    );
+  }
+  return first;
+}
+
+/** Whether two projection lists are byte-identical, path and bytes both. */
+function sameProjections(a: readonly Projection[], b: readonly Projection[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((p, i) => p.path === b[i].path && p.bytes === b[i].bytes)
+  );
+}
+
+/**
+ * Run a full [`emit`] and write its artifacts under `targetDir`: the manifest to
+ * `temper.toml`, the lock to `lock.toml`, and each projection to its `.claude/**`
+ * path (parent directories created). Whole-file writes — a projection is
+ * regenerated, never patched, so a hand-edited projection is overwritten (that
+ * edit is drift routed to the source, `specs/architecture/20-surface.md`).
+ */
+export function writeEmit(harness: Harness, targetDir: string, options: EmitOptions = {}): EmitResult {
+  const result = emit(harness, options);
+  writeFileSync(join(targetDir, "temper.toml"), result.manifest);
+  writeFileSync(join(targetDir, "lock.toml"), result.lock);
+  for (const projection of result.projections) {
+    const path = join(targetDir, projection.path);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, projection.bytes);
+  }
+  return result;
 }

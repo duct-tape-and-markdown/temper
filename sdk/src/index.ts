@@ -26,5 +26,23 @@ export { customMember, memory, rule, skill } from "./members.js";
 export type { Harness, KindBinding, Requirement } from "./assembly.js";
 export { defineHarness } from "./assembly.js";
 
-export type { EmitOptions, ResolveOptions } from "./emit.js";
-export { emitManifestMembers, serializeManifestMember, toManifestMember } from "./emit.js";
+export type { EmitOptions, EmitResult, ResolveOptions } from "./emit.js";
+export {
+  emit,
+  emitManifestMembers,
+  serializeManifestMember,
+  toManifestMember,
+  writeEmit,
+} from "./emit.js";
+
+export type { Projection } from "./project.js";
+export {
+  isProjectedKind,
+  projectBytes,
+  projectionPath,
+  projectMember,
+  renderField,
+} from "./project.js";
+
+export type { LockRow } from "./lock.js";
+export { lockRow, sha256Hex, stampLock } from "./lock.js";

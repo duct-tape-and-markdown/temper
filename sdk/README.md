@@ -16,16 +16,20 @@ CI, and every read verb consume only declared data, offline, no Node.
   the guidance channel, `specs/architecture/50-distribution.md`).
 - **The manifest schema types**, mirroring the Rust `[[member]]` /
   `[[member.section]]` / `[[member.genre]]` tables the gate reads.
-- **`emitManifestMembers`**: members → manifest TOML, deterministically
-  ordered, **double-emit verified in-process** (law 5's discipline).
-- Tests: `pnpm test` (tsc + `node --test`).
+- **`emit`**: the full compile in one deterministic pass — the manifest
+  (members → TOML), the `.claude/**` **projection**, and the **lock** whose
+  `source_hash`/`emit_hash` fingerprints the drift engine reads; all three
+  **double-emit verified in-process** (law 5's discipline). `writeEmit` lands
+  them on disk. `emitManifestMembers` remains the manifest-only seam.
+- **Body resolution**: `fromFile` assets read in and mentions
+  resolution-checked against the harness's declared values, at emit.
+- Tests: `pnpm test` (tsc + `node --test`), including byte-parity of the
+  manifest, the projection, and the lock fingerprints against real Rust output.
 
 ## Stated bounds — each a named follow-on slice, never silently faked
 
-- **Byte-parity with the Rust emitter** (`toml_edit` output) is the altitude
-  slice's acceptance bar; this serializer emits valid TOML of the same schema.
-- **Projection writing** (members → `.claude/**`), **lock stamping**,
-  **`fromFile` resolution**, and **mention resolution-checking** are absent
-  and fail loud if reached.
+- **Projection covers the built-in projected kinds** (`rule`, `skill`); a
+  memory (`CLAUDE.md`) or custom-kind member lands in the manifest but projects
+  nowhere and stamps no lock row — the two kinds the Rust projector emits.
 - **Publish name/scope** pending the PACKAGING-CHANNELS ruling (needs
   registry credentials); `private: true` until then.
