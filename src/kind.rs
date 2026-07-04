@@ -755,11 +755,15 @@ pub struct Extraction {
 /// (`specs/architecture/15-kinds.md`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Primitive {
-    /// `field` — project the frontmatter value at `key` into the named field
-    /// feature (kind-preserving). Absent from the unit ⇒ the feature is not
-    /// yielded, mirroring how a skill's optional `version` is omitted when unset.
+    /// `field` — project the frontmatter value at the `key` **key-path** into the
+    /// named field feature (kind-preserving). A dotted path (`a.b.c`) walks nested
+    /// tables to the leaf (`extract::resolve_key_path`); a bare key is the flat
+    /// lookup. Unresolved (a missing segment, or a scalar met before the leaf) ⇒ the
+    /// feature is not yielded — absent, never errored — mirroring how a skill's
+    /// optional `version` is omitted when unset.
     Field {
-        /// The frontmatter key-path read, and the name the feature is keyed by.
+        /// The frontmatter key-path read, and the name the feature is keyed by (the
+        /// whole dotted path, so a clause references the nested field as `a.b.c`).
         key: String,
     },
     /// `headings` — the body's ATX headings, in document order
@@ -833,7 +837,9 @@ impl Primitive {
     fn apply(&self, unit: &Unit, features: &mut Features) {
         match self {
             Primitive::Field { key } => {
-                if let Some(value) = unit.frontmatter.get(key) {
+                // Walk the dotted key-path to its leaf (a flat lookup for a single
+                // segment); absent — not errored — when the path doesn't resolve.
+                if let Some(value) = extract::resolve_key_path(&unit.frontmatter, key) {
                     features
                         .fields
                         .insert(key.clone(), extract::json_to_feature(value));

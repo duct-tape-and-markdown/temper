@@ -784,6 +784,38 @@ fn skip_code_span(chars: &[char], start: usize) -> usize {
     after_open
 }
 
+/// Resolve a dotted **key-path** (`a.b.c`) against a parsed frontmatter map,
+/// walking nested tables to the leaf value — the traversal the `field` extraction
+/// primitive promises (`specs/architecture/15-kinds.md`, "structured field — a
+/// frontmatter / JSON / TOML value at a key-path"). The first segment resolves in
+/// the top-level map; each further segment descends into the value's object, so a
+/// settings kind's nested `permissions.defaultMode` reads its leaf. A single-segment
+/// path is an ordinary flat lookup, so the common case is unchanged.
+///
+/// Returns `None` — **absent, never errored** — when any segment fails to resolve:
+/// a missing key, or a non-object value met before the leaf (a scalar or list has
+/// no sub-key to walk into). Kind-blind: the returned leaf carries its own parsed
+/// kind through [`json_to_feature`], so a nested read preserves the source scalar
+/// kind exactly as a flat one does.
+///
+/// `pub(crate)` so the [`crate::kind`] `field` primitive walks the identical path
+/// rather than a second traversal that could drift.
+pub(crate) fn resolve_key_path<'a>(
+    frontmatter: &'a BTreeMap<String, JsonValue>,
+    key_path: &str,
+) -> Option<&'a JsonValue> {
+    let mut segments = key_path.split('.');
+    // The first segment resolves in the top-level frontmatter map; a path with no
+    // `.` is a single segment, so this is the flat lookup for the common case.
+    let mut current = frontmatter.get(segments.next()?)?;
+    for segment in segments {
+        // Only an object has a sub-key to descend into — a scalar or list met before
+        // the leaf leaves the path unresolved (absent), never a forged read.
+        current = current.as_object()?.get(segment)?;
+    }
+    Some(current)
+}
+
 /// Project an `extra` frontmatter value into a [`FeatureValue`], preserving its
 /// parsed source [`Kind`]: arrays become a list, objects a map, and each scalar
 /// keeps the kind it parsed as (`string`/`integer`/`number`/`boolean`/`null`)

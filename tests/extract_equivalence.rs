@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
+use temper::extract::{FeatureValue, Kind};
 use temper::frontmatter::Member;
 use temper::kind::{Extraction, KindError, Unit};
 
@@ -198,6 +199,98 @@ fn a_fenced_primitive_over_a_body_with_no_fence_yields_none() {
     let extraction = Extraction::parse(toml, Path::new("kinds/x/KIND.md")).unwrap();
     let unit = memory_unit("# Kinds\n\nJust prose, no fenced block at all.\n");
     assert!(extraction.extract(&unit).fenced_blocks.is_empty());
+}
+
+/// A `Unit` carrying the given parsed frontmatter (the nested shape the
+/// yaml-frontmatter adapter yields from a nested YAML map / a JSON-manifest settings
+/// kind), for driving a composed `field` extractor over a key-path without touching
+/// disk. The body is empty — the key-path case exercises the frontmatter locus only.
+fn frontmatter_unit(frontmatter: serde_json::Map<String, serde_json::Value>) -> Unit {
+    Unit {
+        id: "settings".to_string(),
+        frontmatter: frontmatter.into_iter().collect(),
+        body: String::new(),
+        source_path: PathBuf::from("settings/settings.md"),
+        satisfies: Vec::new(),
+        satisfies_clauses: Vec::new(),
+        published_requirements: Vec::new(),
+    }
+}
+
+/// A key-path `field` primitive walks nested frontmatter tables to the leaf — the
+/// traversal its doc-comment promises (`specs/architecture/15-kinds.md`, "structured
+/// field — a frontmatter / JSON / TOML value at a key-path"), the settings kind's
+/// nested-key consumer. The leaf preserves its source scalar kind, and an unresolved
+/// path is **absent, never errored** — a missing segment or a scalar met before the
+/// leaf yields no feature, exactly as an unset optional field does.
+#[test]
+fn a_field_primitive_reads_a_nested_key_path_over_a_units_frontmatter() {
+    let toml = "\
+[[extraction]]
+primitive = \"field\"
+key = \"permissions.defaultMode\"
+
+[[extraction]]
+primitive = \"field\"
+key = \"permissions.retries\"
+
+[[extraction]]
+primitive = \"field\"
+key = \"name\"
+
+[[extraction]]
+primitive = \"field\"
+key = \"permissions.missing.leaf\"
+
+[[extraction]]
+primitive = \"field\"
+key = \"name.nope\"
+";
+    let extraction =
+        Extraction::parse(toml, Path::new("kinds/claude-code/settings/KIND.md")).unwrap();
+
+    // A JSON-manifest settings shape: a nested `permissions` table over a top-level
+    // scalar, the exact carriage the key-path half serves (entry note, 07-04).
+    let serde_json::Value::Object(frontmatter) = serde_json::json!({
+        "name": "settings",
+        "permissions": {
+            "defaultMode": "acceptEdits",
+            "retries": 3
+        }
+    }) else {
+        unreachable!("the fixture is a JSON object")
+    };
+    let unit = frontmatter_unit(frontmatter);
+
+    let features = extraction.extract(&unit);
+
+    // The nested string leaf reads over the `a.b` key-path, keyed by the whole path,
+    // preserving its source scalar kind (`string`, not a collapsed container).
+    assert_eq!(
+        features.field("permissions.defaultMode"),
+        Some(&FeatureValue::scalar(Kind::String, "acceptEdits"))
+    );
+    // A nested integer leaf keeps `integer` — the source kind survives the walk.
+    assert_eq!(
+        features
+            .field("permissions.retries")
+            .map(FeatureValue::kind),
+        Some(Kind::Integer)
+    );
+    // A bare key stays the flat lookup — the common case is unchanged.
+    assert_eq!(
+        features.field("name"),
+        Some(&FeatureValue::scalar(Kind::String, "settings"))
+    );
+
+    // Absent, never errored: a missing segment past a real table, and a scalar met
+    // before the leaf (`name` is a string, so `name.nope` has no sub-key) both yield
+    // no feature — extraction stays total.
+    assert!(features.field("permissions.missing.leaf").is_none());
+    assert!(features.field("name.nope").is_none());
+
+    // Order-stable across re-extraction — a pure function of the surface.
+    assert_eq!(extraction.extract(&unit).fields, features.fields);
 }
 
 /// The `rule_features` projection over a `.claude/rules/*.md` rule that carries a

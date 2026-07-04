@@ -46,3 +46,6 @@ ts-rs = "12"
 # Golden import/apply fixtures (specs/architecture/20-surface.md). `filters` redacts the per-machine
 # absolute source path from the import-surface snapshot.
 insta = { version = "1", features = ["filters"] }
+# Build a nested-frontmatter `Unit` in the extraction-equivalence test's key-path
+# case — the same parsed shape the yaml-frontmatter adapter yields.
+serde_json = "1"
