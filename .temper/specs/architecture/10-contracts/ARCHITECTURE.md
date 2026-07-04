@@ -16,7 +16,7 @@ rationale = "10-contracts owns severity as a DECLARED (required/advisory) proper
 
 [provenance]
 source_path = "./specs/architecture/10-contracts.md"
-source_hash = "8d40d85a571abc401825720939c7d397a6196bb28516c1a694afcc32505067e4"
+source_hash = "b183162ce4dcd093f0ae99f3f40268114665359fb09fea074505b994b6b0d672"
 +++
 # Contracts — clauses, requirements, and the two walls
 
@@ -424,7 +424,8 @@ un-authorability *is* the immune system. So the recursion is not infinite
 turtles: two checked rungs grounded on a fixed axiom, which bottoms out in
 the engine's own implementation, checked by its compiler and test suite —
 the honest handoff off `temper`'s stack (`00-intent.md` honest bound; the
-engine's implementation language is an open fork, `(engine-language)`).
+implementation language is deliberately non-normative — `(engine-language)`
+resolved: Rust today, stated nowhere as contract).
 
 ## Decision: kill the heuristic rule registry
 

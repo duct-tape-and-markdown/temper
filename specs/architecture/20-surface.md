@@ -143,8 +143,10 @@ Prose may interpolate declared values, with two distinct intents:
 - **`${x}` is a mention** — it *names* a member: an edge, no content flows.
   Rendered by one corpus-wide display rule; resolution-checked (a mention
   cannot dangle); obligation-free — `explain` reports mentions as citations,
-  never fallout. The markdown spelling of a mention in a posture-2 document
-  is open `(mention-marker)`.
+  never fallout. In a posture-2 document a mention spells identically —
+  `${address}` in the markdown, not recognized inside code spans or fenced
+  blocks (`(mention-marker)` resolved 2026-07-04: one spelling across the
+  postures — a second marker would be a synonym for the model's own edge).
 - **`${embed(x)}` is a pull** — the target's content flows into the host's
   emitted bytes, so the edge is a content dependency the lock fingerprints.
   Today's `CLAUDE.md` `@path` import is the embed's harness spelling — the
@@ -252,9 +254,10 @@ Source↔artifact integrity is verified where it is honestly verifiable: **CI
 re-runs `emit --frozen` and byte-compares** the result against the committed
 projection.
 
-The engine's implementation language is an open fork `(engine-language)`;
-this corpus says "the engine" and "the temper binary or its equivalent",
-never a language as a normative fact.
+The engine's implementation language is deliberately non-normative
+(`(engine-language)` resolved 2026-07-04: the engine stays in Rust); this
+corpus says "the engine" and "the temper binary or its equivalent",
+never a language as a contractual fact.
 
 ### Decision: one authored surface, one implementation
 
@@ -322,8 +325,9 @@ projections skip it, a comment there costs context every session), and a
 guard hook at the provider's write boundary. The limit is stated, not solved:
 the hook binds one provider's writes, so authority is only as strong as the
 weakest uninstrumented consumer — the note is the only universal layer and CI
-the backstop wall. Whether the guard stays advisory-only or gains a
-subcommand is open `(guard-posture)`. **Rejected:** (a) baked-in blocking —
+the backstop wall. The guard is the `temper guard` subcommand, blocking per
+this declared posture (`50-distribution.md`, the guard Decision —
+`(guard-posture)` resolved). **Rejected:** (a) baked-in blocking —
 the tool determining invasiveness on a surface it was invited onto; (b)
 `emit`-stamped notes — a stamping projector breaks law 5 for every downstream
 byte-comparison; (c) framing the hook as a wall — multi-consumer loci

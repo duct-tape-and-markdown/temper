@@ -25,20 +25,20 @@ emit_hash = "c1116b5ca2c1a0d6df07ff54f080b114bfbf69a40035ab13466c319422b7c777"
 [[architecture]]
 name = "10-contracts"
 source_path = "./specs/architecture/10-contracts.md"
-source_hash = "8d40d85a571abc401825720939c7d397a6196bb28516c1a694afcc32505067e4"
-emit_hash = "8d40d85a571abc401825720939c7d397a6196bb28516c1a694afcc32505067e4"
+source_hash = "b183162ce4dcd093f0ae99f3f40268114665359fb09fea074505b994b6b0d672"
+emit_hash = "b183162ce4dcd093f0ae99f3f40268114665359fb09fea074505b994b6b0d672"
 
 [[architecture]]
 name = "15-kinds"
 source_path = "./specs/architecture/15-kinds.md"
-source_hash = "fb5eba681bb7cd8986eb47b48fc95f90edf26dedee4b1b8b8be4a84c5b171de0"
-emit_hash = "fb5eba681bb7cd8986eb47b48fc95f90edf26dedee4b1b8b8be4a84c5b171de0"
+source_hash = "839d60577f641d8b7693bc5b2739df489be1f615d304c1e5352697a18f52d2f2"
+emit_hash = "839d60577f641d8b7693bc5b2739df489be1f615d304c1e5352697a18f52d2f2"
 
 [[architecture]]
 name = "20-surface"
 source_path = "./specs/architecture/20-surface.md"
-source_hash = "3e0805fd33d8e7ff70a5b1c9fab922a2f651e8573919a1fefa701fd4381d5e19"
-emit_hash = "3e0805fd33d8e7ff70a5b1c9fab922a2f651e8573919a1fefa701fd4381d5e19"
+source_hash = "70b1cebbf1d53b49a0f9eafe06fee21a384f35c66ff1340e77f0fc51a477c467"
+emit_hash = "70b1cebbf1d53b49a0f9eafe06fee21a384f35c66ff1340e77f0fc51a477c467"
 
 [[architecture]]
 name = "30-landscapes"
@@ -49,8 +49,8 @@ emit_hash = "d808c6d91b4eae471e9c4f40fdbd054a683e7a1514935ac88e0bec53bc946244"
 [[architecture]]
 name = "40-composition"
 source_path = "./specs/architecture/40-composition.md"
-source_hash = "32f545c28df82d2bf8a8a420ee38ecb890d80ef7c205ea51611d86bec520765a"
-emit_hash = "32f545c28df82d2bf8a8a420ee38ecb890d80ef7c205ea51611d86bec520765a"
+source_hash = "07c4730c875ab0be129cca7980021d8bed57b4bc927ca6991fc81c2ec92fafc5"
+emit_hash = "07c4730c875ab0be129cca7980021d8bed57b4bc927ca6991fc81c2ec92fafc5"
 
 [[architecture]]
 name = "45-governance"
@@ -61,8 +61,8 @@ emit_hash = "73dd8798d9b9728f3d4aa7ae066b1eaa6ae4ea6a32e0fb3264c620fba49be3c0"
 [[architecture]]
 name = "50-distribution"
 source_path = "./specs/architecture/50-distribution.md"
-source_hash = "47deec544b21c78301ba682d4669f20ebbcb5a580b7984e123c606f87ced3e68"
-emit_hash = "47deec544b21c78301ba682d4669f20ebbcb5a580b7984e123c606f87ced3e68"
+source_hash = "d1d483446656cd18dd1494d971fdeec55ae20bec0b72fe688ba7a9ea63249908"
+emit_hash = "d1d483446656cd18dd1494d971fdeec55ae20bec0b72fe688ba7a9ea63249908"
 
 [[intent]]
 name = "00-intent"

@@ -37,7 +37,7 @@ required = true
 [[member]]
 kind = "architecture"
 name = "10-contracts"
-line_count = 468
+line_count = 469
 source_dir = "architecture"
 headings = ["Contracts — clauses, requirements, and the two walls", "The engine is generic; everything is an instance", "The clause — the atom of a contract", "The predicate algebra — closed, decidable, every member decides", "Two quantifiers — `expect` and `require`", "Decision: clause arrays and two quantifiers, not a package noun", "Requirements — the harness's named obligations", "Decision: `required` is posture, never cardinality", "Decision: a requirement's publisher is any authored surface", "Decision: satisfaction is total per named demand", "Decision: role and requirement are one concept", "Admissibility — the contract is itself checked, one stage", "The two walls", "The recursion bottoms out — the definition is not authorable", "Decision: kill the heuristic rule registry", "Decision: a bespoke closed algebra, not a general policy engine", "Decision: `allowed_chars`, not a general `pattern` clause", "Decision: the `type` vocabulary is a closed scalar/container lattice"]
 satisfies = ["predicate-algebra", "requirement-fill", "package", "verified-by", "gate-severity"]
@@ -450,7 +450,8 @@ un-authorability *is* the immune system. So the recursion is not infinite
 turtles: two checked rungs grounded on a fixed axiom, which bottoms out in
 the engine's own implementation, checked by its compiler and test suite —
 the honest handoff off `temper`'s stack (`00-intent.md` honest bound; the
-engine's implementation language is an open fork, `(engine-language)`).
+implementation language is deliberately non-normative — `(engine-language)`
+resolved: Rust today, stated nowhere as contract).
 
 ## Decision: kill the heuristic rule registry
 
@@ -1010,7 +1011,8 @@ un-authorability *is* the immune system. So the recursion is not infinite
 turtles: two checked rungs grounded on a fixed axiom, which bottoms out in
 the engine's own implementation, checked by its compiler and test suite —
 the honest handoff off `temper`'s stack (`00-intent.md` honest bound; the
-engine's implementation language is an open fork, `(engine-language)`).
+implementation language is deliberately non-normative — `(engine-language)`
+resolved: Rust today, stated nowhere as contract).
 """
 
 [[member.section]]
@@ -1130,7 +1132,7 @@ require("release-tool", {
 [[member]]
 kind = "architecture"
 name = "15-kinds"
-line_count = 316
+line_count = 319
 source_dir = "architecture"
 headings = ["Kinds — typed constructors and their runtime residue", "A kind is a constructor plus five facts", "Decision: field typing lives in the SDK — there is no kind file format", "Two loci", "The engine is kind-blind — extraction is generic", "Decision: kinds are declared data over generic extraction, never engine code", "Registration — the kind's world fact", "Decision: registration generalizes activation", "Edge fields", "Directives — format-executed body syntax", "Decision: execution is the admission test for body syntax", "A genre is a kind at the block locus", "Decision: a genre is a full kind, and genre checks are data, never engine", "Three authoring postures", "Decision: the postures are equal — no adoption ladder", "Built-in and custom kinds — ownership by module", "Decision: built-ins are a module, and identity is an import", "Worked example: the spec corpus, swallowed"]
 satisfies = ["extraction-algebra", "kind", "provider"]
@@ -1374,10 +1376,13 @@ are equal — the system is not opinionated about where you author**:
 
 Postures 2 and 3 emit **identical bytes**: the fence format is both the
 authoring template and the render target, so moving a block between them is a
-mechanical, byte-stable round-trip. That shared fence format is an open item
-`(genre-fence-format)`; its acceptance test is exactly the byte-stable
-round-trip. The markdown spelling of a mention in posture 2 is open
-`(mention-marker)`.
+mechanical, byte-stable round-trip. That shared fence format is deliberately
+undesigned until its first consumer — the genre-adoption pilot — lands
+(`(genre-fence-format)`, deferred 2026-07-04; the earlier TOML-fence ruling
+was manifest-era residue and does not bind the pilot); its acceptance test is
+exactly the byte-stable round-trip. A mention in posture 2 spells exactly as
+in posture 3 — `${address}` (`20-surface.md`, the `(mention-marker)`
+resolution).
 
 No upgrade advisory, no adoption metric, no lint counting fences. Movement
 between postures is author-initiated and free in both directions. `init`'s
@@ -1777,10 +1782,13 @@ are equal — the system is not opinionated about where you author**:
 
 Postures 2 and 3 emit **identical bytes**: the fence format is both the
 authoring template and the render target, so moving a block between them is a
-mechanical, byte-stable round-trip. That shared fence format is an open item
-`(genre-fence-format)`; its acceptance test is exactly the byte-stable
-round-trip. The markdown spelling of a mention in posture 2 is open
-`(mention-marker)`.
+mechanical, byte-stable round-trip. That shared fence format is deliberately
+undesigned until its first consumer — the genre-adoption pilot — lands
+(`(genre-fence-format)`, deferred 2026-07-04; the earlier TOML-fence ruling
+was manifest-era residue and does not bind the pilot); its acceptance test is
+exactly the byte-stable round-trip. A mention in posture 2 spells exactly as
+in posture 3 — `${address}` (`20-surface.md`, the `(mention-marker)`
+resolution).
 
 No upgrade advisory, no adoption metric, no lint counting fences. Movement
 between postures is author-initiated and free in both directions. `init`'s
@@ -1902,7 +1910,7 @@ export const skill = kind<Skill>({ /* the five facts */ });"""
 [[member]]
 kind = "architecture"
 name = "20-surface"
-line_count = 446
+line_count = 450
 source_dir = "architecture"
 headings = ["The surface — the SDK: authoring, prose, emit, the seam, init", "The port scene", "Two registers — the face and the engine room", "The member", "Prose — three constructors, one field type", "Two reference intents — mention and embed", "Decision: prose is a typed field, never a wrapper", "Decision: two reference intents, opt-in per word — no completeness check, ever", "Emit — total, byte-reproducible, refusing", "Decision: emit is total — no partial territory", "The seam — one implementation", "Decision: one authored surface, one implementation", "The lock and drift — one vocabulary", "Decision: drift routes to the authored source — no reverse parse", "Decision: surface authority is a declared posture, never a baked stance", "init — the lift, once", "Decision: init is the lift; the postures stay equal", "Decision: discovery respects ignore rules; the backing set reads raw disk", "Decision: the workspace is per-project", "CLI surface", "Decision: one read verb — `explain`", "Scope boundary"]
 satisfies = ["member", "projection", "drift-engine", "authoring-face", "manifest"]
@@ -2054,8 +2062,10 @@ Prose may interpolate declared values, with two distinct intents:
 - **`${x}` is a mention** — it *names* a member: an edge, no content flows.
   Rendered by one corpus-wide display rule; resolution-checked (a mention
   cannot dangle); obligation-free — `explain` reports mentions as citations,
-  never fallout. The markdown spelling of a mention in a posture-2 document
-  is open `(mention-marker)`.
+  never fallout. In a posture-2 document a mention spells identically —
+  `${address}` in the markdown, not recognized inside code spans or fenced
+  blocks (`(mention-marker)` resolved 2026-07-04: one spelling across the
+  postures — a second marker would be a synonym for the model's own edge).
 - **`${embed(x)}` is a pull** — the target's content flows into the host's
   emitted bytes, so the edge is a content dependency the lock fingerprints.
   Today's `CLAUDE.md` `@path` import is the embed's harness spelling — the
@@ -2163,9 +2173,10 @@ Source↔artifact integrity is verified where it is honestly verifiable: **CI
 re-runs `emit --frozen` and byte-compares** the result against the committed
 projection.
 
-The engine's implementation language is an open fork `(engine-language)`;
-this corpus says "the engine" and "the temper binary or its equivalent",
-never a language as a normative fact.
+The engine's implementation language is deliberately non-normative
+(`(engine-language)` resolved 2026-07-04: the engine stays in Rust); this
+corpus says "the engine" and "the temper binary or its equivalent",
+never a language as a contractual fact.
 
 ### Decision: one authored surface, one implementation
 
@@ -2233,8 +2244,9 @@ projections skip it, a comment there costs context every session), and a
 guard hook at the provider's write boundary. The limit is stated, not solved:
 the hook binds one provider's writes, so authority is only as strong as the
 weakest uninstrumented consumer — the note is the only universal layer and CI
-the backstop wall. Whether the guard stays advisory-only or gains a
-subcommand is open `(guard-posture)`. **Rejected:** (a) baked-in blocking —
+the backstop wall. The guard is the `temper guard` subcommand, blocking per
+this declared posture (`50-distribution.md`, the guard Decision —
+`(guard-posture)` resolved). **Rejected:** (a) baked-in blocking —
 the tool determining invasiveness on a surface it was invited onto; (b)
 `emit`-stamped notes — a stamping projector breaks law 5 for every downstream
 byte-comparison; (c) framing the hook as a wall — multi-consumer loci
@@ -2495,8 +2507,10 @@ Prose may interpolate declared values, with two distinct intents:
 - **`${x}` is a mention** — it *names* a member: an edge, no content flows.
   Rendered by one corpus-wide display rule; resolution-checked (a mention
   cannot dangle); obligation-free — `explain` reports mentions as citations,
-  never fallout. The markdown spelling of a mention in a posture-2 document
-  is open `(mention-marker)`.
+  never fallout. In a posture-2 document a mention spells identically —
+  `${address}` in the markdown, not recognized inside code spans or fenced
+  blocks (`(mention-marker)` resolved 2026-07-04: one spelling across the
+  postures — a second marker would be a synonym for the model's own edge).
 - **`${embed(x)}` is a pull** — the target's content flows into the host's
   emitted bytes, so the edge is a content dependency the lock fingerprints.
   Today's `CLAUDE.md` `@path` import is the embed's harness spelling — the
@@ -2544,8 +2558,10 @@ Prose may interpolate declared values, with two distinct intents:
 - **`${x}` is a mention** — it *names* a member: an edge, no content flows.
   Rendered by one corpus-wide display rule; resolution-checked (a mention
   cannot dangle); obligation-free — `explain` reports mentions as citations,
-  never fallout. The markdown spelling of a mention in a posture-2 document
-  is open `(mention-marker)`.
+  never fallout. In a posture-2 document a mention spells identically —
+  `${address}` in the markdown, not recognized inside code spans or fenced
+  blocks (`(mention-marker)` resolved 2026-07-04: one spelling across the
+  postures — a second marker would be a synonym for the model's own edge).
 - **`${embed(x)}` is a pull** — the target's content flows into the host's
   emitted bytes, so the edge is a content dependency the lock fingerprints.
   Today's `CLAUDE.md` `@path` import is the embed's harness spelling — the
@@ -2681,9 +2697,10 @@ Source↔artifact integrity is verified where it is honestly verifiable: **CI
 re-runs `emit --frozen` and byte-compares** the result against the committed
 projection.
 
-The engine's implementation language is an open fork `(engine-language)`;
-this corpus says "the engine" and "the temper binary or its equivalent",
-never a language as a normative fact.
+The engine's implementation language is deliberately non-normative
+(`(engine-language)` resolved 2026-07-04: the engine stays in Rust); this
+corpus says "the engine" and "the temper binary or its equivalent",
+never a language as a contractual fact.
 
 ### Decision: one authored surface, one implementation
 
@@ -2779,8 +2796,9 @@ projections skip it, a comment there costs context every session), and a
 guard hook at the provider's write boundary. The limit is stated, not solved:
 the hook binds one provider's writes, so authority is only as strong as the
 weakest uninstrumented consumer — the note is the only universal layer and CI
-the backstop wall. Whether the guard stays advisory-only or gains a
-subcommand is open `(guard-posture)`. **Rejected:** (a) baked-in blocking —
+the backstop wall. The guard is the `temper guard` subcommand, blocking per
+this declared posture (`50-distribution.md`, the guard Decision —
+`(guard-posture)` resolved). **Rejected:** (a) baked-in blocking —
 the tool determining invasiveness on a surface it was invited onto; (b)
 `emit`-stamped notes — a stamping projector breaks law 5 for every downstream
 byte-comparison; (c) framing the hook as a wall — multi-consumer loci
@@ -2817,8 +2835,9 @@ projections skip it, a comment there costs context every session), and a
 guard hook at the provider's write boundary. The limit is stated, not solved:
 the hook binds one provider's writes, so authority is only as strong as the
 weakest uninstrumented consumer — the note is the only universal layer and CI
-the backstop wall. Whether the guard stays advisory-only or gains a
-subcommand is open `(guard-posture)`. **Rejected:** (a) baked-in blocking —
+the backstop wall. The guard is the `temper guard` subcommand, blocking per
+this declared posture (`50-distribution.md`, the guard Decision —
+`(guard-posture)` resolved). **Rejected:** (a) baked-in blocking —
 the tool determining invasiveness on a surface it was invited onto; (b)
 `emit`-stamped notes — a stamping projector breaks law 5 for every downstream
 byte-comparison; (c) framing the hook as a wall — multi-consumer loci
@@ -3297,7 +3316,7 @@ deliberately added to the algebra."""
 [[member]]
 kind = "architecture"
 name = "40-composition"
-line_count = 163
+line_count = 168
 source_dir = "architecture"
 headings = ["Composition — the assembly", "`members` — the roster is the import graph", "`expect` and `require` — the two demand forms", "Binding is implicit — a floor is a clause array", "Decision: `satisfies` keys are strings, resolved at emit", "`settings` — the residual", "`reachability` — the dead-registration dial", "Decision: one authored assembly, no configuration dialect", "The authoring loop", "Scope boundary"]
 satisfies = ["assembly"]
@@ -3414,8 +3433,13 @@ check the graph already knows how to make.
 `autoMemoryEnabled`). Emit projects them into the settings artifact alongside
 the folded member registrations (`20-surface.md`; emit is total and members
 are the only other source). The list only shrinks: as members absorb their
-registrations, fields leave it. Which fields remain is the open fork
-`(settings-residual)`.
+registrations, fields leave it. Ruled 2026-07-04, narrowing
+`(settings-residual)`: emit owns the whole **project-scope** settings
+artifact; personal preferences belong to the local/user scopes the format
+authority already layers, with permission rules merging across scopes
+(managed > CLI > local > project > user —
+code.claude.com/docs/en/settings, retrieved 2026-07-04). The residual's
+exact typed field list stays open with the settings member design.
 
 ## `reachability` — the dead-registration dial
 
@@ -3566,8 +3590,13 @@ body = """
 `autoMemoryEnabled`). Emit projects them into the settings artifact alongside
 the folded member registrations (`20-surface.md`; emit is total and members
 are the only other source). The list only shrinks: as members absorb their
-registrations, fields leave it. Which fields remain is the open fork
-`(settings-residual)`.
+registrations, fields leave it. Ruled 2026-07-04, narrowing
+`(settings-residual)`: emit owns the whole **project-scope** settings
+artifact; personal preferences belong to the local/user scopes the format
+authority already layers, with permission rules merging across scopes
+(managed > CLI > local > project > user —
+code.claude.com/docs/en/settings, retrieved 2026-07-04). The residual's
+exact typed field list stays open with the settings member design.
 """
 
 [[member.section]]
@@ -4105,7 +4134,7 @@ weak to lie" holds at every scope (`00-intent.md` law 3), not just the node."""
 [[member]]
 kind = "architecture"
 name = "50-distribution"
-line_count = 219
+line_count = 223
 source_dir = "architecture"
 headings = ["Distribution — delivering the gate", "Three channels", "The stranger gate", "The plugin — the Claude-Code-native delivery", "Decision: the skill is mechanics, never taste", "Decision: session start is advisory — a check reporter, not a verb", "Decision: `install` is two placements, one mechanism", "The gate at keystroke — one wall, two spellings by posture", "Reporters — one diagnostic source, three targets", "The gate teaches — one vocabulary, every placement", "Decision: every placement speaks the corpus's vocabulary — no synonyms", "Fail-loud delivery — the invariant", "Version lockstep — the seam is not a format", "Migration — `init` corrects on the way in"]
 satisfies = ["the-wedge", "delivery"]
@@ -4164,7 +4193,8 @@ downstream of both, checking what you installed — the same two greens
 (`00-intent.md`, self-hosting) aimed outward. The normative property is
 **no-runtime checking**: the engine, and every placement that invokes it,
 consumes committed artifacts plus the lock, offline, with no language runtime.
-The engine's own implementation language is the open fork `(engine-language)`;
+The engine's implementation language is deliberately non-normative
+(`(engine-language)` resolved 2026-07-04: the engine stays in Rust);
 specs state the property, never the language.
 
 ## The plugin — the Claude-Code-native delivery
@@ -4226,13 +4256,16 @@ and a managed workflow is a generated file nobody reads that still needs its
 own drift story. The CI placement is instead a **documented two-line
 user-authored job** (below).
 
-The installed `PreToolUse` guard's posture is the open fork `(guard-posture)`:
-advisory forever, versus a `temper guard` subcommand reading the hook's stdin
-payload. Either way the generated-shell grep — a shell script pattern-matching
-tool input — is rejected: pattern-matching prose is mining (law 8), and a
+The installed `PreToolUse` guard is the **`temper guard` subcommand** — the
+engine binary reading the hook's stdin payload; whether it blocks follows the
+author's declared surface-authority posture (note / warn / block,
+`20-surface.md`), **default advisory** (`(guard-posture)` resolved 2026-07-04;
+the keep-Rust latency evidence is what makes the per-tool-call placement
+viable). The generated-shell grep — a shell script pattern-matching
+tool input — stays rejected: pattern-matching prose is mining (law 8), and a
 generated script is a second implementation of the gate's judgment. The guard
-installed today is advisory-only (always exit 0); whether that is the end state
-is exactly what the fork decides.
+installed today is advisory-only (always exit 0) — the migration-era state the
+subcommand replaces.
 
 ## The gate at keystroke — one wall, two spellings by posture
 
@@ -4369,7 +4402,8 @@ downstream of both, checking what you installed — the same two greens
 (`00-intent.md`, self-hosting) aimed outward. The normative property is
 **no-runtime checking**: the engine, and every placement that invokes it,
 consumes committed artifacts plus the lock, offline, with no language runtime.
-The engine's own implementation language is the open fork `(engine-language)`;
+The engine's implementation language is deliberately non-normative
+(`(engine-language)` resolved 2026-07-04: the engine stays in Rust);
 specs state the property, never the language.
 """
 
@@ -4477,13 +4511,16 @@ and a managed workflow is a generated file nobody reads that still needs its
 own drift story. The CI placement is instead a **documented two-line
 user-authored job** (below).
 
-The installed `PreToolUse` guard's posture is the open fork `(guard-posture)`:
-advisory forever, versus a `temper guard` subcommand reading the hook's stdin
-payload. Either way the generated-shell grep — a shell script pattern-matching
-tool input — is rejected: pattern-matching prose is mining (law 8), and a
+The installed `PreToolUse` guard is the **`temper guard` subcommand** — the
+engine binary reading the hook's stdin payload; whether it blocks follows the
+author's declared surface-authority posture (note / warn / block,
+`20-surface.md`), **default advisory** (`(guard-posture)` resolved 2026-07-04;
+the keep-Rust latency evidence is what makes the per-tool-call placement
+viable). The generated-shell grep — a shell script pattern-matching
+tool input — stays rejected: pattern-matching prose is mining (law 8), and a
 generated script is a second implementation of the gate's judgment. The guard
-installed today is advisory-only (always exit 0); whether that is the end state
-is exactly what the fork decides.
+installed today is advisory-only (always exit 0) — the migration-era state the
+subcommand replaces.
 """
 
 [[member.section]]

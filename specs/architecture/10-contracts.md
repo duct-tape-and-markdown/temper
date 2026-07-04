@@ -404,7 +404,8 @@ un-authorability *is* the immune system. So the recursion is not infinite
 turtles: two checked rungs grounded on a fixed axiom, which bottoms out in
 the engine's own implementation, checked by its compiler and test suite —
 the honest handoff off `temper`'s stack (`00-intent.md` honest bound; the
-engine's implementation language is an open fork, `(engine-language)`).
+implementation language is deliberately non-normative — `(engine-language)`
+resolved: Rust today, stated nowhere as contract).
 
 ## Decision: kill the heuristic rule registry
 

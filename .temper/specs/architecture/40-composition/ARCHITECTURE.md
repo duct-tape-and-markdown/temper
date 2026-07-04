@@ -4,7 +4,7 @@ rationale = "40-composition owns `assembly` — the layered binding declaration 
 
 [provenance]
 source_path = "./specs/architecture/40-composition.md"
-source_hash = "32f545c28df82d2bf8a8a420ee38ecb890d80ef7c205ea51611d86bec520765a"
+source_hash = "07c4730c875ab0be129cca7980021d8bed57b4bc927ca6991fc81c2ec92fafc5"
 +++
 # Composition — the assembly
 
@@ -116,8 +116,13 @@ check the graph already knows how to make.
 `autoMemoryEnabled`). Emit projects them into the settings artifact alongside
 the folded member registrations (`20-surface.md`; emit is total and members
 are the only other source). The list only shrinks: as members absorb their
-registrations, fields leave it. Which fields remain is the open fork
-`(settings-residual)`.
+registrations, fields leave it. Ruled 2026-07-04, narrowing
+`(settings-residual)`: emit owns the whole **project-scope** settings
+artifact; personal preferences belong to the local/user scopes the format
+authority already layers, with permission rules merging across scopes
+(managed > CLI > local > project > user —
+code.claude.com/docs/en/settings, retrieved 2026-07-04). The residual's
+exact typed field list stays open with the settings member design.
 
 ## `reachability` — the dead-registration dial
 

@@ -50,7 +50,8 @@ downstream of both, checking what you installed — the same two greens
 (`00-intent.md`, self-hosting) aimed outward. The normative property is
 **no-runtime checking**: the engine, and every placement that invokes it,
 consumes committed artifacts plus the lock, offline, with no language runtime.
-The engine's own implementation language is the open fork `(engine-language)`;
+The engine's implementation language is deliberately non-normative
+(`(engine-language)` resolved 2026-07-04: the engine stays in Rust);
 specs state the property, never the language.
 
 ## The plugin — the Claude-Code-native delivery
@@ -112,13 +113,16 @@ and a managed workflow is a generated file nobody reads that still needs its
 own drift story. The CI placement is instead a **documented two-line
 user-authored job** (below).
 
-The installed `PreToolUse` guard's posture is the open fork `(guard-posture)`:
-advisory forever, versus a `temper guard` subcommand reading the hook's stdin
-payload. Either way the generated-shell grep — a shell script pattern-matching
-tool input — is rejected: pattern-matching prose is mining (law 8), and a
+The installed `PreToolUse` guard is the **`temper guard` subcommand** — the
+engine binary reading the hook's stdin payload; whether it blocks follows the
+author's declared surface-authority posture (note / warn / block,
+`20-surface.md`), **default advisory** (`(guard-posture)` resolved 2026-07-04;
+the keep-Rust latency evidence is what makes the per-tool-call placement
+viable). The generated-shell grep — a shell script pattern-matching
+tool input — stays rejected: pattern-matching prose is mining (law 8), and a
 generated script is a second implementation of the gate's judgment. The guard
-installed today is advisory-only (always exit 0); whether that is the end state
-is exactly what the fork decides.
+installed today is advisory-only (always exit 0) — the migration-era state the
+subcommand replaces.
 
 ## The gate at keystroke — one wall, two spellings by posture
 

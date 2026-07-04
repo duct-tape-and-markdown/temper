@@ -235,10 +235,13 @@ are equal — the system is not opinionated about where you author**:
 
 Postures 2 and 3 emit **identical bytes**: the fence format is both the
 authoring template and the render target, so moving a block between them is a
-mechanical, byte-stable round-trip. That shared fence format is an open item
-`(genre-fence-format)`; its acceptance test is exactly the byte-stable
-round-trip. The markdown spelling of a mention in posture 2 is open
-`(mention-marker)`.
+mechanical, byte-stable round-trip. That shared fence format is deliberately
+undesigned until its first consumer — the genre-adoption pilot — lands
+(`(genre-fence-format)`, deferred 2026-07-04; the earlier TOML-fence ruling
+was manifest-era residue and does not bind the pilot); its acceptance test is
+exactly the byte-stable round-trip. A mention in posture 2 spells exactly as
+in posture 3 — `${address}` (`20-surface.md`, the `(mention-marker)`
+resolution).
 
 No upgrade advisory, no adoption metric, no lint counting fences. Movement
 between postures is author-initiated and free in both directions. `init`'s
