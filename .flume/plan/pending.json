@@ -1,77 +1,16 @@
 [
   {
-    "tag": "GATE-KIND-RESOLVE",
-    "summary": "Gate resolves a manifest member's qualified kind to its bare key before corpus lookup, and reports an unrecognized kind loudly instead of silently checking zero",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Decision: kind identity carries a provider axis"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        {
-          "path": "tests/manifest_kind_spelling.rs",
-          "description": "A `[[member]]` spelled `kind = \"claude-code.rule\"` is dispatched to the rule package (checked, not skipped); a `[[member]]` whose kind resolves to no built-in/custom definition yields a loud finding, never a silent `checked 0`."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "At the manifest_corpus build (~794-814): normalize each pre-extracted member's authored `kind` qualified->bare via the provider resolution (`builtin_kind`/`CustomKind::resolve_bare`, identity `<provider>.<kind>`) before keying, so a `claude-code.rule` member reaches the `rule` slice the dispatch loop reads (`corpus.get(&kind.name)`). AND: a member kind that resolves to no known built-in/custom definition becomes a reported diagnostic — the collaboration-rule failure the fork names (a silent skip reads as done). No SDK change: members.ts keeps stamping the qualified identity; the gate is the side that resolves."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/manifest_kind_spelling.rs",
-        "asserts": "a qualified `claude-code.rule` manifest member is checked against the rule package (not skipped); an unrecognized manifest kind produces a loud finding rather than a silent zero."
-      }
-    ],
-    "acceptance": "A manifest member spelled `claude-code.rule` is dispatched to its bare kind's package; an unrecognized manifest kind is a reported finding, never `checked 0`; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Fork `(gate-kind-spelling-and-unknown-kind)` RESOLVED (John 07-04): gate resolves qualified->bare, unknown kind is loud. Shares src/main.rs with GATE-READS-ASSEMBLY — that entry is blockedBy this one (serialized)."
-  },
-  {
-    "tag": "SDK-CARRIAGE-CONVERGE",
-    "summary": "SDK `toManifestMember` sectionizes a module-carried member per heading (converging on the importer) and drops the trailing-newline `line_count` +1",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: three carriages, one feature shape"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`toManifestMember` today emits ONE whole-body `[[member.section]]` with the H1 line inside the body (`sections: [{ heading: headings[0] ?? name, body }]`, emit.ts:258). Converge on the Rust importer: emit one `[[member.section]]` per heading with the heading line split out of the body, so a re-import round-trips (every consumer carriage-blind). Fix the `line_count` +1: `body.split(\"\\n\").length` counts a trailing newline as a phantom line — a 47-line body must count 47, matching the importer."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Update the toManifestMember shape assertions to the per-heading sectionization and the corrected line_count; add a multi-heading module-member case proving importer-parity."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a multi-heading module-carried member serializes per-heading like the Rust importer, and line_count equals the body's real line count (no trailing-newline +1)."
-      }
-    ],
-    "acceptance": "A module-carried member's manifest shape matches the Rust importer's per-heading sectionization and line_count; `pnpm --dir sdk test` + cargo fmt/clippy/test all green.",
-    "notes": "Fork `(module-carriage-manifest-shape)` RESOLVED converge (John 07-04) — three carriages, one feature shape; every consumer carriage-blind. The line_count +1 is the trailing-newline bug fileable within this shape. Shares sdk/src/emit.ts with SDK-PLACEMENT-ROUNDTHROUGH — that entry is blockedBy this one (serialized)."
-  },
-  {
     "tag": "GATE-READS-ASSEMBLY",
     "summary": "Gate reads the SDK-emitted `roster.toml`/`bindings.toml` temper-owned artifacts as the assembly source, so a members-only `temper.toml` stops reporting spurious dangling requirements",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "CLI surface"
     },
-    "gate": { "kind": "blockedBy", "tag": "GATE-KIND-RESOLVE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GATE-KIND-RESOLVE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -112,7 +51,11 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Content-faithful, deterministically emitted (law 5)"
     },
-    "gate": { "kind": "blockedBy", "tag": "SDK-CARRIAGE-CONVERGE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-CARRIAGE-CONVERGE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
