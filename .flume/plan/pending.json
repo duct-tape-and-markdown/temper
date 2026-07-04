@@ -1,57 +1,5 @@
 [
   {
-    "tag": "CONTRACT-DIR",
-    "summary": "Promote byte-parity fixtures + Rust goldens into a shared `contract/` dir both test suites read; generate schemas Rust-first (schemars → JSON Schema 2020-12, ts-rs types)",
-    "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Decision: acquisition rides the ecosystem's package managers"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "contract/README.md",
-          "description": "The shared interchange corpus both implementations test against 'one golden set' (`50-distribution.md`): what lives here (byte-parity manifest goldens, extraction goldens, the Rust-first JSON Schema + generated TS types) and the discipline that a fixture edit is an interface-version event (per chain.ts's contract/** fence note)."
-        },
-        {
-          "path": "tests/contract_fixtures.rs",
-          "description": "Rust side reads the `contract/` goldens: `write_manifest_members` output byte-matches each golden, and the extraction goldens round-trip. The single producer of the goldens the SDK suite then consumes."
-        }
-      ],
-      "edit": [
-        {
-          "path": "Cargo.toml",
-          "description": "Add `schemars` (JSON Schema 2020-12 derive) and `ts-rs` (TS type generation) to the sanctioned dev/dependency set — authorized by the ratified reconcile (inbox item 2b, 'schema generation Rust-first')."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Derive `schemars::JsonSchema` + `ts_rs::TS` on the manifest IR types (`ManifestMember` et al., ~line 124) so the interchange schema generates from the Rust source of truth, Rust-first."
-        },
-        {
-          "path": "src/schema.rs",
-          "description": "Add a contract-schema emission path that writes the manifest/interchange JSON Schema (2020-12) into `contract/`, distinct from the existing editor-schema `emit`."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Point the byte-parity fixtures at the shared `contract/` goldens (read from disk) instead of the inline `String.raw` corpus, so both suites test one golden set."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/contract_fixtures.rs",
-        "asserts": "the Rust emitter's output byte-matches each `contract/` manifest golden and the generated JSON Schema is emitted deterministically; the SDK suite reads the same goldens."
-      }
-    ],
-    "acceptance": "Byte-parity fixtures + Rust goldens live in `contract/` and both `cargo test` and `pnpm --dir sdk test` consume that one set; the interchange JSON Schema (2020-12) + TS types generate Rust-first via schemars/ts-rs; cargo fmt/clippy -D warnings/test + sdk test all green.",
-    "notes": "Ratified reconcile, in-fence item (2b); last of the SDK wave. contract/** is in build's fence (chain.ts:209, commit 1c33491). schemars/ts-rs are new sanctioned crates authorized by the ratification. Now OPEN — blocker SDK-ASSEMBLY-ARTIFACTS shipped (50ed952), emit surface frozen. Large — build may split (schema gen vs fixture move) and raise it if a tick can't stay green."
-  },
-  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {
