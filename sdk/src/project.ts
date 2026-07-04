@@ -25,6 +25,9 @@
  * nested-locus declaration mechanism.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import type { ManifestMember } from "./manifest.js";
 
 /** One projected harness file: where it lands and the byte-faithful content. */
@@ -33,6 +36,90 @@ export interface Projection {
   readonly path: string;
   /** The whole-file projection bytes — frontmatter (if any) over the body. */
   readonly bytes: string;
+}
+
+/** Emit-time inputs the projector needs beyond the manifest member. */
+export interface ProjectOptions {
+  /**
+   * The harness root the **committed** projection is read from to carry install's
+   * frontmatter placements (the schema modeline + managed-by note) through the
+   * whole-file re-emit — the two-projectors seam (`specs/architecture/20-surface.md`,
+   * law 5). Those lines ride `install`, never `emit`, so a re-emit round-trips the
+   * ones already on disk instead of clobbering them. Absent — or an absent committed
+   * file — carries no placements: emit writes the projection fresh.
+   */
+  readonly projectionDir?: string;
+}
+
+/**
+ * The install-placed frontmatter comment marker for the schema modeline — the
+ * prefix both install's idempotence and emit's preservation key on, so the two
+ * projectors never disagree on which line is install's (`src/install.rs`
+ * `MODELINE_MARKER`).
+ */
+const MODELINE_MARKER = "# yaml-language-server:";
+
+/** The managed-by note's stable marker (`src/install.rs` `NOTE_MARKER`). */
+const NOTE_MARKER = "# temper: managed projection";
+
+/**
+ * Whether `line` is one of install's managed metadata comments — the schema
+ * modeline or the managed-by note. The single predicate install's idempotence and
+ * emit's preservation share (a port of the Rust `is_placement_comment`).
+ */
+function isPlacementComment(line: string): boolean {
+  const trimmed = line.replace(/^\s+/, "");
+  return trimmed.startsWith(MODELINE_MARKER) || trimmed.startsWith(NOTE_MARKER);
+}
+
+/**
+ * A string's lines the Rust `str::lines` way: split on `\n`, a trailing newline
+ * opens no line, and a trailing `\r` is stripped from each. Used to walk the
+ * frontmatter interior for placement comments.
+ */
+function lines(text: string): string[] {
+  if (text === "") return [];
+  const parts = text.split("\n");
+  if (parts[parts.length - 1] === "") parts.pop();
+  return parts.map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
+}
+
+/**
+ * The frontmatter text between the delimiters of `rest` — everything after the
+ * opening `---\n` (the caller's `rest`) up to the closing `---` line — or `null`
+ * when there is no closing delimiter (an opening `---` that is really prose). A
+ * port of the Rust `install::frontmatter_inner`.
+ */
+function frontmatterInner(rest: string): string | null {
+  let offset = 0;
+  // Walk newline-terminated pieces (a final piece without a newline still counts),
+  // returning the span before the first `---` line — the Rust `split_inclusive`.
+  let cursor = 0;
+  while (cursor < rest.length) {
+    const newline = rest.indexOf("\n", cursor);
+    const end = newline === -1 ? rest.length : newline + 1;
+    const piece = rest.slice(cursor, end);
+    const content = piece.endsWith("\n") ? piece.slice(0, -1) : piece;
+    if (content.replace(/\s+$/, "") === "---") return rest.slice(0, offset);
+    offset += piece.length;
+    cursor = end;
+  }
+  return null;
+}
+
+/**
+ * The install-placed frontmatter comment lines present in `source`, in on-disk
+ * order — the schema modeline and the managed-by note. A port of the Rust
+ * `install::placement_lines`: `emit` round-trips these through its whole-file
+ * re-emit so its content-faithful projection (law 5) carries install's metadata
+ * instead of dropping it (`specs/architecture/20-surface.md`, the two-projectors
+ * seam). Empty when `source` has no frontmatter or carries neither line.
+ */
+export function placementLines(source: string): string[] {
+  if (!source.startsWith("---\n")) return [];
+  const inner = frontmatterInner(source.slice("---\n".length));
+  if (inner === null) return [];
+  return lines(inner).filter(isPlacementComment);
 }
 
 /** The bare kind name (`claude-code.rule` → `rule`) the projection locus keys on. */
@@ -117,15 +204,42 @@ export function projectBytes(
 }
 
 /**
+ * Read the install-placed frontmatter lines from the committed projection at
+ * `projectionDir/path`, or `[]` when no committed projection is read (no
+ * `projectionDir`, or the file is absent — emit writes it fresh, the Rust
+ * `NotFound → default`). Reads are of committed bytes, never a clock, so the
+ * double-emit purity check still holds.
+ *
+ * # Throws
+ * On a read failure that is not "file absent" — the gate's transport inherits the
+ * gate's fail-loud bar (`specs/architecture/50-distribution.md`), never a silent skip.
+ */
+function committedPlacements(projectionDir: string | undefined, path: string): string[] {
+  if (projectionDir === undefined) return [];
+  try {
+    return placementLines(readFileSync(join(projectionDir, path), "utf8"));
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw new Error(`failed to read committed projection \`${path}\` under \`${projectionDir}\`.`, {
+      cause,
+    });
+  }
+}
+
+/**
  * Project one manifest member onto its harness file — its `.claude/**` locus and
  * the whole-file bytes. The body is the member's resolved section body (the
  * content-faithful body emit already resolved); the fields are its frontmatter in
- * declared order. The seam the byte-parity fixtures pin against the Rust projector.
+ * declared order. With `options.projectionDir` set, the committed projection is
+ * read and install's placement lines (the schema modeline, the managed-by note)
+ * ride through the re-emit — the two-projectors seam the byte-parity fixtures pin
+ * against the Rust projector.
  *
  * # Throws
- * If the member's kind has no projection ([`projectionPath`]).
+ * If the member's kind has no projection ([`projectionPath`]), or the committed
+ * projection cannot be read for a reason other than absence.
  */
-export function projectMember(member: ManifestMember): Projection {
+export function projectMember(member: ManifestMember, options: ProjectOptions = {}): Projection {
   const path = projectionPath(member.kind, member.name);
   const fields = Object.entries(member.fields);
   // The projection is the whole content-faithful body — never the per-heading
@@ -133,5 +247,6 @@ export function projectMember(member: ManifestMember): Projection {
   // fixture that carries no separate `body` falls back to a single whole-body
   // section, the shape those serializer fixtures use.
   const body = member.body || (member.sections[0]?.body ?? "");
-  return { path, bytes: projectBytes(fields, body) };
+  const placements = committedPlacements(options.projectionDir, path);
+  return { path, bytes: projectBytes(fields, body, placements) };
 }

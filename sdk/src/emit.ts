@@ -490,6 +490,15 @@ function orderedMembers(harness: Harness, options: ResolveOptions): ManifestMemb
 export interface EmitOptions {
   /** Base dir a `fromFile` module-relative path resolves against (default: cwd). */
   readonly baseDir?: string;
+  /**
+   * The harness root the **committed** projection is read from so a re-emit carries
+   * install's placement lines (the schema modeline + managed-by note) through the
+   * whole-file re-emit, mirroring the Rust projector's read at `projection.source_path`
+   * (`src/drift.rs`; `specs/architecture/20-surface.md`, the two-projectors seam).
+   * Absent — the default — reads no committed projection, so a fresh emit carries no
+   * placements; [`writeEmit`] passes its `targetDir` here so a re-emit preserves them.
+   */
+  readonly projectionDir?: string;
 }
 
 /**
@@ -562,7 +571,12 @@ export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);
     const projected = members.filter((member) => isProjectedKind(member.kind));
-    const projections = projected.map(projectMember);
+    // Read the committed projection (when a `projectionDir` is set) so install's
+    // placement lines ride the re-emit — the two-projectors seam. Reads are of
+    // committed bytes, never a clock, so the double-emit purity check below holds.
+    const projections = projected.map((member) =>
+      projectMember(member, { projectionDir: options.projectionDir }),
+    );
     const rows: LockRow[] = projected.map((member, i) => lockRow(member.kind, projections[i]));
     const { bindings, roster } = assemblyArtifacts(harness);
     return {
@@ -608,7 +622,11 @@ function sameProjections(a: readonly Projection[], b: readonly Projection[]): bo
  * `specs/architecture/20-surface.md`).
  */
 export function writeEmit(harness: Harness, targetDir: string, options: EmitOptions = {}): EmitResult {
-  const result = emit(harness, options);
+  // Read the committed projection from the very directory being written, so a
+  // re-emit round-trips install's placement lines (the schema modeline + managed-by
+  // note) rather than clobbering them (`specs/architecture/20-surface.md`, the
+  // two-projectors seam). An explicit `projectionDir` still wins.
+  const result = emit(harness, { ...options, projectionDir: options.projectionDir ?? targetDir });
   writeFileSync(join(targetDir, "temper.toml"), result.manifest);
   writeFileSync(join(targetDir, "lock.toml"), result.lock);
   writeFileSync(join(targetDir, BINDINGS_PATH), result.bindings);

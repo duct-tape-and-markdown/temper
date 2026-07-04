@@ -35,9 +35,10 @@ export {
   writeEmit,
 } from "./emit.js";
 
-export type { Projection } from "./project.js";
+export type { Projection, ProjectOptions } from "./project.js";
 export {
   isProjectedKind,
+  placementLines,
   projectBytes,
   projectionPath,
   projectMember,

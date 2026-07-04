@@ -17,9 +17,9 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import {
@@ -31,6 +31,7 @@ import {
   lockRow,
   md,
   memory,
+  placementLines,
   projectBytes,
   projectionPath,
   projectMember,
@@ -765,4 +766,97 @@ test("emit stays double-emit stable with a memory alongside rule and skill", () 
     ".claude/skills/coordinate/SKILL.md",
     "CLAUDE.md",
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// Placement round-through — install's frontmatter placements (the schema modeline
+// + managed-by note) ride the whole-file re-emit, mirroring the Rust
+// EMIT-OWNED-PLACEMENTS resolution (`src/drift.rs` reads `install::placement_lines`
+// off the committed projection and re-emits them first). Those lines ride `install`,
+// never `emit` — law 5 keeps the projection content-faithful — so a re-emit
+// round-trips the ones already on disk (`specs/architecture/20-surface.md`, the
+// two-projectors seam) instead of clobbering them.
+// ---------------------------------------------------------------------------
+
+// The two install-placed comments as they land on disk: the schema modeline first
+// (install inserts it last, at the top), the managed-by note second — the on-disk
+// order `placement_lines` reads and the projector re-emits (`src/install.rs`).
+const MODELINE = "# yaml-language-server: $schema=../../.temper/schema/rule.json";
+const NOTE =
+  "# temper: managed projection — a direct edit here is drift; edit the owning " +
+  ".temper/ module or document and re-run temper emit, never this generated file.";
+
+// The committed projection install produced: the two placements atop the `paths`
+// field, over the same body RULE_PROJECTION carries. Re-emitting the manifest member
+// against this file must reproduce it byte-for-byte.
+const RULE_PROJECTION_WITH_PLACEMENTS =
+  `---\n${MODELINE}\n${NOTE}\npaths: ["src/**/*.rs"]\n---\n` +
+  "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.\n";
+
+test("placementLines reads install's modeline + note in on-disk order; nothing else", () => {
+  assert.deepEqual(placementLines(RULE_PROJECTION_WITH_PLACEMENTS), [MODELINE, NOTE]);
+  // A fieldless body-only projection has no frontmatter to carry a placement.
+  assert.deepEqual(placementLines(PLAIN_PROJECTION), []);
+  // The placement-free projection carries none — the `paths` field is not a comment.
+  assert.deepEqual(placementLines(RULE_PROJECTION), []);
+});
+
+test("projectMember rounds a committed projection's placement lines through the re-emit", () => {
+  const dir = mkdtempSync(join(tmpdir(), "temper-placements-"));
+  try {
+    // Lay down the committed projection install would have written, then re-emit the
+    // manifest member against it. The two placement lines survive, byte-identical to
+    // the Rust projector's output.
+    const path = join(dir, ".claude/rules/rust.md");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, RULE_PROJECTION_WITH_PLACEMENTS);
+
+    const preserved = projectMember(RULE_PROJECTION_MEMBER, { projectionDir: dir });
+    assert.equal(preserved.path, ".claude/rules/rust.md");
+    assert.equal(preserved.bytes, RULE_PROJECTION_WITH_PLACEMENTS);
+
+    // Without the committed read, the projection is the placement-free baseline — the
+    // seam only carries what install already placed on disk, never fabricating it.
+    const fresh = projectMember(RULE_PROJECTION_MEMBER);
+    assert.equal(fresh.bytes, RULE_PROJECTION);
+
+    // An absent committed file is not an error: emit writes it fresh (no placements).
+    const emptyDir = mkdtempSync(join(tmpdir(), "temper-placements-absent-"));
+    try {
+      assert.equal(
+        projectMember(RULE_PROJECTION_MEMBER, { projectionDir: emptyDir }).bytes,
+        RULE_PROJECTION,
+      );
+    } finally {
+      rmSync(emptyDir, { recursive: true, force: true });
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("writeEmit re-emit preserves install's placements the second time round", () => {
+  const dir = mkdtempSync(join(tmpdir(), "temper-emit-placements-"));
+  try {
+    // First emit: a fresh projection, no placements yet.
+    writeEmit(projectedHarness(), dir);
+    const rulePath = join(dir, ".claude/rules/rust.md");
+    assert.equal(readFileSync(rulePath, "utf8"), RULE_PROJECTION);
+
+    // Simulate `install`: splice the modeline + note atop the rule's frontmatter.
+    writeFileSync(rulePath, RULE_PROJECTION_WITH_PLACEMENTS);
+
+    // Second emit reads the committed projection (writeEmit defaults projectionDir to
+    // targetDir), so the two placement lines survive the whole-file re-emit.
+    const result = writeEmit(projectedHarness(), dir);
+    assert.equal(readFileSync(rulePath, "utf8"), RULE_PROJECTION_WITH_PLACEMENTS);
+    const ruleProjection = result.projections.find((p) => p.path === ".claude/rules/rust.md");
+    assert.equal(ruleProjection?.bytes, RULE_PROJECTION_WITH_PLACEMENTS);
+
+    // The lock fingerprint tracks the placement-carrying bytes — the state-of-record
+    // matches what is actually on disk.
+    assert.match(result.lock, new RegExp(`emit_hash = "${sha256Hex(RULE_PROJECTION_WITH_PLACEMENTS)}"`));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
