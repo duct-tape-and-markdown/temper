@@ -1,26 +1,52 @@
 [
   {
-    "tag": "EXTRACTION-VOCAB-GAPS",
-    "summary": "Extend the extraction algebra with the two primitives 15-kinds lists but code lacks — a `fenced` block extractor and nested key-path `field` lookup — held until a consumer kind needs them",
+    "tag": "INSTALL-DRIFT-STRINGS",
+    "summary": "Reword install's managed-by note and guard message off the retired `re-add` verb onto the ratified drift model — edit the `.temper/` surface and re-run `emit`",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: `re-add` is retired — hand-edits route to the source"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Reword the two placed strings that still name the retired `re-add` verb: `NOTE_GUARD_MESSAGE` (~line 112) and `NOTE_COMMENT` (~line 134) both end \"(temper re-add lifts a direct edit back)\". READD-RETIRE deleted that verb; the ratified remedy (`20-surface.md`, `re-add` retired) is: a direct edit to emitted output is drift routed to the authored source — edit the owning `.temper/` module/document and re-run `temper emit`. Also fix the stale `// route to re-add` comment near line 487 (the advisory guard) to name `emit`. Re-placement stays idempotent — the note/guard markers (`NOTE_MARKER`) are unchanged, only the human-facing text."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "the placed managed-by note and guard message name `temper emit` (not `re-add`); placing the reworded strings over a prior placement is idempotent (Unchanged)."
+      }
+    ],
+    "acceptance": "`temper install`/`emit` place a managed-by note and guard message that describe the retired-`re-add` drift model in the ratified terms (edit the surface, re-run `emit`); no `re-add` string remains in src/install.rs; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Inbox (07-03, post-wave). Curated placement text, in-fence (src/install.rs). The already-placed copies under `.claude/` are outside build's fence — the interactive session re-runs `temper install` after this ships. Disjoint from the genre chain (install.rs vs kind/extract/read)."
+  },
+  {
+    "tag": "FENCED-PRIMITIVE",
+    "summary": "Add the closed-vocab `Fenced` extraction primitive — fenced-block content over the markdown body, the genre fence's first consumer (graduated from EXTRACTION-VOCAB-GAPS)",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "The extraction algebra — the soundness boundary, as data"
     },
-    "gate": {
-      "kind": "deferred",
-      "reason": "no consumer — the extraction vocabulary is harvested from the built-in kinds and extended deliberately (15-kinds.md Decision: extraction is a closed algebra); no current kind (skill/rule/memory) reads a fenced block or a nested key-path, so adding either now is speculative scope with no kind to exercise it. Revive when a kind demands it — a JSON-manifest kind's nested key-path field, or a spec/class kind's fenced-block extraction. (NB `at-import` is the DIRECTIVES wave's directive primitive, a separate edge primitive — not one of these.)"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Two closed-vocabulary additions to `Primitive` (`specs/architecture/15-kinds.md`): (1) a `Fenced` primitive extracting fenced code-block content — the markdown-structure extractor the spec lists (`a fenced block`) but the enum omits (today: field/headings/sections/line_count/placement); (2) make `Primitive::Field` honor the key-path its own doc-comment promises — the impl currently does a flat `unit.frontmatter.get(key)` so a nested `a.b.c` path can't be read. Both extend the closed-vocab load-guard's accepted primitive set (parse_primitive). This entry owns both edits so they don't collide in parallel worktrees."
+          "description": "Add a `Fenced` variant to `Primitive` (the markdown-structure extractor the algebra lists — `a fenced block` — that the enum omits: today field/headings/sections/line_count/placement/directives). Wire it in `parse_primitive` (extend the closed-vocab load-guard's accepted set) and in `Primitive::apply` (fold the extracted fenced blocks into `Features`). Its spec-named first consumer is the genre fence (`15-kinds.md`: \"a fenced block — whose first consumer is the genre fence\"); this entry ships the generic primitive only, GENRE-MANIFEST-LEAF composes it with the TOML parse."
         },
         {
           "path": "src/extract.rs",
-          "description": "The extractor helpers behind the two primitives: a `body_fenced_blocks`-style reader over the markdown body (mirroring `body_headings`/`body_sections`), and key-path traversal for the field extractor (walk nested TOML/JSON tables to the leaf before `json_to_feature`, kind-preserving per the `type` lattice, `specs/architecture/10-contracts.md`)."
+          "description": "Add a `body_fenced_blocks`-style reader over the markdown body, mirroring `body_headings`/`body_sections` and reusing the same fence-tracking state those already carry (a heading inside a fence opens no section). It yields each fenced block's interior content (info string available so the genre consumer can key on `genre.<name>`), and adds a `Features` field to carry them. `pub(crate)` so the closed algebra composes the one deterministic extractor."
         }
       ],
       "retire": []
@@ -29,11 +55,155 @@
     "tests": [
       {
         "path": "tests/extract_equivalence.rs",
-        "asserts": "a `fenced` primitive yields the fenced block's content and skips prose; a key-path `field` reads a nested value and is absent (not errored) when the path doesn't resolve; both preserve the source scalar kind."
+        "asserts": "a `fenced` primitive yields a fenced block's interior content and skips surrounding prose; multiple fences are captured in document order with their info strings; a body with no fence yields none (absent, not errored)."
       }
     ],
-    "acceptance": "`Primitive::Fenced` and a nested-key-path `Primitive::Field` are in the closed vocabulary, load-guarded, and extract over a `Unit`; a KIND.md declaring either reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes one.)",
-    "notes": "Disk re-confirmed both gaps: `Primitive` (now incl. `Directives`, shipped) still lacks `Fenced`; `Field` reads flat `frontmatter.get(key)`, no key-path; guard is parse_primitive. Neither breaks anything today (no kind uses them). ONE entry — both touch src/kind.rs+extract.rs. NOT the DIRECTIVES wave's `at-import`. No file overlap with the floor-migration chain (kind.rs/extract.rs vs drift/import/check)."
+    "acceptance": "`Primitive::Fenced` is in the closed vocabulary, load-guarded in `parse_primitive`, and extracts fenced-block content over a `Unit`; a KIND.md declaring `fenced` reads the blocks; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Un-defers EXTRACTION-VOCAB-GAPS' Fenced half — its predicted consumer (the genre fence) has arrived (`specs:` 52f149c). The key-path `field` half stays deferred (EXTRACTION-VOCAB-GAPS, no nested-key kind yet). Generic primitive only; the fenced+TOML genre composition is GENRE-MANIFEST-LEAF. Shares kind.rs/extract.rs with that entry — it is blockedBy this."
+  },
+  {
+    "tag": "GENRE-MANIFEST-LEAF",
+    "summary": "Serialize genre values into the manifest — `genres` on the kind, genre-fence extraction (fenced + TOML), the leaf/keyed-collection schema with structural addresses",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Genre values — prose that declares its own anatomy"
+    },
+    "gate": { "kind": "blockedBy", "tag": "FENCED-PRIMITIVE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/genre_leaf.rs",
+          "description": "Prove: a genre fence (info string `genre.decision surface-authority`, TOML interior with leaf fields as multi-line strings and sibling collections as keyed tables `[rejected.baked-projection]`) extracts to a genre value whose leaves are addressed structurally (member, genre key, field path) and whose siblings are keyed, never positional (`20-surface.md`, the two leaf Decisions); the value round-trips through the manifest byte-identically (idempotence)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Add the optional `genres` vocabulary to the kind object (`15-kinds.md`, \"genres (optional)\"): typed shapes — named fields over prose leaves plus keyed collections — parsed from the KIND.md header, load-guarded. Compose the `Fenced` primitive (FENCED-PRIMITIVE) with a TOML parse of each matching fenced block into a genre value's features, keyed by the fence info string's genre+key. No predicates here — the shape is the kind's, any clause over it is the bound package's (out of fence)."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Add the `GenreValue`/leaf types and a `Features.genres` field: a leaf is an authored string addressed by member + genre key + field path (structural, stable under content edits); sibling collections are keyed (`rejected.baked-projection.because`), never positional (`20-surface.md`, \"leaf addresses are structural and keyed\"). Leaves carry no mentions at the floor (interpolation stays altitude-only). The extractor folds parsed genre values into `Features` beside `sections`/`directives`."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Serialize `Features.genres` into the `[[member]]` manifest table in one shape and deserialize it back (the `member_to_table` / member round-trip, ~lines 1573 + the round-trip test at ~3087): genre values are serialized whole (`15-kinds.md`), leaf fields as strings, sibling collections as keyed sub-tables, format-preserving via `toml_edit`. Every consumer stays carriage-blind — a document-carried and a (future) module-carried genre value serialize identically."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/genre_leaf.rs",
+        "asserts": "genre-fence extraction yields structurally-addressed leaves and keyed siblings; the manifest serialization round-trips a genre value byte-identically; an unfenced block is plain prose (no genre value, no error) — opt-in per block."
+      }
+    ],
+    "acceptance": "A kind declaring `genres` extracts each genre fence into a genre value with structural leaf addresses and keyed sibling collections; the value serializes whole into the manifest and round-trips idempotently through `toml_edit`; an unfenced block stays plain prose; cargo fmt/clippy -D warnings/test green.",
+    "notes": "The manifest leaf schema — the read family (IMPACT-LEAF-GRAIN, CONTEXT-VERB) consumes it. Genre-value *predicates* and the corpus's own genre declarations (packages/**, kinds/**) are OUT of fence — the interactive session lands them after this ships (inbox point 2). blockedBy FENCED-PRIMITIVE (shares kind.rs/extract.rs; composes its primitive)."
+  },
+  {
+    "tag": "IMPACT-LEAF-GRAIN",
+    "summary": "Give `impact` leaf grain — accept a leaf address and report citations separately from fallout, reading the manifest's serialized genre values",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
+    },
+    "gate": { "kind": "blockedBy", "tag": "GENRE-MANIFEST-LEAF" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Extend `impact` to accept a **leaf address** (member, genre key, field path) as well as a member name (`20-surface.md`, \"The family gains leaf grain\"): when the target resolves to a leaf, report **citations separately from fallout** — a declared one-way edge (a mention/citation) targeting the leaf is resolution-checked and reported as a citation, obligation-free; deleting or rewording a cited leaf is never blocked (`45-governance.md`, address grain). Reads only the manifest's serialized genre values — offline, tier-1, no runtime."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Widen the `Impact` clap arg to a member-or-leaf address and thread the manifest's serialized genre values (GENRE-MANIFEST-LEAF) into the `read::impact` call beside the existing feature/roster/edge inputs (~line 626), so a leaf address dispatches to leaf-grain reporting."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`impact` on a leaf address reports the leaf's citations separately from its fallout; a citation to a leaf resolves against the manifest and never gates; a member-name target behaves exactly as before (regression)."
+      }
+    ],
+    "acceptance": "`temper impact <leaf-address>` reports at leaf grain — citations distinct from fallout — reading only the manifest's serialized genre values; the member-name path is unchanged; cargo fmt/clippy -D warnings/test green.",
+    "notes": "blockedBy GENRE-MANIFEST-LEAF (needs the serialized leaf shape to read). Serialized before CONTEXT-VERB — both edit read.rs + main.rs, so they cannot run parallel. Citation reporting rides declared one-way edges (obligation-free, `45-governance.md`); no new obligating semantics."
+  },
+  {
+    "tag": "CONTEXT-VERB",
+    "summary": "Add `temper context <address>` — emit a member's or leaf's declared neighborhood, with the mixed-rung coverage disclosure shipped in the same entry",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
+    },
+    "gate": { "kind": "blockedBy", "tag": "IMPACT-LEAF-GRAIN" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Add a `context` read function: given a member or leaf address, emit its declared neighborhood — genre slot, siblings, citers, satisfied requirements (`20-surface.md`, \"`context <address>` emits a member's or leaf's declared neighborhood\"), the pre-edit context bundle for the primary author. Consumes only the manifest (offline, tier-1). MUST **disclose coverage** in the same entry: every leaf-grain answer names what it cannot see (\"N documents below rung 3 — not represented at leaf grain\"), since a mixed-rung corpus is the standing state (`00-intent.md` genre Decision; law 1 — an incomplete answer in complete clothes erodes the verb)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Add a `Context { address }` clap subcommand dispatching to `read::context`, mapping the result to a projection (zero exit, no gate), beside `Why`/`Requirements`/`Impact` in the read family. Thread the manifest's serialized genre values so the neighborhood + coverage disclosure read from data `check` already computes."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`context` on a leaf emits its genre slot, siblings, citers, and satisfied requirements from the manifest; the output discloses coverage (names the count of documents below rung 3 not represented at leaf grain); `context` never returns a non-zero exit."
+      }
+    ],
+    "acceptance": "`temper context <address>` emits the declared neighborhood of a member or leaf from the manifest alone, and every leaf-grain answer discloses its mixed-rung coverage — the disclosure ships WITH the verb, never after; cargo fmt/clippy -D warnings/test green.",
+    "notes": "The coverage disclosure is not a follow-on entry — the spec binds it into this one (`20-surface.md`: \"the disclosure ships with the verbs, never after\"). blockedBy IMPACT-LEAF-GRAIN (shares read.rs + main.rs — not parallel-safe). Last link of the addressable-corpus floor engine chain."
+  },
+  {
+    "tag": "EXTRACTION-VOCAB-GAPS",
+    "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "The extraction algebra — the soundness boundary, as data"
+    },
+    "gate": {
+      "kind": "deferred",
+      "reason": "no consumer — the Fenced half graduated to FENCED-PRIMITIVE (its genre-fence consumer arrived); the remaining key-path half has none. `Primitive::Field` reads a flat `fields.get(key)`, so a nested `a.b.c` path can't be read — but no current kind (skill/rule/memory) declares a nested key-path field. Revive when a kind demands it (a JSON-manifest kind's nested key-path field). NB `at-import` is the DIRECTIVES wave's edge primitive, not this."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Make `Primitive::Field` honor the key-path its own doc-comment promises: the impl does a flat `unit.frontmatter.get(key)` in `apply`, so a nested `a.b.c` path can't be read. No new vocabulary member — this fixes the existing `field` primitive."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Key-path traversal for the field extractor: walk nested TOML/JSON tables to the leaf before `json_to_feature`, kind-preserving per the `type` lattice (`specs/architecture/10-contracts.md`). Absent (not errored) when the path doesn't resolve."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/extract_equivalence.rs",
+        "asserts": "a key-path `field` reads a nested value and is absent (not errored) when the path doesn't resolve; it preserves the source scalar kind."
+      }
+    ],
+    "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes it.)",
+    "notes": "Narrowed 07-03: the Fenced half graduated to the open FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. Shares kind.rs/extract.rs with the genre chain — serialize if un-deferred while that chain is live."
   },
   {
     "tag": "AGENT-KIND",
@@ -82,7 +252,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero (add \"agent\" to BUILTIN_KINDS + an AGENT_PACKAGE const/binding in builtin.rs; build.rs auto-embeds). Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with EXTRACTION-VOCAB-GAPS — serialize if both un-deferred."
+    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero. Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with the genre chain + EXTRACTION-VOCAB-GAPS — serialize if un-deferred while either is live."
   },
   {
     "tag": "PACKAGING-CHANNELS",
