@@ -1,35 +1,28 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 47cc021.
-- **Last shipped:** **SDK-PROJECTION-LOCK** — the SDK altitude wave's last link
-  (`build` 8796ce8, removed by `chore(flume)` 47cc021). Verified on disk:
-  `sdk/src/project.ts` writes the byte-faithful `.claude/**` projection,
-  `sdk/src/lock.ts` stamps `source_hash`/`emit_hash`, both exported from
-  `sdk/src/index.ts`; `emit.ts` carries `resolveBody` (fromFile + mention
-  resolution-check). The TS authoring face now emits manifest + projection +
-  lock in one deterministic `emit`. **The SDK altitude wave is closed** (all
-  three links — byte-parity, body-resolution, projection-lock — shipped).
-- **This tick:** no queue change — reconciled the three carried entries against
-  disk and all stay accurate (EXTRACTION-VOCAB-GAPS: `Primitive::Field`
-  still flat-reads `unit.frontmatter.get(key)` at kind.rs:836, no nested-key
-  consumer; AGENT-KIND: no `kinds/claude-code/agent/` on disk; PACKAGING-CHANNELS:
-  root `package.json` still the private `temper-flume-harness` flume manifest).
-  Refreshed this stale `state.md` and marked the altitude wave fully drained in
-  the `(scripted-altitude-reconcile)` fork tail. Inbox empty — nothing to drain.
-- **Pickable now:** **none.** Every pending entry is deferred (no consumer:
-  EXTRACTION-VOCAB-GAPS, AGENT-KIND) or parked on human creds
-  (PACKAGING-CHANNELS). No `open` entry — build has nothing to pick this tick.
-- **What's next:** the pipeline waits on **human forks**, not more engine work.
-  The SDK/floor/front-door waves have all drained (AGENTS.md, CHANGELOG.md,
-  CONTRIBUTING.md, dual LICENSE all on disk). Open human decisions: the ledger's
-  TS-primary reformulation ruling (unblocks the dogfood's migration onto the SDK
-  authoring face), PACKAGING-CHANNELS release creds, the genre-adoption pilot
-  (a staged human ceremony), and the two OPEN strategic forks
-  (`edge-representation-unify` join→graph, `default-assembly-as-data`) that each
-  need a spec Decision before any dependent can be filed.
+- **Phase:** reconcile. HEAD 1c33491.
+- **Last shipped:** the SDK altitude wave (byte-parity → body-resolution →
+  projection-lock, all on disk); then the interactive session **ratified 'the
+  SDK is the product'** (`specs:` 71d0d30) and routed the reconcile
+  (`chore(flume)` 1c33491 — contract/** entered build's fence).
+- **This tick:** drained the inbox and **filed the ratification's three
+  in-fence work items** as a serialized chain — **SDK-EMIT-REFUSALS** (open) →
+  **SDK-ASSEMBLY-ARTIFACTS** (blockedBy) → **CONTRACT-DIR** (blockedBy). They
+  serialize because SDK-EMIT-REFUSALS/SDK-ASSEMBLY-ARTIFACTS both edit
+  `sdk/src/emit.ts` and CONTRACT-DIR shares `sdk/test/emit.test.ts`. The three
+  carried entries (EXTRACTION-VOCAB-GAPS, AGENT-KIND deferred; PACKAGING-CHANNELS
+  parked) reconciled against disk and stay accurate (`Primitive::Field` flat-reads
+  kind.rs:836; no `kinds/claude-code/agent/`; root package.json still the private
+  flume manifest). Second inbox line (toml_edit style instability) → accepted debt
+  + a standing-discipline note in open-questions.
+- **Pickable now:** **SDK-EMIT-REFUSALS** — sdk/** only, in-fence, clean cite
+  (20-surface "Emit refuses before it writes"). Build has a head to pick.
+- **What's next:** build drains the chain one tick at a time (each ship un-blocks
+  the next on the following reconcile). No-demolition holds (D6): engine-side
+  retirements stay evidence-gated behind the human dogfood migration, never
+  filed. The genre projection carrier stays a NAMED OPEN; the dogfood migration
+  (temper.config.ts) is a human ceremony, not an entry.
 
-Plan continues: no — queue reconciled and truthful, inbox empty, no new gap
-carries a clean `per` cite (remaining gaps are human-gated forks or need a spec
-Decision first). Nothing pickable to hand build; the pipeline is blocked on
-human forks, not on further plan work. Re-planning an unchanged queue would be
-the failure mode.
+Plan continues: no — inbox drained, queue reconciled and truthful, and a
+pickable `open` head (SDK-EMIT-REFUSALS) now exists. Building is how the queue
+drains; hand to build.

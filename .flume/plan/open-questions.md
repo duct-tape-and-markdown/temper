@@ -610,6 +610,15 @@ from exactly such a line fossilizing. If work touches one, surface it.
   post-swap) — kept because an external format's mechanics are temper's to
   implement once; the *selection* is declared. Grows only by deliberate
   vocabulary addition.
+- **Two byte-parity TOML writers, kept in lockstep** (Rust `toml_edit` +
+  the SDK emitter porting 0.22.27, 272b4f4) — kept until single-writer-per-format
+  lands (rides the TS-primary ceremony, human-gated). STANDING RULE (inbox 07-03,
+  web-verified: toml_edit's default output style is version-unstable — a breaking
+  change at 0.22.25, "Reduced escaping in strings", plus earlier precedents): a
+  `toml_edit` version-bump entry is a **contract event** — it must re-run the SDK
+  byte-parity fixtures and reconcile both writers in the *same* entry, never
+  bump-and-ship. The byte-parity fixtures (CONTRACT-DIR promotes them to
+  `contract/`) are the tripwire.
 - **`kinds/` + `packages/` are curated, fence-excluded** — kept because
   built-in definitions encode cited external facts; humans author, build
   embeds.

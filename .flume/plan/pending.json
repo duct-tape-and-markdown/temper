@@ -1,5 +1,131 @@
 [
   {
+    "tag": "SDK-EMIT-REFUSALS",
+    "summary": "SDK `emit` refuses before it writes on a dangling `satisfies` join and an unfilled required requirement — a broken source yields no output, never silent bytes",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Content-faithful, deterministically emitted (law 5)"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/test/refusals.test.ts",
+          "description": "node --test proof of each declare-side refusal: a member `satisfies` claim naming no declared requirement throws (dangling join); a requirement marked `required` with no member filling it throws (unfilled required requirement); a clean harness emits without throwing. Own test file, not emit.test.ts, so CONTRACT-DIR's later fixture move stays disjoint."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Add the two declare-side refusals before the compile in `emit`/`emitManifestMembers` (the 'Emit refuses before it writes' bullet): (1) dangling join — every member `satisfies` address must resolve to a declared requirement (harness-level or member-published), reusing the address set `declaredAddresses` already builds; (2) unfilled required requirement — a `required` requirement with no satisfying member is a loud error. Mentions already refuse via `resolveBody`; this closes the two missing cases. Genre-value-violating-bound-package refusal stays out of scope (no package model in the SDK yet)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "emit throws on a satisfies claim that resolves to no declared requirement and on a required requirement no member fills; a clean harness emits without throwing."
+      }
+    ],
+    "acceptance": "`emit`/`emitManifestMembers` throw on a dangling `satisfies` join and on an unfilled required requirement, producing no output from a broken source; a clean harness still emits; `pnpm --dir sdk test` (tsc + node --test) green.",
+    "notes": "From the ratified 'SDK is the product' reconcile, in-fence item (2a). sdk/** only. Mention refusal already ships (resolveBody). Genre-value-vs-package refusal deferred — the SDK carries no package model. Serialized ahead of SDK-ASSEMBLY-ARTIFACTS: both edit sdk/src/emit.ts, so not parallel-safe."
+  },
+  {
+    "tag": "SDK-ASSEMBLY-ARTIFACTS",
+    "summary": "SDK `emit` emits the locus-less assembly facts (kind bindings + requirement roster) as small committed temper-owned artifacts — additive to the manifest/projection/lock",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The surface: the assembly over its contents"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SDK-EMIT-REFUSALS" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/src/assembly_artifacts.ts",
+          "description": "Serialize the assembly's two locus-less parts — the kind bindings and the requirement roster — into small committed temper-owned artifacts (`20-surface.md`, 'the bindings, the roster — are emitted as small committed temper-owned artifacts'). Deterministic, sorted-key TOML through the existing `toml.ts` encoders; whole-file bytes, double-emit stable."
+        },
+        {
+          "path": "sdk/test/assembly_artifacts.test.ts",
+          "description": "node --test: the emitted bindings artifact carries every declared kind→package binding, the roster carries each requirement with its `means`/`kind`/required flag, both byte-deterministic across two passes."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Extend `EmitResult` with the assembly-facts artifacts, compile them in `emit` from the harness bindings + requirements (double-emit verified alongside manifest/projection/lock), and have `writeEmit` land them beside `temper.toml`/`lock.toml`. Additive: the manifest/projection/lock outputs are unchanged, so the byte-parity fixtures stay valid."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export the new `assembly_artifacts` module's public serializer + types beside the existing emit exports."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/assembly_artifacts.test.ts",
+        "asserts": "emit produces byte-deterministic bindings + roster artifacts carrying every declared binding and requirement; writeEmit lands them on disk."
+      }
+    ],
+    "acceptance": "`emit` returns and `writeEmit` writes the two temper-owned assembly artifacts (bindings, roster); output is double-emit stable; the manifest/projection/lock bytes are unchanged and the engine read path is untouched; `pnpm --dir sdk test` green.",
+    "notes": "Ratified reconcile, in-fence item (2c). Additive by design: the engine still reads the existing manifest until its sunset (D6, evidence-gated behind the dogfood migration — no demolition here). Blocked on SDK-EMIT-REFUSALS: both touch sdk/src/emit.ts."
+  },
+  {
+    "tag": "CONTRACT-DIR",
+    "summary": "Promote byte-parity fixtures + Rust goldens into a shared `contract/` dir both test suites read; generate schemas Rust-first (schemars → JSON Schema 2020-12, ts-rs types)",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Decision: acquisition rides the ecosystem's package managers"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SDK-ASSEMBLY-ARTIFACTS" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "contract/README.md",
+          "description": "The shared interchange corpus both implementations test against 'one golden set' (`50-distribution.md`): what lives here (byte-parity manifest goldens, extraction goldens, the Rust-first JSON Schema + generated TS types) and the discipline that a fixture edit is an interface-version event (per chain.ts's contract/** fence note)."
+        },
+        {
+          "path": "tests/contract_fixtures.rs",
+          "description": "Rust side reads the `contract/` goldens: `write_manifest_members` output byte-matches each golden, and the extraction goldens round-trip. The single producer of the goldens the SDK suite then consumes."
+        }
+      ],
+      "edit": [
+        {
+          "path": "Cargo.toml",
+          "description": "Add `schemars` (JSON Schema 2020-12 derive) and `ts-rs` (TS type generation) to the sanctioned dev/dependency set — authorized by the ratified reconcile (inbox item 2b, 'schema generation Rust-first')."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Derive `schemars::JsonSchema` + `ts_rs::TS` on the manifest IR types (`ManifestMember` et al., ~line 124) so the interchange schema generates from the Rust source of truth, Rust-first."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "Add a contract-schema emission path that writes the manifest/interchange JSON Schema (2020-12) into `contract/`, distinct from the existing editor-schema `emit`."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Point the byte-parity fixtures at the shared `contract/` goldens (read from disk) instead of the inline `String.raw` corpus, so both suites test one golden set."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/contract_fixtures.rs",
+        "asserts": "the Rust emitter's output byte-matches each `contract/` manifest golden and the generated JSON Schema is emitted deterministically; the SDK suite reads the same goldens."
+      }
+    ],
+    "acceptance": "Byte-parity fixtures + Rust goldens live in `contract/` and both `cargo test` and `pnpm --dir sdk test` consume that one set; the interchange JSON Schema (2020-12) + TS types generate Rust-first via schemars/ts-rs; cargo fmt/clippy -D warnings/test + sdk test all green.",
+    "notes": "Ratified reconcile, in-fence item (2b). contract/** is already in build's fence (chain.ts:209, commit 1c33491). schemars/ts-rs are new sanctioned crates authorized by the ratification. Large — build may split (schema gen vs fixture move) and raise it if a tick can't stay green. Blocked on SDK-ASSEMBLY-ARTIFACTS: it shares sdk/test/emit.test.ts and wants the emit surface stable before goldens freeze."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {
@@ -33,7 +159,7 @@
       }
     ],
     "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes it.)",
-    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. `Primitive::Field { key }` still flat-reads on disk (kind.rs). Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
+    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. `Primitive::Field { key }` still flat-reads on disk (kind.rs:836). Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
   },
   {
     "tag": "AGENT-KIND",
