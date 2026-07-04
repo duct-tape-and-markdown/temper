@@ -1,39 +1,22 @@
 [
   {
-    "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document via the generic yaml-frontmatter adapter, checked by the embedded `agent.anthropic` package",
+    "tag": "INSTALL-RETIRE-CI-PLACEMENT",
+    "summary": "Retire install's CI-workflow projection — install places only the hook + managed header lines; the CI gate is a documented user-authored job, not a generated file",
     "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Two categories of kind — ownership, not mechanism"
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Decision: `install` is two placements, one mechanism"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "the curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md are ratification territory (external-fact citations to the Claude Code subagent docs, outside build's fence) and must be human-authored first; the in-fence binding + tests go green only once they are on disk. On un-park plan re-scopes files to the in-fence engine slice."
-    },
-    "dependsOnForks": [],
+    "gate": { "kind": "open" },
     "files": {
-      "new": [
-        {
-          "path": "kinds/claude-code/agent/KIND.md",
-          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), under provider claude-code beside kinds/claude-code/{skill,rule,memory} with `provider = \"claude-code\"`: `governs = { root = '.claude/agents', glob = '*.md' }`, `format = \"yaml-frontmatter\"`, composed extraction over `name`/`description`/optional `tools`/`model` plus markdown structure. build.rs auto-embeds it — no engine extractor."
-        },
-        {
-          "path": "packages/agent.anthropic/PACKAGE.md",
-          "description": "The agent kind's built-in package `agent.anthropic` (curated, outside build's fence), embedded with the std-lib by build.rs. Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`. Per-clause `source` citations to the Claude Code subagent docs."
-        },
-        {
-          "path": "tests/agent_contract.rs",
-          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: one broken agent per clause proving it fires, a clean agent that trips nothing, and an import round-trip insta snapshot proving idempotence — all through the generic adapter + loader, no per-kind engine code."
-        }
-      ],
+      "new": [],
       "edit": [
         {
-          "path": "src/builtin.rs",
-          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE and register `(\"claude-code.agent\", AGENT_PACKAGE)` in QUALIFIED_FLOOR_BINDINGS. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
+          "path": "src/install.rs",
+          "description": "Remove the CI-workflow projection: the `CI_WORKFLOW` string const (install.rs:63-84) and `CI_JOB` label (install.rs:86), the `.github/workflows/temper.yml` `drift::place` call site (install.rs:299-303), and the `ci` arm of the `gate_installed` missing/drifted tally (install.rs:228,236,241,252). The re-cut rejects an install-managed CI workflow file outright (rejected (b)); `install` places exactly the SessionStart hook and the managed header lines (schema modeline + managed-by note). Leave the hook, the advisory guard (open fork `(guard-posture)`), the modelines, and the notes untouched — this entry only excises CI."
         },
         {
-          "path": "src/kind.rs",
-          "description": "Add `\"agent\"` to the `BUILTIN_KINDS` name-list (kind.rs:30) so the emit/drift lock path (src/drift.rs) recognizes an agent as a projected built-in layer, not a custom kind."
+          "path": "tests/install.rs",
+          "description": "Drop the CI-job assertions and snapshot rows (the only test references to `temper.yml`/`ci job`/`workflows` live here): assert `install` writes no `.github/workflows/temper.yml`, and that `gate_installed` neither expects nor reports a CI-job placement."
         }
       ],
       "retire": []
@@ -41,48 +24,27 @@
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/agent_contract.rs",
-        "asserts": "each decidable clause of the agent package fires on its broken fixture and stays silent on a clean agent; import of an unchanged agent is idempotent (insta snapshot)."
+        "path": "tests/install.rs",
+        "asserts": "`temper install` produces no `.github/workflows/temper.yml`; `gate_installed` reports no missing/drifted CI job; the hook, guard, modelines, and notes still place as before."
       }
     ],
-    "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Revived 07-04 (John, inbox): revival condition met — whole-harness governance + first non-dogfood adoption. Mostly curated data, near-zero engine (a binding + tests). Curated KIND.md/PACKAGE.md are human-authored (outside build's fence); on un-park plan re-scopes files to the in-fence slice only. Shares src/builtin.rs + src/kind.rs with COMMAND-KIND — serialize the two when both un-park."
+    "acceptance": "`temper install` writes no CI workflow file; `gate_installed` no longer tallies a CI job; install's placements are the SessionStart hook, the advisory guard, the schema modelines, and the managed-by notes; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Resolves the inbox CI bug (installed workflow runs the retired `temper import . --into .temper`, exit 127) at its root: 50-distribution rejects an install-managed CI workflow — CI is a documented two-line user-authored job. First landed slice of the six-noun demolition. Accepted debt (human): temper's own now-unmanaged `.github/workflows/temper.yml` stays broken until replaced with that hand-authored job (a chore(harness)/repo-infra fix, not a build tick)."
   },
   {
-    "tag": "COMMAND-KIND",
-    "summary": "Add the `command` built-in harness kind — `.claude/commands/*.md` slash-command members via the generic yaml-frontmatter adapter, checked by an embedded `command.anthropic` package",
+    "tag": "DRIFT-KIND-ENUMERATION",
+    "summary": "Drift's lock fingerprint map enumerates the actually-embedded built-in kinds, not the stale `kind::BUILTIN_KINDS` = [skill, rule] const — so memory (and future) kind rows are seen",
     "per": {
       "path": "specs/architecture/15-kinds.md",
-      "section": "Two categories of kind — ownership, not mechanism"
+      "section": "Decision: kinds are declared data over generic extraction, never engine code"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "the curated kinds/claude-code/command/KIND.md + packages/command.anthropic/PACKAGE.md are ratification territory (external-fact citations to the Claude Code slash-command docs, outside build's fence) and must be human-authored first; the in-fence binding + tests go green only once they are on disk."
-    },
-    "dependsOnForks": [],
+    "gate": { "kind": "open" },
     "files": {
-      "new": [
-        {
-          "path": "kinds/claude-code/command/KIND.md",
-          "description": "The embedded built-in `command` KIND.md (curated, outside build's fence), `provider = \"claude-code\"`: `governs = { root = '.claude/commands', glob = '*.md' }`, `format = \"yaml-frontmatter\"`, composed extraction over the documented slash-command frontmatter fields (`description`, optional `argument-hint`/`model`/`allowed-tools`) plus markdown structure. build.rs auto-embeds it."
-        },
-        {
-          "path": "packages/command.anthropic/PACKAGE.md",
-          "description": "The command kind's built-in package `command.anthropic` (curated, outside build's fence). Clauses over the documented Claude Code slash-command surface, each with a per-clause `source` citation to the custom-commands docs; an advisory `max_lines`."
-        },
-        {
-          "path": "tests/command_contract.rs",
-          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: one broken command per clause proving it fires, a clean command that trips nothing, and an import round-trip insta snapshot proving idempotence — all through the generic adapter, no per-kind engine code."
-        }
-      ],
+      "new": [],
       "edit": [
         {
-          "path": "src/builtin.rs",
-          "description": "Add the `COMMAND_PACKAGE = \"command.anthropic\"` const and register `(\"claude-code.command\", COMMAND_PACKAGE)` in QUALIFIED_FLOOR_BINDINGS. build.rs auto-embeds the PACKAGE.md."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "Add `\"command\"` to the `BUILTIN_KINDS` name-list (kind.rs:30) so the emit/drift lock path recognizes a command as a projected built-in layer."
+          "path": "src/drift.rs",
+          "description": "The two loops at drift.rs:635 (build the source-path -> emit_hash map) and drift.rs:672 (write reconciled fingerprints back) iterate `kind::BUILTIN_KINDS`, a hardcoded [\"skill\",\"rule\"] (kind.rs:30). A `memory` member's [[memory]] lock rows are therefore never fingerprinted, so a hand-edited memory projection is invisible to drift. Enumerate the bare names of the actually-embedded kinds — derive them from the build.rs-generated `builtin_kind::BUILTIN_KINDS` (`<provider>.<name>` table) — instead of the stale const. Add a `#[cfg(test)]` case exercising a memory lock row. Leave `kind::BUILTIN_KINDS` in place (compose.rs:3154 still reads it) — redirect drift only, keeping the blast radius to drift.rs alone."
         }
       ],
       "retire": []
@@ -90,46 +52,31 @@
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/command_contract.rs",
-        "asserts": "each decidable clause of the command package fires on its broken fixture and stays silent on a clean command; import of an unchanged command is idempotent (insta snapshot)."
+        "path": "src/drift.rs",
+        "asserts": "the fingerprint map built from a lock carrying [[memory]] rows includes those rows; the update loop rewrites a memory row's emit_hash; skill/rule behavior is unchanged."
       }
     ],
-    "acceptance": "`temper check` dispatches `.claude/commands/*.md` to the `command.anthropic` package; governing `.claude/commands` auto-retires its `coverage.unmodeled-surface` finding (coverage_note::governed_by_any — no coverage_note.rs edit); import projects command members idempotently; gates green.",
-    "notes": "Filed 07-04 (John, inbox). Markdown/yaml-frontmatter kind like agent — adapter exists, engine is a binding + tests. Curated files human-authored (fence-excluded); parked on that. Serialize after AGENT-KIND (shares src/builtin.rs QUALIFIED_FLOOR_BINDINGS + src/kind.rs BUILTIN_KINDS). Advisory-retirement is latent — temper's own harness carries no .claude/commands surface today."
+    "acceptance": "drift's load + update lock loops cover every embedded built-in kind (memory included), not just skill/rule; a hand-edited memory projection is detected as drift; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Ceremony-review bug #2. The manifest-era per-kind-table lock reshapes under the eventual demolition (disk-vs-lock, declaration rows), but the bug is live now and the fix is local. Disjoint from the other pending entries (drift.rs only; `builtin_kind::BUILTIN_KINDS` is read, not edited)."
   },
   {
-    "tag": "SETTINGS-KIND",
-    "summary": "Add the `settings` built-in harness kind — `.claude/settings.json` as a JSON-manifest member with nested key-path fields, checked by an embedded `settings.anthropic` package",
+    "tag": "READ-FLOOR-BINDING-DEFAULT",
+    "summary": "Read's `bound_package` resolves each kind's real floor instead of defaulting every non-rule kind to the skill floor — so a memory member isn't mis-narrated as skill-bound",
     "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Two categories of kind — ownership, not mechanism"
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: one read verb — `explain`"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "rests on the (json-projection-format) fork — reading settings.json needs a `json` projection format harvested into 15-kinds.md's closed vocabulary + a generic JSON adapter, neither yet in the corpus — plus human-authored curated KIND.md/PACKAGE.md (outside build's fence). Un-parks when the fork resolves and the curated files land."
-    },
-    "dependsOnForks": [
-      "json-projection-format"
-    ],
+    "gate": { "kind": "open" },
     "files": {
-      "new": [
-        {
-          "path": "kinds/claude-code/settings/KIND.md",
-          "description": "The embedded built-in `settings` KIND.md (curated, outside build's fence), `provider = \"claude-code\"`: `governs = { root = '.claude', glob = 'settings.json' }`, `format = \"json\"` (the fork's new vocabulary entry), composed extraction over nested key-path `field` primitives (permissions, env, hooks) consuming the now-shipped key-path `Primitive::Field` (`extract::resolve_key_path`, src/kind.rs:839). build.rs auto-embeds it."
-        },
-        {
-          "path": "packages/settings.anthropic/PACKAGE.md",
-          "description": "The settings kind's built-in package `settings.anthropic` (curated, outside build's fence). Decidable clauses over documented settings.json keys, each with a per-clause `source` citation to code.claude.com/docs/en/settings."
-        },
-        {
-          "path": "tests/settings_contract.rs",
-          "description": "Fixture-driven proof: one broken settings.json per clause proving it fires, a clean one that trips nothing, and an import round-trip snapshot — through the generic JSON adapter, no per-kind engine code."
-        }
-      ],
+      "new": [],
       "edit": [
         {
-          "path": "src/builtin.rs",
-          "description": "Add the `SETTINGS_PACKAGE = \"settings.anthropic\"` const and register `(\"claude-code.settings\", SETTINGS_PACKAGE)` in QUALIFIED_FLOOR_BINDINGS. The `json` Format variant + adapter belong to the fork's own shared engine entry, not here — this entry rests on them."
+          "path": "src/read.rs",
+          "description": "`bound_package` (read.rs:147-156) hardcodes `match kind { \"rule\" => RULE_PACKAGE, _ => SKILL_PACKAGE }`, so every non-rule/non-skill kind (memory, and any future built-in) is narrated as bound to `skill.anthropic`. Resolve the kind's qualified identity and use `builtin::floor_package` (builtin.rs:82, the `QUALIFIED_FLOOR_BINDINGS` lookup) to name the real floor, keeping the author-layer explicit binding as the override and falling back only when a kind genuinely has no floor. builtin.rs is read, not edited."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Assert a memory member's read output names its own floor (`memory.anthropic` / `memory.agents-md`), not `skill.anthropic`; keep the existing skill/rule narration assertions green."
         }
       ],
       "retire": []
@@ -137,43 +84,43 @@
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/settings_contract.rs",
-        "asserts": "each decidable clause of the settings package fires on its broken fixture and stays silent on a clean settings.json; nested key-path fields read the intended values."
+        "path": "tests/read_verbs.rs",
+        "asserts": "read narrates a memory member as bound to its `memory.*` floor; skill/rule members still narrate their own floors; an explicit author-layer binding still overrides."
       }
     ],
-    "acceptance": "`temper check` dispatches `.claude/settings.json` to `settings.anthropic` reading nested key-path fields; governing settings.json retires the `coverage.unmodeled-surface` advisory (the live marker on temper's own harness); gates green. (Held: not built until the json fork resolves + curated files land.)",
-    "notes": "Filed 07-04 (John, inbox): retirer of the live settings.json coverage.unmodeled-surface advisory. JSON-manifest → dependsOnForks (json-projection-format); the shared json adapter is that fork's engine entry. EXTRACTION-VOCAB-GAPS' key-path Field has SHIPPED (1b9f33a) — ready; only the json format harvest + adapter remain. MCP + plugin/marketplace kinds ride the same fork (held there, not filed)."
+    "acceptance": "read's `bound_package` names the correct floor for every embedded kind; a memory member is narrated as bound to its `memory.*` floor, never `skill.anthropic`; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Ceremony-review bug #1. Read-only correctness; `builtin::floor_package` already maps the qualified identity, so the fix routes `bound_package` through it. Disjoint from the other pending entries (read.rs + tests/read_verbs.rs). Survives the eventual read-verb consolidation to a single `explain`."
   },
   {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
     "per": {
       "path": "specs/architecture/50-distribution.md",
-      "section": "Decision: acquisition rides the ecosystem's package managers"
+      "section": "Three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs human release setup (npm org, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
+      "reason": "needs human release setup (npm org + @temper scope, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": ".github/workflows/release.yml",
-          "description": "Build the per-target release binaries and publish them to the npm platform packages, GitHub release assets, and the Homebrew tap; channel auto-detected. Distinct from the existing `.github/workflows/temper.yml` CI job."
+          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone release assets), GitHub release assets, and the Homebrew tap; channel auto-detected. Distinct from any CI check job (which under the re-cut is a documented user-authored job, not a generated file)."
         }
       ],
       "edit": [
         {
           "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`, confirmed on disk). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages (Biome's pattern) plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, `specs/architecture/50-distribution.md`). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering the harness manifest. Scoped/prefixed names per the resolved (project-name) fork. NB distinct from sdk/package.json (the authoring-face manifest)."
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. Scoped `@temper` names per the resolved (project-name) fork. NB distinct from sdk/package.json (the SDK authoring-face manifest for `temper` + `@temper/claude-code`)."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "A stranger can acquire the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; the cargo gates can't validate npm/Homebrew publish, and channels need human creds (npm org, tap, signing). NB root `package.json` is the *private* flume manifest (≠ sdk/package.json) — reconcile or split, never blindly create a second. Only `.github/workflows/temper.yml` (CI) exists — no release.yml yet. Parked until a human sets creds up."
+    "acceptance": "A stranger acquires the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
+    "notes": "Release infra, mostly outside `src/`; cargo gates can't validate npm/Homebrew publish, and channels need human creds. Re-cut 2026-07-04: acquisition intent now lives in 50-distribution 'Three channels' (npm `temper` + `@temper/claude-code`; the binary pinned via per-platform optionalDependencies + standalone; the plugin/bundle). Root `package.json` is the private flume manifest (not sdk/package.json) — reconcile or split. Parked on human release creds."
   }
 ]

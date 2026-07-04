@@ -1,25 +1,27 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 1b9f33a. Inbox empty.
-- **Last shipped:** EXTRACTION-VOCAB-GAPS — the nested key-path `Primitive::Field`
-  fix (`build` d3686b2 / `chore` 1b9f33a; verified on disk: `resolve_key_path`
-  walks the dotted key-path, src/kind.rs:839). Build removed it from the queue.
-- **This tick — reconcile only:** verified the four remaining entries against disk
-  and spec; all four stay **parked**. AGENT-KIND + COMMAND-KIND await their
-  human-authored `kinds/claude-code/{agent,command}/KIND.md` + packages (absent on
-  disk — no `.claude/agents` or `.claude/commands` dir either). SETTINGS-KIND stays
-  parked + `dependsOnForks (json-projection-format)`; refreshed its notes to record
-  that its key-path dependency has now shipped — only the `json` format harvest +
-  shared adapter remain. PACKAGING-CHANNELS still parked (human release creds).
-  Updated the `(json-projection-format)` fork the same way. No new gap fileable:
-  the corpus↔code deltas all rest on human curation or an unresolved fork.
-- **Pickable now:** none — the whole queue is parked pending human action.
-- **What's next (human, not a build tick):** curate the agent/command KIND.md +
-  PACKAGE.md (un-parks AGENT-KIND/COMMAND-KIND, serialize on shared builtin.rs/
-  kind.rs); harvest `json` into 15-kinds.md (un-parks SETTINGS-KIND + the shared
-  json adapter entry); settle `(hook-kind-locus)`. The dogfood's SDK/TS-primary
-  migration remains the ledger's ceremony.
+- **Phase:** reconcile (post six-noun merge). HEAD bdcaacc. Inbox drained.
+- **The six-noun re-cut is now law** (PR #2 merged; specs re-cut). Reconciled the
+  whole queue against it: **RETIRED AGENT-KIND / COMMAND-KIND / SETTINGS-KIND** —
+  all three rested on retired mechanisms (no KIND.md — 15-kinds; no PACKAGE.md,
+  floors are exported clause arrays — 10-contracts; no string-name identity /
+  QUALIFIED_FLOOR_BINDINGS / BUILTIN_KINDS-const — 15-kinds). John's intent
+  survives, but the vehicle is now an SDK value in `@temper/claude-code` + a
+  compiled default-program entry, gated on the human SDK-primary scaffolding.
+- **Filed 3 disjoint `open` entries:** INSTALL-RETIRE-CI-PLACEMENT (retire
+  install's CI-workflow projection — first demolition slice, roots out the inbox
+  exit-127 bug), plus the two disjoint ceremony-review bugs DRIFT-KIND-ENUMERATION
+  and READ-FLOOR-BINDING-DEFAULT. Blast radii disjoint (install.rs / drift.rs /
+  read.rs) — parallel-safe. PACKAGING-CHANNELS stays parked (re-cited to
+  50-distribution "Three channels").
+- **Pickable now:** INSTALL-RETIRE-CI-PLACEMENT, DRIFT-KIND-ENUMERATION,
+  READ-FLOOR-BINDING-DEFAULT.
+- **What's next (human):** the six-noun engine demolition's foundation — SDK as the
+  canonical authoring surface, committed-artifacts+lock as the only gate corpus
+  (the committed manifest is rejected), the compiled default program — is
+  frame-scale and human-ceremony-gated; plan decomposes it evidence-gated per
+  entry as clean disjoint slices surface, never inventing the wave shape on the
+  unbuilt foundation.
 
-Plan continues: no — the queue is reconciled and the inbox is empty; nothing is
-pickable (all four entries parked on human action), so there is no build work to
-hand off and no further plan work this turn.
+Plan continues: no — the queue is reconciled, the inbox is drained, and three
+disjoint `open` entries are pickable; building is how the queue drains.

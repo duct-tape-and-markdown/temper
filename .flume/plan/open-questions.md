@@ -24,9 +24,34 @@ emit is total (members are the only source; settings.json/.mcp.json are
 many-to-one projections; permissions derived from member `needs`), one
 implementation behind a JSON pipe (SDK implements no semantics). Prior fork
 resolutions above stand as history; their spec anchors moved in the re-cut.
-Plan must re-reconcile the whole pending queue against the new corpus —
-entries citing KIND.md/PACKAGE.md curation (AGENT-KIND, COMMAND-KIND,
-SETTINGS-KIND) rest on retired mechanisms and need re-scoping or retirement.
+Plan must re-reconcile the whole pending queue against the new corpus.
+DONE (2026-07-04, post-merge reconcile): **AGENT-KIND, COMMAND-KIND, and
+SETTINGS-KIND are RETIRED from pending** — every mechanism they named is
+rejected by the re-cut: there is no `KIND.md` (15-kinds "Decision: field
+typing lives in the SDK — there is no kind file format"), no `PACKAGE.md`
+(a floor is an exported clause array in `@temper/claude-code`,
+10-contracts), and no string-name identity / `QUALIFIED_FLOOR_BINDINGS` /
+`BUILTIN_KINDS`-const machine (15-kinds "Decision: built-ins are a module,
+and identity is an import" rejects "string-name identity with provider
+qualification"). John's intent survives (agent/command/settings ARE in
+scope, `15-kinds.md` built-in enumeration), but the vehicle changed: adding
+a built-in kind now means an SDK value in the `@temper/claude-code` module
+plus a compiled default-program entry embedded in the engine binary — a
+different, unbuilt foundation, gated on the SDK-primary scaffolding (publish
+`@temper/claude-code`, npm scoping — the ledger's "SDK npm scaffolding needs
+John"). Re-file only once that foundation lands.
+
+The dominant corpus↔code gap is now the **six-noun engine demolition**: the
+code is manifest-era (commits + reads a `temper.toml` manifest as the gate's
+corpus — 20-surface rejects exactly that, (b); parses `KIND.md`/`PACKAGE.md`
+grammars — retired; resolves qualified/bare string identity — retired). It
+is frame-scale, deeply entangled (every piece touches builtin.rs / kind.rs /
+main.rs / import.rs / drift.rs), and its foundation (SDK as canonical
+authoring surface + committed-artifacts+lock as the only gate corpus + the
+compiled default program) is human-ceremony-gated. Plan decomposes it
+**evidence-gated per entry** as clean disjoint slices surface — it does not
+invent the wave shape on the unbuilt foundation. First landed slice:
+**INSTALL-RETIRE-CI-PLACEMENT** (below in pending).
 
 New forks from the ceremony:
 
@@ -62,15 +87,23 @@ New forks from the ceremony:
   ruled. Blocks nothing until someone needs a personal override.
 
 Bugs filed by the ceremony's review (wrong today, independent of demolition
-sequencing — plan should file as pending entries on next reconcile):
+sequencing):
 1. read.rs:147-156 — floor-binding fallback narrates any non-rule kind as
-   bound to the skill floor (wrong-by-default `explain` output).
-2. drift.rs:635,672 — iterates the stale 2-entry BUILTIN_KINDS const
-   (kind.rs:30) while four kinds are embedded; memory kinds invisible to
-   drift classification.
+   bound to the skill floor (wrong-by-default read output). **FILED**
+   2026-07-04 as pending READ-FLOOR-BINDING-DEFAULT (open; read.rs only —
+   disjoint).
+2. drift.rs:635,672 — iterates the stale 2-entry `kind::BUILTIN_KINDS` const
+   (kind.rs:30 = `["skill","rule"]`) while more kinds are embedded; memory
+   rows in the lock are invisible to drift's fingerprint map. **FILED**
+   2026-07-04 as pending DRIFT-KIND-ENUMERATION (open; drift.rs only —
+   disjoint).
 3. import.rs:697-704, 1007-1015 — authored-layer carry-forward silently
    degrades to "nothing to carry" on an unreadable prior surface (data-loss
-   edge; moot when document carriage is demolished, real until then).
+   edge). **HELD** — the ceremony's own note flags it "moot when document
+   carriage is demolished, real until then", and the demolition (init-lift,
+   `file()` members, no `.temper/` copy tree) deletes this carry-forward
+   path outright; fixing code slated for removal is throwaway. Re-file only
+   if the demolition slips.
 
 ## SDK dogfood-migration seams (surfaced by the 2026-07-04 pilot) — ALL RULED
 
@@ -711,11 +744,15 @@ Kept below as decision records; no dependent still waits.
 ## Harness-kind scope-in (surfaced by the 2026-07-04 inbox ruling)
 
 John ruled the intent-named harness surfaces in scope (`00-intent.md` surface
-enumeration; `15-kinds.md` "Two categories of kind" names `agent`/`hook`/
-`command`/MCP/`settings`/`plugin`). The markdown/yaml-frontmatter kinds ride the
-existing adapter (AGENT-KIND revived + COMMAND-KIND filed, both parked on human
-curation). The two forks below gate the rest — the JSON-manifest kinds and the
-hook kind rest on mechanism the corpus does not yet carry with a clean cite.
+enumeration; `15-kinds.md` built-in enumeration names skill/rule/memory/agent/
+hook/command/MCP/settings). The intent stands. **SUPERSEDED MECHANISM
+(2026-07-04 re-cut):** the entries this section once tracked — AGENT-KIND,
+COMMAND-KIND, SETTINGS-KIND — are RETIRED from pending (see the six-noun
+ceremony section above): the KIND.md/PACKAGE.md/string-identity vehicle is
+gone, and every built-in kind now arrives as an SDK value in
+`@temper/claude-code` plus a compiled default-program entry. The two forks
+below were framed against the retired `format`-vocabulary mechanism; both are
+reframed under the re-cut and neither gates a pending entry today.
 
 - `(json-projection-format)` — OPEN. The JSON-manifest built-in kinds — `settings`
   (`.claude/settings.json`), MCP (`.mcp.json`), and the plugin/marketplace
@@ -731,11 +768,16 @@ hook kind rest on mechanism the corpus does not yet carry with a clean cite.
   `Primitive::Field` (EXTRACTION-VOCAB-GAPS landed 1b9f33a — `extract::resolve_key_path`,
   src/kind.rs:839). The adapter is **one shared engine entry** (settings/MCP/
   plugin all rest on it), fileable once the format is harvested; it is sanctioned
-  under the kept "format implementations are engine code" asymmetry, but only
-  after the vocabulary addition. Blocks pending **SETTINGS-KIND** (dependsOnForks);
-  gates the MCP + plugin/marketplace kinds (held here, unfiled). Human to harvest
-  `json` into `15-kinds.md`; then plan files the adapter entry + the kinds
-  serialized behind it.
+  under the kept "format implementations are engine code" asymmetry.
+  REFRAME (2026-07-04 re-cut): there is no `format` grammar or closed
+  projection-format vocabulary to harvest into — a kind's on-disk shape is the
+  **layout** fact (five-facts, `15-kinds.md`), declared as an SDK value. A JSON
+  manifest kind is one whose layout reads a JSON file with nested-key fields.
+  The generic JSON adapter (a peer to `src/frontmatter.rs`, over the shipped
+  key-path `Primitive::Field`) is still real engine work, but it is gated on
+  the SDK-primary foundation, not on a vocabulary addition. SETTINGS-KIND (the
+  entry this once blocked) is retired; the MCP + plugin/marketplace kinds ride
+  the same adapter, held here unfiled until the foundation lands.
 
 - `(hook-kind-locus)` — OPEN. John ruled the `hook` kind in scope, but hooks have
   **no standalone file surface** — they are configured as JSON entries *inside*
