@@ -7,8 +7,7 @@
       "section": "Decision: the CLI gains a read family — `why` and `requirements`"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GENRE-MANIFEST-LEAF"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "`temper impact <leaf-address>` reports at leaf grain — citations distinct from fallout — reading only the manifest's serialized genre values; the member-name path is unchanged; cargo fmt/clippy -D warnings/test green.",
-    "notes": "blockedBy GENRE-MANIFEST-LEAF (needs the serialized leaf shape to read). Serialized before CONTEXT-VERB — both edit read.rs + main.rs, so they cannot run parallel. Citation reporting rides declared one-way edges (obligation-free, `45-governance.md`); no new obligating semantics."
+    "notes": "GENRE-MANIFEST-LEAF shipped (compose.rs `[[member.genre]]` tables, `GenreValue`) — this reads that serialized leaf shape. Serialized before CONTEXT-VERB — both edit read.rs + main.rs, so they cannot run parallel. Citation reporting rides declared one-way edges (obligation-free, `45-governance.md`); no new obligating semantics."
   },
   {
     "tag": "CONTEXT-VERB",
