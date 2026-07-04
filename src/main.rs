@@ -743,6 +743,80 @@ fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
     Ok(kinds)
 }
 
+/// The set of every kind the gate can dispatch a member to — the embedded built-in
+/// std-lib ∪ each registered custom kind (`specs/architecture/40-composition.md`). The
+/// resolution set [`resolve_member_kind`] ranges over to key a member by its bare kind
+/// and to decide a kind is unrecognized. A `[kind.<name>]` naming a built-in is a
+/// contract layer, not a registration, so it is not re-loaded as a custom kind.
+///
+/// # Errors
+///
+/// Propagates a [`KindError`] if an embedded built-in or a registered `KIND.md` fails to
+/// parse into an admissible kind definition.
+fn known_kinds(
+    layer: Option<&compose::AuthorLayer>,
+    kinds_dir: &Path,
+) -> miette::Result<Vec<CustomKind>> {
+    let mut kinds: Vec<CustomKind> = builtin_kind::definitions()?.into_values().collect();
+    if let Some(layer) = layer {
+        for name in layer.registered_kinds() {
+            if builtin_kind::definition(name)?.is_some() {
+                continue;
+            }
+            kinds.push(CustomKind::load(kinds_dir, name)?);
+        }
+    }
+    Ok(kinds)
+}
+
+/// Resolve a manifest member's authored `kind` to the **bare** name the dispatch loop
+/// keys on (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider
+/// axis"). The SDK stamps the qualified identity `<provider>.<name>`; the gate is the
+/// side that resolves it — strip any provider and accept the bare tail iff some known
+/// kind carries that bare name. `None` when none does — an unrecognized kind.
+///
+/// The bare tail is *not* run through [`CustomKind::resolve_bare`]: the corpus is
+/// bare-keyed and the dispatch loop reads bare (`corpus.get(&kind.name)`), so a bare
+/// name two providers share (the two `memory` kinds) resolves to that one shared slice
+/// by design, never a collision error — the qualification tax is paid only where a
+/// binding must name *one* kind, which member keying does not.
+fn resolve_member_kind(authored: &str, known: &[CustomKind]) -> Option<String> {
+    let bare = authored.rsplit('.').next().unwrap_or(authored);
+    known
+        .iter()
+        .find(|kind| kind.name == bare)
+        .map(|kind| kind.name.clone())
+}
+
+/// Merge a manifest member slice into `corpus` under its **bare** kind key, resolving
+/// the authored (possibly `<provider>.<name>` qualified) kind through `known_kinds`
+/// (`specs/architecture/15-kinds.md`). A kind resolving to no built-in or custom definition
+/// yields every member of the slice as a loud finding into `unknown` — the
+/// collaboration-rule failure a silent `checked 0` would be
+/// (`.claude/rules/collaboration.md`, "a silent skip reads as done").
+fn place_members(
+    authored_kind: &str,
+    members: Vec<extract::Features>,
+    known_kinds: &[CustomKind],
+    corpus: &mut BTreeMap<String, Vec<extract::Features>>,
+    unknown: &mut Vec<check::Diagnostic>,
+) {
+    match resolve_member_kind(authored_kind, known_kinds) {
+        Some(bare) => corpus.entry(bare).or_default().extend(members),
+        None => unknown.extend(members.into_iter().map(|features| {
+            check::Diagnostic::error(
+                "manifest.unknown-kind",
+                features.id.clone(),
+                format!(
+                    "member `{}` declares kind `{authored_kind}`, which resolves to no \
+                     built-in or custom kind — it would be checked against nothing",
+                    features.id
+                ),
+            )
+        })),
+    }
+}
+
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts — the shared gate behind both `check` and the session-start
 /// reporter (`specs/architecture/10-contracts.md`, both greens).
@@ -791,12 +865,34 @@ fn gate(
     // back to extracting the authored sources through the one generic `Unit` loader
     // (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter"). Keyed by bare kind name;
     // the typed `Workspace` still survives for drift/bundle/apply and the read family.
-    let manifest_corpus = {
-        let mut corpus = layer
-            .as_ref()
-            .map(compose::AuthorLayer::member_corpus)
-            .unwrap_or_default();
+    // The resolution set a pre-extracted member's authored kind resolves against — the
+    // embedded built-ins ∪ each registered custom kind (`specs/architecture/15-kinds.md`,
+    // "Decision: kind identity carries a provider axis").
+    let known_kinds = known_kinds(layer.as_ref(), &kinds_dir)?;
+
+    let (manifest_corpus, unknown_kind_diagnostics) = {
+        let mut corpus: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
+        let mut unknown: Vec<check::Diagnostic> = Vec::new();
         if let Some(layer) = layer.as_ref() {
+            // Document/module-carried members arrive pre-extracted, grouped by their
+            // authored kind. The SDK stamps the qualified identity `<provider>.<name>`
+            // (`specs/architecture/15-kinds.md`), so resolve each to the bare key the dispatch
+            // loop reads (`corpus.get(&kind.name)`) before merging — a `claude-code.rule`
+            // member must reach the `rule` slice, not sit unread under a qualified key.
+            for (authored_kind, members) in layer.member_corpus() {
+                place_members(
+                    &authored_kind,
+                    members,
+                    &known_kinds,
+                    &mut corpus,
+                    &mut unknown,
+                );
+            }
+            // In-place members carry a `source` path; live-extract, then key by their
+            // authored kind directly. `live_extract_inplace` has already resolved the
+            // built-in by `owns_source` (the join `resolve_bare` cannot make — the two
+            // `memory` providers share the bare `memory`, `specs/architecture/15-kinds.md`), so
+            // the kind is a validated bare built-in name, not the SDK's qualified stamp.
             for member in layer.inplace_members() {
                 let features = live_extract_inplace(harness_root, member)?;
                 corpus
@@ -810,7 +906,7 @@ fn gate(
         for slice in corpus.values_mut() {
             slice.sort_by(|a, b| a.id.cmp(&b.id));
         }
-        (!corpus.is_empty()).then_some(corpus)
+        ((!corpus.is_empty()).then_some(corpus), unknown)
     };
 
     // Each kind's features are validated against its *effective* contract (bound
@@ -851,6 +947,10 @@ fn gate(
     // built-ins into the requirement corpus is the separate `(builtin-workspace-qualified-key)`
     // fork), so `skill_features`/`rule_features` above are still read there.
     let mut diagnostics = Vec::new();
+    // A manifest member whose authored kind resolved to no known kind is a loud finding
+    // (GATE-KIND-RESOLVE) — never a silent `checked 0` (`.claude/rules/collaboration.md`,
+    // "a silent skip reads as done").
+    diagnostics.extend(unknown_kind_diagnostics);
     // Per-kind checked-member counts, keyed by qualified identity — carried out of
     // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
     // so "checked N members" is stated rather than left as bare silence.
