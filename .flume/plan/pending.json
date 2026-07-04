@@ -1,40 +1,5 @@
 [
   {
-    "tag": "SDK-EMIT-BYTE-PARITY",
-    "summary": "Bring the SDK emitter to byte-parity with the Rust `toml_edit` manifest output — the altitude authoring face compiles to the exact inert manifest the gate reads",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Content-faithful, deterministically emitted (law 5)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "The scaffold serializer emits valid TOML of the right schema (`[[member]]`/`[[member.section]]`/`[[member.genre]]` — confirmed matching src/compose.rs `write_member_table`/`genre_to_table` and tests/genre_leaf.rs). This slice closes the scaffold's stated `byte-parity` bound: match the Rust emitter's exact `toml_edit` spelling — key order, table vs inline-table choice, string escaping, multiline-literal form, blank-line placement — so a member emitted by the SDK is byte-identical to the same member emitted by `temper emit`. Fail loud on any residual divergence."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Byte-parity fixtures pinned against known-good Rust emitter output (the same members tests/genre_leaf.rs / tests/emit.rs cover), asserting byte-identical manifest text and the double-emit invariant."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a member emitted by the SDK serializer is byte-identical to the Rust emitter's manifest output for the same member (leaves, keyed collections, sections, satisfies), and double-emit produces identical bytes."
-      }
-    ],
-    "acceptance": "The SDK's `emitManifestMembers` output is byte-identical to `temper emit`'s manifest for a shared fixture corpus; `pnpm --dir sdk test` (tsc + node --test) green.",
-    "notes": "UN-PARKED 07-03: `(sdk-build-gate)` RESOLVED — human wired the `sdk test` gate (`pnpm --dir sdk test`, afterMerge) into chain.ts (118af33), so build now validates TS slices. Head of the altitude wave; scaffold present (sdk/src/emit.ts bounds confirmed). Serialized successors SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK share emit.ts. Publish name (PACKAGING-CHANNELS) is not needed for internal byte-parity."
-  },
-  {
     "tag": "SDK-BODY-RESOLUTION",
     "summary": "Resolve member bodies before emit: `fromFile` asset resolution and opt-in mention resolution-checking — the two scaffold bounds `bodyText` throws on today",
     "per": {
