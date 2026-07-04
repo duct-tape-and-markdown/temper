@@ -1312,3 +1312,96 @@ required = true\n",
         "a re-import must not churn the manifest"
     );
 }
+
+// ---- manifest gate read: the manifest is the gate's corpus ------------------
+//
+// `specs/architecture/20-surface.md`, "The surface: the assembly over its contents" +
+// "The IR": the gate ranges the manifest's pre-extracted `[[member]]` features (the only
+// thing the gate reads), the lock supplies freshness (`config.stale`), and no `.temper/`
+// copy tree is ranged as the declaration source. These drive the real `temper check` in
+// the persistent layout, so the manifest is read exactly as a real invocation reads it.
+
+#[test]
+fn check_reads_member_features_from_the_manifest_not_the_temper_tree() {
+    // Make the manifest and the `.temper/` tree DISAGREE, then observe which one the gate
+    // judges. Import a skill carrying a forbidden `globs` key: the manifest serializes that
+    // member, and `.temper/skills/` holds its surface. Delete the surface tree — now only
+    // the manifest still declares the member. If the gate reads the manifest, the forbidden
+    // key fires; if it fell back to ranging `.temper/`, it would find nothing and pass.
+    let root = tmpdir("gate-read-corpus");
+    let skill = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), FORBIDDEN_GLOBS_SKILL).unwrap();
+    run_import(&root);
+
+    // The manifest carries the globs member; the surface tree carried it too.
+    fs::remove_dir_all(root.join(".temper").join("skills")).unwrap();
+
+    let read_manifest = check_in(&root);
+    assert!(
+        !read_manifest.ok,
+        "the manifest's globs member drives the gate red even with an empty `.temper/` tree \
+         — the manifest is the corpus, got:\n{}",
+        read_manifest.output
+    );
+    assert!(
+        read_manifest.output.contains("forbidden_keys"),
+        "the finding names the clause the manifest member tripped, got:\n{}",
+        read_manifest.output
+    );
+
+    // Strip the `[[member]]` section (a layer-only floor manifest) with the surface tree
+    // still empty: now nothing declares the member, so the gate has nothing to judge and
+    // passes — proving the `[[member]]` section, not a lingering `.temper/` read, was what
+    // fired above.
+    write_temper_toml(&root, "# a floor manifest declaring no members\n");
+    let no_members = check_in(&root);
+    assert!(
+        no_members.ok,
+        "with no manifest members and an empty `.temper/` tree the gate reads nothing to \
+         check, got:\n{}",
+        no_members.output
+    );
+}
+
+#[test]
+fn check_reports_config_stale_on_a_hand_edited_projection() {
+    // Freshness stands on the lock's emit fingerprint (`specs/architecture/20-surface.md`,
+    // "two freshness facts"): a committed projection whose bytes no longer match it is
+    // `config.stale`.
+    let root = tmpdir("gate-read-stale");
+    write_skill_and_rule_harness(&root);
+    run_import(&root);
+
+    // A fresh import is not stale: every source still hashes to its emit fingerprint.
+    let clean = check_in(&root);
+    assert!(
+        !clean.output.contains("config.stale"),
+        "a freshly imported harness carries no stale projection, got:\n{}",
+        clean.output
+    );
+
+    // Hand-edit a committed projection after import — its bytes drift from the fingerprint
+    // the lock recorded.
+    let skill_md = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let edited = fs::read_to_string(&skill_md).unwrap() + "\nAn extra hand-edit.\n";
+    fs::write(&skill_md, edited).unwrap();
+
+    let stale = check_in(&root);
+    assert!(
+        stale.output.contains("config.stale"),
+        "a hand-edited projection surfaces `config.stale`, got:\n{}",
+        stale.output
+    );
+    // It is advisory (the `shared`-authority nudge): it reports without failing the run,
+    // and the manifest's pre-edit member features still conform.
+    assert!(
+        stale.ok,
+        "`config.stale` is advisory and must not fail the run on its own, got:\n{}",
+        stale.output
+    );
+}

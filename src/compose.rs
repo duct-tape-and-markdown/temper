@@ -841,12 +841,36 @@ impl AuthorLayer {
 
     /// The manifest's serialized member features, in declaration order
     /// (`specs/architecture/20-surface.md`, "Topology"). Empty when the manifest declares no
-    /// `[[member]]` tables. Inert until MANIFEST-GATE-READ flips the gate to read these
-    /// pre-extracted features in place of a live extraction over the `.temper/` copy tree;
-    /// exposed now so the shape `import` writes and the shape the gate will read are one.
+    /// `[[member]]` tables. The gate reads these pre-extracted features as its corpus in
+    /// place of a live extraction over the authored sources ([`member_corpus`](Self::member_corpus));
+    /// exposed whole for a re-import round-trip and any reader that ranges the raw list.
     #[must_use]
     pub fn members(&self) -> &[ManifestMember] {
         &self.members
+    }
+
+    /// The manifest's serialized member features grouped by **bare kind name** — the
+    /// gate's pre-extracted corpus (`specs/architecture/20-surface.md`, "a module-carried member
+    /// arrives pre-extracted… its features are its declared typed fields, bounded by the
+    /// same closed vocabulary via the manifest schema"). Every carriage serializes
+    /// identically into `[[member]]`, so the gate ranges this in place of a live
+    /// extraction over the `.temper/` copy tree, reading no language runtime.
+    ///
+    /// Empty when the manifest declares no `[[member]]` tables — the floor-manifest case
+    /// (a hand-written assembly not yet carrying its members, temper's own dogfood
+    /// included), where the gate falls back to extracting the authored sources. Members
+    /// arrive kind-then-id sorted from `import`/`emit`, so each kind's slice stays
+    /// name-sorted for a stable diagnostic set.
+    #[must_use]
+    pub fn member_corpus(&self) -> BTreeMap<String, Vec<Features>> {
+        let mut corpus: BTreeMap<String, Vec<Features>> = BTreeMap::new();
+        for member in &self.members {
+            corpus
+                .entry(member.kind.clone())
+                .or_default()
+                .push(member.features.clone());
+        }
+        corpus
     }
 
     /// The names of every `[kind.<name>]` registered in the assembly, in name order — the

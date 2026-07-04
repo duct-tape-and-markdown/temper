@@ -809,6 +809,76 @@ fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// config.stale — the freshness fact the gate reads (`specs/architecture/20-surface.md`)
+// ---------------------------------------------------------------------------
+
+/// The diagnostic `rule` id every freshness finding reports under
+/// (`specs/architecture/20-surface.md`, "Drift — one direction, two freshness facts").
+const CONFIG_STALE_RULE: &str = "config.stale";
+
+/// The `config.stale` freshness findings for a surface `workspace_dir`
+/// (`specs/architecture/20-surface.md`, "`config.stale` — the committed manifest/projection does
+/// not match the lock's `source_hash`/`emit_hash` pair"): a committed projection whose
+/// bytes no longer match the emit fingerprint the lock recorded — the authored source
+/// changed and `emit` has not run, or the emitted output was hand-edited. One finding
+/// per drifted row, pointing at the projection that moved.
+///
+/// **Advisory** (`warn`): under the default `shared` authority the guard warns-and-routes
+/// rather than blocks (`specs/architecture/20-surface.md`, "surface authority is a declared
+/// posture"), and temper fabricates no hard gate the author did not declare
+/// (`00-intent.md` law 4) — a stale projection is a nudge to re-emit.
+///
+/// Read off `<workspace_dir>/lock.toml` — every `[[<kind>]]` row (built-in and custom):
+/// each row's `source_path` is re-hashed and compared to its `emit_hash`. A row without
+/// an `emit_hash` (a lock predating the fingerprint) or a `source_path` that cannot be
+/// read is **skipped** — law 3's safe direction, since absent evidence must never *forge*
+/// a staleness finding (a removed source is the drift engine's `removed` state, not this
+/// freshness fact). A missing or malformed lock yields no findings for the same reason.
+#[must_use]
+pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
+    let path = workspace_dir.join("lock.toml");
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let Ok(doc) = text.parse::<DocumentMut>() else {
+        return Vec::new();
+    };
+
+    let mut findings = Vec::new();
+    // The lock's top-level keys are kind names, each an array of provenance rows; ranging
+    // over every one covers built-in and custom kinds alike without a hardcoded set.
+    for (_kind, item) in doc.as_table().iter() {
+        let Some(rows) = item.as_array_of_tables() else {
+            continue;
+        };
+        for row in rows.iter() {
+            let (Some(name), Some(source_path), Some(emit_hash)) = (
+                row.get("name").and_then(Item::as_str),
+                row.get("source_path").and_then(Item::as_str),
+                row.get("emit_hash").and_then(Item::as_str),
+            ) else {
+                continue;
+            };
+            // Only a present-and-differing projection is stale: a source that is gone
+            // (or otherwise unreadable) is the `removed`/drift axis, never forged here.
+            let Ok(bytes) = fs::read(source_path) else {
+                continue;
+            };
+            if sha256_hex(&bytes) != emit_hash {
+                findings.push(crate::check::Diagnostic::warn(
+                    CONFIG_STALE_RULE,
+                    source_path,
+                    format!(
+                        "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
+                    ),
+                ));
+            }
+        }
+    }
+    findings
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

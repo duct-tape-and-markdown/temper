@@ -688,24 +688,38 @@ fn gate(
     // when the assembly registers one, so the floor-only path never touches it.
     let kinds_dir = authored.join("kinds");
 
+    // The member-feature corpus (`specs/architecture/20-surface.md`, "the only thing the gate
+    // reads"): when the assembly's manifest carries `[[member]]` tables, those pre-extracted
+    // features ARE the corpus — the gate ranges no `.temper/` copy tree and reads no language
+    // runtime. When it carries none (a floor manifest not yet holding its members — temper's
+    // own dogfood, any pre-`emit` harness), the gate falls back to extracting the authored
+    // sources through the one generic `Unit` loader (`specs/architecture/15-kinds.md`, "A built-in
+    // kind is an adapter"); `import`/`emit` extract identically, so a consistently-imported
+    // harness gates the same either way. Keyed by bare kind name; the typed `Workspace`
+    // still survives for drift/bundle/apply and the read family (`why`/`requirements`).
+    let manifest_corpus = layer
+        .as_ref()
+        .map(compose::AuthorLayer::member_corpus)
+        .filter(|corpus| !corpus.is_empty());
+
     // Each kind's features are validated against its *effective* contract (bound
     // package ⊕ author layer) and merged into one set; the generic engine holds no
     // per-kind opinion, so a mixed harness is judged in one run (`specs/architecture/20-surface.md`).
-    // Read each built-in kind's surface members through the one generic `Unit` loader
-    // custom kinds use (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter") — no
-    // IR→Unit adapter on the check path; the typed `Workspace` survives for
-    // drift/bundle/apply and the read family (`why`/`requirements`).
-    let skill_units = check::surface_units(workspace, "skills", "SKILL.md")?;
-    let rule_units = check::surface_units(workspace, "rules", "RULE.md")?;
-    let skill_features: Vec<extract::Features> = skill_units
-        .iter()
-        .map(builtin_kind::skill_features)
-        .collect::<Result<_, _>>()?;
+    let skill_features: Vec<extract::Features> = match &manifest_corpus {
+        Some(corpus) => corpus.get("skill").cloned().unwrap_or_default(),
+        None => check::surface_units(workspace, "skills", "SKILL.md")?
+            .iter()
+            .map(builtin_kind::skill_features)
+            .collect::<Result<_, _>>()?,
+    };
 
-    let rule_features: Vec<extract::Features> = rule_units
-        .iter()
-        .map(builtin_kind::rule_features)
-        .collect::<Result<_, _>>()?;
+    let rule_features: Vec<extract::Features> = match &manifest_corpus {
+        Some(corpus) => corpus.get("rule").cloned().unwrap_or_default(),
+        None => check::surface_units(workspace, "rules", "RULE.md")?
+            .iter()
+            .map(builtin_kind::rule_features)
+            .collect::<Result<_, _>>()?,
+    };
 
     // The embedded std-lib a by-name `package` binding resolves against before
     // `.temper/packages/` (`specs/architecture/10-contracts.md`). Packages **compose**: a
@@ -744,17 +758,27 @@ fn gate(
             &packages_dir,
         )?;
 
-        // A discovered member routes to its kind by its source glob: the two `memory`
+        // Manifest mode: the kind's members are pre-extracted under its bare name. Fallback:
+        // a discovered member routes to its kind by its source glob — the two `memory`
         // providers share the surface locus (`./MEMORY.md`), so `owns_source` keeps a
         // `CLAUDE.md` member off `agents-md.memory` and an `AGENTS.md` member off
-        // `memory.anthropic` — the projected document alone cannot say which governs it.
-        let units =
-            check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())?;
-        let features: Vec<extract::Features> = units
-            .iter()
-            .filter(|unit| kind.owns_source(&unit.source_path))
-            .map(|unit| builtin_kind::features(kind, unit))
-            .collect();
+        // `memory.anthropic`; the manifest already carries `member.kind`, so it needs no
+        // re-routing.
+        let features: Vec<extract::Features> = match &manifest_corpus {
+            Some(corpus) => corpus.get(&kind.name).cloned().unwrap_or_default(),
+            None => {
+                let units = check::surface_units(
+                    workspace,
+                    kind.surface_subdir(),
+                    &kind.member_document(),
+                )?;
+                units
+                    .iter()
+                    .filter(|unit| kind.owns_source(&unit.source_path))
+                    .map(|unit| builtin_kind::features(kind, unit))
+                    .collect()
+            }
+        };
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
@@ -806,6 +830,20 @@ fn gate(
         // feature slices outlive the graph tier (which borrows them via `by_kind`)
         // and the conformance loop below.
         let (custom_kinds, edges) = custom_kinds_and_edges(workspace, layer, &kinds_dir)?;
+
+        // In manifest mode a custom kind's members are pre-extracted in the manifest too, so
+        // swap the live `.temper/` features for the manifest's — keeping the loaded
+        // definitions and declared edges the manifest does not carry (`specs/architecture/20-surface.md`).
+        let custom_kinds: Vec<CustomKindEntry> = match &manifest_corpus {
+            Some(corpus) => custom_kinds
+                .into_iter()
+                .map(|(name, def, _features)| {
+                    let features = corpus.get(name).cloned().unwrap_or_default();
+                    (name, def, features)
+                })
+                .collect(),
+            None => custom_kinds,
+        };
 
         // The by-kind corpus every set-scope and graph predicate ranges over,
         // assembled through the same helper the read arm uses.
@@ -978,6 +1016,13 @@ fn gate(
         &builtin_kind::definitions()?,
         &member_counts,
     ));
+
+    // The freshness fact (`specs/architecture/20-surface.md`, "Drift — two freshness facts"):
+    // a committed projection whose bytes no longer match the lock's emit fingerprint is
+    // `config.stale`. Read off the surface `workspace`'s lock (where the members were
+    // imported and the fingerprints recorded), advisory so a hand-edited or un-re-emitted
+    // projection is surfaced without failing the run — the `shared`-authority nudge.
+    diagnostics.extend(drift::config_stale(workspace));
 
     Ok(diagnostics)
 }

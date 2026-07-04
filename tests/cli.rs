@@ -634,3 +634,59 @@ fn into_and_workspace_default_to_dot_author() {
         "check without an argument must lint ./.temper and exit zero"
     );
 }
+
+#[test]
+fn import_then_check_reads_the_manifest_and_flags_a_stale_projection() {
+    // The persistent layout (harness == project root, `--into <root>/.temper`): `import`
+    // writes the manifest beside `.temper/`, and `check` reads that manifest as its corpus
+    // (`specs/architecture/20-surface.md`, "the only thing the gate reads"). A clean manifest
+    // checks green; a hand-edited projection surfaces `config.stale` off the lock.
+    let root = tmpdir("gate-read-flow");
+    write_harness(&root, "coordinate", CLEAN_SKILL);
+
+    let import_status = Command::new(BIN)
+        .arg("import")
+        .arg(&root)
+        .arg("--into")
+        .arg(root.join(".temper"))
+        .status()
+        .unwrap();
+    assert!(import_status.success(), "import should succeed");
+
+    // A clean imported manifest checks green, nothing stale.
+    let clean = Command::new(BIN)
+        .current_dir(&root)
+        .arg("check")
+        .output()
+        .unwrap();
+    let clean_out = String::from_utf8_lossy(&clean.stdout);
+    assert!(
+        clean.status.success(),
+        "a clean imported manifest checks green, got:\n{clean_out}"
+    );
+    assert!(
+        !clean_out.contains("config.stale"),
+        "a fresh import carries no stale projection, got:\n{clean_out}"
+    );
+
+    // Hand-edit the committed projection: its bytes no longer match the lock's emit
+    // fingerprint, so the next check surfaces `config.stale`.
+    let skill_md = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let edited = fs::read_to_string(&skill_md).unwrap() + "\nAn extra line.\n";
+    fs::write(&skill_md, edited).unwrap();
+
+    let stale = Command::new(BIN)
+        .current_dir(&root)
+        .arg("check")
+        .output()
+        .unwrap();
+    let stale_out = String::from_utf8_lossy(&stale.stdout);
+    assert!(
+        stale_out.contains("config.stale"),
+        "a hand-edited projection surfaces config.stale, got:\n{stale_out}"
+    );
+}
