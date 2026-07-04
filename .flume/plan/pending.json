@@ -1,40 +1,5 @@
 [
   {
-    "tag": "IMPACT-LEAF-GRAIN",
-    "summary": "Give `impact` leaf grain — accept a leaf address and report citations separately from fallout, reading the manifest's serialized genre values",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: the CLI gains a read family — `why` and `requirements`"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "Extend `impact` to accept a **leaf address** (member, genre key, field path) as well as a member name (`20-surface.md`, \"The family gains leaf grain\"): when the target resolves to a leaf, report **citations separately from fallout** — a declared one-way edge (a mention/citation) targeting the leaf is resolution-checked and reported as a citation, obligation-free; deleting or rewording a cited leaf is never blocked (`45-governance.md`, address grain). Reads only the manifest's serialized genre values — offline, tier-1, no runtime."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Widen the `Impact` clap arg to a member-or-leaf address and thread the manifest's serialized genre values (GENRE-MANIFEST-LEAF) into the `read::impact` call beside the existing feature/roster/edge inputs (~line 626), so a leaf address dispatches to leaf-grain reporting."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`impact` on a leaf address reports the leaf's citations separately from its fallout; a citation to a leaf resolves against the manifest and never gates; a member-name target behaves exactly as before (regression)."
-      }
-    ],
-    "acceptance": "`temper impact <leaf-address>` reports at leaf grain — citations distinct from fallout — reading only the manifest's serialized genre values; the member-name path is unchanged; cargo fmt/clippy -D warnings/test green.",
-    "notes": "GENRE-MANIFEST-LEAF shipped (compose.rs `[[member.genre]]` tables, `GenreValue`) — this reads that serialized leaf shape. Serialized before CONTEXT-VERB — both edit read.rs + main.rs, so they cannot run parallel. Citation reporting rides declared one-way edges (obligation-free, `45-governance.md`); no new obligating semantics."
-  },
-  {
     "tag": "CONTEXT-VERB",
     "summary": "Add `temper context <address>` — emit a member's or leaf's declared neighborhood, with the mixed-rung coverage disclosure shipped in the same entry",
     "per": {
