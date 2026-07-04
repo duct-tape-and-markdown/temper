@@ -7,8 +7,7 @@
       "section": "CLI surface"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-RECUT-CORPUS-FACE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
