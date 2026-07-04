@@ -1,0 +1,18 @@
+---
+source: tests/read_verbs.rs
+assertion_line: 776
+expression: run.stdout
+---
+Leaf `20-surface/decision/surface-authority/chosen` (spec) — its declared neighborhood:
+
+Genre slot: the `chosen` leaf of the `decision` value `surface-authority` in member `20-surface`.
+Authored value: "the surface is canonical"
+
+Siblings (the other leaves of the `decision` value `surface-authority`):
+  • `rejected` — "the surface is a read-only lens"
+
+Citations (declared one-way edges that name this leaf — obligation-free): none — no member cites it.
+
+Satisfied requirements: none — member `20-surface` opts into no `satisfies` link.
+
+Coverage: 1 document below rung 3 — not represented at leaf grain (carrying no serialized genre leaves).

@@ -254,6 +254,17 @@ enum Command {
         /// (`member/genre/key/field-path`) to trace at member or leaf grain.
         member: String,
     },
+    /// Read (`specs/architecture/20-surface.md`): emit a member's or leaf's **declared
+    /// neighborhood** — its genre slot, its siblings, the members that cite it, and the
+    /// requirements its member satisfies — the pre-edit context bundle for the primary
+    /// author. Accepts a member name or a leaf address (`member/genre/key/field-path`);
+    /// every leaf-grain answer discloses its mixed-rung coverage. Reads the manifest
+    /// alone (offline, tier-1); never gates, exits zero.
+    Context {
+        /// A member name or a leaf address (`member/genre/key/field-path`) to emit the
+        /// neighborhood of.
+        address: String,
+    },
 }
 
 /// The machine format `check` renders its diagnostic set in
@@ -644,6 +655,40 @@ fn main() -> miette::Result<ExitCode> {
                     &member,
                 )
             );
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Context { address } => {
+            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
+            let layer = load_layer(Path::new(TEMPER_TOML))?;
+
+            // The neighborhood reads the same by-kind feature corpus `check` computes
+            // (READ-EDGE-UNIFY): each member's serialized genre values (the leaf surface),
+            // `satisfies`, and its genre slots — no runtime, just the manifest. Mirrors the
+            // `Impact` dispatch's corpus assembly; the blast-radius-only inputs (assembly
+            // roster, activations, directive edges) are not read at neighborhood grain.
+            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
+            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
+            let skill_features: Vec<extract::Features> = skill_units
+                .iter()
+                .map(builtin_kind::skill_features)
+                .collect::<Result<_, _>>()?;
+            let rule_features: Vec<extract::Features> = rule_units
+                .iter()
+                .map(builtin_kind::rule_features)
+                .collect::<Result<_, _>>()?;
+            let kinds_dir = workspace.join("kinds");
+            let custom_kinds = match layer.as_ref() {
+                Some(layer) => custom_kinds_and_edges(&workspace, layer, &kinds_dir)?.0,
+                None => Vec::new(),
+            };
+            let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
+
+            // Citations are the declared one-way edges naming a leaf; the floor carries no
+            // producer yet — floor leaves carry no mentions (`specs/architecture/20-surface.md`,
+            // "Genre values") — so the set is empty and the neighborhood names zero citers today.
+            let citations: Vec<read::Citation> = Vec::new();
+
+            print!("{}", read::context(&by_kind, &citations, &address));
             Ok(ExitCode::SUCCESS)
         }
     }

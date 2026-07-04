@@ -659,3 +659,179 @@ fn impact_over_an_unresolved_leaf_address_still_exits_zero() {
         run.stdout
     );
 }
+
+#[test]
+fn impact_leaf_grain_discloses_coverage() {
+    let root = genre_fixture();
+    // The `impact` leaf-grain answer discloses its mixed-rung coverage WITH the found answer,
+    // not only in a not-found error (`specs/architecture/20-surface.md`, "both disclose coverage").
+    let run = read(
+        &root,
+        &["impact", "20-surface/decision/surface-authority/chosen"],
+    );
+    assert!(run.ok, "impact on a leaf must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout.contains("not represented at leaf grain"),
+        "the found leaf answer must disclose coverage: {}",
+        run.stdout
+    );
+}
+
+/// A genre-fence spec member `20-surface` carrying a `decision` value with *two* leaves —
+/// `chosen` and `rejected` — so `context` on `chosen` reports `rejected` as its sibling. The
+/// single-leaf `genre_fixture` cannot exercise the sibling strand.
+fn write_two_leaf_spec(root: &Path, name: &str) {
+    let dir = root.join(".temper").join("specs").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    let document = format!(
+        "+++\n\
+         [provenance]\n\
+         source_path = \"specs/{name}.md\"\n\
+         source_hash = \"deadbeef\"\n\
+         +++\n\
+         # {name}\n\
+         \n\
+         ```genre.decision surface-authority\n\
+         chosen = \"the surface is canonical\"\n\
+         rejected = \"the surface is a read-only lens\"\n\
+         ```\n"
+    );
+    fs::write(dir.join("SPEC.md"), document).unwrap();
+}
+
+/// Build a fixture whose `20-surface` spec carries a two-leaf `decision` value, and a second
+/// bare spec `00-intent` carrying no genre value — so the coverage disclosure counts one
+/// document below rung 3 (the leafless member).
+fn context_fixture() -> PathBuf {
+    let root = tmpdir("context-root");
+    let kind_dir = root.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(kind_dir.join("KIND.md"), GENRE_KIND_MD).unwrap();
+    write_two_leaf_spec(&root, "20-surface");
+    // A second member carrying no serialized genre leaf — the "document below rung 3" the
+    // coverage disclosure counts.
+    write_spec(&root, "00-intent", "intent-encoded", "the north star spec");
+    fs::write(root.join("temper.toml"), GENRE_TEMPER_TOML).unwrap();
+    root
+}
+
+#[test]
+fn context_over_a_leaf_emits_its_neighborhood() {
+    let root = context_fixture();
+    // `context` on a leaf address emits its genre slot, its siblings (the co-resident
+    // `rejected` leaf), its citers, the requirements its member satisfies, and the mixed-rung
+    // coverage disclosure — the pre-edit context bundle (`specs/architecture/20-surface.md`).
+    let run = read(
+        &root,
+        &["context", "20-surface/decision/surface-authority/chosen"],
+    );
+    assert!(run.ok, "context on a leaf must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout
+            .contains("Leaf `20-surface/decision/surface-authority/chosen` (spec)"),
+        "the neighborhood names the resolved leaf: {}",
+        run.stdout
+    );
+    // The genre slot it lives in.
+    assert!(
+        run.stdout
+            .contains("Genre slot: the `chosen` leaf of the `decision` value `surface-authority`"),
+        "the genre slot is named: {}",
+        run.stdout
+    );
+    // Its sibling leaf, co-resident in the same genre value.
+    assert!(
+        run.stdout.contains("Siblings (the other leaves"),
+        "siblings are reported: {}",
+        run.stdout
+    );
+    assert!(
+        run.stdout
+            .contains("`rejected` — \"the surface is a read-only lens\""),
+        "the co-resident sibling leaf is named: {}",
+        run.stdout
+    );
+    // Citers (none on the floor) and satisfied requirements are both reported.
+    assert!(
+        run.stdout.contains("Citations ("),
+        "citers section: {}",
+        run.stdout
+    );
+    assert!(
+        run.stdout.contains("Satisfied requirements"),
+        "satisfied requirements section: {}",
+        run.stdout
+    );
+    // Coverage disclosure — one document below rung 3 (the leafless `00-intent`).
+    assert!(
+        run.stdout.contains("not represented at leaf grain"),
+        "the leaf answer discloses coverage: {}",
+        run.stdout
+    );
+    assert!(
+        run.stdout.contains("1 document below rung 3"),
+        "the coverage count names the one leafless member: {}",
+        run.stdout
+    );
+    insta::assert_snapshot!("context_leaf_grain", run.stdout);
+}
+
+#[test]
+fn context_over_a_member_name_emits_its_genre_slots() {
+    let root = context_fixture();
+    // A bare member name (no slash) reports member grain — its genre slots — not leaf grain,
+    // and still discloses coverage.
+    let run = read(&root, &["context", "20-surface"]);
+    assert!(run.ok, "context on a member must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout
+            .contains("Member `20-surface` (spec) — its declared neighborhood"),
+        "a member name reports member grain: {}",
+        run.stdout
+    );
+    assert!(
+        run.stdout
+            .contains("Genre slots (the genre values it carries)"),
+        "the member's genre slots are enumerated: {}",
+        run.stdout
+    );
+    assert!(
+        run.stdout.contains("not represented at leaf grain"),
+        "a member neighborhood discloses coverage too: {}",
+        run.stdout
+    );
+}
+
+#[test]
+fn context_over_an_unresolved_address_still_exits_zero() {
+    let root = context_fixture();
+    // An unresolved leaf and an unknown member are both reads, not gates — narrated plainly,
+    // exit zero.
+    let leaf = read(
+        &root,
+        &["context", "20-surface/decision/surface-authority/ghost"],
+    );
+    assert!(
+        leaf.ok,
+        "an unresolved leaf must exit zero: {}",
+        leaf.stdout
+    );
+    assert!(
+        leaf.stdout
+            .contains("No leaf `20-surface/decision/surface-authority/ghost`"),
+        "an unresolved leaf is named absent: {}",
+        leaf.stdout
+    );
+
+    let member = read(&root, &["context", "ghost"]);
+    assert!(
+        member.ok,
+        "an unknown member must exit zero: {}",
+        member.stdout
+    );
+    assert!(
+        member.stdout.contains("No member named `ghost`"),
+        "an unknown member is named absent: {}",
+        member.stdout
+    );
+}

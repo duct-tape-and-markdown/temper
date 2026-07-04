@@ -11,3 +11,5 @@ Authored value: "the surface is canonical"
 Citations (declared one-way edges that name this leaf — obligation-free): none — no member cites it.
 
 Fallout: none — a leaf is obligation-free. Deleting or rewording it is never blocked by its citations; the citer is told (`45-governance.md`, address grain), which is the point.
+
+Coverage: 0 documents below rung 3 — not represented at leaf grain (carrying no serialized genre leaves).

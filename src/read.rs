@@ -526,7 +526,41 @@ fn impact_leaf(
 
     // Citations — the declared one-way edges naming this leaf, resolution-checked (we only
     // reach here for a leaf that resolves) and obligation-free. Reported *separately* from
-    // fallout: a citation is never fallout (`specs/architecture/45-governance.md`).
+    // fallout: a citation is never fallout (`specs/architecture/45-governance.md`). The shared
+    // helper is reused by `context` at the same grain.
+    narrate_citers(&mut out, citations, member, genre, key, field_path);
+    out.push('\n');
+
+    // Fallout — a leaf carries none: deleting or rewording it is never blocked by its
+    // citations, the whole point of the obligation-free annotation class.
+    let _ = writeln!(
+        out,
+        "Fallout: none — a leaf is obligation-free. Deleting or rewording it is never \
+         blocked by its citations; the citer is told (`45-governance.md`, address grain), \
+         which is the point."
+    );
+    out.push('\n');
+
+    // Coverage — the leaf-grain answer names what it cannot see (`specs/architecture/20-surface.md`,
+    // "both disclose coverage"): the disclosure ships WITH the found answer, not only in the
+    // not-found error, so an incomplete answer never wears complete clothes (law 1).
+    disclose_coverage(&mut out, by_kind);
+
+    out
+}
+
+/// Narrate the **citations** naming a leaf — the declared one-way edges (obligation-free,
+/// resolution-checked) both `impact` and `context` report at leaf grain
+/// (`specs/architecture/45-governance.md`, address grain). Shared so the two verbs cannot disagree on
+/// what cites a leaf, exactly as the edge walk shares the gate's resolved set (READ-EDGE-UNIFY).
+fn narrate_citers(
+    out: &mut String,
+    citations: &[Citation],
+    member: &str,
+    genre: &str,
+    key: &str,
+    field_path: &str,
+) {
     let citers: Vec<&Citation> = citations
         .iter()
         .filter(|citation| {
@@ -555,18 +589,303 @@ fn impact_leaf(
             );
         }
     }
-    out.push('\n');
+}
 
-    // Fallout — a leaf carries none: deleting or rewording it is never blocked by its
-    // citations, the whole point of the obligation-free annotation class.
+/// Append the shared **coverage disclosure** every leaf-grain answer closes with
+/// (`specs/architecture/20-surface.md`, "both disclose coverage … every leaf-grain answer names what
+/// it cannot see"): the count of members carrying no serialized genre leaves — the documents below
+/// rung 3 a leaf-grain read cannot represent. Under the gradient a mixed-rung corpus is the standing
+/// state, not an edge case, so an answer hiding its blind spot erodes the verb exactly as a false
+/// gate-block erodes the gate (law 1). Shared by `impact`'s and `context`'s leaf-grain answers, so
+/// the disclosure is one wording that ships WITH the verb, never after.
+fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
+    let leafless = by_kind
+        .values()
+        .flat_map(|members| members.iter())
+        .filter(|features| features.genre_leaves().is_empty())
+        .count();
+    let noun = if leafless == 1 {
+        "document"
+    } else {
+        "documents"
+    };
     let _ = writeln!(
         out,
-        "Fallout: none — a leaf is obligation-free. Deleting or rewording it is never \
-         blocked by its citations; the citer is told (`45-governance.md`, address grain), \
-         which is the point."
+        "Coverage: {leafless} {noun} below rung 3 — not represented at leaf grain \
+         (carrying no serialized genre leaves)."
     );
+}
+
+/// `temper context <address>` — emit the **declared neighborhood** of a member or a genre-value
+/// leaf (`specs/architecture/20-surface.md`, "`context <address>` emits a member's or leaf's declared
+/// neighborhood"): its genre slot, its siblings, the members that cite it, and the requirements its
+/// member satisfies — the pre-edit context bundle for the primary author. Consumes only the
+/// manifest's serialized genre values (`by_kind`) and declared citations: offline, tier-1, no
+/// runtime.
+///
+/// A `/`-bearing `address` is a leaf (`<member>/<genre>/<key>/<field-path>`) reported at leaf grain
+/// ([`context_leaf`]); a bare name is a member reported whole ([`context_member`]). Both are
+/// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-rung corpus is
+/// the standing state, and an answer hiding what it cannot see erodes the verb (law 1).
+///
+/// A read, never a gate: an unresolved or ill-formed address is narrated plainly and the caller
+/// still exits zero.
+#[must_use]
+pub fn context(
+    by_kind: &BTreeMap<&str, &[Features]>,
+    citations: &[Citation],
+    address: &str,
+) -> String {
+    if address.contains('/') {
+        context_leaf(by_kind, citations, address)
+    } else {
+        context_member(by_kind, citations, address)
+    }
+}
+
+/// Narrate a genre-value leaf's neighborhood: its genre slot and authored value, its **siblings**
+/// (the other leaves of the same genre value), the members that **cite** it, and the requirements
+/// its member **satisfies** — then the shared coverage disclosure. Resolved against the manifest's
+/// serialized genre values exactly as [`impact_leaf`] resolves them, so the two verbs agree on what
+/// a leaf's neighborhood is.
+fn context_leaf(
+    by_kind: &BTreeMap<&str, &[Features]>,
+    citations: &[Citation],
+    address: &str,
+) -> String {
+    let Some(parsed) = parse_leaf_address(address) else {
+        return format!(
+            "`{address}` is not a well-formed leaf address. A leaf address is \
+             `<member>/<genre>/<key>/<field-path>` — the member, the genre value's genre and \
+             key, and the field path within it (`chosen`, or `rejected.baked-projection.because`).\n"
+        );
+    };
+
+    let Some((kind, value)) = resolve_leaf(by_kind, &parsed) else {
+        return format!(
+            "No leaf `{address}` is in the surface's serialized genre values. `context` reads \
+             leaf grain off the manifest's `[[member.genre]]` tables — check the member, genre, \
+             key, and field path; a document below rung 3 is not represented at leaf grain.\n"
+        );
+    };
+
+    let ParsedLeaf {
+        member,
+        genre,
+        key,
+        field_path,
+    } = parsed;
+
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "Leaf `{address}` ({kind}) — its declared neighborhood:\n"
+    );
+    let _ = writeln!(
+        out,
+        "Genre slot: the `{field_path}` leaf of the `{genre}` value `{key}` in member `{member}`."
+    );
+    let _ = writeln!(out, "Authored value: \"{value}\"\n");
+
+    // Siblings — the other leaves of the same genre value (same member, genre, key), the
+    // co-resident context an author editing this leaf wants beside it.
+    let siblings = sibling_leaves(by_kind, member, genre, key, field_path);
+    if siblings.is_empty() {
+        let _ = writeln!(
+            out,
+            "Siblings: none — it is the only leaf of the `{genre}` value `{key}`."
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "Siblings (the other leaves of the `{genre}` value `{key}`):"
+        );
+        for (sibling_path, sibling_value) in siblings {
+            let _ = writeln!(out, "  • `{sibling_path}` — \"{sibling_value}\"");
+        }
+    }
+    out.push('\n');
+
+    // Citers — the same declared one-way edges `impact` reports at leaf grain (shared helper).
+    narrate_citers(&mut out, citations, member, genre, key, field_path);
+    out.push('\n');
+
+    // Satisfied requirements — the demands the member the leaf lives in opts into filling.
+    narrate_satisfied(&mut out, by_kind, member);
+    out.push('\n');
+
+    // Coverage — the leaf-grain answer names what it cannot see (law 1), shipping WITH the verb.
+    disclose_coverage(&mut out, by_kind);
 
     out
+}
+
+/// Narrate a member's neighborhood: the genre slots it carries (each genre value and its leaf
+/// field paths), the members that cite any of its leaves, and the requirements it satisfies — then
+/// the shared coverage disclosure. A member name bearing no `/` takes this path; every `(kind, id)`
+/// node bearing the name is narrated, each under its own kind.
+fn context_member(
+    by_kind: &BTreeMap<&str, &[Features]>,
+    citations: &[Citation],
+    member: &str,
+) -> String {
+    let matches: Vec<(&str, &Features)> = by_kind
+        .iter()
+        .flat_map(|(&kind, members)| members.iter().map(move |features| (kind, features)))
+        .filter(|(_, features)| features.id == member)
+        .collect();
+
+    if matches.is_empty() {
+        return format!(
+            "No member named `{member}` is in the surface. `context` reads the authored \
+             surface's members — skills, rules, and every custom kind's members; check the \
+             name, or `import` the harness first.\n"
+        );
+    }
+
+    let mut out = String::new();
+    for (index, (kind, features)) in matches.iter().enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
+        context_member_one(&mut out, kind, features, by_kind, citations);
+    }
+
+    // Coverage — a member's neighborhood is a leaf-grain answer too (it enumerates the member's
+    // genre slots), so it names what it cannot see, once at the end.
+    disclose_coverage(&mut out, by_kind);
+
+    out
+}
+
+/// Narrate one matched member's neighborhood into `out` — its genre slots, the citations naming
+/// any of its leaves, and the requirements it satisfies.
+fn context_member_one(
+    out: &mut String,
+    kind: &str,
+    features: &Features,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    citations: &[Citation],
+) {
+    let _ = writeln!(
+        out,
+        "Member `{}` ({kind}) — its declared neighborhood:\n",
+        features.id
+    );
+
+    // Genre slots — each genre value the member carries, with its leaf field paths (the leaves
+    // an author addresses under this member at leaf grain).
+    if features.genres.is_empty() {
+        let _ = writeln!(
+            out,
+            "Genre slots: none — it carries no genre value, so it holds no leaf at leaf grain."
+        );
+    } else {
+        let _ = writeln!(out, "Genre slots (the genre values it carries):");
+        for value in &features.genres {
+            let fields: Vec<String> = value
+                .addressed_leaves()
+                .into_iter()
+                .map(|(field_path, _)| field_path)
+                .collect();
+            let _ = writeln!(
+                out,
+                "  • `{}` value `{}` — leaves: {}",
+                value.genre,
+                value.key,
+                fields.join(", ")
+            );
+        }
+    }
+    out.push('\n');
+
+    // Citers — every declared one-way edge naming a leaf in this member.
+    let citers: Vec<&Citation> = citations
+        .iter()
+        .filter(|citation| citation.target.member == features.id)
+        .collect();
+    if citers.is_empty() {
+        let _ = writeln!(
+            out,
+            "Citations (declared one-way edges naming any of its leaves — obligation-free): none \
+             — no member cites it."
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "Citations (declared one-way edges naming any of its leaves — obligation-free):"
+        );
+        for citation in citers {
+            let target = &citation.target;
+            let _ = writeln!(
+                out,
+                "  • `{}` ({}) cites `{}/{}/{}/{}` — a resolved citation, obligation-free.",
+                citation.from,
+                citation.from_kind,
+                target.member,
+                target.genre,
+                target.key,
+                target.field_path
+            );
+        }
+    }
+    out.push('\n');
+
+    // Satisfied requirements — the demands this member opts into filling.
+    narrate_satisfied(out, by_kind, &features.id);
+}
+
+/// The other leaves of the genre value `(member, genre, key)` — every serialized leaf of that
+/// value except the one at `field_path`, paired with its authored value in the manifest's stable
+/// order. The co-resident siblings `context` reports beside an addressed leaf.
+fn sibling_leaves<'a>(
+    by_kind: &BTreeMap<&str, &'a [Features]>,
+    member: &str,
+    genre: &str,
+    key: &str,
+    field_path: &str,
+) -> Vec<(String, &'a str)> {
+    let mut out = Vec::new();
+    for members in by_kind.values() {
+        for features in *members {
+            if features.id != member {
+                continue;
+            }
+            for (address, value) in features.genre_leaves() {
+                if address.genre == genre && address.key == key && address.field_path != field_path
+                {
+                    out.push((address.field_path, value));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Narrate the requirements the member `member` opts into filling — read off each matching
+/// member's serialized `satisfies` (`Features::satisfies`), the manifest-only view the leaf-grain
+/// read stands on. A member fills only the demands it names, so an empty set is stated plainly.
+fn narrate_satisfied(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>, member: &str) {
+    let satisfied: Vec<&str> = by_kind
+        .values()
+        .flat_map(|members| members.iter())
+        .filter(|features| features.id == member)
+        .flat_map(|features| features.satisfies.iter().map(String::as_str))
+        .collect();
+    if satisfied.is_empty() {
+        let _ = writeln!(
+            out,
+            "Satisfied requirements: none — member `{member}` opts into no `satisfies` link."
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "Satisfied requirements (the demands member `{member}` fills):"
+        );
+        for name in satisfied {
+            let _ = writeln!(out, "  • `{name}`");
+        }
+    }
 }
 
 /// Narrate one matched node's blast radius into `out` — the four strands for a single
