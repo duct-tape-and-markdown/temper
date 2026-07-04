@@ -7,8 +7,7 @@
       "section": "Content-faithful, deterministically emitted (law 5)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-BODY-RESOLUTION"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -41,8 +40,8 @@
         "asserts": "SDK projection output matches the Rust projector byte-for-byte for a shared member, and the SDK-stamped lock's `source_hash`/`emit_hash` match the Rust lock for the same face."
       }
     ],
-    "acceptance": "A full SDK `emit` writes the manifest, the `.claude/**` projection, and a lock whose fingerprints agree with the Rust emitter; `pnpm --dir sdk test` green. (Blocked behind SDK-BODY-RESOLUTION.)",
-    "notes": "Closes the scaffold's remaining bounds (projection writing, lock stamping). New modules (project.ts/lock.ts) plus index.ts wiring; blockedBy SDK-BODY-RESOLUTION for the shared emit orchestration. Last link of the altitude authoring wave."
+    "acceptance": "A full SDK `emit` writes the manifest, the `.claude/**` projection, and a lock whose fingerprints agree with the Rust emitter; `pnpm --dir sdk test` green.",
+    "notes": "Closes the scaffold's last two bounds (projection writing, lock stamping). New modules project.ts/lock.ts plus index.ts wiring over the shipped emit orchestration (SDK-BODY-RESOLUTION landed — bodies resolve at emit). Last link of the altitude authoring wave."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
