@@ -1,28 +1,35 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 89e4d22.
-- **Last shipped:** the SDK altitude wave's body-resolution link + the display
-  rule landed — `build` 9641d9d (SDK-BODY-RESOLUTION: `sdk/src/emit.ts`
-  `resolveBody` reads `fromFile` assets in and resolution-checks mentions
-  against the declared address set, throwing loud on a dangling mention) and
-  `build` 49a1a7d (DISPLAY-RULE-GENRE: `src/display.rs` `render_genre`, the
-  per-genre formatter island). Verified on disk: emit.ts's former bodyText
-  bounds now resolve (the remaining throws are byte-parity field guards, not
-  scaffold bounds); `src/display.rs` + `lib.rs pub mod display` present; no
-  `sdk/src/project.ts`/`lock.ts` yet.
-- **This tick:** dropped SDK-BODY-RESOLUTION and DISPLAY-RULE-GENRE (both
-  shipped, removed by `chore(flume)` 89e4d22). Flipped **SDK-PROJECTION-LOCK**
-  blockedBy→`open` (its upstream SDK-BODY-RESOLUTION landed) and tidied its
-  acceptance/notes to drop the blocked language. Inbox empty — nothing to
-  drain. Deferred/parked entries unchanged.
-- **Pickable now:** **SDK-PROJECTION-LOCK** (`sdk/src/project.ts` +
-  `sdk/src/lock.ts` new, `sdk/src/index.ts` + `sdk/test/emit.test.ts` edit) —
-  the wave's last link. Nothing else: EXTRACTION-VOCAB-GAPS / AGENT-KIND
-  deferred (no consumer); PACKAGING-CHANNELS parked on human creds.
-- **What's next:** build ships SDK-PROJECTION-LOCK, closing the altitude
-  authoring wave (manifest + projection + lock in one deterministic SDK
-  `emit`). Human forks still open: PACKAGING-CHANNELS creds, the
-  genre-adoption pilot (staged human ceremony, unblocked by DISPLAY-RULE-GENRE).
+- **Phase:** reconcile. HEAD 47cc021.
+- **Last shipped:** **SDK-PROJECTION-LOCK** — the SDK altitude wave's last link
+  (`build` 8796ce8, removed by `chore(flume)` 47cc021). Verified on disk:
+  `sdk/src/project.ts` writes the byte-faithful `.claude/**` projection,
+  `sdk/src/lock.ts` stamps `source_hash`/`emit_hash`, both exported from
+  `sdk/src/index.ts`; `emit.ts` carries `resolveBody` (fromFile + mention
+  resolution-check). The TS authoring face now emits manifest + projection +
+  lock in one deterministic `emit`. **The SDK altitude wave is closed** (all
+  three links — byte-parity, body-resolution, projection-lock — shipped).
+- **This tick:** no queue change — reconciled the three carried entries against
+  disk and all stay accurate (EXTRACTION-VOCAB-GAPS: `Primitive::Field`
+  still flat-reads `unit.frontmatter.get(key)` at kind.rs:836, no nested-key
+  consumer; AGENT-KIND: no `kinds/claude-code/agent/` on disk; PACKAGING-CHANNELS:
+  root `package.json` still the private `temper-flume-harness` flume manifest).
+  Refreshed this stale `state.md` and marked the altitude wave fully drained in
+  the `(scripted-altitude-reconcile)` fork tail. Inbox empty — nothing to drain.
+- **Pickable now:** **none.** Every pending entry is deferred (no consumer:
+  EXTRACTION-VOCAB-GAPS, AGENT-KIND) or parked on human creds
+  (PACKAGING-CHANNELS). No `open` entry — build has nothing to pick this tick.
+- **What's next:** the pipeline waits on **human forks**, not more engine work.
+  The SDK/floor/front-door waves have all drained (AGENTS.md, CHANGELOG.md,
+  CONTRIBUTING.md, dual LICENSE all on disk). Open human decisions: the ledger's
+  TS-primary reformulation ruling (unblocks the dogfood's migration onto the SDK
+  authoring face), PACKAGING-CHANNELS release creds, the genre-adoption pilot
+  (a staged human ceremony), and the two OPEN strategic forks
+  (`edge-representation-unify` join→graph, `default-assembly-as-data`) that each
+  need a spec Decision before any dependent can be filed.
 
-Plan continues: no — queue reconciled, inbox empty, one disjoint `open` entry
-is pickable. Hand to build; building is how the queue drains.
+Plan continues: no — queue reconciled and truthful, inbox empty, no new gap
+carries a clean `per` cite (remaining gaps are human-gated forks or need a spec
+Decision first). Nothing pickable to hand build; the pipeline is blocked on
+human forks, not on further plan work. Re-planning an unchanged queue would be
+the failure mode.

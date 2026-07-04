@@ -111,13 +111,22 @@ path strings remain in comments).
   `[member.genre.leaves]`/`[member.genre.collections.*]`) **matches** compose.rs
   (`genre_to_table`/`write_member_table`) and tests/genre_leaf.rs — no
   schema-shape mismatch; the byte-parity slice reconciles exact spelling only.
-  The follow-on slices are now FILED as the serialized altitude wave
+  The follow-on slices were FILED as the serialized altitude wave
   **SDK-EMIT-BYTE-PARITY → SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK** (they
-  share `emit.ts`, so serialized, not parallel). `(sdk-build-gate)` below is now
-  **RESOLVED** (the human wired the `sdk test` gate, 118af33), so the wave
-  un-parks: **SDK-EMIT-BYTE-PARITY is `open`** (the tick's one pickable entry),
-  its successors `blockedBy` in series. Publish name/scope still parked on
-  PACKAGING-CHANNELS (not needed for internal byte-parity). Design record:
+  share `emit.ts`, so serialized, not parallel), gated by `(sdk-build-gate)`
+  below (RESOLVED — the human wired the `sdk test` gate, 118af33). **THE
+  ALTITUDE WAVE HAS NOW FULLY DRAINED** — all three links shipped (verified on
+  disk this tick): SDK-EMIT-BYTE-PARITY (`build` 272b4f4), SDK-BODY-RESOLUTION
+  (`build` 9641d9d — `emit.ts` `resolveBody` reads `fromFile` assets and
+  resolution-checks mentions against the declared `mentionable` address set),
+  and SDK-PROJECTION-LOCK (`build` 8796ce8 / `chore` 47cc021 — `sdk/src/
+  project.ts` writes the byte-faithful `.claude/**` projection, `sdk/src/
+  lock.ts` stamps `source_hash`/`emit_hash`, both exported from `index.ts`). The
+  TypeScript authoring face now emits manifest + projection + lock in one
+  deterministic `emit`. What remains for the SDK is **not engine work**: publish
+  name/scope is parked on PACKAGING-CHANNELS, and the dogfood's migration onto
+  the authoring face is the ledger's TS-primary reformulation — awaiting John's
+  ruling, not a pending entry. Design record:
   claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
 
 - `(sdk-build-gate)` — RESOLVED (2026-07-03; `chore(flume)` 118af33). `sdk/**`
