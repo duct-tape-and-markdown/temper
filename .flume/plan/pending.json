@@ -1,52 +1,5 @@
 [
   {
-    "tag": "INIT-ONRAMP",
-    "summary": "Rename `import`→`init`: scan an existing harness into a config skeleton over members in place — zero file moves, no `.temper/` copy tree",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: `init` is the on-ramp, and adoption is a gradient"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Rename the `Import` command to `Init` (CLI `init [<harness-path>]`), add a per-member `init --lift` that migrates one member up a carriage rung; dispatch to `import::run` renamed to the init on-ramp."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Drop the copy-to-`.temper/` step: init scans the harness and generates the manifest + skeleton over members IN PLACE (zero file moves, zero reformatting — a 40-artifact harness lands byte-identical, floor-governed, day one). In-place members carry no provenance (the file is its own source). `--lift` is the per-member migration that normalizes framing, never content."
-        },
-        {
-          "path": "src/check.rs",
-          "description": "Add the in-place read path: an in-place member's features are LIVE-extracted from its landscape file (`.claude/rules/x.md`), its joins declared in the manifest — no projection, no drift. Document/module members still arrive pre-extracted from the manifest (MANIFEST-GATE-READ)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "emit skips in-place members (no projection to compile); only document/module-carried members emit. In-place members' only freshness fact is the repository's own — they cannot drift."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Rename the `import` helper/driving to `init`; assert init leaves members byte-identical in place (no `.temper/` copy tree) and writes a manifest the gate reads clean."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "`temper init` scans a harness into a manifest + skeleton over members in place — zero file moves, byte-identical members — and `check` reads that manifest green; in-place members live-extract and cannot drift."
-      }
-    ],
-    "acceptance": "`temper init [<harness-path>]` generates the config skeleton over members in place (no copy tree); `init --lift` migrates one member up a rung; check live-extracts in-place members; emit skips them; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The on-ramp flip (Decision: adoption is a gradient — rungs gate-only / init / altitude, one manifest shape). Rejects migration-into-a-mirror (the retired import as a toll booth). Discovery already honors ignore rules + excludes .git (WALK-IGNORE-DISCIPLINE shipped) so an any-depth scan won't import a dep tree's members. Altitude lift (module carriage) needs the parked TS SDK — not this entry."
-  },
-  {
     "tag": "EMIT-OWNED-PLACEMENTS",
     "summary": "Reconcile `emit` and `install` so a whole-file re-emit no longer drops install's schema modeline / managed-by note — the two-projectors collision",
     "per": {
