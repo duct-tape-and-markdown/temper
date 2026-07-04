@@ -17,11 +17,15 @@ The dogfood-migration pilot (temper's two live rules authored through the SDK,
 `emit`ted, diffed against the committed dogfood) surfaced four seams between the
 SDK authoring face and the Rust gate/importer. **Projection parity HOLDS** for
 rules (`collaboration` byte-identical); the seams below are the residual gaps.
-All four live in the same `sdk/src/{emit,project,manifest}.ts` files that
-MEMORY-PROJECTION-SDK edits, so they are **not parallel-safe** with it or each
-other — each is held as a fork (a genuine ruling is needed anyway) rather than
-filed as a competing `open` entry. The memory slice is the one open SDK head; a
-resolved fork here becomes the next serialized SDK entry.
+All four live in the same `sdk/src/{emit,project,manifest}.ts` files, so they are
+**not parallel-safe** with each other — each is held as a fork (a genuine ruling
+is needed anyway) rather than filed as a competing `open` entry. MEMORY-PROJECTION-SDK
+(the memory slice these seams shared a file with) has now **SHIPPED** (`build`
+1ec14fb / `chore` d6ce2c2; verified on disk — `isProjectedKind` returns `memory`,
+`sdk/src/project.ts:53`, and a locus-less module-carried memory projects the root
+`CLAUDE.md`/`AGENTS.md`). So no `open` SDK head remains: the next SDK entry is
+whichever of these four forks the human rules first (a resolved fork becomes the
+serialized SDK entry).
 
 - `(sdk-placement-round-through)` — OPEN. SDK `projectMember` (`sdk/src/project.ts`)
   never rounds a committed projection's **install placement lines** (the managed-by
