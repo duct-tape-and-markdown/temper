@@ -198,7 +198,7 @@ pub fn rule_features(unit: &Unit) -> Result<Features, KindError> {
 /// [`rule_features`] stay the thin resolving callers over the unambiguous built-ins.
 #[must_use]
 pub fn features(kind: &CustomKind, unit: &Unit) -> Features {
-    let mut features = kind.extraction.extract(unit);
+    let mut features = kind.extract(unit);
     for (key, value) in &unit.frontmatter {
         features
             .fields

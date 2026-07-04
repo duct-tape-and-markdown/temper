@@ -96,6 +96,12 @@ pub struct CustomKind {
     /// [`qualified_name`](CustomKind::qualified_name); the bare→unique-or-collision
     /// wiring into the assembly-binding/`satisfies`-typing consumers is BINDING-QUALIFY.
     pub provider: Option<String>,
+    /// The kind's declared **genres** — typed shapes for its members' recurring prose
+    /// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
+    /// "Genre values"), parsed from the header's `[[genres]]` array. Extraction folds a
+    /// member's genre fences into typed values against this set ([`CustomKind::extract`]);
+    /// the shape is the kind's, the predicates the bound package's. Absent ⇒ empty.
+    pub genres: Vec<Genre>,
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
@@ -160,6 +166,33 @@ pub enum Activation {
     },
 }
 
+/// A **genre** a kind declares — a typed shape for one of its members' recurring prose
+/// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
+/// "Genre values — prose that declares its own anatomy"): named fields over prose
+/// **leaves** plus keyed **collections**, serialized whole into the manifest. The shape
+/// is the kind's; any *predicate* over it (a decision names at least one rejected
+/// alternative) is the bound package's, **out of the kind object** — the same ownership
+/// line extraction and contract split on everywhere. So a `Genre` carries the vocabulary,
+/// never a clause.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Genre {
+    /// The genre name — the `genre.<name>` a fence info string carries
+    /// (`genre.decision surface-authority` → `decision`), the token extraction matches a
+    /// fence against to fold it into a typed [`GenreValue`](crate::extract::GenreValue).
+    pub name: String,
+    /// The declared **prose-leaf** field names — the genre value's top-level authored
+    /// strings. The declared schema a genre-value predicate (the bound package, out of
+    /// the kind object) ranges over; extraction classifies a fence's interior
+    /// structurally (a string is a leaf, a table a collection), so this list is inert
+    /// until that predicate lands — the same declared-and-inert posture
+    /// [`format`](CustomKind::format)/[`activation`](CustomKind::activation) carry.
+    pub leaves: Vec<String>,
+    /// The declared **keyed-collection** names — the genre value's sibling collections
+    /// (`rejected`). Declared schema like [`leaves`](Genre::leaves), inert until the
+    /// genre-value predicate reads it.
+    pub collections: Vec<String>,
+}
+
 impl CustomKind {
     /// Load a custom kind's authored definition from `<kinds_dir>/<name>/KIND.md`
     /// (`specs/architecture/20-surface.md`). A missing document is a
@@ -206,6 +239,7 @@ impl CustomKind {
                     | "unit_shape"
                     | "activation"
                     | "provider"
+                    | "genres"
             ) {
                 return Err(KindError::UnknownKey {
                     path: path.to_path_buf(),
@@ -221,6 +255,7 @@ impl CustomKind {
         let unit_shape = parse_unit_shape(table, name, path)?;
         let activation = parse_activation(table, name, path)?;
         let provider = parse_provider(table, name, path)?;
+        let genres = parse_genres(table, name, path)?;
         Ok(Self {
             name: name.to_string(),
             governs,
@@ -230,7 +265,51 @@ impl CustomKind {
             unit_shape,
             activation,
             provider,
+            genres,
         })
+    }
+
+    /// Run the kind's composed extractor over `unit`, then fold its declared genres
+    /// (`specs/architecture/20-surface.md`, "Genre values"): each fenced block whose info string
+    /// names a declared genre (`genre.<genre> <key>`) has its interior TOML parsed into a
+    /// typed [`GenreValue`](crate::extract::GenreValue) and folded into `Features::genres`,
+    /// beside its raw form in `fenced_blocks`. This composes the `Fenced` primitive with a
+    /// TOML parse — the typed genre layer over the raw-block algebra (`specs/architecture/15-kinds.md`).
+    /// The single entry point every extract call site routes through, so genre folding
+    /// never forks from the primitive extraction. A kind declaring no genres (every
+    /// built-in), or a body with no matching fence, folds nothing.
+    #[must_use]
+    pub fn extract(&self, unit: &Unit) -> Features {
+        let mut features = self.extraction.extract(unit);
+        self.fold_genres(&mut features);
+        features
+    }
+
+    /// Fold this kind's declared genres out of the already-extracted `fenced_blocks`
+    /// (`specs/architecture/20-surface.md`). A block whose info string parses as
+    /// `genre.<genre> <key>` for a **declared** genre and whose interior is well-formed
+    /// TOML becomes a [`GenreValue`](crate::extract::GenreValue); a fence naming an
+    /// undeclared genre, or any non-genre block, stays raw-only — genre adoption is opt-in
+    /// per block. A pure function of `fenced_blocks` and the declared genre set, so
+    /// re-running is byte-identical, the property that keeps a genre value a sound gate
+    /// input.
+    fn fold_genres(&self, features: &mut Features) {
+        if self.genres.is_empty() {
+            return;
+        }
+        let mut genres = Vec::new();
+        for block in &features.fenced_blocks {
+            let Some((genre, key)) = extract::parse_genre_info(&block.info) else {
+                continue;
+            };
+            if !self.genres.iter().any(|declared| declared.name == genre) {
+                continue;
+            }
+            if let Some(value) = extract::parse_genre_value(&genre, &key, &block.content) {
+                genres.push(value);
+            }
+        }
+        features.genres = genres;
     }
 
     /// The kind's **qualified identity** — `<provider>.<name>` when a provider is
@@ -423,6 +502,68 @@ fn parse_relationships(table: &Table, kind: &str, path: &Path) -> Result<Vec<Edg
         });
     }
     Ok(edges)
+}
+
+/// Parse a `KIND.md` header's optional `[[genres]]` array into typed [`Genre`] shapes,
+/// in declaration order (`specs/architecture/15-kinds.md`, "genres (optional)";
+/// `specs/architecture/20-surface.md`, "Genre values"). Each genre names itself and its declared
+/// prose-leaf and keyed-collection field vocabularies (both optional string arrays).
+/// Absent ⇒ an empty vec; not an array-of-tables ⇒ [`KindError::GenresNotArray`]; a
+/// missing/mistyped `name`, or a non-string-array `leaves`/`collections`, ⇒ a folded
+/// [`KindError::BadGenre`] naming its position, exactly as [`parse_relationships`] folds
+/// its own.
+fn parse_genres(table: &Table, kind: &str, path: &Path) -> Result<Vec<Genre>, KindError> {
+    let Some(item) = table.get("genres") else {
+        return Ok(Vec::new());
+    };
+    let array = item
+        .as_array_of_tables()
+        .ok_or_else(|| KindError::GenresNotArray {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+        })?;
+    let mut genres = Vec::with_capacity(array.len());
+    for (index, genre) in array.iter().enumerate() {
+        let bad = || KindError::BadGenre {
+            path: path.to_path_buf(),
+            kind: kind.to_string(),
+            index,
+        };
+        let name = genre
+            .get("name")
+            .and_then(Item::as_str)
+            .ok_or_else(bad)?
+            .to_string();
+        let leaves = genre_str_array(genre, "leaves", &bad)?;
+        let collections = genre_str_array(genre, "collections", &bad)?;
+        genres.push(Genre {
+            name,
+            leaves,
+            collections,
+        });
+    }
+    Ok(genres)
+}
+
+/// Read an optional string-array field off a `[[genres]]` table (`leaves`,
+/// `collections`): absent ⇒ an empty vec; present-but-not-an-array-of-strings ⇒ the
+/// folded [`KindError::BadGenre`] its caller supplies.
+fn genre_str_array(
+    table: &Table,
+    key: &str,
+    bad: &impl Fn() -> KindError,
+) -> Result<Vec<String>, KindError> {
+    match table.get(key) {
+        None => Ok(Vec::new()),
+        Some(item) => {
+            let array = item.as_array().ok_or_else(bad)?;
+            let mut out = Vec::with_capacity(array.len());
+            for element in array.iter() {
+                out.push(element.as_str().ok_or_else(bad)?.to_string());
+            }
+            Ok(out)
+        }
+    }
 }
 
 /// Parse a `KIND.md` header's optional `format` key into a typed [`Format`]
@@ -1087,14 +1228,14 @@ pub enum KindError {
     },
 
     /// A `KIND.md` header carries a key outside its closed set (`governs`,
-    /// `extraction`, `relationships`, `format`, `unit_shape`, `activation`, `provider`)
-    /// — a leftover `clause`, an `entities` table, or a typo — rejected at load rather
-    /// than silently dropped (`specs/architecture/10-contracts.md`).
+    /// `extraction`, `relationships`, `format`, `unit_shape`, `activation`, `provider`,
+    /// `genres`) — a leftover `clause`, an `entities` table, or a typo — rejected at load
+    /// rather than silently dropped (`specs/architecture/10-contracts.md`).
     #[error("{path}: custom kind `{kind}` definition has unknown key `{key}`")]
     #[diagnostic(
         code(temper::kind::unknown_key),
         help(
-            "a `KIND.md` definition carries only `governs`, `extraction`, `relationships`, `format`, `unit_shape`, `activation`, and `provider` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
+            "a `KIND.md` definition carries only `governs`, `extraction`, `relationships`, `format`, `unit_shape`, `activation`, `provider`, and `genres` — a custom kind carries no clauses (its contract is the bound package), and there is no `entities` table"
         )
     )]
     UnknownKey {
@@ -1133,6 +1274,36 @@ pub enum KindError {
         /// The kind that owns the malformed relationship.
         kind: String,
         /// The zero-based position of the malformed relationship in declaration order.
+        index: usize,
+    },
+
+    /// A `KIND.md` header's `genres` key is present but is not an array of `[[genres]]`
+    /// shape tables (`specs/architecture/15-kinds.md`, "genres (optional)").
+    #[error("{path}: custom kind `{kind}` `genres` must be an array of `[[genres]]` shape tables")]
+    #[diagnostic(code(temper::kind::genres_not_array))]
+    GenresNotArray {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The kind whose genres array is malformed.
+        kind: String,
+    },
+
+    /// A `[[genres]]` declaration is malformed — missing or mistyped its `name` string,
+    /// or a non-string-array `leaves`/`collections`. A genre shape names itself and its
+    /// declared prose-leaf and keyed-collection field vocabularies; any miss collapses
+    /// into this one error naming its position, as [`BadRelationship`] does for an edge.
+    ///
+    /// [`BadRelationship`]: KindError::BadRelationship
+    #[error(
+        "{path}: custom kind `{kind}` `[[genres]]` #{index} must name a string `name` and, if present, string-array `leaves`/`collections`"
+    )]
+    #[diagnostic(code(temper::kind::bad_genre))]
+    BadGenre {
+        /// The malformed `KIND.md`.
+        path: PathBuf,
+        /// The kind that owns the malformed genre shape.
+        kind: String,
+        /// The zero-based position of the malformed genre in declaration order.
         index: usize,
     },
 
@@ -1286,6 +1457,10 @@ impl Extraction {
             source_dir: None,
             directives: Vec::new(),
             fenced_blocks: Vec::new(),
+            // Genres are folded by [`CustomKind::extract`] after the primitives run — a
+            // typed layer over `fenced_blocks`, needing the kind's declared genre set the
+            // primitive-only `Extraction` does not hold. Empty here on purpose.
+            genres: Vec::new(),
             // `satisfies` is a surface edge threaded through unchanged, not a
             // composed primitive, so a custom-kind member joins coverage exactly as
             // a built-in kind's does (`specs/architecture/10-contracts.md`).

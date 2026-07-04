@@ -20,7 +20,9 @@ use toml_edit::{Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, Val
 
 use crate::contract::{self, Clause, Contract, ContractError};
 use crate::document::{self, PublishedRequirement};
-use crate::extract::{self, FeatureValue, Features, FencedBlock, Kind, Section};
+use crate::extract::{
+    self, FeatureValue, Features, FencedBlock, GenreCollections, GenreValue, Kind, Section,
+};
 
 /// The author-declared layer parsed from a project-root `temper.toml`: a per-kind
 /// set of package bindings and clause overrides to apply over the bound package.
@@ -1619,6 +1621,13 @@ fn member_to_table(member: &ManifestMember) -> Table {
         }
         table["fenced"] = Item::ArrayOfTables(fenced);
     }
+    if !features.genres.is_empty() {
+        let mut genres = ArrayOfTables::new();
+        for genre in &features.genres {
+            genres.push(genre_to_table(genre));
+        }
+        table["genre"] = Item::ArrayOfTables(genres);
+    }
     if !features.published_requirements.is_empty() {
         let mut published = ArrayOfTables::new();
         for requirement in &features.published_requirements {
@@ -1646,6 +1655,47 @@ fn published_to_table(requirement: &PublishedRequirement) -> Table {
     }
     if requirement.required {
         table["required"] = value(true);
+    }
+    table
+}
+
+/// Serialize one [`GenreValue`] into a `[[member.genre]]` table — the genre value
+/// serialized **whole** (`specs/architecture/15-kinds.md`): its `genre`/`key` identity, its
+/// prose **leaves** as a `[member.genre.leaves]` string table, and its sibling
+/// **collections** as `[member.genre.collections.<collection>.<entry>]` keyed sub-tables
+/// of string leaves (`specs/architecture/20-surface.md`, "leaf addresses are structural and
+/// keyed"). Every leaf is a string; keys are named at every level, never positional, so
+/// the manifest carries the same structural address extraction produced — a
+/// document-carried and a (future) module-carried genre value serialize identically. Each
+/// empty facet is omitted so a leaf-only value stays terse and round-trips to the same
+/// empty default.
+fn genre_to_table(genre: &GenreValue) -> Table {
+    let mut table = Table::new();
+    table["genre"] = value(genre.genre.clone());
+    table["key"] = value(genre.key.clone());
+    if !genre.leaves.is_empty() {
+        table["leaves"] = Item::Table(leaf_table(&genre.leaves));
+    }
+    if !genre.collections.is_empty() {
+        let mut collections = Table::new();
+        for (name, entries) in &genre.collections {
+            let mut collection = Table::new();
+            for (entry_key, leaves) in entries {
+                collection[entry_key.as_str()] = Item::Table(leaf_table(leaves));
+            }
+            collections[name.as_str()] = Item::Table(collection);
+        }
+        table["collections"] = Item::Table(collections);
+    }
+    table
+}
+
+/// A TOML [`Table`] of prose leaves — field name → authored string, the shape a genre
+/// value's top-level leaves and each collection entry's leaves both serialize as.
+fn leaf_table(leaves: &BTreeMap<String, String>) -> Table {
+    let mut table = Table::new();
+    for (field, text) in leaves {
+        table[field.as_str()] = value(text.clone());
     }
     table
 }
@@ -1725,6 +1775,7 @@ fn parse_member(table: &Table, index: usize, path: &Path) -> Result<ManifestMemb
     let fields = parse_member_fields(table);
     let sections = parse_member_sections(table, &bad)?;
     let fenced_blocks = parse_member_fenced(table, &bad)?;
+    let genres = parse_member_genres(table, &bad)?;
     let published_requirements = parse_member_published(table, &bad)?;
     Ok(ManifestMember {
         kind,
@@ -1737,6 +1788,7 @@ fn parse_member(table: &Table, index: usize, path: &Path) -> Result<ManifestMemb
             source_dir,
             directives,
             fenced_blocks,
+            genres,
             satisfies,
             published_requirements,
         },
@@ -1856,6 +1908,85 @@ fn parse_member_fenced(
         blocks.push(FencedBlock { info, content });
     }
     Ok(blocks)
+}
+
+/// Rebuild a member's `genres` from its `[[member.genre]]` tables — the inverse of
+/// [`genre_to_table`], reconstructing the exact [`GenreValue`]s extraction folded
+/// (`specs/architecture/20-surface.md`, "Genre values"): the `genre`/`key` identity, the
+/// `[member.genre.leaves]` prose leaves, and the
+/// `[member.genre.collections.<collection>.<entry>]` keyed sub-tables of string leaves.
+/// Absent ⇒ empty; a malformed entry (missing identity, or a non-string leaf) folds into
+/// [`ComposeError::BadMember`], exactly as [`parse_member_fenced`] handles its own.
+fn parse_member_genres(
+    table: &Table,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<Vec<GenreValue>, ComposeError> {
+    let Some(item) = table.get("genre") else {
+        return Ok(Vec::new());
+    };
+    let array = item.as_array_of_tables().ok_or_else(bad)?;
+    let mut genres = Vec::with_capacity(array.len());
+    for entry in array.iter() {
+        let genre = member_str(entry, "genre").ok_or_else(bad)?;
+        let key = member_str(entry, "key").ok_or_else(bad)?;
+        let leaves = parse_leaf_table(entry.get("leaves"), bad)?;
+        let collections = parse_genre_collections(entry.get("collections"), bad)?;
+        genres.push(GenreValue {
+            genre,
+            key,
+            leaves,
+            collections,
+        });
+    }
+    Ok(genres)
+}
+
+/// Rebuild a genre value's sibling **collections** from a `[member.genre.collections]`
+/// table — each key a collection name, its value a table of keyed entries, each entry a
+/// table of string leaves. Absent ⇒ empty; a non-table at any level, or a non-string
+/// leaf, folds into [`ComposeError::BadMember`].
+fn parse_genre_collections(
+    item: Option<&Item>,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<GenreCollections, ComposeError> {
+    let Some(item) = item else {
+        return Ok(BTreeMap::new());
+    };
+    let table = item.as_table().ok_or_else(bad)?;
+    let mut collections = BTreeMap::new();
+    for (name, entries_item) in table.iter() {
+        let entries_table = entries_item.as_table().ok_or_else(bad)?;
+        let mut entries = BTreeMap::new();
+        for (entry_key, leaves_item) in entries_table.iter() {
+            entries.insert(
+                entry_key.to_string(),
+                parse_leaf_table(Some(leaves_item), bad)?,
+            );
+        }
+        collections.insert(name.to_string(), entries);
+    }
+    Ok(collections)
+}
+
+/// Rebuild a table of prose **leaves** — field name → authored string — the inverse of
+/// [`leaf_table`]. Absent ⇒ empty; a non-table, or a non-string leaf value, folds into
+/// [`ComposeError::BadMember`] (leaves are authored strings).
+fn parse_leaf_table(
+    item: Option<&Item>,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<BTreeMap<String, String>, ComposeError> {
+    let Some(item) = item else {
+        return Ok(BTreeMap::new());
+    };
+    let table = item.as_table().ok_or_else(bad)?;
+    let mut leaves = BTreeMap::new();
+    for (field, leaf) in table.iter() {
+        leaves.insert(
+            field.to_string(),
+            leaf.as_str().ok_or_else(bad)?.to_string(),
+        );
+    }
+    Ok(leaves)
 }
 
 /// Rebuild a member's `published_requirements` from its `[[member.published]]` tables —
@@ -3109,6 +3240,27 @@ primitive = "line_count"
                     info: "toml genre.manifest".to_string(),
                     content: "name = \"coordinate\"".to_string(),
                 }],
+                genres: vec![GenreValue {
+                    genre: "decision".to_string(),
+                    key: "surface-authority".to_string(),
+                    leaves: BTreeMap::from([
+                        ("chosen".to_string(), "the surface is canonical".to_string()),
+                        (
+                            "because".to_string(),
+                            "law 7 needs an authored surface".to_string(),
+                        ),
+                    ]),
+                    collections: BTreeMap::from([(
+                        "rejected".to_string(),
+                        BTreeMap::from([(
+                            "baked-projection".to_string(),
+                            BTreeMap::from([(
+                                "because".to_string(),
+                                "a stamping projector breaks law 5".to_string(),
+                            )]),
+                        )]),
+                    )]),
+                }],
                 satisfies: vec!["dev-standards".to_string()],
                 published_requirements: vec![PublishedRequirement {
                     name: "task-planning".to_string(),
@@ -3150,6 +3302,7 @@ primitive = "line_count"
                 source_dir: None,
                 directives: Vec::new(),
                 fenced_blocks: Vec::new(),
+                genres: Vec::new(),
                 satisfies: Vec::new(),
                 published_requirements: Vec::new(),
             },

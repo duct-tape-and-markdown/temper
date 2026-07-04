@@ -187,6 +187,89 @@ pub struct FencedBlock {
     pub content: String,
 }
 
+/// A genre value's **sibling collections** — collection name → (entry key → the entry's
+/// own prose leaves), so a collection leaf addresses as `<collection>.<entry>.<field>`
+/// (`rejected.baked-projection.because`). Keyed at every level, never positional
+/// (`specs/architecture/20-surface.md`, "leaf addresses are structural and keyed"). Named for the
+/// three-deep map the read side and the manifest serializer share.
+pub type GenreCollections = BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>;
+
+/// A **genre value** — a kind's recurring prose form given typed shape
+/// (`specs/architecture/20-surface.md`, "Genre values — prose that declares its own
+/// anatomy"), extracted from a genre fence at the floor. It carries the genre it
+/// instantiates (`decision`) and the fence key that names this instance among its
+/// siblings (`surface-authority`), plus its meaning-carrying **prose leaves**:
+/// top-level authored strings, and **sibling collections** — keyed sub-tables
+/// (`rejected.baked-projection`), never positional. Every leaf is addressed
+/// structurally (member + genre + key + field path) so drift, `impact`, and
+/// citations survive rewording ([`GenreValue::addressed_leaves`]).
+///
+/// Floor leaves carry no mentions — interpolation stays an altitude feature until a
+/// floor mention syntax is separately ratified (`specs/architecture/20-surface.md`) — so
+/// a leaf is a plain [`String`], not a mention-bearing span.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GenreValue {
+    /// The genre this value instantiates — the fence info string's `genre.<genre>`
+    /// (`decision`), one of the kind's declared genres.
+    pub genre: String,
+    /// The fence key naming this instance among its siblings in the same member —
+    /// the info string's second token (`surface-authority`). Part of a leaf's
+    /// address, so it is keyed, never positional.
+    pub key: String,
+    /// The value's top-level **prose leaves** — field name → authored string, in
+    /// stable (sorted) key order so serialization is deterministic.
+    pub leaves: BTreeMap<String, String>,
+    /// The value's **sibling collections** — collection name → (entry key → the
+    /// entry's own prose leaves), so a collection leaf addresses as
+    /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). Keyed at
+    /// every level, never positional — an address that survives insertion and reorder
+    /// (`specs/architecture/20-surface.md`, "leaf addresses are structural and keyed").
+    pub collections: GenreCollections,
+}
+
+impl GenreValue {
+    /// Every leaf's **structural field path** paired with its authored value, in
+    /// stable order (`specs/architecture/20-surface.md`, "leaf addresses are structural and
+    /// keyed"): a top-level leaf's bare field name (`chosen`), a collection leaf's
+    /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). The path
+    /// rides the structure the author already wrote, so it is stable under content
+    /// edits — the property drift routing and `impact` stand on.
+    #[must_use]
+    pub fn addressed_leaves(&self) -> Vec<(String, &str)> {
+        let mut out = Vec::new();
+        for (field, value) in &self.leaves {
+            out.push((field.clone(), value.as_str()));
+        }
+        for (collection, entries) in &self.collections {
+            for (entry, leaves) in entries {
+                for (field, value) in leaves {
+                    out.push((format!("{collection}.{entry}.{field}"), value.as_str()));
+                }
+            }
+        }
+        out
+    }
+}
+
+/// The **structural address** of a genre-value leaf (`specs/architecture/20-surface.md`,
+/// "leaf addresses are structural and keyed"): the member it lives in, the genre value's
+/// identity (genre name + fence key), and the field path within that value. Keyed at
+/// every level and stable under content edits, so a citation targeting a leaf
+/// (`specs/architecture/45-governance.md`) and `impact` at leaf grain survive rewording —
+/// only a key *rename* breaks it, and then to the resolution check, which tells the citer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LeafAddress {
+    /// The member the leaf lives in (`Features::id`).
+    pub member: String,
+    /// The genre the value instantiates (`decision`).
+    pub genre: String,
+    /// The fence key naming the value among its siblings (`surface-authority`).
+    pub key: String,
+    /// The field path within the value — a bare leaf name or a
+    /// `<collection>.<entry>.<field>` path.
+    pub field_path: String,
+}
+
 /// An artifact's deterministically-extracted features, keyed for generic clause
 /// lookup. Everything here is surface-decidable; nothing is inferred meaning.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,6 +311,15 @@ pub struct Features {
     /// the same fence boundaries the heading extractor tracks, surfaced whole. Empty
     /// when the kind composes no `fenced` primitive.
     pub fenced_blocks: Vec<FencedBlock>,
+    /// The body's **genre values**, in document order — each a genre fence
+    /// (`genre.<genre> <key>`) whose interior TOML parsed into a typed
+    /// [`GenreValue`] (`specs/architecture/20-surface.md`, "Genre values"). The typed layer
+    /// over [`fenced_blocks`](Features::fenced_blocks): a raw block whose info string
+    /// names a genre the kind declares is folded here beside its raw form, keyed by the
+    /// fence's genre+key; every other fenced block stays raw-only. Empty when the kind
+    /// declares no genres, or no block opts into one — genre adoption is per-block, and
+    /// no check quantifies over its completeness.
+    pub genres: Vec<GenreValue>,
     /// The requirements this artifact opts into filling — the authored
     /// `[representation].satisfies` bindings, surfaced for the coverage check
     /// (`specs/architecture/20-surface.md`, "Each artifact directory is a representation, not
@@ -261,6 +353,30 @@ impl Features {
     #[must_use]
     pub fn has_field(&self, name: &str) -> bool {
         self.fields.contains_key(name)
+    }
+
+    /// Every genre-value leaf as a fully-qualified [`LeafAddress`] paired with its
+    /// authored value — the leaf-grain surface the read family (`impact`, `context`)
+    /// consumes (`specs/architecture/20-surface.md`, "`impact` reports at leaf grain"). Each
+    /// address carries this member's id, so a citation resolving to a leaf resolves to a
+    /// unique point across the corpus.
+    #[must_use]
+    pub fn genre_leaves(&self) -> Vec<(LeafAddress, &str)> {
+        let mut out = Vec::new();
+        for value in &self.genres {
+            for (field_path, leaf) in value.addressed_leaves() {
+                out.push((
+                    LeafAddress {
+                        member: self.id.clone(),
+                        genre: value.genre.clone(),
+                        key: value.key.clone(),
+                        field_path,
+                    },
+                    leaf,
+                ));
+            }
+        }
+        out
     }
 }
 
@@ -443,6 +559,66 @@ fn fence_info(line: &str, fence_char: char) -> String {
         .trim_start_matches(fence_char)
         .trim()
         .to_string()
+}
+
+/// Parse a genre fence's **info string** into its `(genre, key)` identity, or `None`
+/// when the block is not a genre fence (`specs/architecture/20-surface.md`, "the floor
+/// spelling is a genre fence"): a genre fence's info string is `genre.<genre> <key>`
+/// (`genre.decision surface-authority`) — the `genre.` prefix, the genre name, then the
+/// fence key. Any other info string (a bare `` ``` ``, a `sh`, a `toml`) is a plain
+/// fenced block, not a genre value — adoption is opt-in per block, so a non-match is
+/// silently *not* a genre, never an error. Exactly two tokens: a stray third token is a
+/// malformed info string, not a third address level, so it yields `None`.
+pub(crate) fn parse_genre_info(info: &str) -> Option<(String, String)> {
+    let rest = info.strip_prefix("genre.")?;
+    let mut tokens = rest.split_whitespace();
+    let genre = tokens.next()?;
+    let key = tokens.next()?;
+    if tokens.next().is_some() {
+        return None;
+    }
+    Some((genre.to_string(), key.to_string()))
+}
+
+/// Parse a genre fence's **interior TOML** into a [`GenreValue`], or `None` when the
+/// interior is not well-formed TOML (`specs/architecture/20-surface.md`, "Extraction composes
+/// the algebra's fenced-block primitive with a TOML parse"). A top-level string value is
+/// a **prose leaf**; a top-level table is a **sibling collection** whose sub-tables are
+/// its keyed entries, each entry's string values its own leaves. Any other TOML type is
+/// neither a prose leaf nor a keyed collection, so it is not surfaced — leaves are
+/// authored strings (law 5), never inferred from a scalar or array. Malformed interior
+/// TOML yields no genre value; the raw [`FencedBlock`] still carries the bytes, so
+/// nothing is lost, and extraction stays total (no error channel at this boundary).
+pub(crate) fn parse_genre_value(genre: &str, key: &str, interior: &str) -> Option<GenreValue> {
+    let doc = interior.parse::<toml_edit::DocumentMut>().ok()?;
+    let mut leaves = BTreeMap::new();
+    let mut collections = BTreeMap::new();
+    for (field, item) in doc.as_table().iter() {
+        if let Some(text) = item.as_str() {
+            leaves.insert(field.to_string(), text.to_string());
+        } else if let Some(entries_table) = item.as_table_like() {
+            let mut entries = BTreeMap::new();
+            for (entry_key, entry_item) in entries_table.iter() {
+                let Some(entry_table) = entry_item.as_table_like() else {
+                    continue;
+                };
+                let mut entry_leaves = BTreeMap::new();
+                for (leaf, leaf_item) in entry_table.iter() {
+                    if let Some(text) = leaf_item.as_str() {
+                        entry_leaves.insert(leaf.to_string(), text.to_string());
+                    }
+                }
+                entries.insert(entry_key.to_string(), entry_leaves);
+            }
+            collections.insert(field.to_string(), entries);
+        }
+    }
+    Some(GenreValue {
+        genre: genre.to_string(),
+        key: key.to_string(),
+        leaves,
+        collections,
+    })
 }
 
 /// The fence marker a line carries, if any: the fence character (`` ` `` or

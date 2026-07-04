@@ -820,6 +820,7 @@ mod impact_tests {
             source_dir: Some(id.to_string()),
             directives: Vec::new(),
             fenced_blocks: Vec::new(),
+            genres: Vec::new(),
             satisfies: satisfies.iter().map(|s| (*s).to_string()).collect(),
             published_requirements: published
                 .iter()

@@ -479,7 +479,7 @@ fn collect_manifest_members(harness: &Path, into: &Path) -> miette::Result<Vec<M
             for unit in surface_units_for(into, &kind.governs.root, &kind.member_document())? {
                 members.push(ManifestMember {
                     kind: kind.name.clone(),
-                    features: kind.extraction.extract(&unit),
+                    features: kind.extract(&unit),
                 });
             }
         }

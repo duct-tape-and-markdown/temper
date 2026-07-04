@@ -1199,10 +1199,8 @@ fn custom_kinds_and_edges<'a>(
         }
         let custom = CustomKind::load(kinds_dir, name)?;
         let units = custom_units(workspace, &custom)?;
-        let features: Vec<extract::Features> = units
-            .iter()
-            .map(|unit| custom.extraction.extract(unit))
-            .collect();
+        let features: Vec<extract::Features> =
+            units.iter().map(|unit| custom.extract(unit)).collect();
         custom_kinds.push((name, custom, features));
     }
 

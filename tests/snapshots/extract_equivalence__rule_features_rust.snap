@@ -1,6 +1,5 @@
 ---
 source: tests/extract_equivalence.rs
-assertion_line: 214
 expression: features
 ---
 Features {
@@ -33,6 +32,7 @@ Features {
     ),
     directives: [],
     fenced_blocks: [],
+    genres: [],
     satisfies: [],
     published_requirements: [],
 }
