@@ -314,7 +314,7 @@ its serialization) — the body-side analogue of a structured field
 primitive with a TOML parse into the one manifest shape. **Rejected:**
 (a) promoting the heading/bold convention (`### Decision:` + `**Chosen:**`)
 to model structure — deriving graph leaves from prose typography is law 8's
-mining ban; the rung-2 decision-block extraction (`15-kinds.md`, worked
+mining ban; the heading-level decision-block extraction (`15-kinds.md`, worked
 example) keeps exactly its current standing: clause features, never leaves;
 (b) a bespoke marker grammar — the dialect Decision already rejected owning
 a parser ecosystem forever, and inside a fence there is no markdown tooling
@@ -516,8 +516,8 @@ the harness it was the day before. Members arrive **unrecognized** — fully
 functional — and **recognition** (the intent-encoding: `satisfies` +
 rationale, joins) accrues member-by-member; the pressure to recognize comes
 from the author's own declared requirements failing coverage — the right
-instrument — never from on-ramp ceremony. Adoption then climbs a **gradient**,
-per member, all three rungs one engine and one manifest shape:
+instrument — never from on-ramp ceremony. Adoption then follows a **gradient**,
+per member, all three postures one engine and one manifest shape:
 
 1. **gate-only** — hand-written manifest, in-place members, no Node anywhere;
 2. **`init`** — the generated skeleton, still in place;
@@ -536,7 +536,7 @@ up front — unchanged from the original resolution.
 
 - `temper init [<harness-path>]` — the on-ramp: scan → config skeleton over
   members in place (Decision above); per-member `init --lift` migrates a
-  member up a carriage rung.
+  member into a richer carriage (in-place → document → module).
 - `temper emit [--frozen] [--dry-run]` — compile the authoring face: members
   to their harness formats, the assembly to the manifest, fingerprints to the
   lock; double-emit verified, `--frozen` refuses network (CI posture,
@@ -598,9 +598,10 @@ citations separately from fallout (`45-governance.md`); `context <address>`
 emits a member's or leaf's declared neighborhood — genre slot, siblings,
 citers, satisfied requirements — the pre-edit context bundle for the primary
 author. Both consume only the manifest: offline, tier-1, no runtime. And
-both **disclose coverage**: under the gradient a mixed-rung corpus is the
+both **disclose coverage**: under the gradient a mixed-posture corpus is the
 standing state, not an edge case, so every leaf-grain answer names what it
-cannot see ("N documents below rung 3 — not represented at leaf grain"). An
+cannot see ("N documents carry no genre values — not represented at leaf
+grain"). An
 incomplete answer wearing complete clothes erodes the read verbs exactly as
 a false gate-block erodes the gate (law 1); the disclosure ships with the
 verbs, never after.

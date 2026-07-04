@@ -87,15 +87,27 @@ agent) at every tier, and the `specs:` ceremony is the authority moment — a
 cold read over a reviewable diff, never a formality. No autonomous phase
 lands spec text: build proposes (leave the entry, surface the question)
 instead of writing — the loop shapes and implements intent, it never invents
-it (`00-intent.md` law 4; `.claude/rules/collaboration.md`). As a document
-climbs the genre gradient to rung 3+ (`30-landscapes.md`), an autonomous
-phase MAY gain **draft rights on its leaves — propose-only**: a leaf edit is
+it (`00-intent.md` law 4; `.claude/rules/collaboration.md`). As a document's spec
+text adopts genre values (`30-landscapes.md`), an autonomous phase MAY gain
+**draft rights on its leaves — propose-only**: a leaf edit is
 a typed, resolution-checked, impact-visible graph event where a prose edit
 is an opaque diff, so the review the ceremony rests on becomes mechanical
 rather than heroic. The authority tier never loosens; only the drafting tier
 widens, per document, with the structure that makes review possible.
 Never-climb still holds: draft rights are a consequence a document's author
 may collect, never a pressure to climb. (Ruled 2026-07-03.)
+
+The entities stay distinct, because blurring them is how process drifts
+(ruled 2026-07-03): **temper is the product**; **flume is the code path** —
+spec diff to plan to build, the only route code changes take; **the
+dogfood** — temper applied to this repo's own harness and corpus — is a
+**confirmation of a finished version, never a live constraint while the
+engine under it is changing**. During an engine wave the self-check gate is
+deactivated and the dogfood's committed artifacts are left stale by design;
+at wave end one confirmation pass (rebuild, re-import, `temper check`, one
+commit) validates the new version and re-arms the gate. **The interactive
+session builds specs with the human and governs flume — it does not
+hand-execute work the pipeline owns.**
 
 ## The depth rule — how deep a spec goes
 

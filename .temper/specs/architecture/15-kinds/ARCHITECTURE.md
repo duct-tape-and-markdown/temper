@@ -412,8 +412,8 @@ derives from — self-hosting (`00-intent.md`) extended from `.claude/` to
 
 The corpus's genre target: `decision`, `law`, and `bound` genres declared on
 the spec kinds, harvested from the corpus's own conventions. The
-decisions-name-alternatives predicate keeps both spellings: at rung 2 it
-stays the decision-block shape check over extracted headings (clause
-features, never leaves); over genre values it is a schema fact. Migration
-between rungs is the same staged human ceremony as the classed migration —
+decisions-name-alternatives predicate keeps both spellings: over extracted
+headings it stays the decision-block shape check (clause features, never
+leaves); over genre values it is a schema fact. Migration between postures
+is the same staged human ceremony as the classed migration —
 per document, never demanded (`30-landscapes.md`, the gradient).
