@@ -64,39 +64,64 @@ free-standing pickable slice today.
 
 New forks from the ceremony:
 
-- `(engine-language)` — OPEN. One implementation ruled; its language is not.
-  Keep the engine in Rust vs rewrite in TS (single-language repo, no pipe).
-  EVIDENCE (2026-07-04, this container, warm cache): release binary
-  `temper session-start .` ≈ 0.001 s; bare `node -e ''` ≈ 0.026–0.178 s;
-  `npx --no-install <bin>` ≈ 0.32–0.73 s. Hook placements (session-start now,
-  any per-tool-call guard later) favor the binary by ~25–700×. Rewrite also
-  discards the review-certified engine core (engine.rs decision table,
-  document.rs byte-proven round-trip) — fails the entry-gate principle applied
-  to rewrites. Session recommendation: keep the engine; John rules.
-- `(mention-marker)` — OPEN. The posture-2 markdown spelling of a mention
-  (`${x}` in TS prose). The embed spelling exists (`@path`); the mention needs
-  its authored marker. Blocks posture-2 mention edges only.
-- `(genre-fence-format)` — OPEN. The shared template of postures 2/3 (fence
-  syntax for genre members in markdown). Acceptance test: byte-stable
-  posture-2 ↔ posture-3 round-trip. Blocks embedded-genre authoring.
-- `(settings-residual)` — OPEN. Which harness-level fields remain on
-  `harness()` once members absorb their registrations (hooks → settings.json,
-  mcp → .mcp.json, permissions derived from `needs`). Needs a cited audit of
-  Claude Code's settings surface.
-- `(guard-posture)` — OPEN (was a ledger verify-queue item). The PreToolUse
-  guard: advisory-only forever vs a `temper guard` subcommand reading stdin.
-  The generated-shell grep is rejected either way. `(engine-language)`'s
-  latency evidence bears on this (a per-tool-call guard at node startup cost
-  is user-hostile).
-  DATUM (2026-07-04): the code **ships the corpus-rejected grep today** —
-  `install::guard_command` (src/install.rs:454) emits `grep -qE '<path-match>'`
-  as the `PreToolUse` command, exactly the "generated-shell grep … rejected
-  either way" of 50-distribution ("Decision: install is two placements"). So
-  this is a live corpus↔code contradiction, not just a future choice — but its
-  fix cannot be filed as a clean slice because the *replacement* (advisory no-op
-  vs a `temper guard` subcommand) is precisely what this fork decides. Retiring
-  the grep needs the fork resolved first; a pending entry would have to invent
-  the replacement. Human to rule.
+- `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
+  Rust.** No spec delta — the corpus is language-neutral by design ("the
+  engine", never a language as normative fact; 50-distribution "The stranger
+  gate": "specs state the property, never the language"). The fork closes on
+  the latency evidence (release binary ≈ 0.001 s vs `node -e ''` ≈ 0.026–0.178 s
+  vs `npx` ≈ 0.32–0.73 s at the hook placements — binary favored ~25–700×) and
+  the entry-gate-applied-to-rewrites argument (a rewrite discards the
+  review-certified engine.rs decision table + document.rs byte-proven
+  round-trip). CORPUS CATCH-UP (John's hand): 50-distribution:53 still calls
+  this "the open fork `(engine-language)`" — cosmetic staleness, no behavior
+  rides it. Kept as the decision record; no dependent waits.
+- `(mention-marker)` — RESOLVED (John 07-04, inbox): **`${address}` in
+  posture-2 markdown too** — one mention spelling across all three postures
+  (the no-synonyms rule applied to syntax), byte-stable 2⇄3 for free, **not**
+  recognized inside code spans or fenced blocks. The embed spelling stays
+  `@path`. Blocks posture-2 mention edges only — gated on the posture-2/SDK
+  authoring foundation (the same human-ceremony gate as the demolition); no
+  pending entry today. Kept as the decision record.
+- `(genre-fence-format)` — RESOLVED (John 07-04, inbox): **deferred to the
+  genre-adoption pilot.** Entry gate applied to the fence: no posture-2 author
+  exists (zero fences in the corpus; the pilot is parked on this fork), so the
+  grammar is designed when its consumer lands, against a working byte-stable
+  2⇄3 round-trip, never in the abstract. Frame note (John's catch): D7's "TOML
+  genre fence" prior is **manifest-era residue** — the fence body is the
+  byte-stable template of a TS value, so the pilot designs the grammar from the
+  TS value shape outward, not from a Rust/TOML prior. Constraint survives
+  whatever grammar wins: prose leaves render byte-exactly (law 5); the
+  acceptance test (byte-stable posture-2 ↔ posture-3) is unchanged. No pending
+  entry — the pilot is not itself a pending entry. Kept as the decision record.
+- `(settings-residual)` — RESOLVED (John 07-04, inbox): **focus project
+  scope** — emit owns the whole project `.claude/settings.json` (typed
+  project-harness facts + passthrough); personal preferences belong to the
+  local/user scopes the format authority already layers (managed > CLI > local
+  > project > user; permission rules merge across scopes — cite
+  code.claude.com/docs/en/settings, retrieved 2026-07-04). Local scope later
+  via a gitignored local harness module composed by convention — that is
+  `(local-overrides)`' settings answer; user scope further out. NOTE for the
+  settings design: installed **plugins** inject skills/hooks/MCP temper does
+  not govern — the gating fields (enabledPlugins, marketplace lists) are
+  project-harness facts, the rulesync-downstream positioning's eventual reach;
+  named, not designed. Feeds the settings kind (retired from pending +
+  foundation-gated, six-noun ceremony above); no pending entry today. Kept as
+  the decision record.
+- `(guard-posture)` — RESOLVED (John 07-04, inbox): **a `temper guard`
+  subcommand** reading the `PreToolUse` stdin payload in the engine; whether it
+  blocks follows the author's declared surface-authority posture
+  (note/warn/block), default advisory. The generated-shell grep stays rejected
+  (pattern-matching prose is mining, law 8; a generated script is a second
+  implementation of the gate's judgment). Keep-Rust latency (~1 ms) is what
+  makes the per-tool-call placement viable — `(engine-language)` bears directly.
+  NOT YET FILEABLE as a pending entry: (i) the corpus still frames it as the
+  **open fork** (50-distribution:115-121, "The guard installed today is
+  advisory-only") and carries no `temper guard` Decision, so the ruling awaits
+  John's 50-distribution delta; (ii) the subcommand rests on the
+  surface-authority posture model (note/warn/block) and the install/distribution
+  demolition — foundation-gated. Until both land, the grep in
+  `install::guard_command` (src/install.rs:454) persists as a live corpus↔code
+  contradiction, accepted debt. Kept as the decision record; John's hand next.
 - `(explain-target-disambiguation)` — OPEN (dogfood catch, 2026-07-04). The
   re-cut ratified **one read verb** (`20-surface.md`, "Decision: one read verb
   — `explain`"), explicitly rejecting "(c) a verb per question (why /

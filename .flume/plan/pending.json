@@ -1,34 +1,34 @@
 [
   {
     "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship acquisition channels — npm optionalDependencies binary wrapper, Homebrew, cargo install — auto-detected, fail-loud on a missing platform binary",
+    "summary": "Ship the three acquisition channels — SDK npm packages, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
       "path": "specs/architecture/50-distribution.md",
       "section": "Three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs human release setup (npm org + @temper scope, Homebrew tap, signing/publish creds) before the mechanical wrappers can be validated end-to-end"
+      "reason": "needs human release setup (npm org + @temper scope, marketplace publish, signing/publish creds) before the mechanical wrappers can be validated end-to-end; channel 1 (SDK publish) also rides the SDK-primary foundation ceremony"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": ".github/workflows/release.yml",
-          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone release assets), GitHub release assets, and the Homebrew tap; channel auto-detected. Distinct from any CI check job (which under the re-cut is a documented user-authored job, not a generated file)."
+          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone GitHub release assets), and produce/publish the plugin bundle with its `marketplace.json` (channel 3). Channel auto-detected. Distinct from any CI *check* job, which under the re-cut is a documented two-line user-authored job (`temper check` + `emit --frozen` byte-compare), not a generated file (50-distribution, 'install is two placements')."
         }
       ],
       "edit": [
         {
           "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. Scoped `@temper` names per the resolved (project-name) fork. NB distinct from sdk/package.json (the SDK authoring-face manifest for `temper` + `@temper/claude-code`)."
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution 'Fail-loud delivery'). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. Scoped `@temper` names per the resolved `(project-name)` fork. NB distinct from sdk/package.json (the SDK authoring-face manifest — channel 1's `temper` core + `@temper/claude-code` provider module)."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "A stranger acquires the prebuilt binary via npm (platform-specific optionalDependencies), Homebrew, standalone release assets, or `cargo install`; a missing platform binary is an install error, never a silent skip.",
-    "notes": "Release infra, mostly outside `src/`; cargo gates can't validate npm/Homebrew publish, and channels need human creds. Re-cut 2026-07-04: acquisition intent now lives in 50-distribution 'Three channels' (npm `temper` + `@temper/claude-code`; the binary pinned via per-platform optionalDependencies + standalone; the plugin/bundle). Root `package.json` is the private flume manifest (not sdk/package.json) — reconcile or split. Parked on human release creds."
+    "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (50-distribution 'Fail-loud delivery').",
+    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. Re-cut 2026-07-04 (50-distribution 'Three channels'): ch1 = SDK npm (`temper` + `@temper/claude-code`, floors as exported clause arrays); ch2 = engine binary pinned via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Homebrew/cargo-install no longer first-class channels. Parked on human creds."
   }
 ]
