@@ -26,7 +26,7 @@ use crate::check::Workspace;
 use crate::hash::sha256_hex;
 use crate::import;
 use crate::install;
-use crate::kind::{BUILTIN_KINDS, CustomKind};
+use crate::kind::CustomKind;
 
 /// Errors raised while computing a drift report. A hard failure (a source path
 /// errors for a reason other than "not found", which is the `removed` state) —
@@ -452,7 +452,8 @@ pub fn emit(
     workspace_dir: &Path,
     options: EmitOptions,
 ) -> miette::Result<EmitReport> {
-    let emit_hashes = load_emit_hash(workspace_dir)?;
+    let kinds = embedded_kind_names();
+    let emit_hashes = load_emit_hash(workspace_dir, &kinds)?;
 
     let mut projections = Vec::new();
     for skill in workspace.skills() {
@@ -491,7 +492,7 @@ pub fn emit(
     }
 
     if !options.dry_run && !updates.is_empty() {
-        update_lock(workspace_dir, &updates)?;
+        update_lock(workspace_dir, &kinds, &updates)?;
     }
 
     Ok(EmitReport { entries })
@@ -612,12 +613,34 @@ fn render_field(key: &str, value: &JsonValue) -> String {
     format!("{key}: {rendered}\n")
 }
 
-/// Read the emit fingerprints from `<workspace_dir>/lock.toml`, keyed by
-/// source path. Covers the built-in `[[skill]]`/`[[rule]]` rows — the kinds `emit`
-/// projects. A row without an `emit_hash` column (a lock predating the field) is
-/// simply absent, and the caller falls back to the source hash.
+/// The bare table-key names of the kinds temper actually embeds — the lock's per-kind
+/// array-of-tables keys (`[[skill]]`, `[[rule]]`, and a curated `[[memory]]` once its
+/// `KIND.md` joins the tree). Derived from the `build.rs`-generated
+/// `builtin_kind::BUILTIN_KINDS` (`<provider>.<name>` or bare `<name>`, so the bare key
+/// is the segment after the last `.`), never the stale `kind::BUILTIN_KINDS` = [skill,
+/// rule] const: a newly-embedded kind's lock rows are fingerprinted the moment it joins
+/// the embedded set, with no literal to re-pin (`specs/architecture/15-kinds.md`,
+/// "Decision: kinds are declared data over generic extraction, never engine code"). Two
+/// providers co-embedding one bare name (the `CLAUDE.md`/`AGENTS.md` memory family)
+/// share the one lock key, so the names are deduped.
+fn embedded_kind_names() -> Vec<&'static str> {
+    let mut names: Vec<&'static str> = builtin_kind::BUILTIN_KINDS
+        .iter()
+        .map(|(key, _)| key.rsplit('.').next().unwrap_or(key))
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+/// Read the emit fingerprints from `<workspace_dir>/lock.toml`, keyed by source path.
+/// Covers every embedded built-in kind's rows (`kinds` — `[[skill]]`, `[[rule]]`, and a
+/// curated `[[memory]]`), so a hand-edited projection of any of them is seen. A row
+/// without an `emit_hash` column (a lock predating the field) is simply absent, and the
+/// caller falls back to the source hash.
 fn load_emit_hash(
     workspace_dir: &Path,
+    kinds: &[&str],
 ) -> Result<std::collections::HashMap<PathBuf, String>, DriftError> {
     let path = workspace_dir.join("lock.toml");
     let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
@@ -632,7 +655,7 @@ fn load_emit_hash(
         })?;
 
     let mut map = std::collections::HashMap::new();
-    for &kind in BUILTIN_KINDS {
+    for &kind in kinds {
         let Some(rows) = doc.get(kind).and_then(Item::as_array_of_tables) else {
             continue;
         };
@@ -654,9 +677,14 @@ fn fingerprint(map: &std::collections::HashMap<PathBuf, String>, source: &Path) 
 }
 
 /// Write the reconciled fingerprints back into `<workspace_dir>/lock.toml` in place,
-/// matching each `[[skill]]`/`[[rule]]` row by its `source_path`. Format-preserving
-/// via `toml_edit` — only the `emit_hash` values change.
-fn update_lock(workspace_dir: &Path, updates: &[(PathBuf, String)]) -> Result<(), DriftError> {
+/// matching each embedded built-in kind's row (`kinds` — `[[skill]]`, `[[rule]]`, and a
+/// curated `[[memory]]`) by its `source_path`. Format-preserving via `toml_edit` — only
+/// the `emit_hash` values change.
+fn update_lock(
+    workspace_dir: &Path,
+    kinds: &[&str],
+    updates: &[(PathBuf, String)],
+) -> Result<(), DriftError> {
     let path = workspace_dir.join("lock.toml");
     let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
         path: path.clone(),
@@ -669,7 +697,7 @@ fn update_lock(workspace_dir: &Path, updates: &[(PathBuf, String)]) -> Result<()
             source,
         })?;
 
-    for &kind in BUILTIN_KINDS {
+    for &kind in kinds {
         let Some(rows) = doc.get_mut(kind).and_then(Item::as_array_of_tables_mut) else {
             continue;
         };
@@ -1130,5 +1158,96 @@ Prefer a clone over a lifetime fight.\n";
         let outcome = place(&target, "temper wants this", None, false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "temper wants this");
+    }
+
+    #[test]
+    fn embedded_kind_names_derives_from_the_live_embed_not_the_stale_const() {
+        // The enumerated set is the bare tail of every `builtin_kind::BUILTIN_KINDS` key,
+        // deduped — so a curated addition (a `memory` carrier) rides in without editing a
+        // literal here. Today's embed carries only skill/rule; asserting membership rather
+        // than an exact vec keeps this green when the human commits the memory carriers.
+        let names = embedded_kind_names();
+        for expected in builtin_kind::BUILTIN_KINDS
+            .iter()
+            .map(|(key, _)| key.rsplit('.').next().unwrap_or(key))
+        {
+            assert!(
+                names.contains(&expected),
+                "embedded_kind_names() must cover the embedded `{expected}` kind"
+            );
+        }
+        assert!(names.contains(&"skill") && names.contains(&"rule"));
+        // Deduped: a bare name co-embedded by two providers is one lock key, listed once.
+        let mut sorted = names.clone();
+        sorted.dedup();
+        assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn load_and_update_lock_cover_a_memory_row_leaving_skill_rule_intact() {
+        let dir = tmpdir("memory-lock");
+        // A lock carrying a `[[memory]]` row beside the built-in skill/rule rows — the
+        // shape once a `memory` KIND.md joins the embedded tree. The bug: the old loops
+        // iterated the stale `[skill, rule]` const, so this memory row was never seen.
+        fs::write(
+            dir.join("lock.toml"),
+            "[[skill]]\n\
+name = \"coordinate\"\n\
+source_path = \"/h/.claude/skills/coordinate/SKILL.md\"\n\
+emit_hash = \"skill-old\"\n\
+\n\
+[[rule]]\n\
+name = \"rust\"\n\
+source_path = \"/h/.claude/rules/rust.md\"\n\
+emit_hash = \"rule-old\"\n\
+\n\
+[[memory]]\n\
+name = \"root\"\n\
+source_path = \"/h/CLAUDE.md\"\n\
+emit_hash = \"memory-old\"\n",
+        )
+        .unwrap();
+
+        let kinds = ["skill", "rule", "memory"];
+        let map = load_emit_hash(&dir, &kinds).unwrap();
+        // Every embedded kind's row is fingerprinted, memory included.
+        assert_eq!(
+            map.get(Path::new("/h/CLAUDE.md")).map(String::as_str),
+            Some("memory-old")
+        );
+        assert_eq!(
+            map.get(Path::new("/h/.claude/skills/coordinate/SKILL.md"))
+                .map(String::as_str),
+            Some("skill-old")
+        );
+
+        // The update loop rewrites the memory row's fingerprint; the rule row, absent from
+        // `updates`, keeps its bytes untouched — skill/rule behavior is unchanged.
+        let updates = vec![
+            (PathBuf::from("/h/CLAUDE.md"), "memory-new".to_string()),
+            (
+                PathBuf::from("/h/.claude/skills/coordinate/SKILL.md"),
+                "skill-new".to_string(),
+            ),
+        ];
+        update_lock(&dir, &kinds, &updates).unwrap();
+
+        let reloaded = load_emit_hash(&dir, &kinds).unwrap();
+        assert_eq!(
+            reloaded.get(Path::new("/h/CLAUDE.md")).map(String::as_str),
+            Some("memory-new")
+        );
+        assert_eq!(
+            reloaded
+                .get(Path::new("/h/.claude/skills/coordinate/SKILL.md"))
+                .map(String::as_str),
+            Some("skill-new")
+        );
+        assert_eq!(
+            reloaded
+                .get(Path::new("/h/.claude/rules/rust.md"))
+                .map(String::as_str),
+            Some("rule-old")
+        );
     }
 }
