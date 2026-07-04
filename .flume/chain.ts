@@ -110,7 +110,16 @@ const testGate = shellGate({
  * own harness surface (temper.toml + .temper/ + .claude/) after every merge.
  * Advisories report without failing (exit 0); a `required` violation — broken
  * conformance, coverage, or admissibility on temper's own house — reverts the
- * entry. From here on, every build entry is gated by the product it builds.
+ * entry.
+ *
+ * DEACTIVATED during engine waves (John's ruling, 2026-07-03): the dogfood is
+ * a **confirmation of a finished version, never a live constraint while the
+ * engine underneath it is changing** — both self-gate reverts this week
+ * (LOCK-FRESHNESS-FACTS, MANIFEST-GATE-READ) were the live dogfood tripping on
+ * its own committed artifacts mid-migration, not real regressions. At each
+ * wave's end the interactive session runs the confirmation pass (rebuild,
+ * re-import, `temper check`, one commit) and re-wires this gate into `gates`
+ * below before the next non-engine work.
  */
 const selfCheckGate = shellGate({
   name: "temper check (self)",
@@ -120,6 +129,7 @@ const selfCheckGate = shellGate({
   failHint:
     "temper's own surface went red — fix the code or the harness, never bypass the self-check.",
 });
+void selfCheckGate; // deactivated — see the ruling above; re-wire at wave end.
 
 // ---------- phases ----------
 
@@ -171,6 +181,12 @@ const BUILD_WRITABLE_PATHS = [
   // as curated ones.
   "temper.toml",
   ".temper/lock.toml",
+
+  // The authoring-face SDK (`specs/architecture/20-surface.md`, the TypeScript
+  // face; `specs/architecture/50-distribution.md`, the npm channel). Product
+  // code like src/** — the scaffold was the delegated human half (ask (a));
+  // every subsequent slice is build's.
+  "sdk/**",
 
   // NOTE: build does NOT touch .flume/** (the control plane), .claude/** or
   // CLAUDE.md, .temper/** sources, specs/**, packages/**, kinds/**, or
@@ -289,7 +305,9 @@ const build: Phase = {
   concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
-  gates: [fmtGate, clippyGate, testGate, selfCheckGate],
+  // selfCheckGate deactivated for the engine wave — dogfood is confirmation,
+  // not a live constraint (the ruling at its definition). Re-wire at wave end.
+  gates: [fmtGate, clippyGate, testGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
       throw new Error("build phase requires an assignedEntry");
