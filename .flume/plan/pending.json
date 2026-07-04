@@ -115,7 +115,7 @@
       "new": [
         {
           "path": "kinds/claude-code/settings/KIND.md",
-          "description": "The embedded built-in `settings` KIND.md (curated, outside build's fence), `provider = \"claude-code\"`: `governs = { root = '.claude', glob = 'settings.json' }`, `format = \"json\"` (the fork's new vocabulary entry), composed extraction over nested key-path `field` primitives (permissions, env, hooks) consuming EXTRACTION-VOCAB-GAPS' key-path Field. build.rs auto-embeds it."
+          "description": "The embedded built-in `settings` KIND.md (curated, outside build's fence), `provider = \"claude-code\"`: `governs = { root = '.claude', glob = 'settings.json' }`, `format = \"json\"` (the fork's new vocabulary entry), composed extraction over nested key-path `field` primitives (permissions, env, hooks) consuming the now-shipped key-path `Primitive::Field` (`extract::resolve_key_path`, src/kind.rs:839). build.rs auto-embeds it."
         },
         {
           "path": "packages/settings.anthropic/PACKAGE.md",
@@ -142,7 +142,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/settings.json` to `settings.anthropic` reading nested key-path fields; governing settings.json retires the `coverage.unmodeled-surface` advisory (the live marker on temper's own harness); gates green. (Held: not built until the json fork resolves + curated files land.)",
-    "notes": "Filed 07-04 (John, inbox): the named consumer reviving EXTRACTION-VOCAB-GAPS' key-path half, and the retirer of the live settings.json coverage.unmodeled-surface advisory. JSON-manifest → dependsOnForks (json-projection-format); the shared json adapter is that fork's engine entry. Downstream of EXTRACTION-VOCAB-GAPS. MCP + plugin/marketplace kinds ride the same fork (held there, not filed)."
+    "notes": "Filed 07-04 (John, inbox): retirer of the live settings.json coverage.unmodeled-surface advisory. JSON-manifest → dependsOnForks (json-projection-format); the shared json adapter is that fork's engine entry. EXTRACTION-VOCAB-GAPS' key-path Field has SHIPPED (1b9f33a) — ready; only the json format harvest + adapter remain. MCP + plugin/marketplace kinds ride the same fork (held there, not filed)."
   },
   {
     "tag": "PACKAGING-CHANNELS",

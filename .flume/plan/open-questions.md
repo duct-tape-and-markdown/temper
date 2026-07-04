@@ -666,8 +666,9 @@ hook kind rest on mechanism the corpus does not yet carry with a clean cite.
   Reading them needs (a) a `json` format **harvested into the vocabulary** — a
   deliberate language addition (law 3), the corpus's to make, not plan's — and
   (b) a **generic JSON adapter** (a peer to `src/frontmatter.rs`) parsing the file
-  into a `Unit` with nested-key fields, consuming EXTRACTION-VOCAB-GAPS' key-path
-  `Primitive::Field`. The adapter is **one shared engine entry** (settings/MCP/
+  into a `Unit` with nested-key fields, over the **now-shipped** key-path
+  `Primitive::Field` (EXTRACTION-VOCAB-GAPS landed 1b9f33a — `extract::resolve_key_path`,
+  src/kind.rs:839). The adapter is **one shared engine entry** (settings/MCP/
   plugin all rest on it), fileable once the format is harvested; it is sanctioned
   under the kept "format implementations are engine code" asymmetry, but only
   after the vocabulary addition. Blocks pending **SETTINGS-KIND** (dependsOnForks);
