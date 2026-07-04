@@ -76,6 +76,19 @@ graduation, delete over archive.
   that matches 50-distribution's intent for the write guard, or it's a
   finding.
 
+## The entity constitution (ruled 07-03 — hold these lines)
+
+- **temper** is the product. **flume** is the only code path (spec diff →
+  plan → build). **The dogfood** is confirmation of a finished version —
+  DEACTIVATED during engine waves (self-gate unwired in chain.ts; stale
+  manifest/lock are by design), re-armed by one wave-end confirmation pass
+  (rebuild, re-import, check, one commit, re-wire the gate). **This
+  session** builds specs with John and governs flume — it does NOT
+  hand-execute pipeline work, even when hands are faster. Paid for twice:
+  the delegation ratchet + the softened-authorship doctrine pulled
+  in-session hands into build's lane (SDK scaffold, an unprompted rung
+  re-cut) until John drew the lines. Captured in spec: 90-spec-system.
+
 ## Standing discipline (lessons paid for)
 
 - Wake-then-loop as its own background task; never orphan it in a pipe.
