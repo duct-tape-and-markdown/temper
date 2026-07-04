@@ -50,8 +50,17 @@ main.rs / import.rs / drift.rs), and its foundation (SDK as canonical
 authoring surface + committed-artifacts+lock as the only gate corpus + the
 compiled default program) is human-ceremony-gated. Plan decomposes it
 **evidence-gated per entry** as clean disjoint slices surface — it does not
-invent the wave shape on the unbuilt foundation. First landed slice:
-**INSTALL-RETIRE-CI-PLACEMENT** (below in pending).
+invent the wave shape on the unbuilt foundation. First landed slice
+**INSTALL-RETIRE-CI-PLACEMENT SHIPPED** (5bc2ee2 — install.rs no longer
+projects a CI workflow; CI is a documented user-authored job, 50-distribution).
+No *new* clean disjoint slice has surfaced since: every remaining demolition
+delta (manifest-corpus retirement, KIND.md/PACKAGE.md grammar removal, string-
+identity removal) rewrites the same entangled files together on the human-
+ceremony-gated foundation, so plan holds rather than invent parallel-unsafe
+work. The two localized wrong-today items still open in code (the corpus-
+rejected guard grep, `(guard-posture)`; the read-family CLI split,
+`(explain-target-disambiguation)`) are both fork-gated below — neither is a
+free-standing pickable slice today.
 
 New forks from the ceremony:
 
@@ -79,6 +88,31 @@ New forks from the ceremony:
   The generated-shell grep is rejected either way. `(engine-language)`'s
   latency evidence bears on this (a per-tool-call guard at node startup cost
   is user-hostile).
+  DATUM (2026-07-04): the code **ships the corpus-rejected grep today** —
+  `install::guard_command` (src/install.rs:454) emits `grep -qE '<path-match>'`
+  as the `PreToolUse` command, exactly the "generated-shell grep … rejected
+  either way" of 50-distribution ("Decision: install is two placements"). So
+  this is a live corpus↔code contradiction, not just a future choice — but its
+  fix cannot be filed as a clean slice because the *replacement* (advisory no-op
+  vs a `temper guard` subcommand) is precisely what this fork decides. Retiring
+  the grep needs the fork resolved first; a pending entry would have to invent
+  the replacement. Human to rule.
+- `(explain-target-disambiguation)` — OPEN (dogfood catch, 2026-07-04). The
+  re-cut ratified **one read verb** (`20-surface.md`, "Decision: one read verb
+  — `explain`"), explicitly rejecting "(c) a verb per question (why /
+  requirements / impact / context) — four spellings of one traversal". The code
+  still ships exactly those four `clap` subcommands (`Command::{Why,Requirements,
+  Impact,Context}`, src/main.rs:236–266; `read::{why,impact,context,requirements}`).
+  Collapsing them into `explain <target>` is not human-foundation-gated (it reads
+  the same `check`-computed graph the four verbs already read), but the corpus
+  does **not** specify how a single positional `<target>` resolves across the four
+  target species — member, requirement, an address at leaf grain, a neighborhood.
+  Member-name vs requirement-name collision is the live crux. Plan must not invent
+  the disambiguation (collaboration rule); a pending EXPLAIN-UNIFY declares
+  `dependsOnForks: ["explain-target-disambiguation"]` once ruled. NB the read
+  family's data source is itself rewritten by the demolition (check →
+  committed-artifacts+lock), so this collapse is best sequenced with/after it.
+  Human to settle the target-resolution mechanism.
 - `(local-overrides)` — OPEN (surfaced by the 40-composition re-cut, which
   carries the OPEN: marker). The dialect era's committed-plus-gitignored
   personal-override layer (temper-local.toml) has no stated spelling in the
@@ -88,15 +122,19 @@ New forks from the ceremony:
 
 Bugs filed by the ceremony's review (wrong today, independent of demolition
 sequencing):
-1. read.rs:147-156 — floor-binding fallback narrates any non-rule kind as
-   bound to the skill floor (wrong-by-default read output). **FILED**
-   2026-07-04 as pending READ-FLOOR-BINDING-DEFAULT (open; read.rs only —
-   disjoint).
-2. drift.rs:635,672 — iterates the stale 2-entry `kind::BUILTIN_KINDS` const
-   (kind.rs:30 = `["skill","rule"]`) while more kinds are embedded; memory
-   rows in the lock are invisible to drift's fingerprint map. **FILED**
-   2026-07-04 as pending DRIFT-KIND-ENUMERATION (open; drift.rs only —
-   disjoint).
+1. read.rs floor-binding fallback narrated any non-rule kind as bound to the
+   skill floor (wrong-by-default read output). **SHIPPED** (b20aa5c,
+   READ-FLOOR-BINDING-DEFAULT) — `read::bound_package` (src/read.rs:145-168)
+   resolves each embedded kind's real floor by its qualified identity through
+   `builtin::floor_package`.
+2. drift's lock loops iterated the stale 2-entry `kind::BUILTIN_KINDS` const
+   while more kinds are embedded; memory rows in the lock were invisible to
+   drift's fingerprint map. **SHIPPED** (4b42fe5, DRIFT-KIND-ENUMERATION) —
+   drift.rs now enumerates the generated `builtin_kind::BUILTIN_KINDS`
+   (`<provider>.<name>`, bare tail). NB the stale `kind::BUILTIN_KINDS =
+   ["skill","rule"]` const survives (kind.rs:30), now used only by one trivial
+   compose.rs test; it retires with the entangled kind.rs demolition, not as a
+   standalone throwaway slice.
 3. import.rs:697-704, 1007-1015 — authored-layer carry-forward silently
    degrades to "nothing to carry" on an unreadable prior surface (data-loss
    edge). **HELD** — the ceremony's own note flags it "moot when document

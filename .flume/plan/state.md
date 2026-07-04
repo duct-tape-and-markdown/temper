@@ -1,27 +1,23 @@
 # Plan state
 
-- **Phase:** reconcile (post six-noun merge). HEAD bdcaacc. Inbox drained.
-- **The six-noun re-cut is now law** (PR #2 merged; specs re-cut). Reconciled the
-  whole queue against it: **RETIRED AGENT-KIND / COMMAND-KIND / SETTINGS-KIND** —
-  all three rested on retired mechanisms (no KIND.md — 15-kinds; no PACKAGE.md,
-  floors are exported clause arrays — 10-contracts; no string-name identity /
-  QUALIFIED_FLOOR_BINDINGS / BUILTIN_KINDS-const — 15-kinds). John's intent
-  survives, but the vehicle is now an SDK value in `@temper/claude-code` + a
-  compiled default-program entry, gated on the human SDK-primary scaffolding.
-- **Filed 3 disjoint `open` entries:** INSTALL-RETIRE-CI-PLACEMENT (retire
-  install's CI-workflow projection — first demolition slice, roots out the inbox
-  exit-127 bug), plus the two disjoint ceremony-review bugs DRIFT-KIND-ENUMERATION
-  and READ-FLOOR-BINDING-DEFAULT. Blast radii disjoint (install.rs / drift.rs /
-  read.rs) — parallel-safe. PACKAGING-CHANNELS stays parked (re-cited to
-  50-distribution "Three channels").
-- **Pickable now:** INSTALL-RETIRE-CI-PLACEMENT, DRIFT-KIND-ENUMERATION,
-  READ-FLOOR-BINDING-DEFAULT.
-- **What's next (human):** the six-noun engine demolition's foundation — SDK as the
-  canonical authoring surface, committed-artifacts+lock as the only gate corpus
-  (the committed manifest is rejected), the compiled default program — is
-  frame-scale and human-ceremony-gated; plan decomposes it evidence-gated per
-  entry as clean disjoint slices surface, never inventing the wave shape on the
-  unbuilt foundation.
+- **Phase:** reconcile (post-wave). HEAD 2c5137a. Inbox drained (empty).
+- **Last shipped:** the three disjoint demolition/bug slices —
+  INSTALL-RETIRE-CI-PLACEMENT (5bc2ee2), DRIFT-KIND-ENUMERATION (4b42fe5),
+  READ-FLOOR-BINDING-DEFAULT (b20aa5c) — all verified on disk and drained from
+  pending. Marked SHIPPED in open-questions.
+- **In flight:** nothing pickable. Pending carries only PACKAGING-CHANNELS
+  (parked on human release creds). No `open` entry exists this tick.
+- **Why no new slice:** the six-noun demolition's next deltas all rewrite the
+  same entangled files on the human-ceremony-gated foundation (SDK-primary +
+  committed-artifacts+lock gate + compiled default program); filing them would
+  invent a parallel-unsafe wave. The two localized wrong-today items in code —
+  the corpus-rejected guard grep and the four-verb read family — are both
+  fork-gated (`(guard-posture)`, `(explain-target-disambiguation)`, both filed
+  this tick), not free-standing slices.
+- **What's next (human):** resolve the SDK-primary foundation ceremony (unblocks
+  the demolition wave), plus the two forks above; then plan decomposes the wave
+  evidence-gated per clean disjoint slice.
 
-Plan continues: no — the queue is reconciled, the inbox is drained, and three
-disjoint `open` entries are pickable; building is how the queue drains.
+Plan continues: no — queue reconciled, inbox empty, state re-derived, two new
+forks filed; no clean pickable slice remains to invent. The next move is human
+(the foundation ceremony), not more planning.
