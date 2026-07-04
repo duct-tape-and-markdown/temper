@@ -17,3 +17,7 @@
 # committing the surface is what makes the coverage dogfood persistent. Bodies duplicate
 # `.claude/`+`specs/` byte-faithfully (the accepted cost); `temper import . --into .temper`
 # reconciles bodies while REPRESENTATION-PRESERVE carries the authored layer forward.
+
+# SDK build output
+sdk/dist/
+sdk/node_modules/
