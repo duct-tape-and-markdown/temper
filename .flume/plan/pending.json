@@ -1,49 +1,5 @@
 [
   {
-    "tag": "GENRE-MANIFEST-LEAF",
-    "summary": "Serialize genre values into the manifest — `genres` on the kind, genre-fence extraction (fenced + TOML), the leaf/keyed-collection schema with structural addresses",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Genre values — prose that declares its own anatomy"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/genre_leaf.rs",
-          "description": "Prove: a genre fence (info string `genre.decision surface-authority`, TOML interior with leaf fields as multi-line strings and sibling collections as keyed tables `[rejected.baked-projection]`) extracts to a genre value whose leaves are addressed structurally (member, genre key, field path) and whose siblings are keyed, never positional (`20-surface.md`, the two leaf Decisions); the value round-trips through the manifest byte-identically (idempotence)."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add the optional `genres` vocabulary to the kind object (`15-kinds.md`, \"genres (optional)\"): typed shapes — named fields over prose leaves plus keyed collections — parsed from the KIND.md header, load-guarded. Compose the `Fenced` primitive (FENCED-PRIMITIVE) with a TOML parse of each matching fenced block into a genre value's features, keyed by the fence info string's genre+key. No predicates here — the shape is the kind's, any clause over it is the bound package's (out of fence)."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Add the `GenreValue`/leaf types and a `Features.genres` field: a leaf is an authored string addressed by member + genre key + field path (structural, stable under content edits); sibling collections are keyed (`rejected.baked-projection.because`), never positional (`20-surface.md`, \"leaf addresses are structural and keyed\"). Leaves carry no mentions at the floor (interpolation stays altitude-only). The extractor folds parsed genre values into `Features` beside `sections`/`directives`."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Serialize `Features.genres` into the `[[member]]` manifest table in one shape and deserialize it back (the member round-trip; FENCED-PRIMITIVE already serializes raw `fenced_blocks` at compose.rs ~1842 — the typed genre layer sits beside it, round-trip test near the fenced-blocks case ~3108): genre values are serialized whole (`15-kinds.md`), leaf fields as strings, sibling collections as keyed sub-tables, format-preserving via `toml_edit`. Every consumer stays carriage-blind — a document-carried and a (future) module-carried genre value serialize identically."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/genre_leaf.rs",
-        "asserts": "genre-fence extraction yields structurally-addressed leaves and keyed siblings; the manifest serialization round-trips a genre value byte-identically; an unfenced block is plain prose (no genre value, no error) — opt-in per block."
-      }
-    ],
-    "acceptance": "A kind declaring `genres` extracts each genre fence into a genre value with structural leaf addresses and keyed sibling collections; the value serializes whole into the manifest and round-trips idempotently through `toml_edit`; an unfenced block stays plain prose; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The manifest leaf schema — the read family (IMPACT-LEAF-GRAIN, CONTEXT-VERB) consumes it. FENCED-PRIMITIVE shipped (raw `fenced_blocks` + primitive), so this now composes it into typed genre values. Genre-value *predicates* and the corpus's own genre declarations (packages/**, kinds/**) are OUT of fence — the interactive session lands them after this ships."
-  },
-  {
     "tag": "IMPACT-LEAF-GRAIN",
     "summary": "Give `impact` leaf grain — accept a leaf address and report citations separately from fallout, reading the manifest's serialized genre values",
     "per": {
