@@ -15,6 +15,9 @@
  */
 
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import {
@@ -388,7 +391,7 @@ test("emit lands every member on the byte-parity serializer", () => {
         (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
         (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
     )
-    .map(toManifestMember);
+    .map((member) => toManifestMember(member));
   assert.equal(toml, sorted.map(serializeManifestMember).join("\n"));
   // And it carries the expected schema.
   assert.match(toml, /^\[\[member\]\]$/m);
@@ -410,19 +413,92 @@ test("the leaf address rides structure: member + genre key + field path", () => 
   assert.equal(value.collections.rejected["baked-projection"].because.length > 0, true);
 });
 
-test("the absent slices fail loud, never silently", () => {
-  const withAsset = defineHarness({
-    members: [rule({ name: "long", body: fromFile("./long.md") })],
-  });
-  assert.throws(() => emitManifestMembers(withAsset), /fromFile resolution is not in the scaffold/);
+// ---------------------------------------------------------------------------
+// Body resolution — `fromFile` assets read in, mentions resolution-checked and
+// rendered by the display rule (`specs/architecture/20-surface.md`, "Mentions").
+// Resolution happens at emit against the whole harness's declared values.
+// ---------------------------------------------------------------------------
 
-  const withMention = defineHarness({
-    members: [
-      rule({
-        name: "mentions",
-        body: md`A ${{ address: "kind:rule", display: "rule" }} is declared.`,
-      }),
-    ],
+test("a fromFile body resolves, emits, and stays byte-parity", () => {
+  const dir = mkdtempSync(join(tmpdir(), "temper-fromfile-"));
+  try {
+    // A trailing newline forces the same multiline-basic spelling the Rust
+    // emitter picks for an asset read from disk — the parity the fixture pins.
+    const content = "# Long rule\n\nBody line one.\nBody line two.\n";
+    writeFileSync(join(dir, "long.md"), content);
+    const member = rule({ name: "long", body: fromFile("./long.md") });
+    const harness = defineHarness({ members: [member] });
+
+    const toml = emitManifestMembers(harness, { baseDir: dir });
+    // The asset is the section body byte-for-byte — same bytes an inline member
+    // carrying that content would land on the serializer.
+    const expected: ManifestMember = {
+      kind: "claude-code.rule",
+      name: "long",
+      line_count: content.split("\n").length,
+      headings: ["Long rule"],
+      satisfies: [],
+      fields: {},
+      sections: [{ heading: "Long rule", body: content }],
+      genres: [],
+      published: [],
+    };
+    assert.equal(toml, serializeManifestMember(expected));
+    // Byte-deterministic: a second emit over the unchanged asset is identical.
+    assert.equal(toml, emitManifestMembers(harness, { baseDir: dir }));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a missing fromFile asset is a loud emit error", () => {
+  const harness = defineHarness({
+    members: [rule({ name: "long", body: fromFile("./absent.md") })],
   });
-  assert.throws(() => emitManifestMembers(withMention), /mention resolution is not in the scaffold/);
+  assert.throws(() => emitManifestMembers(harness, { baseDir: tmpdir() }), /did not resolve/);
+});
+
+test("a resolved mention renders to its declared value's display form", () => {
+  const target = rule({ name: "rust", body: md`# Rust` });
+  const citer = rule({
+    name: "citations",
+    body: md`A ${{ address: "claude-code.rule:rust", display: "rust" }} is declared.`,
+  });
+  const harness = defineHarness({ members: [target, citer] });
+
+  const toml = emitManifestMembers(harness);
+  // The display rule substituted the target's form; the surrounding words and
+  // spacing are the author's, and no interpolation marker survives (law 5).
+  assert.match(toml, /body = "A rust is declared\."/);
+  assert.doesNotMatch(toml, /\u0000/);
+
+  // The rendered member is byte-identical to the same words authored inline.
+  const rendered = serializeManifestMember(
+    toManifestMember(citer, { mentionable: new Set(["claude-code.rule:rust"]) }),
+  );
+  const inline: ManifestMember = {
+    kind: "claude-code.rule",
+    name: "citations",
+    line_count: 1,
+    headings: [],
+    satisfies: [],
+    fields: {},
+    sections: [{ heading: "citations", body: "A rust is declared." }],
+    genres: [],
+    published: [],
+  };
+  assert.equal(rendered, serializeManifestMember(inline));
+  // Byte-deterministic across a second emit.
+  assert.equal(toml, emitManifestMembers(harness));
+});
+
+test("an unresolved mention is a loud emit error", () => {
+  const citer = rule({
+    name: "citations",
+    body: md`A ${{ address: "claude-code.rule:ghost", display: "ghost" }} is declared.`,
+  });
+  assert.throws(
+    () => emitManifestMembers(defineHarness({ members: [citer] })),
+    /a mention cannot dangle/,
+  );
 });

@@ -26,6 +26,13 @@ export interface PublishedRequirement {
 export interface Member {
   readonly kind: string;
   readonly name: string;
+  /**
+   * The authored body union — an inline mention-bearing template or a `fromFile`
+   * asset. It stays **unresolved** here: the asset is read and the mentions are
+   * resolution-checked at emit, against the whole harness's declared values, not
+   * at authoring (`specs/architecture/20-surface.md`, "Mentions"; `emit`'s
+   * `resolveBody`). Authoring holds the reference; emit resolves it.
+   */
   readonly body: Body;
   readonly fields: Readonly<Record<string, unknown>>;
   readonly satisfies: Readonly<Record<string, SatisfiesClaim>>;

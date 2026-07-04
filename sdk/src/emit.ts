@@ -16,13 +16,18 @@
  * divergence.
  *
  * SCAFFOLD BOUNDS — stated, not hidden:
- * - Projection writing (members → `.claude/**`), lock stamping, `fromFile`
- *   resolution, and mention resolution-checking are deliberately absent — each
- *   is a named altitude entry, never silently faked here.
+ * - Projection writing (members → `.claude/**`) and lock stamping are
+ *   deliberately absent — each is a named altitude entry, never silently faked
+ *   here. `fromFile` asset resolution and mention resolution-checking are
+ *   resolved at emit (below), the `20-surface.md` "Mentions" contract.
  */
+
+import { readFileSync } from "node:fs";
+import { resolve as resolvePath } from "node:path";
 
 import type { Harness } from "./assembly.js";
 import type { Member } from "./members.js";
+import { renderInline } from "./prose.js";
 import type {
   ManifestGenreValue,
   ManifestMember,
@@ -365,26 +370,64 @@ export function serializeManifestMember(member: ManifestMember): string {
   return emitDocument([member]);
 }
 
-/** Render one module-carried member's authored body to its manifest text. */
-function bodyText(member: Member): string {
+/**
+ * How emit resolves the two body carriages a module-carried member can hold
+ * (`specs/architecture/20-surface.md`, "Mentions"). Resolution happens **at
+ * emit, not at authoring** — the address set is the whole harness's declared
+ * values, unknown to any one member in isolation.
+ */
+export interface ResolveOptions {
+  /**
+   * The addresses a mention may name — every declared value in the harness
+   * (member `kind:name`, requirement name, genre leaf). A mention outside it is
+   * a loud emit error: a mention cannot dangle (`45-governance.md`). Absent, no
+   * address resolves, so any mention fails loud — a standalone member cannot
+   * carry a resolvable mention; that is emit's job.
+   */
+  readonly mentionable?: ReadonlySet<string>;
+  /** Base dir a `fromFile` module-relative path resolves against (default: cwd). */
+  readonly baseDir?: string;
+}
+
+/**
+ * Resolve a member's authored body to its final manifest text: a `fromFile`
+ * asset is read into the body; an inline body's mentions are resolution-checked
+ * (loud on a dangling address) and rendered by the one display rule. The words
+ * themselves are never reworded (law 5) — a mention only substitutes its target's
+ * display form, and an asset is copied byte-for-byte.
+ *
+ * # Throws
+ * If a `fromFile` asset does not exist, or a mention names an address no
+ * declared value carries.
+ */
+function resolveBody(member: Member, options: ResolveOptions): string {
   if (member.body.kind === "fromFile") {
-    throw new Error(
-      `member \`${member.name}\`: fromFile resolution is not in the scaffold — ` +
-        `inline the body or wait for the asset-resolution slice.`,
-    );
+    const assetPath = resolvePath(options.baseDir ?? process.cwd(), member.body.path);
+    try {
+      return readFileSync(assetPath, "utf8");
+    } catch (cause) {
+      throw new Error(
+        `member \`${member.name}\`: fromFile asset \`${member.body.path}\` did not resolve ` +
+          `(looked at \`${assetPath}\`).`,
+        { cause },
+      );
+    }
   }
-  if (member.body.mentions.length > 0) {
-    throw new Error(
-      `member \`${member.name}\`: mention resolution is not in the scaffold — ` +
-        `mentions require the resolution-checked emit slice.`,
-    );
+  const mentionable = options.mentionable ?? new Set<string>();
+  for (const mention of member.body.mentions) {
+    if (!mentionable.has(mention.target.address)) {
+      throw new Error(
+        `member \`${member.name}\`: mention of \`${mention.target.address}\` resolves to no ` +
+          `declared value — a mention cannot dangle (specs/architecture/45-governance.md).`,
+      );
+    }
   }
-  return member.body.template;
+  return renderInline(member.body);
 }
 
 /** The parsed-shape view of one authored member, for tests and tooling. */
-export function toManifestMember(member: Member): ManifestMember {
-  const body = bodyText(member);
+export function toManifestMember(member: Member, options: ResolveOptions = {}): ManifestMember {
+  const body = resolveBody(member, options);
   const headings = [...body.matchAll(/^#{1,6} +(.+)$/gm)].map((m) => m[1]);
   const published: ManifestPublishedRequirement[] = Object.keys(member.requirements)
     .sort()
@@ -410,25 +453,68 @@ export function toManifestMember(member: Member): ManifestMember {
   };
 }
 
+/**
+ * Every address a mention may name — the harness's declared values, the one-way
+ * edge's resolution set (`specs/architecture/45-governance.md`, "the mention is
+ * the readmitted one-way annotation class"). A member is `kind:name`; a
+ * requirement (assembly-declared or member-published) is its name; a genre leaf
+ * is its member-qualified structural address (`member.genre-key.field`, sibling
+ * collections keyed at every level — `20-surface.md`, the leaf-address Decision).
+ * Section anchors are a later producer — no Mentionable helper mints one yet.
+ */
+function declaredAddresses(harness: Harness): Set<string> {
+  const set = new Set<string>();
+  for (const name of Object.keys(harness.requirements)) set.add(name);
+  for (const member of harness.members) {
+    set.add(`${member.kind}:${member.name}`);
+    for (const name of Object.keys(member.requirements)) set.add(name);
+    for (const genre of member.genres) {
+      for (const field of Object.keys(genre.leaves)) {
+        set.add(`${member.name}.${genre.key}.${field}`);
+      }
+      for (const [collection, entries] of Object.entries(genre.collections)) {
+        for (const [entry, leaves] of Object.entries(entries)) {
+          for (const field of Object.keys(leaves)) {
+            set.add(`${member.name}.${genre.key}.${collection}.${entry}.${field}`);
+          }
+        }
+      }
+    }
+  }
+  return set;
+}
+
 /** The harness's members as manifest members, deterministically kind-then-name ordered. */
-function orderedMembers(harness: Harness): ManifestMember[] {
+function orderedMembers(harness: Harness, options: ResolveOptions): ManifestMember[] {
   return [...harness.members]
     .sort(
       (a, b) =>
         (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
         (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
     )
-    .map(toManifestMember);
+    .map((member) => toManifestMember(member, options));
+}
+
+/** Emit-time inputs beyond the harness — where `fromFile` assets resolve from. */
+export interface EmitOptions {
+  /** Base dir a `fromFile` module-relative path resolves against (default: cwd). */
+  readonly baseDir?: string;
 }
 
 /**
  * Compile the harness's members to manifest TOML — double-emit verified:
  * nondeterminism in authoring code is a loud failure, never silent churn
- * (law 5, the emit bullet).
+ * (law 5, the emit bullet). Bodies resolve here, not at authoring: `fromFile`
+ * assets are read in and mentions are resolution-checked against the whole
+ * harness's declared values.
  */
-export function emitManifestMembers(harness: Harness): string {
-  const first = emitDocument(orderedMembers(harness));
-  const second = emitDocument(orderedMembers(harness));
+export function emitManifestMembers(harness: Harness, options: EmitOptions = {}): string {
+  const resolve: ResolveOptions = {
+    mentionable: declaredAddresses(harness),
+    baseDir: options.baseDir,
+  };
+  const first = emitDocument(orderedMembers(harness, resolve));
+  const second = emitDocument(orderedMembers(harness, resolve));
   if (first !== second) {
     throw new Error(
       "double-emit divergence: two passes over the same harness produced different bytes — " +

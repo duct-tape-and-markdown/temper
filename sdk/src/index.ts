@@ -26,4 +26,5 @@ export { customMember, memory, rule, skill } from "./members.js";
 export type { Harness, KindBinding, Requirement } from "./assembly.js";
 export { defineHarness } from "./assembly.js";
 
+export type { EmitOptions, ResolveOptions } from "./emit.js";
 export { emitManifestMembers, serializeManifestMember, toManifestMember } from "./emit.js";
