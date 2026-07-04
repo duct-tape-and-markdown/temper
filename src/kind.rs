@@ -645,6 +645,14 @@ pub enum Primitive {
         /// member `at-import`.
         syntax: DirectiveSyntax,
     },
+    /// `fenced` — the body's fenced code blocks (`Features::fenced_blocks`), in
+    /// document order, each block's info string paired with its interior content
+    /// (`specs/architecture/15-kinds.md`, "a fenced block — whose first consumer is
+    /// the genre fence"). Markdown structure, deterministically extractable like
+    /// `headings`/`sections`: the same fence boundaries, surfaced whole. Its first
+    /// consumer is the genre fence — fenced extraction composed with a TOML parse
+    /// (GENRE-MANIFEST-LEAF); this primitive yields the raw blocks only.
+    Fenced,
 }
 
 /// A directive's format-executed body syntax — the closed per-syntax vocabulary the
@@ -674,6 +682,7 @@ impl Primitive {
             Primitive::LineCount => "line_count",
             Primitive::Placement => "placement",
             Primitive::Directives { .. } => "directives",
+            Primitive::Fenced => "fenced",
         }
     }
 
@@ -700,6 +709,7 @@ impl Primitive {
                     features.directives = extract::body_at_imports(&unit.body)
                 }
             },
+            Primitive::Fenced => features.fenced_blocks = extract::body_fenced_blocks(&unit.body),
         }
     }
 }
@@ -1275,6 +1285,7 @@ impl Extraction {
             sections: Vec::new(),
             source_dir: None,
             directives: Vec::new(),
+            fenced_blocks: Vec::new(),
             // `satisfies` is a surface edge threaded through unchanged, not a
             // composed primitive, so a custom-kind member joins coverage exactly as
             // a built-in kind's does (`specs/architecture/10-contracts.md`).
@@ -1306,6 +1317,7 @@ fn parse_primitive(table: &Table, index: usize, path: &Path) -> Result<Primitive
         "directives" => Primitive::Directives {
             syntax: parse_directive_syntax(&str_param(table, "syntax", index, path)?, index, path)?,
         },
+        "fenced" => Primitive::Fenced,
         other => {
             return Err(KindError::UnknownPrimitive {
                 path: path.to_path_buf(),
@@ -1486,6 +1498,40 @@ key = "priority"
         // The body loci are untouched — this extractor composes only `field`.
         assert_eq!(features.body_lines, 0);
         assert!(features.headings.is_empty());
+    }
+
+    #[test]
+    fn a_fenced_primitive_parses_and_folds_block_interiors_into_features() {
+        // `fenced` is a closed-vocab, parameterless primitive — it parses into
+        // `Primitive::Fenced` and folds the body's fenced blocks into `fenced_blocks`,
+        // each interior paired with its info string, surrounding prose skipped
+        // (`specs/architecture/15-kinds.md`, "a fenced block — whose first consumer is
+        // the genre fence").
+        let extraction = Extraction::parse(
+            "[[extraction]]\nprimitive = \"fenced\"\n",
+            Path::new("temper.toml"),
+        )
+        .unwrap();
+        assert_eq!(extraction.primitives(), &[Primitive::Fenced]);
+
+        let body = "# Doc\n\nprose\n\n```toml genre.manifest\nname = \"x\"\n```\n";
+        let unit = Unit {
+            id: "doc".to_string(),
+            frontmatter: BTreeMap::new(),
+            body: body.to_string(),
+            source_path: PathBuf::from("specs/architecture/15-kinds.md"),
+            satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
+            published_requirements: Vec::new(),
+        };
+        let features = extraction.extract(&unit);
+        assert_eq!(features.fenced_blocks.len(), 1);
+        assert_eq!(features.fenced_blocks[0].info, "toml genre.manifest");
+        assert_eq!(features.fenced_blocks[0].content, "name = \"x\"");
+        // This extractor composes only `fenced` — every other locus stays at its
+        // default (no headings extracted, no fields), the vacuous-composition floor.
+        assert!(features.headings.is_empty());
+        assert!(features.fields.is_empty());
     }
 
     #[test]

@@ -20,7 +20,7 @@ use toml_edit::{Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, Val
 
 use crate::contract::{self, Clause, Contract, ContractError};
 use crate::document::{self, PublishedRequirement};
-use crate::extract::{self, FeatureValue, Features, Kind, Section};
+use crate::extract::{self, FeatureValue, Features, FencedBlock, Kind, Section};
 
 /// The author-declared layer parsed from a project-root `temper.toml`: a per-kind
 /// set of package bindings and clause overrides to apply over the bound package.
@@ -114,7 +114,7 @@ pub struct Edge {
 /// manifest, the pre-extracted form the gate reads). It pairs the bare `kind` a member
 /// is checked under with the deterministically-extracted [`Features`] `import` (or the
 /// altitude's `emit`) baked in: the frontmatter fields, the body facts (line count,
-/// headings, sections, source dir, directives), and the representation edges
+/// headings, sections, source dir, directives, fenced blocks), and the representation edges
 /// (`satisfies`, published requirements). Generated-canonical — regenerated whole each
 /// `import`, never hand-tended — so the whole `member` root is re-emitted, distinct from
 /// the hand-authored bindings/requirements the tool patches format-preserving.
@@ -682,12 +682,12 @@ pub enum ComposeError {
     },
 
     /// A `[[member]]` table is malformed — missing or mistyped its required `kind`/`name`
-    /// strings, or carrying a `headings`/`directives`/`satisfies`/`section`/`published`
+    /// strings, or carrying a `headings`/`directives`/`satisfies`/`section`/`fenced`/`published`
     /// facet of the wrong TOML shape. Any miss folds here, the way [`parse_count`] folds a
     /// count bound's malformations. A generated section should never be malformed; a
     /// hand-edited one that is fails loudly, never silently degrading a member's features.
     #[error(
-        "{path}: `[[member]]` #{index} is malformed (each carries a `kind` and `name` string, an optional `line_count`/`source_dir`, string-array `headings`/`directives`/`satisfies`, a `[member.field]` table, and `[[member.section]]`/`[[member.published]]` tables)"
+        "{path}: `[[member]]` #{index} is malformed (each carries a `kind` and `name` string, an optional `line_count`/`source_dir`, string-array `headings`/`directives`/`satisfies`, a `[member.field]` table, and `[[member.section]]`/`[[member.fenced]]`/`[[member.published]]` tables)"
     )]
     #[diagnostic(code(temper::compose::bad_member))]
     BadMember {
@@ -1567,9 +1567,9 @@ fn inplace_member_to_table(member: &InPlaceMember) -> Table {
 /// Serialize one member's features into its `[[member]]` table: the bare `kind`, the
 /// `name` (id), the body facts (`line_count`, `source_dir`, `headings`, `directives`),
 /// the fill edges (`satisfies`), the `[member.field]` frontmatter table, and the
-/// `[[member.section]]`/`[[member.published]]` sub-tables. Every empty/absent facet is
-/// omitted so a member with no sections (or no unknown keys) stays terse, and an absent
-/// facet round-trips back to the same empty default.
+/// `[[member.section]]`/`[[member.fenced]]`/`[[member.published]]` sub-tables. Every
+/// empty/absent facet is omitted so a member with no sections (or no unknown keys) stays
+/// terse, and an absent facet round-trips back to the same empty default.
 fn member_to_table(member: &ManifestMember) -> Table {
     let features = &member.features;
     let mut table = Table::new();
@@ -1608,6 +1608,16 @@ fn member_to_table(member: &ManifestMember) -> Table {
             sections.push(entry);
         }
         table["section"] = Item::ArrayOfTables(sections);
+    }
+    if !features.fenced_blocks.is_empty() {
+        let mut fenced = ArrayOfTables::new();
+        for block in &features.fenced_blocks {
+            let mut entry = Table::new();
+            entry["info"] = value(block.info.clone());
+            entry["content"] = value(block.content.clone());
+            fenced.push(entry);
+        }
+        table["fenced"] = Item::ArrayOfTables(fenced);
     }
     if !features.published_requirements.is_empty() {
         let mut published = ArrayOfTables::new();
@@ -1714,6 +1724,7 @@ fn parse_member(table: &Table, index: usize, path: &Path) -> Result<ManifestMemb
     let satisfies = member_str_array(table, "satisfies", &bad)?;
     let fields = parse_member_fields(table);
     let sections = parse_member_sections(table, &bad)?;
+    let fenced_blocks = parse_member_fenced(table, &bad)?;
     let published_requirements = parse_member_published(table, &bad)?;
     Ok(ManifestMember {
         kind,
@@ -1725,6 +1736,7 @@ fn parse_member(table: &Table, index: usize, path: &Path) -> Result<ManifestMemb
             sections,
             source_dir,
             directives,
+            fenced_blocks,
             satisfies,
             published_requirements,
         },
@@ -1822,6 +1834,28 @@ fn parse_member_sections(
         sections.push(Section { heading, body });
     }
     Ok(sections)
+}
+
+/// Rebuild a member's body `fenced_blocks` from its `[[member.fenced]]` tables — each
+/// an `info`/`content` string pair, the inverse of the `fenced` extraction
+/// (`specs/architecture/15-kinds.md`, "a fenced block — whose first consumer is the
+/// genre fence"). Absent ⇒ empty; a malformed entry folds into
+/// [`ComposeError::BadMember`], exactly as [`parse_member_sections`] handles its own.
+fn parse_member_fenced(
+    table: &Table,
+    bad: &impl Fn() -> ComposeError,
+) -> Result<Vec<FencedBlock>, ComposeError> {
+    let Some(item) = table.get("fenced") else {
+        return Ok(Vec::new());
+    };
+    let array = item.as_array_of_tables().ok_or_else(bad)?;
+    let mut blocks = Vec::with_capacity(array.len());
+    for entry in array.iter() {
+        let info = member_str(entry, "info").ok_or_else(bad)?;
+        let content = member_str(entry, "content").ok_or_else(bad)?;
+        blocks.push(FencedBlock { info, content });
+    }
+    Ok(blocks)
 }
 
 /// Rebuild a member's `published_requirements` from its `[[member.published]]` tables —
@@ -3037,8 +3071,8 @@ primitive = "line_count"
     // ---- serialized member features (the emitted `[[member]]` root) --------
 
     /// A member carrying every facet — scalar/list/map/int/bool fields, body facts,
-    /// sections, satisfies, and a published requirement — the exhaustive round-trip
-    /// subject.
+    /// sections, fenced blocks, satisfies, and a published requirement — the exhaustive
+    /// round-trip subject.
     fn full_member() -> ManifestMember {
         let mut fields = BTreeMap::new();
         fields.insert(
@@ -3071,6 +3105,10 @@ primitive = "line_count"
                 }],
                 source_dir: Some("coordinate".to_string()),
                 directives: vec!["./PLAYBOOK.md".to_string()],
+                fenced_blocks: vec![FencedBlock {
+                    info: "toml genre.manifest".to_string(),
+                    content: "name = \"coordinate\"".to_string(),
+                }],
                 satisfies: vec!["dev-standards".to_string()],
                 published_requirements: vec![PublishedRequirement {
                     name: "task-planning".to_string(),
@@ -3111,6 +3149,7 @@ primitive = "line_count"
                 sections: Vec::new(),
                 source_dir: None,
                 directives: Vec::new(),
+                fenced_blocks: Vec::new(),
                 satisfies: Vec::new(),
                 published_requirements: Vec::new(),
             },

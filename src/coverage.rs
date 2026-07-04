@@ -151,6 +151,7 @@ mod tests {
             sections: Vec::new(),
             source_dir: None,
             directives: Vec::new(),
+            fenced_blocks: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
             published_requirements: Vec::new(),
         }

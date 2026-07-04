@@ -143,6 +143,63 @@ fn an_unknown_directive_syntax_is_a_load_error() {
     ));
 }
 
+/// A `fenced` primitive composes over a `Unit` and folds the body's fenced blocks
+/// into `Features.fenced_blocks` in document order, each block's interior content paired
+/// with its info string — surrounding prose skipped (`specs/architecture/15-kinds.md`,
+/// "a fenced block — whose first consumer is the genre fence"). The end-to-end tie from
+/// the closed-vocabulary parse through the composed extractor.
+#[test]
+fn a_fenced_primitive_extracts_block_interiors_with_info_strings_in_order() {
+    let toml = "[[extraction]]\nprimitive = \"fenced\"\n";
+    let extraction =
+        Extraction::parse(toml, Path::new("kinds/claude-code/memory/KIND.md")).unwrap();
+
+    // Prose around two fenced blocks — a shell block and a keyed `toml genre.manifest`
+    // block, the shape the genre fence composes with a TOML parse.
+    let unit = memory_unit(
+        "# Kinds\n\
+\n\
+Surrounding prose is not captured.\n\
+\n\
+```sh\n\
+cargo test\n\
+```\n\
+\n\
+More prose between the fences.\n\
+\n\
+```toml genre.manifest\n\
+name = \"coordinate\"\n\
+```\n",
+    );
+    let features = extraction.extract(&unit);
+
+    // Each block yields its interior content (surrounding prose skipped) keyed by its
+    // info string, in document order.
+    assert_eq!(features.fenced_blocks.len(), 2);
+    assert_eq!(features.fenced_blocks[0].info, "sh");
+    assert_eq!(features.fenced_blocks[0].content, "cargo test");
+    assert_eq!(features.fenced_blocks[1].info, "toml genre.manifest");
+    assert_eq!(features.fenced_blocks[1].content, "name = \"coordinate\"");
+
+    // Order-stable across re-extraction — a pure function of the body.
+    assert_eq!(
+        extraction.extract(&unit).fenced_blocks,
+        features.fenced_blocks
+    );
+}
+
+/// A body with no fenced block yields none — absent, never errored
+/// (`specs/architecture/15-kinds.md`). The default a kind composing `fenced` lands on
+/// when a member carries no fence, exactly as `directives` yields none for a body with
+/// no `@import`.
+#[test]
+fn a_fenced_primitive_over_a_body_with_no_fence_yields_none() {
+    let toml = "[[extraction]]\nprimitive = \"fenced\"\n";
+    let extraction = Extraction::parse(toml, Path::new("kinds/x/KIND.md")).unwrap();
+    let unit = memory_unit("# Kinds\n\nJust prose, no fenced block at all.\n");
+    assert!(extraction.extract(&unit).fenced_blocks.is_empty());
+}
+
 /// The `rule_features` projection over a `.claude/rules/*.md` rule that carries a
 /// `paths:` scope (the `rust.md` dogfood shape) — a typed list field, a body with
 /// nested sections, and the discovered `rules` directory.

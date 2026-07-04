@@ -166,6 +166,27 @@ pub struct Section {
     pub body: String,
 }
 
+/// One fenced code block of a markdown body: its **info string** (the text after
+/// the opening fence — `sh`, `toml`, `toml genre.foo` — trimmed) paired with the
+/// block's **interior content** (the lines between the fences, rejoined with `\n`).
+/// The feature a `fenced` primitive yields (`specs/architecture/15-kinds.md`, "a
+/// fenced block — whose first consumer is the genre fence"): fenced extraction
+/// composed with a TOML parse yields a genre value's features, declared data at
+/// body position. Surface-decidable like every other feature — the fence
+/// boundaries are the ones [`body_headings`] already tracks, so a block is never a
+/// guess. The info string is available so the genre consumer can key on
+/// `genre.<name>`; this generic primitive yields the raw blocks only, the TOML
+/// composition a later slice.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FencedBlock {
+    /// The opening fence's info string, trimmed — `sh`, `toml`, or empty for a bare
+    /// fence. The declared kind the genre consumer keys on.
+    pub info: String,
+    /// The block's interior content — the lines between the fences, rejoined with
+    /// `\n`, byte-faithful to the body span exactly as a [`Section`]'s body is.
+    pub content: String,
+}
+
 /// An artifact's deterministically-extracted features, keyed for generic clause
 /// lookup. Everything here is surface-decidable; nothing is inferred meaning.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -199,6 +220,14 @@ pub struct Features {
     /// the raw occurrence strings only, resolution/classing a later slice. Empty
     /// when the kind composes no `directives` primitive.
     pub directives: Vec<String>,
+    /// The body's fenced code blocks, in document order — each block's info string
+    /// paired with its interior content, the feature a `fenced` primitive yields
+    /// (`specs/architecture/15-kinds.md`, "a fenced block — whose first consumer is
+    /// the genre fence"). A body-derived feature like
+    /// [`headings`](Features::headings)/[`sections`](Features::sections)/[`directives`](Features::directives):
+    /// the same fence boundaries the heading extractor tracks, surfaced whole. Empty
+    /// when the kind composes no `fenced` primitive.
+    pub fenced_blocks: Vec<FencedBlock>,
     /// The requirements this artifact opts into filling — the authored
     /// `[representation].satisfies` bindings, surfaced for the coverage check
     /// (`specs/architecture/20-surface.md`, "Each artifact directory is a representation, not
@@ -335,6 +364,85 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
         });
     }
     sections
+}
+
+/// Extract the **fenced code blocks** of a byte-faithful markdown body, in document
+/// order: each block's info string (the text after the opening fence, trimmed)
+/// paired with its interior content (the lines between the fences, rejoined with
+/// `\n`). The feature a `fenced` primitive yields (`specs/architecture/15-kinds.md`,
+/// "a fenced block — whose first consumer is the genre fence"). A block opens on a
+/// fence marker and closes on the next marker of the **same char and at least the
+/// opening length** — the identical fence tracking [`body_headings`] runs, so a
+/// heading or a shorter/different marker *inside* a block is interior content, never
+/// a nested open. An unterminated fence runs to the end of the body (CommonMark), so
+/// its block is still yielded rather than silently dropped. Surrounding prose is
+/// skipped — only the interior is captured — and a body with no fence yields none.
+///
+/// `pub(crate)` so the data-driven [`crate::kind`] `fenced` primitive composes this
+/// exact reader rather than a second one that could drift from the heading/section
+/// fence logic (`specs/architecture/15-kinds.md`).
+pub(crate) fn body_fenced_blocks(body: &str) -> Vec<FencedBlock> {
+    let mut blocks = Vec::new();
+    // The open fence's char, run length, info string, and the interior lines
+    // gathered so far — `Some` while inside a fenced block.
+    let mut open: Option<(char, usize, String, Vec<String>)> = None;
+    for line in body.lines() {
+        if let Some((fence_char, fence_len)) = fence_marker(line) {
+            match open.take() {
+                None => {
+                    // A fence opens: its info string is the text after the fence run.
+                    open = Some((
+                        fence_char,
+                        fence_len,
+                        fence_info(line, fence_char),
+                        Vec::new(),
+                    ));
+                }
+                Some((open_char, open_len, info, content))
+                    if fence_char == open_char && fence_len >= open_len =>
+                {
+                    // A matching closing fence — the block is complete. `open` stays
+                    // `None` (taken above).
+                    blocks.push(FencedBlock {
+                        info,
+                        content: content.join("\n"),
+                    });
+                }
+                Some((open_char, open_len, info, mut content)) => {
+                    // A marker of a different char or shorter length inside an open
+                    // block is interior content, not a close (the `Some(_) => {}` case
+                    // `body_headings` treats as non-heading, captured here).
+                    content.push(line.to_string());
+                    open = Some((open_char, open_len, info, content));
+                }
+            }
+            continue;
+        }
+        if let Some((.., content)) = &mut open {
+            content.push(line.to_string());
+        }
+    }
+    // An unterminated fence extends to the end of the body (CommonMark) — yield its
+    // block rather than lose the captured content.
+    if let Some((.., info, content)) = open {
+        blocks.push(FencedBlock {
+            info,
+            content: content.join("\n"),
+        });
+    }
+    blocks
+}
+
+/// The info string of a fenced-block opening `line` — the text after the fence
+/// character run, trimmed (`` ```sh `` → `sh`, a bare `` ``` `` → empty). The
+/// caller has already confirmed via [`fence_marker`] that `line` (leading spaces
+/// aside) opens with a run of `fence_char`, so trimming that run then the
+/// surrounding whitespace leaves the declared kind the genre consumer keys on.
+fn fence_info(line: &str, fence_char: char) -> String {
+    line.trim_start_matches(' ')
+        .trim_start_matches(fence_char)
+        .trim()
+        .to_string()
 }
 
 /// The fence marker a line carries, if any: the fence character (`` ` `` or
@@ -632,6 +740,92 @@ Ping me @ the standup, or at user@example.com.\n";
                 "c/three.md".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn fenced_blocks_capture_interiors_and_info_strings_in_document_order() {
+        // Two blocks with info strings, prose around and between — only the interiors
+        // are captured, in document order, each with its trimmed info string.
+        let body = "# Title\n\
+\n\
+prose above\n\
+\n\
+```sh\n\
+cargo test\n\
+```\n\
+\n\
+prose between\n\
+\n\
+```toml genre.manifest\n\
+name = \"x\"\n\
+count = 2\n\
+```\n\
+\n\
+prose below\n";
+        let blocks = body_fenced_blocks(body);
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].info, "sh");
+        assert_eq!(blocks[0].content, "cargo test");
+        assert_eq!(blocks[1].info, "toml genre.manifest");
+        assert_eq!(blocks[1].content, "name = \"x\"\ncount = 2");
+    }
+
+    #[test]
+    fn a_body_with_no_fence_yields_no_blocks() {
+        // Absent, never errored — the default a `fenced` primitive lands on.
+        assert!(body_fenced_blocks("# Only prose\n\nno fence here at all.\n").is_empty());
+        assert!(body_fenced_blocks("").is_empty());
+    }
+
+    #[test]
+    fn a_bare_fence_and_an_empty_block_are_captured() {
+        // A bare ``` opens a block with an empty info string; an immediately-closed
+        // fence yields an empty content span — never dropped.
+        let blocks = body_fenced_blocks("```\nplain\n```\n\n```\n```\n");
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].info, "");
+        assert_eq!(blocks[0].content, "plain");
+        assert_eq!(blocks[1].info, "");
+        assert_eq!(blocks[1].content, "");
+    }
+
+    #[test]
+    fn a_heading_or_inner_marker_inside_a_fence_is_interior_content() {
+        // The same fence tracking `body_headings` runs: a `#` line and a shorter/other
+        // marker inside the block are interior content, not a heading or a nested open.
+        let body = "```text\n\
+# not a heading\n\
+~~~ not a close\n\
+`` short\n\
+```\n";
+        let blocks = body_fenced_blocks(body);
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].info, "text");
+        assert_eq!(
+            blocks[0].content,
+            "# not a heading\n~~~ not a close\n`` short"
+        );
+        // And the fenced `#` opens no section — the two extractors agree on the fence.
+        assert!(body_headings(body).is_empty());
+    }
+
+    #[test]
+    fn an_unterminated_fence_runs_to_the_end_of_the_body() {
+        // CommonMark: an unclosed fence extends to end of document — the block is still
+        // yielded (its content not silently lost), the same view `body_headings` takes
+        // when a trailing fence swallows the remainder.
+        let blocks = body_fenced_blocks("intro\n\n```sh\ncargo build\nno closing fence\n");
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].info, "sh");
+        assert_eq!(blocks[0].content, "cargo build\nno closing fence");
+    }
+
+    #[test]
+    fn re_running_fenced_extraction_is_byte_identical() {
+        // A pure function of the body — the property that makes a fenced block a sound
+        // gate input (`specs/architecture/15-kinds.md`, the soundness boundary).
+        let body = "```toml\nk = 1\n```\n";
+        assert_eq!(body_fenced_blocks(body), body_fenced_blocks(body));
     }
 
     #[test]

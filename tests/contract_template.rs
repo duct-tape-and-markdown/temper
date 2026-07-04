@@ -503,6 +503,7 @@ fn a_failing_clause_diagnostic_carries_its_colocated_guidance() {
         sections: Vec::new(),
         source_dir: Some("nameless".to_string()),
         directives: Vec::new(),
+        fenced_blocks: Vec::new(),
         satisfies: Vec::new(),
         published_requirements: Vec::new(),
     };

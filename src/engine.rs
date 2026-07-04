@@ -446,6 +446,7 @@ mod tests {
             sections: Vec::new(),
             source_dir: source_dir.map(str::to_string),
             directives: Vec::new(),
+            fenced_blocks: Vec::new(),
             satisfies: Vec::new(),
             published_requirements: Vec::new(),
         }
