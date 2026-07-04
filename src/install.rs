@@ -27,8 +27,8 @@
 //! computes each placement's desired bytes as an *idempotent merge* of temper's
 //! wiring into the file as it stands, then hands the write to the engine. So a
 //! re-run lands [`Unchanged`](drift::ApplyOutcome::Unchanged) (idempotent), a
-//! `--dry-run` writes nothing, and a placement a human deleted is re-created (the
-//! re-add direction). Because desired is a pure function of the current file,
+//! `--dry-run` writes nothing, and a placement a human deleted is re-created
+//! (re-derived from the current file every run). Because desired is a pure function of the current file,
 //! `install` keeps no last-applied fingerprint of its own — it passes `None` to
 //! [`drift::place`], and the merge re-derives the invariant every run.
 //!
@@ -109,7 +109,7 @@ const GUARD_MARKER: &str = "temper-managed projection";
 /// limit verbatim: the guard binds only this provider's writes, so other tools writing
 /// a shared file are not bound by it. Deliberately apostrophe-free — the command
 /// single-quotes it for the shell.
-const NOTE_GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — edit the surface and re-emit (temper re-add lifts a direct edit back). This guard binds only Claude Code writes; other tools writes are not bound by it.";
+const NOTE_GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code writes; other tools writes are not bound by it.";
 
 /// The extended-regex the guard command greps the `PreToolUse` payload for: a
 /// `file_path` value under a `.claude/` projection locus. Matching the field (not the
@@ -131,7 +131,7 @@ const MODELINE_MARKER: &str = "# yaml-language-server:";
 /// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
 /// stamped by `emit` (law 5 keeps the projection content-faithful; the note is
 /// install's, not the surface body's).
-const NOTE_COMMENT: &str = "# temper: managed projection — edit the .temper/ surface, not this generated file (temper re-add lifts a direct edit back).";
+const NOTE_COMMENT: &str = "# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.";
 
 /// Errors raised while projecting the gate wiring — the read/parse side `install`
 /// owns before it hands a placement's bytes to [`drift::place`] (whose own write
@@ -197,7 +197,7 @@ pub struct InstallReport {
 /// `root` is the project root — beside the `.claude/` and `.github/` the placements
 /// land in (the current directory, by CLI default). Nothing is written under
 /// `dry_run`; every outcome is still computed and reported. See the module header
-/// for the per-placement projection and the idempotence / re-add guarantees.
+/// for the per-placement projection and the idempotence / re-creation guarantees.
 pub fn run(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
     plan(root, dry_run)
 }
@@ -484,7 +484,7 @@ fn project_settings(
 /// the limit verbatim: the guard binds only this provider's writes.
 fn guard_command(authority: Authority) -> String {
     match authority {
-        // Advisory: inform and route to `re-add`, never block.
+        // Advisory: inform and route to `emit`, never block.
         Authority::Shared => {
             format!("grep -qE '{GUARD_PATH_MATCH}' && echo '{NOTE_GUARD_MESSAGE}' >&2; exit 0")
         }

@@ -449,6 +449,49 @@ fn a_posture_change_rewrites_the_guard_in_place() {
     );
 }
 
+#[test]
+fn the_note_and_guard_name_the_ratified_drift_remedy() {
+    // READD-RETIRE deleted the `re-add` verb; the managed-by note and guard message
+    // must name the ratified remedy — edit the owning `.temper/` source and re-run
+    // `temper emit` — never the retired verb (`specs/architecture/20-surface.md`,
+    // `re-add` retired). Re-placing the reworded strings stays idempotent.
+    let root = write_harness("drift-strings", true);
+    install::run(&root, false).unwrap();
+
+    let guard = guard_command(&root);
+    assert!(
+        guard.contains("re-run temper emit"),
+        "the guard routes to `temper emit`, got: {guard}"
+    );
+    assert!(
+        !guard.contains("re-add"),
+        "the guard must not name the retired `re-add` verb, got: {guard}"
+    );
+
+    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
+    assert!(
+        rust_md.contains("re-run temper emit"),
+        "the managed-by note routes to `temper emit`, got:\n{rust_md}"
+    );
+    assert!(
+        !rust_md.contains("re-add"),
+        "the note must not name the retired `re-add` verb, got:\n{rust_md}"
+    );
+
+    // Placing the reworded strings over their prior placement is a no-op: every guard
+    // and managed-by-note entry lands Unchanged, so no reword reintroduces churn.
+    let report = install::run(&root, false).unwrap();
+    assert!(
+        report
+            .entries
+            .iter()
+            .filter(|e| e.placement == "guard hook" || e.placement == "managed-by note")
+            .all(|e| e.outcome == ApplyOutcome::Unchanged),
+        "a re-install leaves the reworded note and guard Unchanged, got: {:?}",
+        report.entries
+    );
+}
+
 /// The schema modeline's marker — the frontmatter comment `install` places and `emit`
 /// round-trips (kept in step with `install.rs`'s `MODELINE_MARKER`).
 const MODELINE_MARKER: &str = "# yaml-language-server:";
