@@ -1,49 +1,40 @@
 [
   {
-    "tag": "LOCK-DECLARATION-ROWS",
-    "summary": "The lock grows declaration rows — kind facts, clauses, requirements, assembly facts beside provenance + emit fingerprints",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The lock and drift — one vocabulary"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        { "path": "tests/lock_declaration_rows.rs", "description": "Assert the lock carries a declaration-row family (kind facts, clauses, requirements, assembly facts) beside the existing provenance + emit-fingerprint families, and that a round-trip (emit → read) is byte-stable." }
-      ],
-      "edit": [
-        { "path": "src/drift.rs", "description": "The lock (`.temper/lock.toml`) is tool-written with three row families (20-surface, 'The lock and drift'): provenance (source fingerprints), emit fingerprints (artifact byte hashes — already present), and NEW declaration rows — the program's erased declarations (kind facts, clauses, requirements, assembly facts, 40-composition). Extend the lock struct + its read side with the declaration-row family." },
-        { "path": "src/import.rs", "description": "The lock write side (`LOCK_FILENAME`): emit serializes the composed program's declaration rows into the lock from the current extraction, so the rows exist before the gate reads them (next entry). Format-preserving via `toml_edit`." },
-        { "path": "src/hash.rs", "description": "If the declaration rows need their own fingerprint (a row-family hash for the disk-vs-lock comparison), add it here beside the existing hashing helpers." }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "tests/lock_declaration_rows.rs", "asserts": "the lock carries kind/clause/requirement/assembly declaration rows; emit→read is byte-stable" }
-    ],
-    "acceptance": "`.temper/lock.toml` carries a declaration-row family (kinds, clauses, requirements, assembly facts) written by emit, readable by the drift/gate side, byte-reproducible across a double emit.",
-    "notes": "Head of the six-noun demolition chain (John's go-ruling 2026-07-04). Rows sourced from current extraction for now; the SDK becomes the producer at SDK-RECUT-CORPUS-FACE. Self-gate off for the wave; git is the rollback story."
-  },
-  {
     "tag": "GATE-CORPUS-ARTIFACTS-LOCK",
     "summary": "The gate's corpus becomes committed artifacts plus the lock — retire temper.toml-as-corpus as the gate's read source",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "The seam — one implementation"
     },
-    "gate": { "kind": "blockedBy", "tag": "LOCK-DECLARATION-ROWS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LOCK-DECLARATION-ROWS"
+    },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
-        { "path": "src/main.rs", "description": "`check` today gates against the committed `temper.toml` manifest as its corpus (main.rs ~700, keyed by bare kind, with the legacy live-extraction fallback). Re-point the gate: the engine consumes committed artifacts plus the lock's declaration rows (20-surface, 'Checking never needs a language runtime … consume committed artifacts plus the lock'; 50-distribution, 'The stranger gate'). No manifest read on the gate path." },
-        { "path": "src/check.rs", "description": "The gate's surface load moves from manifest/`.temper` extraction to reading the lock's declaration rows + the committed `.claude/**` artifacts. Keep the diagnostic shape identical so reporters are untouched." },
-        { "path": "src/drift.rs", "description": "Freshness (disk vs lock) is the same one comparison in one vocabulary; wire the gate's corpus read through the lock rows this depends on." }
+        {
+          "path": "src/main.rs",
+          "description": "`check` today gates against the committed `temper.toml` manifest as its corpus (main.rs ~700, keyed by bare kind, with the legacy live-extraction fallback). Re-point the gate: the engine consumes committed artifacts plus the lock's declaration rows (20-surface, 'Checking never needs a language runtime … consume committed artifacts plus the lock'; 50-distribution, 'The stranger gate'). No manifest read on the gate path."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "The gate's surface load moves from manifest/`.temper` extraction to reading the lock's declaration rows + the committed `.claude/**` artifacts. Keep the diagnostic shape identical so reporters are untouched."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Freshness (disk vs lock) is the same one comparison in one vocabulary; wire the gate's corpus read through the lock rows this depends on."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/temper_toml.rs", "asserts": "reconciled: the gate reads the lock's declaration rows + committed artifacts, not the manifest as corpus" }
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "reconciled: the gate reads the lock's declaration rows + committed artifacts, not the manifest as corpus"
+      }
     ],
     "acceptance": "`temper check` gates a harness from committed artifacts plus the lock alone (no toolchain, no manifest-as-corpus); the embedded default program still gates an SDK-less harness (50-distribution, the stranger gate).",
     "notes": "Retires manifest-as-corpus on the GATE path only; the manifest machinery itself (roster/bindings artifacts, the reader) retires at MANIFEST-MACHINERY-RETIRE. Existing manifest-corpus tests reconcile to the lock-rows source."
@@ -55,21 +46,47 @@
       "path": "specs/architecture/20-surface.md",
       "section": "The seam — one implementation"
     },
-    "gate": { "kind": "blockedBy", "tag": "GATE-CORPUS-ARTIFACTS-LOCK" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GATE-CORPUS-ARTIFACTS-LOCK"
+    },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
-        { "path": "sdk/src/emit.ts", "description": "Re-cut the authoring face to the six-noun model: `harness()` (members · expect · require · settings · reachability, 40-composition); `kind<T>()`/`genre<T>()` constructors with the five runtime facts (15-kinds); clauses as values; `needs` (permissions derived at emit from their union, 20-surface); the three Prose constructors `file()`/`` text`…` ``/`blocks()`. Every type erases at the seam — the SDK implements no semantics, piping one internal versioned JSON of declaration rows to the engine (20-surface, 'The seam — one implementation'). Emit stays total, byte-reproducible, double-emit verified." },
-        { "path": "sdk/src/members.ts", "description": "Members become typed values with flat top-level typed fields (no `fields:` bag), `satisfies`/`requires`/`needs`, prose as a typed field (20-surface, 'The member'). Kind identity travels by import, never by string (15-kinds)." },
-        { "path": "sdk/src/manifest.ts", "description": "The SDK no longer authors a `temper.toml`/roster/bindings dialect (40-composition Decision rejects it); its output is the compiled declaration rows on the JSON pipe + the lock's declaration rows. Retire the manifest-authoring shape here, or fold it into the lock/seam producer." },
-        { "path": "sdk/src/assembly.ts", "description": "`harness()` compiles the assembly to declaration rows; `expect` binding is the spread of an exported clause array (a floor), no binding table (40-composition, 'Binding is implicit')." },
-        { "path": "sdk/src/project.ts", "description": "Projection writes the `.claude/**` artifacts byte-faithfully; the permission list is the derived union of members' `needs`; hook/MCP members fold many-to-one into settings/`.mcp.json` (20-surface, 'Emit — total')." },
-        { "path": "sdk/src/lock.ts", "description": "The lock stamps provenance + emit fingerprints + the NEW declaration rows the engine reads (matching LOCK-DECLARATION-ROWS' row shape — the byte-parity lockstep, kept in sync)." }
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Re-cut the authoring face to the six-noun model: `harness()` (members · expect · require · settings · reachability, 40-composition); `kind<T>()`/`genre<T>()` constructors with the five runtime facts (15-kinds); clauses as values; `needs` (permissions derived at emit from their union, 20-surface); the three Prose constructors `file()`/`` text`…` ``/`blocks()`. Every type erases at the seam — the SDK implements no semantics, piping one internal versioned JSON of declaration rows to the engine (20-surface, 'The seam — one implementation'). Emit stays total, byte-reproducible, double-emit verified."
+        },
+        {
+          "path": "sdk/src/members.ts",
+          "description": "Members become typed values with flat top-level typed fields (no `fields:` bag), `satisfies`/`requires`/`needs`, prose as a typed field (20-surface, 'The member'). Kind identity travels by import, never by string (15-kinds)."
+        },
+        {
+          "path": "sdk/src/manifest.ts",
+          "description": "The SDK no longer authors a `temper.toml`/roster/bindings dialect (40-composition Decision rejects it); its output is the compiled declaration rows on the JSON pipe + the lock's declaration rows. Retire the manifest-authoring shape here, or fold it into the lock/seam producer."
+        },
+        {
+          "path": "sdk/src/assembly.ts",
+          "description": "`harness()` compiles the assembly to declaration rows; `expect` binding is the spread of an exported clause array (a floor), no binding table (40-composition, 'Binding is implicit')."
+        },
+        {
+          "path": "sdk/src/project.ts",
+          "description": "Projection writes the `.claude/**` artifacts byte-faithfully; the permission list is the derived union of members' `needs`; hook/MCP members fold many-to-one into settings/`.mcp.json` (20-surface, 'Emit — total')."
+        },
+        {
+          "path": "sdk/src/lock.ts",
+          "description": "The lock stamps provenance + emit fingerprints + the NEW declaration rows the engine reads (matching LOCK-DECLARATION-ROWS' row shape — the byte-parity lockstep, kept in sync)."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "sdk/test", "asserts": "harness()/kind<T>()/clause values/needs/file()/text/blocks compile; emit produces the declaration-row seam + byte-faithful projection + lock; double-emit byte-stable (validated by the afterMerge `sdk test` gate)" }
+      {
+        "path": "sdk/test",
+        "asserts": "harness()/kind<T>()/clause values/needs/file()/text/blocks compile; emit produces the declaration-row seam + byte-faithful projection + lock; double-emit byte-stable (validated by the afterMerge `sdk test` gate)"
+      }
     ],
     "acceptance": "The SDK authors a harness in the six-noun face and emits declaration rows (the engine's seam) + a byte-faithful projection + the lock; the `sdk test` gate is green.",
     "notes": "Cross-language (sdk/*.ts), validated by the afterMerge `sdk test` gate ((sdk-build-gate) RESOLVED). Serialized in-chain (not parallel) because it defines the seam the engine reads and the posture/needs model later links carry. Two byte-parity writers stay in lockstep until single-writer lands (human-gated)."
@@ -81,21 +98,47 @@
       "path": "specs/architecture/20-surface.md",
       "section": "CLI surface"
     },
-    "gate": { "kind": "blockedBy", "tag": "SDK-RECUT-CORPUS-FACE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-RECUT-CORPUS-FACE"
+    },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
-        { "path": "src/main.rs", "description": "Collapse the `Command` enum to the corpus surface (20-surface, 'CLI surface'): keep init·check·emit·install·bundle·schema; RETIRE the `Import`, `Diff`, `SessionStart` (a verb — session start is a check reporter, not a verb, 50-distribution), `Why`, `Requirements`, `Impact`, `Context` variants and their dispatch arms. ADD `Command::Guard` — the `temper guard` subcommand reading the `PreToolUse` stdin payload, blocking per the author's declared surface-authority posture (note/warn/block), default advisory (50-distribution, the guard Decision; (guard-posture) resolved). `explain` is NOT added here — it lands fork-gated at EXPLAIN-UNIFY." },
-        { "path": "src/install.rs", "description": "Replace the migration-era always-exit-0 guard grep (`install::guard_command`, ~454) with wiring for the `temper guard` subcommand at the provider write boundary; the enforcement posture is author-declared, install-wired, enumerated, self-audited (20-surface, 'surface authority is a declared posture')." },
-        { "path": "src/read.rs", "description": "The four read verbs' dispatch (why/impact/context/requirements) is removed from the CLI here; the read TRAVERSALS are re-homed under the single `explain` verb at EXPLAIN-UNIFY. Trim only what the retired CLI arms reference; leave the graph-walk helpers explain reuses." },
-        { "path": "tests/session_start.rs", "description": "Session-start is a check reporter, not a verb — reconcile these to drive `check` with the session-start reporter, not a `SessionStart` command." },
-        { "path": "tests/read_verbs.rs", "description": "The four-verb CLI tests reconcile: the verbs retire; their traversals move to explain (EXPLAIN-UNIFY). Trim/retarget to the surviving reporter/guard behavior." },
-        { "path": "tests/cli.rs", "description": "Reconcile the CLI surface assertions to init·check·emit·install·bundle·schema·guard." }
+        {
+          "path": "src/main.rs",
+          "description": "Collapse the `Command` enum to the corpus surface (20-surface, 'CLI surface'): keep init·check·emit·install·bundle·schema; RETIRE the `Import`, `Diff`, `SessionStart` (a verb — session start is a check reporter, not a verb, 50-distribution), `Why`, `Requirements`, `Impact`, `Context` variants and their dispatch arms. ADD `Command::Guard` — the `temper guard` subcommand reading the `PreToolUse` stdin payload, blocking per the author's declared surface-authority posture (note/warn/block), default advisory (50-distribution, the guard Decision; (guard-posture) resolved). `explain` is NOT added here — it lands fork-gated at EXPLAIN-UNIFY."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Replace the migration-era always-exit-0 guard grep (`install::guard_command`, ~454) with wiring for the `temper guard` subcommand at the provider write boundary; the enforcement posture is author-declared, install-wired, enumerated, self-audited (20-surface, 'surface authority is a declared posture')."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "The four read verbs' dispatch (why/impact/context/requirements) is removed from the CLI here; the read TRAVERSALS are re-homed under the single `explain` verb at EXPLAIN-UNIFY. Trim only what the retired CLI arms reference; leave the graph-walk helpers explain reuses."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Session-start is a check reporter, not a verb — reconcile these to drive `check` with the session-start reporter, not a `SessionStart` command."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "The four-verb CLI tests reconcile: the verbs retire; their traversals move to explain (EXPLAIN-UNIFY). Trim/retarget to the surviving reporter/guard behavior."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Reconcile the CLI surface assertions to init·check·emit·install·bundle·schema·guard."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/cli.rs", "asserts": "the CLI exposes init·check·emit·install·bundle·schema·guard; the retired verbs are gone" }
+      {
+        "path": "tests/cli.rs",
+        "asserts": "the CLI exposes init·check·emit·install·bundle·schema·guard; the retired verbs are gone"
+      }
     ],
     "acceptance": "`temper --help` lists init·check·emit·install·bundle·schema·guard; `temper guard` reads a PreToolUse payload and blocks/warns/notes per the declared posture (default advisory); session-start is a check reporter.",
     "notes": "explain deferred to EXPLAIN-UNIFY (fork-gated on (explain-target-disambiguation)) so the demolition does not stall on an unresolved design question. Guard rides here per John's step-4 ('temper guard lands'); the posture model is carried by SDK-RECUT upstream."
@@ -107,12 +150,26 @@
       "path": "specs/architecture/40-composition.md",
       "section": "Decision: one authored assembly, no configuration dialect"
     },
-    "gate": { "kind": "blockedBy", "tag": "CLI-COLLAPSE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CLI-COLLAPSE"
+    },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
-        { "path": "src/main.rs", "description": "Remove the remaining manifest/roster/bindings load + emit-manifest paths now that the gate reads the lock rows (GATE-CORPUS-ARTIFACTS-LOCK) and the SDK authors no dialect (SDK-RECUT). 40-composition Decision rejects `temper.toml` and its `roster.toml`/`bindings.toml` decomposition — a second authoring surface." },
-        { "path": "src/compose.rs", "description": "Retire the `temper.toml` layer composition + the roster parse; binding is the spread in `expect` (40-composition, 'Binding is implicit'), carried as declaration rows, not composed from a manifest." },
-        { "path": "src/roster.rs", "description": "The roster/selection/admissibility over `temper.toml`'s `[role.*]` retires; whatever survives (requirement coverage over declaration rows) moves to the lock-rows source." }
+        {
+          "path": "src/main.rs",
+          "description": "Remove the remaining manifest/roster/bindings load + emit-manifest paths now that the gate reads the lock rows (GATE-CORPUS-ARTIFACTS-LOCK) and the SDK authors no dialect (SDK-RECUT). 40-composition Decision rejects `temper.toml` and its `roster.toml`/`bindings.toml` decomposition — a second authoring surface."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Retire the `temper.toml` layer composition + the roster parse; binding is the spread in `expect` (40-composition, 'Binding is implicit'), carried as declaration rows, not composed from a manifest."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "The roster/selection/admissibility over `temper.toml`'s `[role.*]` retires; whatever survives (requirement coverage over declaration rows) moves to the lock-rows source."
+        }
       ],
       "retire": [
         "src/assembly_artifacts.rs",
@@ -122,8 +179,14 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/manifest_kind_spelling.rs", "asserts": "reconciled or retired — no manifest-as-corpus remains" },
-      { "path": "tests/temper_toml.rs", "asserts": "reconciled or retired — the manifest is no longer an authoring or gate surface" }
+      {
+        "path": "tests/manifest_kind_spelling.rs",
+        "asserts": "reconciled or retired — no manifest-as-corpus remains"
+      },
+      {
+        "path": "tests/temper_toml.rs",
+        "asserts": "reconciled or retired — the manifest is no longer an authoring or gate surface"
+      }
     ],
     "acceptance": "No `temper.toml`/`roster.toml`/`bindings.toml` authoring or reading remains in the engine; the assembly is the SDK's `harness()` value compiled to lock declaration rows; contract/ byte-parity goldens reconciled to the lock/projection.",
     "notes": "Large retirement; the lib.rs `pub mod` line for the deleted assembly_artifacts module is dropped in this entry (linear chain — no co-edit conflict). contract/ byte-parity fixtures were the manifest/schema tripwire; reconcile them to the surviving projection/lock goldens."
@@ -135,23 +198,55 @@
       "path": "specs/architecture/15-kinds.md",
       "section": "Decision: field typing lives in the SDK — there is no kind file format"
     },
-    "gate": { "kind": "blockedBy", "tag": "MANIFEST-MACHINERY-RETIRE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-MACHINERY-RETIRE"
+    },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
-        { "path": "src/kind.rs", "description": "Retire the `KIND.md` header grammar (format/unit_shape/activation keys) and string-name identity resolution (15-kinds Decision: no kind file format; 'built-ins are a module, and identity is an import' rejects string-name identity + provider qualification). A kind's runtime residue is the five declaration facts read from the lock rows, not a parsed file." },
-        { "path": "src/builtin.rs", "description": "The built-in floor no longer embeds/parses `packages/<name>/PACKAGE.md`; a floor is an exported clause array in `@temper/claude-code` (10-contracts) whose rows arrive via the seam, and the engine carries a compiled default program (50-distribution) for SDK-less checking." },
-        { "path": "src/builtin_kind.rs", "description": "The embedded built-in kind set becomes the compiled default program (declaration rows), not a walk over the `kinds/<provider>/<name>/KIND.md` tree." },
-        { "path": "src/contract.rs", "description": "Clause parsing off `PACKAGE.md` retires; clauses are compiled predicates arriving as declaration rows." },
-        { "path": "src/document.rs", "description": "The KIND.md/PACKAGE.md document-carriage parse retires; the surface-language header grammar for kind/package files is gone." },
-        { "path": "build.rs", "description": "The build-time embed no longer walks the `kinds/`/`packages/` `*.md` trees to embed KIND.md/PACKAGE.md; it embeds the compiled default program instead." }
+        {
+          "path": "src/kind.rs",
+          "description": "Retire the `KIND.md` header grammar (format/unit_shape/activation keys) and string-name identity resolution (15-kinds Decision: no kind file format; 'built-ins are a module, and identity is an import' rejects string-name identity + provider qualification). A kind's runtime residue is the five declaration facts read from the lock rows, not a parsed file."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "The built-in floor no longer embeds/parses `packages/<name>/PACKAGE.md`; a floor is an exported clause array in `@temper/claude-code` (10-contracts) whose rows arrive via the seam, and the engine carries a compiled default program (50-distribution) for SDK-less checking."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "The embedded built-in kind set becomes the compiled default program (declaration rows), not a walk over the `kinds/<provider>/<name>/KIND.md` tree."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "Clause parsing off `PACKAGE.md` retires; clauses are compiled predicates arriving as declaration rows."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "The KIND.md/PACKAGE.md document-carriage parse retires; the surface-language header grammar for kind/package files is gone."
+        },
+        {
+          "path": "build.rs",
+          "description": "The build-time embed no longer walks the `kinds/`/`packages/` `*.md` trees to embed KIND.md/PACKAGE.md; it embeds the compiled default program instead."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/contract_fixtures.rs", "asserts": "reconciled — clauses come from compiled rows, not a parsed PACKAGE.md" },
-      { "path": "tests/contract_template.rs", "asserts": "reconciled or retired — no KIND.md/PACKAGE.md template parse remains" },
-      { "path": "tests/extract_equivalence.rs", "asserts": "generic extraction driven by the five facts, no per-kind/file-format parse" }
+      {
+        "path": "tests/contract_fixtures.rs",
+        "asserts": "reconciled — clauses come from compiled rows, not a parsed PACKAGE.md"
+      },
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "reconciled or retired — no KIND.md/PACKAGE.md template parse remains"
+      },
+      {
+        "path": "tests/extract_equivalence.rs",
+        "asserts": "generic extraction driven by the five facts, no per-kind/file-format parse"
+      }
     ],
     "acceptance": "The engine parses no KIND.md or PACKAGE.md; kinds and floors are declaration rows (SDK-authored or the compiled default program); extraction is the generic algebra driven by the five facts.",
     "notes": "Terminal demolition of the file-format vehicle. Curated `kinds/`/`packages/` trees are fence-excluded human territory — the SESSION migrates/retires them after emit lands (inbox: fence-side moves are the session's hands). This entry retires only the engine-side parse."
@@ -163,19 +258,37 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: one read verb — `explain`"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-PACKAGE-PARSE-RETIRE" },
-    "dependsOnForks": ["explain-target-disambiguation"],
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-PACKAGE-PARSE-RETIRE"
+    },
+    "dependsOnForks": [
+      "explain-target-disambiguation"
+    ],
     "files": {
+      "new": [],
       "edit": [
-        { "path": "src/main.rs", "description": "Add `Command::Explain { target }` — one read verb over the graph `check` computes, answering member / requirement / leaf-grain address / neighborhood from a single `<target>` (20-surface Decision: one read verb, rejecting a verb per question). Projections, never gates; exits zero; discloses coverage (names what it cannot see)." },
-        { "path": "src/read.rs", "description": "Re-home the four traversals (why/requirements/impact/context) under `explain`, dispatched by the resolved target species. Reuse the graph-walk helpers left in place by CLI-COLLAPSE." },
-        { "path": "tests/read_verbs.rs", "description": "Reframe as explain tests: each target species walks its corner of the one graph; coverage disclosure asserted." }
+        {
+          "path": "src/main.rs",
+          "description": "Add `Command::Explain { target }` — one read verb over the graph `check` computes, answering member / requirement / leaf-grain address / neighborhood from a single `<target>` (20-surface Decision: one read verb, rejecting a verb per question). Projections, never gates; exits zero; discloses coverage (names what it cannot see)."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Re-home the four traversals (why/requirements/impact/context) under `explain`, dispatched by the resolved target species. Reuse the graph-walk helpers left in place by CLI-COLLAPSE."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Reframe as explain tests: each target species walks its corner of the one graph; coverage disclosure asserted."
+        }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/read_verbs.rs", "asserts": "explain <target> resolves member/requirement/address/neighborhood; never gates; discloses coverage" }
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "explain <target> resolves member/requirement/address/neighborhood; never gates; discloses coverage"
+      }
     ],
     "acceptance": "`temper explain <target>` answers all four read questions over data check computes, exits zero, discloses coverage; the four separate verbs are gone.",
     "notes": "FORK-GATED on (explain-target-disambiguation): the corpus does not specify how one positional <target> resolves across member/requirement/address/neighborhood — member-vs-requirement name collision is the crux. Terminal leaf; blocks nothing. Human must rule target-resolution before build picks this."
@@ -194,10 +307,16 @@
     "dependsOnForks": [],
     "files": {
       "new": [
-        { "path": ".github/workflows/release.yml", "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone GitHub release assets), and produce/publish the plugin bundle with its `marketplace.json` (channel 3). Channel auto-detected. Distinct from any CI *check* job, which is a documented two-line user-authored job (`temper check` + `emit --frozen` byte-compare), not a generated file (50-distribution, 'install is two placements')." }
+        {
+          "path": ".github/workflows/release.yml",
+          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone GitHub release assets), and produce/publish the plugin bundle with its `marketplace.json` (channel 3). Channel auto-detected. Distinct from any CI *check* job, which is a documented two-line user-authored job (`temper check` + `emit --frozen` byte-compare), not a generated file (50-distribution, 'install is two placements')."
+        }
       ],
       "edit": [
-        { "path": "package.json", "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution 'Fail-loud delivery'). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. Scoped `@temper` names per the resolved `(project-name)` fork. NB distinct from sdk/package.json (the SDK authoring-face manifest — channel 1's `temper` core + `@temper/claude-code` provider module)." }
+        {
+          "path": "package.json",
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution 'Fail-loud delivery'). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. Scoped `@temper` names per the resolved `(project-name)` fork. NB distinct from sdk/package.json (the SDK authoring-face manifest — channel 1's `temper` core + `@temper/claude-code` provider module)."
+        }
       ],
       "retire": []
     },
