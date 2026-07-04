@@ -33,7 +33,7 @@
       }
     ],
     "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes it.)",
-    "notes": "Narrowed 07-03: the Fenced half graduated to the open FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. Shares kind.rs/extract.rs with the genre chain — serialize if un-deferred while that chain is live."
+    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. The addressable-corpus floor chain has now fully drained (CONTEXT-VERB shipped) — nothing engine-side is live against it. Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
   },
   {
     "tag": "AGENT-KIND",
@@ -82,7 +82,7 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero. Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with the genre chain + EXTRACTION-VOCAB-GAPS — serialize if un-deferred while either is live."
+    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero. Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with EXTRACTION-VOCAB-GAPS — serialize the two if both un-defer."
   },
   {
     "tag": "PACKAGING-CHANNELS",

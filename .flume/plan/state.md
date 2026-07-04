@@ -1,32 +1,32 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD 963b06e.
-- **Last shipped:** IMPACT-LEAF-GRAIN (`build` c06fe46 / `chore` 963b06e) —
-  `impact` gained leaf grain: `impact_leaf` resolves a
-  `<member>/<genre>/<key>/<field-path>` address off the manifest's serialized
-  genre values (`parse_leaf_address`/`resolve_leaf`), reporting citations
-  separately from fallout. Verified on disk (`src/read.rs`).
-- **This tick:** inbox empty; nothing to file. Confirmed IMPACT-LEAF-GRAIN
-  landed → flipped **CONTEXT-VERB** from `blockedBy IMPACT-LEAF-GRAIN` to
-  **open** (its upstream shipped; the serialized leaf shape it reads exists).
-  Reconcile catch: `impact_leaf`'s **success** path discloses coverage only in
-  its not-found error, not its found answer, yet `20-surface.md` binds the
-  disclosure to **both** verbs — folded the retrofit into CONTEXT-VERB (it
-  shares `read.rs`, so it can't be a parallel entry; the entry owns the shared
-  coverage-disclosure helper). Downstream refs re-checked: `read.rs` has
-  `why`/`impact`/`impact_leaf`/`requirements`, no `context`; `main.rs` has
-  `Command::{Why,Requirements,Impact}` (Impact dispatch ~567), no `Context`.
-  EXTRACTION-VOCAB-GAPS (deferred), AGENT-KIND (deferred), PACKAGING-CHANNELS
-  (parked) all hold.
-- **Pickable now:** **one `open`** — CONTEXT-VERB (read.rs/main.rs +
-  tests/read_verbs.rs), the sole open head, parallel-safe.
-- **What's next:** build ships CONTEXT-VERB → the addressable-corpus floor
-  engine chain fully drains. NOT build's work: the corpus genre *package*
-  (packages/**, kinds/** genre declarations) is out-of-fence — the interactive
-  session lands it after the engine chain; altitude authoring stays on ask (a).
-  Accepted floor debt: temper's own `temper.toml`+lock predate MANIFEST-EMIT —
-  a human `chore(harness)` `emit` regen.
+- **Phase:** reconcile. HEAD 5baf2ca.
+- **Last shipped:** CONTEXT-VERB (`build` 52d0047 / `chore` 5baf2ca) — `temper
+  context <address>` reads a member/genre/leaf address off the manifest, and the
+  shared `disclose_coverage` helper now discloses mixed-rung coverage on the
+  **found** answer of both leaf verbs, not only the not-found error. Verified on
+  disk (`src/read.rs:547,601,634`; `main.rs:660` `Command::Context`).
+- **This tick:** inbox empty; nothing to file. Confirmed CONTEXT-VERB landed →
+  the **addressable-corpus floor engine chain** (fence extraction → leaf schema →
+  `impact` leaf → `context` + shared coverage disclosure) has **fully drained**.
+  Re-checked the resolved `(launch-front-door-docs)` fork: its fileable build
+  work already shipped (AGENTS.md `chore(offering)` 267599a, CHANGELOG.md `build`
+  e7e3fb9) — no gap there. **No `open` build head remains.** The three held
+  entries hold on their own terms: EXTRACTION-VOCAB-GAPS (deferred, no consumer),
+  AGENT-KIND (deferred, wrong direction), PACKAGING-CHANNELS (parked, human
+  creds). Trued-up the two deferred entries' notes (their "genre chain" serialize
+  rider is moot — that chain drained).
+- **Pickable now:** **none** — no `open` entry; all three held are
+  deferred/parked. Build has nothing to pick this cycle.
+- **What's next:** NOT build's work. The remaining floor follow-ons are all
+  human/interactive territory — the corpus genre *package* (packages/**, kinds/**
+  genre declarations; interactive session, out-of-fence), the altitude rung
+  (TypeScript authoring face, parked on John / ask (a)), PACKAGING-CHANNELS
+  (human release creds), and the accepted debt: temper's own `temper.toml`+lock
+  predate MANIFEST-EMIT, a human `chore(harness)` `emit` regen (`temper.toml` ∉
+  BUILD_WRITABLE_PATHS).
 
-Plan continues: no — inbox empty, queue reconciled, CONTEXT-VERB is a live
-`open` head. Building is how the chain drains; re-planning the same held queue
-would spin.
+Plan continues: no — inbox empty, queue reconciled, the addressable-corpus floor
+engine chain fully drained, and no `open` head remains. Remaining work is
+human/interactive (corpus genre package, altitude rung, packaging, dogfood
+regen); manufacturing a build entry would fill a gap the corpus doesn't carry.
