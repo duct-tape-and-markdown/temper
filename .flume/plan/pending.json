@@ -1,49 +1,5 @@
 [
   {
-    "tag": "SDK-PROJECTION-LOCK",
-    "summary": "SDK emit writes the harness projection (members → `.claude/**`) and stamps the lock's freshness fingerprints — the last two scaffold bounds, both deliberately absent today",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Content-faithful, deterministically emitted (law 5)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "sdk/src/project.ts",
-          "description": "Projection writing: compile each member to its harness format under `.claude/**` (the projection half of emit), whole-file re-emit, byte-faithful. Mirrors the Rust emit projector; the emit orchestrator calls it after the manifest is serialized."
-        },
-        {
-          "path": "sdk/src/lock.ts",
-          "description": "Lock stamping: compute and write the `source_hash`/`emit_hash` freshness fingerprints the drift engine reads (`config.stale`), matching the Rust lock's hash inputs so an SDK-emitted lock and a Rust-emitted lock agree for the same face."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Export `project`/`lock` and wire them into the emit entry so a full `emit` compiles manifest + projection + lock in one deterministic pass."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Cover projection byte-fidelity and lock-fingerprint agreement with the Rust emitter for a shared fixture."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "SDK projection output matches the Rust projector byte-for-byte for a shared member, and the SDK-stamped lock's `source_hash`/`emit_hash` match the Rust lock for the same face."
-      }
-    ],
-    "acceptance": "A full SDK `emit` writes the manifest, the `.claude/**` projection, and a lock whose fingerprints agree with the Rust emitter; `pnpm --dir sdk test` green.",
-    "notes": "Closes the scaffold's last two bounds (projection writing, lock stamping). New modules project.ts/lock.ts plus index.ts wiring over the shipped emit orchestration (SDK-BODY-RESOLUTION landed — bodies resolve at emit). Last link of the altitude authoring wave."
-  },
-  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {
