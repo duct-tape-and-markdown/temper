@@ -1,14 +1,13 @@
 [
   {
     "tag": "CONTEXT-VERB",
-    "summary": "Add `temper context <address>` — emit a member's or leaf's declared neighborhood, with the mixed-rung coverage disclosure shipped in the same entry",
+    "summary": "Add `temper context <address>` — emit a member's or leaf's declared neighborhood; disclose mixed-rung coverage, the shared helper also landing on `impact`'s leaf answer",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: the CLI gains a read family — `why` and `requirements`"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "IMPACT-LEAF-GRAIN"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "src/read.rs",
-          "description": "Add a `context` read function: given a member or leaf address, emit its declared neighborhood — genre slot, siblings, citers, satisfied requirements (`20-surface.md`, \"`context <address>` emits a member's or leaf's declared neighborhood\"), the pre-edit context bundle for the primary author. Consumes only the manifest (offline, tier-1). MUST **disclose coverage** in the same entry: every leaf-grain answer names what it cannot see (\"N documents below rung 3 — not represented at leaf grain\"), since a mixed-rung corpus is the standing state (`00-intent.md` genre Decision; law 1 — an incomplete answer in complete clothes erodes the verb)."
+          "description": "Add a `context` read function: given a member or leaf address, emit its declared neighborhood — genre slot, siblings, citers, satisfied requirements (`20-surface.md`, \"`context <address>` emits a member's or leaf's declared neighborhood\"), the pre-edit context bundle for the primary author. Consumes only the manifest (offline, tier-1). Introduce a shared coverage-disclosure helper: every leaf-grain answer names what it cannot see (\"N documents below rung 3 — not represented at leaf grain\"), N computed from the manifest as the members carrying no serialized genre leaves. RECONCILE (fold-in): `impact_leaf`'s success path today discloses coverage only in its not-found error, not its found answer — the spec binds the disclosure to BOTH verbs (`20-surface.md`, \"both disclose coverage ... every leaf-grain answer names what it cannot see\"), so route `impact_leaf`'s success output through the same helper. law 1 — an incomplete answer in complete clothes erodes the verb."
         },
         {
           "path": "src/main.rs",
-          "description": "Add a `Context { address }` clap subcommand dispatching to `read::context`, mapping the result to a projection (zero exit, no gate), beside `Why`/`Requirements`/`Impact` in the read family. Thread the manifest's serialized genre values so the neighborhood + coverage disclosure read from data `check` already computes."
+          "description": "Add a `Context { address }` clap subcommand dispatching to `read::context`, mapping the result to a projection (zero exit, no gate), beside `Why`/`Requirements`/`Impact` in the read family. Thread the manifest's serialized genre values so the neighborhood + coverage disclosure read from data `check` already computes — mirror the `Command::Impact` dispatch's inputs (`by_kind`, roster, activations, directive edges)."
         }
       ],
       "retire": []
@@ -29,11 +28,11 @@
     "tests": [
       {
         "path": "tests/read_verbs.rs",
-        "asserts": "`context` on a leaf emits its genre slot, siblings, citers, and satisfied requirements from the manifest; the output discloses coverage (names the count of documents below rung 3 not represented at leaf grain); `context` never returns a non-zero exit."
+        "asserts": "`context` on a leaf emits its genre slot, siblings, citers, and satisfied requirements from the manifest; both `context` and `impact` leaf-grain answers disclose coverage (name the count of documents below rung 3 not represented at leaf grain); `context` never returns a non-zero exit."
       }
     ],
-    "acceptance": "`temper context <address>` emits the declared neighborhood of a member or leaf from the manifest alone, and every leaf-grain answer discloses its mixed-rung coverage — the disclosure ships WITH the verb, never after; cargo fmt/clippy -D warnings/test green.",
-    "notes": "The coverage disclosure is not a follow-on entry — the spec binds it into this one (`20-surface.md`: \"the disclosure ships with the verbs, never after\"). blockedBy IMPACT-LEAF-GRAIN (shares read.rs + main.rs — not parallel-safe). Last link of the addressable-corpus floor engine chain."
+    "acceptance": "`temper context <address>` emits the declared neighborhood of a member or leaf from the manifest alone; every leaf-grain answer — `context` AND `impact` — discloses its mixed-rung coverage via one shared helper, the disclosure shipping WITH the verb, never after; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Coverage disclosure is bound into this entry, not a follow-on (`20-surface.md`: the disclosure ships with the verbs, never after). Now `open`: IMPACT-LEAF-GRAIN shipped (963b06e; `impact_leaf`/`parse_leaf_address`/`resolve_leaf` on disk). Folds the impact-disclosure retrofit here — read.rs is shared (no parallel entry) and the spec binds the disclosure to both verbs. Sole `open` head; last link of the addressable-corpus floor engine chain."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
