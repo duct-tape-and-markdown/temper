@@ -1,24 +1,26 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD e1a1fb5.
-- **Last shipped:** both SDK-seam chain tails — GATE-READS-ASSEMBLY (`build`
-  ed97588) and SDK-PLACEMENT-ROUNDTHROUGH (`build` 2377f4e), shipped together
-  (`chore` e1a1fb5). Verified on disk: `src/assembly_artifacts.rs` + `main.rs:853`
-  `assembly_artifacts::load` reads roster.toml/bindings.toml as the gate's
-  assembly source; `sdk/src/project.ts:250` threads `committedPlacements` through
-  `projectBytes`. With these, **all four ruled SDK seams are closed.**
-- **This tick:** confirmed both tails landed and are already dropped from the
-  queue. No corpus↔src drift to file — the queue is fully reconciled. Inbox empty.
-  The three carried entries all still hold on disk: EXTRACTION-VOCAB-GAPS deferred
-  (kind.rs:836 still flat-reads `frontmatter.get(key)`, no consumer), AGENT-KIND
-  deferred (no `agent` kind under kinds/claude-code/, no AGENT_PACKAGE), and
-  PACKAGING-CHANNELS parked (package.json still the private flume manifest).
-- **Pickable now:** none. Every remaining entry is deferred or parked — no `open`
-  entry exists. The pipeline is idle pending human action.
-- **What's next (human, not a pending entry):** the dogfood's full migration onto
-  the SDK is the ledger's TS-primary reformulation ceremony (session + John).
-  Reviving any carried entry also needs a human (a consumer for
-  EXTRACTION-VOCAB-GAPS / AGENT-KIND; npm creds for PACKAGING-CHANNELS).
+- **Phase:** reconcile + inbox-drain. HEAD 97adf2e.
+- **Last shipped:** both SDK-seam tails (GATE-READS-ASSEMBLY, SDK-PLACEMENT-
+  ROUNDTHROUGH; `chore` e1a1fb5) — all four ruled SDK seams closed. No new build
+  commit since; the queue was idle pending John's harness-kind ruling.
+- **This tick — drained John's 07-04 inbox ruling (harness kinds in scope):**
+  revived **EXTRACTION-VOCAB-GAPS** to `open` (the nested key-path `Primitive::
+  Field` fix — consumer now named: the settings kind; testable now over nested
+  yaml-frontmatter, kind.rs:835 still flat-reads). Revived **AGENT-KIND** and
+  filed **COMMAND-KIND**, both `parked` on human curation (their KIND.md/PACKAGE.md
+  are fence-excluded ratification territory). Filed **SETTINGS-KIND** `parked` +
+  `dependsOnForks (json-projection-format)` — the named consumer of the key-path
+  half and retirer of the live `.claude/settings.json` `coverage.unmodeled-surface`
+  advisory. Raised two forks: **(json-projection-format)** (settings/MCP/plugin
+  need a `json` format harvested + a shared JSON adapter) and **(hook-kind-locus)**
+  (hooks live inside settings.json, no file locus). MCP + plugin/marketplace held
+  in the json fork, unfiled. PACKAGING-CHANNELS still parked (human creds).
+- **Pickable now:** EXTRACTION-VOCAB-GAPS (`open`, in-fence, no shared open file).
+- **What's next (human, not a build tick):** curate the agent/command KIND.md +
+  PACKAGE.md (un-parks those); harvest the `json` projection format into
+  15-kinds.md (un-parks SETTINGS-KIND + the json adapter entry); settle the hook
+  locus. The dogfood's SDK/TS-primary migration is still the ledger's ceremony.
 
-Plan continues: no — queue reconciled, no `open` work remains; forward motion
-now needs a human ceremony, not a build tick.
+Plan continues: no — the queue is reconciled, the inbox drained, and one `open`
+entry (EXTRACTION-VOCAB-GAPS) is pickable; hand to build.

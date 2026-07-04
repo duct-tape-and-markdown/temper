@@ -1,14 +1,13 @@
 [
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
-    "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
+    "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — walk `a.b.c` over a Unit, absent (not errored) when unresolved, source-kind preserving",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "The extraction algebra — the soundness boundary, as data"
     },
     "gate": {
-      "kind": "deferred",
-      "reason": "no consumer — the Fenced half graduated to FENCED-PRIMITIVE (its genre-fence consumer arrived); the remaining key-path half has none. `Primitive::Field` reads a flat `fields.get(key)`, so a nested `a.b.c` path can't be read — but no current kind (skill/rule/memory) declares a nested key-path field. Revive when a kind demands it (a JSON-manifest kind's nested key-path field)."
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Make `Primitive::Field` honor the key-path its own doc-comment promises: the impl does a flat `unit.frontmatter.get(key)` in `apply`, so a nested `a.b.c` path can't be read. No new vocabulary member — this fixes the existing `field` primitive."
+          "description": "Make `Primitive::Field` honor the key-path its own doc-comment promises: the impl flat-reads `unit.frontmatter.get(key)` at kind.rs:835-836, so a nested `a.b.c` path can't be read. No new vocabulary member — this fixes the existing `field` primitive to walk nested tables to the leaf."
         },
         {
           "path": "src/extract.rs",
@@ -29,33 +28,33 @@
     "tests": [
       {
         "path": "tests/extract_equivalence.rs",
-        "asserts": "a key-path `field` reads a nested value and is absent (not errored) when the path doesn't resolve; it preserves the source scalar kind."
+        "asserts": "a key-path `field` reads a nested value over a Unit's nested frontmatter and is absent (not errored) when the path doesn't resolve; it preserves the source scalar kind."
       }
     ],
-    "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes it.)",
-    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. `Primitive::Field { key }` still flat-reads on disk (kind.rs:836). Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
+    "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green.",
+    "notes": "Revived 07-04 (John, inbox): consumer arrived — the settings kind (JSON-manifest, nested keys) is the named consumer for the key-path half. Testable now over nested yaml-frontmatter, independent of the json fork. Shares src/kind.rs with AGENT-KIND, but that entry is parked, so no open-file conflict. SETTINGS-KIND (parked) consumes this — serialized behind it."
   },
   {
     "tag": "AGENT-KIND",
-    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document, read through the generic loader and checked by the embedded `agent.anthropic` package",
+    "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document via the generic yaml-frontmatter adapter, checked by the embedded `agent.anthropic` package",
     "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: package binding is by artifact kind"
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Two categories of kind — ownership, not mechanism"
     },
     "gate": {
-      "kind": "deferred",
-      "reason": "more built-in kinds is the wrong direction under the requirements/satisfies reframe; and post-adapter-wave the agent kind is mostly curated data (a KIND.md + PACKAGE.md, both outside build's fence) with near-zero engine code — revive only if a story demands the agent kind"
+      "kind": "parked",
+      "reason": "the curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md are ratification territory (external-fact citations to the Claude Code subagent docs, outside build's fence) and must be human-authored first; the in-fence binding + tests go green only once they are on disk. On un-park plan re-scopes files to the in-fence engine slice."
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "kinds/claude-code/agent/KIND.md",
-          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), under its provider beside kinds/claude-code/skill and kinds/claude-code/rule with a `provider = \"claude-code\"` line: `governs = { root = '.claude/agents', glob = '*.md' }`, the declared `yaml-frontmatter` projection format + unit shape, composed extraction over the `name`/`description`/optional `tools`/`model` fields plus markdown structure. build.rs auto-embeds it — no engine extractor."
+          "description": "The embedded built-in `agent` KIND.md (curated — humans author it; outside build's fence), under provider claude-code beside kinds/claude-code/{skill,rule,memory} with `provider = \"claude-code\"`: `governs = { root = '.claude/agents', glob = '*.md' }`, `format = \"yaml-frontmatter\"`, composed extraction over `name`/`description`/optional `tools`/`model` plus markdown structure. build.rs auto-embeds it — no engine extractor."
         },
         {
           "path": "packages/agent.anthropic/PACKAGE.md",
-          "description": "The agent kind's built-in package `agent.anthropic` (curated product territory, outside build's fence), embedded with the std-lib by build.rs. Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`. Per-clause `source` citations to the Claude Code subagent docs."
+          "description": "The agent kind's built-in package `agent.anthropic` (curated, outside build's fence), embedded with the std-lib by build.rs. Clauses: `name` required + `allowed_chars` `[a-z0-9-]`; `description` required; `forbidden_keys` for the Cursor `.mdc` keys Claude Code ignores; an advisory `max_lines`. Per-clause `source` citations to the Claude Code subagent docs."
         },
         {
           "path": "tests/agent_contract.rs",
@@ -64,12 +63,12 @@
       ],
       "edit": [
         {
-          "path": "src/kind.rs",
-          "description": "Add `\"agent\"` to the `BUILTIN_KINDS` name-list so a `[kind.agent]` binding reads as a built-in layer, not a custom kind."
+          "path": "src/builtin.rs",
+          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE and register `(\"claude-code.agent\", AGENT_PACKAGE)` in QUALIFIED_FLOOR_BINDINGS. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
         },
         {
-          "path": "src/builtin.rs",
-          "description": "Add the `AGENT_PACKAGE = \"agent.anthropic\"` const beside SKILL_PACKAGE/RULE_PACKAGE and register its kind->package binding. build.rs auto-embeds the PACKAGE.md; no manual embed edit."
+          "path": "src/kind.rs",
+          "description": "Add `\"agent\"` to the `BUILTIN_KINDS` name-list (kind.rs:30) so the emit/drift lock path (src/drift.rs) recognizes an agent as a projected built-in layer, not a custom kind."
         }
       ],
       "retire": []
@@ -82,7 +81,103 @@
       }
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero. Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with EXTRACTION-VOCAB-GAPS — serialize the two if both un-defer."
+    "notes": "Revived 07-04 (John, inbox): revival condition met — whole-harness governance + first non-dogfood adoption. Mostly curated data, near-zero engine (a binding + tests). Curated KIND.md/PACKAGE.md are human-authored (outside build's fence); on un-park plan re-scopes files to the in-fence slice only. Shares src/builtin.rs + src/kind.rs with COMMAND-KIND — serialize the two when both un-park."
+  },
+  {
+    "tag": "COMMAND-KIND",
+    "summary": "Add the `command` built-in harness kind — `.claude/commands/*.md` slash-command members via the generic yaml-frontmatter adapter, checked by an embedded `command.anthropic` package",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Two categories of kind — ownership, not mechanism"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "the curated kinds/claude-code/command/KIND.md + packages/command.anthropic/PACKAGE.md are ratification territory (external-fact citations to the Claude Code slash-command docs, outside build's fence) and must be human-authored first; the in-fence binding + tests go green only once they are on disk."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "kinds/claude-code/command/KIND.md",
+          "description": "The embedded built-in `command` KIND.md (curated, outside build's fence), `provider = \"claude-code\"`: `governs = { root = '.claude/commands', glob = '*.md' }`, `format = \"yaml-frontmatter\"`, composed extraction over the documented slash-command frontmatter fields (`description`, optional `argument-hint`/`model`/`allowed-tools`) plus markdown structure. build.rs auto-embeds it."
+        },
+        {
+          "path": "packages/command.anthropic/PACKAGE.md",
+          "description": "The command kind's built-in package `command.anthropic` (curated, outside build's fence). Clauses over the documented Claude Code slash-command surface, each with a per-clause `source` citation to the custom-commands docs; an advisory `max_lines`."
+        },
+        {
+          "path": "tests/command_contract.rs",
+          "description": "Fixture-driven proof mirroring tests/rule_contract.rs: one broken command per clause proving it fires, a clean command that trips nothing, and an import round-trip insta snapshot proving idempotence — all through the generic adapter, no per-kind engine code."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/builtin.rs",
+          "description": "Add the `COMMAND_PACKAGE = \"command.anthropic\"` const and register `(\"claude-code.command\", COMMAND_PACKAGE)` in QUALIFIED_FLOOR_BINDINGS. build.rs auto-embeds the PACKAGE.md."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Add `\"command\"` to the `BUILTIN_KINDS` name-list (kind.rs:30) so the emit/drift lock path recognizes a command as a projected built-in layer."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/command_contract.rs",
+        "asserts": "each decidable clause of the command package fires on its broken fixture and stays silent on a clean command; import of an unchanged command is idempotent (insta snapshot)."
+      }
+    ],
+    "acceptance": "`temper check` dispatches `.claude/commands/*.md` to the `command.anthropic` package; governing `.claude/commands` auto-retires its `coverage.unmodeled-surface` finding (coverage_note::governed_by_any — no coverage_note.rs edit); import projects command members idempotently; gates green.",
+    "notes": "Filed 07-04 (John, inbox). Markdown/yaml-frontmatter kind like agent — adapter exists, engine is a binding + tests. Curated files human-authored (fence-excluded); parked on that. Serialize after AGENT-KIND (shares src/builtin.rs QUALIFIED_FLOOR_BINDINGS + src/kind.rs BUILTIN_KINDS). Advisory-retirement is latent — temper's own harness carries no .claude/commands surface today."
+  },
+  {
+    "tag": "SETTINGS-KIND",
+    "summary": "Add the `settings` built-in harness kind — `.claude/settings.json` as a JSON-manifest member with nested key-path fields, checked by an embedded `settings.anthropic` package",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Two categories of kind — ownership, not mechanism"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "rests on the (json-projection-format) fork — reading settings.json needs a `json` projection format harvested into 15-kinds.md's closed vocabulary + a generic JSON adapter, neither yet in the corpus — plus human-authored curated KIND.md/PACKAGE.md (outside build's fence). Un-parks when the fork resolves and the curated files land."
+    },
+    "dependsOnForks": [
+      "json-projection-format"
+    ],
+    "files": {
+      "new": [
+        {
+          "path": "kinds/claude-code/settings/KIND.md",
+          "description": "The embedded built-in `settings` KIND.md (curated, outside build's fence), `provider = \"claude-code\"`: `governs = { root = '.claude', glob = 'settings.json' }`, `format = \"json\"` (the fork's new vocabulary entry), composed extraction over nested key-path `field` primitives (permissions, env, hooks) consuming EXTRACTION-VOCAB-GAPS' key-path Field. build.rs auto-embeds it."
+        },
+        {
+          "path": "packages/settings.anthropic/PACKAGE.md",
+          "description": "The settings kind's built-in package `settings.anthropic` (curated, outside build's fence). Decidable clauses over documented settings.json keys, each with a per-clause `source` citation to code.claude.com/docs/en/settings."
+        },
+        {
+          "path": "tests/settings_contract.rs",
+          "description": "Fixture-driven proof: one broken settings.json per clause proving it fires, a clean one that trips nothing, and an import round-trip snapshot — through the generic JSON adapter, no per-kind engine code."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/builtin.rs",
+          "description": "Add the `SETTINGS_PACKAGE = \"settings.anthropic\"` const and register `(\"claude-code.settings\", SETTINGS_PACKAGE)` in QUALIFIED_FLOOR_BINDINGS. The `json` Format variant + adapter belong to the fork's own shared engine entry, not here — this entry rests on them."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/settings_contract.rs",
+        "asserts": "each decidable clause of the settings package fires on its broken fixture and stays silent on a clean settings.json; nested key-path fields read the intended values."
+      }
+    ],
+    "acceptance": "`temper check` dispatches `.claude/settings.json` to `settings.anthropic` reading nested key-path fields; governing settings.json retires the `coverage.unmodeled-surface` advisory (the live marker on temper's own harness); gates green. (Held: not built until the json fork resolves + curated files land.)",
+    "notes": "Filed 07-04 (John, inbox): the named consumer reviving EXTRACTION-VOCAB-GAPS' key-path half, and the retirer of the live settings.json coverage.unmodeled-surface advisory. JSON-manifest → dependsOnForks (json-projection-format); the shared json adapter is that fork's engine entry. Downstream of EXTRACTION-VOCAB-GAPS. MCP + plugin/marketplace kinds ride the same fork (held there, not filed)."
   },
   {
     "tag": "PACKAGING-CHANNELS",

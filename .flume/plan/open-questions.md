@@ -647,6 +647,48 @@ Kept below as decision records; no dependent still waits.
   so this is deliberately unfiled. Human to settle the accessor/lookup keying before
   the read family is generalized over all embedded kinds.
 
+## Harness-kind scope-in (surfaced by the 2026-07-04 inbox ruling)
+
+John ruled the intent-named harness surfaces in scope (`00-intent.md` surface
+enumeration; `15-kinds.md` "Two categories of kind" names `agent`/`hook`/
+`command`/MCP/`settings`/`plugin`). The markdown/yaml-frontmatter kinds ride the
+existing adapter (AGENT-KIND revived + COMMAND-KIND filed, both parked on human
+curation). The two forks below gate the rest — the JSON-manifest kinds and the
+hook kind rest on mechanism the corpus does not yet carry with a clean cite.
+
+- `(json-projection-format)` — OPEN. The JSON-manifest built-in kinds — `settings`
+  (`.claude/settings.json`), MCP (`.mcp.json`), and the plugin/marketplace
+  manifests — are JSON with nested keys, but the projection-format vocabulary is
+  **closed to one harvested entry, `yaml-frontmatter`** (`15-kinds.md`, "the
+  adapter faces are declared": "the first and only harvested entry is
+  `yaml-frontmatter`… the vocabulary grows deliberately, never per-kind";
+  `src/kind.rs` `Format` has one variant, `parse_format` rejects all others).
+  Reading them needs (a) a `json` format **harvested into the vocabulary** — a
+  deliberate language addition (law 3), the corpus's to make, not plan's — and
+  (b) a **generic JSON adapter** (a peer to `src/frontmatter.rs`) parsing the file
+  into a `Unit` with nested-key fields, consuming EXTRACTION-VOCAB-GAPS' key-path
+  `Primitive::Field`. The adapter is **one shared engine entry** (settings/MCP/
+  plugin all rest on it), fileable once the format is harvested; it is sanctioned
+  under the kept "format implementations are engine code" asymmetry, but only
+  after the vocabulary addition. Blocks pending **SETTINGS-KIND** (dependsOnForks);
+  gates the MCP + plugin/marketplace kinds (held here, unfiled). Human to harvest
+  `json` into `15-kinds.md`; then plan files the adapter entry + the kinds
+  serialized behind it.
+
+- `(hook-kind-locus)` — OPEN. John ruled the `hook` kind in scope, but hooks have
+  **no standalone file surface** — they are configured as JSON entries *inside*
+  `.claude/settings.json` (`src/coverage_note.rs`: "Hooks are not a directory…
+  configured inside settings.json"; `15-kinds.md` activation `event(field)`,
+  "future hook kind, harvested now because the doc names the mechanic"). The
+  `governs = {root, glob}` file-locus model every kind uses cannot select a hook:
+  it is a nested array within another kind's member. Unresolved: is a hook a
+  **sub-member** extracted from the settings member (a kind whose members are
+  nested JSON entries, not files), a **distinct locus**, or a facet the
+  `settings.anthropic` package checks via clauses over settings.json's `hooks`
+  key? Needs John. No dependent filed — the hook kind is held here until the locus
+  model is decided. Related: `(json-projection-format)` (a hook lives inside the
+  JSON settings file).
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
