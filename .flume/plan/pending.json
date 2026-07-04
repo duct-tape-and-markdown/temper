@@ -1,46 +1,15 @@
 [
   {
-    "tag": "SDK-EMIT-REFUSALS",
-    "summary": "SDK `emit` refuses before it writes on a dangling `satisfies` join and an unfilled required requirement — a broken source yields no output, never silent bytes",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Content-faithful, deterministically emitted (law 5)"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "node --test proof of each declare-side refusal: a member `satisfies` claim naming no declared requirement throws (dangling join); a requirement marked `required` with no member filling it throws (unfilled required requirement); a clean harness emits without throwing. Own test file, not emit.test.ts, so CONTRACT-DIR's later fixture move stays disjoint."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "Add the two declare-side refusals before the compile in `emit`/`emitManifestMembers` (the 'Emit refuses before it writes' bullet): (1) dangling join — every member `satisfies` address must resolve to a declared requirement (harness-level or member-published), reusing the address set `declaredAddresses` already builds; (2) unfilled required requirement — a `required` requirement with no satisfying member is a loud error. Mentions already refuse via `resolveBody`; this closes the two missing cases. Genre-value-violating-bound-package refusal stays out of scope (no package model in the SDK yet)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/refusals.test.ts",
-        "asserts": "emit throws on a satisfies claim that resolves to no declared requirement and on a required requirement no member fills; a clean harness emits without throwing."
-      }
-    ],
-    "acceptance": "`emit`/`emitManifestMembers` throw on a dangling `satisfies` join and on an unfilled required requirement, producing no output from a broken source; a clean harness still emits; `pnpm --dir sdk test` (tsc + node --test) green.",
-    "notes": "From the ratified 'SDK is the product' reconcile, in-fence item (2a). sdk/** only. Mention refusal already ships (resolveBody). Genre-value-vs-package refusal deferred — the SDK carries no package model. Serialized ahead of SDK-ASSEMBLY-ARTIFACTS: both edit sdk/src/emit.ts, so not parallel-safe."
-  },
-  {
     "tag": "SDK-ASSEMBLY-ARTIFACTS",
     "summary": "SDK `emit` emits the locus-less assembly facts (kind bindings + requirement roster) as small committed temper-owned artifacts — additive to the manifest/projection/lock",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "The surface: the assembly over its contents"
     },
-    "gate": { "kind": "blockedBy", "tag": "SDK-EMIT-REFUSALS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-EMIT-REFUSALS"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
@@ -82,7 +51,10 @@
       "path": "specs/architecture/50-distribution.md",
       "section": "Decision: acquisition rides the ecosystem's package managers"
     },
-    "gate": { "kind": "blockedBy", "tag": "SDK-ASSEMBLY-ARTIFACTS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-ASSEMBLY-ARTIFACTS"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
