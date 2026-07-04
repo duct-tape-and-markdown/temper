@@ -1,44 +1,5 @@
 [
   {
-    "tag": "GATE-CORPUS-ARTIFACTS-LOCK",
-    "summary": "The gate's corpus becomes committed artifacts plus the lock — retire temper.toml-as-corpus as the gate's read source",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The seam — one implementation"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`check` today gates against the committed `temper.toml` manifest as its corpus (main.rs ~700, keyed by bare kind, with the legacy live-extraction fallback). Re-point the gate: the engine consumes committed artifacts plus the lock's declaration rows (20-surface, 'Checking never needs a language runtime … consume committed artifacts plus the lock'; 50-distribution, 'The stranger gate'). No manifest read on the gate path."
-        },
-        {
-          "path": "src/check.rs",
-          "description": "The gate's surface load moves from manifest/`.temper` extraction to reading the lock's declaration rows + the committed `.claude/**` artifacts. Keep the diagnostic shape identical so reporters are untouched."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Freshness (disk vs lock) is the same one comparison in one vocabulary; wire the gate's corpus read through the lock rows this depends on."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "reconciled: the gate reads the lock's declaration rows + committed artifacts, not the manifest as corpus"
-      }
-    ],
-    "acceptance": "`temper check` gates a harness from committed artifacts plus the lock alone (no toolchain, no manifest-as-corpus); the embedded default program still gates an SDK-less harness (50-distribution, the stranger gate).",
-    "notes": "Retires manifest-as-corpus on the GATE path only; the manifest machinery itself (roster/bindings artifacts, the reader) retires at MANIFEST-MACHINERY-RETIRE. Existing manifest-corpus tests reconcile to the lock-rows source."
-  },
-  {
     "tag": "SDK-RECUT-CORPUS-FACE",
     "summary": "The SDK re-cuts to the six-noun face — harness(), kind<T>(), clause values, needs, file()/text/blocks, one JSON pipe to the engine",
     "per": {
