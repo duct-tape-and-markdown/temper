@@ -9,17 +9,22 @@ graduation, delete over archive.
 
 ## Awaiting human ruling
 
-- **TS-primary, TOML internalized: DRAFTED for cold read** (07-03; direction
-  ruled in session — "im down to require node"; the no-Node floor was the
-  assistant's own hedge, provenance stated in the record §1). One authored
-  surface; manifest = pure dist (read escape hatch: inspect/diff/vendor);
-  document carriage + genre fence rescope to migration-era, sunset BY
-  EVIDENCE (SDK completes → dogfood migrates to the face → per-piece
-  ceremonies); gate posture/wedge/genre-never-climb untouched; carriage
-  never-climb repealed; floor-mention deferral closes. Record + deltas
-  (D1–D4, Δ1–Δ5): claude.ai/code/artifact/5ef1905d-a4f1-4fd0-b553-3b3a1a9a7b1f.
-  NO pending entries before ratification; no demolition entries before the
-  dogfood proof.
+- **TS-primary v2 — "temper is an authoring tool": DRAFTED for cold read**
+  (07-03; three session rulings folded: require Node; the dist conflict —
+  committed-manifest integrity is self-attested, its security theater; the
+  frame — output is the HARNESS, committed beside the face; the manifest is
+  in-memory IR, the file dissolves). Check splits along the two walls:
+  declare-side = emit REFUSALS in the toolchain lane (+ CI --frozen
+  byte-compare); artifact-side = offline Rust gate over harness + lock (the
+  shipped floor-fallback WAS the architecture). Genre fence flips to
+  projection encoding (emit writes, verbs extract — offline without a
+  manifest). Lock survives as the drift anchor; opens: assembly-residue
+  home (lean: lock [assembly] section), face layout, wedge identity.
+  Sunsets per-piece, evidence-gated on the dogfood living on the face. SDK
+  prerequisite MET (wave drained: byte-parity, body resolution,
+  projection+lock, display rule). Record:
+  claude.ai/code/artifact/5ef1905d-a4f1-4fd0-b553-3b3a1a9a7b1f. NO pending
+  entries before ratification; queue is human-gated on exactly this.
 
 - **Guidance-layer curation** (07-03 design session): 4 std-lib guidance
   deltas drafted and source-verified (eval-first skill authoring; hooks-over-
