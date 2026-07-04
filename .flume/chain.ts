@@ -160,15 +160,29 @@ const BUILD_WRITABLE_PATHS = [
   // by `temper bundle`), NOT hand-curated like the territories below.
   "plugin/**",
 
-  // NOTE: build does NOT touch .flume/** (harness territory), .claude/** or
-  // CLAUDE.md (the hand-curated CC harness — also a dogfood fixture, edited by
-  // humans), specs/** (the evergreen human-authored corpus), packages/** or
-  // kinds/** (the curated std-lib sources — built-in package and kind
-  // definitions, citation-bearing product territory the build EMBEDS but never
-  // writes), or docs/** (candidate intent parked upstream of the corpus —
-  // docs/horizons.md; pre-intent is human territory, and no phase reads it as
-  // intent). If a build entry needs to change one, block it and surface the
-  // question. The harness writes the post-merge ship commit to pending.json itself.
+  // Machine outputs of the tool itself: the dogfood assembly's manifest and
+  // provenance lock. Regenerate-only — an entry that changes what the gate
+  // reads or emits reruns the tool (`temper import .` / `temper emit`), never
+  // hand-edits these. temper.toml's hand-authored floor (bindings,
+  // requirements) stays entry-scoped: touch it only when the entry names it.
+  // Admitted 2026-07-03 after two self-gate reverts (LOCK-FRESHNESS-FACTS,
+  // MANIFEST-GATE-READ) whose shared root cause was stale committed machine
+  // outputs build could not refresh — generated artifacts were misclassified
+  // as curated ones.
+  "temper.toml",
+  ".temper/lock.toml",
+
+  // NOTE: build does NOT touch .flume/** (the control plane), .claude/** or
+  // CLAUDE.md, .temper/** sources, specs/**, packages/**, kinds/**, or
+  // docs/**. These are RATIFICATION territory, not "human-authored" — nearly
+  // every byte in them is agent-drafted, but drafted in-session with a human
+  // present, landing via ceremony commits (`specs:`, `chore(harness):`) whose
+  // authority moment is the human's. Build runs with no cold read in its
+  // cycle, so it proposes (leave the entry, surface the question) instead of
+  // writing. Drafting rights may widen per document as the corpus climbs the
+  // genre gradient (the addressable-corpus ruling, pending ratification);
+  // the authority tier never loosens. The harness writes the post-merge ship
+  // commit to pending.json itself.
 ];
 
 /**
