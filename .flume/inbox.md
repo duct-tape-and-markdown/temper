@@ -35,3 +35,15 @@ removes them each tick. Empty is the normal state.
     body (D7's prior; byte-stable prose leaves) vs post-recut context, and
     the info-string grammar (distinct `tml` token vs highlighted-language
     token). Do not file; ruling follows.
+
+- 2026-07-04 (John, session): `(genre-fence-format)` RULED: **deferred to
+  the genre-adoption pilot** — the entry gate applied to the fence: no
+  posture-2 author exists (zero fences in the corpus; the pilot is parked
+  on this fork), so the grammar is designed when its consumer lands, against
+  a working byte-stable 2⇄3 round-trip, never in the abstract. Frame note,
+  John's catch: D7's "TOML genre fence" prior is **manifest-era residue** —
+  "smuggling rust semantics into a ts template" — and does NOT bind the
+  pilot; the fence body is the byte-stable template of a TS value, so the
+  pilot designs the grammar from the TS value shape outward. What survives
+  of the format argument is the constraint only: prose leaves must render
+  byte-exactly (law 5), the acceptance test unchanged whatever grammar wins.
