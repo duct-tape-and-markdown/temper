@@ -34,7 +34,7 @@ use serde_json::Value as JsonValue;
 /// extractor to preserve the source kind rather than collapse every scalar to a
 /// bare string (the slice-1 shortcut this entry corrects). The five scalar kinds
 /// answer [`FeatureValue::as_scalar`]; the two container kinds do not.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub enum Kind {
     /// A textual scalar.
     String,
@@ -95,7 +95,7 @@ impl Kind {
 /// `deny`, `allowed_chars`) read the scalar text; presence predicates
 /// (`required`, `forbidden_keys`) need only the key; the `type` primitive
 /// (forthcoming) reads [`FeatureValue::kind`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub enum FeatureValue {
     /// A single scalar value: its parsed source kind (one of the scalar kinds —
     /// `string`/`integer`/`number`/`boolean`/`null`) and its stringified text,
@@ -156,7 +156,7 @@ impl FeatureValue {
 /// for the declared marker. Surface-decidable like every other feature: a heading
 /// inside a fenced code block opens no section (the same exclusion
 /// [`body_headings`] makes), so a section is never a guess.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct Section {
     /// The heading text, with its `#` markers stripped exactly as
     /// [`body_headings`] strips them.
@@ -177,7 +177,7 @@ pub struct Section {
 /// guess. The info string is available so the genre consumer can key on
 /// `genre.<name>`; this generic primitive yields the raw blocks only, the TOML
 /// composition a later slice.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct FencedBlock {
     /// The opening fence's info string, trimmed — `sh`, `toml`, or empty for a bare
     /// fence. The declared kind the genre consumer keys on.
@@ -207,7 +207,7 @@ pub type GenreCollections = BTreeMap<String, BTreeMap<String, BTreeMap<String, S
 /// Floor leaves carry no mentions — interpolation stays an altitude feature until a
 /// floor mention syntax is separately ratified (`specs/architecture/20-surface.md`) — so
 /// a leaf is a plain [`String`], not a mention-bearing span.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct GenreValue {
     /// The genre this value instantiates — the fence info string's `genre.<genre>`
     /// (`decision`), one of the kind's declared genres.
@@ -272,7 +272,7 @@ pub struct LeafAddress {
 
 /// An artifact's deterministically-extracted features, keyed for generic clause
 /// lookup. Everything here is surface-decidable; nothing is inferred meaning.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct Features {
     /// The artifact id used in diagnostics (for a skill, its `name`).
     pub id: String,

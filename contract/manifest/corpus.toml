@@ -1,0 +1,89 @@
+[[member]]
+kind = "claude-code.memory"
+name = "root"
+line_count = 5
+
+[member.field]
+disable-model-invocation = true
+note = 'path\to'
+
+[[member.genre]]
+genre = "bound"
+key = "reachability"
+
+[member.genre.leaves]
+claim = "the world is a node"
+
+[[member]]
+kind = "claude-code.rule"
+name = "rust"
+line_count = 3
+headings = ["Rust conventions"]
+satisfies = ["engineering-standards"]
+
+[member.field]
+paths = ["src/**/*.rs"]
+
+[[member.section]]
+heading = "Rust conventions"
+body = """
+# Rust conventions
+
+Errors via miette/thiserror; clippy clean under -D warnings."""
+
+[[member]]
+kind = "claude-code.skill"
+name = "coordinate"
+line_count = 2
+headings = ["Coordinate"]
+
+[member.field]
+description = """
+Use when "coordinating" agents.
+Second line."""
+
+[[member.section]]
+heading = "Coordinate"
+body = "Drive the team."
+
+[[member.published]]
+name = "playbook"
+means = "a shared playbook exists"
+kind = "skill"
+required = true
+
+[[member]]
+kind = "decision"
+name = "05-surface-authority"
+line_count = 1
+
+[[member.genre]]
+genre = "decision"
+key = "surface-authority"
+
+[member.genre.leaves]
+because = "law 7 needs an authored surface"
+chosen = "the composition surface is canonical"
+
+[member.genre.collections]
+
+[member.genre.collections.rejected]
+
+[member.genre.collections.rejected.baked-projection]
+because = "a stamping projector breaks law 5"
+
+[[member]]
+kind = "decision"
+name = "06-sole"
+line_count = 1
+
+[[member.genre]]
+genre = "decision"
+key = "sole"
+
+[member.genre.leaves]
+chosen = "one option, no alternatives"
+
+[member.genre.collections]
+
+[member.genre.collections.rejected]

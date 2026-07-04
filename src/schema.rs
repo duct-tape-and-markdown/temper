@@ -44,6 +44,8 @@ use serde_json::{Map, Value};
 use crate::contract::{Charset, Contract, Predicate};
 use crate::extract::Kind;
 
+pub mod interchange;
+
 /// Project `contract` into a JSON Schema [`Value`] over an artifact's frontmatter.
 ///
 /// The result is an `object` schema whose `properties` carry the per-field

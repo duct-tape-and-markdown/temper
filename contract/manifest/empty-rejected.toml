@@ -1,0 +1,15 @@
+[[member]]
+kind = "decision"
+name = "06-sole"
+line_count = 1
+
+[[member.genre]]
+genre = "decision"
+key = "sole"
+
+[member.genre.leaves]
+chosen = "one option, no alternatives"
+
+[member.genre.collections]
+
+[member.genre.collections.rejected]

@@ -1,0 +1,20 @@
+[[member]]
+kind = "claude-code.skill"
+name = "coordinate"
+line_count = 2
+headings = ["Coordinate"]
+
+[member.field]
+description = """
+Use when "coordinating" agents.
+Second line."""
+
+[[member.section]]
+heading = "Coordinate"
+body = "Drive the team."
+
+[[member.published]]
+name = "playbook"
+means = "a shared playbook exists"
+kind = "skill"
+required = true

@@ -1,0 +1,19 @@
+[[member]]
+kind = "decision"
+name = "05-surface-authority"
+line_count = 1
+
+[[member.genre]]
+genre = "decision"
+key = "surface-authority"
+
+[member.genre.leaves]
+because = "law 7 needs an authored surface"
+chosen = "the composition surface is canonical"
+
+[member.genre.collections]
+
+[member.genre.collections.rejected]
+
+[member.genre.collections.rejected.baked-projection]
+because = "a stamping projector breaks law 5"

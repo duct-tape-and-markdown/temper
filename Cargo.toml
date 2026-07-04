@@ -35,6 +35,13 @@ sha2 = "0.10"
 # hand-roll regex; specs/architecture/10-contracts.md "bespoke closed algebra" decision).
 regex = "1"
 
+# Interchange schema, generated Rust-first from the manifest IR (`src/schema/interchange.rs`):
+# schemars derives the JSON Schema 2020-12, ts-rs the TypeScript types both implementations
+# version against (specs/architecture/50-distribution.md, acquisition Decision; ratified
+# reconcile, inbox item 2b "schema generation Rust-first").
+schemars = "1"
+ts-rs = "12"
+
 [dev-dependencies]
 # Golden import/apply fixtures (specs/architecture/20-surface.md). `filters` redacts the per-machine
 # absolute source path from the import-surface snapshot.

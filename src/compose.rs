@@ -120,7 +120,7 @@ pub struct Edge {
 /// (`satisfies`, published requirements). Generated-canonical — regenerated whole each
 /// `import`, never hand-tended — so the whole `member` root is re-emitted, distinct from
 /// the hand-authored bindings/requirements the tool patches format-preserving.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, schemars::JsonSchema, ts_rs::TS)]
 pub struct ManifestMember {
     /// The bare kind name the member is checked under (`skill`, `rule`, a custom kind's
     /// name) — the key `check` groups members by (`assemble_by_kind`), so the manifest
@@ -1515,6 +1515,19 @@ fn requirement_str(
 /// array-of-tables would vanish on the toml round-trip anyway).
 pub fn write_manifest_members(doc: &mut DocumentMut, members: &[ManifestMember]) {
     write_members(doc, members, &[]);
+}
+
+/// Serialize a member slice into the standalone `[[member]]` manifest text — a fresh
+/// document written whole, the exact byte form the interchange goldens pin
+/// (`contract/`, `specs/architecture/50-distribution.md`, "both implementations tested
+/// against one golden set"). The single producer of the goldens: `tests/contract_fixtures.rs`
+/// byte-matches this against each committed golden, and the SDK's serializer is held to the
+/// same bytes.
+#[must_use]
+pub fn manifest_members_to_string(members: &[ManifestMember]) -> String {
+    let mut doc = DocumentMut::new();
+    write_manifest_members(&mut doc, members);
+    doc.to_string()
 }
 
 /// Re-emit the `[[member]]` root whole from both carriages: the pre-extracted

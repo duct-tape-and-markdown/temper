@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ManifestMember",
+  "description": "One **member's serialized features** in the manifest — a `[[member]]` table\n(`specs/architecture/20-surface.md`, \"Topology\": member features serialize into the\nmanifest, the pre-extracted form the gate reads). It pairs the bare `kind` a member\nis checked under with the deterministically-extracted [`Features`] `import` (or the\naltitude's `emit`) baked in: the frontmatter fields, the body facts (line count,\nheadings, sections, source dir, directives, fenced blocks), and the representation edges\n(`satisfies`, published requirements). Generated-canonical — regenerated whole each\n`import`, never hand-tended — so the whole `member` root is re-emitted, distinct from\nthe hand-authored bindings/requirements the tool patches format-preserving.",
+  "type": "object",
+  "properties": {
+    "features": {
+      "description": "The member's deterministically-extracted [`Features`] — the exact value the gate\nconsumes, so a serialized member round-trips to the same features a live\nextraction yields.",
+      "$ref": "#/$defs/Features"
+    },
+    "kind": {
+      "description": "The bare kind name the member is checked under (`skill`, `rule`, a custom kind's\nname) — the key `check` groups members by (`assemble_by_kind`), so the manifest\ncarries it explicitly rather than nesting members under a per-kind table.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "features"
+  ],
+  "$defs": {
+    "FeatureValue": {
+      "description": "One extracted feature value: a scalar field (carrying its parsed source\n[`Kind`] alongside its comparison text), a list field (e.g. a YAML sequence\nlike `allowed-tools`), or a map field. Scalar predicates (`min_len`, `enum`,\n`deny`, `allowed_chars`) read the scalar text; presence predicates\n(`required`, `forbidden_keys`) need only the key; the `type` primitive\n(forthcoming) reads [`FeatureValue::kind`].",
+      "oneOf": [
+        {
+          "description": "A single scalar value: its parsed source kind (one of the scalar kinds —\n`string`/`integer`/`number`/`boolean`/`null`) and its stringified text,\nthe comparison text the scalar predicates read.",
+          "type": "object",
+          "properties": {
+            "Scalar": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "description": "The parsed source kind of the scalar.",
+                  "$ref": "#/$defs/Kind"
+                },
+                "text": {
+                  "description": "The scalar as text (the YAML/JSON scalar stringified).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "Scalar"
+          ]
+        },
+        {
+          "description": "A sequence of scalar values, stringified element-wise (kind `list`).",
+          "type": "object",
+          "properties": {
+            "List": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "List"
+          ]
+        },
+        {
+          "description": "A mapping/object value (kind `map`). Only its kind is projected — no\npredicate reads a map's contents — so it carries no payload.",
+          "type": "string",
+          "const": "Map"
+        }
+      ]
+    },
+    "Features": {
+      "description": "An artifact's deterministically-extracted features, keyed for generic clause\nlookup. Everything here is surface-decidable; nothing is inferred meaning.",
+      "type": "object",
+      "properties": {
+        "body_lines": {
+          "description": "The artifact body's line count (for `max_lines`).",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "directives": {
+          "description": "The body's format-executed directive occurrences, in document order — the\n`at-import` `@path` targets a `directives` primitive extracts\n(`specs/architecture/15-kinds.md`, \"Directives — format-executed body syntax\").\nA body-derived feature like [`headings`](Features::headings)/[`sections`](Features::sections):\nthe raw occurrence strings only, resolution/classing a later slice. Empty\nwhen the kind composes no `directives` primitive.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fenced_blocks": {
+          "description": "The body's fenced code blocks, in document order — each block's info string\npaired with its interior content, the feature a `fenced` primitive yields\n(`specs/architecture/15-kinds.md`, \"a fenced block — whose first consumer is\nthe genre fence\"). A body-derived feature like\n[`headings`](Features::headings)/[`sections`](Features::sections)/[`directives`](Features::directives):\nthe same fence boundaries the heading extractor tracks, surfaced whole. Empty\nwhen the kind composes no `fenced` primitive.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FencedBlock"
+          }
+        },
+        "fields": {
+          "description": "Frontmatter fields by name — the typed fields *and* the `extra` keys, so\na clause resolves `name`/`description`/`version` or any unknown key\n(e.g. for `forbidden_keys`) through one generic lookup.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/FeatureValue"
+          }
+        },
+        "genres": {
+          "description": "The body's **genre values**, in document order — each a genre fence\n(`genre.<genre> <key>`) whose interior TOML parsed into a typed\n[`GenreValue`] (`specs/architecture/20-surface.md`, \"Genre values\"). The typed layer\nover [`fenced_blocks`](Features::fenced_blocks): a raw block whose info string\nnames a genre the kind declares is folded here beside its raw form, keyed by the\nfence's genre+key; every other fenced block stays raw-only. Empty when the kind\ndeclares no genres, or no block opts into one — genre adoption is per-block, and\nno check quantifies over its completeness.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GenreValue"
+          }
+        },
+        "headings": {
+          "description": "The ATX headings (`#`..`######`) in the body, in document order, with the\n`#` run and any closing `#` run trimmed (for `require_sections`). A `#`\ninside a fenced code block is not a heading.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "description": "The artifact id used in diagnostics (for a skill, its `name`).",
+          "type": "string"
+        },
+        "published_requirements": {
+          "description": "The requirements this artifact **publishes** — the authored\n`[requirement.<name>]` header modules (`specs/architecture/10-contracts.md`, \"Decision: a\nrequirement's publisher is any authored surface document\"). The demand side of\nthe fill edge, carried beside `satisfies` (the fill side) so the gate gathers\nevery member's published obligations across every kind and unions them with the\nassembly roster into the one requirement namespace. Like `satisfies`, this is a\n*representation* fact carried through, never a contract-checkable frontmatter\nfield. Empty when the member publishes none.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PublishedRequirement"
+          }
+        },
+        "satisfies": {
+          "description": "The requirements this artifact opts into filling — the authored\n`[representation].satisfies` bindings, surfaced for the coverage check\n(`specs/architecture/20-surface.md`, \"Each artifact directory is a representation, not\na copy\"). This is a *representation* edge the coverage resolver reads, NOT\na contract-checkable frontmatter field — so it lives here, distinct from\n`fields`, and never resolves through [`Features::field`]. The authored\n`rationale` is deliberately absent: it is the human *why*, never a\ndecidable feature.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sections": {
+          "description": "The body's ATX [`Section`]s (heading + the body span beneath it), in\ndocument order — the feature a `section_contains` clause decides over\n(`specs/architecture/10-contracts.md`, the `section_contains` structural primitive). A\nsuperset of [`headings`](Features::headings): where `headings` carries only\neach heading's text, a section pairs it with its body span so a marker check\nhas prose to search.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Section"
+          }
+        },
+        "source_dir": {
+          "description": "The name of the directory the unit was imported from, off provenance\n(for `name-matches-dir`). `None` when the source path has no parent.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "fields",
+        "body_lines",
+        "headings",
+        "sections",
+        "directives",
+        "fenced_blocks",
+        "genres",
+        "satisfies",
+        "published_requirements"
+      ]
+    },
+    "FencedBlock": {
+      "description": "One fenced code block of a markdown body: its **info string** (the text after\nthe opening fence — `sh`, `toml`, `toml genre.foo` — trimmed) paired with the\nblock's **interior content** (the lines between the fences, rejoined with `\\n`).\nThe feature a `fenced` primitive yields (`specs/architecture/15-kinds.md`, \"a\nfenced block — whose first consumer is the genre fence\"): fenced extraction\ncomposed with a TOML parse yields a genre value's features, declared data at\nbody position. Surface-decidable like every other feature — the fence\nboundaries are the ones [`body_headings`] already tracks, so a block is never a\nguess. The info string is available so the genre consumer can key on\n`genre.<name>`; this generic primitive yields the raw blocks only, the TOML\ncomposition a later slice.",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "The block's interior content — the lines between the fences, rejoined with\n`\\n`, byte-faithful to the body span exactly as a [`Section`]'s body is.",
+          "type": "string"
+        },
+        "info": {
+          "description": "The opening fence's info string, trimmed — `sh`, `toml`, or empty for a bare\nfence. The declared kind the genre consumer keys on.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "info",
+        "content"
+      ]
+    },
+    "GenreValue": {
+      "description": "A **genre value** — a kind's recurring prose form given typed shape\n(`specs/architecture/20-surface.md`, \"Genre values — prose that declares its own\nanatomy\"), extracted from a genre fence at the floor. It carries the genre it\ninstantiates (`decision`) and the fence key that names this instance among its\nsiblings (`surface-authority`), plus its meaning-carrying **prose leaves**:\ntop-level authored strings, and **sibling collections** — keyed sub-tables\n(`rejected.baked-projection`), never positional. Every leaf is addressed\nstructurally (member + genre + key + field path) so drift, `impact`, and\ncitations survive rewording ([`GenreValue::addressed_leaves`]).\n\nFloor leaves carry no mentions — interpolation stays an altitude feature until a\nfloor mention syntax is separately ratified (`specs/architecture/20-surface.md`) — so\na leaf is a plain [`String`], not a mention-bearing span.",
+      "type": "object",
+      "properties": {
+        "collections": {
+          "description": "The value's **sibling collections** — collection name → (entry key → the\nentry's own prose leaves), so a collection leaf addresses as\n`<collection>.<entry>.<field>` (`rejected.baked-projection.because`). Keyed at\nevery level, never positional — an address that survives insertion and reorder\n(`specs/architecture/20-surface.md`, \"leaf addresses are structural and keyed\").",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "genre": {
+          "description": "The genre this value instantiates — the fence info string's `genre.<genre>`\n(`decision`), one of the kind's declared genres.",
+          "type": "string"
+        },
+        "key": {
+          "description": "The fence key naming this instance among its siblings in the same member —\nthe info string's second token (`surface-authority`). Part of a leaf's\naddress, so it is keyed, never positional.",
+          "type": "string"
+        },
+        "leaves": {
+          "description": "The value's top-level **prose leaves** — field name → authored string, in\nstable (sorted) key order so serialization is deterministic.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "genre",
+        "key",
+        "leaves",
+        "collections"
+      ]
+    },
+    "Kind": {
+      "description": "A field's parsed source kind — the closed scalar/container lattice the `type`\nprimitive ranges over (`specs/architecture/10-contracts.md`, \"Decision: the `type`\nvocabulary is a closed scalar/container lattice\"). Taken from the *parsed*\nYAML/JSON value, not its stringified form: a sound `type` check needs the\nextractor to preserve the source kind rather than collapse every scalar to a\nbare string (the slice-1 shortcut this entry corrects). The five scalar kinds\nanswer [`FeatureValue::as_scalar`]; the two container kinds do not.",
+      "oneOf": [
+        {
+          "description": "A textual scalar.",
+          "type": "string",
+          "const": "String"
+        },
+        {
+          "description": "A whole-number scalar (no fractional part).",
+          "type": "string",
+          "const": "Integer"
+        },
+        {
+          "description": "A fractional/floating-point scalar.",
+          "type": "string",
+          "const": "Number"
+        },
+        {
+          "description": "A boolean scalar.",
+          "type": "string",
+          "const": "Boolean"
+        },
+        {
+          "description": "A null scalar.",
+          "type": "string",
+          "const": "Null"
+        },
+        {
+          "description": "A sequence/array container.",
+          "type": "string",
+          "const": "List"
+        },
+        {
+          "description": "A mapping/object container.",
+          "type": "string",
+          "const": "Map"
+        }
+      ]
+    },
+    "PublishedRequirement": {
+      "description": "A `[requirement.<name>]` clause module **published** on a member header\n(`specs/architecture/10-contracts.md`, \"Decision: a requirement's publisher is any authored\nsurface document\"): the member declares a named obligation — the demand side of\nthe fill edge, joined to the roster by another member's `satisfies`. It carries\nthe same facets the assembly roster's `[requirement.<name>]` does (`means`,\n`kind`, `package`, `required`); the richer set-scope facets stay assembly-only.\nAuthored on the surface, never imported; one namespace with the assembly roster,\nso a cross-publisher name collision is an admissibility finding (resolved in the\ngate), never a shadow.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "The artifact kind that may fill the requirement. Absent ⇒ kind-blind.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "means": {
+          "description": "The authored *intent*, the why. Carried verbatim and never interpreted\n(`00-intent.md` law 3).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "The requirement's name — the `[requirement.<name>]` module key.",
+          "type": "string"
+        },
+        "package": {
+          "description": "The package the filling artifact must conform to, named by name. Absent ⇒ no\npackage constraint.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "description": "Whether an unfilled requirement is gate-blocking. Absent ⇒ `false`.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "required"
+      ]
+    },
+    "Section": {
+      "description": "One ATX **section** of a markdown body: a heading paired with the body span\nbeneath it, up to the next heading of the same or a shallower level. The\nfeature a `section_contains` clause decides over (`specs/architecture/10-contracts.md`, the\n`section_contains` structural primitive) — its [`heading`](Section::heading) is\nmatched by the clause's declared prefix, its [`body`](Section::body) searched\nfor the declared marker. Surface-decidable like every other feature: a heading\ninside a fenced code block opens no section (the same exclusion\n[`body_headings`] makes), so a section is never a guess.",
+      "type": "object",
+      "properties": {
+        "body": {
+          "description": "The body span beneath the heading — the intervening lines rejoined with\n`\\n`, the text a `section_contains` marker check searches.",
+          "type": "string"
+        },
+        "heading": {
+          "description": "The heading text, with its `#` markers stripped exactly as\n[`body_headings`] strips them.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "heading",
+        "body"
+      ]
+    }
+  }
+}

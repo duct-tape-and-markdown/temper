@@ -260,7 +260,7 @@ impl Satisfies {
 /// Authored on the surface, never imported; one namespace with the assembly roster,
 /// so a cross-publisher name collision is an admissibility finding (resolved in the
 /// gate), never a shadow.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct PublishedRequirement {
     /// The requirement's name — the `[requirement.<name>]` module key.
     pub name: String,
