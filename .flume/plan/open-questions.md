@@ -132,23 +132,28 @@ path strings remain in comments).
   wave un-parks — SDK-EMIT-BYTE-PARITY is now `open`, its successors `blockedBy`
   in series. Kept as the decision record; no dependent still waits.
 
-- `(display-rule-emit-face)` — OPEN (surfaced 2026-07-03 draining the
-  display-rule inbox line). The ratified corpus carries "a genre value is
-  rendered by one corpus-wide **display rule** per genre — emit-owned,
-  byte-deterministic" (`specs/architecture/20-surface.md`, "The display rule owns
-  connective tissue" / law-5 append), but **no code stands behind it**: emit has
-  no projection face for custom kinds at all, so a fenced genre value (a spec
-  Decision/Law/Bound) would sit in the `specs/` projection as **raw TOML**,
-  failing the migration protocol's acceptance test (residual = connective tissue
-  only). This is why the corpus's **rung-3 pilot** (45-governance or 15-kinds, a
-  staged human ceremony) is BLOCKED. It is **entangled**, not standalone: a
-  display rule presupposes the custom-kind emit/projection face (the spec-kind
-  emit + module-carriage work, altitude/`(sdk-build-gate)` territory), which does
-  not exist. Not forced into pending — the inbox says the pilot is patient and
-  not to force it if entangled. The fork: does the display rule ship as its own
-  narrow engine slice (a per-genre projection formatter over the manifest's genre
-  tables, reusing the mention rule), or does it ride the broader custom-kind emit
-  face? Human to settle scope/sequencing; no dependents filed.
+- `(display-rule-emit-face)` — RESOLVED (John's ruling, 2026-07-03; inbox
+  drained this tick): **the display rule ships as its own narrow engine
+  slice**, NOT riding the custom-kind emit face. The corpus carries "a genre
+  value is rendered by one corpus-wide **display rule** per genre — emit-owned,
+  byte-deterministic" (`specs/architecture/20-surface.md`, "Content-faithful,
+  deterministically emitted (law 5)", the "display rule owns connective tissue"
+  bullet). Scope of the ruled slice: a per-genre projection formatter over the
+  manifest's genre tables (`[[member.genre]]` — leaves + keyed collections)
+  rendering the fenced block in place — headings, Chosen/Rejected labels,
+  ordering, anchors; **connective tissue ONLY**, every meaning-carrying word
+  tracing to an authored leaf (reuse the mention display rule as the pattern);
+  byte-deterministic, double-emit verified. The **island risk is accepted**:
+  the rule's contract is pinned by spec, so the future custom-kind emit face
+  must reproduce its bytes when it absorbs it. Filed this tick as pending
+  **DISPLAY-RULE-GENRE** (`open`, `src/display.rs` + `tests/display_rule.rs` +
+  the `lib.rs` `pub mod` line — disjoint from the sdk/ altitude entries). NB
+  emit today projects only skill/rule bodies (`src/drift.rs:459-477`); there is
+  no custom-kind projection, so the slice delivers the spec-pinned **formatter**
+  as a standalone island (no drift.rs wiring), not an end-to-end custom-kind
+  emit. Unblocks the genre-adoption pilot (45-governance or 15-kinds, a staged
+  human ceremony — the pilot itself is NOT a pending entry). Kept as the
+  decision record.
 
 - `(extraction-source-not-mechanism)` — RESOLVED (human ruling this session;
   `specs/architecture/15-kinds.md`, "The extraction algebra — the soundness boundary, as data":
