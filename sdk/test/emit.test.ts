@@ -69,6 +69,7 @@ const RULE_MEMBER: ManifestMember = {
   headings: ["Rust conventions"],
   satisfies: ["engineering-standards"],
   fields: { paths: ["src/**/*.rs"] },
+  body: "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.",
   sections: [
     {
       heading: "Rust conventions",
@@ -89,6 +90,7 @@ const SKILL_MEMBER: ManifestMember = {
   headings: ["Coordinate"],
   satisfies: [],
   fields: { description: 'Use when "coordinating" agents.\nSecond line.' },
+  body: "Drive the team.",
   sections: [{ heading: "Coordinate", body: "Drive the team." }],
   genres: [],
   published: [{ name: "playbook", means: "a shared playbook exists", kind: "skill", required: true }],
@@ -104,6 +106,7 @@ const DECISION_MEMBER: ManifestMember = {
   headings: [],
   satisfies: [],
   fields: {},
+  body: "",
   sections: [],
   genres: [
     {
@@ -132,6 +135,7 @@ const MEMORY_MEMBER: ManifestMember = {
   headings: [],
   satisfies: [],
   fields: { "disable-model-invocation": true, note: "path\\to" },
+  body: "",
   sections: [],
   genres: [{ genre: "bound", key: "reachability", leaves: { claim: "the world is a node" }, collections: {} }],
   published: [],
@@ -149,6 +153,7 @@ const EMPTY_REJECTED_MEMBER: ManifestMember = {
   headings: [],
   satisfies: [],
   fields: {},
+  body: "",
   sections: [],
   genres: [
     {
@@ -271,6 +276,53 @@ test("the leaf address rides structure: member + genre key + field path", () => 
   assert.equal(value.collections.rejected["baked-projection"].because.length > 0, true);
 });
 
+test("a multi-heading module-carried member sectionizes per heading like the importer", () => {
+  const dir = mkdtempSync(join(tmpdir(), "temper-sections-"));
+  try {
+    // The exact body the Rust `body_sections` test pins (`src/extract.rs`): a top
+    // `#`, two `##` decisions, a `###` subsection nested in the first, and a fenced
+    // `#` that is illustration, not a heading.
+    const body =
+      "# Title\n\n## Decision: one\nChosen: A. Rejected: B.\n\n### Sub\ndetail\n\n" +
+      "## Decision: two\n```sh\n# not a heading\n```\ntail\n";
+    writeFileSync(join(dir, "doc.md"), body);
+    const member = rule({ name: "doc", body: fromFile("./doc.md") });
+
+    const manifest = toManifestMember(member, { baseDir: dir });
+
+    // One section per heading, heading line split out — the importer's shape, not
+    // the old single whole-body section keyed on a name fallback.
+    const expectedHeadings = ["Title", "Decision: one", "Sub", "Decision: two"];
+    assert.deepEqual(manifest.headings, expectedHeadings);
+    assert.deepEqual(
+      manifest.sections.map((section) => section.heading),
+      expectedHeadings,
+    );
+
+    // `Decision: one` runs to the next same-or-shallower heading, so its span
+    // absorbs the nested `### Sub`; the fenced `#` never split off a section.
+    const one = manifest.sections[1];
+    assert.match(one.body, /Chosen: A\. Rejected: B\./);
+    assert.match(one.body, /### Sub/);
+    assert.match(one.body, /detail/);
+    // The heading line itself is split out — no `## Decision: one` inside its body.
+    assert.doesNotMatch(one.body, /^## Decision: one$/m);
+    const two = manifest.sections[3];
+    assert.match(two.body, /# not a heading/);
+    assert.match(two.body, /tail/);
+
+    // `line_count` is the body's real count — 13 — the trailing newline opening no
+    // phantom line (the naive `split("\n")` would over-count to 14).
+    assert.equal(manifest.line_count, 13);
+    assert.equal(body.split("\n").length, 14);
+
+    // The whole body survives untouched for projection, beside the extraction.
+    assert.equal(manifest.body, body);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Body resolution — `fromFile` assets read in, mentions resolution-checked and
 // rendered by the display rule (`specs/architecture/20-surface.md`, "Mentions").
@@ -288,16 +340,18 @@ test("a fromFile body resolves, emits, and stays byte-parity", () => {
     const harness = defineHarness({ members: [member] });
 
     const toml = emitManifestMembers(harness, { baseDir: dir });
-    // The asset is the section body byte-for-byte — same bytes an inline member
-    // carrying that content would land on the serializer.
+    // The asset extracts per-heading like the importer: the single `# Long rule`
+    // heading's section body is the span beneath it, heading line split out. The
+    // trailing newline opens no line, so `line_count` is 4 (not the naive 5).
     const expected: ManifestMember = {
       kind: "claude-code.rule",
       name: "long",
-      line_count: content.split("\n").length,
+      line_count: 4,
       headings: ["Long rule"],
       satisfies: [],
       fields: {},
-      sections: [{ heading: "Long rule", body: content }],
+      body: content,
+      sections: [{ heading: "Long rule", body: "\nBody line one.\nBody line two." }],
       genres: [],
       published: [],
     };
@@ -320,28 +374,34 @@ test("a resolved mention renders to its declared value's display form", () => {
   const target = rule({ name: "rust", body: md`# Rust` });
   const citer = rule({
     name: "citations",
-    body: md`A ${{ address: "claude-code.rule:rust", display: "rust" }} is declared.`,
+    body: md`
+      # Citations
+
+      A ${{ address: "claude-code.rule:rust", display: "rust" }} is declared.
+    `,
   });
   const harness = defineHarness({ members: [target, citer] });
 
   const toml = emitManifestMembers(harness);
   // The display rule substituted the target's form; the surrounding words and
   // spacing are the author's, and no interpolation marker survives (law 5).
-  assert.match(toml, /body = "A rust is declared\."/);
+  assert.match(toml, /A rust is declared\./);
   assert.doesNotMatch(toml, /\u0000/);
 
-  // The rendered member is byte-identical to the same words authored inline.
+  // The rendered member is byte-identical to the same words authored inline — the
+  // `# Citations` heading's section body is the span beneath it, heading split out.
   const rendered = serializeManifestMember(
     toManifestMember(citer, { mentionable: new Set(["claude-code.rule:rust"]) }),
   );
   const inline: ManifestMember = {
     kind: "claude-code.rule",
     name: "citations",
-    line_count: 1,
-    headings: [],
+    line_count: 3,
+    headings: ["Citations"],
     satisfies: [],
     fields: {},
-    sections: [{ heading: "citations", body: "A rust is declared." }],
+    body: "# Citations\n\nA rust is declared.\n",
+    sections: [{ heading: "Citations", body: "\nA rust is declared." }],
     genres: [],
     published: [],
   };
@@ -380,6 +440,7 @@ const RULE_PROJECTION_MEMBER: ManifestMember = {
   headings: ["Rust conventions"],
   satisfies: [],
   fields: { paths: ["src/**/*.rs"] },
+  body: "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.\n",
   sections: [
     {
       heading: "Rust conventions",
@@ -410,6 +471,7 @@ const SKILL_PROJECTION_MEMBER: ManifestMember = {
     name: "coordinate",
     description: "Use when driving a complex task across a team of agents.",
   },
+  body: "# Coordinate\n\nDrive the team.\n",
   sections: [{ heading: "Coordinate", body: "# Coordinate\n\nDrive the team.\n" }],
   genres: [],
   published: [],
@@ -433,6 +495,7 @@ const PLAIN_PROJECTION_MEMBER: ManifestMember = {
   headings: ["Plain rule"],
   satisfies: [],
   fields: {},
+  body: "# Plain rule\n\nNo frontmatter here.\n",
   sections: [{ heading: "Plain rule", body: "# Plain rule\n\nNo frontmatter here.\n" }],
   genres: [],
   published: [],

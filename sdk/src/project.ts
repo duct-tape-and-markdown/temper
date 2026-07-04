@@ -128,6 +128,10 @@ export function projectBytes(
 export function projectMember(member: ManifestMember): Projection {
   const path = projectionPath(member.kind, member.name);
   const fields = Object.entries(member.fields);
-  const body = member.sections[0]?.body ?? "";
+  // The projection is the whole content-faithful body — never the per-heading
+  // `sections` (which drop the heading lines and any preamble). A hand-built
+  // fixture that carries no separate `body` falls back to a single whole-body
+  // section, the shape those serializer fixtures use.
+  const body = member.body || (member.sections[0]?.body ?? "");
   return { path, bytes: projectBytes(fields, body) };
 }

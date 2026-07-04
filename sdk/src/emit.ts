@@ -32,6 +32,7 @@ import type {
   ManifestGenreValue,
   ManifestMember,
   ManifestPublishedRequirement,
+  ManifestSection,
 } from "./manifest.js";
 import { encodeKey, encodeString, joinSections, keyValue, sortedKeys, stringArray } from "./toml.js";
 import type { Projection } from "./project.js";
@@ -233,10 +234,118 @@ function resolveBody(member: Member, options: ResolveOptions): string {
   return renderInline(member.body);
 }
 
+// ---------------------------------------------------------------------------
+// Body extraction — a faithful port of the Rust importer's heading/section
+// logic (`src/extract.rs`: `fence_marker`, `atx_heading`, `body_sections`), so a
+// module-carried member's manifest `line_count`/`headings`/`sections` match what
+// the importer produces from the same body byte-for-byte
+// (`specs/architecture/20-surface.md`, the carriage Decision — every consumer
+// carriage-blind). A member projected to disk and re-imported must re-extract
+// the identical `[[member.section]]` tables.
+// ---------------------------------------------------------------------------
+
+/** One heading line outside fenced code: its line index, level, and stripped text. */
+interface Head {
+  readonly index: number;
+  readonly level: number;
+  readonly text: string;
+}
+
+/**
+ * The body's lines the Rust `str::lines` way: split on `\n`, a trailing newline
+ * opens no line (so a body ending in `\n` counts one fewer than a naive
+ * `split`), a trailing `\r` is stripped from each line, and the empty body has
+ * zero lines. The count is [`line_count`](ManifestMember.line_count); the array is
+ * the span [`bodySections`] slices.
+ */
+function bodyLines(body: string): string[] {
+  if (body === "") return [];
+  const parts = body.split("\n");
+  if (parts[parts.length - 1] === "") parts.pop();
+  return parts.map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
+}
+
+/**
+ * The fence marker a line carries — the fence char (`` ` `` or `~`) and its run
+ * length (≥3), up to three leading spaces allowed (four is an indented code
+ * block). A port of the Rust `fence_marker`: heading extraction skips fenced code
+ * so a `#` inside a fence is illustration, never a section boundary.
+ */
+function fenceMarker(line: string): { readonly char: string; readonly len: number } | null {
+  const rest = line.replace(/^ +/, "");
+  if (line.length - rest.length >= 4) return null;
+  const char = rest[0];
+  if (char !== "`" && char !== "~") return null;
+  let len = 0;
+  while (rest[len] === char) len += 1;
+  return len >= 3 ? { char, len } : null;
+}
+
+/**
+ * The level and stripped text of an ATX heading on this line, or `null` — a port
+ * of the Rust `atx_heading`: up to three leading spaces, a `#`..`######` run (the
+ * level), then whitespace or end of line; the text has the marker run and an
+ * optional closing `#` run (space-separated, CommonMark) stripped exactly as the
+ * importer strips them.
+ */
+function atxHeading(line: string): { readonly level: number; readonly text: string } | null {
+  const rest = line.replace(/^ +/, "");
+  if (line.length - rest.length >= 4) return null;
+  let level = 0;
+  while (rest[level] === "#") level += 1;
+  if (level === 0 || level > 6) return null;
+  const after = rest.slice(level);
+  // The `#` run must be followed by whitespace or end the line, else it is content.
+  if (after.length > 0 && after[0] !== " " && after[0] !== "\t") return null;
+  const text = after.trim();
+  // A trailing `#` run closes the heading only when whitespace separates it from
+  // the text; a `#` glued to a word stays content.
+  const stripped = text.replace(/#+$/, "");
+  if (stripped === "") return { level, text: "" };
+  if (stripped.length !== text.length && /[ \t]$/.test(stripped)) {
+    return { level, text: stripped.replace(/[ \t]+$/, "") };
+  }
+  return { level, text };
+}
+
+/** The body's heading lines outside fenced code, in document order — the section boundaries. */
+function headingScan(lines: readonly string[]): Head[] {
+  const heads: Head[] = [];
+  let fence: { readonly char: string; readonly len: number } | null = null;
+  lines.forEach((line, index) => {
+    const marker = fenceMarker(line);
+    if (marker) {
+      if (fence && marker.char === fence.char && marker.len >= fence.len) fence = null;
+      else if (!fence) fence = marker;
+      return;
+    }
+    if (fence === null) {
+      const heading = atxHeading(line);
+      if (heading) heads.push({ index, level: heading.level, text: heading.text });
+    }
+  });
+  return heads;
+}
+
+/**
+ * The body's ATX sections — one per heading, its span the intervening lines up to
+ * the next heading of the same or a shallower level (a deeper subsection nests in
+ * its parent's span), the heading line itself split out. A port of the Rust
+ * `body_sections`, so a re-import round-trips.
+ */
+function bodySections(lines: readonly string[], heads: readonly Head[]): ManifestSection[] {
+  return heads.map((head, position) => {
+    const next = heads.slice(position + 1).find((candidate) => candidate.level <= head.level);
+    const end = next ? next.index : lines.length;
+    return { heading: head.text, body: lines.slice(head.index + 1, end).join("\n") };
+  });
+}
+
 /** The parsed-shape view of one authored member, for tests and tooling. */
 export function toManifestMember(member: Member, options: ResolveOptions = {}): ManifestMember {
   const body = resolveBody(member, options);
-  const headings = [...body.matchAll(/^#{1,6} +(.+)$/gm)].map((m) => m[1]);
+  const lines = bodyLines(body);
+  const heads = headingScan(lines);
   const published: ManifestPublishedRequirement[] = Object.keys(member.requirements)
     .sort()
     .map((name) => {
@@ -251,11 +360,12 @@ export function toManifestMember(member: Member, options: ResolveOptions = {}): 
   return {
     kind: member.kind,
     name: member.name,
-    line_count: body.split("\n").length,
-    headings,
+    line_count: lines.length,
+    headings: heads.map((head) => head.text),
     satisfies: Object.keys(member.satisfies).sort(),
     fields: member.fields,
-    sections: [{ heading: headings[0] ?? member.name, body }],
+    body,
+    sections: bodySections(lines, heads),
     genres: member.genres,
     published,
   };

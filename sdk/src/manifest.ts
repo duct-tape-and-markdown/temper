@@ -66,6 +66,22 @@ export interface ManifestMember {
   readonly satisfies: readonly string[];
   /** Frontmatter fields (a rule's `paths`, a skill's `description`). */
   readonly fields: Readonly<Record<string, unknown>>;
+  /**
+   * The whole content-faithful body — the **projection source**. The Rust
+   * importer carries the full body (`skill.body`/`rule.body`, `src/drift.rs`)
+   * beside its extracted `sections`; the SDK mirrors that split because projection
+   * (`projectMember`) needs the untouched body while `sections` below carry only
+   * the per-heading extraction the manifest serializes. Not itself serialized into
+   * the manifest — the body lives there in `[[member.section]]` form. Empty for a
+   * bodiless member (a genre-only decision).
+   */
+  readonly body: string;
+  /**
+   * The body's ATX **sections**, one per heading with the heading line split out
+   * of the span — the extraction the manifest serializes, converged on the Rust
+   * importer's `body_sections` (`src/extract.rs`) so a member projected to disk and
+   * re-imported re-extracts identical `[[member.section]]` tables.
+   */
   readonly sections: readonly ManifestSection[];
   readonly genres: readonly ManifestGenreValue[];
   readonly published: readonly ManifestPublishedRequirement[];
