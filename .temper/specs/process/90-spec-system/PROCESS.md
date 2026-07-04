@@ -1,7 +1,7 @@
 +++
 [provenance]
 source_path = "./specs/process/90-spec-system.md"
-source_hash = "453eb4695ec08ee6fa822f6e3ba241a0c139c9cd34847505920747858e2cab8a"
+source_hash = "8c5ebfd16d7070badc01868e86b8070339b28e9617e2fc8c2be23e64017b9db6"
 +++
 # Spec system — how `temper` is specified
 
@@ -86,9 +86,21 @@ There are no `RELEASE-vN.md` ship targets (`00-intent.md` decision). `specs/` is
 continuously reconciled against code: `plan` re-reads the corpus every tick,
 files the gap between intent and `src/` as pending entries, and drops entries
 whose work has shipped. "Done" is a moving conformance, not a frozen milestone.
-New or changed intent is authored by the human in interactive sessions, never by
-an autonomous phase — the loop shapes and implements intent, it never invents it
-(`00-intent.md` law 4; `.claude/rules/collaboration.md`).
+New or changed intent is **human-ratified**, not human-typed by requirement:
+drafting is the primary author's work (`00-intent.md`, Positioning — the
+agent) at every tier, and the `specs:` ceremony is the authority moment — a
+cold read over a reviewable diff, never a formality. No autonomous phase
+lands spec text: build proposes (leave the entry, surface the question)
+instead of writing — the loop shapes and implements intent, it never invents
+it (`00-intent.md` law 4; `.claude/rules/collaboration.md`). As a document
+climbs the genre gradient to rung 3+ (`30-landscapes.md`), an autonomous
+phase MAY gain **draft rights on its leaves — propose-only**: a leaf edit is
+a typed, resolution-checked, impact-visible graph event where a prose edit
+is an opaque diff, so the review the ceremony rests on becomes mechanical
+rather than heroic. The authority tier never loosens; only the drafting tier
+widens, per document, with the structure that makes review possible.
+Never-climb still holds: draft rights are a consequence a document's author
+may collect, never a pressure to climb. (Ruled 2026-07-03.)
 
 ## The depth rule — how deep a spec goes
 

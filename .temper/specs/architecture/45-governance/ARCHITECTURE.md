@@ -10,7 +10,7 @@ rationale = "45-governance owns the mention's edge class — the readmitted one-
 
 [provenance]
 source_path = "./specs/architecture/45-governance.md"
-source_hash = "eec68656a65ffe1f27c9472ee31f6924cc40552fcbdee06854b777ec82687bef"
+source_hash = "f9624d34f8252f287b812e2812b087111715719623ef37d219e019f79f096bf9"
 +++
 # Governance — powering up the wider contract scopes
 
@@ -169,6 +169,13 @@ mention edges mined from unmarked prose — the `references` retirement
 (`15-kinds.md`) stays fully in force: an unmarked name is typography,
 permanently; (c) mention-completeness demands — inadmissible by definition
 (`20-surface.md`, the opt-in Decision; law 8's never-climb bound).
+
+The class gains **address grain**, not new semantics: a declared one-way
+edge (a mention, a citation) may target a **leaf address** (`20-surface.md`,
+genre values) — resolution-checked against the manifest's serialized shape,
+obligation-free exactly as above, reported by `impact` as citation at the
+leaf it names. Deleting or rewording a cited leaf is never blocked by its
+citations; the citer is told, which is the entire point.
 
 ## The world is a node — reachability is a predicate
 

@@ -10,7 +10,7 @@ rationale = "15-kinds owns the provider axis that fixes a kind's identity (`<pro
 
 [provenance]
 source_path = "./specs/architecture/15-kinds.md"
-source_hash = "eec50aadc7d863e3b1c241e715c12cb178a51de297969837100e5056005761bf"
+source_hash = "e0a7bef87289b9d89601f3fe2719ea09d73bd41fb2eb2d3d872c76ca767541dc"
 +++
 # Kinds — the extraction algebra and the kind system
 
@@ -39,7 +39,10 @@ same way a contract is composed from the closed predicate vocabulary:
 - **structured field** — a frontmatter / JSON / TOML value at a key-path (kind from
   the `type` lattice, `10-contracts.md`);
 - **markdown structure** — ATX headings; named sections; a `## Decision` block
-  (heading + its body); a fenced block;
+  (heading + its body); a fenced block — whose first consumer is the **genre
+  fence** (`20-surface.md`): fenced extraction composed with a TOML parse
+  yields a genre value's features, declared data at body position, never
+  recognition;
 - **text & file** — line count; file placement, naming, glob.
 
 An author **composes** a kind from these; an author **writes no parsing**. The
@@ -345,6 +348,13 @@ its own:
   harness reaches a member, and over which declared field;
 - **directives** (optional) — the format-executed body syntaxes the authority
   documents for this kind's artifacts (above), each an edge-yielding extraction.
+- **genres** (optional) — the kind's genre vocabulary: typed shapes for the
+  members' recurring prose forms — named fields over **prose leaves** and
+  keyed collections (`20-surface.md`, genre values), declared as data,
+  serialized whole into the manifest schema. The bound package carries any
+  predicates over them (a decision names at least one rejected alternative)
+  — the shape is the kind's, the demand is the package's, the same ownership
+  line as everywhere.
 
 The **require-side** is not part of the kind object — it is a **package** bound to the
 kind (`10-contracts.md`), carrying the clauses (`10-contracts.md`) over those features.
@@ -399,3 +409,11 @@ alternative and every declared entity has its architecture home, and flags the
 over-length specs. This is the deepest dogfood: temper checking the corpus flume
 derives from — self-hosting (`00-intent.md`) extended from `.claude/` to
 `specs/`.
+
+The corpus's genre target: `decision`, `law`, and `bound` genres declared on
+the spec kinds, harvested from the corpus's own conventions. The
+decisions-name-alternatives predicate keeps both spellings: at rung 2 it
+stays the decision-block shape check over extracted headings (clause
+features, never leaves); over genre values it is a schema fact. Migration
+between rungs is the same staged human ceremony as the classed migration —
+per document, never demanded (`30-landscapes.md`, the gradient).

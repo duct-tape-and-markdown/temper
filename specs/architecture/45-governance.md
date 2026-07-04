@@ -156,6 +156,13 @@ mention edges mined from unmarked prose — the `references` retirement
 permanently; (c) mention-completeness demands — inadmissible by definition
 (`20-surface.md`, the opt-in Decision; law 8's never-climb bound).
 
+The class gains **address grain**, not new semantics: a declared one-way
+edge (a mention, a citation) may target a **leaf address** (`20-surface.md`,
+genre values) — resolution-checked against the manifest's serialized shape,
+obligation-free exactly as above, reported by `impact` as citation at the
+leaf it names. Deleting or rewording a cited leaf is never blocked by its
+citations; the citer is told, which is the entire point.
+
 ## The world is a node — reachability is a predicate
 
 The relation graph gains one distinguished node: **the world** — the harness

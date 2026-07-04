@@ -233,3 +233,31 @@ move; (b) keeping the same-medium mirror — the dogfood showed the posture
 illegible even to its own author; (c) the typed face as the *only* medium —
 mandatory Node in every consumer's path, where law 2 demands a declared-data
 floor no runtime can hold hostage.
+
+## Decision: genre-typed prose — the model swallows the document
+
+**Chosen:** a kind may declare a **genre vocabulary**: typed shapes for the
+recurring forms of its members' prose — a decision with its rejected
+alternatives, a law with its bounds, an honest bound with its unlock —
+authored as values whose meaning-carrying words are **prose leaves**:
+authored strings law 5 protects one by one. Where a corpus adopts genres
+fully, its documents become pure projection — the src→dist move of the
+Decision above, applied one level deeper (a bound-prose spec document is
+still source and rendered thing at once; the last mirror-era holdout).
+Genres are **kind/package data, never engine** (law 2): a project whose
+prose argues differently declares its own genres with the same machinery
+(`15-kinds.md`). Adoption is opt-in per block, forever — plain prose is a
+fully legal member of every genre-bearing kind, and **no check may quantify
+over genre completeness** (law 8's never-climb bound, one level down). The
+payoff belongs to the primary author (Positioning: the agent):
+**proprioception** — leaves are addressable, so `impact` reaches inside
+arguments, a leaf's declared neighborhood is assemblable context, and an
+edit declares what it is. Prose edits become graph events
+(`30-landscapes.md`, `20-surface.md`). (Ratified 2026-07-03 by delegated
+ceremony; the pre-state is the `bound-prose-era` tag.) **Rejected:** (a)
+hardcoded genre checks — a built-in ontology of argument is the tool's
+taste, in the compiler where it is hardest to see; (b) typing rationale
+itself — "why" is undecidable, the prose remainder never hits zero (the
+honest bound), and genre types structure the *anatomy* of an argument,
+never its content; (c) genre-completeness or -density demands — the mining
+swamp rebuilt from the declaration side, inadmissible by definition.

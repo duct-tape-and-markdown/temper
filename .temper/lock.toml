@@ -19,7 +19,7 @@ emit_hash = "7f52c4f395f91f4a318972a8dcb9b567c859b3a5ccc8bdf584cc0824380c8844"
 [[rule]]
 name = "rust"
 source_path = "./.claude/rules/rust.md"
-source_hash = "b0d1ca36f03c3a9b9a660bc0860e4f584e05f9d59bf81c41b3c4138b2c9eb1b0"
+source_hash = "cf7ec58adb5aabc7a99227cbc11551670503f225295ddaf072a439db23000d86"
 emit_hash = "cf7ec58adb5aabc7a99227cbc11551670503f225295ddaf072a439db23000d86"
 
 [[architecture]]
@@ -31,20 +31,20 @@ emit_hash = "e4a8824d9dde26b40b2d34b2c36afe69edb367420ba8be5cbedc20994cf2094e"
 [[architecture]]
 name = "15-kinds"
 source_path = "./specs/architecture/15-kinds.md"
-source_hash = "eec50aadc7d863e3b1c241e715c12cb178a51de297969837100e5056005761bf"
-emit_hash = "eec50aadc7d863e3b1c241e715c12cb178a51de297969837100e5056005761bf"
+source_hash = "e0a7bef87289b9d89601f3fe2719ea09d73bd41fb2eb2d3d872c76ca767541dc"
+emit_hash = "e0a7bef87289b9d89601f3fe2719ea09d73bd41fb2eb2d3d872c76ca767541dc"
 
 [[architecture]]
 name = "20-surface"
 source_path = "./specs/architecture/20-surface.md"
-source_hash = "3ef288f8c31ce4bee92d1e74984bf62c570fcf3d499c16c65162ac4df9fa40f4"
-emit_hash = "3ef288f8c31ce4bee92d1e74984bf62c570fcf3d499c16c65162ac4df9fa40f4"
+source_hash = "76eedc456b409139f3afdeb46fcde24933da6659d30ed4048dea80718d93483d"
+emit_hash = "76eedc456b409139f3afdeb46fcde24933da6659d30ed4048dea80718d93483d"
 
 [[architecture]]
 name = "30-landscapes"
 source_path = "./specs/architecture/30-landscapes.md"
-source_hash = "5fc5b82f450a39557b4b579df4beb62d03d4ae8afc73779ef83ff35ca0038d88"
-emit_hash = "5fc5b82f450a39557b4b579df4beb62d03d4ae8afc73779ef83ff35ca0038d88"
+source_hash = "d185adba2cd81d14eb86d23cd101c2d97482064e7084421bd37f380adae4dbad"
+emit_hash = "d185adba2cd81d14eb86d23cd101c2d97482064e7084421bd37f380adae4dbad"
 
 [[architecture]]
 name = "40-composition"
@@ -55,8 +55,8 @@ emit_hash = "e9f0d602dca058d69f0528cf5328d75ec554bd512fe5783288df5b7991eb5463"
 [[architecture]]
 name = "45-governance"
 source_path = "./specs/architecture/45-governance.md"
-source_hash = "eec68656a65ffe1f27c9472ee31f6924cc40552fcbdee06854b777ec82687bef"
-emit_hash = "eec68656a65ffe1f27c9472ee31f6924cc40552fcbdee06854b777ec82687bef"
+source_hash = "f9624d34f8252f287b812e2812b087111715719623ef37d219e019f79f096bf9"
+emit_hash = "f9624d34f8252f287b812e2812b087111715719623ef37d219e019f79f096bf9"
 
 [[architecture]]
 name = "50-distribution"
@@ -67,8 +67,8 @@ emit_hash = "ed135a7d6e853c3ce9eed2e3cf259c4eab6d64062ffa805454376b613eb2ff28"
 [[intent]]
 name = "00-intent"
 source_path = "./specs/intent/00-intent.md"
-source_hash = "b49564c037a17ea808f063e7511634846942031d26f45afd2b717d651190c7ef"
-emit_hash = "b49564c037a17ea808f063e7511634846942031d26f45afd2b717d651190c7ef"
+source_hash = "dc3db8fddba559f7867c76633ec433b9cbc64bc25a525e9ad795db28745699a5"
+emit_hash = "dc3db8fddba559f7867c76633ec433b9cbc64bc25a525e9ad795db28745699a5"
 
 [[intent]]
 name = "05-model"
@@ -85,5 +85,5 @@ emit_hash = "234cc710cfe2dbdabc819af9785cfcd953e9a2b0aa1440ef1f06963a8bbcf446"
 [[process]]
 name = "90-spec-system"
 source_path = "./specs/process/90-spec-system.md"
-source_hash = "453eb4695ec08ee6fa822f6e3ba241a0c139c9cd34847505920747858e2cab8a"
-emit_hash = "453eb4695ec08ee6fa822f6e3ba241a0c139c9cd34847505920747858e2cab8a"
+source_hash = "8c5ebfd16d7070badc01868e86b8070339b28e9617e2fc8c2be23e64017b9db6"
+emit_hash = "8c5ebfd16d7070badc01868e86b8070339b28e9617e2fc8c2be23e64017b9db6"

@@ -16,7 +16,7 @@ rationale = "20-surface owns the manifest — the inert `temper.toml` + lock ser
 
 [provenance]
 source_path = "./specs/architecture/20-surface.md"
-source_hash = "3ef288f8c31ce4bee92d1e74984bf62c570fcf3d499c16c65162ac4df9fa40f4"
+source_hash = "76eedc456b409139f3afdeb46fcde24933da6659d30ed4048dea80718d93483d"
 +++
 # The config surface — author, emit, project, drift
 
@@ -266,6 +266,61 @@ have declared (law 4 at its finest grain); (b) auto-linking recognized names
 in prose — mining with a friendlier name; recognition is authorship, never
 inference.
 
+## Genre values — prose that declares its own anatomy
+
+A kind may declare **genres** (`15-kinds.md`): typed shapes for its members'
+recurring prose forms. A **genre value** is authored module-carried
+(`decision({...})`) or document-carried (the genre fence, Decision below);
+its meaning-carrying fields are **prose leaves** — authored strings, law-5
+protected, mention-capable at the altitude (floor leaves carry no mentions:
+interpolation stays an altitude feature until a floor mention syntax is
+separately ratified). Every genre value serializes into the manifest in one
+shape and every consumer is carriage-blind — the carriage Decision, extended
+inside the member. A leaf is **addressed** — member, genre key, field path —
+and a citation may target a leaf (`45-governance.md`); `impact` reports at
+leaf grain. Adoption is opt-in per block (`00-intent.md`, the genre
+Decision): an unfenced block is plain prose, fully legal, and no check may
+quantify over genre completeness.
+
+### Decision: leaf addresses are structural and keyed, never positional
+
+**Chosen:** a leaf is addressed by its position in the typed shape — member,
+genre key, field path — stable under content edits, so drift, `impact`, and
+citations survive rewording. At the altitude, renames flow like any refactor
+— the module graph carries them; at the floor, a key rename is a bare text
+edit, and its citations break to the resolution check — the citer is told,
+which is the mention rule's net, accepted. Sibling collections are **keyed**
+(`rejected.baked-projection.because`), never positional (`rejected[0]`) —
+positional addresses die on insertion and reorder, which is exactly when
+impact must survive. **Rejected:** (a) content-hash identity — dies on every
+edit, defeating drift routing; (b) mandatory manual IDs on every leaf — a
+toll; the address rides structure the author already writes.
+
+### Decision: the floor spelling is a genre fence
+
+**Chosen:** at the floor, a genre value is a **TOML genre fence** in the
+document body: a fenced block whose info string names the genre and key
+(info string `genre.decision surface-authority`), whose interior is TOML —
+leaf fields as multi-line strings, sibling collections as keyed tables
+(`[rejected.baked-projection]`). The fence is the document carriage's
+declared-data medium (the header's dialect) admitted at body position:
+block-grained, position-bearing, rendered in place by the display rule,
+patched format-preserving (`toml_edit`), keystroke-validated where the
+schema ships (`50-distribution.md`). It is declared syntax in the one
+landscape where temper is itself the format authority — the surface
+language documents the fence as executed (emit renders it; the gate reads
+its serialization) — the body-side analogue of a structured field
+(`15-kinds.md`, directives). Extraction composes the algebra's fenced-block
+primitive with a TOML parse into the one manifest shape. **Rejected:**
+(a) promoting the heading/bold convention (`### Decision:` + `**Chosen:**`)
+to model structure — deriving graph leaves from prose typography is law 8's
+mining ban; the rung-2 decision-block extraction (`15-kinds.md`, worked
+example) keeps exactly its current standing: clause features, never leaves;
+(b) a bespoke marker grammar — the dialect Decision already rejected owning
+a parser ecosystem forever, and inside a fence there is no markdown tooling
+to save; (c) header-carried genres with body anchors — splits a decision's
+structure from its words.
+
 ## Artifact kinds & package binding
 
 The kind *system* — the extraction algebra and the built-in/custom split — is
@@ -324,6 +379,15 @@ the assembly exactly as built-ins are; there is no privileged embedded-only tier
   (`toml_edit`); a lossy serialize-from-scratch on anything a human authors is
   forbidden. Emitted files are re-emitted whole — nothing of the human's in
   them to lose.
+- **The display rule owns connective tissue.** A genre value is rendered by
+  one corpus-wide **display rule** per genre — emit-owned,
+  byte-deterministic. Its connective tissue (headings, the Chosen/Rejected
+  labels, ordering, anchors) is projection formatting, the markdown analogue
+  of the manifest's TOML syntax — never synthesized prose: every
+  meaning-carrying word in the projection traces to an authored leaf or a
+  declared value's rendered form (the mention rule, reused). A hand-edit to a
+  rendered genre block is a drift finding routed to the authored source, same
+  as any member.
 
 ## Drift — one direction, two freshness facts (the hard core)
 
@@ -528,6 +592,18 @@ exit code CI trusts; (b) a general `query` verb — a query language is surface
 `temper` does not need for the two questions that matter, which are exactly the two
 directions of the one requirement↔`satisfies` edge (`10-contracts.md`). (Resolves
 `(read-verbs)`.)
+
+The family gains leaf grain: `impact` accepts a leaf address and reports
+citations separately from fallout (`45-governance.md`); `context <address>`
+emits a member's or leaf's declared neighborhood — genre slot, siblings,
+citers, satisfied requirements — the pre-edit context bundle for the primary
+author. Both consume only the manifest: offline, tier-1, no runtime. And
+both **disclose coverage**: under the gradient a mixed-rung corpus is the
+standing state, not an edge case, so every leaf-grain answer names what it
+cannot see ("N documents below rung 3 — not represented at leaf grain"). An
+incomplete answer wearing complete clothes erodes the read verbs exactly as
+a false gate-block erodes the gate (law 1); the disclosure ships with the
+verbs, never after.
 
 Logic lives in the library; `main` is a thin `clap` dispatch that maps results to
 an exit code (`.claude/rules/rust.md`).
