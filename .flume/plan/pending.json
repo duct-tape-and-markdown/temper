@@ -1,49 +1,5 @@
 [
   {
-    "tag": "SDK-ASSEMBLY-ARTIFACTS",
-    "summary": "SDK `emit` emits the locus-less assembly facts (kind bindings + requirement roster) as small committed temper-owned artifacts — additive to the manifest/projection/lock",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The surface: the assembly over its contents"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "sdk/src/assembly_artifacts.ts",
-          "description": "Serialize the assembly's two locus-less parts — the kind bindings and the requirement roster — into small committed temper-owned artifacts (`20-surface.md`, 'the bindings, the roster — are emitted as small committed temper-owned artifacts'). Deterministic, sorted-key TOML through the existing `toml.ts` encoders; whole-file bytes, double-emit stable."
-        },
-        {
-          "path": "sdk/test/assembly_artifacts.test.ts",
-          "description": "node --test: the emitted bindings artifact carries every declared kind→package binding, the roster carries each requirement with its `means`/`kind`/required flag, both byte-deterministic across two passes."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "Extend `EmitResult` with the assembly-facts artifacts, compile them in `emit` from the harness bindings + requirements (double-emit verified alongside manifest/projection/lock), and have `writeEmit` land them beside `temper.toml`/`lock.toml`. Additive: the manifest/projection/lock outputs are unchanged, so the byte-parity fixtures stay valid."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Export the new `assembly_artifacts` module's public serializer + types beside the existing emit exports."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/assembly_artifacts.test.ts",
-        "asserts": "emit produces byte-deterministic bindings + roster artifacts carrying every declared binding and requirement; writeEmit lands them on disk."
-      }
-    ],
-    "acceptance": "`emit` returns and `writeEmit` writes the two temper-owned assembly artifacts (bindings, roster); output is double-emit stable; the manifest/projection/lock bytes are unchanged and the engine read path is untouched; `pnpm --dir sdk test` green.",
-    "notes": "Ratified reconcile, in-fence item (2c). Additive by design: the engine still reads the existing manifest until its sunset (D6, evidence-gated behind the dogfood migration — no demolition here). SDK-EMIT-REFUSALS shipped (173f4fa) — this is now the pickable head; sdk/** only, in-fence, emit surface stable."
-  },
-  {
     "tag": "CONTRACT-DIR",
     "summary": "Promote byte-parity fixtures + Rust goldens into a shared `contract/` dir both test suites read; generate schemas Rust-first (schemars → JSON Schema 2020-12, ts-rs types)",
     "per": {
