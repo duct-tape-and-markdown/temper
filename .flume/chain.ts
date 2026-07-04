@@ -196,11 +196,17 @@ const BUILD_WRITABLE_PATHS = [
   "temper.toml",
   ".temper/lock.toml",
 
-  // The authoring-face SDK (`specs/architecture/20-surface.md`, the TypeScript
-  // face; `specs/architecture/50-distribution.md`, the npm channel). Product
-  // code like src/** — the scaffold was the delegated human half (ask (a));
-  // every subsequent slice is build's.
+  // The SDK (`specs/architecture/20-surface.md`; `specs/architecture/50-distribution.md`,
+  // the npm front door). Product code like src/** — the scaffold was the
+  // delegated human half; every subsequent slice is build's.
   "sdk/**",
+
+  // The contract directory — golden fixtures + schemas both implementations
+  // test against (`specs/architecture/50-distribution.md`, the contract
+  // fixtures). In-fence, with one discipline: a fixture edit is an interface
+  // version event — plan treats those diffs as contract changes, never
+  // incidental test churn.
+  "contract/**",
 
   // NOTE: build does NOT touch .flume/** (the control plane), .claude/** or
   // CLAUDE.md, .temper/** sources, specs/**, packages/**, kinds/**, or
