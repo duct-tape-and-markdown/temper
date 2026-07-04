@@ -44,6 +44,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use crate::builtin;
+use crate::builtin_kind;
 use crate::check::Workspace;
 use crate::compose::{AuthorLayer, Edge, Requirement};
 use crate::document::Satisfies;
@@ -141,18 +142,32 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
 }
 
 /// The package the `kind`'s members are checked against — the author layer's explicit
-/// binding, else the kind's built-in floor package (`specs/architecture/20-surface.md`, "Decision:
-/// package binding is by artifact kind": skill → `skill.anthropic`, rule →
-/// `rule.anthropic`).
+/// binding, else the kind's real built-in floor resolved by its **qualified identity**
+/// through [`builtin::floor_package`] (`specs/architecture/20-surface.md`, "Decision: package binding
+/// is by artifact kind"): `skill` → `skill.anthropic`, `rule` → `rule.anthropic`,
+/// `claude-code.memory` → `memory.anthropic`. Every embedded kind's floor is named from
+/// the one `QUALIFIED_FLOOR_BINDINGS` table, so a `memory` member is bound to its own
+/// `memory.*` floor rather than mis-narrated as `skill.anthropic`.
+///
+/// `kind` is either already qualified (`claude-code.memory` — the disambiguated built-in
+/// identity a memory member carries, since the bare `memory` collides across two
+/// providers) or a bare name resolving to a unique qualified one (`skill` →
+/// `claude-code.skill`); both are tried, in that order. A kind that genuinely ships no
+/// floor (a custom kind with no binding) falls back to its own name
+/// (`specs/architecture/40-composition.md`, a kind defaults to its own name as package).
 fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
-    let floor = match kind {
-        "rule" => builtin::RULE_PACKAGE,
-        _ => builtin::SKILL_PACKAGE,
-    };
-    layer
-        .and_then(|layer| layer.kind_package(kind))
-        .unwrap_or(floor)
-        .to_string()
+    // The author layer's explicit binding is the override.
+    if let Some(explicit) = layer.and_then(|layer| layer.kind_package(kind)) {
+        return explicit.to_string();
+    }
+    builtin::floor_package(kind)
+        .or_else(|| {
+            builtin_kind::qualified(kind)
+                .ok()
+                .flatten()
+                .and_then(|qualified| builtin::floor_package(&qualified))
+        })
+        .map_or_else(|| kind.to_string(), str::to_string)
 }
 
 /// `temper why <member>` — narrate everything that holds `member` in place: the
