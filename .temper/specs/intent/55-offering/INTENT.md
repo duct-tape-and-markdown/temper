@@ -10,14 +10,15 @@ required = true
 
 [provenance]
 source_path = "./specs/intent/55-offering.md"
-source_hash = "234cc710cfe2dbdabc819af9785cfcd953e9a2b0aa1440ef1f06963a8bbcf446"
+source_hash = "50cdae043d7ba22cce904158d338bcfe10ba118844e90bd35eeecb171fe92777"
 +++
 # The offering — the public front door and the road to adoption
 
 `50-distribution.md` places the **gate**; this file places the **project**: the
 repo as front door, the community surface around it, and the posture by which it
 reaches its audience. The offering is not a second product — it is the wedge
-(`00-intent.md`: zero-config `check --harness` over any existing `.claude/`)
+(`00-intent.md`: a zero-config bare `temper check` over any existing `.claude/` —
+the stranger gate, `50-distribution.md`)
 made visible, and every asset here exists to put that one command in front of a
 stranger. The evidence bar is sobering: a competing harness linter shipped 114
 rules and a full docs site and sits at single-digit stars — **building well ≠
@@ -36,8 +37,8 @@ manual is not the front door. Specific obligations:
   checker** for the harness, not another linter; "makes it *good*" vs
   rulesync's "makes it portable" stays the positioning sentence
   (`00-intent.md`).
-- **The quickstart is the wedge itself**: the first command shown runs
-  `check --harness` against the reader's own `.claude/` with zero declaration
+- **The quickstart is the wedge itself**: the first command shown runs a bare
+  `temper check` against the reader's own `.claude/` with zero declaration
   and produces real findings — the growth loop knip/ruff/oxlint proved ("run it
   on your repo, it finds problems immediately"), shown before any install
   ceremony where possible.
@@ -136,10 +137,10 @@ Sequencing is plan's; posture is contract:
   launch blog post is the admission ticket) come second, carrying the social
   proof the soft launch produced.
 - **The wedge demo is a findings table over famous public harnesses**: run
-  `check --harness` against the most-starred public Claude Code setups and
+  the bare `temper check` against the most-starred public Claude Code setups and
   publish what it finds — temper's CPython moment, reproducible by any reader
   on their own repo with one command. Show, never claim.
-- **Every shipped capability is a relaunch moment** (`emit`, the graph verbs,
+- **Every shipped capability is a relaunch moment** (`emit`, `explain`,
   `bundle`) — rolling discovery beats one launch day, and the channels reward
   substance-per-post.
 

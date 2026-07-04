@@ -10,7 +10,7 @@ rationale = "45-governance owns the mention's edge class — the readmitted one-
 
 [provenance]
 source_path = "./specs/architecture/45-governance.md"
-source_hash = "e043a2b24a63cb6b62b8c060abb8c85e337fc7b0153f05ba11250a997b777e36"
+source_hash = "73dd8798d9b9728f3d4aa7ae066b1eaa6ae4ea6a32e0fb3264c620fba49be3c0"
 +++
 # Governance — the wider contract scopes
 
@@ -186,7 +186,7 @@ is counts over declared edges — sound.
 - **Conditionals** (`if field = X then require Y`) — decidable, but where
   proxies re-enter: an implication can stand in for a judgment. Fenced;
   admitted only when a concrete sound need appears.
-- **`verified_by` "wired" → "wired and gating"** for surface-resident
+- **`verifiedBy` "wired" → "wired and gating"** for surface-resident
   verifiers — open, tracked with the requirement's `verifiedBy`
   (`40-composition.md`).
 

@@ -440,7 +440,7 @@ the earlier read-family Decisions.)
 This spec owns the member and its prose, the two registers, emit, the seam
 and the lock, drift, `init`, and the CLI's shape. The assembly's five fields
 are `40-composition.md`'s; kinds, genres, postures, extraction, and loci are
-`15-kinds.md`'s; clauses, requirements, and `verified_by` are
+`15-kinds.md`'s; clauses, requirements, and `verifiedBy` are
 `10-contracts.md`'s; the graph, registration, and reachability are
 `45-governance.md`'s; publishing, the default program, and the gate's wiring
 are `50-distribution.md`'s.

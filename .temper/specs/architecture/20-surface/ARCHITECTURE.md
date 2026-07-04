@@ -16,7 +16,7 @@ rationale = "20-surface owns the compiler interchange (the member schema, in-mem
 
 [provenance]
 source_path = "./specs/architecture/20-surface.md"
-source_hash = "ce43e2b861aad68019589dfb3f990b3a71b2b2f79ff0a47689966c81514e79c2"
+source_hash = "3e0805fd33d8e7ff70a5b1c9fab922a2f651e8573919a1fefa701fd4381d5e19"
 +++
 # The surface — the SDK: authoring, prose, emit, the seam, init
 
@@ -460,7 +460,7 @@ the earlier read-family Decisions.)
 This spec owns the member and its prose, the two registers, emit, the seam
 and the lock, drift, `init`, and the CLI's shape. The assembly's five fields
 are `40-composition.md`'s; kinds, genres, postures, extraction, and loci are
-`15-kinds.md`'s; clauses, requirements, and `verified_by` are
+`15-kinds.md`'s; clauses, requirements, and `verifiedBy` are
 `10-contracts.md`'s; the graph, registration, and reachability are
 `45-governance.md`'s; publishing, the default program, and the gate's wiring
 are `50-distribution.md`'s.

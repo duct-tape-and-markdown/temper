@@ -10,8 +10,8 @@ This file is itself the prose ancestor of a **spec-landscape contract**
 alternatives, declared demands satisfied). The final dogfood is `temper` checking
 `specs/` against that contract — the tool eating the rules it was written under.
 The classed structure below is live — three placement-governed kinds, each
-binding its own package; the header authoring (declared entities, `satisfies`)
-is its next stage.
+attaching its own floor; the declaration authoring (declared entities,
+`satisfies`) is its next stage.
 
 ## What a spec is
 
@@ -20,7 +20,7 @@ is its next stage.
   the code, or refine the spec if intent has shifted.
 - **Prose.** Paragraphs, lists, tables, decisions. The projected file carries no
   frontmatter, no schema, no template to fill; the declared structure — class,
-  entities, `satisfies` — lives in the surface member's header ("The corpus is
+  entities, `satisfies` — lives on the surface member ("The corpus is
   classed", below), never in the body. (Note the irony and hold it: `temper`
   validates *other* harnesses against declared contracts, but its own *design
   intent* is prose — because intent is the undecidable layer that contracts
@@ -31,7 +31,7 @@ is its next stage.
 ## The corpus is classed — three kinds by placement
 
 The corpus is a **system of classes of information**, and a class is a **kind**
-(`15-kinds.md`): each class binds its own package, so class-specific demands are
+(`15-kinds.md`): each class attaches its own floor, so class-specific demands are
 ordinary clauses, and each is governed by **placement** — moving a file into a
 class directory is the authored act that classes it, never a filename or shape
 convention.
@@ -53,8 +53,9 @@ because two declarations agree — never because prose mentioned a filename (law
 8, `00-intent.md`). A backtick cite like `` `15-kinds.md` `` is typography for
 the human reader; the graph owes it nothing.
 
-The declarations live in the **surface member's header** (`.temper/specs/` —
-the authored home, already a `+++`-headed member document); the projection under
+The declarations live on the **surface member** — today the migration-era
+`+++` document header under `.temper/specs/`; after the corpus's SDK
+migration, its member fields (`15-kinds.md`, worked example); the projection under
 `specs/` stays headerless prose, the body untouched (law 5). This is
 `45-governance.md`'s move applied to our own corpus: governance does not rewrite
 prose — it adds the structure it needs and plants it.
@@ -62,8 +63,8 @@ prose — it adds the structure it needs and plants it.
 ### Decision: classes are kinds, discriminated by placement
 
 **Chosen:** each class of spec is its own custom kind (`intent`, `architecture`,
-`process`), governed by its class directory and binding its own package — the
-demand/satisfy pairing is a clause of the `intent` class's package, never engine
+`process`), governed by its class directory and attaching its own floor — the
+demand/satisfy pairing is a clause of the `intent` class's floor, never engine
 behavior. **Rejected:** (a) one `spec` kind with a `class` header field — the
 predicate vocabulary deliberately carries no clause conditioned on a field's
 value, and adding conditionals to fake subtypes would grow the algebra to avoid
@@ -72,8 +73,8 @@ numbering survives as reading order only, and enshrining it in `governs` would b
 shape-matching the corpus we happen to have (law 8's slope). Migration is a
 deliberate human ceremony, staged: engine support (member-published
 requirements, header entity declarations) landed first; the placement reshuffle
-followed as a human commit, never a build tick; the header authoring — entity
-manifests and their `satisfies` — is the remaining stage.
+followed as a human commit, never a build tick; the declaration authoring —
+the entity declarations and their `satisfies` — is the remaining stage.
 
 ## Evergreen, not release lines
 
@@ -104,8 +105,8 @@ dogfood** — temper applied to this repo's own harness and corpus — is a
 **confirmation of a finished version, never a live constraint while the
 engine under it is changing**. During an engine wave the self-check gate is
 deactivated and the dogfood's committed artifacts are left stale by design;
-at wave end one confirmation pass (rebuild, re-import, `temper check`, one
-commit) validates the new version and re-arms the gate. **The interactive
+at wave end one confirmation pass (rebuild, refresh the dogfood artifacts,
+`temper check`, one commit) validates the new version and re-arms the gate. **The interactive
 session builds specs with the human and governs flume — it does not
 hand-execute work the pipeline owns.**
 
@@ -144,42 +145,41 @@ A spec claim about a format the outside world owns — Claude Code's layout, a
 frontmatter schema, a registry's behavior — is an **external fact**: it carries
 its source (URL, retrieved date) at the point of claim, and it is verified
 against current docs when written, never encoded from memory (the
-`collaboration` rule; the same bar `10-contracts.md` sets for built-in package
-clauses). An uncited external fact is a guess wearing the corpus's authority —
+`collaboration` rule; the same bar `10-contracts.md` sets for the shipped
+floors' clauses). An uncited external fact is a guess wearing the corpus's authority —
 derived layers implement it faithfully and ship the guess.
 
 ## Naming consistency — the one hard rule
 
 Name the same concept the same way in every file and in the code. One concept,
-one name. `contract` (the clause-set / require-side *only* — never `temper.toml`,
-never the bundle), `package` (the reusable bundle carrying a kind's contract +
-guidance — the term that retired `template`), `assembly` (`temper.toml`: bindings +
-roster + relationships), `member` (an instance artifact; a role, not a directory),
-`requirement` (a named obligation — the retired `role` folded into it), `satisfies`,
-`verified_by`, `the definition` (the fixed engine axiom — reserved, never a
-package's contents), `kind`, `decidable`, `surface`, `provenance`, `drift` are
-load-bearing terms — search before coining a new one. Note the recent migration:
-`template` → `package`; `temper.toml is the contract` → `temper.toml is the
-assembly`; name-`match` retired (opt-in `satisfies` is the sole fill);
-`byte-faithful` narrowed to literal byte-for-byte copies (companions, the
-deterministic projection) — authored prose is **`content-faithful`** (law 5:
-never reworded, synthesized, or dropped). The 2026-07-03 reformulation
-(`mirror-era` tag) coined: **authoring face** (the typed library),
-**manifest** (the inert gate-read serialization; the assembly's serialized
-form — the assembly remains the concept), **emit** (the checked compile),
-**carriage** (module-carried / document-carried / in-place), **mention** (an
-authored prose interpolation edge), **adoption gradient** (gate-only → `init`
-→ altitude); retired: `import` (→ `init`), `re-add`, `apply` (→ `emit`), the
-`surface language` as the sole member medium (→ document carriage). The
-2026-07-04 re-cut (`manifest-era` tag) then renamed and retired again:
-**authoring face** → **SDK**; **manifest** → the **interchange** (in-memory,
-never a committed file; the **lock** remains the committed anchor); the
-**adoption gradient** and its ladder vocabulary (rungs, floors, altitude,
-climb) retired for plain words — adoption is two states plus per-member and
-per-document choices; **document carriage** reclassed migration-era. This
-corpus's own migration onto the SDK is a staged human ceremony ahead
-(`15-kinds.md`, worked example) — until it lands, these members stay
-document-carried.
+one name. The **six nouns** — `harness` (the assembly value, `harness()`),
+`member`, `kind`, `clause`, `requirement`, `prose` — are API in every placement
+(`50-distribution.md`, no synonyms). Around them: `contract` (clause data
+attached in the assembly — never a document, never a file format), `floor` (an
+exported clause array — the reusable contract unit), `expect` / `require` (the
+two quantifiers), `satisfies`, `needs`, `verifiedBy`, `genre` (a kind at the
+block locus), `posture` (the three equal authoring forms), `registration`,
+`the world`, `mention` / `embed` (the two reference intents), `emit`, `init`,
+`explain`, `the lock`, `the definition` (the fixed engine axiom — reserved,
+never authorable), `decidable`, `SDK`, `provenance`, `drift` are load-bearing
+terms — search before coining a new one.
+
+The migration trail, compressed (each step's pre-state is a tag): `template`
+→ `package` → dissolved into **floors** (exported clause arrays; the package
+noun retired 2026-07-04); `temper.toml is the contract` → `temper.toml is the
+assembly` → the assembly is the **`harness()` value** and no TOML dialect
+exists; name-`match` retired (opt-in `satisfies` is the sole fill);
+`byte-faithful` narrowed to literal byte-for-byte copies — authored prose is
+**`content-faithful`** (law 5). The `mirror-era` reformulation's coinages were
+re-cut 2026-07-04 (`manifest-era` tag → the six-noun model): **authoring
+face** → **SDK**; **manifest** retired (the seam's in-flight data is internal
+and unnamed; the **lock** is the committed anchor); **carriage** and the
+**adoption gradient** (rungs, floors-as-rank, altitude, climb) retired for the
+three equal **postures**; `import` → `init`, `re-add` and `apply` retired; the
+read verbs (`why` / `requirements` / `impact` / `context`) folded into
+**`explain`**. This corpus's own migration onto the SDK is a staged human
+ceremony ahead (`15-kinds.md`, worked example) — until it lands, these members
+stay on the migration-era document headers.
 
 ## Decisions
 
@@ -193,11 +193,11 @@ Classed by directory; the `NN-` prefixes are reading order, never classing.
 - `intent/00-intent.md` — north star: the thesis, the law, positioning, self-hosting.
 - `intent/05-model.md` — the domain model: temper's concepts and how they relate.
 - `intent/55-offering.md` — the offering: what ships, to whom, under what license.
-- `architecture/10-contracts.md` — the contract model, the decidable algebra, packages, admissibility.
-- `architecture/15-kinds.md` — the kind system: the extraction algebra, built-in vs custom kinds.
-- `architecture/20-surface.md` — the composition write surface: compose, import, project, drift.
+- `architecture/10-contracts.md` — contracts: clauses, the two quantifiers, requirements, admissibility.
+- `architecture/15-kinds.md` — the kind system: constructors + five facts, loci, genres, postures.
+- `architecture/20-surface.md` — the SDK: authoring, prose, emit, the seam, init.
 - `architecture/30-landscapes.md` — landscapes: engine instances, the spec model, the seams.
-- `architecture/40-composition.md` — authoring the harness: the assembly (bindings + roster).
+- `architecture/40-composition.md` — the assembly: `harness()` and its five fields.
 - `architecture/45-governance.md` — powering up the wider scopes: corpus-wide, fact-only predicates.
 - `architecture/50-distribution.md` — delivering the gate: plugin, CI, the fail-loud invariant.
 - `process/90-spec-system.md` — this file.

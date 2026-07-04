@@ -40,15 +40,15 @@ These bind every part of the tool and every change to it.
    `temper` ships no built-in judgment about what a good skill/rule/harness is.
    It gives the author a way to **declare a contract** and checks conformance.
    The author writes the types; `temper` is the type checker. Built-in "best
-   practices" exist only as **packages** — reusable, bindable data (clauses +
-   guidance), adopted by choice, overridable, and *project-authorable as peers* —
-   never as hardcoded checks. (`10-contracts.md`.)
+   practices" exist only as **floors** — exported clause data (clauses +
+   guidance), adopted by import, overridden by composition, and *project-authorable
+   as peers* — never as hardcoded checks. (`10-contracts.md`.)
 
 3. **Decidable clauses only — the immune system.** A check enters `temper` *iff*
    it is expressible as a decidable contract clause over the fixed primitive
    algebra. No fuzzy heuristic, no "just this once" escape hatch, no arbitrary
    code in a contract. A property that cannot be reduced to a decidable predicate
-   is **behavior**, and behavior is delegated (`verified_by`), never guessed. The
+   is **behavior**, and behavior is delegated (`verifiedBy`), never guessed. The
    moment `temper` guesses, it produces false positives, and a gate that cries
    wolf gets disabled. This rule is what keeps the project out of the heuristic
    swamp it was started to escape.
@@ -78,14 +78,14 @@ These bind every part of the tool and every change to it.
 7. **Compose everything; gate the decidable.** The write surface is total, and
    the **SDK is that surface**: the author composes the whole harness there —
    structure *and* prose — and `temper` **emits** it into the project. The gate is narrow: it
-   blocks only on the decidable tier and on whether each `verified_by` is wired.
+   blocks only on the decidable tier and on whether each `verifiedBy` is wired.
    `temper` never synthesizes prose and never adjudicates it — prose is the human
    **behavioral contract** (tier 3, below), enforced by its wired verifier, never
    by the tool's taste. Write-total, check-bounded: the editor writes all your
    code; the type checker only checks its types. (`20-surface.md`.)
 
 8. **The model is declared, never mined.** An entity or relationship exists
-   because an author declared it on a structured surface — a header clause, a
+   because an author declared it on a structured surface — a typed member field, a
    frontmatter field, the assembly, an authored interpolation in prose (a
    **mention**, `20-surface.md` — the author marks the word a reference;
    nothing is grepped), or a syntax the external format itself
@@ -128,7 +128,7 @@ heuristic swamp returns through an expensive door):
    Unlocked only by the declared dependency graph, which shrinks a global "is
    this faithful?" into local, context-complete atoms a small model can judge
    reliably *once calibrated per question-class*. **Deferred — not a now thing.**
-3. **Intent fidelity / prose surplus — undecidable → human** (`verified_by`). The
+3. **Intent fidelity / prose surplus — undecidable → human** (`verifiedBy`). The
    meaning prose adds beyond its declared model. Declaration shrinks this to its
    minimum; it never eliminates it.
 
@@ -145,7 +145,8 @@ stands on its own without it.)
 
 The **product** is the **SDK — a typed authoring surface for the agent
 harness** (`20-surface.md`): the author composes the whole harness as typed
-values — the **assembly** binding **packages** to **kinds** over the authored
+values — the **assembly** attaching clause **floors** to **kinds** (`expect` /
+`require`) over the authored
 **members** — and `temper` **emits** it into the project as the harness files
 themselves. The engine underneath is infrastructure: the enforcement core that
 makes the surface safe. The **typed gate** is the *differentiating
@@ -165,7 +166,7 @@ The **primary author** of a harness is, increasingly, the agent itself — Claud
 maintaining its own skills, rules, and memory files. That is the audience the
 surface is designed for, and it sharpens both halves of the product: agents are
 demonstrably poor at self-authoring harness artifacts unprompted, so the **gate**
-catches the structural failures they most commonly commit, and a package's
+catches the structural failures they most commonly commit, and a clause's
 **guidance** channel delivers best practice just-in-time at the moment of
 authorship — to the author who needs it most and retains it least
 (`10-contracts.md`). The human sets the contract; the agent authors under it;
@@ -185,8 +186,8 @@ work?) is delegated to verifiers the contract requires to be *wired*, and whose
 `temper` is built — right now — by an agentic harness (flume) reading a harness
 we are still correcting, because `temper` doesn't yet exist to check it. The
 classic compiler bootstrap. The finish line is two greens on `temper`'s own
-surface, projected to its own `.claude/`: the harness **conforms** to its
-assembly (the packages it binds) and that assembly and its packages are
+surface, projected to its own `.claude/`: the harness **conforms** to the
+clauses its assembly attaches, and those declarations are
 **admissible** against the definition (`10-contracts.md`). Then the next flume loop refuses to run until both hold. Consumption is the same
 two greens aimed outward — the plugin a stranger installs to gate their harness is
 the one that gates ours (`50-distribution.md`); there is no separate external
@@ -215,10 +216,10 @@ one face of that surface, never the whole tool.
 ## Decision: the SDK is the authored surface; the engine reads the harness
 
 **Chosen:** the authoring medium is a **typed module library** — the **SDK**
-(`20-surface.md`): members, kinds, packages, and the assembly authored as
+(`20-surface.md`): members, kinds, clauses, and the assembly authored as
 typed values that **emit** compiles into **the harness artifacts themselves**,
-committed beside their source. The member schema survives as the compiler's
-**in-memory interchange** and the contract fixtures' schema
+committed beside their source. The member schema survives as the seam's
+in-flight data — internal, pinned in lockstep
 (`50-distribution.md`) — never a committed file. All Turing-completeness is
 quarantined at authoring time; the engine, CI, and every read verb consume
 only committed artifacts and the lock, offline, with no language runtime —
@@ -242,21 +243,23 @@ dignify it) serving no one; what stays banned is Node at *check* time.
 
 ## Decision: genre-typed prose — the model swallows the document
 
-**Chosen:** a kind may declare a **genre vocabulary**: typed shapes for the
-recurring forms of its members' prose — a decision with its rejected
-alternatives, a law with its bounds, an honest bound with its unlock —
-authored as values whose meaning-carrying words are **prose leaves**:
-authored strings law 5 protects one by one. Where a corpus adopts genres
-fully, its documents become pure projection — the src→dist move of the
+**Chosen:** a **genre is a kind at the block locus** (`15-kinds.md`): typed
+shapes for the recurring forms of a corpus's prose — a decision with its
+rejected alternatives, a law with its bounds, an honest bound with its unlock —
+whose members live as typed fenced blocks inside host documents, carrying the
+full member surface, their meaning-carrying words **prose leaves**:
+authored strings law 5 protects one by one. Where a document is authored
+fully composed (the third posture, `15-kinds.md`), it becomes pure
+projection — the src→dist move of the
 Decision above, applied one level deeper (a bound-prose spec document is
 still source and rendered thing at once; the last mirror-era holdout).
-Genres are **kind/package data, never engine** (law 2): a project whose
+Genres are **kind data, never engine** (law 2): a project whose
 prose argues differently declares its own genres with the same machinery
 (`15-kinds.md`). Adoption is opt-in per block, forever — plain prose is a
 fully legal member of every genre-bearing kind, and **no check may quantify
 over genre completeness** (law 8's opt-in bound, one level down). The
 payoff belongs to the primary author (Positioning: the agent):
-**proprioception** — leaves are addressable, so `impact` reaches inside
+**proprioception** — leaves are addressable, so `explain` reaches inside
 arguments, a leaf's declared neighborhood is assemblable context, and an
 edit declares what it is. Prose edits become graph events
 (`30-landscapes.md`, `20-surface.md`). (Ratified 2026-07-03 by delegated

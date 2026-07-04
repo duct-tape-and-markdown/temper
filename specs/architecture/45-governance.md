@@ -172,7 +172,7 @@ is counts over declared edges — sound.
 - **Conditionals** (`if field = X then require Y`) — decidable, but where
   proxies re-enter: an implication can stand in for a judgment. Fenced;
   admitted only when a concrete sound need appears.
-- **`verified_by` "wired" → "wired and gating"** for surface-resident
+- **`verifiedBy` "wired" → "wired and gating"** for surface-resident
   verifiers — open, tracked with the requirement's `verifiedBy`
   (`40-composition.md`).
 

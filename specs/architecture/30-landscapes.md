@@ -1,15 +1,17 @@
 # Landscapes — instances of the engine
 
 A **landscape** is a corpus of authored artifacts governed by the
-**assembly** — which binds a **package** per kind (`10-contracts.md`). The harness is one landscape; the spec corpus is
+**assembly** — which attaches its clause demands by `expect` and `require`
+(`40-composition.md`, `10-contracts.md`). The harness is one landscape; the spec corpus is
 another; code is a third. This file specifies how a landscape is declared and the
 two that matter beyond the harness: the spec landscape (a declared model + bound
 prose) and the cross-landscape seam.
 
 ## Kinds read landscapes — see `15-kinds.md`
 
-Every landscape is read by a **kind**: an extractor (the soundness boundary) plus a
-contract. The extraction algebra, the built-in/custom split, and the entity-graph
+Every landscape is read by a **kind**: a typed constructor whose five runtime facts
+drive generic extraction (the soundness boundary), with clauses attached over it.
+The extraction mechanics, the built-in/custom split, and the edge-field
 capability are the kind system (`15-kinds.md`). A landscape beyond the harness is
 just another kind — the **spec corpus** is governed by custom spec kinds; **code**
 is a third landscape with its own kind. The **build pipeline's own artifacts**
@@ -26,17 +28,17 @@ assumption (the fence, `docs/ledger.md`'s asymmetry list).
 The **spec corpus** is a landscape governed by custom spec kinds (`15-kinds.md`).
 A spec is not free prose the engine guesses about: the kind declares the
 **entities, relationships, and invariants** the prose is about — and may declare
-a **genre vocabulary** for the prose's own recurring forms (`00-intent.md`, the
-genre Decision). Declaring the model makes the otherwise-undecidable structural —
-each entity has one declared home (DRY), bindings resolve to declared names (naming
-consistency), every declared entity has an owning spec (coverage). Adoption is
-two states and one per-document choice. An ungoverned corpus is just
-markdown; a governed one is declared through the SDK's kinds. Within a
-governed corpus each document chooses its own form — plain prose, prose
-with declared genre values, or a value tree whose document is emitted
-projection (prose surviving as **leaves**: authored strings inside genre
-values — addressable, law-5-protected one by one). Documents mix forms
-freely, forever; no check may demand a document change form.
+**genres** — kinds at the block locus — for the prose's own recurring forms
+(`15-kinds.md`; `00-intent.md`, the genre Decision). Declaring the model makes the
+otherwise-undecidable structural —
+each entity has one declared home (DRY), references resolve to declared names (naming
+consistency), every declared entity has an owning spec (coverage). An ungoverned
+corpus is just markdown; a governed one is declared through the SDK's kinds.
+Within a governed corpus each document chooses its own **posture** — plain
+prose, embedded genres, or fully composed (`15-kinds.md`, the three equal
+postures; prose surviving as **leaves**: authored strings inside genre
+members — addressable, law-5-protected one by one). Documents mix postures
+freely, forever; no check may demand a document change posture.
 
 The model is **declared, not templated**, in every form; a corpus with a small
 model pays little, one reconciled against code pays the modeling tax and is
@@ -48,7 +50,7 @@ correctness; a contract-clean spec can still model the wrong domain).
 The declared entities + relationships yield a **dependency graph of intent** — the
 kind capability in `15-kinds.md`, and the substrate the governance predicates act on
 (`45-governance.md`). Its tier-1 payoff needs no LLM: removing a load-bearing entity
-surfaces its **blast radius** across every spec, binding, and — via the seam below —
+surfaces its **blast radius** across every spec, declaration, and — via the seam below —
 code symbol, deterministically. Fearless refactoring (`00-intent.md` law 6) with
 teeth, the standing value of the modeling exercise independent of any judge.
 Under the genre Decision the graph reaches **inside arguments**: a leaf is a
@@ -62,18 +64,18 @@ nuance, edge cases. That surplus is the **behavioral contract** (`00-intent.md`
 law 7) — the human tier-3 layer promising what the structure cannot state. The
 question asked of it is **fidelity**: does this paragraph faithfully describe the
 entity it binds? Fidelity is undecidable, so the behavioral contract is enforced
-by `verified_by` (tier 3, human), never adjudicated by `temper`. The declared graph shrinks fidelity into atomic, context-local
+by `verifiedBy` (tier 3, human), never adjudicated by `temper`. The declared graph shrinks fidelity into atomic, context-local
 questions (chunk + its declared neighborhood) that a cheap model could judge once
 calibrated per question-class (`00-intent.md` tier 2). That judged shelf is
 **deferred — not a now thing** — and is forever advisory, never the hard gate.
 Genre structure shrinks the surplus further — the anatomy of an argument moves
 into the declared model — but the leaves *are* the surplus, and they stay
-tier-3: `verified_by`, human, forever.
+tier-3: `verifiedBy`, human, forever.
 
 ## The cross-landscape seam — spec ⟷ code
 
 Landscapes reference each other. A declared spec entity may require a
-corresponding code symbol; the contract the `spec` **package** carries checks the
+corresponding code symbol; the clauses the spec kinds attach check the
 correspondence resolves both directions. This is flume's spec↔code equality made a *checked relation* rather
 than aspirational prose-vs-types — the structural backbone the spec layer lacked.
 
