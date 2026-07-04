@@ -19,19 +19,40 @@ graduation, delete over archive.
   scaffold once, never reconcile back; runtime practice is out of lane.
   Rider: AGENT-KIND's "no story demands it" deferral is challenged by this
   story — kinds are package sockets (agent, hooks, settings, mcp).
-- **Scripted altitude: RATIFIED, corpus re-cut LANDED** (07-03, cold read
-  held; `specs:` commit 32ea84d; pre-state = `mirror-era` tag). The corpus
-  now carries it — authoring face / manifest / carriage / mentions /
-  gradient / init/emit; re-add retired; never-climb is law 8 text; .flume/
-  named candidate third landscape. Plan reconciled (9e71a1e): filed
-  `(scripted-altitude-reconcile)` as the frontier fork — corpus decided,
-  code not migrated; floor deltas entangled (one serialized wave), altitude
-  needs SDK scaffolding. TWO ASKS ON JOHN: (a) scaffold the SDK/npm
-  authoring-face surface; (b) rule the floor wave's sequence (or delegate
-  the serialization to plan) — then the blockedBy chain files. Also
-  residual: prose-tax re-verify in the first altitude slice; the corpus's
-  own module migration is a staged ceremony. Design record:
+- **Scripted altitude: RATIFIED; floor wave SHIPPED 7/7** (07-03; `specs:`
+  32ea84d; pre-state = `mirror-era` tag; wave = READD-RETIRE →
+  EMIT-OWNED-PLACEMENTS, drained + pushed; two self-gate reverts, both
+  self-healed via inbox-diagnosed legacy-read fallbacks). Dogfood
+  regenerated (`chore(harness)` ae0626c: 17 `[[member]]` tables, lock on
+  source_hash/emit_hash; gate green on the manifest path); install+emit
+  seam verified end to end. REMAINING ON JOHN: ask (a) — scaffold the
+  SDK/npm authoring face (the altitude rung waits on it). Residual:
+  prose-tax re-verify in the first altitude slice; corpus module migration
+  is a staged ceremony. Design record:
   claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
+- **Authority territories, not "human" territory** (07-03, John's ruling in
+  session): the fence protects the authority moment + reviewability, never
+  authorship — nearly every byte is agent-drafted. chain.ts re-cut landed
+  (3f431fe): machine outputs (temper.toml, lock) build-writable
+  regenerate-only; fenced territories renamed RATIFICATION territory.
+  Doctrine's spec half rides the addressable-corpus ceremony: intent is
+  human-*ratified*; autonomous drafting rights widen per document with the
+  genre gradient, propose-only; authority never loosens.
+- **The addressable corpus: DRAFT, cold read pending — THE next ceremony**
+  (07-03 parallel session; genre-typed spec prose, prose at the leaves,
+  docs become projection; payoff = agent proprioception: leaf-grained
+  `impact`, a `context` read verb, edits as graph events). D1–D7 record:
+  claude.ai/code/artifact/8894d9ee-a143-422b-84b3-07f7140e248c. Spec deltas
+  (Δ1–Δ5): claude.ai/code/artifact/df62b0a2-dcc7-4e11-a63a-8fc0b7798127 —
+  fold in the governing session's amendments before ratifying: mixed-rung
+  coverage disclosure ships WITH the verbs (Δ3); D5's "renames flow like a
+  refactor" is altitude-only; the curated genre package is out of build's
+  fence (engine halves = build entries, package = in-session commit); Δ1
+  gains the authority-territories doctrine. Migration protocol agreed in
+  session: staged per-document, pilot low-stakes (45-governance or
+  15-kinds), mechanical acceptance = projection diff residual is connective
+  tissue only, don't freeze the genre package until 3–4 documents through.
+  Floor slice chains behind the (now-shipped) wave once ratified.
 - `(default-assembly-as-data)` addendum: subsumed-in-shape by the manifest
   model (a shipped default assembly = embedded manifest data) — formally
   close it or let plan carry the reconcile.
@@ -40,29 +61,21 @@ graduation, delete over archive.
 
 ## Held ceremonies (human halves queued behind slices)
 
-- **Drift re-cut**: rides behind the shipped surface-authority lock
-  (`20-surface.md` Decision, ratified 2026-07-03); re-cut content vs structure
-  drift in 20-surface + the `drift-engine` join's `means` once the lock
-  proves the inversion.
+- **Drift re-cut**: the wave shipped the lock inversion — now unblocked;
+  re-cut content vs structure drift in 20-surface + the `drift-engine`
+  join's `means`. Could ride the addressable-corpus ceremony.
 
-## Verify when the loop drains
+## Verify queue
 
-- **Trailing-period @import** (cascade CLAUDE.md:26, found by the first
-  tree-wide vet): our extraction reads the target as `collaboration.md.` —
-  unbacked. Whether Claude Code's parser strips trailing punctuation is
-  UNVERIFIED — and the live memory docs (fetched 07-03) are silent on it, so
-  only an empirical test settles it. If it doesn't strip → cascade has a
-  real dead import (report to John, one-char fix his side); if it does →
-  slice a punctuation nuance into the at-import grammar (cited). Either way
-  it's a wedge story for the public docs.
-- Lock artifacts: exercise authority = "surface" end to end once installed
-  (guard hook blocks, gate-installed enumerates it).
-- **Two projectors, one file** (07-03, hit during the re-cut): `apply`'s
-  re-emission of a rule drops `install`'s schema modeline + reflows the
-  YAML — hand-reverted this session. Under the re-cut spec emit owns the
-  projection whole, so install's placements must ride emit or declare their
-  lines as emit-owned. Needs an entry; don't run bare `apply` on rules
-  until it lands.
+- **Trailing-period @import** (cascade CLAUDE.md:26): extraction reads the
+  target as `collaboration.md.` — unbacked. Whether CC's parser strips
+  trailing punctuation is UNVERIFIED (live docs silent, 07-03); only an
+  empirical test settles it. Doesn't strip → real dead import (one-char
+  fix, John's side); strips → cited nuance into the at-import grammar.
+  Wedge story for the public docs either way.
+- Guard hook is advisory-only (echoes to stderr, always exit 0) — verify
+  that matches 50-distribution's intent for the write guard, or it's a
+  finding.
 
 ## Standing discipline (lessons paid for)
 
