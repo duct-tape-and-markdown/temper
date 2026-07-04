@@ -261,6 +261,23 @@ export function toManifestMember(member: Member, options: ResolveOptions = {}): 
 }
 
 /**
+ * Every requirement name a `satisfies` claim may fill — the roster the
+ * assembly declares plus every demand a member publishes
+ * (`specs/architecture/20-surface.md`: "`satisfies` and published
+ * `requirement`s remain the graph's whole source"). A `satisfies` naming none
+ * of these is a dangling join; a `required` name absent from every member's
+ * `satisfies` is an unfilled required requirement. Both refusals read this set.
+ */
+function declaredRequirements(harness: Harness): Set<string> {
+  const set = new Set<string>();
+  for (const name of Object.keys(harness.requirements)) set.add(name);
+  for (const member of harness.members) {
+    for (const name of Object.keys(member.requirements)) set.add(name);
+  }
+  return set;
+}
+
+/**
  * Every address a mention may name — the harness's declared values, the one-way
  * edge's resolution set (`specs/architecture/45-governance.md`, "the mention is
  * the readmitted one-way annotation class"). A member is `kind:name`; a
@@ -270,11 +287,9 @@ export function toManifestMember(member: Member, options: ResolveOptions = {}): 
  * Section anchors are a later producer — no Mentionable helper mints one yet.
  */
 function declaredAddresses(harness: Harness): Set<string> {
-  const set = new Set<string>();
-  for (const name of Object.keys(harness.requirements)) set.add(name);
+  const set = declaredRequirements(harness);
   for (const member of harness.members) {
     set.add(`${member.kind}:${member.name}`);
-    for (const name of Object.keys(member.requirements)) set.add(name);
     for (const genre of member.genres) {
       for (const field of Object.keys(genre.leaves)) {
         set.add(`${member.name}.${genre.key}.${field}`);
@@ -289,6 +304,64 @@ function declaredAddresses(harness: Harness): Set<string> {
     }
   }
   return set;
+}
+
+/**
+ * The two **declare-side** refusals emit runs before it compiles a single byte
+ * (`specs/architecture/20-surface.md`, "Emit refuses before it writes"): a
+ * broken source yields no output, never silent bytes.
+ *
+ * 1. **Dangling join** — every member `satisfies` claim must name a declared
+ *    requirement (harness-level or member-published). A `satisfies` resolving
+ *    to nothing is a join with no far end.
+ * 2. **Unfilled required requirement** — a requirement marked `required`, whether
+ *    the assembly declares it or a member publishes it, must be filled by some
+ *    member's `satisfies`. A required demand nobody meets is a loud error.
+ *
+ * Mentions already refuse in {@link resolveBody}; the genre-value-violating-its-
+ * bound-package refusal the spec also lists stays out of scope — the SDK carries
+ * no package model yet.
+ *
+ * # Throws
+ * On a dangling `satisfies` join or an unfilled `required` requirement.
+ */
+function refuseBrokenSource(harness: Harness): void {
+  const requirements = declaredRequirements(harness);
+  const filled = new Set<string>();
+  for (const member of harness.members) {
+    for (const name of Object.keys(member.satisfies)) {
+      if (!requirements.has(name)) {
+        throw new Error(
+          `member \`${member.name}\`: \`satisfies\` claims requirement \`${name}\`, which no ` +
+            `harness-level or member-published requirement declares — a dangling join ` +
+            `(specs/architecture/20-surface.md, "Emit refuses before it writes").`,
+        );
+      }
+      filled.add(name);
+    }
+  }
+
+  // A `required` demand — from the assembly roster or a member's own publication —
+  // that no member fills. `member.name` labels the source so the diagnostic points
+  // at the unmet publisher, not just the bare requirement name.
+  const requiredSources: [string, string][] = [];
+  for (const [name, requirement] of Object.entries(harness.requirements)) {
+    if (requirement.required) requiredSources.push([name, "the assembly"]);
+  }
+  for (const member of harness.members) {
+    for (const [name, requirement] of Object.entries(member.requirements)) {
+      if (requirement.required) requiredSources.push([name, `member \`${member.name}\``]);
+    }
+  }
+  for (const [name, source] of requiredSources) {
+    if (!filled.has(name)) {
+      throw new Error(
+        `required requirement \`${name}\` (declared by ${source}) is filled by no member's ` +
+          `\`satisfies\` — an unfilled required requirement ` +
+          `(specs/architecture/20-surface.md, "Emit refuses before it writes").`,
+      );
+    }
+  }
 }
 
 /** The harness's members as manifest members, deterministically kind-then-name ordered. */
@@ -316,6 +389,7 @@ export interface EmitOptions {
  * harness's declared values.
  */
 export function emitManifestMembers(harness: Harness, options: EmitOptions = {}): string {
+  refuseBrokenSource(harness);
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),
     baseDir: options.baseDir,
@@ -360,6 +434,7 @@ export interface EmitResult {
  * projects nowhere ([`isProjectedKind`]).
  */
 export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
+  refuseBrokenSource(harness);
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),
     baseDir: options.baseDir,

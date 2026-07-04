@@ -372,6 +372,14 @@ const surfaceAuthority = decision({
 
 function harness() {
   return defineHarness({
+    // The requirement the rust rule below fills — declared so its `satisfies`
+    // resolves (emit refuses a dangling join, `refuseBrokenSource`).
+    requirements: {
+      "engineering-standards": {
+        means: "the repo carries a rule fixing the engineering bar",
+        kind: "claude-code.rule",
+      },
+    },
     members: [
       rule({
         name: "rust",
