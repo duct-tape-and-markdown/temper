@@ -7,7 +7,7 @@ rationale = "the path-scoped home for the Rust bar: diagnostics discipline, roun
 
 [provenance]
 source_path = "./.claude/rules/rust.md"
-source_hash = "cf7ec58adb5aabc7a99227cbc11551670503f225295ddaf072a439db23000d86"
+source_hash = "c1116b5ca2c1a0d6df07ff54f080b114bfbf69a40035ab13466c319422b7c777"
 +++
 
 # Rust conventions — author

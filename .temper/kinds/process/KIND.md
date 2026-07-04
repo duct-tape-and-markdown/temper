@@ -12,6 +12,14 @@ primitive = "placement"
 
 [[extraction]]
 primitive = "sections"
+
+[[extraction]]
+primitive = "fenced"
+
+[[genres]]
+name = "decision"
+leaves = ["chosen"]
+collections = ["rejected"]
 +++
 
 # The process kind

@@ -12,6 +12,19 @@ primitive = "placement"
 
 [[extraction]]
 primitive = "sections"
+
+[[extraction]]
+primitive = "fenced"
+
+[[genres]]
+name = "decision"
+leaves = ["chosen"]
+collections = ["rejected"]
+
+[[genres]]
+name = "bound"
+leaves = ["claim", "deferred", "unlock"]
+collections = []
 +++
 
 # The architecture kind

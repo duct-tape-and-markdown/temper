@@ -12,6 +12,24 @@ primitive = "placement"
 
 [[extraction]]
 primitive = "sections"
+
+[[extraction]]
+primitive = "fenced"
+
+[[genres]]
+name = "decision"
+leaves = ["chosen"]
+collections = ["rejected"]
+
+[[genres]]
+name = "law"
+leaves = ["statement"]
+collections = ["bounds"]
+
+[[genres]]
+name = "bound"
+leaves = ["claim", "deferred", "unlock"]
+collections = []
 +++
 
 # The intent kind

@@ -1226,6 +1226,34 @@ exactly the unsound-proxy surface the "bespoke closed algebra" Decision rejects.
 `min_len`/`max_len`/`enum`/`allowed_chars` already refine *within* a scalar type; `type`
 only fixes the kind. (Resolves `(field-type-lattice)`.)"""
 
+[[member.fenced]]
+info = "toml"
+content = """
+[requirement.dev-standards]
+means    = "the harness maintains development standards"  # the why — human, never judged
+required = true                                           # gate-blocking vs advisory"""
+
+[[member.fenced]]
+info = "toml"
+content = """
+# opt-in fill, kind-blind — the intent path
+# .temper/skills/dev-standards/  →  satisfies = ["dev-standards"]
+
+# typed fill — kind-constrained opt-in (what a `role` was, minus the name guess):
+[requirement.linter]
+kind     = "rule"                    # only a rule may fill it
+package  = "lint-standards"          # …that also conforms to this package (composes)
+# a rule opts in from its representation:  satisfies = ["linter"]
+required = true"""
+
+[[member.fenced]]
+info = "toml"
+content = """
+[requirement.release-tool]
+kind        = "command"
+package     = "release-command"    # a command that also conforms to this package
+verified_by = "tests/release.rs"   # author checks this is wired; CI runs it"""
+
 [[member]]
 kind = "architecture"
 name = "15-kinds"
@@ -3804,6 +3832,23 @@ verbs, never after.
 
 Logic lives in the library; `main` is a thin `clap` dispatch that maps results to
 an exit code (`.claude/rules/rust.md`)."""
+
+[[member.fenced]]
+info = ""
+content = """
+temper.config.ts              # the ASSEMBLY authored: defineHarness — bindings,
+                              #   requirements, member selection (imports)
+.temper/                      # the LIBRARY: authored sources
+  lock.toml                   # generated state-of-record (provenance + emit fingerprints)
+  rules/collaboration.ts      # a MEMBER MODULE: typed fields, satisfies, body
+  skills/operate-the-gate/    # a member module + its prose asset
+    skill.ts                  #   fromFile('./SKILL.md') — long prose keeps its medium
+    SKILL.md
+  kinds/<name>.ts             # a custom KIND: defineKind (floor form: KIND.md)
+  packages/<name>.ts          # a PACKAGE: typed clauses + guidance (floor: PACKAGE.md)
+temper.toml                   # the MANIFEST: emitted (or hand-written at the floor);
+                              #   the only thing the gate reads
+.claude/**                    # the PROJECTION: emitted, guarded, never hand-edited"""
 
 [[member]]
 kind = "architecture"
@@ -6435,6 +6480,27 @@ Every concept is an instance of itself: this corpus is a **landscape**; its file
 of this model are what those kinds would declare for
 temper's own corpus. The engine governs the harness that builds it (`00-intent.md`
 self-hosting) — and, here, the model that defines it."""
+
+[[member.fenced]]
+info = ""
+content = """
+   EXTRACTION algebra                  PREDICATE algebra
+   (what may be READ —                 (what may be REQUIRED)
+    the soundness boundary)
+        │ composes                          │ composes
+        ▼                                    ▼
+      KIND ── reads artifact into ─► features ─ checked by ─► CONTRACT
+                                                                 │
+   kind + its artifact-scope contract = a TYPE  ◄────conformance─┘
+
+   AUTHORING FACE ── emit (checked) ──► MANIFEST + LANDSCAPE (.claude/, specs/)
+   (the typed library: members,        the inert serialization the gate reads,
+    kinds, packages, the ASSEMBLY      beside the projected corpus of ARTIFACTs,
+    as typed values; the floor         governed by the assembly via
+    hand-writes the manifest and       REQUIREMENTS (roster) · ENTITIES (graph)
+    keeps members in place)                     │
+        ▲ init (one-time lift)                  │
+        └───────────────────────────────  a PACKAGE binds a kind's contract (require-side)"""
 
 [[member.published]]
 name = "extraction-algebra"
