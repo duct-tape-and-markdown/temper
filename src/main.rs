@@ -202,13 +202,14 @@ enum Command {
         harness_path: PathBuf,
     },
     /// Project temper's own gate wiring into the harness (`specs/architecture/50-distribution.md`):
-    /// the `SessionStart` hook into `.claude/settings.json`, the CI job into
-    /// `.github/`, and the schema modeline into each artifact's frontmatter — all
-    /// under the three-state drift engine, so re-running is idempotent and re-places
-    /// anything a human deleted. `check` then verifies its own gate stays installed.
+    /// the `SessionStart` hook into `.claude/settings.json` and the managed header
+    /// lines (schema modeline + managed-by note) into each artifact's frontmatter —
+    /// all under the three-state drift engine, so re-running is idempotent and
+    /// re-places anything a human deleted. `check` then verifies its own gate stays
+    /// installed. CI is a documented user-authored job, not an install placement.
     Install {
         /// The project root to wire the gate into (defaults to the current
-        /// directory, beside the `.claude/` and `.github/` the placements land in).
+        /// directory, beside the `.claude/` the placements land in).
         #[arg(default_value = ".")]
         path: PathBuf,
         /// Compute and report every placement without writing a single byte.

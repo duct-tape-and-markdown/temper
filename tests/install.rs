@@ -1,13 +1,15 @@
 //! `temper install` — projecting the gate's wiring under the three-state drift
-//! engine (`specs/architecture/50-distribution.md`, "Decision: `install` projects the gate's
-//! wiring; drift keeps it synced").
+//! engine (`specs/architecture/50-distribution.md`, "Decision: `install` is two
+//! placements, one mechanism").
 //!
 //! Drives the library `install::run` / `install::gate_installed` over a real
 //! harness and proves the four properties the entry names:
 //!
 //! - **projection** — one run writes the `SessionStart` hook into
-//!   `.claude/settings.json` (merged, preserving what was there), the CI job into
-//!   `.github/workflows/`, and the schema modeline into each artifact's frontmatter;
+//!   `.claude/settings.json` (merged, preserving what was there) and the schema
+//!   modeline into each artifact's frontmatter; it writes no CI workflow file
+//!   (`50-distribution.md` rejects an install-managed workflow — CI is a
+//!   user-authored job);
 //! - **idempotence** — a second run lands every placement `Unchanged` and touches
 //!   not a byte;
 //! - **dry-run** — `--dry-run` reports every outcome but writes nothing;
@@ -113,23 +115,6 @@ fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     out
 }
 
-/// The outcome `install` reported for the placement at the file named `file`
-/// (a path suffix match), asserting it is unique.
-fn outcome_for(report: &InstallReport, file: &str) -> ApplyOutcome {
-    let mut matches = report
-        .entries
-        .iter()
-        .filter(|e| e.path.to_string_lossy().ends_with(file));
-    let found = matches
-        .next()
-        .unwrap_or_else(|| panic!("no entry for {file}"));
-    assert!(
-        matches.next().is_none(),
-        "entry for {file} should be unique"
-    );
-    found.outcome
-}
-
 /// The outcome `install` reported for the placement labeled `placement`, asserting it
 /// is unique — the by-label lookup for placements that share a file (the SessionStart
 /// hook and the guard both land in `settings.json`).
@@ -146,7 +131,7 @@ fn outcome_of(report: &InstallReport, placement: &str) -> ApplyOutcome {
 }
 
 #[test]
-fn install_projects_the_three_placements() {
+fn install_projects_the_placements() {
     let root = write_harness("projects", true);
 
     let report = install::run(&root, false).unwrap();
@@ -170,14 +155,27 @@ fn install_projects_the_three_placements() {
     );
     assert_eq!(outcome_of(&report, "guard hook"), ApplyOutcome::Applied);
 
-    // 2. The CI job lands as a whole file under .github/workflows/.
-    let ci = root.join(".github").join("workflows").join("temper.yml");
-    assert!(ci.is_file(), "the CI job must be written");
+    // 2. No CI workflow file is written — `50-distribution.md` rejects an
+    //    install-managed workflow; CI is a documented user-authored job.
     assert!(
-        fs::read_to_string(&ci).unwrap().contains("temper check"),
-        "the CI job must run the gate"
+        !root
+            .join(".github")
+            .join("workflows")
+            .join("temper.yml")
+            .exists(),
+        "install must write no CI workflow file"
     );
-    assert_eq!(outcome_for(&report, "temper.yml"), ApplyOutcome::Applied);
+    assert!(
+        !root.join(".github").exists(),
+        "install must not create .github/ at all"
+    );
+    assert!(
+        report
+            .entries
+            .iter()
+            .all(|e| !e.path.to_string_lossy().ends_with("temper.yml")),
+        "no placement entry names a CI workflow file"
+    );
 
     // 3. The schema modeline is inserted as the first frontmatter line of each
     //    artifact that HAS frontmatter — the skill and the `paths:` rule.
@@ -293,7 +291,6 @@ fn gate_installed_summarizes_missing_then_drifted_placements() {
     // into the message body, not sibling diagnostics.
     assert!(
         summary.message.contains("session-start hook")
-            && summary.message.contains("ci job")
             && summary.message.contains("schema modeline"),
         "the summary carries the missing-placement counts, got: {}",
         summary.message
@@ -307,9 +304,9 @@ fn gate_installed_summarizes_missing_then_drifted_placements() {
         install::gate_installed(&root)
     );
 
-    // Hand-drift one placement: a human edits the CI job out from under temper.
-    let ci = root.join(".github").join("workflows").join("temper.yml");
-    fs::write(&ci, "name: not-temper\n").unwrap();
+    // Hand-drift one placement: a human strips the schema modeline off a rule.
+    let rust_path = root.join(".claude").join("rules").join("rust.md");
+    fs::write(&rust_path, RULE).unwrap();
 
     let after = install::gate_installed(&root);
     assert_eq!(
@@ -318,7 +315,7 @@ fn gate_installed_summarizes_missing_then_drifted_placements() {
         "a single drifted placement still yields one summary advisory, got: {after:?}"
     );
     assert!(
-        after[0].message.contains("ci job"),
+        after[0].message.contains("schema modeline"),
         "the summary names the drifted placement, got: {}",
         after[0].message
     );
@@ -719,10 +716,11 @@ fn the_cli_install_verb_projects_and_dry_runs() {
         .unwrap();
     assert!(status.success(), "install must exit zero");
     assert!(
-        root.join(".github")
-            .join("workflows")
-            .join("temper.yml")
-            .is_file(),
-        "the CLI install must write the CI job"
+        root.join(".claude").join("settings.json").is_file(),
+        "the CLI install must write the SessionStart hook into settings.json"
+    );
+    assert!(
+        !root.join(".github").exists(),
+        "the CLI install must write no CI workflow file"
     );
 }

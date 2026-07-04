@@ -1,18 +1,22 @@
 //! `temper install` — project the gate's wiring into the harness.
 //!
 //! Implements the `install` verb of `specs/architecture/50-distribution.md` ("Decision:
-//! `install` projects the gate's wiring; drift keeps it synced"). Distribution is
-//! not a second product; it is *placing the one gate* at every moment a harness is
-//! authored, changes, or is used. `install` writes the placements a plugin cannot
-//! carry — they live in *your* repo, not a shipped bundle — and wires the gate for
-//! anyone who runs the binary without the plugin. Three placements:
+//! `install` is two placements, one mechanism"). Distribution is not a second
+//! product; it is *placing the one gate* at every moment a harness is authored,
+//! changes, or is used. `install` writes the placements a plugin cannot carry —
+//! they live in *your* repo, not a shipped bundle — and wires the gate for anyone
+//! who runs the binary without the plugin. Two placements:
 //!
 //! 1. the **`SessionStart` hook** (the exec-form `temper session-start` command)
 //!    merged into `<root>/.claude/settings.json`;
-//! 2. the **CI job** written to `<root>/.github/workflows/temper.yml` — the gate on
-//!    human change, where humans collaborate;
-//! 3. the **schema modeline** (`# yaml-language-server: $schema=…`) inserted into
-//!    each artifact's frontmatter header — the gate at keystroke.
+//! 2. the **managed header lines** (`# yaml-language-server: $schema=…` and the
+//!    managed-by note) inserted into each artifact's frontmatter — the gate at
+//!    keystroke.
+//!
+//! CI is *not* an install placement: `50-distribution.md` rejects an
+//! install-managed workflow file (a generated file nobody reads that still needs
+//! its own drift story), so CI is a documented two-line user-authored job, not a
+//! projection this verb owns.
 //!
 //! Plus the assembly's **surface-authority** enforcement artifacts, wired per the
 //! composed `authority` posture (`specs/architecture/20-surface.md`; `Shared` when the
@@ -57,33 +61,8 @@ use crate::import;
 /// temper binary itself"). The `.` is the harness under the running project.
 const SESSION_START_COMMAND: &str = "temper session-start .";
 
-/// The CI workflow `install` writes verbatim to `.github/workflows/temper.yml` —
-/// the gate on human change, running `temper check` on pull requests. A file
-/// temper owns wholesale, so it is placed rather than merged.
-const CI_WORKFLOW: &str = "\
-# Managed by `temper install` — the gate on human change (specs/architecture/50-distribution.md).
-name: temper
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  gate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run the temper gate
-        run: |
-          temper import . --into .temper
-          temper check .temper --reporter github
-";
-
 /// The placement label carried in the report and the self-verify diagnostics.
 const SESSION_START: &str = "session-start hook";
-/// The placement label for the CI job.
-const CI_JOB: &str = "ci job";
 /// The placement label for a schema modeline.
 const MODELINE: &str = "schema modeline";
 /// The placement label for the `PreToolUse` surface-authority guard hook.
@@ -177,7 +156,7 @@ pub enum InstallError {
 /// the three-state merge decided.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallEntry {
-    /// The placement label — the `SessionStart` hook, the CI job, or a modeline.
+    /// The placement label — the `SessionStart` hook, the guard, a modeline, or a note.
     pub placement: &'static str,
     /// The file the placement targets.
     pub path: PathBuf,
@@ -186,7 +165,7 @@ pub struct InstallEntry {
 }
 
 /// The typed result of an [`run`]: every placement's outcome, in placement order
-/// (the hook, the CI job, then one entry per modeled artifact's modeline).
+/// (the hook and guard, then one note + modeline per modeled artifact).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallReport {
     /// Every projected placement.
@@ -194,10 +173,10 @@ pub struct InstallReport {
 }
 
 /// Project temper's gate wiring into the harness rooted at `root`, writing the
-/// three placements through the three-state drift engine.
+/// placements through the three-state drift engine.
 ///
-/// `root` is the project root — beside the `.claude/` and `.github/` the placements
-/// land in (the current directory, by CLI default). Nothing is written under
+/// `root` is the project root — beside the `.claude/` the placements land in (the
+/// current directory, by CLI default). Nothing is written under
 /// `dry_run`; every outcome is still computed and reported. See the module header
 /// for the per-placement projection and the idempotence / re-creation guarantees.
 pub fn run(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
@@ -208,7 +187,7 @@ pub fn run(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
 /// `check` self-verify (`specs/architecture/50-distribution.md`, "the harness checking that its
 /// self-check is wired").
 ///
-/// Evaluates the same three placements dry-run and folds every placement the merge
+/// Evaluates the same placements dry-run and folds every placement the merge
 /// would write (missing, or drifted away from temper's wiring) into **one advisory**
 /// [`Diagnostic`] carrying the counts — never one warn per placement, which on a
 /// real target (~20 modelines) would bury the artifact findings the gate is there to
@@ -222,10 +201,10 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     let Ok(report) = plan(root, true) else {
         return Vec::new();
     };
-    // Tally the missing/drifted placements by kind. The hook, guard, and CI job are
-    // single placements; modelines and managed-by notes are one per modeled artifact,
-    // so they collapse to a count.
-    let (mut hook, mut guard, mut ci, mut modelines, mut notes) = (false, false, false, 0u32, 0u32);
+    // Tally the missing/drifted placements by kind. The hook and guard are single
+    // placements; modelines and managed-by notes are one per modeled artifact, so
+    // they collapse to a count.
+    let (mut hook, mut guard, mut modelines, mut notes) = (false, false, 0u32, 0u32);
     for entry in &report.entries {
         if entry.outcome == ApplyOutcome::Unchanged {
             continue;
@@ -233,12 +212,11 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
         match entry.placement {
             SESSION_START => hook = true,
             GUARD_HOOK => guard = true,
-            CI_JOB => ci = true,
             NOTE => notes += 1,
             _ => modelines += 1,
         }
     }
-    if !hook && !guard && !ci && modelines == 0 && notes == 0 {
+    if !hook && !guard && modelines == 0 && notes == 0 {
         return Vec::new();
     }
 
@@ -248,9 +226,6 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     }
     if guard {
         parts.push(GUARD_HOOK.to_string());
-    }
-    if ci {
-        parts.push(CI_JOB.to_string());
     }
     if modelines > 0 {
         let plural = if modelines == 1 { "" } else { "s" };
@@ -296,15 +271,7 @@ fn plan(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
         path: settings_path,
     });
 
-    // 2. The CI job — a file temper owns wholesale, placed verbatim.
-    let ci_path = root.join(".github").join("workflows").join("temper.yml");
-    entries.push(InstallEntry {
-        placement: CI_JOB,
-        outcome: drift::place(&ci_path, CI_WORKFLOW, None, dry_run)?,
-        path: ci_path,
-    });
-
-    // 3. Per frontmatter projection: the managed-by note, then the schema modeline.
+    // 2. Per frontmatter projection: the managed-by note, then the schema modeline.
     //    The note is applied first so the modeline stays the leading frontmatter line,
     //    and SKIPS memory projections — a comment in a CLAUDE.md costs context every
     //    session (`specs/architecture/20-surface.md`).
