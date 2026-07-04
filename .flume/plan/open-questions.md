@@ -11,76 +11,55 @@ and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror i
 **deleted** (CONTRACTS-RETIRE shipped — no `contracts/` dir on disk; only stale
 path strings remain in comments).
 
-## SDK dogfood-migration seams (surfaced by the 2026-07-04 pilot)
+## SDK dogfood-migration seams (surfaced by the 2026-07-04 pilot) — ALL RULED
 
 The dogfood-migration pilot (temper's two live rules authored through the SDK,
 `emit`ted, diffed against the committed dogfood) surfaced four seams between the
 SDK authoring face and the Rust gate/importer. **Projection parity HOLDS** for
-rules (`collaboration` byte-identical); the seams below are the residual gaps.
-All four live in the same `sdk/src/{emit,project,manifest}.ts` files, so they are
-**not parallel-safe** with each other — each is held as a fork (a genuine ruling
-is needed anyway) rather than filed as a competing `open` entry. MEMORY-PROJECTION-SDK
-(the memory slice these seams shared a file with) has now **SHIPPED** (`build`
-1ec14fb / `chore` d6ce2c2; verified on disk — `isProjectedKind` returns `memory`,
-`sdk/src/project.ts:53`, and a locus-less module-carried memory projects the root
-`CLAUDE.md`/`AGENTS.md`). So no `open` SDK head remains: the next SDK entry is
-whichever of these four forks the human rules first (a resolved fork becomes the
-serialized SDK entry).
+rules (`collaboration` byte-identical); the seams below were the residual gaps.
+**John ruled all four in one session ceremony (2026-07-04, each on plan's filed
+recommendation).** They split by the file each touches into **two disjoint
+serialized chains** — a Rust-gate chain over `src/main.rs` and an SDK chain over
+`sdk/src/emit.ts` — cross-language disjoint, so the two chain heads are
+parallel-safe `open` entries; each chain's second link is `blockedBy` its head.
+Kept below as decision records; no dependent still waits.
 
-- `(sdk-placement-round-through)` — OPEN. SDK `projectMember` (`sdk/src/project.ts`)
-  never rounds a committed projection's **install placement lines** (the managed-by
-  note + schema modeline) through its whole-file re-emit, where Rust emit does
-  (EMIT-OWNED-PLACEMENTS, `src/drift.rs` `placement_lines`/`project_bytes`). So
-  `rust` projects byte-identical **except** those two lines. `projectBytes` already
-  accepts a `placements` param — it is just never populated at the `emit` call site.
-  Fork: (a) SDK emit reads the committed projection and rounds install's placement
-  lines through, mirroring the Rust EMIT-OWNED-PLACEMENTS resolution (the two
-  projectors agree by construction); or (b) rule that `install` always re-runs after
-  `writeEmit`, so emit legitimately drops them. Cite `specs/architecture/20-surface.md`,
-  "Content-faithful, deterministically emitted (law 5)" (the two-projectors seam).
-  Recommendation: (a) — it is the ruling the Rust side already took. Human to settle
-  which projector owns the placement lines in the SDK.
+- `(sdk-placement-round-through)` — RESOLVED (a) (John 07-04): SDK emit reads the
+  committed projection and rounds install's placement lines (managed-by note +
+  schema modeline) through its whole-file re-emit, mirroring the Rust
+  EMIT-OWNED-PLACEMENTS resolution — the two projectors agree by construction.
+  `projectBytes` already accepts a `placements` param, never populated at the
+  emit call site. `specs/architecture/20-surface.md`, "Content-faithful,
+  deterministically emitted (law 5)". FILED as pending **SDK-PLACEMENT-ROUNDTHROUGH**
+  (blockedBy SDK-CARRIAGE-CONVERGE — shares `sdk/src/emit.ts`).
 
-- `(gate-kind-spelling-and-unknown-kind)` — OPEN. `temper check` **silently skips**
-  a manifest member spelled `kind = "claude-code.rule"` (checked 0, exit 0 —
-  invisible); respelled bare `rule`, it checks them. The gate keys the manifest
-  corpus by **bare** kind (MANIFEST-GATE-READ, `src/main.rs`), but the SDK's
-  `memory()`/`rule()`/`skill()` stamp the **qualified** identity (`claude-code.rule`,
-  `sdk/src/members.ts`). Two halves, each a ruling: (1) which spelling is canonical
-  in the manifest — the SDK emits bare to match the gate, or the gate resolves a
-  qualified kind to its bare key before lookup; (2) whether the gate's silent skip of
-  an unrecognized kind should be **loud** (a silent 'checked 0' reads as done — the
-  collaboration rule's exact failure mode). Cite `specs/architecture/20-surface.md`,
-  "The IR" / the manifest-read contract. Recommendation: gate resolves qualified→bare
-  (identity is `<provider>.<name>`, `15-kinds.md`) AND an unknown kind is loud.
+- `(gate-kind-spelling-and-unknown-kind)` — RESOLVED (John 07-04): the gate
+  resolves a qualified kind to its **bare** key before manifest-corpus lookup
+  (identity is `<provider>.<kind>`, `15-kinds.md`), so a `claude-code.rule`
+  member is checked, not silently skipped; AND an unrecognized manifest kind is a
+  **loud finding**, never a silent `checked 0` (the collaboration rule's exact
+  failure mode). The SDK keeps stamping the qualified identity (`members.ts`
+  unchanged); the gate is the side that resolves. `specs/architecture/15-kinds.md`,
+  "Decision: kind identity carries a provider axis". FILED as pending
+  **GATE-KIND-RESOLVE** (`open` head of the Rust-gate chain).
 
-- `(gate-reads-assembly-artifacts)` — OPEN. The SDK emits the two locus-less
-  assembly-fact artifacts `bindings.toml`/`roster.toml` (SDK-ASSEMBLY-ARTIFACTS
-  shipped, `sdk/src/assembly_artifacts.ts`), but the Rust gate **reads neither** (no
-  reader for either under `src/`). So an SDK-emitted members-only `temper.toml`
-  yields `requirement.dangling` ×2; splicing the requirement tables into `temper.toml`
-  turns the same surface green (2 members checked, exit 0). Fork: (a) the gate learns
-  to read the assembly-fact artifacts (roster + bindings) as the assembly source; or
-  (b) `writeEmit` folds the assembly facts into `temper.toml` itself. Cite
-  `specs/architecture/20-surface.md`, "Facts with no harness locus … are emitted as
-  small committed temper-owned artifacts". Recommendation: (a) — the artifacts exist
-  by ruling; the gate is the side not yet reading them. Human to settle.
+- `(gate-reads-assembly-artifacts)` — RESOLVED (a) (John 07-04): the gate learns
+  to read the two SDK-emitted temper-owned artifacts `roster.toml`/`bindings.toml`
+  (`sdk/src/assembly_artifacts.ts`) as the assembly source, so an SDK-emitted
+  members-only `temper.toml` stops yielding `requirement.dangling` — the artifacts
+  exist by ratified ruling, the gate is the side not yet reading them.
+  `specs/architecture/20-surface.md`, "CLI surface" (the engine reads the committed
+  harness + the temper-owned artifacts + the lock). FILED as pending
+  **GATE-READS-ASSEMBLY** (blockedBy GATE-KIND-RESOLVE — shares `src/main.rs`).
 
-- `(module-carriage-manifest-shape)` — OPEN. The SDK manifest and the Rust importer
-  disagree on a module-carried member's serialized shape: the SDK emits **one
-  whole-body section** with the H1 line inside the body, where the Rust importer
-  **sectionizes per heading** with the heading line split out; the SDK `line_count`
-  is **+1** (a trailing-newline `split("\n")` artifact — a 47-line body counts 48,
-  `sdk/src/emit.ts` `toManifestMember`); and module-carried members carry **no
-  `source_dir`** (locus-less, by design). The gate tolerates the section-shape
-  difference today, but it is drift-relevant (a re-import would not round-trip). Fork:
-  does module carriage legitimately have its **own** manifest shape (the carriage is
-  authored, not extracted, so it need not mimic the importer), or must it **converge**
-  on the importer's per-heading sectionization? The `line_count` +1 is a plain bug
-  **within** whichever shape wins — fileable once the shape is ruled. Cite
-  `specs/architecture/20-surface.md`, "three carriages, one feature shape" (every
-  consumer carriage-blind — which cuts toward convergence). Human to settle whether
-  the two carriages serialize identically.
+- `(module-carriage-manifest-shape)` — RESOLVED converge (John 07-04): module
+  carriage serializes **per-heading exactly like the importer** — the SDK's
+  `toManifestMember` sectionizes per heading (heading line split out) rather than
+  one whole-body section with the H1 inside ("three carriages, one feature shape";
+  every consumer stays carriage-blind). The `line_count` +1 (trailing-newline
+  `split("\n")` artifact) is a plain bug fileable **within** this shape.
+  `specs/architecture/20-surface.md`, "Decision: three carriages, one feature
+  shape". FILED as pending **SDK-CARRIAGE-CONVERGE** (`open` head of the SDK chain).
 
 - `(scripted-altitude-reconcile)` — OPEN for the **altitude rung only**; the
   **floor wave has fully SHIPPED** (2026-07-03, ask (b) discharged and all seven

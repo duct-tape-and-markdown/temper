@@ -1,5 +1,147 @@
 [
   {
+    "tag": "GATE-KIND-RESOLVE",
+    "summary": "Gate resolves a manifest member's qualified kind to its bare key before corpus lookup, and reports an unrecognized kind loudly instead of silently checking zero",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Decision: kind identity carries a provider axis"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/manifest_kind_spelling.rs",
+          "description": "A `[[member]]` spelled `kind = \"claude-code.rule\"` is dispatched to the rule package (checked, not skipped); a `[[member]]` whose kind resolves to no built-in/custom definition yields a loud finding, never a silent `checked 0`."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "At the manifest_corpus build (~794-814): normalize each pre-extracted member's authored `kind` qualified->bare via the provider resolution (`builtin_kind`/`CustomKind::resolve_bare`, identity `<provider>.<kind>`) before keying, so a `claude-code.rule` member reaches the `rule` slice the dispatch loop reads (`corpus.get(&kind.name)`). AND: a member kind that resolves to no known built-in/custom definition becomes a reported diagnostic — the collaboration-rule failure the fork names (a silent skip reads as done). No SDK change: members.ts keeps stamping the qualified identity; the gate is the side that resolves."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/manifest_kind_spelling.rs",
+        "asserts": "a qualified `claude-code.rule` manifest member is checked against the rule package (not skipped); an unrecognized manifest kind produces a loud finding rather than a silent zero."
+      }
+    ],
+    "acceptance": "A manifest member spelled `claude-code.rule` is dispatched to its bare kind's package; an unrecognized manifest kind is a reported finding, never `checked 0`; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Fork `(gate-kind-spelling-and-unknown-kind)` RESOLVED (John 07-04): gate resolves qualified->bare, unknown kind is loud. Shares src/main.rs with GATE-READS-ASSEMBLY — that entry is blockedBy this one (serialized)."
+  },
+  {
+    "tag": "SDK-CARRIAGE-CONVERGE",
+    "summary": "SDK `toManifestMember` sectionizes a module-carried member per heading (converging on the importer) and drops the trailing-newline `line_count` +1",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: three carriages, one feature shape"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`toManifestMember` today emits ONE whole-body `[[member.section]]` with the H1 line inside the body (`sections: [{ heading: headings[0] ?? name, body }]`, emit.ts:258). Converge on the Rust importer: emit one `[[member.section]]` per heading with the heading line split out of the body, so a re-import round-trips (every consumer carriage-blind). Fix the `line_count` +1: `body.split(\"\\n\").length` counts a trailing newline as a phantom line — a 47-line body must count 47, matching the importer."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Update the toManifestMember shape assertions to the per-heading sectionization and the corrected line_count; add a multi-heading module-member case proving importer-parity."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a multi-heading module-carried member serializes per-heading like the Rust importer, and line_count equals the body's real line count (no trailing-newline +1)."
+      }
+    ],
+    "acceptance": "A module-carried member's manifest shape matches the Rust importer's per-heading sectionization and line_count; `pnpm --dir sdk test` + cargo fmt/clippy/test all green.",
+    "notes": "Fork `(module-carriage-manifest-shape)` RESOLVED converge (John 07-04) — three carriages, one feature shape; every consumer carriage-blind. The line_count +1 is the trailing-newline bug fileable within this shape. Shares sdk/src/emit.ts with SDK-PLACEMENT-ROUNDTHROUGH — that entry is blockedBy this one (serialized)."
+  },
+  {
+    "tag": "GATE-READS-ASSEMBLY",
+    "summary": "Gate reads the SDK-emitted `roster.toml`/`bindings.toml` temper-owned artifacts as the assembly source, so a members-only `temper.toml` stops reporting spurious dangling requirements",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "CLI surface"
+    },
+    "gate": { "kind": "blockedBy", "tag": "GATE-KIND-RESOLVE" },
+    "files": {
+      "new": [
+        {
+          "path": "src/assembly_artifacts.rs",
+          "description": "Parse the two temper-owned assembly-fact artifacts — `roster.toml` (the requirement roster) and `bindings.toml` (kind->package) — mirroring the SDK emitter `sdk/src/assembly_artifacts.ts`. Read-only; the gate consumes these as the assembly source when they sit beside `temper.toml`."
+        },
+        {
+          "path": "tests/assembly_artifacts_gate.rs",
+          "description": "An SDK-emitted members-only `temper.toml` plus `roster.toml`/`bindings.toml` checks green — no `requirement.dangling` — and the declared requirements/bindings gate exactly as a spliced-in temper.toml assembly would."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add `pub mod assembly_artifacts;` (the new reader module's foundation line)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "In the gate's roster/graph tier: when the temper-owned artifacts (`roster.toml`/`bindings.toml`) sit beside `temper.toml`, read the requirement roster + kind bindings from them as the assembly source rather than only the `temper.toml` layer, so an SDK-emitted members-only manifest resolves its requirements instead of dangling."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/assembly_artifacts_gate.rs",
+        "asserts": "an SDK members-only `temper.toml` with `roster.toml`/`bindings.toml` beside it checks green (no requirement.dangling); the roster's requirements gate as declared."
+      }
+    ],
+    "acceptance": "The gate consumes `roster.toml`/`bindings.toml` as the assembly source; an SDK-emitted members-only manifest no longer reports spurious dangling requirements; cargo fmt/clippy -D warnings/test all green.",
+    "notes": "Fork `(gate-reads-assembly-artifacts)` RESOLVED (a) (John 07-04) — the artifacts exist by ruling; the gate is the side not yet reading them. Shares src/main.rs with GATE-KIND-RESOLVE — serialized after it."
+  },
+  {
+    "tag": "SDK-PLACEMENT-ROUNDTHROUGH",
+    "summary": "SDK emit reads the committed projection and rounds install's placement lines through its whole-file re-emit, mirroring the Rust EMIT-OWNED-PLACEMENTS resolution",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Content-faithful, deterministically emitted (law 5)"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SDK-CARRIAGE-CONVERGE" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/project.ts",
+          "description": "Add a placement-lines predicate that decides which committed-projection lines are install's own (the managed-by note + schema modeline), mirroring the Rust `install::placement_lines`. `projectMember` reads the committed projection at the member's locus and passes those lines into `projectBytes` — which already accepts a `placements` param (project.ts:106-117) never populated at the emit call site — so the whole-file re-emit preserves them by construction."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Thread the committed-projection base dir through the compile/projection call site (`emit`/`compile`, ~452-465) so `projectMember` can read the committed projection its placements resolve from; the double-emit purity check still holds (reads are of committed bytes, not clocks)."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Assert a rule whose committed projection carries the managed-by note + schema modeline re-emits with those two lines preserved — byte-identical to the Rust projector's output."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a member whose committed projection carries install's placement lines re-emits with them preserved (the SDK and Rust projectors agree byte-for-byte)."
+      }
+    ],
+    "acceptance": "SDK projection parity with the Rust projector holds including install's placement lines (the two projectors agree by construction); `pnpm --dir sdk test` + cargo gates all green.",
+    "notes": "Fork `(sdk-placement-round-through)` RESOLVED (a) (John 07-04) — mirror the Rust EMIT-OWNED-PLACEMENTS ruling. `projectBytes` already takes `placements`; it is just never populated at the call site. Shares sdk/src/emit.ts with SDK-CARRIAGE-CONVERGE — serialized after it."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {

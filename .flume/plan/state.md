@@ -1,27 +1,26 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD d6ce2c2.
-- **Last shipped:** MEMORY-PROJECTION-SDK (`build` 1ec14fb / `chore` d6ce2c2) —
-  SDK emit now projects a module-carried memory to its root `CLAUDE.md`/`AGENTS.md`
-  locus; verified on disk (`isProjectedKind` returns `memory`, `sdk/src/project.ts:53`).
-- **This tick:** inbox empty. Re-verified the three carried entries hold, premises
-  on disk unchanged: EXTRACTION-VOCAB-GAPS deferred (`Primitive::Field` still
-  flat-reads `unit.frontmatter.get(key)`, kind.rs:835 — no nested-key consumer),
-  AGENT-KIND deferred (`BUILTIN_KINDS = ["skill","rule"]`, kind.rs:30; no
-  `kinds/claude-code/agent/`), PACKAGING-CHANNELS parked (only `temper.yml` CI —
-  no `release.yml`; root `package.json` still private `temper-flume-harness`).
-  Re-cut the SDK-seams fork header: the memory slice these four seams shared a file
-  with has shipped, so they no longer name an open head — each awaits a human ruling.
-- **Pickable now:** none. No `open` head — the three carried entries are
-  deferred/parked; the four SDK seam forks (`sdk-placement-round-through`,
-  `gate-kind-spelling-and-unknown-kind`, `gate-reads-assembly-artifacts`,
-  `module-carriage-manifest-shape`) each need a human ruling and share
-  `sdk/src/{emit,project,manifest}.ts`, so none can be filed as a parallel `open` entry.
-- **What's next:** a human ruling on one of the four SDK seam forks turns it into
-  the next serialized SDK entry; the dogfood's full migration onto the SDK is the
-  ledger's TS-primary human ceremony (not a pending entry). Until then the queue is
-  drained and blocked on human input.
+- **Phase:** reconcile. HEAD ebb822c.
+- **Last shipped:** MEMORY-PROJECTION-SDK (`build` 1ec14fb / `chore` d6ce2c2) — SDK
+  emit projects a module-carried memory to its root `CLAUDE.md`/`AGENTS.md`.
+- **This tick:** drained the inbox — John ruled all four SDK dogfood-migration
+  seam forks (session ceremony, each on plan's filed recommendation). Marked the
+  four forks RESOLVED and filed them as **two disjoint serialized chains**, split
+  by the file each touches: a Rust-gate chain over `src/main.rs`
+  (GATE-KIND-RESOLVE → GATE-READS-ASSEMBLY) and an SDK chain over
+  `sdk/src/emit.ts` (SDK-CARRIAGE-CONVERGE → SDK-PLACEMENT-ROUNDTHROUGH). The two
+  chain heads are cross-language disjoint (`src/**`+`tests/**` vs `sdk/**`), so
+  both are `open` and parallel-safe; each chain's second link is `blockedBy` its
+  head (shared file). Re-verified the three carried entries hold: EXTRACTION-VOCAB-GAPS
+  deferred (`Primitive::Field` flat-reads `unit.frontmatter.get(key)`, kind.rs:836),
+  AGENT-KIND deferred (`BUILTIN_KINDS = ["skill","rule"]`, kind.rs:30),
+  PACKAGING-CHANNELS parked.
+- **Pickable now:** GATE-KIND-RESOLVE and SDK-CARRIAGE-CONVERGE (both `open`,
+  disjoint — Rust gate vs SDK emit). Their followers unblock on the next reconcile.
+- **What's next:** build ships the two heads in parallel; a green ship of each
+  unblocks its serialized follower. After the four seams land, the dogfood's full
+  migration onto the SDK is the ledger's TS-primary human ceremony (not a pending
+  entry).
 
-Plan continues: no — queue reconciled, inbox drained, memory slice shipped and its
-fork header re-cut. No `open` head remains: the next move is a human ruling on the
-SDK seam forks, not more plan or build work.
+Plan continues: no — inbox drained, the four ruled forks filed as two parallel-safe
+serialized chains, two `open` heads pickable. Hand to build.
