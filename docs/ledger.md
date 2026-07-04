@@ -38,19 +38,20 @@ graduation, delete over archive.
   Doctrine's spec half rides the addressable-corpus ceremony: intent is
   human-*ratified*; autonomous drafting rights widen per document with the
   genre gradient, propose-only; authority never loosens.
-- **The addressable corpus: RATIFIED, floor slice IN FLIGHT** (07-03;
-  `specs:` 52f149c, Δ1–Δ6 incl. the human-ratified process re-cut;
-  pre-state = `bound-prose-era` tag; John's cold read confirmed in
-  session). D1–D7 record:
+- **The addressable corpus: RATIFIED + floor slice SHIPPED** (07-03;
+  `specs:` 52f149c Δ1–Δ6; pre-state = `bound-prose-era` tag; cold read
+  confirmed). Engine halves shipped by the loop in 9 ticks, zero reverts
+  (FENCED-PRIMITIVE → GENRE-MANIFEST-LEAF → IMPACT-LEAF-GRAIN →
+  CONTEXT-VERB, + INSTALL-DRIFT-STRINGS); genre package landed in-session
+  (5f56fda: decision/law/bound on the spec kinds); verbs exercised, the
+  mixed-rung disclosure live ("13 documents below rung 3"). D1–D7 record:
   claude.ai/code/artifact/8894d9ee-a143-422b-84b3-07f7140e248c; deltas as
   ratified: claude.ai/code/artifact/df62b0a2-dcc7-4e11-a63a-8fc0b7798127.
-  Loop running the engine halves (fence extraction, leaf schema, leaf
-  `impact`, `context` + coverage disclosure); AFTER they ship, the
-  interactive session lands the corpus genre package (curated data,
-  parse-first ordering). Migration protocol: staged per-document, pilot
-  low-stakes (45-governance or 15-kinds), acceptance = projection-diff
-  residual is connective tissue only, don't freeze the package until 3–4
-  documents through. Altitude authoring still on ask (a).
+  NEXT: rung-3 pilot (45-governance or 15-kinds) is BLOCKED on the display
+  rule (inboxed — emit has no custom-kind projection face; a fence would
+  project as raw TOML). Protocol stands: per-document, residual =
+  connective tissue only, don't freeze the package until 3–4 documents
+  through. Altitude authoring still on ask (a).
 - `(default-assembly-as-data)` addendum: subsumed-in-shape by the manifest
   model (a shipped default assembly = embedded manifest data) — formally
   close it or let plan carry the reconcile.
