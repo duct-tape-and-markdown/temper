@@ -20,7 +20,7 @@ emit_hash = "7f52c4f395f91f4a318972a8dcb9b567c859b3a5ccc8bdf584cc0824380c8844"
 name = "rust"
 source_path = "./.claude/rules/rust.md"
 source_hash = "c1116b5ca2c1a0d6df07ff54f080b114bfbf69a40035ab13466c319422b7c777"
-emit_hash = "c1116b5ca2c1a0d6df07ff54f080b114bfbf69a40035ab13466c319422b7c777"
+emit_hash = "47f2591756d97cde3428400f8be7f05acc87b0c4a2c6ccf5c3dc34af0ea49bfe"
 
 [[architecture]]
 name = "10-contracts"

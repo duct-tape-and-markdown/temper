@@ -47,6 +47,12 @@ are flume gates, so a violation reverts the commit.
   second, unchecked home for intent that drifts), narration of ordinary code,
   compliance narration ("per §X we…" — commit-message material). Comments are
   paid twice here: every agent reading the module bills for every line.
+- **Comment churn is diff cost** (ruled 2026-07-04: comment-change tokens were
+  outrunning code-change tokens). Never rewrite a comment whose constraint
+  didn't change; when replacing or demolishing code, don't port the old
+  prose — new code carries the taxonomy's minimum, written fresh. Module
+  `//!` headers shrink on touch, never grow. A slice whose diff is mostly
+  comment edits is over-commented — cut, don't polish.
 
 ## Round-trip discipline (the core invariant)
 
