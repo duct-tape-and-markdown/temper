@@ -38,21 +38,19 @@ graduation, delete over archive.
   Doctrine's spec half rides the addressable-corpus ceremony: intent is
   human-*ratified*; autonomous drafting rights widen per document with the
   genre gradient, propose-only; authority never loosens.
-- **The addressable corpus: DRAFT, cold read pending — THE next ceremony**
-  (07-03 parallel session; genre-typed spec prose, prose at the leaves,
-  docs become projection; payoff = agent proprioception: leaf-grained
-  `impact`, a `context` read verb, edits as graph events). D1–D7 record:
-  claude.ai/code/artifact/8894d9ee-a143-422b-84b3-07f7140e248c. Spec deltas
-  (Δ1–Δ5): claude.ai/code/artifact/df62b0a2-dcc7-4e11-a63a-8fc0b7798127 —
-  fold in the governing session's amendments before ratifying: mixed-rung
-  coverage disclosure ships WITH the verbs (Δ3); D5's "renames flow like a
-  refactor" is altitude-only; the curated genre package is out of build's
-  fence (engine halves = build entries, package = in-session commit); Δ1
-  gains the authority-territories doctrine. Migration protocol agreed in
-  session: staged per-document, pilot low-stakes (45-governance or
-  15-kinds), mechanical acceptance = projection diff residual is connective
-  tissue only, don't freeze the genre package until 3–4 documents through.
-  Floor slice chains behind the (now-shipped) wave once ratified.
+- **The addressable corpus: RATIFIED, floor slice IN FLIGHT** (07-03;
+  `specs:` 52f149c, Δ1–Δ6 incl. the human-ratified process re-cut;
+  pre-state = `bound-prose-era` tag; John's cold read confirmed in
+  session). D1–D7 record:
+  claude.ai/code/artifact/8894d9ee-a143-422b-84b3-07f7140e248c; deltas as
+  ratified: claude.ai/code/artifact/df62b0a2-dcc7-4e11-a63a-8fc0b7798127.
+  Loop running the engine halves (fence extraction, leaf schema, leaf
+  `impact`, `context` + coverage disclosure); AFTER they ship, the
+  interactive session lands the corpus genre package (curated data,
+  parse-first ordering). Migration protocol: staged per-document, pilot
+  low-stakes (45-governance or 15-kinds), acceptance = projection-diff
+  residual is connective tissue only, don't freeze the package until 3–4
+  documents through. Altitude authoring still on ask (a).
 - `(default-assembly-as-data)` addendum: subsumed-in-shape by the manifest
   model (a shipped default assembly = embedded manifest data) — formally
   close it or let plan carry the reconcile.
