@@ -7,8 +7,7 @@
       "section": "CLI surface"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GATE-KIND-RESOLVE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -42,7 +41,7 @@
       }
     ],
     "acceptance": "The gate consumes `roster.toml`/`bindings.toml` as the assembly source; an SDK-emitted members-only manifest no longer reports spurious dangling requirements; cargo fmt/clippy -D warnings/test all green.",
-    "notes": "Fork `(gate-reads-assembly-artifacts)` RESOLVED (a) (John 07-04) — the artifacts exist by ruling; the gate is the side not yet reading them. Shares src/main.rs with GATE-KIND-RESOLVE — serialized after it."
+    "notes": "Fork `(gate-reads-assembly-artifacts)` RESOLVED (a) (John 07-04) — the artifacts exist by ruling; the gate is the side not yet reading them. Blocker GATE-KIND-RESOLVE shipped (ff493d9); now open. Disjoint from SDK-PLACEMENT-ROUNDTHROUGH (Rust src/** vs sdk/**)."
   },
   {
     "tag": "SDK-PLACEMENT-ROUNDTHROUGH",
@@ -52,8 +51,7 @@
       "section": "Content-faithful, deterministically emitted (law 5)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-CARRIAGE-CONVERGE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -82,7 +80,7 @@
       }
     ],
     "acceptance": "SDK projection parity with the Rust projector holds including install's placement lines (the two projectors agree by construction); `pnpm --dir sdk test` + cargo gates all green.",
-    "notes": "Fork `(sdk-placement-round-through)` RESOLVED (a) (John 07-04) — mirror the Rust EMIT-OWNED-PLACEMENTS ruling. `projectBytes` already takes `placements`; it is just never populated at the call site. Shares sdk/src/emit.ts with SDK-CARRIAGE-CONVERGE — serialized after it."
+    "notes": "Fork `(sdk-placement-round-through)` RESOLVED (a) (John 07-04) — mirror the Rust EMIT-OWNED-PLACEMENTS ruling. `projectBytes` takes `placements` (project.ts:109) but the projectMember call site (:136) omits it. Blocker SDK-CARRIAGE-CONVERGE shipped (1d2b9fd); now open. Disjoint from GATE-READS-ASSEMBLY."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
