@@ -1313,52 +1313,53 @@ required = true\n",
     );
 }
 
-// ---- manifest gate read: the manifest is the gate's corpus ------------------
+// ---- gate corpus: committed artifacts, not the manifest ---------------------
 //
-// `specs/architecture/20-surface.md`, "The surface: the assembly over its contents" +
-// "The IR": the gate ranges the manifest's pre-extracted `[[member]]` features (the only
-// thing the gate reads), the lock supplies freshness (`config.stale`), and no `.temper/`
-// copy tree is ranged as the declaration source. These drive the real `temper check` in
-// the persistent layout, so the manifest is read exactly as a real invocation reads it.
+// `specs/architecture/20-surface.md`, "The seam — one implementation": the gate reads the
+// committed member documents plus the lock (freshness via `config.stale`) — never the
+// `temper.toml` `[[member]]` manifest as its corpus (Rejected (b): a committed manifest as
+// the gate's corpus). These drive the real `temper check` in the persistent layout, so the
+// corpus is sourced exactly as a real invocation sources it.
 
 #[test]
-fn check_reads_member_features_from_the_manifest_not_the_temper_tree() {
-    // Make the manifest and the `.temper/` tree DISAGREE, then observe which one the gate
-    // judges. Import a skill carrying a forbidden `globs` key: the manifest serializes that
-    // member, and `.temper/skills/` holds its surface. Delete the surface tree — now only
-    // the manifest still declares the member. If the gate reads the manifest, the forbidden
-    // key fires; if it fell back to ranging `.temper/`, it would find nothing and pass.
+fn check_reads_member_features_from_the_committed_surface_not_the_manifest() {
+    // Make the committed surface tree and the manifest DISAGREE, then observe which one the
+    // gate judges. Import a skill carrying a forbidden `globs` key: the surface tree holds
+    // its member document and the manifest serializes it too. Drop the manifest's members
+    // (a layer-only floor manifest) — now only the committed surface still declares the
+    // member. If the gate reads the surface, the forbidden key fires; if it read the
+    // manifest as its corpus, it would find nothing and pass.
     let root = tmpdir("gate-read-corpus");
     let skill = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), FORBIDDEN_GLOBS_SKILL).unwrap();
     run_import(&root);
 
-    // The manifest carries the globs member; the surface tree carried it too.
-    fs::remove_dir_all(root.join(".temper").join("skills")).unwrap();
-
-    let read_manifest = check_in(&root);
-    assert!(
-        !read_manifest.ok,
-        "the manifest's globs member drives the gate red even with an empty `.temper/` tree \
-         — the manifest is the corpus, got:\n{}",
-        read_manifest.output
-    );
-    assert!(
-        read_manifest.output.contains("forbidden_keys"),
-        "the finding names the clause the manifest member tripped, got:\n{}",
-        read_manifest.output
-    );
-
-    // Strip the `[[member]]` section (a layer-only floor manifest) with the surface tree
-    // still empty: now nothing declares the member, so the gate has nothing to judge and
-    // passes — proving the `[[member]]` section, not a lingering `.temper/` read, was what
-    // fired above.
+    // Replace the imported manifest with a member-less floor manifest; the committed
+    // `.temper/` surface still carries the globs skill.
     write_temper_toml(&root, "# a floor manifest declaring no members\n");
+
+    let read_surface = check_in(&root);
+    assert!(
+        !read_surface.ok,
+        "the committed surface's globs member drives the gate red even with a member-less \
+         manifest — the committed artifacts are the corpus, got:\n{}",
+        read_surface.output
+    );
+    assert!(
+        read_surface.output.contains("forbidden_keys"),
+        "the finding names the clause the surface member tripped, got:\n{}",
+        read_surface.output
+    );
+
+    // Strip the surface tree too: now nothing declares the member, so the gate has nothing
+    // to judge and passes — proving the committed surface, not a lingering manifest read,
+    // was what fired above.
+    fs::remove_dir_all(root.join(".temper").join("skills")).unwrap();
     let no_members = check_in(&root);
     assert!(
         no_members.ok,
-        "with no manifest members and an empty `.temper/` tree the gate reads nothing to \
+        "with the surface tree gone and no manifest members the gate reads nothing to \
          check, got:\n{}",
         no_members.output
     );

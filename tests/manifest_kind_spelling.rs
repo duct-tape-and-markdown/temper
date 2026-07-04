@@ -1,18 +1,15 @@
-//! The gate resolves a manifest member's authored kind before corpus lookup
-//! (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis";
-//! GATE-KIND-RESOLVE).
+//! The gate live-extracts in-place members from their committed landscape files and
+//! dispatches each by its bare built-in kind (`specs/architecture/20-surface.md`, "The seam —
+//! one implementation"; "In-place").
 //!
-//! A module-carried `[[member]]` stamps the **qualified** identity `<provider>.<name>`
-//! (the SDK's `members.ts`), while the gate keys its corpus by the **bare** name the
-//! dispatch loop reads (`corpus.get(&kind.name)`). These end-to-end checks pin the two
-//! halves of the fix: a `claude-code.rule` member reaches the `rule` package and is
-//! **checked** (not silently skipped under an unread qualified key), and a member whose
-//! kind resolves to no built-in or custom definition surfaces a **loud finding** rather
-//! than a silent `checked 0` (`.claude/rules/collaboration.md`, "a silent skip reads as
-//! done").
+//! An in-place `[[member]]` names a committed file and a bare built-in `kind`; the gate reads
+//! the file, runs that kind's extractor, and dispatches to its package. These end-to-end
+//! checks pin two halves: a bare `rule` member reaches the rule contract and is **checked**,
+//! and a member whose kind resolves to no built-in surfaces a **loud error** rather than a
+//! silent `checked 0` (`.claude/rules/collaboration.md`, "a silent skip reads as done").
 //!
-//! Driven across the real process boundary because the resolve happens inside `check`'s
-//! gate and its effect is observable only in the rendered diagnostics + exit code.
+//! Driven across the real process boundary because the dispatch happens inside `check`'s gate
+//! and its effect is observable only in the rendered diagnostics + exit code.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -55,21 +52,6 @@ struct CheckRun {
     output: String,
 }
 
-/// `temper import <root> --into <root>/.temper` — the persistent import that serializes
-/// the manifest with **document-carried** members (baked features under a bare `kind`),
-/// the carriage the SDK also emits. The member's `kind` is then re-spelled to exercise
-/// the gate's resolve.
-fn import(root: &Path) {
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(root)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
-}
-
 /// Run `temper check` from `root` (so its `temper.toml` is discovered), capturing the
 /// exit status and rendered diagnostics.
 fn check_in(root: &Path) -> CheckRun {
@@ -86,82 +68,73 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Import a one-rule harness (`FORBIDDEN_KEY_RULE`), then rewrite the member's authored
-/// `kind` to `spelling` and strip the surface trees. Stripping is deliberate: it removes
-/// the copy-tree fallback the gate reaches only when the manifest carries **no** corpus,
-/// so the run judges the manifest member alone — a member left unread under a qualified
-/// key would leave the gate with nothing to check, the exact silent skip under test.
-fn manifest_with_rule_kind_spelled(label: &str, spelling: &str) -> PathBuf {
+/// `init` a one-rule harness in place (`FORBIDDEN_KEY_RULE`), leaving an in-place `[[member]]`
+/// over the committed landscape file — no copy tree. `spelling`, when given, rewrites the
+/// member's bare `kind = "rule"` to drive the gate's dispatch. Returns the harness root.
+fn in_place_rule(label: &str, spelling: Option<&str>) -> PathBuf {
     let root = tmpdir(label);
     let rules = root.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join("rust.md"), FORBIDDEN_KEY_RULE).unwrap();
-    import(&root);
 
-    let manifest_path = root.join("temper.toml");
-    let manifest = fs::read_to_string(&manifest_path).unwrap();
-    // `import` writes the built-in rule member under the bare `kind = "rule"`; re-spell it
-    // to the identity the SDK stamps (or an unrecognized kind) to drive the resolve.
-    let respelled = manifest.replace("kind = \"rule\"", &format!("kind = \"{spelling}\""));
-    assert_ne!(
-        manifest, respelled,
-        "the imported manifest must carry a bare `kind = \"rule\"` to re-spell"
-    );
-    fs::write(&manifest_path, respelled).unwrap();
+    let status = Command::new(BIN).arg("init").arg(&root).status().unwrap();
+    assert!(status.success(), "init should succeed: {status}");
 
-    fs::remove_dir_all(root.join(".claude")).unwrap();
-    fs::remove_dir_all(root.join(".temper").join("rules")).unwrap();
+    if let Some(spelling) = spelling {
+        let manifest_path = root.join("temper.toml");
+        let manifest = fs::read_to_string(&manifest_path).unwrap();
+        let respelled = manifest.replace("kind = \"rule\"", &format!("kind = \"{spelling}\""));
+        assert_ne!(
+            manifest, respelled,
+            "the init'd manifest must carry a bare `kind = \"rule\"` to re-spell"
+        );
+        fs::write(&manifest_path, respelled).unwrap();
+    }
     root
 }
 
 #[test]
-fn a_qualified_claude_code_rule_member_is_checked_against_the_rule_package() {
-    // The SDK stamps the qualified `claude-code.rule`; the gate must resolve it to the
-    // bare `rule` slice so the member reaches the rule contract. With the surface stripped,
-    // the only thing to check is this manifest member — so a red run proves it was
-    // dispatched, not skipped.
-    let root = manifest_with_rule_kind_spelled("qualified-rule", "claude-code.rule");
+fn a_bare_builtin_in_place_member_reaches_its_package() {
+    // The in-place member names the bare built-in `rule`; the gate live-extracts the committed
+    // file and dispatches it to the rule contract, so the forbidden keys fire.
+    let root = in_place_rule("bare-rule", None);
     let run = check_in(&root);
 
     assert!(
         !run.ok,
-        "a `claude-code.rule` member carrying forbidden keys must fail — proof it reached \
-         the rule contract, not an unread qualified key, got:\n{}",
+        "a `rule` member carrying forbidden keys must fail — proof it reached the rule \
+         contract, got:\n{}",
         run.output
     );
     assert!(
         run.output.contains("forbidden_keys"),
-        "the finding names the rule clause the qualified member tripped, got:\n{}",
+        "the finding names the rule clause the member tripped, got:\n{}",
         run.output
     );
     // The coverage note counts the member under its resolved built-in identity — checked,
     // never a silent zero.
     assert!(
         run.output.contains("claude-code.rule (1)"),
-        "the resolved member is counted checked under its kind, got:\n{}",
+        "the member is counted checked under its kind, got:\n{}",
         run.output
     );
 }
 
 #[test]
-fn an_unrecognized_manifest_kind_is_a_loud_finding_not_a_silent_zero() {
-    // A member kind resolving to no built-in or custom definition must be reported, never
-    // dropped to a silent `checked 0` (`.claude/rules/collaboration.md`).
-    let root = manifest_with_rule_kind_spelled("unknown-kind", "claude-code.widget");
+fn an_unrecognized_in_place_kind_is_a_loud_error_not_a_silent_zero() {
+    // A member kind resolving to no built-in must be reported, never dropped to a silent
+    // `checked 0` (`.claude/rules/collaboration.md`). In-place carriage is built-in-kind only,
+    // so a non-built-in kind is a hard load error naming the offending kind.
+    let root = in_place_rule("unknown-kind", Some("claude-code.widget"));
     let run = check_in(&root);
 
     assert!(
         !run.ok,
-        "an unrecognized manifest kind must fail the run, got:\n{}",
+        "an unrecognized in-place kind must fail the run, got:\n{}",
         run.output
     );
     assert!(
-        run.output.contains("manifest.unknown-kind"),
-        "the unrecognized kind surfaces as a loud finding, got:\n{}",
-        run.output
-    );
-    assert!(
-        run.output.contains("claude-code.widget"),
+        run.output.contains("non-built-in kind") && run.output.contains("claude-code.widget"),
         "the finding names the unresolved kind so the author knows what to fix, got:\n{}",
         run.output
     );

@@ -745,80 +745,6 @@ fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
     Ok(kinds)
 }
 
-/// The set of every kind the gate can dispatch a member to — the embedded built-in
-/// std-lib ∪ each registered custom kind (`specs/architecture/40-composition.md`). The
-/// resolution set [`resolve_member_kind`] ranges over to key a member by its bare kind
-/// and to decide a kind is unrecognized. A `[kind.<name>]` naming a built-in is a
-/// contract layer, not a registration, so it is not re-loaded as a custom kind.
-///
-/// # Errors
-///
-/// Propagates a [`KindError`] if an embedded built-in or a registered `KIND.md` fails to
-/// parse into an admissible kind definition.
-fn known_kinds(
-    layer: Option<&compose::AuthorLayer>,
-    kinds_dir: &Path,
-) -> miette::Result<Vec<CustomKind>> {
-    let mut kinds: Vec<CustomKind> = builtin_kind::definitions()?.into_values().collect();
-    if let Some(layer) = layer {
-        for name in layer.registered_kinds() {
-            if builtin_kind::definition(name)?.is_some() {
-                continue;
-            }
-            kinds.push(CustomKind::load(kinds_dir, name)?);
-        }
-    }
-    Ok(kinds)
-}
-
-/// Resolve a manifest member's authored `kind` to the **bare** name the dispatch loop
-/// keys on (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider
-/// axis"). The SDK stamps the qualified identity `<provider>.<name>`; the gate is the
-/// side that resolves it — strip any provider and accept the bare tail iff some known
-/// kind carries that bare name. `None` when none does — an unrecognized kind.
-///
-/// The bare tail is *not* run through [`CustomKind::resolve_bare`]: the corpus is
-/// bare-keyed and the dispatch loop reads bare (`corpus.get(&kind.name)`), so a bare
-/// name two providers share (the two `memory` kinds) resolves to that one shared slice
-/// by design, never a collision error — the qualification tax is paid only where a
-/// binding must name *one* kind, which member keying does not.
-fn resolve_member_kind(authored: &str, known: &[CustomKind]) -> Option<String> {
-    let bare = authored.rsplit('.').next().unwrap_or(authored);
-    known
-        .iter()
-        .find(|kind| kind.name == bare)
-        .map(|kind| kind.name.clone())
-}
-
-/// Merge a manifest member slice into `corpus` under its **bare** kind key, resolving
-/// the authored (possibly `<provider>.<name>` qualified) kind through `known_kinds`
-/// (`specs/architecture/15-kinds.md`). A kind resolving to no built-in or custom definition
-/// yields every member of the slice as a loud finding into `unknown` — the
-/// collaboration-rule failure a silent `checked 0` would be
-/// (`.claude/rules/collaboration.md`, "a silent skip reads as done").
-fn place_members(
-    authored_kind: &str,
-    members: Vec<extract::Features>,
-    known_kinds: &[CustomKind],
-    corpus: &mut BTreeMap<String, Vec<extract::Features>>,
-    unknown: &mut Vec<check::Diagnostic>,
-) {
-    match resolve_member_kind(authored_kind, known_kinds) {
-        Some(bare) => corpus.entry(bare).or_default().extend(members),
-        None => unknown.extend(members.into_iter().map(|features| {
-            check::Diagnostic::error(
-                "manifest.unknown-kind",
-                features.id.clone(),
-                format!(
-                    "member `{}` declares kind `{authored_kind}`, which resolves to no \
-                     built-in or custom kind — it would be checked against nothing",
-                    features.id
-                ),
-            )
-        })),
-    }
-}
-
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts — the shared gate behind both `check` and the session-start
 /// reporter (`specs/architecture/10-contracts.md`, both greens).
@@ -868,71 +794,41 @@ fn gate(
     // when the assembly registers one, so the floor-only path never touches it.
     let kinds_dir = authored.join("kinds");
 
-    // The harness root the in-place members' `source` paths resolve against — the
-    // directory the manifest lives in (the CWD for a two-step `check`, the harness path
-    // for the one-shot gate). Reused for the file-set/directive tier below.
+    // The harness root an in-place member's `source` path resolves against — the directory
+    // the manifest lives in (the CWD for a two-step `check`, the harness path for the
+    // one-shot gate).
     let harness_root = temper_toml
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
 
-    // The member-feature corpus (`specs/architecture/20-surface.md`, "the only thing the gate
-    // reads"): a document/module-carried `[[member]]` arrives **pre-extracted** (its baked
-    // features ARE the corpus), while an **in-place** member (a `source`-bearing table) is
-    // **live-extracted** from its landscape file here — no projection, no drift, the file
-    // is its own source. When the manifest carries neither (a floor manifest not yet
-    // holding its members — temper's own dogfood, any pre-`init` harness), the gate falls
-    // back to extracting the authored sources through the one generic `Unit` loader
-    // (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter"). Keyed by bare kind name;
-    // the typed `Workspace` still survives for drift/bundle/apply and the read family.
-    // The resolution set a pre-extracted member's authored kind resolves against — the
-    // embedded built-ins ∪ each registered custom kind (`specs/architecture/15-kinds.md`,
-    // "Decision: kind identity carries a provider axis").
-    let known_kinds = known_kinds(layer.as_ref(), &kinds_dir)?;
-
-    let (manifest_corpus, unknown_kind_diagnostics) = {
+    // The member-feature corpus (`specs/architecture/20-surface.md`, "The seam — one
+    // implementation"): the gate reads **committed artifacts**, never the retired pre-extracted
+    // `[[member]]` manifest features. An **in-place** member (a `source`-bearing manifest table)
+    // is live-extracted from its committed landscape file — the manifest names the file and
+    // grafts the joins, the corpus is the file on disk. Document/module carriage reads the
+    // committed surface tree (`surface_units`) below. The lock rides beside both for freshness
+    // (`config.stale`, below): the committed-artifacts-plus-lock pair the seam names, checked
+    // with no language runtime. Keyed by bare kind name; `None` ⇒ no in-place member, so every
+    // kind reads the surface tree.
+    let inplace_corpus = {
         let mut corpus: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
-        let mut unknown: Vec<check::Diagnostic> = Vec::new();
         if let Some(layer) = layer.as_ref() {
-            // Document/module-carried members arrive pre-extracted, grouped by their
-            // authored kind. The SDK stamps the qualified identity `<provider>.<name>`
-            // (`specs/architecture/15-kinds.md`), so resolve each to the bare key the dispatch
-            // loop reads (`corpus.get(&kind.name)`) before merging — a `claude-code.rule`
-            // member must reach the `rule` slice, not sit unread under a qualified key.
-            for (authored_kind, members) in layer.member_corpus() {
-                place_members(
-                    &authored_kind,
-                    members,
-                    &known_kinds,
-                    &mut corpus,
-                    &mut unknown,
-                );
-            }
-            // In-place members carry a `source` path; live-extract, then key by their
-            // authored kind directly. `live_extract_inplace` has already resolved the
-            // built-in by `owns_source` (the join `resolve_bare` cannot make — the two
-            // `memory` providers share the bare `memory`, `specs/architecture/15-kinds.md`), so
-            // the kind is a validated bare built-in name, not the SDK's qualified stamp.
             for member in layer.inplace_members() {
-                let features = live_extract_inplace(harness_root, member)?;
                 corpus
                     .entry(member.kind.clone())
                     .or_default()
-                    .push(features);
+                    .push(live_extract_inplace(harness_root, member)?);
+            }
+            // Name-sort each kind's slice for a stable diagnostic set.
+            for slice in corpus.values_mut() {
+                slice.sort_by(|a, b| a.id.cmp(&b.id));
             }
         }
-        // Keep each kind's slice name-sorted for a stable diagnostic set — a lifted
-        // (pre-extracted) member and the live in-place ones can interleave.
-        for slice in corpus.values_mut() {
-            slice.sort_by(|a, b| a.id.cmp(&b.id));
-        }
-        ((!corpus.is_empty()).then_some(corpus), unknown)
+        (!corpus.is_empty()).then_some(corpus)
     };
 
-    // Each kind's features are validated against its *effective* contract (bound
-    // package ⊕ author layer) and merged into one set; the generic engine holds no
-    // per-kind opinion, so a mixed harness is judged in one run (`specs/architecture/20-surface.md`).
-    let skill_features: Vec<extract::Features> = match &manifest_corpus {
+    let skill_features: Vec<extract::Features> = match &inplace_corpus {
         Some(corpus) => corpus.get("skill").cloned().unwrap_or_default(),
         None => check::surface_units(workspace, "skills", "SKILL.md")?
             .iter()
@@ -940,7 +836,7 @@ fn gate(
             .collect::<Result<_, _>>()?,
     };
 
-    let rule_features: Vec<extract::Features> = match &manifest_corpus {
+    let rule_features: Vec<extract::Features> = match &inplace_corpus {
         Some(corpus) => corpus.get("rule").cloned().unwrap_or_default(),
         None => check::surface_units(workspace, "rules", "RULE.md")?
             .iter()
@@ -967,10 +863,6 @@ fn gate(
     // built-ins into the requirement corpus is the separate `(builtin-workspace-qualified-key)`
     // fork), so `skill_features`/`rule_features` above are still read there.
     let mut diagnostics = Vec::new();
-    // A manifest member whose authored kind resolved to no known kind is a loud finding
-    // (GATE-KIND-RESOLVE) — never a silent `checked 0` (`.claude/rules/collaboration.md`,
-    // "a silent skip reads as done").
-    diagnostics.extend(unknown_kind_diagnostics);
     // Per-kind checked-member counts, keyed by qualified identity — carried out of
     // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
     // so "checked N members" is stated rather than left as bare silence.
@@ -989,21 +881,14 @@ fn gate(
             &packages_dir,
         )?;
 
-        // Manifest mode: the kind's members are pre-extracted under its bare name. Fallback:
-        // a discovered member routes to its kind by its source glob — the two `memory`
-        // providers share the surface locus (`./MEMORY.md`), so `owns_source` keeps a
-        // `CLAUDE.md` member off `agents-md.memory` and an `AGENTS.md` member off
-        // `memory.anthropic`; the manifest already carries `member.kind`, so it needs no
-        // re-routing.
-        let features: Vec<extract::Features> = match &manifest_corpus {
+        // In-place mode keys members by bare kind. Otherwise a discovered surface member routes
+        // to its kind by its source glob — the two `memory` providers share the surface locus
+        // (`./MEMORY.md`), so `owns_source` keeps a `CLAUDE.md` member off `agents-md.memory`
+        // and an `AGENTS.md` off `claude-code.memory`.
+        let features: Vec<extract::Features> = match &inplace_corpus {
             Some(corpus) => corpus.get(&kind.name).cloned().unwrap_or_default(),
             None => {
-                let units = check::surface_units(
-                    workspace,
-                    kind.surface_subdir(),
-                    &kind.member_document(),
-                )?;
-                units
+                check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())?
                     .iter()
                     .filter(|unit| kind.owns_source(&unit.source_path))
                     .map(|unit| builtin_kind::features(kind, unit))
@@ -1062,15 +947,14 @@ fn gate(
         // and the conformance loop below.
         let (custom_kinds, edges) = custom_kinds_and_edges(workspace, layer, &kinds_dir)?;
 
-        // In manifest mode a custom kind's members are pre-extracted in the manifest too, so
-        // swap the live `.temper/` features for the manifest's — keeping the loaded
-        // definitions and declared edges the manifest does not carry (`specs/architecture/20-surface.md`).
-        let custom_kinds: Vec<CustomKindEntry> = match &manifest_corpus {
+        // In-place carriage is built-in-kind only, so a custom kind carries no in-place member;
+        // in that mode its live `.temper/` features would read a copy tree the in-place harness
+        // never wrote, so swap in the (empty) in-place slice to keep one corpus source.
+        let custom_kinds: Vec<CustomKindEntry> = match &inplace_corpus {
             Some(corpus) => custom_kinds
                 .into_iter()
                 .map(|(name, def, _features)| {
-                    let features = corpus.get(name).cloned().unwrap_or_default();
-                    (name, def, features)
+                    (name, def, corpus.get(name).cloned().unwrap_or_default())
                 })
                 .collect(),
             None => custom_kinds,
@@ -1258,19 +1142,16 @@ fn gate(
     Ok(diagnostics)
 }
 
-/// Live-extract an in-place member's [`Features`](extract::Features) from its landscape
-/// file (`specs/architecture/20-surface.md`, "In-place — … features are extracted"): read the raw
-/// harness file at `<harness_root>/<source>`, parse its frontmatter + body through the
-/// generic adapter, and run the member's built-in kind extractor — the same composed
-/// extraction the copy-tree read runs, so an in-place member gates identically to a
-/// document-carried one. The joins are **declared in the manifest** (the harness file
+/// Live-extract an in-place member's [`Features`](extract::Features) from its committed
+/// landscape file (`specs/architecture/20-surface.md`, "In-place"): read the raw harness file at
+/// `<harness_root>/<source>`, parse its frontmatter + body through the generic adapter, and
+/// run the member's built-in kind extractor — the file is its own committed source, re-read
+/// every check, so it cannot drift. The joins are the manifest's declaration (the harness file
 /// carries no temper annotation), so the member's `satisfies`/published requirements are
-/// grafted from the assembly rather than mined from the file. The file is its own source:
-/// re-read every check, it cannot drift.
+/// grafted from the assembly rather than mined from the file.
 ///
 /// In-place carriage is built-in-kind only (a custom kind's units are authored `.temper/`
-/// artifacts), so a member naming a non-built-in kind is a hard error rather than a silent
-/// skip.
+/// artifacts), so a member naming a non-built-in kind is a hard error, never a silent skip.
 ///
 /// # Errors
 ///
@@ -1282,9 +1163,8 @@ fn live_extract_inplace(
 ) -> miette::Result<extract::Features> {
     let path = harness_root.join(&member.source);
     // Route to the built-in kind by bare name, then by which owns the source glob — so the
-    // two `memory` providers (`CLAUDE.md` vs `AGENTS.md`) that share the bare `memory`
-    // resolve to the right one rather than colliding on an ambiguous bare lookup
-    // (`specs/architecture/15-kinds.md`, "kind identity carries a provider axis").
+    // two `memory` providers (`CLAUDE.md` vs `AGENTS.md`) sharing the bare `memory` resolve to
+    // the right one rather than colliding on an ambiguous bare lookup (`specs/architecture/15-kinds.md`).
     let builtins = builtin_kind::definitions()?;
     let kind = builtins
         .values()

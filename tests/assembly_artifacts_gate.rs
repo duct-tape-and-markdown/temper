@@ -2,14 +2,12 @@
 //! (`specs/architecture/20-surface.md`, "the bindings, the roster — are emitted as small
 //! committed temper-owned artifacts"; GATE-READS-ASSEMBLY).
 //!
-//! `emit` compiles a **members-only** `temper.toml` and lands the requirement roster and
-//! the kind bindings in two locus-less temper-owned files beside it. A member's
-//! `satisfies` names a requirement that lives in `roster.toml`, not the manifest — so
-//! before this fix the gate saw no such requirement and reported a spurious
-//! `requirement.dangling`. These end-to-end checks pin both halves: with the artifacts
-//! present the run is green (the roster's requirements gate as declared), and with the
-//! roster removed the same manifest goes red with the dangling finding the fix removes —
-//! proof the roster is what resolves the join.
+//! The members are read from the committed surface corpus (`specs/architecture/20-surface.md`,
+//! "The seam"); a member's `satisfies` names a requirement that lives in `roster.toml`, not
+//! in any member — so with no roster the gate reports `requirement.dangling`. These
+//! end-to-end checks pin both halves: with the artifacts present the run is green (the
+//! roster's requirements gate as declared), and with the roster removed the same corpus
+//! goes red with the dangling finding — proof the roster is what resolves the join.
 //!
 //! Driven across the real process boundary because the read happens inside `check`'s gate
 //! and its effect is observable only in the rendered diagnostics + exit code.
@@ -98,14 +96,28 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Build the SDK-shaped scenario: `import` a floor-clean skill+rule harness into a
-/// persistent manifest, then re-spell each member's `kind` to the **qualified** identity
-/// the SDK stamps and graft on the `satisfies` recognition, so the manifest reads exactly
-/// as an SDK members-only emit does. The surface trees are stripped so the manifest
-/// members are the sole corpus — a roster requirement resolves off the artifacts or not
-/// at all. Returns the harness root (its `temper.toml` carries the members; the caller
-/// decides which artifacts sit beside it).
-fn members_only_manifest(label: &str) -> PathBuf {
+/// Inject a `[satisfies.<requirement>]` opt-in into a committed surface document's `+++`
+/// header — the member-side recognition the gate reads off the committed corpus and the
+/// roster resolves. The document opens with a `+++` fence, so the block lands right after
+/// it (`specs/architecture/20-surface.md`, "The member — satisfies").
+fn inject_satisfies(doc_path: &Path, requirement: &str, rationale: &str) {
+    let text = fs::read_to_string(doc_path).unwrap();
+    let block = format!("[satisfies.{requirement}]\nrationale = \"{rationale}\"\n\n");
+    let injected = text.replacen("+++\n", &format!("+++\n{block}"), 1);
+    assert_ne!(
+        text, injected,
+        "the surface document must open with a `+++` header to inject satisfies into"
+    );
+    fs::write(doc_path, injected).unwrap();
+}
+
+/// Build the scenario: `import` a floor-clean skill+rule harness, then author each member's
+/// `satisfies` recognition into its **committed surface document** — the corpus the gate
+/// reads (`specs/architecture/20-surface.md`, "The seam"). A `satisfies` names a requirement
+/// that lives in the roster beside the manifest, not in any member, so a roster requirement
+/// resolves off the artifacts or the join dangles. Returns the harness root (the caller
+/// decides which assembly-fact artifacts sit beside it).
+fn surface_harness_with_satisfies(label: &str) -> PathBuf {
     let root = tmpdir(label);
     let skills = root.join(".claude").join("skills").join("coordinate");
     let rules = root.join(".claude").join("rules");
@@ -123,48 +135,42 @@ fn members_only_manifest(label: &str) -> PathBuf {
         .unwrap();
     assert!(status.success(), "import should succeed: {status}");
 
-    // `import` writes each member under its bare `kind` and unrecognized (no `satisfies`).
-    // Re-spell to the SDK's qualified identity and graft the recognition — the member-side
-    // join the roster resolves. `kind = "rule"`/`kind = "skill"` are the member-header
-    // lines only (never a field), so the replace is unambiguous.
-    let manifest_path = root.join("temper.toml");
-    let manifest = fs::read_to_string(&manifest_path).unwrap();
-    let respelled = manifest
-        .replace(
-            "kind = \"rule\"",
-            "kind = \"claude-code.rule\"\nsatisfies = [\"engineering-standards\"]",
-        )
-        .replace(
-            "kind = \"skill\"",
-            "kind = \"claude-code.skill\"\nsatisfies = [\"agent-playbook\"]",
-        );
-    assert_ne!(
-        manifest, respelled,
-        "the imported manifest must carry bare `kind` lines to re-spell"
+    // The committed surface documents carry no mined `satisfies` (the source frontmatter
+    // declares none); author the recognition into each so the gate reads it off the corpus.
+    inject_satisfies(
+        &root
+            .join(".temper")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+        "agent-playbook",
+        "the shared agent playbook",
     );
-    fs::write(&manifest_path, respelled).unwrap();
-
-    // Strip the surface so the manifest members are the only corpus — no copy-tree
-    // fallback masking whether the roster resolved the join.
-    fs::remove_dir_all(root.join(".claude")).unwrap();
-    fs::remove_dir_all(root.join(".temper").join("skills")).unwrap();
-    fs::remove_dir_all(root.join(".temper").join("rules")).unwrap();
+    inject_satisfies(
+        &root
+            .join(".temper")
+            .join("rules")
+            .join("rust")
+            .join("RULE.md"),
+        "engineering-standards",
+        "the Rust engineering bar",
+    );
     root
 }
 
 #[test]
-fn a_members_only_manifest_with_the_artifacts_checks_green() {
-    // The roster + bindings sit beside the members-only manifest. The gate reads them as
+fn a_committed_corpus_with_the_artifacts_checks_green() {
+    // The roster + bindings sit beside the committed surface corpus. The gate reads them as
     // the assembly source, so each member's `satisfies` resolves to a declared requirement
     // and the required one is filled — a clean run, no spurious dangling.
-    let root = members_only_manifest("with-artifacts");
+    let root = surface_harness_with_satisfies("with-artifacts");
     fs::write(root.join("roster.toml"), ROSTER).unwrap();
     fs::write(root.join("bindings.toml"), BINDINGS).unwrap();
 
     let run = check_in(&root);
     assert!(
         run.ok,
-        "an SDK members-only manifest with roster/bindings beside it must check green, got:\n{}",
+        "a committed corpus with roster/bindings beside it must check green, got:\n{}",
         run.output
     );
     assert!(
@@ -181,16 +187,16 @@ fn a_members_only_manifest_with_the_artifacts_checks_green() {
 }
 
 #[test]
-fn the_same_manifest_without_the_roster_dangles() {
-    // The control: the identical manifest, but no `roster.toml` beside it. With no assembly
+fn the_same_corpus_without_the_roster_dangles() {
+    // The control: the identical corpus, but no `roster.toml` beside it. With no assembly
     // source to read, each member's `satisfies` names a requirement that exists nowhere —
-    // the spurious dangling the fix removes. This proves the roster is what resolves it.
-    let root = members_only_manifest("without-roster");
+    // the dangling finding. This proves the roster is what resolves the join.
+    let root = surface_harness_with_satisfies("without-roster");
 
     let run = check_in(&root);
     assert!(
         !run.ok,
-        "with no roster, the members-only manifest's `satisfies` links must dangle, got:\n{}",
+        "with no roster, the committed corpus's `satisfies` links must dangle, got:\n{}",
         run.output
     );
     assert!(
