@@ -29,8 +29,8 @@ so SDK-less checking never runs ungated.
 The member list is the assembly's imports. An authored member module nobody
 lists is visible shelf stock — the toolchain flags the unused import before
 the gate does; a listed member that fails to resolve never compiles. Members
-themselves (their fields, their prose, their authoring postures) are
-`20-surface.md`'s; kinds and genres, the values that construct them, are
+themselves (their fields, their prose) are `20-surface.md`'s; kinds and
+genres, the values that construct them, and the authoring postures are
 `15-kinds.md`'s. The assembly only *contains* them.
 
 ## `expect` and `require` — the two demand forms
@@ -155,8 +155,9 @@ in use, and law 6's fearless refactoring is why it stays cheap to re-run.
 ## Scope boundary
 
 This spec owns the assembly value and its five fields. The clause and
-requirement vocabulary is `10-contracts.md`'s; kinds, genres, and loci are
-`15-kinds.md`'s; members, postures, emit, and the lock are `20-surface.md`'s;
+requirement vocabulary is `10-contracts.md`'s; kinds, genres, loci, and the
+authoring postures are `15-kinds.md`'s; members, emit, and the lock are
+`20-surface.md`'s;
 the graph, the judges, and the registration predicate are `45-governance.md`'s.
 A landscape is just more kinds (`30-landscapes.md`) — nothing here is
 harness-specific except the built-in floor the example imports.

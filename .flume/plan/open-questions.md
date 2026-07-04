@@ -54,6 +54,12 @@ New forks from the ceremony:
   The generated-shell grep is rejected either way. `(engine-language)`'s
   latency evidence bears on this (a per-tool-call guard at node startup cost
   is user-hostile).
+- `(local-overrides)` — OPEN (surfaced by the 40-composition re-cut, which
+  carries the OPEN: marker). The dialect era's committed-plus-gitignored
+  personal-override layer (temper-local.toml) has no stated spelling in the
+  one-value assembly model. Candidate directions: a local harness module
+  composed by convention, or an engine-side severity overlay; neither is
+  ruled. Blocks nothing until someone needs a personal override.
 
 Bugs filed by the ceremony's review (wrong today, independent of demolition
 sequencing — plan should file as pending entries on next reconcile):
