@@ -1,5 +1,125 @@
 [
   {
+    "tag": "SDK-EMIT-BYTE-PARITY",
+    "summary": "Bring the SDK emitter to byte-parity with the Rust `toml_edit` manifest output — the altitude authoring face compiles to the exact inert manifest the gate reads",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Content-faithful, deterministically emitted (law 5)"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "The scaffold serializer emits valid TOML of the right schema (`[[member]]`/`[[member.section]]`/`[[member.genre]]` — confirmed matching src/compose.rs `write_member_table`/`genre_to_table` and tests/genre_leaf.rs). This slice closes the scaffold's stated `byte-parity` bound: match the Rust emitter's exact `toml_edit` spelling — key order, table vs inline-table choice, string escaping, multiline-literal form, blank-line placement — so a member emitted by the SDK is byte-identical to the same member emitted by `temper emit`. Fail loud on any residual divergence."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Byte-parity fixtures pinned against known-good Rust emitter output (the same members tests/genre_leaf.rs / tests/emit.rs cover), asserting byte-identical manifest text and the double-emit invariant."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a member emitted by the SDK serializer is byte-identical to the Rust emitter's manifest output for the same member (leaves, keyed collections, sections, satisfies), and double-emit produces identical bytes."
+      }
+    ],
+    "acceptance": "The SDK's `emitManifestMembers` output is byte-identical to `temper emit`'s manifest for a shared fixture corpus; `pnpm --dir sdk test` (tsc + node --test) green.",
+    "notes": "UN-PARKED 07-03: `(sdk-build-gate)` RESOLVED — human wired the `sdk test` gate (`pnpm --dir sdk test`, afterMerge) into chain.ts (118af33), so build now validates TS slices. Head of the altitude wave; scaffold present (sdk/src/emit.ts bounds confirmed). Serialized successors SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK share emit.ts. Publish name (PACKAGING-CHANNELS) is not needed for internal byte-parity."
+  },
+  {
+    "tag": "SDK-BODY-RESOLUTION",
+    "summary": "Resolve member bodies before emit: `fromFile` asset resolution and opt-in mention resolution-checking — the two scaffold bounds `bodyText` throws on today",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Mentions — prose that declares its own references"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-EMIT-BYTE-PARITY"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`bodyText` throws on both `fromFile` and any mention today (the scaffold's stated bounds). Resolve them: `fromFile` reads the referenced asset into the body before serialize; mentions are resolution-checked one-way, obligation-free, opt-in per word (20-surface, `a mention is opt-in per word — no completeness check, ever`; law 8's never-climb bound) — an unresolved mention is a loud emit error, never a silent pass. No prose grep; only declared mention edges."
+        },
+        {
+          "path": "sdk/src/members.ts",
+          "description": "Thread the resolved body/mention set through the `Member` shape so `emit.ts` and `toManifestMember` consume resolved bodies. Keep the fromFile vs inline body union; resolution happens at emit, not at authoring."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Extend with fromFile-resolved bodies and mention-resolution cases (resolved mention renders; unresolved mention fails loud)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a `fromFile` body resolves and emits; a resolved mention renders to its declared value's form; an unresolved mention is a loud emit error; emit stays byte-deterministic."
+      }
+    ],
+    "acceptance": "SDK emit resolves `fromFile` bodies and resolution-checks mentions (loud on unresolved), staying byte-parity with the Rust emitter; `pnpm --dir sdk test` green. (Blocked behind SDK-EMIT-BYTE-PARITY.)",
+    "notes": "Inbox 07-03; `(sdk-build-gate)` fork cleared 07-03 (gate wired). Combines the scaffold's `fromFile` + `mention` bounds (both edit `bodyText`) into one slice so emit.ts is touched by one entry at a time. blockedBy SDK-EMIT-BYTE-PARITY (shared emit.ts); build picks it after parity ships."
+  },
+  {
+    "tag": "SDK-PROJECTION-LOCK",
+    "summary": "SDK emit writes the harness projection (members → `.claude/**`) and stamps the lock's freshness fingerprints — the last two scaffold bounds, both deliberately absent today",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Content-faithful, deterministically emitted (law 5)"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SDK-BODY-RESOLUTION"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/src/project.ts",
+          "description": "Projection writing: compile each member to its harness format under `.claude/**` (the projection half of emit), whole-file re-emit, byte-faithful. Mirrors the Rust emit projector; the emit orchestrator calls it after the manifest is serialized."
+        },
+        {
+          "path": "sdk/src/lock.ts",
+          "description": "Lock stamping: compute and write the `source_hash`/`emit_hash` freshness fingerprints the drift engine reads (`config.stale`), matching the Rust lock's hash inputs so an SDK-emitted lock and a Rust-emitted lock agree for the same face."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export `project`/`lock` and wire them into the emit entry so a full `emit` compiles manifest + projection + lock in one deterministic pass."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Cover projection byte-fidelity and lock-fingerprint agreement with the Rust emitter for a shared fixture."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "SDK projection output matches the Rust projector byte-for-byte for a shared member, and the SDK-stamped lock's `source_hash`/`emit_hash` match the Rust lock for the same face."
+      }
+    ],
+    "acceptance": "A full SDK `emit` writes the manifest, the `.claude/**` projection, and a lock whose fingerprints agree with the Rust emitter; `pnpm --dir sdk test` green. (Blocked behind SDK-BODY-RESOLUTION.)",
+    "notes": "Inbox 07-03; `(sdk-build-gate)` fork cleared 07-03 (gate wired). Closes the scaffold's remaining bounds (projection writing, lock stamping). New modules (project.ts/lock.ts) plus index.ts wiring; blockedBy SDK-BODY-RESOLUTION for the shared emit orchestration. Last link of the altitude authoring wave."
+  },
+  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {
@@ -33,7 +153,7 @@
       }
     ],
     "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green. (Deferred: not built until a kind consumes it.)",
-    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. The addressable-corpus floor chain has fully drained — nothing engine-side is live against it. Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
+    "notes": "Narrowed 07-03: the Fenced half graduated to FENCED-PRIMITIVE (consumer arrived). Only the key-path `field` half remains, still no consumer. `Primitive::Field { key }` still flat-reads on disk (kind.rs). Shares kind.rs/extract.rs with AGENT-KIND — serialize the two if both un-defer."
   },
   {
     "tag": "AGENT-KIND",
@@ -83,133 +203,6 @@
     ],
     "acceptance": "`temper check` dispatches `.claude/agents/*.md` to the `agent.anthropic` package (conformance) and that package passes admissibility; `temper import` projects agents as one-document members idempotently via the generic frontmatter adapter; cargo fmt/clippy -D warnings/test all green.",
     "notes": "Declared-adapter architecture: no src/agent.rs IR — the generic adapter projects it. Curated kinds/claude-code/agent/KIND.md + packages/agent.anthropic/PACKAGE.md sit outside build's fence; engine wiring is near-zero. Stays deferred: wrong direction under requirements/satisfies. Shares src/kind.rs with EXTRACTION-VOCAB-GAPS — serialize the two if both un-defer."
-  },
-  {
-    "tag": "SDK-EMIT-BYTE-PARITY",
-    "summary": "Bring the SDK emitter to byte-parity with the Rust `toml_edit` manifest output — the altitude authoring face compiles to the exact inert manifest the gate reads",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Content-faithful, deterministically emitted (law 5)"
-    },
-    "gate": {
-      "kind": "parked",
-      "reason": "sdk/** is TS; build's validation gates are cargo-only (chain.ts) so a build tick can't run the SDK's tsc/node --test — a human must wire a `sdk` gate into chain.ts (`.flume/`, human territory) before this ships. See `(sdk-build-gate)`. Publish name/scope still parked on PACKAGING-CHANNELS."
-    },
-    "dependsOnForks": [
-      "sdk-build-gate"
-    ],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "The scaffold serializer emits valid TOML of the right schema (`[[member]]`/`[[member.section]]`/`[[member.genre]]` — confirmed matching src/compose.rs `write_member_table`/`genre_to_table` and tests/genre_leaf.rs). This slice closes the scaffold's stated `byte-parity` bound: match the Rust emitter's exact `toml_edit` spelling — key order, table vs inline-table choice, string escaping, multiline-literal form, blank-line placement — so a member emitted by the SDK is byte-identical to the same member emitted by `temper emit`. Fail loud on any residual divergence."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Byte-parity fixtures pinned against known-good Rust emitter output (the same members tests/genre_leaf.rs / tests/emit.rs cover), asserting byte-identical manifest text and the double-emit invariant."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a member emitted by the SDK serializer is byte-identical to the Rust emitter's manifest output for the same member (leaves, keyed collections, sections, satisfies), and double-emit produces identical bytes."
-      }
-    ],
-    "acceptance": "The SDK's `emitManifestMembers` output is byte-identical to `temper emit`'s manifest for a shared fixture corpus; `pnpm --dir sdk test` (tsc + node --test) green. (Parked: not shipped until the sdk gate is wired.)",
-    "notes": "Inbox 07-03 (`sdk:` a13ad53, sdk/** in fence). Head of the altitude authoring wave; ask (a) scaffold now landed. Serialized successors: SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK (they share emit.ts). Genre schema confirmed against compose.rs — no manifest-shape mismatch, exact-spelling parity only."
-  },
-  {
-    "tag": "SDK-BODY-RESOLUTION",
-    "summary": "Resolve member bodies before emit: `fromFile` asset resolution and opt-in mention resolution-checking — the two scaffold bounds `bodyText` throws on today",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Mentions — prose that declares its own references"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-EMIT-BYTE-PARITY"
-    },
-    "dependsOnForks": [
-      "sdk-build-gate"
-    ],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`bodyText` throws on both `fromFile` and any mention today (the scaffold's stated bounds). Resolve them: `fromFile` reads the referenced asset into the body before serialize; mentions are resolution-checked one-way, obligation-free, opt-in per word (20-surface, `a mention is opt-in per word — no completeness check, ever`; law 8's never-climb bound) — an unresolved mention is a loud emit error, never a silent pass. No prose grep; only declared mention edges."
-        },
-        {
-          "path": "sdk/src/members.ts",
-          "description": "Thread the resolved body/mention set through the `Member` shape so `emit.ts` and `toManifestMember` consume resolved bodies. Keep the fromFile vs inline body union; resolution happens at emit, not at authoring."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Extend with fromFile-resolved bodies and mention-resolution cases (resolved mention renders; unresolved mention fails loud)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a `fromFile` body resolves and emits; a resolved mention renders to its declared value's form; an unresolved mention is a loud emit error; emit stays byte-deterministic."
-      }
-    ],
-    "acceptance": "SDK emit resolves `fromFile` bodies and resolution-checks mentions (loud on unresolved), staying byte-parity with the Rust emitter; `pnpm --dir sdk test` green. (Parked behind SDK-EMIT-BYTE-PARITY + the sdk gate.)",
-    "notes": "Inbox 07-03. Combines the scaffold's `fromFile` + `mention` bounds (both edit `bodyText`) into one slice so emit.ts is touched by one entry at a time. blockedBy SDK-EMIT-BYTE-PARITY (shared emit.ts); build picks it after parity ships."
-  },
-  {
-    "tag": "SDK-PROJECTION-LOCK",
-    "summary": "SDK emit writes the harness projection (members → `.claude/**`) and stamps the lock's freshness fingerprints — the last two scaffold bounds, both deliberately absent today",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Content-faithful, deterministically emitted (law 5)"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-BODY-RESOLUTION"
-    },
-    "dependsOnForks": [
-      "sdk-build-gate"
-    ],
-    "files": {
-      "new": [
-        {
-          "path": "sdk/src/project.ts",
-          "description": "Projection writing: compile each member to its harness format under `.claude/**` (the projection half of emit), whole-file re-emit, byte-faithful. Mirrors the Rust emit projector; the emit orchestrator calls it after the manifest is serialized."
-        },
-        {
-          "path": "sdk/src/lock.ts",
-          "description": "Lock stamping: compute and write the `source_hash`/`emit_hash` freshness fingerprints the drift engine reads (`config.stale`), matching the Rust lock's hash inputs so an SDK-emitted lock and a Rust-emitted lock agree for the same face."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Export `project`/`lock` and wire them into the emit entry so a full `emit` compiles manifest + projection + lock in one deterministic pass."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Cover projection byte-fidelity and lock-fingerprint agreement with the Rust emitter for a shared fixture."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "SDK projection output matches the Rust projector byte-for-byte for a shared member, and the SDK-stamped lock's `source_hash`/`emit_hash` match the Rust lock for the same face."
-      }
-    ],
-    "acceptance": "A full SDK `emit` writes the manifest, the `.claude/**` projection, and a lock whose fingerprints agree with the Rust emitter; `pnpm --dir sdk test` green. (Parked behind SDK-BODY-RESOLUTION + the sdk gate.)",
-    "notes": "Inbox 07-03. Closes the scaffold's remaining bounds (projection writing, lock stamping). New modules (project.ts/lock.ts) plus index.ts wiring; blockedBy SDK-BODY-RESOLUTION for the shared emit orchestration. Last link of the altitude authoring wave."
   },
   {
     "tag": "PACKAGING-CHANNELS",

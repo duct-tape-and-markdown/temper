@@ -1,30 +1,29 @@
 # Plan state
 
-- **Phase:** reconcile. HEAD e7fd54f.
-- **Last shipped:** the two floor-follow-on fixes drained — RUNG-DECODIFY-CODE
-  (`build` f4af8f0) and INSTALL-NOTE-CONTENT-DRIFT (`build` cae8e5a), shipped as
-  `chore` e7fd54f. `rg -i rung src/ tests/` → empty; install's managed-by note is
-  now content-drift-aware (re-places on a body change, not just on absence).
-- **This tick:** reconciled all six remaining entries against the corpus — no
-  `specs/` commit since d4a6999 (the rung de-codify, already shipped), so the code
-  is reconciled to the scripted-altitude corpus and there is **no new gap** to
-  file. Inbox empty. Verified on disk: `Primitive::Field` still flat-reads
-  (EXTRACTION-VOCAB-GAPS deferred holds), `BUILTIN_KINDS = ["skill","rule"]` with
-  no agent kind (AGENT-KIND deferred holds), the SDK scaffold is present, and
-  `(sdk-build-gate)` is still unresolved (no `sdk` test gate in `.flume/chain.ts`
-  — only the cargo fmt/clippy/test + selfCheck gates), so the SDK wave stays
-  parked.
-- **Pickable now:** none. The queue is entirely human-gated — the altitude wave
-  (SDK-EMIT-BYTE-PARITY → SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK) parks on the
-  `(sdk-build-gate)` human `chain.ts` edit; PACKAGING-CHANNELS parks on human
-  release creds; EXTRACTION-VOCAB-GAPS and AGENT-KIND stay deferred (no consumer).
-- **What's next:** a human unblocks — wire a `sdk` `shellGate` into `chain.ts`
-  (un-parks the SDK wave), set packaging creds, or scope the display rule
-  (`(display-rule-emit-face)`). Accepted debt unchanged: temper's own
-  `temper.toml`+lock predate MANIFEST-EMIT (a human `chore(harness)` `emit`
-  regen); the dogfood self-gate stays unwired until the wave-end confirmation pass.
+- **Phase:** reconcile. HEAD 118af33.
+- **Last shipped:** two human `chore`s landed since the last plan tick —
+  `chore(harness)` 4bd4813 (wave-end confirmation pass: `temper.toml` regenerated
+  via `emit`, now 17 `[[member]]` tables; `.temper/lock.toml` re-stamped) and
+  `chore(flume)` 118af33 (re-armed the dogfood self-check gate + **wired the `sdk
+  test` gate into chain.ts**, resolving `(sdk-build-gate)`). No `specs:` commit
+  since d4a6999.
+- **This tick:** `(sdk-build-gate)` RESOLVED (verified: `sdkGate` in build's
+  `gates` array, `pnpm --dir sdk test` afterMerge), so the **SDK altitude wave
+  un-parks**. Flipped SDK-EMIT-BYTE-PARITY parked→`open` and dropped its fork;
+  cleared the same fork from SDK-BODY-RESOLUTION / SDK-PROJECTION-LOCK (they stay
+  `blockedBy` in series over shared emit.ts). Marked the accepted dogfood debt
+  DISCHARGED (temper.toml regenerated). Inbox empty. Deferred/parked entries hold
+  on disk: `BUILTIN_KINDS = ["skill","rule"]` (no agent kind), `Primitive::Field
+  { key }` still flat-reads, PACKAGING-CHANNELS still needs human creds.
+- **Pickable now:** **SDK-EMIT-BYTE-PARITY** (`open`) — bring `sdk/src/emit.ts`
+  to byte-parity with the Rust `toml_edit` manifest output; the gate now validates
+  it. Its two successors are `blockedBy` in series (shared emit.ts, not
+  parallel-safe). Nothing else is pickable: EXTRACTION-VOCAB-GAPS / AGENT-KIND
+  deferred (no consumer), PACKAGING-CHANNELS parked on human creds.
+- **What's next:** build ships SDK-EMIT-BYTE-PARITY; a following plan reconcile
+  un-blocks SDK-BODY-RESOLUTION, then SDK-PROJECTION-LOCK. Human forks still open:
+  PACKAGING-CHANNELS creds, `(display-rule-emit-face)` scope for the rung-3 pilot.
 
-Plan continues: no — queue reconciled with no change to pending, inbox drained,
-and no `open` entry exists (every entry is deferred or parked on a human fork).
-There is nothing for build to pick; the queue waits on human action, not a plan
-tick.
+Plan continues: no — queue reconciled, inbox empty, and one `open` entry
+(SDK-EMIT-BYTE-PARITY) is now pickable. Hand to build; building is how the queue
+drains.

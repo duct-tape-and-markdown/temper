@@ -92,12 +92,13 @@ path strings remain in comments).
   install exposes the single predicate deciding which lines are its own, so the
   modeline/managed-by note survive re-emit and `gate_installed` stops re-nudging.
   **THE FLOOR CHAIN HAS FULLY DRAINED** — all seven links shipped; the code has
-  reconciled to the scripted-altitude corpus's floor. ACCEPTED DEBT (out of
-  build's fence): temper's own committed `temper.toml`+lock still predate
-  MANIFEST-EMIT (zero `[[member]]` tables), so the manifest-read path is
-  exercised against fixtures, not the dogfood — regenerating them via `emit` is a
-  human `chore(harness)` (`temper.toml` ∉ `BUILD_WRITABLE_PATHS`), the sole floor
-  follow-on. These floor entries were NOT
+  reconciled to the scripted-altitude corpus's floor. ACCEPTED DEBT NOW
+  DISCHARGED (2026-07-03; `chore(harness)` 4bd4813, the wave-end confirmation
+  pass): temper's own `temper.toml` was regenerated via `emit` and now carries
+  17 `[[member]]` tables (verified on disk), with `.temper/lock.toml` re-stamped
+  — so the manifest-read path is now exercised against the live dogfood, not only
+  fixtures. The self-check gate was re-armed the same day (118af33). These floor
+  entries were NOT
   `dependsOnForks`-gated on this fork: the human unblocked the floor explicitly.
   **ALTITUDE RUNG — ask (a) DISCHARGED (2026-07-03):** John delegated the
   scaffold and it landed (`sdk:` a13ad53; `sdk/**` entered build's fence,
@@ -112,27 +113,24 @@ path strings remain in comments).
   schema-shape mismatch; the byte-parity slice reconciles exact spelling only.
   The follow-on slices are now FILED as the serialized altitude wave
   **SDK-EMIT-BYTE-PARITY → SDK-BODY-RESOLUTION → SDK-PROJECTION-LOCK** (they
-  share `emit.ts`, so serialized, not parallel). But they do **not** ship until
-  `(sdk-build-gate)` below resolves — build's validation gates are cargo-only, so
-  a TS slice would land unvalidated. Publish name/scope still parked on
-  PACKAGING-CHANNELS. Design record:
+  share `emit.ts`, so serialized, not parallel). `(sdk-build-gate)` below is now
+  **RESOLVED** (the human wired the `sdk test` gate, 118af33), so the wave
+  un-parks: **SDK-EMIT-BYTE-PARITY is `open`** (the tick's one pickable entry),
+  its successors `blockedBy` in series. Publish name/scope still parked on
+  PACKAGING-CHANNELS (not needed for internal byte-parity). Design record:
   claude.ai/code/artifact/3b82d365-492d-4900-ad41-e00feb755a07.
 
-- `(sdk-build-gate)` — OPEN (surfaced 2026-07-03 draining the SDK-scaffold
-  inbox line). `sdk/**` is TypeScript and now in build's fence, but the flume
-  **validation gates are cargo-only** — `.flume/chain.ts` states it outright
-  ("The project is Rust, so the validation gates are cargo, not pnpm/tsc/vitest";
-  fmt afterCommit, clippy+test afterMerge). A build tick that ships an SDK slice
-  would pass those gates *trivially* (no Rust changed) while the SDK's own
-  `tsc -p` + `node --test` never run — unvalidated TS landing green, the exact
-  "silent gap reads as done" the collaboration rule forbids. So every SDK-*
-  altitude entry is **parked on this fork**. The fix is a human `.flume/` edit
-  (plan and build both write neither): wire a `sdk` gate into `chain.ts` — a
-  `shellGate` running `pnpm --dir sdk test` (or `npm`), placement per
-  CHAIN-AUTHORING (cheap structural afterCommit / full test afterMerge), fenced
-  to fire only when a tick touches `sdk/**`. Analogous to PACKAGING-CHANNELS
-  (parked on human setup), not a product-intent fork — a pipeline-plumbing
-  prerequisite. Human to wire the gate; the SDK wave un-parks the tick after.
+- `(sdk-build-gate)` — RESOLVED (2026-07-03; `chore(flume)` 118af33). `sdk/**`
+  is TypeScript inside a cargo-gated pipeline, so without a TS gate a build tick
+  shipping an SDK slice would pass every gate *trivially* (no Rust changed) while
+  the SDK's own compiler and tests never run — the "silent gap reads as done" the
+  collaboration rule forbids. The human wired the fix into `.flume/chain.ts`: a
+  `shellGate` named `sdk test` running `pnpm --dir sdk test` (tsc + node --test)
+  at **afterMerge** (serial on the trunk, where `sdk/node_modules` exists), added
+  to build's `gates` array (`[fmtGate, clippyGate, testGate, selfCheckGate,
+  sdkGate]`, verified on disk). So build now validates TS slices. The altitude
+  wave un-parks — SDK-EMIT-BYTE-PARITY is now `open`, its successors `blockedBy`
+  in series. Kept as the decision record; no dependent still waits.
 
 - `(display-rule-emit-face)` — OPEN (surfaced 2026-07-03 draining the
   display-rule inbox line). The ratified corpus carries "a genre value is
