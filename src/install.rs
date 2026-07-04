@@ -122,6 +122,11 @@ const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"[^"]*\.cl
 /// so a second `install` neither duplicates nor rewrites the note.
 const NOTE_MARKER: &str = "# temper: managed projection";
 
+/// The schema modeline's stable marker — the frontmatter comment prefix `install` keys
+/// its idempotence on and `emit` keys its preservation on, so both projectors agree on
+/// which line is the modeline.
+const MODELINE_MARKER: &str = "# yaml-language-server:";
+
 /// The managed-by note itself: a frontmatter comment stating the file is generated and
 /// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
 /// stamped by `emit` (law 5 keeps the projection content-faithful; the note is
@@ -632,11 +637,11 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
     let inner = frontmatter_inner(rest)?;
     if inner
         .lines()
-        .any(|line| line.trim_start().starts_with("# yaml-language-server:"))
+        .any(|line| line.trim_start().starts_with(MODELINE_MARKER))
     {
         return Some(source.to_string());
     }
-    let modeline = format!("# yaml-language-server: $schema={schema_ref}");
+    let modeline = format!("{MODELINE_MARKER} $schema={schema_ref}");
     Some(format!("---\n{modeline}\n{rest}"))
 }
 
@@ -676,6 +681,34 @@ fn frontmatter_inner(rest: &str) -> Option<&str> {
         offset += line.len();
     }
     None
+}
+
+/// The install-placed frontmatter comment lines present in `source`, in on-disk order —
+/// the schema modeline and the managed-by note. `emit` round-trips these through its
+/// whole-file re-emit so its content-faithful projection (law 5) carries install's
+/// metadata instead of dropping it (`specs/architecture/20-surface.md`, the two-projectors
+/// seam): install owns *placing and auditing* them, emit only *preserves* what is already
+/// there. Empty when `source` has no frontmatter or carries neither line.
+pub(crate) fn placement_lines(source: &str) -> Vec<String> {
+    let Some(rest) = source.strip_prefix("---\n") else {
+        return Vec::new();
+    };
+    let Some(inner) = frontmatter_inner(rest) else {
+        return Vec::new();
+    };
+    inner
+        .lines()
+        .filter(|line| is_placement_comment(line))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Whether `line` is one of install's managed metadata comments — the schema modeline
+/// or the managed-by note. The single predicate install's idempotence and emit's
+/// preservation share, so the two projectors never disagree on which lines are install's.
+fn is_placement_comment(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with(MODELINE_MARKER) || trimmed.starts_with(NOTE_MARKER)
 }
 
 /// Render an install report for the terminal: one `<outcome>  <placement>  <path>`

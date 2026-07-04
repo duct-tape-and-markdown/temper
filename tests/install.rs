@@ -449,31 +449,29 @@ fn a_posture_change_rewrites_the_guard_in_place() {
     );
 }
 
-#[test]
-fn the_managed_by_note_is_never_written_by_apply() {
-    // Install stamps the note onto the sources; import lifts them into a surface (a
-    // YAML comment is not authored content, so it does not round-trip); apply re-emits
-    // the projection from that surface. The note (install's, not the surface body's)
-    // must not survive the applied projection — law 5, content-faithful.
-    let harness = write_harness("apply-no-note", false);
-    install::run(&harness, false).unwrap();
-    // Precondition: the note really is on disk, so a passing assertion below is apply
-    // dropping it — not the note never having been there.
-    let skill_rel = PathBuf::from(".claude")
-        .join("skills")
-        .join("coordinate")
-        .join("SKILL.md");
-    let rust_rel = PathBuf::from(".claude").join("rules").join("rust.md");
-    assert!(
-        fs::read_to_string(harness.join(&skill_rel))
-            .unwrap()
-            .contains(NOTE_MARKER)
-    );
+/// The schema modeline's marker — the frontmatter comment `install` places and `emit`
+/// round-trips (kept in step with `install.rs`'s `MODELINE_MARKER`).
+const MODELINE_MARKER: &str = "# yaml-language-server:";
 
-    let into = tmpdir("apply-no-note-into");
-    temper::import::run(&harness, &into).unwrap();
+/// The skill and `paths:`-rule projections a frontmatter-carrying harness exposes to
+/// the modeline/note placements — relative to the harness root.
+fn frontmatter_projections() -> [PathBuf; 2] {
+    [
+        PathBuf::from(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+        PathBuf::from(".claude").join("rules").join("rust.md"),
+    ]
+}
+
+/// Import `harness` into a fresh surface and emit it back onto the harness sources —
+/// the round-trip the two projectors share. Returns nothing; the caller re-reads the
+/// projections `emit` wrote.
+fn import_then_emit(harness: &Path, label: &str) {
+    let into = tmpdir(label);
+    temper::import::run(harness, &into).unwrap();
     let ws = temper::check::Workspace::load(&into).unwrap();
-
     temper::drift::emit(
         &ws,
         &into,
@@ -483,15 +481,78 @@ fn the_managed_by_note_is_never_written_by_apply() {
         },
     )
     .unwrap();
+}
 
-    for rel in [skill_rel, rust_rel] {
+#[test]
+fn emit_never_stamps_the_managed_by_note() {
+    // The managed-by note (and the schema modeline) ride `install`, not the surface
+    // body — a YAML comment is not authored content (law 5). So an `emit` over a
+    // projection that carries no note never invents one: emit preserves install's
+    // placements, it does not originate them. (The complementary direction — an
+    // install-placed note SURVIVES emit — is `install_placements_survive_a_subsequent_emit`.)
+    let harness = write_harness("emit-no-note", false);
+    // No `install` runs, so the sources carry neither the note nor the modeline.
+    import_then_emit(&harness, "emit-no-note-into");
+
+    for rel in frontmatter_projections() {
         let projected = fs::read_to_string(harness.join(&rel)).unwrap();
         assert!(
             !projected.contains(NOTE_MARKER),
-            "emit must never re-emit the managed-by note, got in {}:\n{projected}",
+            "emit must never stamp the managed-by note, got in {}:\n{projected}",
+            rel.display()
+        );
+        assert!(
+            !projected.contains(MODELINE_MARKER),
+            "emit must never stamp the schema modeline, got in {}:\n{projected}",
             rel.display()
         );
     }
+}
+
+#[test]
+fn install_placements_survive_a_subsequent_emit() {
+    // The two-projectors seam (`specs/architecture/20-surface.md`): `install` places the
+    // schema modeline + managed-by note as frontmatter comments; `emit` re-emits the
+    // whole projection from the surface. A whole-file re-emit must carry those
+    // install-placed metadata lines through — never drop or reflow them — so the
+    // `gate_installed` re-nudge loop that papered over emit dropping them is gone.
+    let harness = write_harness("survive-emit", false);
+    install::run(&harness, false).unwrap();
+
+    // Precondition: both placements really are on disk, so a survival assertion below
+    // is emit preserving them — not them never having been placed. The modeline is the
+    // exact per-artifact line, checked verbatim so a reflow would be caught.
+    let skill_rel = &frontmatter_projections()[0];
+    let skill_modeline = "# yaml-language-server: $schema=../../../.temper/schema/skill.json";
+    let before = fs::read_to_string(harness.join(skill_rel)).unwrap();
+    assert!(before.contains(NOTE_MARKER) && before.contains(skill_modeline));
+
+    import_then_emit(&harness, "survive-emit-into");
+
+    // Both install-placed lines round-trip the re-emit verbatim, on every frontmatter
+    // projection — the modeline's exact bytes (no reflow) and the note's marker.
+    let after = fs::read_to_string(harness.join(skill_rel)).unwrap();
+    assert!(
+        after.contains(skill_modeline),
+        "emit must preserve the modeline verbatim, got:\n{after}"
+    );
+    assert!(
+        after.contains(NOTE_MARKER),
+        "emit must preserve the managed-by note, got:\n{after}"
+    );
+    let rust = fs::read_to_string(harness.join(&frontmatter_projections()[1])).unwrap();
+    assert!(
+        rust.contains(MODELINE_MARKER) && rust.contains(NOTE_MARKER),
+        "emit must preserve the rule's placements too, got:\n{rust}"
+    );
+
+    // The re-nudge loop is gone: with the placements preserved, the gate now reads
+    // every one as Unchanged, so its self-verify has nothing left to nudge.
+    assert!(
+        install::gate_installed(&harness).is_empty(),
+        "a preserved-placement projection leaves the gate clean, got: {:?}",
+        install::gate_installed(&harness)
+    );
 }
 
 #[test]

@@ -25,6 +25,7 @@ use crate::builtin_kind;
 use crate::check::Workspace;
 use crate::hash::sha256_hex;
 use crate::import;
+use crate::install;
 use crate::kind::{BUILTIN_KINDS, CustomKind};
 
 /// Errors raised while computing a drift report. A hard failure (a source path
@@ -515,20 +516,13 @@ fn emit_one(
         outcome,
     };
 
-    let desired = project_bytes(&projection.fields, &projection.body);
-
-    // Double-emit determinism (`specs/architecture/20-surface.md`, law 5): a second
-    // projection over the same surface must be byte-identical. Nondeterministic
-    // authoring (a timestamp, an unordered map surfacing into a field) is a loud
-    // failure here, never a silent churn the next `emit` would rewrite.
-    if project_bytes(&projection.fields, &projection.body) != desired {
-        return Err(DriftError::Nondeterministic {
-            path: projection.source_path.clone(),
-        });
-    }
-
-    // Read the committed projection only to tell `Emitted` from the idempotent no-op
-    // — never to merge. An absent source is not a conflict: emit writes it.
+    // Read the committed projection first — never to merge authored content, but to
+    // tell `Emitted` from the idempotent no-op *and* to carry install's frontmatter
+    // placements (the schema modeline, the managed-by note) through the whole-file
+    // re-emit. Those metadata lines ride `install`, never `emit` (law 5 keeps the
+    // projection content-faithful), so a re-emit round-trips the ones already on disk
+    // instead of clobbering them (`specs/architecture/20-surface.md`, the two-projectors
+    // seam). An absent source carries no placements and is not a conflict: emit writes it.
     let current = match fs::read(&projection.source_path) {
         Ok(bytes) => Some(bytes),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
@@ -539,6 +533,22 @@ fn emit_one(
             });
         }
     };
+    let placements = current
+        .as_deref()
+        .map(|bytes| install::placement_lines(&String::from_utf8_lossy(bytes)))
+        .unwrap_or_default();
+
+    let desired = project_bytes(&projection.fields, &projection.body, &placements);
+
+    // Double-emit determinism (`specs/architecture/20-surface.md`, law 5): a second
+    // projection over the same surface must be byte-identical. Nondeterministic
+    // authoring (a timestamp, an unordered map surfacing into a field) is a loud
+    // failure here, never a silent churn the next `emit` would rewrite.
+    if project_bytes(&projection.fields, &projection.body, &placements) != desired {
+        return Err(DriftError::Nondeterministic {
+            path: projection.source_path.clone(),
+        });
+    }
 
     if current.as_deref() == Some(desired.as_bytes()) {
         // Already at the projection. Reconcile a stale lock fingerprint (an
@@ -564,20 +574,27 @@ fn emit_one(
 }
 
 /// Re-emit the desired projection deterministically: a fresh `---`-delimited
-/// frontmatter block carrying every desired field in order, then the surface body
-/// byte-for-byte.
+/// frontmatter block carrying install's preserved `placements` (the schema modeline,
+/// the managed-by note — in on-disk order), then every desired field in order, then
+/// the surface body byte-for-byte.
 ///
-/// The projection is *generated*, not patched (`specs/architecture/20-surface.md`, "Decision: the
-/// projection is re-emitted; the surface is patched") — the on-disk source is never
-/// read here, so a hand-edited frontmatter comment or reordered field is not
-/// preserved (that is drift, routed to the authored source). An artifact with
-/// no fields (a rule that carries no `paths`/unknown keys) projects to its body
-/// alone — no empty frontmatter block.
-fn project_bytes(fields: &[(String, JsonValue)], body: &str) -> String {
+/// The authored content is *generated*, not patched (`specs/architecture/20-surface.md`,
+/// "Decision: the projection is re-emitted; the surface is patched") — a hand-edited
+/// field is not preserved (that is drift, routed to the authored source). Install's
+/// metadata comments are the one exception the caller feeds in: they ride `install`,
+/// never `emit` (law 5), so emit round-trips the ones already on disk rather than
+/// dropping them (the two-projectors seam). An artifact with no fields (a rule that
+/// carries no `paths`/unknown keys) projects to its body alone — no frontmatter block,
+/// and so no place a modeline/note could have been installed.
+fn project_bytes(fields: &[(String, JsonValue)], body: &str, placements: &[String]) -> String {
     if fields.is_empty() {
         return body.to_string();
     }
     let mut frontmatter = String::new();
+    for line in placements {
+        frontmatter.push_str(line);
+        frontmatter.push('\n');
+    }
     for (key, value) in fields {
         frontmatter.push_str(&render_field(key, value));
     }
