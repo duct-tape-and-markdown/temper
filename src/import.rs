@@ -6,11 +6,11 @@
 //! [`init`] is the on-ramp: it scans the built-in-kind harness members at their real
 //! Claude Code locus under `<harness>/.claude/` and writes a manifest over them **in
 //! place** — a `[[member]]` table per member naming its landscape file, zero file moves,
-//! zero copy tree (`specs/architecture/20-surface.md`, the gradient's `init` rung). [`lift`]
-//! migrates one member up a carriage rung. [`run`] is the retained document-carriage
-//! projection (`specs/architecture/15-kinds.md`, the generic frontmatter adapter) the one-shot
-//! gate paths, `emit`, and `diff` still ride: it copies each member into `<into>/` as a
-//! `+++`-headed document and records one `<into>/lock.toml` roll-up row per artifact.
+//! zero copy tree (`specs/architecture/20-surface.md`, the gradient's `init` on-ramp). [`lift`]
+//! migrates one member into a richer carriage (in-place → document → module). [`run`] is the
+//! retained document-carriage projection (`specs/architecture/15-kinds.md`, the generic frontmatter
+//! adapter) the one-shot gate paths, `emit`, and `diff` still ride: it copies each member into
+//! `<into>/` as a `+++`-headed document and records one `<into>/lock.toml` roll-up row per artifact.
 //!
 //! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
 //! every write is content-derived, name-sorted, and overwrites in place.
@@ -273,7 +273,7 @@ pub fn init(harness_path: &Path) -> miette::Result<()> {
 
     // Preserve any already-lifted (document/module-carried) members, and skip re-scanning
     // them as in-place — the gradient climbs per member, so init must not knock a lifted
-    // member back down a rung.
+    // member back down to in-place carriage.
     let extracted: Vec<ManifestMember> = AuthorLayer::load(&manifest_path)?
         .map(|layer| layer.members().to_vec())
         .unwrap_or_default();
@@ -330,8 +330,9 @@ fn rel_slash(harness: &Path, file: &Path) -> String {
         .replace('\\', "/")
 }
 
-/// The per-member migration up a carriage rung (`specs/architecture/20-surface.md`, "adoption is a
-/// gradient"; "`--lift` … normalizes framing, never content"): lift the in-place member
+/// The per-member migration into a richer carriage (in-place → document → module)
+/// (`specs/architecture/20-surface.md`, "adoption is a gradient"; "`--lift` … normalizes framing,
+/// never content"): lift the in-place member
 /// `member_name` into **document carriage** — project it into `<harness>/.temper/` as a
 /// `+++`-headed member document (via [`import_frontmatter_member`], body byte-identical),
 /// then rewrite its `[[member]]` from the `source`-bearing in-place form to the
@@ -341,7 +342,7 @@ fn rel_slash(harness: &Path, file: &Path) -> String {
 /// must not be dropped.
 ///
 /// Lift to **module carriage** (the altitude) needs the parked TypeScript SDK, so this is
-/// the reachable rung today: the document form is the same data hand-spellable
+/// the reachable carriage today: the document form is the same data hand-spellable
 /// (`specs/architecture/20-surface.md`, "the document form is the same data hand-spelled").
 /// Built-in-kind only, matching [`init`]'s in-place scan.
 ///

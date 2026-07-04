@@ -108,23 +108,24 @@ struct Cli {
 enum Command {
     /// The on-ramp (`specs/architecture/20-surface.md`): scan an existing harness into a
     /// config skeleton over its members **in place** — a manifest naming each landscape
-    /// file, zero file moves, no copy tree. `--lift <member>` migrates one member up a
-    /// carriage rung.
+    /// file, zero file moves, no copy tree. `--lift <member>` migrates one member into a
+    /// richer carriage (in-place → document → module).
     Init {
         /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`).
         /// Defaults to the current directory.
         #[arg(default_value = ".")]
         harness_path: PathBuf,
-        /// Migrate one member up a carriage rung instead of scanning: lift the named
-        /// in-place member into document carriage (`specs/architecture/20-surface.md`).
+        /// Migrate one member into a richer carriage (in-place → document → module) instead
+        /// of scanning: lift the named in-place member into document carriage
+        /// (`specs/architecture/20-surface.md`).
         #[arg(long, value_name = "MEMBER")]
         lift: Option<String>,
     },
     /// Project a harness into the document-carriage surface workspace (+ provenance
     /// lock) — the retained copy-tree projection `emit`/`diff` and the document-carried
     /// gate ride (`specs/architecture/15-kinds.md`, the generic frontmatter adapter). The
-    /// on-ramp is `init` (members in place, no copy tree); this is the deliberate rung-3
-    /// materialization a member/harness climbs into.
+    /// on-ramp is `init` (members in place, no copy tree); this is the deliberate
+    /// document-carriage materialization a member/harness climbs into.
     Import {
         /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`),
         /// or a bare skill dir.
@@ -258,7 +259,7 @@ enum Command {
     /// neighborhood** — its genre slot, its siblings, the members that cite it, and the
     /// requirements its member satisfies — the pre-edit context bundle for the primary
     /// author. Accepts a member name or a leaf address (`member/genre/key/field-path`);
-    /// every leaf-grain answer discloses its mixed-rung coverage. Reads the manifest
+    /// every leaf-grain answer discloses its mixed-posture coverage. Reads the manifest
     /// alone (offline, tier-1); never gates, exits zero.
     Context {
         /// A member name or a leaf address (`member/genre/key/field-path`) to emit the
@@ -286,7 +287,7 @@ fn main() -> miette::Result<ExitCode> {
         Command::Init { harness_path, lift } => {
             // The on-ramp writes the manifest over members IN PLACE — no `.temper/` copy
             // tree (`specs/architecture/20-surface.md`, "Decision: `init` is the on-ramp"). `--lift`
-            // migrates one member up a carriage rung instead of re-scanning.
+            // migrates one member into a richer carriage instead of re-scanning.
             match lift {
                 Some(member) => import::lift(&harness_path, &member)?,
                 None => import::init(&harness_path)?,

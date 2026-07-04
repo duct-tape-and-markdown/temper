@@ -15,4 +15,4 @@ Citations (declared one-way edges that name this leaf — obligation-free): none
 
 Satisfied requirements: none — member `20-surface` opts into no `satisfies` link.
 
-Coverage: 1 document below rung 3 — not represented at leaf grain (carrying no serialized genre leaves).
+Coverage: 1 document carries no genre values — not represented at leaf grain (carrying no serialized genre leaves).

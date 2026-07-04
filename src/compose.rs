@@ -1521,7 +1521,7 @@ pub fn write_manifest_members(doc: &mut DocumentMut, members: &[ManifestMember])
 /// `extracted` members (document/module — features baked) and the `inplace` members
 /// (the landscape file is the member — a `source` path, joins only, no features). The
 /// generated-canonical superset of [`write_manifest_members`]: `init` writes the in-place
-/// scan, `init --lift` writes the mixed set as one member migrates a rung
+/// scan, `init --lift` writes the mixed set as one member migrates into a richer carriage
 /// (`specs/architecture/20-surface.md`, "adoption is a gradient"). The root is regenerated whole
 /// — see [`write_manifest_members`] for why removing before inserting keeps a re-write
 /// byte-stable. An empty pair drops the root entirely.

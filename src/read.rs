@@ -504,8 +504,8 @@ fn impact_leaf(
         return format!(
             "No leaf `{target}` is in the surface's serialized genre values. `impact` reads \
              leaf grain off the manifest's `[[member.genre]]` tables — check the member, \
-             genre, key, and field path; a document below rung 3 is not represented at leaf \
-             grain.\n"
+             genre, key, and field path; a document carrying no genre values is not \
+             represented at leaf grain.\n"
         );
     };
 
@@ -593,25 +593,25 @@ fn narrate_citers(
 
 /// Append the shared **coverage disclosure** every leaf-grain answer closes with
 /// (`specs/architecture/20-surface.md`, "both disclose coverage … every leaf-grain answer names what
-/// it cannot see"): the count of members carrying no serialized genre leaves — the documents below
-/// rung 3 a leaf-grain read cannot represent. Under the gradient a mixed-rung corpus is the standing
-/// state, not an edge case, so an answer hiding its blind spot erodes the verb exactly as a false
-/// gate-block erodes the gate (law 1). Shared by `impact`'s and `context`'s leaf-grain answers, so
-/// the disclosure is one wording that ships WITH the verb, never after.
+/// it cannot see"): the count of members carrying no serialized genre leaves — the documents that
+/// carry no genre values a leaf-grain read cannot represent. Under the gradient a mixed-posture
+/// corpus is the standing state, not an edge case, so an answer hiding its blind spot erodes the verb
+/// exactly as a false gate-block erodes the gate (law 1). Shared by `impact`'s and `context`'s
+/// leaf-grain answers, so the disclosure is one wording that ships WITH the verb, never after.
 fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
     let leafless = by_kind
         .values()
         .flat_map(|members| members.iter())
         .filter(|features| features.genre_leaves().is_empty())
         .count();
-    let noun = if leafless == 1 {
-        "document"
+    let (noun, verb) = if leafless == 1 {
+        ("document", "carries")
     } else {
-        "documents"
+        ("documents", "carry")
     };
     let _ = writeln!(
         out,
-        "Coverage: {leafless} {noun} below rung 3 — not represented at leaf grain \
+        "Coverage: {leafless} {noun} {verb} no genre values — not represented at leaf grain \
          (carrying no serialized genre leaves)."
     );
 }
@@ -625,8 +625,8 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 ///
 /// A `/`-bearing `address` is a leaf (`<member>/<genre>/<key>/<field-path>`) reported at leaf grain
 /// ([`context_leaf`]); a bare name is a member reported whole ([`context_member`]). Both are
-/// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-rung corpus is
-/// the standing state, and an answer hiding what it cannot see erodes the verb (law 1).
+/// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-posture corpus
+/// is the standing state, and an answer hiding what it cannot see erodes the verb (law 1).
 ///
 /// A read, never a gate: an unresolved or ill-formed address is narrated plainly and the caller
 /// still exits zero.
@@ -665,7 +665,8 @@ fn context_leaf(
         return format!(
             "No leaf `{address}` is in the surface's serialized genre values. `context` reads \
              leaf grain off the manifest's `[[member.genre]]` tables — check the member, genre, \
-             key, and field path; a document below rung 3 is not represented at leaf grain.\n"
+             key, and field path; a document carrying no genre values is not represented at leaf \
+             grain.\n"
         );
     };
 

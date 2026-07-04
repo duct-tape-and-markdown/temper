@@ -663,7 +663,7 @@ fn impact_over_an_unresolved_leaf_address_still_exits_zero() {
 #[test]
 fn impact_leaf_grain_discloses_coverage() {
     let root = genre_fixture();
-    // The `impact` leaf-grain answer discloses its mixed-rung coverage WITH the found answer,
+    // The `impact` leaf-grain answer discloses its mixed-posture coverage WITH the found answer,
     // not only in a not-found error (`specs/architecture/20-surface.md`, "both disclose coverage").
     let run = read(
         &root,
@@ -701,15 +701,15 @@ fn write_two_leaf_spec(root: &Path, name: &str) {
 
 /// Build a fixture whose `20-surface` spec carries a two-leaf `decision` value, and a second
 /// bare spec `00-intent` carrying no genre value — so the coverage disclosure counts one
-/// document below rung 3 (the leafless member).
+/// document that carries no genre values (the leafless member).
 fn context_fixture() -> PathBuf {
     let root = tmpdir("context-root");
     let kind_dir = root.join(".temper").join("kinds").join("spec");
     fs::create_dir_all(&kind_dir).unwrap();
     fs::write(kind_dir.join("KIND.md"), GENRE_KIND_MD).unwrap();
     write_two_leaf_spec(&root, "20-surface");
-    // A second member carrying no serialized genre leaf — the "document below rung 3" the
-    // coverage disclosure counts.
+    // A second member carrying no serialized genre leaf — the "document that carries no genre
+    // values" the coverage disclosure counts.
     write_spec(&root, "00-intent", "intent-encoded", "the north star spec");
     fs::write(root.join("temper.toml"), GENRE_TEMPER_TOML).unwrap();
     root
@@ -719,7 +719,7 @@ fn context_fixture() -> PathBuf {
 fn context_over_a_leaf_emits_its_neighborhood() {
     let root = context_fixture();
     // `context` on a leaf address emits its genre slot, its siblings (the co-resident
-    // `rejected` leaf), its citers, the requirements its member satisfies, and the mixed-rung
+    // `rejected` leaf), its citers, the requirements its member satisfies, and the mixed-posture
     // coverage disclosure — the pre-edit context bundle (`specs/architecture/20-surface.md`).
     let run = read(
         &root,
@@ -762,14 +762,14 @@ fn context_over_a_leaf_emits_its_neighborhood() {
         "satisfied requirements section: {}",
         run.stdout
     );
-    // Coverage disclosure — one document below rung 3 (the leafless `00-intent`).
+    // Coverage disclosure — one document that carries no genre values (the leafless `00-intent`).
     assert!(
         run.stdout.contains("not represented at leaf grain"),
         "the leaf answer discloses coverage: {}",
         run.stdout
     );
     assert!(
-        run.stdout.contains("1 document below rung 3"),
+        run.stdout.contains("1 document carries no genre values"),
         "the coverage count names the one leafless member: {}",
         run.stdout
     );

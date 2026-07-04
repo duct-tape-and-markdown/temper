@@ -306,8 +306,8 @@ fn an_in_place_member_cannot_drift() {
 }
 
 #[test]
-fn init_lift_migrates_one_member_up_a_carriage_rung() {
-    // `init --lift <member>` migrates one in-place member up a carriage rung — into
+fn init_lift_migrates_one_member_into_a_richer_carriage() {
+    // `init --lift <member>` migrates one in-place member into a richer carriage — into
     // document carriage (`specs/architecture/20-surface.md`, "adoption is a gradient"): the
     // body rides byte-identical, the framing normalizes, and the manifest entry
     // flips from a `source`-bearing in-place table to the pre-extracted document form.

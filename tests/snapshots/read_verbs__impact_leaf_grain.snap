@@ -12,4 +12,4 @@ Citations (declared one-way edges that name this leaf — obligation-free): none
 
 Fallout: none — a leaf is obligation-free. Deleting or rewording it is never blocked by its citations; the citer is told (`45-governance.md`, address grain), which is the point.
 
-Coverage: 0 documents below rung 3 — not represented at leaf grain (carrying no serialized genre leaves).
+Coverage: 0 documents carry no genre values — not represented at leaf grain (carrying no serialized genre leaves).
