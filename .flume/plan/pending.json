@@ -1,74 +1,15 @@
 [
   {
-    "tag": "INSTALL-DRIFT-STRINGS",
-    "summary": "Reword install's managed-by note and guard message off the retired `re-add` verb onto the ratified drift model — edit the `.temper/` surface and re-run `emit`",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: `re-add` is retired — hand-edits route to the source"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "Reword the two placed strings that still name the retired `re-add` verb: `NOTE_GUARD_MESSAGE` (~line 112) and `NOTE_COMMENT` (~line 134) both end \"(temper re-add lifts a direct edit back)\". READD-RETIRE deleted that verb; the ratified remedy (`20-surface.md`, `re-add` retired) is: a direct edit to emitted output is drift routed to the authored source — edit the owning `.temper/` module/document and re-run `temper emit`. Also fix the stale `// route to re-add` comment near line 487 (the advisory guard) to name `emit`. Re-placement stays idempotent — the note/guard markers (`NOTE_MARKER`) are unchanged, only the human-facing text."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "the placed managed-by note and guard message name `temper emit` (not `re-add`); placing the reworded strings over a prior placement is idempotent (Unchanged)."
-      }
-    ],
-    "acceptance": "`temper install`/`emit` place a managed-by note and guard message that describe the retired-`re-add` drift model in the ratified terms (edit the surface, re-run `emit`); no `re-add` string remains in src/install.rs; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Inbox (07-03, post-wave). Curated placement text, in-fence (src/install.rs). The already-placed copies under `.claude/` are outside build's fence — the interactive session re-runs `temper install` after this ships. Disjoint from the genre chain (install.rs vs kind/extract/read)."
-  },
-  {
-    "tag": "FENCED-PRIMITIVE",
-    "summary": "Add the closed-vocab `Fenced` extraction primitive — fenced-block content over the markdown body, the genre fence's first consumer (graduated from EXTRACTION-VOCAB-GAPS)",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "The extraction algebra — the soundness boundary, as data"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add a `Fenced` variant to `Primitive` (the markdown-structure extractor the algebra lists — `a fenced block` — that the enum omits: today field/headings/sections/line_count/placement/directives). Wire it in `parse_primitive` (extend the closed-vocab load-guard's accepted set) and in `Primitive::apply` (fold the extracted fenced blocks into `Features`). Its spec-named first consumer is the genre fence (`15-kinds.md`: \"a fenced block — whose first consumer is the genre fence\"); this entry ships the generic primitive only, GENRE-MANIFEST-LEAF composes it with the TOML parse."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Add a `body_fenced_blocks`-style reader over the markdown body, mirroring `body_headings`/`body_sections` and reusing the same fence-tracking state those already carry (a heading inside a fence opens no section). It yields each fenced block's interior content (info string available so the genre consumer can key on `genre.<name>`), and adds a `Features` field to carry them. `pub(crate)` so the closed algebra composes the one deterministic extractor."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/extract_equivalence.rs",
-        "asserts": "a `fenced` primitive yields a fenced block's interior content and skips surrounding prose; multiple fences are captured in document order with their info strings; a body with no fence yields none (absent, not errored)."
-      }
-    ],
-    "acceptance": "`Primitive::Fenced` is in the closed vocabulary, load-guarded in `parse_primitive`, and extracts fenced-block content over a `Unit`; a KIND.md declaring `fenced` reads the blocks; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Un-defers EXTRACTION-VOCAB-GAPS' Fenced half — its predicted consumer (the genre fence) has arrived (`specs:` 52f149c). The key-path `field` half stays deferred (EXTRACTION-VOCAB-GAPS, no nested-key kind yet). Generic primitive only; the fenced+TOML genre composition is GENRE-MANIFEST-LEAF. Shares kind.rs/extract.rs with that entry — it is blockedBy this."
-  },
-  {
     "tag": "GENRE-MANIFEST-LEAF",
     "summary": "Serialize genre values into the manifest — `genres` on the kind, genre-fence extraction (fenced + TOML), the leaf/keyed-collection schema with structural addresses",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "Genre values — prose that declares its own anatomy"
     },
-    "gate": { "kind": "blockedBy", "tag": "FENCED-PRIMITIVE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "FENCED-PRIMITIVE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [
@@ -110,7 +51,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: the CLI gains a read family — `why` and `requirements`"
     },
-    "gate": { "kind": "blockedBy", "tag": "GENRE-MANIFEST-LEAF" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GENRE-MANIFEST-LEAF"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -143,7 +87,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: the CLI gains a read family — `why` and `requirements`"
     },
-    "gate": { "kind": "blockedBy", "tag": "IMPACT-LEAF-GRAIN" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "IMPACT-LEAF-GRAIN"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
