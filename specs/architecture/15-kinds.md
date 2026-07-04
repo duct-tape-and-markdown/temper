@@ -402,4 +402,4 @@ decisions-name-alternatives predicate keeps both spellings: over extracted
 headings it stays the decision-block shape check (clause features, never
 leaves); over genre values it is a schema fact. Migration between postures
 is the same staged human ceremony as the classed migration —
-per document, never demanded (`30-landscapes.md`, the gradient).
+per document, never demanded (`30-landscapes.md`).

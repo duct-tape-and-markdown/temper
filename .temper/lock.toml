@@ -25,56 +25,56 @@ emit_hash = "c1116b5ca2c1a0d6df07ff54f080b114bfbf69a40035ab13466c319422b7c777"
 [[architecture]]
 name = "10-contracts"
 source_path = "./specs/architecture/10-contracts.md"
-source_hash = "e4a8824d9dde26b40b2d34b2c36afe69edb367420ba8be5cbedc20994cf2094e"
-emit_hash = "e4a8824d9dde26b40b2d34b2c36afe69edb367420ba8be5cbedc20994cf2094e"
+source_hash = "44cbb857b44acde96b137b9401a6cd2b289be92ec3461f43667526d8394e303a"
+emit_hash = "44cbb857b44acde96b137b9401a6cd2b289be92ec3461f43667526d8394e303a"
 
 [[architecture]]
 name = "15-kinds"
 source_path = "./specs/architecture/15-kinds.md"
-source_hash = "17696cfeff9c2fc848a12edd73f44f7996806cd37f02b99fc8d041a148ef84e6"
-emit_hash = "17696cfeff9c2fc848a12edd73f44f7996806cd37f02b99fc8d041a148ef84e6"
+source_hash = "a338663b7478a5c10e8dcd9d87ff5b814e7ece5946d4ee0177af513e14602e6d"
+emit_hash = "a338663b7478a5c10e8dcd9d87ff5b814e7ece5946d4ee0177af513e14602e6d"
 
 [[architecture]]
 name = "20-surface"
 source_path = "./specs/architecture/20-surface.md"
-source_hash = "66e397b0bebf5f1e5f105b27a25fc7ba950c850411dc7d22bb361f4d7deeb233"
-emit_hash = "66e397b0bebf5f1e5f105b27a25fc7ba950c850411dc7d22bb361f4d7deeb233"
+source_hash = "fc971dbcceaafc01082bbb62e6e8d242164efa36edc67726eb570682f6374c46"
+emit_hash = "fc971dbcceaafc01082bbb62e6e8d242164efa36edc67726eb570682f6374c46"
 
 [[architecture]]
 name = "30-landscapes"
 source_path = "./specs/architecture/30-landscapes.md"
-source_hash = "dc4576dea39b0b3caaab22de2648ecae3e36845bde6df96b287fa48234eb0826"
-emit_hash = "dc4576dea39b0b3caaab22de2648ecae3e36845bde6df96b287fa48234eb0826"
+source_hash = "46db609bbb55bac2cbe714ebd8bdbdb6395073fb2d4fdd3ad496c425350d8f71"
+emit_hash = "46db609bbb55bac2cbe714ebd8bdbdb6395073fb2d4fdd3ad496c425350d8f71"
 
 [[architecture]]
 name = "40-composition"
 source_path = "./specs/architecture/40-composition.md"
-source_hash = "e9f0d602dca058d69f0528cf5328d75ec554bd512fe5783288df5b7991eb5463"
-emit_hash = "e9f0d602dca058d69f0528cf5328d75ec554bd512fe5783288df5b7991eb5463"
+source_hash = "e42a8ea2cebbd756eeee18ad85cb673aa899ce90f5a27bcc0b32f182deba6d3c"
+emit_hash = "e42a8ea2cebbd756eeee18ad85cb673aa899ce90f5a27bcc0b32f182deba6d3c"
 
 [[architecture]]
 name = "45-governance"
 source_path = "./specs/architecture/45-governance.md"
-source_hash = "f9624d34f8252f287b812e2812b087111715719623ef37d219e019f79f096bf9"
-emit_hash = "f9624d34f8252f287b812e2812b087111715719623ef37d219e019f79f096bf9"
+source_hash = "d35ad96193350c1a83f0859e66415310a48ebb157fa0dab79bc02c6bdd9a2848"
+emit_hash = "d35ad96193350c1a83f0859e66415310a48ebb157fa0dab79bc02c6bdd9a2848"
 
 [[architecture]]
 name = "50-distribution"
 source_path = "./specs/architecture/50-distribution.md"
-source_hash = "ed135a7d6e853c3ce9eed2e3cf259c4eab6d64062ffa805454376b613eb2ff28"
-emit_hash = "ed135a7d6e853c3ce9eed2e3cf259c4eab6d64062ffa805454376b613eb2ff28"
+source_hash = "21d3e24c8cdf409fd30a5b41908dd524c89e2a9a50a86c0661eafb95fef96f21"
+emit_hash = "21d3e24c8cdf409fd30a5b41908dd524c89e2a9a50a86c0661eafb95fef96f21"
 
 [[intent]]
 name = "00-intent"
 source_path = "./specs/intent/00-intent.md"
-source_hash = "dc3db8fddba559f7867c76633ec433b9cbc64bc25a525e9ad795db28745699a5"
-emit_hash = "dc3db8fddba559f7867c76633ec433b9cbc64bc25a525e9ad795db28745699a5"
+source_hash = "8f401011bbe3e24636485a822d2faffff925f240c84448b7e330dc5132f9cb5c"
+emit_hash = "8f401011bbe3e24636485a822d2faffff925f240c84448b7e330dc5132f9cb5c"
 
 [[intent]]
 name = "05-model"
 source_path = "./specs/intent/05-model.md"
-source_hash = "e7c00a3dc23a83d6266fa4248d3ed4b7452ac8b9e79bae8d7c8dc83d87f7d8b5"
-emit_hash = "e7c00a3dc23a83d6266fa4248d3ed4b7452ac8b9e79bae8d7c8dc83d87f7d8b5"
+source_hash = "4979c7a957259933bbcaf0a2c1eb636b1f7912d1c815789c465f6aada836aaa1"
+emit_hash = "4979c7a957259933bbcaf0a2c1eb636b1f7912d1c815789c465f6aada836aaa1"
 
 [[intent]]
 name = "55-offering"
@@ -85,5 +85,5 @@ emit_hash = "234cc710cfe2dbdabc819af9785cfcd953e9a2b0aa1440ef1f06963a8bbcf446"
 [[process]]
 name = "90-spec-system"
 source_path = "./specs/process/90-spec-system.md"
-source_hash = "f5a71c52d2c22e66c629bcd029fda5acaedc83c45ee50c2abdc6592a68ad81f4"
-emit_hash = "f5a71c52d2c22e66c629bcd029fda5acaedc83c45ee50c2abdc6592a68ad81f4"
+source_hash = "9067b2fa2f11f83385d3913a37488b819b16ed57ab61b904e13b2ff90788e121"
+emit_hash = "9067b2fa2f11f83385d3913a37488b819b16ed57ab61b904e13b2ff90788e121"

@@ -7,7 +7,7 @@ same source — the **assembly** (built-in **packages** ⊕ the author's `temper
 
 | Moment | Placement | Form of the gate |
 | ------ | --------- | ---------------- |
-| Keystroke | the face's types + TSDoc (altitude); editor schema (floor, `temper schema`) | the decidable contract as JIT validation, guidance as hover |
+| Keystroke | the SDK's types + TSDoc; editor schema for in-place members (`temper schema`) | the decidable contract as JIT validation, guidance as hover |
 | Session start | `SessionStart` hook | **advisory** — checks, surfaces the verdict, instructs notify-and-approve (cannot block; Decision below) |
 | Human change | CI job on PRs | "gate, don't lint," where humans collaborate |
 | On demand | the CLI | the author runs it |
@@ -91,12 +91,12 @@ Installing the gate is just projection.
 
 ## The gate at keystroke — two spellings of one channel pair
 
-At the **altitude**, the keystroke placement is the toolchain itself: the
-SDK's types deliver the decidable contract as compile-time validation (an
+In the SDK, the keystroke placement is the toolchain itself: the
+types deliver the decidable contract as compile-time validation (an
 inexpressible clause is unwritable — `10-contracts.md`, the two walls) and
 TSDoc delivers guidance as hover — tsc serving both channels with no temper
-daemon in the loop. At the **floor**, `temper schema [--kind <k>]` emits a
-JSON Schema **from the assembly and its bound
+daemon in the loop. For **in-place members**, `temper schema [--kind <k>]`
+emits a JSON Schema **from the assembly and its bound
 packages** and wires it into frontmatter via the `# yaml-language-server: $schema=…`
 modeline (the path that makes JSON Schema validate `.md` frontmatter today, no daemon;
 served over LSP later). Both spellings carry two channels — which map exactly onto a package's
@@ -160,10 +160,15 @@ uses — **npm** with platform-specific `optionalDependencies` (the route most
 release binaries, Homebrew, and `cargo install`; the channel is auto-detected
 (Biome's `BIOME_DISTRIBUTION` pattern). Fail-loud is *intrinsic* — a missing
 platform binary is an install error, not a silent skip — which is why this
-satisfies the invariant above. The **authoring-face SDK and packages ride the
-same registry**: the SDK is an ordinary npm package versioned against the
-manifest schema, and a published package is a pure-data module (clauses +
-guidance + citations) whose emitted TOML is reviewable in the consumer's diff.
+satisfies the invariant above. The **SDK is the product's front door and rides the
+same registry**: an ordinary npm package versioned against the interchange
+schema (the contract fixtures, both implementations tested against one
+golden set), distributed per the ecosystem's proven shape (per-platform
+binaries via optionalDependencies, a WASM fallback path named); a published
+package is a pure-data module (clauses + guidance + citations) whose emitted
+TOML is reviewable in the consumer's diff. CI runs two lanes: the toolchain
+lane re-emits `--frozen` and byte-compares (declare-side integrity); the
+engine lane checks committed artifacts offline (no toolchain).
 The trust boundary is stated, not hidden: a config-time import is code
 execution at authoring time — devDependency-tier trust — bounded by `emit
 --frozen` in CI and by vendoring any package as plain TOML for zero-trust

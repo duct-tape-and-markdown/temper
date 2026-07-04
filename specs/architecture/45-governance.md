@@ -154,7 +154,7 @@ citation-weight obligation is how documentation calcifies a model; (b)
 mention edges mined from unmarked prose — the `references` retirement
 (`15-kinds.md`) stays fully in force: an unmarked name is typography,
 permanently; (c) mention-completeness demands — inadmissible by definition
-(`20-surface.md`, the opt-in Decision; law 8's never-climb bound).
+(`20-surface.md`, the opt-in Decision; law 8's opt-in bound).
 
 The class gains **address grain**, not new semantics: a declared one-way
 edge (a mention, a citation) may target a **leaf address** (`20-surface.md`,

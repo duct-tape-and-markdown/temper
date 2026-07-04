@@ -10,7 +10,7 @@ rationale = "45-governance owns the mention's edge class — the readmitted one-
 
 [provenance]
 source_path = "./specs/architecture/45-governance.md"
-source_hash = "f9624d34f8252f287b812e2812b087111715719623ef37d219e019f79f096bf9"
+source_hash = "d35ad96193350c1a83f0859e66415310a48ebb157fa0dab79bc02c6bdd9a2848"
 +++
 # Governance — powering up the wider contract scopes
 
@@ -168,7 +168,7 @@ citation-weight obligation is how documentation calcifies a model; (b)
 mention edges mined from unmarked prose — the `references` retirement
 (`15-kinds.md`) stays fully in force: an unmarked name is typography,
 permanently; (c) mention-completeness demands — inadmissible by definition
-(`20-surface.md`, the opt-in Decision; law 8's never-climb bound).
+(`20-surface.md`, the opt-in Decision; law 8's opt-in bound).
 
 The class gains **address grain**, not new semantics: a declared one-way
 edge (a mention, a citation) may target a **leaf address** (`20-surface.md`,

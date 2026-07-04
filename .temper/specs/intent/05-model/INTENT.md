@@ -35,7 +35,7 @@ kind = "architecture"
 required = true
 
 [requirement.member]
-means = "the `member` concept — one artifact instance in one of three carriages (module-carried on the authoring face, document-carried at the floor, in-place in the landscape), one feature shape however carried — must be given an architecture home"
+means = "the `member` concept — one artifact instance in one of three carriages (module-carried in the SDK, document-carried in a migration-era corpus, in-place in the landscape), one feature shape however carried — must be given an architecture home"
 kind = "architecture"
 required = true
 
@@ -45,12 +45,12 @@ kind = "architecture"
 required = true
 
 [requirement.assembly]
-means = "the `assembly` concept — the layered binding declaration, authored on the authoring face or hand-written at the floor, serialized as the manifest — must be given an architecture home"
+means = "the `assembly` concept — the layered binding declaration, authored in the SDK, its locusless facts emitted as committed temper-owned artifacts — must be given an architecture home"
 kind = "architecture"
 required = true
 
 [requirement.authoring-face]
-means = "the authoring face — the typed module library (members, kinds, packages, the assembly as typed values) that emit compiles — must be given an architecture home"
+means = "the SDK — the typed module library (members, kinds, packages, the assembly as typed values) that emit compiles into the harness artifacts — must be given an architecture home"
 kind = "architecture"
 required = true
 
@@ -81,7 +81,7 @@ required = true
 
 [provenance]
 source_path = "./specs/intent/05-model.md"
-source_hash = "e7c00a3dc23a83d6266fa4248d3ed4b7452ac8b9e79bae8d7c8dc83d87f7d8b5"
+source_hash = "4979c7a957259933bbcaf0a2c1eb636b1f7912d1c815789c465f6aada836aaa1"
 +++
 # The domain model — temper's own concepts
 
@@ -127,12 +127,11 @@ in a package, not the whole of it (`00-intent.md` positioning).
                                                                  │
    kind + its artifact-scope contract = a TYPE  ◄────conformance─┘
 
-   AUTHORING FACE ── emit (checked) ──► MANIFEST + LANDSCAPE (.claude/, specs/)
-   (the typed library: members,        the inert serialization the gate reads,
-    kinds, packages, the ASSEMBLY      beside the projected corpus of ARTIFACTs,
-    as typed values; the floor         governed by the assembly via
-    hand-writes the manifest and       REQUIREMENTS (roster) · ENTITIES (graph)
-    keeps members in place)                     │
+   SDK ────── emit (checked) ──────► LANDSCAPE (.claude/, specs/) + LOCK
+   (the typed library: members,        the committed harness artifacts the
+    kinds, packages, the ASSEMBLY      engine reads, governed by the assembly
+    as typed values; unadopted         via REQUIREMENTS (roster) · ENTITIES
+    members live in place)             (graph)  │
         ▲ init (one-time lift)                  │
         └───────────────────────────────  a PACKAGE binds a kind's contract (require-side)
 ```
@@ -149,15 +148,15 @@ The vocabulary; the **owning spec** carries the detail.
 | **contract** | the require-side: clauses over a kind's features (never a synonym for `temper.toml` or a package) | `10-contracts.md` |
 | clause | one predicate application; carries severity + fact/opinion | `10` / `15` |
 | **package** | a reusable, bindable bundle of a kind's contract (decidable clauses) + guidance (prose, never gates), two separate channels; itself a kind, checked by the definition; shipped *or* project-authored (non-privileged) | `10-contracts.md` |
-| **assembly** | the layered binding declaration: binds packages to kinds, declares requirements (the roster) + relationships-that-must-exist — authored on the face or hand-written at the floor, serialized as the manifest | `40-composition.md` |
-| **authoring face** | the typed module library — members, kinds, packages, the assembly as typed values; composition is an import; `emit` compiles it | `20-surface.md` |
-| **manifest** | the inert, gate-read serialization (`temper.toml` + the lock); every check, read verb, and placement consumes it offline, no runtime | `20-surface.md` |
-| emit | the checked compile: authoring face → projection + manifest; byte-reproducible or it is a finding | `20-surface.md` |
+| **assembly** | the layered binding declaration: binds packages to kinds, declares requirements (the roster) + relationships-that-must-exist — authored in the SDK, locusless facts emitted as temper-owned artifacts | `40-composition.md` |
+| **SDK** | the typed module library — members, kinds, packages, the assembly as typed values; composition is an import; `emit` compiles it into the harness artifacts | `20-surface.md` |
+| **interchange** | the member schema — the in-memory contract between the SDK and the engine, pinned by the contract fixtures; never a committed file. The **lock** is the committed freshness anchor | `20-surface.md` |
+| emit | the checked compile: SDK → harness artifacts + lock; refuses on declare-side failures; byte-reproducible or it is a finding | `20-surface.md` |
 | **artifact** | an instance of a kind (typed fields, content-faithful body, `extra` unknown-key catch-all, companions, provenance) | `20-surface.md` |
-| **member** | the role an instance artifact plays vs a governing package/kind; carried one of three ways — **module-carried** (a typed value on the face), **document-carried** (the floor's header-over-body document), **in-place** (the landscape file itself is the member) — one feature shape however carried | `20-surface.md` |
+| **member** | the role an instance artifact plays vs a governing package/kind; carried one of three ways — **module-carried** (a typed value in the SDK), **document-carried** (migration-era header-over-body document), **in-place** (the landscape file itself is the member) — one feature shape however carried | `20-surface.md` |
 | **mention** | an authored prose interpolation of a declared value: a one-way, resolution-checked, obligation-free edge; opt-in per word, forever (law 8) | `45-governance.md` |
 | **landscape** | a corpus of artifacts (≥1 kinds) governed by the assembly | `30-landscapes.md` |
-| **surface** | the authored source of truth (the face at the altitude; manifest + in-place members at the floor); compiles to the landscape | `20-surface.md` |
+| **surface** | the authored source of truth (the SDK; in-place members where unadopted); compiles to the landscape | `20-surface.md` |
 | projection | the on-disk landscape `emit` writes from the surface | `20-surface.md` |
 | **requirement** | the demand-side end of a fill edge, published by the assembly or a member's header: a named obligation (optional `means`, typing `kind`/`package`, multiplicity), joined to a member by `satisfies` — the sole binding, no name-`match` (the contract never guesses); coverage-gated, never judged | `10-contracts.md` |
 | **satisfies** | the member-side end of the same edge: an artifact's opt-in declaration (in its representation) that it fills a requirement — the sole, decidable fill | `10-contracts.md` |
@@ -178,18 +177,17 @@ The vocabulary; the **owning spec** carries the detail.
   carries *validates* those features (conformance).
 - an **artifact** is an *instance of* a **kind** and *lives in* a **landscape**; the
   ones a package checks play the **member** role.
-- a **landscape** is governed by the **assembly** (`temper.toml`) layered over the
-  by-kind built-in floor — which **binds** a **package** to each kind (dispatching its
+- a **landscape** is governed by the **assembly** layered over the by-kind
+  built-in defaults — which **bind** a **package** to each kind (dispatching its
   artifact-scope contract per member), declares **requirements** (the roster) and, when
   a kind declares entities, the **relationships-that-must-exist** (the graph).
 - an author *adopts / extends / forks* a **package** and binds it in the assembly, and
   declares **custom kinds** as authored artifacts under `.temper/` (`40-composition.md`).
-- a **surface** is the authored source — at the altitude, the **authoring face**
-  (the typed library); at the floor, a hand-written manifest over **in-place**
-  members. **emit** compiles the face to the landscape on disk plus the
-  **manifest**; `init` lifts an existing harness up once; a hand-edit to the
-  projection is a drift finding routed to the authored source, never
-  reverse-parsed (`20-surface.md`).
+- a **surface** is the authored source — the **SDK** (the typed library),
+  with unadopted members living **in place**. **emit** compiles the SDK to
+  the landscape on disk plus the **lock**; `init` adopts an existing harness
+  once; a hand-edit to the projection is a drift finding routed to the
+  authored source, never reverse-parsed (`20-surface.md`).
 - a **mention** interpolates a declared value into authored prose — a declared
   one-way edge the gate resolution-checks and the obligation graph ignores
   (`45-governance.md`); the module graph of the face and the join graph carry

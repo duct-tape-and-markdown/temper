@@ -10,7 +10,7 @@ rationale = "15-kinds owns the provider axis that fixes a kind's identity (`<pro
 
 [provenance]
 source_path = "./specs/architecture/15-kinds.md"
-source_hash = "17696cfeff9c2fc848a12edd73f44f7996806cd37f02b99fc8d041a148ef84e6"
+source_hash = "a338663b7478a5c10e8dcd9d87ff5b814e7ece5946d4ee0177af513e14602e6d"
 +++
 # Kinds — the extraction algebra and the kind system
 
@@ -416,4 +416,4 @@ decisions-name-alternatives predicate keeps both spellings: over extracted
 headings it stays the decision-block shape check (clause features, never
 leaves); over genre values it is a schema fact. Migration between postures
 is the same staged human ceremony as the classed migration —
-per document, never demanded (`30-landscapes.md`, the gradient).
+per document, never demanded (`30-landscapes.md`).

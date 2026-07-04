@@ -26,7 +26,7 @@ required = true
 
 [provenance]
 source_path = "./specs/intent/00-intent.md"
-source_hash = "dc3db8fddba559f7867c76633ec433b9cbc64bc25a525e9ad795db28745699a5"
+source_hash = "8f401011bbe3e24636485a822d2faffff925f240c84448b7e330dc5132f9cb5c"
 +++
 # Intent — the north star
 
@@ -92,7 +92,7 @@ These bind every part of the tool and every change to it.
    load-bearing.** `temper` never rewords, synthesizes, or drops authored prose —
    the words are the human's, wherever they sit. Projection is byte-deterministic
    and idempotent: the same surface emits the same landscape, every time — and
-   **emit**, the compile from the authoring face to the manifest and projection
+   **emit**, the compile from the SDK to the harness artifacts themselves
    (`20-surface.md`), is byte-reproducible and mechanically checked, so
    nondeterminism in authoring code is detected, never trusted. A migration into
    the surface (`init`'s lift) is one-time — free to normalize framing, never to
@@ -105,9 +105,9 @@ These bind every part of the tool and every change to it.
    "work with the config surface, reshape and organize" goal. Empty without the
    drift/projection engine, so that engine is core, not optional.
 
-7. **Compose everything; gate the decidable.** The write surface is total: the
-   author composes the whole harness at `temper`'s altitude — structure *and*
-   prose — and `temper` **projects** it into the project. The gate is narrow: it
+7. **Compose everything; gate the decidable.** The write surface is total, and
+   the **SDK is that surface**: the author composes the whole harness there —
+   structure *and* prose — and `temper` **emits** it into the project. The gate is narrow: it
    blocks only on the decidable tier and on whether each `verified_by` is wired.
    `temper` never synthesizes prose and never adjudicates it — prose is the human
    **behavioral contract** (tier 3, below), enforced by its wired verifier, never
@@ -173,11 +173,12 @@ stands on its own without it.)
 
 ## Positioning
 
-The **product** is a **declarative configuration model for the agent harness**: the
-author composes the whole harness at one altitude — the **authoring face**
-(`20-surface.md`): the **assembly** (authored as the config, serialized as the
-`temper.toml` **manifest**) binding **packages** to **kinds** over the authored
-**members** — and `temper` **emits** it into the project. The **typed gate** is the *differentiating
+The **product** is the **SDK — a typed authoring surface for the agent
+harness** (`20-surface.md`): the author composes the whole harness as typed
+values — the **assembly** binding **packages** to **kinds** over the authored
+**members** — and `temper` **emits** it into the project as the harness files
+themselves. The engine underneath is infrastructure: the enforcement core that
+makes the surface safe. The **typed gate** is the *differentiating
 guarantee* that model uniquely offers: because the surface is declared, malformed
 harness config is caught at author-time, not at the 2am page. The declarative model is
 why you reach for `temper`; the gate is why you reach for it over a dotfiles manager.
@@ -233,7 +234,7 @@ release," only "code conforms to current intent, or it doesn't."
 ## Decision: a composition write surface, not a downstream linter
 
 **Chosen:** `temper` is the surface the author *composes the harness from* — model
-at `temper`'s altitude across every landscape, project into the project, gate the
+in the SDK across every landscape, emit into the project, gate the
 result (`20-surface.md`, `40-composition.md`). **Rejected:** the downstream-linter
 framing — author `.claude/` by hand elsewhere, `temper` only reads and grades it.
 The linter framing makes `temper` optional and external to the work and strands
@@ -241,28 +242,33 @@ law 6 (you cannot fearlessly refactor a surface you do not author); the
 composition framing makes `temper` the place the harness *lives*. The checker is
 one face of that surface, never the whole tool.
 
-## Decision: the authoring face is a typed library; the gate reads inert data
+## Decision: the SDK is the authored surface; the engine reads the harness
 
-**Chosen:** the altitude's authoring medium is a **typed module library** — the
-**authoring face** (`20-surface.md`): members, kinds, packages, and the assembly
-authored as typed values that **emit** compiles into the projection plus one
-inert **manifest** (`temper.toml` + the lock). All Turing-completeness is
-quarantined at authoring time; the gate, CI, and every read verb consume only
-declared data, offline, with no language runtime — law 3's "no `if` to hide an
-opinion in" holds where opinions are *checked*, which is the only place it
-must. The manifest stays hand-authorable — the no-Node floor of the adoption
-gradient (`20-surface.md`) — so declared data remains the escape hatch, never
-the toll. The prior same-medium mirror (markdown members shadowing markdown
-projections) is retired as **illegible**: source and output in one medium read
-as a copy that isn't, where a module compiling to an artifact reads as
-src→dist — the relationship every author already trusts. (Ratified 2026-07-03;
-the pre-reformulation state is the `mirror-era` tag.) **Rejected:** (a)
-script-as-canonical configuration — the gate executing author code to learn
-the contract dissolves decidability, determinism, and the offline gate in one
-move; (b) keeping the same-medium mirror — the dogfood showed the posture
-illegible even to its own author; (c) the typed face as the *only* medium —
-mandatory Node in every consumer's path, where law 2 demands a declared-data
-floor no runtime can hold hostage.
+**Chosen:** the authoring medium is a **typed module library** — the **SDK**
+(`20-surface.md`): members, kinds, packages, and the assembly authored as
+typed values that **emit** compiles into **the harness artifacts themselves**,
+committed beside their source. The member schema survives as the compiler's
+**in-memory interchange** and the contract fixtures' schema
+(`50-distribution.md`) — never a committed file. All Turing-completeness is
+quarantined at authoring time; the engine, CI, and every read verb consume
+only committed artifacts and the lock, offline, with no language runtime —
+law 3's "no `if` to hide an opinion in" holds where opinions are *checked*,
+which is the only place it must. Authoring — and editing a compiled harness,
+which is the same act — requires the Node toolchain this audience already
+carries; **checking never does**. (Re-cut 2026-07-04: the prior cut's
+committed manifest was a compiler intermediate promoted to a product —
+self-attested integrity, an unread review surface — and its hand-authorable
+"floor" defended an authoring persona absent from this product's audience.
+Pre-states: the `mirror-era`, `bound-prose-era`, and `manifest-era` tags.)
+**Rejected:** (a) script-as-canonical configuration — the engine executing
+author code to learn the contract dissolves decidability, determinism, and
+the offline gate in one move; (b) a committed manifest as the gate's corpus —
+face↔file integrity is unverifiable without re-emitting, so the honest
+integrity check is CI re-emitting `--frozen` and byte-comparing, and the
+file adds only a third review surface nobody reads; (c) a maintained
+hand-TOML authoring surface beside the SDK — a permanent second surface
+(docs, keystroke channel, format-preserving patching, an adoption ladder to
+dignify it) serving no one; what stays banned is Node at *check* time.
 
 ## Decision: genre-typed prose — the model swallows the document
 
@@ -278,7 +284,7 @@ Genres are **kind/package data, never engine** (law 2): a project whose
 prose argues differently declares its own genres with the same machinery
 (`15-kinds.md`). Adoption is opt-in per block, forever — plain prose is a
 fully legal member of every genre-bearing kind, and **no check may quantify
-over genre completeness** (law 8's never-climb bound, one level down). The
+over genre completeness** (law 8's opt-in bound, one level down). The
 payoff belongs to the primary author (Positioning: the agent):
 **proprioception** — leaves are addressable, so `impact` reaches inside
 arguments, a leaf's declared neighborhood is assemblable context, and an

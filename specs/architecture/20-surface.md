@@ -1,36 +1,39 @@
 # The config surface — author, emit, project, drift
 
 The surface is `temper`'s **composition write surface**: the medium the harness
-*lives in*. At the altitude it is the **authoring face** — a **typed module
-library** in which members, kinds, packages, and the assembly are typed values,
-composition is an `import`, and **emit** compiles the library into the
-projection plus one inert **manifest** the gate reads (`00-intent.md`, "the
-authoring face is a typed library"). At the floor it is declared data with no
-language runtime: a hand-written manifest over members that live **in place**.
-`init` is the one-time on-ramp (Decision below); `emit` compiles the face out;
-a hand-edit to generated output is a drift finding routed to the authored
-source. The source and its output are **different media** on purpose — a module
-compiling to an artifact reads as src→dist, where the retired same-medium
-mirror read as a copy that isn't (`00-intent.md`, the retirement Decision;
-state at retirement: the `mirror-era` tag).
+*lives in*. It is the **SDK** — a **typed module library** in which members,
+kinds, packages, and the assembly are typed values, composition is an
+`import`, and **emit** compiles the library into **the harness artifacts
+themselves**, committed beside their source (`00-intent.md`, "the SDK is the
+authored surface"). Members a repo has not adopted into the SDK live **in
+place** — the landscape file is the member, features extracted, no toolchain
+required to check them. `init` is the one-time on-ramp (Decision below);
+`emit` compiles the SDK out; a hand-edit to emitted output is a drift finding
+routed to the authored source. The source and its output are **different
+media** on purpose — a module compiling to an artifact reads as src→dist,
+where the retired same-medium mirror read as a copy that isn't
+(`00-intent.md`; era tags: `mirror-era`, `bound-prose-era`, `manifest-era`).
 
 ## The surface: the assembly over its contents
 
 The surface has two homes (`05-model.md`), and only two:
 
-- **The assembly** — authored as the face's config module (`temper.config.ts`,
-  `defineHarness`) at the altitude, or hand-written as `temper.toml` at the
-  floor; either way serialized as the **manifest**. It *binds* a package to
-  each kind, declares the **requirements** (the roster) and the
-  **relationships-that-must-exist**, **selects the members** (at the altitude,
-  the member list is the config's imports — an authored module nobody imports
-  is shelf stock the toolchain itself flags), and layers over the built-in
-  floor. It is the extensional layer: what the environment contains and how it
-  connects.
+- **The assembly** — authored as the SDK's config module (`temper.config.ts`,
+  `defineHarness`). It *binds* a package to each kind, declares the
+  **requirements** (the roster) and the **relationships-that-must-exist**,
+  **selects the members** (the member list is the config's imports — an
+  authored module nobody imports is shelf stock the toolchain itself flags),
+  and layers over the built-in defaults. Facts with no harness locus —
+  bindings, the roster — are emitted as **small committed temper-owned
+  artifacts**, members of temper's own landscape, so everything the offline
+  engine reads is a committed artifact. It is the extensional layer: what the
+  environment contains and how it connects. (A hand-written `temper.toml`
+  assembly is the migration-era spelling, supported until its sunset
+  ceremony.)
 - **The library** (`.temper/`) holds the **authored-and-checked sources**: the
-  member modules, kind definitions, and packages — typed values at the
-  altitude, surface-language documents where a floor posture or a
-  not-yet-migrated corpus carries them (member carriage, below). In-place
+  member modules, kind definitions, and packages — typed values in the SDK;
+  surface-language documents where a migration-era corpus still carries them
+  (member carriage, below). In-place
   members have no library entry at all: the landscape file is the member.
   `package` is a peer kind, not a privileged path (`15-kinds.md`); there is no
   `member/` bucket — "member" is the role a non-governing artifact plays, and
@@ -53,9 +56,9 @@ stand on, written by the tool, never hand-composed.
 ## Topology: source, contract, output
 
 The surface is a **workspace tree** whose authored unit is the member (carriage
-below). The three provenance classes never blur: **authored** (the face + any
-floor documents), **generated-canonical** (the manifest — committed, gate-read,
-hand-writable at the floor), **generated** (the lock, the projection).
+below). The two provenance classes never blur: **authored** (the SDK sources +
+any migration-era documents) and **generated** (the harness projection, the
+temper-owned assembly artifacts, the lock).
 
 ```
 temper.config.ts              # the ASSEMBLY authored: defineHarness — bindings,
@@ -66,24 +69,27 @@ temper.config.ts              # the ASSEMBLY authored: defineHarness — binding
   skills/operate-the-gate/    # a member module + its prose asset
     skill.ts                  #   fromFile('./SKILL.md') — long prose keeps its medium
     SKILL.md
-  kinds/<name>.ts             # a custom KIND: defineKind (floor form: KIND.md)
-  packages/<name>.ts          # a PACKAGE: typed clauses + guidance (floor: PACKAGE.md)
-temper.toml                   # the MANIFEST: emitted (or hand-written at the floor);
-                              #   the only thing the gate reads
+  kinds/<name>.ts             # a custom KIND: defineKind (migration-era form: KIND.md)
+  packages/<name>.ts          # a PACKAGE: typed clauses + guidance
 .claude/**                    # the PROJECTION: emitted, guarded, never hand-edited
+                              #   (+ small temper-owned assembly artifacts — the
+                              #   committed home of bindings + the roster)
 ```
 
-- **The manifest is inert data.** Every declaration the gate, CI, and the read
-  verbs consume — bindings, requirements, joins, member features, mention
-  edges — serializes here. No placement ever executes authoring code
-  (`00-intent.md`).
+- **Everything the engine reads is a committed artifact.** The gate, CI, and
+  the read verbs consume the harness files, the temper-owned assembly
+  artifacts, and the lock. No placement ever executes authoring code
+  (`00-intent.md`). The member schema itself is the compiler's **in-memory
+  interchange** — the contract between the SDK and the engine
+  (`50-distribution.md`, the contract fixtures) — never a committed file.
 - **The lock** — the generated **state-of-record**: per-member provenance and
   the emit fingerprints (`source_hash` + `emit_hash`) that `config.stale` and
   projection freshness compare against. The tool writes it; you never compose
   it.
-- **A hand-written manifest is patched format-preserving** (`toml_edit`)
-  whenever the tool touches it; an emitted manifest is re-emitted whole
-  (nothing of the human's in it to lose).
+- **One writer per format.** The SDK emits; the engine parses. A
+  migration-era hand-written document is patched format-preserving
+  (`toml_edit`) whenever the tool touches it; emitted files are re-emitted
+  whole (nothing of the human's in them to lose).
 
 ## The IR
 
@@ -101,9 +107,10 @@ elements. Extraction is the soundness boundary — it surfaces only
 deterministically-decidable features, never inferred meaning. It ranges over the
 **authored source**: a document-carried or in-place member is extracted; a
 module-carried member arrives **pre-extracted** — its features are its declared
-typed fields, bounded by the same closed vocabulary via the manifest schema
-(`15-kinds.md`, "two sources, one shape"). `check` never ranges over the
-projection except to verify its freshness against the lock.
+typed fields, bounded by the same closed vocabulary via the interchange schema
+(`15-kinds.md`, "two sources, one shape"). The engine's corpus is the
+committed harness plus the lock; the interchange exists in memory and in the
+contract fixtures, never as a committed file.
 
 ## Member carriage — module, document, in-place
 
@@ -113,7 +120,7 @@ claims with rationale, any demands it publishes, and its content-faithful
 body. What varies is the **carriage** — how that shape is authored — and every
 carriage serializes identically into the manifest:
 
-- **Module-carried** (the altitude): the member is a typed value in the
+- **Module-carried** (the SDK): the member is a typed value in the
   library — `rule({ satisfies: {...}, body: md\`...\` })`. Fields are typed
   object keys (a `satisfies` naming an undeclared requirement is a squiggle
   before the gate ever runs — the authoring wall, `10-contracts.md`); short
@@ -121,13 +128,13 @@ carriage serializes identically into the manifest:
   the module declares (`fromFile`), keeping its tooling. Composition is an
   `import`: a shared fragment, a generated family of members, a target list —
   ordinary code, quarantined at authoring time.
-- **Document-carried** (the floor, and any not-yet-migrated corpus): the
-  member is one surface-language document — a TOML-fenced header of clause
+- **Document-carried** (*migration-era*): the member is one surface-language
+  document — a TOML-fenced header of clause
   modules (`[clause.<field>]`, `[satisfies.<name>]`, `[requirement.<name>]`)
   over the body, patched format-preserving (`toml_edit`). The header carries
   exactly what the module's typed fields carry; the two carriages are one
   data shape in two spellings.
-- **In-place** (the floor's harness members): the landscape file itself is the
+- **In-place** (the unadopted harness member): the landscape file itself is the
   member — a `.claude/rules/x.md` byte-identical to one outside temper.
   Features are **extracted** (`15-kinds.md`); joins it participates in are
   declared in the assembly (the demand and the fill both name it there),
@@ -139,7 +146,7 @@ A clause still has two sides under one name (`10-contracts.md`): the
 **value** — as a typed key, a header table, or an extracted feature. The
 package defines the check; the member shows its value for it. `satisfies` and
 published `requirement`s remain the graph's whole source: member-to-member
-coupling is a **join** (`45-governance.md`), and at the altitude the join is
+coupling is a **join** (`45-governance.md`), and in the SDK the join is
 *also* an import — the module graph and the join graph carry the same intent,
 one checked by the toolchain at the keystroke, one by the gate everywhere.
 Conformance status stays **derived** — a `check` output, never persisted into
@@ -151,10 +158,10 @@ any carriage.
 in-place; the manifest serializes all three to one shape, and every consumer
 (gate, read verbs, graph, drift) is carriage-blind. Kinds declare which
 carriages their members may use (`15-kinds.md`); migration between carriages
-is mechanical (`init` lifts in-place → module; the document form is the same
-data hand-spelled). **Rejected:** (a) the module as the *only* carriage —
-mandatory Node for every consumer, against the gradient's floor
-(`00-intent.md`); (b) the document as the only carriage — the retired mirror:
+is mechanical (`init --lift` adopts an in-place member into the SDK; the
+document form is the same data hand-spelled, kept only until its sunset). **Rejected:** (a) the module as the *only* carriage —
+it strands the in-place member, and the wedge lives on checking a harness
+nobody has adopted yet (`00-intent.md`); (b) the document as the only carriage — the retired mirror:
 same-medium source/output illegibility, composition without imports, and the
 five-surface scatter the reformulation exists to collapse; (c) per-carriage
 feature shapes — a consumer that knows the carriage re-opens the
@@ -176,16 +183,14 @@ prose must be one authored text, byte-stable; generation of member
 *families* happens at the value level (many members), never inside one
 member's words.
 
-### Decision: the data dialect is TOML; the authoring face is TypeScript
+### Decision: the data dialect is TOML; the authoring dialect is TypeScript
 
-**Chosen:** everywhere the surface is **declared data** — the manifest, the
-floor's document headers, a vendored package — the dialect is TOML: it parses
-unambiguously (no implicit-typing traps — a type checker whose own medium has
-ambiguous scalars would be self-satire), diffs line-by-line where contracts
-are actually reviewed, has the Rust ecosystem's only mature format-preserving
-editor (`toml_edit`) for the hand-written floor, and Taplo delivers the
-emitted schema (`50-distribution.md`) as keystroke validation there. The
-**authoring face's** dialect is TypeScript — chosen not for expressiveness in
+**Chosen:** everywhere temper emits or reads **declared data** — the lock,
+the temper-owned assembly artifacts, a vendored package, the migration-era
+document headers — the dialect is TOML: it parses unambiguously (no
+implicit-typing traps — a type checker whose own medium has ambiguous scalars
+would be self-satire) and diffs line-by-line where contracts are actually
+reviewed. The **authoring** dialect is TypeScript — chosen not for expressiveness in
 the *data* (the emitted TOML is exactly as inert either way) but for what the
 toolchain does at authoring time: the closed vocabularies as types, TSDoc as
 the hover-guidance channel, imports as composition and as the join's
@@ -205,10 +210,10 @@ editor ecosystem owned forever).
 **Chosen:** a custom kind is authored **module-carried** (`defineKind({...})`
 — `governs`, the composed extraction, entities/relationships as typed keys,
 its class-description prose as the definition's doc text, delivered as hover
-guidance where a member of the kind is authored) or **document-carried** at
-the floor (`.temper/kinds/<name>/KIND.md`, the TOML-fenced header over the
-class prose — the form `(kind-artifact-format)` resolved, which remains the
-no-Node spelling). One definition shape, two spellings — exactly the member
+guidance where a member of the kind is authored) or **document-carried**
+in a migration-era corpus (`.temper/kinds/<name>/KIND.md`, the TOML-fenced
+header over the class prose — the form `(kind-artifact-format)` resolved,
+retiring with document carriage). One definition shape, two spellings — exactly the member
 carriage rule, applied to the kind that governs them. **Rejected:** (a) a
 bare `kind.toml` — a second file convention that strands the kind's prose;
 (b) a kind-definition carriage *distinct from* member carriage — the
@@ -252,10 +257,9 @@ A kind may declare **genres** (`15-kinds.md`): typed shapes for its members'
 recurring prose forms. A **genre value** is authored module-carried
 (`decision({...})`) or document-carried (the genre fence, Decision below);
 its meaning-carrying fields are **prose leaves** — authored strings, law-5
-protected, mention-capable at the altitude (floor leaves carry no mentions:
-interpolation stays an altitude feature until a floor mention syntax is
-separately ratified). Every genre value serializes into the manifest in one
-shape and every consumer is carriage-blind — the carriage Decision, extended
+protected, mention-capable (mentions are SDK authoring; one authored surface,
+one syntax). Every genre value serializes into the interchange in one shape
+and every consumer is carriage-blind — the carriage Decision, extended
 inside the member. A leaf is **addressed** — member, genre key, field path —
 and a citation may target a leaf (`45-governance.md`); `impact` reports at
 leaf grain. Adoption is opt-in per block (`00-intent.md`, the genre
@@ -266,32 +270,34 @@ quantify over genre completeness.
 
 **Chosen:** a leaf is addressed by its position in the typed shape — member,
 genre key, field path — stable under content edits, so drift, `impact`, and
-citations survive rewording. At the altitude, renames flow like any refactor
-— the module graph carries them; at the floor, a key rename is a bare text
-edit, and its citations break to the resolution check — the citer is told,
-which is the mention rule's net, accepted. Sibling collections are **keyed**
+citations survive rewording. In the SDK, renames flow like any refactor —
+the module graph carries them; in a migration-era document, a key rename is
+a bare text edit, and its citations break to the resolution check — the
+citer is told, which is the mention rule's net, accepted. Sibling collections are **keyed**
 (`rejected.baked-projection.because`), never positional (`rejected[0]`) —
 positional addresses die on insertion and reorder, which is exactly when
 impact must survive. **Rejected:** (a) content-hash identity — dies on every
 edit, defeating drift routing; (b) mandatory manual IDs on every leaf — a
 toll; the address rides structure the author already writes.
 
-### Decision: the floor spelling is a genre fence
+### Decision: the genre fence is the document spelling; the projection carrier is open
 
-**Chosen:** at the floor, a genre value is a **TOML genre fence** in the
-document body: a fenced block whose info string names the genre and key
-(info string `genre.decision surface-authority`), whose interior is TOML —
-leaf fields as multi-line strings, sibling collections as keyed tables
-(`[rejected.baked-projection]`). The fence is the document carriage's
-declared-data medium (the header's dialect) admitted at body position:
-block-grained, position-bearing, rendered in place by the display rule,
-patched format-preserving (`toml_edit`), keystroke-validated where the
-schema ships (`50-distribution.md`). It is declared syntax in the one
-landscape where temper is itself the format authority — the surface
-language documents the fence as executed (emit renders it; the gate reads
-its serialization) — the body-side analogue of a structured field
-(`15-kinds.md`, directives). Extraction composes the algebra's fenced-block
-primitive with a TOML parse into the one manifest shape. **Rejected:**
+**Chosen:** in a document (migration-era authoring, or a projection needing
+a machine-readable carrier), a genre value is a **TOML genre fence**: a
+fenced block whose info string names the genre and key (info string
+`genre.decision surface-authority`), whose interior is TOML — leaf fields as
+multi-line strings, sibling collections as keyed tables
+(`[rejected.baked-projection]`). It is declared syntax in the one landscape
+where temper is itself the format authority (emit writes it; the engine
+reads it) — the body-side analogue of a structured field (`15-kinds.md`,
+directives). Extraction composes the algebra's fenced-block primitive with a
+TOML parse into the one interchange shape. **The projection carrier is a
+named open question**: rendering both the display-rule prose and the fence
+into a human-read projection duplicates content, so whether projected genre
+data rides the fence, an invisible carrier, or a temper-owned artifact
+beside the document is decided by the adoption pilot — what is settled is
+that recovering structure from rendered prose stays inadmissible (law 8).
+**Rejected:**
 (a) promoting the heading/bold convention (`### Decision:` + `**Chosen:**`)
 to model structure — deriving graph leaves from prose typography is law 8's
 mining ban; the heading-level decision-block extraction (`15-kinds.md`, worked
@@ -311,7 +317,7 @@ built-in package by default). Slice 1 shipped **skill**; the next kind is **rule
 key) plus a content-faithful body. Its package's clauses forbid the Cursor keys Claude
 Code ignores (`description`, `globs`, `alwaysApply`) — the exact mistake that motivated
 the project (a rule authored with `.mdc` frontmatter loads nothing). Discovery (`init`, and
-the floor's `governs` walks) scans every built-in kind at its harness locus —
+the in-place `governs` walks) scans every built-in kind at its harness locus —
 **one `harness_path`, the project root, captures every kind**:
 `.claude/skills/*/SKILL.md`, `.claude/rules/*.md`
 (a repo-root `skills/` tree is a *plugin* layout, the plugin kind's business,
@@ -336,17 +342,24 @@ the assembly exactly as built-ins are; there is no privileged embedded-only tier
 ## Content-faithful, deterministically emitted (law 5)
 
 - **Content-faithful:** `temper` never rewords, synthesizes, or drops authored
-  prose — the words are the human's, whether composed on the face, spelled in a
-  floor document, or lifted in by `init`. The invariant is *authored, never
+  prose — the words are the human's, whether composed in the SDK, spelled in a
+  migration-era document, or adopted by `init`. The invariant is *authored, never
   synthesized*, not *structure only*.
 - **`init` lifts once.** `init` scans an existing harness and generates the
   config skeleton over members **in place** — no file moves, no reformatting;
   lifting a member into the library (module carriage) is a per-member
   migration that normalizes framing, never content. The fixpoint lives on the
   surface: emitting, then initing the emitted output, yields the surface back.
-- **Emit is byte-reproducible, and checked.** `emit` compiles the face —
-  members to their harness formats, the assembly to the manifest — same
-  library in, same bytes out, verified by double-emit comparison at every run:
+- **Emit refuses before it writes.** A dangling join, an unresolved mention,
+  an unfilled required requirement, a genre value violating its bound
+  package: each is an **emit refusal** in the toolchain lane — the author
+  cannot produce output from a broken source. CI re-runs `emit --frozen` and
+  byte-compares; that lane is where source↔artifact integrity is honestly
+  verifiable.
+- **Emit is byte-reproducible, and checked.** `emit` compiles the SDK —
+  members to their harness formats, the assembly facts to the temper-owned
+  artifacts — same library in, same bytes out, verified by double-emit
+  comparison at every run:
   nondeterminism in authoring code (a timestamp, an unordered map) is a
   loud emit failure, never a silent churn. The lock records each member's
   `source_hash` + `emit_hash`; a committed output that matches neither is the
@@ -355,7 +368,7 @@ the assembly exactly as built-ins are; there is no privileged embedded-only tier
 - Provenance: in-place members carry none (the file is its own source);
   module- and document-carried members are anchored by the lock's
   fingerprints.
-- A hand-written manifest or floor document is patched format-preserving
+- A migration-era hand-written document is patched format-preserving
   (`toml_edit`); a lossy serialize-from-scratch on anything a human authors is
   forbidden. Emitted files are re-emitted whole — nothing of the human's in
   them to lose.
@@ -375,12 +388,13 @@ The drift engine is what "fearless refactoring" (law 6) rests on, and the
 carriage re-cut simplifies it to **one authored direction and two decidable
 freshness facts**:
 
-- **`config.stale`** — the committed manifest/projection does not match the
-  lock's `source_hash`/`emit_hash` pair: the face changed and emit hasn't run,
-  or emitted output was hand-altered. One finding, pointing at whichever side
-  moved.
+- **`config.stale`** — a committed emitted artifact does not match the
+  lock's `source_hash`/`emit_hash` pair: the source changed and emit hasn't
+  run, or emitted output was hand-altered. One finding, pointing at whichever
+  side moved. (Honest-workflow protection: against an adversary the lane
+  that re-emits is the check — `emit --frozen`, above.)
 - **Projection hand-edits** are drift findings **routed to the authored
-  source** — the diagnostic names the member module (or floor document) that
+  source** — the diagnostic names the member module (or migration-era document) that
   owns the bytes, and the guard artifacts (the authority posture below) make
   the edit loud at write time, not just at check time. There is no reverse
   parse: you don't patch `dist/`.
@@ -425,8 +439,8 @@ is retired above.)
 declaration — an assembly `authority` posture: **`shared`** (the default)
 keeps direct on-disk authoring first-class (in-place carriage is the norm;
 guards inform and route on the files that *are* emitted); **`surface`** opts
-into enforcement — the altitude's posture, where projections are `dist/` and
-the guard blocks. The enforcement artifacts are
+into enforcement — the compiled-harness posture, where projections are
+`dist/` and the guard blocks. The enforcement artifacts are
 **install-wired, enumerated, self-audited, reversible** (the `gate-installed`
 pattern): a managed-by **note** on projections whose format tolerates
 cost-free metadata (never stamped by `emit` — law 5 keeps the projection
@@ -472,11 +486,11 @@ or both at once. The per-project harness is the unit a contract gates and a sess
 loads; the global config is a later extension the same engine handles as another
 landscape root (`30-landscapes.md`), not a redesign. (Resolves `(workspace-scope)`.)
 
-### Decision: the projection is re-emitted; the authored floor is patched
+### Decision: the projection is re-emitted; authored documents are patched
 
 **Chosen:** `emit` **re-emits the projection deterministically** from the
 authored source — full-file, byte-stable, idempotent; the *hand-authored*
-structured text (a floor manifest, a document header) is patched
+structured text (a migration-era assembly, a document header) is patched
 format-preserving (`toml_edit`) when the tool writes it. **Supersedes** the
 earlier "patch only changed fields, never re-emit" rule (`(yaml-writeback)`):
 that rule was load-bearing when `.claude/` was a peer surface humans
@@ -487,29 +501,29 @@ projection to preserve hand edits — that blurs authored-vs-derived; a direct
 edit to the projection is *drift*, and drift routes to the authored source
 (the `re-add` retirement above), never to `emit`'s tiptoeing.
 
-### Decision: `init` is the on-ramp, and adoption is a gradient
+### Decision: `init` is the on-ramp; adoption is two states
 
 **Chosen:** `init` scans an existing harness and generates the **config
 skeleton over members in place** — zero file moves, zero reformatting: a
-40-artifact harness lands governed by the floor on day one, byte-identical to
-the harness it was the day before. Members arrive **unrecognized** — fully
-functional — and **recognition** (the intent-encoding: `satisfies` +
-rationale, joins) accrues member-by-member; the pressure to recognize comes
-from the author's own declared requirements failing coverage — the right
-instrument — never from on-ramp ceremony. Adoption then follows a **gradient**,
-per member, all three postures one engine and one manifest shape:
+40-artifact harness lands governed on day one, byte-identical to the harness
+it was the day before. Members arrive **unrecognized** — fully functional —
+and **recognition** (the intent-encoding: `satisfies` + rationale, joins)
+accrues member-by-member; the pressure to recognize comes from the author's
+own declared requirements failing coverage — the right instrument — never
+from on-ramp ceremony. Adoption is **two states plus one per-member choice**:
 
-1. **gate-only** — hand-written manifest, in-place members, no Node anywhere;
-2. **`init`** — the generated skeleton, still in place;
-3. **altitude** — members lifted into the library as modules
-   (a per-member migration: framing normalizes, content never), the assembly
-   authored as the config, `emit` in the loop.
+- **unconfigured** — in-place members, extraction + built-in checks, no
+  toolchain; the no-commitment trial, and the visitor mode for repos you
+  don't own;
+- **SDK-authored** — `init` scaffolds `temper.config.ts` and the library;
+  members are adopted per member (`init --lift`: framing normalizes,
+  content never), `emit` in the loop.
 
 **Rejected:** (a) migration-into-a-mirror as the on-ramp (the retired
 `import`) — a toll booth that copies the whole harness into a second tree
 before the first finding; the on-ramp cost is what the wedge lives or dies
-on; (b) an all-or-nothing altitude — the gradient is what keeps the typed
-face an *earned* posture instead of a prerequisite; (c) recognition demanded
+on; (b) all-or-nothing adoption — per-member adoption is what keeps the SDK
+an *earned* posture instead of a prerequisite; (c) recognition demanded
 up front — unchanged from the original resolution.
 
 ## CLI surface
@@ -517,17 +531,19 @@ up front — unchanged from the original resolution.
 - `temper init [<harness-path>]` — the on-ramp: scan → config skeleton over
   members in place (Decision above); per-member `init --lift` migrates a
   member into a richer carriage (in-place → document → module).
-- `temper emit [--frozen] [--dry-run]` — compile the authoring face: members
-  to their harness formats, the assembly to the manifest, fingerprints to the
-  lock; double-emit verified, `--frozen` refuses network (CI posture,
-  `50-distribution.md`).
+- `temper emit [--frozen] [--dry-run]` — compile the SDK: members to their
+  harness formats, the assembly facts to the temper-owned artifacts,
+  fingerprints to the lock; refuses on declare-side failures; double-emit
+  verified; `--frozen` refuses network and is CI's byte-compare posture
+  (`50-distribution.md`).
 - `temper check [<workspace>]` — the gate: validate **conformance** (each member
   against the package its kind is bound to, `10-contracts.md`),
   **admissibility** (the assembly and each package against the definition),
-  and **freshness** (`config.stale` — the committed manifest/projection
-  against the lock); exit non-zero on a `required`-clause violation
-  (`--deny-advisories` to also block on advisory). The gate reads only the
-  manifest + lock + authored sources — never a language runtime.
+  and **freshness** (`config.stale` — committed emitted artifacts against
+  the lock); exit non-zero on a `required`-clause violation
+  (`--deny-advisories` to also block on advisory). The engine reads only the
+  committed harness + the temper-owned artifacts + the lock — never a
+  language runtime.
   `check --harness <path>` is the **one-shot mode**: scan-internally over a raw
   harness, no workspace touched — the session-start placement's verb
   (`50-distribution.md`).
@@ -577,9 +593,9 @@ The family gains leaf grain: `impact` accepts a leaf address and reports
 citations separately from fallout (`45-governance.md`); `context <address>`
 emits a member's or leaf's declared neighborhood — genre slot, siblings,
 citers, satisfied requirements — the pre-edit context bundle for the primary
-author. Both consume only the manifest: offline, tier-1, no runtime. And
-both **disclose coverage**: under the gradient a mixed-posture corpus is the
-standing state, not an edge case, so every leaf-grain answer names what it
+author. Both consume only committed artifacts: offline, tier-1, no runtime.
+And both **disclose coverage**: a mixed-adoption corpus is the standing
+state, not an edge case, so every leaf-grain answer names what it
 cannot see ("N documents carry no genre values — not represented at leaf
 grain"). An
 incomplete answer wearing complete clothes erodes the read verbs exactly as

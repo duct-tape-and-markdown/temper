@@ -16,7 +16,7 @@ rationale = "10-contracts owns severity as a DECLARED (required/advisory) proper
 
 [provenance]
 source_path = "./specs/architecture/10-contracts.md"
-source_hash = "e4a8824d9dde26b40b2d34b2c36afe69edb367420ba8be5cbedc20994cf2094e"
+source_hash = "44cbb857b44acde96b137b9401a6cd2b289be92ec3461f43667526d8394e303a"
 +++
 # Contracts — the two-layer model
 
@@ -98,7 +98,7 @@ true or false. A violation is therefore always a true positive — which is what
 earns the hard gate.
 
 The closed vocabulary is delivered twice, one algebra behind two walls
-(`20-surface.md`): on the **authoring face** it is spelled as the SDK's
+(`20-surface.md`): in the **SDK** it is spelled as the library's
 types — a clause outside the vocabulary is unwritable at the keystroke, and
 per-clause guidance rides the hover — and at the **gate** it is the
 admissibility reject every consumer meets regardless of editor or carriage.
@@ -243,9 +243,9 @@ axis, the cascade harness-economy model) ship as **built-in packages**, adopted,
 extended, forked, or ignored — never hardcoded checks.
 
 A package rides the same carriages as any member (`20-surface.md`): a typed
-value on the authoring face (clauses as typed objects, guidance as their doc
+value in the SDK (clauses as typed objects, guidance as their doc
 text — distributable as a pure-data npm module, `50-distribution.md`), or one
-floor document — `PACKAGE.md` — whose structured header carries the clauses and whose
+migration-era document — `PACKAGE.md` — whose structured header carries the clauses and whose
 prose is the guidance. It carries **two semantically separate channels**, and the
 split is load-bearing (`00-intent.md` law 2; `50-distribution.md`) — enforced by
 the algebra, not the filesystem (Decision below):
@@ -305,7 +305,7 @@ composes with the fact/opinion marking (`15-kinds.md`): facts drift when the
 harness's **behavior** changes, opinions when the **docs** change — different
 cadences, both now traceable. The rename lands when the built-in packages are
 authored on temper's own surface (the `contracts/` retirement, Decision below);
-the embedded `rule` floor persists only until then. **Rejected:** bare kind
+the embedded `rule` default persists only until then. **Rejected:** bare kind
 names for built-ins (hides whose taste it is, and collides with the
 project-package namespace); source attribution as file-header prose (what
 `contracts/*.toml` carries today — unauditable, and it drifts exactly like any
@@ -333,7 +333,7 @@ territory, maintained from its cited upstream sources on the product's release
 cadence (the exact symmetry of a built-in kind's extraction being engine code:
 both faces of the harness adapter are the product's), validated by admissibility
 in the test suite, and **embedded** by the build as the shipped std-lib. The
-documents are still authored as floor documents — the medium is dogfooded —
+documents are still authored as migration-era documents — the medium is dogfooded —
 but they are **not** members of temper's own `.temper/` workspace: that surface
 is a *consumer instance*, and it binds the built-ins by name exactly as a
 stranger's assembly would. Conflating the two would make the dogfood workspace

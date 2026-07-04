@@ -10,7 +10,7 @@ rationale = "30-landscapes owns the fidelity seam separating tier-1 structure fr
 
 [provenance]
 source_path = "./specs/architecture/30-landscapes.md"
-source_hash = "dc4576dea39b0b3caaab22de2648ecae3e36845bde6df96b287fa48234eb0826"
+source_hash = "46db609bbb55bac2cbe714ebd8bdbdb6395073fb2d4fdd3ad496c425350d8f71"
 +++
 # Landscapes — instances of the engine
 
@@ -43,21 +43,16 @@ A spec is not free prose the engine guesses about: the kind declares the
 a **genre vocabulary** for the prose's own recurring forms (`00-intent.md`, the
 genre Decision). Declaring the model makes the otherwise-undecidable structural —
 each entity has one declared home (DRY), bindings resolve to declared names (naming
-consistency), every declared entity has an owning spec (coverage). Adoption is a
-gradient of four postures — never-climb between every pair: no check may
-demand a document move, and a corpus may mix postures per document forever:
+consistency), every declared entity has an owning spec (coverage). Adoption is
+two states and one per-document choice. An ungoverned corpus is just
+markdown; a governed one is declared through the SDK's kinds. Within a
+governed corpus each document chooses its own form — plain prose, prose
+with declared genre values, or a value tree whose document is emitted
+projection (prose surviving as **leaves**: authored strings inside genre
+values — addressable, law-5-protected one by one). Documents mix forms
+freely, forever; no check may demand a document change form.
 
-- **Plain document** — markdown, extracted features. The floor.
-- **Bound prose** — the document plus a declared model; mentions opt-in per
-  word (`20-surface.md`).
-- **Embedded genres** — the document remains the authored artifact; the
-  author opts specific blocks into genre values (the genre fence,
-  `20-surface.md`) where the structure pays.
-- **Dissolved document** — the value tree is the source; the document is
-  emitted projection. Prose survives as **leaves**: authored strings inside
-  genre values — addressable, law-5-protected one by one.
-
-The model is **declared, not templated**, at every posture; a corpus with a small
+The model is **declared, not templated**, in every form; a corpus with a small
 model pays little, one reconciled against code pays the modeling tax and is
 repaid in coherence (`00-intent.md` honest bound — coherence, never
 correctness; a contract-clean spec can still model the wrong domain).

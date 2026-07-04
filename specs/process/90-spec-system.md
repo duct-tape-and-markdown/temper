@@ -94,8 +94,8 @@ a typed, resolution-checked, impact-visible graph event where a prose edit
 is an opaque diff, so the review the ceremony rests on becomes mechanical
 rather than heroic. The authority tier never loosens; only the drafting tier
 widens, per document, with the structure that makes review possible.
-Never-climb still holds: draft rights are a consequence a document's author
-may collect, never a pressure to climb. (Ruled 2026-07-03.)
+The opt-in bound still holds: draft rights are a consequence a document's
+author may collect, never a pressure to adopt. (Ruled 2026-07-03.)
 
 The entities stay distinct, because blurring them is how process drifts
 (ruled 2026-07-03): **temper is the product**; **flume is the code path** —
@@ -108,6 +108,13 @@ at wave end one confirmation pass (rebuild, re-import, `temper check`, one
 commit) validates the new version and re-arms the gate. **The interactive
 session builds specs with the human and governs flume — it does not
 hand-execute work the pipeline owns.**
+
+Frame-scale reformulations take a **cooling period**: drafted record → cold
+read → a sleep → the ceremony. And vocabulary is ratification-grade: new
+coinage needs the human, and plain words beat metaphor — the ladder
+vocabulary (rungs, floors, altitude, the adoption gradient) was retired
+2026-07-04 after its connotations were repeatedly mistaken for design
+decisions. (Ruled 2026-07-03/04.)
 
 ## The depth rule — how deep a spec goes
 
@@ -163,10 +170,16 @@ form — the assembly remains the concept), **emit** (the checked compile),
 **carriage** (module-carried / document-carried / in-place), **mention** (an
 authored prose interpolation edge), **adoption gradient** (gate-only → `init`
 → altitude); retired: `import` (→ `init`), `re-add`, `apply` (→ `emit`), the
-`surface language` as the sole member medium (→ the floor's document
-carriage). This corpus's own module-carriage migration is a staged human
-ceremony ahead (`15-kinds.md`, worked example) — until it lands, these
-members stay document-carried.
+`surface language` as the sole member medium (→ document carriage). The
+2026-07-04 re-cut (`manifest-era` tag) then renamed and retired again:
+**authoring face** → **SDK**; **manifest** → the **interchange** (in-memory,
+never a committed file; the **lock** remains the committed anchor); the
+**adoption gradient** and its ladder vocabulary (rungs, floors, altitude,
+climb) retired for plain words — adoption is two states plus per-member and
+per-document choices; **document carriage** reclassed migration-era. This
+corpus's own migration onto the SDK is a staged human ceremony ahead
+(`15-kinds.md`, worked example) — until it lands, these members stay
+document-carried.
 
 ## Decisions
 
