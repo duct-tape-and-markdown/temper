@@ -7,8 +7,7 @@
       "section": "Decision: acquisition rides the ecosystem's package managers"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-ASSEMBLY-ARTIFACTS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -50,7 +49,7 @@
       }
     ],
     "acceptance": "Byte-parity fixtures + Rust goldens live in `contract/` and both `cargo test` and `pnpm --dir sdk test` consume that one set; the interchange JSON Schema (2020-12) + TS types generate Rust-first via schemars/ts-rs; cargo fmt/clippy -D warnings/test + sdk test all green.",
-    "notes": "Ratified reconcile, in-fence item (2b). contract/** is already in build's fence (chain.ts:209, commit 1c33491). schemars/ts-rs are new sanctioned crates authorized by the ratification. Large — build may split (schema gen vs fixture move) and raise it if a tick can't stay green. Blocked on SDK-ASSEMBLY-ARTIFACTS: it shares sdk/test/emit.test.ts and wants the emit surface stable before goldens freeze."
+    "notes": "Ratified reconcile, in-fence item (2b); last of the SDK wave. contract/** is in build's fence (chain.ts:209, commit 1c33491). schemars/ts-rs are new sanctioned crates authorized by the ratification. Now OPEN — blocker SDK-ASSEMBLY-ARTIFACTS shipped (50ed952), emit surface frozen. Large — build may split (schema gen vs fixture move) and raise it if a tick can't stay green."
   },
   {
     "tag": "EXTRACTION-VOCAB-GAPS",
