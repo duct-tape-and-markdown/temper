@@ -1,56 +1,5 @@
 [
   {
-    "tag": "MANIFEST-GATE-READ",
-    "summary": "Make `check` read the `temper.toml` manifest as its gate corpus — manifest + lock + authored sources, not the `.temper/` copy tree; add the `config.stale` finding",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The surface: the assembly over its contents"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "Flip `Workspace::load`/`surface_units` to read the manifest as the corpus: document/module members arrive pre-extracted from the manifest (bounded by the closed vocabulary), the lock supplies freshness — stop ranging the `.temper/` copy tree as the declaration source. Conformance + admissibility unchanged in shape (two greens); the gate reads no language runtime."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Complete the manifest READER begun in MANIFEST-EMIT: load bindings/requirements/features/edges from `temper.toml` into the structures the roster/graph/coverage tier consumes (today only overrides are read)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Rewire `gate()` (main.rs:681) so the manifest is the primary declaration input (not an optional overlay): load it once, pass its features/edges/roster to conformance/admissibility/graph, and run the freshness check."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Add the `config.stale` finding: the committed manifest/projection does not match the lock's `source_hash`/`emit_hash` pair — one finding pointing at whichever side moved. Exposed to check via the gate."
-        },
-        {
-          "path": "tests/temper_toml.rs",
-          "description": "Rework the layering tests: the manifest is the corpus now, not an overlay over a copy-tree floor. Assert check reads bindings/requirements/features from it and reports config.stale on a mismatched fingerprint."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Update the import→check flow: check now reads the manifest; assert a clean manifest checks green and a stale projection surfaces config.stale."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "check loads the temper.toml manifest as its declaration source (bindings, requirements, member features, edges) and reports config.stale when the committed manifest/projection mismatches the lock."
-      }
-    ],
-    "acceptance": "`check` reads the manifest + lock + authored sources as its gate corpus (no `.temper/` copy ranging, no runtime), validates conformance/admissibility/freshness, and reports `config.stale`; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Biggest entry — the manifest becomes the gate's corpus (20-surface: 'the only thing the gate reads'). config.stale's projection half stands on E2's lock, its manifest half on the manifest here. document-carried members are still copied into `.temper/` (INIT-ONRAMP drops that); in-place live-extraction lands in INIT-ONRAMP when in-place members first appear."
-  },
-  {
     "tag": "INIT-ONRAMP",
     "summary": "Rename `import`→`init`: scan an existing harness into a config skeleton over members in place — zero file moves, no `.temper/` copy tree",
     "per": {
