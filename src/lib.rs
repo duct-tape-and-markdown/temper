@@ -23,6 +23,7 @@ pub mod compose;
 pub mod contract;
 pub mod coverage;
 pub mod coverage_note;
+pub mod display;
 pub mod document;
 pub mod drift;
 pub mod engine;

@@ -1,0 +1,6 @@
+---
+source: tests/display_rule.rs
+expression: render_genre(&value)
+---
+<a id="decision.empty"></a>
+### Decision: empty

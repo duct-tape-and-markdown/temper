@@ -1,0 +1,20 @@
+---
+source: tests/display_rule.rs
+expression: render_genre(&decision_value())
+---
+<a id="decision.surface-authority"></a>
+### Decision: surface-authority
+
+<a id="decision.surface-authority.because"></a>
+**Because:** law 7 needs an authored surface
+
+<a id="decision.surface-authority.chosen"></a>
+**Chosen:** the composition surface is canonical
+
+**Rejected:**
+
+<a id="decision.surface-authority.rejected.baked-projection.because"></a>
+*baked-projection* — **Because:** a stamping projector breaks law 5
+
+<a id="decision.surface-authority.rejected.read-only-lens.because"></a>
+*read-only-lens* — **Because:** you cannot compose a harness you only mirror

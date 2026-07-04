@@ -1,0 +1,11 @@
+---
+source: tests/display_rule.rs
+expression: render_genre(&value)
+---
+<a id="decision.collections-only"></a>
+### Decision: collections-only
+
+**Rejected:**
+
+<a id="decision.collections-only.rejected.baked-stance.because"></a>
+*baked-stance* — **Because:** the tool would determine invasiveness on a surface it was invited onto
