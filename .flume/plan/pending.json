@@ -1,40 +1,5 @@
 [
   {
-    "tag": "EXTRACTION-VOCAB-GAPS",
-    "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — walk `a.b.c` over a Unit, absent (not errored) when unresolved, source-kind preserving",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "The extraction algebra — the soundness boundary, as data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Make `Primitive::Field` honor the key-path its own doc-comment promises: the impl flat-reads `unit.frontmatter.get(key)` at kind.rs:835-836, so a nested `a.b.c` path can't be read. No new vocabulary member — this fixes the existing `field` primitive to walk nested tables to the leaf."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Key-path traversal for the field extractor: walk nested TOML/JSON tables to the leaf before `json_to_feature`, kind-preserving per the `type` lattice (`specs/architecture/10-contracts.md`). Absent (not errored) when the path doesn't resolve."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/extract_equivalence.rs",
-        "asserts": "a key-path `field` reads a nested value over a Unit's nested frontmatter and is absent (not errored) when the path doesn't resolve; it preserves the source scalar kind."
-      }
-    ],
-    "acceptance": "A nested-key-path `Primitive::Field` reads `a.b.c` over a `Unit` and is absent when unresolved; a KIND.md declaring it reads the intended feature; cargo fmt/clippy -D warnings/test green.",
-    "notes": "Revived 07-04 (John, inbox): consumer arrived — the settings kind (JSON-manifest, nested keys) is the named consumer for the key-path half. Testable now over nested yaml-frontmatter, independent of the json fork. Shares src/kind.rs with AGENT-KIND, but that entry is parked, so no open-file conflict. SETTINGS-KIND (parked) consumes this — serialized behind it."
-  },
-  {
     "tag": "AGENT-KIND",
     "summary": "Add the `agent` built-in harness kind — `.claude/agents/*.md` as a member document via the generic yaml-frontmatter adapter, checked by the embedded `agent.anthropic` package",
     "per": {
