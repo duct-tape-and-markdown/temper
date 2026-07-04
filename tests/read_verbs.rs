@@ -526,3 +526,136 @@ fn impact_dangles_the_satisfiers_of_a_sole_publisher() {
     );
     insta::assert_snapshot!("impact_sole_publisher", run.stdout);
 }
+
+/// The `temper.toml` for the genre-fence fixture — registers the `spec` custom kind so its
+/// members (and their serialized genre values) load into the read path.
+const GENRE_TEMPER_TOML: &str = "\
+[kind.spec]
+package = \"spec\"
+";
+
+/// A `spec` KIND.md that declares a `decision` genre and composes the `fenced` primitive,
+/// so a member's genre fence extracts into a serialized [`GenreValue`] the leaf-grain
+/// `impact` reads (`specs/architecture/20-surface.md`, "Genre values").
+const GENRE_KIND_MD: &str = "+++\n\
+governs = { root = \"specs\", glob = \"*.md\" }\n\
+\n\
+[[extraction]]\n\
+primitive = \"line_count\"\n\
+\n\
+[[extraction]]\n\
+primitive = \"fenced\"\n\
+\n\
+[[genres]]\n\
+name = \"decision\"\n\
++++\n\
+\n\
+# The spec kind\n\
+\n\
+Governing docs with decision genres.\n";
+
+/// Author a `spec` member carrying a `decision` genre fence — the floor spelling of a
+/// genre value (`specs/architecture/20-surface.md`, "the floor spelling is a genre fence"): a fenced
+/// block whose info string names the genre and key, whose interior is TOML leaves. The
+/// `chosen` leaf addresses as `<name>/decision/surface-authority/chosen`.
+fn write_genre_spec(root: &Path, name: &str) {
+    let dir = root.join(".temper").join("specs").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    let document = format!(
+        "+++\n\
+         [provenance]\n\
+         source_path = \"specs/{name}.md\"\n\
+         source_hash = \"deadbeef\"\n\
+         +++\n\
+         # {name}\n\
+         \n\
+         ```genre.decision surface-authority\n\
+         chosen = \"the surface is canonical\"\n\
+         ```\n"
+    );
+    fs::write(dir.join("SPEC.md"), document).unwrap();
+}
+
+/// Build a fixture whose `spec` member `20-surface` carries a `decision` genre value with a
+/// `chosen` prose leaf — the serialized shape leaf-grain `impact` resolves and reports.
+fn genre_fixture() -> PathBuf {
+    let root = tmpdir("genre-root");
+    let kind_dir = root.join(".temper").join("kinds").join("spec");
+    fs::create_dir_all(&kind_dir).unwrap();
+    fs::write(kind_dir.join("KIND.md"), GENRE_KIND_MD).unwrap();
+    write_genre_spec(&root, "20-surface");
+    fs::write(root.join("temper.toml"), GENRE_TEMPER_TOML).unwrap();
+    root
+}
+
+#[test]
+fn impact_over_a_leaf_address_reports_leaf_grain() {
+    let root = genre_fixture();
+    // A leaf address dispatches to leaf grain: `impact` resolves the leaf against the
+    // serialized genre values and reports its citations *separately from* its fallout — a
+    // leaf is obligation-free, so deleting or rewording it is never blocked (`45-governance.md`,
+    // address grain). No citer is declared (floor leaves carry no mentions), so the
+    // citations heading names none.
+    let run = read(
+        &root,
+        &["impact", "20-surface/decision/surface-authority/chosen"],
+    );
+    assert!(run.ok, "impact on a leaf must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout
+            .contains("Leaf `20-surface/decision/surface-authority/chosen` (spec)"),
+        "leaf grain must name the resolved leaf: {}",
+        run.stdout
+    );
+    assert!(
+        run.stdout
+            .contains("Authored value: \"the surface is canonical\""),
+        "the resolved leaf reads its authored value off the manifest: {}",
+        run.stdout
+    );
+    let citations_at = run.stdout.find("Citations (").expect("a citations heading");
+    let fallout_at = run.stdout.find("Fallout:").expect("a fallout heading");
+    assert!(
+        citations_at < fallout_at,
+        "citations are reported distinctly from fallout: {}",
+        run.stdout
+    );
+    insta::assert_snapshot!("impact_leaf_grain", run.stdout);
+}
+
+#[test]
+fn impact_over_a_member_name_is_unchanged_by_leaf_grain() {
+    let root = genre_fixture();
+    // The bare member name (no slash) still takes the member-grain path — the four blast
+    // strands, not leaf grain — proving the leaf dispatch is additive (regression).
+    let run = read(&root, &["impact", "20-surface"]);
+    assert!(run.ok, "impact on a member must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout
+            .contains("Member `20-surface` (spec) — the blast radius"),
+        "a member name reports member grain, not leaf grain: {}",
+        run.stdout
+    );
+    assert!(
+        !run.stdout.contains("leaf grain"),
+        "a member name never dispatches to leaf grain: {}",
+        run.stdout
+    );
+}
+
+#[test]
+fn impact_over_an_unresolved_leaf_address_still_exits_zero() {
+    let root = genre_fixture();
+    // A leaf address naming no live leaf is a read, not a gate — narrated plainly, exit zero.
+    let run = read(
+        &root,
+        &["impact", "20-surface/decision/surface-authority/rejected"],
+    );
+    assert!(run.ok, "an unresolved leaf must exit zero: {}", run.stdout);
+    assert!(
+        run.stdout
+            .contains("No leaf `20-surface/decision/surface-authority/rejected`"),
+        "an unresolved leaf is named absent: {}",
+        run.stdout
+    );
+}

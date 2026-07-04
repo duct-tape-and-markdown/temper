@@ -47,7 +47,7 @@ use crate::builtin;
 use crate::check::Workspace;
 use crate::compose::{AuthorLayer, Edge, Requirement};
 use crate::document::Satisfies;
-use crate::extract::Features;
+use crate::extract::{Features, LeafAddress};
 use crate::graph::{self, ResolvedEdge};
 use crate::kind::Activation;
 
@@ -85,6 +85,29 @@ pub struct CustomMember {
     pub id: String,
     /// The rationale-preserving `satisfies` clauses this member authors.
     pub satisfies: Vec<Satisfies>,
+}
+
+/// A declared **citation** — a one-way edge from a member (the citer) to a genre-value
+/// [`LeafAddress`] it names (`specs/architecture/45-governance.md`, "the mention is the readmitted
+/// one-way annotation class"; address grain). **Obligation-free**: the obligation graph
+/// ignores it, coverage never counts it, and `impact` reports it as a *citation, never
+/// fallout* — deleting or rewording the cited leaf is never blocked, the citer is told.
+/// **Resolution-checked** against the manifest's serialized genre values: `impact` reports
+/// a citation only for a leaf that resolves, exactly the referential guarantee a mention
+/// carries.
+///
+/// The floor carries no producer yet — floor leaves carry no mentions (interpolation stays
+/// an altitude feature, `specs/architecture/20-surface.md`, "Genre values"), so today's caller
+/// threads an empty set and the leaf-grain report names zero citers. The reporting shape is
+/// ready for the altitude's serialized mentions; the mechanism is proven in unit tests here.
+pub struct Citation {
+    /// The kind of the citer — part of its node identity, and what the narration prints.
+    pub from_kind: String,
+    /// The member id that declares the citation (the citer).
+    pub from: String,
+    /// The leaf address the citation targets — resolved against the serialized genre
+    /// values before it is reported.
+    pub target: LeafAddress,
 }
 
 /// Project every opt-in artifact into the read family's [`Member`] view — the
@@ -325,13 +348,23 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 ///    imports it (its own activation dead); removing `member` unreaches it
 ///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
 ///
+/// The family gains **leaf grain** (`specs/architecture/20-surface.md`, "The family gains leaf
+/// grain"): a `target` naming a genre-value leaf — the `<member>/<genre>/<key>/<field-path>`
+/// address — dispatches to [`impact_leaf`], which resolves the leaf against the manifest's
+/// serialized genre values and reports its **citations separately from fallout** (a leaf is
+/// obligation-free; `specs/architecture/45-governance.md`, address grain). A `target` with no `/` is
+/// a bare member name and takes the member-grain path below, unchanged.
+///
 /// A read, never a gate: the caller prints this and exits zero on every input, a name no
-/// member bears included. `assembly` is the assembly's own `[requirement.*]` roster (to
-/// tell a demand `member` alone publishes from one the assembly also carries); `roster`
+/// member or leaf bears included. `assembly` is the assembly's own `[requirement.*]` roster
+/// (to tell a demand `member` alone publishes from one the assembly also carries); `roster`
 /// is the **composed** namespace `check` gates; `by_kind`, `activations`, `repo_files`,
 /// and `directive_edges` are the exact graph inputs the gate's predicates range over
-/// (READ-EDGE-UNIFY), so the read cannot disagree with a green `check`.
+/// (READ-EDGE-UNIFY), so the read cannot disagree with a green `check`. `by_kind` also
+/// carries each member's serialized genre values, the leaf-grain surface; `citations` are
+/// the declared one-way edges naming a leaf.
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 pub fn impact(
     assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
@@ -339,20 +372,27 @@ pub fn impact(
     activations: &BTreeMap<&str, Activation>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
-    member: &str,
+    citations: &[Citation],
+    target: &str,
 ) -> String {
+    // A `/`-bearing target is a leaf address (member ids never carry a slash), so it
+    // dispatches to leaf grain; a bare name stays the member-grain blast radius below.
+    if target.contains('/') {
+        return impact_leaf(by_kind, citations, target);
+    }
+
     // Every `(kind, id)` node bearing the name — a skill and a rule may share one, each
     // with its own blast radius. Sorted, since `by_kind` is a `BTreeMap` over name-sorted
     // slices.
     let matches: Vec<(&str, &Features)> = by_kind
         .iter()
         .flat_map(|(&kind, members)| members.iter().map(move |features| (kind, features)))
-        .filter(|(_, features)| features.id == member)
+        .filter(|(_, features)| features.id == target)
         .collect();
 
     if matches.is_empty() {
         return format!(
-            "No member named `{member}` is in the surface. `impact` reads the authored \
+            "No member named `{target}` is in the surface. `impact` reads the authored \
              surface's members — skills, rules, and every custom kind's members; check \
              the name, or `import` the harness first.\n"
         );
@@ -375,6 +415,157 @@ pub fn impact(
             directive_edges,
         );
     }
+    out
+}
+
+/// A parsed **leaf address** — the `<member>/<genre>/<key>/<field-path>` spelling `impact`
+/// accepts to name a single genre-value leaf (`specs/architecture/20-surface.md`, "leaf addresses
+/// are structural and keyed"). The three identity segments are `/`-separated; the field
+/// path keeps its own dots (`rejected.baked-projection.because`), so it is the whole
+/// remainder after the third slash — `splitn(4, '/')`, never a plain split that would
+/// mangle a dotted collection path.
+struct ParsedLeaf<'a> {
+    member: &'a str,
+    genre: &'a str,
+    key: &'a str,
+    field_path: &'a str,
+}
+
+/// Parse a `/`-bearing `target` into its four leaf-address segments, or `None` when a
+/// segment is empty (a malformed address the caller reports as such). Keyed and structural
+/// — the address rides the shape the author already wrote, stable under content edits.
+fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
+    let mut parts = target.splitn(4, '/');
+    let member = parts.next()?;
+    let genre = parts.next()?;
+    let key = parts.next()?;
+    let field_path = parts.next()?;
+    if member.is_empty() || genre.is_empty() || key.is_empty() || field_path.is_empty() {
+        return None;
+    }
+    Some(ParsedLeaf {
+        member,
+        genre,
+        key,
+        field_path,
+    })
+}
+
+/// Resolve a parsed leaf address against the manifest's **serialized genre values**
+/// ([`Features::genre_leaves`]) — the tier-1, offline read the leaf-grain `impact` stands
+/// on. Returns the matched leaf's kind and authored value, or `None` when no member's genre
+/// value carries that `(genre, key, field-path)`. Ranges over every kind's members, since a
+/// leaf may live in any genre-bearing kind.
+fn resolve_leaf<'a>(
+    by_kind: &BTreeMap<&str, &'a [Features]>,
+    parsed: &ParsedLeaf<'_>,
+) -> Option<(String, &'a str)> {
+    for (&kind, members) in by_kind {
+        for features in *members {
+            if features.id != parsed.member {
+                continue;
+            }
+            for (address, value) in features.genre_leaves() {
+                if address.genre == parsed.genre
+                    && address.key == parsed.key
+                    && address.field_path == parsed.field_path
+                {
+                    return Some((kind.to_string(), value));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// `temper impact <leaf-address>` — narrate a genre-value leaf at **leaf grain**
+/// (`specs/architecture/20-surface.md`, "The family gains leaf grain"): resolve the leaf against
+/// the manifest's serialized genre values, then report its **citations separately from
+/// fallout** (`specs/architecture/45-governance.md`, address grain). A leaf is obligation-free — its
+/// citations neither gate nor block a rewrite — so the fallout line states exactly that,
+/// distinct from the citation list a join/reachability member-grain report would carry.
+///
+/// A read, never a gate: an ill-formed or unresolved address is narrated plainly and the
+/// caller still exits zero (the read family is never the gate).
+fn impact_leaf(
+    by_kind: &BTreeMap<&str, &[Features]>,
+    citations: &[Citation],
+    target: &str,
+) -> String {
+    let Some(parsed) = parse_leaf_address(target) else {
+        return format!(
+            "`{target}` is not a well-formed leaf address. A leaf address is \
+             `<member>/<genre>/<key>/<field-path>` — the member, the genre value's genre and \
+             key, and the field path within it (`chosen`, or `rejected.baked-projection.because`).\n"
+        );
+    };
+
+    let Some((kind, value)) = resolve_leaf(by_kind, &parsed) else {
+        return format!(
+            "No leaf `{target}` is in the surface's serialized genre values. `impact` reads \
+             leaf grain off the manifest's `[[member.genre]]` tables — check the member, \
+             genre, key, and field path; a document below rung 3 is not represented at leaf \
+             grain.\n"
+        );
+    };
+
+    let ParsedLeaf {
+        member,
+        genre,
+        key,
+        field_path,
+    } = parsed;
+
+    let mut out = String::new();
+    let _ = writeln!(out, "Leaf `{target}` ({kind}) — leaf grain:\n");
+    let _ = writeln!(
+        out,
+        "It is the `{field_path}` leaf of the `{genre}` value `{key}` in member `{member}`.",
+    );
+    let _ = writeln!(out, "Authored value: \"{value}\"\n");
+
+    // Citations — the declared one-way edges naming this leaf, resolution-checked (we only
+    // reach here for a leaf that resolves) and obligation-free. Reported *separately* from
+    // fallout: a citation is never fallout (`specs/architecture/45-governance.md`).
+    let citers: Vec<&Citation> = citations
+        .iter()
+        .filter(|citation| {
+            citation.target.member == member
+                && citation.target.genre == genre
+                && citation.target.key == key
+                && citation.target.field_path == field_path
+        })
+        .collect();
+    if citers.is_empty() {
+        let _ = writeln!(
+            out,
+            "Citations (declared one-way edges that name this leaf — obligation-free): none \
+             — no member cites it."
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "Citations (declared one-way edges that name this leaf — obligation-free):"
+        );
+        for citation in citers {
+            let _ = writeln!(
+                out,
+                "  • `{}` ({}) cites it — a resolved citation, obligation-free.",
+                citation.from, citation.from_kind
+            );
+        }
+    }
+    out.push('\n');
+
+    // Fallout — a leaf carries none: deleting or rewording it is never blocked by its
+    // citations, the whole point of the obligation-free annotation class.
+    let _ = writeln!(
+        out,
+        "Fallout: none — a leaf is obligation-free. Deleting or rewording it is never \
+         blocked by its citations; the citer is told (`45-governance.md`, address grain), \
+         which is the point."
+    );
+
     out
 }
 
@@ -792,7 +983,7 @@ mod impact_tests {
 
     use super::*;
     use crate::document::PublishedRequirement;
-    use crate::extract::{FeatureValue, Kind};
+    use crate::extract::{FeatureValue, GenreValue, Kind};
 
     /// A member's [`Features`] as `impact` reads them: its id, the requirements it opts
     /// into, the demands it publishes, and its `description` field (a blank one is a dead
@@ -879,7 +1070,16 @@ mod impact_tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let activations = BTreeMap::new();
 
-        let solo = impact(&empty, &roster, &by_kind, &activations, &[], &[], "solo");
+        let solo = impact(
+            &empty,
+            &roster,
+            &by_kind,
+            &activations,
+            &[],
+            &[],
+            &[],
+            "solo",
+        );
         assert!(
             solo.contains("Requirements left unfilled (it is the only member filling them):"),
             "{solo}"
@@ -887,7 +1087,16 @@ mod impact_tests {
         assert!(solo.contains("`r1` — required"), "{solo}");
         assert!(solo.contains("fails the gate"), "{solo}");
 
-        let pair = impact(&empty, &roster, &by_kind, &activations, &[], &[], "pair-a");
+        let pair = impact(
+            &empty,
+            &roster,
+            &by_kind,
+            &activations,
+            &[],
+            &[],
+            &[],
+            "pair-a",
+        );
         assert!(
             pair.contains("Requirements left unfilled: none"),
             "a non-sole satisfier strands no requirement: {pair}"
@@ -914,6 +1123,7 @@ mod impact_tests {
             &activations,
             &[],
             &[],
+            &[],
             "publisher",
         );
         assert!(out.contains("`satisfies` left dangling"), "{out}");
@@ -930,6 +1140,7 @@ mod impact_tests {
             &roster,
             &by_kind,
             &activations,
+            &[],
             &[],
             &[],
             "publisher",
@@ -950,7 +1161,16 @@ mod impact_tests {
         let activations = BTreeMap::new();
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
 
-        let out = impact(&empty, &empty, &by_kind, &activations, &[], &edges, "leaf");
+        let out = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &edges,
+            &[],
+            "leaf",
+        );
         assert!(out.contains("Directive edges left unbacked"), "{out}");
         assert!(
             out.contains("`hub` (doc) imports it via `@at-import`"),
@@ -958,7 +1178,16 @@ mod impact_tests {
         );
 
         // `hub` imports but is not imported, so nothing points *at* it.
-        let out = impact(&empty, &empty, &by_kind, &activations, &[], &edges, "hub");
+        let out = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &edges,
+            &[],
+            "hub",
+        );
         assert!(out.contains("Directive edges left unbacked: none"), "{out}");
     }
 
@@ -981,7 +1210,16 @@ mod impact_tests {
         )]);
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
 
-        let out = impact(&empty, &empty, &by_kind, &activations, &[], &edges, "hub");
+        let out = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &edges,
+            &[],
+            "hub",
+        );
         assert!(out.contains("Reachability that dies with it"), "{out}");
         assert!(
             out.contains("`leaf` (doc) — its own activation is dead"),
@@ -989,7 +1227,16 @@ mod impact_tests {
         );
 
         // Removing `leaf` orphans nobody — it imports nothing.
-        let out = impact(&empty, &empty, &by_kind, &activations, &[], &edges, "leaf");
+        let out = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &edges,
+            &[],
+            "leaf",
+        );
         assert!(
             out.contains("Reachability that dies with it: none"),
             "{out}"
@@ -1003,10 +1250,153 @@ mod impact_tests {
         let empty = BTreeMap::new();
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
         let activations = BTreeMap::new();
-        let out = impact(&empty, &empty, &by_kind, &activations, &[], &[], "ghost");
+        let out = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &[],
+            &[],
+            "ghost",
+        );
         assert!(
             out.contains("No member named `ghost` is in the surface"),
             "{out}"
+        );
+    }
+
+    /// A genre-bearing member for the leaf-grain proofs — one `decision` value with a
+    /// `chosen` prose leaf, the serialized shape `impact` reads at leaf grain. The e2e
+    /// drives carry genres only through a custom kind, so the leaf strand is unit-proven
+    /// here beside the directive/reachability strands.
+    fn genre_member(id: &str) -> Features {
+        let mut features = feature(id, &[], &[], Some("d"));
+        features.genres = vec![GenreValue {
+            genre: "decision".to_string(),
+            key: "surface-authority".to_string(),
+            leaves: BTreeMap::from([(
+                "chosen".to_string(),
+                "the surface is canonical".to_string(),
+            )]),
+            collections: BTreeMap::new(),
+        }];
+        features
+    }
+
+    #[test]
+    fn a_leaf_address_reports_citations_separately_from_fallout() {
+        // `impact` on a leaf address resolves the leaf against the serialized genre values,
+        // reports the citing one-way edge under its own heading (never fallout), and states
+        // the leaf is obligation-free — deleting or rewording it is never blocked.
+        let empty = BTreeMap::new();
+        let activations = BTreeMap::new();
+        let members = [genre_member("20-surface")];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+        let citations = [Citation {
+            from_kind: "spec".to_string(),
+            from: "45-governance".to_string(),
+            target: LeafAddress {
+                member: "20-surface".to_string(),
+                genre: "decision".to_string(),
+                key: "surface-authority".to_string(),
+                field_path: "chosen".to_string(),
+            },
+        }];
+
+        let out = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &[],
+            &citations,
+            "20-surface/decision/surface-authority/chosen",
+        );
+
+        // Resolved against the manifest and reported at leaf grain.
+        assert!(
+            out.contains("Leaf `20-surface/decision/surface-authority/chosen` (spec)"),
+            "{out}"
+        );
+        assert!(
+            out.contains("Authored value: \"the surface is canonical\""),
+            "{out}"
+        );
+        // Citations precede — and are distinct from — fallout.
+        let citations_at = out.find("Citations (").expect("a citations heading");
+        let fallout_at = out.find("Fallout:").expect("a fallout heading");
+        assert!(
+            citations_at < fallout_at,
+            "citations are reported separately from fallout: {out}"
+        );
+        assert!(out.contains("`45-governance` (spec) cites it"), "{out}");
+        // Obligation-free: the leaf carries no gating fallout and a rewrite is never blocked.
+        assert!(out.contains("Fallout: none"), "{out}");
+        assert!(out.contains("never blocked by its citations"), "{out}");
+    }
+
+    #[test]
+    fn a_leaf_with_no_citation_names_zero_citers() {
+        // Absent any citing edge, the leaf still resolves and reports — the citations
+        // heading names none, the floor's standing state (floor leaves carry no mentions).
+        let empty = BTreeMap::new();
+        let activations = BTreeMap::new();
+        let members = [genre_member("20-surface")];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+
+        let out = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &[],
+            &[],
+            "20-surface/decision/surface-authority/chosen",
+        );
+        assert!(out.contains("none — no member cites it"), "{out}");
+        assert!(out.contains("Fallout: none"), "{out}");
+    }
+
+    #[test]
+    fn an_unresolved_or_malformed_leaf_address_is_a_clean_read() {
+        // Both an address naming no live leaf and an ill-formed one are reads, not gates —
+        // narrated plainly so the caller still exits zero.
+        let empty = BTreeMap::new();
+        let activations = BTreeMap::new();
+        let members = [genre_member("20-surface")];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+
+        let missing = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &[],
+            &[],
+            "20-surface/decision/surface-authority/rejected",
+        );
+        assert!(
+            missing.contains("No leaf `20-surface/decision/surface-authority/rejected`"),
+            "{missing}"
+        );
+
+        let malformed = impact(
+            &empty,
+            &empty,
+            &by_kind,
+            &activations,
+            &[],
+            &[],
+            &[],
+            "20-surface/decision",
+        );
+        assert!(
+            malformed.contains("is not a well-formed leaf address"),
+            "{malformed}"
         );
     }
 }

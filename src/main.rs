@@ -246,10 +246,12 @@ enum Command {
     /// strands if it is removed or renamed: the requirements it alone fills (left
     /// unfilled), the `satisfies` onto demands it alone publishes (left dangling), the
     /// `@import` edges pointing at it (left unbacked), and the members reachable only
-    /// through it (gone dead). The deterministic tier-1 traversal over the graph `check`
-    /// carries; never gates, exits zero.
+    /// through it (gone dead). Accepts a **leaf address** (`member/genre/key/field-path`)
+    /// too, reporting the leaf's citations separately from fallout. The deterministic tier-1
+    /// traversal over the graph `check` carries; never gates, exits zero.
     Impact {
-        /// The member (a skill, rule, or custom-kind member) to trace the blast radius of.
+        /// A member name (a skill, rule, or custom-kind member) or a leaf address
+        /// (`member/genre/key/field-path`) to trace at member or leaf grain.
         member: String,
     },
 }
@@ -621,6 +623,14 @@ fn main() -> miette::Result<ExitCode> {
             let directive_members = collect_directive_members(&workspace, &custom_kinds)?;
             let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
+            // A leaf address (`member/genre/key/field-path`) dispatches to leaf grain,
+            // reading each member's serialized genre values off `by_kind`. Citations are
+            // the declared one-way edges naming a leaf; the floor carries no producer yet —
+            // floor leaves carry no mentions (`specs/architecture/20-surface.md`, "Genre values"), so
+            // the set is empty until the altitude serializes them, and the leaf-grain report
+            // names zero citers today.
+            let citations: Vec<read::Citation> = Vec::new();
+
             print!(
                 "{}",
                 read::impact(
@@ -630,6 +640,7 @@ fn main() -> miette::Result<ExitCode> {
                     &activations,
                     &repo_files,
                     &directive_edges,
+                    &citations,
                     &member,
                 )
             );

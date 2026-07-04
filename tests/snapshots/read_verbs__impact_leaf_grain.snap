@@ -1,0 +1,13 @@
+---
+source: tests/read_verbs.rs
+assertion_line: 623
+expression: run.stdout
+---
+Leaf `20-surface/decision/surface-authority/chosen` (spec) — leaf grain:
+
+It is the `chosen` leaf of the `decision` value `surface-authority` in member `20-surface`.
+Authored value: "the surface is canonical"
+
+Citations (declared one-way edges that name this leaf — obligation-free): none — no member cites it.
+
+Fallout: none — a leaf is obligation-free. Deleting or rewording it is never blocked by its citations; the citer is told (`45-governance.md`, address grain), which is the point.
