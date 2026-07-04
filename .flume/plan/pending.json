@@ -1,42 +1,5 @@
 [
   {
-    "tag": "MEMORY-PROJECTION-SDK",
-    "summary": "Project a module-carried memory in SDK emit — its frontmatterless body to the root `<name>.md` locus, with a lock row — so the dogfood's memories carry onto the SDK authoring face",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Member carriage — module, document, in-place"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/project.ts",
-          "description": "Make `memory` a projected kind: extend `isProjectedKind` and `projectionPath` so a `claude-code.memory`/`agents-md.memory` member projects to `<name>.md` at the harness root (`CLAUDE.md`, `AGENTS.md`) — the memory KIND.md declares no frontmatter (kinds/claude-code/memory/KIND.md), so the whole file is the body and `projectMember` emits body-alone (no `---` block). Update the doc comments that name only `rule`/`skill` as projected. NB nested/placement-folded memory loci stay out of scope — a module-carried member is locus-less (no `source_dir`), so this slice projects the root memory only; a nested-locus declaration mechanism is an unfiled follow-on."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`emit`'s `projected` filter and its `lockRow` map now include memory members (via the extended `isProjectedKind`), so a memory both projects a root `CLAUDE.md`/`AGENTS.md` and stamps a `source_hash`/`emit_hash` lock row. Update the `EmitResult`/`emit` doc comments that assert 'only rule/skill carry a projection and a lock row'. No manifest-shape or byte-parity change — memory already serializes into `[[member]]`; this adds only its projection + lock output."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Add a case: a `memory({ name: 'CLAUDE', body: md`...` })` member emits a projection at `CLAUDE.md` whose bytes are the body alone (no frontmatter block) and a lock row keyed on that path; assert double-emit stability holds with the memory included. Keep the existing rule/skill byte-parity cases untouched."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a module-carried memory projects its frontmatterless body to `CLAUDE.md` (body-alone bytes) and stamps a lock row; emit stays double-emit stable with the memory present."
-      }
-    ],
-    "acceptance": "`emit` on a harness carrying a `memory()` member returns a projection at the root `<name>.md` with body-alone bytes and a lock row for it (today it lands in the manifest but projects nowhere); `writeEmit` writes that CLAUDE.md; the rule/skill byte-parity fixtures still pass; `pnpm --dir sdk test` green.",
-    "notes": "John's ruling (inbox 07-04): the dogfood migrates onto the SDK and memory projection is the wanted next SDK slice. Scoped to the root memory locus — sufficient for the dogfood (CLAUDE.md + AGENTS.md both at root). Rust emit does NOT project memory (BUILTIN_KINDS=skill/rule), so this is an SDK-ahead capability under TS-primary, not a byte-parity port — no Rust projector to pin against. Shares emit.ts+project.ts with the SDK seams held as forks; single open SDK head this tick."
-  },
-  {
     "tag": "EXTRACTION-VOCAB-GAPS",
     "summary": "Make `Primitive::Field` honor the nested key-path its doc-comment promises — held deferred until a nested-key kind (a JSON-manifest kind) consumes it",
     "per": {
