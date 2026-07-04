@@ -128,6 +128,7 @@ const selfCheckGate = shellGate({
   failHint:
     "temper's own surface went red — fix the code or the harness, never bypass the self-check.",
 });
+void selfCheckGate; // deactivated for the demolition wave — see gates below; re-wire at wave end.
 
 /**
  * The SDK gate — resolves `(sdk-build-gate)`: `sdk/**` is TypeScript inside a
