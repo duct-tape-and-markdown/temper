@@ -72,9 +72,20 @@ path strings remain in comments).
   A **fourth** has now shipped — MANIFEST-EMIT (`build` adbd18a / `chore`
   cdd26ca): import serializes the generated-canonical manifest (`[[member]]`
   feature tables) beside `.temper/`, the floor patched format-preserving; the
-  read side stays inert until the gate consumes it. This reconcile flipped
-  **MANIFEST-GATE-READ `open`** as the new head (INIT-ONRAMP →
-  EMIT-OWNED-PLACEMENTS serialized behind it). These floor entries are NOT
+  read side stays inert until the gate consumes it. A **fifth** has now
+  shipped — MANIFEST-GATE-READ (`build` 70eb831 / `chore` f185d2f): the
+  committed `temper.toml` manifest's `[[member]]` tables ARE the gate's corpus
+  (main.rs:700, keyed by bare kind), carrying the inbox-recommended legacy
+  fallback — a manifest with zero `[[member]]` tables (temper's own pre-`emit`
+  dogfood) falls back to live `check::surface_units` extraction, so the gate
+  never reads an empty corpus and the self-gate red does not recur. This
+  reconcile flipped **INIT-ONRAMP `open`** as the new head (EMIT-OWNED-PLACEMENTS
+  serialized behind it on shared `src/drift.rs`). ACCEPTED DEBT (out of build's
+  fence): temper's own committed `temper.toml`+lock still predate MANIFEST-EMIT
+  (zero `[[member]]` tables), so the manifest-read path is exercised against
+  fixtures, not the dogfood — regenerating them via `emit` is a human
+  `chore(harness)` (`temper.toml` ∉ `BUILD_WRITABLE_PATHS`), a follow-on beside
+  INIT-ONRAMP. These floor entries are NOT
   `dependsOnForks`-gated on this fork: the human unblocked the floor explicitly.
   **STILL OPEN — the altitude rung only:** ask (a), the TypeScript SDK /
   authoring-face npm scaffolding, stays **parked on John** (like

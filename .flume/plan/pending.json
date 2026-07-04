@@ -7,8 +7,7 @@
       "section": "Decision: `init` is the on-ramp, and adoption is a gradient"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-GATE-READ"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
