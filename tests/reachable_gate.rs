@@ -96,11 +96,11 @@ fn unscoped_rule() -> String {
 /// `import` verb, so the workspace `check` reads is built exactly as a user's would be —
 /// each skill under `.claude/skills/<name>/SKILL.md`, each rule under
 /// `.claude/rules/<name>.md`. Both surface roots are always created so `import` scans a
-/// well-formed tree even when one kind is empty.
+/// well-formed tree even when one kind is empty. The harness *is* `root` (`.claude/`
+/// beside `.temper/` and `temper.toml`) so a later [`write_temper_toml`] resync sees
+/// the same tree a real invocation would.
 fn import_harness(root: &Path, skills: &[(&str, String)], rules: &[(&str, String)]) {
-    let harness = tmpdir("harness");
-
-    let skills_root = harness.join(".claude").join("skills");
+    let skills_root = root.join(".claude").join("skills");
     fs::create_dir_all(&skills_root).unwrap();
     for (name, md) in skills {
         let dir = skills_root.join(name);
@@ -108,15 +108,23 @@ fn import_harness(root: &Path, skills: &[(&str, String)], rules: &[(&str, String
         fs::write(dir.join("SKILL.md"), md).unwrap();
     }
 
-    let rules_root = harness.join(".claude").join("rules");
+    let rules_root = root.join(".claude").join("rules");
     fs::create_dir_all(&rules_root).unwrap();
     for (name, md) in rules {
         fs::write(rules_root.join(format!("{name}.md")), md).unwrap();
     }
 
-    let into = root.join(".temper");
-    temper::import::run(&harness, &into).unwrap();
-    temper::import::emit_manifest(&harness, &into).unwrap();
+    sync(root);
+}
+
+/// Re-run `import` over `root` (harness == root), refreshing the surface and the
+/// lock's declaration rows (`specs/architecture/20-surface.md`, "The lock and drift") from
+/// whatever `root/temper.toml` currently declares — the gate's assembly source
+/// (MANIFEST-MACHINERY-RETIRE). `import` merges surface edits forward rather than
+/// clobbering them (`write_member_surface`), so a prior custom-kind/`satisfies` author
+/// survives the resync.
+fn sync(root: &Path) {
+    let _ = temper::import::run(root, &root.join(".temper"));
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -143,9 +151,11 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml`.
+/// Write `<root>/temper.toml`, then resync so the lock's declaration rows — the
+/// gate's assembly source — reflect it.
 fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
+    sync(root);
 }
 
 /// The assembly's reachability opt-in at the given severity.
@@ -153,24 +163,20 @@ fn reachability_toml(severity: &str) -> String {
     format!("[reachability]\nseverity = \"{severity}\"\n")
 }
 
-/// Import a rules-only harness into `<root>/.temper`, returning the harness dir so a
-/// caller can author a custom-kind member whose provenance `source_path` lands in the
-/// *same* coordinate system `import` records (an absolute path rooted at the harness) —
-/// the join key the directive classing resolves a member→member edge over.
-fn import_rules(root: &Path, rules: &[(&str, String)]) -> PathBuf {
-    let harness = tmpdir("harness");
+/// Import a rules-only harness into `<root>/.temper`. The harness *is* `root`
+/// (`.claude/` beside `.temper/`), so a custom-kind member's provenance `source_path`
+/// rooted at `root` lands in the *same* coordinate system `import` records — the join
+/// key the directive classing resolves a member→member edge over.
+fn import_rules(root: &Path, rules: &[(&str, String)]) {
     // Both surface roots created so `import` scans a well-formed tree even with no skills.
-    fs::create_dir_all(harness.join(".claude").join("skills")).unwrap();
-    let rules_root = harness.join(".claude").join("rules");
+    fs::create_dir_all(root.join(".claude").join("skills")).unwrap();
+    let rules_root = root.join(".claude").join("rules");
     fs::create_dir_all(&rules_root).unwrap();
     for (name, md) in rules {
         fs::write(rules_root.join(format!("{name}.md")), md).unwrap();
     }
 
-    let into = root.join(".temper");
-    temper::import::run(&harness, &into).unwrap();
-    temper::import::emit_manifest(&harness, &into).unwrap();
-    harness
+    sync(root);
 }
 
 /// Author a custom `note` kind whose members compose the `at-import` directive and
@@ -178,11 +184,12 @@ fn import_rules(root: &Path, rules: &[(&str, String)]) -> PathBuf {
 /// no-clause bound package, and one member `member_id` importing `import_target` (a path
 /// relative to the member's directory). The member's provenance `source_path` is set
 /// consistent with the harness coordinate system `import` records — an absolute path
-/// rooted at `harness` — so the directive resolves to the imported target member and a
+/// rooted at `root` — so the directive resolves to the imported target member and a
 /// member→member edge forms. This is the wired directive-edge path (a memory member
 /// would be the natural importer, but the built-in `memory` kind is not yet fed into the
 /// directive classing corpus).
-fn author_live_note_importing(root: &Path, harness: &Path, member_id: &str, import_target: &str) {
+fn author_live_note_importing(root: &Path, member_id: &str, import_target: &str) {
+    let harness = root;
     let kind = root.join(".temper").join("kinds").join("note");
     fs::create_dir_all(&kind).unwrap();
     fs::write(
@@ -365,7 +372,7 @@ fn a_dead_member_a_reachable_member_imports_is_rescued_while_an_orphan_still_fir
     // Two rules, each scoped to a glob matching no repo file — both have a dead own
     // paths-match world-edge. `scoped` is imported by an always-live note member; `orphan`
     // is imported by nobody.
-    let harness = import_rules(
+    import_rules(
         &root,
         &[
             ("scoped", paths_rule("nowhere/**/*.md")),
@@ -374,7 +381,7 @@ fn a_dead_member_a_reachable_member_imports_is_rescued_while_an_orphan_still_fir
     );
     // The unconditionally-live note member imports `scoped` via an `@`-directive — the
     // observed member→member edge reachability closes over.
-    author_live_note_importing(&root, &harness, "importer", "../.claude/rules/scoped.md");
+    author_live_note_importing(&root, "importer", "../.claude/rules/scoped.md");
     write_temper_toml(
         &root,
         &format!(

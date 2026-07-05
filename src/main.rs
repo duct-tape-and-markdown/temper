@@ -13,13 +13,12 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
-use temper::assembly_artifacts;
 use temper::builtin;
 use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
-use temper::contract::Contract;
+use temper::contract::{self, Contract};
 use temper::coverage;
 use temper::coverage_note;
 use temper::document;
@@ -481,27 +480,26 @@ fn gate(
     authored: &Path,
     temper_toml: &Path,
 ) -> miette::Result<Vec<check::Diagnostic>> {
-    // Absent `temper.toml` ⇒ `None` and the by-kind floor runs verbatim; present
-    // ⇒ it layers over the floor per kind below (`specs/architecture/40-composition.md`).
-    let mut layer = load_layer(temper_toml)?;
+    // Absent `temper.toml` ⇒ `None` and the by-kind floor runs verbatim; present ⇒ its
+    // per-kind package bindings/clause overrides layer over the floor per kind below
+    // (`specs/architecture/40-composition.md`).
+    let layer = load_layer(temper_toml)?;
 
-    // The temper-owned assembly-fact artifacts (`roster.toml`/`bindings.toml`) sit beside
-    // `temper.toml` (`specs/architecture/20-surface.md`, "the bindings, the roster — are emitted
-    // as small committed temper-owned artifacts"). When present, the gate reads its
-    // requirement roster + kind bindings from them as the assembly source, so an
-    // SDK-emitted members-only manifest resolves its `satisfies` instead of dangling. The
-    // manifest layer's own inline roster/bindings, if any, take precedence (merge fills
-    // only what it left absent). Located beside the manifest — the CWD for a two-step
-    // `check`, the harness path for the one-shot gate.
-    let assembly_dir = temper_toml
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    if let Some(artifacts) = assembly_artifacts::load(assembly_dir)? {
-        layer
-            .get_or_insert_with(|| compose::AuthorLayer::empty(temper_toml))
-            .merge_assembly(artifacts.requirements, artifacts.bindings);
-    }
+    // The assembly's own declared facts — requirements, edges, and the reachability
+    // opt-in — ride the lock's declaration rows (`specs/architecture/40-composition.md`,
+    // "Decision: one authored assembly, no configuration dialect"): `import` is the one
+    // (transitional) producer (`drift::Declarations::write_into`), this is the gate's one
+    // read of it, replacing the retired `temper.toml` `[requirement.*]`/
+    // `[[kind.*.relationships]]` reads and the `roster.toml`/`bindings.toml` assembly-fact
+    // artifacts.
+    let declarations = drift::read_declarations(workspace)?;
+    let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
+        .requirements
+        .iter()
+        .map(|row| (row.name.clone(), requirement_from_row(row)))
+        .collect();
+    let assembly_edges = edges_from_declarations(&declarations);
+    let assembly_reachability = reachability_from_declarations(&declarations);
 
     // A bound package resolves against the built-in floor ∪ this directory
     // (`specs/architecture/20-surface.md`); absent a binding the floor runs, so it is never read
@@ -665,7 +663,8 @@ fn gate(
         // read derive one identical edge set (READ-EDGE-UNIFY). Owned here so the
         // feature slices outlive the graph tier (which borrows them via `by_kind`)
         // and the conformance loop below.
-        let (custom_kinds, edges) = custom_kinds_and_edges(workspace, layer, &kinds_dir)?;
+        let (custom_kinds, edges) =
+            custom_kinds_and_edges(workspace, layer, &kinds_dir, &assembly_edges)?;
 
         // In-place carriage is built-in-kind only, so a custom kind carries no in-place member;
         // in that mode its live `.temper/` features would read a copy tree the in-place harness
@@ -701,7 +700,7 @@ fn gate(
         // collision is an admissibility finding and the first publisher keeps the slot,
         // so the roster/coverage passes below judge one coherent namespace.
         let (requirements, collisions) =
-            union_published_requirements(layer.requirements(), &all_features);
+            union_published_requirements(&assembly_requirements, &all_features);
         diagnostics.extend(collisions);
 
         // Admissibility before conformance here too: each requirement's own
@@ -746,7 +745,7 @@ fn gate(
         // edge-count bound every satisfier's degree must fall inside, so it takes
         // the requirements *and* the edges, reusing the arc resolution
         // `acyclic`/`check` assemble. Opt-in per requirement.
-        diagnostics.extend(graph::degree(layer.requirements(), &edges, &by_kind));
+        diagnostics.extend(graph::degree(&assembly_requirements, &edges, &by_kind));
 
         // Directive-target classing over the **full** corpus (`specs/architecture/15-kinds.md`,
         // "Directives"): built-in *and* custom members, so a custom kind's `@import` at a
@@ -765,7 +764,7 @@ fn gate(
         // opt-in like `degree` — it runs only when the assembly declares `[reachability]`,
         // at its declared severity (resolved `reachability-gate-mechanism` option b), so
         // a deliberate work-in-progress dead edge stays the author's call.
-        if let Some(reachability) = layer.reachability() {
+        if let Some(reachability) = assembly_reachability {
             // The world's inbound edge into each in-scope kind is that kind's declared
             // activation: the built-in kinds' via `builtin_kind::definitions()`, each
             // custom kind's via its own `CustomKind.activation`. A kind declaring none
@@ -954,10 +953,10 @@ fn scratch_surface() -> miette::Result<PathBuf> {
 type CustomKindEntry<'a> = (&'a str, CustomKind, Vec<extract::Features>);
 
 /// Load every registered custom kind (definition + computed features) and assemble
-/// the declared edge set — `layer.edges()` plus each custom kind's own
-/// `[[relationships]]`. The **one** construction the `check` gate and the `why`
-/// read both derive their by-kind corpus + edge set from (READ-EDGE-UNIFY: no
-/// private re-derivation).
+/// the declared edge set — the assembly's lock-sourced `assembly_edges` plus each
+/// custom kind's own `[[relationships]]`. The **one** construction the `check` gate
+/// and the `why` read both derive their by-kind corpus + edge set from
+/// (READ-EDGE-UNIFY: no private re-derivation).
 ///
 /// A `[kind.<name>]` whose name is a built-in is a contract layer, not a
 /// registration, so it is skipped (`specs/architecture/40-composition.md`). The returned names
@@ -966,6 +965,7 @@ fn custom_kinds_and_edges<'a>(
     workspace: &Path,
     layer: &'a compose::AuthorLayer,
     kinds_dir: &Path,
+    assembly_edges: &[compose::Edge],
 ) -> miette::Result<(Vec<CustomKindEntry<'a>>, Vec<compose::Edge>)> {
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
     for name in layer.registered_kinds() {
@@ -981,9 +981,9 @@ fn custom_kinds_and_edges<'a>(
         custom_kinds.push((name, custom, features));
     }
 
-    // A built-in kind declares its edges in the assembly (`layer.edges()`), a
+    // A built-in kind declares its edges in the assembly (lock-sourced, above), a
     // custom kind in its own `KIND.md` (`specs/architecture/15-kinds.md`).
-    let mut edges: Vec<compose::Edge> = layer.edges().to_vec();
+    let mut edges: Vec<compose::Edge> = assembly_edges.to_vec();
     for (_name, custom, _features) in &custom_kinds {
         edges.extend(custom.relationships.iter().cloned());
     }
@@ -1120,6 +1120,85 @@ fn to_requirement(published: &document::PublishedRequirement) -> compose::Requir
         degree: None,
         verified_by: None,
     }
+}
+
+/// Lift the lock's [`drift::RequirementRow`] — the whole requirement shape `import`
+/// wrote (`specs/architecture/40-composition.md`) — into the [`compose::Requirement`]
+/// the roster/coverage/graph tiers already take, the mirror of `import`'s own
+/// `requirement_row`. The row carries no `means` (`import` never emits it — `specs/intent/00-intent.md`
+/// law 3, "`temper` never interprets `means`" — no gate reads it), so it defaults here too.
+fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
+    compose::Requirement {
+        name: row.name.clone(),
+        means: None,
+        kind: row.kind.clone(),
+        package: row.package.clone(),
+        required: row.required,
+        count: row.count.map(|count| compose::CountBound {
+            min: count.min,
+            max: count.max,
+        }),
+        unique: row.unique.clone(),
+        membership: row
+            .membership
+            .as_ref()
+            .map(|membership| compose::Membership {
+                field: membership.field.clone(),
+                source: membership.source.clone(),
+                source_kind: membership.source_kind.clone(),
+                source_feature: membership.source_feature.clone(),
+                source_package: membership.source_package.clone(),
+            }),
+        degree: row.degree.as_ref().map(|degree| compose::DegreeBound {
+            incoming: degree.incoming.map(|bound| compose::EdgeBound {
+                min: bound.min,
+                max: bound.max,
+            }),
+            outgoing: degree.outgoing.map(|bound| compose::EdgeBound {
+                min: bound.min,
+                max: bound.max,
+            }),
+        }),
+        verified_by: row.verified_by.clone(),
+    }
+}
+
+/// The assembly's declared edges off the lock's `assembly` fact family — every
+/// `fact = "edge"` row, tolerantly (a row missing a column is skipped, not errored;
+/// `drift::read_declarations`'s tolerance).
+fn edges_from_declarations(declarations: &drift::Declarations) -> Vec<compose::Edge> {
+    declarations
+        .assembly
+        .iter()
+        .filter(|fact| fact.fact == "edge")
+        .filter_map(|fact| {
+            Some(compose::Edge {
+                field: fact.field.clone()?,
+                from: fact.from.clone()?,
+                to: fact.to.clone()?,
+            })
+        })
+        .collect()
+}
+
+/// The assembly's `[reachability]` opt-in off the lock's `assembly` fact family —
+/// the `fact = "reachability"` row's severity, when present and its `value` names a
+/// recognized severity label. Absent or malformed ⇒ `None` (no opt-in), matching
+/// `read_declarations`'s "absent evidence forges no finding" tolerance.
+fn reachability_from_declarations(
+    declarations: &drift::Declarations,
+) -> Option<compose::Reachability> {
+    declarations
+        .assembly
+        .iter()
+        .find(|fact| fact.fact == "reachability")
+        .and_then(|fact| fact.value.as_deref())
+        .and_then(|label| match label {
+            "required" => Some(contract::Severity::Required),
+            "advisory" => Some(contract::Severity::Advisory),
+            _ => None,
+        })
+        .map(|severity| compose::Reachability { severity })
 }
 
 /// Load a custom `kind`'s units from the surface generically — every surface

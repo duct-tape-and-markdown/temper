@@ -15,7 +15,6 @@
 /// Crate version, surfaced by the CLI's `--version`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub mod assembly_artifacts;
 pub mod builtin;
 pub mod builtin_kind;
 pub mod bundle;

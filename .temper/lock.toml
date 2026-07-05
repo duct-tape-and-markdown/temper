@@ -19,7 +19,7 @@ emit_hash = "7f52c4f395f91f4a318972a8dcb9b567c859b3a5ccc8bdf584cc0824380c8844"
 [[rule]]
 name = "rust"
 source_path = "./.claude/rules/rust.md"
-source_hash = "c1116b5ca2c1a0d6df07ff54f080b114bfbf69a40035ab13466c319422b7c777"
+source_hash = "47f2591756d97cde3428400f8be7f05acc87b0c4a2c6ccf5c3dc34af0ea49bfe"
 emit_hash = "47f2591756d97cde3428400f8be7f05acc87b0c4a2c6ccf5c3dc34af0ea49bfe"
 
 [[architecture]]
@@ -87,3 +87,174 @@ name = "90-spec-system"
 source_path = "./specs/process/90-spec-system.md"
 source_hash = "0a0c4ae7e2423376c3439e1c40cdb55c9d41da7279096db30e10450408aaecad"
 emit_hash = "0a0c4ae7e2423376c3439e1c40cdb55c9d41da7279096db30e10450408aaecad"
+
+[[declaration.kind]]
+name = "architecture"
+governs_root = "specs/architecture"
+governs_glob = "*.md"
+
+[[declaration.kind]]
+name = "intent"
+governs_root = "specs/intent"
+governs_glob = "*.md"
+
+[[declaration.kind]]
+name = "memory"
+provider = "agents-md"
+governs_root = "."
+governs_glob = "**/AGENTS.md"
+unit_shape = "file"
+activation = "always"
+
+[[declaration.kind]]
+name = "memory"
+provider = "claude-code"
+governs_root = "."
+governs_glob = "**/CLAUDE.md"
+unit_shape = "file"
+activation = "always"
+
+[[declaration.kind]]
+name = "process"
+governs_root = "specs/process"
+governs_glob = "*.md"
+
+[[declaration.kind]]
+name = "rule"
+provider = "claude-code"
+governs_root = ".claude/rules"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+activation = "paths-match(paths)"
+
+[[declaration.clause]]
+kind = "memory"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.clause]]
+kind = "rule"
+predicate = "optional"
+field = "paths"
+severity = "advisory"
+
+[[declaration.clause]]
+kind = "rule"
+predicate = "forbidden_keys"
+severity = "required"
+
+[[declaration.clause]]
+kind = "rule"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.requirement]]
+name = "collaboration-discipline"
+kind = "rule"
+required = true
+
+[[declaration.requirement]]
+name = "engineering-standards"
+kind = "rule"
+required = true
+
+[[declaration.assembly]]
+fact = "authority"
+value = "shared"
+
+[[declaration.satisfies]]
+member = "10-contracts"
+requirement = "predicate-algebra"
+
+[[declaration.satisfies]]
+member = "10-contracts"
+requirement = "requirement-fill"
+
+[[declaration.satisfies]]
+member = "10-contracts"
+requirement = "package"
+
+[[declaration.satisfies]]
+member = "10-contracts"
+requirement = "verified-by"
+
+[[declaration.satisfies]]
+member = "10-contracts"
+requirement = "gate-severity"
+
+[[declaration.satisfies]]
+member = "15-kinds"
+requirement = "extraction-algebra"
+
+[[declaration.satisfies]]
+member = "15-kinds"
+requirement = "kind"
+
+[[declaration.satisfies]]
+member = "15-kinds"
+requirement = "provider"
+
+[[declaration.satisfies]]
+member = "20-surface"
+requirement = "member"
+
+[[declaration.satisfies]]
+member = "20-surface"
+requirement = "projection"
+
+[[declaration.satisfies]]
+member = "20-surface"
+requirement = "drift-engine"
+
+[[declaration.satisfies]]
+member = "20-surface"
+requirement = "authoring-face"
+
+[[declaration.satisfies]]
+member = "20-surface"
+requirement = "manifest"
+
+[[declaration.satisfies]]
+member = "30-landscapes"
+requirement = "landscape"
+
+[[declaration.satisfies]]
+member = "30-landscapes"
+requirement = "cross-landscape-seam"
+
+[[declaration.satisfies]]
+member = "30-landscapes"
+requirement = "behavioral-contract"
+
+[[declaration.satisfies]]
+member = "40-composition"
+requirement = "assembly"
+
+[[declaration.satisfies]]
+member = "45-governance"
+requirement = "join"
+
+[[declaration.satisfies]]
+member = "45-governance"
+requirement = "dependency-graph"
+
+[[declaration.satisfies]]
+member = "45-governance"
+requirement = "mention"
+
+[[declaration.satisfies]]
+member = "50-distribution"
+requirement = "the-wedge"
+
+[[declaration.satisfies]]
+member = "50-distribution"
+requirement = "delivery"
+
+[[declaration.satisfies]]
+member = "collaboration"
+requirement = "collaboration-discipline"
+
+[[declaration.satisfies]]
+member = "rust"
+requirement = "engineering-standards"

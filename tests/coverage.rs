@@ -55,16 +55,25 @@ description: Use when maintaining development standards across the harness.\n\
 Keep the bar high.\n";
 
 /// Project a one-skill harness into `<root>/.temper` via the real `import` verb, so
-/// the workspace `check` reads is built exactly as a user's would be.
+/// the workspace `check` reads is built exactly as a user's would be. The harness
+/// *is* `root` (`.claude/` beside `.temper/` and `temper.toml`) so a later
+/// [`write_temper_toml`] resync sees the same tree a real invocation would.
 fn import_skill(root: &Path, name: &str, skill_md: &str) {
-    let harness = tmpdir("harness");
-    let dir = harness.join(".claude").join("skills").join(name);
+    let dir = root.join(".claude").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
+    sync(root);
+}
 
-    let into = root.join(".temper");
-    temper::import::run(&harness, &into).unwrap();
-    temper::import::emit_manifest(&harness, &into).unwrap();
+/// Re-run `import` over `root` (harness == root), refreshing the surface and the
+/// lock's declaration rows (`specs/architecture/20-surface.md`, "The lock and drift") from
+/// whatever `root/temper.toml` currently declares — the gate's assembly source
+/// (MANIFEST-MACHINERY-RETIRE). `import` merges surface edits forward rather than
+/// clobbering them (`write_member_surface`), so a prior `author_satisfies` survives
+/// the resync. A malformed `temper.toml` fails here too; ignored so the case's own
+/// `check_in` still observes the same load error the real binary would.
+fn sync(root: &Path) {
+    let _ = temper::import::run(root, &root.join(".temper"));
 }
 
 /// Author the `[satisfies.<requirement>]` opt-in modules on an imported skill's
@@ -82,9 +91,11 @@ fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
-/// Write `<root>/temper.toml`.
+/// Write `<root>/temper.toml`, then resync so the lock's declaration rows — the
+/// gate's assembly source — reflect it.
 fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
+    sync(root);
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined

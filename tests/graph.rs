@@ -70,21 +70,30 @@ fn routing_rule(routes_to: &str) -> String {
 /// Import a harness of one rule and one skill into `<root>/.temper` via the real
 /// `import` verb, so the workspace `check` reads is built exactly as a user's
 /// would be — the rule under `.claude/rules/<rule>.md`, the skill under
-/// `skills/<skill>/SKILL.md`.
+/// `skills/<skill>/SKILL.md`. The harness *is* `root` (`.claude/` beside `.temper/`
+/// and `temper.toml`) so a later [`write_temper_toml`] resync sees the same tree a
+/// real invocation would.
 fn import_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str, skill_md: &str) {
-    let harness = tmpdir("harness");
-
-    let rules = harness.join(".claude").join("rules");
+    let rules = root.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join(format!("{rule_name}.md")), rule_md).unwrap();
 
-    let skill_dir = harness.join(".claude").join("skills").join(skill_name);
+    let skill_dir = root.join(".claude").join("skills").join(skill_name);
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(skill_dir.join("SKILL.md"), skill_md).unwrap();
 
-    let into = root.join(".temper");
-    temper::import::run(&harness, &into).unwrap();
-    temper::import::emit_manifest(&harness, &into).unwrap();
+    sync(root);
+}
+
+/// Re-run `import` over `root` (harness == root), refreshing the surface and the
+/// lock's declaration rows (`specs/architecture/20-surface.md`, "The lock and drift") from
+/// whatever `root/temper.toml` currently declares — the gate's assembly source
+/// (MANIFEST-MACHINERY-RETIRE). `import` merges surface edits forward rather than
+/// clobbering them (`write_member_surface`), so a prior `author_satisfies` survives
+/// the resync. A malformed `temper.toml` fails here too; ignored so the case's own
+/// `check_in` still observes the same load error the real binary would.
+fn sync(root: &Path) {
+    let _ = temper::import::run(root, &root.join(".temper"));
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -110,9 +119,11 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml`.
+/// Write `<root>/temper.toml`, then resync so the lock's declaration rows — the
+/// gate's assembly source — reflect it.
 fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
+    sync(root);
 }
 
 /// Author the `[satisfies.<requirement>]` opt-in modules on an imported artifact's
