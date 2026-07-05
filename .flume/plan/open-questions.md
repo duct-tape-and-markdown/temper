@@ -184,9 +184,11 @@ New forks from the ceremony:
 - `(explain-target-disambiguation)` — OPEN (dogfood catch, 2026-07-04). The
   re-cut ratified **one read verb** (`20-surface.md`, "Decision: one read verb
   — `explain`"), explicitly rejecting "(c) a verb per question (why /
-  requirements / impact / context) — four spellings of one traversal". The code
-  still ships exactly those four `clap` subcommands (`Command::{Why,Requirements,
-  Impact,Context}`, src/main.rs:236–266; `read::{why,impact,context,requirements}`).
+  requirements / impact / context) — four spellings of one traversal". DATUM
+  (2026-07-04, CLI-COLLAPSE shipped da84b69): the four `clap` subcommands are now
+  **gone** from the CLI — `src/main.rs` carries no read verb; the traversal
+  helpers survive in `src/read.rs` (`read::{why,impact,context,requirements}`),
+  left in place for EXPLAIN-UNIFY to re-home under one `explain <target>`.
   Collapsing them into `explain <target>` is not human-foundation-gated (it reads
   the same `check`-computed graph the four verbs already read), but the corpus
   does **not** specify how a single positional `<target>` resolves across the four
