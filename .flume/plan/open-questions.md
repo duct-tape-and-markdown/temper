@@ -59,6 +59,28 @@ entry affected** — PACKAGING-CHANNELS cites 50-distribution "Three channels"
 to-do above is **discharged**: both landed. Each fork's record below carries
 its corpus-delta note. Nothing pickable un-gated — `(guard-posture)`'s
 blocker (i) clears but (ii) still gates (see its record).
+DATUM (2026-07-04, wave-end confirmation — the gate silently checks nothing):
+the first post-wave `temper check .` on temper's own harness reported "checked
+0 members across 4 built-in kinds" and exited **0** (verified on disk this
+tick). Diagnosed: the wave flipped the gate to read its assembly (requirements/
+edges/reachability) off `<workspace>/lock.toml` (`drift::read_declarations`,
+main.rs:592) and members off in-place `[[member]]` tables or the surface tree,
+but the new in-place `init` writes **no lock** — only the copy-tree
+`import::run` (`write_rollup`, import.rs:866-879) does — and temper's own
+`temper.toml` still carries 17 stale document-carriage `[[member]]` tables (no
+`source`, from the 2026-07-03 floor-wave `emit`) the gate reads as neither
+in-place nor surface. So `temper check .` (harness root) resolves `./lock.toml`
+(absent) + `./skills` (absent) → zero members, zero requirements → exit 0. The
+correct invocation `temper check` (default `./.temper`) still works — 4 members
+(2 rules + 2 memories), the two `required` requirements filled by the rules,
+exit 0 — because the OLD copy-tree `.temper/lock.toml` still carries the
+declaration rows. The spec-kind disappearance the inbox flags is the **expected**
+re-cut consequence (custom kinds are SDK-authored, `custom_kinds` hardcoded empty
+at main.rs:712), foundation-gated, not a new bug. The silent-skip itself is
+independently a corpus violation (50-distribution "Fail-loud delivery") and is
+filed as the pickable **GATE-FAIL-LOUD-EMPTY-ASSEMBLY** (the interim fail-loud
+safety net); the deeper producer/root restoration is `(inplace-lock-producer)`
+below.
 DONE (2026-07-04, post-merge reconcile): **AGENT-KIND, COMMAND-KIND, and
 SETTINGS-KIND are RETIRED from pending** — every mechanism they named is
 rejected by the re-cut: there is no `KIND.md` (15-kinds "Decision: field
@@ -101,6 +123,33 @@ still fork-gated (the one design question the wave cannot reach without John).
 
 New forks from the ceremony:
 
+- `(inplace-lock-producer)` — OPEN (surfaced by the 2026-07-04 wave-end
+  confirmation; the DATUM above carries the on-disk diagnosis). The demolition
+  wave flipped the gate to read its assembly's declaration rows (requirements,
+  edges, reachability) off `<workspace>/lock.toml` (`drift::read_declarations`),
+  but left the **transitional producer** of those rows inconsistent: the
+  copy-tree `import::run` writes them (`write_rollup`), the new in-place `init`
+  writes no lock, and `emit` writes only fingerprints. So a harness onboarded the
+  intended way (`init` → `check`) has its authored `temper.toml` `[requirement.*]`
+  / `[kind.*]` reach no lock, and the gate silently loads no requirements. Two
+  entangled sub-questions: (a) in the transitional in-place world, who compiles
+  `temper.toml`'s declarations into the lock — does `init` (or `emit`) write the
+  declaration rows, or does the gate read them directly from the in-place
+  `temper.toml` until the SDK lands (the `AuthorLayer` still parses `[requirement.*]`
+  and document-carriage `[[member]]` — both currently gate-ignored, so nothing
+  need be re-parsed, only re-wired)? (b) what is `check`'s root in the in-place
+  model — the harness root (`temper.toml` + lock at root) or `./.temper`? The
+  ratified end-state answers neither transitionally: 20-surface ("The lock and
+  drift", "The seam") has the SDK compile `harness.ts` → `emit` write the lock's
+  declaration rows, lock at `.temper/lock.toml`. That foundation is human-gated
+  and unbuilt (the SDK-primary scaffolding, ledger residual). Also folds in the
+  **dogfood-data** restoration: temper's own `temper.toml` (17 stale
+  document-carriage members) wants regenerating via the new `init` to in-place
+  `source` members — fence/human territory, gated on this fork. GATE-FAIL-LOUD-
+  EMPTY-ASSEMBLY is the interim safety net (fail-loud on the incoherence), not
+  this restoration; it does not depend on this fork. Human to settle the
+  transitional producer + root before re-arming the self-gate against a
+  harness-root `check`.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
   Rust.** No spec delta — the corpus is language-neutral by design ("the
   engine", never a language as normative fact; 50-distribution "The stranger
