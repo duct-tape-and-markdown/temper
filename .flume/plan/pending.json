@@ -1,43 +1,5 @@
 [
   {
-    "tag": "GATE-FAIL-LOUD-EMPTY-ASSEMBLY",
-    "summary": "Fail loud when the assembly declares members/requirements but the gate resolves zero live members and zero lock declarations — no more silent 'checked 0 / exit 0'",
-    "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Fail-loud delivery — the invariant"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/gate_fail_loud.rs",
-          "description": "Drive the fail-loud coherence guard. (a) A workspace whose committed `temper.toml` declares `[[member]]`/`[requirement.*]` but resolves zero live members and carries no `lock.toml` declaration rows ⇒ an `error`-severity diagnostic and a non-zero exit — the harness-root `temper check .` case the wave-end confirmation caught. (b) A correctly-rooted workspace that resolves ≥1 member does NOT fire (no false block on a clean gate — law 3). (c) A genuinely empty harness (no `temper.toml` layer, no declarations) does NOT fire — zero members is legitimate there. Prefer driving the pure predicate in `check.rs` directly; add a binary-level case if the existing CLI test harness makes it cheap."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "Add a pure, unit-testable predicate — e.g. `fn empty_assembly_incoherence(declared: bool, resolved_members: usize, declarations_empty: bool) -> Option<Diagnostic>` — that returns an `error`-severity `Diagnostic` (rule id e.g. `coverage.empty-assembly`) exactly when `declared && resolved_members == 0 && declarations_empty`. Message names the workspace root and the likely cause (a stale/absent `lock.toml`, or a mis-rooted workspace — the harness root vs `./.temper`, or `emit` not run). Decouple from `AuthorLayer`/`Declarations` by taking primitives, so `main.rs` stays a thin call site. This does NOT gate on `temper.toml` requirement content (that read stayed retired at MANIFEST-MACHINERY-RETIRE) — it is a coherence tripwire: the assembly declares work the gate then resolves none of."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "In `gate()` (near the coverage-note tail, main.rs:888-898), compute the guard inputs and push its diagnostic. `declared` = the committed `layer` is `Some` and declares ≥1 member (document-carriage `[[member]]` or in-place) or ≥1 `[requirement.*]` — via the `AuthorLayer` accessors (`members()`, `inplace_members()`, and a requirements accessor; add a small `requirements()`/`declares_any()` accessor on `AuthorLayer` in compose.rs only if none exists — keep that additive). `resolved_members` = the sum of `member_counts` values. `declarations_empty` = the `declarations` read from `read_declarations` carries no requirement/satisfies/assembly/clause/kind rows. Extend `diagnostics` with the guard's `Option<Diagnostic>`. Place it so the correctly-rooted `temper check` (default `./.temper`, resolves 4 members) and a genuinely empty harness both stay silent."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "declared-but-zero-resolved + empty-lock ⇒ an error diagnostic and non-zero exit; a resolving workspace and a genuinely empty harness both stay silent"
-      }
-    ],
-    "acceptance": "`temper check` pointed at a harness whose committed assembly declares members/requirements but resolves none of them (no lock declarations, no live members) exits non-zero with a fail-loud `coverage.empty-assembly` error naming the root — never the silent 'checked 0 members ... exit 0' the wave-end confirmation caught; a correctly-rooted check and an empty harness are unaffected.",
-    "notes": "Wave-end confirmation: `temper check .` reads no `./lock.toml`/`./skills`, so members+requirements resolve empty and it exits 0 — the silent-skip class temper exists to catch. This is the fail-loud safety net (error when `temper.toml` declares members/reqs but nothing resolves), not the producer/root restoration — see the `(inplace-lock-producer)` fork, human-gated on the SDK-primary foundation."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm packages, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
