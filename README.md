@@ -39,13 +39,15 @@ requirement you declared would strand.
   with no declaration. The finding *is* the product: each renders through
   [`miette`](https://github.com/zkat/miette) with the colocated guidance — the
   teaching moment, not a bare rule id.
-- **A typed surface, not a rule pile.** `import` scans the whole harness — skills,
+- **A typed surface, not a rule pile.** `init` scans the whole harness — skills,
   rules, agents, hooks, MCP/LSP servers, `CLAUDE.md` rules, plugin & marketplace
   manifests, settings — into one validated config surface you can reorganize,
   compose, and query.
-- **Requirements you declare.** In a `temper.toml`, state what your harness *must*
-  contain; `temper` answers what fills each requirement and what would strand it —
-  the coverage a linter over individual files can't see.
+- **Requirements you declare.** Author your harness as a typed program —
+  members, and what your harness *must* contain; `emit` compiles it into the
+  lock, the sole source `check` gates against, never a hand-authored config
+  dialect — and `temper` answers what fills each requirement and what would
+  strand it, the coverage a linter over individual files can't see.
 - **Deterministic emit.** `emit` compiles the surface back onto its projected
   files, re-emitting each one whole and byte-deterministically — double-emit
   verified, so nondeterministic authoring is a loud failure, never a silent churn.
@@ -74,8 +76,8 @@ installed binary is still `temper`.
 ## Status
 
 `temper` is **pre-1.0 and built in the open**, one gated commit at a time. The
-command surface is landing incrementally — `import`, `check`, `schema`, `diff`,
-`emit`, `install`, and `bundle` — so expect sharp edges and breaking
+command surface is landing incrementally — `init`, `check`, `schema`, `emit`,
+`guard`, `install`, `bundle`, and `explain` — so expect sharp edges and breaking
 changes before 1.0. Following the [`ty`](https://github.com/astral-sh/ty) model,
 versions stay `0.x` until the surface stabilizes. Small, frequent, tagged releases
 are the plan, each recorded in the root `CHANGELOG`.

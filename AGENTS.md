@@ -25,8 +25,9 @@ Logic lives in the library crate; `src/main.rs` is a thin `clap` dispatch.
 One artifact kind per module (`skill.rs`, `rule.rs`). The load-bearing halves:
 `contract.rs`/`engine.rs` (the closed predicate vocabulary and its evaluation),
 `kind.rs`/`extract.rs` (the extraction algebra), `document.rs` (the
-`+++`-fenced member document), `import.rs`/`drift.rs` (the surface and its
-three-state drift engine), `compose.rs`/`roster.rs`/`coverage.rs`/`graph.rs`
+`+++`-fenced member document), `import.rs`/`drift.rs` (the surface `init`
+scans and `emit` projects, and drift's one-direction, two-freshness-fact
+model), `compose.rs`/`roster.rs`/`coverage.rs`/`graph.rs`
 (the assembly: bindings, requirements, satisfier sets, the relation graph).
 The evergreen intent lives in `specs/` (start at `specs/intent/00-intent.md`) — specs
 are human-authored; do not edit them in a PR.
