@@ -10,8 +10,8 @@
 //!    mechanics, never taste (the Decision "the skill is mechanics, never taste"):
 //!    the opinions live in the packages, never in skill prose;
 //! 2. the **`SessionStart` hook**, in its own `hooks.json` — the advisory
-//!    session-start gate (`temper session-start .`, the exec-form command Claude
-//!    Code spawns);
+//!    session-start gate (`temper check . --reporter session-start`, the exec-form
+//!    command Claude Code spawns);
 //! 3. the **shipped built-in packages** — the std-lib, embedded byte-faithful, so
 //!    an installed `temper` has something to check against.
 //!
@@ -56,11 +56,11 @@ const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: imp
      session-start gate — with the std-lib packages embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
-/// itself, checking the project it is installed into (`specs/architecture/50-distribution.md`,
-/// "the hook is the temper binary itself"). Matches the wiring `temper install`
-/// projects into `.claude/settings.json`, so the plugin and `install` deliver the
-/// same gate.
-const SESSION_START_COMMAND: &str = "temper session-start .";
+/// itself, checking the project it is installed into under the advisory session-start
+/// reporter (`specs/architecture/20-surface.md`, "session-start is a reporter of `check`, not a
+/// verb"). Matches the wiring `temper install` projects into `.claude/settings.json`, so
+/// the plugin and `install` deliver the same gate.
+const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
 /// The bundled **operate-the-gate skill**, embedded byte-faithful (law 5). Mechanics
 /// only — how to run the checker and when to challenge the contract — never advice on
@@ -242,9 +242,9 @@ fn marketplace_manifest() -> JsonValue {
 }
 
 /// The `hooks.json` manifest carrying the advisory `SessionStart` hook — the
-/// exec-form `temper session-start .` command Claude Code spawns at session start.
-/// Same shape `temper install` merges into `.claude/settings.json`, so the plugin and
-/// `install` deliver the identical gate.
+/// exec-form `temper check . --reporter session-start` command Claude Code spawns at
+/// session start. Same shape `temper install` merges into `.claude/settings.json`, so the
+/// plugin and `install` deliver the identical gate.
 fn hooks_manifest() -> JsonValue {
     json!({
         "hooks": {

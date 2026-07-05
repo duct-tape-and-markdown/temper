@@ -1,15 +1,16 @@
 //! Acceptance for the advisory session-start gate (`specs/architecture/50-distribution.md`,
 //! "Decision: the session-start gate is advisory, not blocking").
 //!
-//! Two surfaces of the same gate. The **one-shot verb** — `temper session-start
-//! <harness>` — is driven across the real process boundary (the exit code and the
-//! stdout payload are observable only there): a failing contract yields a payload
-//! carrying the verdict plus the notify-and-approve instruction, a clean harness
-//! yields the quiet payload, the output is valid JSON under the 10k cap, and the
-//! run exits zero regardless (advisory, never blocking). The **reporter** itself
-//! (`temper::reporter`) is exercised directly through the library for the cap
-//! invariant, where a synthetic flood of diagnostics is easier to construct than
-//! to provoke through a harness.
+//! Two surfaces of the same gate. Session-start is a **reporter of `check`, not a
+//! verb** (`specs/architecture/20-surface.md`, "CLI surface"): `temper check <harness>
+//! --reporter session-start` reads the path as a harness root and is driven across the
+//! real process boundary (the exit code and the stdout payload are observable only
+//! there) — a failing contract yields a payload carrying the verdict plus the
+//! notify-and-approve instruction, a clean harness yields the quiet payload, the output
+//! is valid JSON under the 10k cap, and the run exits zero regardless (advisory, never
+//! blocking). The **reporter** itself (`temper::reporter`) is exercised directly through
+//! the library for the cap invariant, where a synthetic flood of diagnostics is easier
+//! to construct than to provoke through a harness.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -65,11 +66,14 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
 
-/// Run `temper session-start <harness>` and return `(exit-zero, parsed payload)`.
+/// Run `temper check <harness> --reporter session-start` and return `(exit-zero, parsed
+/// payload)`. The session-start reporter reads the positional path as a harness root.
 fn run_session_start(harness: &Path) -> (bool, serde_json::Value) {
     let output = Command::new(BIN)
-        .arg("session-start")
+        .arg("check")
         .arg(harness)
+        .arg("--reporter")
+        .arg("session-start")
         .output()
         .unwrap();
     let stdout = String::from_utf8(output.stdout).unwrap();

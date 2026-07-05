@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -30,7 +31,6 @@ use temper::graph;
 use temper::import;
 use temper::install;
 use temper::kind::{self, CustomKind, KindError, Unit};
-use temper::read;
 use temper::reporter;
 use temper::roster;
 use temper::schema;
@@ -107,10 +107,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// The on-ramp (`specs/architecture/20-surface.md`): scan an existing harness into a
-    /// config skeleton over its members **in place** — a manifest naming each landscape
-    /// file, zero file moves, no copy tree. `--lift <member>` migrates one member into a
-    /// richer carriage (in-place → document → module).
+    /// The on-ramp and the lift (`specs/architecture/20-surface.md`): scan an existing
+    /// harness into a config skeleton over its members **in place** — a manifest naming
+    /// each landscape file, zero file moves, no copy tree. `--lift <member>` migrates one
+    /// member into a richer carriage (in-place → document → module).
     Init {
         /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`).
         /// Defaults to the current directory.
@@ -122,22 +122,14 @@ enum Command {
         #[arg(long, value_name = "MEMBER")]
         lift: Option<String>,
     },
-    /// Project a harness into the document-carriage surface workspace (+ provenance
-    /// lock) — the retained copy-tree projection `emit`/`diff` and the document-carried
-    /// gate ride (`specs/architecture/15-kinds.md`, the generic frontmatter adapter). The
-    /// on-ramp is `init` (members in place, no copy tree); this is the deliberate
-    /// document-carriage materialization a member/harness climbs into.
-    Import {
-        /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`),
-        /// or a bare skill dir.
-        harness_path: PathBuf,
-        /// Where to write the surface workspace (defaults to `./.temper`).
-        #[arg(long, default_value = DEFAULT_WORKSPACE)]
-        into: PathBuf,
-    },
-    /// Lint the config surface against the active contract.
+    /// Lint the config surface against the active contract. Session-start is a
+    /// **reporter** of this gate, never a verb (`specs/architecture/20-surface.md`, "CLI
+    /// surface"): `--reporter session-start` reads the path as a harness root and is
+    /// advisory (always exits zero), so a Claude Code `SessionStart` hook runs
+    /// `temper check . --reporter session-start`.
     Check {
-        /// The surface workspace to lint (defaults to `./.temper`).
+        /// The surface workspace to lint (defaults to `./.temper`); with `--reporter
+        /// session-start` it is read as a *harness root* instead (defaults to `.`).
         workspace: Option<PathBuf>,
         /// One-shot mode: lint a raw harness directly — import it internally into
         /// a throwaway surface, run the identical by-kind gate, and write no
@@ -150,7 +142,7 @@ enum Command {
         deny_advisories: bool,
         /// The machine format for the diagnostic set (`specs/architecture/50-distribution.md`,
         /// reporters). Presentation only — the exit-code verdict is identical
-        /// whichever is chosen.
+        /// whichever is chosen (session-start excepted: it is always advisory).
         #[arg(long, value_enum, default_value_t = Reporter::Terminal)]
         reporter: Reporter,
     },
@@ -162,18 +154,10 @@ enum Command {
         #[arg(long)]
         kind: Option<String>,
     },
-    /// Report on-disk drift of a harness against the surface's import baseline.
-    Diff {
-        /// The harness to re-scan and compare against the import baseline.
-        harness_path: PathBuf,
-        /// The surface workspace holding the baseline (defaults to `./.temper`).
-        #[arg(long, default_value = DEFAULT_WORKSPACE)]
-        into: PathBuf,
-    },
     /// Compile the authoring face: re-emit each projection **whole** from the
     /// surface, byte-deterministically and double-emit verified
     /// (`specs/architecture/20-surface.md`, law 5). Each artifact is regenerated full-file —
-    /// byte-stable and idempotent — and written back to the source path `import`
+    /// byte-stable and idempotent — and written back to the source path `init`
     /// recorded; a direct edit to the projection is drift routed to the authored
     /// source, never something emit merges around.
     Emit {
@@ -190,22 +174,24 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
-    /// The advisory session-start gate (`specs/architecture/50-distribution.md`): check a
-    /// harness in one shot and emit the `claude-session-start` reporter payload on
-    /// stdout for a Claude Code `SessionStart` hook. Takes a *harness* path, not a
-    /// surface workspace, and always exits zero — a failing contract routes
-    /// through the human via the reporter's notify-and-approve verdict.
-    SessionStart {
-        /// The harness to check: the same tree `import` scans (a project root with
-        /// `.claude/skills/*` + `.claude/rules/*`, or a bare skill dir, plus any
-        /// `temper.toml` kinds).
-        harness_path: PathBuf,
+    /// The `PreToolUse` surface-authority guard (`specs/architecture/20-surface.md`, "surface
+    /// authority is a declared posture"): read Claude Code's `PreToolUse` payload from
+    /// stdin and, when the write targets a `.claude/` projection, inform-and-route under
+    /// the `shared` posture (advisory, exit 0) or block under `surface` (exit 2). The
+    /// posture is the author's declaration, read from the harness's `temper.toml` — temper
+    /// never escalates on its own determination. Wired at the write boundary by
+    /// `temper install`.
+    Guard {
+        /// The harness root whose `temper.toml` declares the posture (defaults to the
+        /// current directory, the project Claude Code runs the hook from).
+        #[arg(default_value = ".")]
+        path: PathBuf,
     },
     /// Project temper's own gate wiring into the harness (`specs/architecture/50-distribution.md`):
-    /// the `SessionStart` hook into `.claude/settings.json` and the managed header
-    /// lines (schema modeline + managed-by note) into each artifact's frontmatter —
-    /// all under the three-state drift engine, so re-running is idempotent and
-    /// re-places anything a human deleted. `check` then verifies its own gate stays
+    /// the `SessionStart` hook into `.claude/settings.json`, the `PreToolUse` guard, and
+    /// the managed header lines (schema modeline + managed-by note) into each artifact's
+    /// frontmatter — all under the three-state drift engine, so re-running is idempotent
+    /// and re-places anything a human deleted. `check` then verifies its own gate stays
     /// installed. CI is a documented user-authored job, not an install placement.
     Install {
         /// The project root to wire the gate into (defaults to the current
@@ -216,57 +202,18 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Compose the imported surface into a publishable Claude Code plugin +
+    /// Compose the surface into a publishable Claude Code plugin +
     /// `marketplace.json` (`specs/architecture/50-distribution.md`): the operate-the-gate skill,
     /// the `SessionStart` hook, and the shipped built-in packages embedded.
     /// Deterministic and byte-faithful where it carries prose, so re-running
     /// reproduces an identical tree.
     Bundle {
-        /// The imported surface workspace to compose from (defaults to `./.temper`).
+        /// The surface workspace to compose from (defaults to `./.temper`).
         #[arg(default_value = DEFAULT_WORKSPACE)]
         path: PathBuf,
         /// Where to write the plugin tree (defaults to `./plugin`).
         #[arg(long, default_value = "./plugin")]
         out: PathBuf,
-    },
-    /// Read (`specs/architecture/20-surface.md`): narrate everything that holds a member in
-    /// place — the requirements it `satisfies` (each with its rationale), the
-    /// package its kind binds, and its declared edges in and out. The forward walk
-    /// of the requirement↔`satisfies` edge; never gates, always exits zero.
-    Why {
-        /// The member (a skill or rule name) to walk the edge forward from.
-        member: String,
-    },
-    /// Read (`specs/architecture/20-surface.md`): narrate the requirement roster — each
-    /// requirement with its satisfier set and coverage state; with a `<name>`,
-    /// that one's satisfiers and the blast radius a removal would strand. The
-    /// reverse walk of the requirement↔`satisfies` edge; never gates, exits zero.
-    Requirements {
-        /// A single requirement to walk in reverse; omitted ⇒ the whole roster.
-        name: Option<String>,
-    },
-    /// Read (`specs/architecture/20-surface.md`): narrate a member's **blast radius** — what
-    /// strands if it is removed or renamed: the requirements it alone fills (left
-    /// unfilled), the `satisfies` onto demands it alone publishes (left dangling), the
-    /// `@import` edges pointing at it (left unbacked), and the members reachable only
-    /// through it (gone dead). Accepts a **leaf address** (`member/genre/key/field-path`)
-    /// too, reporting the leaf's citations separately from fallout. The deterministic tier-1
-    /// traversal over the graph `check` carries; never gates, exits zero.
-    Impact {
-        /// A member name (a skill, rule, or custom-kind member) or a leaf address
-        /// (`member/genre/key/field-path`) to trace at member or leaf grain.
-        member: String,
-    },
-    /// Read (`specs/architecture/20-surface.md`): emit a member's or leaf's **declared
-    /// neighborhood** — its genre slot, its siblings, the members that cite it, and the
-    /// requirements its member satisfies — the pre-edit context bundle for the primary
-    /// author. Accepts a member name or a leaf address (`member/genre/key/field-path`);
-    /// every leaf-grain answer discloses its mixed-posture coverage. Reads the manifest
-    /// alone (offline, tier-1); never gates, exits zero.
-    Context {
-        /// A member name or a leaf address (`member/genre/key/field-path`) to emit the
-        /// neighborhood of.
-        address: String,
     },
 }
 
@@ -282,6 +229,11 @@ enum Reporter {
     Github,
     /// A SARIF 2.1.0 log for code-scanning ingestion ([`reporter::sarif`]).
     Sarif,
+    /// The `claude-session-start` payload ([`reporter::session_start`]) — the advisory
+    /// session-start reporter (`specs/architecture/50-distribution.md`). It reads the path as a
+    /// harness root and always exits zero, so a failing contract routes through the
+    /// human via the notify-and-approve verdict rather than blocking the session.
+    SessionStart,
 }
 
 fn main() -> miette::Result<ExitCode> {
@@ -296,47 +248,47 @@ fn main() -> miette::Result<ExitCode> {
             }
             Ok(ExitCode::SUCCESS)
         }
-        Command::Import { harness_path, into } => {
-            import::run(&harness_path, &into)?;
-            // The document-carriage projection serializes its manifest beside the
-            // workspace (`specs/architecture/20-surface.md`, "Topology"); the one-shot gate paths
-            // (`check --harness`, session-start) import into a scratch surface and skip it,
-            // so a lint never mutates the harness.
-            import::emit_manifest(&harness_path, &into)?;
-            Ok(ExitCode::SUCCESS)
-        }
         Command::Check {
             workspace,
             harness,
             deny_advisories,
             reporter,
         } => {
-            // Two ways into the same gate (`specs/architecture/20-surface.md`). `--harness` is
-            // the one-shot wedge: import into a throwaway scratch surface, gate
-            // against the harness's own `temper.toml` as session-start does, tear
-            // the scratch down. Without it, the two-step path gates an
-            // already-imported surface. Same diagnostic shape ⇒ shared render below.
-            let diagnostics = match harness {
-                Some(harness) => {
-                    let scratch = scratch_surface()?;
-                    import::run(&harness, &scratch)?;
-                    // Members land in the scratch, but the authored kinds/packages
-                    // live beside the harness's `temper.toml` — resolve them from
-                    // the harness's own `.temper/`, not the scratch.
-                    let diagnostics = gate(
-                        &scratch,
-                        &harness.join(TEMPER_DIR),
-                        &harness.join(TEMPER_TOML),
-                    )?;
-                    // A leftover scratch dir must never fail the run.
-                    let _ = fs::remove_dir_all(&scratch);
-                    diagnostics
-                }
-                None => {
-                    let workspace = workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
-                    // Two-step: the surface *is* the authored `.temper/`, so both
-                    // members and authored kinds/packages resolve from it.
-                    gate(&workspace, &workspace, Path::new(TEMPER_TOML))?
+            // Session-start is a reporter, not a verb (`specs/architecture/20-surface.md`,
+            // "CLI surface"): it reads the path as a *harness root* (surface-present or
+            // scratch-import), emits the payload, and is advisory — always exits zero, so
+            // a failing contract routes through the human, never blocks the session.
+            let diagnostics = if reporter == Reporter::SessionStart {
+                let harness_path = harness.or(workspace).unwrap_or_else(|| PathBuf::from("."));
+                session_start_diagnostics(&harness_path)?
+            } else {
+                // Two ways into the same gate. `--harness` is the one-shot wedge: import
+                // into a throwaway scratch surface, gate against the harness's own
+                // `temper.toml`, tear the scratch down. Without it, the two-step path
+                // gates an already-imported surface. Same diagnostic shape ⇒ shared render.
+                match harness {
+                    Some(harness) => {
+                        let scratch = scratch_surface()?;
+                        import::run(&harness, &scratch)?;
+                        // Members land in the scratch, but the authored kinds/packages
+                        // live beside the harness's `temper.toml` — resolve them from
+                        // the harness's own `.temper/`, not the scratch.
+                        let diagnostics = gate(
+                            &scratch,
+                            &harness.join(TEMPER_DIR),
+                            &harness.join(TEMPER_TOML),
+                        )?;
+                        // A leftover scratch dir must never fail the run.
+                        let _ = fs::remove_dir_all(&scratch);
+                        diagnostics
+                    }
+                    None => {
+                        let workspace =
+                            workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
+                        // Two-step: the surface *is* the authored `.temper/`, so both
+                        // members and authored kinds/packages resolve from it.
+                        gate(&workspace, &workspace, Path::new(TEMPER_TOML))?
+                    }
                 }
             };
 
@@ -344,19 +296,27 @@ fn main() -> miette::Result<ExitCode> {
                 Reporter::Terminal => print!("{}", check::render(&diagnostics)),
                 Reporter::Github => print!("{}", reporter::github(&diagnostics)),
                 Reporter::Sarif => println!("{}", reporter::sarif(&diagnostics)),
+                Reporter::SessionStart => {
+                    println!("{}", reporter::session_start(&diagnostics));
+                }
             }
 
-            // `--deny-advisories` promotes `advisory` (warn) violations to blocking
-            // on top of the always-blocking `required` ones.
+            // `--deny-advisories` promotes `advisory` (warn) violations to blocking on top
+            // of the always-blocking `required` ones. The session-start reporter is
+            // advisory by law 1 (`specs/architecture/20-surface.md`), so it never gates.
             let advisory_blocks = deny_advisories
                 && diagnostics
                     .iter()
                     .any(|diagnostic| diagnostic.severity == Severity::Warn);
-            Ok(if check::any_error(&diagnostics) || advisory_blocks {
-                ExitCode::FAILURE
-            } else {
-                ExitCode::SUCCESS
-            })
+            Ok(
+                if reporter != Reporter::SessionStart
+                    && (check::any_error(&diagnostics) || advisory_blocks)
+                {
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                },
+            )
         }
         Command::Schema { kind } => {
             // The keystroke placement of the gate (`specs/architecture/50-distribution.md`):
@@ -401,18 +361,6 @@ fn main() -> miette::Result<ExitCode> {
             println!("{}", serde_json::to_string_pretty(&json).into_diagnostic()?);
             Ok(ExitCode::SUCCESS)
         }
-        Command::Diff { harness_path, into } => {
-            // Read-only (`specs/architecture/20-surface.md`): compare the surface against the
-            // live harness and print the report — the engine writes nothing;
-            // `emit` owns write-back. Every custom kind the harness's
-            // assembly registers is scanned at its `governs` locus beside the
-            // built-ins, so a hand-edited `specs/*.md` shows as drift.
-            let ws = Workspace::load(&into)?;
-            let custom_kinds = load_custom_kinds(&harness_path)?;
-            let report = drift::diff(&ws, &into, &harness_path, &custom_kinds)?;
-            print!("{}", drift::render(&report));
-            Ok(ExitCode::SUCCESS)
-        }
         Command::Emit {
             into,
             frozen,
@@ -430,30 +378,28 @@ fn main() -> miette::Result<ExitCode> {
             print!("{}", drift::render_emit(&report));
             Ok(ExitCode::SUCCESS)
         }
-        Command::SessionStart { harness_path } => {
-            let authored = harness_path.join(TEMPER_DIR);
-            let temper_toml = harness_path.join(TEMPER_TOML);
-            let diagnostics = if authored.is_dir() && temper_toml.is_file() {
-                // Surface-present: gate the surface itself (two-step path), never a
-                // fresh import. A fresh import discards recognition (the authored
-                // `satisfies` links), so every filled requirement would read
-                // unfilled — the false positive on clean input the spec's
-                // surface-present clause forbids (law 3).
-                gate(&authored, &authored, &temper_toml)?
-            } else {
-                // Surfaceless fallback: import the raw harness into a scratch
-                // surface. Members land in the scratch; the authored layer is read
-                // from the harness itself, not the process CWD.
-                let scratch = scratch_surface()?;
-                import::run(&harness_path, &scratch)?;
-                let diagnostics = gate(&scratch, &authored, &temper_toml)?;
-                // A leftover temp dir must never fail the advisory gate.
-                let _ = fs::remove_dir_all(&scratch);
-                diagnostics
-            };
-
-            println!("{}", reporter::session_start(&diagnostics));
-            Ok(ExitCode::SUCCESS)
+        Command::Guard { path } => {
+            // The surface-authority guard at Claude Code's write boundary
+            // (`specs/architecture/20-surface.md`): read the `PreToolUse` payload from stdin,
+            // and — when it targets a `.claude/` projection — act at the author's declared
+            // posture. `shared` informs and routes (exit 0); `surface` blocks (exit 2).
+            // temper never escalates past the posture the `temper.toml` declares.
+            let authority = compose::AuthorLayer::load(&path.join(TEMPER_TOML))?
+                .map(|layer| layer.authority())
+                .unwrap_or_default();
+            let mut payload = String::new();
+            io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
+            Ok(match install::guard(&payload, authority) {
+                install::GuardVerdict::Allow => ExitCode::SUCCESS,
+                install::GuardVerdict::Warn => {
+                    eprintln!("{}", install::GUARD_MESSAGE);
+                    ExitCode::SUCCESS
+                }
+                install::GuardVerdict::Block => {
+                    eprintln!("{}", install::GUARD_MESSAGE);
+                    ExitCode::from(2)
+                }
+            })
         }
         Command::Install { path, dry_run } => {
             let report = install::run(&path, dry_run)?;
@@ -466,232 +412,6 @@ fn main() -> miette::Result<ExitCode> {
         Command::Bundle { path, out } => {
             let report = bundle::run(&path, &out)?;
             print!("{}", bundle::render(&report));
-            Ok(ExitCode::SUCCESS)
-        }
-        Command::Why { member } => {
-            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
-            let ws = Workspace::load(&workspace)?;
-            let layer = load_layer(Path::new(TEMPER_TOML))?;
-
-            // Build the *same* by-kind corpus + edge set the `check` gate derives
-            // (READ-EDGE-UNIFY: one source of truth), so `why`'s edge narration
-            // ranges over the exact resolved set `graph::check`/`acyclic`/`degree`
-            // do — never a private re-derivation.
-            // The by-kind feature corpus reads each built-in kind's surface members
-            // through the same generic `Unit` loader the gate uses (no IR→Unit adapter
-            // on the check path); the typed `ws` survives for the read family below.
-            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
-            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
-            let skill_features: Vec<extract::Features> = skill_units
-                .iter()
-                .map(builtin_kind::skill_features)
-                .collect::<Result<_, _>>()?;
-            let rule_features: Vec<extract::Features> = rule_units
-                .iter()
-                .map(builtin_kind::rule_features)
-                .collect::<Result<_, _>>()?;
-            let kinds_dir = workspace.join("kinds");
-            let (custom_kinds, edges, custom_members) = match layer.as_ref() {
-                Some(layer) => {
-                    let (custom_kinds, edges) =
-                        custom_kinds_and_edges(&workspace, layer, &kinds_dir)?;
-                    // The forward `satisfies` walk needs each custom member's rationale,
-                    // which the feature view above drops — so load the members whole
-                    // (READ-CUSTOM-SATISFIERS), beside the edge set the walk shares.
-                    let members = custom_members(&workspace, layer, &kinds_dir)?;
-                    (custom_kinds, edges, members)
-                }
-                // No `temper.toml` ⇒ no declared relationships, so no edges, and no
-                // registered custom kinds, so no custom members.
-                None => (Vec::new(), Vec::new(), Vec::new()),
-            };
-            let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
-
-            // The forward walk narrates a `satisfies` join over the **composed**
-            // requirement namespace the gate judges (assembly ∪ member-published,
-            // READ-VERBS-PUBLISHED-DEMANDS), so a member-published demand reads as
-            // filled — never the false "This link dangles" over a green graph.
-            let roster = composed_roster(
-                layer.as_ref(),
-                &skill_features,
-                &rule_features,
-                &custom_kinds,
-            );
-
-            print!(
-                "{}",
-                read::why(
-                    &ws,
-                    layer.as_ref(),
-                    &custom_members,
-                    &roster,
-                    &by_kind,
-                    &edges,
-                    &member
-                )
-            );
-            Ok(ExitCode::SUCCESS)
-        }
-        Command::Requirements { name } => {
-            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
-            let ws = Workspace::load(&workspace)?;
-            let layer = load_layer(Path::new(TEMPER_TOML))?;
-
-            // The reverse walk ranges over the composed requirement namespace the gate
-            // judges — assembly ∪ member-published (READ-VERBS-PUBLISHED-DEMANDS) — so a
-            // member-published obligation appears in the roster exactly as `check`
-            // counts it. That needs the same member feature stream the union reads:
-            // the built-in kinds' features (through the shared `Unit` loader) plus each
-            // registered custom kind's, which both publish and satisfy requirements.
-            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
-            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
-            let skill_features: Vec<extract::Features> = skill_units
-                .iter()
-                .map(builtin_kind::skill_features)
-                .collect::<Result<_, _>>()?;
-            let rule_features: Vec<extract::Features> = rule_units
-                .iter()
-                .map(builtin_kind::rule_features)
-                .collect::<Result<_, _>>()?;
-            let kinds_dir = workspace.join("kinds");
-            // Custom kinds carry both the members' published requirements (folded into
-            // the composed roster) and their satisfier rows (READ-CUSTOM-SATISFIERS).
-            let (custom_kinds, custom_members) = match layer.as_ref() {
-                Some(layer) => {
-                    let (custom_kinds, _edges) =
-                        custom_kinds_and_edges(&workspace, layer, &kinds_dir)?;
-                    let members = custom_members(&workspace, layer, &kinds_dir)?;
-                    (custom_kinds, members)
-                }
-                None => (Vec::new(), Vec::new()),
-            };
-            let roster = composed_roster(
-                layer.as_ref(),
-                &skill_features,
-                &rule_features,
-                &custom_kinds,
-            );
-
-            print!(
-                "{}",
-                read::requirements(&ws, &custom_members, &roster, name.as_deref())
-            );
-            Ok(ExitCode::SUCCESS)
-        }
-        Command::Impact { member } => {
-            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
-            let layer = load_layer(Path::new(TEMPER_TOML))?;
-
-            // The blast radius reads the same graph inputs the gate's predicates range
-            // over (READ-EDGE-UNIFY): the by-kind feature corpus, the composed roster,
-            // the observed directive edges, and each kind's activation — so `impact`
-            // cannot disagree with a green `check`.
-            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
-            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
-            let skill_features: Vec<extract::Features> = skill_units
-                .iter()
-                .map(builtin_kind::skill_features)
-                .collect::<Result<_, _>>()?;
-            let rule_features: Vec<extract::Features> = rule_units
-                .iter()
-                .map(builtin_kind::rule_features)
-                .collect::<Result<_, _>>()?;
-            let kinds_dir = workspace.join("kinds");
-            let custom_kinds = match layer.as_ref() {
-                Some(layer) => custom_kinds_and_edges(&workspace, layer, &kinds_dir)?.0,
-                None => Vec::new(),
-            };
-            let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
-            let roster = composed_roster(
-                layer.as_ref(),
-                &skill_features,
-                &rule_features,
-                &custom_kinds,
-            );
-            // The assembly's own roster, kept distinct from the composed one so `impact`
-            // can tell a demand a member alone publishes from one the assembly carries.
-            let empty_roster = BTreeMap::new();
-            let assembly = layer
-                .as_ref()
-                .map_or(&empty_roster, compose::AuthorLayer::requirements);
-
-            // The world→member activation edges and the observed `@import` directive
-            // edges the reachability strand closes over — the same derivation the gate's
-            // `reachable` runs (`specs/architecture/45-governance.md`). Keyed by bare kind name,
-            // the keying `by_kind` and the directive classing join on.
-            let builtin_defs = builtin_kind::definitions()?;
-            let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
-            for def in builtin_defs.values() {
-                if let Some(activation) = &def.activation {
-                    activations.insert(def.name.as_str(), activation.clone());
-                }
-            }
-            for (name, custom, _features) in &custom_kinds {
-                if let Some(activation) = &custom.activation {
-                    activations.insert(name, activation.clone());
-                }
-            }
-
-            let base_dir = Path::new(".");
-            let repo_files = repo_file_set(base_dir);
-            let directive_members = collect_directive_members(&workspace, &custom_kinds)?;
-            let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
-
-            // A leaf address (`member/genre/key/field-path`) dispatches to leaf grain,
-            // reading each member's serialized genre values off `by_kind`. Citations are
-            // the declared one-way edges naming a leaf; the floor carries no producer yet —
-            // floor leaves carry no mentions (`specs/architecture/20-surface.md`, "Genre values"), so
-            // the set is empty until the altitude serializes them, and the leaf-grain report
-            // names zero citers today.
-            let citations: Vec<read::Citation> = Vec::new();
-
-            print!(
-                "{}",
-                read::impact(
-                    assembly,
-                    &roster,
-                    &by_kind,
-                    &activations,
-                    &repo_files,
-                    &directive_edges,
-                    &citations,
-                    &member,
-                )
-            );
-            Ok(ExitCode::SUCCESS)
-        }
-        Command::Context { address } => {
-            let workspace = PathBuf::from(DEFAULT_WORKSPACE);
-            let layer = load_layer(Path::new(TEMPER_TOML))?;
-
-            // The neighborhood reads the same by-kind feature corpus `check` computes
-            // (READ-EDGE-UNIFY): each member's serialized genre values (the leaf surface),
-            // `satisfies`, and its genre slots — no runtime, just the manifest. Mirrors the
-            // `Impact` dispatch's corpus assembly; the blast-radius-only inputs (assembly
-            // roster, activations, directive edges) are not read at neighborhood grain.
-            let skill_units = check::surface_units(&workspace, "skills", "SKILL.md")?;
-            let rule_units = check::surface_units(&workspace, "rules", "RULE.md")?;
-            let skill_features: Vec<extract::Features> = skill_units
-                .iter()
-                .map(builtin_kind::skill_features)
-                .collect::<Result<_, _>>()?;
-            let rule_features: Vec<extract::Features> = rule_units
-                .iter()
-                .map(builtin_kind::rule_features)
-                .collect::<Result<_, _>>()?;
-            let kinds_dir = workspace.join("kinds");
-            let custom_kinds = match layer.as_ref() {
-                Some(layer) => custom_kinds_and_edges(&workspace, layer, &kinds_dir)?.0,
-                None => Vec::new(),
-            };
-            let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
-
-            // Citations are the declared one-way edges naming a leaf; the floor carries no
-            // producer yet — floor leaves carry no mentions (`specs/architecture/20-surface.md`,
-            // "Genre values") — so the set is empty and the neighborhood names zero citers today.
-            let citations: Vec<read::Citation> = Vec::new();
-
-            print!("{}", read::context(&by_kind, &citations, &address));
             Ok(ExitCode::SUCCESS)
         }
     }
@@ -720,29 +440,29 @@ fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>
     }))
 }
 
-/// Load every custom kind a harness's assembly registers, mirroring the discovery
-/// [`import::run`] uses: the `temper.toml` beside the harness declares the roster,
-/// and each definition lives in `<harness>/.temper/kinds/<name>/KIND.md`
-/// (`specs/architecture/40-composition.md`). The drift engine scans each returned kind's `governs`
-/// locus, so `diff` reports custom-kind body drift exactly as `import` projects
-/// them. Absent a `temper.toml`, an empty list — the built-in kinds drift alone.
-fn load_custom_kinds(harness: &Path) -> miette::Result<Vec<CustomKind>> {
-    let Some(layer) = compose::AuthorLayer::load(&harness.join(TEMPER_TOML))? else {
-        return Ok(Vec::new());
-    };
-    let kinds_dir = harness.join(TEMPER_DIR).join("kinds");
-    let mut kinds = Vec::new();
-    for name in layer.registered_kinds() {
-        // A bare `[kind.<name>]` resolving to a built-in is a contract layer, not a
-        // registration (`specs/architecture/40-composition.md`), so it declares no `governs` locus.
-        // Routed through provider resolution (`specs/architecture/15-kinds.md`): a bare name resolves
-        // to its unique provider-qualified kind, and a two-provider collision is a load error.
-        if builtin_kind::definition(name)?.is_some() {
-            continue;
-        }
-        kinds.push(CustomKind::load(&kinds_dir, name)?);
+/// The session-start reporter's gate over a harness root (`specs/architecture/20-surface.md`,
+/// "CLI surface" — session-start is a reporter of `check`): surface-present ⇒ gate the
+/// authored `.temper/` itself; surfaceless ⇒ import the raw harness into a scratch
+/// surface and gate that.
+///
+/// The surface-present branch never re-imports: a fresh import discards recognition (the
+/// authored `satisfies` links), so every filled requirement would read unfilled — the
+/// false positive on clean input the surface-present clause forbids (law 3). In the
+/// scratch branch members land in the scratch while the authored layer is read from the
+/// harness itself, not the process CWD.
+fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
+    let authored = harness_path.join(TEMPER_DIR);
+    let temper_toml = harness_path.join(TEMPER_TOML);
+    if authored.is_dir() && temper_toml.is_file() {
+        gate(&authored, &authored, &temper_toml)
+    } else {
+        let scratch = scratch_surface()?;
+        import::run(harness_path, &scratch)?;
+        let diagnostics = gate(&scratch, &authored, &temper_toml)?;
+        // A leftover temp dir must never fail the advisory gate.
+        let _ = fs::remove_dir_all(&scratch);
+        Ok(diagnostics)
     }
-    Ok(kinds)
 }
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active
@@ -1271,39 +991,6 @@ fn custom_kinds_and_edges<'a>(
     Ok((custom_kinds, edges))
 }
 
-/// Load every registered custom kind's members as the read family sees them
-/// (READ-CUSTOM-SATISFIERS): each member's kind name, its id, and its
-/// rationale-carrying `satisfies` clauses ([`kind::Unit::satisfies_clauses`]). The
-/// read family (`why`/`requirements`) ranges over custom-kind satisfiers exactly as it
-/// does skills/rules, so a custom member filling a requirement is reported rather than
-/// silently absent. Loaded off the same units the gate extracts from — via the shared
-/// [`custom_units`] loader — but carrying the rationale the decidable feature view
-/// drops. A `[kind.<name>]` naming a built-in is a contract layer, not a registration
-/// (`specs/architecture/40-composition.md`), so it is skipped.
-fn custom_members(
-    workspace: &Path,
-    layer: &compose::AuthorLayer,
-    kinds_dir: &Path,
-) -> miette::Result<Vec<read::CustomMember>> {
-    let mut members = Vec::new();
-    for name in layer.registered_kinds() {
-        // Provider resolution splits built-in layers from custom registrations
-        // (`specs/architecture/15-kinds.md`), the same test the gate applies.
-        if builtin_kind::definition(name)?.is_some() {
-            continue;
-        }
-        let custom = CustomKind::load(kinds_dir, name)?;
-        for unit in custom_units(workspace, &custom)? {
-            members.push(read::CustomMember {
-                kind: name.to_string(),
-                id: unit.id,
-                satisfies: unit.satisfies_clauses,
-            });
-        }
-    }
-    Ok(members)
-}
-
 /// Assemble the by-kind [`Features`](extract::Features) corpus every set-scope and
 /// graph predicate ranges over: the built-in kinds plus each custom kind's
 /// features, keyed by kind name. The counterpart to [`custom_kinds_and_edges`]
@@ -1372,33 +1059,6 @@ fn collect_directive_members(
         }
     }
     Ok(members)
-}
-
-/// The composed requirement namespace the read family (`why`/`requirements`) ranges
-/// over — the assembly's `[requirement.*]` roster unioned with every member's published
-/// `[requirement.*]`, the exact namespace the `check` gate judges
-/// ([`union_published_requirements`], READ-VERBS-PUBLISHED-DEMANDS). Ranging over it,
-/// not the assembly roster alone, is what makes a read agree with a green `check`: a
-/// member-published join reads as live, never misreported as dangling. Collisions are
-/// the gate's admissibility finding, discarded here — a read never re-reports them
-/// (`specs/architecture/20-surface.md`, the read family "never gates"). Absent a `temper.toml` the
-/// gate composes no roster, so this is empty too.
-fn composed_roster(
-    layer: Option<&compose::AuthorLayer>,
-    skill_features: &[extract::Features],
-    rule_features: &[extract::Features],
-    custom_kinds: &[CustomKindEntry<'_>],
-) -> BTreeMap<String, compose::Requirement> {
-    let Some(layer) = layer else {
-        return BTreeMap::new();
-    };
-    let all_features: Vec<extract::Features> = skill_features
-        .iter()
-        .chain(rule_features.iter())
-        .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
-        .cloned()
-        .collect();
-    union_published_requirements(layer.requirements(), &all_features).0
 }
 
 /// Union the assembly's published `[requirement.*]` roster with every member's

@@ -593,3 +593,90 @@ fn init_defaults_to_the_current_directory_and_writes_no_copy_tree() {
         "check without an argument must lint the in-place manifest and exit zero"
     );
 }
+
+#[test]
+fn the_cli_surface_is_init_check_emit_install_bundle_schema_guard() {
+    // The collapsed surface (`specs/architecture/20-surface.md`, "CLI surface"): the six nouns
+    // plus `guard`. `--help` lists exactly these; the migration-era verbs are gone.
+    let help = Command::new(BIN).arg("--help").output().unwrap();
+    assert!(help.status.success(), "temper --help must exit zero");
+    let stdout = String::from_utf8(help.stdout).unwrap();
+    // The "Commands:" section lists each surviving noun (a leading-whitespace entry, so a
+    // retired verb merely *mentioned* in a description does not count as present).
+    for command in [
+        "init", "check", "emit", "install", "bundle", "schema", "guard",
+    ] {
+        assert!(
+            stdout
+                .lines()
+                .any(|line| line.trim_start().starts_with(command)),
+            "temper --help must list `{command}`, got:\n{stdout}"
+        );
+    }
+
+    // Every retired verb is rejected as an unknown subcommand — the surface no longer
+    // carries `import`/`diff`/`session-start`/`why`/`requirements`/`impact`/`context`
+    // (`explain` lands later, fork-gated at EXPLAIN-UNIFY).
+    for retired in [
+        "import",
+        "diff",
+        "session-start",
+        "why",
+        "requirements",
+        "impact",
+        "context",
+        "explain",
+    ] {
+        let status = Command::new(BIN).arg(retired).arg("x").status().unwrap();
+        assert!(
+            !status.success(),
+            "`temper {retired}` must be a rejected (unknown) subcommand"
+        );
+    }
+}
+
+#[test]
+fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
+    use std::io::Write;
+
+    // `temper guard` reads the `PreToolUse` payload from stdin and acts at the declared
+    // posture (`specs/architecture/20-surface.md`, the guard Decision). A `surface` harness
+    // blocks a `.claude/` write (exit 2); a non-projection write is allowed (exit 0).
+    let root = tmpdir("guard-surface");
+    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
+
+    let run = |payload: &str| {
+        let mut child = Command::new(BIN)
+            .arg("guard")
+            .arg(&root)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(payload.as_bytes())
+            .unwrap();
+        child.wait_with_output().unwrap()
+    };
+
+    let blocked = run("{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}");
+    assert_eq!(
+        blocked.status.code(),
+        Some(2),
+        "a surface harness blocks a projection write"
+    );
+    assert!(
+        String::from_utf8_lossy(&blocked.stderr).contains("temper-managed projection"),
+        "the block states the managed-by message"
+    );
+
+    let allowed = run("{\"tool_input\":{\"file_path\":\"README.md\"}}");
+    assert!(
+        allowed.status.success(),
+        "a non-projection write is allowed even under `surface`"
+    );
+}

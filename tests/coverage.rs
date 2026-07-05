@@ -62,14 +62,9 @@ fn import_skill(root: &Path, name: &str, skill_md: &str) {
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(&harness)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    let into = root.join(".temper");
+    temper::import::run(&harness, &into).unwrap();
+    temper::import::emit_manifest(&harness, &into).unwrap();
 }
 
 /// Author the `[satisfies.<requirement>]` opt-in modules on an imported skill's

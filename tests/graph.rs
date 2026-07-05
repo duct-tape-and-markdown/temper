@@ -82,14 +82,9 @@ fn import_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str,
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(skill_dir.join("SKILL.md"), skill_md).unwrap();
 
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(&harness)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    let into = root.join(".temper");
+    temper::import::run(&harness, &into).unwrap();
+    temper::import::emit_manifest(&harness, &into).unwrap();
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined

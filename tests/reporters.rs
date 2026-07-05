@@ -185,16 +185,12 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
 
-/// Run `temper import <harness> --into <into>` and assert it succeeded.
+/// Import `harness` into `into` via the library — the retired `temper import` verb's
+/// exact two steps (surface projection + manifest), driven in-process now that the CLI
+/// on-ramp is `init`/`check --harness`.
 fn import(harness: &Path, into: &Path) {
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(harness)
-        .arg("--into")
-        .arg(into)
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    temper::import::run(harness, into).unwrap();
+    temper::import::emit_manifest(harness, into).unwrap();
 }
 
 #[test]

@@ -114,14 +114,9 @@ fn import_harness(root: &Path, skills: &[(&str, String)], rules: &[(&str, String
         fs::write(rules_root.join(format!("{name}.md")), md).unwrap();
     }
 
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(&harness)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    let into = root.join(".temper");
+    temper::import::run(&harness, &into).unwrap();
+    temper::import::emit_manifest(&harness, &into).unwrap();
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -172,14 +167,9 @@ fn import_rules(root: &Path, rules: &[(&str, String)]) -> PathBuf {
         fs::write(rules_root.join(format!("{name}.md")), md).unwrap();
     }
 
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(&harness)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    let into = root.join(".temper");
+    temper::import::run(&harness, &into).unwrap();
+    temper::import::emit_manifest(&harness, &into).unwrap();
     harness
 }
 

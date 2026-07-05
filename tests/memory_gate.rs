@@ -14,6 +14,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The binary under test, located by Cargo at compile time.
@@ -139,19 +140,29 @@ fn write_sibling(root: &Path, rel: &str, body: &str) {
 /// Import `<harness>` into its own `.temper/` surface, cwd = harness root — the first
 /// leg of the TWO-STEP path. Panics on a failed import so a broken fixture is loud.
 fn import_two_step(harness: &Path) {
-    let output = Command::new(BIN)
-        .current_dir(harness)
-        .arg("import")
-        .arg(".")
-        .arg("--into")
-        .arg(".temper")
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "import failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // The retired `temper import` verb recorded each member's provenance `source_path`
+    // relative to the harness arg — the subprocess ran with `cwd = harness` and a `.`
+    // arg. The two-step gate below (`cwd = harness`, bare `temper.toml`) resolves an
+    // `@import` target against that same relative base, so the source_path must stay
+    // harness-relative for the backing set to join it. Reproduce that in-process by
+    // running the library import with `cwd = harness` and relative args, serialized (the
+    // process cwd is global) and cwd-restored even on panic.
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
+    let _serialized = CWD_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+    struct RestoreCwd(PathBuf);
+    impl Drop for RestoreCwd {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.0);
+        }
+    }
+    let _restore = RestoreCwd(std::env::current_dir().unwrap());
+
+    std::env::set_current_dir(harness).unwrap();
+    temper::import::run(Path::new("."), Path::new(".temper")).unwrap();
+    temper::import::emit_manifest(Path::new("."), Path::new(".temper")).unwrap();
 }
 
 /// Gate the already-imported `.temper/` surface with cwd = harness root — the second leg

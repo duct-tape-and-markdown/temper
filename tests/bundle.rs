@@ -118,7 +118,7 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
         serde_json::from_str(&fs::read_to_string(&hooks).unwrap()).unwrap();
     assert_eq!(
         hooks_json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "temper session-start ."
+        "temper check . --reporter session-start"
     );
 
     // 3. The shipped built-in packages, embedded byte-faithful — the same

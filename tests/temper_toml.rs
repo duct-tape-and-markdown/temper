@@ -92,14 +92,9 @@ fn import_skill(root: &Path, name: &str, skill_md: &str) {
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(&harness)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    let into = root.join(".temper");
+    temper::import::run(&harness, &into).unwrap();
+    temper::import::emit_manifest(&harness, &into).unwrap();
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -1198,14 +1193,9 @@ fn write_skill_and_rule_harness(root: &Path) {
 /// Run `temper import <root> --into <root>/.temper` — the persistent import that
 /// serializes the manifest beside the workspace.
 fn run_import(root: &Path) {
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(root)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    let into = root.join(".temper");
+    temper::import::run(root, &into).unwrap();
+    temper::import::emit_manifest(root, &into).unwrap();
 }
 
 #[test]

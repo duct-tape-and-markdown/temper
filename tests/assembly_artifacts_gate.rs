@@ -126,14 +126,9 @@ fn surface_harness_with_satisfies(label: &str) -> PathBuf {
     fs::write(skills.join("SKILL.md"), SKILL).unwrap();
     fs::write(rules.join("rust.md"), RULE).unwrap();
 
-    let status = Command::new(BIN)
-        .arg("import")
-        .arg(&root)
-        .arg("--into")
-        .arg(root.join(".temper"))
-        .status()
-        .unwrap();
-    assert!(status.success(), "import should succeed: {status}");
+    let into = root.join(".temper");
+    temper::import::run(&root, &into).unwrap();
+    temper::import::emit_manifest(&root, &into).unwrap();
 
     // The committed surface documents carry no mined `satisfies` (the source frontmatter
     // declares none); author the recognition into each so the gate reads it off the corpus.

@@ -7,7 +7,8 @@
 //! they live in *your* repo, not a shipped bundle — and wires the gate for anyone
 //! who runs the binary without the plugin. Two placements:
 //!
-//! 1. the **`SessionStart` hook** (the exec-form `temper session-start` command)
+//! 1. the **`SessionStart` hook** (the exec-form `temper check . --reporter
+//!    session-start` command — session-start is a reporter of `check`, not a verb)
 //!    merged into `<root>/.claude/settings.json`;
 //! 2. the **managed header lines** (`# yaml-language-server: $schema=…` and the
 //!    managed-by note) inserted into each artifact's frontmatter — the gate at
@@ -18,13 +19,13 @@
 //! its own drift story), so CI is a documented two-line user-authored job, not a
 //! projection this verb owns.
 //!
-//! Plus the assembly's **surface-authority** enforcement artifacts, wired per the
-//! composed `authority` posture (`specs/architecture/20-surface.md`; `Shared` when the
-//! `temper.toml` is absent or declares none): a managed-by **note** rides the
-//! modeline machinery onto every non-memory frontmatter projection (a comment in a
-//! memory `CLAUDE.md` costs context every session), and a `PreToolUse` **guard hook**
-//! at Claude Code's write boundary informs-and-routes under `shared` / blocks under
-//! `surface`. Both are placed and self-audited exactly like the three above.
+//! Plus the assembly's **surface-authority** enforcement artifacts
+//! (`specs/architecture/20-surface.md`): a managed-by **note** rides the modeline machinery
+//! onto every non-memory frontmatter projection (a comment in a memory `CLAUDE.md`
+//! costs context every session), and a `PreToolUse` **guard hook** running the
+//! `temper guard` subcommand at Claude Code's write boundary — the subcommand reads the
+//! declared `authority` posture live and informs-and-routes under `shared` / blocks under
+//! `surface` ([`guard`]). Both are placed and self-audited exactly like the three above.
 //!
 //! Each placement is projected as an ordinary artifact **under the three-state
 //! drift engine** ([`drift::place`]) rather than a bespoke writer: `install`
@@ -49,17 +50,19 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use regex::Regex;
 use serde_json::{Value as JsonValue, json};
 
 use crate::check::Diagnostic;
-use crate::compose::{AuthorLayer, Authority};
+use crate::compose::Authority;
 use crate::drift::{self, ApplyOutcome};
 use crate::import;
 
 /// The exec-form command Claude Code runs at session start: the `temper` binary
-/// itself, checking the project root (`specs/architecture/50-distribution.md`, "the hook is the
-/// temper binary itself"). The `.` is the harness under the running project.
-const SESSION_START_COMMAND: &str = "temper session-start .";
+/// itself, checking the project root under the advisory session-start reporter
+/// (`specs/architecture/20-surface.md`, "session-start is a reporter of `check`, not a verb").
+/// The `.` is the harness under the running project.
+const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
 /// The placement label carried in the report and the self-verify diagnostics.
 const SESSION_START: &str = "session-start hook";
@@ -79,22 +82,29 @@ const GATE_RULE: &str = "install.gate-installed";
 /// instrumented by it.
 const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 
-/// The stable token every guard command carries, whatever its degree — so a re-install
-/// (or a posture change: `shared`↔`surface`) *replaces* the existing temper guard in
-/// place rather than appending a second one.
-const GUARD_MARKER: &str = "temper-managed projection";
+/// The exec-form command the `PreToolUse` guard hook runs: the `temper` binary's own
+/// `guard` subcommand, reading the payload from stdin and deciding at the harness's
+/// declared posture (`specs/architecture/20-surface.md`). The `.` roots the `temper.toml` the
+/// posture is read from — the project Claude Code runs the hook in.
+const GUARD_COMMAND: &str = "temper guard .";
 
-/// The message the guard prints on a hit — carrying [`GUARD_MARKER`] and stating the
-/// limit verbatim: the guard binds only this provider's writes, so other tools writing
-/// a shared file are not bound by it. Deliberately apostrophe-free — the command
-/// single-quotes it for the shell.
-const NOTE_GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code writes; other tools writes are not bound by it.";
+/// The stable token the guard command carries so a re-install *replaces* the existing
+/// temper guard in place rather than appending a second one. The command is
+/// posture-independent (the subcommand reads the posture live), so this is simply the
+/// subcommand invocation.
+const GUARD_MARKER: &str = "temper guard";
 
-/// The extended-regex the guard command greps the `PreToolUse` payload for: a
-/// `file_path` value under a `.claude/` projection locus. Matching the field (not the
-/// whole payload) keeps a write whose *content* merely mentions `.claude/` from
-/// tripping the guard. Kept deliberately conservative — a false negative routes to CI
-/// (the backstop wall), a false positive would block honest work.
+/// The message `temper guard` prints on a projection hit — stating the limit verbatim:
+/// the guard binds only this provider's writes, so other tools writing a shared file are
+/// not bound by it. Public so the `guard` subcommand ([`main`]) prints it whether it
+/// warns (`shared`) or blocks (`surface`).
+pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code writes; other tools writes are not bound by it.";
+
+/// The extended-regex `temper guard` greps the `PreToolUse` payload for: a `file_path`
+/// value under a `.claude/` projection locus. Matching the field (not the whole payload)
+/// keeps a write whose *content* merely mentions `.claude/` from tripping the guard. Kept
+/// deliberately conservative — a false negative routes to CI (the backstop wall), a false
+/// positive would block honest work.
 const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"[^"]*\.claude/"#;
 
 /// The managed-by note's stable marker — the comment prefix that *locates* an already
@@ -250,15 +260,16 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
 /// placement's desired bytes and route the write through [`drift::place`]. With
 /// `dry_run` set nothing lands, so the self-verify reuses it read-only.
 fn plan(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
-    let authority = load_authority(root)?;
     let mut entries = Vec::new();
 
     // 1. The SessionStart hook and the PreToolUse guard, both merged into one
     //    .claude/settings.json. A single write carries both; the per-hook presence
     //    drives two placement outcomes so `gate_installed` audits each independently.
+    //    The guard command is posture-independent — `temper guard` reads the declared
+    //    posture live from `temper.toml` — so `install` wires one stable command.
     let settings_path = root.join(".claude").join("settings.json");
     let existing = read_optional(&settings_path)?;
-    let settings = project_settings(&settings_path, existing.as_deref(), authority)?;
+    let settings = project_settings(&settings_path, existing.as_deref())?;
     drift::place(&settings_path, &settings.desired, None, dry_run)?;
     entries.push(InstallEntry {
         placement: SESSION_START,
@@ -308,14 +319,45 @@ fn plan(root: &Path, dry_run: bool) -> miette::Result<InstallReport> {
     Ok(InstallReport { entries })
 }
 
-/// The assembly's declared surface-authority posture, read from `<root>/temper.toml`
-/// (`specs/architecture/20-surface.md`, "surface authority is a declared posture").
-/// [`Authority::Shared`] when the file is absent or declares no `authority` — the
-/// default: temper fabricates no enforcement the author did not ask for.
-fn load_authority(root: &Path) -> miette::Result<Authority> {
-    Ok(AuthorLayer::load(&root.join("temper.toml"))?
-        .map(|layer| layer.authority())
-        .unwrap_or_default())
+/// The verdict `temper guard` reaches over a `PreToolUse` payload at the author's
+/// declared posture (`specs/architecture/20-surface.md`, "surface authority is a declared
+/// posture"): whether Claude Code's pending write is allowed, informed-and-routed, or
+/// blocked. temper never escalates past the posture the harness declares.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GuardVerdict {
+    /// The write does not target a `.claude/` projection — allow it silently.
+    Allow,
+    /// A projection edit under the `shared` posture — inform and route to `emit`, exit 0.
+    Warn,
+    /// A projection edit under the `surface` posture — block the write (exit 2).
+    Block,
+}
+
+/// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `authority`'s
+/// posture (`specs/architecture/20-surface.md`, the guard Decision). A write whose `file_path`
+/// targets a `.claude/` projection maps onto the severity vocabulary — `shared` informs
+/// and routes ([`GuardVerdict::Warn`]), `surface` blocks ([`GuardVerdict::Block`]). Any
+/// other write, or a payload naming no `.claude/` `file_path`, is [`GuardVerdict::Allow`]:
+/// the guard binds only projection edits.
+#[must_use]
+pub fn guard(payload: &str, authority: Authority) -> GuardVerdict {
+    if !targets_projection(payload) {
+        return GuardVerdict::Allow;
+    }
+    match authority {
+        Authority::Shared => GuardVerdict::Warn,
+        Authority::Surface => GuardVerdict::Block,
+    }
+}
+
+/// Whether `payload` names a `.claude/` projection `file_path` — the conservative,
+/// field-scoped match the guard binds on ([`GUARD_PATH_MATCH`]).
+fn targets_projection(payload: &str) -> bool {
+    // A compile-time-constant pattern: the only failure is a malformed literal, a build
+    // invariant, so `expect` here can never fire on a real path.
+    Regex::new(GUARD_PATH_MATCH)
+        .expect("GUARD_PATH_MATCH is a valid regex")
+        .is_match(payload)
 }
 
 /// Map "was this placement already in its desired state" onto the settings outcomes.
@@ -352,16 +394,15 @@ struct SettingsProjection {
     desired: String,
     /// Whether the `SessionStart` hook was already present.
     hook_present: bool,
-    /// Whether the guard hook was already present *at the desired degree* — a posture
-    /// change (`shared`↔`surface`) leaves a differing command, so this reads `false`
-    /// and the guard reports as (re)applied.
+    /// Whether the guard hook was already present. The guard command is
+    /// posture-independent, so this is a plain presence check.
     guard_present: bool,
 }
 
 /// Project the desired `.claude/settings.json` — the existing settings with the
-/// `SessionStart` hook and the `PreToolUse` guard (at `authority`'s degree) merged in,
-/// or a fresh document when the file is absent or empty. Idempotent: an already-present
-/// temper hook at its desired shape is left alone, so re-merging reproduces the bytes.
+/// `SessionStart` hook and the `PreToolUse` guard ([`GUARD_COMMAND`]) merged in, or a
+/// fresh document when the file is absent or empty. Idempotent: an already-present temper
+/// hook at its desired shape is left alone, so re-merging reproduces the bytes.
 ///
 /// JSON carries no comments and its object order is not semantically meaningful, so
 /// the merge parses, adds/updates each hook, and re-emits canonical pretty JSON —
@@ -370,7 +411,6 @@ struct SettingsProjection {
 fn project_settings(
     path: &Path,
     existing: Option<&str>,
-    authority: Authority,
 ) -> Result<SettingsProjection, InstallError> {
     let mut root = match existing {
         Some(text) if !text.trim().is_empty() => {
@@ -389,9 +429,8 @@ fn project_settings(
         })?;
 
     // Presence *before* the merge — the per-hook outcome install reports.
-    let guard = guard_command(authority);
     let hook_present = session_start_present(object);
-    let guard_present = guard_present(object, &guard);
+    let guard_present = guard_present(object, GUARD_COMMAND);
 
     // `hooks` is an object of event-name -> array-of-groups.
     let hooks = object
@@ -418,8 +457,8 @@ fn project_settings(
         }));
     }
 
-    // Ensure the `PreToolUse` guard at the posture's degree — replacing any existing
-    // temper guard (its command may carry a stale degree) rather than appending.
+    // Ensure the `PreToolUse` guard — replacing any existing temper guard (identified by
+    // [`GUARD_MARKER`]) rather than appending a second one.
     let pre_tool_use = hooks
         .entry("PreToolUse")
         .or_insert_with(|| json!([]))
@@ -427,7 +466,7 @@ fn project_settings(
         .ok_or_else(|| InstallError::SettingsShape {
             path: path.to_path_buf(),
         })?;
-    upsert_guard(pre_tool_use, &guard);
+    upsert_guard(pre_tool_use, GUARD_COMMAND);
 
     // A trailing newline keeps the file POSIX-clean; pretty JSON is deterministic,
     // so the whole projection is idempotent.
@@ -443,25 +482,6 @@ fn project_settings(
         hook_present,
         guard_present,
     })
-}
-
-/// The guard hook's command at `authority`'s degree. Both greps the `PreToolUse`
-/// payload for a `.claude/` `file_path` and, on a hit, states the managed-by message —
-/// then routes (`shared`, advisory: exit 0) or blocks (`surface`, required: exit 2).
-/// Degree maps onto the severity vocabulary (advisory / required) so temper never
-/// escalates past the declared posture (`specs/architecture/20-surface.md`). The message states
-/// the limit verbatim: the guard binds only this provider's writes.
-fn guard_command(authority: Authority) -> String {
-    match authority {
-        // Advisory: inform and route to `emit`, never block.
-        Authority::Shared => {
-            format!("grep -qE '{GUARD_PATH_MATCH}' && echo '{NOTE_GUARD_MESSAGE}' >&2; exit 0")
-        }
-        // Required: block the write (exit 2) so the projection is not clobbered.
-        Authority::Surface => format!(
-            "grep -qE '{GUARD_PATH_MATCH}' && {{ echo '{NOTE_GUARD_MESSAGE}' >&2; exit 2; }}; exit 0"
-        ),
-    }
 }
 
 /// Whether a `SessionStart` group carrying temper's exec-form command is already
@@ -484,8 +504,8 @@ fn hooks_session_start(groups: &[JsonValue]) -> bool {
 }
 
 /// Whether a `PreToolUse` group carrying *this exact* guard command is already present.
-/// A differing command (a posture change) reads `false`, so the guard reports as
-/// (re)applied and [`upsert_guard`] rewrites it.
+/// A differing command reads `false`, so the guard reports as (re)applied and
+/// [`upsert_guard`] rewrites it.
 fn guard_present(object: &serde_json::Map<String, JsonValue>, guard: &str) -> bool {
     object
         .get("hooks")
@@ -499,8 +519,8 @@ fn guard_present(object: &serde_json::Map<String, JsonValue>, guard: &str) -> bo
 }
 
 /// Insert or update temper's guard in a `PreToolUse` groups array: an existing temper
-/// guard (identified by [`GUARD_MARKER`], whatever its degree) has its command set to
-/// `guard`, so a posture change rewrites in place; absent, a fresh group is appended.
+/// guard (identified by [`GUARD_MARKER`]) has its command set to `guard`; absent, a fresh
+/// group is appended. So a re-install never duplicates the guard.
 fn upsert_guard(groups: &mut Vec<JsonValue>, guard: &str) {
     for group in groups.iter_mut() {
         if !group_has_command(group, |command| command.contains(GUARD_MARKER)) {

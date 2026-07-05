@@ -142,7 +142,7 @@ fn install_projects_the_placements() {
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "temper session-start ."
+        "temper check . --reporter session-start"
     );
     assert_eq!(
         json["permissions"]["allow"][0], "Bash(cargo test:*)",
@@ -330,7 +330,9 @@ fn gate_installed_summarizes_missing_then_drifted_placements() {
 /// `emit` must never reproduce (kept in step with `install.rs`'s `NOTE_MARKER`).
 const NOTE_MARKER: &str = "# temper: managed projection";
 
-/// The guard command the `PreToolUse` hook carries after an install at `root`.
+/// The guard command the `PreToolUse` hook carries after an install at `root` — now the
+/// posture-independent `temper guard .` subcommand invocation (the note/warn/block
+/// behavior lives in the subcommand, driven by [`run_guard`]).
 fn guard_command(root: &Path) -> String {
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
@@ -338,6 +340,37 @@ fn guard_command(root: &Path) -> String {
         .as_str()
         .expect("the guard hook must carry a command")
         .to_string()
+}
+
+/// A `PreToolUse` payload naming a `.claude/` projection `file_path` — the write the guard
+/// binds on.
+const CLAUDE_WRITE_PAYLOAD: &str =
+    "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}";
+
+/// Drive `temper guard <root>` across the process boundary with `payload` on stdin —
+/// the subcommand reads the declared posture from `<root>/temper.toml`. Returns the exit
+/// code and the stderr the guard prints on a projection hit.
+fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
+    use std::io::Write;
+    let mut child = Command::new(BIN)
+        .arg("guard")
+        .arg(root)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(payload.as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    (
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
 }
 
 #[test]
@@ -359,15 +392,20 @@ fn surface_posture_authors_a_blocking_guard_and_notes_non_memory() {
 
     install::run(&root, false).unwrap();
 
-    // The guard blocks (exit 2) under `surface`, and its message states the limit.
-    let guard = guard_command(&root);
-    assert!(
-        guard.contains("exit 2"),
-        "the surface guard must block, got: {guard}"
+    // The installed hook is the posture-independent subcommand invocation.
+    assert_eq!(
+        guard_command(&root),
+        "temper guard .",
+        "the guard hook runs the `temper guard` subcommand"
     );
+
+    // Driven over a `.claude/` write under `surface`, the guard blocks (exit 2) and its
+    // message states the limit verbatim.
+    let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    assert_eq!(code, Some(2), "the surface guard must block, got: {code:?}");
     assert!(
-        guard.contains("other tools writes are not bound by it"),
-        "the guard states the limit verbatim, got: {guard}"
+        stderr.contains("other tools writes are not bound by it"),
+        "the guard states the limit verbatim, got: {stderr}"
     );
 
     // The managed-by note lands on the non-memory frontmatter projections...
@@ -403,46 +441,70 @@ fn shared_posture_authors_a_warning_guard() {
     let root = write_harness("shared", true);
     install::run(&root, false).unwrap();
 
-    let guard = guard_command(&root);
-    assert!(
-        !guard.contains("exit 2"),
-        "the shared guard must not block, got: {guard}"
+    // Driven over a `.claude/` write under `shared`, the guard warns-and-routes: it prints
+    // the managed-by message but exits zero, never blocking the write.
+    let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    assert_eq!(
+        code,
+        Some(0),
+        "the shared guard must not block, got: {code:?}"
     );
     assert!(
-        guard.contains("temper-managed projection") && guard.contains("exit 0"),
-        "the shared guard warns-and-routes (advisory), got: {guard}"
+        stderr.contains("temper-managed projection"),
+        "the shared guard states the managed-by message, got: {stderr}"
     );
+    // A write that touches no `.claude/` projection is allowed silently under either posture.
+    let (allow_code, allow_stderr) = run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"src/main.rs\"}}",
+    );
+    assert_eq!(allow_code, Some(0));
+    assert!(
+        allow_stderr.is_empty(),
+        "a non-projection write is allowed silently, got: {allow_stderr}"
+    );
+
     // The note is the universal layer — present under `shared` too.
     let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
     assert!(rust_md.contains(NOTE_MARKER), "the note lands under shared");
 }
 
 #[test]
-fn a_posture_change_rewrites_the_guard_in_place() {
-    // Install under the default `shared`, then flip the assembly to `surface`: the
-    // guard is REPLACED (block for warn), never a second one appended.
+fn a_posture_change_takes_effect_without_re_wiring_and_never_duplicates_the_guard() {
+    // The guard command is posture-independent — `temper guard` reads the declared posture
+    // live — so flipping the assembly `shared`→`surface` changes the guard's *behavior*
+    // with no re-install, and a re-install never appends a second guard.
     let root = write_harness("posture-change", true);
     install::run(&root, false).unwrap();
-    assert!(!guard_command(&root).contains("exit 2"), "starts advisory");
-
-    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
-    let report = install::run(&root, false).unwrap();
-
-    assert!(
-        guard_command(&root).contains("exit 2"),
-        "the flipped posture blocks"
+    // Default `shared`: the guard warns without blocking.
+    assert_eq!(
+        run_guard(&root, CLAUDE_WRITE_PAYLOAD).0,
+        Some(0),
+        "starts advisory"
     );
+
+    // Flip the posture — no re-wiring — and the same installed hook now blocks.
+    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
+    assert_eq!(
+        run_guard(&root, CLAUDE_WRITE_PAYLOAD).0,
+        Some(2),
+        "the flipped posture blocks, read live by the subcommand"
+    );
+
+    // A re-install leaves a single `PreToolUse` group Unchanged — the constant command
+    // is already in place, so it is never duplicated.
+    let report = install::run(&root, false).unwrap();
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"].as_array().unwrap().len(),
         1,
-        "a posture change rewrites the guard, never appends a second"
+        "a re-install never appends a second guard"
     );
     assert_eq!(
         outcome_of(&report, "guard hook"),
-        ApplyOutcome::Applied,
-        "the rewritten guard reports as (re)applied"
+        ApplyOutcome::Unchanged,
+        "the posture-independent guard is already in place ⇒ Unchanged"
     );
 }
 
@@ -455,7 +517,9 @@ fn the_note_and_guard_name_the_ratified_drift_remedy() {
     let root = write_harness("drift-strings", true);
     install::run(&root, false).unwrap();
 
-    let guard = guard_command(&root);
+    // The guard's message rides the subcommand now — drive it over a `.claude/` write and
+    // read the routed remedy off stderr.
+    let (_code, guard) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert!(
         guard.contains("re-run temper emit"),
         "the guard routes to `temper emit`, got: {guard}"
