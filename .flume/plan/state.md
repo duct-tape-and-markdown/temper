@@ -1,28 +1,27 @@
 # Plan state
 
-- **Phase:** reconciled the sole-producer corpus encode (27b3b94) against the
-  actual code. Filed the one genuinely-pickable cut it unblocks; the rest of
-  the demolition stays human-gated.
-- **Last shipped:** the corpus now carries the `(inplace-lock-producer)`
-  ruling — 20-surface's "The lock and drift" gained the sole-producer
-  paragraph, "init — the lift, once" the lift-output paragraph (specs
-  27b3b94). No code moved with it.
-- **This tick:** derived the demolition chain against src/ and found "fileable
-  now" narrower than the scope note read: the copy-tree `import::run` is LIVE
-  gate scaffolding (main.rs:287,568 + ~15 test files), standing in for the
-  absent SDK emit, so the producer/[[member]]-codec/AuthorLayer cuts are
-  entangled with a gate rewrite + the human-gated SDK front door. The one
-  dead, decoupled piece — the retired four-state drift differ (`drift::diff`
-  family, unreachable since the drift re-cut) — is filed **DRIFT-DIFF-RETIRE**
-  (open, src/drift.rs only). Recorded the entanglement finding under
-  `(inplace-lock-producer)`. PACKAGING-CHANNELS untouched (still parked).
-- **In flight:** DRIFT-DIFF-RETIRE is the single pickable entry (disjoint —
-  src/drift.rs only; no shared file with the parked PACKAGING-CHANNELS).
-- **What's next:** John's hand — the demolition core (copy-tree gate rewrite
-  + producer/codec cuts) rides the SDK-primary front door with `init`'s
-  re-shape; the corpus shadow of the dogfood deactivation; release creds.
+- **Phase:** reconciled DRIFT-DIFF-RETIRE shipped against src/. Queue now
+  quiescent — one parked entry, nothing autonomously pickable.
+- **Last shipped:** DRIFT-DIFF-RETIRE (build b9c8f3c / chore 028bd72) — the
+  dead four-state drift differ is gone from src/drift.rs (verified on disk:
+  the `diff`/`classify`/`DriftState`/`DriftReport`/`SurfaceArtifact` family
+  removed; only the emit-report renderers `render_field`/`render_emit`
+  survive, zero usages of the retired types).
+- **This tick:** verified the retirement on disk and dropped it from the
+  active reasoning; re-checked the two other ledger-named "small" cuts and
+  found neither decoupled — the kind-blind read path is `(builtin-workspace-
+  qualified-key)`/demolition-entangled, and mentions→citations is empty by
+  the main.rs:507-510 comment "until an altitude serializes mentions" (the
+  human-gated SDK-primary altitude). Inbox empty; nothing to drain.
+- **In flight:** none pickable. PACKAGING-CHANNELS stays parked (needs npm
+  org + @temper scope, marketplace/signing creds; rides the SDK-primary
+  foundation).
+- **What's next:** John's hand — the demolition core (copy-tree gate rewrite +
+  producer/codec/AuthorLayer cuts) rides the SDK-primary front door with
+  `init`'s re-shape; the corpus shadow of the dogfood deactivation; release
+  creds. No autonomously-derivable green chain remains.
 
-Plan continues: no — the inbox is empty, one clean pickable entry
-(DRIFT-DIFF-RETIRE) is filed for build, and the rest of the demolition is
-entangled with the human-gated SDK front door, not an autonomously-derivable
-green chain. Hand to build.
+Plan continues: no — the queue is reconciled (DRIFT-DIFF-RETIRE dropped as
+shipped), the inbox is empty, and every remaining thread is human-gated on the
+SDK-primary front door. Nothing pickable to hand build; the loop is quiescent
+until John's hand moves.

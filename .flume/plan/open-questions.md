@@ -187,9 +187,12 @@ New forks from the ceremony:
   the four-state drift differ (`drift::diff` family — `diff`/`classify`/
   `DriftState`/`DriftReport`/`SurfaceArtifact`/`render`, unreachable since the
   drift re-cut; the gate's freshness path is `read_declarations` +
-  `render_emit`), filed this tick as **DRIFT-DIFF-RETIRE** (open). The rest of
-  the demolition rides the SDK-primary front door — human-gated, not
-  `open`-pickable.
+  `render_emit`), filed and now **SHIPPED** as **DRIFT-DIFF-RETIRE** (build
+  b9c8f3c / chore 028bd72; verified on disk: the `diff`/`classify`/`DriftState`/
+  `DriftReport`/`SurfaceArtifact` family is gone from src/drift.rs — only the
+  emit-report renderers `render_field`/`render_emit` survive, zero usages of the
+  retired types). The rest of the demolition rides the SDK-primary front door —
+  human-gated, not `open`-pickable.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
   Rust.** No spec delta — the corpus is language-neutral by design ("the
   engine", never a language as normative fact; 50-distribution "The stranger
