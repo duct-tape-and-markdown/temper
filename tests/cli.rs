@@ -595,16 +595,18 @@ fn init_defaults_to_the_current_directory_and_writes_no_copy_tree() {
 }
 
 #[test]
-fn the_cli_surface_is_init_check_emit_install_bundle_schema_guard() {
+fn the_cli_surface_is_init_check_emit_install_bundle_schema_guard_explain() {
     // The collapsed surface (`specs/architecture/20-surface.md`, "CLI surface"): the six nouns
-    // plus `guard`. `--help` lists exactly these; the migration-era verbs are gone.
+    // plus `guard`, plus `explain` — the one read verb (EXPLAIN-UNIFY) — landed once its
+    // fork-gate (`explain-target-disambiguation`) resolved. `--help` lists exactly
+    // these; the migration-era verbs are gone.
     let help = Command::new(BIN).arg("--help").output().unwrap();
     assert!(help.status.success(), "temper --help must exit zero");
     let stdout = String::from_utf8(help.stdout).unwrap();
     // The "Commands:" section lists each surviving noun (a leading-whitespace entry, so a
     // retired verb merely *mentioned* in a description does not count as present).
     for command in [
-        "init", "check", "emit", "install", "bundle", "schema", "guard",
+        "init", "check", "emit", "install", "bundle", "schema", "guard", "explain",
     ] {
         assert!(
             stdout
@@ -615,8 +617,8 @@ fn the_cli_surface_is_init_check_emit_install_bundle_schema_guard() {
     }
 
     // Every retired verb is rejected as an unknown subcommand — the surface no longer
-    // carries `import`/`diff`/`session-start`/`why`/`requirements`/`impact`/`context`
-    // (`explain` lands later, fork-gated at EXPLAIN-UNIFY).
+    // carries `import`/`diff`/`session-start`/`why`/`requirements`/`impact`/`context`,
+    // each collapsed into `explain` at EXPLAIN-UNIFY.
     for retired in [
         "import",
         "diff",
@@ -625,7 +627,6 @@ fn the_cli_surface_is_init_check_emit_install_bundle_schema_guard() {
         "requirements",
         "impact",
         "context",
-        "explain",
     ] {
         let status = Command::new(BIN).arg(retired).arg("x").status().unwrap();
         assert!(

@@ -30,6 +30,7 @@ use temper::graph;
 use temper::import;
 use temper::install;
 use temper::kind::{self, CustomKind, Unit};
+use temper::read;
 use temper::reporter;
 use temper::roster;
 use temper::schema;
@@ -212,6 +213,22 @@ enum Command {
         /// Where to write the plugin tree (defaults to `./plugin`).
         #[arg(long, default_value = "./plugin")]
         out: PathBuf,
+    },
+    /// The one read verb (`specs/architecture/20-surface.md`, "Decision: one read verb —
+    /// `explain`"): resolve `<target>` across the member / requirement / leaf-address
+    /// namespaces and narrate whichever the graph `check` already computes answers it —
+    /// a member's forward walk, blast radius, and neighborhood; a requirement's
+    /// satisfier set, coverage, and blast radius; or a leaf's citations (distinct from
+    /// its fallout) and neighborhood. Exactly one hit resolves; a bare name matching
+    /// both a member and a requirement is ambiguous and errors with each match's
+    /// qualified spelling (`member:<name>`, `requirement:<name>`) for the retry — a
+    /// qualified prefix (`member:`/`requirement:`/`address:`) is always accepted
+    /// outright. A read, never a gate: exits zero on every input.
+    Explain {
+        /// A member id, a requirement name, a leaf address
+        /// (`<member>/<genre>/<key>/<field-path>`), or one qualified as
+        /// `member:<name>` / `requirement:<name>` / `address:<leaf-address>`.
+        target: String,
     },
 }
 
@@ -400,7 +417,112 @@ fn main() -> miette::Result<ExitCode> {
             print!("{}", bundle::render(&report));
             Ok(ExitCode::SUCCESS)
         }
+        Command::Explain { target } => {
+            print!("{}", explain(&target)?);
+            Ok(ExitCode::SUCCESS)
+        }
     }
+}
+
+/// Narrate `target` through the one read verb (`specs/architecture/20-surface.md`, "Decision:
+/// one read verb — `explain`"): assemble the same by-kind feature corpus, composed
+/// requirement roster, declared edges, activations, and directive/reachability inputs
+/// the gate's own predicates range over (READ-EDGE-UNIFY) — over the standard `.temper`
+/// workspace and the harness at the CWD, mirroring `check`'s own two-step corpus
+/// assembly (`gate`) — and dispatch through [`read::explain`]'s target-species
+/// resolution. Custom kinds retire with the `KIND.md` file format
+/// (`specs/architecture/15-kinds.md`), so no custom-kind members or edges are threaded in
+/// yet; the plumbing is ready for the SDK path that replaces it.
+fn explain(target: &str) -> miette::Result<String> {
+    let workspace = PathBuf::from(DEFAULT_WORKSPACE);
+    let layer = load_layer(Path::new(TEMPER_TOML))?;
+    let harness_root = Path::new(".");
+
+    let (skill_features, rule_features, inplace_corpus) =
+        skill_rule_corpus(&workspace, layer.as_ref(), harness_root)?;
+    let custom_kinds: Vec<CustomKindEntry> = Vec::new();
+    let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
+
+    // `why`/`requirements` read a member's existence and its authored `satisfies`
+    // rationale off a `Workspace` + `custom` members (`crate::read`'s own listing), not
+    // off `by_kind`. In-place carriage's `temper.toml` `[[member]]` tables carry no
+    // rationale (`compose::InPlaceMember::satisfies` is a bare name list), so an
+    // in-place skill/rule is synthesized as a rationale-less `CustomMember` straight off
+    // the same `skill_features`/`rule_features` `by_kind` already holds — never
+    // double-counted, since in-place and document/module (surface-tree) carriage are
+    // mutually exclusive per `skill_rule_corpus`. Absent any in-place member, the real
+    // `Workspace` carries the surface tree's members with their authored rationale
+    // intact, and no synthesis is needed.
+    let ws = Workspace::load(&workspace)?;
+    let custom_members: Vec<read::CustomMember> = if inplace_corpus.is_some() {
+        skill_features
+            .iter()
+            .map(|features| ("skill", features))
+            .chain(rule_features.iter().map(|features| ("rule", features)))
+            .map(|(kind, features)| read::CustomMember {
+                kind: kind.to_string(),
+                id: features.id.clone(),
+                satisfies: features
+                    .satisfies
+                    .iter()
+                    .cloned()
+                    .map(document::Satisfies::new)
+                    .collect(),
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let all_features: Vec<extract::Features> = skill_features
+        .iter()
+        .chain(rule_features.iter())
+        .cloned()
+        .collect();
+
+    let declarations = drift::read_declarations(&workspace)?;
+    let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
+        .requirements
+        .iter()
+        .map(|row| (row.name.clone(), requirement_from_row(row)))
+        .collect();
+    let assembly_edges = edges_from_declarations(&declarations);
+
+    let (roster, _collisions) = union_published_requirements(&assembly_requirements, &all_features);
+
+    // The world's inbound activation edge into each built-in kind — the same derivation
+    // the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
+    let builtin_defs = builtin_kind::definitions()?;
+    let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
+    for def in builtin_defs.values() {
+        if let Some(activation) = &def.activation {
+            activations.insert(def.name.as_str(), activation.clone());
+        }
+    }
+
+    let repo_files = repo_file_set(Path::new("."));
+    let directive_members = collect_directive_members(&workspace)?;
+    let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
+
+    // Citations — the declared one-way edges naming a leaf; the floor carries no
+    // producer yet (`specs/architecture/20-surface.md`, "Genre values"), so the set is empty
+    // until an altitude serializes mentions.
+    let citations: Vec<read::Citation> = Vec::new();
+
+    Ok(read::explain(
+        &ws,
+        layer.as_ref(),
+        &custom_members,
+        &assembly_requirements,
+        &roster,
+        &by_kind,
+        &assembly_edges,
+        &activations,
+        &repo_files,
+        &directive_edges,
+        &citations,
+        target,
+    ))
 }
 
 /// Load the author-declared layer for a `temper_toml` path, folding a gitignored
@@ -485,46 +607,10 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         .unwrap_or_else(|| Path::new("."));
 
     // The member-feature corpus (`specs/architecture/20-surface.md`, "The seam — one
-    // implementation"): the gate reads **committed artifacts**, never the retired pre-extracted
-    // `[[member]]` manifest features. An **in-place** member (a `source`-bearing manifest table)
-    // is live-extracted from its committed landscape file — the manifest names the file and
-    // grafts the joins, the corpus is the file on disk. Document/module carriage reads the
-    // committed surface tree (`surface_units`) below. The lock rides beside both for freshness
-    // (`config.stale`, below): the committed-artifacts-plus-lock pair the seam names, checked
-    // with no language runtime. Keyed by bare kind name; `None` ⇒ no in-place member, so every
-    // kind reads the surface tree.
-    let inplace_corpus = {
-        let mut corpus: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
-        if let Some(layer) = layer.as_ref() {
-            for member in layer.inplace_members() {
-                corpus
-                    .entry(member.kind.clone())
-                    .or_default()
-                    .push(live_extract_inplace(harness_root, member)?);
-            }
-            // Name-sort each kind's slice for a stable diagnostic set.
-            for slice in corpus.values_mut() {
-                slice.sort_by(|a, b| a.id.cmp(&b.id));
-            }
-        }
-        (!corpus.is_empty()).then_some(corpus)
-    };
-
-    let skill_features: Vec<extract::Features> = match &inplace_corpus {
-        Some(corpus) => corpus.get("skill").cloned().unwrap_or_default(),
-        None => check::surface_units(workspace, "skills", "SKILL.md")?
-            .iter()
-            .map(builtin_kind::skill_features)
-            .collect(),
-    };
-
-    let rule_features: Vec<extract::Features> = match &inplace_corpus {
-        Some(corpus) => corpus.get("rule").cloned().unwrap_or_default(),
-        None => check::surface_units(workspace, "rules", "RULE.md")?
-            .iter()
-            .map(builtin_kind::rule_features)
-            .collect(),
-    };
+    // implementation"): shared with `explain` (READ-EDGE-UNIFY) so a read cannot disagree
+    // with the gate about which members exist.
+    let (skill_features, rule_features, inplace_corpus) =
+        skill_rule_corpus(workspace, layer.as_ref(), harness_root)?;
 
     // The embedded std-lib a by-name `package` binding resolves against
     // (`specs/architecture/10-contracts.md`). Packages **compose**: a satisfier is
@@ -819,6 +905,70 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     diagnostics.extend(drift::config_stale(workspace));
 
     Ok(diagnostics)
+}
+
+/// The skill features, rule features, and (when any in-place member exists) the
+/// in-place-extracted corpus [`skill_rule_corpus`] returns — named so the signature
+/// stays legible (`clippy::type_complexity`).
+type SkillRuleCorpus = (
+    Vec<extract::Features>,
+    Vec<extract::Features>,
+    Option<BTreeMap<String, Vec<extract::Features>>>,
+);
+
+/// Build the skill/rule feature corpus a read of the harness ranges over — shared by
+/// `gate` and `explain` (READ-EDGE-UNIFY) so neither can disagree about which members
+/// exist (`specs/architecture/20-surface.md`, "The seam — one implementation"). An
+/// **in-place** member (a `source`-bearing `temper.toml` `[[member]]` table) is
+/// live-extracted from its committed landscape file; document/module carriage reads the
+/// committed `.temper/` surface tree (`surface_units`) instead. Keyed by bare kind name;
+/// the returned map is `None` when no in-place member is declared, so every kind reads
+/// the surface tree — callers needing to know whether skill/rule came from in-place
+/// extraction (`explain`'s `custom_members`) read the returned corpus's presence.
+///
+/// # Errors
+///
+/// Returns an error if an in-place member's landscape file is unreadable or malformed,
+/// or a surface-tree directory cannot be enumerated.
+fn skill_rule_corpus(
+    workspace: &Path,
+    layer: Option<&compose::AuthorLayer>,
+    harness_root: &Path,
+) -> miette::Result<SkillRuleCorpus> {
+    let inplace_corpus = {
+        let mut corpus: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
+        if let Some(layer) = layer {
+            for member in layer.inplace_members() {
+                corpus
+                    .entry(member.kind.clone())
+                    .or_default()
+                    .push(live_extract_inplace(harness_root, member)?);
+            }
+            // Name-sort each kind's slice for a stable diagnostic set.
+            for slice in corpus.values_mut() {
+                slice.sort_by(|a, b| a.id.cmp(&b.id));
+            }
+        }
+        (!corpus.is_empty()).then_some(corpus)
+    };
+
+    let skill_features: Vec<extract::Features> = match &inplace_corpus {
+        Some(corpus) => corpus.get("skill").cloned().unwrap_or_default(),
+        None => check::surface_units(workspace, "skills", "SKILL.md")?
+            .iter()
+            .map(builtin_kind::skill_features)
+            .collect(),
+    };
+
+    let rule_features: Vec<extract::Features> = match &inplace_corpus {
+        Some(corpus) => corpus.get("rule").cloned().unwrap_or_default(),
+        None => check::surface_units(workspace, "rules", "RULE.md")?
+            .iter()
+            .map(builtin_kind::rule_features)
+            .collect(),
+    };
+
+    Ok((skill_features, rule_features, inplace_corpus))
 }
 
 /// Live-extract an in-place member's [`Features`](extract::Features) from its committed

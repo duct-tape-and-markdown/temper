@@ -1,24 +1,29 @@
-//! The read family — `why`, `requirements`, and `impact`, read-only traversals over the
+//! The read family — one CLI verb, [`explain`], over four traversals of the
 //! requirement↔`satisfies` edge and the graph `check` already carries
-//! (`specs/architecture/20-surface.md`, "Decision: the CLI gains a read family", and the `impact`
-//! CLI bullet).
+//! (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`").
 //!
-//! [`why`] walks the edge **forward** (this member → the requirements it fills, with
-//! their authored rationale → the package its kind binds → its resolved edges in and
-//! out); [`requirements`] walks it in **reverse** (the roster → each requirement's
-//! satisfier set + coverage state, and with a name the blast radius a removal would
-//! strand); [`impact`] narrates the **blast radius of a removal** — what strands if a
-//! member is removed or renamed: the requirements it is the sole satisfier of (left
-//! unfilled), the `satisfies` links onto demands it alone publishes (left dangling), the
-//! `@import` directive edges that point at it (left unbacked), and the members whose
-//! reachability was carried only through it (gone dead). All are *projections* over the
-//! data `check` already computes — the
-//! opt-in `satisfies` bindings [`crate::coverage`] gates, and, for the edge walk, the
-//! **gate's own resolved edge set** ([`crate::graph::resolved_edges`], relationships
-//! over extracted features), never a private re-derivation off the `[edge.<target>]`
-//! document clauses (READ-EDGE-UNIFY: one source of truth, so `why`'s edge narration
-//! cannot disagree with `graph::check`). Neither adds engine semantics and neither ever
-//! gates: they return narration, and `main` prints it and exits zero on every input
+//! [`explain`] resolves its one positional target across three namespaces — member,
+//! requirement, leaf-grain address (`(explain-target-disambiguation)`, ruled
+//! 2026-07-04) — and dispatches to whichever of the four traversals below answer that
+//! species: [`why`] walks the edge **forward** (this member → the requirements it
+//! fills, with their authored rationale → the package its kind binds → its resolved
+//! edges in and out); [`requirements`] walks it in **reverse** (the roster → each
+//! requirement's satisfier set + coverage state, and with a name the blast radius a
+//! removal would strand); [`impact`] narrates the **blast radius of a removal** — what
+//! strands if a member is removed or renamed: the requirements it is the sole satisfier
+//! of (left unfilled), the `satisfies` links onto demands it alone publishes (left
+//! dangling), the `@import` directive edges that point at it (left unbacked), and the
+//! members whose reachability was carried only through it (gone dead) — or, at leaf
+//! grain, a leaf's citations reported separately from its (nonexistent) fallout;
+//! [`context`] emits the **declared neighborhood** — a member's genre slots or a leaf's
+//! siblings, the citers, and the requirements satisfied. All are *projections* over the
+//! data `check` already computes — the opt-in `satisfies` bindings [`crate::coverage`]
+//! gates, and, for the edge walk, the **gate's own resolved edge set**
+//! ([`crate::graph::resolved_edges`], relationships over extracted features), never a
+//! private re-derivation off the `[edge.<target>]` document clauses (READ-EDGE-UNIFY:
+//! one source of truth, so `why`'s edge narration cannot disagree with `graph::check`).
+//! None adds engine semantics and none ever gates: `explain` returns narration, and
+//! `main` prints it and exits zero on every input, ambiguous or unknown targets included
 //! (the read family is not the gate; a reporting verb whose exit code CI trusts is
 //! exactly what the Decision rejects).
 //!
@@ -168,6 +173,154 @@ fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
                 .and_then(|qualified| builtin::floor_package(&qualified))
         })
         .map_or_else(|| kind.to_string(), str::to_string)
+}
+
+/// The target species `explain <target>` resolves a positional string into
+/// (`(explain-target-disambiguation)`, ruled 2026-07-04): an explicit `member:`/
+/// `requirement:`/`address:` qualifier always wins outright (an explicit spelling is
+/// never re-checked for ambiguity); absent one, a `/`-bearing target is always a leaf
+/// address (a member or requirement name never carries a slash), and a bare name is
+/// checked against both the member corpus and the requirement roster.
+enum Species<'a> {
+    /// A member id — dispatches to [`why`] (what holds it in place) and [`impact`] and
+    /// [`context`] at member grain (its blast radius and its neighborhood).
+    Member(&'a str),
+    /// A requirement name — dispatches to [`requirements`] alone, whose reverse walk
+    /// already carries coverage and blast radius.
+    Requirement(&'a str),
+    /// A leaf address (`<member>/<genre>/<key>/<field-path>`) — dispatches to
+    /// [`impact`] and [`context`] at leaf grain (citations vs. fallout, and the leaf's
+    /// neighborhood).
+    Leaf(&'a str),
+    /// The bare name matches both a member and a requirement — `explain` never
+    /// guesses, so the caller must retry with one of the listed qualified spellings.
+    Ambiguous(Vec<String>),
+    /// The bare name matches no member, no requirement, and carries no leaf-address
+    /// slash — a clean "nothing by this name" read, not a namespace preference.
+    NotFound(&'a str),
+}
+
+/// Resolve `target` into its [`Species`] over the same corpus [`explain`]'s caller
+/// already assembled for `check` — `by_kind` (every opt-in kind's [`Features`]) for
+/// member existence, `roster` (the composed requirement namespace) for requirement
+/// existence. A bare name in both is `Ambiguous`; a bare name in neither, absent a `/`,
+/// is `NotFound` — `explain` never silently prefers one namespace over the other.
+fn resolve<'a>(
+    by_kind: &BTreeMap<&str, &[Features]>,
+    roster: &BTreeMap<String, Requirement>,
+    target: &'a str,
+) -> Species<'a> {
+    if let Some(name) = target.strip_prefix("member:") {
+        return Species::Member(name);
+    }
+    if let Some(name) = target.strip_prefix("requirement:") {
+        return Species::Requirement(name);
+    }
+    if let Some(address) = target.strip_prefix("address:") {
+        return Species::Leaf(address);
+    }
+    if target.contains('/') {
+        return Species::Leaf(target);
+    }
+
+    let is_member = by_kind
+        .values()
+        .flat_map(|members| members.iter())
+        .any(|features| features.id == target);
+    let is_requirement = roster.contains_key(target);
+
+    match (is_member, is_requirement) {
+        (true, true) => Species::Ambiguous(vec![
+            format!("member:{target}"),
+            format!("requirement:{target}"),
+        ]),
+        (true, false) => Species::Member(target),
+        (false, true) => Species::Requirement(target),
+        (false, false) => Species::NotFound(target),
+    }
+}
+
+/// `temper explain <target>` — the one read verb (`specs/architecture/20-surface.md`, "Decision:
+/// one read verb — `explain`"): resolve `target`'s [`Species`] and dispatch to whichever
+/// of the four traversals answer it, so the single verb answers every read question
+/// `why`/`requirements`/`impact`/`context` used to split across four CLI spellings. A
+/// read, never a gate — the caller prints this and exits zero on every input, an
+/// ambiguous or unrecognized target included.
+///
+/// `assembly` and `roster` mirror [`impact`]'s own split (the assembly's own
+/// `[requirement.*]` roster vs. the composed namespace `check` gates); `edges` is the
+/// declared relationship set [`why`]'s edge walk resolves; `activations`,
+/// `repo_files`, and `directive_edges` are the exact reachability/directive inputs
+/// [`impact`]'s blast radius ranges over; `citations` are the declared one-way edges a
+/// leaf-grain answer reports separately from fallout. Every one is the identical input
+/// the gate's own predicates range over (READ-EDGE-UNIFY), so `explain` cannot disagree
+/// with a green `check`.
+#[must_use]
+#[allow(clippy::too_many_arguments)]
+pub fn explain(
+    workspace: &Workspace,
+    layer: Option<&AuthorLayer>,
+    custom: &[CustomMember],
+    assembly: &BTreeMap<String, Requirement>,
+    roster: &BTreeMap<String, Requirement>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    edges: &[Edge],
+    activations: &BTreeMap<&str, Activation>,
+    repo_files: &[String],
+    directive_edges: &[ResolvedEdge],
+    citations: &[Citation],
+    target: &str,
+) -> String {
+    match resolve(by_kind, roster, target) {
+        Species::Member(name) => {
+            let mut out = why(workspace, layer, custom, roster, by_kind, edges, name);
+            out.push('\n');
+            out.push_str(&impact(
+                assembly,
+                roster,
+                by_kind,
+                activations,
+                repo_files,
+                directive_edges,
+                citations,
+                name,
+            ));
+            out.push('\n');
+            out.push_str(&context(by_kind, citations, name));
+            out
+        }
+        Species::Requirement(name) => requirements(workspace, custom, roster, Some(name)),
+        Species::Leaf(address) => {
+            let mut out = impact(
+                assembly,
+                roster,
+                by_kind,
+                activations,
+                repo_files,
+                directive_edges,
+                citations,
+                address,
+            );
+            out.push('\n');
+            out.push_str(&context(by_kind, citations, address));
+            out
+        }
+        Species::Ambiguous(spellings) => format!(
+            "`{target}` names more than one thing in the surface. `explain` never \
+             guesses which you mean — retry with one of its qualified spellings:\n{}\n",
+            spellings
+                .iter()
+                .map(|spelling| format!("  • `{spelling}`"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        Species::NotFound(name) => format!(
+            "No member, requirement, or leaf address named `{name}` is in the surface. \
+             `explain` reads the authored surface's members, its requirement roster, and \
+             leaf-grain addresses (`<member>/<genre>/<key>/<field-path>`); check the \
+             name, or `import` the harness first.\n"
+        ),
+    }
 }
 
 /// `temper why <member>` — narrate everything that holds `member` in place: the
