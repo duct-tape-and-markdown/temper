@@ -1,40 +1,5 @@
 [
   {
-    "tag": "LOCK-ASSEMBLY-ROWS-COMPLETE",
-    "summary": "Complete the lock's assembly declaration rows — RequirementRow set-scope facets + a member→requirement satisfies family — so the lock carries the whole assembly the gate needs",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The lock and drift — one vocabulary"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "Enrich the declaration-row family so the lock is a complete assembly source. `RequirementRow` gains the set-scope facets it currently drops — `count` / `unique` / `membership` / `degree` (its own doc flags these as owed: 'the set-scope bounds … are the SDK producer's to record'). Add a member→requirement `satisfies` family (a `SatisfiesRow` of member id + requirement key) beside kind/clause/requirement/assembly, so the requirement↔satisfies join the roster/coverage tiers need rides the lock, not a re-import. Thread the new columns/family through `write_into`, `declarations_from_doc`, and each row's `to_table`/`from_table` — absent columns omitted, so a bare-harness lock round-trips unchanged."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "`collect_declarations` / `requirement_row` write the enriched requirement facets from the `AuthorLayer`'s `Requirement` (count/unique/membership/degree already on `compose::Requirement`), and a new satisfies-row producer folds each imported member's `satisfies` keys into the `[[declaration.satisfies]]` family. Transitional producer — still sourced from the temper.toml layer; migrating the producer to the SDK is out of scope (fence-side dogfood, state.md)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "the requirement rows carry count/unique/membership/degree and the satisfies family records each member's keys; a double import is byte-stable; a bare-harness lock still round-trips"
-      }
-    ],
-    "acceptance": "The lock's `[[declaration.requirement]]` rows carry the set-scope facets (count/unique/membership/degree) and a member-satisfies family records each satisfies key; `drift::read_declarations` round-trips them byte-stable; no gate behavior changes yet (the gate flip is MANIFEST-MACHINERY-RETIRE).",
-    "notes": "Predecessor the MANIFEST bail asked for (inbox 2026-07-04): the retire mis-sequenced because the lock could not carry the whole assembly. Pure lock-vocabulary enrichment, disjoint from the retire (drift.rs/import.rs only; `read_declarations` is `pub`, test-driven, so the unread columns are not dead code). Producer stays on temper.toml; the SDK-side dogfood producer is the session's fence-side half."
-  },
-  {
     "tag": "MANIFEST-MACHINERY-RETIRE",
     "summary": "Flip the gate to read its assembly from the lock's declaration rows and retire the temper.toml/roster.toml/bindings.toml gate machinery",
     "per": {
