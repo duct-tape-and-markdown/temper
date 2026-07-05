@@ -181,26 +181,21 @@ New forks from the ceremony:
   the needs/posture model). The exit-0 grep in `install::guard_command`
   (src/install.rs:454) persists as accepted debt only until CLI-COLLAPSE lands.
   Kept as the decision record.
-- `(explain-target-disambiguation)` — OPEN (dogfood catch, 2026-07-04). The
-  re-cut ratified **one read verb** (`20-surface.md`, "Decision: one read verb
-  — `explain`"), explicitly rejecting "(c) a verb per question (why /
-  requirements / impact / context) — four spellings of one traversal". DATUM
-  (2026-07-04, CLI-COLLAPSE shipped da84b69): the four `clap` subcommands are now
-  **gone** from the CLI — `src/main.rs` carries no read verb; the traversal
-  helpers survive in `src/read.rs` (`read::{why,impact,context,requirements}`),
-  left in place for EXPLAIN-UNIFY to re-home under one `explain <target>`.
-  Collapsing them into `explain <target>` is not human-foundation-gated (it reads
-  the same `check`-computed graph the four verbs already read), but the corpus
-  does **not** specify how a single positional `<target>` resolves across the four
-  target species — member, requirement, an address at leaf grain, a neighborhood.
-  Member-name vs requirement-name collision is the live crux. Plan must not invent
-  the disambiguation (collaboration rule). FILED (2026-07-04) as pending
-  **EXPLAIN-UNIFY**, `dependsOnForks: ["explain-target-disambiguation"]`,
-  `blockedBy KIND-PACKAGE-PARSE-RETIRE` — the terminal leaf of the demolition
-  chain, sequenced after the read family's data source is rewritten (check →
-  committed-artifacts+lock), blocking nothing. It stays unpickable until John
-  rules the target-resolution mechanism; this is the one design question the
-  go-ruling'd wave cannot reach on its own. Human to settle it.
+- `(explain-target-disambiguation)` — RESOLVED (John 2026-07-04, interactive
+  session; inbox). **Bare target + collision error.** `explain <target>` takes
+  one positional; the engine resolves the string across all four namespaces
+  (member / requirement / leaf-grain address / neighborhood): exactly one hit ⇒
+  explain it; multiple hits ⇒ **error**, listing each match's qualified spelling
+  (`member:foo`, `requirement:foo`, …) for the retry; a qualified prefix is
+  always accepted as an explicit spelling. Never guesses, never silently prefers
+  one namespace. Chosen over always-qualified (ceremony on the ~95% unambiguous
+  calls) and explain-all-matches (a collision silently doubles the output); the
+  ethos is git's ref disambiguation — cheap in the common case, explicit on
+  ambiguity. The `dependsOnForks` hold on **EXPLAIN-UNIFY** is dropped and the
+  mechanism is encoded in the entry (it stays `blockedBy KIND-PACKAGE-PARSE-RETIRE`
+  as the terminal leaf, blocking nothing). An optional one-line corpus encode of
+  the collision mechanism into the 20-surface "one read verb" Decision is a human
+  delta, not plan's to write. Kept as the decision record.
 - `(local-overrides)` — OPEN (surfaced by the 40-composition re-cut, which
   carries the OPEN: marker). The dialect era's committed-plus-gitignored
   personal-override layer (temper-local.toml) has no stated spelling in the

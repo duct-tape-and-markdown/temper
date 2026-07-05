@@ -1,10 +1,10 @@
 [
   {
-    "tag": "MANIFEST-MACHINERY-RETIRE",
-    "summary": "Retire the manifest machinery — temper.toml/roster.toml/bindings.toml + their reader and the contract/ byte-parity corpus",
+    "tag": "LOCK-ASSEMBLY-ROWS-COMPLETE",
+    "summary": "Complete the lock's assembly declaration rows — RequirementRow set-scope facets + a member→requirement satisfies family — so the lock carries the whole assembly the gate needs",
     "per": {
-      "path": "specs/architecture/40-composition.md",
-      "section": "Decision: one authored assembly, no configuration dialect"
+      "path": "specs/architecture/20-surface.md",
+      "section": "The lock and drift — one vocabulary"
     },
     "gate": {
       "kind": "open"
@@ -14,37 +14,80 @@
       "new": [],
       "edit": [
         {
+          "path": "src/drift.rs",
+          "description": "Enrich the declaration-row family so the lock is a complete assembly source. `RequirementRow` gains the set-scope facets it currently drops — `count` / `unique` / `membership` / `degree` (its own doc flags these as owed: 'the set-scope bounds … are the SDK producer's to record'). Add a member→requirement `satisfies` family (a `SatisfiesRow` of member id + requirement key) beside kind/clause/requirement/assembly, so the requirement↔satisfies join the roster/coverage tiers need rides the lock, not a re-import. Thread the new columns/family through `write_into`, `declarations_from_doc`, and each row's `to_table`/`from_table` — absent columns omitted, so a bare-harness lock round-trips unchanged."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "`collect_declarations` / `requirement_row` write the enriched requirement facets from the `AuthorLayer`'s `Requirement` (count/unique/membership/degree already on `compose::Requirement`), and a new satisfies-row producer folds each imported member's `satisfies` keys into the `[[declaration.satisfies]]` family. Transitional producer — still sourced from the temper.toml layer; migrating the producer to the SDK is out of scope (fence-side dogfood, state.md)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "the requirement rows carry count/unique/membership/degree and the satisfies family records each member's keys; a double import is byte-stable; a bare-harness lock still round-trips"
+      }
+    ],
+    "acceptance": "The lock's `[[declaration.requirement]]` rows carry the set-scope facets (count/unique/membership/degree) and a member-satisfies family records each satisfies key; `drift::read_declarations` round-trips them byte-stable; no gate behavior changes yet (the gate flip is MANIFEST-MACHINERY-RETIRE).",
+    "notes": "Predecessor the MANIFEST bail asked for (inbox 2026-07-04): the retire mis-sequenced because the lock could not carry the whole assembly. Pure lock-vocabulary enrichment, disjoint from the retire (drift.rs/import.rs only; `read_declarations` is `pub`, test-driven, so the unread columns are not dead code). Producer stays on temper.toml; the SDK-side dogfood producer is the session's fence-side half."
+  },
+  {
+    "tag": "MANIFEST-MACHINERY-RETIRE",
+    "summary": "Flip the gate to read its assembly from the lock's declaration rows and retire the temper.toml/roster.toml/bindings.toml gate machinery",
+    "per": {
+      "path": "specs/architecture/40-composition.md",
+      "section": "Decision: one authored assembly, no configuration dialect"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LOCK-ASSEMBLY-ROWS-COMPLETE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
           "path": "src/main.rs",
-          "description": "Remove the remaining manifest/roster/bindings load + emit-manifest paths now that the gate reads the lock rows (GATE-CORPUS-ARTIFACTS-LOCK) and the SDK authors no dialect (SDK-RECUT). 40-composition Decision rejects `temper.toml` and its `roster.toml`/`bindings.toml` decomposition — a second authoring surface."
+          "description": "`gate()` sources requirements + satisfies + authority + reachability + edges from `drift::read_declarations(workspace)` — the committed-artifacts-plus-lock seam (`20-surface.md`) — instead of the temper.toml `AuthorLayer`'s assembly reads and `assembly_artifacts::load`/`merge_assembly`. Convert each `RequirementRow` to the `compose::Requirement` the roster/coverage/graph tiers already take (like `to_requirement`); the requirement↔satisfies join comes from the lock's satisfies family. Drop the `assembly_artifacts` import + call. Floor clauses keep composing from the embedded built-in floor — the compiled default program, not a manifest. 40-composition Decision rejects `temper.toml` and its `roster.toml`/`bindings.toml` decomposition as a second authoring surface."
         },
         {
           "path": "src/compose.rs",
-          "description": "Retire the `temper.toml` layer composition + the roster parse; binding is the spread in `expect` (40-composition, 'Binding is implicit'), carried as declaration rows, not composed from a manifest."
+          "description": "Retire the `AuthorLayer`'s gate-facing assembly reads that only the now-flipped gate path consumed (the `[requirement.*]`/`[edge.*]`/authority/reachability accessors used as the gate's source, and the roster parse). Keep the accessors the transitional import producer (LOCK-ASSEMBLY-ROWS-COMPLETE) still calls to write the lock rows — binding is the spread in `expect`, carried as declaration rows, not composed from a manifest at gate time."
         },
         {
           "path": "src/roster.rs",
-          "description": "The roster/selection/admissibility over `temper.toml`'s `[role.*]` retires; whatever survives (requirement coverage over declaration rows) moves to the lock-rows source."
+          "description": "The `[role.*]` roster parse over temper.toml retires; the set-scope check logic (count/unique/membership over each requirement's satisfier set) survives, now fed the lock-sourced `compose::Requirement` set the gate assembles. If the parse was roster.rs's only remaining input, retire the file and fold the surviving check helpers into their caller."
+        },
+        {
+          "path": "src/lib.rs",
+          "description": "Drop the `pub mod assembly_artifacts;` line for the deleted module (linear chain — no co-edit conflict)."
         }
       ],
       "retire": [
         "src/assembly_artifacts.rs",
-        "tests/assembly_artifacts_gate.rs",
-        "tests/requirement_roster.rs"
+        "tests/assembly_artifacts_gate.rs"
       ]
     },
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/manifest_kind_spelling.rs",
-        "asserts": "reconciled or retired — no manifest-as-corpus remains"
+        "path": "tests/requirement_roster.rs",
+        "asserts": "reconciled — the roster's set-scope predicates gate over the lock-sourced requirement set, no roster.toml/[role.*] surface"
       },
       {
         "path": "tests/temper_toml.rs",
-        "asserts": "reconciled or retired — the manifest is no longer an authoring or gate surface"
+        "asserts": "reconciled or retired — temper.toml is no longer the gate's assembly source (it survives only as the transitional lock producer's input)"
+      },
+      {
+        "path": "tests/manifest_kind_spelling.rs",
+        "asserts": "reconciled or retired — no manifest-as-corpus remains on the gate path"
       }
     ],
-    "acceptance": "No `temper.toml`/`roster.toml`/`bindings.toml` authoring or reading remains in the engine; the assembly is the SDK's `harness()` value compiled to lock declaration rows; contract/ byte-parity goldens reconciled to the lock/projection.",
-    "notes": "Large retirement; the lib.rs `pub mod` line for the deleted assembly_artifacts module is dropped in this entry (linear chain — no co-edit conflict). contract/ byte-parity fixtures were the manifest/schema tripwire; reconcile them to the surviving projection/lock goldens."
+    "acceptance": "The gate reads its assembly (requirements/satisfies/authority/reachability/edges) from the lock's declaration rows, never `temper.toml`/`roster.toml`/`bindings.toml`; `assembly_artifacts.rs` is deleted; the `--harness` path stays green (import writes the lock rows, the gate reads them). The transitional import producer still reads temper.toml to WRITE the lock — its SDK migration is out of scope.",
+    "notes": "Rewritten after the voluntary bail (inbox 2026-07-04). Now a clean gate-flip-plus-deletion because LOCK-ASSEMBLY-ROWS-COMPLETE lands the whole assembly on the lock. NB the retirement is gate-side only: the temper.toml→lock producer survives as the transitional dogfood source until the SDK produces it. contract/ byte-parity fixtures were the manifest tripwire — reconcile to the surviving lock/projection goldens."
   },
   {
     "tag": "KIND-PACKAGE-PARSE-RETIRE",
@@ -104,7 +147,7 @@
       }
     ],
     "acceptance": "The engine parses no KIND.md or PACKAGE.md; kinds and floors are declaration rows (SDK-authored or the compiled default program); extraction is the generic algebra driven by the five facts.",
-    "notes": "Terminal demolition of the file-format vehicle. Curated `kinds/`/`packages/` trees are fence-excluded human territory — the SESSION migrates/retires them after emit lands (inbox: fence-side moves are the session's hands). This entry retires only the engine-side parse."
+    "notes": "Terminal demolition of the file-format vehicle. Curated `kinds/`/`packages/` trees are fence-excluded human territory — the SESSION migrates/retires them after emit lands (fence-side moves are the session's hands). This entry retires only the engine-side parse."
   },
   {
     "tag": "EXPLAIN-UNIFY",
@@ -117,15 +160,13 @@
       "kind": "blockedBy",
       "tag": "KIND-PACKAGE-PARSE-RETIRE"
     },
-    "dependsOnForks": [
-      "explain-target-disambiguation"
-    ],
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Add `Command::Explain { target }` — one read verb over the graph `check` computes, answering member / requirement / leaf-grain address / neighborhood from a single `<target>` (20-surface Decision: one read verb, rejecting a verb per question). Projections, never gates; exits zero; discloses coverage (names what it cannot see)."
+          "description": "Add `Command::Explain { target }` — one read verb over the graph `check` computes (20-surface Decision: one read verb). Resolve one positional `<target>` across the four namespaces (member / requirement / leaf-grain address / neighborhood) by the ruled mechanism (John 2026-07-04, inbox): exactly one hit ⇒ explain it; multiple hits ⇒ ERROR listing each match's qualified spelling (`member:foo`, `requirement:foo`, …) for the retry; a qualified prefix is always accepted as an explicit spelling. Never guesses, never silently prefers a namespace. Projections, never gates; exits zero; discloses coverage (names what it cannot see)."
         },
         {
           "path": "src/read.rs",
@@ -133,7 +174,7 @@
         },
         {
           "path": "tests/read_verbs.rs",
-          "description": "Reframe as explain tests: each target species walks its corner of the one graph; coverage disclosure asserted."
+          "description": "Reframe as explain tests: each target species walks its corner of the one graph; a member-vs-requirement name collision errors with both qualified spellings; a qualified prefix resolves directly; coverage disclosure asserted."
         }
       ],
       "retire": []
@@ -142,11 +183,11 @@
     "tests": [
       {
         "path": "tests/read_verbs.rs",
-        "asserts": "explain <target> resolves member/requirement/address/neighborhood; never gates; discloses coverage"
+        "asserts": "explain <target> resolves member/requirement/address/neighborhood; a name collision errors listing qualified spellings; qualified prefixes accepted; never gates; discloses coverage"
       }
     ],
-    "acceptance": "`temper explain <target>` answers all four read questions over data check computes, exits zero, discloses coverage; the four separate verbs are gone.",
-    "notes": "FORK-GATED on (explain-target-disambiguation): the corpus does not specify how one positional <target> resolves across member/requirement/address/neighborhood — member-vs-requirement name collision is the crux. Terminal leaf; blocks nothing. Human must rule target-resolution before build picks this."
+    "acceptance": "`temper explain <target>` answers all four read questions over data check computes, exits zero, discloses coverage; an ambiguous bare target errors with each match's qualified spelling; a qualified prefix resolves directly; the four separate verbs are gone.",
+    "notes": "Fork resolved (John 2026-07-04, inbox): bare target + collision error — cheap in the common ~95% case, explicit on ambiguity (git's ref-disambiguation ethos). Never guesses, never silently prefers. Terminal leaf; blocks nothing. An optional one-line corpus encode of the collision mechanism into the 20-surface 'one read verb' Decision is a human delta, not plan's to write."
   },
   {
     "tag": "PACKAGING-CHANNELS",
