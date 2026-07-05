@@ -169,6 +169,27 @@ New forks from the ceremony:
   SDK-program scaffolding lands with the SDK-primary front door (human-gated
   on npm scaffolding); the deletions above depend only on this ruling and
   the gate's existing lock path — fileable now.
+  DATUM (2026-07-04, plan reconcile of the sole-producer encode 27b3b94):
+  plan derived the demolition chain against the actual code and found the
+  "fileable now" scope narrower than the note reads. The copy-tree
+  `import::run` is **not** dead — it is the **live gate scaffolding**
+  (`check` copy-tree-imports the harness into a scratch `.temper` to
+  synthesize the workspace it reads: main.rs:287,568) and the setup path of
+  ~15 test files. It stands in for the **absent** SDK emit: under the
+  sole-producer model `check` reads a committed SDK-emitted lock + walks each
+  kind's `governs` locus, but today no host lock exists, so the gate
+  synthesizes one by importing. So the copy-tree / producer /
+  `[[member]]`-codec / `AuthorLayer` cuts are entangled with (a) a gate
+  rewrite (read the lock + governs-locus, drop the copy-tree scratch) and
+  (b) the human-gated SDK front door — **not** a clean autonomously-green
+  chain, and their `init`-side twin (`init`'s `[[member]]` producer) is the
+  human-gated re-shape itself. The **one** genuinely dead, decoupled piece is
+  the four-state drift differ (`drift::diff` family — `diff`/`classify`/
+  `DriftState`/`DriftReport`/`SurfaceArtifact`/`render`, unreachable since the
+  drift re-cut; the gate's freshness path is `read_declarations` +
+  `render_emit`), filed this tick as **DRIFT-DIFF-RETIRE** (open). The rest of
+  the demolition rides the SDK-primary front door — human-gated, not
+  `open`-pickable.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
   Rust.** No spec delta — the corpus is language-neutral by design ("the
   engine", never a language as normative fact; 50-distribution "The stranger

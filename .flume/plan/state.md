@@ -1,26 +1,28 @@
 # Plan state
 
-- **Phase:** reconciled the dogfood-deactivation ruling into a quiescent queue.
-  The inbox is drained; every remaining thread is human-gated.
-- **Last shipped:** the recursive dogfood is DEACTIVATED (`chore(harness)`
-  d134c31, verified on disk this tick: no `.temper/`, no root `temper.toml`,
-  build's gates are `[fmtGate, clippyGate, testGate, sdkGate]` — selfCheckGate
-  gone). GATE-FAIL-LOUD-EMPTY-ASSEMBLY (b521ff3) stands — correct product
-  behavior for real users, discovered by the dogfood on its way out.
-- **This tick:** drained the inbox ruling. Narrowed `(inplace-lock-producer)` to
-  the external-user question only (the dogfood-data restoration + self-gate
-  re-arm halves die). Flagged the now-false live-state wording (`.temper/**`
-  territory, CLAUDE.md bootstrap fence) as superseded, kept the decision-record
-  history. Added a top-of-file deactivation DATUM. PACKAGING-CHANNELS untouched
-  (cites 50-distribution "Three channels", still parked on human release creds).
-- **In flight:** none pickable. PACKAGING-CHANNELS is parked on human release
-  setup (npm org + @temper scope, marketplace/signing creds; rides the
-  SDK-primary foundation).
-- **What's next:** John's hand — the corpus shadow of the deactivation
-  (00-intent's self-hosting finish line, 90-spec-system's confirmation recipe
-  still narrate the dogfood), the SDK-primary front door, and the release creds.
-  No un-gated pickable work for build; the queue correctly idles on the human.
+- **Phase:** reconciled the sole-producer corpus encode (27b3b94) against the
+  actual code. Filed the one genuinely-pickable cut it unblocks; the rest of
+  the demolition stays human-gated.
+- **Last shipped:** the corpus now carries the `(inplace-lock-producer)`
+  ruling — 20-surface's "The lock and drift" gained the sole-producer
+  paragraph, "init — the lift, once" the lift-output paragraph (specs
+  27b3b94). No code moved with it.
+- **This tick:** derived the demolition chain against src/ and found "fileable
+  now" narrower than the scope note read: the copy-tree `import::run` is LIVE
+  gate scaffolding (main.rs:287,568 + ~15 test files), standing in for the
+  absent SDK emit, so the producer/[[member]]-codec/AuthorLayer cuts are
+  entangled with a gate rewrite + the human-gated SDK front door. The one
+  dead, decoupled piece — the retired four-state drift differ (`drift::diff`
+  family, unreachable since the drift re-cut) — is filed **DRIFT-DIFF-RETIRE**
+  (open, src/drift.rs only). Recorded the entanglement finding under
+  `(inplace-lock-producer)`. PACKAGING-CHANNELS untouched (still parked).
+- **In flight:** DRIFT-DIFF-RETIRE is the single pickable entry (disjoint —
+  src/drift.rs only; no shared file with the parked PACKAGING-CHANNELS).
+- **What's next:** John's hand — the demolition core (copy-tree gate rewrite
+  + producer/codec cuts) rides the SDK-primary front door with `init`'s
+  re-shape; the corpus shadow of the dogfood deactivation; release creds.
 
-Plan continues: no — inbox drained, the one pending entry is parked, and every
-other thread is fork-gated or human-gated on John. No pickable `open` head to
-file without inventing intent the corpus does not carry.
+Plan continues: no — the inbox is empty, one clean pickable entry
+(DRIFT-DIFF-RETIRE) is filed for build, and the rest of the demolition is
+entangled with the human-gated SDK front door, not an autonomously-derivable
+green chain. Hand to build.
