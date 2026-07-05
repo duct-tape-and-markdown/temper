@@ -1,44 +1,5 @@
 [
   {
-    "tag": "EXPLAIN-UNIFY",
-    "summary": "Collapse the four read traversals into one read verb — temper explain <target>",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: one read verb — `explain`"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Add `Command::Explain { target }` — one read verb over the graph `check` computes (20-surface Decision: one read verb). Resolve one positional `<target>` across the four namespaces (member / requirement / leaf-grain address / neighborhood) by the ruled mechanism (John 2026-07-04, inbox): exactly one hit ⇒ explain it; multiple hits ⇒ ERROR listing each match's qualified spelling (`member:foo`, `requirement:foo`, …) for the retry; a qualified prefix is always accepted as an explicit spelling. Never guesses, never silently prefers a namespace. Projections, never gates; exits zero; discloses coverage (names what it cannot see)."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Re-home the four traversals (why/requirements/impact/context) under `explain`, dispatched by the resolved target species. Reuse the graph-walk helpers left in place by CLI-COLLAPSE."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Reframe as explain tests: each target species walks its corner of the one graph; a member-vs-requirement name collision errors with both qualified spellings; a qualified prefix resolves directly; coverage disclosure asserted."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain <target> resolves member/requirement/address/neighborhood; a name collision errors listing qualified spellings; qualified prefixes accepted; never gates; discloses coverage"
-      }
-    ],
-    "acceptance": "`temper explain <target>` answers all four read questions over data check computes, exits zero, discloses coverage; an ambiguous bare target errors with each match's qualified spelling; a qualified prefix resolves directly; the four separate verbs are gone.",
-    "notes": "Fork resolved (John 2026-07-04, inbox): bare target + collision error — cheap in the common ~95% case, explicit on ambiguity (git's ref-disambiguation ethos). Never guesses, never silently prefers. Terminal leaf; blocks nothing. An optional one-line corpus encode of the collision mechanism into the 20-surface 'one read verb' Decision is a human delta, not plan's to write."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm packages, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
