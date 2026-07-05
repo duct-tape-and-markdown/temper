@@ -1,5 +1,33 @@
 [
   {
+    "tag": "README-RECONCILE-SURFACE",
+    "summary": "Reconcile the README + AGENTS.md's stale CLI/posture claims (retired `import`/`diff` verbs, hand-authored-TOML requirements) against 20-surface's ratified surface — a targeted fix, not a rewrite",
+    "per": {
+      "path": "specs/intent/55-offering.md",
+      "section": "The front door — the README is the landing page"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "README.md",
+          "description": "Three stale claims verified against the trunk-head binary (`temper --help`): (1) README.md:77 (Status) lists the verb set as `import, check, schema, diff, emit, install, bundle` — `import` and `diff` were retired by the six-noun demolition; the real surface is init / check / schema / emit / guard / install / bundle / explain. Correct the list. (2) README.md:42 ('A typed surface, not a rule pile') says '`import` scans the whole harness' — `import` is no longer a verb; the scan now lives in `init` and in `check --harness`'s internal one-shot import. Re-ground on `init`. (3) README.md:46 ('Requirements you declare. In a `temper.toml` …') describes the hand-authored-TOML posture the sole-producer ruling rejects — 20-surface: emit is the sole lock producer, the postures are prose media never config dialects ((inplace-lock-producer) RESOLVED). Re-ground the requirements story in the ratified model. Scope honesty: this is a *reconcile* of the stale claims only — 55-offering's larger launch obligations (logo, badge polish, ~800-word shape) ride the v0.1 offering work, NOT this entry. Do not rewrite prose that is already accurate."
+        },
+        {
+          "path": "AGENTS.md",
+          "description": "AGENTS.md:27-29 orients contributors with '`import.rs`/`drift.rs` (the surface and its three-state drift engine)' — `import` is a retired verb and the three-state merge (desired/last-applied/real) was deleted in the floor wave (drift collapsed to one authored direction + two freshness facts, 20-surface 'Drift — one direction, two freshness facts'). Update the one-line orientation so it names the current surface (init/emit; drift.rs's freshness model), not the demolished one. Lower stakes than the README — contributor docs — but fix it in the same pass while the files are open. Touch only the stale orientation line; leave the rest intact."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "README.md and AGENTS.md name only the real trunk-head verbs (init/check/schema/emit/guard/install/bundle/explain) and describe the sole-producer / init-on-ramp posture; no reference to `import` or `diff` as a verb, no hand-authored-TOML requirements claim, no three-state drift engine survives.",
+    "notes": "Preflight for the public flip (inbox 2026-07-05) — the repo flips public soon and the front door describes the pre-demolition product. Both files sit outside build's fence (^(\\.claude|docs|specs)/), so this is fileable build work. Disjoint from PACKAGING-CHANNELS (package.json + release.yml). A reconcile, not the 55-offering launch rewrite."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm packages, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
@@ -8,7 +36,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs human release setup (npm org + @temper scope, marketplace publish, signing/publish creds) before the mechanical wrappers can be validated end-to-end; channel 1 (SDK publish) also rides the SDK-primary foundation"
+      "reason": "needs human release setup (npm org + scope — John is setting up @dtmd, name probably @dtmd/temper; marketplace publish; signing/publish creds) before the mechanical wrappers can be validated end-to-end; channel 1 (SDK publish) also rides the SDK-primary foundation"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,7 +49,7 @@
       "edit": [
         {
           "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution 'Fail-loud delivery'). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. Scoped `@temper` names per the resolved `(project-name)` fork. NB distinct from sdk/package.json (the SDK authoring-face manifest — channel 1's `temper` core + `@temper/claude-code` provider module)."
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution 'Fail-loud delivery'). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. Scoped names per the resolved `(project-name)` fork — John is provisioning the `@dtmd` scope (name probably `@dtmd/temper`); use the confirmed scope, not the placeholder `@temper`. NB distinct from sdk/package.json (the SDK authoring-face manifest — channel 1's core + provider module)."
         }
       ],
       "retire": []
@@ -29,6 +57,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (50-distribution 'Fail-loud delivery').",
-    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`temper` + `@temper/claude-code`, floors as exported clause arrays); ch2 = engine binary pinned via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human creds."
+    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (core + provider module, floors as exported clause arrays); ch2 = engine binary pinned via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human creds; scope in motion (@dtmd)."
   }
 ]
