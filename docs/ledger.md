@@ -21,24 +21,28 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## State of the era (2026-07-04)
 
-- **The six-noun demolition wave SHIPPED** — eight build slices in one day
-  (lock declaration rows → gate on artifacts+lock → SDK six-noun recut →
-  CLI collapse to eight verbs → lock-assembly-rows → manifest retire →
-  KIND/PACKAGE parse retire → explain unify), net ≈ −2,600 lines, plus
-  GATE-FAIL-LOUD-EMPTY-ASSEMBLY (a declared-but-unresolved assembly now
-  blocks). All ruled forks encoded; `explain` carries John's bare+collision-
-  error ruling. Queue quiescent; every remaining thread is human-gated.
+- **The six-noun demolition wave SHIPPED** (eight slices, ≈ −2,600 lines) and
+  **`(inplace-lock-producer)` is RESOLVED** (John 07-04: SDK's emit is the
+  sole lock producer, clean cuts; encoded in 20-surface + open-questions.md
+  with the full demolition scope). Plan's next reconcile can file the
+  cleanup waves: (1) the sole-producer cuts — copy-tree import, AuthorLayer/
+  temper.toml patching, [[member]] codec, carry-forwards, shadow sets,
+  temper_toml tests (~4k lines, fileable now); (2) the seam chain — engine
+  JSON pipe → retire sdk toml/emit/lock serializers → retire interchange
+  goldens + schemars/ts-rs deps (20-surface "The seam" is already sharp);
+  (3) small: dead drift::diff, kind-blind read path (check.rs skills/rules +
+  surface_units), wire mentions→citations (main.rs empty Vec; the producer
+  now exists in 45-governance).
 - Corpus shadow of the dogfood ruling awaits John's hand: 00-intent's
   self-hosting finish line and 90-spec-system's confirmation recipe still
-  narrate the dogfood (latent references smuggle latent code).
+  narrate the dogfood (latent references smuggle latent code). `init`'s
+  re-shape to SDK-program scaffolding rides the SDK-primary front door
+  (npm scaffolding, on John with PACKAGING-CHANNELS).
 
 ## Parked (pointers only)
 
 - On John: PACKAGING-CHANNELS credentials — npm org + @temper scope (the
   SDK publish is v0.1's channel 1); marketplace/signing creds.
-- `(inplace-lock-producer)` fork — narrowed by the dogfood ruling to the
-  external-user question only (who compiles an in-place `temper.toml` into
-  lock rows until SDK emit is the producer). In open-questions.md.
 - `(local-overrides)` fork — no spelling for personal overrides in the
   one-value assembly model. Blocks nothing.
 - Genre-adoption pilot: needs `(genre-fence-format)` (deferred to the pilot

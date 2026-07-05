@@ -292,6 +292,14 @@ three row families:
 - **declaration rows** — the program's erased declarations: kind facts,
   clauses, requirements, assembly facts (`40-composition.md`).
 
+One producer writes all three families: **`emit`, compiling the SDK program —
+the sole producer**. No verb compiles a hand-written configuration into
+declaration rows, and the gate never reads declarations from anywhere but the
+lock. A lock with no declaration rows is an **unadopted** harness — still
+fully gated, SDK-less, by the embedded default program — never a half-adopted
+one. (Resolves `(inplace-lock-producer)`, 2026-07-04: sole producer, clean
+cuts.)
+
 Drift is **one comparison in one vocabulary: disk vs lock**. An artifact
 whose bytes differ from its lock fingerprint, a source that differs from its
 provenance row — each is the same finding shape, naming the member that owns
@@ -345,6 +353,13 @@ render back to the fence, **byte-stable** — so the lift is reviewable as a
 no-op on content. Law 5 fixes the license: "free to normalize framing, never
 to alter content; after it the surface is the single authored home."
 
+The lift's output is the SDK program and nothing else: member modules whose
+prose is `file()` over the original text, and the `harness.ts` skeleton.
+`init` writes no lock and compiles no configuration — the first `emit` after
+the lift is the moment a harness becomes adopted ("The lock and drift",
+above: emit is the sole producer). The bare binary **checks; it never
+adopts**.
+
 Members arrive shallow and fully functional; deepening (`satisfies`,
 `needs`, `requires`) accrues member by member, and the pressure to deepen
 comes from the author's own `require` coverage failing — the right
@@ -363,7 +378,11 @@ cost is what the wedge lives or dies on; (b) a carriage gradient — an
 adoption ladder of ranked authoring forms (in-place → document → module)
 dignifies a permanent second surface and makes the SDK a rank instead of a
 posture; (c) recognition demanded up front — intent-encoding accrues under
-coverage pressure, not ceremony.
+coverage pressure, not ceremony; (d) a binary-side declaration compiler — a
+hand-authored `temper.toml` compiled into lock rows as an adoption rung —
+which is the hand-TOML second surface (the seam Decision) re-entering
+through the on-ramp: the postures are prose media, never config dialects
+(`(inplace-lock-producer)` resolved 2026-07-04).
 
 ### Decision: discovery respects ignore rules; the backing set reads raw disk
 
