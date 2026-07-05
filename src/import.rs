@@ -28,7 +28,10 @@ use crate::builtin_kind;
 use crate::compose::{self, AuthorLayer, Authority, InPlaceMember, ManifestMember, Requirement};
 use crate::contract::{Clause, Severity};
 use crate::document::{self, Document};
-use crate::drift::{AssemblyFactRow, ClauseRow, Declarations, KindFactRow, RequirementRow};
+use crate::drift::{
+    AssemblyFactRow, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow,
+    KindFactRow, MembershipRow, RequirementRow, SatisfiesRow,
+};
 use crate::frontmatter::{self, FrontmatterError, Member};
 use crate::kind::{Activation, CustomKind, Format, Governs, KindError, Unit, UnitShape};
 
@@ -1130,6 +1133,7 @@ fn collect_declarations(
         clauses,
         requirements,
         assembly: assembly_facts(layer),
+        satisfies: layer.map(satisfies_rows).unwrap_or_default(),
     })
 }
 
@@ -1158,16 +1162,69 @@ fn clause_row(kind: &str, clause: &Clause) -> ClauseRow {
     }
 }
 
-/// One requirement's declaration row — its name and scalar facets
-/// (`specs/architecture/10-contracts.md`).
+/// One requirement's declaration row — its scalar facets plus the set-scope bounds
+/// already parsed onto `compose::Requirement` (`specs/architecture/10-contracts.md`;
+/// `specs/architecture/45-governance.md`).
 fn requirement_row(requirement: &Requirement) -> RequirementRow {
     RequirementRow {
         name: requirement.name.clone(),
         kind: requirement.kind.clone(),
         package: requirement.package.clone(),
         required: requirement.required,
+        count: requirement.count.map(|count| CountBoundRow {
+            min: count.min,
+            max: count.max,
+        }),
+        unique: requirement.unique.clone(),
+        membership: requirement
+            .membership
+            .as_ref()
+            .map(|membership| MembershipRow {
+                field: membership.field.clone(),
+                source: membership.source.clone(),
+                source_kind: membership.source_kind.clone(),
+                source_feature: membership.source_feature.clone(),
+                source_package: membership.source_package.clone(),
+            }),
+        degree: requirement.degree.map(|degree| DegreeBoundRow {
+            incoming: degree.incoming.map(|bound| EdgeBoundRow {
+                min: bound.min,
+                max: bound.max,
+            }),
+            outgoing: degree.outgoing.map(|bound| EdgeBoundRow {
+                min: bound.min,
+                max: bound.max,
+            }),
+        }),
         verified_by: requirement.verified_by.clone(),
     }
+}
+
+/// The member→requirement fill edges — every imported member's `satisfies` keys, folded
+/// from the `AuthorLayer`'s pre-extracted [`ManifestMember`]s and its **in-place**
+/// members alike (`specs/architecture/20-surface.md`, "The lock and drift"), so the
+/// roster/coverage tiers' requirement↔satisfies join rides the lock instead of
+/// re-importing the harness. Members arrive kind-then-id sorted
+/// (`AuthorLayer::members`), so the row order is stable across a re-import.
+fn satisfies_rows(layer: &AuthorLayer) -> Vec<SatisfiesRow> {
+    let mut rows = Vec::new();
+    for member in layer.members() {
+        for requirement in &member.features.satisfies {
+            rows.push(SatisfiesRow {
+                member: member.features.id.clone(),
+                requirement: requirement.clone(),
+            });
+        }
+    }
+    for member in layer.inplace_members() {
+        for requirement in &member.satisfies {
+            rows.push(SatisfiesRow {
+                member: member.name.clone(),
+                requirement: requirement.clone(),
+            });
+        }
+    }
+    rows
 }
 
 /// The assembly-scope facts, in a stable order: authority (always declared — absent ⇒ the

@@ -1,11 +1,13 @@
 //! The lock's declaration-row family — the composed program's erased declarations
 //! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
 //!
-//! `emit`/`import` writes a declaration-row family (kind facts, clauses, requirements,
-//! assembly facts) beside the existing provenance + emit-fingerprint rows, and the
-//! drift/gate side reads it back through [`temper::drift::read_declarations`]. These
-//! tests assert the family is present and populated, and that a double `import` is
-//! byte-stable — the round-trip law 5 pins.
+//! `emit`/`import` writes a declaration-row family (kind facts, clauses, requirements —
+//! including the set-scope `count`/`unique`/`membership`/`degree` facets — assembly
+//! facts, and the member→requirement `satisfies` family) beside the existing
+//! provenance + emit-fingerprint rows, and the drift/gate side reads it back through
+//! [`temper::drift::read_declarations`]. These tests assert the family is present and
+//! populated, that a double `import` is byte-stable — the round-trip law 5 pins — and
+//! that a bare harness (no `temper.toml`) still round-trips.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -46,14 +48,29 @@ paths:\n\
 \n\
 Prefer a clone over a lifetime fight.\n";
 
-/// A `temper.toml` declaring a named requirement and a surface-authority posture, so the
-/// requirement and assembly families carry more than the bare-harness minimum.
+/// A `temper.toml` declaring a surface-authority posture, a `required` requirement, a
+/// second requirement exercising every set-scope facet (`count`/`unique`/`membership`/
+/// `degree`), and an in-place member that opts into both via `satisfies` — so the
+/// requirement and satisfies families carry more than the bare-harness minimum.
 const TEMPER_TOML: &str = "authority = \"surface\"\n\
 \n\
 [requirement.review-coverage]\n\
 means = \"Every shipped diff is reviewed before commit.\"\n\
 kind = \"skill\"\n\
-required = true\n";
+required = true\n\
+\n\
+[requirement.roster-coverage]\n\
+kind = \"skill\"\n\
+count = { min = 1, max = 2 }\n\
+unique = [\"name\"]\n\
+membership = { field = \"name\", kind = \"skill\", source = \"review-coverage\", feature = \"name\" }\n\
+degree = { incoming = { min = 1 }, outgoing = { max = 3 } }\n\
+\n\
+[[member]]\n\
+kind = \"skill\"\n\
+name = \"coordinate\"\n\
+source = \".claude/skills/coordinate/SKILL.md\"\n\
+satisfies = [\"review-coverage\", \"roster-coverage\"]\n";
 
 /// Write a skill + rule harness carrying a `temper.toml`, then import it into a fresh
 /// surface, returning `(harness, into)` — the harness kept so a re-import reads the same
@@ -125,6 +142,40 @@ fn lock_carries_all_four_declaration_families() {
     assert_eq!(requirement.kind.as_deref(), Some("skill"));
     assert!(requirement.required);
 
+    // The set-scope facets: count/unique/membership/degree all carried on the row.
+    let roster = declarations
+        .requirements
+        .iter()
+        .find(|r| r.name == "roster-coverage")
+        .expect("the set-scope requirement is recorded");
+    let count = roster.count.expect("count bound is recorded");
+    assert_eq!((count.min, count.max), (1, 2));
+    assert_eq!(roster.unique, vec!["name".to_string()]);
+    let membership = roster
+        .membership
+        .as_ref()
+        .expect("membership predicate is recorded");
+    assert_eq!(membership.field, "name");
+    assert_eq!(membership.source_kind, "skill");
+    assert_eq!(membership.source, "review-coverage");
+    assert_eq!(membership.source_feature, "name");
+    assert_eq!(membership.source_package, None);
+    let degree = roster.degree.expect("degree bound is recorded");
+    assert_eq!(degree.incoming.expect("incoming bound").min, Some(1));
+    assert_eq!(degree.incoming.expect("incoming bound").max, None);
+    assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
+    assert_eq!(degree.outgoing.expect("outgoing bound").min, None);
+
+    // Satisfies: the in-place member's declared fill keys, one row per key.
+    let mut satisfied: Vec<&str> = declarations
+        .satisfies
+        .iter()
+        .filter(|row| row.member == "coordinate")
+        .map(|row| row.requirement.as_str())
+        .collect();
+    satisfied.sort_unstable();
+    assert_eq!(satisfied, vec!["review-coverage", "roster-coverage"]);
+
     // Assembly facts: the surface-authority posture the assembly declared.
     let authority = declarations
         .assembly
@@ -153,6 +204,31 @@ fn a_double_import_is_byte_stable() {
     assert!(!declarations.clauses.is_empty());
     assert!(!declarations.requirements.is_empty());
     assert!(!declarations.assembly.is_empty());
+    assert!(!declarations.satisfies.is_empty());
+}
+
+/// A harness with no `temper.toml` at all (no requirements, no members) still imports
+/// and round-trips: the requirement/satisfies families are simply empty, never an error
+/// or a malformed row — the bootstrap's tolerant-read discipline extends to the new
+/// facets exactly as it does the existing ones.
+#[test]
+fn a_bare_harness_lock_still_round_trips() {
+    let harness = tmpdir("bare-src");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("rust.md"), RULE).unwrap();
+
+    let into = tmpdir("bare-into");
+    import::run(&harness, &into).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    assert!(!declarations.kinds.is_empty());
+    assert!(!declarations.clauses.is_empty());
+    assert!(declarations.requirements.is_empty());
+    assert!(declarations.satisfies.is_empty());
 }
 
 /// A workspace with no `[declaration]` table (any pre-recut lock) reads back an empty
