@@ -140,33 +140,35 @@ still fork-gated (the one design question the wave cannot reach without John).
 
 New forks from the ceremony:
 
-- `(inplace-lock-producer)` — OPEN, **narrowed** to the external-user question
-  only (John's dogfood-deactivation ruling, 2026-07-04: the dogfood-data
-  restoration half — regenerating temper's own `temper.toml` and re-arming the
-  self-gate — is **dead**, the dogfood is gone). The residual question is the
-  external adopter's: the demolition wave flipped the gate to read its assembly's
-  declaration rows (requirements, edges, reachability) off `<workspace>/lock.toml`
-  (`drift::read_declarations`), but left the **transitional producer** of those
-  rows inconsistent — the copy-tree `import::run` writes them (`write_rollup`),
-  the new in-place `init` writes no lock, and `emit` writes only fingerprints. So
-  an external harness onboarded the intended way (`init` → `check`) has its
-  authored `temper.toml` `[requirement.*]` / `[kind.*]` reach no lock, and the
-  gate loads no requirements. Two entangled sub-questions: (a) who compiles the
-  in-place `temper.toml`'s declarations into the lock — does `init` (or `emit`)
-  write the declaration rows, or does the gate read them directly from the
-  in-place `temper.toml` until the SDK lands (the `AuthorLayer` still parses
-  `[requirement.*]` and document-carriage `[[member]]` — both currently
-  gate-ignored, so nothing need be re-parsed, only re-wired)? (b) what is
-  `check`'s root in the in-place model — the harness root (`temper.toml` + lock at
-  root) or `./.temper`? The ratified end-state answers neither transitionally:
-  20-surface ("The lock and drift", "The seam") has the SDK compile `harness.ts`
-  → `emit` write the lock's declaration rows, lock at `.temper/lock.toml`. That
-  foundation is human-gated and unbuilt (the SDK-primary scaffolding, ledger
-  residual). GATE-FAIL-LOUD-EMPTY-ASSEMBLY (the interim safety net — fail-loud on
-  the incoherence, not this restoration) **has SHIPPED** (b521ff3), so a
-  declared-but-unresolved assembly now errors loudly instead of silently checking
-  zero; it did not depend on this fork. Human to settle the transitional producer
-  + root as part of the SDK-primary front door, not before.
+- `(inplace-lock-producer)` — RESOLVED (John 2026-07-04: "sdk is sole
+  producer, clean cuts"). Sub-question (a): **the SDK's `emit` is the sole
+  producer of every lock row family — no verb compiles a hand-written
+  configuration into declaration rows, ever.** There is no transitional
+  producer: the transitional state IS the unadopted state, which the embedded
+  default program already gates (GATE-FAIL-LOUD-EMPTY-ASSEMBLY, b521ff3,
+  covers the incoherent middle loudly). Sub-question (b): `check`'s workspace
+  is the SDK program home (`.temper/`, lock at `.temper/lock.toml`), per
+  20-surface's ratified end state. `init` scaffolds the SDK program (member
+  modules, `file()` prose pointers, the `harness.ts` skeleton) and writes no
+  lock; the bare binary checks, it never adopts. ENCODED (this commit):
+  20-surface "The lock and drift" (sole-producer paragraph), "init — the
+  lift, once" (lift output = SDK program; Decision rejected-alternative (d):
+  a binary-side declaration compiler is the hand-TOML second surface
+  re-entering through the on-ramp; postures are prose media, never config
+  dialects). DEMOLITION SCOPE (clean cuts — no compat shims; plan derives
+  the chain): `import.rs`'s copy-tree pipeline (`import::run`,
+  `write_rollup`, `write_member_surface`, `emit_manifest`), the
+  `AuthorLayer` + format-preserving `temper.toml` patching, both
+  authored-layer carry-forwards (`frontmatter.rs carry_representation` and
+  the custom-header twin) and `Member::from_surface` document carriage, the
+  `[[member]]` codec in `compose.rs` (`write_members`/`member_to_table`/
+  `parse_member` and inverses), the provider shadow-set machinery
+  (`carrier_count`/shadow elections — identity is an import), `--lift`'s
+  carriage-ladder framing (re-cut to the posture move), and
+  `tests/temper_toml.rs` (asserts the retired dialect). `init`'s re-shape to
+  SDK-program scaffolding lands with the SDK-primary front door (human-gated
+  on npm scaffolding); the deletions above depend only on this ruling and
+  the gate's existing lock path — fileable now.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
   Rust.** No spec delta — the corpus is language-neutral by design ("the
   engine", never a language as normative fact; 50-distribution "The stranger
