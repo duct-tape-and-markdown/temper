@@ -1,14 +1,13 @@
 [
   {
     "tag": "KIND-PACKAGE-PARSE-RETIRE",
-    "summary": "Retire KIND.md / PACKAGE.md parsing — a kind's schema is an SDK interface, a floor is an exported clause array; no kind/package file format",
+    "summary": "Retire KIND.md / PACKAGE.md parsing — floors and kinds become the compiled default program's declaration rows; no kind/package file format",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Decision: field typing lives in the SDK — there is no kind file format"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-MACHINERY-RETIRE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,27 +15,43 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Retire the `KIND.md` header grammar (format/unit_shape/activation keys) and string-name identity resolution (15-kinds Decision: no kind file format; 'built-ins are a module, and identity is an import' rejects string-name identity + provider qualification). A kind's runtime residue is the five declaration facts read from the lock rows, not a parsed file."
+          "description": "Retire `CustomKind::load` and the `KIND.md` header grammar — the `Format`/`UnitShape`/`Activation` header keys and string-name identity resolution (15-kinds Decision: 'no KIND.md, no header grammar of format/unit_shape/activation keys'; 'built-ins are a module, and identity is an import' rejects string-name identity + provider qualification). A kind's runtime residue is the five facts read as declaration rows, not a parsed file."
         },
         {
-          "path": "src/builtin.rs",
-          "description": "The built-in floor no longer embeds/parses `packages/<name>/PACKAGE.md`; a floor is an exported clause array in `@temper/claude-code` (10-contracts) whose rows arrive via the seam, and the engine carries a compiled default program (50-distribution) for SDK-less checking."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "The embedded built-in kind set becomes the compiled default program (declaration rows), not a walk over the `kinds/<provider>/<name>/KIND.md` tree."
+          "path": "src/compose.rs",
+          "description": "Retire the `PackageResolver`'s `<packages_dir>/<name>/PACKAGE.md` loading (compose.rs:350/352, 983/993) and the `layer_over`/`effective` package-file resolution, plus the `kinds_dir` `CustomKind::load` dispatch. Floors and kind facts arrive as the compiled default program's declaration rows, not resolved from on-disk KIND.md/PACKAGE.md."
         },
         {
           "path": "src/contract.rs",
-          "description": "Clause parsing off `PACKAGE.md` retires; clauses are compiled predicates arriving as declaration rows."
+          "description": "Retire `load_package`/`parse_package` — the `PACKAGE.md` fenced-document clause parse (contract.rs:549-594, 1221-1228). A floor is an exported clause array delivered as compiled predicate declaration rows, not parsed from a package file (10-contracts, 'clause arrays and two quantifiers, not a package noun')."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "The built-in floor stops embedding/parsing `packages/<name>/PACKAGE.md` (`BUILTIN_PACKAGES` + `parse_package`, builtin.rs:28/107-121); the floor becomes the compiled default program of clause rows the engine carries for SDK-less checking (50-distribution 'the compiled default program embedded at build time')."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "The embedded built-in kind set becomes the compiled default program's kind declaration rows, not `definitions()` parsed over the walked `kinds/<provider>/<name>/KIND.md` tree."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "`Workspace::load_kinds` (check.rs:63, 556) reconciles to the declaration-row kind facts — no `builtin_kind::definitions()` KIND.md parse feeding the workspace kind map."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "The `CustomKind::load` / built-in-kinds-program reads off `<harness>/.temper/kinds/<name>/KIND.md` (import.rs:239-244, 492-497) retire; kinds are declaration rows, not parsed from the authored KIND.md tree."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Retire the gate's `packages_dir`/`kinds_dir` resolution and its `PackageResolver::new` / `compose::effective` / `custom_kinds_and_edges` / `CustomKind::load` call sites (main.rs:329/346/353/508/513/570/599/667/977). The gate reads floors + kind facts from the compiled default program (already the lock-declaration source for the assembly), never from on-disk KIND.md/PACKAGE.md."
         },
         {
           "path": "src/document.rs",
-          "description": "The KIND.md/PACKAGE.md document-carriage parse retires; the surface-language header grammar for kind/package files is gone."
+          "description": "The doc-comment references to `KIND.md`/`PACKAGE.md` as document roles retire; the generic fenced-document `Document` medium survives as the member document carriage (20-surface, 'three carriages, one feature shape'). No kind/package-file header grammar remains."
         },
         {
           "path": "build.rs",
-          "description": "The build-time embed no longer walks the `kinds/`/`packages/` `*.md` trees to embed KIND.md/PACKAGE.md; it embeds the compiled default program instead."
+          "description": "The build-time embed no longer walks the `kinds/`/`packages/` `*.md` trees to `include_str!` KIND.md/PACKAGE.md; it embeds the compiled default program (declaration rows) instead."
         }
       ],
       "retire": []
@@ -45,7 +60,7 @@
     "tests": [
       {
         "path": "tests/contract_fixtures.rs",
-        "asserts": "reconciled — clauses come from compiled rows, not a parsed PACKAGE.md"
+        "asserts": "reconciled — clauses come from compiled declaration rows, not a parsed PACKAGE.md"
       },
       {
         "path": "tests/contract_template.rs",
@@ -54,10 +69,14 @@
       {
         "path": "tests/extract_equivalence.rs",
         "asserts": "generic extraction driven by the five facts, no per-kind/file-format parse"
+      },
+      {
+        "path": "tests/memory_contract.rs",
+        "asserts": "reconciled — the built-in memory floor/kind come from declaration rows, not the embedded KIND.md/PACKAGE.md fixtures"
       }
     ],
-    "acceptance": "The engine parses no KIND.md or PACKAGE.md; kinds and floors are declaration rows (SDK-authored or the compiled default program); extraction is the generic algebra driven by the five facts.",
-    "notes": "Terminal demolition of the file-format vehicle. Curated `kinds/`/`packages/` trees are fence-excluded human territory — the SESSION migrates/retires them after emit lands (fence-side moves are the session's hands). This entry retires only the engine-side parse."
+    "acceptance": "The engine parses no KIND.md or PACKAGE.md; floors and kinds are the compiled default program's declaration rows (or SDK-authored); the gate resolves no packages_dir/kinds_dir off disk; extraction is the generic algebra driven by the five facts.",
+    "notes": "Terminal demolition of the file-format vehicle; now the pickable head (MANIFEST-MACHINERY-RETIRE shipped). Blast radius spans the whole floor/kind parse path — compose.rs, main.rs, check.rs, import.rs, contract.rs, builtin*/build.rs — and is atomic: the parse can't be half-retired in Rust. Curated kinds/·packages/ trees are fence-excluded human territory; the SESSION migrates them after emit lands, this entry retires only the engine parse."
   },
   {
     "tag": "EXPLAIN-UNIFY",
