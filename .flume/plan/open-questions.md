@@ -11,6 +11,20 @@ and custom kinds feed the graph's `by_kind`. The old `contracts/*.toml` mirror i
 **deleted** (CONTRACTS-RETIRE shipped — no `contracts/` dir on disk; only stale
 path strings remain in comments).
 
+DATUM (2026-07-04, the recursive dogfood is DEACTIVATED — John's ruling): the
+`.temper/` workspace, root `temper.toml`, self-check gate, and session-start
+hook are **removed** from the host repo (verified on disk this tick: no
+`.temper/`, no `temper.toml`, build's gates are `[fmtGate, clippyGate, testGate,
+sdkGate]` — no selfCheckGate). Validation lives in `tests/` fixtures. Every
+dogfood-referencing line in the decision records below — the self-gate re-arm,
+`.temper/**` as human territory, temper.toml-as-dogfood-assembly, the CLAUDE.md
+bootstrap-fence flip, the wave-end confirmation's on-disk symptoms — is **history,
+superseded** by this deactivation; read those blocks as decision records of what
+shipped, not as live state. A real dogfood returns only when SDK-primary authoring
+(`harness.ts` → emit) is the product's own front door. The corpus shadow
+(00-intent's self-hosting finish line, 90-spec-system's confirmation recipe still
+narrating the dogfood) is **John's hand** — not plan's, not build's.
+
 ## The six-noun model ceremony (2026-07-04, John + session) — corpus re-cut
 
 The architecture corpus was re-cut in one ceremony to the six-noun model
@@ -126,34 +140,33 @@ still fork-gated (the one design question the wave cannot reach without John).
 
 New forks from the ceremony:
 
-- `(inplace-lock-producer)` — OPEN (surfaced by the 2026-07-04 wave-end
-  confirmation; the DATUM above carries the on-disk diagnosis). The demolition
-  wave flipped the gate to read its assembly's declaration rows (requirements,
-  edges, reachability) off `<workspace>/lock.toml` (`drift::read_declarations`),
-  but left the **transitional producer** of those rows inconsistent: the
-  copy-tree `import::run` writes them (`write_rollup`), the new in-place `init`
-  writes no lock, and `emit` writes only fingerprints. So a harness onboarded the
-  intended way (`init` → `check`) has its authored `temper.toml` `[requirement.*]`
-  / `[kind.*]` reach no lock, and the gate silently loads no requirements. Two
-  entangled sub-questions: (a) in the transitional in-place world, who compiles
-  `temper.toml`'s declarations into the lock — does `init` (or `emit`) write the
-  declaration rows, or does the gate read them directly from the in-place
-  `temper.toml` until the SDK lands (the `AuthorLayer` still parses `[requirement.*]`
-  and document-carriage `[[member]]` — both currently gate-ignored, so nothing
-  need be re-parsed, only re-wired)? (b) what is `check`'s root in the in-place
-  model — the harness root (`temper.toml` + lock at root) or `./.temper`? The
-  ratified end-state answers neither transitionally: 20-surface ("The lock and
-  drift", "The seam") has the SDK compile `harness.ts` → `emit` write the lock's
-  declaration rows, lock at `.temper/lock.toml`. That foundation is human-gated
-  and unbuilt (the SDK-primary scaffolding, ledger residual). Also folds in the
-  **dogfood-data** restoration: temper's own `temper.toml` (17 stale
-  document-carriage members) wants regenerating via the new `init` to in-place
-  `source` members — fence/human territory, gated on this fork. GATE-FAIL-LOUD-
-  EMPTY-ASSEMBLY (the interim safety net — fail-loud on the incoherence, not this
-  restoration) **has SHIPPED** (b521ff3), so the silent `checked 0 … exit 0` now
-  errors loudly; it did not depend on this fork. Human to settle the
-  transitional producer + root before re-arming the self-gate against a
-  harness-root `check`.
+- `(inplace-lock-producer)` — OPEN, **narrowed** to the external-user question
+  only (John's dogfood-deactivation ruling, 2026-07-04: the dogfood-data
+  restoration half — regenerating temper's own `temper.toml` and re-arming the
+  self-gate — is **dead**, the dogfood is gone). The residual question is the
+  external adopter's: the demolition wave flipped the gate to read its assembly's
+  declaration rows (requirements, edges, reachability) off `<workspace>/lock.toml`
+  (`drift::read_declarations`), but left the **transitional producer** of those
+  rows inconsistent — the copy-tree `import::run` writes them (`write_rollup`),
+  the new in-place `init` writes no lock, and `emit` writes only fingerprints. So
+  an external harness onboarded the intended way (`init` → `check`) has its
+  authored `temper.toml` `[requirement.*]` / `[kind.*]` reach no lock, and the
+  gate loads no requirements. Two entangled sub-questions: (a) who compiles the
+  in-place `temper.toml`'s declarations into the lock — does `init` (or `emit`)
+  write the declaration rows, or does the gate read them directly from the
+  in-place `temper.toml` until the SDK lands (the `AuthorLayer` still parses
+  `[requirement.*]` and document-carriage `[[member]]` — both currently
+  gate-ignored, so nothing need be re-parsed, only re-wired)? (b) what is
+  `check`'s root in the in-place model — the harness root (`temper.toml` + lock at
+  root) or `./.temper`? The ratified end-state answers neither transitionally:
+  20-surface ("The lock and drift", "The seam") has the SDK compile `harness.ts`
+  → `emit` write the lock's declaration rows, lock at `.temper/lock.toml`. That
+  foundation is human-gated and unbuilt (the SDK-primary scaffolding, ledger
+  residual). GATE-FAIL-LOUD-EMPTY-ASSEMBLY (the interim safety net — fail-loud on
+  the incoherence, not this restoration) **has SHIPPED** (b521ff3), so a
+  declared-but-unresolved assembly now errors loudly instead of silently checking
+  zero; it did not depend on this fork. Human to settle the transitional producer
+  + root as part of the SDK-primary front door, not before.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
   Rust.** No spec delta — the corpus is language-neutral by design ("the
   engine", never a language as normative fact; 50-distribution "The stranger
@@ -993,8 +1006,9 @@ from exactly such a line fossilizing. If work touches one, surface it.
 - **`kinds/` + `packages/` are curated, fence-excluded** — kept because
   built-in definitions encode cited external facts; humans author, build
   embeds.
-- **`.temper/**` is human territory** — the dogfood surface is the project's
-  declared intent; the loop never writes it.
+- **`.temper/**` is human territory** — SUPERSEDED (2026-07-04 dogfood
+  deactivation): there is no `.temper/` on disk. The asymmetry returns with the
+  SDK-primary dogfood; until then it governs nothing.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the corpus migration
   proves the custom-kind story end to end.
@@ -1004,8 +1018,12 @@ from exactly such a line fossilizing. If work touches one, surface it.
   plan never reads a horizon entry as intent or cites one from a pending
   entry — an idea enters the corpus only through the human graduation
   ceremony the file describes.
-- **CLAUDE.md bootstrap fence** — transitional until the `memory` kind ships
-  and the flip ceremony moves it onto the surface.
+- **CLAUDE.md bootstrap fence** — SUPERSEDED (2026-07-04 dogfood deactivation):
+  with the dogfood removed, CLAUDE.md is again a plain harness file, not a
+  governed member. The flip history below is a decision record, not live state;
+  the fence question re-opens with the SDK-primary dogfood.
+  ORIGINAL: transitional until the `memory` kind ships and the flip ceremony
+  moves it onto the surface.
   WAVE SHIPPED (2026-07-02): the five dependency-ordered engine slices —
   MEMORY-COLLISION-SCOPE, IMPORT-BUILTIN-SCAN-GENERIC, CHECK-WORKSPACE-KIND-MAP,
   DECLARED-FRONTMATTER-ADAPTER-CUSTOM, RECURSIVE-GOVERNS-PLACEMENT-ID — have all

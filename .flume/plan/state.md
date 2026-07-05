@@ -1,25 +1,26 @@
 # Plan state
 
-- **Phase:** reconciled a quiescent queue. The demolition wave and its interim
-  fail-loud safety net have both drained; every remaining thread is human-gated.
-- **Last shipped:** GATE-FAIL-LOUD-EMPTY-ASSEMBLY (build b521ff3 / chore 7d6a846)
-  — verified on disk: `check::empty_assembly_incoherence` (src/check.rs:348) emits
-  `coverage.empty-assembly` as an error + non-zero exit when a harness declares
-  members/requirements the gate resolves none of and the lock carries no
-  declaration rows (tests/gate_fail_loud.rs). The wave-end silent `checked 0 …
-  exit 0` now fails loud.
-- **This tick:** confirmed the safety net shipped on disk (not the log), reconciled
-  the two stale open-questions references (the pickable/interim GATE-FAIL-LOUD
-  wording → SHIPPED). Inbox empty. PACKAGING-CHANNELS' cite (50-distribution
-  "Three channels") is untouched and still accurately parked on human release creds.
+- **Phase:** reconciled the dogfood-deactivation ruling into a quiescent queue.
+  The inbox is drained; every remaining thread is human-gated.
+- **Last shipped:** the recursive dogfood is DEACTIVATED (`chore(harness)`
+  d134c31, verified on disk this tick: no `.temper/`, no root `temper.toml`,
+  build's gates are `[fmtGate, clippyGate, testGate, sdkGate]` — selfCheckGate
+  gone). GATE-FAIL-LOUD-EMPTY-ASSEMBLY (b521ff3) stands — correct product
+  behavior for real users, discovered by the dogfood on its way out.
+- **This tick:** drained the inbox ruling. Narrowed `(inplace-lock-producer)` to
+  the external-user question only (the dogfood-data restoration + self-gate
+  re-arm halves die). Flagged the now-false live-state wording (`.temper/**`
+  territory, CLAUDE.md bootstrap fence) as superseded, kept the decision-record
+  history. Added a top-of-file deactivation DATUM. PACKAGING-CHANNELS untouched
+  (cites 50-distribution "Three channels", still parked on human release creds).
 - **In flight:** none pickable. PACKAGING-CHANNELS is parked on human release
-  setup (npm org + @temper scope, marketplace/signing creds; rides the SDK-primary
-  foundation).
-- **What's next:** the deeper restoration — who produces the transitional lock's
-  declaration rows and what `check`'s root is — waits on John (`(inplace-lock-
-  producer)`), as does the dogfood regeneration and re-arming the self-gate. No
-  un-gated pickable work for build; the queue correctly idles on the human.
+  setup (npm org + @temper scope, marketplace/signing creds; rides the
+  SDK-primary foundation).
+- **What's next:** John's hand — the corpus shadow of the deactivation
+  (00-intent's self-hosting finish line, 90-spec-system's confirmation recipe
+  still narrate the dogfood), the SDK-primary front door, and the release creds.
+  No un-gated pickable work for build; the queue correctly idles on the human.
 
-Plan continues: no — queue reconciled, inbox empty, the one remaining pending
-entry is parked and every other thread is fork-gated on John. No pickable `open`
-head to file without inventing intent the corpus does not carry.
+Plan continues: no — inbox drained, the one pending entry is parked, and every
+other thread is fork-gated or human-gated on John. No pickable `open` head to
+file without inventing intent the corpus does not carry.
