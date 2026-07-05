@@ -1,33 +1,5 @@
 [
   {
-    "tag": "README-RECONCILE-SURFACE",
-    "summary": "Reconcile the README + AGENTS.md's stale CLI/posture claims (retired `import`/`diff` verbs, hand-authored-TOML requirements) against 20-surface's ratified surface — a targeted fix, not a rewrite",
-    "per": {
-      "path": "specs/intent/55-offering.md",
-      "section": "The front door — the README is the landing page"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "README.md",
-          "description": "Three stale claims verified against the trunk-head binary (`temper --help`): (1) README.md:77 (Status) lists the verb set as `import, check, schema, diff, emit, install, bundle` — `import` and `diff` were retired by the six-noun demolition; the real surface is init / check / schema / emit / guard / install / bundle / explain. Correct the list. (2) README.md:42 ('A typed surface, not a rule pile') says '`import` scans the whole harness' — `import` is no longer a verb; the scan now lives in `init` and in `check --harness`'s internal one-shot import. Re-ground on `init`. (3) README.md:46 ('Requirements you declare. In a `temper.toml` …') describes the hand-authored-TOML posture the sole-producer ruling rejects — 20-surface: emit is the sole lock producer, the postures are prose media never config dialects ((inplace-lock-producer) RESOLVED). Re-ground the requirements story in the ratified model. Scope honesty: this is a *reconcile* of the stale claims only — 55-offering's larger launch obligations (logo, badge polish, ~800-word shape) ride the v0.1 offering work, NOT this entry. Do not rewrite prose that is already accurate."
-        },
-        {
-          "path": "AGENTS.md",
-          "description": "AGENTS.md:27-29 orients contributors with '`import.rs`/`drift.rs` (the surface and its three-state drift engine)' — `import` is a retired verb and the three-state merge (desired/last-applied/real) was deleted in the floor wave (drift collapsed to one authored direction + two freshness facts, 20-surface 'Drift — one direction, two freshness facts'). Update the one-line orientation so it names the current surface (init/emit; drift.rs's freshness model), not the demolished one. Lower stakes than the README — contributor docs — but fix it in the same pass while the files are open. Touch only the stale orientation line; leave the rest intact."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "README.md and AGENTS.md name only the real trunk-head verbs (init/check/schema/emit/guard/install/bundle/explain) and describe the sole-producer / init-on-ramp posture; no reference to `import` or `diff` as a verb, no hand-authored-TOML requirements claim, no three-state drift engine survives.",
-    "notes": "Preflight for the public flip (inbox 2026-07-05) — the repo flips public soon and the front door describes the pre-demolition product. Both files sit outside build's fence (^(\\.claude|docs|specs)/), so this is fileable build work. Disjoint from PACKAGING-CHANNELS (package.json + release.yml). A reconcile, not the 55-offering launch rewrite."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm packages, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
