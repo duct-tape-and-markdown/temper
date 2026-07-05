@@ -19,30 +19,30 @@ are forgotten here. Target under ~60 lines, hard.
   → ceremony. No same-day ratification of new frames without John's waiver.
 - Plain words over metaphor, in the corpus and here. New coinage needs John.
 
-## State of the era (2026-07-04)
+## State of the era (2026-07-05)
 
-- **The six-noun demolition wave SHIPPED** (eight slices, ≈ −2,600 lines) and
-  **`(inplace-lock-producer)` is RESOLVED** (John 07-04: SDK's emit is the
-  sole lock producer, clean cuts; encoded in 20-surface + open-questions.md
-  with the full demolition scope). Plan's next reconcile can file the
-  cleanup waves: (1) the sole-producer cuts — copy-tree import, AuthorLayer/
-  temper.toml patching, [[member]] codec, carry-forwards, shadow sets,
-  temper_toml tests (~4k lines, fileable now); (2) the seam chain — engine
-  JSON pipe → retire sdk toml/emit/lock serializers → retire interchange
-  goldens + schemars/ts-rs deps (20-surface "The seam" is already sharp);
-  (3) small: dead drift::diff, kind-blind read path (check.rs skills/rules +
-  surface_units), wire mentions→citations (main.rs empty Vec; the producer
-  now exists in 45-governance).
-- Corpus shadow of the dogfood ruling awaits John's hand: 00-intent's
-  self-hosting finish line and 90-spec-system's confirmation recipe still
-  narrate the dogfood (latent references smuggle latent code). `init`'s
-  re-shape to SDK-program scaffolding rides the SDK-primary front door
-  (npm scaffolding, on John with PACKAGING-CHANNELS).
+- **The front door's gate is in motion** (ruled 07-05): John is setting up
+  the npm package himself — scope `@dtmd`, name probably `@dtmd/temper`.
+  The chain WAITS for the real package (John declined a local-first bypass;
+  asked-and-answered 07-05). When it lands: plan derives the front-door
+  chain (emit as the host repo's real lock producer / dogfood's return, the
+  gate rewrite off the copy-tree scratch, the demolition remainder, `init`
+  re-shape). A `(sdk-package-layout)` question rides it: two packages vs
+  subpath export under `@dtmd`.
+- Shipped: the six-noun demolition wave (eight slices, ≈ −2,600 lines),
+  `(inplace-lock-producer)` resolved (emit is the sole lock producer,
+  20-surface), DRIFT-DIFF-RETIRE (−391 lines; plan's reconcile found it the
+  only decoupled cut — the rest is live gate scaffolding until the rewrite).
+- Corpus shadow awaiting John's hand: 00-intent's self-hosting finish line +
+  90-spec-system's confirmation recipe still narrate the dogfood; the
+  corpus's `@temper/claude-code` spelling awaits the `@dtmd` name
+  confirmation (50-distribution, 10-contracts, 15-kinds).
 
 ## Parked (pointers only)
 
-- On John: PACKAGING-CHANNELS credentials — npm org + @temper scope (the
-  SDK publish is v0.1's channel 1); marketplace/signing creds.
+- On John (in motion): the npm package — `@dtmd` scope, probably
+  `@dtmd/temper`; the SDK front-door chain waits on it. Plus the rest of
+  PACKAGING-CHANNELS release setup: marketplace/signing creds.
 - `(local-overrides)` fork — no spelling for personal overrides in the
   one-value assembly model. Blocks nothing.
 - Genre-adoption pilot: needs `(genre-fence-format)` (deferred to the pilot
