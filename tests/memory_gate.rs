@@ -162,7 +162,7 @@ fn import_two_step(harness: &Path) {
 
     std::env::set_current_dir(harness).unwrap();
     temper::import::run(Path::new("."), Path::new(".temper")).unwrap();
-    temper::import::emit_manifest(Path::new("."), Path::new(".temper")).unwrap();
+    temper::import::emit_manifest(Path::new(".temper")).unwrap();
 }
 
 /// Gate the already-imported `.temper/` surface with cwd = harness root — the second leg

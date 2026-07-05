@@ -14,30 +14,28 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use temper::compose::{AuthorLayer, ManifestMember, write_manifest_members};
-use temper::kind::{CustomKind, Unit};
+use temper::kind::{CustomKind, Extraction, Genre, Governs, Primitive, Unit};
 use toml_edit::DocumentMut;
 
-/// A custom `decision` kind whose `KIND.md` header composes the `fenced` primitive and
-/// declares one genre — the shape (leaf fields, keyed collections) is the kind's; the
-/// predicates over it are the bound package's, out of this definition.
+/// A custom `decision` kind composing the `fenced` primitive and declaring one genre —
+/// the shape (leaf fields, keyed collections) is the kind's; the predicates over it are
+/// the bound package's, out of this definition.
 fn decision_kind() -> CustomKind {
-    let header = r#"governs = { root = "docs/decisions", glob = "*.md" }
-
-[[extraction]]
-primitive = "fenced"
-
-[[genres]]
-name = "decision"
-leaves = ["chosen", "because"]
-collections = ["rejected"]
-"#;
-    let doc: DocumentMut = header.parse().expect("the KIND.md header is valid TOML");
-    CustomKind::from_header(
-        doc.as_table(),
-        "decision",
-        Path::new(".temper/kinds/decision/KIND.md"),
-    )
-    .expect("the genre-declaring KIND.md header parses")
+    CustomKind {
+        genres: vec![Genre {
+            name: "decision".to_string(),
+            leaves: vec!["chosen".to_string(), "because".to_string()],
+            collections: vec!["rejected".to_string()],
+        }],
+        ..CustomKind::new(
+            "decision",
+            Governs {
+                root: "docs/decisions".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(vec![Primitive::Fenced]),
+        )
+    }
 }
 
 /// A decision-document unit carrying `body` — a frontmatter-less surface document, the

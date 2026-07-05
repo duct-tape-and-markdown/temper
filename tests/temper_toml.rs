@@ -25,11 +25,9 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
-use temper::compose::{
-    AuthorLayer, Authority, ComposeError, DegreeBound, Edge, EdgeBound, Requirement,
-};
+use temper::compose::{AuthorLayer, Authority, ComposeError, DegreeBound, EdgeBound, Requirement};
 use temper::extract::FeatureValue;
-use temper::kind::{BUILTIN_KINDS, CustomKind, Governs, KindError, Primitive};
+use temper::kind::{BUILTIN_KINDS, CustomKind, Extraction, Governs, KindError};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -94,7 +92,7 @@ fn import_skill(root: &Path, name: &str, skill_md: &str) {
 
     let into = root.join(".temper");
     temper::import::run(&harness, &into).unwrap();
-    temper::import::emit_manifest(&harness, &into).unwrap();
+    temper::import::emit_manifest(&into).unwrap();
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -355,25 +353,14 @@ sections = [\"Usage\"]\n",
     );
 }
 
-// ---- custom-kind registration + authored KIND.md definition -----------------
+// ---- custom-kind registration ------------------------------------------------
 //
 // A custom kind is *registered* in the assembly (`[kind.<name>]` binds a package by
-// name) and *defined* under `.temper/kinds/<name>/KIND.md` (`specs/architecture/40-composition.md`,
-// "Decision: a custom kind is an authored `.temper/` artifact, registered in the
-// assembly"). The fully-inline `[kind.<name>]` definition is retired: a `governs`/
-// `extraction` key under a kind table is now a stray key, rejected at load. The
-// registration cases drive the library parser directly; the definition cases drive the
-// `KIND.md` loader over an authored fixture.
-
-/// Write a `<root>/.temper/kinds/<name>/KIND.md` definition fixture and return the
-/// `.temper/kinds` directory `CustomKind::load` reads from.
-fn write_kind_definition(root: &Path, name: &str, kind_md: &str) -> PathBuf {
-    let kinds_dir = root.join(".temper").join("kinds");
-    let dir = kinds_dir.join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("KIND.md"), kind_md).unwrap();
-    kinds_dir
-}
+// name); its definition has no file format to load from
+// (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK —
+// there is no kind file format") — SDK-authored, out of this engine's parse path.
+// The fully-inline `[kind.<name>]` definition is retired too: a `governs`/
+// `extraction` key under a kind table is a stray key, rejected at load.
 
 #[test]
 fn a_custom_kind_registration_binds_a_package_by_name() {
@@ -430,12 +417,17 @@ fn a_bare_reference_with_two_providers_carrying_the_name_is_an_ambiguity_load_er
     // a synthetic two-provider set through the very resolution helper the bindings route
     // through, never a silent wrong-kind pick.
     fn skill_of(provider: &str) -> CustomKind {
-        let src = format!(
-            "governs = {{ root = \".claude/skills\", glob = \"*/SKILL.md\" }}\nprovider = \"{provider}\"\n"
-        );
-        let doc = src.parse::<toml_edit::DocumentMut>().unwrap();
-        CustomKind::from_header(doc.as_table(), "skill", Path::new("kinds/x/skill/KIND.md"))
-            .unwrap()
+        CustomKind {
+            qualified: Some(format!("{provider}.skill")),
+            ..CustomKind::new(
+                "skill",
+                Governs {
+                    root: ".claude/skills".to_string(),
+                    glob: "*/SKILL.md".to_string(),
+                },
+                Extraction::new(Vec::new()),
+            )
+        }
     }
 
     // One provider: the bare name resolves to its unique qualified carrier.
@@ -487,144 +479,6 @@ primitive = "line_count"
     assert!(
         matches!(err, ComposeError::KindUnknownKey { ref key, ref kind, .. } if key == "extraction" && kind == "spec"),
         "an inline `extraction` is a retired stray key, got: {err:?}"
-    );
-}
-
-#[test]
-fn an_authored_kind_md_carries_the_whole_definition() {
-    // The authored `KIND.md` header carries the composed definition — the `governs`
-    // locus, the composed extraction, and the declared relationships — and the body is
-    // the kind's prose (read by no check). `CustomKind::load` reads it back into a typed
-    // definition.
-    let root = tmpdir("kind-md");
-    // Edges range over *declared structured fields*, never body-mined references
-    // (law 8; `specs/architecture/15-kinds.md`): the `depends_on` relationship rides a `field`
-    // primitive, not the retired `references` extractor.
-    let kind_md = "+++\n\
-governs = { root = \"specs\", glob = \"*.md\" }\n\
-\n\
-[[extraction]]\n\
-primitive = \"line_count\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"field\"\n\
-key = \"depends_on\"\n\
-\n\
-[[relationships]]\n\
-field = \"depends_on\"\n\
-to = \"spec\"\n\
-+++\n\
-\n\
-# The spec kind\n\
-\n\
-A spec is temper's own governing document.\n";
-    let kinds_dir = write_kind_definition(&root, "spec", kind_md);
-
-    let spec = CustomKind::load(&kinds_dir, "spec").expect("the authored KIND.md loads");
-    assert_eq!(spec.name, "spec");
-    assert_eq!(
-        spec.governs,
-        Governs {
-            root: "specs".to_string(),
-            glob: "*.md".to_string(),
-        }
-    );
-    assert_eq!(
-        spec.extraction.primitives(),
-        &[
-            Primitive::LineCount,
-            Primitive::Field {
-                key: "depends_on".to_string(),
-            },
-        ]
-    );
-    assert_eq!(
-        spec.relationships,
-        vec![Edge {
-            field: "depends_on".to_string(),
-            from: "spec".to_string(),
-            to: "spec".to_string(),
-        }]
-    );
-}
-
-#[test]
-fn a_registered_kind_with_no_kind_md_is_a_load_error() {
-    // A registration promises a definition — a missing `KIND.md` is a hard error, never
-    // a silent skip (`specs/architecture/40-composition.md`, "Registering a custom kind").
-    let root = tmpdir("kind-md-missing");
-    let kinds_dir = root.join(".temper").join("kinds");
-    let err = CustomKind::load(&kinds_dir, "spec").unwrap_err();
-    assert!(matches!(
-        err,
-        KindError::MissingDefinition { ref kind, .. } if kind == "spec"
-    ));
-}
-
-#[test]
-fn a_kind_md_missing_its_governs_locus_is_a_load_error() {
-    // A custom kind that reads no files is meaningless — the `governs` locus is
-    // required in the definition.
-    let root = tmpdir("kind-md-no-governs");
-    let kind_md = "+++\n[[extraction]]\nprimitive = \"line_count\"\n+++\n# spec\n";
-    let kinds_dir = write_kind_definition(&root, "spec", kind_md);
-    let err = CustomKind::load(&kinds_dir, "spec").unwrap_err();
-    assert!(matches!(
-        err,
-        KindError::MissingGoverns { ref kind, .. } if kind == "spec"
-    ));
-}
-
-#[test]
-fn a_kind_md_with_a_malformed_governs_is_a_load_error() {
-    // `governs` must be a table with `root` and `glob` strings; a bare string folds
-    // into `BadGoverns`.
-    let root = tmpdir("kind-md-bad-governs");
-    let kind_md = "+++\ngoverns = \"specs\"\n+++\n# spec\n";
-    let kinds_dir = write_kind_definition(&root, "spec", kind_md);
-    let err = CustomKind::load(&kinds_dir, "spec").unwrap_err();
-    assert!(matches!(
-        err,
-        KindError::BadGoverns { ref kind, .. } if kind == "spec"
-    ));
-}
-
-#[test]
-fn a_kind_md_with_an_unknown_extraction_primitive_is_a_load_error() {
-    // The extraction array goes through the same closed-algebra parser a standalone
-    // declaration does — an out-of-vocabulary primitive is rejected at load.
-    let root = tmpdir("kind-md-bad-prim");
-    let kind_md = "+++\n\
-governs = { root = \"specs\", glob = \"*.md\" }\n\
-[[extraction]]\n\
-primitive = \"paragraph_meaning\"\n\
-+++\n# spec\n";
-    let kinds_dir = write_kind_definition(&root, "spec", kind_md);
-    let err = CustomKind::load(&kinds_dir, "spec").unwrap_err();
-    assert!(matches!(
-        err,
-        KindError::UnknownPrimitive { ref primitive, .. } if primitive == "paragraph_meaning"
-    ));
-}
-
-#[test]
-fn a_kind_md_with_a_stray_header_key_is_a_load_error() {
-    // A `KIND.md` header carries only `governs`, `extraction`, and `relationships`. A
-    // leftover `clause` (a custom kind carries no clauses — its contract is the bound
-    // package) or an `entities` table (nodes derive from `features.id`) must fail
-    // loudly, not be silently dropped (`specs/architecture/10-contracts.md`, "Decision: unknown keys
-    // are rejected, not ignored").
-    let root = tmpdir("kind-md-stray");
-    let kind_md = "+++\n\
-governs = { root = \"specs\", glob = \"*.md\" }\n\
-[entities]\n\
-id = \"heading\"\n\
-+++\n# spec\n";
-    let kinds_dir = write_kind_definition(&root, "spec", kind_md);
-    let err = CustomKind::load(&kinds_dir, "spec").unwrap_err();
-    assert!(
-        matches!(err, KindError::UnknownKey { ref key, ref kind, .. } if key == "entities" && kind == "spec"),
-        "a stray KIND.md header key must be a load error, got {err:?}"
     );
 }
 
@@ -887,8 +741,8 @@ required = true
 #[test]
 fn a_package_binding_parses_onto_a_requirement() {
     // Requirement typing is `package = "<name>"` — a package named *by name*, resolved
-    // against the built-in packages ∪ `.temper/packages/` (PACKAGE-BINDING's order). It
-    // parses onto the requirement's `package` facet, stored verbatim.
+    // against the built-in packages. It parses onto the requirement's `package`
+    // facet, stored verbatim.
     let toml = r#"
 [requirement.linter]
 kind = "rule"
@@ -1015,17 +869,10 @@ required = true
 // ---- package binding by name ------------------------------------------------
 //
 // `[kind.<k>] package = "<name>"` binds a kind to a package by *name*, resolved
-// against the built-in floor ∪ `.temper/packages/` (`specs/architecture/20-surface.md`,
-// "Decision: package binding is by artifact kind"). The retired `adopt = "<path>"`
-// key is now a stray key, and an unresolvable name is a precise load error.
-
-/// Write a project package at `<root>/.temper/packages/<name>/PACKAGE.md` — the
-/// resolution home a non-built-in bound name loads from (PACKAGE-DOCUMENT's loader).
-fn write_package(root: &Path, name: &str, package_md: &str) {
-    let dir = root.join(".temper").join("packages").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("PACKAGE.md"), package_md).unwrap();
-}
+// against the built-in floor only — there is no on-disk project package any more
+// (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK —
+// there is no kind file format"). The retired `adopt = "<path>"` key is now a
+// stray key, and an unresolvable name is a precise load error.
 
 #[test]
 fn the_retired_adopt_key_is_now_an_unknown_key() {
@@ -1066,9 +913,8 @@ fn binding_a_builtin_package_by_name_is_the_default_made_explicit() {
 
 #[test]
 fn binding_an_unresolvable_package_name_is_a_precise_load_error() {
-    // A name that is neither the built-in nor a `.temper/packages/` project package
-    // fails the load precisely, naming the offending package — never a silent
-    // fall-through to the floor.
+    // A name that is not the kind's own built-in fails the load precisely, naming
+    // the offending package — never a silent fall-through to the floor.
     let root = tmpdir("bind-unknown");
     import_skill(&root, "coordinate", CLEAN_SKILL);
 
@@ -1085,47 +931,16 @@ fn binding_an_unresolvable_package_name_is_a_precise_load_error() {
     );
 }
 
-#[test]
-fn binding_a_project_package_replaces_the_floor_wholesale() {
-    // A non-built-in name resolves from `.temper/packages/<name>/PACKAGE.md` and
-    // *replaces* the floor as the kind's package: a skill that trips the floor's
-    // `forbidden_keys` passes once bound to a project package that carries no such
-    // clause — proof the bound package, not the floor, governs.
-    let root = tmpdir("bind-project");
-    import_skill(&root, "coordinate", FORBIDDEN_GLOBS_SKILL);
-
-    // Under the floor, the forbidden `globs` key blocks.
-    assert!(
-        !check_in(&root).ok,
-        "the floor's forbidden_keys blocks ⇒ non-zero"
-    );
-
-    // A project package with a single benign required clause the skill satisfies and
-    // no `forbidden_keys` clause at all.
-    write_package(
-        &root,
-        "lax",
-        "+++\n\
-[[clause]]\n\
-severity = \"required\"\n\
-predicate = \"min_len\"\n\
-field = \"name\"\n\
-min = 1\n\
-+++\n\
-\n\
-# Lax skill package\n\
-\n\
-The project's own permissive skill package.\n",
-    );
-    write_temper_toml(&root, "[kind.skill]\npackage = \"lax\"\n");
-
-    let bound = check_in(&root);
-    assert!(
-        bound.ok,
-        "binding the lax project package drops the floor's forbidden_keys ⇒ zero, got:\n{}",
-        bound.output
-    );
-}
+// A kind layer binding a *project-authored* replacement package (one that drops the
+// floor's clauses wholesale) is no longer reachable: there is no on-disk
+// `.temper/packages/<name>/PACKAGE.md` to author one from
+// (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK —
+// there is no kind file format") — a `[kind.<k>]` layer's `package` now resolves
+// only to the kind's own built-in name (an explicit no-op) or fails to load
+// (`binding_an_unresolvable_package_name_is_a_precise_load_error`, above). The
+// override/extend clause semantics over the floor stay covered by the earlier
+// `a_severity_flip_overrides_the_matching_floor_clause_in_place`-style cases in
+// `src/compose.rs`.
 
 #[test]
 fn the_authority_posture_parses_as_a_closed_vocabulary() {
@@ -1195,7 +1010,7 @@ fn write_skill_and_rule_harness(root: &Path) {
 fn run_import(root: &Path) {
     let into = root.join(".temper");
     temper::import::run(root, &into).unwrap();
-    temper::import::emit_manifest(root, &into).unwrap();
+    temper::import::emit_manifest(&into).unwrap();
 }
 
 #[test]

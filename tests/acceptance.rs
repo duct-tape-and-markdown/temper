@@ -193,8 +193,7 @@ fn check_reproduces_the_expected_diagnostic_set() {
         // `Unit` loader `check` uses — no IR→Unit adapter. `placement` still reads the
         // imported source directory off provenance, so `name-matches-dir` is unchanged.
         let unit = skill_surface_unit(&skill);
-        let features =
-            builtin_kind::skill_features(&unit).expect("the embedded skill extraction should run");
+        let features = builtin_kind::skill_features(&unit);
         let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
         report.push_str(&format!("## {name}\n"));
         report.push_str(&render_diagnostics(&diagnostics));
@@ -219,11 +218,7 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
     // The gate reads each skill's surface member document through the one generic
     // `Unit` loader (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter").
     let units = check::surface_units(&into, "skills", "SKILL.md").unwrap();
-    let features: Vec<Features> = units
-        .iter()
-        .map(builtin_kind::skill_features)
-        .collect::<Result<_, _>>()
-        .expect("the embedded skill extraction should run");
+    let features: Vec<Features> = units.iter().map(builtin_kind::skill_features).collect();
     let diagnostics = engine::validate(&builtin_skill_contract(), &features);
     assert!(
         diagnostics.is_empty(),

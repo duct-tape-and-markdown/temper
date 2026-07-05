@@ -616,19 +616,18 @@ fn render_field(key: &str, value: &JsonValue) -> String {
 }
 
 /// The bare table-key names of the kinds temper actually embeds — the lock's per-kind
-/// array-of-tables keys (`[[skill]]`, `[[rule]]`, and a curated `[[memory]]` once its
-/// `KIND.md` joins the tree). Derived from the `build.rs`-generated
-/// `builtin_kind::BUILTIN_KINDS` (`<provider>.<name>` or bare `<name>`, so the bare key
-/// is the segment after the last `.`), never the stale `kind::BUILTIN_KINDS` = [skill,
-/// rule] const: a newly-embedded kind's lock rows are fingerprinted the moment it joins
-/// the embedded set, with no literal to re-pin (`specs/architecture/15-kinds.md`,
-/// "Decision: kinds are declared data over generic extraction, never engine code"). Two
-/// providers co-embedding one bare name (the `CLAUDE.md`/`AGENTS.md` memory family)
-/// share the one lock key, so the names are deduped.
+/// array-of-tables keys (`[[skill]]`, `[[rule]]`, `[[memory]]`). Derived from
+/// `builtin_kind::BUILTIN_KINDS` (`<provider>.<name>`, so the bare key is the segment
+/// after the last `.`), never the stale `kind::BUILTIN_KINDS` = [skill, rule] const: a
+/// newly-embedded kind's lock rows are fingerprinted the moment it joins the embedded
+/// set, with no literal to re-pin (`specs/architecture/15-kinds.md`, "Decision: kinds
+/// are declared data over generic extraction, never engine code"). Two providers
+/// co-embedding one bare name (the `CLAUDE.md`/`AGENTS.md` memory family) share the one
+/// lock key, so the names are deduped.
 fn embedded_kind_names() -> Vec<&'static str> {
     let mut names: Vec<&'static str> = builtin_kind::BUILTIN_KINDS
         .iter()
-        .map(|(key, _)| key.rsplit('.').next().unwrap_or(key))
+        .map(|key| key.rsplit('.').next().unwrap_or(key))
         .collect();
     names.sort_unstable();
     names.dedup();
@@ -1736,13 +1735,11 @@ Prefer a clone over a lifetime fight.\n";
     #[test]
     fn embedded_kind_names_derives_from_the_live_embed_not_the_stale_const() {
         // The enumerated set is the bare tail of every `builtin_kind::BUILTIN_KINDS` key,
-        // deduped — so a curated addition (a `memory` carrier) rides in without editing a
-        // literal here. Today's embed carries only skill/rule; asserting membership rather
-        // than an exact vec keeps this green when the human commits the memory carriers.
+        // deduped — so a curated addition rides in without editing a literal here.
         let names = embedded_kind_names();
         for expected in builtin_kind::BUILTIN_KINDS
             .iter()
-            .map(|(key, _)| key.rsplit('.').next().unwrap_or(key))
+            .map(|key| key.rsplit('.').next().unwrap_or(key))
         {
             assert!(
                 names.contains(&expected),

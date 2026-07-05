@@ -190,7 +190,7 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
 /// on-ramp is `init`/`check --harness`.
 fn import(harness: &Path, into: &Path) {
     temper::import::run(harness, into).unwrap();
-    temper::import::emit_manifest(harness, into).unwrap();
+    temper::import::emit_manifest(into).unwrap();
 }
 
 #[test]

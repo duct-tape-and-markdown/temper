@@ -1,12 +1,10 @@
 //! The fenced document — the surface language's authored unit (`specs/architecture/20-surface.md`,
 //! "The member document — the surface language").
 //!
-//! Every artifact in the surface is **one authored document**: a `+++`-fenced TOML
-//! header over a markdown body, in a single file. Members (`SKILL.md`, `RULE.md`,
-//! `SPEC.md`) and packages (`PACKAGE.md`) share this exact medium — a package is
-//! "authored in the same medium as any member" (`specs/architecture/10-contracts.md`) — so the
-//! split/parse/emit machinery lives here once, kind-agnostic, and every kind builds
-//! its typed view on top.
+//! Every member artifact in the surface is **one authored document**: a
+//! `+++`-fenced TOML header over a markdown body, in a single file (`SKILL.md`,
+//! `RULE.md`, `SPEC.md`), so the split/parse/emit machinery lives here once,
+//! kind-agnostic, and every kind builds its typed view on top.
 //!
 //! The header is held as a [`toml_edit::DocumentMut`] so a field patch is
 //! **format-preserving**: comments, key order, and whitespace survive, the

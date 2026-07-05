@@ -167,7 +167,7 @@ pub fn conformance(
         };
         // A non-resolving/malformed package is admissibility's to report, not
         // ours — skip the conformance check rather than double-report it.
-        let Ok(Some(contract)) = resolver.resolve(package) else {
+        let Some(contract) = resolver.resolve(package) else {
             continue;
         };
         let satisfiers: Vec<Features> = satisfiers_for(requirement, by_kind)
@@ -233,19 +233,14 @@ pub fn admissibility(
         // non-resolving name is this pass's finding, not `conformance`'s.
         if let Some(package) = &requirement.package {
             match resolver.resolve(package) {
-                Ok(None) => diagnostics.push(Diagnostic::error(
+                None => diagnostics.push(Diagnostic::error(
                     REQUIREMENT_ADMISSIBILITY_RULE,
                     name,
                     format!(
-                        "requirement `{name}` binds package `{package}`, which does not resolve to a built-in or project package"
+                        "requirement `{name}` binds package `{package}`, which does not resolve to a built-in package"
                     ),
                 )),
-                Err(error) => diagnostics.push(Diagnostic::error(
-                    REQUIREMENT_ADMISSIBILITY_RULE,
-                    name,
-                    format!("requirement `{name}` package `{package}` does not load: {error}"),
-                )),
-                Ok(Some(contract)) => {
+                Some(contract) => {
                     for finding in engine::admissibility(&contract) {
                         diagnostics.push(Diagnostic::error(
                             REQUIREMENT_ADMISSIBILITY_RULE,
@@ -297,21 +292,14 @@ pub fn admissibility(
             .and_then(|m| m.source_package.as_ref())
         {
             match resolver.resolve(source_package) {
-                Ok(None) => diagnostics.push(Diagnostic::error(
+                None => diagnostics.push(Diagnostic::error(
                     REQUIREMENT_ADMISSIBILITY_RULE,
                     name,
                     format!(
-                        "requirement `{name}` `membership` `conforms_to` binds package `{source_package}`, which does not resolve to a built-in or project package"
+                        "requirement `{name}` `membership` `conforms_to` binds package `{source_package}`, which does not resolve to a built-in package"
                     ),
                 )),
-                Err(error) => diagnostics.push(Diagnostic::error(
-                    REQUIREMENT_ADMISSIBILITY_RULE,
-                    name,
-                    format!(
-                        "requirement `{name}` `membership` `conforms_to` package `{source_package}` does not load: {error}"
-                    ),
-                )),
-                Ok(Some(contract)) => {
+                Some(contract) => {
                     for finding in engine::admissibility(&contract) {
                         diagnostics.push(Diagnostic::error(
                             REQUIREMENT_ADMISSIBILITY_RULE,
@@ -472,7 +460,7 @@ fn out_of_set(
     // (reusing `conformance`'s resolve + validate). A non-resolving `conforms_to` is
     // admissibility's finding — skip rather than draw a set off an unconstrained source.
     if let Some(source_package) = &membership.source_package {
-        let Ok(Some(contract)) = resolver.resolve(source_package) else {
+        let Some(contract) = resolver.resolve(source_package) else {
             return Vec::new();
         };
         let owned: Vec<Features> = matched.iter().map(|features| (*features).clone()).collect();
@@ -543,7 +531,6 @@ fn not_member(
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
-    use std::path::PathBuf;
 
     use crate::check::Severity;
     use crate::compose::{AuthorLayer, PackageResolver, Requirement};
@@ -560,7 +547,6 @@ mod tests {
                 .iter()
                 .map(|(name, contract)| ((*name).to_string(), contract.clone()))
                 .collect(),
-            PathBuf::new(),
         )
     }
 
@@ -569,7 +555,7 @@ mod tests {
     /// this; a package-typed requirement checked against it is *skipped* by conformance
     /// (a non-resolving package is admissibility's finding).
     fn empty_resolver() -> PackageResolver {
-        PackageResolver::new(BTreeMap::new(), PathBuf::new())
+        PackageResolver::new(BTreeMap::new())
     }
 
     /// A package contract capping a satisfier's `name` at `max` characters — the shape a

@@ -17,12 +17,11 @@
 //! The clause *vocabulary* is pinned; the guidance/citation prose is product
 //! territory, so it is asserted present, not pinned verbatim.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use temper::contract::{Charset, Contract, Predicate, Severity};
 use temper::engine;
-use temper::extract::Features;
 use temper::schema;
 
 /// The built-in skill contract, resolved from the embedded `packages/` std-lib the
@@ -383,140 +382,4 @@ max = 500
 source = 42
 "#;
     assert!(Contract::parse(toml, Path::new("c.toml")).is_err());
-}
-
-// --- PACKAGE.md — a package authored as one fenced document -------------------
-//
-// A package is authored the same way as any member (`specs/architecture/20-surface.md`): one
-// `PACKAGE.md` whose fenced header carries the `[[clause]]` tables and whose body
-// is the package-level guidance. It loads straight into the [`Contract`] model
-// (`specs/architecture/10-contracts.md`, "Packages" — the resolved PACKAGE-MODEL-RECONCILE
-// fold), the same loader the embedded built-in std-lib parses through. These cases
-// exercise the document form over on-disk fixtures.
-
-/// A fixture package under `tests/fixtures/.temper/packages/<name>/`, resolved off
-/// the crate root so the test is cwd-independent.
-fn package_path(name: &str) -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/.temper/packages")
-        .join(name)
-        .join("PACKAGE.md")
-}
-
-/// A `PACKAGE.md` whose header clauses mirror the historical skill floor loads
-/// through the document primitive into the expected decidable clause vector — the
-/// medium is the fenced document, the algebra is the same closed vocabulary the
-/// embedded built-in parses through.
-#[test]
-fn a_package_document_loads_the_expected_mirror_clauses() {
-    let package =
-        Contract::load_package(&package_path("skill.anthropic")).expect("the package should load");
-
-    // The mirror fixture is the pre-`compatibility` floor: the same vector the
-    // embedded built-in carries minus the optional `compatibility` cap and the
-    // guidance/citation prose.
-    let expected: Vec<(Severity, Predicate)> = expected_skill_clauses()
-        .into_iter()
-        .filter(|(_, predicate)| predicate.target() != Some("compatibility"))
-        .collect();
-    assert_eq!(predicate_vector(&package), expected);
-
-    // And the package is admissible — it carries only closed-vocabulary clauses with
-    // no vacuous list.
-    assert!(
-        engine::admissibility(&package).is_empty(),
-        "the package must pass admissibility",
-    );
-}
-
-/// A package is identified by *where it lives*: its display name derives from the
-/// containing directory's stem, never an internal `name` field
-/// (`specs/architecture/10-contracts.md`, "Decision: a package is identified by its binding").
-#[test]
-fn a_package_display_name_is_its_directory_stem() {
-    let package =
-        Contract::load_package(&package_path("skill.anthropic")).expect("the package should load");
-    assert_eq!(package.name, "skill.anthropic");
-}
-
-/// The document body is the package-level guidance channel — the always-on prose
-/// the clauses cannot encode, carried verbatim onto the [`Contract`]. It never
-/// gates (admissibility above is unaffected); it is the authoring agent's channel.
-#[test]
-fn a_package_body_is_carried_as_package_level_guidance() {
-    let package =
-        Contract::load_package(&package_path("skill.anthropic")).expect("the package should load");
-    let guidance = package
-        .guidance
-        .as_deref()
-        .expect("the package body is its guidance");
-    assert!(guidance.contains("Anthropic skill package"));
-    assert!(guidance.contains("hover docs"));
-}
-
-/// An unknown predicate in a package header fails to load — the same closed-
-/// vocabulary rejection the bare-TOML parser makes, one medium over. A package
-/// reaches the definition check through the document primitive exactly as a bare
-/// contract does; the trapdoor stays shut.
-#[test]
-fn an_unknown_predicate_in_a_package_header_fails_to_load() {
-    let err = Contract::load_package(&package_path("bad-predicate")).unwrap_err();
-    assert!(
-        matches!(err, temper::contract::ContractError::UnknownPredicate { ref predicate, .. } if predicate == "word_count"),
-        "an out-of-vocabulary package clause must be rejected at load, got: {err:?}",
-    );
-}
-
-/// A malformed fenced document (no closing `+++`) is a load error surfaced through
-/// the document primitive — distinct from a `.toml` parse error, because a package
-/// is authored in the surface's fenced medium.
-#[test]
-fn a_malformed_package_document_is_a_load_error() {
-    let err = Contract::parse_package(
-        "+++\n[[clause]]\nno closing fence\n",
-        Path::new("PACKAGE.md"),
-    )
-    .unwrap_err();
-    assert!(matches!(
-        err,
-        temper::contract::ContractError::PackageDocument { .. }
-    ));
-}
-
-/// A failing clause's colocated `guidance` rides its diagnostic — the just-in-time
-/// teaching moment (`specs/architecture/10-contracts.md`, "Packages"). The `guided` package's
-/// `required name` clause carries guidance; a member missing `name` trips it, and
-/// the emitted [`Diagnostic`](temper::check::Diagnostic) carries that guidance so
-/// the violation teaches. A clause is a gate; its guidance is never one — the
-/// prose explains the finding, it did not decide it.
-#[test]
-fn a_failing_clause_diagnostic_carries_its_colocated_guidance() {
-    let package =
-        Contract::load_package(&package_path("guided")).expect("the guided package should load");
-
-    // A member with no `name` frontmatter field: the `required name` clause fails.
-    let member = Features {
-        id: "nameless".to_string(),
-        fields: BTreeMap::new(),
-        body_lines: 3,
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: Some("nameless".to_string()),
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        genres: Vec::new(),
-        satisfies: Vec::new(),
-        published_requirements: Vec::new(),
-    };
-
-    let diagnostics = engine::validate(&package, std::slice::from_ref(&member));
-    let required = diagnostics
-        .iter()
-        .find(|diagnostic| diagnostic.rule == "required")
-        .expect("the missing name must fire the `required` clause");
-    assert_eq!(
-        required.guidance.as_deref(),
-        Some("Every skill declares a `name` — it is the slug the harness binds to."),
-        "the diagnostic must carry the clause's colocated guidance",
-    );
 }

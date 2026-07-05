@@ -1,185 +1,220 @@
 //! The embedded built-in kind std-lib.
 //!
-//! specs/architecture/15-kinds.md, "A built-in kind is an adapter". `temper` ships the read-side
-//! definitions of the known-harness kinds (`skill`, `rule`) as first-party product
-//! source in a `kinds/<name>/KIND.md` tree at the repo root — the same medium and
-//! schema as a project's own `.temper/kinds/<name>/KIND.md`, differing only in where
-//! it sources from (temper-maintained vs author-maintained; ownership, not
-//! mechanism). `build.rs` walks that tree and generates the [`BUILTIN_KINDS`] table
-//! this module re-exports, so a built-in kind resolves from the embedded set with no
-//! on-disk configuration.
+//! specs/architecture/15-kinds.md, "A built-in kind is an adapter". `temper` ships the
+//! read-side definitions of the known-harness kinds (`skill`, `rule`, the two `memory`
+//! providers) as plain Rust data below — the compiled default program the engine
+//! carries for SDK-less checking. There is no `KIND.md` file format any more
+//! (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK — there
+//! is no kind file format"); the curated `kinds/<provider>/<name>/KIND.md` product
+//! tree (human-maintained, cited product source) is the authoring reference this data
+//! mirrors.
 //!
-//! A built-in kind's definition parses into a [`CustomKind`] through the very same
-//! [`CustomKind::from_header`] path a project-authored `KIND.md` does, and is
-//! validated as any kind is — this only sources the header from embedded product
-//! data instead of `.temper/kinds/`.
+//! A built-in kind's definition is a [`CustomKind`] like any other — assembled with
+//! [`CustomKind::new`] — and validated as any kind is; this module only sources the
+//! five facts from Rust literals instead of a parsed header.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
-use crate::document::Document;
 use crate::extract::{self, Features};
-use crate::kind::{CustomKind, KindError, Unit};
+use crate::kind::{
+    Activation, CustomKind, Extraction, Format, Governs, KindError, Primitive, Unit,
+};
 
-// The generated `pub static BUILTIN_KINDS: &[(&str, &str)]` — every embedded kind as
-// `(name, KIND.md source)`, sorted by name. `build.rs` writes it into `$OUT_DIR` from
-// the `kinds/` tree; including it here re-exports it as
-// `crate::builtin_kind::BUILTIN_KINDS`.
-include!(concat!(env!("OUT_DIR"), "/builtin_kinds.rs"));
+/// Every embedded built-in kind's qualified identity, sorted — the compiled default
+/// program's kind roster (`specs/architecture/15-kinds.md`, "Placement mirrors
+/// identity"). Two providers (`claude-code`, `agents-md`) co-embed the bare `memory`
+/// name by design (86d5b70).
+pub const BUILTIN_KINDS: &[&str] = &[
+    "agents-md.memory",
+    "claude-code.memory",
+    "claude-code.rule",
+    "claude-code.skill",
+];
 
-/// The embedded `KIND.md` source for the built-in kind a **bare** `name` resolves to,
-/// or `None` if none carries it. A bare name resolves to its unique carrier whether the
-/// embedded table keys it bare (`skill`, today's flat tree) or `<provider>.<name>`
-/// qualified (`claude-code.skill`, post file-move) — the same bare→unique-or-collision
-/// resolution the assembly binds through (`specs/architecture/15-kinds.md`, "Decision: kind identity
-/// carries a provider axis").
-///
-/// # Errors
-///
-/// Returns [`KindError::AmbiguousKind`] when two providers carry the bare `name`, or a
-/// [`KindError`] if any embedded `KIND.md` fails to parse.
-pub fn source(name: &str) -> Result<Option<&'static str>, KindError> {
-    Ok(resolve(name)?.map(|(src, _)| src))
+/// Anthropic's documented `.claude/skills/<name>/SKILL.md` kind
+/// (`kinds/claude-code/skill/KIND.md`): a directory whose identity is the `name`
+/// field, activated by its description trigger.
+fn claude_code_skill() -> CustomKind {
+    CustomKind {
+        qualified: Some("claude-code.skill".to_string()),
+        format: Some(Format::YamlFrontmatter),
+        unit_shape: Some(crate::kind::UnitShape::Directory),
+        activation: Some(Activation::DescriptionTrigger {
+            field: "description".to_string(),
+        }),
+        ..CustomKind::new(
+            "skill",
+            Governs {
+                root: ".claude/skills".to_string(),
+                glob: "*/SKILL.md".to_string(),
+            },
+            Extraction::new(vec![
+                Primitive::Field {
+                    key: "name".to_string(),
+                },
+                Primitive::Field {
+                    key: "description".to_string(),
+                },
+                Primitive::Field {
+                    key: "license".to_string(),
+                },
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]),
+        )
+    }
 }
 
-/// Parse the built-in kind a **bare** `name` resolves to into its [`CustomKind`], or
-/// `None` if none carries it. The `+++`-fenced header is parsed through the same
-/// [`CustomKind::from_header`] a project-authored definition is; the bare→unique
-/// resolution routes `skill` to its unique carrier across the flat or nested layout.
+/// Anthropic's documented `.claude/rules/*.md` kind (`kinds/claude-code/rule/KIND.md`):
+/// a lone file whose identity is the filename stem, activated by its `paths` glob (or
+/// unconditionally, when absent).
+fn claude_code_rule() -> CustomKind {
+    CustomKind {
+        qualified: Some("claude-code.rule".to_string()),
+        format: Some(Format::YamlFrontmatter),
+        unit_shape: Some(crate::kind::UnitShape::File),
+        activation: Some(Activation::PathsMatch {
+            field: "paths".to_string(),
+        }),
+        ..CustomKind::new(
+            "rule",
+            Governs {
+                root: ".claude/rules".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(vec![
+                Primitive::Field {
+                    key: "paths".to_string(),
+                },
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]),
+        )
+    }
+}
+
+/// Anthropic's documented `CLAUDE.md` memory kind (`kinds/claude-code/memory/KIND.md`):
+/// every `CLAUDE.md` in the repository, frontmatter-less (no `format`), loaded
+/// unconditionally at launch. Deliberately shares the bare name `memory` with
+/// [`agents_md_memory`].
+fn claude_code_memory() -> CustomKind {
+    CustomKind {
+        qualified: Some("claude-code.memory".to_string()),
+        unit_shape: Some(crate::kind::UnitShape::File),
+        activation: Some(Activation::Always),
+        ..CustomKind::new(
+            "memory",
+            Governs {
+                root: ".".to_string(),
+                glob: "**/CLAUDE.md".to_string(),
+            },
+            Extraction::new(vec![
+                Primitive::Directives {
+                    syntax: crate::kind::DirectiveSyntax::AtImport,
+                },
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]),
+        )
+    }
+}
+
+/// The AGENTS.md standard's memory kind (`kinds/agents-md/memory/KIND.md`): every
+/// `AGENTS.md` in the repository, frontmatter-less, loaded unconditionally. Deliberately
+/// shares the bare name `memory` with [`claude_code_memory`].
+fn agents_md_memory() -> CustomKind {
+    CustomKind {
+        qualified: Some("agents-md.memory".to_string()),
+        unit_shape: Some(crate::kind::UnitShape::File),
+        activation: Some(Activation::Always),
+        ..CustomKind::new(
+            "memory",
+            Governs {
+                root: ".".to_string(),
+                glob: "**/AGENTS.md".to_string(),
+            },
+            Extraction::new(vec![
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]),
+        )
+    }
+}
+
+/// Every embedded built-in kind, freshly constructed — the compiled default program's
+/// whole kind set, in no particular order (callers key by [`CustomKind::qualified_name`]).
+fn all_kinds() -> Vec<CustomKind> {
+    vec![
+        claude_code_skill(),
+        claude_code_rule(),
+        claude_code_memory(),
+        agents_md_memory(),
+    ]
+}
+
+/// Parse the built-in kind a **bare** `name` resolves to, or `None` if none carries it.
+/// Infallible construction, so the only failure is a bare-name collision (the two
+/// `memory` providers).
 ///
 /// # Errors
 ///
-/// Returns a [`KindError`] when the embedded `KIND.md` is not a well-formed fenced
-/// document, its header is not an admissible kind definition (a bad `governs`, an
-/// out-of-vocabulary extraction primitive, a stray key), or two providers collide under
-/// the bare `name` ([`KindError::AmbiguousKind`]).
+/// Returns [`KindError::AmbiguousKind`] when two providers carry the bare `name`.
 pub fn definition(name: &str) -> Result<Option<CustomKind>, KindError> {
-    Ok(resolve(name)?.map(|(_, kind)| kind))
+    let kinds = all_kinds();
+    Ok(CustomKind::resolve_bare(name, &kinds)?.cloned())
 }
 
-/// The **qualified identity** of the built-in kind a bare `name` resolves to —
-/// `<provider>.<name>` (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a
-/// provider axis"), or `None` if no embedded kind carries the bare name. The one
-/// resolution the qualified-binding consumers route through: a bare `skill` resolves
-/// to the unique `claude-code.skill`, and a two-provider collision surfaces as a load
-/// error rather than a silent wrong identity.
+/// The **qualified identity** of the built-in kind a bare `name` resolves to, or `None`
+/// if no embedded kind carries the bare name (`specs/architecture/15-kinds.md`, "Decision:
+/// kind identity carries a provider axis").
 ///
 /// # Errors
 ///
-/// Returns a [`KindError`] when an embedded `KIND.md` fails to parse, or two providers
-/// collide under the bare `name` ([`KindError::AmbiguousKind`]).
+/// Returns [`KindError::AmbiguousKind`] when two providers carry the bare `name`.
 pub fn qualified(name: &str) -> Result<Option<String>, KindError> {
     Ok(definition(name)?.map(|kind| kind.qualified_name()))
 }
 
-/// Parse every embedded built-in kind into a `qualified-name → CustomKind` map — the
-/// built-in read-side set, the mirror of [`crate::builtin::contracts`] on the
-/// require-side. The map is keyed by each kind's **qualified identity**
-/// (`qualified_name`: `<provider>.<name>`, or the bare name when a kind declares no
-/// provider), so two providers co-embedding one bare `memory` are distinct entries
-/// under distinct keys — neither overwrites the other, and no caller pays a
-/// qualification tax here (`specs/architecture/15-kinds.md`, "Decision: kind identity
-/// carries a provider axis": nobody pays until two providers actually meet). The bare
-/// collision surfaces only when a caller *binds or looks up* the ambiguous bare name
-/// through [`resolve`]/[`source`]/[`qualified`]/[`definition`], never for unrelated
-/// callers of this whole-set read. Today's built-ins declare no provider, so the keys
-/// are still the bare `skill`, `rule`.
+/// Every embedded built-in kind, keyed by its **qualified identity**
+/// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis"):
+/// two providers co-embedding one bare `memory` are distinct entries under distinct
+/// keys, so neither overwrites the other. Infallible — every entry is Rust data.
 ///
 /// # Errors
 ///
-/// Returns a [`KindError`] if any embedded `KIND.md` fails to parse into an admissible
-/// [`CustomKind`].
+/// Never fails; the `Result` is kept for API stability (every call site already
+/// threads `?` through it).
 pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
-    Ok(definitions_of(
-        parsed_kinds()?.into_iter().map(|(_, kind)| kind),
-    ))
-}
-
-/// Key a set of parsed kinds by qualified identity — the collision-scoping core of
-/// [`definitions`], factored out so the two-provider case is testable without an
-/// embedded fixture. Distinct qualified identities never collide as keys; the embedded
-/// table cannot carry two kinds of the *same* qualified identity, since each derives its
-/// key from its own `kinds/[<provider>/]<name>/` path.
-fn definitions_of(kinds: impl IntoIterator<Item = CustomKind>) -> BTreeMap<String, CustomKind> {
-    kinds
+    Ok(all_kinds()
         .into_iter()
         .map(|kind| (kind.qualified_name(), kind))
-        .collect()
+        .collect())
 }
 
-/// Parse every embedded built-in kind, pairing each with the embedded source it parsed
-/// from. The bare `name` is taken from the (possibly qualified) table key, so
-/// [`CustomKind::resolve_bare`] ranges over the same identity the assembly does.
-fn parsed_kinds() -> Result<Vec<(&'static str, CustomKind)>, KindError> {
-    BUILTIN_KINDS
-        .iter()
-        .map(|(key, src)| parse(key, src).map(|kind| (*src, kind)))
-        .collect()
-}
-
-/// Resolve a **bare** kind name against the embedded set to its `(source, kind)` pair —
-/// unique-or-collision per [`CustomKind::resolve_bare`]. `None` when no embedded kind
-/// carries the name; the pair is re-selected by the resolved bare name, unique once
-/// resolution succeeds.
-fn resolve(name: &str) -> Result<Option<(&'static str, CustomKind)>, KindError> {
-    let kinds = parsed_kinds()?;
-    let set: Vec<CustomKind> = kinds.iter().map(|(_, kind)| kind.clone()).collect();
-    match CustomKind::resolve_bare(name, &set)? {
-        None => Ok(None),
-        Some(_) => Ok(kinds.into_iter().find(|(_, kind)| kind.name == name)),
-    }
-}
-
-/// Parse one embedded `KIND.md` `src` into a [`CustomKind`], its bare name taken from
-/// the possibly-qualified table `key` (`claude-code.skill` → `skill`; `skill` → `skill`).
-/// The synthetic `kinds/[<provider>/]<name>/KIND.md` path gives diagnostics the same
-/// shape the on-disk loader's carry.
-fn parse(key: &str, src: &str) -> Result<CustomKind, KindError> {
-    let name = key.rsplit('.').next().unwrap_or(key);
-    let path = PathBuf::from("kinds")
-        .join(key.replace('.', "/"))
-        .join("KIND.md");
-    let document = Document::parse(src).map_err(|source| KindError::Document {
-        path: path.clone(),
-        source,
-    })?;
-    CustomKind::from_header(document.header().as_table(), name, &path)
-}
-
-/// Extract a built-in skill's [`Features`] by running the embedded `skill`
-/// `KIND.md` extraction over a generically-loaded surface [`Unit`] — the same
-/// composed path every kind reads (`specs/architecture/15-kinds.md`, "The extraction algebra"),
-/// with **no IR→Unit adapter on the check read**: the caller loads the surface
-/// member document through [`Unit::from_member_document`](crate::kind::Unit::from_member_document),
-/// exactly as a custom kind's members load, so built-in and custom kinds read the
-/// surface through one loader. The per-field feature mapping is the composed
-/// `kinds/skill/KIND.md`.
-///
-/// # Errors
-///
-/// Returns a [`KindError`] if the embedded `skill` `KIND.md` is not an admissible
-/// kind definition — a genuine invariant, as it is compiled-in product source
-/// (`build.rs`).
-pub fn skill_features(unit: &Unit) -> Result<Features, KindError> {
-    Ok(features(
-        &definition("skill")?.expect("the built-in `skill` kind is embedded"),
-        unit,
-    ))
+/// Extract a built-in skill's [`Features`] by running the embedded `skill` kind's
+/// extraction over a generically-loaded surface [`Unit`] — the same composed path
+/// every kind reads (`specs/architecture/15-kinds.md`, "The extraction algebra"), with
+/// **no IR→Unit adapter on the check read**: the caller loads the surface member
+/// document through [`Unit::from_member_document`](crate::kind::Unit::from_member_document),
+/// exactly as any other kind's members load.
+#[must_use]
+pub fn skill_features(unit: &Unit) -> Features {
+    features(&claude_code_skill(), unit)
 }
 
 /// Extract a built-in rule's [`Features`] the same way [`skill_features`] does — the
-/// embedded `rule` `KIND.md` extraction over the rule's generically-loaded surface
-/// [`Unit`].
-///
-/// # Errors
-///
-/// Returns a [`KindError`] if the embedded `rule` `KIND.md` is not an admissible
-/// kind definition (a compiled-in invariant).
-pub fn rule_features(unit: &Unit) -> Result<Features, KindError> {
-    Ok(features(
-        &definition("rule")?.expect("the built-in `rule` kind is embedded"),
-        unit,
-    ))
+/// embedded `rule` kind's extraction over the rule's generically-loaded surface [`Unit`].
+#[must_use]
+pub fn rule_features(unit: &Unit) -> Features {
+    features(&claude_code_rule(), unit)
 }
 
 /// Run a built-in `kind`'s embedded extraction over `unit`, then fold every preserved
@@ -188,14 +223,14 @@ pub fn rule_features(unit: &Unit) -> Result<Features, KindError> {
 /// built-in kind"): an unknown key on a known artifact is already extracted, so a clause
 /// (a `forbidden_keys`) can range over it. The closed algebra cannot enumerate unknown
 /// keys, so this bulk preservation is the adapter's, while each documented field is the
-/// composed `KIND.md`'s. `or_insert` leaves each field the composed extractor already
+/// composed extraction's. `or_insert` leaves each field the composed extractor already
 /// yielded untouched.
 ///
 /// Takes the resolved [`CustomKind`] rather than a name (the `check` gate holds it from
 /// [`definitions`], and re-resolving by bare name would hit [`KindError::AmbiguousKind`]
 /// for the two `memory` providers that share the bare name), so it is total — the
 /// extraction cannot fail once the definition is in hand. [`skill_features`] /
-/// [`rule_features`] stay the thin resolving callers over the unambiguous built-ins.
+/// [`rule_features`] stay the thin callers over the unambiguous built-ins.
 #[must_use]
 pub fn features(kind: &CustomKind, unit: &Unit) -> Features {
     let mut features = kind.extract(unit);
@@ -212,7 +247,7 @@ pub fn features(kind: &CustomKind, unit: &Unit) -> Features {
 mod tests {
     use super::*;
     use crate::compose::Edge;
-    use crate::kind::{Governs, Primitive};
+    use crate::kind::Governs;
 
     #[test]
     fn skill_definition_matches_the_hand_authored_kind() {
@@ -226,10 +261,9 @@ mod tests {
                 glob: "*/SKILL.md".to_string(),
             }
         );
-        // The composed extractor mirrors `kinds/claude-code/skill/KIND.md`: the three
-        // documented frontmatter fields (`version` is in neither the agentskills.io
-        // spec nor Claude Code's table — dropped), then the markdown-structure
-        // primitives, in order.
+        // The composed extractor: the three documented frontmatter fields (`version` is
+        // in neither the agentskills.io spec nor Claude Code's table — dropped), then the
+        // markdown-structure primitives, in order.
         assert_eq!(
             skill.extraction.primitives(),
             &[
@@ -282,18 +316,11 @@ mod tests {
     #[test]
     fn an_unknown_kind_name_is_none() {
         assert!(definition("spec").unwrap().is_none());
-        assert!(source("spec").unwrap().is_none());
     }
 
     #[test]
-    fn definitions_enumerates_the_embedded_kind_tree_by_qualified_identity() {
-        // The embedded set IS the `kinds/` product tree (`build.rs` walks it and emits
-        // `BUILTIN_KINDS` keyed `<provider>.<name>`), so the enumeration derives from that
-        // tree, never a hardcoded pair: a curated addition (a `memory` carrier) rides in
-        // without re-pinning a literal. Each map key is the kind's qualified identity,
-        // which for the nested tree equals its table key — a mismatch (a dir/`provider`
-        // disagreement) would fail here.
-        let mut expected: Vec<&str> = BUILTIN_KINDS.iter().map(|(key, _)| *key).collect();
+    fn definitions_enumerates_the_embedded_kind_set_by_qualified_identity() {
+        let mut expected = BUILTIN_KINDS.to_vec();
         expected.sort_unstable();
         let all = definitions().unwrap();
         assert_eq!(all.keys().map(String::as_str).collect::<Vec<_>>(), expected);
@@ -301,23 +328,21 @@ mod tests {
 
     #[test]
     fn resolve_bare_over_a_qualified_set_finds_the_unique_carrier_and_errors_on_collision() {
-        use toml_edit::DocumentMut;
-
-        // A synthetic `<provider>`-qualified `skill` kind — the shape the embedded table
-        // carries post-file-move (`kinds/<provider>/skill/KIND.md` with a `provider`
-        // line), proving the resolution the built-in lookups route through finds the
-        // qualified kind exactly as it finds today's bare one.
+        // A synthetic second `skill` provider proves the resolution the built-in
+        // lookups route through finds the qualified kind exactly as it finds today's
+        // sole `claude-code` carrier, and errors on a genuine collision.
         fn skill_of(provider: &str) -> CustomKind {
-            let src = format!(
-                "governs = {{ root = \".claude/skills\", glob = \"*/SKILL.md\" }}\nprovider = \"{provider}\"\n"
-            );
-            let doc = src.parse::<DocumentMut>().unwrap();
-            CustomKind::from_header(
-                doc.as_table(),
-                "skill",
-                std::path::Path::new("kinds/claude-code/skill/KIND.md"),
-            )
-            .unwrap()
+            CustomKind {
+                qualified: Some(format!("{provider}.skill")),
+                ..CustomKind::new(
+                    "skill",
+                    Governs {
+                        root: ".claude/skills".to_string(),
+                        glob: "*/SKILL.md".to_string(),
+                    },
+                    Extraction::new(Vec::new()),
+                )
+            }
         }
 
         // One carrier: a bare `skill` resolves to its unique `claude-code.skill`.
@@ -339,37 +364,9 @@ mod tests {
 
     #[test]
     fn two_memory_providers_leave_definitions_and_unrelated_lookups_clean() {
-        use toml_edit::DocumentMut;
-
-        // A `<provider>`-qualified kind carrying an arbitrary bare `name` — the shape the
-        // embedded table gains when the human commits the two curated `memory` carriers
-        // (2 KIND.md), each a distinct provider over the `CLAUDE.md`/`AGENTS.md` family.
-        fn kind_of(name: &str, provider: &str) -> CustomKind {
-            let src = format!(
-                "governs = {{ root = \".\", glob = \"{name}.md\" }}\nprovider = \"{provider}\"\n"
-            );
-            let doc = src.parse::<DocumentMut>().unwrap();
-            CustomKind::from_header(
-                doc.as_table(),
-                name,
-                std::path::Path::new("kinds/x/y/KIND.md"),
-            )
-            .unwrap()
-        }
-
-        // Two providers co-embed the bare `memory` kind, alongside the non-colliding
-        // `skill`/`rule`. This is the set that turns `definitions()` red today via eager
-        // per-name resolution.
-        let set = vec![
-            kind_of("skill", "claude-code"),
-            kind_of("rule", "claude-code"),
-            kind_of("memory", "claude-code"),
-            kind_of("memory", "agents-md"),
-        ];
-
         // `definitions()` succeeds for every caller: keyed by qualified identity, the two
         // `memory` carriers are distinct entries — the collision costs nobody here.
-        let defs = definitions_of(set.iter().cloned());
+        let defs = definitions().unwrap();
         assert_eq!(
             defs.keys().collect::<Vec<_>>(),
             vec![
@@ -384,7 +381,7 @@ mod tests {
         // unique carrier.
         for bare in ["skill", "rule"] {
             assert!(
-                CustomKind::resolve_bare(bare, &set)
+                definition(bare)
                     .unwrap()
                     .is_some_and(|kind| kind.name == bare)
             );
@@ -392,7 +389,7 @@ mod tests {
 
         // Only the ambiguous bare `memory` errors — naming both qualified candidates so
         // the author knows what to disambiguate against.
-        let err = CustomKind::resolve_bare("memory", &set).unwrap_err();
+        let err = definition("memory").unwrap_err();
         match err {
             KindError::AmbiguousKind { name, candidates } => {
                 assert_eq!(name, "memory");
@@ -404,7 +401,7 @@ mod tests {
     }
 
     /// A fresh, empty temp directory unique to this test run.
-    fn tmpdir(label: &str) -> PathBuf {
+    fn tmpdir(label: &str) -> std::path::PathBuf {
         use std::sync::atomic::{AtomicU32, Ordering};
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         let id = COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -466,7 +463,7 @@ Body line two.\n",
 
         // Read the extracted features off the written surface, not a typed IR.
         let unit = surface_unit(&member, "SKILL.md", &parent.join("surface-demo"));
-        let features = skill_features(&unit).unwrap();
+        let features = skill_features(&unit);
 
         // The documented fields come off the composed `field` primitives.
         assert_eq!(
@@ -510,7 +507,7 @@ Body line two.\n",
         let member =
             crate::frontmatter::Member::from_source(&rule, &rules.join("rust.md")).unwrap();
         let unit = surface_unit(&member, "RULE.md", &parent.join("surface-rust"));
-        let features = rule_features(&unit).unwrap();
+        let features = rule_features(&unit);
         assert_eq!(
             features.field("paths"),
             Some(&FeatureValue::List(vec!["src/**/*.rs".to_string()]))
@@ -524,7 +521,7 @@ Body line two.\n",
         let bare =
             crate::frontmatter::Member::from_source(&rule, &rules.join("collab.md")).unwrap();
         let bare_unit = surface_unit(&bare, "RULE.md", &parent.join("surface-collab"));
-        let bare_features = rule_features(&bare_unit).unwrap();
+        let bare_features = rule_features(&bare_unit);
         assert!(bare_features.fields.is_empty());
         assert_eq!(bare_features.body_lines, 3);
     }

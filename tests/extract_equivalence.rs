@@ -25,7 +25,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use temper::builtin_kind;
 use temper::extract::{FeatureValue, Kind};
 use temper::frontmatter::Member;
-use temper::kind::{Extraction, KindError, Unit};
+use temper::kind::{DirectiveSyntax, Extraction, Primitive, Unit};
 
 /// Path to a fixture under `tests/fixtures/extract_equivalence`, resolved from the
 /// manifest so the test is independent of the process working directory. The tree
@@ -87,8 +87,7 @@ fn skill_features_over_a_real_skill_fixture() {
     let skill = Member::from_source(&skill_kind, &fixture("skills/coordinate").join("SKILL.md"))
         .expect("the coordinate skill fixture should parse");
     let unit = skill_surface_unit(&skill, "coordinate");
-    let features =
-        builtin_kind::skill_features(&unit).expect("the embedded skill extraction should run");
+    let features = builtin_kind::skill_features(&unit);
     insta::assert_debug_snapshot!("skill_features_coordinate", features);
 }
 
@@ -113,9 +112,9 @@ fn memory_unit(body: &str) -> Unit {
 /// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax").
 #[test]
 fn a_directives_primitive_extracts_at_imports_in_document_order() {
-    let toml = "[[extraction]]\nprimitive = \"directives\"\nsyntax = \"at-import\"\n";
-    let extraction =
-        Extraction::parse(toml, Path::new("kinds/claude-code/memory/KIND.md")).unwrap();
+    let extraction = Extraction::new(vec![Primitive::Directives {
+        syntax: DirectiveSyntax::AtImport,
+    }]);
 
     // Two real imports (relative then absolute); a bare `@` in prose is not an edge.
     let unit = memory_unit(
@@ -131,19 +130,6 @@ fn a_directives_primitive_extracts_at_imports_in_document_order() {
     assert_eq!(extraction.extract(&unit).directives, features.directives);
 }
 
-/// An out-of-vocabulary `syntax` is a load error — the closed per-syntax vocabulary
-/// rejects an unknown member exactly as the primitive discriminator rejects an unknown
-/// extractor (`specs/architecture/15-kinds.md`).
-#[test]
-fn an_unknown_directive_syntax_is_a_load_error() {
-    let toml = "[[extraction]]\nprimitive = \"directives\"\nsyntax = \"at-mention\"\n";
-    let err = Extraction::parse(toml, Path::new("kinds/x/KIND.md")).unwrap_err();
-    assert!(matches!(
-        err,
-        KindError::UnknownDirectiveSyntax { ref syntax, index: 0, .. } if syntax == "at-mention"
-    ));
-}
-
 /// A `fenced` primitive composes over a `Unit` and folds the body's fenced blocks
 /// into `Features.fenced_blocks` in document order, each block's interior content paired
 /// with its info string — surrounding prose skipped (`specs/architecture/15-kinds.md`,
@@ -151,9 +137,7 @@ fn an_unknown_directive_syntax_is_a_load_error() {
 /// the closed-vocabulary parse through the composed extractor.
 #[test]
 fn a_fenced_primitive_extracts_block_interiors_with_info_strings_in_order() {
-    let toml = "[[extraction]]\nprimitive = \"fenced\"\n";
-    let extraction =
-        Extraction::parse(toml, Path::new("kinds/claude-code/memory/KIND.md")).unwrap();
+    let extraction = Extraction::new(vec![Primitive::Fenced]);
 
     // Prose around two fenced blocks — a shell block and a keyed `toml genre.manifest`
     // block, the shape the genre fence composes with a TOML parse.
@@ -195,8 +179,7 @@ name = \"coordinate\"\n\
 /// no `@import`.
 #[test]
 fn a_fenced_primitive_over_a_body_with_no_fence_yields_none() {
-    let toml = "[[extraction]]\nprimitive = \"fenced\"\n";
-    let extraction = Extraction::parse(toml, Path::new("kinds/x/KIND.md")).unwrap();
+    let extraction = Extraction::new(vec![Primitive::Fenced]);
     let unit = memory_unit("# Kinds\n\nJust prose, no fenced block at all.\n");
     assert!(extraction.extract(&unit).fenced_blocks.is_empty());
 }
@@ -225,29 +208,23 @@ fn frontmatter_unit(frontmatter: serde_json::Map<String, serde_json::Value>) -> 
 /// leaf yields no feature, exactly as an unset optional field does.
 #[test]
 fn a_field_primitive_reads_a_nested_key_path_over_a_units_frontmatter() {
-    let toml = "\
-[[extraction]]
-primitive = \"field\"
-key = \"permissions.defaultMode\"
-
-[[extraction]]
-primitive = \"field\"
-key = \"permissions.retries\"
-
-[[extraction]]
-primitive = \"field\"
-key = \"name\"
-
-[[extraction]]
-primitive = \"field\"
-key = \"permissions.missing.leaf\"
-
-[[extraction]]
-primitive = \"field\"
-key = \"name.nope\"
-";
-    let extraction =
-        Extraction::parse(toml, Path::new("kinds/claude-code/settings/KIND.md")).unwrap();
+    let extraction = Extraction::new(vec![
+        Primitive::Field {
+            key: "permissions.defaultMode".to_string(),
+        },
+        Primitive::Field {
+            key: "permissions.retries".to_string(),
+        },
+        Primitive::Field {
+            key: "name".to_string(),
+        },
+        Primitive::Field {
+            key: "permissions.missing.leaf".to_string(),
+        },
+        Primitive::Field {
+            key: "name.nope".to_string(),
+        },
+    ]);
 
     // A JSON-manifest settings shape: a nested `permissions` table over a top-level
     // scalar, the exact carriage the key-path half serves (entry note, 07-04).
@@ -302,8 +279,7 @@ fn rule_features_over_a_paths_rule_fixture() {
     let rule = Member::from_source(&rule_kind, &fixture("rules/rust.md"))
         .expect("the rust rule fixture should parse");
     let unit = rule_surface_unit(&rule, "rust");
-    let features =
-        builtin_kind::rule_features(&unit).expect("the embedded rule extraction should run");
+    let features = builtin_kind::rule_features(&unit);
     insta::assert_debug_snapshot!("rule_features_rust", features);
 }
 
@@ -316,7 +292,6 @@ fn rule_features_over_a_no_frontmatter_rule_fixture() {
     let rule = Member::from_source(&rule_kind, &fixture("rules/collaboration.md"))
         .expect("the collaboration rule fixture should parse");
     let unit = rule_surface_unit(&rule, "collaboration");
-    let features =
-        builtin_kind::rule_features(&unit).expect("the embedded rule extraction should run");
+    let features = builtin_kind::rule_features(&unit);
     insta::assert_debug_snapshot!("rule_features_collaboration", features);
 }

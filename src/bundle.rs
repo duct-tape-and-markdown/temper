@@ -62,6 +62,30 @@ const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: imp
 /// the plugin and `install` deliver the same gate.
 const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
+/// Every curated built-in package's `PACKAGE.md` product source, `(name, source)`,
+/// embedded byte-faithful for bundling (see [`run`]'s use). The engine itself never
+/// loads these (`crate::builtin` authors the same clauses as plain Rust data,
+/// `specs/architecture/15-kinds.md`); this is the human-readable citation trail
+/// shipped alongside the plugin.
+const CURATED_PACKAGES: &[(&str, &str)] = &[
+    (
+        "memory.agents-md",
+        include_str!("../packages/memory.agents-md/PACKAGE.md"),
+    ),
+    (
+        "memory.anthropic",
+        include_str!("../packages/memory.anthropic/PACKAGE.md"),
+    ),
+    (
+        "rule.anthropic",
+        include_str!("../packages/rule.anthropic/PACKAGE.md"),
+    ),
+    (
+        "skill.anthropic",
+        include_str!("../packages/skill.anthropic/PACKAGE.md"),
+    ),
+];
+
 /// The bundled **operate-the-gate skill**, embedded byte-faithful (law 5). Mechanics
 /// only — how to run the checker and when to challenge the contract — never advice on
 /// what a good harness is (the Decision "the skill is mechanics, never taste"). Its
@@ -194,11 +218,12 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
         &mut files,
     )?;
 
-    // The shipped built-in packages (the std-lib), embedded byte-faithful. The
-    // *same* `packages/<name>/PACKAGE.md` authored as product source is shipped
-    // verbatim here — one artifact, two provenance roles (`specs/architecture/10-contracts.md`,
-    // the `contracts/` retirement). Every embedded built-in ships, keyed by name.
-    for (name, source) in crate::builtin::BUILTIN_PACKAGES {
+    // The curated `packages/<name>/PACKAGE.md` product source, shipped verbatim as
+    // human-readable reference material beside the plugin — the same cited prose
+    // `crate::builtin`'s Rust data mirrors. Not something the engine loads (there is
+    // no kind/package file format, `specs/architecture/15-kinds.md`): this is
+    // documentation for the plugin's consumer, not a load-bearing artifact.
+    for (name, source) in CURATED_PACKAGES {
         let relative = PathBuf::from("packages").join(name).join("PACKAGE.md");
         write_text(out, &relative, source, &mut files)?;
     }

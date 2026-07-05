@@ -29,7 +29,7 @@ use temper::frontmatter;
 use temper::graph;
 use temper::import;
 use temper::install;
-use temper::kind::{self, CustomKind, KindError, Unit};
+use temper::kind::{self, CustomKind, Unit};
 use temper::reporter;
 use temper::roster;
 use temper::schema;
@@ -38,11 +38,10 @@ use temper::schema;
 /// (`specs/architecture/20-surface.md`): a `.temper` directory under the cwd.
 const DEFAULT_WORKSPACE: &str = "./.temper";
 
-/// The authored surface directory beside a harness's `temper.toml`, holding its
-/// custom-kind definitions (`kinds/<name>/KIND.md`) and packages
-/// (`packages/<name>/PACKAGE.md`) — `specs/architecture/40-composition.md`. On the one-shot
-/// gate paths (session-start, `check --harness`) it is the authored root handed
-/// to [`gate`], distinct from the throwaway scratch surface the members land in.
+/// The surface workspace directory beside a harness's `temper.toml`
+/// (`specs/architecture/40-composition.md`). Session-start's surface-present branch gates
+/// this directly; its surfaceless branch imports into a throwaway scratch surface
+/// instead.
 const TEMPER_DIR: &str = ".temper";
 
 /// The optional author-declared contract layer, discovered at the project root
@@ -269,14 +268,9 @@ fn main() -> miette::Result<ExitCode> {
                     Some(harness) => {
                         let scratch = scratch_surface()?;
                         import::run(&harness, &scratch)?;
-                        // Members land in the scratch, but the authored kinds/packages
-                        // live beside the harness's `temper.toml` — resolve them from
-                        // the harness's own `.temper/`, not the scratch.
-                        let diagnostics = gate(
-                            &scratch,
-                            &harness.join(TEMPER_DIR),
-                            &harness.join(TEMPER_TOML),
-                        )?;
+                        // Members land in the scratch; the harness's own `temper.toml`
+                        // still governs the gate.
+                        let diagnostics = gate(&scratch, &harness.join(TEMPER_TOML))?;
                         // A leftover scratch dir must never fail the run.
                         let _ = fs::remove_dir_all(&scratch);
                         diagnostics
@@ -284,9 +278,8 @@ fn main() -> miette::Result<ExitCode> {
                     None => {
                         let workspace =
                             workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
-                        // Two-step: the surface *is* the authored `.temper/`, so both
-                        // members and authored kinds/packages resolve from it.
-                        gate(&workspace, &workspace, Path::new(TEMPER_TOML))?
+                        // Two-step: the surface *is* the imported members.
+                        gate(&workspace, Path::new(TEMPER_TOML))?
                     }
                 }
             };
@@ -323,11 +316,6 @@ fn main() -> miette::Result<ExitCode> {
             // layer `check` gates against — as an editor JSON Schema.
             let layer = load_layer(Path::new(TEMPER_TOML))?;
 
-            // A bound project package resolves from the default surface's
-            // `.temper/packages/`: schema takes no workspace, so it reads the
-            // default rather than a caller-supplied one.
-            let packages_dir = Path::new(DEFAULT_WORKSPACE).join("packages");
-
             // Keyed by each kind's **qualified** identity (`claude-code.skill`), the
             // published-binding form (`specs/architecture/15-kinds.md`).
             let floors = builtin_floors()?;
@@ -343,14 +331,13 @@ fn main() -> miette::Result<ExitCode> {
                     let (name, floor) = floor.ok_or_else(|| {
                         miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
                     })?;
-                    let contract = compose::effective(layer.as_ref(), &name, floor, &packages_dir)?;
+                    let contract = compose::effective(layer.as_ref(), &name, floor)?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
                     for (name, floor) in floors {
-                        let contract =
-                            compose::effective(layer.as_ref(), &name, floor, &packages_dir)?;
+                        let contract = compose::effective(layer.as_ref(), &name, floor)?;
                         map.insert(name, schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -453,11 +440,11 @@ fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::D
     let authored = harness_path.join(TEMPER_DIR);
     let temper_toml = harness_path.join(TEMPER_TOML);
     if authored.is_dir() && temper_toml.is_file() {
-        gate(&authored, &authored, &temper_toml)
+        gate(&authored, &temper_toml)
     } else {
         let scratch = scratch_surface()?;
         import::run(harness_path, &scratch)?;
-        let diagnostics = gate(&scratch, &authored, &temper_toml)?;
+        let diagnostics = gate(&scratch, &temper_toml)?;
         // A leftover temp dir must never fail the advisory gate.
         let _ = fs::remove_dir_all(&scratch);
         Ok(diagnostics)
@@ -467,19 +454,7 @@ fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::D
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts — the shared gate behind both `check` and the session-start
 /// reporter (`specs/architecture/10-contracts.md`, both greens).
-///
-/// `authored` is the `.temper/` the author's own kinds/packages are read from,
-/// kept distinct from `workspace` (the surface imported members are enumerated
-/// from). They coincide on the two-step `check` path; on the one-shot path
-/// (session-start, `check --harness`) members import into a throwaway scratch
-/// (`workspace`) while the authored `KIND.md`/`PACKAGE.md` live beside the
-/// harness's `temper_toml` (`authored`), so a custom kind's definition resolves
-/// from the harness, not the scratch.
-fn gate(
-    workspace: &Path,
-    authored: &Path,
-    temper_toml: &Path,
-) -> miette::Result<Vec<check::Diagnostic>> {
+fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     // Absent `temper.toml` ⇒ `None` and the by-kind floor runs verbatim; present ⇒ its
     // per-kind package bindings/clause overrides layer over the floor per kind below
     // (`specs/architecture/40-composition.md`).
@@ -500,17 +475,6 @@ fn gate(
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
     let assembly_reachability = reachability_from_declarations(&declarations);
-
-    // A bound package resolves against the built-in floor ∪ this directory
-    // (`specs/architecture/20-surface.md`); absent a binding the floor runs, so it is never read
-    // on the floor-only path. Rooted at `authored`, not `workspace` (see fn doc),
-    // so a one-shot gate reads it from the harness, not the scratch.
-    let packages_dir = authored.join("packages");
-
-    // A registered custom kind's definition resolves from
-    // `<authored>/kinds/<name>/KIND.md` (`specs/architecture/40-composition.md`) — read only
-    // when the assembly registers one, so the floor-only path never touches it.
-    let kinds_dir = authored.join("kinds");
 
     // The harness root an in-place member's `source` path resolves against — the directory
     // the manifest lives in (the CWD for a two-step `check`, the harness path for the
@@ -551,7 +515,7 @@ fn gate(
         None => check::surface_units(workspace, "skills", "SKILL.md")?
             .iter()
             .map(builtin_kind::skill_features)
-            .collect::<Result<_, _>>()?,
+            .collect(),
     };
 
     let rule_features: Vec<extract::Features> = match &inplace_corpus {
@@ -559,15 +523,15 @@ fn gate(
         None => check::surface_units(workspace, "rules", "RULE.md")?
             .iter()
             .map(builtin_kind::rule_features)
-            .collect::<Result<_, _>>()?,
+            .collect(),
     };
 
-    // The embedded std-lib a by-name `package` binding resolves against before
-    // `.temper/packages/` (`specs/architecture/10-contracts.md`). Packages **compose**: a
-    // satisfier is checked by its kind's bound package *and* any package a
-    // requirement names. Held for the guarded roster/graph tier below.
+    // The embedded std-lib a by-name `package` binding resolves against
+    // (`specs/architecture/10-contracts.md`). Packages **compose**: a satisfier is
+    // checked by its kind's bound package *and* any package a requirement names.
+    // Held for the guarded roster/graph tier below.
     let builtins = builtin::contracts()?;
-    let package_resolver = compose::PackageResolver::new(builtins, packages_dir.clone());
+    let package_resolver = compose::PackageResolver::new(builtins);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by qualified
     // identity (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
@@ -592,12 +556,7 @@ fn gate(
         })?;
         // Two greens (`specs/architecture/10-contracts.md`): admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
-        let contract = compose::effective(
-            layer.as_ref(),
-            &kind.name,
-            builtin_floor(package)?,
-            &packages_dir,
-        )?;
+        let contract = compose::effective(layer.as_ref(), &kind.name, builtin_floor(package)?)?;
 
         // In-place mode keys members by bare kind. Otherwise a discovered surface member routes
         // to its kind by its source glob — the two `memory` providers share the surface locus
@@ -645,7 +604,7 @@ fn gate(
     // over the member-class edges — stays assembly-gated (WEDGE ruling 2026-07-03: an unbacked
     // import is a pure fact, not a graph-scope opinion like reachability).
     diagnostics.extend(
-        graph::classify_directives(&collect_directive_members(workspace, &[])?, &repo_files)
+        graph::classify_directives(&collect_directive_members(workspace)?, &repo_files)
             .findings
             .into_iter()
             .map(|mut finding| {
@@ -658,13 +617,14 @@ fn gate(
     // quantified over a requirement's satisfier set (`specs/architecture/10-contracts.md`).
     // Guarded on the layer, so the floor-only path adds nothing here or below.
     if let Some(layer) = layer.as_ref() {
-        // The custom-kind corpus + declared edge set, built through the *shared*
-        // [`custom_kinds_and_edges`] helper the `why` read also calls, so gate and
-        // read derive one identical edge set (READ-EDGE-UNIFY). Owned here so the
-        // feature slices outlive the graph tier (which borrows them via `by_kind`)
-        // and the conformance loop below.
-        let (custom_kinds, edges) =
-            custom_kinds_and_edges(workspace, layer, &kinds_dir, &assembly_edges)?;
+        // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
+        // "Decision: field typing lives in the SDK — there is no kind file format"): a
+        // project's own kind is SDK-authored, and no SDK path exists in the engine yet,
+        // so every `[kind.<name>]` registration that isn't a built-in layer contributes
+        // no members and no edges. The corpus/edge plumbing below stays generic — ready
+        // for that future SDK path, not hardwired to the empty case.
+        let custom_kinds: Vec<CustomKindEntry> = Vec::new();
+        let edges = assembly_edges.clone();
 
         // In-place carriage is built-in-kind only, so a custom kind carries no in-place member;
         // in that mode its live `.temper/` features would read a copy tree the in-place harness
@@ -755,7 +715,7 @@ fn gate(
         // floor as a non-gating advisory (WEDGE-FACT-FLOOR), so they are not re-extended: an
         // assembly's power over a directive is the graph-scope reachability escalation, not the
         // unbacked fact, which is the same fact with or without an assembly.
-        let directive_members = collect_directive_members(workspace, &custom_kinds)?;
+        let directive_members = collect_directive_members(workspace)?;
         let directive_classing = graph::classify_directives(&directive_members, &repo_files);
 
         // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
@@ -812,7 +772,7 @@ fn gate(
             // Resolves by name through the same order every binding uses, defaulting
             // to the kind's own name when the registration binds none.
             let package_name = layer.kind_package(name).unwrap_or(*name);
-            match package_resolver.resolve(package_name)? {
+            match package_resolver.resolve(package_name) {
                 Some(contract) => {
                     diagnostics.extend(engine::admissibility(&contract));
                     diagnostics.extend(engine::validate(&contract, features));
@@ -821,7 +781,7 @@ fn gate(
                     format!("{name}.package"),
                     *name,
                     format!(
-                        "custom kind `{name}` binds unknown package `{package_name}` (author `.temper/packages/{package_name}/PACKAGE.md`)"
+                        "custom kind `{name}` binds unknown package `{package_name}` (not a built-in package)"
                     ),
                 )),
             }
@@ -952,50 +912,11 @@ fn scratch_surface() -> miette::Result<PathBuf> {
 /// legible signature (`clippy::type_complexity`).
 type CustomKindEntry<'a> = (&'a str, CustomKind, Vec<extract::Features>);
 
-/// Load every registered custom kind (definition + computed features) and assemble
-/// the declared edge set — the assembly's lock-sourced `assembly_edges` plus each
-/// custom kind's own `[[relationships]]`. The **one** construction the `check` gate
-/// and the `why` read both derive their by-kind corpus + edge set from
-/// (READ-EDGE-UNIFY: no private re-derivation).
-///
-/// A `[kind.<name>]` whose name is a built-in is a contract layer, not a
-/// registration, so it is skipped (`specs/architecture/40-composition.md`). The returned names
-/// borrow `layer`, so it outlives the corpus.
-fn custom_kinds_and_edges<'a>(
-    workspace: &Path,
-    layer: &'a compose::AuthorLayer,
-    kinds_dir: &Path,
-    assembly_edges: &[compose::Edge],
-) -> miette::Result<(Vec<CustomKindEntry<'a>>, Vec<compose::Edge>)> {
-    let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
-    for name in layer.registered_kinds() {
-        // Provider resolution splits built-in layers from custom registrations
-        // (`specs/architecture/15-kinds.md`): a bare name resolving to an embedded kind is a layer.
-        if builtin_kind::definition(name)?.is_some() {
-            continue;
-        }
-        let custom = CustomKind::load(kinds_dir, name)?;
-        let units = custom_units(workspace, &custom)?;
-        let features: Vec<extract::Features> =
-            units.iter().map(|unit| custom.extract(unit)).collect();
-        custom_kinds.push((name, custom, features));
-    }
-
-    // A built-in kind declares its edges in the assembly (lock-sourced, above), a
-    // custom kind in its own `KIND.md` (`specs/architecture/15-kinds.md`).
-    let mut edges: Vec<compose::Edge> = assembly_edges.to_vec();
-    for (_name, custom, _features) in &custom_kinds {
-        edges.extend(custom.relationships.iter().cloned());
-    }
-
-    Ok((custom_kinds, edges))
-}
-
 /// Assemble the by-kind [`Features`](extract::Features) corpus every set-scope and
-/// graph predicate ranges over: the built-in kinds plus each custom kind's
-/// features, keyed by kind name. The counterpart to [`custom_kinds_and_edges`]
-/// shared by the gate and the `why` read (READ-EDGE-UNIFY). Borrows every slice, so
-/// the caller holds the owned feature vecs for the map's lifetime.
+/// graph predicate ranges over: the built-in kinds plus each custom kind's features
+/// (empty today — custom kinds retire with the `KIND.md` file format), keyed by kind
+/// name. Borrows every slice, so the caller holds the owned feature vecs for the
+/// map's lifetime.
 fn assemble_by_kind<'a>(
     skill_features: &'a [extract::Features],
     rule_features: &'a [extract::Features],
@@ -1025,12 +946,9 @@ fn assemble_by_kind<'a>(
 /// [`CustomKind::owns_source`] so the two `memory` providers sharing the `./MEMORY.md`
 /// locus route to their own carrier, extracts through [`builtin_kind::features`], and
 /// keys by the bare `kind.name` — the keying `by_kind`/`classify_directives` join on.
-/// Each custom kind's units are re-read in the same sorted order [`custom_units`] loads
-/// them, so the zip aligns.
-fn collect_directive_members(
-    workspace: &Path,
-    custom_kinds: &[CustomKindEntry<'_>],
-) -> miette::Result<Vec<graph::DirectiveMember>> {
+/// Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`)
+/// and contribute no members.
+fn collect_directive_members(workspace: &Path) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
     for kind in builtin_kind::definitions()?.values() {
         let units =
@@ -1042,16 +960,6 @@ fn collect_directive_members(
             let feature = builtin_kind::features(kind, unit);
             members.push(graph::DirectiveMember {
                 kind: kind.name.clone(),
-                id: feature.id.clone(),
-                source_path: unit.source_path.clone(),
-                directives: feature.directives.clone(),
-            });
-        }
-    }
-    for (name, custom, features) in custom_kinds {
-        for (unit, feature) in custom_units(workspace, custom)?.iter().zip(features) {
-            members.push(graph::DirectiveMember {
-                kind: (*name).to_string(),
                 id: feature.id.clone(),
                 source_path: unit.source_path.clone(),
                 directives: feature.directives.clone(),
@@ -1199,45 +1107,6 @@ fn reachability_from_declarations(
             _ => None,
         })
         .map(|severity| compose::Reachability { severity })
-}
-
-/// Load a custom `kind`'s units from the surface generically — every surface
-/// directory under the workspace at the kind's declared `governs.root`, each
-/// reloaded via [`Unit::from_surface_dir`]. Keyed on the declared locus, never the
-/// kind name: temper reads its own `specs/` because its `temper.toml` roots a kind
-/// there, and a kind rooted anywhere else is read the same way
-/// (`specs/architecture/40-composition.md`).
-///
-/// A surface directory holds the kind's `<KIND>.md` member document, name-sorted
-/// for stable output. No directory at the root ⇒ no units, and the contract's
-/// admissibility still runs over zero artifacts.
-fn custom_units(workspace_dir: &Path, custom: &CustomKind) -> Result<Vec<Unit>, KindError> {
-    let root = workspace_dir.join(&custom.governs.root);
-    if !root.is_dir() {
-        return Ok(Vec::new());
-    }
-
-    // The member document a custom unit is written under — the kind name upper-cased
-    // (`spec` → `SPEC.md`), the same convention `import` writes (`src/import.rs`).
-    let document = format!("{}.md", custom.name.to_uppercase());
-    let listing = fs::read_dir(&root).map_err(|source| KindError::Io {
-        path: root.clone(),
-        source,
-    })?;
-    let mut dirs = Vec::new();
-    for entry in listing {
-        let entry = entry.map_err(|source| KindError::Io {
-            path: root.clone(),
-            source,
-        })?;
-        let path = entry.path();
-        if path.is_dir() && path.join(&document).is_file() {
-            dirs.push(path);
-        }
-    }
-    dirs.sort();
-
-    dirs.iter().map(|dir| Unit::from_surface_dir(dir)).collect()
 }
 
 #[cfg(test)]

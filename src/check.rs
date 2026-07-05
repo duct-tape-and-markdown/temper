@@ -457,7 +457,7 @@ Body.\n";
         let skill_units = surface_units(&ws, "skills", "SKILL.md").unwrap();
         let rule_units = surface_units(&ws, "rules", "RULE.md").unwrap();
 
-        let skill_features = builtin_kind::skill_features(&skill_units[0]).unwrap();
+        let skill_features = builtin_kind::skill_features(&skill_units[0]);
         // The id, the typed `name` field, and the unknown key all land exactly as the
         // retired IR→Unit adapter produced — the documented fields off the composed
         // `field` primitives, the unknown key folded in permissively.
@@ -480,7 +480,7 @@ Body.\n";
             extract::source_dir_name(&typed.skills()[0].provenance.source_path)
         );
 
-        let rule_features = builtin_kind::rule_features(&rule_units[0]).unwrap();
+        let rule_features = builtin_kind::rule_features(&rule_units[0]);
         assert_eq!(rule_features.id, typed.rules()[0].id);
         assert_eq!(
             rule_features.field("paths"),
@@ -512,28 +512,26 @@ Body.\n";
 
     #[test]
     fn load_places_a_third_built_in_kinds_members_in_the_generic_map() {
-        use toml_edit::DocumentMut;
+        use crate::kind::{CustomKind, Extraction, Governs, Primitive, UnitShape};
 
         // A synthetic third built-in kind — an `agent` under `.claude/agents/<name>/
         // AGENT.md`, the shape the embedded set gains when the next kind ships. Its
         // member document is `AGENT.md`, its surface subdir `agents`, and it extracts a
         // `model` field — the clause value a bound `agent` package would range over. With
         // only skill/rule hardwired, this kind's members loaded nowhere.
-        let agent_src = "\
-governs = { root = \".claude/agents\", glob = \"*/AGENT.md\" }
-unit_shape = \"directory\"
-
-[[extraction]]
-primitive = \"field\"
-key = \"model\"
-";
-        let doc = agent_src.parse::<DocumentMut>().unwrap();
-        let agent = crate::kind::CustomKind::from_header(
-            doc.as_table(),
-            "agent",
-            Path::new("kinds/agent/KIND.md"),
-        )
-        .unwrap();
+        let agent = CustomKind {
+            unit_shape: Some(UnitShape::Directory),
+            ..CustomKind::new(
+                "agent",
+                Governs {
+                    root: ".claude/agents".to_string(),
+                    glob: "*/AGENT.md".to_string(),
+                },
+                Extraction::new(vec![Primitive::Field {
+                    key: "model".to_string(),
+                }]),
+            )
+        };
 
         // Project one agent member onto the surface exactly as `import`/`emit` would.
         let ws = tmpdir("third-kind");

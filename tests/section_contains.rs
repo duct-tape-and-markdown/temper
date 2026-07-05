@@ -18,16 +18,12 @@ use temper::check::{Diagnostic, Severity as DiagnosticSeverity};
 use temper::contract::{Clause, Contract, ContractError, Predicate, Severity};
 use temper::engine;
 use temper::extract::Features;
-use temper::kind::{Extraction, KindError, Unit};
+use temper::kind::{Extraction, Primitive, Unit};
 
 /// The composed `sections` extractor — the one primitive the `section_contains`
 /// predicate reads.
 fn sections_extraction() -> Extraction {
-    Extraction::parse(
-        "[[extraction]]\nprimitive = \"sections\"\n",
-        Path::new("temper.toml"),
-    )
-    .expect("the `sections` primitive is in the closed vocabulary")
+    Extraction::new(vec![Primitive::Sections])
 }
 
 /// A spec-shaped raw unit (no frontmatter; the whole file is body) carrying `body`.
@@ -139,23 +135,12 @@ More prose, still no marker.\n";
     );
 }
 
-/// The closed vocabulary holds on both sides: an out-of-vocabulary extraction
-/// primitive is rejected at load, exactly as an out-of-vocabulary predicate is —
-/// `section_contains` and `sections` are additions to the vocabulary, not a
-/// trapdoor that opened it (`specs/architecture/10-contracts.md`, "Decision: the contract is
+/// The closed vocabulary holds: an out-of-vocabulary predicate is rejected at
+/// load — `section_contains` is an addition to the vocabulary, not a trapdoor
+/// that opened it (`specs/architecture/10-contracts.md`, "Decision: the contract is
 /// itself checked — admissibility").
 #[test]
-fn an_out_of_vocabulary_primitive_or_predicate_is_still_rejected_at_load() {
-    let primitive_err = Extraction::parse(
-        "[[extraction]]\nprimitive = \"decision_meaning\"\n",
-        Path::new("temper.toml"),
-    )
-    .expect_err("an unknown extraction primitive is a load error");
-    assert!(matches!(
-        primitive_err,
-        KindError::UnknownPrimitive { ref primitive, .. } if primitive == "decision_meaning"
-    ));
-
+fn an_out_of_vocabulary_predicate_is_still_rejected_at_load() {
     let predicate_err = Contract::parse(
         "[[clause]]\nseverity = \"required\"\npredicate = \"section_matches\"\nheading = \"Decision\"\n",
         Path::new("spec.contract.toml"),

@@ -2,10 +2,10 @@
 //! (`specs/architecture/10-contracts.md`, "The primitive algebra (decidable only)").
 //!
 //! A [`Contract`] is a named set of [`Clause`]s over a **closed** vocabulary of
-//! decidable predicates, each carrying an author-declared [`Severity`]. Its
-//! authored home is a package — a `PACKAGE.md` fenced document
-//! ([`Contract::load_package`]) or the embedded built-in floor ([`crate::builtin`]);
-//! both parse through the same clause parser [`Contract::parse`] runs over bare TOML.
+//! decidable predicates, each carrying an author-declared [`Severity`]. Its authored
+//! home is the embedded built-in floor ([`crate::builtin`]) or a `temper.toml` layer
+//! (`crate::compose`); both parse through the same clause parser [`Contract::parse`]
+//! runs over bare TOML.
 //!
 //! There is no arbitrary-code clause: adding a predicate is a deliberate language
 //! change, never a per-contract escape hatch (`00-intent.md` law 3), so loading
@@ -17,12 +17,10 @@
 //! would give.
 
 use std::collections::BTreeSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use toml_edit::{DocumentMut, Item, Table};
 
-use crate::document::{Document, DocumentError};
 use crate::extract::Kind;
 
 /// A named set of clauses over the decidable primitive algebra — the type a
@@ -40,11 +38,11 @@ pub struct Contract {
     /// The clauses, in declaration order. An empty set is a valid (vacuous)
     /// contract — a named shape that asserts nothing.
     pub clauses: Vec<Clause>,
-    /// Package-level **guidance** — the document body of a `PACKAGE.md`
-    /// (`specs/architecture/10-contracts.md`, "Packages"): best-practice prose the clauses cannot
-    /// encode. Like the per-clause [`guidance`](Clause::guidance) channel it *never
-    /// gates* — the closed algebra has no path from prose to a predicate. `None` for
-    /// a TOML-file contract (no body) and for a package whose body is empty.
+    /// Package-level **guidance** (`specs/architecture/10-contracts.md`, "Packages"):
+    /// best-practice prose the clauses cannot encode. Like the per-clause
+    /// [`guidance`](Clause::guidance) channel it *never gates* — the closed algebra
+    /// has no path from prose to a predicate. `None` for a bare TOML contract, or a
+    /// package that authors none.
     pub guidance: Option<String>,
 }
 
@@ -356,17 +354,6 @@ impl Charset {
 /// lint finding, which is a value the check engine collects, not an error.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ContractError {
-    /// The contract file could not be read.
-    #[error("failed to read contract {path}")]
-    #[diagnostic(code(temper::contract::io))]
-    Io {
-        /// The path that failed to read.
-        path: PathBuf,
-        /// The underlying I/O error.
-        #[source]
-        source: std::io::Error,
-    },
-
     /// The contract file is not valid TOML.
     #[error("failed to parse {path} as TOML")]
     #[diagnostic(code(temper::contract::toml))]
@@ -376,23 +363,6 @@ pub enum ContractError {
         /// The TOML parse error.
         #[source]
         source: toml_edit::TomlError,
-    },
-
-    /// A `PACKAGE.md` package document is malformed as a *fenced document* —
-    /// a missing or unterminated `+++` header fence, or a header that is not valid
-    /// TOML. Distinct from [`ContractError::Toml`] (a bare `.toml` contract file):
-    /// a package is authored in the surface's fenced medium (`specs/architecture/20-surface.md`),
-    /// so its structural failures come from the [`Document`] primitive and are
-    /// surfaced verbatim through it (`source` carries the labelled span).
-    #[error("failed to parse package document {path}")]
-    #[diagnostic(code(temper::contract::package_document))]
-    PackageDocument {
-        /// The package document that failed to parse.
-        path: PathBuf,
-        /// The underlying document parse error (boxed — it carries the full source
-        /// text for its rendered diagnostic, so this keeps `ContractError` small).
-        #[source]
-        source: Box<DocumentError>,
     },
 
     /// `clause` is present but is not an array of tables (`[[clause]]`).
@@ -545,61 +515,6 @@ impl Contract {
             guidance: None,
         })
     }
-
-    /// Load a **package** authored as a `PACKAGE.md` fenced document — the
-    /// reusable, bindable unit that *carries* a contract (`specs/architecture/10-contracts.md`,
-    /// "Packages"). A package lives at `.temper/packages/<name>/PACKAGE.md`; this
-    /// folds it straight into the [`Contract`] model rather than a separate type
-    /// (the resolved PACKAGE-MODEL-RECONCILE point: a package *carries* a contract,
-    /// and the `package` kind's admissibility is exactly the definition check this
-    /// loader's clauses already run).
-    pub fn load_package(path: &Path) -> Result<Self, ContractError> {
-        let src = fs::read_to_string(path).map_err(|source| ContractError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        Self::parse_package(&src, path)
-    }
-
-    /// Parse a package from `PACKAGE.md` source. `path` labels diagnostics *and*
-    /// carries the package's identity: the display name derives from the containing
-    /// directory's stem, never an internal `name` field (`specs/architecture/10-contracts.md`,
-    /// "Decision: a package is identified by its binding, not an internal name").
-    ///
-    /// The document splits through the [`Document`] primitive (`specs/architecture/20-surface.md`);
-    /// its fenced header runs through the *same* [`parse_clauses`] the TOML floor uses,
-    /// so a package header is held to the identical closed vocabulary. The body is the
-    /// package-level [`guidance`](Contract::guidance) — carried, never gated.
-    pub fn parse_package(src: &str, path: &Path) -> Result<Self, ContractError> {
-        let doc = Document::parse(src).map_err(|source| ContractError::PackageDocument {
-            path: path.to_path_buf(),
-            source: Box::new(source),
-        })?;
-        let clauses = parse_clauses(doc.header().as_table(), path)?;
-        let body = doc.body();
-        let guidance = if body.trim().is_empty() {
-            None
-        } else {
-            Some(body.to_string())
-        };
-        Ok(Self {
-            name: package_name(path),
-            clauses,
-            guidance,
-        })
-    }
-}
-
-/// A package's display name — the stem of its containing directory
-/// (`.temper/packages/<name>/PACKAGE.md` ⇒ `<name>`; `specs/architecture/10-contracts.md`,
-/// "Decision: a package is identified by its binding, not an internal name"). Falls
-/// back to `package` only for the degenerate path with no parent directory.
-fn package_name(path: &Path) -> String {
-    path.parent()
-        .and_then(Path::file_name)
-        .and_then(|stem| stem.to_str())
-        .unwrap_or("package")
-        .to_string()
 }
 
 /// Parse a `[[clause]]` array of tables off `table`, in declaration order. Absent
@@ -952,23 +867,6 @@ fn str_list(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
-
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-    /// A fresh, empty temp directory unique to this test run.
-    fn tmpdir(label: &str) -> PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "author-contract-{}-{}-{}",
-            std::process::id(),
-            id,
-            label
-        ));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
 
     /// A representative contract exercising every predicate in the algebra, with
     /// a mix of `required` and `advisory` severities.
@@ -1213,22 +1111,6 @@ type = "string"
         let contract = Contract::parse(REP, Path::new("skill.contract.toml")).unwrap();
         // Every primitive round-trips into its typed clause, with the per-clause
         // severity preserved exactly as the author declared it.
-        assert_eq!(contract, rep_expected());
-    }
-
-    #[test]
-    fn load_package_reads_a_package_document_from_disk() {
-        // The on-disk loader is `load_package`: a `PACKAGE.md` fenced document whose
-        // header carries the same clause vocabulary. Wrapping `REP` in a `+++` header
-        // (empty body ⇒ no package-level guidance) round-trips to the same typed
-        // contract `parse` produces, with the name derived from the parent directory.
-        let dir = tmpdir("load");
-        let pkg = dir.join("skill");
-        fs::create_dir_all(&pkg).unwrap();
-        let path = pkg.join("PACKAGE.md");
-        fs::write(&path, format!("+++\n{REP}+++\n")).unwrap();
-
-        let contract = Contract::load_package(&path).unwrap();
         assert_eq!(contract, rep_expected());
     }
 

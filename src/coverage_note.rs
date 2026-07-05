@@ -195,16 +195,19 @@ fn split_file(path: &str) -> (&str, &str) {
 mod tests {
     use super::*;
     use crate::check::Severity;
-    use crate::kind::CustomKind;
-    use std::path::Path;
-    use toml_edit::DocumentMut;
+    use crate::kind::{CustomKind, Extraction, Governs};
 
-    /// Parse a minimal `KIND.md` header into a [`CustomKind`] with the given `governs`
-    /// locus — enough for the governance-suppression tests, which read only `governs`.
+    /// A minimal [`CustomKind`] with the given `governs` locus — enough for the
+    /// governance-suppression tests, which read only `governs`.
     fn kind_governing(name: &str, root: &str, glob: &str) -> CustomKind {
-        let src = format!("governs = {{ root = \"{root}\", glob = \"{glob}\" }}\n");
-        let doc = src.parse::<DocumentMut>().unwrap();
-        CustomKind::from_header(doc.as_table(), name, Path::new("kinds/x/KIND.md")).unwrap()
+        CustomKind::new(
+            name,
+            Governs {
+                root: root.to_string(),
+                glob: glob.to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
     }
 
     fn skill_kind() -> CustomKind {

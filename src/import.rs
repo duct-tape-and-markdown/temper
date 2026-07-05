@@ -27,12 +27,11 @@ use crate::builtin;
 use crate::builtin_kind;
 use crate::compose::{self, AuthorLayer, Authority, InPlaceMember, ManifestMember, Requirement};
 use crate::contract::{Clause, Severity};
-use crate::document::{self, Document};
 use crate::drift::{
     AssemblyFactRow, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow,
     KindFactRow, MembershipRow, RequirementRow, SatisfiesRow,
 };
-use crate::frontmatter::{self, FrontmatterError, Member};
+use crate::frontmatter::{FrontmatterError, Member};
 use crate::kind::{Activation, CustomKind, Format, Governs, KindError, Unit, UnitShape};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
@@ -55,26 +54,13 @@ pub enum ImportError {
     #[diagnostic(transparent)]
     Frontmatter(#[from] FrontmatterError),
 
-    /// A built-in kind's embedded `KIND.md` failed to parse into its definition —
-    /// the `governs` locus discovery keys off. A compiled-in invariant (`build.rs`
-    /// generates the table from validated product source), surfaced rather than
-    /// panicked so discovery stays panic-free (`.claude/rules/rust.md`).
+    /// A written surface member document failed to reload
+    /// ([`Unit::from_member_document`]) — a malformed `+++`-fenced document or a
+    /// missing required part, surfaced rather than panicked so re-reading a prior
+    /// surface stays panic-free (`.claude/rules/rust.md`).
     #[error(transparent)]
     #[diagnostic(transparent)]
     Kind(#[from] KindError),
-
-    /// A custom-kind unit's source file is not valid UTF-8, so its body cannot be
-    /// modelled. (A built-in kind reports this through its own IR; a custom unit is
-    /// read here as a raw byte-faithful body, so the check lands in `import`.)
-    #[error("{path} is not valid UTF-8")]
-    #[diagnostic(code(temper::import::not_utf8))]
-    NotUtf8 {
-        /// The offending source file.
-        path: PathBuf,
-        /// The decode error.
-        #[source]
-        source: std::string::FromUtf8Error,
-    },
 
     /// The harness `skills/` directory could not be enumerated.
     #[error("failed to read harness directory {path}")]
@@ -226,32 +212,12 @@ fn run_with_builtins(
         builtin_rollups.insert(key, rows);
     }
 
-    // A custom kind's definition — the `governs` locus discovery keys on — is the
-    // authored `<harness>/.temper/kinds/<name>/KIND.md`, not an inline `temper.toml`
-    // block (`specs/architecture/40-composition.md`). A registration with a *unique*
-    // embedded carrier is a built-in layer, already scanned above; one with none (an
-    // ordinary custom kind) or two-plus (shadowing the ambiguous carriers) loads and
-    // scans its own definition. Absent a registered custom kind, only the built-ins
-    // import.
-    let mut custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
-    let mut program_custom_kinds: Vec<CustomKind> = Vec::new();
-    if let Some(layer) = &layer {
-        let kinds_dir = harness_path.join(".temper").join("kinds");
-        for name in layer.registered_kinds() {
-            if carrier_count(builtins, name) == 1 {
-                continue;
-            }
-            let kind = CustomKind::load(&kinds_dir, name)?;
-            let unit_files = discover_kind_units(harness_path, &kind.governs)?;
-            let mut units = Vec::with_capacity(unit_files.len());
-            for file in &unit_files {
-                units.push(import_custom_unit(&kind, harness_path, file, into)?);
-            }
-            units.sort_by(|a, b| a.name.cmp(&b.name));
-            custom.insert(name.to_string(), units);
-            program_custom_kinds.push(kind);
-        }
-    }
+    // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
+    // "Decision: field typing lives in the SDK — there is no kind file format"): a
+    // project's own kind is SDK-authored, and no SDK path exists in the engine yet, so
+    // a `[kind.<name>]` registration with no unique embedded carrier imports nothing.
+    let custom: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
+    let program_custom_kinds: Vec<CustomKind> = Vec::new();
 
     let declarations = collect_declarations(
         &program_builtin_kinds,
@@ -457,8 +423,8 @@ pub fn lift(harness_path: &Path, member_name: &str) -> miette::Result<()> {
 ///
 /// Returns an error if a member surface cannot be read, an embedded kind definition is
 /// malformed, or the existing manifest cannot be read/parsed for patching.
-pub fn emit_manifest(harness_path: &Path, into: &Path) -> miette::Result<()> {
-    let members = collect_manifest_members(harness_path, into)?;
+pub fn emit_manifest(into: &Path) -> miette::Result<()> {
+    let members = collect_manifest_members(into)?;
     // The manifest is a *sibling* of `.temper/` at the project root, not inside it; a
     // parentless `into` (a bare relative workspace) falls back to the workspace itself.
     let manifest_path = into.parent().unwrap_or(into).join(MANIFEST_FILENAME);
@@ -475,7 +441,7 @@ pub fn emit_manifest(harness_path: &Path, into: &Path) -> miette::Result<()> {
 /// folds unknown frontmatter keys a `forbidden_keys` clause ranges over); a registered
 /// custom kind takes its declared-field extraction. Sorted by kind then id, so the emitted
 /// manifest is byte-stable across imports (the lock roll-up's discipline).
-fn collect_manifest_members(harness: &Path, into: &Path) -> miette::Result<Vec<ManifestMember>> {
+fn collect_manifest_members(into: &Path) -> miette::Result<Vec<ManifestMember>> {
     let builtins = builtin_kind::definitions()?;
     let mut members = Vec::new();
     for kind in builtins.values() {
@@ -486,23 +452,10 @@ fn collect_manifest_members(harness: &Path, into: &Path) -> miette::Result<Vec<M
             });
         }
     }
-    // A registered custom kind (one with no embedded carrier — a bare name a built-in
-    // already carries is a layer, scanned above) extracts off its `governs.root` surface.
-    if let Some(layer) = AuthorLayer::load(&harness.join(MANIFEST_FILENAME))? {
-        let kinds_dir = harness.join(".temper").join("kinds");
-        for name in layer.registered_kinds() {
-            if carrier_count(&builtins, name) == 1 {
-                continue;
-            }
-            let kind = CustomKind::load(&kinds_dir, name)?;
-            for unit in surface_units_for(into, &kind.governs.root, &kind.member_document())? {
-                members.push(ManifestMember {
-                    kind: kind.name.clone(),
-                    features: kind.extract(&unit),
-                });
-            }
-        }
-    }
+    // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
+    // "Decision: field typing lives in the SDK — there is no kind file format"): a
+    // `[kind.<name>]` registration with no unique embedded carrier contributes no
+    // members until a future SDK path supplies its definition.
     members.sort_by(|a, b| {
         a.kind
             .cmp(&b.kind)
@@ -593,8 +546,8 @@ fn import_frontmatter_kind(
     Ok(rows)
 }
 
-/// Discover a built-in `kind`'s source files, keying off the `governs` its embedded
-/// `KIND.md` declares — the same data-driven scan a custom kind gets, so `skill`/`rule`
+/// Discover a built-in `kind`'s source files, keying off its declared `governs`
+/// locus — the same data-driven scan a custom kind would get, so `skill`/`rule`
 /// are no longer hardwired paths (`specs/architecture/15-kinds.md`, "A built-in kind is
 /// an adapter": the emit face's locus is the read face's scan root). The `skill` locus
 /// (`.claude/skills` + `*/SKILL.md`) resolves through the generalized subdir glob;
@@ -882,163 +835,6 @@ fn read_entries(dir: &Path) -> Result<Vec<fs::DirEntry>, ImportError> {
     Ok(entries)
 }
 
-/// Read one discovered custom-kind unit and write its surface tree under
-/// `<into>/<governs.root>/<id>/`, returning the roll-up row for the index. The
-/// declared adapter faces are **load-bearing** here (`specs/architecture/15-kinds.md`, "the
-/// adapter faces are declared"): the id derives per the kind's
-/// [`unit_shape`](UnitShape) (the file stem for `File`, the directory name for
-/// `Directory`), and the artifact is split per its [`format`](Format).
-///
-/// - `yaml-frontmatter` rides the same generic adapter a built-in does
-///   ([`Member::from_source`]): the declared `field`s lift into `[clause.<field>]`
-///   header tables, the body is byte-faithful below the frontmatter, and a
-///   directory-shaped unit's companions travel along.
-/// - No declared format keeps the *whole* file byte-faithful as the body under a
-///   `[provenance]`-only header — the frontmatterless shape (a spec), where a unit's
-///   leading `---`, if any, is prose to preserve, not frontmatter to lift.
-///
-/// `pub(crate)` for the same reason as [`import_frontmatter_member`]: `re-add` reuses
-/// this exact generic write path to reconcile a drifted or added on-disk custom-kind
-/// unit into the surface, folding the returned row straight into the lock.
-pub(crate) fn import_custom_unit(
-    kind: &CustomKind,
-    harness: &Path,
-    source_file: &Path,
-    into: &Path,
-) -> Result<RollupEntry, ImportError> {
-    match kind.format {
-        Some(Format::YamlFrontmatter) => {
-            // Fold placement against the `governs` root so a nested same-named unit
-            // (`sub/AGENTS.md`) keeps a distinct surface id, symmetric with the
-            // whole-file path below (`from_source_rooted`, `wholefile_id`).
-            let member =
-                Member::from_source_rooted(kind, source_file, &harness.join(&kind.governs.root))?;
-            let out_dir = into.join(&kind.governs.root).join(&member.id);
-            write_member_surface(kind, member, &out_dir, source_file.parent())
-        }
-        None => import_wholefile_unit(kind, harness, source_file, into),
-    }
-}
-
-/// Project a custom unit whose kind declares **no** format: the whole source file is
-/// the byte-faithful body under a `[provenance]`-only `+++` header, so a unit's
-/// frontmatter — or a leading `---` that is really prose (a spec) — survives verbatim
-/// for its extractor to read at `check` time (`specs/architecture/15-kinds.md`). The id derives
-/// per the kind's [`unit_shape`](UnitShape), and a directory-shaped unit's companions
-/// ride beside the body, so a `Directory`-shaped frontmatterless kind is imported whole
-/// rather than losing its siblings.
-fn import_wholefile_unit(
-    kind: &CustomKind,
-    harness: &Path,
-    source_file: &Path,
-    into: &Path,
-) -> Result<RollupEntry, ImportError> {
-    let bytes = fs::read(source_file).map_err(|source| ImportError::ReadDir {
-        path: source_file.to_path_buf(),
-        source,
-    })?;
-    let source_hash = crate::hash::sha256_hex(&bytes);
-    let body = String::from_utf8(bytes).map_err(|source| ImportError::NotUtf8 {
-        path: source_file.to_path_buf(),
-        source,
-    })?;
-    let name = wholefile_id(kind, &harness.join(&kind.governs.root), source_file)?;
-
-    let out_dir = into.join(&kind.governs.root).join(&name);
-    create_dir_all(&out_dir)?;
-
-    // The member is ONE document: the `+++` header over the whole byte-faithful
-    // source file as the body. Merge, never clobber (`specs/architecture/20-surface.md`,
-    // "three states, never two"): a whole-file unit builds no `Member`, so the authored
-    // `[requirement.*]`/`[satisfies.*]` tables live only in the existing surface's
-    // header — carry them forward before writing, re-stamping only `[provenance]`,
-    // exactly as the frontmatter path does via `carry_representation`.
-    let body_path = out_dir.join(body_filename(&kind.name));
-    let header = custom_unit_header(&body_path, &source_file.to_string_lossy(), &source_hash);
-    write_bytes(&body_path, Document::new(header, body).emit().as_bytes())?;
-
-    // A directory-shaped unit's companions ride beside the body, byte-for-byte — the
-    // same treatment the frontmatter adapter gives them, so the shape is honored
-    // regardless of whether the kind declares a format.
-    if kind.unit_shape == Some(UnitShape::Directory)
-        && let Some(source_dir) = source_file.parent()
-    {
-        let member_name = source_file.file_name().unwrap_or_else(|| OsStr::new(""));
-        for companion in frontmatter::scan_companions(source_dir, member_name)? {
-            copy_companion(source_dir, &out_dir, &companion)?;
-        }
-    }
-
-    Ok(RollupEntry {
-        name,
-        source_path: source_file.to_string_lossy().into_owned(),
-        // At import the emit fingerprint provisionally equals the source hash (see the
-        // built-in frontmatter member writer).
-        emit_hash: source_hash.clone(),
-        source_hash,
-    })
-}
-
-/// The member id for a whole-file custom unit, derived per the kind's declared
-/// [`unit_shape`](UnitShape): the parent directory name for `Directory`, and for `File`
-/// (or an absent shape, defaulting to a lone file) the placement-folded stem relative to
-/// the `governs`-root directory `base` (`frontmatter::fold_file_id`). It shares that
-/// fold with the frontmatter face ([`Member::from_source_rooted`]), so both faces name a
-/// nested unit the same way — a nested `sub/AGENTS.md` gets a distinct id, not a
-/// clobbered bare stem. A source path yielding no id component for its shape is a
-/// [`FrontmatterError::NoId`], the same error the frontmatter face raises.
-fn wholefile_id(kind: &CustomKind, base: &Path, source_file: &Path) -> Result<String, ImportError> {
-    let id = match kind.unit_shape {
-        Some(UnitShape::Directory) => source_file
-            .parent()
-            .filter(|dir| !dir.as_os_str().is_empty())
-            .and_then(Path::file_name)
-            .and_then(OsStr::to_str)
-            .ok_or(FrontmatterError::NoId {
-                path: source_file.to_path_buf(),
-                shape: "directory",
-            })?
-            .to_string(),
-        Some(UnitShape::File) | None => frontmatter::fold_file_id(base, source_file)?,
-    };
-    Ok(id)
-}
-
-/// The header to emit for a custom unit: carry every authored clause table from an
-/// already-written surface document at `body_path` forward, re-stamping only the
-/// generated `[provenance]` module with the fresh drift anchor. This makes the
-/// custom-unit path **merge rather than clobber** (`specs/architecture/20-surface.md`, "three
-/// states, never two") — symmetric with the frontmatter path's `carry_representation`
-/// — so a re-import or drifted-body `re-add` preserves the hand-authored
-/// `[requirement.*]`/`[satisfies.*]` tables instead of wiping them under a bare
-/// provenance header. A first import (or an unreadable/malformed prior surface)
-/// degrades to a fresh provenance-only header.
-fn custom_unit_header(body_path: &Path, source_path: &str, source_hash: &str) -> DocumentMut {
-    let mut header = existing_custom_header(body_path).unwrap_or_default();
-    // Provenance is always freshly generated (the source freshness fact), never carried —
-    // drop any carried copy so the re-stamp lands it last, below the authored tables.
-    header.as_table_mut().remove("provenance");
-    document::add_provenance(&mut header, source_path, source_hash);
-    header
-}
-
-/// Parse the header of an already-written custom-unit surface document at `path`, or
-/// `None` if it is absent, unreadable, or malformed — the carrier of the authored
-/// clause tables a re-import must preserve. A missing or malformed prior surface
-/// degrades to "nothing to carry" rather than failing the write, mirroring
-/// [`existing_surface_member`] on the frontmatter path.
-fn existing_custom_header(path: &Path) -> Option<DocumentMut> {
-    let raw = fs::read_to_string(path).ok()?;
-    Some(Document::parse(&raw).ok()?.header().clone())
-}
-
-/// The byte-faithful body filename for a custom kind — the kind name upper-cased
-/// with a `.md` suffix (`spec` → `SPEC.md`), mirroring the built-in `SKILL.md` and
-/// `RULE.md` bodies so a custom kind's surface reads uniformly with them.
-fn body_filename(kind: &str) -> String {
-    format!("{}.md", kind.to_uppercase())
-}
-
 /// Copy a single companion from the source dir to the surface dir, byte-for-byte,
 /// creating any intermediate directories.
 fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<(), ImportError> {
@@ -1142,7 +938,13 @@ fn collect_declarations(
 fn kind_fact(kind: &CustomKind) -> KindFactRow {
     KindFactRow {
         name: kind.name.clone(),
-        provider: kind.provider.clone(),
+        // The provider authority alone (`claude-code`), the qualified label's prefix —
+        // not the whole `qualified_name()` (`claude-code.skill`).
+        provider: kind
+            .qualified
+            .as_deref()
+            .and_then(|qualified| qualified.rsplit_once('.'))
+            .map(|(provider, _)| provider.to_string()),
         governs_root: kind.governs.root.clone(),
         governs_glob: kind.governs.glob.clone(),
         format: kind.format.map(format_label),
@@ -1346,6 +1148,8 @@ mod tests {
 
     use toml_edit::DocumentMut;
 
+    use crate::kind::Extraction;
+
     static COUNTER: AtomicU32 = AtomicU32::new(0);
 
     /// A fresh, empty temp directory unique to this test run.
@@ -1397,18 +1201,6 @@ Last line, no newline.";
     /// A rule with no frontmatter at all — the `collaboration.md` shape.
     const COLLAB_RULE: &str = "# Collaboration\n\nPushback is the point.\n";
 
-    /// A spec body whose leading `---` is prose (a spec has no frontmatter) and
-    /// whose missing final newline must survive intact.
-    const SURFACE_SPEC: &str = "# The config surface\n\
-\n\
----\n\
-\n\
-The surface is temper's composition write surface, no trailing newline.";
-
-    /// A second spec so the roll-up carries more than one row and name-sorting is
-    /// observable (`00-intent` sorts before `20-surface`).
-    const INTENT_SPEC: &str = "# Intent\n\nThe north star.\n";
-
     /// Build a harness with two skills under `.claude/skills/` and two rules under
     /// `.claude/rules/`; `coordinate` carries a companion markdown file and a
     /// nested script. The two kinds coexist so one import covers both.
@@ -1427,49 +1219,6 @@ The surface is temper's composition write surface, no trailing newline.";
         fs::create_dir_all(&rules).unwrap();
         fs::write(rules.join("rust.md"), RUST_RULE).unwrap();
         fs::write(rules.join("collaboration.md"), COLLAB_RULE).unwrap();
-    }
-
-    /// A `temper.toml` *registering* `spec` as a custom kind — the whole require-side
-    /// wiring is the package binding; the definition (the `governs` locus discovery
-    /// keys on) lives in the authored `.temper/kinds/spec/KIND.md` fixture below
-    /// (`specs/architecture/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
-    /// artifact, registered in the assembly").
-    const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
-
-    /// The authored `spec` KIND.md definition (`specs/architecture/20-surface.md`, "Decision: a kind
-    /// definition is `KIND.md`"): the `+++` header carries the `governs` locus and the
-    /// composed extraction, the body the kind's prose. `import` reads the locus to
-    /// discover units.
-    const SPEC_KIND_MD: &str = "+++\n\
-governs = { root = \"specs\", glob = \"*.md\" }\n\
-\n\
-[[extraction]]\n\
-primitive = \"line_count\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"headings\"\n\
-+++\n\
-\n\
-# The spec kind\n\
-\n\
-temper's own governing documents.\n";
-
-    /// Add a `specs/` corpus to an existing harness root, plus the `temper.toml`
-    /// registration and the authored `.temper/kinds/spec/KIND.md` definition so
-    /// discovery finds it: two spec files plus a non-markdown loose file and a
-    /// subdirectory, both of which discovery skips.
-    fn write_specs(root: &Path) {
-        fs::write(root.join("temper.toml"), SPEC_TEMPER_TOML).unwrap();
-        let kind_dir = root.join(".temper").join("kinds").join("spec");
-        fs::create_dir_all(&kind_dir).unwrap();
-        fs::write(kind_dir.join("KIND.md"), SPEC_KIND_MD).unwrap();
-        let specs = root.join("specs");
-        fs::create_dir_all(specs.join("notes")).unwrap();
-        fs::write(specs.join("20-surface.md"), SURFACE_SPEC).unwrap();
-        fs::write(specs.join("00-intent.md"), INTENT_SPEC).unwrap();
-        // Noise that must be ignored: a non-`.md` file and a subdirectory.
-        fs::write(specs.join("README.txt"), "not a spec\n").unwrap();
-        fs::write(specs.join("notes").join("scratch.md"), "nested, skipped\n").unwrap();
     }
 
     /// Snapshot every file under `dir` as a sorted map of relative path -> bytes,
@@ -1640,9 +1389,9 @@ temper's own governing documents.\n";
 
     #[test]
     fn builtin_discovery_keys_off_the_embedded_kind_governs() {
-        // Discovery is driven by the embedded `skill`/`rule` KIND.md `governs`, not a
-        // hardwired path: the skill `*/SKILL.md` subdir glob and the rule `*.md` flat
-        // glob both resolve through the one generalized scanner.
+        // Discovery is driven by the embedded `skill`/`rule` kinds' declared `governs`,
+        // not a hardwired path: the skill `*/SKILL.md` subdir glob and the rule `*.md`
+        // flat glob both resolve through the one generalized scanner.
         let harness = tmpdir("gov-src");
         write_fixture_harness(&harness);
 
@@ -1684,11 +1433,17 @@ temper's own governing documents.\n";
         fs::create_dir_all(harness.join("mem")).unwrap();
         fs::write(harness.join("mem").join("CLAUDE.md"), "# root\n").unwrap();
 
-        let src = "governs = { root = \"mem\", glob = \"*.md\" }\nprovider = \"claude-code\"\n";
-        let doc = src.parse::<DocumentMut>().unwrap();
-        let memory =
-            CustomKind::from_header(doc.as_table(), "memory", Path::new("kinds/x/y/KIND.md"))
-                .unwrap();
+        let memory = CustomKind {
+            qualified: Some("claude-code.memory".to_string()),
+            ..CustomKind::new(
+                "memory",
+                Governs {
+                    root: "mem".to_string(),
+                    glob: "*.md".to_string(),
+                },
+                Extraction::new(Vec::new()),
+            )
+        };
 
         let found = discover_builtin(&harness, &memory).unwrap();
         assert_eq!(found, vec![harness.join("mem").join("CLAUDE.md")]);
@@ -1769,114 +1524,6 @@ temper's own governing documents.\n";
     }
 
     #[test]
-    fn writes_a_spec_surface_and_rollup_row() {
-        // A harness whose `temper.toml` declares the `spec` custom kind: discovery
-        // is data-driven off its `governs` locus, not a hardwired scan.
-        let harness = tmpdir("spec-src");
-        write_fixture_harness(&harness);
-        write_specs(&harness);
-        let into = tmpdir("spec-into");
-
-        run(&harness, &into).unwrap();
-
-        // The spec surface mirrors a rule: a `specs/<name>/` dir holding ONE member
-        // document `SPEC.md` — a provenance-only `+++` header over the whole file.
-        let surface = into.join("specs").join("20-surface");
-        assert!(surface.join("SPEC.md").is_file());
-        assert!(!surface.join("meta.toml").exists());
-        // The document begins with the provenance header; the body below it is the
-        // *entire* source — a spec has no frontmatter, so the leading `---` is prose
-        // and the missing final newline is preserved.
-        let document = fs::read_to_string(surface.join("SPEC.md")).unwrap();
-        assert!(document.starts_with("+++\n[provenance]\n"));
-        assert!(document.ends_with(SURFACE_SPEC));
-
-        // The generic custom-unit surface round-trips back through the generic
-        // unit loader (`crate::kind::Unit`) — a custom kind carries no bespoke IR,
-        // so `import`'s output is read by the same reader `check` uses. The unit body
-        // is the whole source file, below the header.
-        let unit = crate::kind::Unit::from_surface_dir(&surface).unwrap();
-        assert_eq!(unit.id, "20-surface");
-        assert_eq!(unit.body, SURFACE_SPEC);
-
-        // The roll-up carries a `[[spec]]` row per spec, name-sorted, alongside
-        // the skill and rule rows — all three kinds coexist in one import. The
-        // `notes/` subdir and `README.txt` are skipped (immediate `*.md` only).
-        let doc = fs::read_to_string(into.join("lock.toml"))
-            .unwrap()
-            .parse::<DocumentMut>()
-            .unwrap();
-        let specs = doc["spec"].as_array_of_tables().unwrap();
-        let spec_names: Vec<&str> = specs.iter().map(|t| t["name"].as_str().unwrap()).collect();
-        assert_eq!(spec_names, vec!["00-intent", "20-surface"]);
-        for table in specs.iter() {
-            assert_eq!(table["source_hash"].as_str().unwrap().len(), 64);
-            assert!(table.get("body_hash").is_none());
-            assert!(table["source_path"].as_str().unwrap().ends_with(".md"));
-        }
-
-        // A second import into the same workspace must not change a single byte.
-        let first = tree_bytes(&into);
-        run(&harness, &into).unwrap();
-        assert_eq!(first, tree_bytes(&into));
-    }
-
-    #[test]
-    fn imports_a_generic_custom_kind_via_its_governs_locus() {
-        // A custom kind that is not `spec`: an `adr` kind under a nested `docs/adr`
-        // root. Discovery is generic — the surface dir is the `governs` root, the
-        // body file is the kind name upper-cased, and the roll-up key is the kind
-        // name — so nothing is special-cased on `spec`.
-        let harness = tmpdir("adr-src");
-        write_fixture_harness(&harness);
-        let adr_dir = harness.join("docs").join("adr");
-        fs::create_dir_all(&adr_dir).unwrap();
-        let adr_body = "# ADR 0001 — adopt the surface\n\nContext, decision, no final newline.";
-        fs::write(adr_dir.join("0001-surface.md"), adr_body).unwrap();
-        // Noise the glob must skip: a non-`.md` sibling.
-        fs::write(adr_dir.join("index.txt"), "not an adr\n").unwrap();
-        // Register the `adr` kind and author its definition under `.temper/kinds/adr/`.
-        fs::write(
-            harness.join("temper.toml"),
-            "[kind.adr]\npackage = \"adr\"\n",
-        )
-        .unwrap();
-        let adr_kind_dir = harness.join(".temper").join("kinds").join("adr");
-        fs::create_dir_all(&adr_kind_dir).unwrap();
-        fs::write(
-            adr_kind_dir.join("KIND.md"),
-            "+++\ngoverns = { root = \"docs/adr\", glob = \"*.md\" }\n+++\n# The adr kind\n",
-        )
-        .unwrap();
-
-        let into = tmpdir("adr-into");
-        run(&harness, &into).unwrap();
-
-        // The unit lands at `<into>/<root>/<name>/` as ONE member document `<KIND>.md`
-        // — a provenance-only `+++` header over the whole file byte-faithful.
-        let surface = into.join("docs").join("adr").join("0001-surface");
-        assert!(surface.join("ADR.md").is_file());
-        assert!(!surface.join("meta.toml").exists());
-        let document = fs::read_to_string(surface.join("ADR.md")).unwrap();
-        assert!(document.starts_with("+++\n[provenance]\n"));
-        assert!(document.ends_with(adr_body));
-
-        // The roll-up carries an `[[adr]]` row — keyed by the kind name — while the
-        // non-`.md` sibling is skipped.
-        let doc = fs::read_to_string(into.join("lock.toml"))
-            .unwrap()
-            .parse::<DocumentMut>()
-            .unwrap();
-        let adrs = doc["adr"].as_array_of_tables().unwrap();
-        let names: Vec<&str> = adrs.iter().map(|t| t["name"].as_str().unwrap()).collect();
-        assert_eq!(names, vec!["0001-surface"]);
-        assert!(
-            adrs.iter()
-                .all(|t| t["source_hash"].as_str().unwrap().len() == 64)
-        );
-    }
-
-    #[test]
     fn no_declared_custom_kind_imports_builtins_only() {
         // The base fixture carries skills and rules and a `specs/` corpus on disk,
         // but NO `temper.toml` declaring the `spec` kind — so discovery is
@@ -1886,7 +1533,7 @@ temper's own governing documents.\n";
         write_fixture_harness(&harness);
         let specs = harness.join("specs");
         fs::create_dir_all(&specs).unwrap();
-        fs::write(specs.join("20-surface.md"), SURFACE_SPEC).unwrap();
+        fs::write(specs.join("20-surface.md"), "# The config surface\n").unwrap();
         let into = tmpdir("nospec-into");
 
         run(&harness, &into).unwrap();
@@ -1965,78 +1612,20 @@ temper's own governing documents.\n";
     }
 
     /// A `<provider>`-qualified embedded carrier of a given bare `name`, scanning `root`
-    /// with `glob` — the shape the compiled-in table gains once the curated carriers land.
-    /// A built-in kind rides the frontmatter face, so it needs no declared `format`.
+    /// with `glob` — the shape the compiled-in table carries. A built-in kind rides the
+    /// frontmatter face, so it needs no declared `format`.
     fn embedded_carrier(name: &str, provider: &str, root: &str, glob: &str) -> CustomKind {
-        let src = format!(
-            "governs = {{ root = \"{root}\", glob = \"{glob}\" }}\nprovider = \"{provider}\"\n"
-        );
-        let doc = src.parse::<DocumentMut>().unwrap();
-        CustomKind::from_header(doc.as_table(), name, Path::new("kinds/x/y/KIND.md")).unwrap()
-    }
-
-    #[test]
-    fn a_registration_shadows_two_embedded_carriers_of_its_bare_name() {
-        // Two providers co-embed a bare `memory` kind; the project registers its own
-        // `memory` custom kind over `**/MEMORY.md`. Registration owns the bare name: the
-        // embedded carriers are shadowed and the project kind imports its members — never
-        // silently preempted (`specs/architecture/15-kinds.md`, "Decision: kind identity
-        // carries a provider axis").
-        let harness = tmpdir("shadow-src");
-        write_fixture_harness(&harness);
-        register_custom_kind(
-            &harness,
-            "memory",
-            "+++\n\
-governs = { root = \"memory\", glob = \"**/MEMORY.md\" }\n\
-unit_shape = \"file\"\n\
-+++\n\
-# The memory kind\n",
-        );
-        let mem = harness.join("memory");
-        fs::create_dir_all(mem.join("api")).unwrap();
-        fs::write(mem.join("MEMORY.md"), "root memory\n").unwrap();
-        fs::write(mem.join("api").join("MEMORY.md"), "api memory\n").unwrap();
-
-        // The two carriers scan the *same* `memory` locus, so an un-shadowed carrier would
-        // preempt the project kind (symptom A) or clobber its lock rows (symptom C).
-        let mut builtins = builtin_kind::definitions().unwrap();
-        for provider in ["agents-md", "claude-code"] {
-            let carrier = embedded_carrier("memory", provider, "memory", "**/MEMORY.md");
-            builtins.insert(carrier.qualified_name(), carrier);
+        CustomKind {
+            qualified: Some(format!("{provider}.{name}")),
+            ..CustomKind::new(
+                name,
+                Governs {
+                    root: root.to_string(),
+                    glob: glob.to_string(),
+                },
+                Extraction::new(Vec::new()),
+            )
         }
-
-        let into = tmpdir("shadow-into");
-        run_with_builtins(&harness, &into, &builtins).unwrap();
-
-        let doc = fs::read_to_string(into.join("lock.toml"))
-            .unwrap()
-            .parse::<DocumentMut>()
-            .unwrap();
-        // The project's `memory` kind imported its members — not preempted by the carriers.
-        let names: Vec<&str> = doc["memory"]
-            .as_array_of_tables()
-            .unwrap()
-            .iter()
-            .map(|t| t["name"].as_str().unwrap())
-            .collect();
-        assert_eq!(names, vec!["MEMORY", "api-MEMORY"]);
-        // The shadowed carriers wrote no section under either qualified identity.
-        assert!(doc.get("agents-md.memory").is_none());
-        assert!(doc.get("claude-code.memory").is_none());
-        // The members are real on disk, folded to distinct placement ids.
-        assert!(
-            into.join("memory")
-                .join("MEMORY")
-                .join("MEMORY.md")
-                .is_file()
-        );
-        assert!(
-            into.join("memory")
-                .join("api-MEMORY")
-                .join("MEMORY.md")
-                .is_file()
-        );
     }
 
     #[test]
@@ -2115,289 +1704,6 @@ unit_shape = \"file\"\n\
         // Deterministic and idempotent even with the qualified keys in play.
         let first = tree_bytes(&into);
         run_with_builtins(&harness, &into, &builtins).unwrap();
-        assert_eq!(first, tree_bytes(&into));
-    }
-
-    /// A body whose trailing bytes (no final newline) must survive the frontmatter
-    /// split intact.
-    const PLAYBOOK_SOURCE: &str = "---\n\
-title: Deploy\n\
-owner: platform\n\
----\n\
-# Deploy playbook\n\
-\n\
-Run the steps.   \n\
-No final newline.";
-
-    /// Register a custom kind under `temper.toml` and author its `KIND.md` definition
-    /// (`+++`-fenced header) under `.temper/kinds/<name>/` — the discovery wiring both
-    /// the frontmatter and whole-file custom paths key off.
-    fn register_custom_kind(root: &Path, name: &str, kind_md: &str) {
-        fs::write(
-            root.join("temper.toml"),
-            format!("[kind.{name}]\npackage = \"{name}\"\n"),
-        )
-        .unwrap();
-        let kind_dir = root.join(".temper").join("kinds").join(name);
-        fs::create_dir_all(&kind_dir).unwrap();
-        fs::write(kind_dir.join("KIND.md"), kind_md).unwrap();
-    }
-
-    #[test]
-    fn a_directory_shaped_frontmatter_custom_kind_ids_from_the_dir_and_lifts_fields() {
-        // A custom kind whose declared `unit_shape`/`format` are load-bearing: a
-        // directory-shaped `yaml-frontmatter` kind. The id is the directory name (not the
-        // file stem), the declared `title` lifts into the header, and the companion rides
-        // along — none of which the old whole-file path honored.
-        let harness = tmpdir("dir-fm-src");
-        write_fixture_harness(&harness);
-        register_custom_kind(
-            &harness,
-            "playbook",
-            "+++\n\
-governs = { root = \"playbooks\", glob = \"*/PLAYBOOK.md\" }\n\
-format = \"yaml-frontmatter\"\n\
-unit_shape = \"directory\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"field\"\n\
-key = \"title\"\n\
-+++\n\
-# The playbook kind\n",
-        );
-        let deploy = harness.join("playbooks").join("deploy");
-        fs::create_dir_all(deploy.join("scripts")).unwrap();
-        fs::write(deploy.join("PLAYBOOK.md"), PLAYBOOK_SOURCE).unwrap();
-        fs::write(deploy.join("scripts").join("run.sh"), SCRIPT).unwrap();
-
-        let into = tmpdir("dir-fm-into");
-        run(&harness, &into).unwrap();
-
-        // The surface dir is named for the *directory* (`directory` shape), not the
-        // `PLAYBOOK.md` stem — the id derivation the declared `unit_shape` buys.
-        let surface = into.join("playbooks").join("deploy");
-        assert!(surface.join("PLAYBOOK.md").is_file());
-
-        // The declared `title` lifts into a `[clause.*]` header table (the unknown
-        // `owner` key follows it) — the frontmatter is split, not preserved whole.
-        let document = fs::read_to_string(surface.join("PLAYBOOK.md")).unwrap();
-        assert!(document.contains("[clause.title]\nvalue = \"Deploy\""));
-        assert!(document.contains("[clause.owner]\nvalue = \"platform\""));
-
-        // The member reloads through the generic adapter: id from the dir, declared
-        // field readable, body byte-faithful below the header (trailing bytes intact).
-        let member = Member::from_surface(&surface, "PLAYBOOK.md").unwrap();
-        assert_eq!(member.id, "deploy");
-        assert_eq!(
-            member.field("title").and_then(|v| v.as_str()),
-            Some("Deploy")
-        );
-        assert_eq!(
-            member.body,
-            "# Deploy playbook\n\nRun the steps.   \nNo final newline."
-        );
-
-        // The directory-shaped unit's companion rode along byte-for-byte.
-        assert_eq!(
-            fs::read(surface.join("scripts").join("run.sh")).unwrap(),
-            SCRIPT
-        );
-
-        // The roll-up carries a `[[playbook]]` row keyed by the directory-name id.
-        let doc = fs::read_to_string(into.join("lock.toml"))
-            .unwrap()
-            .parse::<DocumentMut>()
-            .unwrap();
-        let names: Vec<&str> = doc["playbook"]
-            .as_array_of_tables()
-            .unwrap()
-            .iter()
-            .map(|t| t["name"].as_str().unwrap())
-            .collect();
-        assert_eq!(names, vec!["deploy"]);
-
-        // Idempotent on re-import.
-        let first = tree_bytes(&into);
-        run(&harness, &into).unwrap();
-        assert_eq!(first, tree_bytes(&into));
-    }
-
-    #[test]
-    fn an_any_depth_glob_discovers_a_nested_hierarchy_with_placement_folded_ids() {
-        // A memory-format custom kind (no format ⇒ whole-file byte-faithful) whose
-        // `governs.glob` opens with the any-depth `**` wildcard, modelling the nested
-        // nearest-wins hierarchy of `AGENTS.md`/`CLAUDE.md`: a `MEMORY.md` at the root
-        // and at two deeper levels, every one discovered — not just the fixed glob
-        // depth — and each folded to a distinct surface id by its placement.
-        let harness = tmpdir("recursive-src");
-        write_fixture_harness(&harness);
-        register_custom_kind(
-            &harness,
-            "memory",
-            "+++\n\
-governs = { root = \"memory\", glob = \"**/MEMORY.md\" }\n\
-unit_shape = \"file\"\n\
-+++\n\
-# The memory kind\n",
-        );
-        let root = harness.join("memory");
-        fs::create_dir_all(root.join("api").join("db")).unwrap();
-        fs::write(root.join("MEMORY.md"), "root memory\n").unwrap();
-        fs::write(root.join("api").join("MEMORY.md"), "api memory\n").unwrap();
-        fs::write(root.join("api").join("db").join("MEMORY.md"), "db memory\n").unwrap();
-        // Noise the glob must skip: a same-named file is the whole point, but a
-        // differently-named sibling at depth is not a member.
-        fs::write(root.join("api").join("NOTES.md"), "not a member\n").unwrap();
-
-        let into = tmpdir("recursive-into");
-        run(&harness, &into).unwrap();
-
-        // Every level is discovered, and the root vs nested files carry distinct,
-        // placement-folded ids rather than collapsing onto one clobbered `MEMORY` dir.
-        let doc = fs::read_to_string(into.join("lock.toml"))
-            .unwrap()
-            .parse::<DocumentMut>()
-            .unwrap();
-        let names: Vec<&str> = doc["memory"]
-            .as_array_of_tables()
-            .unwrap()
-            .iter()
-            .map(|t| t["name"].as_str().unwrap())
-            .collect();
-        assert_eq!(names, vec!["MEMORY", "api-MEMORY", "api-db-MEMORY"]);
-
-        // Each id is a real, separate surface directory carrying its own body — no
-        // clobber (three same-named sources, three distinct surfaces).
-        for (name, body) in [
-            ("MEMORY", "root memory\n"),
-            ("api-MEMORY", "api memory\n"),
-            ("api-db-MEMORY", "db memory\n"),
-        ] {
-            let surface = into.join("memory").join(name);
-            let document = fs::read_to_string(surface.join("MEMORY.md")).unwrap();
-            assert!(document.starts_with("+++\n[provenance]\n"));
-            assert!(document.ends_with(body));
-        }
-
-        // Re-import into the same workspace changes not a single byte.
-        let first = tree_bytes(&into);
-        run(&harness, &into).unwrap();
-        assert_eq!(first, tree_bytes(&into));
-    }
-
-    #[test]
-    fn an_any_depth_glob_folds_placement_on_the_frontmatter_face_too() {
-        // The frontmatter face folds placement identically: a `yaml-frontmatter`
-        // file-shaped kind with an any-depth glob imports two nested same-named files
-        // to distinct surface ids, symmetric with the whole-file face above — both
-        // faces name a nested unit the same way.
-        let harness = tmpdir("recursive-fm-src");
-        write_fixture_harness(&harness);
-        register_custom_kind(
-            &harness,
-            "log",
-            "+++\n\
-governs = { root = \"logs\", glob = \"**/LOG.md\" }\n\
-format = \"yaml-frontmatter\"\n\
-unit_shape = \"file\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"field\"\n\
-key = \"title\"\n\
-+++\n\
-# The log kind\n",
-        );
-        let logs = harness.join("logs");
-        fs::create_dir_all(logs.join("2026")).unwrap();
-        fs::write(logs.join("LOG.md"), "---\ntitle: Root\n---\n# Root log\n").unwrap();
-        fs::write(
-            logs.join("2026").join("LOG.md"),
-            "---\ntitle: Yearly\n---\n# Yearly log\n",
-        )
-        .unwrap();
-
-        let into = tmpdir("recursive-fm-into");
-        run(&harness, &into).unwrap();
-
-        // Distinct placement-folded surface ids, each reloading through the generic
-        // adapter with its own declared field and body.
-        let doc = fs::read_to_string(into.join("lock.toml"))
-            .unwrap()
-            .parse::<DocumentMut>()
-            .unwrap();
-        let names: Vec<&str> = doc["log"]
-            .as_array_of_tables()
-            .unwrap()
-            .iter()
-            .map(|t| t["name"].as_str().unwrap())
-            .collect();
-        assert_eq!(names, vec!["2026-LOG", "LOG"]);
-
-        let root = Member::from_surface(&into.join("logs").join("LOG"), "LOG.md").unwrap();
-        assert_eq!(root.id, "LOG");
-        assert_eq!(root.field("title").and_then(|v| v.as_str()), Some("Root"));
-        let nested = Member::from_surface(&into.join("logs").join("2026-LOG"), "LOG.md").unwrap();
-        assert_eq!(nested.id, "2026-LOG");
-        assert_eq!(
-            nested.field("title").and_then(|v| v.as_str()),
-            Some("Yearly")
-        );
-
-        // Idempotent on re-import.
-        let first = tree_bytes(&into);
-        run(&harness, &into).unwrap();
-        assert_eq!(first, tree_bytes(&into));
-    }
-
-    #[test]
-    fn a_file_shaped_frontmatter_custom_format_splits_declared_fields() {
-        // A file-shaped `yaml-frontmatter` custom kind: the id is the file stem, and the
-        // declared field splits into the header with the body byte-faithful below it —
-        // the frontmatter is lifted, not carried whole as the frontmatterless path does.
-        let harness = tmpdir("file-fm-src");
-        write_fixture_harness(&harness);
-        register_custom_kind(
-            &harness,
-            "note",
-            "+++\n\
-governs = { root = \"notes\", glob = \"*.md\" }\n\
-format = \"yaml-frontmatter\"\n\
-unit_shape = \"file\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"field\"\n\
-key = \"title\"\n\
-+++\n\
-# The note kind\n",
-        );
-        let notes = harness.join("notes");
-        fs::create_dir_all(&notes).unwrap();
-        fs::write(
-            notes.join("idea.md"),
-            "---\ntitle: An idea\n---\n# Idea\n\nBody, no final newline.",
-        )
-        .unwrap();
-
-        let into = tmpdir("file-fm-into");
-        run(&harness, &into).unwrap();
-
-        // The surface dir is named for the file stem (`file` shape).
-        let surface = into.join("notes").join("idea");
-        let document = fs::read_to_string(surface.join("NOTE.md")).unwrap();
-        assert!(document.contains("[clause.title]\nvalue = \"An idea\""));
-
-        let member = Member::from_surface(&surface, "NOTE.md").unwrap();
-        assert_eq!(member.id, "idea");
-        assert_eq!(
-            member.field("title").and_then(|v| v.as_str()),
-            Some("An idea")
-        );
-        // The body is everything below the frontmatter, byte-faithful.
-        assert_eq!(member.body, "# Idea\n\nBody, no final newline.");
-
-        // Idempotent on re-import.
-        let first = tree_bytes(&into);
-        run(&harness, &into).unwrap();
         assert_eq!(first, tree_bytes(&into));
     }
 }
