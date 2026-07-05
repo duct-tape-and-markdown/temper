@@ -1,56 +1,5 @@
 [
   {
-    "tag": "CLI-COLLAPSE",
-    "summary": "The CLI collapses to init·check·emit·install·bundle·schema — retire import/diff/session-start/why/requirements/impact/context; temper guard lands",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "CLI surface"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Collapse the `Command` enum to the corpus surface (20-surface, 'CLI surface'): keep init·check·emit·install·bundle·schema; RETIRE the `Import`, `Diff`, `SessionStart` (a verb — session start is a check reporter, not a verb, 50-distribution), `Why`, `Requirements`, `Impact`, `Context` variants and their dispatch arms. ADD `Command::Guard` — the `temper guard` subcommand reading the `PreToolUse` stdin payload, blocking per the author's declared surface-authority posture (note/warn/block), default advisory (50-distribution, the guard Decision; (guard-posture) resolved). `explain` is NOT added here — it lands fork-gated at EXPLAIN-UNIFY."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Replace the migration-era always-exit-0 guard grep (`install::guard_command`, ~454) with wiring for the `temper guard` subcommand at the provider write boundary; the enforcement posture is author-declared, install-wired, enumerated, self-audited (20-surface, 'surface authority is a declared posture')."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "The four read verbs' dispatch (why/impact/context/requirements) is removed from the CLI here; the read TRAVERSALS are re-homed under the single `explain` verb at EXPLAIN-UNIFY. Trim only what the retired CLI arms reference; leave the graph-walk helpers explain reuses."
-        },
-        {
-          "path": "tests/session_start.rs",
-          "description": "Session-start is a check reporter, not a verb — reconcile these to drive `check` with the session-start reporter, not a `SessionStart` command."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "The four-verb CLI tests reconcile: the verbs retire; their traversals move to explain (EXPLAIN-UNIFY). Trim/retarget to the surviving reporter/guard behavior."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Reconcile the CLI surface assertions to init·check·emit·install·bundle·schema·guard."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "the CLI exposes init·check·emit·install·bundle·schema·guard; the retired verbs are gone"
-      }
-    ],
-    "acceptance": "`temper --help` lists init·check·emit·install·bundle·schema·guard; `temper guard` reads a PreToolUse payload and blocks/warns/notes per the declared posture (default advisory); session-start is a check reporter.",
-    "notes": "explain deferred to EXPLAIN-UNIFY (fork-gated on (explain-target-disambiguation)) so the demolition does not stall on an unresolved design question. Guard rides here per John's step-4 ('temper guard lands'); the posture model is carried by SDK-RECUT upstream."
-  },
-  {
     "tag": "MANIFEST-MACHINERY-RETIRE",
     "summary": "Retire the manifest machinery — temper.toml/roster.toml/bindings.toml + their reader and the contract/ byte-parity corpus",
     "per": {
