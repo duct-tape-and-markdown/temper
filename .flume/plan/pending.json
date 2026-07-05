@@ -7,8 +7,7 @@
       "section": "Decision: one authored assembly, no configuration dialect"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCK-ASSEMBLY-ROWS-COMPLETE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
