@@ -77,10 +77,13 @@ exit 0 — because the OLD copy-tree `.temper/lock.toml` still carries the
 declaration rows. The spec-kind disappearance the inbox flags is the **expected**
 re-cut consequence (custom kinds are SDK-authored, `custom_kinds` hardcoded empty
 at main.rs:712), foundation-gated, not a new bug. The silent-skip itself is
-independently a corpus violation (50-distribution "Fail-loud delivery") and is
-filed as the pickable **GATE-FAIL-LOUD-EMPTY-ASSEMBLY** (the interim fail-loud
-safety net); the deeper producer/root restoration is `(inplace-lock-producer)`
-below.
+independently a corpus violation (50-distribution "Fail-loud delivery") and
+**SHIPPED** as the interim fail-loud safety net **GATE-FAIL-LOUD-EMPTY-ASSEMBLY**
+(build b521ff3 / chore 7d6a846; `check::empty_assembly_incoherence` src/check.rs:348
+emits `coverage.empty-assembly` as an error + non-zero exit when a harness declares
+members/requirements the gate resolves none of and the lock carries no declaration
+rows, tests/gate_fail_loud.rs); the deeper producer/root restoration is
+`(inplace-lock-producer)` below.
 DONE (2026-07-04, post-merge reconcile): **AGENT-KIND, COMMAND-KIND, and
 SETTINGS-KIND are RETIRED from pending** — every mechanism they named is
 rejected by the re-cut: there is no `KIND.md` (15-kinds "Decision: field
@@ -146,8 +149,9 @@ New forks from the ceremony:
   **dogfood-data** restoration: temper's own `temper.toml` (17 stale
   document-carriage members) wants regenerating via the new `init` to in-place
   `source` members — fence/human territory, gated on this fork. GATE-FAIL-LOUD-
-  EMPTY-ASSEMBLY is the interim safety net (fail-loud on the incoherence), not
-  this restoration; it does not depend on this fork. Human to settle the
+  EMPTY-ASSEMBLY (the interim safety net — fail-loud on the incoherence, not this
+  restoration) **has SHIPPED** (b521ff3), so the silent `checked 0 … exit 0` now
+  errors loudly; it did not depend on this fork. Human to settle the
   transitional producer + root before re-arming the self-gate against a
   harness-root `check`.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in

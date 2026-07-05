@@ -1,29 +1,25 @@
 # Plan state
 
-- **Phase:** reconciled the wave-end confirmation. The demolition wave drained
-  green but the first post-wave `temper check .` on temper's own harness checked
-  **0 members and exited 0** — the exact silent-skip temper exists to catch.
-  Diagnosed on disk (not the log) and split: one pickable fail-loud slice + one
-  human-gated fork.
-- **Last shipped:** EXPLAIN-UNIFY (build c9a576c / chore 24dc162) — terminal leaf
-  of the six-noun demolition chain.
-- **This tick:** verified the regression's cause — the wave flipped the gate to
-  read its assembly (requirements/edges) off `<workspace>/lock.toml` and members
-  off in-place `[[member]]`/surface tree, but the new in-place `init` writes no
-  lock (only copy-tree `import::run` does) and temper.toml still carries 17 stale
-  document-carriage members. So `check .` (harness root) resolves an absent lock
-  + absent `./skills` → nothing checked, exit 0. `temper check` (default
-  `./.temper`) still works (4 members, requirements filled). Filed the silent-skip
-  as GATE-FAIL-LOUD-EMPTY-ASSEMBLY (open, 50-distribution "Fail-loud delivery")
-  and the deeper producer/root restoration as the `(inplace-lock-producer)` fork
-  (human-gated on the SDK-primary foundation). Drained the inbox.
-- **In flight:** GATE-FAIL-LOUD-EMPTY-ASSEMBLY is the one pickable `open` head.
-  PACKAGING-CHANNELS parked on human release creds.
-- **What's next:** build picks GATE-FAIL-LOUD-EMPTY-ASSEMBLY (the fail-loud
-  safety net). The full restoration — who produces the transitional lock's
-  declaration rows, and what `check`'s root is — waits on John (`(inplace-lock-
-  producer)`), as does the dogfood regeneration and re-arming the self-gate.
+- **Phase:** reconciled a quiescent queue. The demolition wave and its interim
+  fail-loud safety net have both drained; every remaining thread is human-gated.
+- **Last shipped:** GATE-FAIL-LOUD-EMPTY-ASSEMBLY (build b521ff3 / chore 7d6a846)
+  — verified on disk: `check::empty_assembly_incoherence` (src/check.rs:348) emits
+  `coverage.empty-assembly` as an error + non-zero exit when a harness declares
+  members/requirements the gate resolves none of and the lock carries no
+  declaration rows (tests/gate_fail_loud.rs). The wave-end silent `checked 0 …
+  exit 0` now fails loud.
+- **This tick:** confirmed the safety net shipped on disk (not the log), reconciled
+  the two stale open-questions references (the pickable/interim GATE-FAIL-LOUD
+  wording → SHIPPED). Inbox empty. PACKAGING-CHANNELS' cite (50-distribution
+  "Three channels") is untouched and still accurately parked on human release creds.
+- **In flight:** none pickable. PACKAGING-CHANNELS is parked on human release
+  setup (npm org + @temper scope, marketplace/signing creds; rides the SDK-primary
+  foundation).
+- **What's next:** the deeper restoration — who produces the transitional lock's
+  declaration rows and what `check`'s root is — waits on John (`(inplace-lock-
+  producer)`), as does the dogfood regeneration and re-arming the self-gate. No
+  un-gated pickable work for build; the queue correctly idles on the human.
 
-Plan continues: no — queue reconciled, inbox drained, one pickable `open` head
-filed; hand to build. The deeper restoration is fork-gated on the human, not
-additional plan work this turn.
+Plan continues: no — queue reconciled, inbox empty, the one remaining pending
+entry is parked and every other thread is fork-gated on John. No pickable `open`
+head to file without inventing intent the corpus does not carry.
