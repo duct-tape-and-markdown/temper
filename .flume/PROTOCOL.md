@@ -29,10 +29,11 @@ This repo carries **two** harnesses with different owners:
 1. **The flume harness** (`.flume/`) — the build pipeline. Authored by humans;
    never edited by the `build` phase.
 2. **The Claude Code harness** (`.claude/`, `CLAUDE.md`) — the *product domain*:
-   the very artifacts `temper` is built to project. It is also `temper`'s first
-   dogfood fixture and the environment the build agents themselves run inside, so
-   it is hand-curated to an exemplary standard. The `build` phase never edits it;
-   changes flow through human `chore(harness):` commits.
+   the very artifacts `temper` is built to project, and the environment the
+   build agents themselves run inside, so it is hand-curated to an exemplary
+   standard. The `build` phase never edits it; changes flow through human
+   `chore(harness):` commits. (The recursive dogfood — temper gating this
+   repo's own harness — is deactivated; John's ruling, 2026-07-04.)
 
 `writablePaths` in `chain.ts` enforces both exclusions mechanically.
 

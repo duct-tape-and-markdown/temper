@@ -19,18 +19,26 @@ reconciles code against the living corpus every tick; build executes one entry
 at a time against its cited spec section. Intent is human-authored, never written
 by a phase.
 
-## The recursive dogfood — read this
+## The two harnesses — read this
 
 This repo carries **two distinct harnesses**; do not conflate them:
 
 1. **`.flume/`** — the flume build pipeline (plan → build, gated commits). Human
    territory; the `build` phase never edits it.
 2. **`.claude/` + this `CLAUDE.md`** — the Claude Code harness. It is the *product
-   domain*: the exact artifact kinds `temper` is built to project. It is also
-   `temper`'s first dogfood fixture and the environment you (and the flume build
-   agents) run inside. It is hand-curated to an exemplary standard on purpose —
-   when you touch it, hold it to the bar `temper` will one day lint. Changes flow
-   through human `chore(harness):` commits, never `build:` ticks.
+   domain*: the exact artifact kinds `temper` is built to project, and the
+   environment you (and the flume build agents) run inside. It is hand-curated
+   to an exemplary standard on purpose — when you touch it, hold it to the bar
+   `temper` lints. Changes flow through human `chore(harness):` commits, never
+   `build:` ticks.
+
+The **recursive dogfood** — temper gating its host repo's own harness
+(`.temper/` workspace, `temper.toml` assembly, self-check gate, session-start
+hook) — is **deactivated** (John's ruling, 2026-07-04: cumbersome; it cost two
+self-gate reverts, a per-wave deactivation ceremony, and a producer fork).
+Validation lives in `tests/` fixtures. A real dogfood returns when the
+SDK-primary authoring path (`harness.ts` → emit) is the product's own front
+door.
 
 ## Tech stack
 

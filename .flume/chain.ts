@@ -105,30 +105,12 @@ const testGate = shellGate({
   failHint: "Tests failed — entry reverted, returns to pending.",
 });
 
-/**
- * The self-hosting gate (`specs/intent/00-intent.md` finish line): temper checks its
- * own harness surface (temper.toml + .temper/ + .claude/) after every merge.
- * Advisories report without failing (exit 0); a `required` violation — broken
- * conformance, coverage, or admissibility on temper's own house — reverts the
- * entry.
- *
- * DEACTIVATED during engine waves (John's ruling, 2026-07-03; captured in
- * `specs/process/90-spec-system.md`, the entity paragraph): the dogfood is a
- * **confirmation of a finished version, never a live constraint while the
- * engine underneath it is changing**. At each engine wave's end the
- * interactive session runs the confirmation pass (rebuild, re-import,
- * `temper check`, one commit) and re-wires this gate into `gates` below.
- * Re-armed 2026-07-03 after the rung/install wave's confirmation pass.
- */
-const selfCheckGate = shellGate({
-  name: "temper check (self)",
-  when: "afterMerge",
-  cmd: "cargo",
-  args: ["run", "--quiet", "--", "check"],
-  failHint:
-    "temper's own surface went red — fix the code or the harness, never bypass the self-check.",
-});
-void selfCheckGate; // deactivated for the demolition wave — see gates below; re-wire at wave end.
+// The self-hosting gate is RETIRED (John's ruling, 2026-07-04): the dogfood —
+// temper checking its host repo's own harness per tick — is deactivated as
+// cumbersome (two self-gate reverts, per-wave deactivation ceremony, a stale-
+// binary false-block discipline, finally the (inplace-lock-producer) fork).
+// Validation lives in the test suite's fixtures; a real dogfood returns when
+// the SDK-primary authoring path is the product's own front door.
 
 /**
  * The SDK gate — resolves `(sdk-build-gate)`: `sdk/**` is TypeScript inside a
@@ -185,18 +167,6 @@ const BUILD_WRITABLE_PATHS = [
   // by `temper bundle`), NOT hand-curated like the territories below.
   "plugin/**",
 
-  // Machine outputs of the tool itself: the dogfood assembly's manifest and
-  // provenance lock. Regenerate-only — an entry that changes what the gate
-  // reads or emits reruns the tool (`temper import .` / `temper emit`), never
-  // hand-edits these. temper.toml's hand-authored floor (bindings,
-  // requirements) stays entry-scoped: touch it only when the entry names it.
-  // Admitted 2026-07-03 after two self-gate reverts (LOCK-FRESHNESS-FACTS,
-  // MANIFEST-GATE-READ) whose shared root cause was stale committed machine
-  // outputs build could not refresh — generated artifacts were misclassified
-  // as curated ones.
-  "temper.toml",
-  ".temper/lock.toml",
-
   // The SDK (`specs/architecture/20-surface.md`; `specs/architecture/50-distribution.md`,
   // the npm front door). Product code like src/** — the scaffold was the
   // delegated human half; every subsequent slice is build's.
@@ -210,7 +180,7 @@ const BUILD_WRITABLE_PATHS = [
   "contract/**",
 
   // NOTE: build does NOT touch .flume/** (the control plane), .claude/** or
-  // CLAUDE.md, .temper/** sources, specs/**, packages/**, kinds/**, or
+  // CLAUDE.md, specs/**, packages/**, kinds/**, or
   // docs/**. These are RATIFICATION territory, not "human-authored" — nearly
   // every byte in them is agent-drafted, but drafted in-session with a human
   // present, landing via ceremony commits (`specs:`, `chore(harness):`) whose
@@ -326,11 +296,6 @@ const build: Phase = {
   concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
-  // selfCheckGate DEACTIVATED for the six-noun demolition wave (John's
-  // "let's go" ruling, 2026-07-04): the wave retires the manifest path the
-  // self-check reads, so the dogfood validates the finished version at wave
-  // end (90-spec-system, the engine-wave provision), never mid-demolition.
-  // The session re-arms it after the confirmation pass.
   gates: [fmtGate, clippyGate, testGate, sdkGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
