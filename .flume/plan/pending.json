@@ -1,59 +1,5 @@
 [
   {
-    "tag": "MANIFEST-MACHINERY-RETIRE",
-    "summary": "Flip the gate to read its assembly from the lock's declaration rows and retire the temper.toml/roster.toml/bindings.toml gate machinery",
-    "per": {
-      "path": "specs/architecture/40-composition.md",
-      "section": "Decision: one authored assembly, no configuration dialect"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`gate()` sources requirements + satisfies + authority + reachability + edges from `drift::read_declarations(workspace)` — the committed-artifacts-plus-lock seam (`20-surface.md`) — instead of the temper.toml `AuthorLayer`'s assembly reads and `assembly_artifacts::load`/`merge_assembly`. Convert each `RequirementRow` to the `compose::Requirement` the roster/coverage/graph tiers already take (like `to_requirement`); the requirement↔satisfies join comes from the lock's satisfies family. Drop the `assembly_artifacts` import + call. Floor clauses keep composing from the embedded built-in floor — the compiled default program, not a manifest. 40-composition Decision rejects `temper.toml` and its `roster.toml`/`bindings.toml` decomposition as a second authoring surface."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Retire the `AuthorLayer`'s gate-facing assembly reads that only the now-flipped gate path consumed (the `[requirement.*]`/`[edge.*]`/authority/reachability accessors used as the gate's source, and the roster parse). Keep the accessors the transitional import producer (LOCK-ASSEMBLY-ROWS-COMPLETE) still calls to write the lock rows — binding is the spread in `expect`, carried as declaration rows, not composed from a manifest at gate time."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "The `[role.*]` roster parse over temper.toml retires; the set-scope check logic (count/unique/membership over each requirement's satisfier set) survives, now fed the lock-sourced `compose::Requirement` set the gate assembles. If the parse was roster.rs's only remaining input, retire the file and fold the surviving check helpers into their caller."
-        },
-        {
-          "path": "src/lib.rs",
-          "description": "Drop the `pub mod assembly_artifacts;` line for the deleted module (linear chain — no co-edit conflict)."
-        }
-      ],
-      "retire": [
-        "src/assembly_artifacts.rs",
-        "tests/assembly_artifacts_gate.rs"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "reconciled — the roster's set-scope predicates gate over the lock-sourced requirement set, no roster.toml/[role.*] surface"
-      },
-      {
-        "path": "tests/temper_toml.rs",
-        "asserts": "reconciled or retired — temper.toml is no longer the gate's assembly source (it survives only as the transitional lock producer's input)"
-      },
-      {
-        "path": "tests/manifest_kind_spelling.rs",
-        "asserts": "reconciled or retired — no manifest-as-corpus remains on the gate path"
-      }
-    ],
-    "acceptance": "The gate reads its assembly (requirements/satisfies/authority/reachability/edges) from the lock's declaration rows, never `temper.toml`/`roster.toml`/`bindings.toml`; `assembly_artifacts.rs` is deleted; the `--harness` path stays green (import writes the lock rows, the gate reads them). The transitional import producer still reads temper.toml to WRITE the lock — its SDK migration is out of scope.",
-    "notes": "Rewritten after the voluntary bail (inbox 2026-07-04). Now a clean gate-flip-plus-deletion because LOCK-ASSEMBLY-ROWS-COMPLETE lands the whole assembly on the lock. NB the retirement is gate-side only: the temper.toml→lock producer survives as the transitional dogfood source until the SDK produces it. contract/ byte-parity fixtures were the manifest tripwire — reconcile to the surviving lock/projection goldens."
-  },
-  {
     "tag": "KIND-PACKAGE-PARSE-RETIRE",
     "summary": "Retire KIND.md / PACKAGE.md parsing — a kind's schema is an SDK interface, a floor is an exported clause array; no kind/package file format",
     "per": {
