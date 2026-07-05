@@ -419,8 +419,10 @@ const makeAgent = (model: string) =>
  * Model routing: plan reconciles the queue against the corpus (judgment) and
  * runs on Opus; build executes one clearly-dictated entry under the cargo
  * gates and runs on Sonnet. The runtime exposes one shared `agent` export for
- * every phase, so route on the rendered prompt's first heading — `# ASSIGNED
- * ENTRY` is build's (prompts/build.md); everything else is plan's.
+ * every phase, so route on the runtime's `<harness>` preamble line `Phase:
+ * build` — the preamble precedes the template, so the template's own first
+ * heading never reaches startsWith (the original `# ASSIGNED ENTRY` prefix
+ * match silently routed every build tick to Opus).
  */
 const planAgent = makeAgent("claude-opus-4-8");
 const buildAgent = makeAgent("claude-sonnet-5");
@@ -428,7 +430,7 @@ const buildAgent = makeAgent("claude-sonnet-5");
 export const agent: Agent = {
   name: "phase-model-router",
   invoke: (inv) =>
-    (inv.prompt.startsWith("# ASSIGNED ENTRY") ? buildAgent : planAgent).invoke(
+    (inv.prompt.includes("Phase: build") ? buildAgent : planAgent).invoke(
       inv,
     ),
 };
