@@ -897,6 +897,31 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         &member_counts,
     ));
 
+    // The fail-loud coherence tripwire (`specs/architecture/50-distribution.md`, "Fail-loud
+    // delivery — the invariant"): the committed assembly declares members/requirements but
+    // the gate resolved none of them and the lock carries no declaration rows either — the
+    // harness-root `temper check .` case the wave-end confirmation caught (checked 0
+    // members, exit 0). `declared` never looks past the committed layer's own tables, so a
+    // correctly-rooted check (≥1 resolved member) and a genuinely empty harness (no
+    // `temper.toml` declaring anything) both stay silent.
+    let declared = layer.as_ref().is_some_and(|layer| {
+        !layer.members().is_empty()
+            || !layer.inplace_members().is_empty()
+            || !layer.requirements().is_empty()
+    });
+    let resolved_members: usize = member_counts.values().sum();
+    let declarations_empty = declarations.kinds.is_empty()
+        && declarations.clauses.is_empty()
+        && declarations.requirements.is_empty()
+        && declarations.assembly.is_empty()
+        && declarations.satisfies.is_empty();
+    diagnostics.extend(check::empty_assembly_incoherence(
+        root,
+        declared,
+        resolved_members,
+        declarations_empty,
+    ));
+
     // The freshness fact (`specs/architecture/20-surface.md`, "Drift — two freshness facts"):
     // a committed projection whose bytes no longer match the lock's emit fingerprint is
     // `config.stale`. Read off the surface `workspace`'s lock (where the members were
