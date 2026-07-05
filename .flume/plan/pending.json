@@ -1,34 +1,5 @@
 [
   {
-    "tag": "DRIFT-DIFF-RETIRE",
-    "summary": "Retire the dead four-state drift differ (diff/classify/DriftState/DriftReport/render) — drift is one disk-vs-lock comparison; the surface-vs-harness classifier is unreachable production code",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The lock and drift — one vocabulary"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "Remove the retired multi-state drift model — `pub fn diff` (drift.rs:169) and its exclusive helpers `classify`, `added_name`, `lock_surface_artifacts`, plus the types they alone use: `SurfaceArtifact`, `DriftReport`, `DriftEntry`, `DriftState`, and `pub fn render(&DriftReport)` (drift.rs:337) — together with their in-file `#[cfg(test)]` cases (drift.rs:1558-1648, the only callers of `diff`). All are unreachable in production: the gate's freshness path is `drift::read_declarations` + `drift::render_emit` (main.rs:483,592,381; there is no `Command::Drift`), and no caller outside drift.rs's own tests references any of these symbols (verified: grep over src/ + tests/ is empty). Prune any `DriftError` variant left unused after the cut. Keep everything from `EmitOptions` (drift.rs:356) onward — emit/place/config_stale/`Declarations`/`read_declarations`/`render_emit` — untouched; that is the live one-vocabulary disk-vs-lock model the corpus keeps."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/drift.rs",
-        "asserts": "the removed `#[cfg(test)]` cases (in-sync/drifted/added/removed classification, drift.rs:1558-1648) were the four-state model's only test consumers; the surviving emit/lock/config_stale tests still pass"
-      }
-    ],
-    "acceptance": "The retired surface-vs-harness drift classifier is gone from src/drift.rs; `cargo build`, `cargo test`, and `cargo clippy --all-targets -- -D warnings` stay green; the live `read_declarations` + `render_emit` disk-vs-lock freshness path is unchanged.",
-    "notes": "Dead since the drift re-cut (LOCK-FRESHNESS-FACTS): the gate compares disk vs lock via `read_declarations`; `diff`'s four-state (in-sync/drifted/added/removed) surface-vs-harness classifier reaches no command. Only its own tests kept it compiling. Cleanest of the demolition cleanup cuts — the copy-tree/producer/[[member]]-codec cuts are entangled with the live gate scaffolding (`import::run`, main.rs:287,568) and the human-gated SDK front door; see (inplace-lock-producer)."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm packages, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
