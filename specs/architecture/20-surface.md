@@ -53,7 +53,7 @@ layer to learn before the first line reads.
 
 ```
 .temper/                    # the authored program — the SDK surface
-  harness.ts                #   harness(): members · expect · require · settings · reachability
+  harness.ts                #   harness(): members · expect · require · settings
   skills/reviewer.ts        #   a member module (the face)
   skills/reviewer.md        #   its prose asset — file(), posture 1
   lock.toml                 # tool-written: provenance + emit fingerprints + declaration rows

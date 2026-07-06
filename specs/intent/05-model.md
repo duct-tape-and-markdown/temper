@@ -48,7 +48,7 @@ concepts they derive.
 
 | Concept | Is | Owning spec |
 |---|---|---|
-| **harness** | the assembly value — `harness()`: members · expect · require · settings · reachability, one typed value erasing to lock rows; no configuration dialect | `40-composition.md` |
+| **harness** | the assembly value — `harness()`: members · expect · require · settings, one typed value erasing to lock rows; no configuration dialect | `40-composition.md` |
 | **member** | the unit of authorship and the only source: name · prose? · satisfies? · requires? · needs? · typed flat fields; lives at file grain or block grain | `20-surface.md` |
 | **kind** | a class of member: a typed constructor (plain interface, tsc-checked) plus five facts of runtime residue — label, locus, layout, registration, edge fields | `15-kinds.md` |
 | **clause** | the atom of a contract: predicate · severity · guidance · cite — an SDK value that erases to compiled data; every clause decidable | `10-contracts.md` |
@@ -93,7 +93,7 @@ grammar files**; the **artifact/member role split** (the member *is* the unit �
 - a **kind** declares how its members are read (five facts over generic extraction)
   and where they live (two loci: `at(path)`, `genre(within hosts)`).
 - the **assembly** lists members, attaches every demand (`expect` universal,
-  `require` existential), holds the settings residual and the reachability dial.
+  `require` existential), holds the settings residual.
 - a **requirement** and a member's **`satisfies`** are two ends of one edge; unfilled
   and dangling are the same diagnostic from opposite sides. A member's own
   **`requires`** publishes demands from where the concept lives.

@@ -120,10 +120,10 @@ liveness: naming is not loading. A **dead registration that no live
 embed-chain rescues is the finding**: a skill whose description is empty has
 nothing for the harness to load; a rule whose path scope matches zero files
 activates never. Each is an exact fact at check time — whether it gates, and
-at what severity, is the **assembly's dial**, carried on the clause like any
-severity (`40-composition.md`). A dead edge can be deliberate — a
-work-in-progress skill with a blank description — so the dial is the
-author's, declared where edge-scope demands live, never baked into the engine.
+at what severity, is the author's, declared as an ordinary `reachable`
+clause in the assembly (`40-composition.md`), never baked into the engine. A
+dead edge can be deliberate — a work-in-progress skill with a blank
+description — so absence of the clause is absence of the finding.
 
 **Blast radius is the same closure inverted**: remove a node and the judge
 lights every node whose reachability, reference, or requirement depended on

@@ -1,14 +1,14 @@
 # Composition — the assembly
 
 The **assembly** is where a harness becomes one thing. `harness()` takes the
-whole — the members, the demands over them, the residual settings, the
-reachability dial — as **one typed value**, authored in the SDK
+whole — the members, the demands over them, the residual settings — as
+**one typed value**, authored in the SDK
 (`20-surface.md`). Like every SDK type it erases at the seam: the engine never
 sees the constructor, only the plain data it compiles to, riding the lock as
 rows. This spec owns that value and how the parts compose.
 
 ```
-Harness = members · expect · require · settings · reachability
+Harness = members · expect · require · settings
 ```
 
 There is no second authoring surface for the assembly — no configuration
@@ -115,14 +115,30 @@ authority already layers, with permission rules merging across scopes
 code.claude.com/docs/en/settings, retrieved 2026-07-04). The residual's
 exact typed field list stays open with the settings member design.
 
-## `reachability` — the dead-registration dial
+## Reachability demands are clauses — there is no fifth field
 
 Registration edges, the world node, and reachability-from-the-world are
-`45-governance.md`'s predicate. The assembly holds the **opt-in dial**: whether
-a member unreachable from the world — registered by nothing, embedded by
-nothing — is a finding at all, and at what severity. That is the assembly's
-call, never the engine's taste (`00-intent.md` law 2). Absent the dial,
-dead registrations produce no findings.
+`45-governance.md`'s predicate. Demanding it is ordinary: a `reachable`
+clause attached through `expect` — "every member of this kind is reachable
+from the world," at the severity the clause declares — or through a
+requirement's `clauses` where the demand is scoped to a satisfier set. The
+opt-in stays law 2's (`00-intent.md`): **absent any reachable clause, a dead
+registration produces no findings** — a work-in-progress skill with a blank
+description is nobody's error until an author attaches the demand.
+
+### Decision: the reachability dial retires into the clause algebra
+
+**Chosen:** unreachability is demanded by an ordinary edge-scope clause,
+attached where every demand attaches; the assembly is four fields. Opt-in
+survives as clause absence; severity, guidance, and cite are the clause's
+own; and the demand gains grain for free — per kind, or per satisfier set,
+where the dial was harness-global. **Rejected:** a dedicated `reachability`
+field on the harness record — the facet spelling one noun up
+(`10-contracts.md`, the set-scope Decision): a record enumerating one
+edge-scope predicate by name, unable to carry guidance or a cite, and a
+second severity spelling beside the clause's. The noun shape tracked the
+algebra exactly the way the requirement's `count?` facet did, and it retires
+for the same reason.
 
 ## Decision: one authored assembly, no configuration dialect
 
@@ -158,7 +174,7 @@ in use, and law 6's fearless refactoring is why it stays cheap to re-run.
 
 ## Scope boundary
 
-This spec owns the assembly value and its five fields. The clause and
+This spec owns the assembly value and its four fields. The clause and
 requirement vocabulary is `10-contracts.md`'s; kinds, genres, loci, and the
 authoring postures are `15-kinds.md`'s; members, emit, and the lock are
 `20-surface.md`'s;
