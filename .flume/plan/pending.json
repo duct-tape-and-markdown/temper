@@ -7,8 +7,7 @@
       "section": "Decision: install is the front door; the lift is its yes-path; the postures stay equal"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SCRATCH-RETIRE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,15 +15,23 @@
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Retire the `[[member]]` codec both directions: writers `write_members`/`member_to_table` and the genre/section sub-writers (compose.rs:1512-1656), and parsers `parse_member`/`parse_member_fields`/`parse_member_sections`/`parse_member_fenced`/`parse_member_genres`/`parse_member_published` (1738-1980). Retire `AuthorLayer::members()` (its consumers die with init/lift). VERIFY on disk when this becomes head: `inplace_members()` is still read by the surviving gate (`resolve_kind_units`, main.rs) — retire it only if that read is gone (install-front-door territory, S6), else keep it. Keep the `[role.*]`/severity layer if still read elsewhere; S7 finishes it."
+          "description": "Retire the document/module `[[member]]` codec. WRITE path (test-only-dead once init/lift die — emit writes the lock, nothing writes a `temper.toml` `[[member]]` table): `write_members` (1512), `write_manifest_members`/`manifest_members_to_string` (1487/1498), `member_to_table` (1559), `genre_to_table` (1656) + the genre/section sub-writers, and `inplace_member_to_table` (1535, no surviving writer). PARSE path: `parse_member`/`parse_member_fields`/`parse_member_sections`/`parse_member_fenced`/`parse_member_genres`/`parse_member_published` (1738-1980). Drop the `members: Vec<ManifestMember>` field (68), `members()` (874), the now-dead `member_corpus()` (901 — zero callers, S2 moved the gate onto the lock), and the `ManifestMember` struct (126). In `AuthorLayer::parse` (806-819) drop the `else { parse_member }` arm, KEEP the `if source { parse_inplace_member }` arm. KEEP the in-place READ path — `parse_inplace_member` (1788), `InPlaceMember`, `inplace_members()` (884) — still read by the gate (`resolve_kind_units`, main.rs); S7 finishes it with `AuthorLayer::load`. Trim the unit tests exercising the dead codec (3179-3260) and fix the now-unused `use` items (Section/FencedBlock/GenreCollections/GenreValue at compose.rs:26)."
         },
         {
           "path": "src/import.rs",
-          "description": "Remove the `init`/`lift` verbs (import.rs:254/337) — the codec's only remaining callers. Clean slate: a temporary on-ramp gap on trunk is acceptable until S6 ships the front door."
+          "description": "Remove the `init` (156) and `lift` (239) verbs — the codec's only remaining callers — and their now-orphaned helpers `scan_inplace_members` (183), `rel_slash` (212), `load_manifest` (311) (clippy `-D warnings` forces the transitive cut). KEEP `write_rollup`/`rollup_tables`/`create_dir_all`/`write_bytes` (emit's live lock-writer, S4) and the discovery family (`discover_kind_files`/`collect_glob`/`discover_builtin` — gate + install). Drop the now-unused `use crate::compose::{AuthorLayer, ManifestMember, InPlaceMember}` items (import.rs:28). Clean slate: a temporary on-ramp gap on trunk is acceptable until S6 ships the front door."
         },
         {
           "path": "src/main.rs",
-          "description": "Drop the `Command::Init` variant + dispatch (main.rs:256) and its clap definition; `install` is the sole on-ramp (S6). No `init` alias survives (clean slate)."
+          "description": "Drop the `Command::Init` variant (112) + its dispatch (255-261, `import::init`/`import::lift`) + its clap definition; `install` is the sole on-ramp (S6), no `init` alias survives (clean slate). In the `empty_assembly_incoherence` `declared` check (899) drop the `!layer.members().is_empty()` arm (members() is retired) — leave the surviving `inplace_members()`/`requirements()` arms untouched."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Remove the obsolete unit test `an_in_place_harness_has_no_lock_and_cannot_drift` (1446) — its only setup verb is `import::init` (drift.rs:1447), which dies here. The in-place drift-free path it asserted has no producer verb to scaffold it anymore (emit is the sole producer, S1); no other drift test is affected."
+        },
+        {
+          "path": "tests/genre_leaf.rs",
+          "description": "Trim the `[[member]]` manifest round-trip block (`write_manifest_members`/`ManifestMember`/`AuthorLayer` at 16/172/181) — those symbols retire in compose.rs. Keep the genre-leaf addressing coverage, rebuilt off the surviving extraction path rather than a manifest serialize/reparse cycle."
         }
       ],
       "retire": []
@@ -36,8 +43,8 @@
         "asserts": "genre leaf addressing survives without the [[member]] manifest round-trip block"
       }
     ],
-    "acceptance": "The `[[member]]` codec (both directions), `AuthorLayer::members()`, and the `init`/`lift` verbs are gone; `temper.toml` as a manifest dialect is unreadable; `cargo test` green (tests/temper_toml.rs already retired in SCRATCH-RETIRE; genre_leaf's manifest block edited out).",
-    "notes": "Clean slate (John 07-06): `init` may be removed before the front door ships — a trunk on-ramp gap is acceptable, green gates the only bar. Shares compose.rs/import.rs/main.rs — serialized behind S4. tests/temper_toml.rs retired one slice earlier in SCRATCH-RETIRE (its import::run+emit_manifest calls died there). genre_leaf.rs manifest round-trip block trimmed here."
+    "acceptance": "The document/module `[[member]]` codec (both directions), `AuthorLayer::members()`, the dead `member_corpus()`, and the `init`/`lift` verbs are gone; `temper.toml` as a manifest dialect is unreadable for document/module members (the in-place read path survives for S7); `cargo test` + `cargo clippy -D warnings` green.",
+    "notes": "Clean slate (John 07-06): `init` may go before the front door ships — a trunk on-ramp gap is acceptable, green is the only bar. Only open head; S6→S7 wait behind it (shared compose.rs/main.rs spine). member_corpus is already dead (S2 moved the gate to the lock). The manifest WRITE path is test-only-dead once init/lift die, so it all retires; the in-place READ path (parse_inplace_member/inplace_members) stays — the gate still reads it, S7 retires it with AuthorLayer::load."
   },
   {
     "tag": "INSTALL-FRONT-DOOR",
@@ -56,11 +63,11 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "(a) Scaffolder: discovery walk → generated TS member modules (`file()` pointers at the original paths, bytes untouched) + `harness.ts` skeleton — the lift's output is the SDK program and nothing else, no lock. (b) Verb: discovery report first, one question 'represent this project?' (`--yes` for agents/CI, `--no-represent`); no-path = consented SessionStart reporter alone (Node-free); yes-path = require Node+`.temper` (hard refusal with instructions when absent), ensure `@dtmd/temper` dep, scaffold, run first emit (the adoption moment), place per lock. (c) Guard/note lock-grounded: rewrite `GUARD_MESSAGE` (install.rs:101) and the managed-by note off the lock's emit-owned rows; place the modeline only when its schema artifact exists, the guard only when emit-owned paths exist ('the guard arrives with its constituency')."
+          "description": "(a) Scaffolder: discovery walk → generated TS member modules (`file()` pointers at the original paths, bytes untouched) + `harness.ts` skeleton — the lift's output is the SDK program and nothing else, no lock. (b) Verb: discovery report first, one question 'represent this project?' (`--yes` for agents/CI, `--no-represent`); no-path = consented SessionStart reporter alone (Node-free); yes-path = require Node+`.temper` (hard refusal with instructions when absent), ensure `@dtmd/temper` dep, scaffold, run first emit (the adoption moment), place per lock. (c) Guard/note lock-grounded: rewrite `GUARD_MESSAGE` (install.rs:101) and the managed-by note (`NOTE_COMMENT`, install.rs:125) off the lock's emit-owned rows; place the modeline (`MODELINE_MARKER`) only when its schema artifact exists, the guard only when emit-owned paths exist ('the guard arrives with its constituency')."
         },
         {
           "path": "src/main.rs",
-          "description": "`Command::Install` dispatch carries the one-question flow (`--yes`/`--no-represent`); `Command::Guard`'s posture reads the lock, not a `temper.toml` AuthorLayer (main.rs:390)."
+          "description": "`Command::Install` dispatch carries the one-question flow (`--yes`/`--no-represent`); `Command::Guard`'s posture reads the lock, not a `temper.toml` AuthorLayer (main.rs:375-381)."
         }
       ],
       "retire": []
@@ -73,11 +80,11 @@
       }
     ],
     "acceptance": "`temper install` is the sole on-ramp: report → one question → reporter-alone on no, or scaffold+first-emit+lock-grounded placements on yes; guard/note bind only lock-declared emit-owned paths; a `file()`-own-path member is authored territory (no guard). Cascade's report (1) dissolves.",
-    "notes": "Resolves `(carriage-aware-placements)` in code (the lock names a path a projection — 20-surface 'surface authority is a declared posture'). Depends on the built-in lock (S1) + lock-read gate (S2) + codec/init removal (S5). Shares install.rs/main.rs — serialized behind S5."
+    "notes": "Resolves `(carriage-aware-placements)` in code (the lock names a path a projection — 20-surface 'surface authority is a declared posture'). Depends on the built-in lock (S1) + lock-read gate (S2) + codec/init removal (S5). Shares install.rs/main.rs — serialized behind S5. Line refs will drift once S5 lands; reconcile-when-head refreshes them."
   },
   {
     "tag": "TEMPER-TOML-ZERO",
-    "summary": "Eradicate every remaining temper.toml reader — AuthorLayer load/authority/fold_local, the TEMPER_TOML const, explain's load_layer residue — the manifest filename is gone",
+    "summary": "Eradicate every remaining temper.toml reader — AuthorLayer load/authority/fold_local, the TEMPER_TOML const, the in-place readers, explain's load_layer residue — the manifest filename is gone",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
@@ -92,11 +99,11 @@
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Retire `AuthorLayer::load`/`authority`/`fold_local` and the `TEMPER_TOML` const — no verb reads a `temper.toml`. Any `[role.*]`/severity layer S5 left standing retires here if nothing reads it."
+          "description": "Retire `AuthorLayer::load`/`authority`/`fold_local` and the in-place read path S5 kept standing (`parse_inplace_member`, `inplace_members()`, `InPlaceMember`, the `[member]` array parse in `AuthorLayer::parse`) — no verb reads a `temper.toml` for members anymore; posture/layers come from the lock. Any `[role.*]`/severity residue retires here if nothing reads it."
         },
         {
           "path": "src/main.rs",
-          "description": "Remove the `TEMPER_TOML` usages in `explain` (main.rs:439, `load_layer`) and any guard/check residue — posture and layers come from the lock."
+          "description": "Remove the `TEMPER_TOML` const + every use (gate paths ~286-326, Guard authority ~381, explain's `load_layer` ~429). Retiring `AuthorLayer::load` cascades to every in-place consumer — `validate_inplace_kinds`, the `declared` check's `inplace_members()` arm (~900), and the inplace reads at ~470/~1029 — all die with the reader. Line refs approximate; they drift after S5/S6, reconcile-when-head refreshes."
         }
       ],
       "retire": []
@@ -109,7 +116,7 @@
       }
     ],
     "acceptance": "`rg -c 'temper\\.toml' src/ tests/` = 0; the manifest filename is retired entirely (20-surface: 'the name temper.toml retires with the manifest era entirely'). Cascade re-onboards via the new install; its manifest-era artifacts are old temper by definition.",
-    "notes": "Chain terminal. Cascade's reports (2)-(4) — the accepted-debt DATUM under `(inplace-lock-producer)` — close with this slice: no manifest-mode coverage remains. Shares compose.rs/main.rs — serialized behind S6."
+    "notes": "Chain terminal. Cascade's reports (2)-(4) — the accepted-debt DATUM under `(inplace-lock-producer)` — close with this slice: no manifest-mode coverage remains. Retiring AuthorLayer::load cascades to the in-place consumers S5 deliberately kept. Shares compose.rs/main.rs — serialized behind S6."
   },
   {
     "tag": "PACKAGING-CHANNELS",
