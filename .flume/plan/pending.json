@@ -1,5 +1,58 @@
 [
   {
+    "tag": "PKG-NOUN-EXPLAIN-DIAGNOSTIC",
+    "summary": "Re-cut the `explain` output's retired `package` noun to the surviving floor vocabulary and fix its stale package-era spec cites",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Decision: every placement speaks the corpus's vocabulary — no synonyms"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "`explain <member>` narration (read.rs:410-414) emits \"Governing package: its `{kind}` kind binds the `{name}` package, whose clauses check it.\" — the retired `package` noun in user-facing output, which 50-distribution's no-synonyms Decision forbids (the surviving unit is a **floor**, an exported clause array — 10-contracts, the package-noun Decision's residue paragraph names exactly \"diagnostics that teach the package vocabulary\"). Re-cut the string to the floor/kind/clause vocabulary. Also fix `bound_package`'s doc cites (read.rs:149-162): \"Decision: package binding is by artifact kind\" (20-surface) and \"a kind defaults to its own name as package\" (40-composition) name sections deleted in the six-noun re-cut — replace with the live cite or drop. Internal fn name `bound_package` is code's own (depth rule); only the diagnostic string + cites are in scope."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "The `PackageResolver` doc at builtin.rs:403 cites 20-surface \"package binding is by artifact kind\" — a section the re-cut deleted (verified absent from specs/). Fix the stale cite; leave the internal identifier untouched (code owns its names)."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__why_lint_runner.snap",
+          "description": "Snapshot carries the `Governing package` line — regenerate to the re-cut wording (`cargo insta accept` after the string change)."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__why_dev_standards.snap",
+          "description": "Same `Governing package` snapshot line — regenerate."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__why_collaboration.snap",
+          "description": "Same `Governing package` snapshot line — regenerate."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__why_custom_spec_member.snap",
+          "description": "Same `Governing package` snapshot line (custom-kind fallback branch) — regenerate."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__why_member_published_satisfier.snap",
+          "description": "Same `Governing package` snapshot line — regenerate."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "the `why`/`explain` snapshots contain no retired `package` noun; the governing-floor line speaks the corpus vocabulary (floor/kind/clause)"
+      }
+    ],
+    "acceptance": "`temper explain <member>` names the kind's governing **floor** (not \"package\"), so no `explain` output uses a retired synonym (50-distribution, no synonyms); read.rs/builtin.rs carry no cite to a re-cut-away spec section.",
+    "notes": "Last named residue of the package-noun retirement (10-contracts, the package-noun Decision): the conformance pass, conforms_to, and RequirementRow.package facet all shipped (PKG-NOUN-*); only the user-facing diagnostic vocabulary + stale cites remained. Disjoint from both parked entries (neither touches read.rs's diagnostic or builtin.rs's cite). Internal names (bound_package/floor_package/PackageResolver) are code's own — out of scope."
+  },
+  {
     "tag": "REQUIREMENT-CLAUSES-RECUT",
     "summary": "Recut the requirement to `means·kind·required·clauses?·verifiedBy?` — retire count/unique/membership/degree facets for a clauses array, across engine + SDK + seam",
     "per": {
@@ -8,7 +61,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "frame-scale and cross-language: the four facets live in compose.rs (Requirement + CountBound/Membership/DegreeBound), drift.rs RequirementRow columns, roster.rs (the set-scope check), AND sdk/contract.ts (:83-86, verified on disk this tick), and moving them onto a `clauses` array reshapes ClauseRow/engine dispatch to carry set/edge-scope predicates and bumps SEAM_VERSION on both sides (tests/emit.rs runs the real SDK). Needs a decomposition ceremony (John + session) to cut the serialized chain before parallel-safe slices, like GATE-READ-LOCK-DEMOLITION got. Also resolves whether reachability-as-clause and the held general-degree-band predicate ride this same clause-algebra growth."
+      "reason": "frame-scale and cross-language: the four facets live in compose.rs (Requirement + CountBound:105/Membership:158/DegreeBound:118) and sdk/contract.ts (count?/unique?/membership?/degree? at :83-86, re-verified live this tick), plus drift.rs RequirementRow columns and roster.rs (the set-scope check), and moving them onto a `clauses` array reshapes ClauseRow/engine dispatch to carry set/edge-scope predicates and bumps SEAM_VERSION on both sides (tests/emit.rs runs the real SDK). Needs a decomposition ceremony (John + session) to cut the serialized chain before parallel-safe slices, like GATE-READ-LOCK-DEMOLITION got. Also resolves whether reachability-as-clause (the REACH-DIAL replacement) and the held general-degree-band predicate ride this same clause-algebra growth."
     },
     "dependsOnForks": [],
     "files": {
@@ -24,7 +77,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A requirement carries set-/edge-scope demands as ordinary clause values (each with its own severity/guidance/cite), not named facet fields; the SDK Requirement type reads `means·kind·required·clauses?·verifiedBy?`; the lock's requirement row carries no facet columns; SEAM_VERSION bumped in lockstep.",
-    "notes": "Parked for a decomposition ceremony — the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain, not a single disjoint slice. Do not file the naive single entry. Downstream of it: reachability-as-edge-scope-clause (the REACH-DIAL replacement)."
+    "notes": "Parked for a decomposition ceremony — the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain, not a single disjoint slice. Do not file the naive single entry. Downstream of it: reachability-as-edge-scope-clause (the REACH-DIAL replacement, deferred behind this)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
