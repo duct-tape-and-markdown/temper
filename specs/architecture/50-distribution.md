@@ -126,7 +126,12 @@ authored artifacts (the schema modeline and the managed-by note) — and both ar
 **content-keyed**: each managed line carries a fingerprint of its own content,
 so staleness is detected by the same one mechanism everywhere, and `temper
 check` verifies its own gate is installed and undrifted (law 1, turned on
-itself). **Rejected:** (a) a bespoke per-integration checksum or lockfile
+itself). Both placements are **lock-grounded, never assumed**: the managed
+header lands only on paths the lock declares emit-owned (an in-place member's
+file is its authored source — no header, no guard claim; `20-surface.md`,
+surface authority), and on a harness with no lock `install` places the
+`SessionStart` reporter alone and writes no ownership claims — adoption's
+only door stays the first `emit`. **Rejected:** (a) a bespoke per-integration checksum or lockfile
 (Lefthook's approach) — a second staleness mechanism could disagree with the
 first; (b) an install-managed CI workflow file — CI is *your* repo's territory,
 and a managed workflow is a generated file nobody reads that still needs its

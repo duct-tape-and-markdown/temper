@@ -335,7 +335,16 @@ the hook binds one provider's writes, so authority is only as strong as the
 weakest uninstrumented consumer — the note is the only universal layer and CI
 the backstop wall. The guard is the `temper guard` subcommand, blocking per
 this declared posture (`50-distribution.md`, the guard Decision —
-`(guard-posture)` resolved). **Rejected:** (a) baked-in blocking —
+`(guard-posture)` resolved). **The lock is what names a path a projection**:
+the enforcement artifacts bind only where the lock's declaration rows say
+emit owns the bytes. An in-place member — its `file()` source and its
+projected path are the same file — is authored territory: the note is never
+stamped there and the guard never claims it as output, because a hand edit
+to it is an edit to the source (drift then reads as a stale fingerprint, not
+a violation). On a harness with no lock nothing is a projection and the
+enforcement artifacts have nothing to bind (the bare binary checks; it never
+adopts). (Resolves `(carriage-aware-placements)` — cascade field evidence,
+ruled 2026-07-06.) **Rejected:** (a) baked-in blocking —
 the tool determining invasiveness on a surface it was invited onto; (b)
 `emit`-stamped notes — a stamping projector breaks law 5 for every downstream
 byte-comparison; (c) framing the hook as a wall — multi-consumer loci
