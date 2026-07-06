@@ -131,13 +131,21 @@ wins.
 
 6. **Continuation marker.** End `state.md` with `Plan continues: yes — <reason>`
    ONLY if there is concrete *additional plan work* left this turn (an undrained
-   inbox, unreconciled drift, entries still to rewrite). Otherwise `Plan
-   continues: no`. **Bias hard toward `no`:** once the queue is reconciled and any
-   `open` entry exists, hand to build — building is how the queue drains. Never
-   re-emit a queue identical to the last `plan:` commit and continue; if your
-   reconciliation produced no change and pickable work exists, you are done —
-   write `Plan continues: no` and let build run. Re-planning an unchanged queue
-   is the failure mode, not diligence.
+   inbox, unreconciled drift, entries still to rewrite, or a derivation cursor
+   below). Otherwise `Plan continues: no`. **Bias hard toward `no`:** once the
+   queue is reconciled and any `open` entry exists, hand to build — building is
+   how the queue drains. Never re-emit a queue identical to the last `plan:`
+   commit and continue; if your reconciliation produced no change and pickable
+   work exists, you are done — write `Plan continues: no` and let build run.
+   Re-planning an unchanged queue is the failure mode, not diligence.
+
+   **Derivation may span ticks — like the work you slice for build, yours is
+   sliced too.** A large sweep (a ceremony's worth of spec delta, a many-file
+   reconcile) does not have to land in one tick: file what this tick derived,
+   record a cursor in `state.md` (`sweep at: <spec file / commit sha>`), and
+   write `Plan continues: yes — sweep resumes at <cursor>`. Progress is filing
+   entries or advancing the cursor; an identical queue with an unmoved cursor
+   is the spin the bias-toward-`no` exists to kill.
 
 You do NOT write `specs/` — intent is human-authored. Surface spec ambiguity as
 an open question; never silently fill it.

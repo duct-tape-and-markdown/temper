@@ -18,11 +18,9 @@ hard.
   burden — no shims, no aliases, no deprecation ceremony. Break freely
   until v0.1. Candidate home: the corpus (`55-offering.md`), via the
   `specs:` ceremony.
-- Atomize plan breakdowns (John 07-06): a pending entry is ONE gate-sized
-  commit; lettered sub-scopes are a blockedBy chain, never an entry.
-  Evidence: S6 filed whole with (a)(b)(c) sub-slices (framing leaked from
-  the session's inbox note), one 45-min tick. Candidate home: the filing
-  bar in `.flume/prompts/plan.md` (+ a PROTOCOL.md line); wave-quiet edit.
+- ~~Atomize plan breakdowns~~ HOMED 07-06: encoded in
+  `.flume/prompts/plan.md` (entry = one gate-sized commit <200k tokens;
+  sub-scopes → blockedBy; derivation itself may span ticks via a cursor).
 
 ## State of the era (2026-07-06)
 
@@ -48,15 +46,16 @@ hard.
 
 ## Parked (pointers only)
 
-- Six-slice ultracode audit (07-06): 32 verified findings, 4 action tracks —
-  claude.ai/code/artifact/b967dc6c-5d37-411c-8f43-2d4613ec632b. **HELD by
-  John: 07-06 decisions haven't derived into plan work yet — no entries or
-  ceremony batches from it until plan's routing is observed.** Watch the
-  next plan ticks for A1 (package entry), A3 (dial residue), C3 (sdk/
-  recut); if plan reconciles without filing them, the residue-paragraph →
-  entry routing is the leak to fix. One open question rides it (B2): where
-  does the authored authority posture live in the four-field assembly —
-  sdk emits `authority:"shared"`, a value the corpus never coined.
+- Six-slice ultracode audit (07-06): 32 findings —
+  claude.ai/code/artifact/b967dc6c-5d37-411c-8f43-2d4613ec632b. Routing
+  observed and RULED (07-06): leak confirmed (root cause: plan's corpus
+  glob matched nothing post-reshuffle + stale gates inherited untested);
+  prompt fixed FORWARD (corpus sight, spec-delta window, unconditional
+  residue sweep, gate re-test, cursor). Backlog routed by curated inbox
+  (A1 package noun, A3 dial, C3 sdk recut; B2 → `(authority-home)` open
+  question). Text-only reformulations (C1/C2, severity, 10-contracts
+  split) ride John's next ceremony — NO spec-correctness churn in the
+  queue. Track D hygiene folds into whichever entries open those files.
 - John's thesis (07-06, unencoded): the findings cascade toward a core
   design simpler than it seems. Test for each collapse: does the merge
   delete ceremony (role/requirement precedent — do it) or delete sayable
