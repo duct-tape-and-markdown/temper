@@ -237,7 +237,10 @@ erases at the seam**: kinds, genres, clauses, the assembly are TypeScript
 values that compile to declaration rows; the engine never sees a constructor.
 The in-flight JSON is internal, versioned in lockstep — **the SDK pins its
 engine version** — and is not a designed IR: a stable public interchange is
-admitted when its consumer lands (the entry gate), and none exists.
+admitted when its consumer lands (the entry gate), and none exists. The
+byte-parity golden corpus (`contract/`) that once tested a second writer
+against the seam retires with the two-writer era, alongside its schema
+projections.
 
 The engine does the semantics: **emit, lock, gate, explain**. It is kind- and
 schema-blind — extraction is the generic algebra, a kind's runtime residue is
@@ -308,6 +311,16 @@ harness, the built-in lock on a stranger one. There is no third declaration
 input; the name `temper.toml` retires with the manifest era entirely — a
 file by that name is from old temper, never something current temper reads
 or writes.
+
+In declaration rows, identity is a **compiled label, written once at emit**:
+a kind row's identity derives from the module that declared it (`15-kinds.md`,
+identity by import), and every row that references a kind carries that label
+verbatim. The engine treats labels as opaque — it never resolves a bare name
+against a set of providers or adjudicates a collision: collision is impossible
+upstream (a provider is a module), so two rows wearing one label is a
+malformed lock — admissibility's loud rejection (`10-contracts.md`), never a
+resolution rule. The migration-era bare-name resolution machinery retires
+with this paragraph.
 
 Drift is **one comparison in one vocabulary: disk vs lock**. An artifact
 whose bytes differ from its lock fingerprint, a source that differs from its

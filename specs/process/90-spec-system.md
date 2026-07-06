@@ -189,6 +189,14 @@ stay on the migration-era document headers.
 Every Decision records what was chosen, what was rejected, and why. A decision
 without rejected alternatives is incomplete — future readers can't audit it.
 
+A Decision that dissolves or renames a standing noun also **names what the
+dissolution retires** — the facets, verbs, diagnostics, and curated artifacts
+that spoke it. Derived layers demolish only what the corpus names: a
+dissolution recorded only as rejected prose leaves the noun alive in the
+engine (the package-era residue lesson, 2026-07-06 — the noun died in
+`10-contracts.md` while its facet, resolver, and conformance pass lived on
+uncited by any pending entry).
+
 ## The corpus
 
 Classed by directory; the `NN-` prefixes are reading order, never classing.

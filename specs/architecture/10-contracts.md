@@ -202,6 +202,19 @@ references dangle: rename a clause and its guidance silently orphans, the
 exact silent-drift failure `temper` hunts; a field on the clause value
 deletes the reference instead of checking it.
 
+The engine-side residue of the package era retires with the noun, named so no
+derived layer must guess (`90-spec-system.md`, Decisions): the `package` facet
+on requirements and the resolver behind it (a requirement constrains by
+`kind`; there is no second shape channel — Requirements, below), the
+conformance pass validating satisfiers against a bound package's contract,
+`membership` constrained by package conformance (`conforms_to` — membership's
+target is a requirement's satisfier set, above), diagnostics that teach the
+package vocabulary (`50-distribution.md`, no synonyms), and the curated
+`PACKAGE.md`/`KIND.md` trees with their embeds (`15-kinds.md`, no kind file
+format; the plugin delivers the gate, not clauses — `50-distribution.md`).
+Their citation trail is not residue: each floor clause's source moves to the
+`cite` field that already homes it, never dropped.
+
 ## Requirements — the harness's named obligations
 
 A **requirement** is a named obligation on the harness: *something must be

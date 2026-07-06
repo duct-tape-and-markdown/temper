@@ -77,6 +77,22 @@ The engine's implementation language is deliberately non-normative
 (`(engine-language)` resolved 2026-07-04: the engine stays in Rust);
 specs state the property, never the language.
 
+### Decision: the built-in lock is derived from the SDK module, never transcribed
+
+**Chosen:** the embedded default program is the first-party module's **own
+emit** — the same declaration rows an adopted harness commits (`20-surface.md`,
+"The lock and drift"), produced from `@dtmd/temper/claude-code` and embedded
+in the engine as data. The engine carries no hand-written mirror of the SDK's
+kinds or floors, and agreement between module and binary is mechanical, never
+conventional: CI re-derives the built-in lock from the module and
+byte-compares it against the embedded copy — the `--frozen` discipline aimed
+at the tool's own std-lib. **Rejected:** a hand-authored engine std-lib
+beside the SDK module — the same definitions spelled twice, in two languages,
+with no drift check between them; the migration-era engine grew four parallel
+identity tables and per-name dispatch this way (observed 2026-07-06), and two
+unreconciled homes for one fact is the exact silent drift `temper` exists to
+catch, committed at its own seam.
+
 ## The plugin — the Claude-Code-native delivery
 
 The plugin bundles the **skill** (how to operate the gate) and the

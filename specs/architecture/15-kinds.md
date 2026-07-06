@@ -290,8 +290,10 @@ author only adds a clause over it.
 ### Decision: built-ins are a module, and identity is an import
 
 **Chosen:** built-in kinds are ordinary SDK values in a published module (with
-a compiled default program in the engine binary for SDK-less checking); kind
-identity is the imported value. **Rejected:** (a) a privileged built-in path
+a compiled default program in the engine binary for SDK-less checking —
+derived from the module's own emit, never a hand-written second spelling:
+`50-distribution.md`, the derived-lock Decision); kind identity is the
+imported value. **Rejected:** (a) a privileged built-in path
 with custom kinds as a lesser bolt-on — the engine implements no kind either
 way, so privilege would be pure accident of packaging; (b) string-name
 identity with provider qualification — bare vs qualified names
