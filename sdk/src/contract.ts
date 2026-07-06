@@ -27,6 +27,12 @@ export interface Predicate {
   readonly field?: string;
   /** The predicate's scalar bounds — author-side; not yet in the erased row. */
   readonly args?: Readonly<Record<string, number>>;
+  /**
+   * `membership`'s target requirement name — author-side, like `args`. A
+   * separate slot from `field` (the checked field) since `membership` names
+   * both (`10-contracts.md`, "Judged at the node-set scope").
+   */
+  readonly target?: string;
 }
 
 // Node-scope predicates (`10-contracts.md`, "The predicate algebra").
@@ -48,6 +54,38 @@ export const forbiddenKeys = (): Predicate => ({ key: "forbidden_keys" });
 export const requireSections = (): Predicate => ({ key: "require_sections" });
 /** The member's name matches its directory. */
 export const nameMatchesDir = (): Predicate => ({ key: "name-matches-dir" });
+
+// Node-set/edge-scope predicates (`10-contracts.md`, "Judged at the node-set
+// scope" / "Judged at the edge scope") — a requirement's set-scope demands ride
+// these as ordinary clause values, the same four-channel `clause()` shape as
+// the node-scope predicates above.
+/** The satisfier set's size lies in the inclusive `[min, max]` bound. */
+export const count = (bounds: { min?: number; max?: number }): Predicate => {
+  const args: Record<string, number> = {};
+  if (bounds.min !== undefined) args.min = bounds.min;
+  if (bounds.max !== undefined) args.max = bounds.max;
+  return { key: "count", args };
+};
+/** The field's extracted value does not repeat across the satisfier set. */
+export const unique = (field: string): Predicate => ({ key: "unique", field });
+/** Every satisfier's `field` value is drawn from a feature over `target`'s own satisfier set. */
+export const membership = (field: string, target: string): Predicate => ({
+  key: "membership",
+  field,
+  target,
+});
+/** The in/out edge-count bound every satisfier must land in. At least one direction must be given. */
+export const degree = (bounds: {
+  incoming?: { min?: number; max?: number };
+  outgoing?: { min?: number; max?: number };
+}): Predicate => {
+  const args: Record<string, number> = {};
+  if (bounds.incoming?.min !== undefined) args.incoming_min = bounds.incoming.min;
+  if (bounds.incoming?.max !== undefined) args.incoming_max = bounds.incoming.max;
+  if (bounds.outgoing?.min !== undefined) args.outgoing_min = bounds.outgoing.min;
+  if (bounds.outgoing?.max !== undefined) args.outgoing_max = bounds.outgoing.max;
+  return { key: "degree", args };
+};
 
 /**
  * A clause — a predicate the author marks with a severity, the just-in-time

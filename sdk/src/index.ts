@@ -32,15 +32,19 @@ export type { Clause, Predicate, Requirement, Severity } from "./contract.js";
 export {
   allowedChars,
   clause,
+  count,
+  degree,
   forbiddenKeys,
   maxLen,
   maxLines,
+  membership,
   minLen,
   nameMatchesDir,
   required,
   requireSections,
   requirement,
   type,
+  unique,
 } from "./contract.js";
 
 // The engine room — kinds and genres as typed constructors.

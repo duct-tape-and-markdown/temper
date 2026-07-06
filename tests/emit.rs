@@ -211,6 +211,9 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
         predicate: "required".to_string(),
         field: Some("paths".to_string()),
         severity: "required".to_string(),
+        count: None,
+        target: None,
+        degree: None,
     });
     payload
         .declarations

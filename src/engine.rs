@@ -41,7 +41,7 @@
 use std::collections::BTreeSet;
 
 use crate::check::{self, Diagnostic};
-use crate::contract::{self, Contract, Predicate};
+use crate::contract::{self, Contract, EdgeBound, Predicate};
 use crate::extract::{FeatureValue, Features, Kind};
 
 /// Validate every artifact's [`Features`] against the contract's clauses,
@@ -159,6 +159,43 @@ fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
             vec![format!(
                 "`range` clause on field `{field}` has min {min} greater than max {max}"
             )]
+        }
+        // The node-set `count` bound is the same "reject min>max" rule as `range`,
+        // over the satisfier-set's cardinality rather than a field's value.
+        Predicate::Count { min, max } if min > max => {
+            vec![format!(
+                "`count` clause has min {min} greater than max {max}"
+            )]
+        }
+        // An empty `target` names no requirement to draw the allowed set from — a
+        // membership clause that can never resolve its source set.
+        Predicate::Membership { field, target } if target.is_empty() => {
+            vec![format!(
+                "`membership` clause on field `{field}` names an empty target requirement"
+            )]
+        }
+        // `degree` with neither direction bounded constrains nothing — vacuous, like
+        // an empty-list predicate. A bounded direction whose own `min > max` is
+        // likewise vacuous in that direction, the same inverted-bound rule as
+        // `range`/`count`.
+        Predicate::Degree { incoming, outgoing } => {
+            let mut messages = Vec::new();
+            if incoming.is_none() && outgoing.is_none() {
+                messages.push("`degree` clause carries no incoming or outgoing bound".to_string());
+            }
+            for (label, bound) in [("incoming", incoming), ("outgoing", outgoing)] {
+                if let Some(EdgeBound {
+                    min: Some(min),
+                    max: Some(max),
+                }) = bound
+                    && min > max
+                {
+                    messages.push(format!(
+                        "`degree` clause's {label} bound has min {min} greater than max {max}"
+                    ));
+                }
+            }
+            messages
         }
         _ => Vec::new(),
     }
@@ -393,6 +430,20 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         // and to light up with no engine change once the extractor grows a
         // declared-dependency model.
         Predicate::DependencyExists => Outcome::Indeterminate,
+
+        // The node-set/edge-scope predicates REQUIREMENT-CLAUSES-ALGEBRA admits:
+        // sayable and admissible as ordinary clauses, but this per-artifact engine
+        // judges one kind's population against `all`, not a *named requirement's*
+        // satisfier set or the reference graph — the context `Degree` needs isn't
+        // even in scope here. Unlike `dependency-exists` they already have a live
+        // judge — `crate::roster`/`crate::graph` over the `Requirement` facet
+        // fields — REQUIREMENT-CLAUSES-RECUT moves that judging onto this same
+        // clause spelling; until then this arm stays honestly `Indeterminate`
+        // rather than fabricate a scan this engine has no requirement context for.
+        Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. } => Outcome::Indeterminate,
     }
 }
 
@@ -699,6 +750,145 @@ mod tests {
                 "[{min}, {max}] is admissible"
             );
         }
+    }
+
+    #[test]
+    fn an_inverted_count_bound_is_inadmissible() {
+        // `count`'s `min > max` is the same vacuous-bound rule as `range`, over the
+        // satisfier-set's cardinality.
+        let inverted = contract(
+            ClauseSeverity::Required,
+            Predicate::Count { min: 3, max: 1 },
+        );
+        let diags = admissibility(&inverted);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "count");
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert!(any_error(&diags));
+
+        // Equal endpoints included: a well-ordered bound is admissible.
+        for (min, max) in [(0, 5), (2, 2)] {
+            let ok = contract(ClauseSeverity::Required, Predicate::Count { min, max });
+            assert!(
+                admissibility(&ok).is_empty(),
+                "[{min}, {max}] is admissible"
+            );
+        }
+    }
+
+    #[test]
+    fn a_membership_clause_with_an_empty_target_is_inadmissible() {
+        let empty_target = contract(
+            ClauseSeverity::Required,
+            Predicate::Membership {
+                field: "model".to_string(),
+                target: String::new(),
+            },
+        );
+        let diags = admissibility(&empty_target);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "membership");
+        assert_eq!(diags[0].severity, Severity::Error);
+
+        let named = contract(
+            ClauseSeverity::Required,
+            Predicate::Membership {
+                field: "model".to_string(),
+                target: "approved-models".to_string(),
+            },
+        );
+        assert!(admissibility(&named).is_empty());
+    }
+
+    #[test]
+    fn a_degree_clause_with_no_direction_is_inadmissible() {
+        // A `degree` clause bounding neither direction constrains nothing —
+        // vacuous, like an empty-list clause.
+        let no_direction = contract(
+            ClauseSeverity::Required,
+            Predicate::Degree {
+                incoming: None,
+                outgoing: None,
+            },
+        );
+        let diags = admissibility(&no_direction);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "degree");
+        assert_eq!(diags[0].severity, Severity::Error);
+
+        // At least one bounded direction is admissible — the routed (incoming) and
+        // self-registering (outgoing-only) idioms both stand.
+        let routed = contract(
+            ClauseSeverity::Required,
+            Predicate::Degree {
+                incoming: Some(EdgeBound {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            },
+        );
+        assert!(admissibility(&routed).is_empty());
+    }
+
+    #[test]
+    fn a_degree_clause_with_an_inverted_direction_bound_is_inadmissible() {
+        let inverted = contract(
+            ClauseSeverity::Required,
+            Predicate::Degree {
+                incoming: Some(EdgeBound {
+                    min: Some(5),
+                    max: Some(1),
+                }),
+                outgoing: None,
+            },
+        );
+        let diags = admissibility(&inverted);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "degree");
+        assert!(diags[0].message.contains("incoming"));
+    }
+
+    #[test]
+    fn the_node_set_and_edge_scope_predicates_are_indeterminate_in_conformance() {
+        // Their conformance judging still rides the `Requirement` facet fields
+        // (`crate::roster`/`crate::graph`) — a per-artifact `expect` contract
+        // honestly reports `Indeterminate` (no finding, no fabricated pass) until
+        // REQUIREMENT-CLAUSES-RECUT moves that judging onto this clause spelling.
+        let demo = features("demo", &[("model", scalar("opus"))], 1, None);
+        assert!(run(Predicate::Count { min: 1, max: 3 }, demo.clone()).is_empty());
+        assert!(
+            run(
+                Predicate::Unique {
+                    field: "name".to_string()
+                },
+                demo.clone()
+            )
+            .is_empty()
+        );
+        assert!(
+            run(
+                Predicate::Membership {
+                    field: "model".to_string(),
+                    target: "approved-models".to_string(),
+                },
+                demo.clone()
+            )
+            .is_empty()
+        );
+        assert!(
+            run(
+                Predicate::Degree {
+                    incoming: Some(EdgeBound {
+                        min: Some(1),
+                        max: None
+                    }),
+                    outgoing: None,
+                },
+                demo
+            )
+            .is_empty()
+        );
     }
 
     #[test]

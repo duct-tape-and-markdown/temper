@@ -176,11 +176,11 @@ pub struct Membership {
 /// gate's per-kind contract sources its overrides from the lock's `ClauseRow`
 /// family, never a manifest `[kind.*]` layer). A row overrides the floor clause
 /// sharing its identity (predicate key + targeted field); a row naming no matching
-/// floor clause contributes nothing — a `ClauseRow` carries no predicate parameter
-/// beyond `field`, so it can flip an existing clause's severity but never declare a
-/// wholly new one. A row whose `severity` is outside the closed vocabulary leaves
-/// the floor's own severity untouched, the same tolerant read the rest of the lock
-/// takes over hand-editable state.
+/// floor clause contributes nothing — `effective` only ever flips an existing
+/// clause's severity, never declares a wholly new one from a row's own argument
+/// columns (`count`/`target`/`degree`). A row whose `severity` is outside the closed
+/// vocabulary leaves the floor's own severity untouched, the same tolerant read the
+/// rest of the lock takes over hand-editable state.
 #[must_use]
 pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Contract {
     // A caller may pass the qualified floor identity (`claude-code.skill`) while a
@@ -268,6 +268,9 @@ mod tests {
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),
+            count: None,
+            target: None,
+            degree: None,
         };
         let contract = effective(&[row], "skill", floor());
         assert_eq!(contract.clauses.len(), floor().clauses.len());
@@ -281,20 +284,26 @@ mod tests {
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),
+            count: None,
+            target: None,
+            degree: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
     }
 
     #[test]
     fn effective_ignores_a_row_with_no_matching_floor_clause() {
-        // The row names a predicate/field pair the floor doesn't carry — a
-        // `ClauseRow` carries no predicate parameter beyond `field`, so there is
-        // nothing to reconstruct a wholly new clause from; it contributes nothing.
+        // The row names a predicate/field pair the floor doesn't carry —
+        // `effective` never reconstructs a wholly new clause from a row's own
+        // argument columns, so an unmatched row contributes nothing.
         let row = ClauseRow {
             kind: "skill".to_string(),
             predicate: "min_len".to_string(),
             field: Some("name".to_string()),
             severity: "required".to_string(),
+            count: None,
+            target: None,
+            degree: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
     }
@@ -306,6 +315,9 @@ mod tests {
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "blocking".to_string(),
+            count: None,
+            target: None,
+            degree: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
     }
@@ -319,6 +331,9 @@ mod tests {
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),
+            count: None,
+            target: None,
+            degree: None,
         };
         let contract = effective(&[row], "claude-code.skill", floor());
         assert_eq!(contract.clauses[1].severity, Severity::Advisory);

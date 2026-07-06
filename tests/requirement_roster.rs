@@ -281,6 +281,9 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),
+            count: None,
+            target: None,
+            degree: None,
         }],
     );
     let lock_override = check_in(&root);

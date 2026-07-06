@@ -121,12 +121,18 @@ fn rich_declarations() -> Declarations {
                 predicate: "required".to_string(),
                 field: Some("description".to_string()),
                 severity: "required".to_string(),
+                count: None,
+                target: None,
+                degree: None,
             },
             ClauseRow {
                 kind: "rule".to_string(),
                 predicate: "required".to_string(),
                 field: Some("paths".to_string()),
                 severity: "advisory".to_string(),
+                count: None,
+                target: None,
+                degree: None,
             },
         ],
         requirements: vec![
@@ -321,6 +327,106 @@ fn a_double_emit_is_byte_stable() {
     assert!(!declarations.requirements.is_empty());
     assert!(!declarations.assembly.is_empty());
     assert!(!declarations.satisfies.is_empty());
+}
+
+/// A `ClauseRow` carrying the node-set/edge-scope predicates' arguments
+/// (`REQUIREMENT-CLAUSES-ALGEBRA`) round-trips through `to_table`/`from_table` byte-stably
+/// — the same law-5 double-emit guarantee `a_double_emit_is_byte_stable` pins for the rest
+/// of the declaration-row family.
+#[test]
+fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        kind: "skill".to_string(),
+        predicate: "count".to_string(),
+        field: None,
+        severity: "required".to_string(),
+        count: Some(CountBoundRow { min: 1, max: 3 }),
+        target: None,
+        degree: None,
+    });
+    declarations.clauses.push(ClauseRow {
+        kind: "skill".to_string(),
+        predicate: "unique".to_string(),
+        field: Some("name".to_string()),
+        severity: "advisory".to_string(),
+        count: None,
+        target: None,
+        degree: None,
+    });
+    declarations.clauses.push(ClauseRow {
+        kind: "skill".to_string(),
+        predicate: "membership".to_string(),
+        field: Some("model".to_string()),
+        severity: "required".to_string(),
+        count: None,
+        target: Some("approved-models".to_string()),
+        degree: None,
+    });
+    declarations.clauses.push(ClauseRow {
+        kind: "skill".to_string(),
+        predicate: "degree".to_string(),
+        field: None,
+        severity: "advisory".to_string(),
+        count: None,
+        target: None,
+        degree: Some(DegreeBoundRow {
+            incoming: Some(EdgeBoundRow {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: Some(EdgeBoundRow {
+                min: None,
+                max: Some(3),
+            }),
+        }),
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-args", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability (law 5): re-emitting the same payload reproduces
+    // the whole lock byte-for-byte.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let second = fs::read(&lock).unwrap();
+    assert_eq!(first, second, "a re-emit must not churn the lock");
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let count_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "count")
+        .expect("the count clause row round-trips");
+    let count = count_row.count.expect("count bound is recorded");
+    assert_eq!((count.min, count.max), (1, 3));
+
+    let unique_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "unique")
+        .expect("the unique clause row round-trips");
+    assert_eq!(unique_row.field.as_deref(), Some("name"));
+
+    let membership_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "membership")
+        .expect("the membership clause row round-trips");
+    assert_eq!(membership_row.field.as_deref(), Some("model"));
+    assert_eq!(membership_row.target.as_deref(), Some("approved-models"));
+
+    let degree_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree")
+        .expect("the degree clause row round-trips");
+    let degree = degree_row.degree.expect("degree bound is recorded");
+    assert_eq!(degree.incoming.expect("incoming bound").min, Some(1));
+    assert_eq!(degree.incoming.expect("incoming bound").max, None);
+    assert_eq!(degree.outgoing.expect("outgoing bound").min, None);
+    assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
 }
 
 /// A payload with no requirements/satisfies/assembly facts at all still emits and

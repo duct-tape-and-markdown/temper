@@ -206,6 +206,56 @@ pub enum Predicate {
     /// forbids — so a hand-authored clause fails admissibility
     /// ([`crate::engine::admissibility`]) rather than acting as a working clause.
     DependencyExists,
+    /// `count`: the node-set scope — the satisfier set's size lies within the
+    /// inclusive `[min, max]` bound (`specs/architecture/10-contracts.md`, "Judged at the
+    /// node-set scope"). An inverted `min > max` bound admits nothing and is
+    /// rejected at admissibility.
+    Count {
+        /// The inclusive lower bound on the set's size.
+        min: usize,
+        /// The inclusive upper bound on the set's size.
+        max: usize,
+    },
+    /// `unique`: the node-set scope — the named field's extracted value does not
+    /// repeat across the set.
+    Unique {
+        /// The field checked for uniqueness across the set.
+        field: String,
+    },
+    /// `membership`: the node-set scope — every satisfier's `field` value is drawn
+    /// from a feature over the named `target` requirement's own satisfier set.
+    /// Shaping that set is the target requirement's own job
+    /// (`specs/architecture/10-contracts.md`, "Judged at the node-set scope"), so this
+    /// predicate names it, never re-derives it. Its arg key is `target`, not `source`
+    /// — the clause's own [`Clause::source`] citation already owns that key.
+    Membership {
+        /// The field checked on every satisfier of this clause's own set.
+        field: String,
+        /// The name of the requirement whose satisfier set supplies the allowed values.
+        target: String,
+    },
+    /// `degree`: the edge scope — the in/out edge-count bound every satisfier must
+    /// land in over the one relation graph (`specs/architecture/10-contracts.md`, "Judged at
+    /// the edge scope"). At least one direction must be bounded — an empty `degree`
+    /// constrains nothing and is rejected at admissibility.
+    Degree {
+        /// The bound on a satisfier's incoming edge count, when constrained.
+        incoming: Option<EdgeBound>,
+        /// The bound on a satisfier's outgoing edge count, when constrained.
+        outgoing: Option<EdgeBound>,
+    },
+}
+
+/// One direction's inclusive `[min, max]` edge-count bound for [`Predicate::Degree`],
+/// each endpoint optional: absent `min` ⇒ no lower bound, absent `max` ⇒ unbounded
+/// above (the routed "≥ 1" idiom is `min: Some(1), max: None`;
+/// `specs/architecture/10-contracts.md`, "self-registering" / "routed").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EdgeBound {
+    /// The inclusive lower bound. `None` ⇒ no lower bound.
+    pub min: Option<usize>,
+    /// The inclusive upper bound. `None` ⇒ unbounded above.
+    pub max: Option<usize>,
 }
 
 impl Predicate {
@@ -233,6 +283,10 @@ impl Predicate {
             Predicate::NameMatchesDir => "name-matches-dir",
             Predicate::UniqueName => "unique-name",
             Predicate::DependencyExists => "dependency-exists",
+            Predicate::Count { .. } => "count",
+            Predicate::Unique { .. } => "unique",
+            Predicate::Membership { .. } => "membership",
+            Predicate::Degree { .. } => "degree",
         }
     }
 
@@ -259,6 +313,15 @@ impl Predicate {
             Predicate::MustDefine { .. } => &["marker"],
             Predicate::SectionContains { .. } => &["heading", "marker"],
             Predicate::NameMatchesDir | Predicate::UniqueName | Predicate::DependencyExists => &[],
+            Predicate::Count { .. } => &["min", "max"],
+            Predicate::Unique { .. } => &["field"],
+            Predicate::Membership { .. } => &["field", "target"],
+            Predicate::Degree { .. } => &[
+                "incoming_min",
+                "incoming_max",
+                "outgoing_min",
+                "outgoing_max",
+            ],
         }
     }
 
@@ -286,12 +349,17 @@ impl Predicate {
             // `section_contains` on the same heading overrides the floor's (a
             // severity flip or a changed marker), while a fresh heading extends it.
             Predicate::SectionContains { heading, .. } => Some(heading),
+            // `unique`/`membership` both check one field per satisfier, so the
+            // checked field is their layering identity too.
+            Predicate::Unique { field } | Predicate::Membership { field, .. } => Some(field),
             Predicate::ForbiddenKeys { .. }
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
-            | Predicate::DependencyExists => None,
+            | Predicate::DependencyExists
+            | Predicate::Count { .. }
+            | Predicate::Degree { .. } => None,
         }
     }
 
@@ -316,6 +384,9 @@ impl Predicate {
             | Predicate::Enum { field, .. }
             | Predicate::Deny { field, .. }
             | Predicate::AllowedChars { field, .. } => Some(field),
+            // The node-set/edge-scope predicates range over a satisfier set, not a
+            // single kind's frontmatter — they document no schema property here even
+            // when `target` (above) names a field for layering purposes.
             Predicate::MustDefine { .. }
             | Predicate::ForbiddenKeys { .. }
             | Predicate::MaxLines { .. }
@@ -323,7 +394,11 @@ impl Predicate {
             | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
-            | Predicate::DependencyExists => None,
+            | Predicate::DependencyExists
+            | Predicate::Count { .. }
+            | Predicate::Unique { .. }
+            | Predicate::Membership { .. }
+            | Predicate::Degree { .. } => None,
         }
     }
 }
@@ -700,6 +775,21 @@ fn parse_predicate(table: &Table, index: usize, path: &Path) -> Result<Predicate
         "name-matches-dir" => Predicate::NameMatchesDir,
         "unique-name" => Predicate::UniqueName,
         "dependency-exists" => Predicate::DependencyExists,
+        "count" => Predicate::Count {
+            min: usize_param(table, "min", index, path)?,
+            max: usize_param(table, "max", index, path)?,
+        },
+        "unique" => Predicate::Unique {
+            field: str_param(table, "field", index, path)?,
+        },
+        "membership" => Predicate::Membership {
+            field: str_param(table, "field", index, path)?,
+            target: str_param(table, "target", index, path)?,
+        },
+        "degree" => Predicate::Degree {
+            incoming: parse_edge_bound(table, "incoming_min", "incoming_max", index, path)?,
+            outgoing: parse_edge_bound(table, "outgoing_min", "outgoing_max", index, path)?,
+        },
         other => {
             return Err(ContractError::UnknownPredicate {
                 path: path.to_path_buf(),
@@ -743,6 +833,53 @@ fn parse_range(spec: &str, index: usize, path: &Path) -> Result<(char, char), Co
             index,
             value: spec.to_string(),
         }),
+    }
+}
+
+/// Parse one [`EdgeBound`] direction of a `degree` clause off its `min`/`max` key
+/// pair (e.g. `incoming_min`/`incoming_max`). Both absent ⇒ `None` — that
+/// direction is unconstrained, distinct from a bound with an endpoint of `0`.
+fn parse_edge_bound(
+    table: &Table,
+    min_key: &'static str,
+    max_key: &'static str,
+    index: usize,
+    path: &Path,
+) -> Result<Option<EdgeBound>, ContractError> {
+    let min = usize_param_opt(table, min_key, index, path)?;
+    let max = usize_param_opt(table, max_key, index, path)?;
+    if min.is_none() && max.is_none() {
+        Ok(None)
+    } else {
+        Ok(Some(EdgeBound { min, max }))
+    }
+}
+
+/// Read an optional non-negative integer clause key as a `usize`. Absent ⇒
+/// `None`; present-but-wrong-type ⇒ [`ContractError::WrongType`].
+fn usize_param_opt(
+    table: &Table,
+    key: &'static str,
+    index: usize,
+    path: &Path,
+) -> Result<Option<usize>, ContractError> {
+    match table.get(key) {
+        None => Ok(None),
+        Some(item) => {
+            let raw = item.as_integer().ok_or(ContractError::WrongType {
+                path: path.to_path_buf(),
+                index,
+                param: key,
+                expected: "an integer",
+            })?;
+            let value = usize::try_from(raw).map_err(|_| ContractError::WrongType {
+                path: path.to_path_buf(),
+                index,
+                param: key,
+                expected: "a non-negative integer",
+            })?;
+            Ok(Some(value))
+        }
     }
 }
 
@@ -1373,5 +1510,190 @@ predicate = "name-matches-dir"
         let contract = Contract::parse("name = \"empty\"\n", Path::new("c.toml")).unwrap();
         assert_eq!(contract.name, "empty");
         assert!(contract.clauses.is_empty());
+    }
+
+    // ---- node-set / edge-scope predicates (REQUIREMENT-CLAUSES-ALGEBRA) --------
+
+    #[test]
+    fn a_count_clause_parses_into_the_closed_algebra() {
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "count"
+min = 1
+max = 3
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                source: None,
+                severity: Severity::Required,
+                guidance: None,
+                predicate: Predicate::Count { min: 1, max: 3 },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_unique_clause_parses_into_the_closed_algebra() {
+        let toml = r#"
+[[clause]]
+severity = "advisory"
+predicate = "unique"
+field = "name"
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                source: None,
+                severity: Severity::Advisory,
+                guidance: None,
+                predicate: Predicate::Unique {
+                    field: "name".to_string(),
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_membership_clause_parses_into_the_closed_algebra() {
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "membership"
+field = "model"
+target = "approved-models"
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                source: None,
+                severity: Severity::Required,
+                guidance: None,
+                predicate: Predicate::Membership {
+                    field: "model".to_string(),
+                    target: "approved-models".to_string(),
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_membership_clause_may_still_carry_its_own_citation() {
+        // `target` (the requirement `membership` draws its set from) and `source`
+        // (the clause's own provenance citation) are distinct keys — a membership
+        // clause can carry both without collision.
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "membership"
+field = "model"
+target = "approved-models"
+source = "https://example.com/models, retrieved 2026-07-06"
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses[0].predicate,
+            Predicate::Membership {
+                field: "model".to_string(),
+                target: "approved-models".to_string(),
+            }
+        );
+        assert_eq!(
+            contract.clauses[0].source.as_deref(),
+            Some("https://example.com/models, retrieved 2026-07-06")
+        );
+    }
+
+    #[test]
+    fn a_degree_clause_parses_both_directions_from_flat_bound_keys() {
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "degree"
+incoming_min = 1
+outgoing_max = 3
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                source: None,
+                severity: Severity::Required,
+                guidance: None,
+                predicate: Predicate::Degree {
+                    incoming: Some(EdgeBound {
+                        min: Some(1),
+                        max: None,
+                    }),
+                    outgoing: Some(EdgeBound {
+                        min: None,
+                        max: Some(3),
+                    }),
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_degree_clause_with_neither_direction_still_parses() {
+        // Parsing accepts a directionless `degree` — admissibility (`crate::engine`)
+        // is where the vacuous clause is rejected, mirroring how an inverted
+        // `range` bound parses clean and fails only at admissibility.
+        let toml = r#"
+[[clause]]
+severity = "advisory"
+predicate = "degree"
+"#;
+        let contract = Contract::parse(toml, Path::new("c.toml")).unwrap();
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                source: None,
+                severity: Severity::Advisory,
+                guidance: None,
+                predicate: Predicate::Degree {
+                    incoming: None,
+                    outgoing: None,
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_count_clause_missing_max_is_a_load_error() {
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "count"
+min = 1
+"#;
+        let err = Contract::parse(toml, Path::new("c.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::MissingParam { param: "max", .. }
+        ));
+    }
+
+    #[test]
+    fn a_membership_stray_key_is_a_load_error() {
+        // `min` belongs to `count`/`min_len`/`range`, not `membership` — a stray key
+        // from another predicate's vocabulary is rejected, not silently dropped.
+        let toml = r#"
+[[clause]]
+severity = "required"
+predicate = "membership"
+field = "model"
+target = "approved-models"
+min = 1
+"#;
+        let err = Contract::parse(toml, Path::new("c.toml")).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::UnknownKey { ref key, index: 0, .. } if key == "min"
+        ));
     }
 }

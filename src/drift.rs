@@ -956,7 +956,11 @@ pub struct KindFactRow {
 
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
 /// which kind it governs, the predicate's key, the field it targets (when it names one),
-/// and its declared severity (`specs/architecture/10-contracts.md`).
+/// its declared severity, and — for the node-set/edge-scope predicates
+/// (`count`/`unique`/`membership`/`degree`, `specs/architecture/10-contracts.md`) — the
+/// argument channel their bounds/target round-trip through. `unique`'s field rides the
+/// shared `field` column (the same slot `required`/`min_len`/… target); the others carry
+/// their own optional columns since a plain field/severity pair cannot express them.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ClauseRow {
     /// The kind whose contract carries the clause.
@@ -968,6 +972,17 @@ pub struct ClauseRow {
     pub field: Option<String>,
     /// The clause's declared severity (`required` / `advisory`).
     pub severity: String,
+    /// The `count` clause's satisfier-set-size bound, when the predicate is `count`.
+    #[serde(default)]
+    pub count: Option<CountBoundRow>,
+    /// The `membership` clause's target requirement name, when the predicate is
+    /// `membership`. Distinct from the clause's own citation (`Clause::source`) — a
+    /// `ClauseRow` carries no citation column at all today.
+    #[serde(default)]
+    pub target: Option<String>,
+    /// The `degree` clause's in/out edge-count bound, when the predicate is `degree`.
+    #[serde(default)]
+    pub degree: Option<DegreeBoundRow>,
 }
 
 /// One named requirement's declaration row (`specs/architecture/10-contracts.md`), carrying
@@ -1240,6 +1255,15 @@ impl ClauseRow {
             table.insert("field", value(field.clone()));
         }
         table.insert("severity", value(self.severity.clone()));
+        if let Some(count) = &self.count {
+            table.insert("count", value(count_bound_table(count)));
+        }
+        if let Some(target) = &self.target {
+            table.insert("target", value(target.clone()));
+        }
+        if let Some(degree) = &self.degree {
+            table.insert("degree", value(degree_bound_table(degree)));
+        }
         table
     }
 
@@ -1249,6 +1273,15 @@ impl ClauseRow {
             predicate: str_col(table, "predicate")?,
             field: str_col(table, "field"),
             severity: str_col(table, "severity")?,
+            count: table
+                .get("count")
+                .and_then(Item::as_table_like)
+                .and_then(count_bound_from_table),
+            target: str_col(table, "target"),
+            degree: table
+                .get("degree")
+                .and_then(Item::as_table_like)
+                .and_then(degree_bound_from_table),
         })
     }
 }
