@@ -106,7 +106,7 @@ opinion about what a good harness is — that lives in the packages
 ## Run the gate
 
 - `temper import <harness-path> --into .temper` — scan the harness (skills, rules,
-  and any custom kinds a `temper.toml` declares) into the typed surface under
+  and any custom kinds the assembly registers) into the typed surface under
   `.temper`. Re-importing an unchanged harness is a no-op.
 - `temper check .temper` — the gate. It validates two greens: every built-in
   contract is itself admissible, and every artifact conforms to the contract for its
@@ -131,9 +131,10 @@ guesses. That leaves two honest responses, never a third:
   contract you stand behind.
 - **Challenge the contract** when the clause is wrong for this harness — too strict,
   mis-scoped, or checking something you do not want gated. The contract is data: tune
-  the clause's severity, change its parameters, or drop it in your `temper.toml`
-  layer. Do not silence a finding by contorting the artifact around a clause you
-  disagree with — change the clause.
+  the clause's severity, change its parameters, or drop it — through the SDK
+  program's `expect` overrides, compiled into the lock at `emit`. Do not silence a
+  finding by contorting the artifact around a clause you disagree with — change the
+  clause.
 
 Never paper over a gap. If the contract and the artifact disagree and you are unsure
 which is wrong, surface it rather than guessing which way to bend.

@@ -114,19 +114,6 @@ fn write_claude_md_importing(root: &Path, import_line: &str) {
     fs::write(root.join("CLAUDE.md"), body).unwrap();
 }
 
-/// Write a `<root>/temper.toml` so the harness carries an assembly layer — the set-scope
-/// roster, reachability, and coverage tiers run only under the guarded layer. Directive
-/// classing itself now runs on the floor (WEDGE-FACT-FLOOR), so the assembly-present cases
-/// below prove the fact still surfaces beside a live assembly. A benign skill binding to
-/// its own floor package, adding no clause of its own.
-fn write_layer(root: &Path) {
-    fs::write(
-        root.join("temper.toml"),
-        "[kind.skill]\npackage = \"skill.anthropic\"\n",
-    )
-    .unwrap();
-}
-
 /// Write a plain sibling file at `<root>/<rel>` — not a harness member, just a real repo
 /// file an `@import` can resolve to. The backing set is the whole repo, so a resolving
 /// target need not itself be an imported artifact.
@@ -139,10 +126,8 @@ fn write_sibling(root: &Path, rel: &str, body: &str) {
 /// Gate the harness's live surface with cwd = harness root — the TWO-STEP path (a bare
 /// `.temper` workspace argument, no `--harness`): `check` reads built-in kind members
 /// live off harness disk (`specs/architecture/20-surface.md`, "The lock and drift"), so
-/// no scratch import is needed to populate `.temper` first. Here `temper.toml` is the
-/// bare relative default, so `base_dir` is derived from `Path::new("temper.toml").parent()`
-/// (`Some("")`) — the exact route the `--harness` cases never take. Returns the emitted
-/// finding lines.
+/// no scratch import is needed to populate `.temper` first — the exact route the
+/// `--harness` cases never take. Returns the emitted finding lines.
 fn check_two_step(harness: &Path) -> Vec<String> {
     let output = Command::new(BIN)
         .current_dir(harness)
@@ -163,15 +148,14 @@ fn check_two_step(harness: &Path) -> Vec<String> {
 #[test]
 fn the_two_step_check_path_backs_a_real_repo_root_import() {
     let harness = tmpdir("two-step-backed");
-    // The TWO-STEP path (import to `.temper/`, then gate a bare relative `temper.toml`):
-    // a CLAUDE.md `@import`ing a real repo-root sibling. Before the fix, `base_dir` resolved
-    // to the EMPTY path (`Path::new("temper.toml").parent()` is `Some("")`, not `None`), so
-    // `repo_file_set` walked nothing and EVERY real import read unbacked. The backing set is
-    // the whole repo, so the resolving edge must fire no finding.
+    // The TWO-STEP path (import to `.temper/`, then gate the bare workspace relative
+    // to the harness root): a CLAUDE.md `@import`ing a real repo-root sibling. Before a
+    // past fix, the harness root resolved to the EMPTY path, so `repo_file_set` walked
+    // nothing and EVERY real import read unbacked. The backing set is the whole repo,
+    // so the resolving edge must fire no finding.
     write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_sibling(&harness, "docs/ledger.md", "# Ledger\n\nShared state.\n");
     write_claude_md_importing(&harness, "@docs/ledger.md");
-    write_layer(&harness);
 
     assert!(
         findings_for(&check_two_step(&harness), "graph.directive-unbacked").is_empty(),
@@ -206,7 +190,6 @@ fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
     // reached the memory member's directives, so this drew no finding (exit 0).
     write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@docs/missing.md");
-    write_layer(&harness);
 
     let findings = check_harness(&harness);
     let unbacked = findings_for(&findings, "graph.directive-unbacked");
@@ -237,7 +220,6 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
     // directive and classes it as backed, so nothing fires.
     write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
-    write_layer(&harness);
 
     let findings = check_harness(&harness);
 
@@ -248,15 +230,14 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
 }
 
 #[test]
-fn an_unbacked_at_import_fires_a_non_gating_advisory_with_no_temper_toml() {
+fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
     let harness = tmpdir("floor-unbacked-import");
     // The FLOOR-tier wedge (WEDGE-FACT-FLOOR): a discovered CLAUDE.md carrying an unbacked
-    // `@import` and NO `temper.toml`. Directive classing runs on the floor — no assembly —
-    // so the unbacked pointer surfaces with zero config, distinct from the assembly-present
-    // cases above. It is a non-gating advisory: the pure fact is stated, never escalated.
+    // `@import`. Directive classing runs on the floor, so the unbacked pointer surfaces
+    // with zero config authored anywhere. It is a non-gating advisory: the pure fact is
+    // stated, never escalated.
     write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@docs/missing.md");
-    // No `write_layer` — the harness has no assembly at all.
 
     let findings = check_harness(&harness);
     let unbacked = findings_for(&findings, "graph.directive-unbacked");
@@ -265,7 +246,7 @@ fn an_unbacked_at_import_fires_a_non_gating_advisory_with_no_temper_toml() {
     assert_eq!(
         unbacked.len(),
         1,
-        "the floor tier surfaces the unbacked `@import` with no temper.toml, got: {findings:#?}"
+        "the floor tier surfaces the unbacked `@import` with zero config, got: {findings:#?}"
     );
     let finding = unbacked[0];
     assert!(
@@ -283,14 +264,13 @@ fn an_unbacked_at_import_fires_a_non_gating_advisory_with_no_temper_toml() {
 }
 
 #[test]
-fn a_backed_at_import_fires_nothing_with_no_temper_toml() {
+fn a_backed_at_import_fires_nothing_with_zero_config() {
     let harness = tmpdir("floor-backed-import");
     // The floor tier states only the fact: a CLAUDE.md whose `@path` resolves to a real repo
     // file (the coordinate skill's on-disk member) is a backed boundary edge, not an unbacked
     // pointer — so it draws no finding even with zero config. Pairs the fired case above.
     write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
-    // No `write_layer`.
 
     let findings = check_harness(&harness);
 

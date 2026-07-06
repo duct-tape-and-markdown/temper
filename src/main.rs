@@ -38,22 +38,10 @@ use temper::schema;
 /// (`specs/architecture/20-surface.md`): a `.temper` directory under the cwd.
 const DEFAULT_WORKSPACE: &str = "./.temper";
 
-/// The surface workspace directory beside a harness's `temper.toml`
-/// (`specs/architecture/40-composition.md`). Session-start's surface-present branch gates
-/// this directly; its surfaceless branch imports into a throwaway scratch surface
-/// instead.
+/// The surface workspace directory beside a harness root (`specs/architecture/40-composition.md`).
+/// Session-start's surface-present branch gates this directly; its surfaceless
+/// branch gates the harness root directly instead.
 const TEMPER_DIR: &str = ".temper";
-
-/// The optional author-declared contract layer, discovered at the project root
-/// beside the harness it governs (`specs/architecture/40-composition.md`). Absent ⇒ the
-/// by-kind floor runs unchanged.
-const TEMPER_TOML: &str = "temper.toml";
-
-/// The gitignored personal override layer discovered beside [`TEMPER_TOML`]
-/// (`specs/architecture/40-composition.md`): `temper.toml` is committed project policy,
-/// `temper-local.toml` a developer's personal clause/severity override that
-/// layers over it. Absent ⇒ the committed layer (or bare floor) runs unchanged.
-const TEMPER_LOCAL_TOML: &str = "temper-local.toml";
 
 /// The diagnostic `rule` id a cross-publisher requirement-name collision reports
 /// under (`specs/architecture/10-contracts.md`, "Decision: a requirement's publisher is any
@@ -261,17 +249,17 @@ fn main() -> miette::Result<ExitCode> {
                 session_start_diagnostics(&harness_path)?
             } else {
                 // Two ways into the same gate. `--harness` is the one-shot wedge: gate the
-                // harness root directly against its own `temper.toml` — the discovery walk
-                // finds members straight off disk, no import step. Without it, the
-                // two-step path gates an already-imported surface. Same diagnostic shape ⇒
-                // shared render.
+                // harness root directly — the discovery walk finds members straight off
+                // disk, no import step. Without it, the two-step path gates an
+                // already-imported surface over its harness root (the cwd). Same
+                // diagnostic shape ⇒ shared render.
                 match harness {
-                    Some(harness) => gate(&harness, &harness.join(TEMPER_TOML))?,
+                    Some(harness) => gate(&harness, &harness)?,
                     None => {
                         let workspace =
                             workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
-                        // Two-step: the surface *is* the imported members.
-                        gate(&workspace, Path::new(TEMPER_TOML))?
+                        // Two-step: the surface *is* the imported members, rooted at the cwd.
+                        gate(&workspace, Path::new("."))?
                     }
                 }
             };
@@ -428,8 +416,6 @@ fn main() -> miette::Result<ExitCode> {
 /// yet; the plumbing is ready for the SDK path that replaces it.
 fn explain(target: &str) -> miette::Result<String> {
     let workspace = PathBuf::from(DEFAULT_WORKSPACE);
-    let layer = load_layer(Path::new(TEMPER_TOML))?;
-    validate_inplace_kinds(layer.as_ref())?;
     let harness_root = Path::new(".");
 
     // The assembly's own declared facts, read first: the corpus below walks each
@@ -441,54 +427,19 @@ fn explain(target: &str) -> miette::Result<String> {
         .ok_or_else(|| miette::miette!("built-in kind `skill` is not embedded in this binary"))?;
     let rule_kind = builtin_kind::definition("rule")?
         .ok_or_else(|| miette::miette!("built-in kind `rule` is not embedded in this binary"))?;
-    let skill_features = kind_features(
-        &skill_kind,
-        harness_root,
-        &workspace,
-        layer.as_ref(),
-        &declarations,
-    )?;
-    let rule_features = kind_features(
-        &rule_kind,
-        harness_root,
-        &workspace,
-        layer.as_ref(),
-        &declarations,
-    )?;
+    let skill_features = kind_features(&skill_kind, harness_root, &workspace, &declarations)?;
+    let rule_features = kind_features(&rule_kind, harness_root, &workspace, &declarations)?;
     let custom_kinds: Vec<CustomKindEntry> = Vec::new();
     let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
     // `why`/`requirements` read a member's existence and its authored `satisfies`
     // rationale off a `Workspace` + `custom` members (`crate::read`'s own listing), not
-    // off `by_kind`. In-place carriage's `temper.toml` `[[member]]` tables carry no
-    // rationale (`compose::InPlaceMember::satisfies` is a bare name list), so an
-    // in-place skill/rule is synthesized as a rationale-less `CustomMember` straight off
-    // the same `skill_features`/`rule_features` `by_kind` already holds. Absent any
-    // in-place member, the real `Workspace` carries the surface tree's members with
-    // their authored rationale intact, and no synthesis is needed.
+    // off `by_kind`. Custom kinds retire with the KIND.md file format
+    // (`specs/architecture/15-kinds.md`), so no custom member is threaded in yet; the
+    // real `Workspace` carries the surface tree's built-in members with their
+    // authored rationale intact.
     let ws = Workspace::load(&workspace)?;
-    let any_inplace = layer
-        .as_ref()
-        .is_some_and(|layer| !layer.inplace_members().is_empty());
-    let custom_members: Vec<read::CustomMember> = if any_inplace {
-        skill_features
-            .iter()
-            .map(|features| ("skill", features))
-            .chain(rule_features.iter().map(|features| ("rule", features)))
-            .map(|(kind, features)| read::CustomMember {
-                kind: kind.to_string(),
-                id: features.id.clone(),
-                satisfies: features
-                    .satisfies
-                    .iter()
-                    .cloned()
-                    .map(document::Satisfies::new)
-                    .collect(),
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let custom_members: Vec<read::CustomMember> = Vec::new();
 
     let all_features: Vec<extract::Features> = skill_features
         .iter()
@@ -516,8 +467,7 @@ fn explain(target: &str) -> miette::Result<String> {
     }
 
     let repo_files = repo_file_set(Path::new("."));
-    let directive_members =
-        collect_directive_members(harness_root, &workspace, layer.as_ref(), &declarations)?;
+    let directive_members = collect_directive_members(harness_root, &workspace, &declarations)?;
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
@@ -527,7 +477,6 @@ fn explain(target: &str) -> miette::Result<String> {
 
     Ok(read::explain(
         &ws,
-        layer.as_ref(),
         &custom_members,
         &assembly_requirements,
         &roster,
@@ -578,29 +527,6 @@ fn ask_represent() -> miette::Result<install::Represent> {
     })
 }
 
-/// Load the author-declared layer for a `temper_toml` path, folding a gitignored
-/// `temper-local.toml` beside it over the committed layer when present
-/// (`specs/architecture/40-composition.md`). Discovered in the *same* directory as the
-/// committed file, so both `check` (project root) and the session-start gate
-/// (harness root) find it beside the file they already read. Absent local ⇒ the
-/// committed layer (or bare floor) is returned verbatim.
-fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>> {
-    let committed = compose::AuthorLayer::load(temper_toml)?;
-
-    let local_path = temper_toml.parent().map_or_else(
-        || PathBuf::from(TEMPER_LOCAL_TOML),
-        |dir| dir.join(TEMPER_LOCAL_TOML),
-    );
-    let Some(local) = compose::AuthorLayer::load(&local_path)? else {
-        return Ok(committed);
-    };
-
-    Ok(Some(match committed {
-        Some(base) => base.fold_local(local),
-        None => local,
-    }))
-}
-
 /// The session-start reporter's gate over a harness root (`specs/architecture/20-surface.md`,
 /// "CLI surface" — session-start is a reporter of `check`): surface-present ⇒ gate the
 /// authored `.temper/` itself; surfaceless ⇒ gate the harness root directly — the
@@ -612,31 +538,25 @@ fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>
 /// false positive on clean input the surface-present clause forbids (law 3).
 fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     let authored = harness_path.join(TEMPER_DIR);
-    let temper_toml = harness_path.join(TEMPER_TOML);
-    if authored.is_dir() && temper_toml.is_file() {
-        gate(&authored, &temper_toml)
+    if authored.is_dir() {
+        gate(&authored, harness_path)
     } else {
-        gate(harness_path, &temper_toml)
+        gate(harness_path, harness_path)
     }
 }
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts — the shared gate behind both `check` and the session-start
-/// reporter (`specs/architecture/10-contracts.md`, both greens).
-fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagnostic>> {
-    // Absent `temper.toml` ⇒ `None` and the by-kind floor runs verbatim; present ⇒ its
-    // per-kind package bindings/clause overrides layer over the floor per kind below
-    // (`specs/architecture/40-composition.md`).
-    let layer = load_layer(temper_toml)?;
-    validate_inplace_kinds(layer.as_ref())?;
-
+/// reporter (`specs/architecture/10-contracts.md`, both greens). `harness_root` is the
+/// directory a member's source path and a `verified_by` path resolve against (the
+/// CWD for a two-step `check`, the harness path for the one-shot gate).
+fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     // The assembly's own declared facts — requirements, edges, and the reachability
-    // opt-in — ride the lock's declaration rows (`specs/architecture/40-composition.md`,
-    // "Decision: one authored assembly, no configuration dialect"): `import` is the one
-    // (transitional) producer (`drift::Declarations::write_into`), this is the gate's one
-    // read of it, replacing the retired `temper.toml` `[requirement.*]`/
-    // `[[kind.*.relationships]]` reads and the `roster.toml`/`bindings.toml` assembly-fact
-    // artifacts.
+    // opt-in — ride the lock's declaration rows (`specs/architecture/20-surface.md`,
+    // "The lock and drift — one vocabulary"): `emit` is the sole producer, this is the
+    // gate's one read of it. Never gated on a manifest's presence — an unadopted
+    // harness's lock declares nothing, so this tier is a no-op over it rather than
+    // skipped (never a half-adopted state).
     let declarations = drift::read_declarations(workspace)?;
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
@@ -646,18 +566,10 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     let assembly_edges = edges_from_declarations(&declarations);
     let assembly_reachability = reachability_from_declarations(&declarations);
 
-    // The harness root an in-place member's `source` path resolves against — the directory
-    // the manifest lives in (the CWD for a two-step `check`, the harness path for the
-    // one-shot gate).
-    let harness_root = temper_toml
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-
     // The embedded std-lib a by-name `package` binding resolves against
     // (`specs/architecture/10-contracts.md`). Packages **compose**: a satisfier is
     // checked by its kind's bound package *and* any package a requirement names.
-    // Held for the guarded roster/graph tier below.
+    // Held for the roster/graph tier below.
     let builtins = builtin::contracts()?;
     let package_resolver = compose::PackageResolver::new(builtins);
 
@@ -665,16 +577,16 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // identity (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
     // kind's members — resolved by [`kind_features`] straight off harness disk, shared
     // with `explain` (READ-EDGE-UNIFY) so a read cannot disagree with the gate about
-    // which members exist — are dispatched to its floor package (⊕ author layer) and
-    // validated, so a discovered CLAUDE.md/AGENTS.md memory member fires its `memory`
-    // clauses exactly as a skill/rule does — no longer silently skipped by a hardcoded
-    // skill/rule pair. Floors bind by QUALIFIED identity, never the bare name: the two
-    // `memory` providers share the bare `memory` by design (86d5b70), so a bare resolve
-    // would be ambiguous. SCOPE: only this validation path generalizes — the
-    // roster/graph tier below stays skill/rule/custom (no memory member publishes a
-    // requirement today; folding more built-ins into the requirement corpus is the
-    // separate `(builtin-workspace-qualified-key)` fork), so `skill`/`rule` are
-    // captured out of the dispatch below into `skill_features`/`rule_features`.
+    // which members exist — are dispatched to its floor package and validated, so a
+    // discovered CLAUDE.md/AGENTS.md memory member fires its `memory` clauses exactly
+    // as a skill/rule does — no longer silently skipped by a hardcoded skill/rule
+    // pair. Floors bind by QUALIFIED identity, never the bare name: the two `memory`
+    // providers share the bare `memory` by design (86d5b70), so a bare resolve would
+    // be ambiguous. SCOPE: only this validation path generalizes — the roster/graph
+    // tier below stays skill/rule/custom (no memory member publishes a requirement
+    // today; folding more built-ins into the requirement corpus is the separate
+    // `(builtin-workspace-qualified-key)` fork), so `skill`/`rule` are captured out of
+    // the dispatch below into `skill_features`/`rule_features`.
     let mut diagnostics = Vec::new();
     // Per-kind checked-member counts, keyed by qualified identity — carried out of
     // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
@@ -690,13 +602,11 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // Two greens (`specs/architecture/10-contracts.md`): admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
         // The per-kind clause overrides source from the lock's declared `clauses`
-        // (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"),
-        // never the `temper.toml` `[kind.*]` layer `load_layer` still parses for the
-        // in-place/custom-kind reads below.
+        // (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
         let contract =
             compose::effective(&declarations.clauses, &kind.name, builtin_floor(package)?);
 
-        let features = kind_features(kind, harness_root, workspace, layer.as_ref(), &declarations)?;
+        let features = kind_features(kind, harness_root, workspace, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
@@ -713,29 +623,20 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // the harness root, over-collected so an extra file can only suppress a finding, never
     // forge one (law 3). Computed once on the FLOOR and read by both the directive classing
     // below and the reachability predicate under the assembly tier.
-    // `Path::new("temper.toml").parent()` is `Some("")`, not `None` — the two-step
-    // `check` route passes a bare relative `temper.toml`, so an unfiltered `.parent()`
-    // yields the empty path and `repo_file_set` walks nothing (WalkDir on "" yields only
-    // an Err, skipped ⇒ empty set), forging a `directive-unbacked` on every real import
-    // (law 3). Treat an empty parent as the current dir.
-    let base_dir = temper_toml
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let repo_files = repo_file_set(base_dir);
+    let repo_files = repo_file_set(harness_root);
 
     // Directive-target classing on the FLOOR tier (`specs/architecture/15-kinds.md`, "Directives";
     // WEDGE-FACT-FLOOR): an unbacked `@import` is a **pure fact** about the importing member —
     // the silent-context-loss failure class made author-time — so it surfaces with zero
-    // config, no `temper.toml` required. Over the built-in kinds' members (empty custom slice;
-    // a custom kind's directives ride the assembly tier below, which re-classes the full corpus
-    // for reachability), the unbacked findings extend as a **non-gating advisory**: the fact is
+    // config. Over the built-in kinds' members (empty custom slice; a custom kind's
+    // directives ride the assembly tier below, which re-classes the full corpus for
+    // reachability), the unbacked findings extend as a **non-gating advisory**: the fact is
     // stated, the run never fails on it alone. The graph-scope escalation — reachability closing
     // over the member-class edges — stays assembly-gated (WEDGE ruling 2026-07-03: an unbacked
     // import is a pure fact, not a graph-scope opinion like reachability).
     diagnostics.extend(
         graph::classify_directives(
-            &collect_directive_members(harness_root, workspace, layer.as_ref(), &declarations)?,
+            &collect_directive_members(harness_root, workspace, &declarations)?,
             &repo_files,
         )
         .findings
@@ -748,177 +649,169 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
 
     // The harness-contract tier: set-scope predicates over the parsed roster, each
     // quantified over a requirement's satisfier set (`specs/architecture/10-contracts.md`).
-    // Guarded on the layer, so the floor-only path adds nothing here or below.
-    if let Some(layer) = layer.as_ref() {
-        // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
-        // "Decision: field typing lives in the SDK — there is no kind file format"): a
-        // project's own kind is SDK-authored, and no SDK path exists in the engine yet,
-        // so every `[kind.<name>]` registration that isn't a built-in layer contributes
-        // no members and no edges. The corpus/edge plumbing below stays generic — ready
-        // for that future SDK path, not hardwired to the empty case.
-        let custom_kinds: Vec<CustomKindEntry> = Vec::new();
-        let edges = assembly_edges.clone();
+    // Runs unconditionally — the lock is the sole source of assembly facts now, so an
+    // unadopted harness's empty declarations make this tier a no-op rather than a
+    // skip.
+    //
+    // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
+    // "Decision: field typing lives in the SDK — there is no kind file format"): a
+    // project's own kind is SDK-authored, and no SDK path exists in the engine yet,
+    // so no custom kind contributes members or edges. The corpus/edge plumbing below
+    // stays generic — ready for that future SDK path, not hardwired to the empty case.
+    let custom_kinds: Vec<CustomKindEntry> = Vec::new();
+    let edges = assembly_edges.clone();
 
-        // The by-kind corpus every set-scope and graph predicate ranges over,
-        // assembled through the same helper the read arm uses.
-        let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
+    // The by-kind corpus every set-scope and graph predicate ranges over,
+    // assembled through the same helper the read arm uses.
+    let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
-        // Every opt-in-capable member's features (built-in kinds *and* each custom
-        // kind's members) — the stream coverage ranges over *and* the one the gate
-        // gathers member-published requirements from below.
-        let all_features: Vec<extract::Features> = skill_features
-            .iter()
-            .chain(rule_features.iter())
-            .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
-            .cloned()
-            .collect();
+    // Every opt-in-capable member's features (built-in kinds *and* each custom
+    // kind's members) — the stream coverage ranges over *and* the one the gate
+    // gathers member-published requirements from below.
+    let all_features: Vec<extract::Features> = skill_features
+        .iter()
+        .chain(rule_features.iter())
+        .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
+        .cloned()
+        .collect();
 
-        // The one requirement namespace (`specs/architecture/10-contracts.md`, "Decision: a
-        // requirement's publisher is any authored surface document"): the assembly's
-        // `[requirement.*]` unioned with every member's published `[requirement.*]`.
-        // A name published by two surfaces is one obligation, not a shadow — the
-        // collision is an admissibility finding and the first publisher keeps the slot,
-        // so the roster/coverage passes below judge one coherent namespace.
-        let (requirements, collisions) =
-            union_published_requirements(&assembly_requirements, &all_features);
-        diagnostics.extend(collisions);
+    // The one requirement namespace (`specs/architecture/10-contracts.md`, "Decision: a
+    // requirement's publisher is any authored surface document"): the assembly's
+    // `[requirement.*]` unioned with every member's published `[requirement.*]`.
+    // A name published by two surfaces is one obligation, not a shadow — the
+    // collision is an admissibility finding and the first publisher keeps the slot,
+    // so the roster/coverage passes below judge one coherent namespace.
+    let (requirements, collisions) =
+        union_published_requirements(&assembly_requirements, &all_features);
+    diagnostics.extend(collisions);
 
-        // Admissibility before conformance here too: each requirement's own
-        // definition is validated before the roster is trusted to judge the harness
-        // (`specs/architecture/10-contracts.md`).
-        diagnostics.extend(roster::admissibility(
-            &requirements,
-            &by_kind,
-            &package_resolver,
-            base_dir,
-        ));
+    // Admissibility before conformance here too: each requirement's own
+    // definition is validated before the roster is trusted to judge the harness
+    // (`specs/architecture/10-contracts.md`).
+    diagnostics.extend(roster::admissibility(
+        &requirements,
+        &by_kind,
+        &package_resolver,
+        harness_root,
+    ));
 
-        // The set-scope predicates: each requirement's `count` / `unique` /
-        // `membership` gate over its satisfier set (`specs/architecture/45-governance.md`).
-        diagnostics.extend(roster::check(&requirements, &by_kind, &package_resolver));
+    // The set-scope predicates: each requirement's `count` / `unique` /
+    // `membership` gate over its satisfier set (`specs/architecture/45-governance.md`).
+    diagnostics.extend(roster::check(&requirements, &by_kind, &package_resolver));
 
-        // The `conforms-to` half: each requirement's satisfiers validated against
-        // its bound `package`'s contract, retagged under `requirement.conforms-to`.
-        // A non-resolving package is admissibility's finding above, skipped here
-        // rather than double-reported.
-        diagnostics.extend(roster::conformance(
-            &requirements,
-            &by_kind,
-            &package_resolver,
-        ));
+    // The `conforms-to` half: each requirement's satisfiers validated against
+    // its bound `package`'s contract, retagged under `requirement.conforms-to`.
+    // A non-resolving package is admissibility's finding above, skipped here
+    // rather than double-reported.
+    diagnostics.extend(roster::conformance(
+        &requirements,
+        &by_kind,
+        &package_resolver,
+    ));
 
-        // The graph scope: build the reference graph over the declared edges (a
-        // reference is a kind capability, `specs/architecture/15-kinds.md`) and check route
-        // resolution — a declared reference must resolve to a real artifact of the
-        // target kind (`specs/architecture/45-governance.md`). Admissibility before conformance:
-        // an edge naming no reference field or targeting an unmodeled kind is
-        // reported once and skipped by the route check.
-        diagnostics.extend(graph::admissibility(&edges, &by_kind));
-        diagnostics.extend(graph::check(&edges, &by_kind));
+    // The graph scope: build the reference graph over the declared edges (a
+    // reference is a kind capability, `specs/architecture/15-kinds.md`) and check route
+    // resolution — a declared reference must resolve to a real artifact of the
+    // target kind (`specs/architecture/45-governance.md`). Admissibility before conformance:
+    // an edge naming no reference field or targeting an unmodeled kind is
+    // reported once and skipped by the route check.
+    diagnostics.extend(graph::admissibility(&edges, &by_kind));
+    diagnostics.extend(graph::check(&edges, &by_kind));
 
-        // `acyclic` (`specs/architecture/45-governance.md`): the resolved graph must contain no
-        // cycle — a circular import loads nothing, so every finding is a true
-        // positive. Always-on over the whole edge set, like route resolution above.
-        diagnostics.extend(graph::acyclic(&edges, &by_kind));
+    // `acyclic` (`specs/architecture/45-governance.md`): the resolved graph must contain no
+    // cycle — a circular import loads nothing, so every finding is a true
+    // positive. Always-on over the whole edge set, like route resolution above.
+    diagnostics.extend(graph::acyclic(&edges, &by_kind));
 
-        // `degree` (`specs/architecture/45-governance.md`): a requirement declares an in/out
-        // edge-count bound every satisfier's degree must fall inside, so it takes
-        // the requirements *and* the edges, reusing the arc resolution
-        // `acyclic`/`check` assemble. Opt-in per requirement.
-        diagnostics.extend(graph::degree(&assembly_requirements, &edges, &by_kind));
+    // `degree` (`specs/architecture/45-governance.md`): a requirement declares an in/out
+    // edge-count bound every satisfier's degree must fall inside, so it takes
+    // the requirements *and* the edges, reusing the arc resolution
+    // `acyclic`/`check` assemble. Opt-in per requirement.
+    diagnostics.extend(graph::degree(&assembly_requirements, &edges, &by_kind));
 
-        // Directive-target classing over the **full** corpus (`specs/architecture/15-kinds.md`,
-        // "Directives"): built-in *and* custom members, so a custom kind's `@import` at a
-        // built-in member resolves to a member→member edge the reachability closure below
-        // consumes (`repo_files` and the file-set come from the floor above). Only the
-        // member-class **edges** are read here — the unbacked findings already surfaced on the
-        // floor as a non-gating advisory (WEDGE-FACT-FLOOR), so they are not re-extended: an
-        // assembly's power over a directive is the graph-scope reachability escalation, not the
-        // unbacked fact, which is the same fact with or without an assembly.
-        let directive_members =
-            collect_directive_members(harness_root, workspace, Some(layer), &declarations)?;
-        let directive_classing = graph::classify_directives(&directive_members, &repo_files);
+    // Directive-target classing over the **full** corpus (`specs/architecture/15-kinds.md`,
+    // "Directives"): built-in *and* custom members, so a custom kind's `@import` at a
+    // built-in member resolves to a member→member edge the reachability closure below
+    // consumes (`repo_files` and the file-set come from the floor above). Only the
+    // member-class **edges** are read here — the unbacked findings already surfaced on the
+    // floor as a non-gating advisory (WEDGE-FACT-FLOOR), so they are not re-extended: an
+    // assembly's power over a directive is the graph-scope reachability escalation, not the
+    // unbacked fact, which is the same fact with or without an assembly.
+    let directive_members = collect_directive_members(harness_root, workspace, &declarations)?;
+    let directive_classing = graph::classify_directives(&directive_members, &repo_files);
 
-        // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
-        // kind declares an activation is dead when the world→member edge is provably so
-        // (a blank description-trigger, a zero-match paths glob). Assembly-scope and
-        // opt-in like `degree` — it runs only when the assembly declares `[reachability]`,
-        // at its declared severity (resolved `reachability-gate-mechanism` option b), so
-        // a deliberate work-in-progress dead edge stays the author's call.
-        if let Some(reachability) = assembly_reachability {
-            // The world's inbound edge into each in-scope kind is that kind's declared
-            // activation: the built-in kinds' via `builtin_kind::definitions()`, each
-            // custom kind's via its own `CustomKind.activation`. A kind declaring none
-            // contributes no edge and no member is subject.
-            let builtin_defs = builtin_kind::definitions()?;
-            let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
-            for def in builtin_defs.values() {
-                if let Some(activation) = &def.activation {
-                    // Key by the kind's bare `name`, not `definitions()`'s qualified map
-                    // key — `by_kind` (the members this edge reaches) is bare-keyed, so
-                    // the activation edge must join it under the same bare name.
-                    activations.insert(def.name.as_str(), activation.clone());
-                }
+    // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
+    // kind declares an activation is dead when the world→member edge is provably so
+    // (a blank description-trigger, a zero-match paths glob). Assembly-scope and
+    // opt-in like `degree` — it runs only when the assembly declares `[reachability]`,
+    // at its declared severity (resolved `reachability-gate-mechanism` option b), so
+    // a deliberate work-in-progress dead edge stays the author's call.
+    if let Some(reachability) = assembly_reachability {
+        // The world's inbound edge into each in-scope kind is that kind's declared
+        // activation: the built-in kinds' via `builtin_kind::definitions()`, each
+        // custom kind's via its own `CustomKind.activation`. A kind declaring none
+        // contributes no edge and no member is subject.
+        let builtin_defs = builtin_kind::definitions()?;
+        let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
+        for def in builtin_defs.values() {
+            if let Some(activation) = &def.activation {
+                // Key by the kind's bare `name`, not `definitions()`'s qualified map
+                // key — `by_kind` (the members this edge reaches) is bare-keyed, so
+                // the activation edge must join it under the same bare name.
+                activations.insert(def.name.as_str(), activation.clone());
             }
-            for (name, custom, _features) in &custom_kinds {
-                if let Some(activation) = &custom.activation {
-                    activations.insert(name, activation.clone());
-                }
+        }
+        for (name, custom, _features) in &custom_kinds {
+            if let Some(activation) = &custom.activation {
+                activations.insert(name, activation.clone());
             }
-
-            diagnostics.extend(graph::reachable(
-                &activations,
-                &by_kind,
-                &repo_files,
-                &directive_classing.edges,
-                engine::severity_of(reachability.severity),
-            ));
         }
 
-        // The requirement-coverage tier (`specs/architecture/10-contracts.md`): every `required`
-        // requirement must have a resolving home (≥1 artifact opting in via
-        // `satisfies`) and every authored `satisfies` must resolve to a declared
-        // requirement. Kind-blind: it ranges over every opt-in-capable artifact —
-        // built-in kinds *and* each custom kind's members — so temper's own `spec`
-        // corpus can opt in exactly as a skill does (`specs/architecture/15-kinds.md`). The
-        // requirement set is the *unioned* namespace, so a member-published obligation
-        // is gated here exactly as an assembly-published one.
-        diagnostics.extend(coverage::check(&requirements, &all_features));
+        diagnostics.extend(graph::reachable(
+            &activations,
+            &by_kind,
+            &repo_files,
+            &directive_classing.edges,
+            engine::severity_of(reachability.severity),
+        ));
+    }
 
-        // The custom-kind conformance tier: each registered custom kind runs the
-        // same two greens the built-in kinds do (`specs/architecture/15-kinds.md`), but through
-        // its own authored extractor (features computed above) and its bound package
-        // rather than inline clauses.
-        for (name, _custom, features) in &custom_kinds {
-            // Resolves by name through the same order every binding uses, defaulting
-            // to the kind's own name when the registration binds none.
-            let package_name = layer.kind_package(name).unwrap_or(*name);
-            match package_resolver.resolve(package_name) {
-                Some(contract) => {
-                    diagnostics.extend(engine::admissibility(&contract));
-                    diagnostics.extend(engine::validate(&contract, features));
-                }
-                None => diagnostics.push(check::Diagnostic::error(
-                    format!("{name}.package"),
-                    *name,
-                    format!(
-                        "custom kind `{name}` binds unknown package `{package_name}` (not a built-in package)"
-                    ),
-                )),
+    // The requirement-coverage tier (`specs/architecture/10-contracts.md`): every `required`
+    // requirement must have a resolving home (≥1 artifact opting in via
+    // `satisfies`) and every authored `satisfies` must resolve to a declared
+    // requirement. Kind-blind: it ranges over every opt-in-capable artifact —
+    // built-in kinds *and* each custom kind's members — so temper's own `spec`
+    // corpus can opt in exactly as a skill does (`specs/architecture/15-kinds.md`). The
+    // requirement set is the *unioned* namespace, so a member-published obligation
+    // is gated here exactly as an assembly-published one.
+    diagnostics.extend(coverage::check(&requirements, &all_features));
+
+    // The custom-kind conformance tier: each registered custom kind runs the
+    // same two greens the built-in kinds do (`specs/architecture/15-kinds.md`), but through
+    // its own authored extractor (features computed above) and its bound package
+    // rather than inline clauses. Inert today: `custom_kinds` is always empty until
+    // the SDK path that replaces the retired manifest registration lands.
+    for (name, _custom, features) in &custom_kinds {
+        match package_resolver.resolve(name) {
+            Some(contract) => {
+                diagnostics.extend(engine::admissibility(&contract));
+                diagnostics.extend(engine::validate(&contract, features));
             }
+            None => diagnostics.push(check::Diagnostic::error(
+                format!("{name}.package"),
+                *name,
+                format!(
+                    "custom kind `{name}` binds unknown package `{name}` (not a built-in package)"
+                ),
+            )),
         }
     }
 
     // The install self-verify (`specs/architecture/50-distribution.md`): temper checking its
     // *own* gate is wired. Advisory (warn) only — a not-yet-installed gate nudges
     // without failing the run, and the session-start reporter ignores warn
-    // severity. Read relative to the `temper.toml` parent (the CWD for `check`, the
-    // harness path for session-start).
-    let root = temper_toml
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    diagnostics.extend(install::gate_installed(root));
+    // severity.
+    diagnostics.extend(install::gate_installed(harness_root));
 
     // The wedge's advisory coverage note (`specs/architecture/50-distribution.md`,
     // "Fail-loud delivery — the invariant"): state which built-in kinds checked how
@@ -927,21 +820,22 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // "checked". Warn-only over the embedded built-in kind set — it leaves the run's
     // exit code and the session-start verdict unchanged.
     diagnostics.extend(coverage_note::check(
-        root,
+        harness_root,
         &builtin_kind::definitions()?,
         &member_counts,
     ));
 
     // The fail-loud coherence tripwire (`specs/architecture/50-distribution.md`, "Fail-loud
-    // delivery — the invariant"): the committed assembly declares members/requirements but
-    // the gate resolved none of them and the lock carries no declaration rows either — the
-    // harness-root `temper check .` case the wave-end confirmation caught (checked 0
-    // members, exit 0). `declared` never looks past the committed layer's own tables, so a
-    // correctly-rooted check (≥1 resolved member) and a genuinely empty harness (no
-    // `temper.toml` declaring anything) both stay silent.
-    let declared = layer.as_ref().is_some_and(|layer| {
-        !layer.inplace_members().is_empty() || !layer.requirements().is_empty()
-    });
+    // delivery — the invariant"): the harness was adopted (its own `.temper/lock.toml`
+    // declares requirements) but the gate resolved none of them and the workspace it
+    // was actually pointed at carries no declaration rows either — the harness-root
+    // `temper check .` case the wave-end confirmation caught (checked 0 members, exit
+    // 0). Read independently off `harness_root` — never `workspace`, which is the very
+    // thing that can be mis-rooted — so a correctly-rooted check (≥1 resolved member)
+    // and a genuinely empty (never-adopted) harness both stay silent.
+    let declared = !drift::read_declarations(&harness_root.join(TEMPER_DIR))?
+        .requirements
+        .is_empty();
     let resolved_members: usize = member_counts.values().sum();
     let declarations_empty = declarations.kinds.is_empty()
         && declarations.clauses.is_empty()
@@ -949,7 +843,7 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         && declarations.assembly.is_empty()
         && declarations.satisfies.is_empty();
     diagnostics.extend(check::empty_assembly_incoherence(
-        root,
+        harness_root,
         declared,
         resolved_members,
         declarations_empty,
@@ -963,35 +857,6 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     diagnostics.extend(drift::config_stale(workspace));
 
     Ok(diagnostics)
-}
-
-/// Every in-place member's declared `kind` resolves to a built-in, checked upfront —
-/// in-place carriage is built-in-kind only (a custom kind's units are authored
-/// `.temper/` artifacts), so a member naming an unresolved kind is a hard, loud error,
-/// never a silent drop from every kind's per-kind dispatch below (a member whose
-/// `kind` matches none of `resolve_kind_units`'s per-kind filters would otherwise fall
-/// straight through to that kind's own governs-driven harness walk, unreported —
-/// `.claude/rules/collaboration.md`, "a silent skip reads as done").
-///
-/// # Errors
-///
-/// Returns an error naming the first in-place member whose `kind` resolves to no
-/// built-in.
-fn validate_inplace_kinds(layer: Option<&compose::AuthorLayer>) -> miette::Result<()> {
-    let Some(layer) = layer else {
-        return Ok(());
-    };
-    let builtins = builtin_kind::definitions()?;
-    for member in layer.inplace_members() {
-        if !builtins.values().any(|kind| kind.name == member.kind) {
-            return Err(miette::miette!(
-                "in-place member `{}` names non-built-in kind `{}` (in-place carriage is built-in-kind only)",
-                member.name,
-                member.kind
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// This kind's effective `governs` locus (`specs/architecture/20-surface.md`, "The lock
@@ -1045,14 +910,10 @@ fn surface_overlay(
 
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
 /// range over (READ-EDGE-UNIFY, `specs/architecture/20-surface.md`, "The lock and
-/// drift"). In-place carriage (a `source`-bearing `temper.toml` `[[member]]` table)
-/// reads its own declared members from their named source, grafting `satisfies`/
-/// published requirements from the assembly's declaration rather than mining them from
-/// the file — the harness format is not temper's to annotate. Otherwise every member
-/// is discovered by walking this kind's [`effective_governs`] locus, read straight off
-/// harness disk so the corpus can never drift from a stale copy; its own `satisfies`/
-/// published requirements — authored only on its projected surface document — are
-/// grafted from [`surface_overlay`] when one exists.
+/// drift"). Every member is discovered by walking this kind's [`effective_governs`]
+/// locus, read straight off harness disk so the corpus can never drift from a stale
+/// copy; its own `satisfies`/published requirements — authored only on its projected
+/// surface document — are grafted from [`surface_overlay`] when one exists.
 ///
 /// # Errors
 ///
@@ -1062,55 +923,36 @@ fn resolve_kind_units(
     kind: &CustomKind,
     harness_root: &Path,
     workspace: &Path,
-    layer: Option<&compose::AuthorLayer>,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
-    let inplace: Vec<&compose::InPlaceMember> = layer
-        .map(|layer| {
-            layer
-                .inplace_members()
+    let governs = effective_governs(kind, declarations);
+    let mut units = Vec::new();
+    for file in import::discover_kind_files(harness_root, kind, &governs)? {
+        let source = frontmatter::Member::from_source_rooted(
+            kind,
+            &file,
+            &harness_root.join(&governs.root),
+        )?;
+        let mut unit = Unit {
+            id: source.id.clone(),
+            frontmatter: source.fields.iter().cloned().collect(),
+            body: source.body.clone(),
+            source_path: source.provenance.source_path.clone(),
+            satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
+            published_requirements: Vec::new(),
+        };
+        if let Some(surface) = surface_overlay(workspace, kind, &unit.id)? {
+            unit.satisfies = surface
+                .satisfies
                 .iter()
-                .filter(|member| member.kind == kind.name)
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let mut units = if inplace.is_empty() {
-        let governs = effective_governs(kind, declarations);
-        let mut units = Vec::new();
-        for file in import::discover_kind_files(harness_root, kind, &governs)? {
-            let source = frontmatter::Member::from_source_rooted(
-                kind,
-                &file,
-                &harness_root.join(&governs.root),
-            )?;
-            let mut unit = Unit {
-                id: source.id.clone(),
-                frontmatter: source.fields.iter().cloned().collect(),
-                body: source.body.clone(),
-                source_path: source.provenance.source_path.clone(),
-                satisfies: Vec::new(),
-                satisfies_clauses: Vec::new(),
-                published_requirements: Vec::new(),
-            };
-            if let Some(surface) = surface_overlay(workspace, kind, &unit.id)? {
-                unit.satisfies = surface
-                    .satisfies
-                    .iter()
-                    .map(|clause| clause.requirement.clone())
-                    .collect();
-                unit.satisfies_clauses = surface.satisfies;
-                unit.published_requirements = surface.published_requirements;
-            }
-            units.push(unit);
+                .map(|clause| clause.requirement.clone())
+                .collect();
+            unit.satisfies_clauses = surface.satisfies;
+            unit.published_requirements = surface.published_requirements;
         }
-        units
-    } else {
-        inplace
-            .into_iter()
-            .map(|member| inplace_unit(harness_root, member))
-            .collect::<miette::Result<Vec<_>>>()?
-    };
+        units.push(unit);
+    }
 
     units.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(units)
@@ -1126,64 +968,14 @@ fn kind_features(
     kind: &CustomKind,
     harness_root: &Path,
     workspace: &Path,
-    layer: Option<&compose::AuthorLayer>,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<extract::Features>> {
     Ok(
-        resolve_kind_units(kind, harness_root, workspace, layer, declarations)?
+        resolve_kind_units(kind, harness_root, workspace, declarations)?
             .iter()
             .map(|unit| builtin_kind::features(kind, unit))
             .collect(),
     )
-}
-
-/// Live-extract an in-place member's raw [`Unit`] from its committed landscape file
-/// (`specs/architecture/20-surface.md`, "In-place"): read the raw harness file at
-/// `<harness_root>/<source>`, parse its frontmatter + body through the generic adapter
-/// — the file is its own committed source, re-read every check, so it cannot drift.
-/// The join edges are the manifest's declaration (the harness file carries no temper
-/// annotation), so the member's `satisfies`/published requirements are grafted from
-/// the assembly rather than mined from the file.
-///
-/// In-place carriage is built-in-kind only (a custom kind's units are authored
-/// `.temper/` artifacts), so a member naming a non-built-in kind is a hard error,
-/// never a silent skip.
-///
-/// # Errors
-///
-/// Returns an error if the kind is not a built-in, or the landscape file is unreadable
-/// or malformed.
-fn inplace_unit(harness_root: &Path, member: &compose::InPlaceMember) -> miette::Result<Unit> {
-    let path = harness_root.join(&member.source);
-    // Route to the built-in kind by bare name, then by which owns the source glob — so the
-    // two `memory` providers (`CLAUDE.md` vs `AGENTS.md`) sharing the bare `memory` resolve to
-    // the right one rather than colliding on an ambiguous bare lookup (`specs/architecture/15-kinds.md`).
-    let builtins = builtin_kind::definitions()?;
-    let kind = builtins
-        .values()
-        .filter(|kind| kind.name == member.kind)
-        .find(|kind| kind.owns_source(&path))
-        .or_else(|| builtins.values().find(|kind| kind.name == member.kind))
-        .ok_or_else(|| {
-            miette::miette!(
-                "in-place member `{}` names non-built-in kind `{}` (in-place carriage is built-in-kind only)",
-                member.name,
-                member.kind
-            )
-        })?;
-    let source = frontmatter::Member::from_source(kind, &path)?;
-    // The id is the manifest's recorded name (the surface identity), not re-derived; the
-    // extractor reads frontmatter/body/placement off the raw harness file.
-    Ok(Unit {
-        id: member.name.clone(),
-        frontmatter: source.fields.iter().cloned().collect(),
-        body: source.body.clone(),
-        source_path: source.provenance.source_path.clone(),
-        // The join edges are the assembly's declaration, not a fact mined from the file.
-        satisfies: member.satisfies.clone(),
-        satisfies_clauses: Vec::new(),
-        published_requirements: member.published.clone(),
-    })
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the
@@ -1252,12 +1044,11 @@ fn assemble_by_kind<'a>(
 fn collect_directive_members(
     harness_root: &Path,
     workspace: &Path,
-    layer: Option<&compose::AuthorLayer>,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
     for kind in builtin_kind::definitions()?.values() {
-        for unit in resolve_kind_units(kind, harness_root, workspace, layer, declarations)? {
+        for unit in resolve_kind_units(kind, harness_root, workspace, declarations)? {
             let feature = builtin_kind::features(kind, &unit);
             members.push(graph::DirectiveMember {
                 kind: kind.name.clone(),

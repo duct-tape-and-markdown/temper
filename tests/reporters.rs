@@ -196,9 +196,8 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
 
     // CWD is the harness (`specs/architecture/20-surface.md`, "The lock and drift" —
     // the gate walks the committed lock's governs locus over the harness at the CWD),
-    // carrying no `temper.toml` either, so an ambient project layer at the process CWD
-    // — e.g. temper's own, registering the `spec` custom kind whose definition this
-    // foreign workspace lacks — can't leak in and abort the load. Mirrors the
+    // carrying no adopted lock either, so an ambient project assembly at the process
+    // CWD — e.g. temper's own — can't leak in and abort the load. Mirrors the
     // `schema`/`cli` tests' isolation.
     let output = Command::new(BIN)
         .current_dir(&harness)

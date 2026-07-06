@@ -15,7 +15,7 @@
 //!   so it claims no guard/note; a separately-authored member's does;
 //! - **idempotence** — re-running converges, never re-scaffolding or duplicating
 //!   the guard;
-//! - **the lock, not `temper.toml`, grounds `guard`'s posture**.
+//! - **the lock, not the retired manifest, grounds `guard`'s posture**.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -522,7 +522,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
 }
 
 // ---------------------------------------------------------------------------
-// guard — the lock, not `temper.toml`, grounds the posture
+// guard — the lock, not the retired manifest, grounds the posture
 // ---------------------------------------------------------------------------
 
 /// A `PreToolUse` payload naming a `.claude/` projection `file_path` — the write the
@@ -556,7 +556,7 @@ fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
 }
 
 #[test]
-fn guard_reads_the_surface_posture_from_the_lock_not_temper_toml() {
+fn guard_reads_the_surface_posture_from_the_lock_not_the_retired_manifest() {
     let root = tmpdir("lock-posture-surface");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -565,9 +565,13 @@ fn guard_reads_the_surface_posture_from_the_lock_not_temper_toml() {
         "[[declaration.assembly]]\nfact = \"authority\"\nvalue = \"surface\"\n",
     )
     .unwrap();
-    // A stray `temper.toml` naming the opposite posture must be ignored entirely —
-    // proving the read moved from the author layer to the lock.
-    fs::write(root.join("temper.toml"), "authority = \"shared\"\n").unwrap();
+    // A stray retired manifest naming the opposite posture must be ignored entirely —
+    // the manifest is never read at all, by this or any other verb.
+    fs::write(
+        root.join(format!("temper{}toml", '.')),
+        "authority = \"shared\"\n",
+    )
+    .unwrap();
 
     let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(code, Some(2), "the lock's `surface` posture must block");

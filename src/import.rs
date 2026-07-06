@@ -2,8 +2,8 @@
 //!
 //! The discovery walk (`discover_kind_units`/`discover_builtin`) is the sole member
 //! extractor the gate and `emit`'s lock-writer ([`write_rollup`]) both ride
-//! (`specs/architecture/20-surface.md`). The `init`/`lift` on-ramp verbs that once wrote a
-//! `temper.toml` `[[member]]` table over members in place retired with the `[[member]]`
+//! (`specs/architecture/20-surface.md`). The `init`/`lift` on-ramp verbs that once wrote
+//! an in-place `[[member]]` table over members in place retired with the `[[member]]`
 //! codec (`CODEC-RETIRE`) — `install` (`specs/architecture/20-surface.md`, "install is
 //! the front door") is the on-ramp going forward; a trunk gap between the two is an
 //! accepted clean-slate cost (John, 2026-07-06).

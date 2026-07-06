@@ -202,8 +202,8 @@ pub fn conformance(
 /// - **(e)** a `membership` `conforms_to` reference, held to (b)'s bar.
 ///
 /// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `resolver`
-/// resolves a bound package name; `base_dir` is the `temper.toml` directory a
-/// `verified_by` path resolves against.
+/// resolves a bound package name; `base_dir` is the harness root a `verified_by`
+/// path resolves against.
 #[must_use]
 pub fn admissibility(
     requirements: &BTreeMap<String, Requirement>,
@@ -533,7 +533,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::check::Severity;
-    use crate::compose::{AuthorLayer, PackageResolver, Requirement};
+    use crate::compose::{PackageResolver, Requirement};
     use crate::contract::Contract;
     use crate::extract::Kind;
 
@@ -592,28 +592,33 @@ mod tests {
         }
     }
 
-    /// Parse a single requirement out of a `temper.toml` fragment — the parse
-    /// foundation is the only constructor for a [`Requirement`], so the unit tests
-    /// drive it.
-    fn requirement(toml: &str, name: &str) -> Requirement {
-        AuthorLayer::parse(toml, Path::new("temper.toml"))
-            .unwrap()
-            .requirements()
-            .get(name)
-            .expect("the fragment declares the requirement")
-            .clone()
+    /// A bare `Requirement` template with every facet defaulted except its name —
+    /// the parser's own optional-facet defaults, so each test case fills in only the
+    /// facets it needs via struct-update syntax.
+    fn requirement(name: &str) -> Requirement {
+        Requirement {
+            name: name.to_string(),
+            means: None,
+            kind: None,
+            package: None,
+            required: false,
+            count: None,
+            unique: Vec::new(),
+            membership: None,
+            degree: None,
+            verified_by: None,
+        }
     }
 
     /// A required, typed single-satisfier requirement over the `skill` kind, binding the
     /// built-in `skill.anthropic` package by name.
     fn required_requirement() -> Requirement {
-        requirement(
-            "[requirement.planner]\n\
-             kind = \"skill\"\n\
-             package = \"skill.anthropic\"\n\
-             required = true\n",
-            "planner",
-        )
+        Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("skill.anthropic".to_string()),
+            required: true,
+            ..requirement("planner")
+        }
     }
 
     /// Pack a roster of one requirement and a skill candidate set into the shapes
@@ -664,15 +669,12 @@ mod tests {
     /// A `count = { min, max }` band requirement over the `skill` kind — the set-scope
     /// predicate, mutually exclusive with `required`.
     fn count_band_requirement(min: usize, max: usize) -> Requirement {
-        requirement(
-            &format!(
-                "[requirement.agents]\n\
-                 kind = \"skill\"\n\
-                 package = \"skill.anthropic\"\n\
-                 count = {{ min = {min}, max = {max} }}\n"
-            ),
-            "agents",
-        )
+        Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("skill.anthropic".to_string()),
+            count: Some(CountBound { min, max }),
+            ..requirement("agents")
+        }
     }
 
     #[test]
@@ -718,13 +720,12 @@ mod tests {
     /// A requirement declaring `unique = ["model"]` over the `skill` kind — the
     /// set-scope uniqueness predicate over the satisfiers' `model` field.
     fn unique_model_requirement() -> Requirement {
-        requirement(
-            "[requirement.agents]\n\
-             kind = \"skill\"\n\
-             package = \"skill.anthropic\"\n\
-             unique = [\"model\"]\n",
-            "agents",
-        )
+        Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("skill.anthropic".to_string()),
+            unique: vec!["model".to_string()],
+            ..requirement("agents")
+        }
     }
 
     /// A `Features` opting into `agents` and carrying an optional `model:` scalar
@@ -814,15 +815,18 @@ mod tests {
     /// `model` feature drawn from `source_kind` artifacts satisfying `approved-model` —
     /// the set-scope membership predicate, with a corpus-derived allowed set.
     fn membership_requirement(source_kind: &str) -> Requirement {
-        requirement(
-            &format!(
-                "[requirement.agents]\n\
-                 kind = \"skill\"\n\
-                 package = \"skill.anthropic\"\n\
-                 membership = {{ field = \"model\", kind = \"{source_kind}\", source = \"approved-model\", feature = \"model\" }}\n"
-            ),
-            "agents",
-        )
+        Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("skill.anthropic".to_string()),
+            membership: Some(Membership {
+                field: "model".to_string(),
+                source: "approved-model".to_string(),
+                source_kind: source_kind.to_string(),
+                source_feature: "model".to_string(),
+                source_package: None,
+            }),
+            ..requirement("agents")
+        }
     }
 
     /// Pack a roster of one requirement and a multi-kind candidate map into the shapes
@@ -908,13 +912,18 @@ mod tests {
     /// narrowed to `approved-model` satisfiers that also declare a `tier` field before
     /// the allowed `model` set is drawn.
     fn typed_reference_requirement() -> Requirement {
-        requirement(
-            "[requirement.agents]\n\
-             kind = \"skill\"\n\
-             package = \"skill.anthropic\"\n\
-             membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"tier-required\" }\n",
-            "agents",
-        )
+        Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("skill.anthropic".to_string()),
+            membership: Some(Membership {
+                field: "model".to_string(),
+                source: "approved-model".to_string(),
+                source_kind: "skill".to_string(),
+                source_feature: "model".to_string(),
+                source_package: Some("tier-required".to_string()),
+            }),
+            ..requirement("agents")
+        }
     }
 
     /// The package a `typed_reference_requirement`'s `conforms_to` binds: a source
@@ -1021,13 +1030,12 @@ mod tests {
     /// [`maxlen_package`] resolver supplies with the `name`-cap contract these
     /// conformance/admissibility cases exercise.
     fn shape_requirement() -> Requirement {
-        requirement(
-            "[requirement.planner]\n\
-             kind = \"skill\"\n\
-             package = \"shape\"\n\
-             required = true\n",
-            "planner",
-        )
+        Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("shape".to_string()),
+            required: true,
+            ..requirement("planner")
+        }
     }
 
     /// `features` opting into `planner` with a `name` scalar field equal to its id —
@@ -1134,13 +1142,12 @@ mod tests {
         // `command` is not a kind `temper` models (only `skill` is in `by_kind`),
         // so a required requirement over it can never be filled — inadmissible. The
         // bound package resolves, so the only finding is the satisfiability one.
-        let req = requirement(
-            "[requirement.releaser]\n\
-             kind = \"command\"\n\
-             package = \"shape\"\n\
-             required = true\n",
-            "releaser",
-        );
+        let req = Requirement {
+            kind: Some("command".to_string()),
+            package: Some("shape".to_string()),
+            required: true,
+            ..requirement("releaser")
+        };
         let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
         let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
@@ -1156,13 +1163,12 @@ mod tests {
         // The bound package name matches no built-in and no project package (an empty
         // resolver) — the inadmissibility this pass owns, `names a real package` (the
         // case `conformance` skips).
-        let req = requirement(
-            "[requirement.planner]\n\
-             kind = \"skill\"\n\
-             package = \"no-such-package\"\n\
-             required = true\n",
-            "planner",
-        );
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("no-such-package".to_string()),
+            required: true,
+            ..requirement("planner")
+        };
         let diags = run_admissibility(req, &empty_resolver(), Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
@@ -1184,13 +1190,12 @@ mod tests {
             Path::new("empty-enum.toml"),
         )
         .unwrap();
-        let req = requirement(
-            "[requirement.planner]\n\
-             kind = \"skill\"\n\
-             package = \"empty-enum\"\n\
-             required = true\n",
-            "planner",
-        );
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("empty-enum".to_string()),
+            required: true,
+            ..requirement("planner")
+        };
         let resolver = pkg_resolver(&[("empty-enum", empty_enum)]);
         let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
@@ -1204,14 +1209,13 @@ mod tests {
     fn a_dangling_verified_by_is_inadmissible() {
         // The `verified_by` path does not exist under the base dir — a dangling
         // verifier is a silent no-op, so it fails admissibility.
-        let req = requirement(
-            "[requirement.planner]\n\
-             kind = \"skill\"\n\
-             package = \"shape\"\n\
-             required = true\n\
-             verified_by = \"tests/nope.rs\"\n",
-            "planner",
-        );
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("shape".to_string()),
+            required: true,
+            verified_by: Some("tests/nope.rs".to_string()),
+            ..requirement("planner")
+        };
         let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
         let diags = run_admissibility(req, &resolver, Path::new("/no-such-temper-base-dir"));
         assert_eq!(diags.len(), 1);
@@ -1233,12 +1237,11 @@ mod tests {
         // A pure opt-in-coverage requirement (only `means` + `required`, no `kind` or
         // `package`) has no facet for admissibility to reject — coverage gates its
         // fill, not the roster.
-        let req = requirement(
-            "[requirement.dev-standards]\n\
-             means = \"the harness maintains dev standards\"\n\
-             required = true\n",
-            "dev-standards",
-        );
+        let req = Requirement {
+            means: Some("the harness maintains dev standards".to_string()),
+            required: true,
+            ..requirement("dev-standards")
+        };
         assert!(run_admissibility(req, &empty_resolver(), Path::new("")).is_empty());
     }
 
@@ -1247,13 +1250,12 @@ mod tests {
         // `min > max` admits no cardinality at all — a vacuous bound the author
         // cannot have meant, so the definition fails admissibility (mirroring
         // `range`'s `min > max` rejection).
-        let req = requirement(
-            "[requirement.agents]\n\
-             kind = \"skill\"\n\
-             package = \"shape\"\n\
-             count = { min = 3, max = 1 }\n",
-            "agents",
-        );
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("shape".to_string()),
+            count: Some(CountBound { min: 3, max: 1 }),
+            ..requirement("agents")
+        };
         let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
         let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
@@ -1267,13 +1269,12 @@ mod tests {
     fn a_well_ordered_count_bound_is_admissible() {
         // `min <= max` (including a degenerate exactly-one `[1, 1]` band) is a
         // satisfiable bound — nothing for admissibility to reject.
-        let req = requirement(
-            "[requirement.agents]\n\
-             kind = \"skill\"\n\
-             package = \"shape\"\n\
-             count = { min = 1, max = 1 }\n",
-            "agents",
-        );
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            package: Some("shape".to_string()),
+            count: Some(CountBound { min: 1, max: 1 }),
+            ..requirement("agents")
+        };
         let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
         assert!(run_admissibility(req, &resolver, Path::new("")).is_empty());
     }
@@ -1284,12 +1285,17 @@ mod tests {
         // (an empty resolver) — a `conforms_to` that never resolves would silently drop
         // the whole membership check, so admissibility reports it (clause (e)),
         // mirroring the requirement's own package-resolve clause.
-        let req = requirement(
-            "[requirement.agents]\n\
-             kind = \"skill\"\n\
-             membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"no-such-package\" }\n",
-            "agents",
-        );
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            membership: Some(Membership {
+                field: "model".to_string(),
+                source: "approved-model".to_string(),
+                source_kind: "skill".to_string(),
+                source_feature: "model".to_string(),
+                source_package: Some("no-such-package".to_string()),
+            }),
+            ..requirement("agents")
+        };
         let diags = run_admissibility(req, &empty_resolver(), Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
@@ -1311,12 +1317,17 @@ mod tests {
             Path::new("empty-enum.toml"),
         )
         .unwrap();
-        let req = requirement(
-            "[requirement.agents]\n\
-             kind = \"skill\"\n\
-             membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\", conforms_to = \"empty-enum\" }\n",
-            "agents",
-        );
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            membership: Some(Membership {
+                field: "model".to_string(),
+                source: "approved-model".to_string(),
+                source_kind: "skill".to_string(),
+                source_feature: "model".to_string(),
+                source_package: Some("empty-enum".to_string()),
+            }),
+            ..requirement("agents")
+        };
         let resolver = pkg_resolver(&[("empty-enum", empty_enum)]);
         let diags = run_admissibility(req, &resolver, Path::new(""));
         assert_eq!(diags.len(), 1);
@@ -1330,12 +1341,11 @@ mod tests {
         // Satisfiability gates on `required`: a non-required requirement over an
         // unmodeled kind is merely never filled, which the author may have meant — not
         // an inadmissibility.
-        let req = requirement(
-            "[requirement.releaser]\n\
-             kind = \"command\"\n\
-             package = \"shape\"\n",
-            "releaser",
-        );
+        let req = Requirement {
+            kind: Some("command".to_string()),
+            package: Some("shape".to_string()),
+            ..requirement("releaser")
+        };
         let resolver = pkg_resolver(&[("shape", maxlen_package(64))]);
         assert!(run_admissibility(req, &resolver, Path::new("")).is_empty());
     }

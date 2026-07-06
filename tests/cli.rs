@@ -251,7 +251,7 @@ fn check_rejects_a_harness_and_workspace_together() {
 #[test]
 fn self_host_check_is_clean_over_tempers_own_surface() {
     // The bootstrap proof (`specs/intent/00-intent.md`): `temper check` over temper's
-    // OWN committed surface — its `.temper/` document-carried rules plus the `temper.toml`
+    // OWN committed surface — its `.temper/` document-carried rules plus its lock-declared
     // assembly (spec kinds, requirements) — lints clean. `CARGO_MANIFEST_DIR` is the
     // crate root; a bare `check` reads the committed surface there, read-only, so the
     // repo is never mutated (the flume `temper check (self)` gate's exact invocation).
@@ -269,8 +269,8 @@ fn self_host_check_is_clean_over_tempers_own_surface() {
 
 #[test]
 fn schema_kind_skill_emits_the_skill_floor_decidable_clauses() {
-    // Run in a fresh CWD with no `temper.toml`, so the emitted schema is the pure
-    // skill floor (no author layer) and the assertions are deterministic.
+    // Run in a fresh CWD with no adopted lock, so the emitted schema is the pure
+    // skill floor (no clause overrides) and the assertions are deterministic.
     let cwd = tmpdir("schema-skill");
     let output = Command::new(BIN)
         .current_dir(&cwd)
@@ -318,7 +318,7 @@ fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
     // Schema property's `description`, strictly alongside the validation keywords.
     // The embedded `skill.anthropic` built-in now carries guidance on its clauses
     // (`specs/architecture/10-contracts.md`, the `contracts/` retirement into product source), so
-    // the pure floor — no `temper.toml` layer — already exercises both channels.
+    // the pure floor — no clause overrides — already exercises both channels.
     let cwd = tmpdir("schema-guidance");
     let output = Command::new(BIN)
         .current_dir(&cwd)

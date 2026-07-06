@@ -3,9 +3,9 @@
 //!
 //! A [`Contract`] is a named set of [`Clause`]s over a **closed** vocabulary of
 //! decidable predicates, each carrying an author-declared [`Severity`]. Its authored
-//! home is the embedded built-in floor ([`crate::builtin`]) or a `temper.toml` layer
-//! (`crate::compose`); both parse through the same clause parser [`Contract::parse`]
-//! runs over bare TOML.
+//! home is the embedded built-in floor ([`crate::builtin`]), with per-clause severity
+//! overrides riding the lock's `ClauseRow` family (`crate::compose::effective`); both
+//! parse through the same clause parser [`Contract::parse`] runs over bare TOML.
 //!
 //! There is no arbitrary-code clause: adding a predicate is a deliberate language
 //! change, never a per-contract escape hatch (`00-intent.md` law 3), so loading
@@ -520,12 +520,6 @@ impl Contract {
 /// Parse a `[[clause]]` array of tables off `table`, in declaration order. Absent
 /// ⇒ no clauses; present-but-not-an-array-of-tables ⇒
 /// [`ContractError::ClauseNotArray`].
-///
-/// Public because the author layer (`crate::compose`) reuses *this* closed-
-/// vocabulary parser over a `temper.toml` `[kind.<k>]` table's inline
-/// `[[kind.<k>.clause]]` array rather than duplicating it — so a layered clause
-/// naming an unknown predicate is rejected at load exactly as a bare contract's
-/// is.
 pub fn parse_clauses(table: &Table, path: &Path) -> Result<Vec<Clause>, ContractError> {
     let array = match table.get("clause") {
         None => return Ok(Vec::new()),

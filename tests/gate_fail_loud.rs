@@ -1,7 +1,7 @@
 //! The fail-loud coherence guard (`specs/architecture/50-distribution.md`, "Fail-loud
 //! delivery — the invariant"): a placement that cannot run the engine must error, never
 //! silently skip. `temper check .` at a harness root reads no `./lock.toml`/`./skills`
-//! (they live under `.temper/`), so a committed `temper.toml` that declares
+//! (they live under `.temper/`), so a committed assembly that declares
 //! members/requirements resolves nothing and used to exit 0 — the wave-end confirmation
 //! caught exactly this ("checked 0 members … exit 0"). This drives the real binary so
 //! the mis-rooting is reproduced exactly as the confirmation hit it, not just the pure
@@ -11,14 +11,16 @@
 //! (a) declared-but-nothing-resolved ⇒ an `error` `coverage.empty-assembly` and a
 //!     non-zero exit;
 //! (b) a correctly-rooted check that resolves ≥1 member never fires (law 3: no false
-//!     block on a clean gate), even though the same `temper.toml` declares a requirement;
-//! (c) a genuinely empty harness (no `temper.toml`) never fires — zero members is
-//!     legitimate there.
+//!     block on a clean gate), even though the same lock declares a requirement;
+//! (c) a genuinely empty harness (no declared requirements) never fires — zero members
+//!     is legitimate there.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -50,15 +52,37 @@ description: Use when coordinating agents across axes; not for single-axis work.
 \n\
 Drive the team through the playbook.\n";
 
-/// A `temper.toml` declaring one requirement — enough to make the committed assembly
-/// `declared` (`specs/architecture/50-distribution.md`) without needing a `[[member]]` carriage
-/// round-trip.
-const DECLARES_A_REQUIREMENT: &str = "[requirement.docs]\n\
-means = \"Every shipped skill is documented.\"\n";
+/// A bare `RequirementRow` naming `name` — enough to make the committed assembly
+/// `declared` (`specs/architecture/50-distribution.md`).
+fn requirement(name: &str) -> RequirementRow {
+    RequirementRow {
+        name: name.to_string(),
+        kind: None,
+        package: None,
+        required: false,
+        count: None,
+        unique: Vec::new(),
+        membership: None,
+        degree: None,
+        verified_by: None,
+    }
+}
 
-/// Write `<root>/temper.toml`.
-fn write_temper_toml(root: &Path, contents: &str) {
-    fs::write(root.join("temper.toml"), contents).unwrap();
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
+/// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
+/// projection: the gate sources requirements from the lock, never a re-imported
+/// assembly (`specs/architecture/20-surface.md`, "The lock and drift — one
+/// vocabulary").
+fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            requirements,
+            ..Declarations::default()
+        },
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
 /// Run `temper check <args...>` from `root`, returning `(github-format finding lines,
@@ -95,10 +119,10 @@ fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
 #[test]
 fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
     // The harness-root `temper check .` case the wave-end confirmation caught: a
-    // committed `temper.toml` declares a requirement, but nothing was ever imported —
-    // no `.temper/lock.toml`, no surface tree at the workspace `check` reads.
+    // committed lock declares a requirement, but nothing was ever imported — no
+    // surface tree at the workspace `check` reads.
     let root = tmpdir("declared-empty");
-    write_temper_toml(&root, DECLARES_A_REQUIREMENT);
+    write_requirements(&root, vec![requirement("docs")]);
 
     let (findings, success) = check_in(&root, &["."]);
 
@@ -121,8 +145,8 @@ fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
 
 #[test]
 fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
-    // The same requirement-declaring `temper.toml`, but this time the harness carries a
-    // real skill at its committed locus (`.claude/skills/coordinate/SKILL.md`) — `check`
+    // The same requirement-declaring lock, but this time the harness carries a real
+    // skill at its committed locus (`.claude/skills/coordinate/SKILL.md`) — `check`
     // reads built-in kind members live off harness disk (`specs/architecture/20-surface.md`,
     // "The lock and drift"), no scratch import required, and the correctly-rooted path
     // resolves ≥1 member, so the guard must not fire even though the assembly still
@@ -131,7 +155,7 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
     let harness = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&harness).unwrap();
     fs::write(harness.join("SKILL.md"), CLEAN_SKILL).unwrap();
-    write_temper_toml(&root, DECLARES_A_REQUIREMENT);
+    write_requirements(&root, vec![requirement("docs")]);
 
     let (findings, success) = check_in(&root, &[]);
 
@@ -147,8 +171,8 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
 
 #[test]
 fn a_genuinely_empty_harness_stays_silent() {
-    // No `temper.toml` at all: the assembly declares nothing, so zero resolved members
-    // is legitimate and the guard must never fire.
+    // No declared requirements at all: the assembly declares nothing, so zero resolved
+    // members is legitimate and the guard must never fire.
     let root = tmpdir("genuinely-empty");
 
     let (findings, success) = check_in(&root, &[]);

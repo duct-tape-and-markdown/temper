@@ -51,7 +51,7 @@ use std::fmt::Write;
 use crate::builtin;
 use crate::builtin_kind;
 use crate::check::Workspace;
-use crate::compose::{AuthorLayer, Edge, Requirement};
+use crate::compose::{Edge, Requirement};
 use crate::document::Satisfies;
 use crate::extract::{Features, LeafAddress};
 use crate::graph::{self, ResolvedEdge};
@@ -146,12 +146,12 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
     members
 }
 
-/// The package the `kind`'s members are checked against — the author layer's explicit
-/// binding, else the kind's real built-in floor resolved by its **qualified identity**
-/// through [`builtin::floor_package`] (`specs/architecture/20-surface.md`, "Decision: package binding
-/// is by artifact kind"): `skill` → `skill.anthropic`, `rule` → `rule.anthropic`,
-/// `claude-code.memory` → `memory.anthropic`. Every embedded kind's floor is named from
-/// the one `QUALIFIED_FLOOR_BINDINGS` table, so a `memory` member is bound to its own
+/// The package the `kind`'s members are checked against — the kind's real built-in
+/// floor resolved by its **qualified identity** through [`builtin::floor_package`]
+/// (`specs/architecture/20-surface.md`, "Decision: package binding is by artifact
+/// kind"): `skill` → `skill.anthropic`, `rule` → `rule.anthropic`, `claude-code.memory`
+/// → `memory.anthropic`. Every embedded kind's floor is named from the one
+/// `QUALIFIED_FLOOR_BINDINGS` table, so a `memory` member is bound to its own
 /// `memory.*` floor rather than mis-narrated as `skill.anthropic`.
 ///
 /// `kind` is either already qualified (`claude-code.memory` — the disambiguated built-in
@@ -160,11 +160,7 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
 /// `claude-code.skill`); both are tried, in that order. A kind that genuinely ships no
 /// floor (a custom kind with no binding) falls back to its own name
 /// (`specs/architecture/40-composition.md`, a kind defaults to its own name as package).
-fn bound_package(layer: Option<&AuthorLayer>, kind: &str) -> String {
-    // The author layer's explicit binding is the override.
-    if let Some(explicit) = layer.and_then(|layer| layer.kind_package(kind)) {
-        return explicit.to_string();
-    }
+fn bound_package(kind: &str) -> String {
     builtin::floor_package(kind)
         .or_else(|| {
             builtin_kind::qualified(kind)
@@ -259,7 +255,6 @@ fn resolve<'a>(
 #[allow(clippy::too_many_arguments)]
 pub fn explain(
     workspace: &Workspace,
-    layer: Option<&AuthorLayer>,
     custom: &[CustomMember],
     assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
@@ -273,7 +268,7 @@ pub fn explain(
 ) -> String {
     match resolve(by_kind, roster, target) {
         Species::Member(name) => {
-            let mut out = why(workspace, layer, custom, roster, by_kind, edges, name);
+            let mut out = why(workspace, custom, roster, by_kind, edges, name);
             out.push('\n');
             out.push_str(&impact(
                 assembly,
@@ -348,7 +343,6 @@ pub fn explain(
 #[must_use]
 pub fn why(
     workspace: &Workspace,
-    layer: Option<&AuthorLayer>,
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -376,7 +370,7 @@ pub fn why(
         if index > 0 {
             out.push('\n');
         }
-        why_one(&mut out, member, roster, layer, &resolved);
+        why_one(&mut out, member, roster, &resolved);
     }
     out
 }
@@ -387,7 +381,6 @@ fn why_one(
     out: &mut String,
     member: &Member,
     roster: &BTreeMap<String, Requirement>,
-    layer: Option<&AuthorLayer>,
     resolved: &[ResolvedEdge],
 ) {
     let _ = writeln!(
@@ -418,7 +411,7 @@ fn why_one(
         out,
         "Governing package: its `{}` kind binds the `{}` package, whose clauses check it.\n",
         member.kind,
-        bound_package(layer, &member.kind),
+        bound_package(&member.kind),
     );
 
     // The edges in and out — the member's node in the **gate's resolved edge set**
@@ -1307,9 +1300,9 @@ pub fn requirements(
 /// `required` + unfilled is an error, advisory unfilled never gates).
 fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -> String {
     if roster.is_empty() {
-        return "No requirements are published — the roster is empty. Declare \
-                `[requirement.<name>]` in `temper.toml`, or publish one on a member \
-                document, to name an obligation.\n"
+        return "No requirements are published — the roster is empty. Declare one in \
+                the SDK program's `harness()` assembly, or publish one on a member, \
+                to name an obligation.\n"
             .to_string();
     }
 

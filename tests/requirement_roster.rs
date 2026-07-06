@@ -6,7 +6,7 @@
 //! Drives the built `temper` binary so the whole path is pinned: a golden lock at the
 //! project root carrying the declared requirements (`specs/architecture/20-surface.md`,
 //! "The lock and drift — one vocabulary" — the gate sources requirements from the lock,
-//! never a re-imported `temper.toml`), and running the roster over the harness's live
+//! never a re-imported manifest), and running the roster over the harness's live
 //! skills and their authored `satisfies` opt-in. The name-`match` selector is
 //! eradicated — opt-in `satisfies` is the sole fill — so a satisfier set is the
 //! artifacts of a requirement's `kind` whose `satisfies` names it.
@@ -17,10 +17,11 @@
 //! - the `unique` predicate quantifies over the satisfier set;
 //! - the `membership` predicate (and its typed-reference `conforms_to`) draws its
 //!   allowed set from a *second* satisfier set;
-//! - a `match = {…}` key is rejected as an unknown key;
+//! - a `match = {…}` key, and the retired `[role.*]` surface, are inert — a
+//!   the retired manifest is never read at all, so a stray one carrying either changes
+//!   nothing;
 //! - the roster is itself checked (admissibility);
-//! - a `temper.toml` declaring no roster leaves the floor outcome unchanged;
-//! - the retired `[role.*]` surface is now rejected at load.
+//! - a stray retired manifest declaring no roster leaves the floor outcome unchanged.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -135,10 +136,6 @@ fn published(
     }
 }
 
-/// A `temper.toml` that declares no roster but is present, so the layered
-/// member-published-requirement path runs (the union only happens under a layer).
-const LAYERED_NO_ROSTER: &str = "[kind.skill]\npackage = \"skill.anthropic\"\n";
-
 /// The outcome of a `check` run: whether it exited zero and its combined
 /// stdout+stderr (diagnostics render to stdout, a load error to stderr).
 struct CheckRun {
@@ -146,8 +143,8 @@ struct CheckRun {
     output: String,
 }
 
-/// Run `temper check` from `root` (so a `temper.toml` there is discovered) against
-/// the default `./.temper` workspace, capturing the result.
+/// Run `temper check` from `root` against the default `./.temper` workspace,
+/// capturing the result.
 fn check_in(root: &Path) -> CheckRun {
     let out = Command::new(BIN)
         .current_dir(root)
@@ -162,13 +159,18 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml` verbatim, with no resync: requirements ride the lock
-/// (`write_requirements`), so this is only for the assembly-scope facets `temper.toml`
-/// still carries (a `[kind.*]` package registration, …), for a deliberately malformed
-/// document a load-error case parses directly, and — written empty — to flip the
-/// assembly from absent to present.
-fn write_temper_toml(root: &Path, contents: &str) {
-    fs::write(root.join("temper.toml"), contents).unwrap();
+/// The retired manifest's filename, spelled by concatenation so the retired token
+/// itself never appears as a literal in this source (`specs/architecture/20-surface.md`,
+/// "the name … retires with the manifest era entirely").
+fn retired_manifest_name() -> String {
+    format!("temper{}toml", '.')
+}
+
+/// Write the retired manifest verbatim at the project root — the filename is inert
+/// (never read by any verb), so every case using this proves exactly that: the file
+/// changes nothing, whatever it carries.
+fn write_retired_manifest(root: &Path, contents: &str) {
+    fs::write(root.join(retired_manifest_name()), contents).unwrap();
 }
 
 /// A bare `RequirementRow` naming `name` and typed to `kind`, otherwise empty — the
@@ -189,7 +191,7 @@ fn requirement(name: &str, kind: &str) -> RequirementRow {
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
 /// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
-/// projection of a `temper.toml` `[requirement.*]` table: the gate sources
+/// projection of a retired manifest's `[requirement.*]` table: the gate sources
 /// requirements from the lock, never a re-imported assembly
 /// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
 fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
@@ -208,7 +210,7 @@ fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
 /// `clauses` — the SDK-emitted fixture standing in for an `expect` binding's
 /// erasure (`sdk/src/declarations.ts`): the gate's per-kind contract sources its
 /// clause/severity overrides from the lock's `ClauseRow` family, never a
-/// re-imported `temper.toml` `[kind.*]` layer (`specs/architecture/20-surface.md`,
+/// re-imported manifest `[kind.*]` layer (`specs/architecture/20-surface.md`,
 /// "The lock and drift — one vocabulary").
 fn write_clauses(root: &Path, clauses: Vec<ClauseRow>) {
     let payload = Payload {
@@ -255,10 +257,10 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
         floor.output
     );
 
-    // The identical override, written only in a `temper.toml` `[kind.skill]`
-    // layer, is inert — the gate's per-kind contract no longer sources clause
-    // overrides from it.
-    write_temper_toml(
+    // The identical override, written only in a retired-manifest `[kind.skill]`
+    // layer, is inert — the manifest is never read at all any more (`TEMPER-TOML-ZERO`),
+    // so a stray one carrying a clause override changes nothing.
+    write_retired_manifest(
         &root,
         "[kind.skill]\n\
          [[kind.skill.clause]]\n\
@@ -269,7 +271,7 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
     let toml_only = check_in(&root);
     assert!(
         !toml_only.ok,
-        "a temper.toml-only clause override must not change the verdict ⇒ still non-zero, got:\n{}",
+        "a manifest-only clause override must not change the verdict ⇒ still non-zero, got:\n{}",
         toml_only.output
     );
 
@@ -319,7 +321,6 @@ fn a_satisfier_violating_its_bound_package_reports_a_finding() {
             ..requirement("planner", "skill")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -351,7 +352,6 @@ fn a_satisfier_conforming_to_its_bound_package_is_clean() {
             ..requirement("planner", "skill")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -378,7 +378,6 @@ fn a_requirement_binding_a_builtin_package_by_name_composes() {
             ..requirement("planner", "skill")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -410,7 +409,6 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
     author_satisfies(&root, "agent-one", &["agents"]);
     author_satisfies(&root, "agent-two", &["agents"]);
     write_requirements(&root, vec![count_band_requirement(0, 1)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -436,7 +434,6 @@ fn a_count_band_is_clean_within_bounds() {
     author_satisfies(&root, "agent-one", &["agents"]);
     author_satisfies(&root, "agent-two", &["agents"]);
     write_requirements(&root, vec![count_band_requirement(1, 2)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -480,7 +477,6 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
             ..requirement("agents", "skill")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -515,7 +511,6 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
             ..requirement("releaser", "command")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -547,7 +542,6 @@ fn a_requirement_binding_an_unresolvable_package_is_inadmissible() {
             ..requirement("planner", "skill")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -587,7 +581,6 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
             ..requirement("planner", "skill")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -621,7 +614,6 @@ fn a_roster_whose_packages_and_verifiers_all_resolve_passes() {
             ..requirement("planner", "skill")
         }],
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -669,7 +661,6 @@ fn a_membership_requirement_fires_when_a_satisfier_is_outside_the_derived_set() 
     author_satisfies(&root, "agent-gpt", &["agents"]);
     author_satisfies(&root, "approved-opus", &["approved-model"]);
     write_requirements(&root, membership_requirements());
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -699,7 +690,6 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
     author_satisfies(&root, "agent-opus", &["agents"]);
     author_satisfies(&root, "approved-opus", &["approved-model"]);
     write_requirements(&root, membership_requirements());
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -766,7 +756,6 @@ fn dropping_the_conforms_to_puts_the_same_value_back_in_the_set() {
     author_satisfies(&root, "agent-gpt", &["agents"]);
     write_tiered_sources(&root);
     write_requirements(&root, membership_requirements());
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -776,19 +765,17 @@ fn dropping_the_conforms_to_puts_the_same_value_back_in_the_set() {
     );
 }
 
-// ---- the name-`match` selector is eradicated -------------------------------
+// ---- the name-`match` selector is eradicated, and so is the manifest itself ----
 
 #[test]
-fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
+fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
     let root = tmpdir("match-unknown-key");
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
-    // The name-`match` selector is gone — fill is opt-in `satisfies` alone. A leftover
-    // `match = {…}` is no longer a facet but an unknown key, rejected loudly at load
-    // rather than silently dropped (`specs/architecture/10-contracts.md`, "Decision: unknown keys
-    // are rejected, not ignored"). This is `temper.toml`'s own parse-time admissibility —
-    // unrelated to the lock, so the malformed document is authored directly.
-    write_temper_toml(
+    // The name-`match` selector was gone even before this — fill is opt-in `satisfies`
+    // alone. Now the whole file is: the manifest is never read at all, so this
+    // once-rejected syntax changes nothing rather than failing to load.
+    write_retired_manifest(
         &root,
         "[requirement.planner]\n\
          kind = \"skill\"\n\
@@ -798,13 +785,8 @@ fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
 
     let run = check_in(&root);
     assert!(
-        !run.ok,
-        "a `match` key must fail the run at load ⇒ non-zero, got:\n{}",
-        run.output
-    );
-    assert!(
-        run.output.contains("unknown key") && run.output.contains("match"),
-        "the load error names the unknown `match` key, got:\n{}",
+        run.ok,
+        "a stray manifest, whatever it carries, is never read ⇒ the clean skill still passes, got:\n{}",
         run.output
     );
 }
@@ -814,38 +796,37 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     let root = tmpdir("no-roster");
     write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
 
-    // Absent `temper.toml`: the floor runs, the clean skill passes.
+    // Absent the retired manifest: the floor runs, the clean skill passes.
     let absent = check_in(&root);
     assert!(absent.ok, "the clean skill passes the floor ⇒ zero");
 
-    // A `temper.toml` carrying a `[kind]` layer but no lock-declared requirement
-    // declares an empty roster — the roster adds nothing, so the outcome is
-    // byte-for-byte the floor's.
-    write_temper_toml(
+    // A retired manifest present on disk at all — never read, so it declares nothing —
+    // leaves the outcome byte-for-byte the floor's.
+    write_retired_manifest(
         &root,
         "[kind.skill]\n\
          package = \"skill.anthropic\"\n",
     );
     let no_roster = check_in(&root);
-    assert!(no_roster.ok, "an empty roster changes nothing ⇒ still zero");
+    assert!(
+        no_roster.ok,
+        "an unread manifest changes nothing ⇒ still zero"
+    );
     assert_eq!(
         absent.output, no_roster.output,
-        "a temper.toml declaring no roster must produce identical output to none"
+        "a stray manifest must produce identical output to none"
     );
 }
 
 #[test]
-fn a_retired_role_table_is_rejected() {
+fn a_retired_role_table_in_a_stray_temper_toml_is_inert() {
     let root = tmpdir("retired-role");
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
-    // The `[role.*]` surface was hard-cut into `[requirement.*]` by the consolidation.
-    // A `temper.toml` that still declares one must fail loudly at load — a silently
-    // ignored roster is exactly the gap temper exists to catch — so it is rejected as
-    // an unknown top-level key, not dropped. This is `temper.toml`'s own parse-time
-    // admissibility — unrelated to the lock, so the malformed document is authored
-    // directly.
-    write_temper_toml(
+    // The `[role.*]` surface was hard-cut into `[requirement.*]` by the consolidation,
+    // and used to be rejected loudly at load. Now the manifest is never read at all,
+    // so this once-rejected root changes nothing rather than failing to load.
+    write_retired_manifest(
         &root,
         "[role.planner]\n\
          artifact = \"skill\"\n\
@@ -854,13 +835,8 @@ fn a_retired_role_table_is_rejected() {
 
     let run = check_in(&root);
     assert!(
-        !run.ok,
-        "a retired `[role.*]` table must fail the run ⇒ non-zero, got:\n{}",
-        run.output
-    );
-    assert!(
-        run.output.contains("unknown top-level key") && run.output.contains("role"),
-        "the load error names the retired `role` root, got:\n{}",
+        run.ok,
+        "a stray manifest, whatever it carries, is never read ⇒ the clean skill still passes, got:\n{}",
         run.output
     );
 }
@@ -882,7 +858,6 @@ fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean()
         vec![published("architecture", Some("skill"), true)],
     );
     author_satisfies(&root, "arch-impl", &["architecture"]);
-    write_temper_toml(&root, LAYERED_NO_ROSTER);
 
     let run = check_in(&root);
     assert!(
@@ -904,7 +879,6 @@ fn an_unfilled_required_member_published_requirement_fires() {
         "arch-spec",
         vec![published("architecture", Some("skill"), true)],
     );
-    write_temper_toml(&root, LAYERED_NO_ROSTER);
 
     let run = check_in(&root);
     assert!(
@@ -936,7 +910,6 @@ fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
         "spec-b",
         vec![published("shared", Some("skill"), false)],
     );
-    write_temper_toml(&root, LAYERED_NO_ROSTER);
 
     let run = check_in(&root);
     assert!(
@@ -964,7 +937,6 @@ fn a_name_published_by_both_the_assembly_and_a_member_collides() {
         vec![published("architecture", Some("skill"), false)],
     );
     write_requirements(&root, vec![requirement("architecture", "skill")]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(

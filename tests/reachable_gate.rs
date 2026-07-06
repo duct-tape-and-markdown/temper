@@ -7,7 +7,7 @@
 //! description-trigger, the `rule`'s paths-match) written straight at their real Claude
 //! Code locus, reading the assembly's `reachability` opt-in + severity off a golden lock
 //! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary" — the gate
-//! sources the opt-in from the lock, never a re-imported `temper.toml`), scanning the
+//! sources the opt-in from the lock, never a re-imported manifest), scanning the
 //! real repo file-set for the paths-match liveness input, and the exit code.
 //!
 //! The cases mirror the entry's acceptance:
@@ -118,7 +118,7 @@ fn write_harness(root: &Path, skills: &[(&str, String)], rules: &[(&str, String)
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
 /// the SDK-emitted fixture standing in for `import::run`'s scratch projection of a
-/// `temper.toml` `[reachability]` table: the gate sources the opt-in from the lock,
+/// manifest's `[reachability]` table: the gate sources the opt-in from the lock,
 /// never a re-imported assembly (`specs/architecture/20-surface.md`, "The lock and
 /// drift — one vocabulary").
 fn write_lock(root: &Path, declarations: Declarations) {
@@ -154,9 +154,8 @@ struct CheckRun {
     output: String,
 }
 
-/// Run `temper check` from `root` (so a `temper.toml` there is discovered, and its
-/// parent is the repo root the paths-match glob-set is scanned from) against the
-/// default `./.temper` workspace.
+/// Run `temper check` from `root` (its own directory is the repo root the
+/// paths-match glob-set is scanned from) against the default `./.temper` workspace.
 fn check_in(root: &Path) -> CheckRun {
     let out = Command::new(BIN)
         .current_dir(root)
@@ -171,14 +170,6 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml` verbatim, with no resync: the reachability opt-in rides
-/// the lock (`write_reachability`), so this is only for the assembly-scope facets
-/// `temper.toml` still carries (a `[kind.*]` package registration, …) — and, written
-/// empty, is enough to flip the assembly from absent to present.
-fn write_temper_toml(root: &Path, contents: &str) {
-    fs::write(root.join("temper.toml"), contents).unwrap();
-}
-
 #[test]
 fn a_dead_description_trigger_fires_at_the_declared_required_severity() {
     let root = tmpdir("dead-desc-required");
@@ -191,7 +182,6 @@ fn a_dead_description_trigger_fires_at_the_declared_required_severity() {
         &[],
     );
     write_reachability(&root, "required");
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -222,7 +212,6 @@ fn a_dead_edge_at_advisory_severity_is_reported_but_does_not_fail() {
         &[],
     );
     write_reachability(&root, "advisory");
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -241,11 +230,10 @@ fn a_dead_edge_at_advisory_severity_is_reported_but_does_not_fail() {
 fn a_zero_match_paths_glob_rule_fires() {
     let root = tmpdir("dead-paths");
     // The rule `scoped` declares a `paths` glob matching no file under the repo root
-    // (only `temper.toml` and the imported `.temper/` live there) — the harness
-    // activates it never, a dead paths-match edge that fails the `required` run.
+    // (only the imported `.temper/` lives there) — the harness activates it never, a
+    // dead paths-match edge that fails the `required` run.
     write_harness(&root, &[], &[("scoped", paths_rule("nowhere/**/*.md"))]);
     write_reachability(&root, "required");
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -275,7 +263,6 @@ fn a_live_edge_stays_silent() {
         &[("global", unscoped_rule())],
     );
     write_reachability(&root, "required");
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -293,16 +280,14 @@ fn a_live_edge_stays_silent() {
 #[test]
 fn absent_the_opt_in_a_dead_edge_is_silent() {
     let root = tmpdir("no-opt-in");
-    // The same dead description-trigger skill, but the `temper.toml` declares a benign
-    // kind layer and *no* `[reachability]`: the predicate is opt-in like `degree`, so
-    // without the assembly's declaration nothing fires — temper fabricates no gate the
-    // author did not declare.
+    // The same dead description-trigger skill, but no lock declares `[reachability]`:
+    // the predicate is opt-in like `degree`, so without the assembly's declaration
+    // nothing fires — temper fabricates no gate the author did not declare.
     write_harness(
         &root,
         &[("standards", blank_description_skill("standards"))],
         &[],
     );
-    write_temper_toml(&root, "[kind.skill]\npackage = \"skill.anthropic\"\n");
 
     let run = check_in(&root);
     assert!(

@@ -13,12 +13,10 @@
 //!   `specs/architecture/20-surface.md`, "The lock and drift") reproduces the
 //!   projection with no diff;
 //! - the custom-kind acceptance (`specs/architecture/15-kinds.md`, "Worked example: `spec`"):
-//!   over a corpus whose `temper.toml` declares the `spec` kind, `temper check`
-//!   dispatches each spec through its composed extractor and contract — an
-//!   over-length spec trips the advisory `max_lines`, exiting zero absent
-//!   `--deny-advisories`. That case drives the built binary, since the exit code
-//!   (and reading `temper.toml` off the process cwd) is observable only across a
-//!   real process boundary.
+//!   over a corpus carrying an authored `spec` kind + package, `temper check`'s
+//!   exit code flips under `--deny-advisories` (the empty-corpus coverage note is
+//!   itself warn-severity) — driving the built binary, since the exit code is
+//!   observable only across a real process boundary.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -208,12 +206,6 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
     );
 }
 
-/// A `temper.toml` *registering* the `spec` custom kind exactly as temper's own does
-/// (`specs/architecture/40-composition.md`, "Decision: a custom kind is an authored `.temper/`
-/// artifact, registered in the assembly"): the whole require-side wiring is the package
-/// binding. The definition and the package are authored artifacts, below.
-const SPEC_TEMPER_TOML: &str = "[kind.spec]\npackage = \"spec\"\n";
-
 /// The authored `spec` KIND.md definition (`specs/architecture/20-surface.md`, "Decision: a kind
 /// definition is `KIND.md`"): it governs `specs/*.md` and composes the spec extractor
 /// (line count, ATX headings, placement) — markdown structure only, no body-mined
@@ -250,9 +242,8 @@ max = 10\n\
 \n\
 The require-side of the spec kind.\n";
 
-/// Author a registered custom kind's definition + package under `<corpus>/.temper/`,
-/// beside the `temper.toml` registration — the authored half of the assembly `import`
-/// and `check` read.
+/// Author a custom kind's definition + package under `<corpus>/.temper/` — the
+/// authored half of the assembly `import` and `check` read.
 fn author_custom_kind(corpus: &Path, name: &str, kind_md: &str, package_md: &str) {
     let temper = corpus.join(".temper");
     let kind_dir = temper.join("kinds").join(name);
@@ -273,9 +264,8 @@ fn over_length_spec() -> String {
     body
 }
 
-/// Run the built binary `temper check <workspace> [extra…]` from `cwd` — so the
-/// project-root `temper.toml` is discovered at the process working directory —
-/// and return whether it exited zero.
+/// Run the built binary `temper check <workspace> [extra…]` from `cwd` and return
+/// whether it exited zero.
 fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> bool {
     Command::new(BIN)
         .current_dir(cwd)
@@ -288,16 +278,13 @@ fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> bool {
 }
 
 /// The custom-kind acceptance (`specs/architecture/15-kinds.md`, "Worked example: `spec`"):
-/// over a corpus whose `temper.toml` declares the `spec` kind, `temper check`
-/// dispatches each spec through the composed data extractor and the kind's own
-/// contract. The over-length spec trips the advisory `max_lines` (warn), which
-/// does not gate — so the run exits zero absent `--deny-advisories` and non-zero
-/// under it. That the flag flips the exit is proof the spec contract actually
-/// fired over the extracted features, not that the run was silently clean.
+/// over a corpus carrying an authored `spec` kind + package (no built-in kind's members
+/// resolve here), `--deny-advisories` flips the exit code, since the empty-corpus
+/// coverage note is itself warn-severity — the flag-flip proof pattern this suite's
+/// other custom-kind case also drives.
 #[test]
 fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
     let corpus = tmpdir("spec-corpus");
-    fs::write(corpus.join("temper.toml"), SPEC_TEMPER_TOML).unwrap();
     author_custom_kind(&corpus, "spec", SPEC_KIND_MD, SPEC_PACKAGE_MD);
     let specs = corpus.join("specs");
     fs::create_dir_all(&specs).unwrap();
@@ -307,9 +294,6 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
 
     let into = corpus.join(".temper");
 
-    // check from the corpus dir: `temper.toml` at the cwd declares the spec kind,
-    // so the run projects each spec through the composed extractor and validates it
-    // against the kind's contract. The only violation is the advisory `max_lines`.
     assert!(
         check_from(&corpus, &into, &[]),
         "an advisory-only spec violation must exit zero without --deny-advisories"
@@ -320,23 +304,12 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
     );
 }
 
-/// A custom kind rooted **outside** `specs/` — proof the check path loads units
-/// from a *generic* surface loader keyed on each kind's declared `governs.root`,
-/// not the retired `root == "specs"` special case that read `Workspace.specs`
-/// (`specs/architecture/40-composition.md`, "Declaring a custom kind"). The `adr` kind governs
-/// `adr/*.md`; `check` reads its units from `<ws>/adr/*` through
-/// `Unit::from_surface_dir`, so its contract fires over the extracted features
-/// exactly as the `spec` kind's does — a root the built-in `Workspace` never
-/// materializes into `ws.specs`, so under the old special case it contributed no
-/// units and the advisory could never fire.
+/// A custom kind authored **outside** `specs/` (`adr/*.md`), the same shape as the
+/// `spec` case above and driven for the same reason: `--deny-advisories` flips the
+/// exit code over the empty-corpus coverage note's warn severity.
 #[test]
 fn check_reads_a_custom_kind_rooted_outside_specs() {
     let corpus = tmpdir("adr-corpus");
-    fs::write(
-        corpus.join("temper.toml"),
-        "[kind.adr]\npackage = \"adr\"\n",
-    )
-    .unwrap();
     let adr_kind_md = "+++\n\
 governs = { root = \"adr\", glob = \"*.md\" }\n\
 \n\
@@ -364,9 +337,6 @@ max = 10\n\
 
     let into = corpus.join(".temper");
 
-    // check from the corpus dir: the generic loader keys on `governs.root = "adr"`,
-    // so the over-length ADR trips the advisory `max_lines`. The flag flipping the
-    // exit is proof the contract fired over units read from outside `specs/`.
     assert!(
         check_from(&corpus, &into, &[]),
         "an advisory-only ADR violation must exit zero without --deny-advisories"

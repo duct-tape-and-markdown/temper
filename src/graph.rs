@@ -977,9 +977,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::check::Severity;
-    use crate::compose::{AuthorLayer, Edge};
+    use crate::compose::{DegreeBound, Edge};
     use crate::extract::Kind;
-    use std::path::Path;
 
     /// A `Features` carrying a name (its `id`) and, optionally, a `routes_to`
     /// reference field — a scalar naming one target.
@@ -1015,14 +1014,14 @@ mod tests {
         }
     }
 
-    /// Parse the first edge out of a `temper.toml` fragment — the parse foundation
-    /// (a kind's `[[kind.<name>.relationships]]` array) is the only constructor for
-    /// an [`Edge`], so the graph tests drive it.
-    fn edge(toml: &str) -> Edge {
-        AuthorLayer::parse(toml, Path::new("temper.toml"))
-            .unwrap()
-            .edges()[0]
-            .clone()
+    /// A `routes_to` edge naming an unmodeled target kind — every case below that
+    /// needs one names `agent`, a kind `by_kind` never carries.
+    fn routes_to_agent_edge() -> Edge {
+        Edge {
+            field: "routes_to".to_string(),
+            from: "rule".to_string(),
+            to: "agent".to_string(),
+        }
     }
 
     #[test]
@@ -1106,7 +1105,7 @@ mod tests {
         // The target kind `agent` is not modeled (`by_kind` has only `rule`): every
         // route would dangle, so the fault is the declaration. Admissibility reports
         // it once, and `check` skips the edge rather than flag every source.
-        let edge = edge("[[kind.rule.relationships]]\nfield = \"routes_to\"\nto = \"agent\"\n");
+        let edge = routes_to_agent_edge();
         let rules = [node("style", Some("whatever"))];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
 
@@ -1268,33 +1267,35 @@ mod tests {
         // The target kind `agent` is not modeled — the edge is inadmissible, so
         // `acyclic` skips it exactly as `check` does. Even a self-naming source over
         // it forges no cycle, because the arc never resolves.
-        let edge = edge("[[kind.rule.relationships]]\nfield = \"routes_to\"\nto = \"agent\"\n");
+        let edge = routes_to_agent_edge();
         let rules = [node("style", Some("style"))];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
         assert!(acyclic(std::slice::from_ref(&edge), &by_kind).is_empty());
     }
 
-    /// Parse a `temper.toml` fragment's `[requirement.<name>]` tables into the typed
-    /// roster the [`degree`] check reads — the parse foundation is the only constructor
-    /// for a [`Requirement`]'s `degree` bound, so the graph tests drive it.
-    fn requirements(toml: &str) -> BTreeMap<String, crate::compose::Requirement> {
-        AuthorLayer::parse(toml, Path::new("temper.toml"))
-            .unwrap()
-            .requirements()
-            .clone()
-    }
-
-    /// A requirement whose satisfier nodes are the skills opting into `gate`, declaring
-    /// a `degree` bound `clause` (an inline `{ … }` body). The graph the degree check
-    /// ranges over is the caller's `edges`/`by_kind`; the satisfier nodes are the skills
-    /// whose `satisfies` names `gate`. No `package` is needed — the degree check reads
-    /// the edge graph, not a contract.
-    fn degree_requirement(clause: &str) -> BTreeMap<String, crate::compose::Requirement> {
-        requirements(&format!(
-            "[requirement.gate]\n\
-             kind = \"skill\"\n\
-             degree = {{ {clause} }}\n"
-        ))
+    /// A bare `gate` requirement typed to `kind`, declaring `degree` (or none) — the
+    /// typed roster the [`degree`] check reads. The satisfier nodes are the skills
+    /// whose `satisfies` names `gate`; no `package` is needed, since the degree check
+    /// reads the edge graph, not a contract.
+    fn gate_requirement(
+        kind: &str,
+        degree: Option<DegreeBound>,
+    ) -> BTreeMap<String, crate::compose::Requirement> {
+        BTreeMap::from([(
+            "gate".to_string(),
+            crate::compose::Requirement {
+                name: "gate".to_string(),
+                means: None,
+                kind: Some(kind.to_string()),
+                package: None,
+                required: false,
+                count: None,
+                unique: Vec::new(),
+                membership: None,
+                degree,
+                verified_by: None,
+            },
+        )])
     }
 
     /// A node that opts into the named requirement via `satisfies` — the degree tests'
@@ -1309,7 +1310,16 @@ mod tests {
         // `incoming = { max = 0 }`: the skill `standards` must not be pointed at. No
         // rule routes to it (the only rule routes nowhere), so its incoming degree is
         // zero — inside the bound, clean.
-        let requirements = degree_requirement("incoming = { max = 0 }");
+        let requirements = gate_requirement(
+            "skill",
+            Some(DegreeBound {
+                incoming: Some(EdgeBound {
+                    min: None,
+                    max: Some(0),
+                }),
+                outgoing: None,
+            }),
+        );
         let edges = [routes_to_edge()];
         let rules = [node("style", None)];
         let skills = [satisfying(node("standards", None), "gate")];
@@ -1323,7 +1333,16 @@ mod tests {
         // The rule `style` routes to `standards`, so the skill has incoming degree 1 —
         // outside `incoming = { max = 0 }`. A self-registering artifact must not be
         // reached: an error naming the requirement, the artifact, and the direction.
-        let requirements = degree_requirement("incoming = { max = 0 }");
+        let requirements = gate_requirement(
+            "skill",
+            Some(DegreeBound {
+                incoming: Some(EdgeBound {
+                    min: None,
+                    max: Some(0),
+                }),
+                outgoing: None,
+            }),
+        );
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
         let skills = [satisfying(node("standards", None), "gate")];
@@ -1343,7 +1362,16 @@ mod tests {
         // `incoming = { min = 1 }`: the skill `standards` must be reachable. The rule
         // `style` routes to it, so its incoming degree is 1 — inside the open-above
         // bound, clean.
-        let requirements = degree_requirement("incoming = { min = 1 }");
+        let requirements = gate_requirement(
+            "skill",
+            Some(DegreeBound {
+                incoming: Some(EdgeBound {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            }),
+        );
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
         let skills = [satisfying(node("standards", None), "gate")];
@@ -1356,7 +1384,16 @@ mod tests {
     fn a_routed_bound_fires_when_the_node_is_unreachable() {
         // No rule routes to `standards`, so its incoming degree is zero — outside
         // `incoming = { min = 1 }`. A routed artifact must be reachable: an error.
-        let requirements = degree_requirement("incoming = { min = 1 }");
+        let requirements = gate_requirement(
+            "skill",
+            Some(DegreeBound {
+                incoming: Some(EdgeBound {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            }),
+        );
         let edges = [routes_to_edge()];
         let rules = [node("style", None)];
         let skills = [satisfying(node("standards", None), "gate")];
@@ -1374,10 +1411,15 @@ mod tests {
         // Degree bounds both directions: the rule `style` (a `gate` satisfier under an
         // `outgoing` bound) routes to one skill, so its out-degree is 1 — outside
         // `{ max = 0 }`.
-        let requirements = requirements(
-            "[requirement.gate]\n\
-             kind = \"rule\"\n\
-             degree = { outgoing = { max = 0 } }\n",
+        let requirements = gate_requirement(
+            "rule",
+            Some(DegreeBound {
+                incoming: None,
+                outgoing: Some(EdgeBound {
+                    min: None,
+                    max: Some(0),
+                }),
+            }),
         );
         let edges = [routes_to_edge()];
         let rules = [satisfying(node("style", Some("standards")), "gate")];
@@ -1395,11 +1437,7 @@ mod tests {
         // `degree` is opt-in, per-requirement: a requirement with no bound is silent over a
         // graph that would violate one — `temper` never fabricates a gate the author
         // did not declare (`00-intent.md` law 4).
-        let requirements = requirements(
-            "[requirement.gate]\n\
-             kind = \"skill\"\n\
-             package = \"skill.anthropic\"\n",
-        );
+        let requirements = gate_requirement("skill", None);
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
         let skills = [node("standards", None)];
@@ -1443,7 +1481,16 @@ mod tests {
         // that loads nothing, so `standards` has incoming degree zero and a routed
         // `{ min = 1 }` bound fires. The dangling reference neither forges nor masks a
         // degree, exactly as it neither forges nor masks a cycle.
-        let requirements = degree_requirement("incoming = { min = 1 }");
+        let requirements = gate_requirement(
+            "skill",
+            Some(DegreeBound {
+                incoming: Some(EdgeBound {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            }),
+        );
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("absent"))];
         let skills = [satisfying(node("standards", None), "gate")];

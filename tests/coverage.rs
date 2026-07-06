@@ -106,7 +106,7 @@ fn requirement(name: &str, required: bool) -> RequirementRow {
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
 /// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
-/// projection of a `temper.toml` `[requirement.*]` table: the gate sources
+/// projection of the retired manifest's `[requirement.*]` table: the gate sources
 /// requirements from the lock, never a re-imported assembly
 /// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
 fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
@@ -121,15 +121,6 @@ fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
     drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
-/// Write `<root>/temper.toml` verbatim, with no resync: requirements ride the lock
-/// (`write_requirements`), so this is only for the assembly-scope facets `temper.toml`
-/// still carries (a `[kind.*]` package registration, `authority`, …) — and, written
-/// empty, is enough to flip the assembly from absent to present so the roster/coverage
-/// tier runs at all.
-fn write_temper_toml(root: &Path, contents: &str) {
-    fs::write(root.join("temper.toml"), contents).unwrap();
-}
-
 /// The outcome of a `check` run: whether it exited zero and its combined
 /// stdout+stderr (diagnostics render to stdout, a load error to stderr).
 struct CheckRun {
@@ -137,8 +128,8 @@ struct CheckRun {
     output: String,
 }
 
-/// Run `temper check` from `root` (so a `temper.toml` there is discovered) against
-/// the default `./.temper` workspace, capturing the result.
+/// Run `temper check` from `root` against the default `./.temper` workspace,
+/// capturing the result.
 fn check_in(root: &Path) -> CheckRun {
     let out = Command::new(BIN)
         .current_dir(root)
@@ -179,7 +170,6 @@ fn a_required_requirement_with_a_resolving_satisfies_stays_silent() {
     // The skill opts into the requirement, so its intent has a resolving home.
     author_satisfies(&root, "dev-standards", &["dev-standards"]);
     write_requirements(&root, vec![requirement("dev-standards", true)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -195,7 +185,6 @@ fn a_required_requirement_with_no_satisfying_artifact_fires_unfilled() {
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // No `satisfies` authored: nothing opts into the requirement.
     write_requirements(&root, vec![requirement("dev-standards", true)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -222,7 +211,6 @@ fn a_satisfies_naming_no_requirement_fires_dangling() {
         &["dev-standards", "ghost-requirement"],
     );
     write_requirements(&root, vec![requirement("dev-standards", true)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -253,7 +241,6 @@ fn a_typo_in_a_satisfies_link_yields_paired_unfilled_and_dangling() {
     // other.
     author_satisfies(&root, "dev-standards", &["dev-standatds"]);
     write_requirements(&root, vec![requirement("dev-standards", true)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -292,7 +279,6 @@ fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
         &["dev-standards", "ghost-requirement", "ghost-requirement"],
     );
     write_requirements(&root, vec![requirement("dev-standards", true)]);
-    write_temper_toml(&root, "");
 
     // The github reporter renders one `::error` line per diagnostic, a stable count.
     let run = check_github(&root);
@@ -323,7 +309,6 @@ fn a_non_required_unfilled_requirement_does_not_block() {
     // Nothing opts into it, but the requirement is advisory intent (no `required`),
     // so `temper` never fabricates a gate the author did not declare.
     write_requirements(&root, vec![requirement("nice-to-have", false)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -334,20 +319,19 @@ fn a_non_required_unfilled_requirement_does_not_block() {
 }
 
 #[test]
-fn a_registered_custom_kind_with_no_sdk_definition_contributes_no_coverage() {
+fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
     // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
-    // "Decision: field typing lives in the SDK — there is no kind file format"): a
-    // `[kind.spec]` registration with no SDK-authored definition contributes no
-    // members, so a `required` requirement it might otherwise fill still fires
-    // UNFILLED — registering a kind never fabricates coverage.
+    // "Decision: field typing lives in the SDK — there is no kind file format"), and
+    // there is no longer any manifest to register one from at all (the manifest
+    // retires entirely) — so a kind-blind `required` requirement contributes no
+    // fabricated coverage; it still fires UNFILLED absent a real satisfier.
     let root = tmpdir("custom-unfilled");
-    write_temper_toml(&root, "[kind.spec]\npackage = \"spec\"\n");
     write_requirements(&root, vec![requirement("domain-model", true)]);
 
     let run = check_in(&root);
     assert!(
         !run.ok,
-        "an unfilled required requirement must block even with a custom kind registered ⇒ non-zero, got:\n{}",
+        "an unfilled required requirement must block ⇒ non-zero, got:\n{}",
         run.output
     );
     assert!(
@@ -366,7 +350,6 @@ fn a_means_less_required_requirement_still_gates() {
     // `means`: a `required` requirement with no `means` and nothing opting in still
     // fires UNFILLED and blocks the run.
     write_requirements(&root, vec![requirement("dev-standards", true)]);
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(

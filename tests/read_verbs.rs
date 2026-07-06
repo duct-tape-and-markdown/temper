@@ -106,7 +106,6 @@ fn explain(
     let activations = BTreeMap::new();
     read::explain(
         &ws,
-        None,
         custom,
         &assembly,
         roster,
@@ -296,7 +295,7 @@ mod floor_binding {
         }];
         let roster: BTreeMap<String, Requirement> = BTreeMap::new();
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
-        read::why(&ws, None, &custom, &roster, &by_kind, &[], id)
+        read::why(&ws, &custom, &roster, &by_kind, &[], id)
     }
 
     #[test]

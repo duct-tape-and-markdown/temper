@@ -132,21 +132,14 @@ fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
 }
 
 #[test]
-fn a_registered_custom_kind_resolves_from_the_harness_temper_dir() {
-    // The dogfood bug (inbox): `session-start` over a project registering a custom
-    // kind must resolve the kind's authored KIND.md + bound package from the
-    // harness's own `.temper/` — beside its `temper.toml` — not the throwaway scratch
-    // surface the members import into. Before the fix the definition dangled as
-    // `kind::missing_definition` because `gate` read `kinds`/`packages` from the
-    // scratch, which never carries them.
+fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
+    // Custom-kind registration retired along with the manifest that once carried it
+    // (`TEMPER-TOML-ZERO`) and the `KIND.md` file format retired earlier still
+    // (`specs/architecture/15-kinds.md`, "there is no kind file format") — there is no
+    // longer any author-facing way to register one. This pins that a harness carrying
+    // such shaped-but-inert fixture files (nothing reads them) alongside a real skill
+    // still resolves to a clean, quiet session-start payload.
     let harness = tmpdir("custom-kind-src");
-
-    // The assembly registers a custom `spec` kind and binds its package by name.
-    fs::write(
-        harness.join("temper.toml"),
-        "[kind.spec]\npackage = \"spec\"\n",
-    )
-    .unwrap();
 
     // The authored kind definition under `.temper/kinds/spec/KIND.md`: a member is a
     // `specs/*.md` file, extracting a line count (a decidable, trivially-satisfied
@@ -186,19 +179,14 @@ fn a_registered_custom_kind_resolves_from_the_harness_temper_dir() {
 
     let (ok, payload) = run_session_start(&harness);
 
-    // Advisory and, crucially, *emits a payload at all*: before the fix `gate`
-    // propagated a hard `kind::missing_definition` error (KIND.md absent from the
-    // scratch), so `session-start` exited non-zero with no JSON on stdout — and
-    // `run_session_start` would have panicked parsing it.
     assert!(ok, "the session-start gate must exit zero");
     let hook = &payload["hookSpecificOutput"];
     assert_eq!(hook["hookEventName"], "SessionStart");
-    // The registered custom kind resolves cleanly from the harness's `.temper/`, so
-    // the payload is quiet — no verdict, and never the `missing_definition` a
-    // scratch-surface resolution would raise.
+    // The stray fixture files contribute no members and no findings, so the payload
+    // is quiet — the clean skill is the only thing the gate resolves.
     assert!(
         hook["additionalContext"].is_null(),
-        "the custom kind must resolve from the harness's .temper/ ⇒ quiet payload, got: {hook}"
+        "stray custom-kind-shaped fixtures must not disturb a clean payload, got: {hook}"
     );
 }
 
@@ -212,16 +200,6 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     // recognition and report the requirement unfilled — the law-3 false positive the
     // spec's surface-present clause forbids.
     let harness = tmpdir("authored-surface-src");
-
-    // The assembly declares a required `rule`-kind requirement.
-    fs::write(
-        harness.join("temper.toml"),
-        "[requirement.engineering-standards]\n\
-         means = \"the harness carries a rule maintaining engineering standards\"\n\
-         kind = \"rule\"\n\
-         required = true\n",
-    )
-    .unwrap();
 
     // The committed landscape file a prior `import` would have discovered — the gate
     // walks the lock's governs locus straight off the harness (`specs/architecture/20-surface.md`,
@@ -241,10 +219,10 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     )
     .unwrap();
 
-    // The gate reads the assembly's requirements off the lock's declaration rows, not
-    // `temper.toml` directly (`specs/architecture/40-composition.md`, "Decision: one
-    // authored assembly"), so the fixture stands in for a prior `import` having already
-    // written this row — session-start itself still never re-imports.
+    // The gate reads the assembly's requirements off the lock's declaration rows
+    // (`specs/architecture/40-composition.md`, "Decision: one authored assembly"), so
+    // the fixture stands in for a prior `import` having already written this row —
+    // session-start itself still never re-imports.
     let temper_dir = harness.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(

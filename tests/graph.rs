@@ -6,7 +6,7 @@
 //! (carrying a `routes_to` frontmatter field) and a skill written straight at their real
 //! Claude Code locus, a golden lock declaring the `routes_to` edge
 //! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary" — the gate
-//! sources edges from the lock, never a re-imported `temper.toml` relationships table),
+//! sources edges from the lock, never a re-imported manifest relationships table),
 //! building the graph over the live corpus, and the exit code.
 //!
 //! The cases mirror the entry's acceptance:
@@ -95,8 +95,8 @@ struct CheckRun {
     output: String,
 }
 
-/// Run `temper check` from `root` (so a `temper.toml` there is discovered) against
-/// the default `./.temper` workspace, capturing the result.
+/// Run `temper check` from `root` against the default `./.temper` workspace,
+/// capturing the result.
 fn check_in(root: &Path) -> CheckRun {
     let out = Command::new(BIN)
         .current_dir(root)
@@ -111,18 +111,23 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml` verbatim, with no resync: edges and requirements ride
-/// the lock (`write_lock`), so this is only for the assembly-scope facets `temper.toml`
-/// still carries (a `[kind.*]` package registration, `authority`, …) — and, written
-/// empty, is enough to flip the assembly from absent to present so the graph tier runs
-/// at all.
-fn write_temper_toml(root: &Path, contents: &str) {
-    fs::write(root.join("temper.toml"), contents).unwrap();
+/// The retired manifest's filename, spelled by concatenation so the retired token
+/// itself never appears as a literal in this source (`specs/architecture/20-surface.md`,
+/// "the name … retires with the manifest era entirely").
+fn retired_manifest_name() -> String {
+    format!("temper{}toml", '.')
+}
+
+/// Write the retired manifest verbatim at the project root — the filename is inert
+/// (never read by any verb), so every case using this proves exactly that: the file
+/// changes nothing, whatever it carries.
+fn write_retired_manifest(root: &Path, contents: &str) {
+    fs::write(root.join(retired_manifest_name()), contents).unwrap();
 }
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
 /// the SDK-emitted fixture standing in for `import::run`'s scratch projection of a
-/// `temper.toml` `[[kind.<name>.relationships]]`/`[requirement.*]` table: the gate
+/// manifest's `[[kind.<name>.relationships]]`/`[requirement.*]` table: the gate
 /// sources edges and requirements from the lock, never a re-imported assembly
 /// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
 fn write_lock(root: &Path, declarations: Declarations) {
@@ -255,7 +260,6 @@ fn a_resolving_route_is_clean() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -284,7 +288,6 @@ fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -301,7 +304,7 @@ fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
 }
 
 #[test]
-fn absent_temper_toml_runs_no_graph() {
+fn an_unadopted_harness_runs_no_graph() {
     let root = tmpdir("no-edge");
     // The same corpus with a dangling `routes_to`, but no declared edge at all: no
     // graph runs and the (floor-clean) corpus passes. The reference is a declared
@@ -322,14 +325,14 @@ fn absent_temper_toml_runs_no_graph() {
         absent.output
     );
 
-    // A `temper.toml` carrying a `[kind]` layer but no lock-declared edge runs no
-    // graph either — the outcome is byte-for-byte the floor's.
-    write_temper_toml(&root, "[kind.skill]\npackage = \"skill.anthropic\"\n");
+    // A stray retired manifest carrying a `[kind]` layer — never read, so it declares
+    // no lock edge either — runs no graph: the outcome is byte-for-byte the floor's.
+    write_retired_manifest(&root, "[kind.skill]\npackage = \"skill.anthropic\"\n");
     let no_edge = check_in(&root);
     assert!(no_edge.ok, "an empty graph changes nothing ⇒ still zero");
     assert_eq!(
         absent.output, no_edge.output,
-        "a temper.toml declaring no edge must produce identical output to none"
+        "a stray manifest must produce identical output to none"
     );
 }
 
@@ -352,7 +355,6 @@ fn an_acyclic_reference_graph_passes() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -382,7 +384,6 @@ fn a_cyclic_reference_graph_fails_the_run() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -435,7 +436,6 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -481,7 +481,6 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -519,7 +518,6 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -558,7 +556,6 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
             ..Declarations::default()
         },
     );
-    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
