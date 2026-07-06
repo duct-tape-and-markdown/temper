@@ -24,14 +24,19 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## State of the era (2026-07-05)
 
-- **The front door is UNBLOCKED** (07-05): `@dtmd/temper@0.0.1` live on npm;
-  `(sdk-package-layout)` resolved in 50-distribution (PR #4: one package,
-  provider face = `claude-code` subpath export). Repo PUBLIC since 07-05.
-  Inbox carries the unblock; plan derives the chain (SDK recut to the
-  subpath layout, emit as the host lock producer, the gate rewrite off the
-  copy-tree scratch, demolition remainder, `init` re-shape). John delegated
-  the finer-grained calls to the session (07-05) — rule, encode, he
-  ratifies by PR merge.
+- **Front door open, first adopter live** (07-05): repo PUBLIC;
+  `@dtmd/temper@0.0.2` on npm with the ratified subpath layout (PR #4 +
+  SDK-RECUT shipped). cascade (John's repo) is the first external harness:
+  kept `check`, reverted `install`; four field reports routed — one new
+  fork `(carriage-aware-placements)` (needs John: in-place first-class +
+  what carries projection/authored at the guard; session proposal: the
+  lock rows carry carriage), three accepted-debt symptoms the demolition
+  dissolves. John delegated finer-grained calls to the session (07-05) —
+  rule, encode, he ratifies by PR merge.
+- **NEXT SESSION FOCUS: the GATE-READ-LOCK-DEMOLITION decomposition
+  ceremony** — serialized chain over ~18 test files + main/import/drift/
+  compose, with cascade's DATUM evidence and the carriage fork as rider.
+  Frame-scale: cooling discipline applies unless John waives.
 - Shipped: the six-noun demolition wave (eight slices, ≈ −2,600 lines),
   `(inplace-lock-producer)` resolved (emit is the sole lock producer,
   20-surface), DRIFT-DIFF-RETIRE (−391 lines; plan's reconcile found it the
