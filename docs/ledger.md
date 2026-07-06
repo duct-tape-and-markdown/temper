@@ -18,6 +18,11 @@ hard.
   burden — no shims, no aliases, no deprecation ceremony. Break freely
   until v0.1. Candidate home: the corpus (`55-offering.md`), via the
   `specs:` ceremony.
+- Atomize plan breakdowns (John 07-06): a pending entry is ONE gate-sized
+  commit; lettered sub-scopes are a blockedBy chain, never an entry.
+  Evidence: S6 filed whole with (a)(b)(c) sub-slices (framing leaked from
+  the session's inbox note), one 45-min tick. Candidate home: the filing
+  bar in `.flume/prompts/plan.md` (+ a PROTOCOL.md line); wave-quiet edit.
 
 ## State of the era (2026-07-06)
 
