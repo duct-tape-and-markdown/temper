@@ -126,19 +126,79 @@ fn write_harness(root: &Path) {
     fs::write(rules.join("collaboration.md"), FIELDLESS_RULE).unwrap();
 }
 
-/// Import `harness` into a fresh surface and return `(harness, into)`.
+/// Import `harness` into a fresh surface and return `(harness, into)`. `into` is
+/// `<harness>/.temper` — a child of the harness root, matching the seam's own
+/// topology (`specs/architecture/20-surface.md`): `drift::emit` derives where a
+/// projection lands from `workspace_dir`'s parent, never a second harness argument.
 fn imported(label: &str) -> (PathBuf, PathBuf) {
     let harness = tmpdir(&format!("{label}-src"));
     write_harness(&harness);
-    let into = tmpdir(&format!("{label}-into"));
+    let into = harness.join(".temper");
     import::run(&harness, &into).unwrap();
     (harness, into)
+}
+
+/// The skill/rule kind-fact rows a payload built from a [`Workspace`] carries — the
+/// two built-in kinds this fixture's harness exercises.
+fn skill_rule_kind_facts() -> Vec<drift::KindFactRow> {
+    vec![
+        drift::KindFactRow {
+            name: "rule".to_string(),
+            provider: None,
+            governs_root: ".claude/rules".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("file".to_string()),
+            activation: None,
+        },
+        drift::KindFactRow {
+            name: "skill".to_string(),
+            provider: None,
+            governs_root: ".claude/skills".to_string(),
+            governs_glob: "*/SKILL.md".to_string(),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("directory".to_string()),
+            activation: None,
+        },
+    ]
+}
+
+/// Build a seam [`drift::Payload`] from a loaded [`Workspace`] — the fixture's stand-in
+/// for the SDK program, so the generic frontmatter adapter's fidelity is exercised
+/// without shelling out to `node` (`emit.rs`'s dedicated test drives the real seam).
+fn payload_from_workspace(ws: &Workspace) -> drift::Payload {
+    let mut members = Vec::new();
+    for skill in ws.skills() {
+        members.push(drift::PayloadMember {
+            kind: "skill".to_string(),
+            name: skill.id.clone(),
+            fields: skill.fields.clone(),
+            body: skill.body.clone(),
+        });
+    }
+    for rule in ws.rules() {
+        members.push(drift::PayloadMember {
+            kind: "rule".to_string(),
+            name: rule.id.clone(),
+            fields: rule.fields.clone(),
+            body: rule.body.clone(),
+        });
+    }
+    drift::Payload {
+        version: drift::SEAM_VERSION,
+        declarations: drift::Declarations {
+            kinds: skill_rule_kind_facts(),
+            ..Default::default()
+        },
+        members,
+    }
 }
 
 /// Emit the surface at `into` back out to its harness sources.
 fn emit(into: &Path) {
     let ws = Workspace::load(into).unwrap();
-    drift::emit(&ws, into, EmitOptions::default()).unwrap();
+    let payload = payload_from_workspace(&ws);
+    drift::emit(&payload, into, EmitOptions::default()).unwrap();
 }
 
 /// `emit` re-emits each frontmatter in a fixed order — typed scalars in declaration
@@ -159,28 +219,34 @@ fn projected_yaml_key_order_is_stable() {
 
 /// A source already in the adapter's canonical projection form is a fixpoint: a full
 /// import→apply→import→apply cycle leaves every harness source byte-identical — the
-/// two adapter faces compose to the identity on canonical input.
+/// two adapter faces compose to the identity on canonical input. Compared over
+/// `.claude/**` alone — `.temper/lock.toml` is drift's own concern (`tests/emit.rs`),
+/// not the frontmatter adapter's byte fidelity this test pins.
 #[test]
 fn import_apply_round_trip_is_a_byte_fixpoint() {
     let (harness, into) = imported("fixpoint");
+    let claude = harness.join(".claude");
 
     // The canonical sources are already what the emit face renders, so the first
     // apply changes not a byte.
-    let before = tree_bytes(&harness);
+    let before = tree_bytes(&claude);
     emit(&into);
     assert_eq!(
         before,
-        tree_bytes(&harness),
+        tree_bytes(&claude),
         "a canonical source must survive the first apply byte-for-byte"
     );
 
     // And a second full round trip through a fresh surface is still the identity.
-    let into2 = tmpdir("fixpoint-into2");
+    // `into2` sits beside `.claude` too — `drift::emit` derives the projection root
+    // from the workspace dir's parent, so a surface outside the harness has nowhere
+    // real to write.
+    let into2 = harness.join(".temper2");
     import::run(&harness, &into2).unwrap();
     emit(&into2);
     assert_eq!(
         before,
-        tree_bytes(&harness),
+        tree_bytes(&claude),
         "import→apply→import→apply must reach the same byte fixpoint"
     );
 }

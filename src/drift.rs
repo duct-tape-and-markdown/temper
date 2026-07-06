@@ -1,29 +1,34 @@
 //! `emit` — the drift engine.
 //!
-//! specs/architecture/20-surface.md, "Content-faithful, deterministically emitted (law 5)";
-//! "Decision: `re-add` is retired — hand-edits route to the source" (a direct edit
-//! to emitted output is drift routed to the authored source, never merged back).
+//! specs/architecture/20-surface.md, "The seam — one implementation"; "Content-faithful,
+//! deterministically emitted (law 5)"; "Decision: `re-add` is retired — hand-edits route
+//! to the source" (a direct edit to emitted output is drift routed to the authored
+//! source, never merged back).
 //!
-//! [`emit`] compiles the surface out, re-emitting each projection **whole** from
-//! the authored source and byte-deterministically — verified by a double-emit
-//! comparison, so nondeterministic authoring is a loud failure, never a silent
-//! churn. A hand-edited projection is overwritten: it is drift routed to the
-//! source, surfaced by `config.stale`/the guard, not a merge. [`place`] is the
-//! whole-file placement merge for artifacts temper *places* rather than emits
-//! (specs/architecture/50-distribution.md, `install`); it keeps its own
-//! three-state conflict detection until `install` rides emit's projection.
+//! [`emit_program`] runs the SDK program (`node <workspace>/harness.ts`) and hands its
+//! JSON payload to [`emit`], the sole compiler of every projection and the whole lock —
+//! no harness re-supply, the payload IS the source. Each projection is re-emitted
+//! **whole** and byte-deterministically — verified by a double-emit comparison, so
+//! nondeterministic authoring is a loud failure, never a silent churn. A hand-edited
+//! projection is overwritten: it is drift routed to the source, surfaced by
+//! `config.stale`/the guard, not a merge. [`place`] is the whole-file placement merge
+//! for artifacts temper *places* rather than emits (specs/architecture/50-distribution.md,
+//! `install`); it keeps its own three-state conflict detection until `install` rides
+//! emit's projection.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
+use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use toml_edit::{
     Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike, Value, value,
 };
 
-use crate::builtin_kind;
-use crate::check::Workspace;
 use crate::hash::sha256_hex;
+use crate::import::{RollupEntry, write_rollup};
 use crate::install;
 
 /// Errors raised by `emit`, `place`, and the lock-reading helpers in this module —
@@ -86,6 +91,87 @@ pub enum DriftError {
         #[source]
         source: toml_edit::TomlError,
     },
+
+    /// No SDK program exists at the harness workspace's entry point — the seam has
+    /// nothing to compile from (`specs/architecture/20-surface.md`, "The seam — one
+    /// implementation").
+    #[error("no SDK program at {path} — the represented path requires one (install scaffolds it)")]
+    #[diagnostic(code(temper::drift::no_sdk_program))]
+    NoSdkProgram {
+        /// The harness entry path that was expected but absent.
+        path: PathBuf,
+    },
+
+    /// `node` could not be spawned to run the SDK program.
+    #[error("failed to run the SDK program {path} (is `node` on PATH?)")]
+    #[diagnostic(code(temper::drift::sdk_spawn))]
+    SdkProgramSpawn {
+        /// The harness entry path the process was invoked with.
+        path: PathBuf,
+        /// The underlying spawn error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// The SDK program exited non-zero — a refusal (`20-surface.md`, "Emit refuses
+    /// before it writes") or an authoring error; its stderr carries the reason.
+    #[error("the SDK program {path} exited with a failure:\n{stderr}")]
+    #[diagnostic(code(temper::drift::sdk_program_failed))]
+    SdkProgramFailed {
+        /// The harness entry path that failed.
+        path: PathBuf,
+        /// The program's captured stderr.
+        stderr: String,
+    },
+
+    /// The SDK program's stdout was not valid UTF-8 — the JSON pipe is text
+    /// (`20-surface.md`, "The seam").
+    #[error("the SDK program {path} printed non-UTF-8 output")]
+    #[diagnostic(code(temper::drift::sdk_program_output))]
+    SdkProgramOutput {
+        /// The harness entry path whose output failed to decode.
+        path: PathBuf,
+        /// The underlying UTF-8 decode error.
+        #[source]
+        source: std::string::FromUtf8Error,
+    },
+
+    /// The SDK program's stdout did not parse as the seam's JSON payload.
+    #[error("the SDK program {path} printed a payload that failed to parse")]
+    #[diagnostic(code(temper::drift::payload_parse))]
+    PayloadParse {
+        /// The harness entry path whose payload failed to parse.
+        path: PathBuf,
+        /// The underlying JSON parse error.
+        #[source]
+        source: serde_json::Error,
+    },
+
+    /// The payload's pinned `version` does not match the engine's — the SDK and the
+    /// engine have drifted out of the lockstep the seam requires (`20-surface.md`,
+    /// "The SDK pins its engine version").
+    #[error(
+        "the SDK program's payload declares seam version {got}; this engine reads version {SEAM_VERSION}"
+    )]
+    #[diagnostic(code(temper::drift::seam_version))]
+    UnsupportedSeamVersion {
+        /// The version the payload declared.
+        got: u32,
+    },
+
+    /// A projected member's payload names a kind absent from the payload's own
+    /// `declarations.kinds` family — the engine is kind-blind (`15-kinds.md`) and has
+    /// nowhere to read that kind's locus/format/unit-shape from.
+    #[error(
+        "member `{member}` names kind `{kind}`, which the payload's declarations carry no kind fact for"
+    )]
+    #[diagnostic(code(temper::drift::unknown_kind))]
+    UnknownKind {
+        /// The kind name the member declared.
+        kind: String,
+        /// The member that named it.
+        member: String,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -135,8 +221,8 @@ impl EmitOutcome {
 /// the outcome emit produced.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmitEntry {
-    /// The artifact kind — `"skill"` or `"rule"`.
-    pub kind: &'static str,
+    /// The artifact kind — the payload member's bare kind name (`"skill"`, `"rule"`, …).
+    pub kind: String,
     /// The artifact name (its surface name).
     pub name: String,
     /// The on-disk source path the projection targeted.
@@ -145,27 +231,56 @@ pub struct EmitEntry {
     pub outcome: EmitOutcome,
 }
 
-/// The typed result of an [`emit`]: every artifact's outcome, in the workspace's
-/// stable load order (skills then rules, each name-sorted). Renders nothing itself
-/// — [`render_emit`] turns it into text.
+/// The typed result of an [`emit`]: every artifact's outcome, in the payload's
+/// stable load order (kind-then-name). Renders nothing itself — [`render_emit`]
+/// turns it into text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmitReport {
-    /// Every projected artifact, across the built-in kinds.
+    /// Every projected artifact, across every kind the payload names.
     pub entries: Vec<EmitEntry>,
 }
 
-/// The desired projection of one surface artifact: its identity, the emit
-/// fingerprint the lock currently records, the ordered header fields the surface
-/// wants the frontmatter to express, and the byte-faithful body.
+/// The engine's pinned seam version — the JSON pipe rides it in lockstep with the
+/// SDK's own `SEAM_VERSION` (`sdk/src/declarations.ts`; `specs/architecture/20-surface.md`,
+/// "The SDK pins its engine version").
+pub const SEAM_VERSION: u32 = 1;
+
+/// One projected member's erased payload — the SDK's whole output surface for a
+/// member that lives at a path locus (`sdk/src/emit.ts` `PayloadMember`). A genre
+/// member never appears here (it carries no standalone projection).
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct PayloadMember {
+    /// The kind's bare name — joins this payload's own `declarations.kinds` family.
+    pub kind: String,
+    /// Identity within the kind.
+    pub name: String,
+    /// The kind's typed fields, flat and ordered — the projected frontmatter.
+    pub fields: Vec<(String, JsonValue)>,
+    /// The resolved prose body, byte-faithful.
+    pub body: String,
+}
+
+/// The whole seam payload the SDK program prints to stdout
+/// (`specs/architecture/20-surface.md`, "The seam — one implementation"): the
+/// declaration rows (the lock's five families) and every projected member's erased
+/// payload. The engine is the sole compiler of every projection and the whole lock
+/// from this one value — no harness re-supply, the payload IS the source.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct Payload {
+    /// The pinned seam version this payload was compiled against.
+    pub version: u32,
+    /// The five declaration families.
+    pub declarations: Declarations,
+    /// Every projected member.
+    pub members: Vec<PayloadMember>,
+}
+
+/// The desired projection of one member: its identity, the harness-rooted path it
+/// projects to, and its fields/body.
 struct Projection {
-    kind: &'static str,
+    kind: String,
     name: String,
     source_path: PathBuf,
-    /// The emit fingerprint the lock currently records for this source (or the
-    /// source hash as a baseline when no `emit` has advanced it yet). Compared
-    /// against the re-emitted projection only to decide whether an already-matching
-    /// projection needs its stale lock fingerprint reconciled — never to merge.
-    emit_hash: String,
     /// The desired header fields in canonical order (known fields first, then the
     /// preserved unknown keys). The whole set is re-emitted into a fresh
     /// frontmatter block — the projection is regenerated, never patched.
@@ -174,87 +289,177 @@ struct Projection {
     body: String,
 }
 
-/// Compile the loaded `workspace` surface out onto the harness sources, re-emitting
-/// each projection **whole** from the authored source and byte-deterministically.
+/// The harness-relative locus a member of `facts` named `name` projects onto — the
+/// Rust port of the retired SDK `projectionPath` (`sdk/src/project.ts`; the engine is
+/// the sole compiler now, `specs/architecture/20-surface.md`): a directory unit lands
+/// its entry file under `<root>/<name>/`; a lone file replaces the glob's `*` with the
+/// name (an any-depth glob, a memory kind's `**/CLAUDE.md`, lands the root `<name>.md`).
+fn member_projection_path(facts: &KindFactRow, name: &str) -> PathBuf {
+    let relative = if facts.unit_shape.as_deref() == Some("directory") {
+        let entry = facts
+            .governs_glob
+            .split_once('/')
+            .map_or(facts.governs_glob.as_str(), |(_, rest)| rest);
+        format!("{name}/{entry}")
+    } else if facts.governs_glob.contains("**") {
+        format!("{name}.md")
+    } else {
+        facts.governs_glob.replacen('*', name, 1)
+    };
+    if facts.governs_root == "." {
+        PathBuf::from(relative)
+    } else {
+        Path::new(&facts.governs_root).join(relative)
+    }
+}
+
+/// Run the SDK program at `<workspace_dir>/harness.ts` and compile its payload in one
+/// call — the whole seam (`specs/architecture/20-surface.md`, "The seam — one
+/// implementation"): `node` executes the authored program, the engine reads the JSON
+/// pipe it prints on stdout and becomes the sole compiler of every projection and the
+/// whole lock. No harness root is re-supplied — the payload IS the source.
 ///
-/// `workspace_dir` is the surface root — where the lock (`lock.toml`) carrying the
-/// emit fingerprints lives. Each artifact is written to its recorded
-/// `provenance.source_path` (where `import` read it from). Emit regenerates the
-/// projection whole rather than merging on-disk bytes: a hand-edited projection is
-/// overwritten (that edit is drift routed to the source, `specs/architecture/20-surface.md`),
-/// and every projection is double-emit verified (`emit_one`). Nothing is written
-/// under `options.dry_run`.
+/// # Errors
+/// Returns a [`DriftError`] if no SDK program exists at the entry point, `node`
+/// cannot be spawned, the program exits non-zero, its output fails to parse, or
+/// [`emit`] itself fails.
+pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Result<EmitReport> {
+    let harness_entry = workspace_dir.join("harness.ts");
+    if !harness_entry.is_file() {
+        return Err(DriftError::NoSdkProgram {
+            path: harness_entry,
+        }
+        .into());
+    }
+    let json = run_sdk_program(&harness_entry)?;
+    let payload: Payload =
+        serde_json::from_str(&json).map_err(|source| DriftError::PayloadParse {
+            path: harness_entry.clone(),
+            source,
+        })?;
+    emit(&payload, workspace_dir, options)
+}
+
+/// Execute the SDK program at `harness_entry` (`node <path>`) and capture its
+/// stdout — the internal versioned JSON pipe. The subprocess's working directory
+/// is the program's own directory, so a bare `@dtmd/temper` import resolves
+/// through the consuming project's `node_modules`, walking up from there exactly
+/// as Node's own resolution would from the program's location.
+fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
+    let cwd = harness_entry.parent().unwrap_or_else(|| Path::new("."));
+    let output = Command::new("node")
+        .arg(harness_entry)
+        .current_dir(cwd)
+        .output()
+        .map_err(|source| DriftError::SdkProgramSpawn {
+            path: harness_entry.to_path_buf(),
+            source,
+        })?;
+    if !output.status.success() {
+        return Err(DriftError::SdkProgramFailed {
+            path: harness_entry.to_path_buf(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        });
+    }
+    String::from_utf8(output.stdout).map_err(|source| DriftError::SdkProgramOutput {
+        path: harness_entry.to_path_buf(),
+        source,
+    })
+}
+
+/// Compile a seam `payload` into every projection and the whole lock — the sole
+/// compiler (`specs/architecture/20-surface.md`, "The lock and drift — one
+/// vocabulary": "one producer writes all three families"). `workspace_dir` is the
+/// surface root (`.temper`, carrying `lock.toml`); projections land beside it, at
+/// `workspace_dir`'s parent joined with each member's kind-derived locus. Every
+/// projection is double-emit verified (`emit_one`); the lock is rewritten whole,
+/// never patched — it is tool-written, never composed. Nothing is written under
+/// `options.dry_run`.
 ///
-/// **In-place members are skipped.** emit compiles the authored library (the copy-tree
-/// [`Workspace`]) out; an in-place member is its own source with no projection to compile
-/// (`specs/architecture/20-surface.md`, "In-place members cannot drift"), so it never enters the
-/// [`Workspace`] emit ranges over — only document/module-carried members carry a lock row
-/// and a projection.
+/// # Errors
+/// Returns a [`DriftError`] if the payload's seam version is unsupported, a member
+/// names an undeclared kind, a projection cannot be read/written, or a projection
+/// fails to reproduce byte-for-byte across a double-emit.
 pub fn emit(
-    workspace: &Workspace,
+    payload: &Payload,
     workspace_dir: &Path,
     options: EmitOptions,
 ) -> miette::Result<EmitReport> {
-    let kinds = embedded_kind_names();
-    let emit_hashes = load_emit_hash(workspace_dir, &kinds)?;
-
-    let mut projections = Vec::new();
-    for skill in workspace.skills() {
-        projections.push(Projection {
-            kind: "skill",
-            name: skill.id.clone(),
-            source_path: skill.provenance.source_path.clone(),
-            emit_hash: fingerprint(&emit_hashes, skill.provenance.source_path.as_path())
-                .unwrap_or_else(|| skill.provenance.source_hash.clone()),
-            fields: skill.fields.clone(),
-            body: skill.body.clone(),
-        });
-    }
-    for rule in workspace.rules() {
-        projections.push(Projection {
-            kind: "rule",
-            name: rule.id.clone(),
-            source_path: rule.provenance.source_path.clone(),
-            emit_hash: fingerprint(&emit_hashes, rule.provenance.source_path.as_path())
-                .unwrap_or_else(|| rule.provenance.source_hash.clone()),
-            fields: rule.fields.clone(),
-            body: rule.body.clone(),
-        });
-    }
-
-    let mut entries = Vec::new();
-    // source_path -> new emit fingerprint to record (an Emitted write, or a stale
-    // lock reconciled on an Unchanged projection).
-    let mut updates: Vec<(PathBuf, String)> = Vec::new();
-    for projection in &projections {
-        let (entry, update) = emit_one(projection, options.dry_run)?;
-        if let Some(fingerprint) = update {
-            updates.push((projection.source_path.clone(), fingerprint));
+    if payload.version != SEAM_VERSION {
+        return Err(DriftError::UnsupportedSeamVersion {
+            got: payload.version,
         }
+        .into());
+    }
+
+    let harness_root = workspace_dir.parent().unwrap_or_else(|| Path::new("."));
+    let kind_facts: BTreeMap<&str, &KindFactRow> = payload
+        .declarations
+        .kinds
+        .iter()
+        .map(|row| (row.name.as_str(), row))
+        .collect();
+
+    let mut projections = Vec::with_capacity(payload.members.len());
+    for member in &payload.members {
+        let facts =
+            kind_facts
+                .get(member.kind.as_str())
+                .ok_or_else(|| DriftError::UnknownKind {
+                    kind: member.kind.clone(),
+                    member: member.name.clone(),
+                })?;
+        let source_path = harness_root.join(member_projection_path(facts, &member.name));
+        projections.push(Projection {
+            kind: member.kind.clone(),
+            name: member.name.clone(),
+            source_path,
+            fields: member.fields.clone(),
+            body: member.body.clone(),
+        });
+    }
+
+    let mut entries = Vec::with_capacity(projections.len());
+    let mut rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
+    for projection in &projections {
+        let (entry, hash) = emit_one(projection, options.dry_run)?;
+        rollups
+            .entry(projection.kind.clone())
+            .or_default()
+            .push(RollupEntry {
+                name: projection.name.clone(),
+                source_path: projection.source_path.to_string_lossy().into_owned(),
+                source_hash: hash.clone(),
+                emit_hash: hash,
+            });
         entries.push(entry);
     }
 
-    if !options.dry_run && !updates.is_empty() {
-        update_lock(workspace_dir, &kinds, &updates)?;
+    if !options.dry_run {
+        write_rollup(
+            workspace_dir,
+            &rollups,
+            &BTreeMap::new(),
+            &payload.declarations,
+        )?;
     }
 
     Ok(EmitReport { entries })
 }
 
-/// Re-emit one projection whole, returning its [`EmitEntry`] and the emit fingerprint
-/// to record when the bytes moved (or a stale lock needs reconciling).
+/// Re-emit one projection whole, returning its [`EmitEntry`] and the SHA-256 of the
+/// bytes now on disk (or that would be, under `--dry-run`) — the fresh rollup row's
+/// `source_hash`/`emit_hash`, always equal for a payload-compiled member (there is no
+/// separate authored-source file to diverge from; the resolved payload IS the source).
 ///
-/// The projection is regenerated from the authored surface — never merged against
-/// on-disk bytes — so a hand-edited projection is simply overwritten: a direct edit
-/// to emitted output is drift routed to the source (`config.stale`/the guard surface
+/// The projection is regenerated from the payload — never merged against on-disk
+/// bytes — so a hand-edited projection is simply overwritten: a direct edit to
+/// emitted output is drift routed to the source (`config.stale`/the guard surface
 /// it), not a mergeable conflict. The on-disk read decides only `Emitted` vs the
 /// idempotent `Unchanged`.
-fn emit_one(
-    projection: &Projection,
-    dry_run: bool,
-) -> Result<(EmitEntry, Option<String>), DriftError> {
+fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String), DriftError> {
     let row = |outcome| EmitEntry {
-        kind: projection.kind,
+        kind: projection.kind.clone(),
         name: projection.name.clone(),
         source_path: projection.source_path.clone(),
         outcome,
@@ -294,16 +499,18 @@ fn emit_one(
         });
     }
 
+    let hash = sha256_hex(desired.as_bytes());
     if current.as_deref() == Some(desired.as_bytes()) {
-        // Already at the projection. Reconcile a stale lock fingerprint (an
-        // `emit_hash` predating these bytes) so it stops reading as `config.stale`;
-        // otherwise leave the lock alone.
-        let hash = sha256_hex(desired.as_bytes());
-        let update = (hash != projection.emit_hash).then_some(hash);
-        return Ok((row(EmitOutcome::Unchanged), update));
+        return Ok((row(EmitOutcome::Unchanged), hash));
     }
 
     if !dry_run {
+        if let Some(parent) = projection.source_path.parent() {
+            fs::create_dir_all(parent).map_err(|source| DriftError::Write {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
         fs::write(&projection.source_path, desired.as_bytes()).map_err(|source| {
             DriftError::Write {
                 path: projection.source_path.clone(),
@@ -311,10 +518,7 @@ fn emit_one(
             }
         })?;
     }
-    Ok((
-        row(EmitOutcome::Emitted),
-        Some(sha256_hex(desired.as_bytes())),
-    ))
+    Ok((row(EmitOutcome::Emitted), hash))
 }
 
 /// Re-emit the desired projection deterministically: a fresh `---`-delimited
@@ -354,109 +558,6 @@ fn render_field(key: &str, value: &JsonValue) -> String {
     // null literal rather than panic on the unreachable error path.
     let rendered = serde_json::to_string(value).unwrap_or_else(|_| "null".to_string());
     format!("{key}: {rendered}\n")
-}
-
-/// The bare table-key names of the kinds temper actually embeds — the lock's per-kind
-/// array-of-tables keys (`[[skill]]`, `[[rule]]`, `[[memory]]`). Derived from
-/// `builtin_kind::BUILTIN_KINDS` (`<provider>.<name>`, so the bare key is the segment
-/// after the last `.`), never the stale `kind::BUILTIN_KINDS` = [skill, rule] const: a
-/// newly-embedded kind's lock rows are fingerprinted the moment it joins the embedded
-/// set, with no literal to re-pin (`specs/architecture/15-kinds.md`, "Decision: kinds
-/// are declared data over generic extraction, never engine code"). Two providers
-/// co-embedding one bare name (the `CLAUDE.md`/`AGENTS.md` memory family) share the one
-/// lock key, so the names are deduped.
-fn embedded_kind_names() -> Vec<&'static str> {
-    let mut names: Vec<&'static str> = builtin_kind::BUILTIN_KINDS
-        .iter()
-        .map(|key| key.rsplit('.').next().unwrap_or(key))
-        .collect();
-    names.sort_unstable();
-    names.dedup();
-    names
-}
-
-/// Read the emit fingerprints from `<workspace_dir>/lock.toml`, keyed by source path.
-/// Covers every embedded built-in kind's rows (`kinds` — `[[skill]]`, `[[rule]]`, and a
-/// curated `[[memory]]`), so a hand-edited projection of any of them is seen. A row
-/// without an `emit_hash` column (a lock predating the field) is simply absent, and the
-/// caller falls back to the source hash.
-fn load_emit_hash(
-    workspace_dir: &Path,
-    kinds: &[&str],
-) -> Result<std::collections::HashMap<PathBuf, String>, DriftError> {
-    let path = workspace_dir.join("lock.toml");
-    let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
-        path: path.clone(),
-        source,
-    })?;
-    let doc = text
-        .parse::<DocumentMut>()
-        .map_err(|source| DriftError::LockParse {
-            path: path.clone(),
-            source,
-        })?;
-
-    let mut map = std::collections::HashMap::new();
-    for &kind in kinds {
-        let Some(rows) = doc.get(kind).and_then(Item::as_array_of_tables) else {
-            continue;
-        };
-        for row in rows.iter() {
-            if let (Some(source_path), Some(fingerprint)) = (
-                row.get("source_path").and_then(Item::as_str),
-                row.get("emit_hash").and_then(Item::as_str),
-            ) {
-                map.insert(PathBuf::from(source_path), fingerprint.to_string());
-            }
-        }
-    }
-    Ok(map)
-}
-
-/// Look up one source path's emit fingerprint in the loaded map.
-fn fingerprint(map: &std::collections::HashMap<PathBuf, String>, source: &Path) -> Option<String> {
-    map.get(source).cloned()
-}
-
-/// Write the reconciled fingerprints back into `<workspace_dir>/lock.toml` in place,
-/// matching each embedded built-in kind's row (`kinds` — `[[skill]]`, `[[rule]]`, and a
-/// curated `[[memory]]`) by its `source_path`. Format-preserving via `toml_edit` — only
-/// the `emit_hash` values change.
-fn update_lock(
-    workspace_dir: &Path,
-    kinds: &[&str],
-    updates: &[(PathBuf, String)],
-) -> Result<(), DriftError> {
-    let path = workspace_dir.join("lock.toml");
-    let text = fs::read_to_string(&path).map_err(|source| DriftError::LockRead {
-        path: path.clone(),
-        source,
-    })?;
-    let mut doc = text
-        .parse::<DocumentMut>()
-        .map_err(|source| DriftError::LockParse {
-            path: path.clone(),
-            source,
-        })?;
-
-    for &kind in kinds {
-        let Some(rows) = doc.get_mut(kind).and_then(Item::as_array_of_tables_mut) else {
-            continue;
-        };
-        for row in rows.iter_mut() {
-            let Some(source_path) = row.get("source_path").and_then(Item::as_str) else {
-                continue;
-            };
-            if let Some((_, fingerprint)) = updates
-                .iter()
-                .find(|(path, _)| path.as_os_str().to_string_lossy() == source_path)
-            {
-                row["emit_hash"] = value(fingerprint.clone());
-            }
-        }
-    }
-
-    fs::write(&path, doc.to_string()).map_err(|source| DriftError::Write { path, source })
 }
 
 /// Render an emit report for the terminal: one `<outcome>  <kind>  <name>` line per
@@ -683,17 +784,20 @@ pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
 
 /// The lock's **declaration-row family** — the composed program's erased declarations
 /// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"), beside the
-/// per-member provenance and emit-fingerprint rows. Four sub-families: the program's
+/// per-member provenance and emit-fingerprint rows. Five sub-families: the program's
 /// [kind facts](KindFactRow), its [clauses](ClauseRow), its [requirements](RequirementRow),
-/// and its assembly facts ([`AssemblyFactRow`], `specs/architecture/40-composition.md`).
+/// its assembly facts ([`AssemblyFactRow`], `specs/architecture/40-composition.md`), and its
+/// [`satisfies`](SatisfiesRow) fill edges.
 ///
-/// Written into the lock by the extraction (`import`, [`Declarations::write_into`]) and
-/// read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison —
-/// the gate read lands next in the chain; `SDK-RECUT-CORPUS-FACE` moves the producer from
-/// the current extraction to the SDK. Each family's columns are owned scalars (or small
-/// owned collections for a set-scope facet) so the read and write sides are the same
-/// shape: the lock is the vocabulary, not a typed IR.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Written into the lock by [`emit`] off the SDK's own payload ([`Declarations::write_into`])
+/// and read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison —
+/// `import`'s own extraction still writes this family for the `check` path it feeds
+/// (`GATE-READ-LOCK-DEMOLITION`, next in the chain, moves that read onto the lock too).
+/// Each family's columns are owned scalars (or small owned collections for a set-scope
+/// facet) so the read and write sides are the same shape: the lock is the vocabulary,
+/// not a typed IR. `#[derive(Deserialize)]` doubles this shape as the SDK payload's own
+/// wire format — the same rows, whether they arrive off disk or off the seam's JSON pipe.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Declarations {
     /// The kind facts — one per kind in the program (`specs/architecture/15-kinds.md`).
     pub kinds: Vec<KindFactRow>,
@@ -714,34 +818,39 @@ pub struct Declarations {
 /// (`specs/architecture/15-kinds.md`, "a kind's runtime residue is its five declaration facts").
 /// The optional facts are omitted from the lock when the kind declares none, so the row
 /// round-trips to exactly what was written.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct KindFactRow {
     /// The bare kind name.
     pub name: String,
     /// The declared provider authority, when the kind qualifies by one.
+    #[serde(default)]
     pub provider: Option<String>,
     /// The `governs` locus root directory.
     pub governs_root: String,
     /// The `governs` locus filename glob.
     pub governs_glob: String,
     /// The declared projection format label, when declared.
+    #[serde(default)]
     pub format: Option<String>,
     /// The declared unit-shape label, when declared.
+    #[serde(default)]
     pub unit_shape: Option<String>,
     /// The declared activation label, when declared.
+    #[serde(default)]
     pub activation: Option<String>,
 }
 
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
 /// which kind it governs, the predicate's key, the field it targets (when it names one),
 /// and its declared severity (`specs/architecture/10-contracts.md`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ClauseRow {
     /// The kind whose contract carries the clause.
     pub kind: String,
     /// The predicate's clause key (`required`, `max_len`, …).
     pub predicate: String,
     /// The field (or marker) the predicate constrains, when it names one.
+    #[serde(default)]
     pub field: Option<String>,
     /// The clause's declared severity (`required` / `advisory`).
     pub severity: String,
@@ -751,33 +860,41 @@ pub struct ClauseRow {
 /// the scalar facets plus the set-scope bounds — `count`/`unique`/`membership`/`degree`
 /// (`specs/architecture/45-governance.md`) — the roster/graph checks range over: the lock
 /// now carries a requirement's whole shape, not the scalar-only bootstrap slice.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct RequirementRow {
     /// The requirement's name.
     pub name: String,
     /// The kind that may fill it, when typed by one.
+    #[serde(default)]
     pub kind: Option<String>,
     /// The package the filler must conform to, when bound.
+    #[serde(default)]
     pub package: Option<String>,
     /// Whether an unfilled requirement blocks the gate.
+    #[serde(default)]
     pub required: bool,
     /// The set-scope `count` bound on the satisfier-set size, when declared.
+    #[serde(default)]
     pub count: Option<CountBoundRow>,
     /// The set-scope `unique` field list — each named field's extracted scalar must
     /// not repeat across the satisfiers. Empty when undeclared.
+    #[serde(default)]
     pub unique: Vec<String>,
     /// The set-scope `membership` predicate, when declared.
+    #[serde(default)]
     pub membership: Option<MembershipRow>,
     /// The graph-scope `degree` bound on every satisfier's in/out edge count, when
     /// declared.
+    #[serde(default)]
     pub degree: Option<DegreeBoundRow>,
     /// The external verifier for the behavioral remainder, when declared.
+    #[serde(default)]
     pub verified_by: Option<String>,
 }
 
 /// A requirement row's `count` bound — the satisfier-set size's inclusive `[min, max]`
 /// (`specs/architecture/45-governance.md`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct CountBoundRow {
     /// The inclusive lower bound on the satisfier-set size.
     pub min: usize,
@@ -788,7 +905,7 @@ pub struct CountBoundRow {
 /// A requirement row's `membership` predicate — a declared field of every satisfier
 /// (S1) must lie in a corpus-derived set drawn from a second satisfier set (S2)
 /// (`specs/architecture/45-governance.md`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct MembershipRow {
     /// The field on each S1 satisfier checked against the source set.
     pub field: String,
@@ -799,33 +916,38 @@ pub struct MembershipRow {
     /// The feature whose extracted scalars over S2 form the allowed set.
     pub source_feature: String,
     /// The optional typed-reference package S2 is narrowed to conform to.
+    #[serde(default)]
     pub source_package: Option<String>,
 }
 
 /// A requirement row's `degree` bound — the in/out edge-count bound every satisfier
 /// must land in (`specs/architecture/45-governance.md`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct DegreeBoundRow {
     /// The bound on a satisfier's incoming edge count, when constrained.
+    #[serde(default)]
     pub incoming: Option<EdgeBoundRow>,
     /// The bound on a satisfier's outgoing edge count, when constrained.
+    #[serde(default)]
     pub outgoing: Option<EdgeBoundRow>,
 }
 
 /// One direction's inclusive `[min, max]` edge-count bound, each endpoint optional
 /// (`specs/architecture/45-governance.md`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct EdgeBoundRow {
     /// The inclusive lower bound. `None` ⇒ no lower bound.
+    #[serde(default)]
     pub min: Option<usize>,
     /// The inclusive upper bound. `None` ⇒ unbounded above.
+    #[serde(default)]
     pub max: Option<usize>,
 }
 
 /// One member→requirement fill edge's declaration row — the `satisfies` join the
 /// roster/coverage tiers need, carried on the lock rather than re-imported
 /// (`specs/architecture/20-surface.md`, "The lock and drift").
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct SatisfiesRow {
     /// The filling member's id.
     pub member: String,
@@ -837,17 +959,21 @@ pub struct SatisfiesRow {
 /// (`specs/architecture/40-composition.md`): a `fact` discriminator (`authority`,
 /// `reachability`, `edge`) plus the columns that fact carries. Absent columns are omitted
 /// from the lock, so each row round-trips to exactly what its producer wrote.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct AssemblyFactRow {
     /// The fact discriminator: `authority`, `reachability`, or `edge`.
     pub fact: String,
     /// The scalar value an `authority`/`reachability` fact carries (its posture/severity).
+    #[serde(default)]
     pub value: Option<String>,
     /// An `edge` fact's source kind.
+    #[serde(default)]
     pub from: Option<String>,
     /// An `edge` fact's reference field.
+    #[serde(default)]
     pub field: Option<String>,
     /// An `edge` fact's target kind.
+    #[serde(default)]
     pub to: Option<String>,
 }
 
@@ -1350,94 +1476,5 @@ Drive the team through the playbook.\n";
         let outcome = place(&target, "temper wants this", None, false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "temper wants this");
-    }
-
-    #[test]
-    fn embedded_kind_names_derives_from_the_live_embed_not_the_stale_const() {
-        // The enumerated set is the bare tail of every `builtin_kind::BUILTIN_KINDS` key,
-        // deduped — so a curated addition rides in without editing a literal here.
-        let names = embedded_kind_names();
-        for expected in builtin_kind::BUILTIN_KINDS
-            .iter()
-            .map(|key| key.rsplit('.').next().unwrap_or(key))
-        {
-            assert!(
-                names.contains(&expected),
-                "embedded_kind_names() must cover the embedded `{expected}` kind"
-            );
-        }
-        assert!(names.contains(&"skill") && names.contains(&"rule"));
-        // Deduped: a bare name co-embedded by two providers is one lock key, listed once.
-        let mut sorted = names.clone();
-        sorted.dedup();
-        assert_eq!(names, sorted);
-    }
-
-    #[test]
-    fn load_and_update_lock_cover_a_memory_row_leaving_skill_rule_intact() {
-        let dir = tmpdir("memory-lock");
-        // A lock carrying a `[[memory]]` row beside the built-in skill/rule rows — the
-        // shape once a `memory` KIND.md joins the embedded tree. The bug: the old loops
-        // iterated the stale `[skill, rule]` const, so this memory row was never seen.
-        fs::write(
-            dir.join("lock.toml"),
-            "[[skill]]\n\
-name = \"coordinate\"\n\
-source_path = \"/h/.claude/skills/coordinate/SKILL.md\"\n\
-emit_hash = \"skill-old\"\n\
-\n\
-[[rule]]\n\
-name = \"rust\"\n\
-source_path = \"/h/.claude/rules/rust.md\"\n\
-emit_hash = \"rule-old\"\n\
-\n\
-[[memory]]\n\
-name = \"root\"\n\
-source_path = \"/h/CLAUDE.md\"\n\
-emit_hash = \"memory-old\"\n",
-        )
-        .unwrap();
-
-        let kinds = ["skill", "rule", "memory"];
-        let map = load_emit_hash(&dir, &kinds).unwrap();
-        // Every embedded kind's row is fingerprinted, memory included.
-        assert_eq!(
-            map.get(Path::new("/h/CLAUDE.md")).map(String::as_str),
-            Some("memory-old")
-        );
-        assert_eq!(
-            map.get(Path::new("/h/.claude/skills/coordinate/SKILL.md"))
-                .map(String::as_str),
-            Some("skill-old")
-        );
-
-        // The update loop rewrites the memory row's fingerprint; the rule row, absent from
-        // `updates`, keeps its bytes untouched — skill/rule behavior is unchanged.
-        let updates = vec![
-            (PathBuf::from("/h/CLAUDE.md"), "memory-new".to_string()),
-            (
-                PathBuf::from("/h/.claude/skills/coordinate/SKILL.md"),
-                "skill-new".to_string(),
-            ),
-        ];
-        update_lock(&dir, &kinds, &updates).unwrap();
-
-        let reloaded = load_emit_hash(&dir, &kinds).unwrap();
-        assert_eq!(
-            reloaded.get(Path::new("/h/CLAUDE.md")).map(String::as_str),
-            Some("memory-new")
-        );
-        assert_eq!(
-            reloaded
-                .get(Path::new("/h/.claude/skills/coordinate/SKILL.md"))
-                .map(String::as_str),
-            Some("skill-new")
-        );
-        assert_eq!(
-            reloaded
-                .get(Path::new("/h/.claude/rules/rust.md"))
-                .map(String::as_str),
-            Some("rule-old")
-        );
     }
 }

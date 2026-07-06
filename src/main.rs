@@ -369,12 +369,11 @@ fn main() -> miette::Result<ExitCode> {
             frozen,
             dry_run,
         } => {
-            // The write direction (`specs/architecture/20-surface.md`, law 5): re-emit each
-            // projection whole onto its recorded provenance path — the source it came
-            // from, so no harness root is re-supplied here (unlike `diff`, whose harness
-            // arg drives its rescan for the "added" axis).
-            let ws = Workspace::load(&into)?;
-            let report = drift::emit(&ws, &into, drift::EmitOptions { dry_run, frozen })?;
+            // The seam (`specs/architecture/20-surface.md`, "The seam — one implementation"):
+            // `node` runs the SDK program at `<into>/harness.ts`, and the engine becomes the
+            // sole compiler of every projection and the whole lock from its JSON payload — no
+            // harness root is re-supplied here, the payload IS the source.
+            let report = drift::emit_program(&into, drift::EmitOptions { dry_run, frozen })?;
             if dry_run {
                 println!("dry run — no files written");
             }

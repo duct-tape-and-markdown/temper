@@ -1,27 +1,24 @@
 /**
- * Emit — the compile from the six-noun face to the committed seam
+ * Emit — the compile from the six-noun face to the seam's JSON pipe
  * (`specs/architecture/20-surface.md`, "Emit — total, byte-reproducible, refusing";
  * "The seam — one implementation"). The SDK implements **no semantics**: emit
- * produces plain data — the declaration rows the engine reads (the internal
- * versioned JSON pipe and the lock's `[declaration]` families), a byte-faithful
- * `.claude/**` projection, and the lock. Emit is total (members are the only
- * source), refuses before it writes a byte on a broken source, and is
- * byte-reproducible — double-emit verified at every run (law 5).
+ * produces plain data — the declaration rows the engine reads and, per projected
+ * member, its ordered typed fields and resolved prose body. The engine is the
+ * sole compiler of every projection and the whole lock; the SDK writes neither.
+ * Emit is total (members are the only source), refuses before it produces a byte
+ * on a broken source, and is byte-reproducible — double-emit verified at every
+ * run (law 5).
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve as resolvePath } from "node:path";
+import { resolve as resolvePath } from "node:path";
+import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
 import type { Member } from "./kind.js";
 import { renderText } from "./prose.js";
 import { permissionUnion } from "./needs.js";
-import type { Projection, ProjectionInput } from "./project.js";
-import { projectMember } from "./project.js";
-import type { LockRow } from "./lock.js";
-import { lockRow, stampLock } from "./lock.js";
 import type { Declarations } from "./declarations.js";
-import { compileDeclarations, declarationsToJson } from "./declarations.js";
+import { SEAM_VERSION, compileDeclarations } from "./declarations.js";
 
 /** How a `file()` asset's module-relative path resolves at emit. */
 export interface ResolveOptions {
@@ -92,7 +89,7 @@ function declaredAddresses(harness: Harness): Set<string> {
 }
 
 /**
- * The two declare-side refusals emit runs before it compiles a byte
+ * The two declare-side refusals emit runs before it produces a byte
  * (`20-surface.md`, "Emit refuses before it writes"): a `satisfies` claim naming
  * no declared requirement (a dangling join), and a `required` requirement no
  * member fills (an unfilled required requirement).
@@ -141,8 +138,20 @@ function isProjected(member: Member): boolean {
   return member.facts.locus.kind === "at";
 }
 
-/** The harness's projected members as projection inputs, deterministically kind-then-name ordered. */
-function orderedProjectionInputs(harness: Harness, options: ResolveOptions): ProjectionInput[] {
+/** One projected member's erased payload — the engine derives its locus from the kind's own declaration row. */
+export interface PayloadMember {
+  /** The kind's bare name — joins the payload's `declarations.kinds` family. */
+  readonly kind: string;
+  /** Identity within the kind. */
+  readonly name: string;
+  /** The kind's typed fields, flat and ordered — the projected frontmatter. */
+  readonly fields: ReadonlyArray<readonly [string, unknown]>;
+  /** The resolved prose body, byte-faithful. */
+  readonly body: string;
+}
+
+/** The harness's projected members as payload members, deterministically kind-then-name ordered. */
+function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMember[] {
   return [...harness.members]
     .filter(isProjected)
     .sort(
@@ -151,39 +160,33 @@ function orderedProjectionInputs(harness: Harness, options: ResolveOptions): Pro
         (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
     )
     .map((member) => ({
-      facts: member.facts,
+      kind: member.kind,
       name: member.name,
       fields: member.fields,
       body: resolveBody(member, options),
     }));
 }
 
-/** Emit-time inputs beyond the harness — asset base dir and the committed-projection read root. */
+/** Emit-time inputs beyond the harness — where a `file()` asset's module-relative path resolves against. */
 export interface EmitOptions {
   /** Base dir a `file()` asset's module-relative path resolves against (default: cwd). */
   readonly baseDir?: string;
-  /**
-   * The harness root the committed projection is read from so a re-emit carries
-   * install's placement lines through the whole-file re-emit (`20-surface.md`, the
-   * two-projectors seam). Absent reads no committed projection; [`writeEmit`]
-   * passes its `targetDir` here so a re-emit preserves them.
-   */
-  readonly projectionDir?: string;
 }
 
 /**
- * A full emit's compiled outputs — the seam the engine reads plus the on-disk
- * projection and lock (`20-surface.md`, "The seam"). All are a pure function of
- * the harness, so [`emit`] double-verifies them and [`writeEmit`] lands them.
+ * A full emit's compiled outputs — the whole seam the engine reads
+ * (`20-surface.md`, "The seam"). A pure function of the harness, so [`emit`]
+ * double-verifies it.
  */
 export interface EmitResult {
-  /** The projection files, one per projected (rule/skill/memory) member. */
-  readonly projections: readonly Projection[];
-  /** The `lock.toml` bytes — rollup rows plus the `[declaration]` families. */
-  readonly lock: string;
-  /** The declaration rows — the erased program the lock and JSON pipe both carry. */
+  /** The declaration rows — the erased program the lock's five families carry. */
   readonly declarations: Declarations;
-  /** The internal versioned JSON pipe to the engine — not a designed IR. */
+  /** The projected members — the engine's sole input for every projection. */
+  readonly members: readonly PayloadMember[];
+  /**
+   * The internal versioned JSON pipe to the engine — not a designed IR. The
+   * SDK's whole output surface: printed to stdout, never written to a file.
+   */
   readonly seam: string;
   /**
    * The derived permission list — the union of every member's `needs`, deduped and
@@ -195,9 +198,9 @@ export interface EmitResult {
 }
 
 /**
- * Compile the whole face in one deterministic pass: the projection, the lock (its
- * rollup and its declaration rows), the JSON pipe, and the derived permission
- * union. Prose resolves once (`file()` assets read in, mentions resolution-checked
+ * Compile the whole face in one deterministic pass: the declaration rows (its
+ * rollup and its five families) and every projected member's erased payload.
+ * Prose resolves once (`file()` assets read in, mentions resolution-checked
  * against the harness's declared values). Double-emit verified — nondeterministic
  * authoring is a loud failure, never a silent churn (law 5).
  */
@@ -208,52 +211,22 @@ export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
     baseDir: options.baseDir,
   };
   const compile = (): EmitResult => {
-    const inputs = orderedProjectionInputs(harness, resolve);
-    const projections = inputs.map((input) => projectMember(input, { projectionDir: options.projectionDir }));
-    const rows: LockRow[] = inputs.map((input, i) => lockRow(input.facts.name, projections[i]));
+    const members = orderedMembers(harness, resolve);
     const declarations = compileDeclarations(harness);
     return {
-      projections,
-      lock: stampLock(rows, declarations),
       declarations,
-      seam: declarationsToJson(declarations),
+      members,
+      seam: JSON.stringify({ version: SEAM_VERSION, declarations, members }, null, 2) + "\n",
       permissions: permissionUnion(harness.members.flatMap((member) => [...member.needs])),
     };
   };
   const first = compile();
   const second = compile();
-  if (
-    first.lock !== second.lock ||
-    first.seam !== second.seam ||
-    !sameProjections(first.projections, second.projections)
-  ) {
+  if (first.seam !== second.seam) {
     throw new Error(
       "double-emit divergence: two passes over the same harness produced different bytes — " +
         "authoring code is nondeterministic (a timestamp? an unordered map?).",
     );
   }
   return first;
-}
-
-/** Whether two projection lists are byte-identical, path and bytes both. */
-function sameProjections(a: readonly Projection[], b: readonly Projection[]): boolean {
-  return a.length === b.length && a.every((p, i) => p.path === b[i].path && p.bytes === b[i].bytes);
-}
-
-/**
- * Run a full [`emit`] and write its committed artifacts under `targetDir`: the
- * lock to `lock.toml` and each projection to its `.claude/**` path (parent
- * directories created). Whole-file writes — a projection is regenerated, never
- * patched. The JSON pipe is in-flight, not a committed artifact, so it is not
- * written (`20-surface.md`, "the committed seam" is artifacts plus lock).
- */
-export function writeEmit(harness: Harness, targetDir: string, options: EmitOptions = {}): EmitResult {
-  const result = emit(harness, { ...options, projectionDir: options.projectionDir ?? targetDir });
-  writeFileSync(join(targetDir, "lock.toml"), result.lock);
-  for (const projection of result.projections) {
-    const path = join(targetDir, projection.path);
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, projection.bytes);
-  }
-  return result;
 }

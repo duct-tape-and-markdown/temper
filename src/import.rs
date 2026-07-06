@@ -863,7 +863,7 @@ fn copy_companion(source_dir: &Path, out_dir: &Path, relative: &Path) -> Result<
 /// clauses, requirements, assembly facts under an implicit `[declaration]` table
 /// (`specs/architecture/20-surface.md`, "The lock and drift"); the drift/gate side reads them
 /// through [`crate::drift::read_declarations`].
-fn write_rollup(
+pub(crate) fn write_rollup(
     into: &Path,
     builtins: &BTreeMap<String, Vec<RollupEntry>>,
     custom: &BTreeMap<String, Vec<RollupEntry>>,

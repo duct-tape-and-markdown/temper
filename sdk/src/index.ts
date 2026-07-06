@@ -4,9 +4,11 @@
  * A harness author imports plain nouns — `harness()`, the generic `kind`/`genre`
  * constructors, the clause and requirement constructors, `needs`, and the three
  * prose constructors — and composes members as typed values. `emit` compiles the
- * whole into the declaration rows the engine reads, a byte-faithful projection,
- * and the lock; every type erases at the seam, and Turing-completeness stays
- * quarantined at authoring time.
+ * whole into the declaration rows and the projected members' erased payload —
+ * the JSON pipe printed to stdout; the engine is the sole compiler of every
+ * projection and the whole lock (`20-surface.md`, "The seam — one
+ * implementation"). Every type erases at the seam, and Turing-completeness
+ * stays quarantined at authoring time.
  *
  * The first-party Claude Code provider face — the built-in `skill`/`rule`/
  * `memory` kinds — lives at the `./claude-code` subpath, never here
@@ -66,17 +68,11 @@ export type {
   Declarations,
   KindFactRow,
   RequirementRow,
+  SatisfiesRow,
 } from "./declarations.js";
 export { SEAM_VERSION, compileDeclarations, declarationsToJson } from "./declarations.js";
 
-// Projection — the byte-faithful `.claude/**` write.
-export type { Projection, ProjectionInput, ProjectOptions } from "./project.js";
-export { placementLines, projectBytes, projectMember, projectionPath, renderField } from "./project.js";
-
-// The lock — rollup rows plus declaration rows.
-export type { LockRow } from "./lock.js";
-export { lockRow, sha256Hex, stampLock } from "./lock.js";
-
-// Emit — the compile to the committed seam.
-export type { EmitOptions, EmitResult, ResolveOptions } from "./emit.js";
-export { emit, writeEmit } from "./emit.js";
+// Emit — the compile to the seam's JSON pipe; the engine is the sole compiler
+// of every projection and the whole lock.
+export type { EmitOptions, EmitResult, PayloadMember, ResolveOptions } from "./emit.js";
+export { emit } from "./emit.js";

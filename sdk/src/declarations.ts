@@ -50,12 +50,19 @@ export interface AssemblyFactRow {
   readonly to?: string;
 }
 
-/** The four declaration families — the whole erased program the lock and pipe carry. */
+/** One member→requirement fill edge — a resolved `satisfies` key. */
+export interface SatisfiesRow {
+  readonly member: string;
+  readonly requirement: string;
+}
+
+/** The five declaration families — the whole erased program the lock and pipe carry. */
 export interface Declarations {
   readonly kinds: readonly KindFactRow[];
   readonly clauses: readonly ClauseRow[];
   readonly requirements: readonly RequirementRow[];
   readonly assembly: readonly AssemblyFactRow[];
+  readonly satisfies: readonly SatisfiesRow[];
 }
 
 /** The lock label for a kind's declared registration — the activation spelling. */
@@ -153,7 +160,22 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
   return facts;
 }
 
-/** Compile a harness into its four declaration families — the erased program. */
+/** The `satisfies` rows — every member's fill claims, member-then-requirement sorted. */
+function satisfiesRows(harness: Harness): SatisfiesRow[] {
+  const rows: SatisfiesRow[] = [];
+  for (const member of harness.members) {
+    for (const requirement of member.satisfies) {
+      rows.push({ member: member.name, requirement });
+    }
+  }
+  return rows.sort(
+    (a, b) =>
+      (a.member < b.member ? -1 : a.member > b.member ? 1 : 0) ||
+      (a.requirement < b.requirement ? -1 : a.requirement > b.requirement ? 1 : 0),
+  );
+}
+
+/** Compile a harness into its five declaration families — the erased program. */
 export function compileDeclarations(harness: Harness): Declarations {
   const kinds = kindsInPlay(harness);
   const clauses: ClauseRow[] = [];
@@ -172,6 +194,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     clauses,
     requirements: requirementRows(harness),
     assembly: assemblyFactRows(harness, kinds),
+    satisfies: satisfiesRows(harness),
   };
 }
 

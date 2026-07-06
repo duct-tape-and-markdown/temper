@@ -652,15 +652,74 @@ fn frontmatter_projections() -> [PathBuf; 2] {
     ]
 }
 
-/// Import `harness` into a fresh surface and emit it back onto the harness sources —
-/// the round-trip the two projectors share. Returns nothing; the caller re-reads the
-/// projections `emit` wrote.
-fn import_then_emit(harness: &Path, label: &str) {
-    let into = tmpdir(label);
+/// The skill/rule kind-fact rows a payload built from a [`temper::check::Workspace`]
+/// carries — the two built-in kinds this fixture's harness exercises.
+fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
+    vec![
+        temper::drift::KindFactRow {
+            name: "rule".to_string(),
+            provider: None,
+            governs_root: ".claude/rules".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("file".to_string()),
+            activation: None,
+        },
+        temper::drift::KindFactRow {
+            name: "skill".to_string(),
+            provider: None,
+            governs_root: ".claude/skills".to_string(),
+            governs_glob: "*/SKILL.md".to_string(),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("directory".to_string()),
+            activation: None,
+        },
+    ]
+}
+
+/// Build a seam [`temper::drift::Payload`] from a loaded [`temper::check::Workspace`] —
+/// the fixture's stand-in for the SDK program (`tests/emit.rs`'s dedicated test drives
+/// the real seam).
+fn payload_from_workspace(ws: &temper::check::Workspace) -> temper::drift::Payload {
+    let mut members = Vec::new();
+    for skill in ws.skills() {
+        members.push(temper::drift::PayloadMember {
+            kind: "skill".to_string(),
+            name: skill.id.clone(),
+            fields: skill.fields.clone(),
+            body: skill.body.clone(),
+        });
+    }
+    for rule in ws.rules() {
+        members.push(temper::drift::PayloadMember {
+            kind: "rule".to_string(),
+            name: rule.id.clone(),
+            fields: rule.fields.clone(),
+            body: rule.body.clone(),
+        });
+    }
+    temper::drift::Payload {
+        version: temper::drift::SEAM_VERSION,
+        declarations: temper::drift::Declarations {
+            kinds: skill_rule_kind_facts(),
+            ..Default::default()
+        },
+        members,
+    }
+}
+
+/// Import `harness` into a fresh surface (`<harness>/.temper`, the seam's own
+/// topology — `drift::emit` derives the projection root from the workspace's
+/// parent) and emit it back onto the harness sources — the round-trip the two
+/// projectors share. Returns nothing; the caller re-reads the projections `emit`
+/// wrote.
+fn import_then_emit(harness: &Path) {
+    let into = harness.join(".temper");
     temper::import::run(harness, &into).unwrap();
     let ws = temper::check::Workspace::load(&into).unwrap();
+    let payload = payload_from_workspace(&ws);
     temper::drift::emit(
-        &ws,
+        &payload,
         &into,
         temper::drift::EmitOptions {
             dry_run: false,
@@ -679,7 +738,7 @@ fn emit_never_stamps_the_managed_by_note() {
     // install-placed note SURVIVES emit — is `install_placements_survive_a_subsequent_emit`.)
     let harness = write_harness("emit-no-note", false);
     // No `install` runs, so the sources carry neither the note nor the modeline.
-    import_then_emit(&harness, "emit-no-note-into");
+    import_then_emit(&harness);
 
     for rel in frontmatter_projections() {
         let projected = fs::read_to_string(harness.join(&rel)).unwrap();
@@ -714,7 +773,7 @@ fn install_placements_survive_a_subsequent_emit() {
     let before = fs::read_to_string(harness.join(skill_rel)).unwrap();
     assert!(before.contains(NOTE_MARKER) && before.contains(skill_modeline));
 
-    import_then_emit(&harness, "survive-emit-into");
+    import_then_emit(&harness);
 
     // Both install-placed lines round-trip the re-emit verbatim, on every frontmatter
     // projection — the modeline's exact bytes (no reflow) and the note's marker.

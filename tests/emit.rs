@@ -1,33 +1,29 @@
-//! `temper emit` — the write direction (`specs/architecture/20-surface.md`,
-//! "Content-faithful, deterministically emitted (law 5)").
+//! `temper emit` — the seam's compile (`specs/architecture/20-surface.md`,
+//! "The seam — one implementation"; "Emit — total, byte-reproducible, refusing").
 //!
-//! Drives the library `drift::emit` over a real imported surface and proves the
-//! properties the entry names:
+//! Two tiers:
 //!
-//! - **deterministic re-emission** — emit regenerates each projection full-file
-//!   from the member document; a surface field edit re-renders the whole
-//!   frontmatter, and on-disk-only bytes (a hand-added comment) are dropped rather
-//!   than preserved — a direct projection edit is drift routed to the source;
-//! - **idempotence** — emit twice yields byte-identical output; the re-run changes
-//!   nothing;
-//! - **double-emit determinism** — a second emit run reproduces the projection *and*
-//!   the lock byte-for-byte (nondeterminism would be a loud failure, never a churn);
-//! - **dry-run writes nothing** — the outcome is reported but not a byte lands.
-//!
-//! There is no three-state conflict state: emit re-emits whole, so a hand-edited
-//! projection is overwritten (drift routed to the source), never a mergeable
-//! conflict. A trailing case pins the lock's two freshness facts and that emit
-//! baselines its idempotence on `emit_hash`.
+//! - **the compiler**, `drift::emit`, driven directly over hand-built [`drift::Payload`]
+//!   values — no `node` involved — proving the properties the entry names: every
+//!   projection and the whole five-family lock compile from the payload alone;
+//!   double-emit (a second compile of the same payload) reproduces every byte;
+//!   a hand-edited projection is overwritten, never merged (drift routed to the
+//!   source); `--dry-run` reports outcomes but writes nothing; an unknown kind or
+//!   an unsupported seam version is a clear refusal.
+//! - **the seam**, `drift::emit_program`, driven once end-to-end over a real `node`
+//!   subprocess running the built SDK against a fixture `harness.ts` — proving
+//!   `emit` actually executes the SDK program and that a second, independent
+//!   process run reproduces the same projections and lock byte-for-byte.
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Once;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::check::Workspace;
-use temper::drift::{self, EmitOptions, EmitOutcome};
-use temper::frontmatter::Member;
-use temper::import;
+use temper::drift::{
+    self, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload, PayloadMember,
+};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -43,53 +39,6 @@ fn tmpdir(label: &str) -> PathBuf {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
-}
-
-/// A skill whose frontmatter carries a human comment — an on-disk-only byte
-/// deterministic re-emission drops (it is not surface content, so it is drift). The
-/// body keeps a missing final newline so the byte-faithful round trip is observable.
-const SKILL: &str = "---\n\
-name: coordinate\n\
-# a human note that must survive a patch\n\
-description: Use when coordinating agents across axes.\n\
-license: \"MIT\"\n\
----\n\
-# Coordinate\n\
-\n\
-Drive the team through the playbook.";
-
-/// A rule with `paths:` frontmatter and an unknown Cursor key preserved verbatim.
-const RULE: &str = "---\n\
-paths:\n\
-  - \"src/**/*.rs\"\n\
----\n\
-# Rust conventions\n\
-\n\
-Prefer a clone over a lifetime fight.\n";
-
-/// The on-disk source path of the imported skill in `harness`.
-fn skill_source(harness: &Path) -> PathBuf {
-    harness
-        .join(".claude")
-        .join("skills")
-        .join("coordinate")
-        .join("SKILL.md")
-}
-
-/// Build a one-skill + one-rule harness and import it into a fresh surface,
-/// returning `(harness, workspace)`.
-fn imported(label: &str) -> (PathBuf, PathBuf) {
-    let harness = tmpdir(&format!("{label}-src"));
-    let skill = harness.join(".claude").join("skills").join("coordinate");
-    fs::create_dir_all(&skill).unwrap();
-    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
-    let rules = harness.join(".claude").join("rules");
-    fs::create_dir_all(&rules).unwrap();
-    fs::write(rules.join("rust.md"), RULE).unwrap();
-
-    let into = tmpdir(&format!("{label}-into"));
-    import::run(&harness, &into).unwrap();
-    (harness, into)
 }
 
 /// Snapshot every file under `dir` as a sorted map of relative path -> bytes.
@@ -118,156 +67,268 @@ fn outcome(report: &drift::EmitReport, name: &str) -> EmitOutcome {
     found.outcome
 }
 
-/// Rewrite the surface skill's `description` to `new`, exactly as a human editing
-/// the composition surface would.
-fn edit_surface_description(workspace: &Path, new: &str) {
-    let dir = workspace.join("skills").join("coordinate");
-    let mut member = Member::from_surface(&dir, "SKILL.md").unwrap();
-    if let Some(f) = member.fields.iter_mut().find(|(k, _)| k == "description") {
-        f.1 = serde_json::Value::String(new.to_string());
+// ---------------------------------------------------------------------------
+// The compiler — `drift::emit` over hand-built payloads, no `node` involved.
+// ---------------------------------------------------------------------------
+
+fn rule_kind_facts() -> KindFactRow {
+    KindFactRow {
+        name: "rule".to_string(),
+        provider: None,
+        governs_root: ".claude/rules".to_string(),
+        governs_glob: "*.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("file".to_string()),
+        activation: None,
     }
-    fs::write(dir.join("SKILL.md"), member.to_document().emit()).unwrap();
+}
+
+fn skill_kind_facts() -> KindFactRow {
+    KindFactRow {
+        name: "skill".to_string(),
+        provider: None,
+        governs_root: ".claude/skills".to_string(),
+        governs_glob: "*/SKILL.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        activation: None,
+    }
+}
+
+fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMember {
+    let mut fields = Vec::new();
+    if let Some(paths) = paths {
+        fields.push(("paths".to_string(), serde_json::json!(paths)));
+    }
+    PayloadMember {
+        kind: "rule".to_string(),
+        name: name.to_string(),
+        fields,
+        body: body.to_string(),
+    }
+}
+
+fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember {
+    PayloadMember {
+        kind: "skill".to_string(),
+        name: name.to_string(),
+        fields: vec![
+            ("name".to_string(), serde_json::json!(name)),
+            ("description".to_string(), serde_json::json!(description)),
+        ],
+        body: body.to_string(),
+    }
+}
+
+/// A rule + skill payload, declarations carrying just their kind facts.
+fn basic_payload(members: Vec<PayloadMember>) -> Payload {
+    Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![rule_kind_facts(), skill_kind_facts()],
+            ..Default::default()
+        },
+        members,
+    }
+}
+
+/// A fresh `<harness>/.temper` pair — `drift::emit` derives the projection root
+/// from the workspace dir's parent, matching the seam's own topology
+/// (`specs/architecture/20-surface.md`): `.temper/` sits beside `.claude/`.
+fn workspace(label: &str) -> (PathBuf, PathBuf) {
+    let harness = tmpdir(label);
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    (harness, into)
+}
+
+const RUST_BODY: &str =
+    "# Rust conventions\n\nErrors via miette/thiserror; clippy clean under -D warnings.\n";
+const COORDINATE_BODY: &str = "# Coordinate\n\nDrive the team.\n";
+
+#[test]
+fn emit_compiles_every_projection_and_the_whole_lock_from_the_payload() {
+    let (harness, into) = workspace("compile");
+    let payload = basic_payload(vec![
+        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        skill_member(
+            "coordinate",
+            "Use when coordinating agents across axes.",
+            COORDINATE_BODY,
+        ),
+    ]);
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
+
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    assert_eq!(
+        fs::read_to_string(&rule_path).unwrap(),
+        format!("---\npaths: [\"src/**/*.rs\"]\n---\n{RUST_BODY}")
+    );
+
+    let skill_path = harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    assert_eq!(
+        fs::read_to_string(&skill_path).unwrap(),
+        format!(
+            "---\nname: \"coordinate\"\ndescription: \"Use when coordinating agents across axes.\"\n---\n{COORDINATE_BODY}"
+        )
+    );
+
+    // The lock carries a rollup row per member, kind-then-name ordered, plus the
+    // declaration-kind family the payload's own `kinds` carried.
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(lock.contains("[[rule]]\n"), "rollup: {lock}");
+    assert!(lock.contains("[[skill]]\n"), "rollup: {lock}");
+    assert!(
+        lock.contains("[[declaration.kind]]\n"),
+        "declarations: {lock}"
+    );
 }
 
 #[test]
-fn emit_is_idempotent_over_a_clean_surface() {
-    let (harness, into) = imported("idem");
+fn emit_writes_all_five_declaration_families_the_payload_carries() {
+    let (_harness, into) = workspace("five-families");
+    let mut payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    payload.declarations.clauses.push(drift::ClauseRow {
+        kind: "rule".to_string(),
+        predicate: "required".to_string(),
+        field: Some("paths".to_string()),
+        severity: "required".to_string(),
+    });
+    payload
+        .declarations
+        .requirements
+        .push(drift::RequirementRow {
+            name: "dev-standards".to_string(),
+            kind: Some("rule".to_string()),
+            package: None,
+            required: true,
+            count: None,
+            unique: Vec::new(),
+            membership: None,
+            degree: None,
+            verified_by: None,
+        });
+    payload.declarations.assembly.push(drift::AssemblyFactRow {
+        fact: "authority".to_string(),
+        value: Some("shared".to_string()),
+        from: None,
+        field: None,
+        to: None,
+    });
+    payload.declarations.satisfies.push(drift::SatisfiesRow {
+        member: "rust".to_string(),
+        requirement: "dev-standards".to_string(),
+    });
 
-    // The first emit re-emits each projection to its canonical form: the imported
-    // bytes are not yet canonical (frontmatter is regenerated deterministically), so
-    // emit lands the re-emission and advances the lock.
-    let ws = Workspace::load(&into).unwrap();
-    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    for header in [
+        "[[declaration.kind]]",
+        "[[declaration.clause]]",
+        "[[declaration.requirement]]",
+        "[[declaration.assembly]]",
+        "[[declaration.satisfies]]",
+    ] {
+        assert!(lock.contains(header), "missing {header} in:\n{lock}");
+    }
+}
+
+#[test]
+fn emit_is_idempotent_over_an_unchanged_payload() {
+    let (harness, into) = workspace("idem");
+    let payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let after_first = tree_bytes(&harness);
+    let lock_after_first = fs::read(into.join("lock.toml")).unwrap();
 
-    // Re-running is the idempotent no-op — every artifact Unchanged, not a byte moves.
-    let ws = Workspace::load(&into).unwrap();
-    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
-    assert!(
-        report
-            .entries
-            .iter()
-            .all(|e| e.outcome == EmitOutcome::Unchanged)
-    );
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Unchanged);
     assert_eq!(
         after_first,
         tree_bytes(&harness),
-        "emit twice yields byte-identical output"
+        "a second emit over the same payload changes not a byte"
+    );
+    assert_eq!(
+        lock_after_first,
+        fs::read(into.join("lock.toml")).unwrap(),
+        "double emit reproduces the lock byte-for-byte"
     );
 }
 
 #[test]
-fn a_surface_edit_re_emits_the_projection() {
-    let (harness, into) = imported("reemit");
+fn a_changed_payload_field_re_emits_the_projection() {
+    let (harness, into) = workspace("reemit");
+    let first = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    drift::emit(&first, &into, EmitOptions::default()).unwrap();
 
-    edit_surface_description(&into, "Use when driving a team across many axes.");
+    let second = basic_payload(vec![rule_member(
+        "rust",
+        Some(&["src/**/*.rs", "tests/**/*.rs"]),
+        RUST_BODY,
+    )]);
+    let report = drift::emit(&second, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
 
-    let ws = Workspace::load(&into).unwrap();
-    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
-    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
-
-    let emitted = fs::read_to_string(skill_source(&harness)).unwrap();
-    // The whole projection is regenerated from the member document: the edited field
-    // carries its new value and the old value is gone.
-    assert!(
-        emitted.contains("Use when driving a team across many axes."),
-        "the edited description must land on disk, got:\n{emitted}"
-    );
-    assert!(
-        !emitted.contains("Use when coordinating agents across axes."),
-        "the old description must be gone, got:\n{emitted}"
-    );
-    // The on-disk-only comment is NOT preserved — re-emission regenerates the
-    // frontmatter from the surface, and a direct projection edit is drift, not
-    // something emit merges around.
-    assert!(
-        !emitted.contains("# a human note"),
-        "the on-disk-only comment must be dropped by re-emission, got:\n{emitted}"
-    );
-    // Every surface field is re-rendered deterministically (JSON-flow YAML), and the
-    // body lands byte-faithful (no trailing newline added).
-    assert!(
-        emitted.contains("name: \"coordinate\"\n"),
-        "name re-emitted, got:\n{emitted}"
-    );
-    assert!(
-        emitted.contains("license: \"MIT\"\n"),
-        "license re-emitted, got:\n{emitted}"
-    );
-    assert!(
-        emitted.ends_with("Drive the team through the playbook."),
-        "the body stays byte-faithful, got:\n{emitted}"
-    );
-
-    // The re-emitted source re-parses to the same typed skill the surface holds.
-    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-    let reloaded = Member::from_source(
-        &skill_kind,
-        &harness
-            .join(".claude")
-            .join("skills")
-            .join("coordinate")
-            .join("SKILL.md"),
-    )
-    .expect("the re-emitted source must re-parse");
-    assert_eq!(
-        reloaded
-            .field("description")
-            .and_then(|v| v.as_str())
-            .unwrap(),
-        "Use when driving a team across many axes."
-    );
-    assert_eq!(
-        reloaded.field("license").and_then(|v| v.as_str()),
-        Some("MIT")
-    );
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    let emitted = fs::read_to_string(&rule_path).unwrap();
+    assert!(emitted.contains("\"tests/**/*.rs\""), "got:\n{emitted}");
 }
 
 #[test]
 fn a_hand_edited_projection_is_overwritten_not_conflicted() {
-    let (harness, into) = imported("reemit-over-drift");
+    let (harness, into) = workspace("hand-edit");
+    let payload = basic_payload(vec![
+        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        skill_member(
+            "coordinate",
+            "Use when coordinating agents across axes.",
+            COORDINATE_BODY,
+        ),
+    ]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
-    // Reach the re-emit fixpoint first: an emit canonicalizes both projections and
-    // advances the lock.
-    let ws = Workspace::load(&into).unwrap();
-    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
-    let canonical = fs::read_to_string(skill_source(&harness)).unwrap();
-
-    // A human edits the projection directly, on disk — drift the surface knows
-    // nothing about. The surface itself is left as imported.
-    let source = skill_source(&harness);
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    let canonical = fs::read_to_string(&rule_path).unwrap();
     fs::write(
-        &source,
+        &rule_path,
         canonical.clone() + "\nA line added straight to disk.\n",
     )
     .unwrap();
 
-    // Emit re-emits the projection whole: the hand edit is overwritten (it is drift
-    // routed to the source, surfaced by config.stale/the guard — not a merge). No
-    // three-state conflict state exists to report.
-    let ws = Workspace::load(&into).unwrap();
-    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
-    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
-    assert_eq!(
-        fs::read_to_string(&source).unwrap(),
-        canonical,
-        "emit re-emits the canonical projection over a hand edit"
-    );
-    // The untouched rule is already at its fixpoint — the re-run is a clean no-op.
-    assert_eq!(outcome(&report, "rust"), EmitOutcome::Unchanged);
+    // Emit re-emits the projection whole: the hand edit is overwritten (drift routed
+    // to the source), never merged — there is no three-state conflict here.
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
+    assert_eq!(fs::read_to_string(&rule_path).unwrap(), canonical);
+    // The untouched skill is already at its fixpoint.
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Unchanged);
 }
 
 #[test]
 fn dry_run_reports_the_outcome_but_writes_nothing() {
-    let (harness, into) = imported("dry");
+    let (harness, into) = workspace("dry");
+    let first = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    drift::emit(&first, &into, EmitOptions::default()).unwrap();
 
-    edit_surface_description(&into, "A description the dry run must not write.");
     let before_harness = tree_bytes(&harness);
     let before_lock = fs::read(into.join("lock.toml")).unwrap();
 
-    let ws = Workspace::load(&into).unwrap();
+    let second = basic_payload(vec![rule_member(
+        "rust",
+        Some(&["src/**/*.rs", "tests/**/*.rs"]),
+        RUST_BODY,
+    )]);
     let report = drift::emit(
-        &ws,
+        &second,
         &into,
         EmitOptions {
             dry_run: true,
@@ -275,9 +336,7 @@ fn dry_run_reports_the_outcome_but_writes_nothing() {
         },
     )
     .unwrap();
-    // The report still says what *would* happen...
-    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
-    // ...but not a byte of the harness or the lock changed.
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
     assert_eq!(
         before_harness,
         tree_bytes(&harness),
@@ -286,172 +345,207 @@ fn dry_run_reports_the_outcome_but_writes_nothing() {
     assert_eq!(
         before_lock,
         fs::read(into.join("lock.toml")).unwrap(),
-        "--dry-run must not touch the lock fingerprints"
+        "--dry-run must not touch the lock"
     );
 
     // A real emit afterwards does land the edit.
-    let ws = Workspace::load(&into).unwrap();
-    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    drift::emit(&second, &into, EmitOptions::default()).unwrap();
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
     assert!(
-        fs::read_to_string(skill_source(&harness))
+        fs::read_to_string(&rule_path)
             .unwrap()
-            .contains("A description the dry run must not write."),
+            .contains("tests/**/*.rs"),
         "the real emit must write what the dry run only reported"
     );
 }
 
 #[test]
-fn double_emit_reproduces_projection_and_lock_byte_for_byte() {
-    // Determinism, verified at the run level (`specs/architecture/20-surface.md`, law 5):
-    // a second emit over the same surface reproduces every projected byte *and* the
-    // lock exactly. Emit's internal double-emit guard raises on nondeterministic
-    // authoring; this pins the observable property.
-    let (harness, into) = imported("double");
+fn the_lock_baselines_source_hash_and_emit_hash_equal_for_a_payload_compiled_member() {
+    let (_harness, into) = workspace("hash-baseline");
+    let payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
-    // The first emit canonicalizes and advances the lock off the stale import baseline.
-    let ws = Workspace::load(&into).unwrap();
-    drift::emit(&ws, &into, EmitOptions::default()).unwrap();
+    let doc = fs::read_to_string(into.join("lock.toml"))
+        .unwrap()
+        .parse::<toml_edit::DocumentMut>()
+        .unwrap();
+    let row = doc["rule"]
+        .as_array_of_tables()
+        .unwrap()
+        .iter()
+        .next()
+        .unwrap();
+    let source_hash = row.get("source_hash").and_then(|v| v.as_str()).unwrap();
+    let emit_hash = row.get("emit_hash").and_then(|v| v.as_str()).unwrap();
+    assert_eq!(source_hash.len(), 64);
+    assert_eq!(source_hash, emit_hash);
+}
+
+#[test]
+fn a_member_naming_an_undeclared_kind_is_a_clear_refusal() {
+    let (_harness, into) = workspace("unknown-kind");
+    let mut payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    payload.members.push(PayloadMember {
+        kind: "ghost".to_string(),
+        name: "phantom".to_string(),
+        fields: Vec::new(),
+        body: "boo".to_string(),
+    });
+
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    assert!(format!("{err}").contains("ghost"), "{err}");
+}
+
+#[test]
+fn an_unsupported_seam_version_is_a_clear_refusal() {
+    let (_harness, into) = workspace("bad-version");
+    let mut payload = basic_payload(vec![]);
+    payload.version = 999;
+
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    assert!(format!("{err}").contains("999"), "{err}");
+}
+
+// ---------------------------------------------------------------------------
+// The seam — `drift::emit_program` over a real `node` subprocess running the
+// built SDK against a fixture `harness.ts` (`specs/architecture/20-surface.md`,
+// "The seam — one implementation": "running the authored program produces plain
+// data").
+// ---------------------------------------------------------------------------
+
+/// The repo's `sdk/` directory — the SDK package this crate's worktree carries
+/// beside `Cargo.toml`.
+fn sdk_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sdk")
+}
+
+/// Build the SDK's `dist/` once per test binary run — the compiled package a
+/// fixture harness program's bare `@dtmd/temper` import resolves to, exactly as
+/// an installed npm dependency would.
+fn ensure_sdk_built() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let status = std::process::Command::new("npm")
+            .args(["run", "build"])
+            .current_dir(sdk_root())
+            .status()
+            .expect("failed to run `npm run build` in sdk/ — is npm on PATH?");
+        assert!(status.success(), "sdk build failed");
+    });
+}
+
+/// A fixture SDK program: a single file with no relative imports (so it runs
+/// directly under Node's native TypeScript support with no build step of its
+/// own), importing only the bare `@dtmd/temper`/`@dtmd/temper/claude-code`
+/// specifiers a real consumer's `node_modules` would resolve.
+const HARNESS_PROGRAM: &str = r#"
+import { emit, harness, text } from "@dtmd/temper";
+import { rule, skill } from "@dtmd/temper/claude-code";
+
+const program = harness({
+  members: [
+    rule({
+      name: "rust",
+      paths: ["src/**/*.rs"],
+      prose: text`
+        # Rust conventions
+
+        Errors via miette/thiserror; clippy clean under -D warnings.
+      `,
+    }),
+    skill({
+      name: "coordinate",
+      description: "Use when coordinating agents across axes.",
+      prose: text`
+        # Coordinate
+
+        Drive the team.
+      `,
+    }),
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+/// Wire a fixture harness under `<harness>/.temper/harness.ts`, with a
+/// `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the
+/// stand-in for a real consumer's installed dependency.
+fn wire_sdk_harness(label: &str) -> (PathBuf, PathBuf) {
+    ensure_sdk_built();
+    let harness = tmpdir(label);
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    fs::write(into.join("harness.ts"), HARNESS_PROGRAM).unwrap();
+
+    let node_modules_scope = into.join("node_modules").join("@dtmd");
+    fs::create_dir_all(&node_modules_scope).unwrap();
+    std::os::unix::fs::symlink(sdk_root(), node_modules_scope.join("temper")).unwrap();
+
+    (harness, into)
+}
+
+#[test]
+fn emit_program_executes_the_sdk_program_and_byte_reproduces_across_a_second_run() {
+    let (harness, into) = wire_sdk_harness("seam");
+
+    let first = drift::emit_program(&into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&first, "rust"), EmitOutcome::Emitted);
+    assert_eq!(outcome(&first, "coordinate"), EmitOutcome::Emitted);
+
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    let rule_projected = fs::read_to_string(&rule_path).unwrap();
+    assert!(
+        rule_projected.contains("paths: [\"src/**/*.rs\"]"),
+        "{rule_projected}"
+    );
+    assert!(
+        rule_projected.contains("Errors via miette/thiserror"),
+        "{rule_projected}"
+    );
+
+    let skill_path = harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let skill_projected = fs::read_to_string(&skill_path).unwrap();
+    assert!(
+        skill_projected.contains("name: \"coordinate\""),
+        "{skill_projected}"
+    );
+    assert!(
+        skill_projected.contains("Drive the team."),
+        "{skill_projected}"
+    );
+
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(lock.contains("[[declaration.kind]]"), "{lock}");
+
+    // A second, independent `node` run over the identical program reproduces every
+    // projection and the lock byte-for-byte — double-emit verified across real
+    // process boundaries, not just within one SDK invocation.
     let harness_after_first = tree_bytes(&harness);
     let lock_after_first = fs::read(into.join("lock.toml")).unwrap();
 
-    // The second emit is byte-identical in both the projection tree and the lock.
-    let ws = Workspace::load(&into).unwrap();
-    let report = drift::emit(&ws, &into, EmitOptions::default()).unwrap();
-    assert!(
-        report
-            .entries
-            .iter()
-            .all(|e| e.outcome == EmitOutcome::Unchanged),
-        "a second emit finds every projection already at its bytes"
-    );
+    let second = drift::emit_program(&into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&second, "rust"), EmitOutcome::Unchanged);
+    assert_eq!(outcome(&second, "coordinate"), EmitOutcome::Unchanged);
     assert_eq!(
         harness_after_first,
         tree_bytes(&harness),
-        "double emit reproduces the projection byte-for-byte"
+        "a second, independent node run reproduces the projection byte-for-byte"
     );
     assert_eq!(
         lock_after_first,
         fs::read(into.join("lock.toml")).unwrap(),
-        "double emit leaves the lock byte-for-byte identical"
+        "a second, independent node run reproduces the lock byte-for-byte"
     );
 }
 
 #[test]
-fn successive_surface_edits_each_emit_cleanly() {
-    // Two successive surface edits both re-emit — emit regenerates whole, so the
-    // second is never misread against the first's fingerprint.
-    let (harness, into) = imported("successive");
-
-    edit_surface_description(&into, "First edit.");
-    let ws = Workspace::load(&into).unwrap();
-    assert_eq!(
-        outcome(
-            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
-            "coordinate"
-        ),
-        EmitOutcome::Emitted
-    );
-
-    edit_surface_description(&into, "Second edit, atop the first.");
-    let ws = Workspace::load(&into).unwrap();
-    assert_eq!(
-        outcome(
-            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
-            "coordinate"
-        ),
-        EmitOutcome::Emitted,
-        "a second surface edit re-emits, not a no-op"
-    );
-
-    assert!(
-        fs::read_to_string(skill_source(&harness))
-            .unwrap()
-            .contains("Second edit, atop the first."),
-        "the second edit must be the one on disk"
-    );
-}
-
-/// One column of the sole `[[skill]]` lock row in `workspace`, or `None` if absent.
-fn skill_lock_field(workspace: &Path, column: &str) -> Option<String> {
-    let doc = fs::read_to_string(workspace.join("lock.toml"))
-        .unwrap()
-        .parse::<toml_edit::DocumentMut>()
-        .unwrap();
-    doc.get("skill")?
-        .as_array_of_tables()?
-        .iter()
-        .next()?
-        .get(column)
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-}
-
-#[test]
-fn the_lock_carries_the_two_freshness_facts_and_emit_baselines_on_emit_hash() {
-    let (harness, into) = imported("freshness");
-
-    // The lock row carries the two freshness facts under their names — and neither
-    // pre-rename column survives (`specs/architecture/20-surface.md`, "two freshness facts").
-    let source_at_import = skill_lock_field(&into, "source_hash").expect("source_hash column");
-    let emit_at_import = skill_lock_field(&into, "emit_hash").expect("emit_hash column");
-    assert_eq!(source_at_import.len(), 64);
-    assert!(skill_lock_field(&into, "import_hash").is_none());
-    assert!(skill_lock_field(&into, "last_applied").is_none());
-    // At import emit provisionally equals source: no `emit` has advanced it yet.
-    assert_eq!(emit_at_import, source_at_import);
-
-    // The imported bytes are not yet canonical (the fixture carries a hand comment and
-    // loose frontmatter), so the first emit re-emits a deterministic projection over
-    // the source and advances `emit_hash` to that projection's fingerprint — while
-    // `source_hash`, the authored-bytes fact, is left untouched.
-    let ws = Workspace::load(&into).unwrap();
-    assert_eq!(
-        outcome(
-            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
-            "coordinate"
-        ),
-        EmitOutcome::Emitted
-    );
-    let projected = fs::read_to_string(skill_source(&harness)).unwrap();
-    let emit_after = skill_lock_field(&into, "emit_hash").expect("emit_hash column");
-    assert_eq!(
-        skill_lock_field(&into, "source_hash").as_deref(),
-        Some(source_at_import.as_str()),
-        "source_hash — the authored-bytes fact — is untouched by emit"
-    );
-    assert_ne!(
-        emit_after, source_at_import,
-        "emit rewrote emit_hash off the stale import baseline onto the real projection"
-    );
-
-    // emit's idempotence baselines on the projection: the bytes now on disk match it,
-    // so a re-run is the idempotent no-op rather than a re-emission.
-    let ws = Workspace::load(&into).unwrap();
-    assert_eq!(
-        outcome(
-            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
-            "coordinate"
-        ),
-        EmitOutcome::Unchanged,
-        "with the projection already on disk, emit no-ops"
-    );
-
-    // A hand-edit straight to the projection is drift: emit re-emits the canonical
-    // projection over it (surfaced elsewhere by config.stale/the guard), never a merge.
-    let drifted = projected.clone() + "\nA line added straight to disk.\n";
-    fs::write(skill_source(&harness), &drifted).unwrap();
-    let ws = Workspace::load(&into).unwrap();
-    assert_eq!(
-        outcome(
-            &drift::emit(&ws, &into, EmitOptions::default()).unwrap(),
-            "coordinate"
-        ),
-        EmitOutcome::Emitted,
-        "a projection differing from the surface re-emits whole"
-    );
-    assert_eq!(
-        fs::read_to_string(skill_source(&harness)).unwrap(),
-        projected,
-        "the canonical projection overwrites the hand edit"
-    );
+fn emit_program_refuses_when_no_sdk_program_exists() {
+    let (_harness, into) = workspace("no-program");
+    let err = drift::emit_program(&into, EmitOptions::default()).unwrap_err();
+    assert!(format!("{err}").contains("harness.ts"), "{err}");
 }
