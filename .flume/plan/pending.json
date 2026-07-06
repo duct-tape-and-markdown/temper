@@ -13,7 +13,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Delete the orphaned `pub const BUILTIN_KINDS: &[&str] = &[\"skill\", \"rule\"]` at kind.rs:24-27 and its three-line doc comment. Verified zero usages across src/ and tests/ this tick (`rg BUILTIN_KINDS src/ tests/` hits only this def plus the unrelated generated `builtin_kind::BUILTIN_KINDS`). It is string-name identity of the built-ins baked into the engine — the exact form 15-kinds retires (identity travels by import). The live enumeration is the generated `builtin_kind::BUILTIN_KINDS` (builtin_kind.rs:27, keyed `<provider>.<name>`, derived from the kinds/ tree) and is untouched. Do not touch the `custom_kinds`-empty path in main.rs — that is a separate foundation gate."
+          "description": "Delete the orphaned `pub const BUILTIN_KINDS: &[&str] = &[\"skill\", \"rule\"]` at kind.rs:27 and its three-line doc comment (kind.rs:24-27). Re-verified zero real usages this tick: `rg BUILTIN_KINDS src/ tests/` hits only this def plus the unrelated generated `builtin_kind::BUILTIN_KINDS` (builtin_kind.rs:27, keyed `<provider>.<name>`, derived from the kinds/ tree — untouched). It is string-name identity of the built-ins baked into the engine — the exact form 15-kinds retires (identity travels by import)."
         }
       ],
       "retire": []
@@ -21,7 +21,172 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "`rg BUILTIN_KINDS src/kind.rs` returns nothing; the only surviving enumeration is the generated `builtin_kind::BUILTIN_KINDS`; cargo build + clippy -D warnings + cargo test all stay green.",
-    "notes": "Bug 2 residue (open-questions bugs list). Its 'retires with the entangled kind.rs demolition' routing is stale — the only entanglement was one compose.rs codec test that CODEC-RETIRE deleted, so the const is now fully dead standalone. Disjoint from PACKAGING-CHANNELS (.github/, package.json) and from the ratified `custom_kinds`-empty SDK-primary foundation gate (main.rs), which stays."
+    "notes": "Bug 2 residue (open-questions bugs list). Disjoint from the PKG-NOUN chain (compose/roster/main/drift) and PACKAGING-CHANNELS; touches only src/kind.rs, so parallel-safe with PKG-NOUN-ENGINE-RETIRE."
+  },
+  {
+    "tag": "PKG-NOUN-ENGINE-RETIRE",
+    "summary": "Retire the package facet on requirements — `Requirement.package`, `Membership.source_package`, `PackageResolver`, the conformance pass, and the `conforms_to` admissibility branch",
+    "per": {
+      "path": "specs/architecture/10-contracts.md",
+      "section": "Decision: clause arrays and two quantifiers, not a package noun"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Delete `Requirement.package` (compose.rs:79), `Membership.source_package` (compose.rs:182) and the whole `PackageResolver` (compose.rs:210-227) — struct, `new`, `resolve`. 10-contracts names this residue: 'the `package` facet on requirements and the resolver behind it … the conformance pass validating satisfiers against a bound package's contract, `membership` constrained by package conformance (`conforms_to`).' A requirement constrains by `kind`; there is no second shape channel. Leave the set-scope demands (count/unique/membership/degree) untouched — the facet→clauses recut is REQUIREMENT-CLAUSES-RECUT, a separate cut."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Delete `roster::conformance` (roster.rs:157) and `conformance_finding` (roster.rs:324), and the package/conforms_to branches (b) and (e) of `admissibility` (roster.rs:234, 286-320) that resolved a bound `package`/`source_package` name through `PackageResolver`. Keep `check` (count/unique/membership set-scope) and the non-package admissibility branches. Drop the `PackageResolver` import (roster.rs:16)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Remove the `package_resolver = compose::PackageResolver::new(builtins)` construction (main.rs:574) and its call sites: the `roster::check`/`roster::conformance` package args (main.rs:694,700,706-709), the custom-kind conformance block resolving `package_resolver.resolve(name)` (main.rs:789-801), and the `package`/`source_package` mappings in `requirement_from_row` (main.rs:1135), the published-requirement path (main.rs:1115), and membership (main.rs:1150). `builtin::contracts()` stays (the kind floors still use it); only the resolver wrapper goes."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "This suite pins the requirement-package conformance tier being retired — the `package: Some(\"rule.anthropic\")`/`source_package` cases and the `conforms_to` typed-reference cases. Delete the conformance/`conforms_to` cases and the `package`/`source_package` struct-literal fields; keep the coverage + set-scope (count/unique/membership) cases that survive on `kind` typing alone."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Drop any `Requirement.package`/`Membership.source_package` struct-literal field the fixtures set; the built-in-floor admissibility assertions themselves are unaffected (floors stay packages internally in builtin.rs)."
+        },
+        {
+          "path": "tests/rule_contract.rs",
+          "description": "Drop any `Requirement.package`/`source_package` literal fields; the shipped rule built-in floor resolution is unaffected."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/requirement_roster.rs", "asserts": "the surviving requirement tier gates on kind-typing + coverage + set-scope clauses; no package/conforms_to conformance path remains" }
+    ],
+    "acceptance": "`rg -n \"PackageResolver|\\.package|source_package|conforms_to|conformance\" src/compose.rs src/roster.rs src/main.rs` returns nothing (bar unrelated matches); cargo build + clippy -D warnings + cargo test green.",
+    "notes": "Head of the package-noun demolition chain (inbox 'engine → lock rows → sdk column → tree'). Leaves drift.rs RequirementRow.package/MembershipRow.source_package columns write-only-then-ignored — retired next by PKG-NOUN-LOCK-ROWS. Wide-but-mechanical: the compiler points at every stranded `package`."
+  },
+  {
+    "tag": "PKG-NOUN-LOCK-ROWS",
+    "summary": "Retire the lock's package columns — `RequirementRow.package` and `MembershipRow.source_package` and their read/write in drift.rs",
+    "per": {
+      "path": "specs/architecture/10-contracts.md",
+      "section": "Decision: clause arrays and two quantifiers, not a package noun"
+    },
+    "gate": { "kind": "blockedBy", "tag": "PKG-NOUN-ENGINE-RETIRE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Delete `RequirementRow.package` (drift.rs:986) and `MembershipRow.source_package` (drift.rs:1034) and their table read/write: the `package` column write (drift.rs:1269) + read (drift.rs:1295), the `source_package` write (drift.rs:1386-1387) + read (drift.rs:1398). Unblocked once PKG-NOUN-ENGINE-RETIRE stops main.rs reading `row.package`. drift reads columns positionally (no `deny_unknown_fields`), so an SDK still emitting `package` is silently ignored — safe to drop the Rust column ahead of the SDK cut."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Remove the `package: None`/`source_package: None` fields from the RequirementRow/MembershipRow literals in the payload builders and drop any assertion pinning the package column round-trip."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/lock_declaration_rows.rs", "asserts": "the requirement/membership declaration rows round-trip with no package/source_package column" }
+    ],
+    "acceptance": "`rg -n \"package|source_package\" src/drift.rs` returns nothing package-facet-related; the `package: None` RequirementRow literals across tests/ are gone; cargo test green.",
+    "notes": "Second chain link. Blast radius also touches the RequirementRow/MembershipRow literals carrying `package: None` in tests/coverage.rs, tests/emit.rs, tests/graph.rs, tests/gate_fail_loud.rs, tests/read_verbs.rs — the compiler flags each; sweep them here."
+  },
+  {
+    "tag": "PKG-NOUN-SDK-COLUMN",
+    "summary": "Drop the dead SDK `RequirementRow.package` field — the requirement row's package facet, never populated by `requirementRows`",
+    "per": {
+      "path": "specs/architecture/10-contracts.md",
+      "section": "Decision: clause arrays and two quantifiers, not a package noun"
+    },
+    "gate": { "kind": "blockedBy", "tag": "PKG-NOUN-LOCK-ROWS" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Delete `RequirementRow.package` (declarations.ts:39). Verified this tick: `requirementRows` (declarations.ts:~140) already emits only name/kind/required/verified_by — the `package?` field is dead type surface, never written. No SEAM_VERSION bump: the wire payload is unchanged (the field was never emitted). Update the RequirementRow TSDoc that lists 'kind/package/required'."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`rg -n \"package\" sdk/src/declarations.ts` returns nothing requirement-facet-related; `pnpm --dir sdk test` (tsc + node --test) green; tests/emit.rs (real SDK subprocess) still byte-reproduces the lock.",
+    "notes": "Third chain link. Disjoint file (sdk/) but serialized after the Rust cut to keep the seam coherent and avoid churning declarations.ts under REACH-DIAL-RETIRE, which follows."
+  },
+  {
+    "tag": "REACH-DIAL-RETIRE",
+    "summary": "Retire the reachability dial — the dedicated assembly `reachability` fact and its severity opt-in; 40-composition: there is no fifth field",
+    "per": {
+      "path": "specs/architecture/40-composition.md",
+      "section": "Decision: the reachability dial retires into the clause algebra"
+    },
+    "gate": { "kind": "blockedBy", "tag": "PKG-NOUN-SDK-COLUMN" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Delete `reachability_from_declarations` (main.rs:1188) and its call (main.rs:567), and the `if let Some(reachability) = assembly_reachability { … }` opt-in block that builds the activation map and calls `graph::reachable` (main.rs:749-772). 40-composition: 'a dedicated `reachability` field on the harness record … retires for the same reason' as the requirement `count?` facet — reachability is demanded by an ordinary edge-scope clause. Keep `pub fn graph::reachable` (a live capability, still exercised by tests/graph.rs) — only its dial-driven opt-in goes."
+        },
+        {
+          "path": "sdk/src/assembly.ts",
+          "description": "Delete the `Harness.reachability` field (the `reachability?: Severity` on the assembly value and its init passthrough). The assembly is four fields: members · expect · require · settings. Update any TSDoc naming a fifth field."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Delete the `if (harness.reachability !== undefined) facts.push({ fact: \"reachability\", … })` emission in `assemblyFactRows` (declarations.ts:152-154) and the doc line naming 'reachability when the dial is set'. The AssemblyFactRow shape stays (authority + edge facts survive). No SEAM_VERSION bump — dropping an optional fact the Rust reader now ignores."
+        },
+        {
+          "path": "tests/reachable_gate.rs",
+          "description": "This suite drives the code-locus dial (`fact = \"reachability\"` golden lock + `[reachability]` opt-in). Delete it — the dial it exercises is retired. Reachability's library machinery stays proven by tests/graph.rs's `reachability` module (untouched)."
+        }
+      ],
+      "retire": [ "tests/reachable_gate.rs" ]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/graph.rs", "asserts": "the `reachable` library predicate still holds over synthetic graphs (capability retained; only the assembly dial retired)" }
+    ],
+    "acceptance": "`rg -n \"reachability_from_declarations|assembly_reachability|fact.*reachability\" src/ sdk/src` returns nothing; the assembly is four fields; cargo test + `pnpm --dir sdk test` green.",
+    "notes": "Inbox demolition 2 (retired by dadfd54). Chain tail (shares main.rs with PKG-NOUN-ENGINE-RETIRE, declarations.ts with PKG-NOUN-SDK-COLUMN). Reachability-as-edge-scope-clause (the corpus replacement) rides the clause-algebra growth downstream of REQUIREMENT-CLAUSES-RECUT — deferred, not this cut."
+  },
+  {
+    "tag": "REQUIREMENT-CLAUSES-RECUT",
+    "summary": "Recut the requirement to `means·kind·required·clauses?·verifiedBy?` — retire the count/unique/membership/degree facet spelling for a clauses array, across engine + SDK + seam",
+    "per": {
+      "path": "specs/architecture/10-contracts.md",
+      "section": "Decision: set-scope demands are clauses — no noun enumerates the algebra"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "frame-scale and cross-language: the four facets live in compose.rs (Requirement + CountBound/Membership/DegreeBound), drift.rs RequirementRow columns, roster.rs (the set-scope check), AND sdk/contract.ts, and moving them onto a `clauses` array reshapes ClauseRow/engine dispatch to carry set/edge-scope predicates and bumps SEAM_VERSION on both sides (tests/emit.rs runs the real SDK). Inbox routed it as a 'disjoint sdk entry', but that collides with the Rust facets — needs a decomposition ceremony (John + session) to cut the serialized chain before parallel-safe slices, like GATE-READ-LOCK-DEMOLITION got. Also resolves whether reachability-as-clause and the held general-degree-band predicate ride this same clause-algebra growth."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The Requirement interface enumerates `count?`/`unique?`/`membership?`/`degree?` (contract.ts:83-86) and lacks `clauses?` — the facet spelling 10-contracts rejects. Placeholder anchor; the ceremony scopes the full cross-language chain (compose.rs/drift.rs/roster.rs/engine.rs + sdk/contract.ts/declarations.ts + SEAM_VERSION)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "A requirement carries set-/edge-scope demands as ordinary clause values (each with its own severity/guidance/cite), not named facet fields; the SDK Requirement type reads `means·kind·required·clauses?·verifiedBy?`; the lock's requirement row carries no facet columns; SEAM_VERSION bumped in lockstep.",
+    "notes": "Inbox demolition 3. Parked for a decomposition ceremony — the inbox's 'disjoint sdk entry' framing under-scopes it (the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain). Do not file the naive single entry; the under-scoping is the thing to surface."
   },
   {
     "tag": "PACKAGING-CHANNELS",

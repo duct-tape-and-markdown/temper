@@ -429,6 +429,24 @@ New forks from the ceremony:
   composed by convention, or an engine-side severity overlay; neither is
   ruled. Blocks nothing until someone needs a personal override.
 
+- `(authority-home)` — OPEN (registered 2026-07-06, John's inbox routing). The
+  SDK's `compileDeclarations` emits an assembly-scope fact
+  `{ fact: "authority", value: "shared" }` **unconditionally**
+  (`sdk/src/declarations.ts:151`), but **"shared" is corpus-uncoined**: the
+  surface-authority vocabulary is note/warn/block (`20-surface.md`, "surface
+  authority is a declared posture, never a baked stance"), and the `Harness`
+  value carries no authority field to source a posture from. So the emitted
+  posture is a hardcoded placeholder, not an authored declaration. Where does
+  the authored surface-authority posture live in the four-field assembly
+  (`members · expect · require · settings`, `40-composition.md`)? Candidate
+  directions: a fifth-field-avoiding `settings` residual entry, a per-projection
+  posture on the member whose path is emit-owned, or a harness-level default with
+  per-path overrides. Needs John. The Rust drift reader tolerates the row today
+  (positional column reads), so nothing gates on it — but the guard/`temper
+  guard` posture (`(guard-posture)`, `(carriage-aware-placements)`) reads it, so
+  it is load-bearing the moment the guard blocks per posture. Not pending: no
+  clean cite for the *home* until ruled.
+
 Bugs filed by the ceremony's review (wrong today, independent of demolition
 sequencing):
 1. read.rs floor-binding fallback narrated any non-rule kind as bound to the
