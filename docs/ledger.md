@@ -24,14 +24,14 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## State of the era (2026-07-05)
 
-- **The front door's gate is in motion** (ruled 07-05): John is setting up
-  the npm package himself — scope `@dtmd`, name probably `@dtmd/temper`.
-  The chain WAITS for the real package (John declined a local-first bypass;
-  asked-and-answered 07-05). When it lands: plan derives the front-door
-  chain (emit as the host repo's real lock producer / dogfood's return, the
-  gate rewrite off the copy-tree scratch, the demolition remainder, `init`
-  re-shape). A `(sdk-package-layout)` question rides it: two packages vs
-  subpath export under `@dtmd`.
+- **The front door is UNBLOCKED** (07-05): `@dtmd/temper@0.0.1` live on npm;
+  `(sdk-package-layout)` resolved in 50-distribution (PR #4: one package,
+  provider face = `claude-code` subpath export). Repo PUBLIC since 07-05.
+  Inbox carries the unblock; plan derives the chain (SDK recut to the
+  subpath layout, emit as the host lock producer, the gate rewrite off the
+  copy-tree scratch, demolition remainder, `init` re-shape). John delegated
+  the finer-grained calls to the session (07-05) — rule, encode, he
+  ratifies by PR merge.
 - Shipped: the six-noun demolition wave (eight slices, ≈ −2,600 lines),
   `(inplace-lock-producer)` resolved (emit is the sole lock producer,
   20-surface), DRIFT-DIFF-RETIRE (−391 lines; plan's reconcile found it the
@@ -43,9 +43,9 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## Parked (pointers only)
 
-- On John (in motion): the npm package — `@dtmd` scope, probably
-  `@dtmd/temper`; the SDK front-door chain waits on it. Plus the rest of
-  PACKAGING-CHANNELS release setup: marketplace/signing creds.
+- On John: the rest of PACKAGING-CHANNELS release setup — marketplace/
+  signing creds; the USPTO name screen before launch. (npm DONE 07-05:
+  `@dtmd/temper` published, NPM_TOKEN local in gitignored `.env`.)
 - `(local-overrides)` fork — no spelling for personal overrides in the
   one-value assembly model. Blocks nothing.
 - Genre-adoption pilot: needs `(genre-fence-format)` (deferred to the pilot
