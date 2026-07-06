@@ -18,6 +18,9 @@ are forgotten here. Target under ~60 lines, hard.
 - Frame-scale changes get a cooling period: draft record → cold read → sleep
   → ceremony. No same-day ratification of new frames without John's waiver.
 - Plain words over metaphor, in the corpus and here. New coinage needs John.
+- Public docs voice (John 07-05): natural, no em-dashes or claude-isms, not
+  pitchy. `docs/*.md` is the human-curated plain-language layer; the spec
+  corpus stays the operational definition (docs defer to specs on conflict).
 
 ## State of the era (2026-07-05)
 
