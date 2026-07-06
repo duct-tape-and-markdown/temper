@@ -291,6 +291,24 @@ test("a file() body resolves byte-faithfully", () => {
   }
 });
 
+test("a file() body's payload member carries the resolved source path; text does not", () => {
+  const dir = mkdtempSync(join(tmpdir(), "temper-file-"));
+  try {
+    writeFileSync(join(dir, "long.md"), "# Long rule\n");
+    const h = harness({
+      members: [
+        rule({ name: "long", prose: file("./long.md") }),
+        rule({ name: "short", prose: text`# Short` }),
+      ],
+    });
+    const result = emit(h, { baseDir: dir });
+    assert.equal(result.members.find((m) => m.name === "long")!.source_path, join(dir, "long.md"));
+    assert.equal(result.members.find((m) => m.name === "short")!.source_path, undefined);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a missing file() asset is a loud emit error", () => {
   const h = harness({ members: [rule({ name: "long", prose: file("./absent.md") })] });
   assert.throws(() => emit(h, { baseDir: tmpdir() }), /did not resolve/);

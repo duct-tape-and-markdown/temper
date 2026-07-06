@@ -161,26 +161,34 @@ enum Command {
     /// authority is a declared posture"): read Claude Code's `PreToolUse` payload from
     /// stdin and, when the write targets a `.claude/` projection, inform-and-route under
     /// the `shared` posture (advisory, exit 0) or block under `surface` (exit 2). The
-    /// posture is the author's declaration, read from the harness's `temper.toml` — temper
-    /// never escalates on its own determination. Wired at the write boundary by
-    /// `temper install`.
+    /// posture is read live from the harness's lock (`.temper/lock.toml`'s `authority`
+    /// declaration row) — temper never escalates on its own determination, and an
+    /// unrepresented harness (no lock) reads the default `shared`. Wired at the write
+    /// boundary by `temper install`.
     Guard {
-        /// The harness root whose `temper.toml` declares the posture (defaults to the
-        /// current directory, the project Claude Code runs the hook from).
+        /// The harness root whose `.temper/lock.toml` declares the posture (defaults
+        /// to the current directory, the project Claude Code runs the hook from).
         #[arg(default_value = ".")]
         path: PathBuf,
     },
-    /// Project temper's own gate wiring into the harness (`specs/architecture/50-distribution.md`):
-    /// the `SessionStart` hook into `.claude/settings.json`, the `PreToolUse` guard, and
-    /// the managed header lines (schema modeline + managed-by note) into each artifact's
-    /// frontmatter — all under the three-state drift engine, so re-running is idempotent
-    /// and re-places anything a human deleted. `check` then verifies its own gate stays
-    /// installed. CI is a documented user-authored job, not an install placement.
+    /// `temper install` — the one on-ramp (`specs/architecture/20-surface.md`, "install —
+    /// the front door"): a discovery report, then one question — represent this
+    /// project as a temper program? `--no-represent` wires the `SessionStart`
+    /// reporter alone; `--yes` (or an interactive `y`) scaffolds the SDK program
+    /// (the lift), ensures the `@dtmd/temper` dependency, runs the first `emit`, and
+    /// places the guard/managed-by note/schema modeline at the fresh lock's
+    /// emit-owned targets.
     Install {
-        /// The project root to wire the gate into (defaults to the current
-        /// directory, beside the `.claude/` the placements land in).
+        /// The project root to represent (defaults to the current directory, beside
+        /// the `.claude/` the placements land in).
         #[arg(default_value = ".")]
         path: PathBuf,
+        /// Answer the one question "yes" without prompting — agents and CI.
+        #[arg(long, conflicts_with = "no_represent")]
+        yes: bool,
+        /// Answer the one question "no" without prompting — agents and CI.
+        #[arg(long)]
+        no_represent: bool,
         /// Compute and report every placement without writing a single byte.
         #[arg(long)]
         dry_run: bool,
@@ -352,10 +360,12 @@ fn main() -> miette::Result<ExitCode> {
             // (`specs/architecture/20-surface.md`): read the `PreToolUse` payload from stdin,
             // and — when it targets a `.claude/` projection — act at the author's declared
             // posture. `shared` informs and routes (exit 0); `surface` blocks (exit 2).
-            // temper never escalates past the posture the `temper.toml` declares.
-            let authority = compose::AuthorLayer::load(&path.join(TEMPER_TOML))?
-                .map(|layer| layer.authority())
-                .unwrap_or_default();
+            // temper never escalates past the posture the lock declares — the lock is
+            // what names a path a projection, so it is also the sole authority for how
+            // firmly that projection is enforced (`20-surface.md`, "surface authority is
+            // a declared posture"). An unrepresented harness (no lock) reads the default
+            // `shared`, matching `compose::Authority`'s own default.
+            let authority = authority_from_lock(&path.join(TEMPER_DIR));
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
             Ok(match install::guard(&payload, authority) {
@@ -370,12 +380,28 @@ fn main() -> miette::Result<ExitCode> {
                 }
             })
         }
-        Command::Install { path, dry_run } => {
-            let report = install::run(&path, dry_run)?;
+        Command::Install {
+            path,
+            yes,
+            no_represent,
+            dry_run,
+        } => {
+            let discovery = install::discover(&path)?;
+            print!("{}", install::render_discovery(&discovery));
+
+            let represent = if yes {
+                install::Represent::Yes
+            } else if no_represent {
+                install::Represent::No
+            } else {
+                ask_represent()?
+            };
+
+            let outcome = install::run(&path, &discovery, represent, dry_run)?;
             if dry_run {
                 println!("dry run — no files written");
             }
-            print!("{}", install::render(&report));
+            print!("{}", install::render(&outcome));
             Ok(ExitCode::SUCCESS)
         }
         Command::Bundle { path, out } => {
@@ -512,6 +538,43 @@ fn explain(target: &str) -> miette::Result<String> {
         &citations,
         target,
     ))
+}
+
+/// Read the `guard`'s posture live off a harness's lock (`specs/architecture/20-surface.md`,
+/// "surface authority is a declared posture"): the `authority` fact in
+/// `<workspace_dir>/lock.toml`'s assembly declaration rows. An unrepresented harness
+/// (no lock, or one predating the fact) reads [`compose::Authority::default`] —
+/// `shared` — matching the lock-less "nothing to bind" posture everywhere else in
+/// this module.
+fn authority_from_lock(workspace_dir: &Path) -> compose::Authority {
+    drift::read_declarations(workspace_dir)
+        .unwrap_or_default()
+        .assembly
+        .iter()
+        .find(|row| row.fact == "authority")
+        .and_then(|row| row.value.as_deref())
+        .and_then(|value| match value {
+            "surface" => Some(compose::Authority::Surface),
+            "shared" => Some(compose::Authority::Shared),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// Ask `install`'s one question interactively (`specs/architecture/20-surface.md`,
+/// "install — the front door"): read a line from stdin, `y`/`yes` (case-insensitive)
+/// answering [`install::Represent::Yes`], anything else (including a bare newline)
+/// answering [`install::Represent::No`] — the conservative default for an
+/// unattended terminal, mirroring the printed prompt's `[y/N]`.
+fn ask_represent() -> miette::Result<install::Represent> {
+    print!("{} ", install::REPRESENT_QUESTION);
+    io::Write::flush(&mut io::stdout()).into_diagnostic()?;
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer).into_diagnostic()?;
+    Ok(match answer.trim().to_lowercase().as_str() {
+        "y" | "yes" => install::Represent::Yes,
+        _ => install::Represent::No,
+    })
 }
 
 /// Load the author-declared layer for a `temper_toml` path, folding a gitignored

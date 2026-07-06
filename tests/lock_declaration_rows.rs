@@ -78,6 +78,7 @@ fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember {
             ("description".to_string(), serde_json::json!(description)),
         ],
         body: body.to_string(),
+        source_path: None,
     }
 }
 
@@ -87,6 +88,7 @@ fn rule_member(name: &str, paths: &[&str], body: &str) -> PayloadMember {
         name: name.to_string(),
         fields: vec![("paths".to_string(), serde_json::json!(paths))],
         body: body.to_string(),
+        source_path: None,
     }
 }
 

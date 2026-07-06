@@ -42,7 +42,7 @@ function resolveBody(member: Member, options: ResolveOptions): string {
   const prose = member.prose;
   if (prose === undefined) return "";
   if (prose.kind === "file") {
-    const assetPath = resolvePath(options.baseDir ?? process.cwd(), prose.path);
+    const assetPath = fileSourcePath(member, options)!;
     try {
       return readFileSync(assetPath, "utf8");
     } catch (cause) {
@@ -138,6 +138,20 @@ function isProjected(member: Member): boolean {
   return member.facts.locus.kind === "at";
 }
 
+/**
+ * The resolved absolute path of a `file()` prose asset, or `undefined` for
+ * `text`/`blocks` prose (or no prose) — the lift's own-path detection
+ * (`specs/architecture/20-surface.md`, "surface authority is a declared
+ * posture": the lock is what names a path a projection, so the engine needs
+ * each `file()` member's true source path to tell a lifted member's own file
+ * apart from a generated one).
+ */
+function fileSourcePath(member: Member, options: ResolveOptions): string | undefined {
+  const prose = member.prose;
+  if (prose?.kind !== "file") return undefined;
+  return resolvePath(options.baseDir ?? process.cwd(), prose.path);
+}
+
 /** One projected member's erased payload — the engine derives its locus from the kind's own declaration row. */
 export interface PayloadMember {
   /** The kind's bare name — joins the payload's `declarations.kinds` family. */
@@ -148,6 +162,8 @@ export interface PayloadMember {
   readonly fields: ReadonlyArray<readonly [string, unknown]>;
   /** The resolved prose body, byte-faithful. */
   readonly body: string;
+  /** The resolved `file()` asset's absolute path; absent for `text`/`blocks` prose. */
+  readonly source_path?: string;
 }
 
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
@@ -164,6 +180,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
       name: member.name,
       fields: member.fields,
       body: resolveBody(member, options),
+      source_path: fileSourcePath(member, options),
     }));
 }
 

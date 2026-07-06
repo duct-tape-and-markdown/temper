@@ -432,11 +432,19 @@ fn the_cli_surface_is_check_emit_install_bundle_schema_guard_explain() {
 fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     use std::io::Write;
 
-    // `temper guard` reads the `PreToolUse` payload from stdin and acts at the declared
-    // posture (`specs/architecture/20-surface.md`, the guard Decision). A `surface` harness
-    // blocks a `.claude/` write (exit 2); a non-projection write is allowed (exit 0).
+    // `temper guard` reads the `PreToolUse` payload from stdin and acts at the posture
+    // declared in the harness's lock (`specs/architecture/20-surface.md`, the guard
+    // Decision — the lock is what names a path a projection, so it is also the sole
+    // authority for how firmly that projection is enforced). A `surface` lock blocks
+    // a `.claude/` write (exit 2); a non-projection write is allowed (exit 0).
     let root = tmpdir("guard-surface");
-    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"authority\"\nvalue = \"surface\"\n",
+    )
+    .unwrap();
 
     let run = |payload: &str| {
         let mut child = Command::new(BIN)

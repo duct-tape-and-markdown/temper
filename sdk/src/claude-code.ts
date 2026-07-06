@@ -12,3 +12,9 @@
 
 export type { Memory, Rule, Skill } from "./builtins.js";
 export { memory, rule, skill } from "./builtins.js";
+
+// The prose constructors ride along so a harness author targeting Claude Code
+// never reaches back to the root package mid-member (`specs/architecture/20-surface.md`,
+// "The port scene" — the reviewed diff imports `skill`/`file` from one specifier).
+export type { Blocks, File, Prose, Text } from "./prose.js";
+export { blocks, file, text } from "./prose.js";

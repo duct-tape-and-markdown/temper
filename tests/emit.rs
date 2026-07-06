@@ -114,6 +114,7 @@ fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMember 
         name: name.to_string(),
         fields,
         body: body.to_string(),
+        source_path: None,
     }
 }
 
@@ -126,6 +127,7 @@ fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember {
             ("description".to_string(), serde_json::json!(description)),
         ],
         body: body.to_string(),
+        source_path: None,
     }
 }
 
@@ -399,6 +401,7 @@ fn a_member_naming_an_undeclared_kind_is_a_clear_refusal() {
         name: "phantom".to_string(),
         fields: Vec::new(),
         body: "boo".to_string(),
+        source_path: None,
     });
 
     let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();

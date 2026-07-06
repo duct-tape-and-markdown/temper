@@ -100,6 +100,7 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
             name: "CLAUDE".to_string(),
             fields: Vec::new(),
             body: CLAUDE_MD.to_string(),
+            source_path: None,
         }],
     };
 

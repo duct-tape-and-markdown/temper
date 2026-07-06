@@ -189,6 +189,7 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
             name: skill.id.clone(),
             fields: skill.fields.clone(),
             body: skill.body.clone(),
+            source_path: None,
         }],
     };
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();

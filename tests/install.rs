@@ -1,32 +1,31 @@
-//! `temper install` — projecting the gate's wiring under the three-state drift
-//! engine (`specs/architecture/50-distribution.md`, "Decision: `install` is two
-//! placements, one mechanism").
+//! `temper install` — the one on-ramp (`specs/architecture/20-surface.md`, "install —
+//! the front door; the lift, once").
 //!
-//! Drives the library `install::run` / `install::gate_installed` over a real
-//! harness and proves the four properties the entry names:
+//! Drives the library `install::discover` / `install::run` / `install::gate_installed`
+//! (plus the real `temper` binary for the CLI-observable bits — the one-question
+//! prompt, `--yes`/`--no-represent`, and `guard`'s lock-grounded posture) and proves:
 //!
-//! - **projection** — one run writes the `SessionStart` hook into
-//!   `.claude/settings.json` (merged, preserving what was there) and the schema
-//!   modeline into each artifact's frontmatter; it writes no CI workflow file
-//!   (`50-distribution.md` rejects an install-managed workflow — CI is a
-//!   user-authored job);
-//! - **idempotence** — a second run lands every placement `Unchanged` and touches
-//!   not a byte;
-//! - **dry-run** — `--dry-run` reports every outcome but writes nothing;
-//! - **self-verify** — a hand-drifted placement is flagged by `gate_installed`.
-//!
-//! A final CLI case drives the real `temper install` binary across the process
-//! boundary, since `main`'s dispatch (and the default `.` root) is observable only
-//! there.
+//! - **discovery** — the report counts members by kind before anything is written;
+//! - **no-path** — declining wires the `SessionStart` reporter alone, Node-free,
+//!   never creating `.temper/`;
+//! - **yes-path** — the lift scaffolds a member module per discovered artifact
+//!   (`file()` over the original text, zero file moves) plus `harness.ts`, and the
+//!   first real `emit` (over the built SDK, `node` and all) produces a lock;
+//! - **own-path** — a lifted member's projection is byte-identical to its source,
+//!   so it claims no guard/note; a separately-authored member's does;
+//! - **idempotence** — re-running converges, never re-scaffolding or duplicating
+//!   the guard;
+//! - **the lock, not `temper.toml`, grounds `guard`'s posture**.
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Once;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::ApplyOutcome;
-use temper::install::{self, InstallReport};
+use temper::install::{self, InstallOutcome, Represent};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -47,7 +46,41 @@ fn tmpdir(label: &str) -> PathBuf {
     dir
 }
 
-/// A skill with frontmatter — the modeline placement inserts a modeline into it.
+/// The repo's `sdk/` directory — the SDK package this crate's worktree carries
+/// beside `Cargo.toml` (mirrors `tests/emit.rs`'s own fixture).
+fn sdk_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sdk")
+}
+
+/// Build the SDK's `dist/` once per test binary run.
+fn ensure_sdk_built() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let status = std::process::Command::new("npm")
+            .args(["run", "build"])
+            .current_dir(sdk_root())
+            .status()
+            .expect("failed to run `npm run build` in sdk/ — is npm on PATH?");
+        assert!(status.success(), "sdk build failed");
+    });
+}
+
+/// Vendor `@dtmd/temper` into `temper_dir/node_modules` via a symlink to the repo's
+/// own built SDK — the stand-in for a real `npm install`, so `install::run`'s
+/// dependency-ensure step finds it already resolved and never spawns real `npm`
+/// (no network needed in this suite).
+fn vendor_sdk(temper_dir: &Path) {
+    ensure_sdk_built();
+    let scope = temper_dir.join("node_modules").join("@dtmd");
+    fs::create_dir_all(&scope).unwrap();
+    let link = scope.join("temper");
+    if !link.exists() {
+        std::os::unix::fs::symlink(sdk_root(), &link).unwrap();
+    }
+}
+
+/// A skill with frontmatter — a full, realistic pre-existing artifact the lift
+/// scaffolds over.
 const SKILL: &str = "---\n\
 name: coordinate\n\
 description: Use when coordinating agents across axes; not for single-axis work.\n\
@@ -74,7 +107,7 @@ const COLLAB_RULE: &str = "# Collaboration\n\nPushback is the point.\n";
 const EXISTING_SETTINGS: &str =
     "{\n  \"permissions\": {\n    \"allow\": [\"Bash(cargo test:*)\"]\n  }\n}\n";
 
-/// Build a harness with a skill, two rules (one frontmatter-free), and a
+/// Build a harness with a skill, two rules (one frontmatter-free), and optionally a
 /// pre-existing settings file, and return its root.
 fn write_harness(label: &str, with_settings: bool) -> PathBuf {
     let root = tmpdir(label);
@@ -116,10 +149,9 @@ fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 }
 
 /// The outcome `install` reported for the placement labeled `placement`, asserting it
-/// is unique — the by-label lookup for placements that share a file (the SessionStart
-/// hook and the guard both land in `settings.json`).
-fn outcome_of(report: &InstallReport, placement: &str) -> ApplyOutcome {
-    let mut matches = report.entries.iter().filter(|e| e.placement == placement);
+/// is unique.
+fn outcome_of(outcome: &InstallOutcome, placement: &str) -> ApplyOutcome {
+    let mut matches = outcome.entries.iter().filter(|e| e.placement == placement);
     let found = matches
         .next()
         .unwrap_or_else(|| panic!("no entry for placement {placement}"));
@@ -130,226 +162,376 @@ fn outcome_of(report: &InstallReport, placement: &str) -> ApplyOutcome {
     found.outcome
 }
 
+/// Whether `outcome` carries any entry for `placement` at all.
+fn has_entry(outcome: &InstallOutcome, placement: &str) -> bool {
+    outcome.entries.iter().any(|e| e.placement == placement)
+}
+
+// ---------------------------------------------------------------------------
+// discovery
+// ---------------------------------------------------------------------------
+
 #[test]
-fn install_projects_the_placements() {
-    let root = write_harness("projects", true);
+fn discover_reports_member_counts_by_qualified_kind() {
+    let root = write_harness("discover", false);
+    let report = install::discover(&root).unwrap();
+    assert_eq!(
+        report.members.get("claude-code.skill").map(Vec::len),
+        Some(1)
+    );
+    assert_eq!(
+        report.members.get("claude-code.rule").map(Vec::len),
+        Some(2)
+    );
+    assert_eq!(report.total(), 3);
 
-    let report = install::run(&root, false).unwrap();
+    let rendered = install::render_discovery(&report);
+    assert!(rendered.contains("claude-code.skill"));
+    assert!(rendered.contains("claude-code.rule"));
+}
 
-    // 1. The SessionStart hook is merged into settings.json — additively, so the
-    //    pre-existing permissions block survives beside the grafted hook.
+#[test]
+fn an_empty_project_reports_no_members_found() {
+    let root = tmpdir("discover-empty");
+    let report = install::discover(&root).unwrap();
+    assert_eq!(report.total(), 0);
+    assert!(install::render_discovery(&report).contains("no members found"));
+}
+
+// ---------------------------------------------------------------------------
+// the no-path — the session-start reporter alone, Node-free
+// ---------------------------------------------------------------------------
+
+#[test]
+fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir() {
+    let root = write_harness("no-represent", true);
+    let discovery = install::discover(&root).unwrap();
+
+    let outcome = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert!(!outcome.represented);
+    assert_eq!(outcome.scaffolded, 0);
+    assert!(outcome.emit.is_none());
+
+    // Only the SessionStart hook is projected — no guard, no note, no modeline.
+    assert_eq!(
+        outcome_of(&outcome, "session-start hook"),
+        ApplyOutcome::Applied
+    );
+    assert!(!has_entry(&outcome, "guard hook"));
+    assert!(!has_entry(&outcome, "managed-by note"));
+    assert!(!has_entry(&outcome, "schema modeline"));
+
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
         "temper check . --reporter session-start"
     );
+    assert!(json["hooks"].get("PreToolUse").is_none());
     assert_eq!(
         json["permissions"]["allow"][0], "Bash(cargo test:*)",
         "the merge must preserve the human's existing settings"
     );
-    // The SessionStart hook and the guard share settings.json — each reported by label.
+
+    // The project is never represented: no workspace, no lock, sources untouched.
+    assert!(!root.join(".temper").exists());
     assert_eq!(
-        outcome_of(&report, "session-start hook"),
+        fs::read_to_string(
+            root.join(".claude")
+                .join("skills")
+                .join("coordinate")
+                .join("SKILL.md")
+        )
+        .unwrap(),
+        SKILL
+    );
+}
+
+// ---------------------------------------------------------------------------
+// the yes-path — the lift + first emit over the real, built SDK
+// ---------------------------------------------------------------------------
+
+#[test]
+fn representing_lifts_every_discovered_member_byte_stable_with_no_guard_claim() {
+    let root = write_harness("represent", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    vendor_sdk(&temper_dir);
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    assert!(outcome.represented);
+    assert_eq!(outcome.scaffolded, 3, "one skill + two rules");
+    assert!(temper_dir.join("harness.ts").is_file());
+    assert!(temper_dir.join("skills").join("coordinate.ts").is_file());
+    assert!(temper_dir.join("rules").join("rust.ts").is_file());
+    assert!(temper_dir.join("rules").join("collaboration.ts").is_file());
+    assert!(temper_dir.join("lock.toml").is_file());
+
+    // Every lifted member's projection is byte-identical to its original source —
+    // the lift's own no-op-on-content guarantee.
+    let emit = outcome.emit.as_ref().expect("the yes-path ran a real emit");
+    assert!(
+        emit.entries
+            .iter()
+            .all(|e| e.outcome == temper::drift::EmitOutcome::Unchanged),
+        "a lifted member's first emit must be a byte-stable no-op, got: {:?}",
+        emit.entries
+    );
+    assert_eq!(
+        fs::read_to_string(
+            root.join(".claude")
+                .join("skills")
+                .join("coordinate")
+                .join("SKILL.md")
+        )
+        .unwrap(),
+        SKILL,
+        "a lifted member's file() source is its own projected path — untouched"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap(),
+        RULE
+    );
+
+    // No member here is emit-owned (every one is own-path), so the guard has no
+    // constituency yet — "the guard arrives with its constituency, never before".
+    assert!(!has_entry(&outcome, "guard hook"));
+    assert!(!has_entry(&outcome, "managed-by note"));
+    assert!(!has_entry(&outcome, "schema modeline"));
+    assert_eq!(
+        outcome_of(&outcome, "session-start hook"),
         ApplyOutcome::Applied
     );
-    assert_eq!(outcome_of(&report, "guard hook"), ApplyOutcome::Applied);
-
-    // 2. No CI workflow file is written — `50-distribution.md` rejects an
-    //    install-managed workflow; CI is a documented user-authored job.
+    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert!(
-        !root
-            .join(".github")
-            .join("workflows")
-            .join("temper.yml")
-            .exists(),
-        "install must write no CI workflow file"
-    );
-    assert!(
-        !root.join(".github").exists(),
-        "install must not create .github/ at all"
-    );
-    assert!(
-        report
-            .entries
-            .iter()
-            .all(|e| !e.path.to_string_lossy().ends_with("temper.yml")),
-        "no placement entry names a CI workflow file"
-    );
-
-    // 3. The schema modeline is inserted as the first frontmatter line of each
-    //    artifact that HAS frontmatter — the skill and the `paths:` rule.
-    let skill_md = fs::read_to_string(
-        root.join(".claude")
-            .join("skills")
-            .join("coordinate")
-            .join("SKILL.md"),
-    )
-    .unwrap();
-    assert!(
-        skill_md.starts_with(
-            "---\n# yaml-language-server: $schema=../../../.temper/schema/skill.json\n"
-        ),
-        "the skill modeline must lead the frontmatter, got:\n{skill_md}"
-    );
-    // The body and the other frontmatter fields are preserved byte-for-byte.
-    assert!(skill_md.contains("name: coordinate\n"));
-    assert!(skill_md.ends_with("Drive the team through the playbook.\n"));
-
-    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
-    assert!(
-        rust_md.contains("# yaml-language-server: $schema=../../.temper/schema/rule.json"),
-        "the rule modeline must reference the rule schema, got:\n{rust_md}"
-    );
-
-    // A frontmatter-free rule is left untouched — nothing to validate, so no header
-    // is synthesised and no placement entry is emitted for it.
-    let collab =
-        fs::read_to_string(root.join(".claude").join("rules").join("collaboration.md")).unwrap();
-    assert_eq!(
-        collab, COLLAB_RULE,
-        "a frontmatter-free rule must be untouched"
-    );
-    assert!(
-        report
-            .entries
-            .iter()
-            .all(|e| !e.path.to_string_lossy().ends_with("collaboration.md")),
-        "no modeline placement is emitted for a frontmatter-free artifact"
+        json["hooks"].get("PreToolUse").is_none(),
+        "no guard hook without an emit-owned constituency, got: {settings}"
     );
 }
 
 #[test]
-fn a_second_run_is_unchanged_and_writes_nothing() {
-    let root = write_harness("idempotent", true);
+fn re_representing_never_re_scaffolds_and_converges() {
+    let root = write_harness("re-represent", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    vendor_sdk(&temper_dir);
 
-    install::run(&root, false).unwrap();
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
     let after_first = tree_bytes(&root);
 
-    // The second run finds every placement already in its desired state.
-    let report = install::run(&root, false).unwrap();
-    assert!(
-        report
-            .entries
-            .iter()
-            .all(|e| e.outcome == ApplyOutcome::Unchanged),
-        "a re-install must land every placement Unchanged, got: {:?}",
-        report.entries
+    let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(second.scaffolded, 0, "the lift never re-scaffolds");
+    assert_eq!(
+        outcome_of(&second, "session-start hook"),
+        ApplyOutcome::Unchanged
     );
     assert_eq!(
         after_first,
         tree_bytes(&root),
-        "the idempotent re-run must not change a single byte"
+        "a re-representation with no authored change is a byte-for-byte no-op"
     );
 }
 
 #[test]
-fn dry_run_reports_outcomes_but_writes_nothing() {
-    let root = write_harness("dry", true);
+fn a_fresh_dry_run_scaffolds_and_writes_nothing() {
+    // No `vendor_sdk`, no real `node_modules` — a fresh dry run over the yes-path
+    // must never touch disk, so it needs neither the dependency nor a real emit.
+    let root = write_harness("dry-fresh", true);
+    let discovery = install::discover(&root).unwrap();
     let before = tree_bytes(&root);
 
-    let report = install::run(&root, true).unwrap();
-    // The report still says every placement *would* be written...
-    assert!(
-        report
-            .entries
-            .iter()
-            .all(|e| e.outcome == ApplyOutcome::Applied),
-        "a first dry run reports Applied for every placement, got: {:?}",
-        report.entries
+    let outcome = install::run(&root, &discovery, Represent::Yes, true).unwrap();
+    assert_eq!(
+        outcome.scaffolded, 3,
+        "the preview still counts what would lift"
     );
-    // ...but nothing landed: no .github, no modeline, no hook in settings.
+    assert!(
+        outcome.emit.is_none(),
+        "nothing was scaffolded for real to emit over"
+    );
+    assert!(
+        outcome.entries.is_empty(),
+        "no lock yet to ground placements against"
+    );
     assert_eq!(before, tree_bytes(&root), "--dry-run must write nothing");
-    assert!(!root.join(".github").exists());
+    assert!(!root.join(".temper").exists());
 }
 
 #[test]
-fn gate_installed_summarizes_missing_then_drifted_placements() {
-    let root = write_harness("self-verify", true);
+fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() {
+    let root = write_harness("deepen", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    vendor_sdk(&temper_dir);
 
-    // Before install: every placement is missing, but the self-verify collapses them
-    // to ONE summary advisory carrying the counts — never one warn per placement,
-    // which on a real target would bury the artifact findings the gate exists to show.
-    let before = install::gate_installed(&root);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // Deepen by hand: a brand-new member with its own separate asset — never a
+    // lift, so its `file()` source differs from its projected path.
+    fs::write(
+        temper_dir.join("skills").join("extra.md"),
+        "# Extra\n\nDeepened by hand.\n",
+    )
+    .unwrap();
+    fs::write(
+        temper_dir.join("skills").join("extra.ts"),
+        "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
+         export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(\"./skills/extra.md\"),\n});\n",
+    )
+    .unwrap();
+    fs::write(
+        temper_dir.join("harness.ts"),
+        "import { emit, harness } from \"@dtmd/temper\";\n\
+         import { skill_coordinate } from \"./skills/coordinate.ts\";\n\
+         import { rule_rust } from \"./rules/rust.ts\";\n\
+         import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
+         import { extra } from \"./skills/extra.ts\";\n\n\
+         const program = harness({\n  members: [skill_coordinate, rule_rust, rule_collaboration, extra],\n});\n\n\
+         process.stdout.write(emit(program).seam);\n",
+    )
+    .unwrap();
+
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(
-        before.len(),
-        1,
-        "an uninstalled gate yields exactly one summary advisory, got: {before:?}"
-    );
-    let summary = &before[0];
-    assert_eq!(
-        summary.severity,
-        temper::check::Severity::Warn,
-        "the self-verify is advisory — never error"
-    );
-    assert!(
-        summary.message.contains("temper install"),
-        "the summary points at the fix, got: {}",
-        summary.message
-    );
-    // The counts name every missing placement kind — the per-placement detail folded
-    // into the message body, not sibling diagnostics.
-    assert!(
-        summary.message.contains("session-start hook")
-            && summary.message.contains("schema modeline"),
-        "the summary carries the missing-placement counts, got: {}",
-        summary.message
+        outcome.scaffolded, 0,
+        "an already-represented project is never re-lifted"
     );
 
-    // After a full install the gate is clean — nothing to report.
-    install::run(&root, false).unwrap();
-    assert!(
-        install::gate_installed(&root).is_empty(),
-        "a fully installed gate reports no drift, got: {:?}",
-        install::gate_installed(&root)
-    );
-
-    // Hand-drift one placement: a human strips the schema modeline off a rule.
-    let rust_path = root.join(".claude").join("rules").join("rust.md");
-    fs::write(&rust_path, RULE).unwrap();
-
-    let after = install::gate_installed(&root);
-    assert_eq!(
-        after.len(),
-        1,
-        "a single drifted placement still yields one summary advisory, got: {after:?}"
-    );
-    assert!(
-        after[0].message.contains("schema modeline"),
-        "the summary names the drifted placement, got: {}",
-        after[0].message
-    );
-    assert!(
-        after[0].message.contains("temper install"),
-        "the diagnostic points at the fix, got: {}",
-        after[0].message
-    );
-}
-
-/// The managed-by note's marker — the frontmatter comment prefix `install` writes and
-/// `emit` must never reproduce (kept in step with `install.rs`'s `NOTE_MARKER`).
-const NOTE_MARKER: &str = "# temper: managed projection";
-
-/// The guard command the `PreToolUse` hook carries after an install at `root` — now the
-/// posture-independent `temper guard .` subcommand invocation (the note/warn/block
-/// behavior lives in the subcommand, driven by [`run_guard`]).
-fn guard_command(root: &Path) -> String {
+    // The guard now has a constituency: the freshly authored `extra` skill.
+    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Applied);
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
-    json["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
-        .as_str()
-        .expect("the guard hook must carry a command")
-        .to_string()
+    assert_eq!(
+        json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
+        "temper guard ."
+    );
+
+    let extra_md = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("extra")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    assert!(extra_md.contains("name: \"extra\""));
+    assert!(extra_md.contains("Deepened by hand."));
+    assert!(
+        extra_md.contains("# temper: managed projection"),
+        "the emit-owned extra skill gets the managed-by note, got:\n{extra_md}"
+    );
+
+    // The lifted members stay own-path — no note claim, byte-untouched.
+    assert!(
+        !fs::read_to_string(
+            root.join(".claude")
+                .join("skills")
+                .join("coordinate")
+                .join("SKILL.md")
+        )
+        .unwrap()
+        .contains("# temper: managed projection"),
+        "a lifted member's own file must carry no note claim"
+    );
+
+    // No `.temper/schema/skill.json` exists yet, so no modeline is placed even on
+    // the emit-owned target — a modeline pointing at nothing is worse than none.
+    assert!(!extra_md.contains("# yaml-language-server:"));
+    assert!(!has_entry(&outcome, "schema modeline"));
+
+    // Once the schema artifact exists, a re-run places the modeline too.
+    fs::create_dir_all(temper_dir.join("schema")).unwrap();
+    fs::write(temper_dir.join("schema").join("skill.json"), "{}").unwrap();
+    let third = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(outcome_of(&third, "schema modeline"), ApplyOutcome::Applied);
+    let extra_md_after = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("extra")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    assert!(
+        extra_md_after.starts_with(
+            "---\n# yaml-language-server: $schema=../../../.temper/schema/skill.json\n"
+        ),
+        "got:\n{extra_md_after}"
+    );
+
+    // A subsequent real `emit` (over the modified `harness.ts`) preserves both
+    // install-placed lines — the two-projectors seam.
+    let emit_again =
+        temper::drift::emit_program(&temper_dir, temper::drift::EmitOptions::default()).unwrap();
+    assert!(
+        emit_again
+            .entries
+            .iter()
+            .all(|e| e.outcome == temper::drift::EmitOutcome::Unchanged),
+        "nothing authored changed since the last emit, got: {:?}",
+        emit_again.entries
+    );
+    let extra_md_final = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("extra")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    assert!(extra_md_final.contains("# yaml-language-server:"));
+    assert!(extra_md_final.contains("# temper: managed projection"));
 }
 
-/// A `PreToolUse` payload naming a `.claude/` projection `file_path` — the write the guard
-/// binds on.
+// ---------------------------------------------------------------------------
+// gate_installed — the read-only self-verify shadow
+// ---------------------------------------------------------------------------
+
+#[test]
+fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
+    let root = write_harness("gate", false);
+
+    // Unrepresented: only the missing hook is nudged.
+    let before = install::gate_installed(&root);
+    assert_eq!(before.len(), 1, "got: {before:?}");
+    assert!(before[0].message.contains("session-start hook"));
+    assert!(before[0].message.contains("temper install"));
+    assert!(
+        !root.join(".temper").exists(),
+        "gate_installed must never scaffold or adopt"
+    );
+
+    // Decline: the hook lands, the gate is clean, still unrepresented.
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert!(install::gate_installed(&root).is_empty());
+
+    // Represent for real: the gate stays clean immediately after (no emit-owned
+    // targets to nudge for a pure lift).
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    vendor_sdk(&temper_dir);
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert!(
+        install::gate_installed(&root).is_empty(),
+        "got: {:?}",
+        install::gate_installed(&root)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// guard — the lock, not `temper.toml`, grounds the posture
+// ---------------------------------------------------------------------------
+
+/// A `PreToolUse` payload naming a `.claude/` projection `file_path` — the write the
+/// guard binds on.
 const CLAUDE_WRITE_PAYLOAD: &str =
     "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}";
 
-/// Drive `temper guard <root>` across the process boundary with `payload` on stdin —
-/// the subcommand reads the declared posture from `<root>/temper.toml`. Returns the exit
-/// code and the stderr the guard prints on a projection hit.
+/// Drive `temper guard <root>` across the process boundary with `payload` on stdin.
+/// Returns the exit code and the stderr the guard prints on a projection hit.
 fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
     use std::io::Write;
     let mut child = Command::new(BIN)
@@ -374,286 +556,49 @@ fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
 }
 
 #[test]
-fn surface_posture_authors_a_blocking_guard_and_notes_non_memory() {
-    let root = write_harness("surface", true);
-    // The assembly declares the enforcing posture; a memory projection sits at the root.
-    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
-    let memory = "# Project memory\n\nHand-authored, no frontmatter.\n";
-    fs::write(root.join("CLAUDE.md"), memory).unwrap();
-
-    // Before install: the self-verify audits BOTH new placements beside the old three.
-    let before = install::gate_installed(&root);
-    assert_eq!(before.len(), 1, "one summary advisory, got: {before:?}");
-    assert!(
-        before[0].message.contains("guard hook") && before[0].message.contains("managed-by note"),
-        "gate-installed audits the guard and the note, got: {}",
-        before[0].message
-    );
-
-    install::run(&root, false).unwrap();
-
-    // The installed hook is the posture-independent subcommand invocation.
-    assert_eq!(
-        guard_command(&root),
-        "temper guard .",
-        "the guard hook runs the `temper guard` subcommand"
-    );
-
-    // Driven over a `.claude/` write under `surface`, the guard blocks (exit 2) and its
-    // message states the limit verbatim.
-    let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
-    assert_eq!(code, Some(2), "the surface guard must block, got: {code:?}");
-    assert!(
-        stderr.contains("other tools writes are not bound by it"),
-        "the guard states the limit verbatim, got: {stderr}"
-    );
-
-    // The managed-by note lands on the non-memory frontmatter projections...
-    let skill_md = fs::read_to_string(
-        root.join(".claude")
-            .join("skills")
-            .join("coordinate")
-            .join("SKILL.md"),
+fn guard_reads_the_surface_posture_from_the_lock_not_temper_toml() {
+    let root = tmpdir("lock-posture-surface");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"authority\"\nvalue = \"surface\"\n",
     )
     .unwrap();
-    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
-    assert!(
-        skill_md.contains(NOTE_MARKER),
-        "the note lands on the skill, got:\n{skill_md}"
-    );
-    assert!(
-        rust_md.contains(NOTE_MARKER),
-        "the note lands on the rule, got:\n{rust_md}"
-    );
+    // A stray `temper.toml` naming the opposite posture must be ignored entirely —
+    // proving the read moved from the author layer to the lock.
+    fs::write(root.join("temper.toml"), "authority = \"shared\"\n").unwrap();
 
-    // ...but NEVER on the memory projection — a comment there costs context every session.
-    let claude_md = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
-    assert_eq!(
-        claude_md, memory,
-        "the memory projection must be untouched — no note"
-    );
+    let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    assert_eq!(code, Some(2), "the lock's `surface` posture must block");
+    assert!(stderr.contains("other tools writes are not bound by it"));
 }
 
 #[test]
-fn shared_posture_authors_a_warning_guard() {
-    // No temper.toml ⇒ the default `shared` posture: the guard informs and routes,
-    // never blocks.
-    let root = write_harness("shared", true);
-    install::run(&root, false).unwrap();
-
-    // Driven over a `.claude/` write under `shared`, the guard warns-and-routes: it prints
-    // the managed-by message but exits zero, never blocking the write.
+fn guard_defaults_to_shared_when_the_lock_is_absent() {
+    let root = tmpdir("lock-posture-absent");
     let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(
         code,
         Some(0),
-        "the shared guard must not block, got: {code:?}"
+        "no lock ⇒ default shared, warns but never blocks"
     );
-    assert!(
-        stderr.contains("temper-managed projection"),
-        "the shared guard states the managed-by message, got: {stderr}"
-    );
-    // A write that touches no `.claude/` projection is allowed silently under either posture.
+    assert!(stderr.contains("temper-managed projection"));
+
     let (allow_code, allow_stderr) = run_guard(
         &root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"src/main.rs\"}}",
     );
     assert_eq!(allow_code, Some(0));
-    assert!(
-        allow_stderr.is_empty(),
-        "a non-projection write is allowed silently, got: {allow_stderr}"
-    );
-
-    // The note is the universal layer — present under `shared` too.
-    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
-    assert!(rust_md.contains(NOTE_MARKER), "the note lands under shared");
+    assert!(allow_stderr.is_empty());
 }
 
-#[test]
-fn a_posture_change_takes_effect_without_re_wiring_and_never_duplicates_the_guard() {
-    // The guard command is posture-independent — `temper guard` reads the declared posture
-    // live — so flipping the assembly `shared`→`surface` changes the guard's *behavior*
-    // with no re-install, and a re-install never appends a second guard.
-    let root = write_harness("posture-change", true);
-    install::run(&root, false).unwrap();
-    // Default `shared`: the guard warns without blocking.
-    assert_eq!(
-        run_guard(&root, CLAUDE_WRITE_PAYLOAD).0,
-        Some(0),
-        "starts advisory"
-    );
+// ---------------------------------------------------------------------------
+// emit's own note/modeline discipline — unrelated to install, still exercised
+// directly over a hand-built payload (`specs/architecture/20-surface.md`, the
+// two-projectors seam).
+// ---------------------------------------------------------------------------
 
-    // Flip the posture — no re-wiring — and the same installed hook now blocks.
-    fs::write(root.join("temper.toml"), "authority = \"surface\"\n").unwrap();
-    assert_eq!(
-        run_guard(&root, CLAUDE_WRITE_PAYLOAD).0,
-        Some(2),
-        "the flipped posture blocks, read live by the subcommand"
-    );
-
-    // A re-install leaves a single `PreToolUse` group Unchanged — the constant command
-    // is already in place, so it is never duplicated.
-    let report = install::run(&root, false).unwrap();
-    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
-    assert_eq!(
-        json["hooks"]["PreToolUse"].as_array().unwrap().len(),
-        1,
-        "a re-install never appends a second guard"
-    );
-    assert_eq!(
-        outcome_of(&report, "guard hook"),
-        ApplyOutcome::Unchanged,
-        "the posture-independent guard is already in place ⇒ Unchanged"
-    );
-}
-
-#[test]
-fn the_note_and_guard_name_the_ratified_drift_remedy() {
-    // READD-RETIRE deleted the `re-add` verb; the managed-by note and guard message
-    // must name the ratified remedy — edit the owning `.temper/` source and re-run
-    // `temper emit` — never the retired verb (`specs/architecture/20-surface.md`,
-    // `re-add` retired). Re-placing the reworded strings stays idempotent.
-    let root = write_harness("drift-strings", true);
-    install::run(&root, false).unwrap();
-
-    // The guard's message rides the subcommand now — drive it over a `.claude/` write and
-    // read the routed remedy off stderr.
-    let (_code, guard) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
-    assert!(
-        guard.contains("re-run temper emit"),
-        "the guard routes to `temper emit`, got: {guard}"
-    );
-    assert!(
-        !guard.contains("re-add"),
-        "the guard must not name the retired `re-add` verb, got: {guard}"
-    );
-
-    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
-    assert!(
-        rust_md.contains("re-run temper emit"),
-        "the managed-by note routes to `temper emit`, got:\n{rust_md}"
-    );
-    assert!(
-        !rust_md.contains("re-add"),
-        "the note must not name the retired `re-add` verb, got:\n{rust_md}"
-    );
-
-    // Placing the reworded strings over their prior placement is a no-op: every guard
-    // and managed-by-note entry lands Unchanged, so no reword reintroduces churn.
-    let report = install::run(&root, false).unwrap();
-    assert!(
-        report
-            .entries
-            .iter()
-            .filter(|e| e.placement == "guard hook" || e.placement == "managed-by note")
-            .all(|e| e.outcome == ApplyOutcome::Unchanged),
-        "a re-install leaves the reworded note and guard Unchanged, got: {:?}",
-        report.entries
-    );
-}
-
-#[test]
-fn a_reworded_managed_by_note_re_places_and_a_current_one_stays_unchanged() {
-    // Content-drift awareness (`specs/architecture/50-distribution.md`, "drift keeps it
-    // synced"): presence-based keying returned any marked note verbatim, so a note
-    // reworded after INSTALL-DRIFT-STRINGS never refreshed and `gate_installed` passed
-    // the stale bytes forever. The fix keys idempotence on the note's bytes.
-    let root = write_harness("note-content-drift", true);
-    install::run(&root, false).unwrap();
-
-    let rust_path = root.join(".claude").join("rules").join("rust.md");
-    let placed = fs::read_to_string(&rust_path).unwrap();
-    // Capture the current note line verbatim so the stale variant is a genuine reword
-    // of THIS wording, not a guess at what install writes.
-    let current_note = placed
-        .lines()
-        .find(|l| l.trim_start().starts_with(NOTE_MARKER))
-        .expect("install placed a marked note")
-        .to_string();
-
-    // Hand-drift the on-disk note to a retired wording — a marked line whose body
-    // differs from the current NOTE_COMMENT. This is the post-reword state install
-    // used to leave untouched.
-    let stale_note = format!("{NOTE_MARKER} — retired wording, re-run the old re-add verb.");
-    let drifted = placed.replacen(&current_note, &stale_note, 1);
-    fs::write(&rust_path, &drifted).unwrap();
-
-    let report = install::run(&root, false).unwrap();
-    let note_entry = |file: &str| {
-        report
-            .entries
-            .iter()
-            .find(|e| e.placement == "managed-by note" && e.path.to_string_lossy().ends_with(file))
-            .unwrap_or_else(|| panic!("no managed-by note entry for {file}"))
-    };
-    // The reworded note re-places (not Unchanged); the already-current note on the
-    // skill stays Unchanged — a matching body is left byte-verbatim.
-    assert_ne!(
-        note_entry("rust.md").outcome,
-        ApplyOutcome::Unchanged,
-        "a reworded note must re-place, not report Unchanged"
-    );
-    assert_eq!(
-        note_entry("SKILL.md").outcome,
-        ApplyOutcome::Unchanged,
-        "an already-current note must stay Unchanged"
-    );
-
-    // The splice restores the exact current projection — the stale body is gone and no
-    // other byte (modeline, fields, body) shifted.
-    let after = fs::read_to_string(&rust_path).unwrap();
-    assert_eq!(
-        after, placed,
-        "the reworded note re-places to the current projection byte-for-byte"
-    );
-    assert!(
-        !after.contains("retired wording"),
-        "the retired note body must be gone, got:\n{after}"
-    );
-    // With the note re-synced, the self-verify no longer flags it as drifted.
-    assert!(
-        install::gate_installed(&root).is_empty(),
-        "a re-placed note leaves the gate undrifted, got: {:?}",
-        install::gate_installed(&root)
-    );
-
-    // A second install is a byte-for-byte no-op: every placement Unchanged.
-    let before_second = tree_bytes(&root);
-    let second = install::run(&root, false).unwrap();
-    assert!(
-        second
-            .entries
-            .iter()
-            .all(|e| e.outcome == ApplyOutcome::Unchanged),
-        "a second install is idempotent, got: {:?}",
-        second.entries
-    );
-    assert_eq!(
-        before_second,
-        tree_bytes(&root),
-        "the idempotent re-run must not change a single byte"
-    );
-}
-
-/// The schema modeline's marker — the frontmatter comment `install` places and `emit`
-/// round-trips (kept in step with `install.rs`'s `MODELINE_MARKER`).
-const MODELINE_MARKER: &str = "# yaml-language-server:";
-
-/// The skill and `paths:`-rule projections a frontmatter-carrying harness exposes to
-/// the modeline/note placements — relative to the harness root.
-fn frontmatter_projections() -> [PathBuf; 2] {
-    [
-        PathBuf::from(".claude")
-            .join("skills")
-            .join("coordinate")
-            .join("SKILL.md"),
-        PathBuf::from(".claude").join("rules").join("rust.md"),
-    ]
-}
-
-/// The skill/rule kind-fact rows a payload built from a [`temper::check::Workspace`]
-/// carries — the two built-in kinds this fixture's harness exercises.
 fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
     vec![
         temper::drift::KindFactRow {
@@ -677,11 +622,6 @@ fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
     ]
 }
 
-/// Build a seam [`temper::drift::Payload`] by reading each real harness member — the
-/// skill and both rules `write_harness` lays down — directly through the generic
-/// frontmatter adapter ([`temper::frontmatter::Member::from_source`]), the same read
-/// face `check`'s live off-disk walk uses: the fixture's stand-in for the SDK program
-/// (`tests/emit.rs`'s dedicated test drives the real seam).
 fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
     let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
     let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
@@ -697,6 +637,7 @@ fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
         name: skill.id.clone(),
         fields: skill.fields.clone(),
         body: skill.body.clone(),
+        source_path: None,
     }];
 
     for rule_name in ["rust", "collaboration"] {
@@ -710,6 +651,7 @@ fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
             name: rule.id.clone(),
             fields: rule.fields.clone(),
             body: rule.body.clone(),
+            source_path: None,
         });
     }
 
@@ -723,10 +665,6 @@ fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
     }
 }
 
-/// Re-emit `harness`'s current real members back onto themselves (`<harness>/.temper`,
-/// the seam's own topology — `drift::emit` derives the projection root from the
-/// workspace's parent) — the round-trip the two projectors share. Returns nothing; the
-/// caller re-reads the projections `emit` wrote.
 fn emit_from_harness(harness: &Path) {
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
@@ -744,119 +682,96 @@ fn emit_from_harness(harness: &Path) {
 
 #[test]
 fn emit_never_stamps_the_managed_by_note() {
-    // The managed-by note (and the schema modeline) ride `install`, not the surface
-    // body — a YAML comment is not authored content (law 5). So an `emit` over a
-    // projection that carries no note never invents one: emit preserves install's
-    // placements, it does not originate them. (The complementary direction — an
-    // install-placed note SURVIVES emit — is `install_placements_survive_a_subsequent_emit`.)
     let harness = write_harness("emit-no-note", false);
-    // No `install` runs, so the sources carry neither the note nor the modeline.
     emit_from_harness(&harness);
 
-    for rel in frontmatter_projections() {
+    for rel in [
+        PathBuf::from(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+        PathBuf::from(".claude").join("rules").join("rust.md"),
+    ] {
         let projected = fs::read_to_string(harness.join(&rel)).unwrap();
-        assert!(
-            !projected.contains(NOTE_MARKER),
-            "emit must never stamp the managed-by note, got in {}:\n{projected}",
-            rel.display()
-        );
-        assert!(
-            !projected.contains(MODELINE_MARKER),
-            "emit must never stamp the schema modeline, got in {}:\n{projected}",
-            rel.display()
-        );
+        assert!(!projected.contains("# temper: managed projection"));
+        assert!(!projected.contains("# yaml-language-server:"));
     }
 }
 
+// ---------------------------------------------------------------------------
+// the CLI verb — the one question, `--yes`/`--no-represent`, the interactive prompt
+// ---------------------------------------------------------------------------
+
 #[test]
-fn install_placements_survive_a_subsequent_emit() {
-    // The two-projectors seam (`specs/architecture/20-surface.md`): `install` places the
-    // schema modeline + managed-by note as frontmatter comments; `emit` re-emits the
-    // whole projection from the surface. A whole-file re-emit must carry those
-    // install-placed metadata lines through — never drop or reflow them — so the
-    // `gate_installed` re-nudge loop that papered over emit dropping them is gone.
-    let harness = write_harness("survive-emit", false);
-    install::run(&harness, false).unwrap();
-
-    // Precondition: both placements really are on disk, so a survival assertion below
-    // is emit preserving them — not them never having been placed. The modeline is the
-    // exact per-artifact line, checked verbatim so a reflow would be caught.
-    let skill_rel = &frontmatter_projections()[0];
-    let skill_modeline = "# yaml-language-server: $schema=../../../.temper/schema/skill.json";
-    let before = fs::read_to_string(harness.join(skill_rel)).unwrap();
-    assert!(before.contains(NOTE_MARKER) && before.contains(skill_modeline));
-
-    emit_from_harness(&harness);
-
-    // Both install-placed lines round-trip the re-emit verbatim, on every frontmatter
-    // projection — the modeline's exact bytes (no reflow) and the note's marker.
-    let after = fs::read_to_string(harness.join(skill_rel)).unwrap();
+fn the_cli_install_verb_reports_discovery_then_wires_the_reporter_on_no_represent() {
+    let root = write_harness("cli-no", true);
+    let output = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .arg("--no-represent")
+        .output()
+        .unwrap();
     assert!(
-        after.contains(skill_modeline),
-        "emit must preserve the modeline verbatim, got:\n{after}"
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        after.contains(NOTE_MARKER),
-        "emit must preserve the managed-by note, got:\n{after}"
-    );
-    let rust = fs::read_to_string(harness.join(&frontmatter_projections()[1])).unwrap();
-    assert!(
-        rust.contains(MODELINE_MARKER) && rust.contains(NOTE_MARKER),
-        "emit must preserve the rule's placements too, got:\n{rust}"
-    );
-
-    // The re-nudge loop is gone: with the placements preserved, the gate now reads
-    // every one as Unchanged, so its self-verify has nothing left to nudge.
-    assert!(
-        install::gate_installed(&harness).is_empty(),
-        "a preserved-placement projection leaves the gate clean, got: {:?}",
-        install::gate_installed(&harness)
-    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("discovery:"));
+    assert!(stdout.contains("not represented"));
+    assert!(!root.join(".temper").exists());
 }
 
 #[test]
-fn a_fresh_install_settings_document_is_stable() {
-    // A fresh install (no pre-existing settings) yields a deterministic single-hook
-    // document — a reviewable golden for the merge's output shape.
-    let root = write_harness("golden", false);
-    install::run(&root, false).unwrap();
-    let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
-    insta::assert_snapshot!(settings);
+fn the_cli_install_verb_prompts_exactly_once_with_no_flag() {
+    use std::io::Write as _;
+    let root = write_harness("cli-prompt", true);
+    let mut child = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"n\n").unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains(install::REPRESENT_QUESTION));
+    assert!(stdout.contains("not represented"));
 }
 
 #[test]
-fn the_cli_install_verb_projects_and_dry_runs() {
-    let root = write_harness("cli", true);
+fn the_cli_install_verb_represents_on_yes_and_dry_runs_a_re_represent() {
+    let root = write_harness("cli-yes", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    vendor_sdk(&temper_dir);
 
-    // A dry run over the real binary reports the pending placements but writes none.
+    let status = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .arg("--yes")
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(temper_dir.join("harness.ts").is_file());
+    assert!(temper_dir.join("lock.toml").is_file());
+
     let before = tree_bytes(&root);
     let output = Command::new(BIN)
         .arg("install")
         .arg(&root)
+        .arg("--yes")
         .arg("--dry-run")
         .output()
         .unwrap();
-    assert!(output.status.success(), "install --dry-run must exit zero");
+    assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("dry run") && stdout.contains("applied"),
-        "the dry run must report the pending install, got:\n{stdout}"
-    );
-    assert_eq!(before, tree_bytes(&root), "the CLI dry run writes nothing");
-
-    // The real run lands the placements and exits zero.
-    let status = Command::new(BIN)
-        .arg("install")
-        .arg(&root)
-        .status()
-        .unwrap();
-    assert!(status.success(), "install must exit zero");
-    assert!(
-        root.join(".claude").join("settings.json").is_file(),
-        "the CLI install must write the SessionStart hook into settings.json"
-    );
-    assert!(
-        !root.join(".github").exists(),
-        "the CLI install must write no CI workflow file"
+    assert!(stdout.contains("dry run"));
+    assert_eq!(
+        before,
+        tree_bytes(&root),
+        "a re-represent dry run writes nothing"
     );
 }
