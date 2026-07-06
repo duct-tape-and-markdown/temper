@@ -9,7 +9,7 @@ Requirements it satisfies:
       It means: "the harness maintains development standards".
       It is required — at least one member must fill it.
 
-Governing package: its `skill` kind binds the `skill.anthropic` package, whose clauses check it.
+Governing floor: its `skill` kind binds the `skill.anthropic` floor, whose clauses check it.
 
 Edges out: it points at no member (it declares no resolved reference).
 Edges in (the resolved references that point at it):

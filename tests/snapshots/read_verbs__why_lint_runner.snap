@@ -6,7 +6,7 @@ Member `lint-runner` (skill) — everything that holds it in place:
 
 It fills no requirements — it opts into no `satisfies` link, so it is governed by its kind's floor alone.
 
-Governing package: its `skill` kind binds the `skill.anthropic` package, whose clauses check it.
+Governing floor: its `skill` kind binds the `skill.anthropic` floor, whose clauses check it.
 
 Edges out: it points at no member (it declares no resolved reference).
 Edges in: no member points at it.

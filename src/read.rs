@@ -146,10 +146,9 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
     members
 }
 
-/// The package the `kind`'s members are checked against — the kind's real built-in
-/// floor resolved by its **qualified identity** through [`builtin::floor_package`]
-/// (`specs/architecture/20-surface.md`, "Decision: package binding is by artifact
-/// kind"): `skill` → `skill.anthropic`, `rule` → `rule.anthropic`, `claude-code.memory`
+/// The floor the `kind`'s members are checked against — the kind's real built-in
+/// floor resolved by its **qualified identity** through [`builtin::floor_package`]:
+/// `skill` → `skill.anthropic`, `rule` → `rule.anthropic`, `claude-code.memory`
 /// → `memory.anthropic`. Every embedded kind's floor is named from the one
 /// `QUALIFIED_FLOOR_BINDINGS` table, so a `memory` member is bound to its own
 /// `memory.*` floor rather than mis-narrated as `skill.anthropic`.
@@ -159,7 +158,9 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
 /// providers) or a bare name resolving to a unique qualified one (`skill` →
 /// `claude-code.skill`); both are tried, in that order. A kind that genuinely ships no
 /// floor (a custom kind with no binding) falls back to its own name
-/// (`specs/architecture/40-composition.md`, a kind defaults to its own name as package).
+/// (`specs/architecture/40-composition.md`, "Binding is implicit — a floor is a
+/// clause array": there is no package-to-kind table, so an unbound kind is named for
+/// itself rather than a fabricated default).
 fn bound_package(kind: &str) -> String {
     builtin::floor_package(kind)
         .or_else(|| {
@@ -405,11 +406,11 @@ fn why_one(
         out.push('\n');
     }
 
-    // The package the member's kind binds — the governing contract its conformance is
+    // The floor the member's kind binds — the governing contract its conformance is
     // checked against.
     let _ = writeln!(
         out,
-        "Governing package: its `{}` kind binds the `{}` package, whose clauses check it.\n",
+        "Governing floor: its `{}` kind binds the `{}` floor, whose clauses check it.\n",
         member.kind,
         bound_package(&member.kind),
     );

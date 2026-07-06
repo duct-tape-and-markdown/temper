@@ -17,10 +17,9 @@ use crate::contract::{Charset, Clause, Contract, ContractError, Predicate, Sever
 
 /// The built-in package temper ships as the floor for the `claude-code.skill` kind —
 /// Anthropic's documented skill contract (`specs/architecture/10-contracts.md`, "named for its
-/// source"). temper's own **published** binding names the *qualified* kind identity
-/// (`specs/architecture/15-kinds.md`, "a published package binds a qualified kind name"): publication
-/// is where the consumer's assembly is unknowable, so a bare binding would be a latent
-/// collision. The package's own name stays short — the kind axis it binds is what
+/// source"). temper's own **published** binding names the *qualified* kind identity:
+/// publication is where the consumer's assembly is unknowable, so a bare binding would
+/// be a latent collision. The package's own name stays short — the kind axis it binds is what
 /// qualifies, resolved through the embedded set (`crate::builtin_kind::qualified`).
 pub const SKILL_PACKAGE: &str = "skill.anthropic";
 
@@ -48,12 +47,11 @@ pub const MEMORY_AGENTS_MD_PACKAGE: &str = "memory.agents-md";
 
 /// Each embedded built-in kind's floor package, keyed by the kind's **qualified**
 /// identity `<provider>.<name>` — the binding the `check` gate's per-kind loop resolves
-/// a discovered member's package through (`specs/architecture/20-surface.md`, "Artifact kinds &
-/// package binding"). Qualified, never bare: the two `memory` providers collide on the
-/// bare name by design (86d5b70), so a bare key would be ambiguous; skill/rule qualify
-/// the same way for one uniform table. This is temper's own **published** binding — it
-/// names the qualified kind a consumer's assembly can never mistake for another
-/// provider's (`specs/architecture/15-kinds.md`, "a published package binds a qualified kind name").
+/// a discovered member's package through. Qualified, never bare: the two `memory`
+/// providers collide on the bare name by design (86d5b70), so a bare key would be
+/// ambiguous; skill/rule qualify the same way for one uniform table. This is temper's
+/// own **published** binding — it names the qualified kind a consumer's assembly can
+/// never mistake for another provider's.
 pub const QUALIFIED_FLOOR_BINDINGS: &[(&str, &str)] = &[
     ("claude-code.skill", SKILL_PACKAGE),
     ("claude-code.rule", RULE_PACKAGE),
@@ -399,9 +397,8 @@ pub fn contract(name: &str) -> Result<Option<Contract>, ContractError> {
 }
 
 /// Every embedded built-in package as a `name → Contract` map — the built-in set a
-/// by-name package binding resolves against (`specs/architecture/20-surface.md`, "Decision:
-/// package binding is by artifact kind"; the resolution order [`crate::compose::PackageResolver`]
-/// runs).
+/// by-name package binding resolves against, keyed the same way
+/// [`QUALIFIED_FLOOR_BINDINGS`] binds a qualified kind to its floor.
 ///
 /// # Errors
 ///

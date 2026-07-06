@@ -9,7 +9,7 @@ Requirements it satisfies:
       It means: "pushback is the point".
       It is required — at least one member must fill it.
 
-Governing package: its `rule` kind binds the `rule.anthropic` package, whose clauses check it.
+Governing floor: its `rule` kind binds the `rule.anthropic` floor, whose clauses check it.
 
 Edges out (the resolved references it declares, the exact set the gate ranges over):
   • it points at `dev-standards` (skill) via its `routes_to` field

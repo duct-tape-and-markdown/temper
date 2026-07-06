@@ -282,7 +282,7 @@ mod floor_binding {
 
     /// Narrate one custom member (its `kind` and `id`) through `why` over an otherwise-empty
     /// surface, returning the stdout narration. The workspace loads an empty temp dir (no
-    /// skills/rules) and the roster/edge inputs are empty, so the governing-package line is
+    /// skills/rules) and the roster/edge inputs are empty, so the governing-floor line is
     /// all this exercises.
     fn why_kind(kind: &str, id: &str) -> String {
         let ws = Workspace::load(&tmpdir("floor-binding")).unwrap();
@@ -303,7 +303,7 @@ mod floor_binding {
         // default-to-skill bug this entry closes.
         let claude = why_kind("claude-code.memory", "project-memory");
         assert!(
-            claude.contains("binds the `memory.anthropic` package"),
+            claude.contains("binds the `memory.anthropic` floor"),
             "a claude-code memory member is bound to its own floor: {claude}"
         );
         assert!(
@@ -313,7 +313,7 @@ mod floor_binding {
 
         let agents = why_kind("agents-md.memory", "AGENTS");
         assert!(
-            agents.contains("binds the `memory.agents-md` package"),
+            agents.contains("binds the `memory.agents-md` floor"),
             "an agents-md memory member is bound to its own floor: {agents}"
         );
     }
@@ -324,14 +324,11 @@ mod floor_binding {
         // identity (`claude-code.skill`/`claude-code.rule`) and names its own floor.
         let skill = why_kind("skill", "reviewer");
         assert!(
-            skill.contains("binds the `skill.anthropic` package"),
+            skill.contains("binds the `skill.anthropic` floor"),
             "{skill}"
         );
         let rule = why_kind("rule", "collaboration");
-        assert!(
-            rule.contains("binds the `rule.anthropic` package"),
-            "{rule}"
-        );
+        assert!(rule.contains("binds the `rule.anthropic` floor"), "{rule}");
     }
 
     #[test]
@@ -339,7 +336,7 @@ mod floor_binding {
         // A kind with no author binding and no embedded floor is named by its own kind name,
         // not silently mis-bound to the skill floor.
         let out = why_kind("adr", "0001-adopt-temper");
-        assert!(out.contains("binds the `adr` package"), "{out}");
+        assert!(out.contains("binds the `adr` floor"), "{out}");
         assert!(!out.contains("skill.anthropic"), "{out}");
     }
 }

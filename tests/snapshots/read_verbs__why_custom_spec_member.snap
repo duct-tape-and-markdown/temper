@@ -9,7 +9,7 @@ Requirements it satisfies:
       It means: "the corpus carries a north-star intent spec".
       It is required — at least one member must fill it.
 
-Governing package: its `spec` kind binds the `spec` package, whose clauses check it.
+Governing floor: its `spec` kind binds the `spec` floor, whose clauses check it.
 
 Edges out: it points at no member (it declares no resolved reference).
 Edges in: no member points at it.
