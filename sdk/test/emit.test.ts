@@ -16,17 +16,20 @@ import { test } from "node:test";
 
 import {
   bash,
+  blocks,
   clause,
   compileDeclarations,
   declarationsToJson,
   emit,
   file,
   genre,
+  genreValue,
   harness,
   maxLines,
   required,
   text,
 } from "../src/index.js";
+import * as sdk from "../src/index.js";
 import { memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
@@ -224,6 +227,47 @@ test("a genre member neither projects nor takes a kind-fact row", () => {
   assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
   // The declaration kinds carry the rule, never the genre (residue inherits through the host).
   assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
+});
+
+// ---------------------------------------------------------------------------
+// Genre values — the generic mechanism survives; no prescribed ontology ships
+// (`specs/architecture/15-kinds.md`, "a genre is a full kind, and genre checks
+// are data, never engine"). `decision`/`law`/`bound`/`Alternative` are gone —
+// a corpus that wants them declares its own genre with `genreValue()`.
+// ---------------------------------------------------------------------------
+
+test("genreValue() composes an author-declared genre, no built-in ontology needed", () => {
+  const value = genreValue({
+    genre: "ruling",
+    key: "unship-prescribed-genres",
+    leaves: { statement: "the SDK ships no built-in genre ontology" },
+    collections: { bounds: { scope: { claim: "sdk/ only" } } },
+  });
+  assert.deepEqual(value, {
+    genre: "ruling",
+    key: "unship-prescribed-genres",
+    leaves: { statement: "the SDK ships no built-in genre ontology" },
+    collections: { bounds: { scope: { claim: "sdk/ only" } } },
+  });
+});
+
+test("a genreValue() reaches blocks() and still hits the pending fence-format gate", () => {
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(genreValue({ genre: "ruling", key: "x", leaves: { statement: "y" } })),
+      }),
+    ],
+  });
+  assert.throws(() => emit(h), /genre-fence-format/);
+});
+
+test("the prescribed genre constructors are gone from the SDK's exports", () => {
+  const exports = sdk as Record<string, unknown>;
+  for (const removed of ["decision", "law", "bound"]) {
+    assert.equal(exports[removed], undefined, `${removed} should no longer be exported`);
+  }
 });
 
 // ---------------------------------------------------------------------------

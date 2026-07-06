@@ -20,8 +20,8 @@ export type { Blocks, File, Mention, Mentionable, Prose, Text } from "./prose.js
 export { blocks, file, renderText, text } from "./prose.js";
 
 // Genre values — posture-3 composed values for `blocks()`.
-export type { Alternative, GenreValue } from "./genres.js";
-export { bound, decision, genreValue, law } from "./genres.js";
+export type { GenreValue } from "./genres.js";
+export { genreValue } from "./genres.js";
 
 // Needs — the derived permission union's source.
 export type { Capability } from "./needs.js";
