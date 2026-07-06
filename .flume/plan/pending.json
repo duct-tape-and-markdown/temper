@@ -1,52 +1,5 @@
 [
   {
-    "tag": "CODEC-RETIRE",
-    "summary": "Retire the [[member]] manifest codec both directions plus AuthorLayer's member readers, and remove the init/lift verbs (their only remaining callers) under clean slate",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: install is the front door; the lift is its yes-path; the postures stay equal"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Retire the document/module `[[member]]` codec. WRITE path (test-only-dead once init/lift die — emit writes the lock, nothing writes a `temper.toml` `[[member]]` table): `write_members` (1512), `write_manifest_members`/`manifest_members_to_string` (1487/1498), `member_to_table` (1559), `genre_to_table` (1656) + the genre/section sub-writers, and `inplace_member_to_table` (1535, no surviving writer). PARSE path: `parse_member`/`parse_member_fields`/`parse_member_sections`/`parse_member_fenced`/`parse_member_genres`/`parse_member_published` (1738-1980). Drop the `members: Vec<ManifestMember>` field (68), `members()` (874), the now-dead `member_corpus()` (901 — zero callers, S2 moved the gate onto the lock), and the `ManifestMember` struct (126). In `AuthorLayer::parse` (806-819) drop the `else { parse_member }` arm, KEEP the `if source { parse_inplace_member }` arm. KEEP the in-place READ path — `parse_inplace_member` (1788), `InPlaceMember`, `inplace_members()` (884) — still read by the gate (`resolve_kind_units`, main.rs); S7 finishes it with `AuthorLayer::load`. Trim the unit tests exercising the dead codec (3179-3260) and fix the now-unused `use` items (Section/FencedBlock/GenreCollections/GenreValue at compose.rs:26)."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Remove the `init` (156) and `lift` (239) verbs — the codec's only remaining callers — and their now-orphaned helpers `scan_inplace_members` (183), `rel_slash` (212), `load_manifest` (311) (clippy `-D warnings` forces the transitive cut). KEEP `write_rollup`/`rollup_tables`/`create_dir_all`/`write_bytes` (emit's live lock-writer, S4) and the discovery family (`discover_kind_files`/`collect_glob`/`discover_builtin` — gate + install). Drop the now-unused `use crate::compose::{AuthorLayer, ManifestMember, InPlaceMember}` items (import.rs:28). Clean slate: a temporary on-ramp gap on trunk is acceptable until S6 ships the front door."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Drop the `Command::Init` variant (112) + its dispatch (255-261, `import::init`/`import::lift`) + its clap definition; `install` is the sole on-ramp (S6), no `init` alias survives (clean slate). In the `empty_assembly_incoherence` `declared` check (899) drop the `!layer.members().is_empty()` arm (members() is retired) — leave the surviving `inplace_members()`/`requirements()` arms untouched."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Remove the obsolete unit test `an_in_place_harness_has_no_lock_and_cannot_drift` (1446) — its only setup verb is `import::init` (drift.rs:1447), which dies here. The in-place drift-free path it asserted has no producer verb to scaffold it anymore (emit is the sole producer, S1); no other drift test is affected."
-        },
-        {
-          "path": "tests/genre_leaf.rs",
-          "description": "Trim the `[[member]]` manifest round-trip block (`write_manifest_members`/`ManifestMember`/`AuthorLayer` at 16/172/181) — those symbols retire in compose.rs. Keep the genre-leaf addressing coverage, rebuilt off the surviving extraction path rather than a manifest serialize/reparse cycle."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/genre_leaf.rs",
-        "asserts": "genre leaf addressing survives without the [[member]] manifest round-trip block"
-      }
-    ],
-    "acceptance": "The document/module `[[member]]` codec (both directions), `AuthorLayer::members()`, the dead `member_corpus()`, and the `init`/`lift` verbs are gone; `temper.toml` as a manifest dialect is unreadable for document/module members (the in-place read path survives for S7); `cargo test` + `cargo clippy -D warnings` green.",
-    "notes": "Clean slate (John 07-06): `init` may go before the front door ships — a trunk on-ramp gap is acceptable, green is the only bar. Only open head; S6→S7 wait behind it (shared compose.rs/main.rs spine). member_corpus is already dead (S2 moved the gate to the lock). The manifest WRITE path is test-only-dead once init/lift die, so it all retires; the in-place READ path (parse_inplace_member/inplace_members) stays — the gate still reads it, S7 retires it with AuthorLayer::load."
-  },
-  {
     "tag": "INSTALL-FRONT-DOOR",
     "summary": "Rebuild install as the one on-ramp: discovery report → one question → scaffold the SDK program + first emit on yes, reporter alone on no; guard/note grounded in the lock",
     "per": {
