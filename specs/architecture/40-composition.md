@@ -54,7 +54,7 @@ be filled by a block inside a host document.
 The pair in use:
 
 ```ts
-import { skill, skillFloor } from "@temper/claude-code";
+import { skill, skillFloor } from "@dtmd/temper/claude-code";
 
 export default harness({
   members: [...skills, ...rules, deployHook],
@@ -80,7 +80,7 @@ halves of `00-intent.md` law 2's "the author declares a contract."
 
 ## Binding is implicit — a floor is a clause array
 
-A **floor** is nothing but an exported clause array. `@temper/claude-code`
+A **floor** is nothing but an exported clause array. `@dtmd/temper/claude-code`
 exports one per built-in kind; a project exports its own the same way.
 Adoption is the import; the spread inside `expect` is the entire binding;
 overriding is composing the array — append a clause, filter one out, wrap one

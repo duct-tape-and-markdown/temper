@@ -20,9 +20,11 @@ separate external finish line (`00-intent.md`).
 
 ## Three channels
 
-1. **The SDK** — ordinary npm packages: the core (`temper`) and provider
-   modules (`@temper/claude-code`, carrying the built-in kinds and the built-in
-   floors as exported values). A **floor distributes as an exported clause
+1. **The SDK** — one ordinary npm package, **`@dtmd/temper`**: the core nouns
+   export from the package root, and the first-party provider face exports
+   from the `claude-code` subpath (`@dtmd/temper/claude-code`, carrying the
+   built-in kinds and the built-in floors as exported values — Decision
+   below). A **floor distributes as an exported clause
    array**: adoption is an import, overriding is a spread (`10-contracts.md`).
    Because identity travels by import (`15-kinds.md`), the channel *is* the
    registry — npm already carries versioning, lockfiles, and provenance
@@ -39,6 +41,24 @@ separate external finish line (`00-intent.md`).
    `marketplace.json`. Project-authored kinds and floors publish through
    channel 1 like any module; `bundle` delivers the *gate* into a harness, not
    clauses.
+
+### Decision: one SDK package — the provider face is a subpath export
+
+**Chosen:** the SDK ships as a single package, **`@dtmd/temper`** (published
+2026-07-05; `@dtmd` is the project's own scope, satisfying `(project-name)`'s
+scoped-registry ruling). The core nouns export from the root; the first-party
+provider face exports from the `claude-code` subpath — `import { skill } from
+"@dtmd/temper/claude-code"`. Identity still travels by import
+(`15-kinds.md`): a subpath is a full module specifier, so collision stays
+impossible and adoption stays an import. One repo, one version, one publish —
+the core and the first-party provider cannot drift apart, and the engine pin
+(channel 2) is declared exactly once. Third-party providers publish their own
+packages, as before; the first party earns no privilege beyond shipping in
+the same box. **Rejected:** separate core and provider packages (`temper` +
+`@temper/claude-code`, the earlier sketch) — a version matrix and a second
+publish ceremony for a product with exactly one first-party provider, paid
+before any second provider exists to justify it. (Resolves
+`(sdk-package-layout)`; ruled 2026-07-05.)
 
 ## The stranger gate
 

@@ -76,7 +76,7 @@ concepts they derive.
 | verifier (`verifiedBy`) | wired delegation for the behavioral remainder: temper checks the judge resolves and is wired, never runs it | `10-contracts.md` |
 | landscape | a corpus of artifacts (≥1 kinds) governed by the assembly; a new landscape is more kinds, never engine code | `30-landscapes.md` |
 | cross-landscape seam | a checked relation between two landscapes' entities (spec ⟷ code) | `30-landscapes.md` |
-| provider module | a provider is an npm module (`@temper/claude-code`); kind identity travels **by import, never by string** — collision is impossible | `15-kinds.md` |
+| provider module | a provider is a module: the first party as the SDK's `claude-code` subpath face (`@dtmd/temper/claude-code`, `50-distribution.md` Decision), a third party as its own package; kind identity travels **by import, never by string** — collision is impossible | `15-kinds.md` |
 | `explain` | the one read verb: every read question is one graph walked from a different corner; projections, never gates; discloses coverage | `20-surface.md` |
 
 Dissolved by the six-noun re-cut (2026-07-04; pre-states: the `manifest-era`,
@@ -112,7 +112,7 @@ grammar files**; the **artifact/member role split** (the member *is* the unit �
 ## The two cross-cutting axes
 
 **Ownership — by module.** Built-in kinds and floors ship as a published SDK module
-(`@temper/claude-code`) plus the engine's embedded default program; custom kinds are
+(`@dtmd/temper/claude-code`) plus the engine's embedded default program; custom kinds are
 the project's own modules, same constructor, same five facts. No privilege either
 way (`15-kinds.md`).
 
