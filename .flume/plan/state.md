@@ -1,43 +1,39 @@
 # Plan state
 
-- **Phase:** residue sweep + inbox drain. Spec-delta empty (no `specs/` commit
-  since 7a3ff54); the only commit since is one flume chore (488e685). Intent
-  unmoved — but the inbox carried John's pre-v0.1 residue routing, and the sweep
-  ran regardless.
-- **Last shipped:** TEMPER-TOML-ZERO (build 4d6e813 / chore ed95bcc), terminal of
-  the S1→S7 `(inplace-lock-producer)` demolition. Re-verified on disk this tick:
-  the gate composes each kind's contract from the lock's `ClauseRow`; `rg
-  temper.toml src/` = 0.
-- **This tick:** drained John's inbox routing (the three named demolitions +
-  register `(authority-home)`) and swept the corpus residue against `src/`.
-  Verified on disk: the **package noun** is live (`PackageResolver`,
-  `Requirement.package`, `Membership.source_package`/`conforms_to` in compose.rs;
-  the roster conformance pass; `RequirementRow.package`/`MembershipRow.source_package`
-  columns in drift.rs; the dead `RequirementRow.package` type in sdk); the
-  **reachability dial** is live (`reachability_from_declarations` main.rs:1188,
-  the opt-in block at :749, the SDK `Harness.reachability` emitted at
-  declarations.ts:152); the **requirement facet spelling** (count/unique/membership/degree)
-  is live in compose.rs + drift.rs + roster.rs + sdk/contract.ts. Filed the
-  package chain (**PKG-NOUN-ENGINE-RETIRE** open → **PKG-NOUN-LOCK-ROWS** →
-  **PKG-NOUN-SDK-COLUMN**, serial on the shared drift/main spine) and
-  **REACH-DIAL-RETIRE** (chain tail). Parked **REQUIREMENT-CLAUSES-RECUT** for a
-  decomposition ceremony — the inbox's "disjoint sdk entry" framing under-scopes
-  it (the Rust facets + SEAM bump make it a serialized chain). Registered
-  `(authority-home)` (the SDK's hardcoded `authority=shared` fact vs the
-  note/warn/block vocabulary; no home in the four-field assembly — needs John).
-- **In flight:** 7 entries. Pickable now (disjoint files, parallel-safe):
-  **KIND-BUILTIN-CONST-RETIRE** (src/kind.rs) and **PKG-NOUN-ENGINE-RETIRE**
-  (compose/roster/main). Then the serial chain PKG-NOUN-LOCK-ROWS (drift) →
-  PKG-NOUN-SDK-COLUMN (sdk) → REACH-DIAL-RETIRE (main+sdk). Parked:
-  REQUIREMENT-CLAUSES-RECUT (ceremony) and PACKAGING-CHANNELS (release creds).
+- **Phase:** residue sweep + gate re-test. Spec-delta empty (no `specs/` commit
+  since 7a3ff54); commits since last plan tick are two `build:` + one
+  `chore(flume)` shipping the package-noun and dead-const cuts. Intent unmoved —
+  the sweep ran regardless and unblocked the next chain link.
+- **Last shipped:** KIND-BUILTIN-CONST-RETIRE (93dc3dc) and PKG-NOUN-ENGINE-RETIRE
+  (5ed652f), both dropped from pending by chore 64be4a0. Re-verified on disk:
+  `kind::BUILTIN_KINDS` is gone from src/kind.rs; compose.rs `Requirement` and
+  roster.rs carry no `package`/`conforms_to`/`source_package` facet.
+- **This tick:** PKG-NOUN-ENGINE-RETIRE shipping unblocked the lock cut, so I
+  reconciled the package chain. Discovered on disk that the requirement `package`
+  facet lives in a **second** Rust home the old queue missed — `document.rs`'s
+  `PublishedRequirement.package` (parsed + emitted in the member-document codec,
+  no longer lifted into `compose::Requirement`). It shares tests/requirement_roster.rs
+  with the drift-lock cut (that file carries RequirementRow, PublishedRequirement,
+  AND MembershipRow literals), so the two Rust homes **cannot** be parallel `open`s.
+  Folded the former **PKG-NOUN-LOCK-ROWS** into **PKG-NOUN-REQ-FACET** (drift.rs +
+  document.rs + the stale main.rs:1032 comment + 7 test files), now `open`.
+- **In flight:** 5 entries. Pickable now: **PKG-NOUN-REQ-FACET** (open, the one
+  disjoint slice this tick). Serial chain behind it: PKG-NOUN-SDK-COLUMN (drop the
+  dead SDK `RequirementRow.package`, blockedBy REQ-FACET) → REACH-DIAL-RETIRE
+  (retire the assembly reachability dial across main.rs + sdk, blockedBy
+  SDK-COLUMN — line numbers re-verified on disk: `reachability_from_declarations`
+  main.rs:1141, opt-in block :726-752, SDK `Harness.reachability` assembly.ts:35,
+  emission declarations.ts:152, tests/reachable_gate.rs retired). Parked:
+  REQUIREMENT-CLAUSES-RECUT (decomposition ceremony) and PACKAGING-CHANNELS
+  (release creds).
 - **What's next (human-gated):** the REQUIREMENT-CLAUSES-RECUT decomposition
-  ceremony; `(authority-home)` ruling; the dead `kinds/`+`packages/` product tree
-  deletion (10-contracts residue, but fence-excluded — a human `chore`, not
-  buildable; build.rs already embeds nothing); PACKAGING-CHANNELS release setup +
-  USPTO screen; the genre-fence-format workshop (cascade pilot); the standing OPEN
-  forks needing John.
+  ceremony (count/unique/membership/degree → `clauses` array, cross-language +
+  SEAM bump); the `(authority-home)` ruling (SDK hardcodes `authority=shared`,
+  declarations.ts:151); the dead `kinds/`+`packages/` product-tree deletion
+  (fence-excluded, a human `chore`); PACKAGING-CHANNELS release setup + USPTO
+  screen; the genre-fence-format workshop (cascade pilot). Inbox empty.
 
-Plan continues: no — the sweep produced two pickable `open` entries
-(KIND-BUILTIN-CONST-RETIRE, PKG-NOUN-ENGINE-RETIRE) plus a serial demolition
-chain behind them; the inbox is drained and the rest is human-gated. Hand to
+Plan continues: no — the sweep reconciled the queue against disk (ENGINE-RETIRE
+shipped, document.rs residue folded in) and left one pickable `open` entry with a
+serial chain behind it; the inbox is drained and the rest is human-gated. Hand to
 build; the queue drains by building, not re-planning.

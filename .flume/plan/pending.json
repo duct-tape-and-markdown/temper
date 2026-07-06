@@ -1,14 +1,13 @@
 [
   {
-    "tag": "PKG-NOUN-LOCK-ROWS",
-    "summary": "Retire the lock's package columns — `RequirementRow.package` and `MembershipRow.source_package` and their read/write in drift.rs",
+    "tag": "PKG-NOUN-REQ-FACET",
+    "summary": "Retire the requirement `package` facet and membership `source_package` from the lock rows (drift.rs) and the member-document codec (document.rs)",
     "per": {
       "path": "specs/architecture/10-contracts.md",
       "section": "Decision: clause arrays and two quantifiers, not a package noun"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PKG-NOUN-ENGINE-RETIRE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,43 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "Delete `RequirementRow.package` (drift.rs:986) and `MembershipRow.source_package` (drift.rs:1034) and their table read/write: the `package` column write (drift.rs:1269) + read (drift.rs:1295), the `source_package` write (drift.rs:1386-1387) + read (drift.rs:1398). Unblocked once PKG-NOUN-ENGINE-RETIRE stops main.rs reading `row.package`. drift reads columns positionally (no `deny_unknown_fields`), so an SDK still emitting `package` is silently ignored — safe to drop the Rust column ahead of the SDK cut."
+          "description": "Delete `RequirementRow.package` (drift.rs:986) and `MembershipRow.source_package` (drift.rs:1034) and their table write/read: the `package` column write (drift.rs:1269-1270) + read (drift.rs:1295), the `source_package` write (drift.rs:1386-1387) + read (drift.rs:1398). RequirementRow keeps name/kind/required + the set-scope facets; MembershipRow drops only its conformance column. drift reads columns via serde `#[serde(default)]` (no `deny_unknown_fields`), so an SDK still emitting `package`/`source_package` is silently ignored — safe to drop the Rust column ahead of the SDK cut (PKG-NOUN-SDK-COLUMN). Leave the drift.rs:190 `frozen`/'package-fetch step' comment — that names the floor-package network step, a different noun."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "Delete `PublishedRequirement.package` (document.rs:272) and its parse (document.rs:466,473,488) and emit (`add_requirement`, document.rs:323-324). Rewrite the doc comments enumerating the published facets as `means`/`kind`/`package`/`required` (document.rs:102,110,121,257,312) to `means`/`kind`/`required`. Fix the four `package: Some(...)`/`package: None` literals in this file's fixtures (document.rs:758,768,790,797). `main.rs::to_requirement` already ignores `published.package` (compose::Requirement carries no package field), so no lift change."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Comment-only: fix the stale doc comment on `union_published_requirements` (main.rs:1032) — a member header now publishes `means`/`kind`/`required`, not `means`/`kind`/`package`/`required`. No code change. (Serialized ahead of REACH-DIAL-RETIRE's main.rs edit, so no parallel conflict.)"
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "Remove the `package: None`/`source_package: None` fields from the RequirementRow/MembershipRow literals in the payload builders and drop any assertion pinning the package column round-trip."
+          "description": "Remove the `package: None`/`source_package: None` fields from the RequirementRow/MembershipRow literals in the payload builders (:136,:147,:156) and drop any assertion pinning the package/source_package column round-trip."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Drop `package: None` from both the `PublishedRequirement` builder (:132) and the `RequirementRow` builder (:180), and `source_package: None` from the MembershipRow literal (:507). This file carries literals of all three structs — the reason the drift and document cuts are one entry, not two parallel `open`s."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Drop the `package: None` field from the RequirementRow literal (:97) — compiler-flagged."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Drop the `package: None` field from the RequirementRow literal (:221); the real-SDK-subprocess byte-reproduction assertion is unaffected (the SDK never emitted the column)."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Drop the `package: None` field from the RequirementRow literal (:61) — compiler-flagged."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Drop the `package: None` field from the RequirementRow literal (:160) — compiler-flagged."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Drop the `package: None` field from the PublishedRequirement literal (:68). The `why` snapshots naming a 'Governing package' are floor-package (std-lib) narration, not the requirement facet — leave them untouched."
         }
       ],
       "retire": []
@@ -32,19 +63,19 @@
         "asserts": "the requirement/membership declaration rows round-trip with no package/source_package column"
       }
     ],
-    "acceptance": "`rg -n \"package|source_package\" src/drift.rs` returns nothing package-facet-related; the `package: None` RequirementRow literals across tests/ are gone; cargo test green.",
-    "notes": "Second chain link. Blast radius also touches the RequirementRow/MembershipRow literals carrying `package: None` in tests/coverage.rs, tests/emit.rs, tests/graph.rs, tests/gate_fail_loud.rs, tests/read_verbs.rs — the compiler flags each; sweep them here."
+    "acceptance": "`rg -n \"package|source_package\" src/drift.rs src/document.rs` returns nothing requirement-facet-related (only drift.rs:190's floor-package-fetch comment survives); no `package: None`/`source_package: None` literals remain across tests/; cargo test green.",
+    "notes": "Folds the former PKG-NOUN-LOCK-ROWS. The requirement `package` facet lives in two Rust homes — drift's lock rows and document.rs's member-document codec — and tests/requirement_roster.rs carries both plus the MembershipRow literal, so they can't split into parallel `open`s. PKG-NOUN-ENGINE-RETIRE (shipped 5ed652f) cut compose/roster; this is the lock+codec tail. The floor-`package` std-lib (PackageResolver, `packages/` tree) is a separate human-gated demolition."
   },
   {
     "tag": "PKG-NOUN-SDK-COLUMN",
-    "summary": "Drop the dead SDK `RequirementRow.package` field — the requirement row's package facet, never populated by `requirementRows`",
+    "summary": "Drop the dead SDK `RequirementRow.package` field — never populated by `requirementRows`",
     "per": {
       "path": "specs/architecture/10-contracts.md",
       "section": "Decision: clause arrays and two quantifiers, not a package noun"
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "PKG-NOUN-LOCK-ROWS"
+      "tag": "PKG-NOUN-REQ-FACET"
     },
     "dependsOnForks": [],
     "files": {
@@ -52,7 +83,7 @@
       "edit": [
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Delete `RequirementRow.package` (declarations.ts:39). Verified this tick: `requirementRows` (declarations.ts:~140) already emits only name/kind/required/verified_by — the `package?` field is dead type surface, never written. No SEAM_VERSION bump: the wire payload is unchanged (the field was never emitted). Update the RequirementRow TSDoc that lists 'kind/package/required'."
+          "description": "Delete `RequirementRow.package` (declarations.ts:39). `requirementRows` already emits only name/kind/required/verified_by — the `package?` field is dead type surface, never written. No SEAM_VERSION bump: the wire payload is unchanged (the field was never emitted). Update the RequirementRow TSDoc that lists 'kind/package/required'."
         }
       ],
       "retire": []
@@ -60,11 +91,11 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "`rg -n \"package\" sdk/src/declarations.ts` returns nothing requirement-facet-related; `pnpm --dir sdk test` (tsc + node --test) green; tests/emit.rs (real SDK subprocess) still byte-reproduces the lock.",
-    "notes": "Third chain link. Disjoint file (sdk/) but serialized after the Rust cut to keep the seam coherent and avoid churning declarations.ts under REACH-DIAL-RETIRE, which follows."
+    "notes": "Third chain link. Disjoint file (sdk/) but serialized after the Rust facet cut to keep the seam coherent and avoid churning declarations.ts under REACH-DIAL-RETIRE, which follows."
   },
   {
     "tag": "REACH-DIAL-RETIRE",
-    "summary": "Retire the reachability dial — the dedicated assembly `reachability` fact and its severity opt-in; 40-composition: there is no fifth field",
+    "summary": "Retire the reachability dial — the assembly `reachability` fact and its severity opt-in; 40-composition: there is no fifth field",
     "per": {
       "path": "specs/architecture/40-composition.md",
       "section": "Decision: the reachability dial retires into the clause algebra"
@@ -79,19 +110,19 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Delete `reachability_from_declarations` (main.rs:1188) and its call (main.rs:567), and the `if let Some(reachability) = assembly_reachability { … }` opt-in block that builds the activation map and calls `graph::reachable` (main.rs:749-772). 40-composition: 'a dedicated `reachability` field on the harness record … retires for the same reason' as the requirement `count?` facet — reachability is demanded by an ordinary edge-scope clause. Keep `pub fn graph::reachable` (a live capability, still exercised by tests/graph.rs) — only its dial-driven opt-in goes."
+          "description": "Delete `reachability_from_declarations` (main.rs:1141) and its call (main.rs:567), and the `if let Some(reachability) = assembly_reachability { … }` opt-in block that builds the activation map and calls `graph::reachable` (main.rs:726-752). 40-composition: reachability is demanded by an ordinary edge-scope clause, not a dedicated field. Keep `pub fn graph::reachable` (a live capability, still exercised by tests/graph.rs) — only its dial-driven opt-in goes. Sweep the dial's narrating comments (main.rs:554,720-726)."
         },
         {
           "path": "sdk/src/assembly.ts",
-          "description": "Delete the `Harness.reachability` field (the `reachability?: Severity` on the assembly value and its init passthrough). The assembly is four fields: members · expect · require · settings. Update any TSDoc naming a fifth field."
+          "description": "Delete the `Harness.reachability` field — the `reachability?: Severity` on the assembly value (assembly.ts:35), its doc line (:34), and the init passthrough (:48,:55). The assembly is four fields: members · expect · require · settings. Fix the header TSDoc naming a fifth field (assembly.ts:4)."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Delete the `if (harness.reachability !== undefined) facts.push({ fact: \"reachability\", … })` emission in `assemblyFactRows` (declarations.ts:152-154) and the doc line naming 'reachability when the dial is set'. The AssemblyFactRow shape stays (authority + edge facts survive). No SEAM_VERSION bump — dropping an optional fact the Rust reader now ignores."
+          "description": "Delete the `if (harness.reachability !== undefined) facts.push({ fact: \"reachability\", … })` emission in `assemblyFactRows` (declarations.ts:152-154) and the doc line naming 'reachability when the dial is set' (declarations.ts:147). The AssemblyFactRow shape stays (authority + edge facts survive). No SEAM_VERSION bump — dropping an optional fact the Rust reader now ignores."
         },
         {
           "path": "tests/reachable_gate.rs",
-          "description": "This suite drives the code-locus dial (`fact = \"reachability\"` golden lock + `[reachability]` opt-in). Delete it — the dial it exercises is retired. Reachability's library machinery stays proven by tests/graph.rs's `reachability` module (untouched)."
+          "description": "This suite drives the code-locus dial (`fact = \"reachability\"` golden lock + `[reachability]` opt-in). Delete it — the dial it exercises is retired. Reachability's library machinery stays proven by tests/graph.rs's `reachability` module (untouched); directive_classing.rs/read_verbs.rs only mention reachability in prose, unaffected."
         }
       ],
       "retire": [
@@ -106,7 +137,7 @@
       }
     ],
     "acceptance": "`rg -n \"reachability_from_declarations|assembly_reachability|fact.*reachability\" src/ sdk/src` returns nothing; the assembly is four fields; cargo test + `pnpm --dir sdk test` green.",
-    "notes": "Inbox demolition 2 (retired by dadfd54). Chain tail (shares main.rs with PKG-NOUN-ENGINE-RETIRE, declarations.ts with PKG-NOUN-SDK-COLUMN). Reachability-as-edge-scope-clause (the corpus replacement) rides the clause-algebra growth downstream of REQUIREMENT-CLAUSES-RECUT — deferred, not this cut."
+    "notes": "Chain tail — shares main.rs with the facet cut's doc-comment sweep and declarations.ts + assembly.ts with PKG-NOUN-SDK-COLUMN, hence serialized. Reachability-as-edge-scope-clause (the corpus replacement, 40-composition) rides the clause-algebra growth downstream of REQUIREMENT-CLAUSES-RECUT — deferred, not this cut."
   },
   {
     "tag": "REQUIREMENT-CLAUSES-RECUT",
@@ -117,7 +148,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "frame-scale and cross-language: the four facets live in compose.rs (Requirement + CountBound/Membership/DegreeBound), drift.rs RequirementRow columns, roster.rs (the set-scope check), AND sdk/contract.ts, and moving them onto a `clauses` array reshapes ClauseRow/engine dispatch to carry set/edge-scope predicates and bumps SEAM_VERSION on both sides (tests/emit.rs runs the real SDK). Inbox routed it as a 'disjoint sdk entry', but that collides with the Rust facets — needs a decomposition ceremony (John + session) to cut the serialized chain before parallel-safe slices, like GATE-READ-LOCK-DEMOLITION got. Also resolves whether reachability-as-clause and the held general-degree-band predicate ride this same clause-algebra growth."
+      "reason": "frame-scale and cross-language: the four facets live in compose.rs (Requirement + CountBound/Membership/DegreeBound), drift.rs RequirementRow columns, roster.rs (the set-scope check), AND sdk/contract.ts (:83-86), and moving them onto a `clauses` array reshapes ClauseRow/engine dispatch to carry set/edge-scope predicates and bumps SEAM_VERSION on both sides (tests/emit.rs runs the real SDK). Needs a decomposition ceremony (John + session) to cut the serialized chain before parallel-safe slices, like GATE-READ-LOCK-DEMOLITION got. Also resolves whether reachability-as-clause and the held general-degree-band predicate ride this same clause-algebra growth."
     },
     "dependsOnForks": [],
     "files": {
@@ -133,7 +164,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A requirement carries set-/edge-scope demands as ordinary clause values (each with its own severity/guidance/cite), not named facet fields; the SDK Requirement type reads `means·kind·required·clauses?·verifiedBy?`; the lock's requirement row carries no facet columns; SEAM_VERSION bumped in lockstep.",
-    "notes": "Inbox demolition 3. Parked for a decomposition ceremony — the inbox's 'disjoint sdk entry' framing under-scopes it (the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain). Do not file the naive single entry; the under-scoping is the thing to surface."
+    "notes": "Parked for a decomposition ceremony — the inbox's 'disjoint sdk entry' framing under-scopes it (the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain). Do not file the naive single entry; the under-scoping is the thing to surface. Downstream of it: reachability-as-edge-scope-clause (the REACH-DIAL replacement)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
