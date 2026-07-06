@@ -1,26 +1,28 @@
 # Plan state
 
-- **Phase:** drained the SDK-front-door-unblock inbox and reconciled the queue
-  against the corpus after the 07-05 publish + `(sdk-package-layout)` ratification.
-- **Last shipped:** README-RECONCILE-SURFACE (build 1656abe / chore 1dd6d60) —
-  README/AGENTS carry the ratified CLI surface (init / check / schema / emit /
-  guard / install / bundle / explain).
-- **This tick:** filed **SDK-RECUT-SUBPATH-LAYOUT** (`open`, TS/`sdk/**`) — recut
-  to the one-package layout, provider face behind the `@dtmd/temper/claude-code`
-  subpath. Filed **GATE-READ-LOCK-DEMOLITION** (`parked`) — the SDK-front-door gate
-  is discharged, so the gate rewrite + carriage demolition is unblocked, but its
-  ~18-test-file blast radius needs a serialized-chain decomposition ceremony before
-  parallel-safe slices are cut. Reconciled PACKAGING-CHANNELS (name resolved to
-  `@dtmd/temper`; still parked on release creds + engine-binary workflow). Inbox
-  drained. `(inplace-lock-producer)` DATUM records the front-door discharge.
-- **In flight:** SDK-RECUT-SUBPATH-LAYOUT is the one pickable `open` entry
-  (disjoint from the parked Rust work — different language, no shared files).
-- **What's next:** build ships the SDK recut; the interactive session runs the
-  demolition decomposition ceremony to cut GATE-READ-LOCK-DEMOLITION into a
-  serialized chain (gate rewrite → carriage retire → `init` re-shape). Human hand
-  still owns the release creds (PACKAGING-CHANNELS) and the USPTO screen.
+- **Phase:** reconciled the queue after SDK-RECUT-SUBPATH-LAYOUT shipped; inbox
+  empty, nothing new to route.
+- **Last shipped:** SDK-RECUT-SUBPATH-LAYOUT (build 56dce9b / chore ea5346a) —
+  the SDK recut to the one-package layout: `@dtmd/temper`, provider face behind
+  the `./claude-code` subpath export (verified on disk: `sdk/src/claude-code.ts`,
+  `exports` map with `.` + `./claude-code`).
+- **This tick:** verified the ship on disk; confirmed both pending entries stay
+  parked with blast radii unchanged (GATE-READ-LOCK-DEMOLITION's scratch-import /
+  `[[member]]`-codec / `carry_representation` targets are all still live in
+  main.rs/import.rs/compose.rs/frontmatter.rs — SDK-RECUT was SDK-side only).
+  Touched PACKAGING-CHANNELS' gate reason to note channel 1's SDK foundation has
+  now shipped. Inbox empty; no new autonomously-fileable corpus↔code gap.
+- **In flight:** nothing pickable — both pending entries are parked.
+  GATE-READ-LOCK-DEMOLITION needs the human+session decomposition ceremony (its
+  ~18-shared-test-file blast radius can't be blind-filed as parallel slices);
+  PACKAGING-CHANNELS needs human release creds + the engine-binary workflow.
+- **What's next:** the interactive session runs the demolition decomposition
+  ceremony to cut GATE-READ-LOCK-DEMOLITION into a serialized chain (gate rewrite
+  → carriage retire → `init` re-shape). Human hand owns the release creds
+  (PACKAGING-CHANNELS) and the USPTO name screen before launch.
 
-Plan continues: no — the queue is reconciled, the inbox is drained, and one
-disjoint `open` entry (SDK-RECUT-SUBPATH-LAYOUT) is ready for build. The remaining
-gap (the gate/carriage demolition) is filed parked pending a human+session
-decomposition ceremony, not further plan work this turn.
+Plan continues: no — the queue is reconciled against disk (SDK-RECUT confirmed
+shipped), the inbox is empty, and every remaining thread is human-gated. There is
+no pickable `open` entry and no autonomous plan work left this turn; the two
+parked entries wait on a human+session ceremony and human release creds, not on
+further planning.

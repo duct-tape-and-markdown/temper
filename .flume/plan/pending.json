@@ -49,7 +49,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs human release setup — the per-platform engine-binary release workflow, marketplace publish, signing/publish creds — before the mechanical wrappers validate end-to-end; the SDK scope is now resolved (`@dtmd/temper` published 0.0.1 on 07-05, 0.1.0 reserved for the coordinated release that pins the engine binary), and channel 1's SDK foundation lands via SDK-RECUT-SUBPATH-LAYOUT"
+      "reason": "needs human release setup — the per-platform engine-binary release workflow, marketplace publish, signing/publish creds — before the mechanical wrappers validate end-to-end; the SDK scope is now resolved (`@dtmd/temper` published 0.0.1 on 07-05, 0.1.0 reserved for the coordinated release that pins the engine binary), and channel 1's SDK foundation has shipped (SDK-RECUT-SUBPATH-LAYOUT, build 56dce9b — @dtmd/temper recut to the one-package subpath layout)"
     },
     "dependsOnForks": [],
     "files": {
