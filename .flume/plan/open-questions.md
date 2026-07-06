@@ -208,6 +208,46 @@ New forks from the ceremony:
   GOV-RANGE/GOV-COUNT merge-conflict loop-spin. `init`'s re-shape to SDK-program
   scaffolding (no longer name-blocked — the specifier it writes is `@dtmd/temper`)
   is a downstream slice of that same chain.
+  DATUM (2026-07-05, cascade — the first external harness): four field reports
+  (inbox, drained this tick) confirm the manifest-era in-place path the current
+  `init` writes (root `temper.toml`, no `.temper/`) is what a real adopter hits,
+  and it diverges from the lock end-state at four seams — evidence the
+  decomposition ceremony must hold, not new pending work (fixing manifest-era
+  code the demolition retires is throwaway, the ledger's held-bug pattern):
+  (1) `install`/`guard` assume emit-carriage universally — the managed-by note
+  and `GUARD_MESSAGE` (install.rs:101,125) hardcode ".temper/ surface … re-run
+  temper emit", so guard would refuse legit edits to files that ARE the authored
+  source; cascade reverted install, kept manifest+check. This one outlives the
+  demolition IF in-place stays first-class — carved out as
+  `(carriage-aware-placements)` below. (2) phantom `agents-md.memory (1)` in
+  manifest-mode coverage (21 members, check reports 22) with no AGENTS.md on disk
+  (`--harness` mode correctly says 0). (3) `explain` reads `.temper` (main.rs:437,
+  `DEFAULT_WORKSPACE`) → "no member; import first" while bare `check` resolves the
+  root manifest's 22 members in the same cwd — the read↔gate seam divergence
+  READ-EDGE-UNIFY did not close for the manifest posture. (4) install's schema
+  modelines point at `.temper/schema/{skill,rule}.json` but `init` writes no
+  `.temper/` and `schema` only prints to stdout — the keystroke gate dangles
+  in-place. (2)–(4) dissolve under the lock-read end-state (check/explain read the
+  committed lock; no manifest-mode coverage); recorded here as accepted debt, the
+  demolition is their fix.
+- `(carriage-aware-placements)` — OPEN (cascade field report, 2026-07-05). On an
+  all-in-place harness (`init` → root `temper.toml`, no `.temper/`), the files a
+  member names ARE its authored source, not a projection — yet `install`'s
+  managed-by note and the `PreToolUse` `GUARD_MESSAGE` (install.rs:101,125)
+  hardcode the emit-carriage relationship (".claude/ is projected from the
+  .temper/ surface … re-run temper emit"), so guard would block or misdirect a
+  legitimate edit to the authored source. `specs/architecture/20-surface.md` binds
+  the guard to **projections**; in-place members aren't projections. The three
+  equal authoring postures (module / document / in-place) mean in-place is
+  first-class, not a migration waystation, so carriage-awareness is a real
+  end-state requirement — but the **mechanism** is undecided: how does the guard
+  boundary decide a written path is a projection (bound) vs an authored in-place
+  member (unbound), and do install's placement lines (note + schema modeline)
+  suppress entirely in-place? Entangled with the GATE-READ-LOCK-DEMOLITION
+  ceremony (install.rs + the guard dispatch in main.rs are its territory), so held
+  as its fork rather than a disjoint `open` slice. Needs John: is in-place a
+  ratified first-class posture, and what carries the projection/authored
+  distinction at the guard/install boundary.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
   Rust.** No spec delta — the corpus is language-neutral by design ("the
   engine", never a language as normative fact; 50-distribution "The stranger

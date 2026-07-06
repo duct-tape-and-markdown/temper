@@ -38,7 +38,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "`temper check` on a harness reads its committed SDK-emitted lock (declarations) and walks each kind's governs locus for members, with no scratch copy-tree; a harness with no lock is the unadopted case gated by the embedded default program (fail-loud), never a silent skip.",
-    "notes": "SDK front-door gate discharged 07-05 (@dtmd/temper published, layout ratified); (inplace-lock-producer) no longer blocks. Remaining blocker is decomposition: the scratch drop touches ~18 test files (grep import::run/scratch/--harness) plus main.rs/import.rs/drift.rs/compose.rs — frame-scale. Parked for a serialized-chain design ceremony; the file list here is the truthful blast radius, not a single-tick scope."
+    "notes": "SDK front-door gate discharged 07-05; (inplace-lock-producer) no longer blocks. Remaining blocker is decomposition: the scratch drop touches ~18 test files plus main.rs/import.rs/drift.rs/compose.rs — frame-scale, parked for a serialized-chain ceremony. Cascade (first external harness) field-confirmed the in-place seam: manifest check, explain, install/guard all diverge from the lock end-state — see (inplace-lock-producer) DATUM + (carriage-aware-placements)."
   },
   {
     "tag": "PACKAGING-CHANNELS",

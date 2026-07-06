@@ -1,28 +1,29 @@
 # Plan state
 
-- **Phase:** reconciled the queue after SDK-RECUT-SUBPATH-LAYOUT shipped; inbox
-  empty, nothing new to route.
+- **Phase:** reconciled the queue against disk and drained the cascade inbox
+  (first external harness, four field reports).
 - **Last shipped:** SDK-RECUT-SUBPATH-LAYOUT (build 56dce9b / chore ea5346a) —
-  the SDK recut to the one-package layout: `@dtmd/temper`, provider face behind
-  the `./claude-code` subpath export (verified on disk: `sdk/src/claude-code.ts`,
-  `exports` map with `.` + `./claude-code`).
-- **This tick:** verified the ship on disk; confirmed both pending entries stay
-  parked with blast radii unchanged (GATE-READ-LOCK-DEMOLITION's scratch-import /
-  `[[member]]`-codec / `carry_representation` targets are all still live in
-  main.rs/import.rs/compose.rs/frontmatter.rs — SDK-RECUT was SDK-side only).
-  Touched PACKAGING-CHANNELS' gate reason to note channel 1's SDK foundation has
-  now shipped. Inbox empty; no new autonomously-fileable corpus↔code gap.
+  the SDK recut to the one-package `@dtmd/temper` layout, provider face behind
+  the `./claude-code` subpath export.
+- **This tick:** verified both pending entries against disk — GATE-READ-LOCK-
+  DEMOLITION's blast-radius symbols (import::run, write_rollup, scratch_surface,
+  the compose `[[member]]` codec, frontmatter carry_representation) are all still
+  live in main.rs/import.rs/compose.rs/frontmatter.rs, so it stays parked and
+  accurate; PACKAGING-CHANNELS unchanged (human release creds). Drained the four
+  cascade reports: routed report 1 (install/guard assume emit-carriage
+  universally, misleads in-place) into a new OPEN fork `(carriage-aware-
+  placements)`; recorded all four as a DATUM under `(inplace-lock-producer)`
+  (reports 2–4 are manifest-era symptoms the lock-read end-state dissolves —
+  accepted debt). Touched GATE-READ-LOCK-DEMOLITION notes to cite cascade.
 - **In flight:** nothing pickable — both pending entries are parked.
-  GATE-READ-LOCK-DEMOLITION needs the human+session decomposition ceremony (its
-  ~18-shared-test-file blast radius can't be blind-filed as parallel slices);
-  PACKAGING-CHANNELS needs human release creds + the engine-binary workflow.
-- **What's next:** the interactive session runs the demolition decomposition
-  ceremony to cut GATE-READ-LOCK-DEMOLITION into a serialized chain (gate rewrite
-  → carriage retire → `init` re-shape). Human hand owns the release creds
-  (PACKAGING-CHANNELS) and the USPTO name screen before launch.
+- **What's next:** the interactive session runs the GATE-READ-LOCK-DEMOLITION
+  decomposition ceremony, now with cascade's field evidence in hand (the in-place
+  posture is real external use, not a waystation). Human owns the release creds
+  (PACKAGING-CHANNELS), the USPTO name screen, and the `(carriage-aware-
+  placements)` posture ruling.
 
-Plan continues: no — the queue is reconciled against disk (SDK-RECUT confirmed
-shipped), the inbox is empty, and every remaining thread is human-gated. There is
-no pickable `open` entry and no autonomous plan work left this turn; the two
-parked entries wait on a human+session ceremony and human release creds, not on
-further planning.
+Plan continues: no — the queue is reconciled against disk, the inbox is drained,
+and every remaining thread is human-gated. No pickable `open` entry exists and no
+autonomous plan work remains: both parked entries wait on a human+session ceremony
+and human release creds, and the cascade reports are routed to open-questions (one
+new fork, three accepted-debt symptoms of the parked demolition).
