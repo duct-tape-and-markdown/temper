@@ -1,4 +1,4 @@
-# The surface — the SDK: authoring, prose, emit, the seam, init
+# The surface — the SDK: authoring, prose, emit, the seam, install
 
 The surface is where the harness **lives**: the **SDK**, a typed module
 library in which members are typed values, composition is an `import`, and
@@ -10,7 +10,7 @@ module compiling to an artifact reads as src→dist, where a same-medium mirror
 reads as a copy that isn't.
 
 This spec owns the authoring surface (the member and its prose), emit, the
-SDK↔engine seam, and `init`. The assembly value that binds the whole —
+SDK↔engine seam, and `install`. The assembly value that binds the whole —
 `harness()` — is `40-composition.md`'s; kinds, genres, loci, and the three
 authoring postures are `15-kinds.md`'s; clauses and requirements are
 `10-contracts.md`'s; the graph and its judges are `45-governance.md`'s.
@@ -214,7 +214,7 @@ mechanically checked"). Same program in, same bytes out, verified by
 double-emit comparison at every run — nondeterminism in authoring code (a
 timestamp, an unordered map) is a loud emit failure, never silent churn. The
 fixpoint holds at the surface: emitting, then lifting the emitted output
-(`init`, below), yields the surface back.
+(the lift: `install`, below), yields the surface back.
 
 ### Decision: emit is total — no partial territory
 
@@ -300,6 +300,15 @@ fully gated, SDK-less, by the embedded default program — never a half-adopted
 one. (Resolves `(inplace-lock-producer)`, 2026-07-04: sole producer, clean
 cuts.)
 
+The embedded default program is a **built-in lock**: the same declaration
+shape, receipt-less — no provenance or emit-fingerprint rows, because
+nothing was ever emitted — compiled into the engine binary. The engine has
+**one input shape from two sources**: the committed lock on an adopted
+harness, the built-in lock on a stranger one. There is no third declaration
+input; the name `temper.toml` retires with the manifest era entirely — a
+file by that name is from old temper, never something current temper reads
+or writes.
+
 Drift is **one comparison in one vocabulary: disk vs lock**. An artifact
 whose bytes differ from its lock fingerprint, a source that differs from its
 provenance row — each is the same finding shape, naming the member that owns
@@ -313,8 +322,8 @@ change.
 **Chosen:** there is no round-trip from projection back to surface. A direct
 edit to emitted output is drift — surfaced by the guard at the write boundary
 and by the disk-vs-lock check at the gate — and the remedy is to edit the
-owning member and re-emit, or to lift the change deliberately (`init`,
-below). **Rejected:** a reconcile-back verb (`re-add`) and its three-state
+owning member and re-emit, or to lift the change deliberately (the lift:
+`install`, below). **Rejected:** a reconcile-back verb (`re-add`) and its three-state
 merge model (desired / last-applied / real) — load-bearing only when source
 and output shared a medium and an edit was ambiguous between them; with
 src→dist media, patching the projection is patching `dist/`, and a tool that
@@ -335,41 +344,73 @@ the hook binds one provider's writes, so authority is only as strong as the
 weakest uninstrumented consumer — the note is the only universal layer and CI
 the backstop wall. The guard is the `temper guard` subcommand, blocking per
 this declared posture (`50-distribution.md`, the guard Decision —
-`(guard-posture)` resolved). **Rejected:** (a) baked-in blocking —
+`(guard-posture)` resolved). **The lock is what names a path a projection**,
+and the enforcement artifacts follow it: the note and the guard bind only
+paths the lock declares emit-owned, and they are *placed* only when such
+paths exist — the guard arrives with its constituency, never before. A
+member whose `file()` source is its own projected path is authored
+territory: no note, no guard claim; a hand edit there is an edit to the
+source. On a harness with no lock nothing is a projection and there is
+nothing to bind. (Resolves `(carriage-aware-placements)` — cascade field
+evidence; ruled 2026-07-06.) **Rejected:** (a) baked-in blocking —
 the tool determining invasiveness on a surface it was invited onto; (b)
 `emit`-stamped notes — a stamping projector breaks law 5 for every downstream
 byte-comparison; (c) framing the hook as a wall — multi-consumer loci
 (`docs/market-formats.md`) make that a false promise. (Ratified 2026-07-03.)
 
-## init — the lift, once
+## install — the front door; the lift, once
 
-`init` is the one-time on-ramp, and its lift is **the posture move at scale**
-(the three equal postures: `15-kinds.md`). For each discovered artifact it
-scaffolds a member module whose prose is `file()` over the original text —
-zero rewording, zero file moves for the words: recognition of the port scene
-is the acceptance test. Where a document carries genre fences, the lift is
-the posture-2 ⇄ posture-3 round-trip mechanized: parse to typed values,
-render back to the fence, **byte-stable** — so the lift is reviewable as a
-no-op on content. Law 5 fixes the license: "free to normalize framing, never
-to alter content; after it the surface is the single authored home."
+`install` is the one on-ramp. It opens with the **discovery report** —
+findings first, ceremony after: what the walk found (members by kind,
+co-resident landscapes it does not govern), and what the embedded default
+program says about it. Then it asks **exactly one question**: *represent
+this project as a temper program?* There is one genuine fork in the world —
+a harness is represented or it is not — so there is one question; a second
+question would be a mode the model shouldn't have.
+
+- **No** — `install` wires the session-start reporter (with consent for the
+  settings write; `--yes` for agents and CI) and stops. The stranger gate at
+  session start, a footprint of one settings entry, fully Node-free forever.
+- **Yes** — the represented path **requires Node and `.temper/`**, checked
+  up front and refused with instructions when absent — no half-scaffolded
+  state, no engine-side representation dialect. `install` ensures the SDK
+  dependency, scaffolds the program (the lift, below), runs the first
+  `emit` — the adoption moment, producing the lock — and then places what
+  that lock justifies.
+
+The lift is **the posture move at scale** (the three equal postures:
+`15-kinds.md`). For each discovered artifact it scaffolds a member module
+whose prose is `file()` over the original text — zero rewording, zero file
+moves for the words: recognition of the port scene is the acceptance test.
+Where a document carries genre fences, the lift is the posture-2 ⇄ posture-3
+round-trip mechanized: parse to typed values, render back to the fence,
+**byte-stable** — so the lift is reviewable as a no-op on content. Law 5
+fixes the license: "free to normalize framing, never to alter content; after
+it the surface is the single authored home."
 
 The lift's output is the SDK program and nothing else: member modules whose
 prose is `file()` over the original text, and the `harness.ts` skeleton.
-`init` writes no lock and compiles no configuration — the first `emit` after
-the lift is the moment a harness becomes adopted ("The lock and drift",
+The scaffold writes no lock and compiles no configuration — the first
+`emit` is the moment a harness becomes adopted ("The lock and drift",
 above: emit is the sole producer). The bare binary **checks; it never
-adopts**.
+adopts** — on the yes path it is the program's own emit, orchestrated with
+consent and a present toolchain, that adopts.
 
 Members arrive shallow and fully functional; deepening (`satisfies`,
 `needs`, `requires`) accrues member by member, and the pressure to deepen
 comes from the author's own `require` coverage failing — the right
-instrument — never from on-ramp ceremony. Before any lift, the harness is
-already gated SDK-less (the embedded default program, above): the
-no-commitment trial state.
+instrument — never from on-ramp ceremony. **Depth is emergent, never
+declared**: a thin program and a rich one are the same artifact at different
+points in its editing history, so there is no depth selector, no recorded
+preference, no rung. Re-running `install` converges on whatever the program
+has become — placements follow the lock's current contents. Before any
+lift, the harness is already gated SDK-less (the embedded default program,
+above): the no-commitment trial state.
 
-### Decision: init is the lift; the postures stay equal
+### Decision: install is the front door; the lift is its yes-path; the postures stay equal
 
-**Chosen:** one verb, one-time, per-member, byte-stable on content. Movement
+**Chosen:** one verb, report-first, one question, consent for every settings
+write. The lift is one-time, per-member, byte-stable on content. Movement
 between postures is author-initiated and free in both directions; the system
 is not opinionated about where you author — no upgrade advisory, no adoption
 metric, no lint counting fences. **Rejected:** (a) import-as-a-verb — copying
@@ -382,11 +423,18 @@ coverage pressure, not ceremony; (d) a binary-side declaration compiler — a
 hand-authored `temper.toml` compiled into lock rows as an adoption rung —
 which is the hand-TOML second surface (the seam Decision) re-entering
 through the on-ramp: the postures are prose media, never config dialects
-(`(inplace-lock-producer)` resolved 2026-07-04).
+(`(inplace-lock-producer)` resolved 2026-07-04); (e) a separate `init` verb
+beside `install` — two on-ramps is a duplicated front door, and the split
+(scaffolding here, wiring there) forces the user to sequence what the tool
+should orchestrate (`init` retired into `install`, ruled 2026-07-06); (f) an
+interactive depth wizard — rungs, tiers, or a recorded install level — depth
+is emergent from the program's content, and a stored preference is invisible
+state duplicating what the authored artifacts already say (ruled
+2026-07-06).
 
 ### Decision: discovery respects ignore rules; the backing set reads raw disk
 
-**Chosen:** member **discovery** — `init`'s scan and the engine's walks —
+**Chosen:** member **discovery** — `install`'s scan and the engine's walks —
 always excludes `.git/` and honors the repository's ignore rules
 (`.gitignore`): a member is authored content, and an ignored file is by
 declaration not authored here (an any-depth memory glob must not import a
@@ -413,9 +461,12 @@ config is a later extension the same engine handles as another landscape root
 
 ## CLI surface
 
-`init · check · emit · install · bundle · explain · schema`
+`install · check · emit · bundle · explain · schema`
 
-- **`temper init [<path>]`** — the on-ramp and the lift (above).
+- **`temper install [<path>]`** — the front door (above): discovery report,
+  one question, then the lift + first emit on yes or the reporter alone on
+  no; places what the lock justifies, drift-synced; re-run converges
+  (`50-distribution.md`).
 - **`temper check [<path>]`** — the gate: the engine's judge stage over the
   committed harness plus the lock (`45-governance.md`), including freshness
   (disk vs lock). Exit posture per law 1: hard where blocking is cheap,
@@ -426,9 +477,6 @@ config is a later extension the same engine handles as another landscape root
   artifacts, declarations and fingerprints to the lock; refuses on
   declare-side failures; double-emit verified; `--frozen` refuses network and
   is CI's byte-compare posture.
-- **`temper install`** — project the gate's wiring (session-start hook, CI
-  job, guard, schema modeline) into the harness, drift-synced
-  (`50-distribution.md`).
 - **`temper bundle`** — compose into a publishable plugin
   (`50-distribution.md`).
 - **`temper explain <target>`** — the one read verb (Decision below).
@@ -461,7 +509,7 @@ the earlier read-family Decisions.)
 ## Scope boundary
 
 This spec owns the member and its prose, the two registers, emit, the seam
-and the lock, drift, `init`, and the CLI's shape. The assembly's five fields
+and the lock, drift, `install`, and the CLI's shape. The assembly's five fields
 are `40-composition.md`'s; kinds, genres, postures, extraction, and loci are
 `15-kinds.md`'s; clauses, requirements, and `verifiedBy` are
 `10-contracts.md`'s; the graph, registration, and reachability are

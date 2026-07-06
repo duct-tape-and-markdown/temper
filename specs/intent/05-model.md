@@ -63,12 +63,12 @@ concepts they derive.
 | the world | the ungoverned exterior (harness runtime, repo) as one distinguished node — the other endpoint of every registration; reachability is closure from it | `45-governance.md` |
 | mention / embed | the two prose reference intents: `${x}` names (an edge, obligation-free, citation never fallout); `${embed(x)}` pulls content (lock-fingerprinted); both resolution-checked | `20-surface.md` |
 | directive | format-executed body syntax (the `@path` import) — admitted per-kind iff the format authority documents execution; yields observed edges | `15-kinds.md` |
-| posture | the three equal authoring forms — plain prose, embedded genres, fully composed; 2 ⇄ 3 round-trips byte-stable; `init`'s lift is the move at scale | `15-kinds.md` |
+| posture | the three equal authoring forms — plain prose, embedded genres, fully composed; 2 ⇄ 3 round-trips byte-stable; `install`'s lift is the move at scale | `15-kinds.md` |
 | SDK | the only authoring surface: types, constructors, one JSON pipe; implements no semantics; pins its engine | `20-surface.md` |
 | engine | the only implementation — emit, lock, gate, explain; kind- and schema-blind; checks with no language runtime (the stranger gate carries an embedded default program) | `20-surface.md` / `50-distribution.md` |
 | emit | the total compile: every artifact a projection of members (settings and `.mcp.json` many-to-one); refuses on declare-side failures; double-emit verified | `20-surface.md` |
 | the lock | tool-written, never composed: provenance rows, emit fingerprints, declaration rows — the committed seam beside the artifacts; drift is one comparison, disk vs lock | `20-surface.md` |
-| `init` | the one-time lift onto the surface — per member, byte-stable on content; drift routes to the authored source, never a reverse parse | `20-surface.md` |
+| `install` | the front door: discovery report, one question (represent or not), then the reporter alone or the lift + first emit + lock-justified placements; the lift is one-time, per member, byte-stable on content | `20-surface.md` / `50-distribution.md` |
 | guidance / cite | the clause's two data channels: teaching prose that cannot gate (no path from prose to predicate), and the external-fact source (URL + retrieved date) | `10-contracts.md` |
 | severity | `required` \| `advisory`, author-declared per clause; the delivery posture at each placement is likewise declared, never baked | `10-contracts.md` / `50-distribution.md` |
 | scope | what one compiled predicate ranges over: **node** (one member), **node-set** (a satisfier set or kind population), **edge** (the one graph) | `45-governance.md` |

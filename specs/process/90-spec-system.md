@@ -159,8 +159,8 @@ attached in the assembly — never a document, never a file format), `floor` (an
 exported clause array — the reusable contract unit), `expect` / `require` (the
 two quantifiers), `satisfies`, `needs`, `verifiedBy`, `genre` (a kind at the
 block locus), `posture` (the three equal authoring forms), `registration`,
-`the world`, `mention` / `embed` (the two reference intents), `emit`, `init`,
-`explain`, `the lock`, `the definition` (the fixed engine axiom — reserved,
+`the world`, `mention` / `embed` (the two reference intents), `emit`,
+`install`, `explain`, `the lock`, `the definition` (the fixed engine axiom — reserved,
 never authorable), `decidable`, `SDK`, `provenance`, `drift` are load-bearing
 terms — search before coining a new one.
 
@@ -177,7 +177,9 @@ and unnamed; the **lock** is the committed anchor); **carriage** and the
 **adoption gradient** (rungs, floors-as-rank, altitude, climb) retired for the
 three equal **postures**; `import` → `init`, `re-add` and `apply` retired; the
 read verbs (`why` / `requirements` / `impact` / `context`) folded into
-**`explain`**. This corpus's own migration onto the SDK is a staged human
+**`explain`**; `init` absorbed into **`install`** — the front door, one
+question, placements follow the lock — and `temper.toml` retired entirely as
+a filename (2026-07-06). This corpus's own migration onto the SDK is a staged human
 ceremony ahead (`15-kinds.md`, worked example) — until it lands, these members
 stay on the migration-era document headers.
 
