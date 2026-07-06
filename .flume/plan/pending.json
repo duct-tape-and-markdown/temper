@@ -1,40 +1,5 @@
 [
   {
-    "tag": "INSTALL-FRONT-DOOR",
-    "summary": "Rebuild install as the one on-ramp: discovery report → one question → scaffold the SDK program + first emit on yes, reporter alone on no; guard/note grounded in the lock",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "install — the front door; the lift, once"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "(a) Scaffolder: discovery walk → generated TS member modules (`file()` pointers at the original paths, bytes untouched) + `harness.ts` skeleton — the lift's output is the SDK program and nothing else, no lock. (b) Verb: discovery report first, one question 'represent this project?' (`--yes` for agents/CI, `--no-represent`); no-path = consented SessionStart reporter alone (Node-free); yes-path = require Node+`.temper` (hard refusal with instructions when absent), ensure `@dtmd/temper` dep, scaffold, run first emit (the adoption moment), place per lock. (c) Guard/note lock-grounded: rewrite `GUARD_MESSAGE` (install.rs:101) and the managed-by note (`NOTE_COMMENT`, install.rs:125) off the lock's emit-owned rows; place the modeline (`MODELINE_MARKER`, install.rs:119) only when its schema artifact exists, the guard only when emit-owned paths exist ('the guard arrives with its constituency')."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`Command::Install` dispatch (main.rs:373) carries the one-question flow (`--yes`/`--no-represent`); `Command::Guard`'s posture reads the lock, not a `temper.toml` AuthorLayer — replace the `AuthorLayer::load(&path.join(TEMPER_TOML))` authority read at main.rs:356 (inside the Guard arm, main.rs:350-372) with a lock-derived posture."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "install reports findings, asks once; no-path wires only the session-start reporter; yes-path scaffolds the SDK program, runs first emit, places note/guard only for lock-declared emit-owned paths; an all-in-place member gets no guard claim"
-      }
-    ],
-    "acceptance": "`temper install` is the sole on-ramp: report → one question → reporter-alone on no, or scaffold+first-emit+lock-grounded placements on yes; guard/note bind only lock-declared emit-owned paths; a `file()`-own-path member is authored territory (no guard). Cascade's report (1) dissolves.",
-    "notes": "Resolves `(carriage-aware-placements)` in code — the lock names a path a projection (20-surface 'surface authority is a declared posture'). S1/S2/S5 all shipped; now the open head. main.rs refs refreshed post-S5 (Guard authority arm 350-372, AuthorLayer::load at 356). TEMPER-TOML-ZERO serializes behind it on shared main.rs."
-  },
-  {
     "tag": "TEMPER-TOML-ZERO",
     "summary": "Eradicate every remaining temper.toml reader — AuthorLayer load/authority/fold_local, the TEMPER_TOML const, the in-place readers, explain's load_layer residue — the manifest filename is gone",
     "per": {
