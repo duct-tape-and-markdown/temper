@@ -36,7 +36,6 @@ export interface ClauseRow {
 export interface RequirementRow {
   readonly name: string;
   readonly kind?: string;
-  readonly package?: string;
   readonly required: boolean;
   readonly verified_by?: string;
 }
