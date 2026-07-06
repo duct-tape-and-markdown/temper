@@ -1,15 +1,37 @@
 {
-  "name": "temper-sdk",
-  "version": "0.0.0",
-  "private": true,
-  "description": "The temper authoring face — the six-noun model as typed modules: harness(), kind<T>(), clause values, needs, and file()/text/blocks(). Emit compiles to the declaration rows the engine reads, a byte-faithful projection, and the lock. (Publish name + scope pending the PACKAGING-CHANNELS ruling; private until then.)",
+  "name": "@dtmd/temper",
+  "version": "0.0.1",
+  "description": "The temper authoring face — the six-noun model as typed modules: harness(), kind<T>(), clause values, needs, and file()/text/blocks(). Emit compiles to the declaration rows the engine reads, a byte-faithful projection, and the lock.",
+  "license": "(MIT OR Apache-2.0)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/duct-tape-and-markdown/temper.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://github.com/duct-tape-and-markdown/temper#readme",
+  "bugs": "https://github.com/duct-tape-and-markdown/temper/issues",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "harness",
+    "linter",
+    "typed-config"
+  ],
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist/src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "clean": "rm -rf dist",
     "build": "rm -rf dist && tsc -p tsconfig.json",
-    "test": "rm -rf dist && tsc -p tsconfig.json && node --test \"dist/test/**/*.test.js\""
+    "test": "rm -rf dist && tsc -p tsconfig.json && node --test \"dist/test/**/*.test.js\"",
+    "prepublishOnly": "npm run test"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
