@@ -1,17 +1,12 @@
-//! `temper init` — scan a Claude Code harness into the typed config surface.
+//! Harness discovery and the `lock.toml` roll-up writer.
 //!
-//! specs/architecture/20-surface.md, "Decision: `init` is the on-ramp, and adoption is a
-//! gradient"; custom kinds specs/architecture/40-composition.md.
-//!
-//! [`init`] is the on-ramp: it scans the built-in-kind harness members at their real
-//! Claude Code locus under `<harness>/.claude/` and writes a manifest over them **in
-//! place** — a `[[member]]` table per member naming its landscape file, zero file moves,
-//! zero copy tree (`specs/architecture/20-surface.md`, the gradient's `init` on-ramp).
-//! [`lift`] migrates one in-place member into document carriage, a one-time per-member
-//! projection into `<harness>/.temper/` (`specs/architecture/15-kinds.md`, the generic
-//! frontmatter adapter). The discovery walk (`discover_kind_units`/`discover_builtin`) is
-//! the sole member extractor the gate, `lift`, and `emit`'s lock-writer ([`write_rollup`])
-//! all ride.
+//! The discovery walk (`discover_kind_units`/`discover_builtin`) is the sole member
+//! extractor the gate and `emit`'s lock-writer ([`write_rollup`]) both ride
+//! (`specs/architecture/20-surface.md`). The `init`/`lift` on-ramp verbs that once wrote a
+//! `temper.toml` `[[member]]` table over members in place retired with the `[[member]]`
+//! codec (`CODEC-RETIRE`) — `install` (`specs/architecture/20-surface.md`, "install is
+//! the front door") is the on-ramp going forward; a trunk gap between the two is an
+//! accepted clean-slate cost (John, 2026-07-06).
 //!
 //! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
 //! every write is content-derived, name-sorted, and overwrites in place.
@@ -24,40 +19,16 @@ use std::path::{Component, Path, PathBuf};
 use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
-use crate::builtin_kind;
-use crate::compose::{self, AuthorLayer, InPlaceMember, ManifestMember};
 use crate::drift::Declarations;
-use crate::frontmatter::{FrontmatterError, Member};
-use crate::kind::{CustomKind, Governs, KindError, Unit};
+use crate::kind::{CustomKind, Governs};
 
 /// Filename of the generated roll-up index — the contents' state-of-record —
-/// written at the workspace root (`specs/architecture/20-surface.md`, "Topology").
+/// written at the workspace root.
 const LOCK_FILENAME: &str = "lock.toml";
 
-/// Filename of the generated-canonical **manifest** — the assembly + its emitted member
-/// features — written beside the `.temper/` workspace at the project root
-/// (`specs/architecture/20-surface.md`, "Topology": the only thing the gate reads).
-const MANIFEST_FILENAME: &str = "temper.toml";
-
-/// Errors raised while importing a harness. Distinct from a [`FrontmatterError`]
-/// (which a malformed source member produces) by also covering the surface-write
-/// side: creating the workspace tree and copying companions.
+/// Errors raised while discovering or rolling up a harness's members.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ImportError {
-    /// A source member could not be read or projected through the generic
-    /// frontmatter adapter (`specs/architecture/15-kinds.md`).
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Frontmatter(#[from] FrontmatterError),
-
-    /// A written surface member document failed to reload
-    /// ([`Unit::from_member_document`]) — a malformed `+++`-fenced document or a
-    /// missing required part, surfaced rather than panicked so re-reading a prior
-    /// surface stays panic-free (`.claude/rules/rust.md`).
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Kind(#[from] KindError),
-
     /// The harness `skills/` directory could not be enumerated.
     #[error("failed to read harness directory {path}")]
     #[diagnostic(code(temper::import::read_dir))]
@@ -78,30 +49,6 @@ pub enum ImportError {
         /// The underlying I/O error.
         #[source]
         source: std::io::Error,
-    },
-
-    /// The existing manifest could not be read to patch it format-preserving
-    /// (`specs/architecture/20-surface.md`, "a hand-written manifest is patched format-preserving").
-    #[error("failed to read manifest {path}")]
-    #[diagnostic(code(temper::import::manifest_read))]
-    ManifestRead {
-        /// The manifest path that failed to read.
-        path: PathBuf,
-        /// The underlying I/O error.
-        #[source]
-        source: std::io::Error,
-    },
-
-    /// The existing manifest is not valid TOML, so it cannot be patched
-    /// format-preserving — a hand-authored manifest must round-trip through `toml_edit`.
-    #[error("failed to parse manifest {path} as TOML")]
-    #[diagnostic(code(temper::import::manifest_toml))]
-    ManifestToml {
-        /// The manifest that failed to parse.
-        path: PathBuf,
-        /// The TOML parse error.
-        #[source]
-        source: toml_edit::TomlError,
     },
 }
 
@@ -129,199 +76,6 @@ pub(crate) struct RollupEntry {
     /// yet, so the last thing projected onto the source is the source as imported
     /// (`emit` advances it once it lands).
     pub(crate) emit_hash: String,
-}
-
-/// The on-ramp (`specs/architecture/20-surface.md`, "Decision: `init` is the on-ramp"): scan
-/// `harness_path` for its built-in-kind members and write a manifest over them **in
-/// place** — zero file moves, zero copy tree, zero reformatting. Each member lands as a
-/// `source`-bearing `[[member]]` table naming its landscape file; a 40-artifact harness
-/// is governed by the floor day one, byte-identical to the harness it was the day
-/// before. Members arrive **unrecognized** (no `satisfies`, no published requirements);
-/// recognition accrues member-by-member from the author's own declared requirements
-/// failing coverage, never from on-ramp ceremony.
-///
-/// The `<harness>/temper.toml` is patched **format-preserving** — the hand-authored
-/// bindings, requirements, and comments survive; only the generated-canonical `member`
-/// root is re-emitted whole. Any **already-lifted** member (a document/module-carried
-/// `[[member]]` a prior [`lift`] wrote) is preserved and **not** re-scanned as in-place,
-/// so `init` composes with the gradient rather than clobbering a climbed member. In-place
-/// carriage is built-in-kind only — a custom project kind is an authored `.temper/`
-/// artifact (document/module carriage), not one of the floor's harness members
-/// (`specs/architecture/20-surface.md`, "In-place — the floor's harness members").
-///
-/// # Errors
-///
-/// Returns an error if the harness cannot be scanned, a member source cannot be read, or
-/// the existing manifest cannot be read/parsed for patching.
-pub fn init(harness_path: &Path) -> miette::Result<()> {
-    let manifest_path = harness_path.join(MANIFEST_FILENAME);
-    let mut doc = load_manifest(&manifest_path)?;
-
-    // Preserve any already-lifted (document/module-carried) members, and skip re-scanning
-    // them as in-place — the gradient climbs per member, so init must not knock a lifted
-    // member back down to in-place carriage.
-    let extracted: Vec<ManifestMember> = AuthorLayer::load(&manifest_path)?
-        .map(|layer| layer.members().to_vec())
-        .unwrap_or_default();
-    let lifted: BTreeSet<(String, String)> = extracted
-        .iter()
-        .map(|member| (member.kind.clone(), member.features.id.clone()))
-        .collect();
-
-    let inplace = scan_inplace_members(harness_path, &lifted)?;
-    compose::write_members(&mut doc, &extracted, &inplace);
-    write_bytes(&manifest_path, doc.to_string().as_bytes())?;
-    Ok(())
-}
-
-/// Scan every built-in kind's members under `harness` and model each as an
-/// [`InPlaceMember`] naming its landscape file (a slash path relative to `harness`),
-/// name-sorted per kind for a byte-stable manifest. `lifted` names the `(kind, id)`
-/// members a prior [`lift`] already climbed to document/module carriage; those are
-/// skipped so a member is never carried twice. Built-in-kind only — a custom kind's units
-/// are authored `.temper/` artifacts, not in-place harness members.
-fn scan_inplace_members(
-    harness: &Path,
-    lifted: &BTreeSet<(String, String)>,
-) -> miette::Result<Vec<InPlaceMember>> {
-    let builtins = builtin_kind::definitions()?;
-    let mut members = Vec::new();
-    for kind in builtins.values() {
-        for file in discover_builtin(harness, kind)? {
-            let member =
-                Member::from_source_rooted(kind, &file, &harness.join(&kind.governs.root))?;
-            if lifted.contains(&(kind.name.clone(), member.id.clone())) {
-                continue;
-            }
-            members.push(InPlaceMember {
-                kind: kind.name.clone(),
-                name: member.id,
-                source: rel_slash(harness, &file),
-                satisfies: Vec::new(),
-                published: Vec::new(),
-            });
-        }
-    }
-    members.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.name.cmp(&b.name)));
-    Ok(members)
-}
-
-/// `file` as a slash-separated path relative to the harness root — the form an in-place
-/// `[[member]]` records its `source` as, so the gate resolves `harness_root.join(source)`
-/// on every platform. Falls back to the whole path when `file` is not under `harness`.
-fn rel_slash(harness: &Path, file: &Path) -> String {
-    file.strip_prefix(harness)
-        .unwrap_or(file)
-        .to_string_lossy()
-        .replace('\\', "/")
-}
-
-/// The per-member migration into a richer carriage (in-place → document → module)
-/// (`specs/architecture/20-surface.md`, "adoption is a gradient"; "`--lift` … normalizes framing,
-/// never content"): lift the in-place member
-/// `member_name` into **document carriage** — project it into `<harness>/.temper/` as a
-/// `+++`-headed member document (via [`import_frontmatter_member`], body byte-identical),
-/// then rewrite its `[[member]]` from the `source`-bearing in-place form to the
-/// pre-extracted document form. The rest of the manifest — every other in-place member,
-/// the hand-authored bindings and requirements — is preserved. The member's declared
-/// joins carry across the lift, since framing normalizes but the recognition it earned
-/// must not be dropped.
-///
-/// Lift to **module carriage** (the altitude) needs the parked TypeScript SDK, so this is
-/// the reachable carriage today: the document form is the same data hand-spellable
-/// (`specs/architecture/20-surface.md`, "the document form is the same data hand-spelled").
-/// Built-in-kind only, matching [`init`]'s in-place scan.
-///
-/// # Errors
-///
-/// Returns an error if the harness carries no manifest, names no in-place member
-/// `member_name`, names an unknown built-in kind, or the projection/manifest write fails.
-pub fn lift(harness_path: &Path, member_name: &str) -> miette::Result<()> {
-    let manifest_path = harness_path.join(MANIFEST_FILENAME);
-    let layer = AuthorLayer::load(&manifest_path)?.ok_or_else(|| {
-        miette::miette!(
-            "no {MANIFEST_FILENAME} at {} — run `temper init` before lifting a member",
-            harness_path.display()
-        )
-    })?;
-
-    let target = layer
-        .inplace_members()
-        .iter()
-        .find(|member| member.name == member_name)
-        .ok_or_else(|| miette::miette!("no in-place member `{member_name}` in the manifest"))?
-        .clone();
-
-    let builtins = builtin_kind::definitions()?;
-    let kind = builtins
-        .values()
-        .find(|kind| kind.name == target.kind)
-        .ok_or_else(|| {
-            miette::miette!(
-                "in-place member `{member_name}` names unknown built-in kind `{}`",
-                target.kind
-            )
-        })?;
-
-    // Project the member into document carriage under `<harness>/.temper/` — the body
-    // rides byte-identical, only the `+++` framing is added.
-    let into = harness_path.join(".temper");
-    let source_file = harness_path.join(&target.source);
-    let row = import_frontmatter_member(kind, harness_path, &source_file, &into)?;
-
-    // Re-extract the now-document-carried member's features for the pre-extracted manifest
-    // form, reading the surface through the same loader the gate uses; the recognition the
-    // in-place member earned rides across the lift, not the empty joins a fresh projection
-    // would carry.
-    let member_doc = kind.member_document();
-    let out_dir = into.join(kind.surface_subdir()).join(&row.name);
-    let unit = Unit::from_member_document(&out_dir, &out_dir.join(&member_doc))?;
-    let mut features = builtin_kind::features(kind, &unit);
-    features.satisfies = target.satisfies.clone();
-    features.published_requirements = target.published.clone();
-
-    let mut extracted: Vec<ManifestMember> = layer.members().to_vec();
-    extracted.push(ManifestMember {
-        kind: target.kind.clone(),
-        features,
-    });
-    extracted.sort_by(|a, b| {
-        a.kind
-            .cmp(&b.kind)
-            .then_with(|| a.features.id.cmp(&b.features.id))
-    });
-    let mut inplace: Vec<InPlaceMember> = layer
-        .inplace_members()
-        .iter()
-        .filter(|member| member.name != member_name)
-        .cloned()
-        .collect();
-    inplace.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.name.cmp(&b.name)));
-
-    let mut doc = load_manifest(&manifest_path)?;
-    compose::write_members(&mut doc, &extracted, &inplace);
-    write_bytes(&manifest_path, doc.to_string().as_bytes())?;
-    Ok(())
-}
-
-/// Load an existing manifest at `path` as a format-preserving [`DocumentMut`], or a fresh
-/// empty document when none is there (a first import creates the manifest). A malformed
-/// existing manifest is a hard error, never silently overwritten — patch-preserving
-/// requires a parseable base.
-fn load_manifest(path: &Path) -> Result<DocumentMut, ImportError> {
-    match fs::read_to_string(path) {
-        Ok(src) => src
-            .parse::<DocumentMut>()
-            .map_err(|source| ImportError::ManifestToml {
-                path: path.to_path_buf(),
-                source,
-            }),
-        Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(DocumentMut::new()),
-        Err(source) => Err(ImportError::ManifestRead {
-            path: path.to_path_buf(),
-            source,
-        }),
-    }
 }
 
 /// Discover a built-in `kind`'s source files, keying off its declared `governs`
@@ -380,61 +134,6 @@ pub fn discover_kind_files(
         }
     }
     Ok(files)
-}
-
-/// Read one source member of a frontmatter `kind` and project it into document carriage
-/// under `<into>/<subdir>/<id>/`, returning the roll-up row for the index — [`lift`]'s
-/// one-time, per-member write (`specs/architecture/20-surface.md`, "the lift is one-time,
-/// per-member, byte-stable on content"): the member document via [`Member::to_document`],
-/// plus the copied companions of a directory-shaped unit. The surface subdir is the
-/// kind's declared `governs` leaf, the member document its declared name (`SKILL.md`,
-/// `RULE.md`).
-pub(crate) fn import_frontmatter_member(
-    kind: &CustomKind,
-    harness: &Path,
-    source_file: &Path,
-    into: &Path,
-) -> Result<RollupEntry, ImportError> {
-    // The scan root the member's placement folds against — the same locus discovery
-    // scanned it from, so a nested file-shaped unit (a recursive `rule`) gets a
-    // placement-folded id rather than a clobbered bare stem (`from_source_rooted`).
-    let member = Member::from_source_rooted(kind, source_file, &harness.join(&kind.governs.root))?;
-    // A built-in surfaces under the `governs.root` leaf (`.claude/skills` → `skills`),
-    // dropping the harness-specific prefix; a custom kind under its full `governs.root`
-    // (`docs/adr`).
-    let member_doc = kind.member_document();
-    let out_dir = into.join(kind.surface_subdir()).join(&member.id);
-    create_dir_all(&out_dir)?;
-
-    // The member is ONE document: the `+++`-fenced clause-module header over the
-    // byte-faithful body, written format-preserving — never a lossy re-serialize.
-    write_bytes(
-        &out_dir.join(&member_doc),
-        member.to_document().emit().as_bytes(),
-    )?;
-
-    // A directory-shaped unit's companions ride beside the member document, copied
-    // byte-for-byte from the source directory (the member file's parent).
-    if let Some(source_dir) = source_file.parent() {
-        for companion in &member.companions {
-            let from = source_dir.join(companion);
-            let to = out_dir.join(companion);
-            if let Some(parent) = to.parent() {
-                create_dir_all(parent)?;
-            }
-            fs::copy(&from, &to).map_err(|source| ImportError::Write { path: to, source })?;
-        }
-    }
-
-    Ok(RollupEntry {
-        name: member.id,
-        source_path: member.provenance.source_path.to_string_lossy().into_owned(),
-        // At import the emit fingerprint provisionally equals the source hash: the
-        // source as it stands on disk is exactly what the surface was just derived from,
-        // and no `emit` has yet advanced it.
-        emit_hash: member.provenance.source_hash.clone(),
-        source_hash: member.provenance.source_hash,
-    })
 }
 
 /// Discover a kind's units under `<harness>/<governs.root>/` by matching the
@@ -667,6 +366,7 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU32, Ordering};
 
+    use crate::builtin_kind;
     use crate::kind::Extraction;
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -738,50 +438,6 @@ Last line, no newline.";
         fs::create_dir_all(&rules).unwrap();
         fs::write(rules.join("rust.md"), RUST_RULE).unwrap();
         fs::write(rules.join("collaboration.md"), COLLAB_RULE).unwrap();
-    }
-
-    #[test]
-    fn import_frontmatter_member_writes_the_document_and_its_companions() {
-        // The per-member write [`lift`] drives: one `+++`-fenced member document over the
-        // byte-faithful body, plus a directory-shaped unit's companions copied
-        // byte-for-byte — no meta.toml, and the document reloads through the generic
-        // adapter.
-        let harness = tmpdir("member-src");
-        write_fixture_harness(&harness);
-        let into = tmpdir("member-into");
-
-        let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let source = harness
-            .join(".claude")
-            .join("skills")
-            .join("coordinate")
-            .join("SKILL.md");
-        let row = import_frontmatter_member(&skill_kind, &harness, &source, &into).unwrap();
-        assert_eq!(row.name, "coordinate");
-        assert_eq!(row.emit_hash, row.source_hash);
-
-        let coord = into.join("skills").join("coordinate");
-        assert!(coord.join("SKILL.md").is_file());
-        assert!(!coord.join("meta.toml").exists());
-        assert_eq!(fs::read(coord.join("PLAYBOOK.md")).unwrap(), PLAYBOOK);
-        assert_eq!(
-            fs::read(coord.join("scripts").join("run.sh")).unwrap(),
-            SCRIPT
-        );
-
-        // The member document is the `+++` clause-module header over the byte-faithful
-        // body, which reloads back to the source member through the generic adapter.
-        let reloaded = Member::from_surface(&coord, "SKILL.md").unwrap();
-        assert_eq!(reloaded.id, "coordinate");
-        assert_eq!(
-            reloaded.field("license").and_then(|v| v.as_str()),
-            Some("MIT")
-        );
-        assert!(reloaded.has_field("allowed-tools"));
-        assert_eq!(
-            reloaded.body,
-            "# Coordinate\n\nSee PLAYBOOK.md for the full reference.   \nNo trailing newline here."
-        );
     }
 
     #[test]

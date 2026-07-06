@@ -105,21 +105,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// The on-ramp and the lift (`specs/architecture/20-surface.md`): scan an existing
-    /// harness into a config skeleton over its members **in place** — a manifest naming
-    /// each landscape file, zero file moves, no copy tree. `--lift <member>` migrates one
-    /// member into a richer carriage (in-place → document → module).
-    Init {
-        /// The harness to scan: a project root (its `.claude/skills/`, `.claude/rules/`).
-        /// Defaults to the current directory.
-        #[arg(default_value = ".")]
-        harness_path: PathBuf,
-        /// Migrate one member into a richer carriage (in-place → document → module) instead
-        /// of scanning: lift the named in-place member into document carriage
-        /// (`specs/architecture/20-surface.md`).
-        #[arg(long, value_name = "MEMBER")]
-        lift: Option<String>,
-    },
     /// Lint the config surface against the active contract. Session-start is a
     /// **reporter** of this gate, never a verb (`specs/architecture/20-surface.md`, "CLI
     /// surface"): `--reporter session-start` reads the path as a harness root and is
@@ -155,9 +140,9 @@ enum Command {
     /// Compile the authoring face: re-emit each projection **whole** from the
     /// surface, byte-deterministically and double-emit verified
     /// (`specs/architecture/20-surface.md`, law 5). Each artifact is regenerated full-file —
-    /// byte-stable and idempotent — and written back to the source path `init`
-    /// recorded; a direct edit to the projection is drift routed to the authored
-    /// source, never something emit merges around.
+    /// byte-stable and idempotent — and written back to the source path its provenance
+    /// names; a direct edit to the projection is drift routed to the authored source,
+    /// never something emit merges around.
     Emit {
         /// The surface workspace to project (defaults to `./.temper`). The lock
         /// under it carries the emit fingerprints freshness stands on.
@@ -252,16 +237,6 @@ enum Reporter {
 
 fn main() -> miette::Result<ExitCode> {
     match Cli::parse().command {
-        Command::Init { harness_path, lift } => {
-            // The on-ramp writes the manifest over members IN PLACE — no `.temper/` copy
-            // tree (`specs/architecture/20-surface.md`, "Decision: `init` is the on-ramp"). `--lift`
-            // migrates one member into a richer carriage instead of re-scanning.
-            match lift {
-                Some(member) => import::lift(&harness_path, &member)?,
-                None => import::init(&harness_path)?,
-            }
-            Ok(ExitCode::SUCCESS)
-        }
         Command::Check {
             workspace,
             harness,
@@ -896,9 +871,7 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // correctly-rooted check (≥1 resolved member) and a genuinely empty harness (no
     // `temper.toml` declaring anything) both stay silent.
     let declared = layer.as_ref().is_some_and(|layer| {
-        !layer.members().is_empty()
-            || !layer.inplace_members().is_empty()
-            || !layer.requirements().is_empty()
+        !layer.inplace_members().is_empty() || !layer.requirements().is_empty()
     });
     let resolved_members: usize = member_counts.values().sum();
     let declarations_empty = declarations.kinds.is_empty()

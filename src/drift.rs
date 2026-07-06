@@ -1376,7 +1376,6 @@ impl SatisfiesRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::import;
     use std::sync::atomic::{AtomicU32, Ordering};
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -1394,14 +1393,6 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         dir
     }
-
-    const SKILL: &str = "---\n\
-name: coordinate\n\
-description: Use when coordinating agents across axes; not for single-axis work.\n\
----\n\
-# Coordinate\n\
-\n\
-Drive the team through the playbook.\n";
 
     #[test]
     fn place_creates_an_absent_target() {
@@ -1430,33 +1421,6 @@ Drive the team through the playbook.\n";
         let outcome = place(&target, "name: changed\n", None, true).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "name: temper\n");
-    }
-
-    #[test]
-    fn an_in_place_harness_has_no_lock_and_cannot_drift() {
-        // `init` writes the manifest over members IN PLACE — no `.temper/` copy tree, no
-        // lock (`specs/architecture/20-surface.md`, the on-ramp). The landscape file is its own
-        // source, so there is no emit fingerprint to diverge from: `config_stale` reads
-        // the workspace lock and finds none, so an in-place member yields no freshness
-        // finding. This is the drift-free half of "In-place members cannot drift."
-        let harness = tmpdir("inplace-no-drift");
-        let skill = harness.join(".claude").join("skills").join("coordinate");
-        fs::create_dir_all(&skill).unwrap();
-        fs::write(skill.join("SKILL.md"), SKILL).unwrap();
-
-        import::init(&harness).unwrap();
-
-        // The manifest lands in place; no copy tree and no lock are written.
-        assert!(harness.join("temper.toml").is_file());
-        assert!(!harness.join(".temper").exists());
-        assert!(!harness.join("lock.toml").exists());
-
-        // No lock ⇒ no freshness finding, even after the source is edited (a live
-        // re-extraction picks the edit up; there is nothing to be stale against).
-        assert!(config_stale(&harness).is_empty());
-        let edited = fs::read_to_string(skill.join("SKILL.md")).unwrap() + "\nExtra.\n";
-        fs::write(skill.join("SKILL.md"), edited).unwrap();
-        assert!(config_stale(&harness).is_empty());
     }
 
     #[test]

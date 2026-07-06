@@ -1,14 +1,13 @@
 //! End-to-end CLI acceptance over the documented surface (`specs/architecture/20-surface.md`,
 //! "CLI surface"; `specs/architecture/10-contracts.md`, the contract engine `check` runs).
 //!
-//! Spawns the built `temper` binary via `CARGO_BIN_EXE_temper` and drives the
-//! documented on-ramp — `temper init <harness>` then `temper check` from the
-//! harness root — asserting the exit semantics: zero on a clean skill, non-zero
-//! once a `required`-severity contract clause is violated. `init` scans the harness
-//! into a manifest over its members **in place** (no `.temper/` copy tree,
-//! byte-identical members), and `check` live-extracts those members from their
-//! landscape files. A `--deny-advisories` case pins the strict policy; a final case
-//! pins the in-place default (`init` with no path scans the current directory).
+//! Spawns the built `temper` binary via `CARGO_BIN_EXE_temper` and drives `temper
+//! check --harness <path>` — the one-shot wedge that lints a raw harness directly off
+//! disk, no on-ramp step — asserting the exit semantics: zero on a clean skill,
+//! non-zero once a `required`-severity contract clause is violated. The `init`/`lift`
+//! on-ramp verbs retired with the `[[member]]` manifest codec (`CODEC-RETIRE`); `install`
+//! is the on-ramp going forward (`specs/architecture/20-surface.md`, "install is the
+//! front door"), not yet shipped. A `--deny-advisories` case pins the strict policy.
 //!
 //! These checks live here (not in a `src` unit test) precisely because the exit
 //! code is observable only across a real process boundary — `process::ExitCode`
@@ -114,44 +113,34 @@ fn write_rule_harness(root: &Path, name: &str, rule_md: &str) {
     fs::write(dir.join(format!("{name}.md")), rule_md).unwrap();
 }
 
-/// Run `temper init <harness>` and assert it succeeded — the on-ramp writes the
-/// manifest over the harness's members in place (no `.temper/` copy tree).
-fn init(harness: &Path) {
-    let status = Command::new(BIN).arg("init").arg(harness).status().unwrap();
-    assert!(status.success(), "init should succeed: {status}");
-}
-
-/// Run `temper check [extra…]` from the harness `root` and return whether it
-/// exited zero.
-///
-/// The CWD is the harness root itself — the manifest `init` wrote lives there, and
-/// its in-place `[[member]]` tables name their landscape files *relative to the
-/// harness*, so the gate resolves them from the CWD. The harness carries no ambient
-/// `temper.toml` beyond the one `init` wrote, so the run exercises the pure by-kind
-/// floor over the live-extracted in-place members.
-fn check_at(root: &Path, extra: &[&str]) -> bool {
-    Command::new(BIN)
-        .current_dir(root)
+/// Run `temper check --harness <harness> [extra…]` (the one-shot wedge — no on-ramp
+/// step, no workspace) and return `(exit-zero, stdout)`.
+fn run_check_harness(harness: &Path, extra: &[&str]) -> (bool, String) {
+    let output = Command::new(BIN)
         .arg("check")
+        .arg("--harness")
+        .arg(harness)
         .args(extra)
-        .status()
-        .unwrap()
-        .success()
+        .output()
+        .unwrap();
+    (
+        output.status.success(),
+        String::from_utf8(output.stdout).unwrap(),
+    )
 }
 
-/// Run `temper check` from the harness `root` and return whether it exited zero.
-fn check_succeeds(root: &Path) -> bool {
-    check_at(root, &[])
+/// Run `temper check --harness <harness>` and return whether it exited zero.
+fn check_harness_succeeds(harness: &Path) -> bool {
+    run_check_harness(harness, &[]).0
 }
 
 #[test]
-fn init_then_check_is_clean_for_a_well_formed_skill() {
+fn check_is_clean_for_a_well_formed_skill() {
     let harness = tmpdir("clean-src");
     write_harness(&harness, "coordinate", CLEAN_SKILL);
 
-    init(&harness);
     assert!(
-        check_succeeds(&harness),
+        check_harness_succeeds(&harness),
         "a clean skill must exit zero (no error-severity diagnostics)"
     );
 }
@@ -163,9 +152,8 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
     // name-matches-dir, both error severity.
     write_harness(&harness, "coordinate", ERROR_SKILL);
 
-    init(&harness);
     assert!(
-        !check_succeeds(&harness),
+        !check_harness_succeeds(&harness),
         "an error-severity diagnostic must make check exit non-zero"
     );
 }
@@ -176,27 +164,25 @@ fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
     // The only clause this skill violates is the advisory `max_lines` budget.
     write_harness(&harness, "coordinate", &advisory_only_skill());
 
-    init(&harness);
     // Default policy: an advisory-only run is clean — warn does not gate.
     assert!(
-        check_succeeds(&harness),
+        check_harness_succeeds(&harness),
         "an advisory-only violation must exit zero without --deny-advisories"
     );
     // Strict policy: --deny-advisories promotes the warn to a blocking failure.
     assert!(
-        !check_at(&harness, &["--deny-advisories"]),
+        !run_check_harness(&harness, &["--deny-advisories"]).0,
         "an advisory-only violation must exit non-zero under --deny-advisories"
     );
 }
 
 #[test]
-fn init_then_check_dispatches_the_rule_kind_to_the_rule_contract() {
+fn check_dispatches_the_rule_kind_to_the_rule_contract() {
     // A clean rule (`paths:`-only) trips no `required` clause ⇒ check is zero.
     let clean = tmpdir("rule-clean-src");
     write_rule_harness(&clean, "rust", CLEAN_RULE);
-    init(&clean);
     assert!(
-        check_succeeds(&clean),
+        check_harness_succeeds(&clean),
         "a clean rule must exit zero — the rule contract has no `required` violation"
     );
 
@@ -205,170 +191,10 @@ fn init_then_check_dispatches_the_rule_kind_to_the_rule_contract() {
     // dispatches the rule kind to the rule contract, not the skill one.
     let forbidden = tmpdir("rule-forbidden-src");
     write_rule_harness(&forbidden, "rust", FORBIDDEN_KEY_RULE);
-    init(&forbidden);
     assert!(
-        !check_succeeds(&forbidden),
+        !check_harness_succeeds(&forbidden),
         "a forbidden-key rule must exit non-zero (the rule contract's required clause)"
     );
-}
-
-#[test]
-fn init_leaves_members_byte_identical_in_place_and_check_reads_the_manifest() {
-    // The on-ramp's core invariant (`specs/architecture/20-surface.md`, "Decision: `init` is
-    // the on-ramp"): scan into a manifest over members IN PLACE — zero file moves,
-    // byte-identical members, no `.temper/` copy tree — and `check` reads that
-    // manifest green by live-extracting each in-place member.
-    let harness = tmpdir("inplace-src");
-    write_harness(&harness, "coordinate", CLEAN_SKILL);
-    let skill_md = harness
-        .join(".claude")
-        .join("skills")
-        .join("coordinate")
-        .join("SKILL.md");
-    let before = fs::read(&skill_md).unwrap();
-
-    init(&harness);
-
-    // The member is untouched in place — not a byte moved or reformatted.
-    assert_eq!(
-        fs::read(&skill_md).unwrap(),
-        before,
-        "init must leave the member byte-identical in place"
-    );
-    // No copy tree: the manifest lands beside the harness, the member stays put.
-    assert!(
-        !harness.join(".temper").exists(),
-        "init must write no `.temper/` copy tree"
-    );
-    let manifest = fs::read_to_string(harness.join("temper.toml")).unwrap();
-    assert!(
-        manifest.contains("source = \".claude/skills/coordinate/SKILL.md\""),
-        "the in-place member records its landscape source, got:\n{manifest}"
-    );
-
-    // The gate reads the manifest and live-extracts the in-place member clean.
-    assert!(
-        check_succeeds(&harness),
-        "check must read the in-place manifest green"
-    );
-}
-
-#[test]
-fn an_in_place_member_cannot_drift() {
-    // In-place members live-extract from their landscape file, so an edit to that
-    // file is picked up on the next check — never a `config.stale` finding (there is
-    // no projection to diverge from). "In-place members cannot drift"
-    // (`specs/architecture/20-surface.md`).
-    let root = tmpdir("no-drift");
-    write_harness(&root, "coordinate", CLEAN_SKILL);
-    init(&root);
-
-    let clean = Command::new(BIN)
-        .current_dir(&root)
-        .arg("check")
-        .output()
-        .unwrap();
-    assert!(
-        clean.status.success(),
-        "a fresh in-place manifest checks green"
-    );
-    assert!(
-        !String::from_utf8_lossy(&clean.stdout).contains("config.stale"),
-        "an in-place member carries no stale-projection fact"
-    );
-
-    // Edit the landscape file (still a clean skill); the next check re-extracts it
-    // live and stays green, never stale.
-    let skill_md = root
-        .join(".claude")
-        .join("skills")
-        .join("coordinate")
-        .join("SKILL.md");
-    let edited = fs::read_to_string(&skill_md)
-        .unwrap()
-        .replace("Drive the team", "Drive the crew");
-    fs::write(&skill_md, edited).unwrap();
-
-    let after = Command::new(BIN)
-        .current_dir(&root)
-        .arg("check")
-        .output()
-        .unwrap();
-    let out = String::from_utf8_lossy(&after.stdout);
-    assert!(
-        after.status.success(),
-        "an in-place edit stays green (live re-extraction), got:\n{out}"
-    );
-    assert!(
-        !out.contains("config.stale"),
-        "an in-place member cannot drift, got:\n{out}"
-    );
-}
-
-#[test]
-fn init_lift_migrates_one_member_into_a_richer_carriage() {
-    // `init --lift <member>` migrates one in-place member into a richer carriage — into
-    // document carriage (`specs/architecture/20-surface.md`, "adoption is a gradient"): the
-    // body rides byte-identical, the framing normalizes, and the manifest entry
-    // flips from a `source`-bearing in-place table to the pre-extracted document form.
-    let harness = tmpdir("lift-src");
-    write_harness(&harness, "coordinate", CLEAN_SKILL);
-    init(&harness);
-
-    // Before the lift: the member is in-place (a `source` path, no baked features).
-    let before = fs::read_to_string(harness.join("temper.toml")).unwrap();
-    assert!(before.contains("source = \".claude/skills/coordinate/SKILL.md\""));
-
-    let status = Command::new(BIN)
-        .arg("init")
-        .arg(&harness)
-        .arg("--lift")
-        .arg("coordinate")
-        .status()
-        .unwrap();
-    assert!(status.success(), "init --lift should succeed: {status}");
-
-    // After: the member is document-carried — the manifest bakes its features and no
-    // longer names a `source`, and the projected document exists under `.temper/`.
-    let after = fs::read_to_string(harness.join("temper.toml")).unwrap();
-    assert!(
-        !after.contains("source ="),
-        "the lifted member no longer carries a `source`, got:\n{after}"
-    );
-    assert!(
-        after.contains("[member.field]"),
-        "the lifted member is pre-extracted (a `[member.field]` table), got:\n{after}"
-    );
-    assert!(
-        harness
-            .join(".temper")
-            .join("skills")
-            .join("coordinate")
-            .join("SKILL.md")
-            .is_file(),
-        "the lift projects the member into document carriage under `.temper/`"
-    );
-
-    // The migrated member still checks green.
-    assert!(
-        check_succeeds(&harness),
-        "check must read the lifted member green"
-    );
-}
-
-/// Run `temper check --harness <harness>` (the one-shot wedge) and return
-/// `(exit-zero, stdout)`.
-fn run_check_harness(harness: &Path) -> (bool, String) {
-    let output = Command::new(BIN)
-        .arg("check")
-        .arg("--harness")
-        .arg(harness)
-        .output()
-        .unwrap();
-    (
-        output.status.success(),
-        String::from_utf8(output.stdout).unwrap(),
-    )
 }
 
 #[test]
@@ -380,7 +206,7 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     let harness = tmpdir("one-shot-src");
     write_rule_harness(&harness, "rust", FORBIDDEN_KEY_RULE);
 
-    let (ok, stdout) = run_check_harness(&harness);
+    let (ok, stdout) = run_check_harness(&harness, &[]);
     assert!(
         !ok,
         "check --harness must exit non-zero on a required-clause violation"
@@ -399,7 +225,7 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     // A clean harness over the same one-shot path exits zero.
     let clean = tmpdir("one-shot-clean");
     write_rule_harness(&clean, "rust", CLEAN_RULE);
-    let (ok, _) = run_check_harness(&clean);
+    let (ok, _) = run_check_harness(&clean, &[]);
     assert!(ok, "check --harness over a clean harness must exit zero");
 }
 
@@ -558,55 +384,19 @@ fn schema_rejects_an_unknown_kind() {
 }
 
 #[test]
-fn init_defaults_to_the_current_directory_and_writes_no_copy_tree() {
-    // With the harness path omitted, `init` scans the current directory in place
-    // (`specs/architecture/20-surface.md`, `init [<harness-path>]`): the manifest lands at
-    // `<cwd>/temper.toml`, no `./.temper` copy tree, and `check` reads it green.
-    let cwd = tmpdir("default-cwd");
-    write_harness(&cwd, "coordinate", CLEAN_SKILL);
-
-    let init_status = Command::new(BIN)
-        .current_dir(&cwd)
-        .arg("init")
-        .status()
-        .unwrap();
-    assert!(init_status.success(), "default-path init should succeed");
-
-    // The manifest landed in place; no copy tree was written.
-    assert!(
-        cwd.join("temper.toml").is_file(),
-        "init without a path must write ./temper.toml"
-    );
-    assert!(
-        !cwd.join(".temper").exists(),
-        "in-place init writes no copy tree"
-    );
-
-    // `check` with no argument reads that same manifest and finds it clean.
-    let check_status = Command::new(BIN)
-        .current_dir(&cwd)
-        .arg("check")
-        .status()
-        .unwrap();
-    assert!(
-        check_status.success(),
-        "check without an argument must lint the in-place manifest and exit zero"
-    );
-}
-
-#[test]
-fn the_cli_surface_is_init_check_emit_install_bundle_schema_guard_explain() {
-    // The collapsed surface (`specs/architecture/20-surface.md`, "CLI surface"): the six nouns
+fn the_cli_surface_is_check_emit_install_bundle_schema_guard_explain() {
+    // The collapsed surface (`specs/architecture/20-surface.md`, "CLI surface"): five nouns
     // plus `guard`, plus `explain` — the one read verb (EXPLAIN-UNIFY) — landed once its
     // fork-gate (`explain-target-disambiguation`) resolved. `--help` lists exactly
-    // these; the migration-era verbs are gone.
+    // these; the migration-era verbs, and `init`/`lift` (retired into `install`,
+    // `CODEC-RETIRE`), are gone.
     let help = Command::new(BIN).arg("--help").output().unwrap();
     assert!(help.status.success(), "temper --help must exit zero");
     let stdout = String::from_utf8(help.stdout).unwrap();
     // The "Commands:" section lists each surviving noun (a leading-whitespace entry, so a
     // retired verb merely *mentioned* in a description does not count as present).
     for command in [
-        "init", "check", "emit", "install", "bundle", "schema", "guard", "explain",
+        "check", "emit", "install", "bundle", "schema", "guard", "explain",
     ] {
         assert!(
             stdout
@@ -617,9 +407,11 @@ fn the_cli_surface_is_init_check_emit_install_bundle_schema_guard_explain() {
     }
 
     // Every retired verb is rejected as an unknown subcommand — the surface no longer
-    // carries `import`/`diff`/`session-start`/`why`/`requirements`/`impact`/`context`,
-    // each collapsed into `explain` at EXPLAIN-UNIFY.
+    // carries `init`/`import`/`diff`/`session-start`/`why`/`requirements`/`impact`/`context`,
+    // `init` retired into `install` (`CODEC-RETIRE`), the rest collapsed into `explain`
+    // at EXPLAIN-UNIFY.
     for retired in [
+        "init",
         "import",
         "diff",
         "session-start",

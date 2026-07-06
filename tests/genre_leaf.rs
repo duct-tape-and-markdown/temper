@@ -5,17 +5,13 @@
 //! `genre.<genre> <key>`, TOML interior with leaf fields and keyed sibling
 //! collections) into a typed genre value: its leaves addressed **structurally**
 //! (member + genre key + field path, stable under content edits) and its siblings
-//! **keyed** (`rejected.baked-projection.because`), never positional. The value
-//! serializes whole into the `[[member]]` manifest table and round-trips
-//! byte-identically through `toml_edit`; an unfenced block stays plain prose — genre
-//! adoption is opt-in per block, never an error.
+//! **keyed** (`rejected.baked-projection.because`), never positional; an unfenced
+//! block stays plain prose — genre adoption is opt-in per block, never an error.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use temper::compose::{AuthorLayer, ManifestMember, write_manifest_members};
 use temper::kind::{CustomKind, Extraction, Genre, Governs, Primitive, Unit};
-use toml_edit::DocumentMut;
 
 /// A custom `decision` kind composing the `fenced` primitive and declaring one genre —
 /// the shape (leaf fields, keyed collections) is the kind's; the predicates over it are
@@ -156,28 +152,4 @@ fn a_fence_naming_an_undeclared_genre_stays_raw() {
     let features = decision_kind().extract(&decision_unit(body));
     assert!(features.genres.is_empty());
     assert_eq!(features.fenced_blocks.len(), 1);
-}
-
-#[test]
-fn a_genre_value_round_trips_through_the_manifest_byte_identically() {
-    let features = decision_kind().extract(&decision_unit(decision_body()));
-    let member = ManifestMember {
-        kind: "decision".to_string(),
-        features,
-    };
-
-    // Serialize the member whole into the manifest, then reparse: the typed genre value
-    // returns exactly — leaf fields as strings, sibling collections as keyed sub-tables.
-    let mut doc = DocumentMut::new();
-    write_manifest_members(&mut doc, std::slice::from_ref(&member));
-    let emitted = doc.to_string();
-    let layer = AuthorLayer::parse(&emitted, Path::new("temper.toml")).unwrap();
-    assert_eq!(layer.members(), std::slice::from_ref(&member));
-
-    // And re-emitting the reparsed member is byte-for-byte identical — the round-trip is
-    // idempotent, the property drift and the read family stand on.
-    let reparsed = layer.members()[0].clone();
-    let mut doc2 = DocumentMut::new();
-    write_manifest_members(&mut doc2, std::slice::from_ref(&reparsed));
-    assert_eq!(emitted, doc2.to_string());
 }
