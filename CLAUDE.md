@@ -89,9 +89,8 @@ Gates (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`) validate every tic
 
 ## Session ledger
 
-The assistant's cross-session working state — held rulings, queued human
-halves, standing discipline — imported below so every session starts holding
-the board. Maintained in interactive sessions only; no autonomous phase reads
-or writes it.
-
-@docs/ledger.md
+`docs/ledger.md` is the cross-session parking lot — parked threads, queued
+human halves, standing flume-loop discipline. It is deliberately **not
+imported**: read it at session open to pick the session's one focus, and
+again only when parked work resumes. Interactive sessions maintain it; no
+autonomous phase reads or writes it.

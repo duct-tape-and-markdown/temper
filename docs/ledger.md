@@ -1,29 +1,23 @@
-# Session ledger — cross-session working state
+# Session ledger — cross-session parking lot
 
-Maintained by the interactive session assistant. One rule: this is a board
-of pointers, not a narrative — design reasoning lives in the records it
-links, work orders live in flume, ratified decisions live in the corpus and
-are forgotten here. Target under ~60 lines, hard.
+Maintained by the interactive session assistant; read on demand (session
+open to pick the one focus, resuming parked work), never imported. One
+rule: this is a board of pointers, not a narrative — design reasoning
+lives in the records it links, work orders live in flume, ratified
+decisions live in the corpus, session conduct lives in `.claude/rules/`,
+and all of those are forgotten here once homed. Target under ~60 lines,
+hard.
 
-## How sessions run (ruled 2026-07-03; dogfood ruling 2026-07-04)
+## Held rulings — no home yet (relocation needs John)
 
-- temper is the product. flume is the only code path. The recursive dogfood
-  is DEACTIVATED (John, 2026-07-04: cumbersome) — no `.temper/` workspace,
-  no `temper.toml`, no self-check gate, no session-start hook. Validation
-  lives in `tests/` fixtures; a real dogfood returns when SDK-primary
-  authoring (`harness.ts` → emit) is the product's own front door.
-- The interactive session designs specs with John and governs flume. It does
-  not hand-execute pipeline work, even when hands are faster.
-- One focus per session, picked at open; the rest of this board stays parked.
-- Plain words over metaphor, in the corpus and here. New coinage needs John.
-  (The cooling-period rule is GONE — John struck it 2026-07-06; rulings
-  land when John rules, same-day.)
 - Public docs voice (John 07-05): natural, no em-dashes or claude-isms, not
   pitchy. `docs/*.md` is the human-curated plain-language layer; the spec
   corpus stays the operational definition (docs defer to specs on conflict).
+  Candidate home: a `paths:`-scoped rule over `docs/**`.
 - CLEAN SLATE (John 07-06): published pre-1.0 carries NO backward-compat
   burden — no shims, no aliases, no deprecation ceremony. Break freely
-  until v0.1.
+  until v0.1. Candidate home: the corpus (`55-offering.md`), via the
+  `specs:` ceremony.
 
 ## State of the era (2026-07-06)
 
