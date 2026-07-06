@@ -40,7 +40,7 @@ export interface RequirementRow {
   readonly verified_by?: string;
 }
 
-/** One assembly-scope fact — authority, reachability, or an edge. */
+/** One assembly-scope fact — authority or an edge. */
 export interface AssemblyFactRow {
   readonly fact: string;
   readonly value?: string;
@@ -143,14 +143,11 @@ function requirementRows(harness: Harness): RequirementRow[] {
 /**
  * The assembly-scope facts, in a stable order: authority (always declared — the
  * `shared` default anchors every harness until a surface-authority posture is
- * authored), reachability when the dial is set, then one edge row per kind edge
- * field (`40-composition.md`; `45-governance.md`).
+ * authored), then one edge row per kind edge field (`40-composition.md`;
+ * `45-governance.md`).
  */
-function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): AssemblyFactRow[] {
+function assemblyFactRows(kinds: readonly KindFacts[]): AssemblyFactRow[] {
   const facts: AssemblyFactRow[] = [{ fact: "authority", value: "shared" }];
-  if (harness.reachability !== undefined) {
-    facts.push({ fact: "reachability", value: harness.reachability });
-  }
   for (const kind of kinds) {
     for (const edge of kind.edgeFields ?? []) {
       facts.push({ fact: "edge", from: kind.name, field: edge.field, to: edge.to });
@@ -192,7 +189,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     kinds: kinds.map(kindFactRow),
     clauses,
     requirements: requirementRows(harness),
-    assembly: assemblyFactRows(harness, kinds),
+    assembly: assemblyFactRows(kinds),
     satisfies: satisfiesRows(harness),
   };
 }

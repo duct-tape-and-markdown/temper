@@ -1,7 +1,7 @@
 /**
  * The assembly — `harness()` takes the whole as one typed value
  * (`specs/architecture/40-composition.md`): `Harness = members · expect · require ·
- * settings · reachability`. Like every SDK type it erases at the seam — the
+ * settings`. Like every SDK type it erases at the seam — the
  * engine never sees the constructor, only the declaration rows it compiles to
  * (`20-surface.md`). There is no second authoring surface: no `temper.toml`, no
  * roster/bindings dialect (the Decision rejects both); composing partial
@@ -9,7 +9,7 @@
  */
 
 import type { Member, KindDefinition } from "./kind.js";
-import type { Clause, Requirement, Severity } from "./contract.js";
+import type { Clause, Requirement } from "./contract.js";
 
 /**
  * One `expect` binding — universal: every member of `kind` owes these clauses
@@ -21,7 +21,7 @@ export interface ExpectBinding {
   readonly clauses: readonly Clause[];
 }
 
-/** The composed harness — the five fields, erased to rows at the seam. */
+/** The composed harness — the four fields, erased to rows at the seam. */
 export interface Harness {
   /** The member roster — the assembly's imports (`40-composition.md`, "`members`"). */
   readonly members: readonly Member[];
@@ -31,12 +31,10 @@ export interface Harness {
   readonly require: Readonly<Record<string, Requirement>>;
   /** The residual harness-level settings with no member home (a shrinking list). */
   readonly settings: Readonly<Record<string, unknown>>;
-  /** The dead-registration dial — the severity of an unreachable member, or absent (no findings). */
-  readonly reachability?: Severity;
 }
 
 /**
- * Compose the harness from its five fields — ordinary code, Turing-completeness
+ * Compose the harness from its four fields — ordinary code, Turing-completeness
  * quarantined at authoring time (`00-intent.md`, the SDK Decision). Absent
  * fields default empty; the member list is the only required part.
  */
@@ -45,13 +43,11 @@ export function harness(init: {
   expect?: readonly ExpectBinding[];
   require?: Readonly<Record<string, Requirement>>;
   settings?: Readonly<Record<string, unknown>>;
-  reachability?: Severity;
 }): Harness {
   return {
     members: init.members,
     expect: init.expect ?? [],
     require: init.require ?? {},
     settings: init.settings ?? {},
-    reachability: init.reachability,
   };
 }

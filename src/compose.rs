@@ -1,4 +1,4 @@
-//! The harness assembly's domain types — [`Requirement`], [`Edge`], [`Reachability`],
+//! The harness assembly's domain types — [`Requirement`], [`Edge`],
 //! [`Authority`], and the set-scope predicate shapes ([`CountBound`], [`DegreeBound`],
 //! [`EdgeBound`], [`Membership`]) — and [`effective`], which composes the lock's
 //! per-clause severity overrides onto the embedded by-kind floor
@@ -168,23 +168,6 @@ pub struct Membership {
     /// The feature whose extracted scalars over the S₂ satisfiers form the allowed
     /// set. A source artifact missing it contributes nothing.
     pub source_feature: String,
-}
-
-/// The assembly's graph-scope **`reachable`** opt-in — declared in the assembly's
-/// `[reachability]` table (`specs/architecture/45-governance.md`, "The world is a node —
-/// reachability is a predicate"; resolved `reachability-gate-mechanism` option b).
-/// Presence is the opt-in: absent, the [`crate::graph::reachable`] predicate never
-/// runs (like `degree`, temper fabricates no gate the author did not declare). Its
-/// `severity` is the dial a provably-dead world→member activation edge is emitted at —
-/// the assembly's call, since the graph scope is the assembly's and a deliberate
-/// work-in-progress dead edge (a blank-description skill) must stay the author's to
-/// weigh, never a member's or a package clause's.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Reachability {
-    /// The severity a dead activation edge gates at, in the author's `required` /
-    /// `advisory` dial — mapped to the diagnostic severity through the one translation
-    /// clauses use ([`crate::engine::severity_of`]).
-    pub severity: contract::Severity,
 }
 
 /// The effective contract for `kind`: the embedded `floor` with each clause's

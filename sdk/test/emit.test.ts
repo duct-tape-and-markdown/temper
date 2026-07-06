@@ -132,7 +132,6 @@ function fullHarness() {
         verifiedBy: "tests/dev-standards.test.ts",
       },
     },
-    reachability: "advisory",
   });
 }
 
@@ -162,10 +161,7 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       verified_by: "tests/dev-standards.test.ts",
     },
   ]);
-  assert.deepEqual(declarations.assembly, [
-    { fact: "authority", value: "shared" },
-    { fact: "reachability", value: "advisory" },
-  ]);
+  assert.deepEqual(declarations.assembly, [{ fact: "authority", value: "shared" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
 });
 

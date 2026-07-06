@@ -17,7 +17,7 @@ use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
-use temper::contract::{self, Contract};
+use temper::contract::Contract;
 use temper::coverage;
 use temper::coverage_note;
 use temper::document;
@@ -551,12 +551,12 @@ fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::D
 /// directory a member's source path and a `verified_by` path resolve against (the
 /// CWD for a two-step `check`, the harness path for the one-shot gate).
 fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diagnostic>> {
-    // The assembly's own declared facts — requirements, edges, and the reachability
-    // opt-in — ride the lock's declaration rows (`specs/architecture/20-surface.md`,
-    // "The lock and drift — one vocabulary"): `emit` is the sole producer, this is the
-    // gate's one read of it. Never gated on a manifest's presence — an unadopted
-    // harness's lock declares nothing, so this tier is a no-op over it rather than
-    // skipped (never a half-adopted state).
+    // The assembly's own declared facts — requirements and edges — ride the lock's
+    // declaration rows (`specs/architecture/20-surface.md`, "The lock and drift — one
+    // vocabulary"): `emit` is the sole producer, this is the gate's one read of it.
+    // Never gated on a manifest's presence — an unadopted harness's lock declares
+    // nothing, so this tier is a no-op over it rather than skipped (never a
+    // half-adopted state).
     let declarations = drift::read_declarations(workspace)?;
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
@@ -564,7 +564,6 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .map(|row| (row.name.clone(), requirement_from_row(row)))
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
-    let assembly_reachability = reachability_from_declarations(&declarations);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by qualified
     // identity (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
@@ -611,22 +610,19 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         }
     }
 
-    // The `paths-match` reachability input and the directive backing-set share one repo
-    // file-set (`specs/architecture/45-governance.md`, "The world is a node"): every file under
-    // the harness root, over-collected so an extra file can only suppress a finding, never
-    // forge one (law 3). Computed once on the FLOOR and read by both the directive classing
-    // below and the reachability predicate under the assembly tier.
+    // The directive backing-set file-set (`specs/architecture/45-governance.md`, "The world is a
+    // node"): every file under the harness root, over-collected so an extra file can only
+    // suppress a finding, never forge one (law 3). Computed once on the FLOOR and read by
+    // the directive classing below.
     let repo_files = repo_file_set(harness_root);
 
     // Directive-target classing on the FLOOR tier (`specs/architecture/15-kinds.md`, "Directives";
     // WEDGE-FACT-FLOOR): an unbacked `@import` is a **pure fact** about the importing member —
     // the silent-context-loss failure class made author-time — so it surfaces with zero
-    // config. Over the built-in kinds' members (empty custom slice; a custom kind's
-    // directives ride the assembly tier below, which re-classes the full corpus for
-    // reachability), the unbacked findings extend as a **non-gating advisory**: the fact is
-    // stated, the run never fails on it alone. The graph-scope escalation — reachability closing
-    // over the member-class edges — stays assembly-gated (WEDGE ruling 2026-07-03: an unbacked
-    // import is a pure fact, not a graph-scope opinion like reachability).
+    // config. Over the built-in kinds' members (empty custom slice), the unbacked findings
+    // extend as a **non-gating advisory**: the fact is stated, the run never fails on it
+    // alone. The graph-scope escalation stays assembly-gated (WEDGE ruling 2026-07-03: an
+    // unbacked import is a pure fact, not a graph-scope opinion like reachability).
     diagnostics.extend(
         graph::classify_directives(
             &collect_directive_members(harness_root, workspace, &declarations)?,
@@ -705,53 +701,6 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // the requirements *and* the edges, reusing the arc resolution
     // `acyclic`/`check` assemble. Opt-in per requirement.
     diagnostics.extend(graph::degree(&assembly_requirements, &edges, &by_kind));
-
-    // Directive-target classing over the **full** corpus (`specs/architecture/15-kinds.md`,
-    // "Directives"): built-in *and* custom members, so a custom kind's `@import` at a
-    // built-in member resolves to a member→member edge the reachability closure below
-    // consumes (`repo_files` and the file-set come from the floor above). Only the
-    // member-class **edges** are read here — the unbacked findings already surfaced on the
-    // floor as a non-gating advisory (WEDGE-FACT-FLOOR), so they are not re-extended: an
-    // assembly's power over a directive is the graph-scope reachability escalation, not the
-    // unbacked fact, which is the same fact with or without an assembly.
-    let directive_members = collect_directive_members(harness_root, workspace, &declarations)?;
-    let directive_classing = graph::classify_directives(&directive_members, &repo_files);
-
-    // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
-    // kind declares an activation is dead when the world→member edge is provably so
-    // (a blank description-trigger, a zero-match paths glob). Assembly-scope and
-    // opt-in like `degree` — it runs only when the assembly declares `[reachability]`,
-    // at its declared severity (resolved `reachability-gate-mechanism` option b), so
-    // a deliberate work-in-progress dead edge stays the author's call.
-    if let Some(reachability) = assembly_reachability {
-        // The world's inbound edge into each in-scope kind is that kind's declared
-        // activation: the built-in kinds' via `builtin_kind::definitions()`, each
-        // custom kind's via its own `CustomKind.activation`. A kind declaring none
-        // contributes no edge and no member is subject.
-        let builtin_defs = builtin_kind::definitions()?;
-        let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
-        for def in builtin_defs.values() {
-            if let Some(activation) = &def.activation {
-                // Key by the kind's bare `name`, not `definitions()`'s qualified map
-                // key — `by_kind` (the members this edge reaches) is bare-keyed, so
-                // the activation edge must join it under the same bare name.
-                activations.insert(def.name.as_str(), activation.clone());
-            }
-        }
-        for (name, custom, _features) in &custom_kinds {
-            if let Some(activation) = &custom.activation {
-                activations.insert(name, activation.clone());
-            }
-        }
-
-        diagnostics.extend(graph::reachable(
-            &activations,
-            &by_kind,
-            &repo_files,
-            &directive_classing.edges,
-            engine::severity_of(reachability.severity),
-        ));
-    }
 
     // The requirement-coverage tier (`specs/architecture/10-contracts.md`): every `required`
     // requirement must have a resolving home (≥1 artifact opting in via
@@ -1132,26 +1081,6 @@ fn edges_from_declarations(declarations: &drift::Declarations) -> Vec<compose::E
             })
         })
         .collect()
-}
-
-/// The assembly's `[reachability]` opt-in off the lock's `assembly` fact family —
-/// the `fact = "reachability"` row's severity, when present and its `value` names a
-/// recognized severity label. Absent or malformed ⇒ `None` (no opt-in), matching
-/// `read_declarations`'s "absent evidence forges no finding" tolerance.
-fn reachability_from_declarations(
-    declarations: &drift::Declarations,
-) -> Option<compose::Reachability> {
-    declarations
-        .assembly
-        .iter()
-        .find(|fact| fact.fact == "reachability")
-        .and_then(|fact| fact.value.as_deref())
-        .and_then(|label| match label {
-            "required" => Some(contract::Severity::Required),
-            "advisory" => Some(contract::Severity::Advisory),
-            _ => None,
-        })
-        .map(|severity| compose::Reachability { severity })
 }
 
 #[cfg(test)]

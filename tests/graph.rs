@@ -573,10 +573,11 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
 
 /// Library-level fixture proof of the `reachable` predicate (`specs/architecture/45-governance.md`,
 /// "The world is a node — reachability is a predicate"): the pure machinery over
-/// constructed `Features`, including the assembly-declared severity threaded into the
-/// finding. The gate-side wiring — main.rs scanning the real repo file-set and reading
-/// the assembly's `[reachability]` opt-in — is pinned end-to-end in
-/// `tests/reachable_gate.rs`.
+/// constructed `Features`, including a caller-declared severity threaded into the
+/// finding. The dial that once wired this into the gate retired
+/// (`specs/architecture/40-composition.md`, "the reachability dial retires into the clause
+/// algebra"); the predicate itself stays a live capability for a future edge-scope
+/// clause to call.
 mod reachability {
     use std::collections::BTreeMap;
 

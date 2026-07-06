@@ -11,7 +11,7 @@ consumes only declared data, offline, no Node.
 ## The six-noun face
 
 - **`harness()`** — the assembly as one typed value: `members · expect ·
-  require · settings · reachability` (`specs/architecture/40-composition.md`).
+  require · settings` (`specs/architecture/40-composition.md`).
 - **`kind<T>()` / `genre<T>()`** — the engine room: a kind is a typed
   constructor plus five facts of runtime residue (label, locus, layout,
   registration, edge fields — `specs/architecture/15-kinds.md`). The built-in
