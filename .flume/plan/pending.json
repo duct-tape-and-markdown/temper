@@ -1,54 +1,5 @@
 [
   {
-    "tag": "SDK-RECUT-SUBPATH-LAYOUT",
-    "summary": "Recut the SDK to the ratified one-package layout — the six-noun core exports from the root, the Claude Code provider face exports from the `@dtmd/temper/claude-code` subpath",
-    "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Decision: one SDK package — the provider face is a subpath export"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [
-        {
-          "path": "sdk/src/claude-code.ts",
-          "description": "The `./claude-code` subpath entry module. Re-exports the first-party Claude Code provider face — the built-in kinds `skill`/`rule`/`memory` and their `Skill`/`Rule`/`Memory` types (moved off the root index) — plus the built-in floors as exported clause arrays if/when they exist in sdk/src (today only the three kinds are authored in builtins.ts; the floors join this entry when authored). This is the module the `@dtmd/temper/claude-code` specifier resolves to (50-distribution, 'Decision: one SDK package')."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/package.json",
-          "description": "Add the `exports` map: `\".\"` → `./dist/src/index.js` (types `./dist/src/index.d.ts`), `\"./claude-code\"` → `./dist/src/claude-code.js` (types `./dist/src/claude-code.d.ts`). Keep `main`/`types` for legacy resolvers pointing at the root. External fact: Node subpath exports, package.json `exports` field (nodejs.org/api/packages.html#subpath-exports). One package, one version — the engine pin (channel 2) is declared exactly once (50-distribution)."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Drop the built-in-kind re-exports from the root (lines 54-56: the `memory`/`rule`/`skill` values and `Memory`/`Rule`/`Skill` types from `./builtins.js`). The root now exports only the six-noun core — prose, genres, needs, contracts, the generic `kind`/`genre` constructors, assembly, declarations, projection, lock, emit. The provider face moves behind the subpath (`claude-code.ts`)."
-        },
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Fix the stale header spelling at line 8: `@temper/claude-code` → `@dtmd/temper/claude-code`, and reword to say these are the SDK's own provider-face exports surfaced through the `./claude-code` subpath (not the root). The kind values themselves are unchanged."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Retarget the provider-face imports (skill/rule/memory) from `../src/index.js` to `../src/claude-code.js`; the six-noun-core imports (harness, clause, text, etc.) stay on `../src/index.js`."
-        },
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "Retarget the `skill`/`rule` imports from `../src/index.js` to `../src/claude-code.js`; `emit`/`harness`/`text` stay on the root index."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "provider-face members author and emit unchanged when imported from the `./claude-code` subpath; core imports stay on the root"
-      }
-    ],
-    "acceptance": "`@dtmd/temper` root exports only the six-noun core; `@dtmd/temper/claude-code` exports skill/rule/memory; the provider face no longer resolves from the root; `pnpm --dir sdk test` (tsc + node --test) is green.",
-    "notes": "Corpus Decision ratified 07-05 (PR #4, 4a3790d): one package, provider face = subpath export. builtins.ts:8 still carries the stale `@temper/claude-code`. Floors are exported clause arrays (10-contracts) but none exist in sdk/src today — the subpath entry re-exports the three built-in kinds; floors join it when authored. TS-only, disjoint from Rust; validated by the sdk test gate."
-  },
-  {
     "tag": "GATE-READ-LOCK-DEMOLITION",
     "summary": "Rewrite the gate to read declarations only from the committed lock and walk each kind's `governs` locus, dropping the copy-tree scratch import and the carriage machinery it fed",
     "per": {
