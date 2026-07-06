@@ -51,6 +51,14 @@ are flume gates, so a violation reverts the commit.
   prose — new code carries the taxonomy's minimum, written fresh. Module
   `//!` headers shrink on touch, never grow. A slice whose diff is mostly
   comment edits is over-commented — cut, don't polish.
+- **The exit clause** (ruled 2026-07-06): deleting or tag-ifying a comment
+  the taxonomy cuts is **always in scope** on any entry touching the file —
+  the anti-churn rule above bounds *rewrites*, never *removals*. Comments are
+  the one ungated surface (no gate checks their truth), so their lifecycle is
+  editorial: cut on contact, never annotate. Era narration ("no longer X",
+  "renamed from", "shipped in Y") is commit-body material — git owns history;
+  a comment quoting a spec *section title* is a dangling reference waiting
+  for a rename — cite the file path only (the pointer-tag form above).
 
 ## Round-trip discipline (the core invariant)
 
