@@ -7,8 +7,7 @@
       "section": "install — the front door; the lift, once"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CODEC-RETIRE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "(a) Scaffolder: discovery walk → generated TS member modules (`file()` pointers at the original paths, bytes untouched) + `harness.ts` skeleton — the lift's output is the SDK program and nothing else, no lock. (b) Verb: discovery report first, one question 'represent this project?' (`--yes` for agents/CI, `--no-represent`); no-path = consented SessionStart reporter alone (Node-free); yes-path = require Node+`.temper` (hard refusal with instructions when absent), ensure `@dtmd/temper` dep, scaffold, run first emit (the adoption moment), place per lock. (c) Guard/note lock-grounded: rewrite `GUARD_MESSAGE` (install.rs:101) and the managed-by note (`NOTE_COMMENT`, install.rs:125) off the lock's emit-owned rows; place the modeline (`MODELINE_MARKER`) only when its schema artifact exists, the guard only when emit-owned paths exist ('the guard arrives with its constituency')."
+          "description": "(a) Scaffolder: discovery walk → generated TS member modules (`file()` pointers at the original paths, bytes untouched) + `harness.ts` skeleton — the lift's output is the SDK program and nothing else, no lock. (b) Verb: discovery report first, one question 'represent this project?' (`--yes` for agents/CI, `--no-represent`); no-path = consented SessionStart reporter alone (Node-free); yes-path = require Node+`.temper` (hard refusal with instructions when absent), ensure `@dtmd/temper` dep, scaffold, run first emit (the adoption moment), place per lock. (c) Guard/note lock-grounded: rewrite `GUARD_MESSAGE` (install.rs:101) and the managed-by note (`NOTE_COMMENT`, install.rs:125) off the lock's emit-owned rows; place the modeline (`MODELINE_MARKER`, install.rs:119) only when its schema artifact exists, the guard only when emit-owned paths exist ('the guard arrives with its constituency')."
         },
         {
           "path": "src/main.rs",
-          "description": "`Command::Install` dispatch carries the one-question flow (`--yes`/`--no-represent`); `Command::Guard`'s posture reads the lock, not a `temper.toml` AuthorLayer (main.rs:375-381)."
+          "description": "`Command::Install` dispatch (main.rs:373) carries the one-question flow (`--yes`/`--no-represent`); `Command::Guard`'s posture reads the lock, not a `temper.toml` AuthorLayer — replace the `AuthorLayer::load(&path.join(TEMPER_TOML))` authority read at main.rs:356 (inside the Guard arm, main.rs:350-372) with a lock-derived posture."
         }
       ],
       "retire": []
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "`temper install` is the sole on-ramp: report → one question → reporter-alone on no, or scaffold+first-emit+lock-grounded placements on yes; guard/note bind only lock-declared emit-owned paths; a `file()`-own-path member is authored territory (no guard). Cascade's report (1) dissolves.",
-    "notes": "Resolves `(carriage-aware-placements)` in code (the lock names a path a projection — 20-surface 'surface authority is a declared posture'). Depends on the built-in lock (S1) + lock-read gate (S2) + codec/init removal (S5). Shares install.rs/main.rs — serialized behind S5. Line refs will drift once S5 lands; reconcile-when-head refreshes them."
+    "notes": "Resolves `(carriage-aware-placements)` in code — the lock names a path a projection (20-surface 'surface authority is a declared posture'). S1/S2/S5 all shipped; now the open head. main.rs refs refreshed post-S5 (Guard authority arm 350-372, AuthorLayer::load at 356). TEMPER-TOML-ZERO serializes behind it on shared main.rs."
   },
   {
     "tag": "TEMPER-TOML-ZERO",
@@ -52,11 +51,11 @@
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Retire `AuthorLayer::load`/`authority`/`fold_local` and the in-place read path S5 kept standing (`parse_inplace_member`, `inplace_members()`, `InPlaceMember`, the `[member]` array parse in `AuthorLayer::parse`) — no verb reads a `temper.toml` for members anymore; posture/layers come from the lock. Any `[role.*]`/severity residue retires here if nothing reads it."
+          "description": "Retire `AuthorLayer::load`/`authority`/`fold_local` and the in-place read path S5 kept standing (`parse_inplace_member`, `inplace_members()`, `InPlaceMember`, the `[[member]]` array parse in `AuthorLayer::parse`) — no verb reads a `temper.toml` for members anymore; posture/layers come from the lock. Any `[role.*]`/severity residue retires here if nothing reads it. The `AuthorLayer::parse` unit tests (compose.rs:1585+) retire with the reader."
         },
         {
           "path": "src/main.rs",
-          "description": "Remove the `TEMPER_TOML` const + every use (gate paths ~286-326, Guard authority ~381, explain's `load_layer` ~429). Retiring `AuthorLayer::load` cascades to every in-place consumer — `validate_inplace_kinds`, the `declared` check's `inplace_members()` arm (~900), and the inplace reads at ~470/~1029 — all die with the reader. Line refs approximate; they drift after S5/S6, reconcile-when-head refreshes."
+          "description": "Remove the `TEMPER_TOML` const (main.rs:50) + every use (gate paths main.rs:261/266, the `load_layer` reader main.rs:301/404, Guard authority main.rs:356, explain's `load_layer` main.rs:404, the harness-join at main.rs:551). Retiring `AuthorLayer::load` cascades to every in-place consumer — `validate_inplace_kinds`, the `declared` check's `inplace_members()` arm, the inplace reads — all die with the reader. Line refs drift after INSTALL-FRONT-DOOR lands; reconcile-when-head refreshes them."
         }
       ],
       "retire": []
@@ -69,7 +68,7 @@
       }
     ],
     "acceptance": "`rg -c 'temper\\.toml' src/ tests/` = 0; the manifest filename is retired entirely (20-surface: 'the name temper.toml retires with the manifest era entirely'). Cascade re-onboards via the new install; its manifest-era artifacts are old temper by definition.",
-    "notes": "Chain terminal. Cascade's reports (2)-(4) — the accepted-debt DATUM under `(inplace-lock-producer)` — close with this slice: no manifest-mode coverage remains. Retiring AuthorLayer::load cascades to the in-place consumers S5 deliberately kept. Shares compose.rs/main.rs — serialized behind S6."
+    "notes": "Chain terminal. Cascade's reports (2)-(4) — the accepted-debt DATUM under `(inplace-lock-producer)` — close with this slice: no manifest-mode coverage remains. Retiring AuthorLayer::load cascades to the in-place consumers S5 deliberately kept. Shares main.rs with INSTALL-FRONT-DOOR — serialized behind it."
   },
   {
     "tag": "PACKAGING-CHANNELS",
