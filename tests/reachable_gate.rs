@@ -3,10 +3,12 @@
 //!
 //! The library fixture (`tests/graph.rs`'s `reachability` module) proves the predicate
 //! over constructed `Features`; this drives the built binary so the whole gate path is
-//! pinned: importing a harness whose kinds declare an activation (the built-in `skill`'s
-//! description-trigger, the `rule`'s paths-match), reading the assembly's `[reachability]`
-//! opt-in + severity off `temper.toml`, scanning the real repo file-set for the
-//! paths-match liveness input, and the exit code.
+//! pinned: a harness whose kinds declare an activation (the built-in `skill`'s
+//! description-trigger, the `rule`'s paths-match) written straight at their real Claude
+//! Code locus, reading the assembly's `reachability` opt-in + severity off a golden lock
+//! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary" — the gate
+//! sources the opt-in from the lock, never a re-imported `temper.toml`), scanning the
+//! real repo file-set for the paths-match liveness input, and the exit code.
 //!
 //! The cases mirror the entry's acceptance:
 //! - a member whose declared activation edge is provably dead (a blank
@@ -20,6 +22,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use temper::drift::{self, AssemblyFactRow, Declarations, EmitOptions, Payload};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -92,14 +96,11 @@ fn unscoped_rule() -> String {
     "# Global\n\nAlways-on guidance.\n".to_string()
 }
 
-/// Import a harness of the given skills and rules into `<root>/.temper` via the real
-/// `import` verb, so the workspace `check` reads is built exactly as a user's would be —
-/// each skill under `.claude/skills/<name>/SKILL.md`, each rule under
-/// `.claude/rules/<name>.md`. Both surface roots are always created so `import` scans a
-/// well-formed tree even when one kind is empty. The harness *is* `root` (`.claude/`
-/// beside `.temper/` and `temper.toml`) so a later [`write_temper_toml`] resync sees
-/// the same tree a real invocation would.
-fn import_harness(root: &Path, skills: &[(&str, String)], rules: &[(&str, String)]) {
+/// Write a harness of the given skills and rules straight at their real Claude Code
+/// locus — no scratch import — each skill under `.claude/skills/<name>/SKILL.md`, each
+/// rule under `.claude/rules/<name>.md`. `check` reads built-in kind members live off
+/// harness disk (`specs/architecture/20-surface.md`, "The lock and drift").
+fn write_harness(root: &Path, skills: &[(&str, String)], rules: &[(&str, String)]) {
     let skills_root = root.join(".claude").join("skills");
     fs::create_dir_all(&skills_root).unwrap();
     for (name, md) in skills {
@@ -113,18 +114,37 @@ fn import_harness(root: &Path, skills: &[(&str, String)], rules: &[(&str, String
     for (name, md) in rules {
         fs::write(rules_root.join(format!("{name}.md")), md).unwrap();
     }
-
-    sync(root);
 }
 
-/// Re-run `import` over `root` (harness == root), refreshing the surface and the
-/// lock's declaration rows (`specs/architecture/20-surface.md`, "The lock and drift") from
-/// whatever `root/temper.toml` currently declares — the gate's assembly source
-/// (MANIFEST-MACHINERY-RETIRE). `import` merges surface edits forward rather than
-/// clobbering them (`write_member_surface`), so a prior custom-kind/`satisfies` author
-/// survives the resync.
-fn sync(root: &Path) {
-    let _ = temper::import::run(root, &root.join(".temper"));
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
+/// the SDK-emitted fixture standing in for `import::run`'s scratch projection of a
+/// `temper.toml` `[reachability]` table: the gate sources the opt-in from the lock,
+/// never a re-imported assembly (`specs/architecture/20-surface.md`, "The lock and
+/// drift — one vocabulary").
+fn write_lock(root: &Path, declarations: Declarations) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations,
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// The assembly's `reachability` opt-in at `severity`, as a golden lock.
+fn write_reachability(root: &Path, severity: &str) {
+    write_lock(
+        root,
+        Declarations {
+            assembly: vec![AssemblyFactRow {
+                fact: "reachability".to_string(),
+                value: Some(severity.to_string()),
+                from: None,
+                field: None,
+                to: None,
+            }],
+            ..Declarations::default()
+        },
+    );
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -151,16 +171,12 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml`, then resync so the lock's declaration rows — the
-/// gate's assembly source — reflect it.
+/// Write `<root>/temper.toml` verbatim, with no resync: the reachability opt-in rides
+/// the lock (`write_reachability`), so this is only for the assembly-scope facets
+/// `temper.toml` still carries (a `[kind.*]` package registration, …) — and, written
+/// empty, is enough to flip the assembly from absent to present.
 fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
-    sync(root);
-}
-
-/// The assembly's reachability opt-in at the given severity.
-fn reachability_toml(severity: &str) -> String {
-    format!("[reachability]\nseverity = \"{severity}\"\n")
 }
 
 #[test]
@@ -169,12 +185,13 @@ fn a_dead_description_trigger_fires_at_the_declared_required_severity() {
     // The skill `standards` is floor-clean but its description is whitespace-only — a
     // dead description-trigger. The assembly opts reachability in at `required`, so the
     // dead world→member edge fails the run.
-    import_harness(
+    write_harness(
         &root,
         &[("standards", blank_description_skill("standards"))],
         &[],
     );
-    write_temper_toml(&root, &reachability_toml("required"));
+    write_reachability(&root, "required");
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -199,12 +216,13 @@ fn a_dead_edge_at_advisory_severity_is_reported_but_does_not_fail() {
     // The same dead description-trigger, but the assembly declares `advisory`: the dial
     // is the assembly's, so the finding is reported yet the run stays green — the
     // required-vs-advisory reachability declaration is honored.
-    import_harness(
+    write_harness(
         &root,
         &[("standards", blank_description_skill("standards"))],
         &[],
     );
-    write_temper_toml(&root, &reachability_toml("advisory"));
+    write_reachability(&root, "advisory");
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -225,8 +243,9 @@ fn a_zero_match_paths_glob_rule_fires() {
     // The rule `scoped` declares a `paths` glob matching no file under the repo root
     // (only `temper.toml` and the imported `.temper/` live there) — the harness
     // activates it never, a dead paths-match edge that fails the `required` run.
-    import_harness(&root, &[], &[("scoped", paths_rule("nowhere/**/*.md"))]);
-    write_temper_toml(&root, &reachability_toml("required"));
+    write_harness(&root, &[], &[("scoped", paths_rule("nowhere/**/*.md"))]);
+    write_reachability(&root, "required");
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -250,12 +269,13 @@ fn a_live_edge_stays_silent() {
     // A skill with a real description (a live description-trigger) and an unscoped rule
     // with no `paths` (a live `always`-shaped edge) — both inbound world-edges are live,
     // so reachability fires nothing even with the opt-in armed at `required`.
-    import_harness(
+    write_harness(
         &root,
         &[("standards", live_skill("standards"))],
         &[("global", unscoped_rule())],
     );
-    write_temper_toml(&root, &reachability_toml("required"));
+    write_reachability(&root, "required");
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -277,7 +297,7 @@ fn absent_the_opt_in_a_dead_edge_is_silent() {
     // kind layer and *no* `[reachability]`: the predicate is opt-in like `degree`, so
     // without the assembly's declaration nothing fires — temper fabricates no gate the
     // author did not declare.
-    import_harness(
+    write_harness(
         &root,
         &[("standards", blank_description_skill("standards"))],
         &[],

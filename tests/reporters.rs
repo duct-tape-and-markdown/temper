@@ -185,20 +185,14 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
 
-/// Import `harness` into `into` via the library — the retired `temper import` verb's
-/// exact two steps (surface projection + manifest), driven in-process now that the CLI
-/// on-ramp is `init`/`check --harness`.
-fn import(harness: &Path, into: &Path) {
-    temper::import::run(harness, into).unwrap();
-    temper::import::emit_manifest(into).unwrap();
-}
-
 #[test]
 fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surface() {
     let harness = tmpdir("sarif-src");
     write_harness(&harness, "coordinate", ERROR_SKILL);
+    // An empty workspace: `check` reads built-in kind members live off harness disk
+    // (`specs/architecture/20-surface.md`, "The lock and drift"), no scratch import
+    // needed to populate it first.
     let into = tmpdir("sarif-into");
-    import(&harness, &into);
 
     // CWD is the harness (`specs/architecture/20-surface.md`, "The lock and drift" —
     // the gate walks the committed lock's governs locus over the harness at the CWD),

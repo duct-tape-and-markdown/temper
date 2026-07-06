@@ -2,12 +2,12 @@
 //! meaningful contract (`specs/architecture/10-contracts.md`, "Requirements and `satisfies` — the
 //! meaningful contract").
 //!
-//! Drives the built `temper` binary so the whole path is pinned: `temper.toml`
-//! discovery at the project root, the `[requirement.<name>]` tables parsed onto the
-//! author layer, the authored `[representation].satisfies` opt-in reconstructed off
-//! each surface artifact, and the coverage gate's exit code. Mirrors
-//! `tests/temper_toml.rs`: each case sets the process working directory to a project
-//! root that carries a `temper.toml`, exactly as a real invocation would.
+//! Drives the built `temper` binary so the whole path is pinned: a golden lock at the
+//! project root carrying the declared requirements (`specs/architecture/20-surface.md`,
+//! "The lock and drift — one vocabulary" — the gate sources requirements from the lock,
+//! never a re-imported assembly), the authored `satisfies` opt-in reconstructed off
+//! each surface artifact, and the coverage gate's exit code. Each case sets the process
+//! working directory to a project root, exactly as a real invocation would.
 //!
 //! The cases mirror the entry's acceptance:
 //! - a `required` requirement with a skill declaring a resolving `satisfies` stays
@@ -24,6 +24,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -54,48 +56,78 @@ description: Use when maintaining development standards across the harness.\n\
 \n\
 Keep the bar high.\n";
 
-/// Project a one-skill harness into `<root>/.temper` via the real `import` verb, so
-/// the workspace `check` reads is built exactly as a user's would be. The harness
-/// *is* `root` (`.claude/` beside `.temper/` and `temper.toml`) so a later
-/// [`write_temper_toml`] resync sees the same tree a real invocation would.
-fn import_skill(root: &Path, name: &str, skill_md: &str) {
+/// Write a one-skill harness member directly at its real Claude Code locus
+/// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
+/// live off harness disk (`specs/architecture/20-surface.md`, "The lock and drift"), no
+/// scratch import.
+fn write_skill(root: &Path, name: &str, skill_md: &str) {
     let dir = root.join(".claude").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
-    sync(root);
 }
 
-/// Re-run `import` over `root` (harness == root), refreshing the surface and the
-/// lock's declaration rows (`specs/architecture/20-surface.md`, "The lock and drift") from
-/// whatever `root/temper.toml` currently declares — the gate's assembly source
-/// (MANIFEST-MACHINERY-RETIRE). `import` merges surface edits forward rather than
-/// clobbering them (`write_member_surface`), so a prior `author_satisfies` survives
-/// the resync. A malformed `temper.toml` fails here too; ignored so the case's own
-/// `check_in` still observes the same load error the real binary would.
-fn sync(root: &Path) {
-    let _ = temper::import::run(root, &root.join(".temper"));
-}
-
-/// Author the `[satisfies.<requirement>]` opt-in modules on an imported skill's
-/// surface `SKILL.md` document — the binding the coverage resolver reads. `import`
-/// never writes them (they are surface-authored, not frontmatter), so a case adds
-/// them exactly as a human editing the member document would, via the same
-/// projection the tool uses.
+/// Author a member's `satisfies` links on its surface overlay
+/// (`<root>/.temper/skills/<name>/SKILL.md`) — the projected document a live off-disk
+/// walk grafts a member's fill edges from (`specs/architecture/20-surface.md`, "The
+/// lock and drift"); the real harness file itself carries no temper annotation.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
-    let dir = root.join(".temper").join("skills").join(name);
-    let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let source = root
+        .join(".claude")
+        .join("skills")
+        .join(name)
+        .join("SKILL.md");
+    let mut skill = temper::frontmatter::Member::from_source(&skill_kind, &source).unwrap();
     skill.satisfies = requirements
         .iter()
         .map(|r| temper::document::Satisfies::new(*r))
         .collect();
+
+    let dir = root.join(".temper").join("skills").join(name);
+    fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
-/// Write `<root>/temper.toml`, then resync so the lock's declaration rows — the
-/// gate's assembly source — reflect it.
+/// A `RequirementRow` naming `name`, `required` otherwise bare — the shape these cases
+/// need.
+fn requirement(name: &str, required: bool) -> RequirementRow {
+    RequirementRow {
+        name: name.to_string(),
+        kind: None,
+        package: None,
+        required,
+        count: None,
+        unique: Vec::new(),
+        membership: None,
+        degree: None,
+        verified_by: None,
+    }
+}
+
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
+/// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
+/// projection of a `temper.toml` `[requirement.*]` table: the gate sources
+/// requirements from the lock, never a re-imported assembly
+/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            requirements,
+            ..Declarations::default()
+        },
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// Write `<root>/temper.toml` verbatim, with no resync: requirements ride the lock
+/// (`write_requirements`), so this is only for the assembly-scope facets `temper.toml`
+/// still carries (a `[kind.*]` package registration, `authority`, …) — and, written
+/// empty, is enough to flip the assembly from absent to present so the roster/coverage
+/// tier runs at all.
 fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
-    sync(root);
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -143,15 +175,11 @@ fn check_github(root: &Path) -> CheckRun {
 #[test]
 fn a_required_requirement_with_a_resolving_satisfies_stays_silent() {
     let root = tmpdir("covered");
-    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The skill opts into the requirement, so its intent has a resolving home.
     author_satisfies(&root, "dev-standards", &["dev-standards"]);
-    write_temper_toml(
-        &root,
-        "[requirement.dev-standards]\n\
-means = \"the harness has a skill that maintains development standards\"\n\
-required = true\n",
-    );
+    write_requirements(&root, vec![requirement("dev-standards", true)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -164,14 +192,10 @@ required = true\n",
 #[test]
 fn a_required_requirement_with_no_satisfying_artifact_fires_unfilled() {
     let root = tmpdir("unfilled");
-    import_skill(&root, "dev-standards", CLEAN_SKILL);
-    // No `[representation].satisfies` authored: nothing opts into the requirement.
-    write_temper_toml(
-        &root,
-        "[requirement.dev-standards]\n\
-means = \"the harness has a skill that maintains development standards\"\n\
-required = true\n",
-    );
+    write_skill(&root, "dev-standards", CLEAN_SKILL);
+    // No `satisfies` authored: nothing opts into the requirement.
+    write_requirements(&root, vec![requirement("dev-standards", true)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -189,7 +213,7 @@ required = true\n",
 #[test]
 fn a_satisfies_naming_no_requirement_fires_dangling() {
     let root = tmpdir("dangling");
-    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The skill opts into the required requirement (so no UNFILLED) *and* a second,
     // undeclared one — the link that dangles.
     author_satisfies(
@@ -197,12 +221,8 @@ fn a_satisfies_naming_no_requirement_fires_dangling() {
         "dev-standards",
         &["dev-standards", "ghost-requirement"],
     );
-    write_temper_toml(
-        &root,
-        "[requirement.dev-standards]\n\
-means = \"the harness has a skill that maintains development standards\"\n\
-required = true\n",
-    );
+    write_requirements(&root, vec![requirement("dev-standards", true)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -225,19 +245,15 @@ required = true\n",
 #[test]
 fn a_typo_in_a_satisfies_link_yields_paired_unfilled_and_dangling() {
     let root = tmpdir("typo");
-    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The link misspells the requirement name. `satisfies` is exact-string matched,
     // never folded, so the real requirement goes UNFILLED (nothing resolves to it)
     // *and* the typo'd name DANGLES (it names no declared requirement). Both are true
     // positives — the pair is what pins exact-match precision, not one masking the
     // other.
     author_satisfies(&root, "dev-standards", &["dev-standatds"]);
-    write_temper_toml(
-        &root,
-        "[requirement.dev-standards]\n\
-means = \"the harness has a skill that maintains development standards\"\n\
-required = true\n",
-    );
+    write_requirements(&root, vec![requirement("dev-standards", true)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -265,7 +281,7 @@ required = true\n",
 #[test]
 fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
     let root = tmpdir("dup");
-    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The skill covers the declared requirement (so no UNFILLED) and repeats the same
     // undeclared link. The coverage check dedups each artifact's `satisfies` before
     // the dangling loop, so the single unresolvable name yields exactly ONE
@@ -275,12 +291,8 @@ fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
         "dev-standards",
         &["dev-standards", "ghost-requirement", "ghost-requirement"],
     );
-    write_temper_toml(
-        &root,
-        "[requirement.dev-standards]\n\
-means = \"the harness has a skill that maintains development standards\"\n\
-required = true\n",
-    );
+    write_requirements(&root, vec![requirement("dev-standards", true)]);
+    write_temper_toml(&root, "");
 
     // The github reporter renders one `::error` line per diagnostic, a stable count.
     let run = check_github(&root);
@@ -307,14 +319,11 @@ required = true\n",
 #[test]
 fn a_non_required_unfilled_requirement_does_not_block() {
     let root = tmpdir("advisory");
-    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    write_skill(&root, "dev-standards", CLEAN_SKILL);
     // Nothing opts into it, but the requirement is advisory intent (no `required`),
     // so `temper` never fabricates a gate the author did not declare.
-    write_temper_toml(
-        &root,
-        "[requirement.nice-to-have]\n\
-means = \"an optional convenience the harness may provide\"\n",
-    );
+    write_requirements(&root, vec![requirement("nice-to-have", false)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -332,13 +341,8 @@ fn a_registered_custom_kind_with_no_sdk_definition_contributes_no_coverage() {
     // members, so a `required` requirement it might otherwise fill still fires
     // UNFILLED — registering a kind never fabricates coverage.
     let root = tmpdir("custom-unfilled");
-    write_temper_toml(
-        &root,
-        "[kind.spec]\npackage = \"spec\"\n\
-[requirement.domain-model]\n\
-means = \"the harness carries a coherent domain model\"\n\
-required = true\n",
-    );
+    write_temper_toml(&root, "[kind.spec]\npackage = \"spec\"\n");
+    write_requirements(&root, vec![requirement("domain-model", true)]);
 
     let run = check_in(&root);
     assert!(
@@ -356,16 +360,13 @@ required = true\n",
 #[test]
 fn a_means_less_required_requirement_still_gates() {
     let root = tmpdir("means-less");
-    import_skill(&root, "dev-standards", CLEAN_SKILL);
+    write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The unified requirement makes `means` optional (`specs/architecture/10-contracts.md`, "all
     // facets optional except its name"), but coverage keys off `required`, not
     // `means`: a `required` requirement with no `means` and nothing opting in still
     // fires UNFILLED and blocks the run.
-    write_temper_toml(
-        &root,
-        "[requirement.dev-standards]\n\
-required = true\n",
-    );
+    write_requirements(&root, vec![requirement("dev-standards", true)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(

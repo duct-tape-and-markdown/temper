@@ -121,16 +121,17 @@ fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
 
 #[test]
 fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
-    // The same requirement-declaring `temper.toml`, but this time the harness is
-    // properly imported: a real skill lands under `.temper/skills/`, and `check` reads
-    // the default `./.temper` workspace — the correctly-rooted path resolves ≥1 member,
-    // so the guard must not fire even though the assembly still declares a requirement.
+    // The same requirement-declaring `temper.toml`, but this time the harness carries a
+    // real skill at its committed locus (`.claude/skills/coordinate/SKILL.md`) — `check`
+    // reads built-in kind members live off harness disk (`specs/architecture/20-surface.md`,
+    // "The lock and drift"), no scratch import required, and the correctly-rooted path
+    // resolves ≥1 member, so the guard must not fire even though the assembly still
+    // declares a requirement.
     let root = tmpdir("declared-resolved");
     let harness = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&harness).unwrap();
     fs::write(harness.join("SKILL.md"), CLEAN_SKILL).unwrap();
     write_temper_toml(&root, DECLARES_A_REQUIREMENT);
-    temper::import::run(&root, &root.join(".temper")).unwrap();
 
     let (findings, success) = check_in(&root, &[]);
 

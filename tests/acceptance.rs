@@ -2,17 +2,16 @@
 //! surface"; `specs/architecture/10-contracts.md`, the contract engine).
 //!
 //! Pins the whole vertical slice — typed IR, sidecar topology, contract engine,
-//! diagnostics UX — driving the library `import` plus the generic
-//! `engine::validate` directly (logic lives in the lib per `.claude/rules/rust.md`,
-//! so no binary harness is needed):
+//! diagnostics UX — driving the generic `engine::validate` and `drift::emit` directly
+//! (logic lives in the lib per `.claude/rules/rust.md`, so no binary harness is needed):
 //!
-//! - an `insta` snapshot of the **import surface** over a trimmed, real-shaped
-//!   copy of the `coordinate` skill, asserted byte-stable across a re-import;
 //! - an `insta` snapshot of the **check diagnostics** the built-in skill contract
 //!   produces over the deliberately broken `tests/fixtures/rules/*` tree — the
 //!   reduced, decidable-only surviving-clause set;
-//! - the slice acceptance end to end: `import <fixture>` then validate reproduces
-//!   the expected diagnostics, and re-running `import` produces no diff;
+//! - the slice acceptance end to end: a well-formed `coordinate` skill checks clean,
+//!   and compiling its seam payload twice (`emit` is the sole producer,
+//!   `specs/architecture/20-surface.md`, "The lock and drift") reproduces the
+//!   projection with no diff;
 //! - the custom-kind acceptance (`specs/architecture/15-kinds.md`, "Worked example: `spec`"):
 //!   over a corpus whose `temper.toml` declares the `spec` kind, `temper check`
 //!   dispatches each spec through its composed extractor and contract — an
@@ -21,7 +20,6 @@
 //!   (and reading `temper.toml` off the process cwd) is observable only across a
 //!   real process boundary.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -30,9 +28,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use temper::builtin_kind;
 use temper::check::{self, Diagnostic, Severity};
 use temper::contract::Contract;
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 use temper::engine;
 use temper::frontmatter::Member;
-use temper::import;
 use temper::kind::Unit;
 
 /// The built-in Anthropic skill contract, resolved from the embedded `packages/`
@@ -86,37 +84,6 @@ fn fixture(rel: &str) -> PathBuf {
         .join(rel)
 }
 
-/// Render an imported surface tree as a single reviewable string: each file as a
-/// `--- <relative/path> ---` header (forward slashes) followed by its UTF-8
-/// contents, files sorted by path. Two imports rendering identically *is* the
-/// byte-stable / no-diff contract.
-fn render_surface(dir: &Path) -> String {
-    let mut files = BTreeMap::new();
-    for entry in walkdir::WalkDir::new(dir).min_depth(1).sort_by_file_name() {
-        let entry = entry.unwrap();
-        if !entry.file_type().is_file() {
-            continue;
-        }
-        let rel = entry
-            .path()
-            .strip_prefix(dir)
-            .unwrap()
-            .to_string_lossy()
-            .replace('\\', "/");
-        files.insert(rel, fs::read_to_string(entry.path()).unwrap());
-    }
-
-    let mut out = String::new();
-    for (rel, body) in files {
-        out.push_str(&format!("--- {rel} ---\n"));
-        out.push_str(&body);
-        if !body.ends_with('\n') {
-            out.push('\n');
-        }
-    }
-    out
-}
-
 /// Render a diagnostic set as one stable line per finding (`<severity> <rule>:
 /// <message>`), in the order the engine collects them.
 fn render_diagnostics(diagnostics: &[Diagnostic]) -> String {
@@ -135,36 +102,6 @@ fn render_diagnostics(diagnostics: &[Diagnostic]) -> String {
         ));
     }
     out
-}
-
-/// The `source_path` recorded in `meta.toml` / `lock.toml` is the absolute
-/// origin of the fixture, which varies per machine. Redact just that prefix so
-/// the surface snapshot pins everything content-derived (hashes, body, header)
-/// without pinning an unstable absolute path.
-fn surface_filters() -> Vec<(&'static str, &'static str)> {
-    vec![(
-        r#"source_path = "[^"]*tests/fixtures/coordinate/SKILL\.md""#,
-        r#"source_path = "[ROOT]/tests/fixtures/coordinate/SKILL.md""#,
-    )]
-}
-
-/// The import surface over the trimmed `coordinate` fixture is exactly the golden
-/// below, and re-importing into the same workspace changes not one byte.
-#[test]
-fn import_surface_is_byte_stable() {
-    let into = tmpdir("coordinate-into");
-
-    import::run(&fixture("coordinate"), &into).unwrap();
-    let first = render_surface(&into);
-
-    insta::with_settings!({filters => surface_filters()}, {
-        insta::assert_snapshot!("coordinate_import_surface", first);
-    });
-
-    // Re-import into the same workspace: idempotence means an identical tree.
-    import::run(&fixture("coordinate"), &into).unwrap();
-    let second = render_surface(&into);
-    assert_eq!(first, second, "re-import must produce no diff");
 }
 
 /// Loading the deliberately-broken `tests/fixtures/rules/*` tree and validating
@@ -202,36 +139,71 @@ fn check_reproduces_the_expected_diagnostic_set() {
     insta::assert_snapshot!("rules_check_diagnostics", report);
 }
 
-/// The slice acceptance, end to end: `import <fixture>` then validate over the
-/// written surface reproduces the expected diagnostics (the well-formed
-/// `coordinate` skill is clean), and a second `import` produces no diff.
+/// The `skill` built-in kind's declaration row this fixture's emit payload carries.
+fn skill_kind_facts() -> KindFactRow {
+    KindFactRow {
+        name: "skill".to_string(),
+        provider: Some("claude-code".to_string()),
+        governs_root: ".claude/skills".to_string(),
+        governs_glob: "*/SKILL.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        activation: Some("description-trigger(description)".to_string()),
+    }
+}
+
+/// The slice acceptance, end to end: the well-formed `coordinate` fixture skill checks
+/// clean over its projected surface member document, and compiling its seam payload
+/// twice (`emit` is the sole producer, `specs/architecture/20-surface.md`, "The lock and
+/// drift") reproduces the projection with no diff.
 #[test]
-fn acceptance_import_check_then_reimport_is_a_no_diff() {
-    let into = tmpdir("acceptance-into");
+fn acceptance_check_then_reemit_is_a_no_diff() {
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let skill = Member::from_source(&skill_kind, &fixture("coordinate").join("SKILL.md")).unwrap();
 
-    // import <fixture> --into <tmp>
-    import::run(&fixture("coordinate"), &into).unwrap();
-    let first = render_surface(&into);
-
-    // check <tmp> — a well-formed skill trips no contract clause, so it is clean.
-    // The gate reads each skill's surface member document through the one generic
-    // `Unit` loader (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter").
-    let dir = into.join("skills").join("coordinate");
-    let unit = Unit::from_member_document(&dir, &dir.join("SKILL.md")).unwrap();
+    // check — a well-formed skill trips no contract clause, so it is clean. The gate
+    // reads each skill's surface member document through the one generic `Unit` loader
+    // (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter").
+    let unit = skill_surface_unit(&skill);
     let features = [builtin_kind::skill_features(&unit)];
     let diagnostics = engine::validate(&builtin_skill_contract(), &features);
     assert!(
         diagnostics.is_empty(),
-        "the trimmed coordinate skill must check clean, got {diagnostics:?}",
+        "the coordinate skill must check clean, got {diagnostics:?}",
     );
     assert!(!check::any_error(&diagnostics));
 
-    // re-import — no diff.
-    import::run(&fixture("coordinate"), &into).unwrap();
+    // emit — a hand-built seam payload over the same fixture skill, compiled twice: the
+    // second compile reproduces the harness projection byte-for-byte.
+    let harness = tmpdir("acceptance-harness");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![skill_kind_facts()],
+            ..Declarations::default()
+        },
+        members: vec![PayloadMember {
+            kind: "skill".to_string(),
+            name: skill.id.clone(),
+            fields: skill.fields.clone(),
+            body: skill.body.clone(),
+        }],
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let projected = harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let first = fs::read_to_string(&projected).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert_eq!(
         first,
-        render_surface(&into),
-        "re-import must produce no diff"
+        fs::read_to_string(&projected).unwrap(),
+        "a re-emit of the unchanged payload must produce no diff"
     );
 }
 
@@ -332,10 +304,7 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
     fs::write(specs.join("15-kinds.md"), over_length_spec()).unwrap();
 
-    // import discovers the `spec` kind from the corpus `temper.toml` and writes
-    // each spec into the surface — the units the extractor reads at check time.
     let into = corpus.join(".temper");
-    import::run(&corpus, &into).unwrap();
 
     // check from the corpus dir: `temper.toml` at the cwd declares the spec kind,
     // so the run projects each spec through the composed extractor and validates it
@@ -392,10 +361,7 @@ max = 10\n\
     fs::write(adrs.join("0001-short.md"), "# ADR 1\n\nDecided.\n").unwrap();
     fs::write(adrs.join("0002-long.md"), over_length_spec()).unwrap();
 
-    // import discovers the `adr` kind from the corpus `temper.toml` and writes each
-    // unit to `<into>/adr/<name>/` — a root the built-in `Workspace` never reads.
     let into = corpus.join(".temper");
-    import::run(&corpus, &into).unwrap();
 
     // check from the corpus dir: the generic loader keys on `governs.root = "adr"`,
     // so the over-length ADR trips the advisory `max_lines`. The flag flipping the

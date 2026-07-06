@@ -1,23 +1,29 @@
 //! End-to-end acceptance over the harness reference graph — route resolution
-//! against a `temper.toml`-declared edge field (`specs/architecture/45-governance.md`, "The
+//! against a lock-declared edge field (`specs/architecture/45-governance.md`, "The
 //! harness is a graph too — and references are declared edges").
 //!
-//! Drives the built `temper` binary so the whole path is pinned: importing a
-//! harness of a rule (carrying a `routes_to` frontmatter field) and a skill,
-//! discovering `temper.toml` at the project root, parsing its
-//! `[[kind.<name>.relationships]]` declaration onto the author layer, building the
-//! graph over the imported corpus, and the exit code.
+//! Drives the built `temper` binary so the whole path is pinned: a harness of a rule
+//! (carrying a `routes_to` frontmatter field) and a skill written straight at their real
+//! Claude Code locus, a golden lock declaring the `routes_to` edge
+//! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary" — the gate
+//! sources edges from the lock, never a re-imported `temper.toml` relationships table),
+//! building the graph over the live corpus, and the exit code.
 //!
 //! The cases mirror the entry's acceptance:
 //! - a rule whose `routes_to` names a real skill resolves and the run is clean;
 //! - a rule whose `routes_to` names an absent skill trips a route-resolution
 //!   finding and fails the run;
-//! - absent `temper.toml`, no graph runs (the floor-only outcome is unchanged).
+//! - no declared edge at all, no graph runs (the floor-only outcome is unchanged).
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use temper::drift::{
+    self, AssemblyFactRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, Payload,
+    RequirementRow,
+};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -67,13 +73,12 @@ fn routing_rule(routes_to: &str) -> String {
     )
 }
 
-/// Import a harness of one rule and one skill into `<root>/.temper` via the real
-/// `import` verb, so the workspace `check` reads is built exactly as a user's
-/// would be — the rule under `.claude/rules/<rule>.md`, the skill under
-/// `skills/<skill>/SKILL.md`. The harness *is* `root` (`.claude/` beside `.temper/`
-/// and `temper.toml`) so a later [`write_temper_toml`] resync sees the same tree a
-/// real invocation would.
-fn import_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str, skill_md: &str) {
+/// Write a harness of one rule and one skill straight at their real Claude Code locus
+/// — the rule under `.claude/rules/<rule>.md`, the skill under
+/// `.claude/skills/<skill>/SKILL.md` — no scratch import. `check` reads built-in kind
+/// members live off harness disk (`specs/architecture/20-surface.md`, "The lock and
+/// drift").
+fn write_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str, skill_md: &str) {
     let rules = root.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join(format!("{rule_name}.md")), rule_md).unwrap();
@@ -81,19 +86,6 @@ fn import_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str,
     let skill_dir = root.join(".claude").join("skills").join(skill_name);
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(skill_dir.join("SKILL.md"), skill_md).unwrap();
-
-    sync(root);
-}
-
-/// Re-run `import` over `root` (harness == root), refreshing the surface and the
-/// lock's declaration rows (`specs/architecture/20-surface.md`, "The lock and drift") from
-/// whatever `root/temper.toml` currently declares — the gate's assembly source
-/// (MANIFEST-MACHINERY-RETIRE). `import` merges surface edits forward rather than
-/// clobbering them (`write_member_surface`), so a prior `author_satisfies` survives
-/// the resync. A malformed `temper.toml` fails here too; ignored so the case's own
-/// `check_in` still observes the same load error the real binary would.
-fn sync(root: &Path) {
-    let _ = temper::import::run(root, &root.join(".temper"));
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -119,34 +111,92 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml`, then resync so the lock's declaration rows — the
-/// gate's assembly source — reflect it.
+/// Write `<root>/temper.toml` verbatim, with no resync: edges and requirements ride
+/// the lock (`write_lock`), so this is only for the assembly-scope facets `temper.toml`
+/// still carries (a `[kind.*]` package registration, `authority`, …) — and, written
+/// empty, is enough to flip the assembly from absent to present so the graph tier runs
+/// at all.
 fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
-    sync(root);
 }
 
-/// Author the `[satisfies.<requirement>]` opt-in modules on an imported artifact's
-/// surface member document — the binding the roster and graph read to place a node in
-/// a requirement's satisfier set. `kind_dir` is the surface subdirectory (`skills` or
-/// `rules`), whose document is `SKILL.md` / `RULE.md`. `import` never writes them
-/// (they are surface-authored, not frontmatter), so a case adds them exactly as a
-/// human editing the member document would, via the same projection the tool uses.
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
+/// the SDK-emitted fixture standing in for `import::run`'s scratch projection of a
+/// `temper.toml` `[[kind.<name>.relationships]]`/`[requirement.*]` table: the gate
+/// sources edges and requirements from the lock, never a re-imported assembly
+/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+fn write_lock(root: &Path, declarations: Declarations) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations,
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// An `edge` assembly fact — the lock row a `[[kind.<from>.relationships]]` table used
+/// to project (`specs/architecture/45-governance.md`, "The harness is a graph too").
+fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "edge".to_string(),
+        value: None,
+        from: Some(from.to_string()),
+        field: Some(field.to_string()),
+        to: Some(to.to_string()),
+    }
+}
+
+/// The `gate` requirement's declaration row, bound to `kind` and carrying `degree` —
+/// the lock row a `[requirement.gate]` table used to project.
+fn degree_requirement(kind: &str, degree: DegreeBoundRow) -> RequirementRow {
+    RequirementRow {
+        name: "gate".to_string(),
+        kind: Some(kind.to_string()),
+        package: None,
+        required: false,
+        count: None,
+        unique: Vec::new(),
+        membership: None,
+        degree: Some(degree),
+        verified_by: None,
+    }
+}
+
+/// Author a member's `satisfies` links on its surface overlay
+/// (`<root>/.temper/<kind_dir>/<name>/<doc>`) — the projected document a live off-disk
+/// walk grafts a member's fill edges from (`specs/architecture/20-surface.md`, "The lock
+/// and drift"); the real harness file itself carries no temper annotation. `kind_dir` is
+/// the surface subdirectory (`skills` or `rules`), whose document is `SKILL.md` /
+/// `RULE.md`, and whose real source lives at the harness's own locus.
 fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
-    let dir = root.join(".temper").join(kind_dir).join(name);
     let satisfies: Vec<temper::document::Satisfies> = requirements
         .iter()
         .map(|r| temper::document::Satisfies::new(*r))
         .collect();
     match kind_dir {
         "skills" => {
-            let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
+            let kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+            let source = root
+                .join(".claude")
+                .join("skills")
+                .join(name)
+                .join("SKILL.md");
+            let mut skill = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
             skill.satisfies = satisfies;
+            let dir = root.join(".temper").join("skills").join(name);
+            fs::create_dir_all(&dir).unwrap();
             fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
         }
         "rules" => {
-            let mut rule = temper::frontmatter::Member::from_surface(&dir, "RULE.md").unwrap();
+            let kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+            let source = root
+                .join(".claude")
+                .join("rules")
+                .join(format!("{name}.md"));
+            let mut rule = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
             rule.satisfies = satisfies;
+            let dir = root.join(".temper").join("rules").join(name);
+            fs::create_dir_all(&dir).unwrap();
             fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
         }
         other => panic!("unknown kind_dir {other}"),
@@ -169,37 +219,43 @@ fn routing_skill(name: &str, routes_to: &str) -> String {
     )
 }
 
-/// A `temper.toml` declaring `routes_to` on *both* the `rule` and `skill` kinds, so
-/// the reference graph can carry a `rule → skill → rule` circle — the acyclic cases
-/// build on these two edges.
-const MUTUAL_ROUTES_EDGES: &str = "[[kind.rule.relationships]]\n\
-     field = \"routes_to\"\n\
-     to = \"skill\"\n\
-     [[kind.skill.relationships]]\n\
-     field = \"routes_to\"\n\
-     to = \"rule\"\n";
+/// The two `routes_to` edges — `rule` and `skill` each pointing at the other — so the
+/// reference graph can carry a `rule → skill → rule` circle. The acyclic cases build on
+/// both.
+fn mutual_routes_edges() -> Vec<AssemblyFactRow> {
+    vec![
+        edge("rule", "routes_to", "skill"),
+        edge("skill", "routes_to", "rule"),
+    ]
+}
 
-/// A `temper.toml` declaring one `routes_to` relationship on the `rule` kind
-/// (its owning kind the edge source), targeting skills — the harness reference
-/// graph the cases build. A reference is a kind capability, declared under the
-/// owning kind's `[[kind.<name>.relationships]]` array (`specs/architecture/15-kinds.md`).
-const ROUTES_TO_EDGE: &str = "[[kind.rule.relationships]]\n\
-     field = \"routes_to\"\n\
-     to = \"skill\"\n";
+/// The one `routes_to` edge on the `rule` kind (its owning kind the edge source),
+/// targeting skills — the harness reference graph the cases build. A reference is a
+/// kind capability (`specs/architecture/15-kinds.md`).
+fn routes_to_edge() -> Vec<AssemblyFactRow> {
+    vec![edge("rule", "routes_to", "skill")]
+}
 
 #[test]
 fn a_resolving_route_is_clean() {
     let root = tmpdir("resolves");
-    // The rule routes to `standards`, which the imported skill provides — the
-    // route resolves, so the whole run is clean.
-    import_harness(
+    // The rule routes to `standards`, which the skill provides — the route resolves,
+    // so the whole run is clean.
+    write_harness(
         &root,
         "style",
         &routing_rule("standards"),
         "standards",
         &clean_skill("standards"),
     );
-    write_temper_toml(&root, ROUTES_TO_EDGE);
+    write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_edge(),
+            ..Declarations::default()
+        },
+    );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -212,16 +268,23 @@ fn a_resolving_route_is_clean() {
 #[test]
 fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
     let root = tmpdir("dangling");
-    // The rule routes to `absent`, but the only imported skill is `standards` —
-    // the route resolves to no artifact, a dangling route that fails the run.
-    import_harness(
+    // The rule routes to `absent`, but the only skill is `standards` — the route
+    // resolves to no artifact, a dangling route that fails the run.
+    write_harness(
         &root,
         "style",
         &routing_rule("absent"),
         "standards",
         &clean_skill("standards"),
     );
-    write_temper_toml(&root, ROUTES_TO_EDGE);
+    write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_edge(),
+            ..Declarations::default()
+        },
+    );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -240,11 +303,11 @@ fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
 #[test]
 fn absent_temper_toml_runs_no_graph() {
     let root = tmpdir("no-edge");
-    // The same corpus with a dangling `routes_to`, but no `temper.toml`: no edge is
-    // declared, so no graph runs and the (floor-clean) corpus passes. The reference
-    // is a declared *contract*, never inferred — with none declared, temper says
-    // nothing about the route.
-    import_harness(
+    // The same corpus with a dangling `routes_to`, but no declared edge at all: no
+    // graph runs and the (floor-clean) corpus passes. The reference is a declared
+    // *contract*, never inferred — with none declared, temper says nothing about the
+    // route.
+    write_harness(
         &root,
         "style",
         &routing_rule("absent"),
@@ -255,17 +318,13 @@ fn absent_temper_toml_runs_no_graph() {
     let absent = check_in(&root);
     assert!(
         absent.ok,
-        "with no `temper.toml` the graph does not run ⇒ zero, got:\n{}",
+        "with no declared edge the graph does not run ⇒ zero, got:\n{}",
         absent.output
     );
 
-    // A `temper.toml` carrying a `[kind]` layer but no `relationships` declares no
+    // A `temper.toml` carrying a `[kind]` layer but no lock-declared edge runs no
     // graph either — the outcome is byte-for-byte the floor's.
-    write_temper_toml(
-        &root,
-        "[kind.skill]\n\
-         package = \"skill.anthropic\"\n",
-    );
+    write_temper_toml(&root, "[kind.skill]\npackage = \"skill.anthropic\"\n");
     let no_edge = check_in(&root);
     assert!(no_edge.ok, "an empty graph changes nothing ⇒ still zero");
     assert_eq!(
@@ -279,14 +338,21 @@ fn an_acyclic_reference_graph_passes() {
     let root = tmpdir("acyclic");
     // `rule style → skill standards`, but the skill routes nowhere — even with both
     // edge kinds declared, the graph is a DAG, so `acyclic` is clean.
-    import_harness(
+    write_harness(
         &root,
         "style",
         &routing_rule("standards"),
         "standards",
         &clean_skill("standards"),
     );
-    write_temper_toml(&root, MUTUAL_ROUTES_EDGES);
+    write_lock(
+        &root,
+        Declarations {
+            assembly: mutual_routes_edges(),
+            ..Declarations::default()
+        },
+    );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -302,14 +368,21 @@ fn a_cyclic_reference_graph_fails_the_run() {
     // `rule style → skill standards → rule style`: the rule routes to the skill and
     // the skill routes back to the rule. Both routes resolve, so the only finding is
     // the cycle — which must fail the run.
-    import_harness(
+    write_harness(
         &root,
         "style",
         &routing_rule("standards"),
         "standards",
         &routing_skill("standards", "style"),
     );
-    write_temper_toml(&root, MUTUAL_ROUTES_EDGES);
+    write_lock(
+        &root,
+        Declarations {
+            assembly: mutual_routes_edges(),
+            ..Declarations::default()
+        },
+    );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -326,21 +399,10 @@ fn a_cyclic_reference_graph_fails_the_run() {
     );
 }
 
-/// A `temper.toml` declaring the `rule → skill` `routes_to` edge plus the `gate`
-/// requirement carrying a `degree` bound (`clause`). The requirement binds no package —
-/// the degree check reads the edge graph, not a contract — so the only finding a case
-/// can produce is the degree one. `art` picks which kind the bound's satisfier nodes
-/// come from; the node opts in via `satisfies = ["gate"]` (the case authors that with
-/// [`author_satisfies`]).
-fn degree_temper_toml(art: &str, clause: &str) -> String {
-    format!(
-        "[[kind.rule.relationships]]\n\
-         field = \"routes_to\"\n\
-         to = \"skill\"\n\
-         [requirement.gate]\n\
-         kind = \"{art}\"\n\
-         degree = {{ {clause} }}\n"
-    )
+/// An inclusive `[min, max]` edge-count bound, either endpoint optional — the shape
+/// each degree case declares.
+fn edge_bound(min: Option<usize>, max: Option<usize>) -> EdgeBoundRow {
+    EdgeBoundRow { min, max }
 }
 
 #[test]
@@ -349,7 +411,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     // The rule `style` routes to the skill `standards`, so `standards` has incoming
     // degree 1. A requirement declaring the skill self-registering (`incoming = { max = 0 }`,
     // "must not be pointed at") is violated — the run fails on the degree finding.
-    import_harness(
+    write_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -359,10 +421,21 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     // The skill `standards` opts into `gate`, placing it in the degree bound's
     // satisfier set.
     author_satisfies(&root, "skills", "standards", &["gate"]);
-    write_temper_toml(
+    write_lock(
         &root,
-        &degree_temper_toml("skill", "incoming = { max = 0 }"),
+        Declarations {
+            assembly: routes_to_edge(),
+            requirements: vec![degree_requirement(
+                "skill",
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(None, Some(0))),
+                    outgoing: None,
+                },
+            )],
+            ..Declarations::default()
+        },
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -385,7 +458,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
     // Same edge and harness, but the bound ranges over the *rule* `style`: nothing
     // points at the rule (the only edge is rule → skill), so its incoming degree is
     // zero — inside `incoming = { max = 0 }`, and the run is clean.
-    import_harness(
+    write_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -394,7 +467,21 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
     );
     // The rule `style` opts into `gate`, so the bound ranges over it.
     author_satisfies(&root, "rules", "style", &["gate"]);
-    write_temper_toml(&root, &degree_temper_toml("rule", "incoming = { max = 0 }"));
+    write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_edge(),
+            requirements: vec![degree_requirement(
+                "rule",
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(None, Some(0))),
+                    outgoing: None,
+                },
+            )],
+            ..Declarations::default()
+        },
+    );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -409,7 +496,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
     let root = tmpdir("degree-routed-passes");
     // The rule routes to `standards`, so the skill has incoming degree 1 — inside the
     // open-above routed bound `incoming = { min = 1 }` ("must be reachable"). Clean.
-    import_harness(
+    write_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -418,10 +505,21 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
     );
     // The skill `standards` opts into `gate`, so the routed bound ranges over it.
     author_satisfies(&root, "skills", "standards", &["gate"]);
-    write_temper_toml(
+    write_lock(
         &root,
-        &degree_temper_toml("skill", "incoming = { min = 1 }"),
+        Declarations {
+            assembly: routes_to_edge(),
+            requirements: vec![degree_requirement(
+                "skill",
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(Some(1), None)),
+                    outgoing: None,
+                },
+            )],
+            ..Declarations::default()
+        },
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -437,7 +535,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
     // The bound ranges over the *rule* `style` and requires it reachable (`incoming =
     // { min = 1 }`), but nothing points at the rule (the only edge is rule → skill),
     // so its incoming degree is zero — outside the bound. The run fails on degree.
-    import_harness(
+    write_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -446,7 +544,21 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
     );
     // The rule `style` opts into `gate`, so the routed bound ranges over it.
     author_satisfies(&root, "rules", "style", &["gate"]);
-    write_temper_toml(&root, &degree_temper_toml("rule", "incoming = { min = 1 }"));
+    write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_edge(),
+            requirements: vec![degree_requirement(
+                "rule",
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(Some(1), None)),
+                    outgoing: None,
+                },
+            )],
+            ..Declarations::default()
+        },
+    );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(

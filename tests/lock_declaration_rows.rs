@@ -1,21 +1,25 @@
 //! The lock's declaration-row family — the composed program's erased declarations
 //! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
 //!
-//! `emit`/`import` writes a declaration-row family (kind facts, clauses, requirements —
-//! including the set-scope `count`/`unique`/`membership`/`degree` facets — assembly
-//! facts, and the member→requirement `satisfies` family) beside the existing
-//! provenance + emit-fingerprint rows, and the drift/gate side reads it back through
-//! [`temper::drift::read_declarations`]. These tests assert the family is present and
-//! populated, that a double `import` is byte-stable — the round-trip law 5 pins — and
-//! that a bare harness (no `temper.toml`) still round-trips.
+//! `emit` is the sole producer of a declaration-row family (kind facts, clauses,
+//! requirements — including the set-scope `count`/`unique`/`membership`/`degree`
+//! facets — assembly facts, and the member→requirement `satisfies` family) beside the
+//! existing provenance + emit-fingerprint rows, and the drift/gate side reads it back
+//! through [`temper::drift::read_declarations`]. These tests drive `emit` directly over
+//! hand-built [`Payload`]s — a golden-lock fixture (`tests/emit.rs`'s pattern), no
+//! scratch import — asserting the family is present and populated, that a double emit is
+//! byte-stable — the round-trip law 5 pins — and that a bare payload (no requirements,
+//! no satisfies) still round-trips.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::drift;
-use temper::import;
+use temper::drift::{
+    self, AssemblyFactRow, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow,
+    EmitOptions, KindFactRow, MembershipRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
+};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -36,67 +40,176 @@ fn tmpdir(label: &str) -> PathBuf {
     dir
 }
 
-const SKILL: &str = "---\n\
-name: coordinate\n\
-description: Use when coordinating agents across axes; not for single-axis work.\n\
----\n\
-# Coordinate\n\
-\n\
-Drive the team through the playbook.\n";
+/// The `skill` built-in kind's declaration row — the same facts `builtin_kind`'s
+/// `claude_code_skill` carries, hand-carried here since a golden lock has no live kind
+/// to derive them from (mirrors `tests/emit.rs`'s `skill_kind_facts`, plus the
+/// `activation` label this file's assertions pin).
+fn skill_kind_facts() -> KindFactRow {
+    KindFactRow {
+        name: "skill".to_string(),
+        provider: Some("claude-code".to_string()),
+        governs_root: ".claude/skills".to_string(),
+        governs_glob: "*/SKILL.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        activation: Some("description-trigger(description)".to_string()),
+    }
+}
 
-const RULE: &str = "---\n\
-paths:\n\
-  - \"src/**/*.rs\"\n\
----\n\
-# Rust conventions\n\
-\n\
-Prefer a clone over a lifetime fight.\n";
+/// The `rule` built-in kind's declaration row (`builtin_kind::claude_code_rule`).
+fn rule_kind_facts() -> KindFactRow {
+    KindFactRow {
+        name: "rule".to_string(),
+        provider: Some("claude-code".to_string()),
+        governs_root: ".claude/rules".to_string(),
+        governs_glob: "*.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("file".to_string()),
+        activation: Some("paths-match(paths)".to_string()),
+    }
+}
 
-/// A `temper.toml` declaring a surface-authority posture, a `required` requirement, a
+fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember {
+    PayloadMember {
+        kind: "skill".to_string(),
+        name: name.to_string(),
+        fields: vec![
+            ("name".to_string(), serde_json::json!(name)),
+            ("description".to_string(), serde_json::json!(description)),
+        ],
+        body: body.to_string(),
+    }
+}
+
+fn rule_member(name: &str, paths: &[&str], body: &str) -> PayloadMember {
+    PayloadMember {
+        kind: "rule".to_string(),
+        name: name.to_string(),
+        fields: vec![("paths".to_string(), serde_json::json!(paths))],
+        body: body.to_string(),
+    }
+}
+
+/// The one skill + one rule this file's payloads project.
+fn skill_and_rule_members() -> Vec<PayloadMember> {
+    vec![
+        skill_member(
+            "coordinate",
+            "Use when coordinating agents across axes; not for single-axis work.",
+            "# Coordinate\n\nDrive the team through the playbook.\n",
+        ),
+        rule_member(
+            "rust",
+            &["src/**/*.rs"],
+            "# Rust conventions\n\nPrefer a clone over a lifetime fight.\n",
+        ),
+    ]
+}
+
+/// A rich declaration set: a surface-authority posture, a `required` requirement, a
 /// second requirement exercising every set-scope facet (`count`/`unique`/`membership`/
-/// `degree`), and an in-place member that opts into both via `satisfies` — so the
-/// requirement and satisfies families carry more than the bare-harness minimum.
-const TEMPER_TOML: &str = "authority = \"surface\"\n\
-\n\
-[requirement.review-coverage]\n\
-means = \"Every shipped diff is reviewed before commit.\"\n\
-kind = \"skill\"\n\
-required = true\n\
-\n\
-[requirement.roster-coverage]\n\
-kind = \"skill\"\n\
-count = { min = 1, max = 2 }\n\
-unique = [\"name\"]\n\
-membership = { field = \"name\", kind = \"skill\", source = \"review-coverage\", feature = \"name\" }\n\
-degree = { incoming = { min = 1 }, outgoing = { max = 3 } }\n\
-\n\
-[[member]]\n\
-kind = \"skill\"\n\
-name = \"coordinate\"\n\
-source = \".claude/skills/coordinate/SKILL.md\"\n\
-satisfies = [\"review-coverage\", \"roster-coverage\"]\n";
+/// `degree`), and a member that opts into both via `satisfies` — so the requirement and
+/// satisfies families carry more than the bare-payload minimum.
+fn rich_declarations() -> Declarations {
+    Declarations {
+        kinds: vec![rule_kind_facts(), skill_kind_facts()],
+        clauses: vec![
+            ClauseRow {
+                kind: "skill".to_string(),
+                predicate: "required".to_string(),
+                field: Some("description".to_string()),
+                severity: "required".to_string(),
+            },
+            ClauseRow {
+                kind: "rule".to_string(),
+                predicate: "required".to_string(),
+                field: Some("paths".to_string()),
+                severity: "advisory".to_string(),
+            },
+        ],
+        requirements: vec![
+            RequirementRow {
+                name: "review-coverage".to_string(),
+                kind: Some("skill".to_string()),
+                package: None,
+                required: true,
+                count: None,
+                unique: Vec::new(),
+                membership: None,
+                degree: None,
+                verified_by: None,
+            },
+            RequirementRow {
+                name: "roster-coverage".to_string(),
+                kind: Some("skill".to_string()),
+                package: None,
+                required: false,
+                count: Some(CountBoundRow { min: 1, max: 2 }),
+                unique: vec!["name".to_string()],
+                membership: Some(MembershipRow {
+                    field: "name".to_string(),
+                    source: "review-coverage".to_string(),
+                    source_kind: "skill".to_string(),
+                    source_feature: "name".to_string(),
+                    source_package: None,
+                }),
+                degree: Some(DegreeBoundRow {
+                    incoming: Some(EdgeBoundRow {
+                        min: Some(1),
+                        max: None,
+                    }),
+                    outgoing: Some(EdgeBoundRow {
+                        min: None,
+                        max: Some(3),
+                    }),
+                }),
+                verified_by: None,
+            },
+        ],
+        assembly: vec![AssemblyFactRow {
+            fact: "authority".to_string(),
+            value: Some("surface".to_string()),
+            from: None,
+            field: None,
+            to: None,
+        }],
+        satisfies: vec![
+            SatisfiesRow {
+                member: "coordinate".to_string(),
+                requirement: "review-coverage".to_string(),
+            },
+            SatisfiesRow {
+                member: "coordinate".to_string(),
+                requirement: "roster-coverage".to_string(),
+            },
+        ],
+    }
+}
 
-/// Write a skill + rule harness carrying a `temper.toml`, then import it into a fresh
-/// surface, returning `(harness, into)` — the harness kept so a re-import reads the same
-/// absolute sources the lock records.
-fn imported(label: &str) -> (PathBuf, PathBuf) {
+/// The whole seam payload: the one skill + one rule member, plus `declarations`.
+fn golden_payload(declarations: Declarations) -> Payload {
+    Payload {
+        version: drift::SEAM_VERSION,
+        declarations,
+        members: skill_and_rule_members(),
+    }
+}
+
+/// Compile `payload`'s projections and its whole lock into a fresh `<harness>/.temper`
+/// pair (`tests/emit.rs`'s `workspace` pattern) — the golden-lock fixture standing in for
+/// `import::run`, the retired scratch-copy producer.
+fn emitted(label: &str, payload: &Payload) -> (PathBuf, PathBuf) {
     let harness = tmpdir(&format!("{label}-src"));
-    let skill = harness.join(".claude").join("skills").join("coordinate");
-    fs::create_dir_all(&skill).unwrap();
-    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
-    let rules = harness.join(".claude").join("rules");
-    fs::create_dir_all(&rules).unwrap();
-    fs::write(rules.join("rust.md"), RULE).unwrap();
-    fs::write(harness.join("temper.toml"), TEMPER_TOML).unwrap();
-
-    let into = tmpdir(&format!("{label}-into"));
-    import::run(&harness, &into).unwrap();
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    drift::emit(payload, &into, EmitOptions::default()).unwrap();
     (harness, into)
 }
 
 #[test]
 fn lock_carries_all_four_declaration_families() {
-    let (_harness, into) = imported("families");
+    let payload = golden_payload(rich_declarations());
+    let (_harness, into) = emitted("families", &payload);
     let declarations = drift::read_declarations(&into).unwrap();
 
     // Kind facts: one per member-discovering built-in kind, name-sorted, carrying the
@@ -190,16 +303,17 @@ fn lock_carries_all_four_declaration_families() {
 }
 
 #[test]
-fn a_double_import_is_byte_stable() {
-    let (harness, into) = imported("byte-stable");
+fn a_double_emit_is_byte_stable() {
+    let payload = golden_payload(rich_declarations());
+    let (_harness, into) = emitted("byte-stable", &payload);
     let lock = into.join("lock.toml");
     let first = fs::read(&lock).unwrap();
 
-    // The declaration rows are a pure function of the same extraction, so re-importing the
-    // same harness reproduces the whole lock byte-for-byte (law 5; import idempotence).
-    import::run(&harness, &into).unwrap();
+    // The declaration rows are a pure function of the same payload, so re-emitting
+    // reproduces the whole lock byte-for-byte (law 5; emit idempotence).
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let second = fs::read(&lock).unwrap();
-    assert_eq!(first, second, "a re-import must not churn the lock");
+    assert_eq!(first, second, "a re-emit must not churn the lock");
 
     // The declaration table survived the round-trip: reading it back yields the same
     // populated families.
@@ -211,22 +325,18 @@ fn a_double_import_is_byte_stable() {
     assert!(!declarations.satisfies.is_empty());
 }
 
-/// A harness with no `temper.toml` at all (no requirements, no members) still imports
-/// and round-trips: the requirement/satisfies families are simply empty, never an error
-/// or a malformed row — the bootstrap's tolerant-read discipline extends to the new
-/// facets exactly as it does the existing ones.
+/// A payload with no requirements/satisfies/assembly facts at all still emits and
+/// round-trips: those families are simply empty, never an error or a malformed row —
+/// the bootstrap's tolerant-read discipline extends to the new facets exactly as it
+/// does the existing ones.
 #[test]
 fn a_bare_harness_lock_still_round_trips() {
-    let harness = tmpdir("bare-src");
-    let skill = harness.join(".claude").join("skills").join("coordinate");
-    fs::create_dir_all(&skill).unwrap();
-    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
-    let rules = harness.join(".claude").join("rules");
-    fs::create_dir_all(&rules).unwrap();
-    fs::write(rules.join("rust.md"), RULE).unwrap();
-
-    let into = tmpdir("bare-into");
-    import::run(&harness, &into).unwrap();
+    let payload = golden_payload(Declarations {
+        kinds: vec![rule_kind_facts(), skill_kind_facts()],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("bare", &payload);
 
     let declarations = drift::read_declarations(&into).unwrap();
     assert!(!declarations.kinds.is_empty());

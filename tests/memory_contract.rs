@@ -4,15 +4,16 @@
 //! The gate already *dispatches* memory members (`tests/memory_gate.rs` drives
 //! `check --harness` and proves the `max_lines` advisory fires/stays-silent,
 //! un-double-reported across the two providers). What no test carried was the
-//! **adapter read/emit face over a File-shaped unit with no YAML frontmatter**:
-//! `adapter_fidelity.rs` exercises the frontmatter faces over `.claude/` members that
-//! all declare `format = "yaml-frontmatter"`, never a repo-root frontmatterless
-//! `CLAUDE.md`. This pins that gap:
+//! **adapter read/emit face over a File-shaped unit with no YAML frontmatter** — the
+//! retired `adapter_fidelity.rs` exercised the frontmatter faces only over `.claude/`
+//! members that all declare `format = "yaml-frontmatter"`, never a repo-root
+//! frontmatterless `CLAUDE.md`. This pins that gap:
 //!
 //! - a `unit_shape = "file"`, `format`-less `claude-code.memory` member (a repo-root
-//!   `CLAUDE.md`) imports and **re-emits idempotently** — the import face projects it
-//!   to its surface member document, a re-import changes not one byte (`insta`
-//!   snapshot), and the emit→reload cycle is a byte fixpoint;
+//!   `CLAUDE.md`) compiles from a hand-built seam payload (`tests/emit.rs`'s pattern —
+//!   `emit` is the sole producer, `specs/architecture/20-surface.md`, "The lock and
+//!   drift") and **re-emits idempotently** — the emit face projects it to its harness
+//!   locus with no fabricated frontmatter, and a second emit changes not one byte;
 //! - the whole frontmatterless file is the byte-faithful body — the read face lifts no
 //!   clause module, because the source declares no frontmatter field;
 //! - the two bare-`memory` providers (`claude-code.memory` + `agents-md.memory`)
@@ -24,14 +25,13 @@
 //! `max_lines` fire/silent is *not* re-tested here — `memory_gate.rs` already owns it
 //! across the real `check --harness` process boundary.
 
-use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 use temper::frontmatter::Member;
-use temper::import;
 use temper::kind::KindError;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -63,88 +63,63 @@ Guidance the harness reads into every session.\n\
 Prefer a clone over a lifetime fight.   \n\
 Keep it correct, clear, well-tested.";
 
-/// The `source_path` recorded in `lock.toml` / the member document's `[provenance]` is
-/// the absolute origin of the scratch harness, which varies per run and per machine.
-/// Redact just that path so the snapshot pins everything content-derived (the hash, the
-/// header shape, the body) without pinning an unstable absolute path.
-fn memory_filters() -> Vec<(&'static str, &'static str)> {
-    vec![(
-        r#"source_path = "[^"]*CLAUDE\.md""#,
-        r#"source_path = "[HARNESS]/CLAUDE.md""#,
-    )]
+/// The `memory` kind's declaration row over the `claude-code` provider's own governs
+/// locus (`root = "."`, `glob = "CLAUDE.md"`) — the golden lock fact standing in for a
+/// live kind, since `emit` needs no harness scan to compile a hand-built payload.
+fn memory_kind_facts() -> KindFactRow {
+    KindFactRow {
+        name: "memory".to_string(),
+        provider: Some("claude-code".to_string()),
+        governs_root: ".".to_string(),
+        governs_glob: "CLAUDE.md".to_string(),
+        format: None,
+        unit_shape: Some("file".to_string()),
+        activation: None,
+    }
 }
 
-/// Render an imported surface tree as a single reviewable string: each file as a
-/// `--- <relative/path> ---` header (forward slashes) followed by its contents, sorted
-/// by path. Two imports rendering identically *is* the byte-stable / no-diff contract.
-fn render_surface(dir: &Path) -> String {
-    let mut files = BTreeMap::new();
-    for entry in walkdir::WalkDir::new(dir).min_depth(1).sort_by_file_name() {
-        let entry = entry.unwrap();
-        if !entry.file_type().is_file() {
-            continue;
-        }
-        let rel = entry
-            .path()
-            .strip_prefix(dir)
-            .unwrap()
-            .to_string_lossy()
-            .replace('\\', "/");
-        files.insert(rel, fs::read_to_string(entry.path()).unwrap());
-    }
-
-    let mut out = String::new();
-    for (rel, body) in files {
-        out.push_str(&format!("--- {rel} ---\n"));
-        out.push_str(&body);
-        if !body.ends_with('\n') {
-            out.push('\n');
-        }
-    }
-    out
-}
-
-/// The read/emit face over a File-shaped frontmatterless member: `temper import`
-/// projects a repo-root `CLAUDE.md` to its surface member document, a re-import is
-/// byte-identical, and the emit→reload cycle is a byte fixpoint — round-trip discipline
-/// (`.claude/rules/rust.md`) over the shape `adapter_fidelity.rs` never covered.
+/// The read/emit face over a File-shaped frontmatterless member: `emit` compiles a
+/// repo-root `CLAUDE.md` from a hand-built seam payload and re-emits idempotently — the
+/// emit face projects it to its harness locus with no fabricated frontmatter, and a
+/// second emit changes not one byte — round-trip discipline (`.claude/rules/rust.md`)
+/// over the shape `adapter_fidelity.rs` never covered.
 #[test]
-fn a_frontmatterless_claude_md_imports_and_re_emits_idempotently() {
-    let harness = tmpdir("roundtrip-src");
-    fs::write(harness.join("CLAUDE.md"), CLAUDE_MD).unwrap();
+fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
+    let harness = tmpdir("roundtrip");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
 
-    // Read face: `import` discovers the repo-root `CLAUDE.md` off the `claude-code.memory`
-    // `governs` locus (`root = "."`, `glob = "CLAUDE.md"`) and projects it to the surface.
-    let into = tmpdir("roundtrip-into");
-    import::run(&harness, &into).unwrap();
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![memory_kind_facts()],
+            ..Declarations::default()
+        },
+        members: vec![PayloadMember {
+            kind: "memory".to_string(),
+            name: "CLAUDE".to_string(),
+            fields: Vec::new(),
+            body: CLAUDE_MD.to_string(),
+        }],
+    };
 
-    // Emit face: the projected surface — a `[[memory]]` lock row plus the member document
-    // `CLAUDE/MEMORY.md`, whose `+++` header carries only `[provenance]` (a frontmatterless
-    // source lifts no clause module) over the byte-faithful body. Snapshot it whole.
-    let surface = render_surface(&into);
-    insta::with_settings!({filters => memory_filters()}, {
-        insta::assert_snapshot!("frontmatterless_memory_surface", surface);
-    });
-
-    // Idempotence: re-importing the unchanged harness into a fresh surface reproduces
-    // every byte — the read→emit faces compose to a fixpoint (`.claude/rules/rust.md`).
-    let into2 = tmpdir("roundtrip-into2");
-    import::run(&harness, &into2).unwrap();
+    // Emit face: a frontmatterless member (no `fields`) projects as the byte-faithful
+    // body alone — no fabricated `---\n---\n` header.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let claude_md = harness.join("CLAUDE.md");
     assert_eq!(
-        surface,
-        render_surface(&into2),
-        "a re-import of the unchanged CLAUDE.md must change not one byte"
+        fs::read_to_string(&claude_md).unwrap(),
+        CLAUDE_MD,
+        "a frontmatterless memory member projects as its byte-faithful body alone"
     );
 
-    // Reload fixpoint: the written member document read back through the surface face and
-    // re-emitted is byte-identical — `Member::from_surface` and `to_document` are inverses
-    // over the frontmatterless member, no drift on the emit side.
-    let member_dir = into.join("CLAUDE");
-    let reloaded = Member::from_surface(&member_dir, "MEMORY.md").unwrap();
+    // Idempotence: a second emit over the unchanged payload changes not one byte — the
+    // read→emit faces compose to a fixpoint (`.claude/rules/rust.md`).
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert_eq!(
-        reloaded.to_document().emit(),
-        fs::read_to_string(member_dir.join("MEMORY.md")).unwrap(),
-        "reloading and re-emitting the member document must be a byte fixpoint"
+        fs::read_to_string(&claude_md).unwrap(),
+        CLAUDE_MD,
+        "a re-emit of the unchanged payload must change not one byte"
     );
 
     // Body faithfulness, at the adapter read face directly over the real embedded kind: a
@@ -155,7 +130,7 @@ fn a_frontmatterless_claude_md_imports_and_re_emits_idempotently() {
         .unwrap()
         .remove("claude-code.memory")
         .expect("the embedded claude-code.memory kind resolves by qualified identity");
-    let member = Member::from_source_rooted(&kind, &harness.join("CLAUDE.md"), &harness).unwrap();
+    let member = Member::from_source_rooted(&kind, &claude_md, &harness).unwrap();
     assert!(
         member.fields.is_empty(),
         "a frontmatterless source declares no field, so the read face lifts no clause"

@@ -677,20 +677,34 @@ fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
     ]
 }
 
-/// Build a seam [`temper::drift::Payload`] from a loaded [`temper::check::Workspace`] —
-/// the fixture's stand-in for the SDK program (`tests/emit.rs`'s dedicated test drives
-/// the real seam).
-fn payload_from_workspace(ws: &temper::check::Workspace) -> temper::drift::Payload {
-    let mut members = Vec::new();
-    for skill in ws.skills() {
-        members.push(temper::drift::PayloadMember {
-            kind: "skill".to_string(),
-            name: skill.id.clone(),
-            fields: skill.fields.clone(),
-            body: skill.body.clone(),
-        });
-    }
-    for rule in ws.rules() {
+/// Build a seam [`temper::drift::Payload`] by reading each real harness member — the
+/// skill and both rules `write_harness` lays down — directly through the generic
+/// frontmatter adapter ([`temper::frontmatter::Member::from_source`]), the same read
+/// face `check`'s live off-disk walk uses: the fixture's stand-in for the SDK program
+/// (`tests/emit.rs`'s dedicated test drives the real seam).
+fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+
+    let skill_path = harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let skill = temper::frontmatter::Member::from_source(&skill_kind, &skill_path).unwrap();
+    let mut members = vec![temper::drift::PayloadMember {
+        kind: "skill".to_string(),
+        name: skill.id.clone(),
+        fields: skill.fields.clone(),
+        body: skill.body.clone(),
+    }];
+
+    for rule_name in ["rust", "collaboration"] {
+        let rule_path = harness
+            .join(".claude")
+            .join("rules")
+            .join(format!("{rule_name}.md"));
+        let rule = temper::frontmatter::Member::from_source(&rule_kind, &rule_path).unwrap();
         members.push(temper::drift::PayloadMember {
             kind: "rule".to_string(),
             name: rule.id.clone(),
@@ -698,6 +712,7 @@ fn payload_from_workspace(ws: &temper::check::Workspace) -> temper::drift::Paylo
             body: rule.body.clone(),
         });
     }
+
     temper::drift::Payload {
         version: temper::drift::SEAM_VERSION,
         declarations: temper::drift::Declarations {
@@ -708,16 +723,14 @@ fn payload_from_workspace(ws: &temper::check::Workspace) -> temper::drift::Paylo
     }
 }
 
-/// Import `harness` into a fresh surface (`<harness>/.temper`, the seam's own
-/// topology — `drift::emit` derives the projection root from the workspace's
-/// parent) and emit it back onto the harness sources — the round-trip the two
-/// projectors share. Returns nothing; the caller re-reads the projections `emit`
-/// wrote.
-fn import_then_emit(harness: &Path) {
+/// Re-emit `harness`'s current real members back onto themselves (`<harness>/.temper`,
+/// the seam's own topology — `drift::emit` derives the projection root from the
+/// workspace's parent) — the round-trip the two projectors share. Returns nothing; the
+/// caller re-reads the projections `emit` wrote.
+fn emit_from_harness(harness: &Path) {
     let into = harness.join(".temper");
-    temper::import::run(harness, &into).unwrap();
-    let ws = temper::check::Workspace::load(&into).unwrap();
-    let payload = payload_from_workspace(&ws);
+    fs::create_dir_all(&into).unwrap();
+    let payload = payload_from_harness(harness);
     temper::drift::emit(
         &payload,
         &into,
@@ -738,7 +751,7 @@ fn emit_never_stamps_the_managed_by_note() {
     // install-placed note SURVIVES emit — is `install_placements_survive_a_subsequent_emit`.)
     let harness = write_harness("emit-no-note", false);
     // No `install` runs, so the sources carry neither the note nor the modeline.
-    import_then_emit(&harness);
+    emit_from_harness(&harness);
 
     for rel in frontmatter_projections() {
         let projected = fs::read_to_string(harness.join(&rel)).unwrap();
@@ -773,7 +786,7 @@ fn install_placements_survive_a_subsequent_emit() {
     let before = fs::read_to_string(harness.join(skill_rel)).unwrap();
     assert!(before.contains(NOTE_MARKER) && before.contains(skill_modeline));
 
-    import_then_emit(&harness);
+    emit_from_harness(&harness);
 
     // Both install-placed lines round-trip the re-emit verbatim, on every frontmatter
     // projection — the modeline's exact bytes (no reflow) and the note's marker.

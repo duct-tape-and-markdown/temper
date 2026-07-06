@@ -57,19 +57,32 @@ paths:\n\
 \n\
 Prefer a clone over a lifetime fight.\n";
 
-/// Build a one-skill, one-rule harness and import it into a surface workspace,
-/// returning the surface path.
+/// Build a one-skill, one-rule surface workspace directly — the shape `bundle` reads
+/// via [`temper::check::Workspace::load`] (`<surface>/<kind's surface subdir>/<id>/<member
+/// doc>`) — by projecting each member through the same generic frontmatter adapter
+/// `import` used, no scratch harness or import verb needed.
 fn imported_surface(label: &str) -> PathBuf {
-    let harness = tmpdir(&format!("{label}-harness"));
-    let skill = harness.join(".claude").join("skills").join("coordinate");
-    fs::create_dir_all(&skill).unwrap();
-    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
-    let rules = harness.join(".claude").join("rules");
-    fs::create_dir_all(&rules).unwrap();
-    fs::write(rules.join("rust.md"), RULE).unwrap();
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+
+    let src = tmpdir(&format!("{label}-src"));
+    let skill_src = src.join("SKILL.md");
+    fs::write(&skill_src, SKILL).unwrap();
+    let skill = temper::frontmatter::Member::from_source(&skill_kind, &skill_src).unwrap();
+
+    let rule_src = src.join("rust.md");
+    fs::write(&rule_src, RULE).unwrap();
+    let rule = temper::frontmatter::Member::from_source(&rule_kind, &rule_src).unwrap();
 
     let surface = tmpdir(&format!("{label}-surface"));
-    temper::import::run(&harness, &surface).unwrap();
+    let skill_dir = surface.join("skills").join("coordinate");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(skill_dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+
+    let rule_dir = surface.join("rules").join("rust");
+    fs::create_dir_all(&rule_dir).unwrap();
+    fs::write(rule_dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+
     surface
 }
 

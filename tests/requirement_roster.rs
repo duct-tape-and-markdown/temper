@@ -3,12 +3,13 @@
 //! requirement's **satisfier set** (`specs/architecture/10-contracts.md`, "Requirements — the
 //! harness's named obligations"; `specs/architecture/45-governance.md`, "The set scope").
 //!
-//! Drives the built `temper` binary so the whole path is pinned: `temper.toml`
-//! discovery at the project root, parsing its `[requirement.<name>]` tables onto the
-//! author layer, and running the roster over the imported skills and their authored
-//! `[representation].satisfies` opt-in. The name-`match` selector is eradicated —
-//! opt-in `satisfies` is the sole fill — so a satisfier set is the artifacts of a
-//! requirement's `kind` whose `satisfies` names it.
+//! Drives the built `temper` binary so the whole path is pinned: a golden lock at the
+//! project root carrying the declared requirements (`specs/architecture/20-surface.md`,
+//! "The lock and drift — one vocabulary" — the gate sources requirements from the lock,
+//! never a re-imported `temper.toml`), and running the roster over the harness's live
+//! skills and their authored `satisfies` opt-in. The name-`match` selector is
+//! eradicated — opt-in `satisfies` is the sole fill — so a satisfier set is the
+//! artifacts of a requirement's `kind` whose `satisfies` names it.
 //!
 //! The cases mirror the entry's acceptance:
 //! - conformance validates the satisfiers against the requirement's bound package;
@@ -25,6 +26,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use temper::drift::{self, Declarations, EmitOptions, MembershipRow, Payload, RequirementRow};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -60,58 +63,57 @@ fn clean_skill(name: &str) -> String {
     )
 }
 
-/// Project a one-skill harness into `<root>/.temper` via the real `import` verb, so
-/// the workspace `check` reads is built exactly as a user's would be. The surface
-/// directory is the skill `name`, so the floor's `name-matches-dir` clause holds. The
-/// harness *is* `root` (`.claude/` beside `.temper/` and `temper.toml`) so a later
-/// [`write_temper_toml`] resync sees the same tree a real invocation would.
-fn import_skill(root: &Path, name: &str, skill_md: &str) {
+/// Write a one-skill harness member directly at its real Claude Code locus
+/// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
+/// live off harness disk (`specs/architecture/20-surface.md`, "The lock and drift"), no
+/// scratch import.
+fn write_skill(root: &Path, name: &str, skill_md: &str) {
     let dir = root.join(".claude").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
-    sync(root);
 }
 
-/// Re-run `import` over `root` (harness == root), refreshing the surface and the
-/// lock's declaration rows (`specs/architecture/20-surface.md`, "The lock and drift") from
-/// whatever `root/temper.toml` currently declares — the gate's assembly source
-/// (MANIFEST-MACHINERY-RETIRE). `import` merges surface edits forward rather than
-/// clobbering them (`write_member_surface`), so a prior `author_satisfies`/
-/// `author_published` survives the resync. A malformed `temper.toml` fails here too;
-/// ignored so the case's own `check_in` still observes the same load error the real
-/// binary would.
-fn sync(root: &Path) {
-    let _ = temper::import::run(root, &root.join(".temper"));
-}
-
-/// Author the `[satisfies.<requirement>]` opt-in modules on an imported skill's
-/// surface `SKILL.md` document — the binding the roster reads to build a
-/// requirement's satisfier set. `import` never writes them (they are
-/// surface-authored, not frontmatter), so a case adds them exactly as a human editing
-/// the member document would, via the same projection the tool uses.
+/// Author a member's `satisfies` links on its surface overlay
+/// (`<root>/.temper/skills/<name>/SKILL.md`) — the projected document a live off-disk
+/// walk grafts a member's fill edges from (`specs/architecture/20-surface.md`, "The
+/// lock and drift"); the real harness file itself carries no temper annotation.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
-    let dir = root.join(".temper").join("skills").join(name);
-    let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let source = root
+        .join(".claude")
+        .join("skills")
+        .join(name)
+        .join("SKILL.md");
+    let mut skill = temper::frontmatter::Member::from_source(&skill_kind, &source).unwrap();
     skill.satisfies = requirements
         .iter()
         .map(|r| temper::document::Satisfies::new(*r))
         .collect();
+
+    let dir = root.join(".temper").join("skills").join(name);
+    fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
-/// Author the `[requirement.<name>]` modules a member `name` **publishes** on its
-/// surface `SKILL.md` — the demand side of the fill edge, the mirror of
-/// [`author_satisfies`]. `import` never writes them (surface-authored), so a case
-/// adds them via the same projection the tool uses, exactly as a human editing the
-/// member header would.
+/// Author the requirements a member **publishes** on its surface overlay — the demand
+/// side of the fill edge, the mirror of [`author_satisfies`], grafted from the same
+/// live off-disk walk.
 fn author_published(
     root: &Path,
     name: &str,
     published: Vec<temper::document::PublishedRequirement>,
 ) {
-    let dir = root.join(".temper").join("skills").join(name);
-    let mut skill = temper::frontmatter::Member::from_surface(&dir, "SKILL.md").unwrap();
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let source = root
+        .join(".claude")
+        .join("skills")
+        .join(name)
+        .join("SKILL.md");
+    let mut skill = temper::frontmatter::Member::from_source(&skill_kind, &source).unwrap();
     skill.published_requirements = published;
+
+    let dir = root.join(".temper").join("skills").join(name);
+    fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
@@ -158,11 +160,46 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
-/// Write `<root>/temper.toml`, then resync so the lock's declaration rows — the
-/// gate's assembly source — reflect it.
+/// Write `<root>/temper.toml` verbatim, with no resync: requirements ride the lock
+/// (`write_requirements`), so this is only for the assembly-scope facets `temper.toml`
+/// still carries (a `[kind.*]` package registration, …), for a deliberately malformed
+/// document a load-error case parses directly, and — written empty — to flip the
+/// assembly from absent to present.
 fn write_temper_toml(root: &Path, contents: &str) {
     fs::write(root.join("temper.toml"), contents).unwrap();
-    sync(root);
+}
+
+/// A bare `RequirementRow` naming `name` and typed to `kind`, otherwise empty — the
+/// starting point each case's builder customizes.
+fn requirement(name: &str, kind: &str) -> RequirementRow {
+    RequirementRow {
+        name: name.to_string(),
+        kind: Some(kind.to_string()),
+        package: None,
+        required: false,
+        count: None,
+        unique: Vec::new(),
+        membership: None,
+        degree: None,
+        verified_by: None,
+    }
+}
+
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
+/// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
+/// projection of a `temper.toml` `[requirement.*]` table: the gate sources
+/// requirements from the lock, never a re-imported assembly
+/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            requirements,
+            ..Declarations::default()
+        },
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
 // ---- conformance: satisfiers validated against the requirement's package ----
@@ -181,15 +218,17 @@ fn a_satisfier_violating_its_bound_package_reports_a_finding() {
     // forbids a `description` frontmatter key, which every skill carries (its own
     // floor requires it) — a cross-kind package a skill satisfier is checked against
     // *in addition to* its own kind's floor.
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         package = \"rule.anthropic\"\n\
-         required = true\n",
+        vec![RequirementRow {
+            package: Some("rule.anthropic".to_string()),
+            required: true,
+            ..requirement("planner", "skill")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -211,15 +250,17 @@ fn a_satisfier_conforming_to_its_bound_package_is_clean() {
     // The same lone satisfier, but bound to `memory.anthropic` — a single advisory
     // `max_lines` cap the short floor-clean body stays within — so conformance adds
     // nothing and the run is clean.
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         package = \"memory.anthropic\"\n\
-         required = true\n",
+        vec![RequirementRow {
+            package: Some("memory.anthropic".to_string()),
+            required: true,
+            ..requirement("planner", "skill")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -236,15 +277,17 @@ fn a_requirement_binding_a_builtin_package_by_name_composes() {
     // satisfiers are checked by that package's contract *in addition to* their own
     // kind's floor. A floor-clean skill within `skill.anthropic` passes, proving the
     // by-name built-in binding resolves and composes.
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         package = \"skill.anthropic\"\n\
-         required = true\n",
+        vec![RequirementRow {
+            package: Some("skill.anthropic".to_string()),
+            required: true,
+            ..requirement("planner", "skill")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -256,15 +299,14 @@ fn a_requirement_binding_a_builtin_package_by_name_composes() {
 
 // ---- set scope: the `count` cardinality bound over the satisfier set -------
 
-/// A `temper.toml` whose `agents` requirement bounds its satisfier-set cardinality to
+/// The `agents` requirement's `count` row bounding its satisfier-set cardinality to
 /// `[min, max]` — the set-scope `count` predicate. No `required` flag rides alongside
 /// (`count` is its general form). The satisfiers are the skills opting into `agents`.
-fn count_band_toml(min: usize, max: usize) -> String {
-    format!(
-        "[requirement.agents]\n\
-         kind = \"skill\"\n\
-         count = {{ min = {min}, max = {max} }}\n"
-    )
+fn count_band_requirement(min: usize, max: usize) -> RequirementRow {
+    RequirementRow {
+        count: Some(temper::drift::CountBoundRow { min, max }),
+        ..requirement("agents", "skill")
+    }
 }
 
 #[test]
@@ -272,11 +314,12 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
     let root = tmpdir("count-over");
     // Two skills opt into `agents`; the band caps the satisfier count at one, so two
     // is out of band.
-    import_skill(&root, "agent-one", &clean_skill("agent-one"));
-    import_skill(&root, "agent-two", &clean_skill("agent-two"));
+    write_skill(&root, "agent-one", &clean_skill("agent-one"));
+    write_skill(&root, "agent-two", &clean_skill("agent-two"));
     author_satisfies(&root, "agent-one", &["agents"]);
     author_satisfies(&root, "agent-two", &["agents"]);
-    write_temper_toml(&root, &count_band_toml(0, 1));
+    write_requirements(&root, vec![count_band_requirement(0, 1)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -297,11 +340,12 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
 fn a_count_band_is_clean_within_bounds() {
     let root = tmpdir("count-ok");
     // Two skills opt into `agents`, inside a `[1, 2]` band — clean.
-    import_skill(&root, "agent-one", &clean_skill("agent-one"));
-    import_skill(&root, "agent-two", &clean_skill("agent-two"));
+    write_skill(&root, "agent-one", &clean_skill("agent-one"));
+    write_skill(&root, "agent-two", &clean_skill("agent-two"));
     author_satisfies(&root, "agent-one", &["agents"]);
     author_satisfies(&root, "agent-two", &["agents"]);
-    write_temper_toml(&root, &count_band_toml(1, 2));
+    write_requirements(&root, vec![count_band_requirement(1, 2)]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -334,16 +378,18 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
     let root = tmpdir("unique-bad");
     // Two `agents` satisfiers share `model = opus`; `unique = ["model"]` requires each
     // distinct across the satisfier set.
-    import_skill(&root, "agent-a", &model_skill("agent-a", "opus"));
-    import_skill(&root, "agent-b", &model_skill("agent-b", "opus"));
+    write_skill(&root, "agent-a", &model_skill("agent-a", "opus"));
+    write_skill(&root, "agent-b", &model_skill("agent-b", "opus"));
     author_satisfies(&root, "agent-a", &["agents"]);
     author_satisfies(&root, "agent-b", &["agents"]);
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.agents]\n\
-         kind = \"skill\"\n\
-         unique = [\"model\"]\n",
+        vec![RequirementRow {
+            unique: vec!["model".to_string()],
+            ..requirement("agents", "skill")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -369,14 +415,16 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
     // A floor-clean skill opts into the requirement (so coverage is satisfied), but the
     // requirement is typed to `command` — a kind `temper` does not model — so a
     // required requirement over it can never be filled.
-    import_skill(&root, "lint-rust", &clean_skill("lint-rust"));
+    write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
     author_satisfies(&root, "lint-rust", &["releaser"]);
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.releaser]\n\
-         kind = \"command\"\n\
-         required = true\n",
+        vec![RequirementRow {
+            required: true,
+            ..requirement("releaser", "command")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -398,15 +446,17 @@ fn a_requirement_binding_an_unresolvable_package_is_inadmissible() {
     // The satisfier keeps coverage clean; the only fault is the bound `package` name
     // matching no built-in and no `.temper/packages/` project package — `names a real
     // package`, admissibility's finding.
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         package = \"does-not-exist\"\n\
-         required = true\n",
+        vec![RequirementRow {
+            package: Some("does-not-exist".to_string()),
+            required: true,
+            ..requirement("planner", "skill")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -436,15 +486,17 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
     let root = tmpdir("admit-dangling-verifier");
     // Coverage and conformance are clean (a satisfier, no package shape); the sole
     // fault is `verified_by` naming a path that does not exist under the root.
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         required = true\n\
-         verified_by = \"tests/does-not-exist.rs\"\n",
+        vec![RequirementRow {
+            required: true,
+            verified_by: Some("tests/does-not-exist.rs".to_string()),
+            ..requirement("planner", "skill")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -463,20 +515,22 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
 #[test]
 fn a_roster_whose_packages_and_verifiers_all_resolve_passes() {
     let root = tmpdir("admit-clean");
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
 
     // An admissible bound package (built-in, so it resolves and admits by
     // construction) and a `verified_by` path that exists under the root.
     fs::write(root.join("plan.rs"), "// a present verifier\n").unwrap();
-    write_temper_toml(
+    write_requirements(
         &root,
-        "[requirement.planner]\n\
-         kind = \"skill\"\n\
-         package = \"memory.anthropic\"\n\
-         required = true\n\
-         verified_by = \"plan.rs\"\n",
+        vec![RequirementRow {
+            package: Some("memory.anthropic".to_string()),
+            required: true,
+            verified_by: Some("plan.rs".to_string()),
+            ..requirement("planner", "skill")
+        }],
     );
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -488,20 +542,26 @@ fn a_roster_whose_packages_and_verifiers_all_resolve_passes() {
 
 // ---- set scope: the `membership` roster predicate --------------------------
 
-/// A `temper.toml` whose `agents` requirement constrains each satisfier's `model` to
-/// the `model` feature drawn from the `approved-model` satisfier set (S₂) — the
-/// set-scope `membership` predicate, with a corpus-derived allowed set. The `source`
-/// names a *declared* requirement (below), so the approved skills' `satisfies` link
-/// resolves. The `agents` requirement binds no package (no shape gate), leaving
+/// The `agents` + `approved-model` requirement rows: `agents` constrains each
+/// satisfier's `model` to the `model` feature drawn from the `approved-model`
+/// satisfier set (S₂) — the set-scope `membership` predicate, with a corpus-derived
+/// allowed set. `source` names a *declared* requirement, so the approved skills'
+/// `satisfies` link resolves. `agents` binds no package (no shape gate), leaving
 /// membership the only gate these cases exercise.
-fn membership_requirement_toml() -> &'static str {
-    "[requirement.agents]\n\
-     kind = \"skill\"\n\
-     membership = { field = \"model\", kind = \"skill\", source = \"approved-model\", feature = \"model\" }\n\
-     \n\
-     [requirement.approved-model]\n\
-     kind = \"skill\"\n\
-     means = \"a skill on the approved-model roster\"\n"
+fn membership_requirements() -> Vec<RequirementRow> {
+    vec![
+        RequirementRow {
+            membership: Some(MembershipRow {
+                field: "model".to_string(),
+                source: "approved-model".to_string(),
+                source_kind: "skill".to_string(),
+                source_feature: "model".to_string(),
+                source_package: None,
+            }),
+            ..requirement("agents", "skill")
+        },
+        requirement("approved-model", "skill"),
+    ]
 }
 
 #[test]
@@ -509,15 +569,16 @@ fn a_membership_requirement_fires_when_a_satisfier_is_outside_the_derived_set() 
     let root = tmpdir("membership-bad");
     // The approved set draws `{ opus }` from the lone `approved-model` satisfier; the
     // `agent-gpt` satisfier declares `gpt`, which is not in it.
-    import_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
-    import_skill(
+    write_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
+    write_skill(
         &root,
         "approved-opus",
         &model_skill("approved-opus", "opus"),
     );
     author_satisfies(&root, "agent-gpt", &["agents"]);
     author_satisfies(&root, "approved-opus", &["approved-model"]);
-    write_temper_toml(&root, membership_requirement_toml());
+    write_requirements(&root, membership_requirements());
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -538,15 +599,16 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
     let root = tmpdir("membership-ok");
     // The `agent-opus` satisfier's `model` is drawn from the approved set `{ opus }`,
     // so membership is satisfied and the whole run is clean.
-    import_skill(&root, "agent-opus", &model_skill("agent-opus", "opus"));
-    import_skill(
+    write_skill(&root, "agent-opus", &model_skill("agent-opus", "opus"));
+    write_skill(
         &root,
         "approved-opus",
         &model_skill("approved-opus", "opus"),
     );
     author_satisfies(&root, "agent-opus", &["agents"]);
     author_satisfies(&root, "approved-opus", &["approved-model"]);
-    write_temper_toml(&root, membership_requirement_toml());
+    write_requirements(&root, membership_requirements());
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -576,18 +638,18 @@ fn tiered_skill(name: &str, model: &str, tier: &str) -> String {
     )
 }
 
-/// Import the two `approved-model` sources both typed-reference cases share and opt
+/// Write the two `approved-model` sources both typed-reference cases share and opt
 /// each into `approved-model`: an `official` source carrying `opus` and a `draft`
 /// source carrying `gpt`. Under a `conforms_to` = official constraint only the first
 /// is a member-contributing source, so `gpt` comes *solely* from a non-conforming
 /// source.
-fn import_tiered_sources(root: &Path) {
-    import_skill(
+fn write_tiered_sources(root: &Path) {
+    write_skill(
         root,
         "approved-opus",
         &tiered_skill("approved-opus", "opus", "official"),
     );
-    import_skill(
+    write_skill(
         root,
         "approved-gpt",
         &tiered_skill("approved-gpt", "gpt", "draft"),
@@ -609,10 +671,11 @@ fn dropping_the_conforms_to_puts_the_same_value_back_in_the_set() {
     // The exact same corpus, but the membership carries no `conforms_to`: now the
     // non-conforming `approved-gpt` source contributes `gpt` to the derived set, so
     // `agent-gpt` is in-set and the run is silent — the constraint was the only gate.
-    import_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
+    write_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
     author_satisfies(&root, "agent-gpt", &["agents"]);
-    import_tiered_sources(&root);
-    write_temper_toml(&root, membership_requirement_toml());
+    write_tiered_sources(&root);
+    write_requirements(&root, membership_requirements());
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
@@ -627,12 +690,13 @@ fn dropping_the_conforms_to_puts_the_same_value_back_in_the_set() {
 #[test]
 fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
     let root = tmpdir("match-unknown-key");
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
     // The name-`match` selector is gone — fill is opt-in `satisfies` alone. A leftover
     // `match = {…}` is no longer a facet but an unknown key, rejected loudly at load
     // rather than silently dropped (`specs/architecture/10-contracts.md`, "Decision: unknown keys
-    // are rejected, not ignored").
+    // are rejected, not ignored"). This is `temper.toml`'s own parse-time admissibility —
+    // unrelated to the lock, so the malformed document is authored directly.
     write_temper_toml(
         &root,
         "[requirement.planner]\n\
@@ -657,15 +721,15 @@ fn a_match_key_in_a_requirement_is_rejected_as_an_unknown_key() {
 #[test]
 fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     let root = tmpdir("no-roster");
-    import_skill(&root, "lint-rust", &clean_skill("lint-rust"));
+    write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
 
     // Absent `temper.toml`: the floor runs, the clean skill passes.
     let absent = check_in(&root);
     assert!(absent.ok, "the clean skill passes the floor ⇒ zero");
 
-    // A `temper.toml` carrying a `[kind]` layer but no `[requirement]` table declares
-    // an empty roster — the roster adds nothing, so the outcome is byte-for-byte the
-    // floor's.
+    // A `temper.toml` carrying a `[kind]` layer but no lock-declared requirement
+    // declares an empty roster — the roster adds nothing, so the outcome is
+    // byte-for-byte the floor's.
     write_temper_toml(
         &root,
         "[kind.skill]\n\
@@ -682,12 +746,14 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
 #[test]
 fn a_retired_role_table_is_rejected() {
     let root = tmpdir("retired-role");
-    import_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
     // The `[role.*]` surface was hard-cut into `[requirement.*]` by the consolidation.
     // A `temper.toml` that still declares one must fail loudly at load — a silently
     // ignored roster is exactly the gap temper exists to catch — so it is rejected as
-    // an unknown top-level key, not dropped.
+    // an unknown top-level key, not dropped. This is `temper.toml`'s own parse-time
+    // admissibility — unrelated to the lock, so the malformed document is authored
+    // directly.
     write_temper_toml(
         &root,
         "[role.planner]\n\
@@ -717,8 +783,8 @@ fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean()
     // `arch-impl` fills it by opting in via `satisfies`. One namespace, the demand
     // published on one surface and the fill claimed on another — coverage resolves the
     // join green, exactly as it does for an assembly-published requirement.
-    import_skill(&root, "arch-spec", &clean_skill("arch-spec"));
-    import_skill(&root, "arch-impl", &clean_skill("arch-impl"));
+    write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    write_skill(&root, "arch-impl", &clean_skill("arch-impl"));
     author_published(
         &root,
         "arch-spec",
@@ -741,7 +807,7 @@ fn an_unfilled_required_member_published_requirement_fires() {
     // `arch-spec` publishes a required `[requirement.architecture]`, but no member
     // opts in — the published obligation has no resolving home, so the coverage gate
     // fires exactly as for an unfilled assembly requirement.
-    import_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
     author_published(
         &root,
         "arch-spec",
@@ -767,8 +833,8 @@ fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
     // Two members publish the same requirement name. A requirement lives in one
     // namespace, so the second publisher is a collision — an admissibility finding,
     // never a silent shadow that would let one member quietly redefine another's.
-    import_skill(&root, "spec-a", &clean_skill("spec-a"));
-    import_skill(&root, "spec-b", &clean_skill("spec-b"));
+    write_skill(&root, "spec-a", &clean_skill("spec-a"));
+    write_skill(&root, "spec-b", &clean_skill("spec-b"));
     author_published(
         &root,
         "spec-a",
@@ -800,13 +866,14 @@ fn a_name_published_by_both_the_assembly_and_a_member_collides() {
     // The assembly *and* a member both publish `architecture`. Same namespace, so the
     // member's re-declaration collides with the assembly's — the assembly ⊕ member
     // half of the one-namespace rule.
-    import_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
     author_published(
         &root,
         "arch-spec",
         vec![published("architecture", Some("skill"), false)],
     );
-    write_temper_toml(&root, "[requirement.architecture]\nkind = \"skill\"\n");
+    write_requirements(&root, vec![requirement("architecture", "skill")]);
+    write_temper_toml(&root, "");
 
     let run = check_in(&root);
     assert!(
