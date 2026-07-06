@@ -64,6 +64,9 @@ before any second provider exists to justify it. (Resolves
 
 A bare `temper check` — the binary alone, with the compiled default program
 embedded at build time — gates any harness: **no Node, no SDK, no toolchain**.
+The embedded default program is a **built-in lock** (`20-surface.md`, "The
+lock and drift"): the engine has one declaration input shape, from two
+sources — committed on an adopted harness, compiled-in on a stranger one.
 This is the downstream-checker positioning made concrete: `rulesync` makes a
 harness portable, marketplaces distribute artifacts, and `temper` sits
 downstream of both, checking what you installed — the same two greens
@@ -87,7 +90,7 @@ distributes itself with its own verb.
 ### Decision: the skill is mechanics, never taste
 
 **Chosen:** the bundled skill teaches the agent to *operate the gate* — when to
-`init` / `emit` / `check`, how to read a finding, when to **challenge the
+`install` / `emit` / `check`, how to read a finding, when to **challenge the
 contract** versus fix the artifact (the `collaboration` reflex) — and the
 model's own vocabulary (the six nouns: harness, member, kind, clause,
 requirement, prose), because an agent cannot operate a verdict spoken in words
@@ -118,20 +121,35 @@ enforcement posture at each placement is author-declared (law 1), default
 advisory here. (b) A dedicated `session-start` verb — a reporter that grew a
 CLI surface of its own is a second placement to keep in sync with the first.
 
-## Decision: `install` is two placements, one mechanism
+## Decision: `install` is the front door — placements follow the lock
 
-**Chosen:** `temper install` places exactly two things — the `SessionStart`
-hook entry in `.claude/settings.json`, and the **managed header lines** in
-authored artifacts (the schema modeline and the managed-by note) — and both are
-**content-keyed**: each managed line carries a fingerprint of its own content,
-so staleness is detected by the same one mechanism everywhere, and `temper
-check` verifies its own gate is installed and undrifted (law 1, turned on
-itself). **Rejected:** (a) a bespoke per-integration checksum or lockfile
-(Lefthook's approach) — a second staleness mechanism could disagree with the
-first; (b) an install-managed CI workflow file — CI is *your* repo's territory,
-and a managed workflow is a generated file nobody reads that still needs its
-own drift story. The CI placement is instead a **documented two-line
-user-authored job** (below).
+**Chosen:** `temper install` is the one on-ramp (`20-surface.md`, "install —
+the front door"): the discovery report first, then exactly one question —
+represent this project as a temper program? — then either the `SessionStart`
+reporter alone (no path; Node-free forever) or the lift + first `emit` +
+placements (yes path; **requires Node and `.temper/`**, refused with
+instructions when absent). Interactivity is consent and teaching only: every
+answer has a flag spelling (`--yes` for agents and CI), and no answer is
+recorded anywhere but the authored artifacts it produces — re-running
+`install` converges on what the program has become. Placements are
+**lock-grounded, never assumed**: the managed header lines (schema modeline
+and managed-by note) and the guard land only where the lock declares
+emit-owned paths, and only *when* such paths exist; a lockless harness gets
+the reporter and no ownership claims. Every managed line stays
+**content-keyed**: a fingerprint of its own content, one staleness mechanism
+everywhere, and `temper check` verifies its own gate is installed and
+undrifted (law 1, turned on itself). **Rejected:** (a) a bespoke
+per-integration checksum or lockfile (Lefthook's approach) — a second
+staleness mechanism could disagree with the first; (b) an install-managed CI
+workflow file — CI is *your* repo's territory, and a managed workflow is a
+generated file nobody reads that still needs its own drift story. The CI
+placement is instead a **documented two-line user-authored job** (below);
+(c) blind placements — stamping emit-carriage claims on files the lock never
+declared (the cascade failure, 2026-07-05: managed-by notes on hand-authored
+sources, a guard refusing legitimate edits); (d) an install wizard
+collecting depth or posture — every such answer duplicates an authored fact
+or invents invisible state (`20-surface.md`, the front-door Decision).
+(Re-cut 2026-07-06; absorbs `init`.)
 
 The installed `PreToolUse` guard is the **`temper guard` subcommand** — the
 engine binary reading the hook's stdin payload; whether it blocks follows the
@@ -234,9 +252,9 @@ format is earned by a consumer who needs it, not designed in advance. Until
 that consumer lands, "the SDK and its pinned engine agree" is the only
 compatibility promise, and it is enforced by the pin.
 
-## Migration — `init` corrects on the way in
+## Migration — the lift corrects on the way in
 
-`init` over a foreign tool's artifacts (a Cursor `.mdc`, a rulesync export) is
+The lift over a foreign tool's artifacts (`install`'s yes path) — a Cursor `.mdc`, a rulesync export — is
 migration that fixes at the on-ramp: the rule floor's clause against inert keys
 catches stranded `globs` / `alwaysApply` at import — the motivating bug, caught
 where it enters. `temper` sits downstream of the tools that move artifacts, and

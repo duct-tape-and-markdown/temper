@@ -244,7 +244,7 @@ in posture 3 — `${address}` (`20-surface.md`, the `(mention-marker)`
 resolution).
 
 No upgrade advisory, no adoption metric, no lint counting fences. Movement
-between postures is author-initiated and free in both directions. `init`'s
+between postures is author-initiated and free in both directions. `install`'s
 lift is this move at scale — and like every lift it is one-time, free to
 normalize framing, never to alter content (law 5).
 

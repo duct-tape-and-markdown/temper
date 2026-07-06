@@ -65,7 +65,7 @@ These bind every part of the tool and every change to it.
    **emit**, the compile from the SDK to the harness artifacts themselves
    (`20-surface.md`), is byte-reproducible and mechanically checked, so
    nondeterminism in authoring code is detected, never trusted. A migration into
-   the surface (`init`'s lift) is one-time — free to normalize framing, never to
+   the surface (`install`'s lift) is one-time — free to normalize framing, never to
    alter content; after it the surface is the single authored home. The lock
    carries every member's provenance fingerprints — the drift anchor.
    (`20-surface.md`.)
