@@ -39,3 +39,13 @@ spine; D4/D5 are parallel-safe leaves behind D3:
   hook, never clauses (50-distribution, channel 3); delete contract/ if
   still present. The "curated, fence-excluded" asymmetry line in
   open-questions.md dies in the same entry.
+
+COMMENT-STOCK-SWEEP (John 07-06; ride AFTER D3 — the derived-lock demolition
+deletes two of the heaviest-commented files, sweeping them first is
+throwaway). One mechanical entry per .claude/rules/rust.md's taxonomy + exit
+clause: across src/ and tests/, convert prose spec recaps to pointer tags
+(file path, terse tag, no section titles — titles are dangling references),
+delete era narration (git owns history) and compliance narration
+(commit-body material). No behavior change; cargo gates green; acceptance is
+grep-based (zero quoted spec section titles in comments, zero era vocabulary
+from 90-spec-system's migration trail).

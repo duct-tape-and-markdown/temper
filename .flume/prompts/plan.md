@@ -83,6 +83,15 @@ wins.
    living symbols in `files[].description`. The corpus naming a demolition is
    intent; an entry is what makes it work.
 
+   **Comments are residue carriers too.** The sweep's greps cover comment
+   text, not just symbols: a retired noun living in a doc comment, and a
+   comment quoting a spec section title that no longer exists in `specs/`
+   (grep the quoted title against the corpus's headings), are the same
+   fileable staleness — route them into whichever entry already opens that
+   file (`.claude/rules/rust.md`, the exit clause), or the standing
+   comment-stock sweep if none does. Comments are the one surface no cargo
+   gate re-tests; this sweep is their only reconcile moment.
+
    **One entry = one gate-sized commit, comfortably under 200k tokens of build
    work.** If a scope needs lettered sub-parts, an internal task list, or
    bundles an implementation with its consumers and a re-target, it is not one
