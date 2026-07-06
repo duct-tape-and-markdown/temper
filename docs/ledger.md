@@ -24,27 +24,20 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## State of the era (2026-07-05)
 
-- **Front door open, first adopter live** (07-05): repo PUBLIC;
-  `@dtmd/temper@0.0.2` on npm with the ratified subpath layout (PR #4 +
-  SDK-RECUT shipped). cascade (John's repo) is the first external harness:
-  kept `check`, reverted `install`; four field reports routed — one new
-  fork `(carriage-aware-placements)` (needs John: in-place first-class +
-  what carries projection/authored at the guard; session proposal: the
-  lock rows carry carriage), three accepted-debt symptoms the demolition
-  dissolves. John delegated finer-grained calls to the session (07-05) —
-  rule, encode, he ratifies by PR merge.
+- **Front door open, first adopter live**: repo PUBLIC; `@dtmd/temper@0.0.2`
+  on npm with the ratified subpath layout (PR #4 + SDK-RECUT). cascade is
+  the first external harness (kept `check`, reverted `install`); its four
+  field reports routed: `(carriage-aware-placements)` OPEN (needs John:
+  in-place first-class + what carries projection/authored at the guard;
+  session proposal: lock rows carry carriage), three accepted-debt symptoms
+  the demolition dissolves. Finer-grained calls delegated to the session
+  (07-05) — rule, encode, John ratifies by PR merge.
 - **NEXT SESSION FOCUS: the GATE-READ-LOCK-DEMOLITION decomposition
   ceremony** — serialized chain over ~18 test files + main/import/drift/
-  compose, with cascade's DATUM evidence and the carriage fork as rider.
-  Frame-scale: cooling discipline applies unless John waives.
-- Shipped: the six-noun demolition wave (eight slices, ≈ −2,600 lines),
-  `(inplace-lock-producer)` resolved (emit is the sole lock producer,
-  20-surface), DRIFT-DIFF-RETIRE (−391 lines; plan's reconcile found it the
-  only decoupled cut — the rest is live gate scaffolding until the rewrite).
+  compose, cascade's DATUM evidence in, the carriage fork as rider.
+  Frame-scale: cooling discipline unless John waives.
 - Corpus shadow awaiting John's hand: 00-intent's self-hosting finish line +
-  90-spec-system's confirmation recipe still narrate the dogfood; the
-  corpus's `@temper/claude-code` spelling awaits the `@dtmd` name
-  confirmation (50-distribution, 10-contracts, 15-kinds).
+  90-spec-system's confirmation recipe still narrate the dogfood.
 
 ## Parked (pointers only)
 
@@ -79,8 +72,7 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## Goal: v0.1 release (set 2026-07-03; repo PUBLIC 2026-07-05)
 
-The open-source publish is DONE: repo public, docs layer + README voice pass
-shipped, topics set, vuln reporting on, awesome-list ≥1-week clock started
-07-05. Remaining is the launch gate per 55-offering: prebuilt binaries on
-three OSes, stranger-proof quickstart, regenerable demo, npm on John, USPTO
-screen before launch. Weigh every new thread against shipping this.
+Publish is DONE (repo public 07-05, docs layer shipped, awesome-list clock
+running). Remaining is the launch gate per 55-offering: prebuilt binaries on
+three OSes, stranger-proof quickstart, regenerable demo, marketplace/signing
+creds + USPTO screen on John. Weigh every new thread against shipping this.
