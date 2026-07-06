@@ -43,6 +43,19 @@ hard.
 
 ## Parked (pointers only)
 
+- Six-slice ultracode audit (07-06): 32 verified findings, 4 action tracks —
+  claude.ai/code/artifact/b967dc6c-5d37-411c-8f43-2d4613ec632b. **HELD by
+  John: 07-06 decisions haven't derived into plan work yet — no entries or
+  ceremony batches from it until plan's routing is observed.** Watch the
+  next plan ticks for A1 (package entry), A3 (dial residue), C3 (sdk/
+  recut); if plan reconciles without filing them, the residue-paragraph →
+  entry routing is the leak to fix. One open question rides it (B2): where
+  does the authored authority posture live in the four-field assembly —
+  sdk emits `authority:"shared"`, a value the corpus never coined.
+- John's thesis (07-06, unencoded): the findings cascade toward a core
+  design simpler than it seems. Test for each collapse: does the merge
+  delete ceremony (role/requirement precedent — do it) or delete sayable
+  postures (required/count — refuse it).
 - Severity two-vs-three: clause severity is `required`/`advisory`; the
   surface-authority posture (20-surface) speaks note/warn/block, with
   `note` an information tier the algebra lacks. Rule: three-valued
