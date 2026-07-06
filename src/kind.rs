@@ -21,11 +21,6 @@ use crate::compose::Edge;
 use crate::document::{Document, PublishedRequirement};
 use crate::extract::{self, Features};
 
-/// The built-in harness kinds temper ships an engine-code extractor for. A
-/// `[kind.<name>]` registration naming one of these is a built-in layer
-/// (`specs/architecture/15-kinds.md`; `specs/architecture/40-composition.md`).
-pub const BUILTIN_KINDS: &[&str] = &["skill", "rule"];
-
 /// The file locus a custom kind reads (`specs/architecture/40-composition.md`): the root
 /// directory its units live under, and the filename glob that selects them.
 /// `import` scans `root` for files matching `glob`. File placement is itself an
