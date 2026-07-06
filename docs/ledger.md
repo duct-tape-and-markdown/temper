@@ -72,8 +72,10 @@ are forgotten here. Target under ~60 lines, hard.
 - Curated std-lib files (`kinds/`, `packages/`) are compiled-in embeds:
   parse slice first, curated line after.
 
-## Goal: v0.1 release + open-source publish (set 2026-07-03)
+## Goal: v0.1 release (set 2026-07-03; repo PUBLIC 2026-07-05)
 
-The six-noun engine is demolished and shipped; the path is now packaging:
-README stands alone, public docs speak plain language, release mechanics per
-55-offering, npm creds on John. Weigh every new thread against shipping this.
+The open-source publish is DONE: repo public, docs layer + README voice pass
+shipped, topics set, vuln reporting on, awesome-list ≥1-week clock started
+07-05. Remaining is the launch gate per 55-offering: prebuilt binaries on
+three OSes, stranger-proof quickstart, regenerable demo, npm on John, USPTO
+screen before launch. Weigh every new thread against shipping this.
