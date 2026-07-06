@@ -1,34 +1,177 @@
 [
   {
-    "tag": "GATE-READ-LOCK-DEMOLITION",
-    "summary": "Rewrite the gate to read declarations only from the committed lock and walk each kind's `governs` locus, dropping the copy-tree scratch import and the carriage machinery it fed",
+    "tag": "EMIT-PAYLOAD-SEAM",
+    "summary": "Engine emit executes the SDK program over a node subprocess, receives the JSON payload, and becomes the sole compiler of projections + the whole lock; the SDK stops writing TOML",
     "per": {
       "path": "specs/architecture/20-surface.md",
-      "section": "The lock and drift — one vocabulary"
+      "section": "The seam — one implementation"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "frame-scale demolition — the SDK front-door gate is discharged (07-05: @dtmd/temper published, layout ratified), so (inplace-lock-producer) no longer blocks, but dropping the scratch import re-touches ~18 test files (all set up via import::run) plus main.rs/import.rs/drift.rs/compose.rs; needs a serialized-chain decomposition ceremony before parallel-safe slices are filed (a blind single filing risks a merge-conflict loop-spin)"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Drop the copy-tree scratch import in the `Check --harness` branch (main.rs:286-292) and in `session_start_diagnostics` (main.rs:567-571); the gate reads declarations only from the committed lock (20-surface: 'the gate never reads declarations from anywhere but the lock') and walks each kind's `governs` locus for members. Retire `scratch_surface` (main.rs:1076) and the `skill_rule_corpus`/`live_extract_inplace` synthesis where superseded."
+          "description": "`Command::Emit` (main.rs:367) runs the SDK program as a node subprocess and reads the erased declarations + prose as JSON on the pipe (the seam: 'the SDK implements no semantics; types, constructors, and one JSON pipe to the engine'). No harness re-supply; the payload IS the source."
         },
+        {
+          "path": "src/drift.rs",
+          "description": "`emit` (drift.rs:193) compiles EVERYTHING generated from the payload: every projection and the whole lock — all five declaration families (kind/clause/requirement/assembly/satisfies, drift.rs:930-934), closing the SDK's missing-`satisfies` gap. Double-emit byte-check stays (law 5). `render_emit` unchanged in shape."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Stop writing files: retire `writeEmit`'s `writeFileSync` for lock (emit.ts:252) and projections (emit.ts:256); `emit` returns the payload as JSON on stdout — the SDK's whole output surface. The SDK pins its engine version (the seam)."
+        },
+        {
+          "path": "sdk/src/lock.ts",
+          "description": "Retire the TOML lock writer (`stampLock`, lock.ts:154, and the rollup/declaration TOML serializers) — the engine compiles the lock now. The payload carries the fifth family (`satisfies`) so the engine writes all five."
+        },
+        {
+          "path": "sdk/src/toml.ts",
+          "description": "Retire the SDK's TOML emitter — the byte-parity second writer the seam Decision rejects ('two implementations of one byte-contract drift apart'). No SDK code emits TOML after this slice."
+        },
+        {
+          "path": "sdk/src/project.ts",
+          "description": "Retire the SDK's projection writer (`projectBytes`/`projectMember`, project.ts:152/195) — projections are engine-owned from the payload. Placement-line helpers (`placementLines`) fold into S6's lock-grounded placement, not here."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/emit.rs", "asserts": "emit executes the SDK program and byte-reproduces projections + a five-family lock from the payload; double-emit is stable" }
+    ],
+    "acceptance": "`temper emit` runs the SDK program via node, compiles every projection and the whole lock (five declaration families) from the JSON payload, double-emit verified; no SDK code writes TOML or projections.",
+    "notes": "Chain head. Large but atomic: SDK-side (payload producer) and engine-side (sole compiler) are mutually dependent — the sdk-test + emit round-trip gates only pass together, so they land in one tick. Retires the parallel-writer asymmetry (ledger 'two byte-parity TOML writers'). The schemars/ts-rs interchange retires in S3 with its sole caller. Sole-producer per 20-surface 'The lock and drift'."
+  },
+  {
+    "tag": "CHECK-READS-LOCK-GOVERNS",
+    "summary": "The gate/explain member corpus becomes lock governs-columns → discovery walk → extraction; no lock falls back to the built-in lock; kill surface_units and live-extract",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The lock and drift — one vocabulary"
+    },
+    "gate": { "kind": "blockedBy", "tag": "EMIT-PAYLOAD-SEAM" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The `Check --harness` branch (main.rs:286) and `session_start_diagnostics` (main.rs:567) resolve members from the committed lock: `KindFactRow.governs_root/glob` (drift.rs:724, written by every producer, read by nobody today) drives `discover_kind_units`/`discover_builtin` (import.rs:691/569) then extraction. No lock ⇒ the built-in lock (embedded default program). Retire `skill_rule_corpus` (main.rs:958) + `live_extract_inplace` (main.rs:1014); drop the `check::surface_units` reads (main.rs:654,982,990,1130)."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Retire `surface_units` (the copy-tree scratch reader) now that the gate reads lock governs-loci + the discovery walk; keep `empty_assembly_incoherence` (the fail-loud net) re-based onto the lock-read corpus."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/lock_declaration_rows.rs", "asserts": "check resolves members by walking each lock kind-fact's governs locus; a harness with no lock is gated by the built-in lock, never a silent zero-member skip" }
+    ],
+    "acceptance": "`temper check` reads declarations only from the committed lock, walks each kind's governs locus for members, and extracts them; no `surface_units` scratch read remains; no-lock falls back to the embedded default program (fail-loud on incoherence).",
+    "notes": "Tests keep `import::run` as the transitional lock producer THIS slice (its `write_rollup` writes a full lock) so fixture churn defers to S3. Shares main.rs/check.rs with the chain — serialized behind S1. governs columns already written (drift.rs:724), just unread."
+  },
+  {
+    "tag": "FIXTURES-OFF-IMPORT",
+    "summary": "Port the behavior-test setup from import::run to golden-lock or SDK-emitted fixtures, and delete the machinery-under-test test files the demolition retires",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The lock and drift — one vocabulary"
+    },
+    "gate": { "kind": "blockedBy", "tag": "CHECK-READS-LOCK-GOVERNS" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        { "path": "tests/coverage.rs", "description": "Re-base setup from `import::run` to a golden-lock / SDK-emitted fixture (the gate reads the lock, not a scratch import)." },
+        { "path": "tests/graph.rs", "description": "Same re-base off `import::run` to a committed-lock fixture." },
+        { "path": "tests/reachable_gate.rs", "description": "Same re-base off `import::run`." },
+        { "path": "tests/requirement_roster.rs", "description": "Same re-base off `import::run`." },
+        { "path": "tests/gate_fail_loud.rs", "description": "Same re-base off `import::run`; the no-lock fail-loud path now exercises the built-in-lock fallback." },
+        { "path": "tests/acceptance.rs", "description": "Same re-base off `import::run`." },
+        { "path": "tests/memory_contract.rs", "description": "Same re-base off `import::run`." },
+        { "path": "tests/memory_gate.rs", "description": "Same re-base off `import::run`." },
+        { "path": "tests/reporters.rs", "description": "Same re-base off `import::run`." },
+        { "path": "tests/bundle.rs", "description": "Same re-base off `import::run`." },
+        { "path": "tests/install.rs", "description": "Same re-base off `import::run` (install's own front-door test rewrites in S6; here only the lock-fixture setup)." },
+        { "path": "tests/lock_declaration_rows.rs", "description": "Re-base onto the golden-lock fixture rather than an import round-trip." },
+        { "path": "src/schema.rs", "description": "Drop the `pub mod interchange;` line (src/schema.rs:47) — the schemars/ts-rs byte-parity interchange retires here with its sole caller tests/contract_fixtures.rs (S1 made the engine the sole compiler, dissolving the two-writer byte contract; the module stayed live only because contract_fixtures.rs still called it)." }
+      ],
+      "retire": [
+        "src/schema/interchange.rs",
+        "tests/adapter_fidelity.rs",
+        "tests/contract_fixtures.rs",
+        "tests/manifest_kind_spelling.rs"
+      ]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/coverage.rs", "asserts": "the ported behavior tests exercise the gate over committed-lock fixtures, no import::run scaffolding" }
+    ],
+    "acceptance": "The ~11 behavior-test files set up via golden-lock/SDK-emitted fixtures instead of `import::run`; the machinery-under-test files (adapter_fidelity, contract_fixtures, manifest_kind_spelling) and the schemars/ts-rs interchange module are deleted; `cargo test` green.",
+    "notes": "Isolates fixture churn so S4 can delete `import::run` with no live callers. temper_toml.rs's manifest-emit block + genre_leaf's manifest round-trip are edited in S5 where their codec dies, not here. Shares the test tree — serialized behind S2."
+  },
+  {
+    "tag": "SCRATCH-RETIRE",
+    "summary": "Delete the copy-tree scratch import pipeline (import::run, the surface writers, write_rollup, emit_manifest, carry_representation, scratch_surface); the discovery walk survives as the sole extractor",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: one authored surface, one implementation"
+    },
+    "gate": { "kind": "blockedBy", "tag": "FIXTURES-OFF-IMPORT" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
         {
           "path": "src/import.rs",
-          "description": "Retire the copy-tree pipeline — `import::run`, `write_rollup`, `write_member_surface`, `emit_manifest` — now that no gate path imports into a scratch surface. `init`'s in-place scan survives (re-shaped to SDK-program scaffolding, its own downstream slice)."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Retire the `[[member]]` codec (`write_members`/`member_to_table`/`parse_member` and inverses) — the manifest dialect the retired copy-tree produced."
+          "description": "Delete `run`/`run_with_builtins` (import.rs:143/154), the copy-tree writers `write_member_surface`/`existing_surface_member`/`copy_companion` (621/670/840), `write_rollup` (866 — its transitional-producer job ended in S3), and `emit_manifest` (426). KEEP `discover_kind_units`/`discover_builtin` (691/569) — the discovery walk is the sole extractor. `init`/`lift` (254/337) survive to S5."
         },
         {
           "path": "src/frontmatter.rs",
-          "description": "Retire the authored-layer carry-forward / document-carriage path (`carry_representation` and the custom-header twin) — dead once members come from the lock + governs walk, not a re-imported surface."
+          "description": "Retire `carry_representation` (frontmatter.rs:318) and the custom-header carry twin — the authored-layer carry-forward is dead once members come from the lock + governs walk, not a re-imported surface."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Delete `scratch_surface` (main.rs:1076) and its two call sites (main.rs:287,568) — the `Check --harness` and session-start branches read the lock (S2), no scratch tree."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/emit.rs", "asserts": "emit + check operate with no copy-tree scratch import; the discovery walk is the only member extractor" }
+    ],
+    "acceptance": "`import::run`, the copy-tree surface writers, `write_rollup`, `emit_manifest`, `carry_representation`, and `scratch_surface` are gone; the discovery walk (`discover_kind_units`/`discover_builtin`) survives; `cargo test` green.",
+    "notes": "Clean slate (John 07-06): no compat shim. Shares import.rs/frontmatter.rs/main.rs with the chain — serialized behind S3, which removed the last `import::run` test callers. `init`/`lift` deletion waits for S5 (the codec they drive)."
+  },
+  {
+    "tag": "CODEC-RETIRE",
+    "summary": "Retire the [[member]] manifest codec both directions plus AuthorLayer's member readers, and remove the init/lift verbs (their only remaining callers) under clean slate",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "Decision: install is the front door; the lift is its yes-path; the postures stay equal"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SCRATCH-RETIRE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Retire the `[[member]]` codec both directions: writers `write_members`/`member_to_table` and the genre/section sub-writers (compose.rs:1512-1656), and parsers `parse_member`/`parse_member_fields`/`parse_member_sections`/`parse_member_fenced`/`parse_member_genres`/`parse_member_published` (1738-1980). Retire `AuthorLayer::members()`/`inplace_members()` (their consumers die with init/lift). Keep the `[role.*]`/severity layer if still read elsewhere; S7 finishes it."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Remove the `init`/`lift` verbs (import.rs:254/337) — the codec's only remaining callers. Clean slate: a temporary on-ramp gap on trunk is acceptable until S6 ships the front door."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Drop the `Command::Init` variant + dispatch (main.rs:256) and its clap definition; `install` is the sole on-ramp (S6). No `init` alias survives (clean slate)."
         }
       ],
       "retire": [
@@ -36,9 +179,71 @@
       ]
     },
     "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`temper check` on a harness reads its committed SDK-emitted lock (declarations) and walks each kind's governs locus for members, with no scratch copy-tree; a harness with no lock is the unadopted case gated by the embedded default program (fail-loud), never a silent skip.",
-    "notes": "SDK front-door gate discharged 07-05; (inplace-lock-producer) no longer blocks. Remaining blocker is decomposition: the scratch drop touches ~18 test files plus main.rs/import.rs/drift.rs/compose.rs — frame-scale, parked for a serialized-chain ceremony. Cascade (first external harness) field-confirmed the in-place seam: manifest check, explain, install/guard all diverge from the lock end-state — see (inplace-lock-producer) DATUM + (carriage-aware-placements)."
+    "tests": [
+      { "path": "tests/genre_leaf.rs", "asserts": "genre leaf addressing survives without the [[member]] manifest round-trip block" }
+    ],
+    "acceptance": "The `[[member]]` codec (both directions), `AuthorLayer`'s member readers, and the `init`/`lift` verbs are gone; `temper.toml` as a manifest dialect is unreadable; `cargo test` green (tests/temper_toml.rs deleted, genre_leaf's manifest block edited out).",
+    "notes": "Clean slate (John 07-06): `init` may be removed before the front door ships — a trunk on-ramp gap is acceptable, green gates the only bar. Shares compose.rs/import.rs/main.rs — serialized behind S4. genre_leaf.rs manifest round-trip block trimmed here."
+  },
+  {
+    "tag": "INSTALL-FRONT-DOOR",
+    "summary": "Rebuild install as the one on-ramp: discovery report → one question → scaffold the SDK program + first emit on yes, reporter alone on no; guard/note grounded in the lock",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "install — the front door; the lift, once"
+    },
+    "gate": { "kind": "blockedBy", "tag": "CODEC-RETIRE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "(a) Scaffolder: discovery walk → generated TS member modules (`file()` pointers at the original paths, bytes untouched) + `harness.ts` skeleton — the lift's output is the SDK program and nothing else, no lock. (b) Verb: discovery report first, one question 'represent this project?' (`--yes` for agents/CI, `--no-represent`); no-path = consented SessionStart reporter alone (Node-free); yes-path = require Node+`.temper` (hard refusal with instructions when absent), ensure `@dtmd/temper` dep, scaffold, run first emit (the adoption moment), place per lock. (c) Guard/note lock-grounded: rewrite `GUARD_MESSAGE` (install.rs:101) and the managed-by note off the lock's emit-owned rows; place the modeline only when its schema artifact exists, the guard only when emit-owned paths exist ('the guard arrives with its constituency')."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`Command::Install` dispatch carries the one-question flow (`--yes`/`--no-represent`); `Command::Guard`'s posture reads the lock, not a `temper.toml` AuthorLayer (main.rs:390)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/install.rs", "asserts": "install reports findings, asks once; no-path wires only the session-start reporter; yes-path scaffolds the SDK program, runs first emit, places note/guard only for lock-declared emit-owned paths; an all-in-place member gets no guard claim" }
+    ],
+    "acceptance": "`temper install` is the sole on-ramp: report → one question → reporter-alone on no, or scaffold+first-emit+lock-grounded placements on yes; guard/note bind only lock-declared emit-owned paths; a `file()`-own-path member is authored territory (no guard). Cascade's report (1) dissolves.",
+    "notes": "Resolves `(carriage-aware-placements)` in code (the lock names a path a projection — 20-surface 'surface authority is a declared posture'). Depends on the built-in lock (S1) + lock-read gate (S2) + codec/init removal (S5). Shares install.rs/main.rs — serialized behind S5."
+  },
+  {
+    "tag": "TEMPER-TOML-ZERO",
+    "summary": "Eradicate every remaining temper.toml reader — AuthorLayer load/authority/fold_local, the TEMPER_TOML const, explain's load_layer residue — the manifest filename is gone",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The lock and drift — one vocabulary"
+    },
+    "gate": { "kind": "blockedBy", "tag": "INSTALL-FRONT-DOOR" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Retire `AuthorLayer::load`/`authority`/`fold_local` and the `TEMPER_TOML` const — no verb reads a `temper.toml`. Any `[role.*]`/severity layer S5 left standing retires here if nothing reads it."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Remove the `TEMPER_TOML` usages in `explain` (main.rs:439, `load_layer`) and any guard/check residue — posture and layers come from the lock."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/cli.rs", "asserts": "no verb reads or writes a temper.toml; a file by that name is inert (old temper, never current temper's input)" }
+    ],
+    "acceptance": "`rg -c 'temper\\.toml' src/ tests/` = 0; the manifest filename is retired entirely (20-surface: 'the name temper.toml retires with the manifest era entirely'). Cascade re-onboards via the new install; its manifest-era artifacts are old temper by definition.",
+    "notes": "Chain terminal. Cascade's reports (2)-(4) — the accepted-debt DATUM under `(inplace-lock-producer)` — close with this slice: no manifest-mode coverage remains. Shares compose.rs/main.rs — serialized behind S6."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -49,20 +254,20 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs human release setup — the per-platform engine-binary release workflow, marketplace publish, signing/publish creds — before the mechanical wrappers validate end-to-end; the SDK scope is now resolved (`@dtmd/temper` published 0.0.1 on 07-05, 0.1.0 reserved for the coordinated release that pins the engine binary), and channel 1's SDK foundation has shipped (SDK-RECUT-SUBPATH-LAYOUT, build 56dce9b — @dtmd/temper recut to the one-package subpath layout)"
+      "reason": "needs human release setup — the per-platform engine-binary release workflow, marketplace publish, signing/publish creds — before the mechanical wrappers validate end-to-end; the SDK scope is resolved (`@dtmd/temper` published 0.0.2 on 07-06, subpath layout ratified PR #4), and channel 1's SDK foundation has shipped"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": ".github/workflows/release.yml",
-          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone GitHub release assets), and produce/publish the plugin bundle with its `marketplace.json` (channel 3). Channel auto-detected. Distinct from any CI *check* job, which is a documented two-line user-authored job (`temper check` + `emit --frozen` byte-compare), not a generated file (50-distribution, 'install is two placements')."
+          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone GitHub release assets), and produce/publish the plugin bundle with its `marketplace.json` (channel 3). Channel auto-detected. Distinct from any CI *check* job, which is a documented two-line user-authored job (`temper check` + `emit --frozen` byte-compare), not a generated file (50-distribution)."
         }
       ],
       "edit": [
         {
           "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution 'Fail-loud delivery'). Reconcile with the flume manifest (a non-private publish entry, or a split package dir) rather than clobbering it. NB distinct from sdk/package.json (the SDK authoring face, already published as `@dtmd/temper` — the engine pin is declared there, once)."
+          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, 50-distribution). Reconcile with the flume manifest rather than clobbering it. NB distinct from sdk/package.json (`@dtmd/temper`, already published — the engine pin is declared there, once)."
         }
       ],
       "retire": []
@@ -70,6 +275,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (50-distribution 'Fail-loud delivery').",
-    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.1 07-05); ch2 = engine binary pinned via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds (marketplace, signing) + the engine-binary release workflow. USPTO name screen still due before launch."
+    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.2 07-06); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. USPTO name screen due before launch."
   }
 ]

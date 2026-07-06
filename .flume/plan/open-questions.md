@@ -208,6 +208,20 @@ New forks from the ceremony:
   GOV-RANGE/GOV-COUNT merge-conflict loop-spin. `init`'s re-shape to SDK-program
   scaffolding (no longer name-blocked — the specifier it writes is `@dtmd/temper`)
   is a downstream slice of that same chain.
+  DATUM (2026-07-06, the ceremony ran — chain FILED, GATE-READ-LOCK-DEMOLITION
+  RETIRED): PR #6 merged (0c11135, install is the front door; cooling waived,
+  clean slate). The decomposition ceremony ran in-session and the parked
+  GATE-READ-LOCK-DEMOLITION is **replaced** by the serialized S1–S7 chain in
+  pending — EMIT-PAYLOAD-SEAM (open head) → CHECK-READS-LOCK-GOVERNS →
+  FIXTURES-OFF-IMPORT → SCRATCH-RETIRE → CODEC-RETIRE → INSTALL-FRONT-DOOR →
+  TEMPER-TOML-ZERO — each `blockedBy` its predecessor (all touch the shared
+  main.rs/import.rs/compose.rs/drift.rs spine, so serialized, not a parallel
+  fan-out; build drains one tick at a time, a ship unblocks the next on the
+  following reconcile). The symbols were re-verified on disk this tick.
+  Sub-question (a) is now S1 (emit is the sole compiler), (b) is S2 (the gate
+  reads lock governs-loci) + S6 (install scaffolds the SDK program, no lock).
+  The accepted-debt DATUM below (cascade reports 2–4) closes with S2/S7; report
+  1 closes with S6c.
   DATUM (2026-07-05, cascade — the first external harness): four field reports
   (inbox, drained this tick) confirm the manifest-era in-place path the current
   `init` writes (root `temper.toml`, no `.temper/`) is what a real adopter hits,
@@ -230,7 +244,20 @@ New forks from the ceremony:
   in-place. (2)–(4) dissolve under the lock-read end-state (check/explain read the
   committed lock; no manifest-mode coverage); recorded here as accepted debt, the
   demolition is their fix.
-- `(carriage-aware-placements)` — OPEN (cascade field report, 2026-07-05). On an
+- `(carriage-aware-placements)` — RESOLVED (John 2026-07-06, PR #6 merged
+  0c11135): **the lock is what names a path a projection.** The note and the
+  guard bind only paths the lock declares emit-owned, and are *placed* only when
+  such paths exist — "the guard arrives with its constituency, never before." A
+  member whose `file()` source is its own projected path is authored territory:
+  no note, no guard claim; a hand edit there is an edit to the source. On a
+  harness with no lock nothing is a projection and there is nothing to bind.
+  ENCODED: `specs/architecture/20-surface.md` "Decision: surface authority is a
+  declared posture, never a baked stance". BUILD: the code-side resolution rides
+  **INSTALL-FRONT-DOOR** (S6) — `GUARD_MESSAGE`/managed-by note rewritten off the
+  lock's emit-owned rows, modeline/guard placed only where the artifact exists.
+  Cascade's field report (1) dissolves there. Kept as the decision record; its
+  dependent is the filed S6.
+  ORIGINAL RECORD — was OPEN (cascade field report, 2026-07-05). On an
   all-in-place harness (`init` → root `temper.toml`, no `.temper/`), the files a
   member names ARE its authored source, not a projection — yet `install`'s
   managed-by note and the `PreToolUse` `GUARD_MESSAGE` (install.rs:101,125)
@@ -284,6 +311,23 @@ New forks from the ceremony:
   15-kinds now marks the fence "deliberately undesigned until its first
   consumer — the genre-adoption pilot", the TOML-fence prior explicitly
   unbinding. Kept as the decision record.
+  DATUM (2026-07-06, the consumer has landed — CASCADE VOLUNTEERS AS THE PILOT,
+  John's ruling): cascade is the first external harness with live custom kinds
+  (nine spec kinds, lock-compiled) and a fully temper-produced spec corpus (74
+  members, byte-faithful projections, drift-gated). Its ratified Decision
+  convention IS the shipped `decision` genre shape ("every Decision earns
+  rejected alternatives", cascade specs/00-style-guide.md). The workshop (John +
+  session, next session) designs the fence grammar against 3–4 real Decision
+  fixtures from cascade's corpus (candidates: training-plan felt-occupant,
+  platform/conversation); acceptance is the byte-stable posture-2 ⇄ posture-3
+  round-trip against them. What temper must ship for the pilot: the fence render
+  in emit (`blocks()` refuses today), posture-2 fence parse, leaf addressing over
+  genre values, `${address}` mentions. SEQUENCING: the fence render is emit-owned
+  (the display rule, 20-surface "Emit — total"), so it rides emit's rearchitecture
+  and sequences after EMIT-PAYLOAD-SEAM (S1) at the earliest — NOT a pending entry
+  until the workshop designs the grammar (the format is still undesigned; no clean
+  cite). Held here until the workshop rules the grammar, then filed as the chain's
+  successor.
 - `(settings-residual)` — RESOLVED (John 07-04, inbox): **focus project
   scope** — emit owns the whole project `.claude/settings.json` (typed
   project-harness facts + passthrough); personal preferences belong to the
