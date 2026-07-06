@@ -208,7 +208,7 @@ Classed by directory; the `NN-` prefixes are reading order, never classing.
 - `architecture/15-kinds.md` — the kind system: constructors + five facts, loci, genres, postures.
 - `architecture/20-surface.md` — the SDK: authoring, prose, emit, the seam, init.
 - `architecture/30-landscapes.md` — landscapes: engine instances, the spec model, the seams.
-- `architecture/40-composition.md` — the assembly: `harness()` and its five fields.
+- `architecture/40-composition.md` — the assembly: `harness()` and its four fields.
 - `architecture/45-governance.md` — powering up the wider scopes: corpus-wide, fact-only predicates.
 - `architecture/50-distribution.md` — delivering the gate: plugin, CI, the fail-loud invariant.
 - `process/90-spec-system.md` — this file.

@@ -522,7 +522,7 @@ the earlier read-family Decisions.)
 ## Scope boundary
 
 This spec owns the member and its prose, the two registers, emit, the seam
-and the lock, drift, `install`, and the CLI's shape. The assembly's five fields
+and the lock, drift, `install`, and the CLI's shape. The assembly's four fields
 are `40-composition.md`'s; kinds, genres, postures, extraction, and loci are
 `15-kinds.md`'s; clauses, requirements, and `verifiedBy` are
 `10-contracts.md`'s; the graph, registration, and reachability are
