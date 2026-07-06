@@ -1,82 +1,15 @@
 [
   {
-    "tag": "KIND-BUILTIN-CONST-RETIRE",
-    "summary": "Retire the dead `kind::BUILTIN_KINDS = [\"skill\",\"rule\"]` const — string-name built-in identity, zero-usage after CODEC-RETIRE deleted its last referencing test",
-    "per": {
-      "path": "specs/architecture/15-kinds.md",
-      "section": "Decision: built-ins are a module, and identity is an import"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Delete the orphaned `pub const BUILTIN_KINDS: &[&str] = &[\"skill\", \"rule\"]` at kind.rs:27 and its three-line doc comment (kind.rs:24-27). Re-verified zero real usages this tick: `rg BUILTIN_KINDS src/ tests/` hits only this def plus the unrelated generated `builtin_kind::BUILTIN_KINDS` (builtin_kind.rs:27, keyed `<provider>.<name>`, derived from the kinds/ tree — untouched). It is string-name identity of the built-ins baked into the engine — the exact form 15-kinds retires (identity travels by import)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`rg BUILTIN_KINDS src/kind.rs` returns nothing; the only surviving enumeration is the generated `builtin_kind::BUILTIN_KINDS`; cargo build + clippy -D warnings + cargo test all stay green.",
-    "notes": "Bug 2 residue (open-questions bugs list). Disjoint from the PKG-NOUN chain (compose/roster/main/drift) and PACKAGING-CHANNELS; touches only src/kind.rs, so parallel-safe with PKG-NOUN-ENGINE-RETIRE."
-  },
-  {
-    "tag": "PKG-NOUN-ENGINE-RETIRE",
-    "summary": "Retire the package facet on requirements — `Requirement.package`, `Membership.source_package`, `PackageResolver`, the conformance pass, and the `conforms_to` admissibility branch",
-    "per": {
-      "path": "specs/architecture/10-contracts.md",
-      "section": "Decision: clause arrays and two quantifiers, not a package noun"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Delete `Requirement.package` (compose.rs:79), `Membership.source_package` (compose.rs:182) and the whole `PackageResolver` (compose.rs:210-227) — struct, `new`, `resolve`. 10-contracts names this residue: 'the `package` facet on requirements and the resolver behind it … the conformance pass validating satisfiers against a bound package's contract, `membership` constrained by package conformance (`conforms_to`).' A requirement constrains by `kind`; there is no second shape channel. Leave the set-scope demands (count/unique/membership/degree) untouched — the facet→clauses recut is REQUIREMENT-CLAUSES-RECUT, a separate cut."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "Delete `roster::conformance` (roster.rs:157) and `conformance_finding` (roster.rs:324), and the package/conforms_to branches (b) and (e) of `admissibility` (roster.rs:234, 286-320) that resolved a bound `package`/`source_package` name through `PackageResolver`. Keep `check` (count/unique/membership set-scope) and the non-package admissibility branches. Drop the `PackageResolver` import (roster.rs:16)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Remove the `package_resolver = compose::PackageResolver::new(builtins)` construction (main.rs:574) and its call sites: the `roster::check`/`roster::conformance` package args (main.rs:694,700,706-709), the custom-kind conformance block resolving `package_resolver.resolve(name)` (main.rs:789-801), and the `package`/`source_package` mappings in `requirement_from_row` (main.rs:1135), the published-requirement path (main.rs:1115), and membership (main.rs:1150). `builtin::contracts()` stays (the kind floors still use it); only the resolver wrapper goes."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "This suite pins the requirement-package conformance tier being retired — the `package: Some(\"rule.anthropic\")`/`source_package` cases and the `conforms_to` typed-reference cases. Delete the conformance/`conforms_to` cases and the `package`/`source_package` struct-literal fields; keep the coverage + set-scope (count/unique/membership) cases that survive on `kind` typing alone."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "Drop any `Requirement.package`/`Membership.source_package` struct-literal field the fixtures set; the built-in-floor admissibility assertions themselves are unaffected (floors stay packages internally in builtin.rs)."
-        },
-        {
-          "path": "tests/rule_contract.rs",
-          "description": "Drop any `Requirement.package`/`source_package` literal fields; the shipped rule built-in floor resolution is unaffected."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "tests/requirement_roster.rs", "asserts": "the surviving requirement tier gates on kind-typing + coverage + set-scope clauses; no package/conforms_to conformance path remains" }
-    ],
-    "acceptance": "`rg -n \"PackageResolver|\\.package|source_package|conforms_to|conformance\" src/compose.rs src/roster.rs src/main.rs` returns nothing (bar unrelated matches); cargo build + clippy -D warnings + cargo test green.",
-    "notes": "Head of the package-noun demolition chain (inbox 'engine → lock rows → sdk column → tree'). Leaves drift.rs RequirementRow.package/MembershipRow.source_package columns write-only-then-ignored — retired next by PKG-NOUN-LOCK-ROWS. Wide-but-mechanical: the compiler points at every stranded `package`."
-  },
-  {
     "tag": "PKG-NOUN-LOCK-ROWS",
     "summary": "Retire the lock's package columns — `RequirementRow.package` and `MembershipRow.source_package` and their read/write in drift.rs",
     "per": {
       "path": "specs/architecture/10-contracts.md",
       "section": "Decision: clause arrays and two quantifiers, not a package noun"
     },
-    "gate": { "kind": "blockedBy", "tag": "PKG-NOUN-ENGINE-RETIRE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "PKG-NOUN-ENGINE-RETIRE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -94,7 +27,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/lock_declaration_rows.rs", "asserts": "the requirement/membership declaration rows round-trip with no package/source_package column" }
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "the requirement/membership declaration rows round-trip with no package/source_package column"
+      }
     ],
     "acceptance": "`rg -n \"package|source_package\" src/drift.rs` returns nothing package-facet-related; the `package: None` RequirementRow literals across tests/ are gone; cargo test green.",
     "notes": "Second chain link. Blast radius also touches the RequirementRow/MembershipRow literals carrying `package: None` in tests/coverage.rs, tests/emit.rs, tests/graph.rs, tests/gate_fail_loud.rs, tests/read_verbs.rs — the compiler flags each; sweep them here."
@@ -106,7 +42,10 @@
       "path": "specs/architecture/10-contracts.md",
       "section": "Decision: clause arrays and two quantifiers, not a package noun"
     },
-    "gate": { "kind": "blockedBy", "tag": "PKG-NOUN-LOCK-ROWS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "PKG-NOUN-LOCK-ROWS"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -130,7 +69,10 @@
       "path": "specs/architecture/40-composition.md",
       "section": "Decision: the reachability dial retires into the clause algebra"
     },
-    "gate": { "kind": "blockedBy", "tag": "PKG-NOUN-SDK-COLUMN" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "PKG-NOUN-SDK-COLUMN"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -152,11 +94,16 @@
           "description": "This suite drives the code-locus dial (`fact = \"reachability\"` golden lock + `[reachability]` opt-in). Delete it — the dial it exercises is retired. Reachability's library machinery stays proven by tests/graph.rs's `reachability` module (untouched)."
         }
       ],
-      "retire": [ "tests/reachable_gate.rs" ]
+      "retire": [
+        "tests/reachable_gate.rs"
+      ]
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/graph.rs", "asserts": "the `reachable` library predicate still holds over synthetic graphs (capability retained; only the assembly dial retired)" }
+      {
+        "path": "tests/graph.rs",
+        "asserts": "the `reachable` library predicate still holds over synthetic graphs (capability retained; only the assembly dial retired)"
+      }
     ],
     "acceptance": "`rg -n \"reachability_from_declarations|assembly_reachability|fact.*reachability\" src/ sdk/src` returns nothing; the assembly is four fields; cargo test + `pnpm --dir sdk test` green.",
     "notes": "Inbox demolition 2 (retired by dadfd54). Chain tail (shares main.rs with PKG-NOUN-ENGINE-RETIRE, declarations.ts with PKG-NOUN-SDK-COLUMN). Reachability-as-edge-scope-clause (the corpus replacement) rides the clause-algebra growth downstream of REQUIREMENT-CLAUSES-RECUT — deferred, not this cut."
