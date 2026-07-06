@@ -218,7 +218,6 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
         .push(drift::RequirementRow {
             name: "dev-standards".to_string(),
             kind: Some("rule".to_string()),
-            package: None,
             required: true,
             count: None,
             unique: Vec::new(),

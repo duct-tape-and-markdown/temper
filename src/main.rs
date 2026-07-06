@@ -1029,7 +1029,7 @@ fn collect_directive_members(
 /// publisher keeps the slot**. The assembly roster seeds the map, then members are
 /// walked in the corpus's stable order, so the winner and the finding set are
 /// deterministic across runs. Every member-published requirement carries only the
-/// four facets a member header publishes (`means`/`kind`/`package`/`required`); the
+/// three facets a member header publishes (`means`/`kind`/`required`); the
 /// richer set-scope facets stay assembly-only and default here.
 fn union_published_requirements(
     assembly: &BTreeMap<String, compose::Requirement>,

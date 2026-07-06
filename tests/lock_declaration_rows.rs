@@ -133,7 +133,6 @@ fn rich_declarations() -> Declarations {
             RequirementRow {
                 name: "review-coverage".to_string(),
                 kind: Some("skill".to_string()),
-                package: None,
                 required: true,
                 count: None,
                 unique: Vec::new(),
@@ -144,7 +143,6 @@ fn rich_declarations() -> Declarations {
             RequirementRow {
                 name: "roster-coverage".to_string(),
                 kind: Some("skill".to_string()),
-                package: None,
                 required: false,
                 count: Some(CountBoundRow { min: 1, max: 2 }),
                 unique: vec!["name".to_string()],
@@ -153,7 +151,6 @@ fn rich_declarations() -> Declarations {
                     source: "review-coverage".to_string(),
                     source_kind: "skill".to_string(),
                     source_feature: "name".to_string(),
-                    source_package: None,
                 }),
                 degree: Some(DegreeBoundRow {
                     incoming: Some(EdgeBoundRow {
@@ -278,7 +275,6 @@ fn lock_carries_all_four_declaration_families() {
     assert_eq!(membership.source_kind, "skill");
     assert_eq!(membership.source, "review-coverage");
     assert_eq!(membership.source_feature, "name");
-    assert_eq!(membership.source_package, None);
     let degree = roster.degree.expect("degree bound is recorded");
     assert_eq!(degree.incoming.expect("incoming bound").min, Some(1));
     assert_eq!(degree.incoming.expect("incoming bound").max, None);

@@ -157,7 +157,6 @@ fn degree_requirement(kind: &str, degree: DegreeBoundRow) -> RequirementRow {
     RequirementRow {
         name: "gate".to_string(),
         kind: Some(kind.to_string()),
-        package: None,
         required: false,
         count: None,
         unique: Vec::new(),

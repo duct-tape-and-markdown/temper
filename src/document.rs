@@ -99,16 +99,14 @@ pub enum DocumentError {
     },
 
     /// A `[requirement.<name>]` module published on a member header carries a key
-    /// outside its closed facet set (`means`/`kind`/`package`/`required`) — the same
+    /// outside its closed facet set (`means`/`kind`/`required`) — the same
     /// posture as an unknown contract key (`specs/architecture/10-contracts.md`, "unknown keys are
     /// rejected"): a typo that would silently drop a published obligation is a hard
     /// load error, not a dropped key.
     #[error("published requirement `{name}` has unknown key `{key}`")]
     #[diagnostic(
         code(temper::document::requirement_unknown_key),
-        help(
-            "a member-published requirement carries only `means`, `kind`, `package`, and `required`"
-        )
+        help("a member-published requirement carries only `means`, `kind`, and `required`")
     )]
     RequirementUnknownKey {
         /// The published requirement carrying the stray key.
@@ -118,7 +116,7 @@ pub enum DocumentError {
     },
 
     /// A `[requirement.<name>]` module published on a member header carries a facet
-    /// of the wrong TOML type — `means`/`kind`/`package` not a string, or `required`
+    /// of the wrong TOML type — `means`/`kind` not a string, or `required`
     /// not a boolean.
     #[error("published requirement `{name}` key `{key}` must be {expected}")]
     #[diagnostic(code(temper::document::requirement_wrong_type))]
@@ -254,7 +252,7 @@ impl Satisfies {
 /// surface document"): the member declares a named obligation — the demand side of
 /// the fill edge, joined to the roster by another member's `satisfies`. It carries
 /// the same facets the assembly roster's `[requirement.<name>]` does (`means`,
-/// `kind`, `package`, `required`); the richer set-scope facets stay assembly-only.
+/// `kind`, `required`); the richer set-scope facets stay assembly-only.
 /// Authored on the surface, never imported; one namespace with the assembly roster,
 /// so a cross-publisher name collision is an admissibility finding (resolved in the
 /// gate), never a shadow.
@@ -267,9 +265,6 @@ pub struct PublishedRequirement {
     pub means: Option<String>,
     /// The artifact kind that may fill the requirement. Absent ⇒ kind-blind.
     pub kind: Option<String>,
-    /// The package the filling artifact must conform to, named by name. Absent ⇒ no
-    /// package constraint.
-    pub package: Option<String>,
     /// Whether an unfilled requirement is gate-blocking. Absent ⇒ `false`.
     pub required: bool,
 }
@@ -309,7 +304,7 @@ pub fn add_satisfies(header: &mut DocumentMut, satisfies: &Satisfies) {
 }
 
 /// Emit a `[requirement.<name>]` module carrying the facets the member publishes
-/// (`means`, `kind`, `package`, `required`). The demand-side mirror of
+/// (`means`, `kind`, `required`). The demand-side mirror of
 /// [`add_satisfies`]; an absent facet (`None`, or `required = false`) is omitted, so
 /// emit is the exact inverse of [`requirements`] and the round-trip is symmetric.
 pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirement) {
@@ -319,9 +314,6 @@ pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirem
     }
     if let Some(kind) = &requirement.kind {
         module.insert("kind", Item::Value(Value::from(kind.clone())));
-    }
-    if let Some(package) = &requirement.package {
-        module.insert("package", Item::Value(Value::from(package.clone())));
     }
     if requirement.required {
         module.insert("required", Item::Value(Value::from(true)));
@@ -463,14 +455,12 @@ pub fn requirements(header: &DocumentMut) -> Result<Vec<PublishedRequirement>, D
     for (name, item) in table.iter() {
         let mut means = None;
         let mut kind = None;
-        let mut package = None;
         let mut required = false;
         if let Some(module) = item.as_table() {
             for (key, value) in module.iter() {
                 match key {
                     "means" => means = Some(requirement_str(value, name, "means")?),
                     "kind" => kind = Some(requirement_str(value, name, "kind")?),
-                    "package" => package = Some(requirement_str(value, name, "package")?),
                     "required" => required = requirement_bool(value, name)?,
                     other => {
                         return Err(DocumentError::RequirementUnknownKey {
@@ -485,7 +475,6 @@ pub fn requirements(header: &DocumentMut) -> Result<Vec<PublishedRequirement>, D
             name: name.to_string(),
             means,
             kind,
-            package,
             required,
         });
     }
@@ -755,7 +744,6 @@ Last line, no newline.";
                 name: "architecture".to_string(),
                 means: Some("the corpus carries an architecture spec".to_string()),
                 kind: Some("spec".to_string()),
-                package: Some("spec.temper".to_string()),
                 required: true,
             },
         );
@@ -765,7 +753,6 @@ Last line, no newline.";
                 name: "bare".to_string(),
                 means: None,
                 kind: None,
-                package: None,
                 required: false,
             },
         );
@@ -787,14 +774,12 @@ Last line, no newline.";
                     name: "architecture".to_string(),
                     means: Some("the corpus carries an architecture spec".to_string()),
                     kind: Some("spec".to_string()),
-                    package: Some("spec.temper".to_string()),
                     required: true,
                 },
                 PublishedRequirement {
                     name: "bare".to_string(),
                     means: None,
                     kind: None,
-                    package: None,
                     required: false,
                 },
             ]

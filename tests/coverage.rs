@@ -94,7 +94,6 @@ fn requirement(name: &str, required: bool) -> RequirementRow {
     RequirementRow {
         name: name.to_string(),
         kind: None,
-        package: None,
         required,
         count: None,
         unique: Vec::new(),

@@ -119,7 +119,7 @@ fn author_published(
 }
 
 /// A member-published requirement carrying only the facets a member header publishes
-/// (`kind` and `required`; `means`/`package` unused by these cases).
+/// (`kind` and `required`; `means` unused by these cases).
 fn published(
     name: &str,
     kind: Option<&str>,
@@ -129,7 +129,6 @@ fn published(
         name: name.to_string(),
         means: None,
         kind: kind.map(str::to_string),
-        package: None,
         required,
     }
 }
@@ -177,7 +176,6 @@ fn requirement(name: &str, kind: &str) -> RequirementRow {
     RequirementRow {
         name: name.to_string(),
         kind: Some(kind.to_string()),
-        package: None,
         required: false,
         count: None,
         unique: Vec::new(),
@@ -494,8 +492,7 @@ fn a_roster_whose_verifiers_all_resolve_passes() {
 /// satisfier's `model` to the `model` feature drawn from the `approved-model`
 /// satisfier set (S₂) — the set-scope `membership` predicate, with a corpus-derived
 /// allowed set. `source` names a *declared* requirement, so the approved skills'
-/// `satisfies` link resolves. `agents` binds no package (no shape gate), leaving
-/// membership the only gate these cases exercise.
+/// `satisfies` link resolves, leaving membership the only gate these cases exercise.
 fn membership_requirements() -> Vec<RequirementRow> {
     vec![
         RequirementRow {
@@ -504,7 +501,6 @@ fn membership_requirements() -> Vec<RequirementRow> {
                 source: "approved-model".to_string(),
                 source_kind: "skill".to_string(),
                 source_feature: "model".to_string(),
-                source_package: None,
             }),
             ..requirement("agents", "skill")
         },

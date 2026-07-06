@@ -65,7 +65,6 @@ fn feature(id: &str, satisfies: &[&str], published: &[&str]) -> Features {
                 name: (*name).to_string(),
                 means: None,
                 kind: None,
-                package: None,
                 required: true,
             })
             .collect(),

@@ -981,9 +981,6 @@ pub struct RequirementRow {
     /// The kind that may fill it, when typed by one.
     #[serde(default)]
     pub kind: Option<String>,
-    /// The package the filler must conform to, when bound.
-    #[serde(default)]
-    pub package: Option<String>,
     /// Whether an unfilled requirement blocks the gate.
     #[serde(default)]
     pub required: bool,
@@ -1029,9 +1026,6 @@ pub struct MembershipRow {
     pub source_kind: String,
     /// The feature whose extracted scalars over S2 form the allowed set.
     pub source_feature: String,
-    /// The optional typed-reference package S2 is narrowed to conform to.
-    #[serde(default)]
-    pub source_package: Option<String>,
 }
 
 /// A requirement row's `degree` bound — the in/out edge-count bound every satisfier
@@ -1266,9 +1260,6 @@ impl RequirementRow {
         if let Some(kind) = &self.kind {
             table.insert("kind", value(kind.clone()));
         }
-        if let Some(package) = &self.package {
-            table.insert("package", value(package.clone()));
-        }
         table.insert("required", value(self.required));
         if let Some(count) = &self.count {
             table.insert("count", value(count_bound_table(count)));
@@ -1292,7 +1283,6 @@ impl RequirementRow {
         Some(Self {
             name: str_col(table, "name")?,
             kind: str_col(table, "kind"),
-            package: str_col(table, "package"),
             required: table
                 .get("required")
                 .and_then(Item::as_bool)
@@ -1383,9 +1373,6 @@ fn membership_table(membership: &MembershipRow) -> InlineTable {
         "source_feature",
         Value::from(membership.source_feature.clone()),
     );
-    if let Some(source_package) = &membership.source_package {
-        table.insert("source_package", Value::from(source_package.clone()));
-    }
     table
 }
 
@@ -1395,7 +1382,6 @@ fn membership_from_table(table: &dyn TableLike) -> Option<MembershipRow> {
         source: str_col_like(table, "source")?,
         source_kind: str_col_like(table, "source_kind")?,
         source_feature: str_col_like(table, "source_feature")?,
-        source_package: str_col_like(table, "source_package"),
     })
 }
 
