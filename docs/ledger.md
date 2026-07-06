@@ -43,6 +43,15 @@ hard.
 
 ## Parked (pointers only)
 
+- Severity two-vs-three: clause severity is `required`/`advisory`; the
+  surface-authority posture (20-surface) speaks note/warn/block, with
+  `note` an information tier the algebra lacks. Rule: three-valued
+  everywhere, or `note` is not a severity. Surfaced by the 07-06 layering
+  audit; small ceremony, do before reporters multiply.
+- 10-contracts split (housekeeping): 480+ lines, arguably two topics
+  (clause algebra; requirements+admissibility). Natural moment passed with
+  the set-scope Decision — next corpus-wide pass.
+
 - On John: release remainders — (a) Apple Developer membership IF we
   notarize the standalone mac binary (decide at release; npm installs dodge
   Gatekeeper); (b) USPTO name screen. Marketplace needs NO creds (verified
