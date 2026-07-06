@@ -222,6 +222,23 @@ New forks from the ceremony:
   reads lock governs-loci) + S6 (install scaffolds the SDK program, no lock).
   The accepted-debt DATUM below (cascade reports 2–4) closes with S2/S7; report
   1 closes with S6c.
+  DATUM (2026-07-06, S6 shipped → S7 re-scoped, under-scoping found): after
+  INSTALL-FRONT-DOOR (S6) landed, reconcile found the terminal **S7
+  TEMPER-TOML-ZERO badly under-scoped** — its fence (compose.rs + main.rs,
+  acceptance `rg=0`) is a fiction. `temper.toml` is woven through **21 files**
+  (9 src + 12 test, 200+ refs), and — the substantive gap the S1–S7 ceremony
+  missed — the gate still composes each kind's *effective contract* from the
+  temper.toml `[kind.*]` layer (`compose::effective`, main.rs:691), never the
+  lock's `ClauseRow` (which `emit` already writes into `Payload.declarations`).
+  S2 moved requirements/edges/reachability/authority to the lock but left the
+  clause/kind layer on temper.toml. Retiring the reader without first
+  re-sourcing contract clauses from the lock silently drops per-kind clause
+  overrides (20-surface: "the gate never reads declarations from anywhere but
+  the lock"). Corpus unambiguous ⇒ no fork ⇒ plan derived the split: S7 is now
+  a serialized head+terminal — **GATE-CONTRACT-FROM-LOCK** (open, the gate
+  composes contracts from lock `ClauseRow`/`KindFactRow`) → **TEMPER-TOML-ZERO**
+  (blockedBy, retire the reader + sweep to `rg=0`). Cascade reports 2–4 still
+  close with the terminal.
   DATUM (2026-07-05, cascade — the first external harness): four field reports
   (inbox, drained this tick) confirm the manifest-era in-place path the current
   `init` writes (root `temper.toml`, no `.temper/`) is what a real adopter hits,

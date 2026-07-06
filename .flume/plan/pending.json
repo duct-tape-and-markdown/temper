@@ -1,14 +1,13 @@
 [
   {
-    "tag": "TEMPER-TOML-ZERO",
-    "summary": "Eradicate every remaining temper.toml reader — AuthorLayer load/authority/fold_local, the TEMPER_TOML const, the in-place readers, explain's load_layer residue — the manifest filename is gone",
+    "tag": "GATE-CONTRACT-FROM-LOCK",
+    "summary": "The gate composes each kind's effective contract from the lock's clause/kind declaration rows, not the temper.toml [kind.*] layer — clause overrides gate from the lock",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INSTALL-FRONT-DOOR"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,163 @@
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Retire `AuthorLayer::load`/`authority`/`fold_local` and the in-place read path S5 kept standing (`parse_inplace_member`, `inplace_members()`, `InPlaceMember`, the `[[member]]` array parse in `AuthorLayer::parse`) — no verb reads a `temper.toml` for members anymore; posture/layers come from the lock. Any `[role.*]`/severity residue retires here if nothing reads it. The `AuthorLayer::parse` unit tests (compose.rs:1585+) retire with the reader."
+          "description": "`compose::effective` (compose.rs:969) sources per-kind clause/severity overrides from the lock's `ClauseRow`/`KindFactRow` (drift::Declarations) instead of an `AuthorLayer` `[kind.*]` layer; the layer-over-floor clause path (`layer_over`, compose.rs:874) retires as the contract's clause source. `effective` still yields the two-greens contract — only its override input changes from the temper.toml layer to lock rows. The `AuthorLayer` `[kind.*]` parse survives for the in-place/authority readers TEMPER-TOML-ZERO retires, but no longer feeds any contract."
         },
         {
           "path": "src/main.rs",
-          "description": "Remove the `TEMPER_TOML` const (main.rs:50) + every use (gate paths main.rs:261/266, the `load_layer` reader main.rs:301/404, Guard authority main.rs:356, explain's `load_layer` main.rs:404, the harness-join at main.rs:551). Retiring `AuthorLayer::load` cascades to every in-place consumer — `validate_inplace_kinds`, the `declared` check's `inplace_members()` arm, the inplace reads — all die with the reader. Line refs drift after INSTALL-FRONT-DOOR lands; reconcile-when-head refreshes them."
+          "description": "Feed lock clause/kind rows to `compose::effective` at all three call sites: Schema (main.rs:309/326/332) reads `.temper` declarations for clauses instead of `load_layer`; the gate (main.rs:691) passes clauses off the `declarations` it already reads (main.rs:639). The temper.toml layer stops affecting any contract. `load_layer` itself stays until TEMPER-TOML-ZERO (still feeds in-place)."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Migrate any assertion depending on a temper.toml `[kind.*]` layer changing the contract to write the clause/kind override into a golden `.temper/lock.toml` row (as requirements already ride the lock via `write_requirements`). A redundant `[kind.skill] package=` floor re-bind (roster.rs:138) becomes inert (the floor auto-binds by identity) and drops."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "The custom-kind registration fixtures (`[kind.spec]`/`[kind.adr]` with clauses, acceptance.rs:215/244/337/352) declared via temper.toml migrate to lock `[[declaration.kind]]`/`[[declaration.clause]]` rows — the six-noun custom-kind path is SDK/lock-authored, never a manifest table."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The temper.toml floor-rebind writes (graph.rs:327) become inert under lock-composition and drop; any assertion resting on a layer-read migrates to a golden lock."
+        },
+        {
+          "path": "tests/reachable_gate.rs",
+          "description": "The `[kind.skill]` floor-rebind write (reachable_gate.rs:305) drops as inert; reachability already rides `write_reachability` golden locks."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Migrate any temper.toml `[kind.*]`/layer fixture whose gate effect this change removes to a golden lock row."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Migrate any temper.toml layer fixture the session-start gate depended on to a golden lock; the surface-present branch already reads `.temper`."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "Drop inert temper.toml layer writes; the memory gate composes off the floor + lock rows."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "The empty-assembly coherence fixtures already read `declarations.clauses`; reconcile any temper.toml layer write to the lock."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Migrate any temper.toml layer fixture the install/gate path depended on to a golden lock row."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Reconcile CLI fixtures that wrote a temper.toml layer to a golden lock; a redundant floor rebind drops."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a per-kind clause/severity override declared in the lock's `[[declaration.clause]]` rows changes the gate's verdict; the same override written only in a temper.toml `[kind.*]` layer has no effect"
+      }
+    ],
+    "acceptance": "The gate's effective-contract clauses come from the lock's `ClauseRow`/`KindFactRow`, never a temper.toml `[kind.*]` layer; a lock-declared clause override gates, a temper.toml-only one is inert. cargo test/clippy/fmt green.",
+    "notes": "The S1–S7 ceremony moved requirements/edges/reachability/authority to the lock but left the effective-contract clause/kind layer on temper.toml (compose::effective, main.rs:691). Emit already writes ClauseRow (Payload.declarations); the gate just never reads it into the contract — a live seam gap. Predecessor to TEMPER-TOML-ZERO: the reader can't retire until clauses gate from the lock. Shares main.rs/compose.rs/tests — serialized ahead of S7b."
+  },
+  {
+    "tag": "TEMPER-TOML-ZERO",
+    "summary": "Retire every remaining temper.toml reader — load_layer, AuthorLayer::load/authority/fold_local, the in-place [[member]] path, the consts — and sweep all refs to zero",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The lock and drift — one vocabulary"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GATE-CONTRACT-FROM-LOCK"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Retire `AuthorLayer::load` (compose.rs:664)/`authority` (831)/`fold_local` (925), the in-place read path (`parse_inplace_member` 1416, `inplace_members` 840, `InPlaceMember` 113, the `[[member]]` array parse in `AuthorLayer::parse`), and the `layer_over`/temper.toml plumbing left vestigial after GATE-CONTRACT-FROM-LOCK. The `AuthorLayer::parse` unit tests (compose.rs:1585+) retire with the reader. Sweep the module's temper.toml doc references."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Remove `TEMPER_TOML` (main.rs:50) + `TEMPER_LOCAL_TOML` (56) + every use: gate paths (269/274), Schema (309), explain (430), `load_layer` fn (586), gate (629), the session_start harness-join (614). Retiring `load_layer`/`AuthorLayer::load` cascades to the in-place consumers — `validate_inplace_kinds` (974), `inplace_unit` (1150), the explain `any_inplace` synthesis (469), the inplace arms (1059/1123/1249) — all die with the reader. `authority_from_lock` (549) stays: it already reads the lock. Sweep remaining temper.toml doc comments."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Sweep the temper.toml doc reference (import.rs:6) to the lock vocabulary — the manifest filename is retired."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Rewrite the temper.toml mentions in bundle guidance strings (bundle.rs:109/134) to the lock/SDK vocabulary."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Sweep the temper.toml doc comments (roster.rs:205/595) and retire the `AuthorLayer::parse`-over-`temper.toml` test helper (roster.rs:599) with the reader."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "Sweep the temper.toml module-doc reference (schema.rs:5)."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Rewrite the user-facing message (read.rs:1311) telling authors to declare `[requirement.<name>]` in temper.toml — requirements ride the lock/SDK program now, never a manifest."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "Sweep the temper.toml doc references (contract.rs:6/525) to the lock vocabulary."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Sweep the temper.toml doc references (check.rs:308/573)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Retire the temper.toml test-helper spellings (`AuthorLayer::parse` fragments, graph.rs:1022/1281) with the reader; sweep the doc references (graph.rs:1018/1277)."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Zero out every remaining temper.toml write/reference; a file by that name is inert (old temper). In-place `[[member]]` and any residual layer fixtures retire — assembly facts already ride golden locks."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "Zero out remaining temper.toml references (post-migration residue)."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Zero out remaining temper.toml references."
+        },
+        {
+          "path": "tests/reachable_gate.rs",
+          "description": "Zero out remaining temper.toml references."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Zero out remaining temper.toml references."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Zero out remaining temper.toml references."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "Zero out remaining temper.toml references."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Zero out remaining temper.toml references."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Zero out remaining temper.toml references."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Assert no verb reads or writes a temper.toml; a file by that name is inert (old temper, never current temper's input). Zero out remaining references."
+        },
+        {
+          "path": "tests/reporters.rs",
+          "description": "Zero out the remaining temper.toml reference."
         }
       ],
       "retire": []
@@ -32,8 +183,8 @@
         "asserts": "no verb reads or writes a temper.toml; a file by that name is inert (old temper, never current temper's input)"
       }
     ],
-    "acceptance": "`rg -c 'temper\\.toml' src/ tests/` = 0; the manifest filename is retired entirely (20-surface: 'the name temper.toml retires with the manifest era entirely'). Cascade re-onboards via the new install; its manifest-era artifacts are old temper by definition.",
-    "notes": "Chain terminal. Cascade's reports (2)-(4) — the accepted-debt DATUM under `(inplace-lock-producer)` — close with this slice: no manifest-mode coverage remains. Retiring AuthorLayer::load cascades to the in-place consumers S5 deliberately kept. Shares main.rs with INSTALL-FRONT-DOOR — serialized behind it."
+    "acceptance": "`rg -c 'temper\\.toml' src/ tests/` = 0; the manifest filename is retired entirely (20-surface: 'the name temper.toml retires with the manifest era entirely'). cargo test/clippy/fmt green.",
+    "notes": "Chain terminal. After GATE-CONTRACT-FROM-LOCK, the temper.toml layer feeds no contract, so the reader is vestigial for clauses; this slice pulls the reader outright and the in-place `[[member]]` path S5 kept, then sweeps every doc/message/test reference to zero. Cascade reports (2)-(4) under `(inplace-lock-producer)` close here — no manifest-mode coverage remains. Sole open entry when it runs; ~21 files, serialized behind S7a so overlap is harmless."
   },
   {
     "tag": "PACKAGING-CHANNELS",
