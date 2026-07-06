@@ -92,9 +92,12 @@ condition arrives, it is the next break. If work touches one, surface it.
 - **Format implementations are engine code** (the generic frontmatter adapter)
   — kept because an external format's mechanics are temper's to implement
   once; the selection is declared. Grows only by deliberate addition.
-- **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived:
-  retires with the derived-lock chain (D5, citation trail moves to clause
-  `cite` fields per `10-contracts.md`).
+- **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived,
+  retirement filed: BUILTIN-LOCK-DERIVED + CURATED-TREES-RETIRE remove the
+  code refs (citation trail moves to clause `cite` fields per
+  `10-contracts.md`); the physical tree deletion is a human `chore(harness):`
+  commit after (the trees are out of build's fence). This line dies on the
+  reconcile that sees both land.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the custom-kind story
   proves end to end.

@@ -1,47 +1,32 @@
 # Plan state
 
-- **Phase:** residue sweep, quiescent. Spec-delta empty (no `specs/` commit
-  since e227a27); inbox empty; `open-questions.md` already drained to OPEN
-  forks only (07-06 anti-accumulation rule). The sweep ran regardless and
-  found no un-derived residue.
+- **Phase:** derived-lock chain filed. The 07-06 in-session ceremony (John +
+  session) landed in `inbox.md`; this tick drained it into a serialized
+  5-link chain and the residue sweep found one orphan (`contract/`).
 - **Last shipped:** PKG-NOUN-EXPLAIN-DIAGNOSTIC (build 54a4e9a / chore
-  48b875c) — re-cut `explain`'s "Governing-package" line + doc comment to
-  floor/kind/clause vocabulary and dropped the stale read.rs/builtin.rs spec
-  cites. That was the package noun's **last** diagnostic residue.
-- **This tick — the package-noun retirement is COMPLETE on disk.** Verified:
-  no `conforms_to` and no conformance pass (every `conformance` hit is an inert
-  comment); no `package` facet on `Requirement` (compose.rs:78-98 carries
-  count/unique/membership/degree/verified_by only); no package resolver keyed
-  off a requirement; no package-vocabulary diagnostic in read.rs/builtin.rs; no
-  `KIND.md` header-grammar parser. The only surviving "package" uses are
-  legitimate — the sanctioned std-lib `PACKAGE.md` embed (bundle.rs), the
-  `floor_package`/floor-binding helpers, and the npm/SDK manifest domain. The
-  stale "`kind::BUILTIN_KINDS` const survives / KIND-BUILTIN-CONST-RETIRE
-  fileable" claim is **false**: no such const exists — `rg BUILTIN_KINDS
-  src/kind.rs` is empty; the only one is the live, used `builtin_kind::
-  BUILTIN_KINDS` (builtin_kind.rs:27, referenced :323). No entry filed.
-- **In flight:** 2 entries, **both parked / human-gated — nothing pickable.**
-  (1) REQUIREMENT-CLAUSES-RECUT — re-verified live this tick that all four
-  facets still stand cross-language: compose.rs `CountBound`:105 /
-  `DegreeBound`:118 / `Membership`:158 + the `Requirement` fields;
-  drift.rs `RequirementRow` count/unique/membership/degree columns (:978);
-  roster.rs set-scope checks; sdk/contract.ts `count?`/`unique?`/`membership?`/
-  `degree?` :83-86 with **no** `clauses?` field; SEAM_VERSION=1 both sides.
-  A cross-language serialized reshape (facets → `clauses` array + SEAM bump)
-  needing a decomposition ceremony (John + session), like GATE-READ-LOCK got.
-  (2) PACKAGING-CHANNELS — release infra (release.yml + optionalDependencies),
-  parked on human release creds + the engine-binary workflow + USPTO screen.
-- **What's next (all human/foundation-gated):** the REQUIREMENT-CLAUSES-RECUT
-  decomposition ceremony (folds in reachability-as-edge-scope-clause and the
-  held general-degree-band predicate — a design fork the autonomous phase must
-  not decide); PACKAGING-CHANNELS release setup; the `(genre-fence-format)`
-  workshop (cascade pilot); the OPEN forks in open-questions.md
-  (`(authority-home)`, `(edge-representation-unify)`,
-  `(builtin-workspace-qualified-key)`, `(json-projection-format)`, …), each
-  needing John or the SDK-primary foundation.
+  48b875c) — the package noun's last diagnostic residue; the package-noun
+  retirement is complete on disk.
+- **In flight — 8 entries, 2 open & disjoint:**
+  (1) REQUIREMENT-CLAUSES-ALGEBRA — open. Grow the closed clause `Predicate`
+  algebra with the set-/edge-scope predicates (facet-only today:
+  contract.rs `Predicate` :93 has no Count/Membership/Degree; they live as
+  `Requirement` facets in compose.rs :64-94). Additive.
+  (2) CONTRACT-CORPUS-RETIRE — open, disjoint. `contract/` is orphaned
+  (verified: `rg contract/ src tests sdk/src` empty) — two-writer-era residue
+  (20-surface). Pure deletion.
+  Then the serialized derived-lock chain, each blockedBy the prior:
+  REQUIREMENT-CLAUSES-RECUT → FIRST-PARTY-MODULE-COMPLETE →
+  BUILTIN-LOCK-DERIVED → {BUILTIN-LOCK-FROZEN-LANE, CURATED-TREES-RETIRE}
+  (the last two are parallel-safe leaves behind D3).
+  And PACKAGING-CHANNELS — parked (human release creds + engine-binary
+  workflow + USPTO screen).
+- **What's next:** build the two open entries (parallel-safe); the chain
+  unblocks link by link. Queued **human** chores, not build work: the
+  physical `packages/**` + `kinds/**` tree deletion (out of build's fence)
+  once BUILTIN-LOCK-DERIVED + CURATED-TREES-RETIRE remove the code refs; the
+  PACKAGING-CHANNELS release setup. OPEN forks in open-questions.md still
+  await John or the SDK-primary foundation.
 
-Plan continues: no — pending fully reconciled (both entries re-verified,
-correctly parked), the package-noun sweep came back clean, inbox drained,
-spec-delta empty, no fork newly resolved. No open pickable entry exists: the
-queue is genuinely blocked on two human ceremonies. Re-planning the same
-parked queue would be spin, not diligence.
+Plan continues: no — queue reconciled, inbox drained, two disjoint open
+entries ready. Building is how the chain drains; re-planning the same queue
+would be spin.

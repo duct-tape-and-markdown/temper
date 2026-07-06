@@ -1,30 +1,267 @@
 [
   {
-    "tag": "REQUIREMENT-CLAUSES-RECUT",
-    "summary": "Recut the requirement to `means·kind·required·clauses?·verifiedBy?` — retire count/unique/membership/degree facets for a clauses array, across engine + SDK + seam",
+    "tag": "REQUIREMENT-CLAUSES-ALGEBRA",
+    "summary": "Grow the closed clause Predicate algebra with the set-/edge-scope predicates (count, unique, membership, degree) so they are sayable as ordinary clause values",
     "per": {
       "path": "specs/architecture/10-contracts.md",
-      "section": "Decision: set-scope demands are clauses — no noun enumerates the algebra"
+      "section": "The predicate algebra — closed, decidable, every member decides"
     },
-    "gate": {
-      "kind": "parked",
-      "reason": "frame-scale and cross-language: the four facets live in compose.rs (Requirement + CountBound:105/Membership:158/DegreeBound:118) and sdk/contract.ts (count?/unique?/membership?/degree? at :83-86, re-verified live this tick), plus drift.rs RequirementRow columns and roster.rs (the set-scope check), and moving them onto a `clauses` array reshapes ClauseRow/engine dispatch to carry set/edge-scope predicates and bumps SEAM_VERSION on both sides (tests/emit.rs runs the real SDK). Needs a decomposition ceremony (John + session) to cut the serialized chain before parallel-safe slices, like GATE-READ-LOCK-DEMOLITION got. Also resolves whether reachability-as-clause (the REACH-DIAL replacement) and the held general-degree-band predicate ride this same clause-algebra growth."
-    },
-    "dependsOnForks": [],
+    "gate": { "kind": "open" },
     "files": {
       "new": [],
       "edit": [
         {
+          "path": "src/contract.rs",
+          "description": "Add Count / Unique / Membership / Degree members to the closed `Predicate` enum (:93) — the node-set and edge scopes — each with its payload (count `[min,max]`, membership target requirement, degree in/out bounds; `unique` a field). Wire `key()`/`keys()`/`fields()` arms (:219-325), the parse arms (:625+), and the admissibility rules (well-ordered `min<=max`, non-empty membership target, degree carries >=1 direction). Additive: the `Requirement` facet fields stay live and keep driving roster/graph until REQUIREMENT-CLAUSES-RECUT moves onto these."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow` today carries only kind/predicate/field/severity — the args live in the recomputed floor, not the row. Give it an argument channel so a set-/edge-scope clause round-trips its bounds/target through to_table/from_table, and keep admissibility's unknown-key rejection (10-contracts) satisfied. If growing the row changes the emitted lock shape, bump SEAM_VERSION here — build's call at implement time."
+        },
+        {
           "path": "sdk/src/contract.ts",
-          "description": "The Requirement interface enumerates `count?`/`unique?`/`membership?`/`degree?` (contract.ts:83-86) and lacks `clauses?` — the facet spelling 10-contracts rejects. Placeholder anchor; the ceremony scopes the full cross-language chain (compose.rs/drift.rs/roster.rs/engine.rs + sdk/contract.ts/declarations.ts + SEAM_VERSION)."
+          "description": "Add the clause constructors `count()`/`unique()`/`membership()`/`degree()` returning `Predicate` values — peers of the existing `required`/`maxLines`/… (:34-50) — so a set-scope demand composes as an ordinary clause. The `Requirement` interface facet fields (:83-86) are untouched by this entry."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "src/contract.rs", "asserts": "parse + admissibility of the new set/edge-scope predicates: well-ordered count bound accepted, inverted rejected; non-empty membership target enforced; degree with zero directions rejected" },
+      { "path": "tests/lock_declaration_rows.rs", "asserts": "a ClauseRow carrying set-/edge-scope args round-trips through to_table/from_table byte-stably" }
+    ],
+    "acceptance": "The clause `Predicate` algebra carries count/unique/membership/degree as node-set/edge-scope members; each is composable as an SDK clause value and round-trips as a ClauseRow with its arguments; admissibility rejects the vacuous/inverted bounds. The Requirement facet fields still drive roster/graph unchanged — this entry is additive.",
+    "notes": "Chain-head enabler for the derived-lock work. Additive only: makes the set-/edge-scope predicates sayable as clauses; REQUIREMENT-CLAUSES-RECUT (blockedBy this) then moves the requirement's demands onto the clauses array. Split from the ceremony's single D1 because the predicates are facet-only today (10-contracts: 'one language change wherever clauses attach') — the recut needs the algebra first."
+  },
+  {
+    "tag": "CONTRACT-CORPUS-RETIRE",
+    "summary": "Retire the orphaned contract/ byte-parity golden corpus + its schema projections — dead two-writer-era residue no code references",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The seam — one implementation"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [],
+      "retire": [
+        "contract/README.md",
+        "contract/schema/manifest.schema.json",
+        "contract/schema/manifest.d.ts",
+        "contract/manifest/skill.toml",
+        "contract/manifest/corpus.toml",
+        "contract/manifest/empty-rejected.toml",
+        "contract/manifest/decision.toml",
+        "contract/manifest/memory.toml",
+        "contract/manifest/rule.toml"
+      ]
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "The contract/ tree is gone; the crate builds and every gate stays green (contract/ has no code consumer — verified 2026-07-06: `rg 'contract/' src/ tests/ sdk/src/` is empty). The byte-parity golden corpus that tested a second writer against the seam is retired with the two-writer era.",
+    "notes": "20-surface: 'The byte-parity golden corpus (contract/) that once tested a second writer against the seam retires with the two-writer era, alongside its schema projections.' Also 05-model: manifest-as-corpus is dissolved. One implementation ships today, so the corpus has nothing to compare. Disjoint from every other open/queued entry (touches only the contract/ dir). Build should confirm no test loads it before deleting."
+  },
+  {
+    "tag": "REQUIREMENT-CLAUSES-RECUT",
+    "summary": "Move the requirement's set-/edge-scope demands off count/unique/membership/degree facet fields onto its clauses array; retire the facets across engine + SDK + seam; bump SEAM_VERSION",
+    "per": {
+      "path": "specs/architecture/10-contracts.md",
+      "section": "Decision: set-scope demands are clauses — no noun enumerates the algebra"
+    },
+    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-CLAUSES-ALGEBRA" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Drop the `count`/`unique`/`membership`/`degree` facet fields from `Requirement` (:64-94) for a `clauses` vec of set-/edge-scope clause values; `CountBound`/`DegreeBound`/`EdgeBound`/`Membership` stay as the clause predicates' payloads (added to the algebra in REQUIREMENT-CLAUSES-ALGEBRA), no longer fields of the requirement record. `required` and `verified_by` remain."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Drop the count/unique/membership/degree columns and the `CountBoundRow`/`MembershipRow`/`DegreeBoundRow` types from `RequirementRow` (:978-1043); a requirement row carries its set-scope demands as clause rows; recut to_table/from_table (:1256+); bump `SEAM_VERSION` (:246) to the final row shape in lockstep with declarations.ts."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "The set-scope check (count/unique/membership, :97+) and its admissibility (:149+) read each demand from the requirement's clauses array instead of the named facet fields; the diagnostic rule ids (:20-32) are unchanged."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The graph-scope `degree` check over a requirement's satisfiers reads the degree predicate from the requirement's clauses instead of `Requirement::degree`."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "Drop `count?`/`unique?`/`membership?`/`degree?` from the `Requirement` interface (:83-86) for `clauses?: readonly Clause[]`; recut the file header comment (:4) to `means · kind · required · clauses? · verifiedBy?`."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`compileDeclarations` emits a requirement's set-scope demands as clause rows in a `clauses` array, not facet fields; bump `SEAM_VERSION` (:198) in lockstep with drift.rs."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/requirement_roster.rs", "asserts": "count/unique/membership/degree fire when declared as clauses on a requirement, at each clause's own severity" },
+      { "path": "tests/lock_declaration_rows.rs", "asserts": "a RequirementRow round-trips with clause-borne set-scope demands and no facet columns; a payload at the old seam version is rejected" },
+      { "path": "tests/emit.rs", "asserts": "the real SDK emits requirement demands in the clauses form end-to-end" }
+    ],
+    "acceptance": "A requirement carries set-/edge-scope demands as ordinary clause values (each with its own severity/guidance/cite), not named facet fields; the SDK Requirement reads means·kind·required·clauses?·verifiedBy?; the lock's requirement row carries no facet columns; SEAM_VERSION bumped both sides; roster/graph read the demands from clauses.",
+    "notes": "Ceremony D1 (John+session 07-06): the requirement row schema must settle before the built-in lock is emitted in it. Atomic seam recut — the SEAM bump is one step and both spellings can't coexist across the seam, so this is one commit. Blocked on REQUIREMENT-CLAUSES-ALGEBRA. Reachability-as-clause already shipped (REACH-DIAL-RETIRE); general degree bands stay held at the entry gate."
+  },
+  {
+    "tag": "FIRST-PARTY-MODULE-COMPLETE",
+    "summary": "Carry all four built-in kinds + their floors as exported SDK values with per-clause cites in @dtmd/temper/claude-code, migrated from packages/*/PACKAGE.md and builtin.rs",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
+    },
+    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-CLAUSES-RECUT" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Beside the existing `skill`/`rule`/`memory` kind exports (:35,59,79), export the floor clause arrays — `skillFloor`, `ruleFloor`, `memoryAnthropicFloor`, `memoryAgentsMdFloor` — every clause carrying severity + guidance + a `cite` (URL + retrieved date), the content migrated verbatim from `packages/*/PACKAGE.md` and from builtin.rs's `skill_anthropic()`/`rule_anthropic()`/`memory_*()` (src/builtin.rs:91+). The AGENTS.md floor stays guidance-only (zero clauses), per builtin.rs's note."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Re-export the four floor arrays from the `@dtmd/temper/claude-code` subpath face, beside the kind re-exports (:13-14), so adoption is `import { skill, skillFloor } from \"@dtmd/temper/claude-code\"` (10-contracts, the floor-is-an-import example)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "sdk/test", "asserts": "each exported floor is a well-formed clause array and every clause carries a non-empty cite" }
+    ],
+    "acceptance": "@dtmd/temper/claude-code exports the four built-in kinds and their floors as SDK values; each floor clause carries its cite; the module's clauses/guidance/cites are content-equivalent to builtin.rs's hand-written floors — spelled once, in the module.",
+    "notes": "Ceremony D2. The citation trail is not residue: each floor clause's `cite` homes the source packages/*/PACKAGE.md carried (10-contracts, package-residue paragraph). builtin.rs stays the engine's copy until BUILTIN-LOCK-DERIVED retires it; this only makes the module the authoritative spelling. sdk/** is in fence; packages/*/PACKAGE.md are read as the migration source, never edited (out of fence)."
+  },
+  {
+    "tag": "BUILTIN-LOCK-DERIVED",
+    "summary": "Derive the embedded default program from the first-party module's own emit — a committed receipt-less built-in lock parsed at startup; retire builtin.rs/builtin_kind.rs hand mirrors",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
+    },
+    "gate": { "kind": "blockedBy", "tag": "FIRST-PARTY-MODULE-COMPLETE" },
+    "files": {
+      "new": [
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "The committed receipt-less built-in lock — declaration rows only (kind facts, clauses, requirements; no provenance or emit-fingerprint rows, because nothing was emitted), generated from `@dtmd/temper/claude-code`'s own emit and embedded via `include_str!` (20-surface, 'The lock and drift': the built-in lock is one input shape from two sources)."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "Parse the embedded built-in lock at engine startup into the declaration-row IR the gate already consumes, and expose it as the default program (replacing builtin.rs/builtin_kind.rs). Kind identity is the compiled row label; the engine never resolves bare vs qualified names."
+        }
+      ],
+      "edit": [
+        { "path": "src/lib.rs", "description": "Drop `pub mod builtin;` and `pub mod builtin_kind;`; add `pub mod builtin_lock;`." },
+        { "path": "src/main.rs", "description": "Replace the per-name skill/rule floor dispatch (:572-590, `floor_package`/`qualified_name`) with row-driven resolution off the parsed built-in lock." },
+        { "path": "src/check.rs", "description": "Generalize `Workspace::skills()`/`rules()` (:95-105, bare-kind-name accessors) and the members-map keying to row-driven kind identity — closes `(builtin-workspace-qualified-key)`." },
+        { "path": "src/engine.rs", "description": "Wire the default program from builtin_lock at startup instead of builtin/builtin_kind." },
+        { "path": "tests/contract_template.rs", "description": "Pins builtin.rs's clause vector via temper::builtin — recut to load from the derived built-in lock, or retire if the module's own test covers it." },
+        { "path": "tests/rule_contract.rs", "description": "Same builtin-loaded pin — recut to the derived lock." },
+        { "path": "tests/session_start.rs", "description": "References the built-in kind/floor default program — recut against the derived lock." },
+        { "path": "tests/acceptance.rs", "description": "Stranger-gate acceptance over the default program — recut against the derived lock." }
+      ],
+      "retire": [ "src/builtin.rs", "src/builtin_kind.rs" ]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/lock_declaration_rows.rs", "asserts": "the embedded built-in lock parses to the declaration-row IR and the stranger gate checks against it identically to the retired hand-written program" }
+    ],
+    "acceptance": "The stranger gate checks against a built-in lock derived from @dtmd/temper/claude-code's emit, embedded as data and parsed at startup; builtin.rs and builtin_kind.rs are gone; kind identity is the compiled row label; bare/qualified-name resolution and the check::Workspace skills()/rules() accessors are row-driven. `(builtin-workspace-qualified-key)` closes.",
+    "notes": "Ceremony D3. The migration-era engine grew parallel identity tables + per-name dispatch (50-distribution); this collapses them to one row-driven input. Large — when it unblocks, plan re-checks whether it needs its own split. `(builtin-workspace-qualified-key)` resolves here — do not file separately. builtin_kind.rs references kinds/ (out of fence); deleting the .rs removes the ref — the kinds/ tree is a separate human deletion."
+  },
+  {
+    "tag": "BUILTIN-LOCK-FROZEN-LANE",
+    "summary": "Re-derive the built-in lock from the module and byte-compare against the embedded copy — fail-loud on mismatch or absence, the --frozen discipline aimed at temper's own std-lib",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
+    },
+    "gate": { "kind": "blockedBy", "tag": "BUILTIN-LOCK-DERIVED" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Re-derive the built-in lock from `@dtmd/temper/claude-code` (a real node subprocess, as tests/emit.rs drives the SDK) and byte-compare it against the embedded copy; fail loud on mismatch or on the module/emit being absent — the `--frozen` discipline aimed at the tool's own std-lib (50-distribution, fail-loud invariant)."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/builtin_lock_frozen.rs", "asserts": "module-derived built-in lock byte-equals the embedded copy; a drifted or absent copy fails loud" }
+    ],
+    "acceptance": "A test re-derives the built-in lock from the first-party module and byte-compares it against the embedded copy, failing loud on any drift or absence; running it is the CI frozen-lane gate on the tool's own std-lib.",
+    "notes": "Ceremony D4 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from CURATED-TREES-RETIRE). Framed as a cargo test so the gate validates it; the CI job is just `cargo test` (50-distribution: CI placements are user-authored two-line jobs, not generated files)."
+  },
+  {
+    "tag": "CURATED-TREES-RETIRE",
+    "summary": "Drop bundle.rs's CURATED_PACKAGES embeds — the plugin/bundle ships the skill + hook, never clauses (channel 3); the packages/+kinds/ tree deletion is a human chore",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Three channels"
+    },
+    "gate": { "kind": "blockedBy", "tag": "BUILTIN-LOCK-DERIVED" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "Remove `CURATED_PACKAGES` (:70) and the `packages/<name>/PACKAGE.md` `include_str!` embeds (:73-85, :222-228); `temper bundle` ships the skill + SessionStart hook only — the gate into a harness, never clauses (50-distribution: 'bundle delivers the gate, not clauses')."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "Recut the bundle test + its snapshot to the clause-free bundle (drop the packages/ embed assertions)."
+        },
+        {
+          "path": "tests/snapshots/bundle__bundle_is_deterministic.snap",
+          "description": "Regenerate: the bundle no longer carries the curated PACKAGE.md embeds."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/bundle.rs", "asserts": "the produced bundle contains the skill + hook and no curated clause embeds" }
+    ],
+    "acceptance": "bundle.rs carries no CURATED_PACKAGES embeds; `temper bundle` ships the skill + hook only. Clauses live once, in the SDK module (FIRST-PARTY-MODULE-COMPLETE). After this + BUILTIN-LOCK-DERIVED remove every code reference, the packages/ and kinds/ trees are deletable by a human chore(harness) commit.",
+    "notes": "Ceremony D5 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from BUILTIN-LOCK-FROZEN-LANE). Scoped to in-fence work only: packages/** and kinds/** are OUT of build's fence (ratification territory), so their physical deletion is a human chore after the code refs are gone. The 'curated, fence-excluded' asymmetry in open-questions.md dies on the reconcile that sees this + the trees deleted."
+  },
+  {
+    "tag": "COMMENT-STOCK-SWEEP",
+    "summary": "Whole-tree comment sweep — prose spec recaps to pointer tags, delete era + compliance narration per rust.md's taxonomy; no behavior change",
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Style & structure"
+    },
+    "gate": {
+      "kind": "deferred",
+      "reason": "Whole-tree sweep — must run solo (a broad src/+tests/ comment edit races any concurrent entry). Ride after the derived-lock chain lands: BUILTIN-LOCK-DERIVED deletes two of the heaviest-commented files (builtin.rs/builtin_kind.rs), so sweeping first is throwaway. Plan promotes this to a solo open entry once the chain ships and the queue is otherwise empty."
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Representative anchor — the true scope is all of src/ and tests/. Per rust.md's taxonomy + exit clause: convert prose spec recaps to terse pointer tags (file path only, no section titles — a quoted section title is a dangling reference), delete era narration ('no longer X', git owns history) and compliance narration ('per §X we…', commit-body material). Module //! headers to ~10 lines (overview + pointer)."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Representative anchor for the same sweep across the crate's other over-commented modules and their tests."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "A requirement carries set-/edge-scope demands as ordinary clause values (each with its own severity/guidance/cite), not named facet fields; the SDK Requirement type reads `means·kind·required·clauses?·verifiedBy?`; the lock's requirement row carries no facet columns; SEAM_VERSION bumped in lockstep.",
-    "notes": "Parked for a decomposition ceremony — the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain, not a single disjoint slice. Do not file the naive single entry. Downstream of it: reachability-as-edge-scope-clause (the REACH-DIAL replacement, deferred behind this)."
+    "acceptance": "Zero quoted spec section titles in src/ or tests/ comments; zero era vocabulary from 90-spec-system's migration trail; module //! headers ~10 lines (overview + pointer tag); cargo gates green — no behavior change.",
+    "notes": "Ceremony item (John 07-06). rust.md's exit clause already cuts comments on contact for files the chain touches; this sweep is the residue in the files the chain leaves untouched, run once at the end. Deferred (not blockedBy) because a whole-tree edit races every concurrent entry — plan promotes it to a solo open entry after the derived-lock chain fully lands and the queue is otherwise empty."
   },
   {
     "tag": "PACKAGING-CHANNELS",
