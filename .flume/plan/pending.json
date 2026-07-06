@@ -1,50 +1,5 @@
 [
   {
-    "tag": "REACH-DIAL-RETIRE",
-    "summary": "Retire the reachability dial — the assembly `reachability` fact and its severity opt-in; 40-composition: there is no fifth field",
-    "per": {
-      "path": "specs/architecture/40-composition.md",
-      "section": "Decision: the reachability dial retires into the clause algebra"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Delete `reachability_from_declarations` (main.rs:1141) and its call (main.rs:567), and the `if let Some(reachability) = assembly_reachability { … }` opt-in block that builds the activation map and calls `graph::reachable` (main.rs:726-747). 40-composition: reachability is demanded by an ordinary edge-scope clause, not a dedicated field. Keep `pub fn graph::reachable` (graph.rs:370 — a live capability, still exercised by tests/graph.rs; a pub lib fn used only by an integration test draws no dead-code warning) — only its dial-driven opt-in goes. Sweep the dial's narrating comments: the facts-gather line (main.rs:554, drop '…and the reachability') and the opt-in preamble (main.rs:720-726). LEAVE main.rs:629's directive-classing analogy comment ('a pure fact, not a graph-scope opinion like reachability') — a different feature; reachability-as-clause keeps that contrast conceptually intact."
-        },
-        {
-          "path": "sdk/src/assembly.ts",
-          "description": "Delete the `Harness.reachability` field — `readonly reachability?: Severity` (assembly.ts:35), its init-param twin `reachability?: Severity` (:48), and the passthrough `reachability: init.reachability` (:55). The assembly is four fields: members · expect · require · settings. Fix the header TSDoc naming reachability as a fifth field (assembly.ts:3-4: `members · expect · require · settings · reachability` → drop `· reachability`)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Delete the `if (harness.reachability !== undefined) facts.push({ fact: \"reachability\", value: harness.reachability })` emission in `assemblyFactRows` (declarations.ts:151-152) and the doc line naming 'reachability when the dial is set' (declarations.ts:146). Simplify the AssemblyFactRow header doc (declarations.ts:43: 'authority, reachability, or an edge' → 'authority or an edge'). The AssemblyFactRow shape stays (authority + edge facts survive; the row always opens with the authority fact at :150). No SEAM_VERSION bump — dropping an optional fact the Rust reader now ignores (it matched only on `fact == \"reachability\"`, deleted with `reachability_from_declarations`)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Sweep the now-stale AssemblyFactRow doc comments naming `reachability` as an assembly-fact discriminator — drift.rs:922 ('authority, reachability, edges' → 'authority, edges'), :1068 ('(`authority`, `reachability`, `edge`)' → '(`authority`, `edge`)'), :1072 ('`authority`, `reachability`, or `edge`' → '`authority` or `edge`'), :1074 ('an `authority`/`reachability` fact carries' → 'an `authority` fact carries'). Doc-only: the struct is generic (`fact: String`) and unchanged — it still tolerates an old lock's reachability row by simply not matching it. No other open entry touches drift.rs, so this sweep is parallel-safe."
-        }
-      ],
-      "retire": [
-        "tests/reachable_gate.rs"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "the `reachable` library predicate still holds over synthetic graphs (capability retained; only the assembly dial retired)"
-      }
-    ],
-    "acceptance": "`rg -n 'reachability_from_declarations|assembly_reachability' src/` returns nothing and `rg reachability sdk/src/assembly.ts sdk/src/declarations.ts` returns nothing (field·param·passthrough·emission·both doc lines all gone; kind.ts's graph-reachability registration doc untouched); the assembly is four fields; `pub fn reachable` survives in src/graph.rs with tests/graph.rs green; cargo test + `pnpm --dir sdk test` green.",
-    "notes": "Blocker PKG-NOUN-SDK-COLUMN shipped (534828d) → open, the one disjoint slice. Retires only the assembly dial; reachability-as-edge-scope-clause (the corpus replacement, 40-composition) rides the clause-algebra growth downstream of REQUIREMENT-CLAUSES-RECUT — deferred, not this cut. Rewrite vs prior tick added drift.rs (stale discriminator docs) + a precise acceptance (the old `fact.*reachability` regex false-matched surviving reachability-concept prose)."
-  },
-  {
     "tag": "REQUIREMENT-CLAUSES-RECUT",
     "summary": "Recut the requirement to `means·kind·required·clauses?·verifiedBy?` — retire count/unique/membership/degree facets for a clauses array, across engine + SDK + seam",
     "per": {
