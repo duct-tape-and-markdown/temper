@@ -1,46 +1,5 @@
 [
   {
-    "tag": "SCRATCH-RETIRE",
-    "summary": "Delete the copy-tree scratch import pipeline (import::run + surface writers + emit_manifest + carry_representation + scratch_surface); keep the discovery walk and write_rollup as emit's lock-writer",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "Decision: one authored surface, one implementation"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Delete the copy-tree scratch pipeline: `run`/`run_with_builtins` (143/154) + their in-module unit tests (~1666/1703/1728), `import_frontmatter_kind` (535), the copy-tree writers `write_member_surface`/`existing_surface_member`/`copy_companion` (643/692/862), and `collect_declarations` (917) + `carrier_count` (520) — all orphaned once `run_with_builtins` is gone (private fns ⇒ clippy `-D warnings` on any survivor). Delete `emit_manifest` (426) — its only caller is the retired tests/temper_toml.rs. KEEP `write_rollup` (888) + `RollupEntry`: they are `drift::emit`'s lock-writer (the sole producer, S1 — drift.rs:31,439), NOT dead. KEEP `discover_kind_units`/`discover_builtin` (713/569) — the discovery walk is the sole extractor — and `init`/`lift`/`load_manifest`/`MANIFEST_FILENAME` (survive to S5)."
-        },
-        {
-          "path": "src/frontmatter.rs",
-          "description": "Retire `carry_representation` (frontmatter.rs:318) — its only caller is the deleted `write_member_surface` (import.rs:656), so it goes dead with the copy-tree writers. No other caller in src/ or tests/."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Rewire the two transitional scratch producers to gate the harness root directly. The `Check --harness` branch (main.rs:286) and `session_start_diagnostics` (main.rs:589) both do `scratch_surface()` → `import::run(harness, scratch)` → `gate(scratch, harness/temper.toml)` → teardown. Replace each with `gate(harness_root, harness_root.join(TEMPER_TOML))`: `resolve_kind_units` already discovers members straight off `harness_root` via `effective_governs` (main.rs:977) + `discover_kind_files` when no committed lock exists (each kind's embedded governs = the built-in lock), so no scratch import is needed. Then delete `scratch_surface` (main.rs:1183) and both former call sites' teardown."
-        }
-      ],
-      "retire": [
-        "tests/temper_toml.rs"
-      ]
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "emit + check operate with no copy-tree scratch import; the discovery walk is the only member extractor; `--harness`/session-start gate the harness root directly"
-      }
-    ],
-    "acceptance": "`import::run`/`run_with_builtins`, `import_frontmatter_kind`, the copy-tree surface writers, `collect_declarations`, `carrier_count`, `emit_manifest`, `carry_representation`, and `scratch_surface` are gone; `write_rollup`/`RollupEntry` survive as emit's lock-writer; the discovery walk (`discover_kind_units`/`discover_builtin`) survives; `--harness`/session-start gate the harness root directly; `cargo test` green (tests/temper_toml.rs retired).",
-    "notes": "Clean slate (John 07-06): no compat shim. temper_toml.rs retires HERE not S5 — its live `import::run` (96/1014) + `emit_manifest` (97/1015) calls die this slice. write_rollup is NOT dead: drift::emit is the sole producer (S1) and calls it. `init`/`lift` deletion waits for S5 (the codec they drive). Shares import.rs/frontmatter.rs/main.rs — serialized ahead of S5."
-  },
-  {
     "tag": "CODEC-RETIRE",
     "summary": "Retire the [[member]] manifest codec both directions plus AuthorLayer's member readers, and remove the init/lift verbs (their only remaining callers) under clean slate",
     "per": {
