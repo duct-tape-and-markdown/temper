@@ -1275,8 +1275,7 @@ mod tests {
 
     /// A bare `gate` requirement typed to `kind`, declaring `degree` (or none) — the
     /// typed roster the [`degree`] check reads. The satisfier nodes are the skills
-    /// whose `satisfies` names `gate`; no `package` is needed, since the degree check
-    /// reads the edge graph, not a contract.
+    /// whose `satisfies` names `gate`.
     fn gate_requirement(
         kind: &str,
         degree: Option<DegreeBound>,
@@ -1287,7 +1286,6 @@ mod tests {
                 name: "gate".to_string(),
                 means: None,
                 kind: Some(kind.to_string()),
-                package: None,
                 required: false,
                 count: None,
                 unique: Vec::new(),

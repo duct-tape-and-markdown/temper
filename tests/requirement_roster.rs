@@ -1,5 +1,5 @@
-//! End-to-end acceptance over the harness-contract roster — conformance and the
-//! set-scope predicates (`count` / `unique` / `membership`), each quantified over a
+//! End-to-end acceptance over the harness-contract roster — the set-scope
+//! predicates (`count` / `unique` / `membership`), each quantified over a
 //! requirement's **satisfier set** (`specs/architecture/10-contracts.md`, "Requirements — the
 //! harness's named obligations"; `specs/architecture/45-governance.md`, "The set scope").
 //!
@@ -12,11 +12,9 @@
 //! artifacts of a requirement's `kind` whose `satisfies` names it.
 //!
 //! The cases mirror the entry's acceptance:
-//! - conformance validates the satisfiers against the requirement's bound package;
 //! - the `count` cardinality bound quantifies over the satisfier set;
 //! - the `unique` predicate quantifies over the satisfier set;
-//! - the `membership` predicate (and its typed-reference `conforms_to`) draws its
-//!   allowed set from a *second* satisfier set;
+//! - the `membership` predicate draws its allowed set from a *second* satisfier set;
 //! - a `match = {…}` key, and the retired `[role.*]` surface, are inert — a
 //!   the retired manifest is never read at all, so a stray one carrying either changes
 //!   nothing;
@@ -295,98 +293,6 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
     );
 }
 
-// ---- conformance: satisfiers validated against the requirement's package ----
-//
-// There is no on-disk project-package file format any more
-// (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK —
-// there is no kind file format"), so these cases bind one of the compiled-in
-// built-in packages — cross-kind, since a skill's own floor already binds
-// `skill.anthropic` — to exercise the *distinct* requirement-conformance tier
-// rather than the floor.
-
-#[test]
-fn a_satisfier_violating_its_bound_package_reports_a_finding() {
-    let root = tmpdir("package-bad");
-    // One floor-clean skill opts into `planner`; the bound `rule.anthropic` package
-    // forbids a `description` frontmatter key, which every skill carries (its own
-    // floor requires it) — a cross-kind package a skill satisfier is checked against
-    // *in addition to* its own kind's floor.
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
-    author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_requirements(
-        &root,
-        vec![RequirementRow {
-            package: Some("rule.anthropic".to_string()),
-            required: true,
-            ..requirement("planner", "skill")
-        }],
-    );
-
-    let run = check_in(&root);
-    assert!(
-        !run.ok,
-        "a satisfier that breaks its requirement's bound package must fail the run ⇒ non-zero"
-    );
-    assert!(
-        run.output.contains("does not conform")
-            && run.output.contains("plan-tasks")
-            && run.output.contains("planner"),
-        "the finding names the conformance violation, the satisfier, and the requirement, got:\n{}",
-        run.output
-    );
-}
-
-#[test]
-fn a_satisfier_conforming_to_its_bound_package_is_clean() {
-    let root = tmpdir("package-ok");
-    // The same lone satisfier, but bound to `memory.anthropic` — a single advisory
-    // `max_lines` cap the short floor-clean body stays within — so conformance adds
-    // nothing and the run is clean.
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
-    author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_requirements(
-        &root,
-        vec![RequirementRow {
-            package: Some("memory.anthropic".to_string()),
-            required: true,
-            ..requirement("planner", "skill")
-        }],
-    );
-
-    let run = check_in(&root);
-    assert!(
-        run.ok,
-        "a satisfier within its requirement's package passes ⇒ zero, got:\n{}",
-        run.output
-    );
-}
-
-#[test]
-fn a_requirement_binding_a_builtin_package_by_name_composes() {
-    let root = tmpdir("package-builtin");
-    // A requirement may bind a *built-in* package by name — `skill.anthropic` — so its
-    // satisfiers are checked by that package's contract *in addition to* their own
-    // kind's floor. A floor-clean skill within `skill.anthropic` passes, proving the
-    // by-name built-in binding resolves and composes.
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
-    author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_requirements(
-        &root,
-        vec![RequirementRow {
-            package: Some("skill.anthropic".to_string()),
-            required: true,
-            ..requirement("planner", "skill")
-        }],
-    );
-
-    let run = check_in(&root);
-    assert!(
-        run.ok,
-        "a requirement binding the built-in `skill.anthropic` by name resolves and a clean satisfier passes ⇒ zero, got:\n{}",
-        run.output
-    );
-}
-
 // ---- set scope: the `count` cardinality bound over the satisfier set -------
 
 /// The `agents` requirement's `count` row bounding its satisfier-set cardinality to
@@ -527,50 +433,10 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
 }
 
 #[test]
-fn a_requirement_binding_an_unresolvable_package_is_inadmissible() {
-    let root = tmpdir("admit-bad-package");
-    // The satisfier keeps coverage clean; the only fault is the bound `package` name
-    // matching no built-in and no `.temper/packages/` project package — `names a real
-    // package`, admissibility's finding.
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
-    author_satisfies(&root, "plan-tasks", &["planner"]);
-    write_requirements(
-        &root,
-        vec![RequirementRow {
-            package: Some("does-not-exist".to_string()),
-            required: true,
-            ..requirement("planner", "skill")
-        }],
-    );
-
-    let run = check_in(&root);
-    assert!(
-        !run.ok,
-        "a requirement whose bound package does not resolve must fail the run ⇒ non-zero"
-    );
-    assert!(
-        run.output.contains("planner")
-            && run.output.contains("does-not-exist")
-            && run.output.contains("does not resolve"),
-        "the finding names the requirement and that its package does not resolve, got:\n{}",
-        run.output
-    );
-}
-
-// A requirement binding an *inadmissible* package (e.g. a vacuous `enum` clause) is
-// no longer reachable end-to-end: every bound-by-name package is one of the
-// compiled-in built-ins, and each ships admissible (`tests/contract_template.rs`,
-// `the_shipped_built_in_packages_are_admissible`) — there is no on-disk project
-// package left to author a deliberately-broken one from
-// (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK —
-// there is no kind file format"). The admissibility check itself stays proven at
-// the unit level (`src/roster.rs`, `a_bound_package_with_an_empty_enum_is_inadmissible`).
-
-#[test]
 fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
     let root = tmpdir("admit-dangling-verifier");
-    // Coverage and conformance are clean (a satisfier, no package shape); the sole
-    // fault is `verified_by` naming a path that does not exist under the root.
+    // Coverage is clean (a satisfier opts in); the sole fault is `verified_by`
+    // naming a path that does not exist under the root.
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
     write_requirements(
@@ -597,18 +463,17 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
 }
 
 #[test]
-fn a_roster_whose_packages_and_verifiers_all_resolve_passes() {
+fn a_roster_whose_verifiers_all_resolve_passes() {
     let root = tmpdir("admit-clean");
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
 
-    // An admissible bound package (built-in, so it resolves and admits by
-    // construction) and a `verified_by` path that exists under the root.
+    // A `verified_by` path that exists under the root — nothing else for
+    // admissibility to reject.
     fs::write(root.join("plan.rs"), "// a present verifier\n").unwrap();
     write_requirements(
         &root,
         vec![RequirementRow {
-            package: Some("memory.anthropic".to_string()),
             required: true,
             verified_by: Some("plan.rs".to_string()),
             ..requirement("planner", "skill")
@@ -695,72 +560,6 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
     assert!(
         run.ok,
         "every satisfier drawn from the derived set passes ⇒ zero, got:\n{}",
-        run.output
-    );
-}
-
-// ---- set scope: the `membership` typed-reference (`conforms_to`) -----------
-
-/// A floor-clean skill carrying both a `model:` and a `tier:` field. `model` is the
-/// membership feature drawn into the allowed set; `tier` is what a `conforms_to`
-/// contract discriminates on. Neither key is floor-forbidden, so the skill stays
-/// clean and the only finding a case produces is the membership one.
-fn tiered_skill(name: &str, model: &str, tier: &str) -> String {
-    format!(
-        "---\n\
-         name: {name}\n\
-         description: Use when {name} is the task at hand; not for anything else.\n\
-         model: {model}\n\
-         tier: {tier}\n\
-         ---\n\
-         # {name}\n\
-         \n\
-         Body.\n"
-    )
-}
-
-/// Write the two `approved-model` sources both typed-reference cases share and opt
-/// each into `approved-model`: an `official` source carrying `opus` and a `draft`
-/// source carrying `gpt`. Under a `conforms_to` = official constraint only the first
-/// is a member-contributing source, so `gpt` comes *solely* from a non-conforming
-/// source.
-fn write_tiered_sources(root: &Path) {
-    write_skill(
-        root,
-        "approved-opus",
-        &tiered_skill("approved-opus", "opus", "official"),
-    );
-    write_skill(
-        root,
-        "approved-gpt",
-        &tiered_skill("approved-gpt", "gpt", "draft"),
-    );
-    author_satisfies(root, "approved-opus", &["approved-model"]);
-    author_satisfies(root, "approved-gpt", &["approved-model"]);
-}
-
-// A typed `conforms_to` reference bound to a deliberately-crafted package (here, an
-// `enum` clause over a synthetic `tier` field) is no longer reachable end-to-end for
-// the same reason as the inadmissible-package case above: every bound-by-name
-// package is a compiled-in built-in, and none of the four carries an `enum` clause
-// or a `tier` concept to narrow against. The mechanism itself stays proven at the
-// unit level (`src/roster.rs`, `a_typed_reference_draws_its_set_only_from_conforming_sources`).
-
-#[test]
-fn dropping_the_conforms_to_puts_the_same_value_back_in_the_set() {
-    let root = tmpdir("typed-ref-dropped");
-    // The exact same corpus, but the membership carries no `conforms_to`: now the
-    // non-conforming `approved-gpt` source contributes `gpt` to the derived set, so
-    // `agent-gpt` is in-set and the run is silent — the constraint was the only gate.
-    write_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
-    author_satisfies(&root, "agent-gpt", &["agents"]);
-    write_tiered_sources(&root);
-    write_requirements(&root, membership_requirements());
-
-    let run = check_in(&root);
-    assert!(
-        run.ok,
-        "without the `conforms_to` constraint the same value is in-set ⇒ zero, got:\n{}",
         run.output
     );
 }

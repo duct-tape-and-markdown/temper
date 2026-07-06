@@ -566,13 +566,6 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let assembly_edges = edges_from_declarations(&declarations);
     let assembly_reachability = reachability_from_declarations(&declarations);
 
-    // The embedded std-lib a by-name `package` binding resolves against
-    // (`specs/architecture/10-contracts.md`). Packages **compose**: a satisfier is
-    // checked by its kind's bound package *and* any package a requirement names.
-    // Held for the roster/graph tier below.
-    let builtins = builtin::contracts()?;
-    let package_resolver = compose::PackageResolver::new(builtins);
-
     // The generic two-greens over EVERY embedded built-in kind, keyed by qualified
     // identity (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
     // kind's members — resolved by [`kind_features`] straight off harness disk, shared
@@ -685,29 +678,13 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         union_published_requirements(&assembly_requirements, &all_features);
     diagnostics.extend(collisions);
 
-    // Admissibility before conformance here too: each requirement's own
-    // definition is validated before the roster is trusted to judge the harness
-    // (`specs/architecture/10-contracts.md`).
-    diagnostics.extend(roster::admissibility(
-        &requirements,
-        &by_kind,
-        &package_resolver,
-        harness_root,
-    ));
+    // Each requirement's own definition is validated before the roster is
+    // trusted to judge the harness (`specs/architecture/10-contracts.md`).
+    diagnostics.extend(roster::admissibility(&requirements, &by_kind, harness_root));
 
     // The set-scope predicates: each requirement's `count` / `unique` /
     // `membership` gate over its satisfier set (`specs/architecture/45-governance.md`).
-    diagnostics.extend(roster::check(&requirements, &by_kind, &package_resolver));
-
-    // The `conforms-to` half: each requirement's satisfiers validated against
-    // its bound `package`'s contract, retagged under `requirement.conforms-to`.
-    // A non-resolving package is admissibility's finding above, skipped here
-    // rather than double-reported.
-    diagnostics.extend(roster::conformance(
-        &requirements,
-        &by_kind,
-        &package_resolver,
-    ));
+    diagnostics.extend(roster::check(&requirements, &by_kind));
 
     // The graph scope: build the reference graph over the declared edges (a
     // reference is a kind capability, `specs/architecture/15-kinds.md`) and check route
@@ -785,27 +762,6 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // requirement set is the *unioned* namespace, so a member-published obligation
     // is gated here exactly as an assembly-published one.
     diagnostics.extend(coverage::check(&requirements, &all_features));
-
-    // The custom-kind conformance tier: each registered custom kind runs the
-    // same two greens the built-in kinds do (`specs/architecture/15-kinds.md`), but through
-    // its own authored extractor (features computed above) and its bound package
-    // rather than inline clauses. Inert today: `custom_kinds` is always empty until
-    // the SDK path that replaces the retired manifest registration lands.
-    for (name, _custom, features) in &custom_kinds {
-        match package_resolver.resolve(name) {
-            Some(contract) => {
-                diagnostics.extend(engine::admissibility(&contract));
-                diagnostics.extend(engine::validate(&contract, features));
-            }
-            None => diagnostics.push(check::Diagnostic::error(
-                format!("{name}.package"),
-                *name,
-                format!(
-                    "custom kind `{name}` binds unknown package `{name}` (not a built-in package)"
-                ),
-            )),
-        }
-    }
 
     // The install self-verify (`specs/architecture/50-distribution.md`): temper checking its
     // *own* gate is wired. Advisory (warn) only — a not-yet-installed gate nudges
@@ -1112,7 +1068,6 @@ fn to_requirement(published: &document::PublishedRequirement) -> compose::Requir
         name: published.name.clone(),
         means: published.means.clone(),
         kind: published.kind.clone(),
-        package: published.package.clone(),
         required: published.required,
         count: None,
         unique: Vec::new(),
@@ -1132,7 +1087,6 @@ fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
         name: row.name.clone(),
         means: None,
         kind: row.kind.clone(),
-        package: row.package.clone(),
         required: row.required,
         count: row.count.map(|count| compose::CountBound {
             min: count.min,
@@ -1147,7 +1101,6 @@ fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
                 source: membership.source.clone(),
                 source_kind: membership.source_kind.clone(),
                 source_feature: membership.source_feature.clone(),
-                source_package: membership.source_package.clone(),
             }),
         degree: row.degree.as_ref().map(|degree| compose::DegreeBound {
             incoming: degree.incoming.map(|bound| compose::EdgeBound {

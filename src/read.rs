@@ -1514,7 +1514,6 @@ mod impact_tests {
             name: name.to_string(),
             means: None,
             kind: None,
-            package: None,
             required,
             count: None,
             unique: Vec::new(),

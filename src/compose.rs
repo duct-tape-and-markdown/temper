@@ -10,8 +10,6 @@
 //! into and [`crate::roster`]/[`crate::graph`]/[`crate::coverage`] range over —
 //! the manifest era's reader (`TEMPER-TOML-ZERO`) retired with this file's parser.
 
-use std::collections::BTreeMap;
-
 use crate::contract::{self, Contract};
 use crate::drift::ClauseRow;
 
@@ -72,11 +70,6 @@ pub struct Requirement {
     /// The artifact kind that may fill the requirement — the `kind` typing facet.
     /// Absent ⇒ **kind-blind**: any artifact that opts in fills it.
     pub kind: Option<String>,
-    /// The package the filling artifact must conform to — the `package` typing facet.
-    /// A package named **by name**, resolved through [`PackageResolver`] — never
-    /// inline clauses. Composes with `kind`: the filler is checked by its own kind's
-    /// bound package *and* this named one. Absent ⇒ no package constraint.
-    pub package: Option<String>,
     /// Whether an unfilled requirement is a gate-blocking violation. Absent ⇒ `false`
     /// (`temper` never fabricates a gate the author did not declare — `00-intent.md`
     /// law 4). Mutually exclusive with [`count`](Requirement::count): `required` is
@@ -175,11 +168,6 @@ pub struct Membership {
     /// The feature whose extracted scalars over the S₂ satisfiers form the allowed
     /// set. A source artifact missing it contributes nothing.
     pub source_feature: String,
-    /// An optional **typed reference** constraint (`conforms_to`): when set, S₂ is
-    /// narrowed to the source artifacts that also conform to this **package**, named
-    /// by name and resolved through [`PackageResolver`]. Absent ⇒ `None` (plain
-    /// membership). Conformance is decided in [`crate::roster`].
-    pub source_package: Option<String>,
 }
 
 /// The assembly's graph-scope **`reachable`** opt-in — declared in the assembly's
@@ -197,39 +185,6 @@ pub struct Reachability {
     /// `advisory` dial — mapped to the diagnostic severity through the one translation
     /// clauses use ([`crate::engine::severity_of`]).
     pub severity: contract::Severity,
-}
-
-/// Resolves a **bound package name** to its [`Contract`] against the embedded
-/// built-in set (`specs/architecture/20-surface.md`). The single order every by-name
-/// binding resolves through (a requirement's `package`, a `membership`'s
-/// `conforms_to`), so packages **compose**. There is no on-disk `PACKAGE.md` to
-/// fall back to (`specs/architecture/15-kinds.md`, "Decision: field typing lives
-/// in the SDK — there is no kind file format"): a project's own package is
-/// SDK-authored, not yet a path this resolver reads.
-#[derive(Debug, Clone)]
-pub struct PackageResolver {
-    /// The built-in packages, keyed by name — the embedded floor set a bound name
-    /// resolves against.
-    builtins: BTreeMap<String, Contract>,
-}
-
-impl PackageResolver {
-    /// Assemble a resolver over the built-in package set, keyed by name.
-    #[must_use]
-    pub fn new(builtins: BTreeMap<String, Contract>) -> Self {
-        Self { builtins }
-    }
-
-    /// Resolve a bound package `name` to the [`Contract`] the engine validates a
-    /// requirement's filler against (`specs/architecture/10-contracts.md`, the `package` typing
-    /// facet's `conforms-to` half): `Some` when `name` is a built-in package; `None`
-    /// when it resolves to neither, which is admissibility's finding (`names a real
-    /// package`), never a thrown error, so the caller can skip conformance rather
-    /// than double-report.
-    #[must_use]
-    pub fn resolve(&self, name: &str) -> Option<Contract> {
-        self.builtins.get(name).cloned()
-    }
 }
 
 /// The effective contract for `kind`: the embedded `floor` with each clause's

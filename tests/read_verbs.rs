@@ -78,7 +78,6 @@ fn req(name: &str, required: bool) -> Requirement {
         name: name.to_string(),
         means: None,
         kind: None,
-        package: None,
         required,
         count: None,
         unique: Vec::new(),
