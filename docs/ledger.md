@@ -55,7 +55,14 @@ hard.
 - John's thesis (07-06, unencoded): the findings cascade toward a core
   design simpler than it seems. Test for each collapse: does the merge
   delete ceremony (role/requirement precedent — do it) or delete sayable
-  postures (required/count — refuse it).
+  postures (required/count — refuse it). Clarified posture: generalize as
+  far as possible; ship deliberate code as instances of the generic — "the
+  first party is a user." Deliberate code inside the engine = a missing
+  generic capability, not a licensed exception. Bounds held: the definition
+  stays un-authorable (law 3); generalize on consumption, never in advance
+  (entry gate); diagnostics keep instance vocabulary (debug labels).
+  Candidate home when encoding resumes: one sentence in 00-intent's "One
+  engine, every layer an instance."
 - Severity two-vs-three: clause severity is `required`/`advisory`; the
   surface-authority posture (20-surface) speaks note/warn/block, with
   `note` an information tier the algebra lacks. Rule: three-valued
