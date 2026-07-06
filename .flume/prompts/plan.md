@@ -60,7 +60,21 @@ wins.
    changes anywhere, and a delta nobody operationalizes is how residue
    accumulates unseen. (Real failure: a day of ratified demolitions — the
    package noun, the reachability dial, the requirement recut — sat un-derived
-   while the queue read as quiescent.)
+   while the queue read as quiescent.) **An empty delta licenses nothing**: it
+   means no *new* intent this window, not no un-derived intent — the residue
+   sweep below runs every tick regardless, because accumulated debt predates
+   any window by definition. (Real failure: the very next tick after the delta
+   block landed reasoned "delta empty → intent unmoved → idle" and skipped the
+   sweep over a corpus carrying three un-derived demolitions.)
+
+   **Re-test every gate, every tick.** A `parked` reason, a `blockedBy`, an
+   open-question's "rides X" routing, and prior state's "human-gated" labels
+   are notes from a past tick, never standing law — each names a condition,
+   and you verify the condition on disk NOW. If the blocker has shipped (the
+   front door is built, the fork is resolved, the foundation landed), the
+   classification is stale and the work behind it is derivable this tick.
+   (Real failure: the package-noun and dial cuts sat classified "behind the
+   SDK-primary front door" for a full day after that front door shipped.)
 
    **Residue is a gap.** A Decision's rejected alternative, a retired noun, or
    a residue paragraph that names code still present in `src/`, `tests/`, or
