@@ -7,8 +7,7 @@
       "section": "Decision: set-scope demands are clauses — no noun enumerates the algebra"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REQUIREMENT-CLAUSES-ALGEBRA"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "src/compose.rs",
-          "description": "Drop the `count`/`unique`/`membership`/`degree` facet fields from `Requirement` (:64-94) for a `clauses` vec of set-/edge-scope clause values; `CountBound`/`DegreeBound`/`EdgeBound`/`Membership` stay as the clause predicates' payloads (added to the algebra in REQUIREMENT-CLAUSES-ALGEBRA), no longer fields of the requirement record. `required` and `verified_by` remain."
+          "description": "Drop the `count`/`unique`/`membership`/`degree` facet fields from `Requirement` (the struct spans :64-99; facets at :80/:84/:88/:93) for a `clauses` vec of set-/edge-scope clause values; `CountBound`/`DegreeBound`/`EdgeBound`/`Membership` stay as the clause predicates' payloads (added to the algebra in REQUIREMENT-CLAUSES-ALGEBRA), no longer fields of the requirement record. `required` and `verified_by` remain."
         },
         {
           "path": "src/drift.rs",
-          "description": "Drop the count/unique/membership/degree columns and the `CountBoundRow`/`MembershipRow`/`DegreeBoundRow` types from `RequirementRow` (:978-1043); a requirement row carries its set-scope demands as clause rows; recut to_table/from_table (:1256+); bump `SEAM_VERSION` (:246) to the final row shape in lockstep with declarations.ts."
+          "description": "Drop the count/unique/membership/degree columns from `RequirementRow` (:993-1017) and, once no clause carries them either, retire the now-orphaned `CountBoundRow`/`MembershipRow`/`DegreeBoundRow` reuse on the requirement (they stay as ClauseRow payloads); a requirement row carries its set-scope demands as clause rows; recut to_table/from_table (RequirementRow impl at :1289+); bump `SEAM_VERSION` (:246) to the final row shape in lockstep with declarations.ts."
         },
         {
           "path": "src/roster.rs",
@@ -32,7 +31,7 @@
         },
         {
           "path": "sdk/src/contract.ts",
-          "description": "Drop `count?`/`unique?`/`membership?`/`degree?` from the `Requirement` interface (:83-86) for `clauses?: readonly Clause[]`; recut the file header comment (:4) to `means · kind · required · clauses? · verifiedBy?`."
+          "description": "Drop `count?`/`unique?`/`membership?`/`degree?` from the `Requirement` interface (interface at :117; fields at :121-124) for `clauses?: readonly Clause[]`; recut the file header comment (:4) to `means · kind · required · clauses? · verifiedBy?`."
         },
         {
           "path": "sdk/src/declarations.ts",
@@ -57,7 +56,7 @@
       }
     ],
     "acceptance": "A requirement carries set-/edge-scope demands as ordinary clause values (each with its own severity/guidance/cite), not named facet fields; the SDK Requirement reads means·kind·required·clauses?·verifiedBy?; the lock's requirement row carries no facet columns; SEAM_VERSION bumped both sides; roster/graph read the demands from clauses.",
-    "notes": "Ceremony D1 (John+session 07-06): the requirement row schema must settle before the built-in lock is emitted in it. Atomic seam recut — the SEAM bump is one step and both spellings can't coexist across the seam, so this is one commit. Blocked on REQUIREMENT-CLAUSES-ALGEBRA. Reachability-as-clause already shipped (REACH-DIAL-RETIRE); general degree bands stay held at the entry gate."
+    "notes": "Ceremony D1. Unblocked: REQUIREMENT-CLAUSES-ALGEBRA shipped (dc1bfbf) — Count/Membership/Degree are admitted to the Predicate enum but return Indeterminate in conformance (roster/graph still read the facets) until this recut wires them off clauses, so it is next-priority (a live Indeterminate arm is a law-1 no-op). Atomic seam recut — SEAM bumps once and both spellings can't coexist across the seam, so one commit. SEAM_VERSION is 1 today, bump to 2."
   },
   {
     "tag": "FIRST-PARTY-MODULE-COMPLETE",
