@@ -83,15 +83,17 @@ description: Use when coordinating agents across axes; not for single-axis work.
 Drive the team through the playbook.\n";
 
 /// Project a one-skill harness into `<root>/.temper` via the real `import` verb, so
-/// the workspace `check` reads is built exactly as a user's would be.
+/// the workspace `check` reads is built exactly as a user's would be — the harness
+/// *is* `root` (`.claude/` beside `.temper/` and `temper.toml`), so `check`'s
+/// governs-driven harness walk (`specs/architecture/20-surface.md`, "The lock and
+/// drift") finds the same member the surface tree does.
 fn import_skill(root: &Path, name: &str, skill_md: &str) {
-    let harness = tmpdir("harness");
-    let dir = harness.join(".claude").join("skills").join(name);
+    let dir = root.join(".claude").join("skills").join(name);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 
     let into = root.join(".temper");
-    temper::import::run(&harness, &into).unwrap();
+    temper::import::run(root, &into).unwrap();
     temper::import::emit_manifest(&into).unwrap();
 }
 
@@ -1118,21 +1120,22 @@ required = true\n",
     );
 }
 
-// ---- gate corpus: committed artifacts, not the manifest ---------------------
+// ---- gate corpus: the harness, not the manifest -----------------------------
 //
-// `specs/architecture/20-surface.md`, "The seam — one implementation": the gate reads the
-// committed member documents plus the lock (freshness via `config.stale`) — never the
-// `temper.toml` `[[member]]` manifest as its corpus (Rejected (b): a committed manifest as
-// the gate's corpus). These drive the real `temper check` in the persistent layout, so the
-// corpus is sourced exactly as a real invocation sources it.
+// `specs/architecture/20-surface.md`, "The lock and drift": the gate walks each kind's
+// governs locus over the harness (the committed lock's own kind fact on an adopted
+// harness, the embedded default otherwise) and extracts straight off disk — never the
+// `temper.toml` `[[member]]` manifest as its corpus (Rejected (b): a committed manifest
+// as the gate's corpus). These drive the real `temper check` in the persistent layout,
+// so the corpus is sourced exactly as a real invocation sources it.
 
 #[test]
-fn check_reads_member_features_from_the_committed_surface_not_the_manifest() {
-    // Make the committed surface tree and the manifest DISAGREE, then observe which one the
-    // gate judges. Import a skill carrying a forbidden `globs` key: the surface tree holds
-    // its member document and the manifest serializes it too. Drop the manifest's members
-    // (a layer-only floor manifest) — now only the committed surface still declares the
-    // member. If the gate reads the surface, the forbidden key fires; if it read the
+fn check_reads_member_features_from_the_harness_not_the_manifest() {
+    // Make the harness and the manifest DISAGREE, then observe which one the gate
+    // judges. Import a skill carrying a forbidden `globs` key: the harness holds its
+    // member file and the manifest serializes it too. Drop the manifest's members (a
+    // layer-only floor manifest) — now only the harness file still declares the
+    // member. If the gate reads the harness, the forbidden key fires; if it read the
     // manifest as its corpus, it would find nothing and pass.
     let root = tmpdir("gate-read-corpus");
     let skill = root.join(".claude").join("skills").join("coordinate");
@@ -1140,31 +1143,31 @@ fn check_reads_member_features_from_the_committed_surface_not_the_manifest() {
     fs::write(skill.join("SKILL.md"), FORBIDDEN_GLOBS_SKILL).unwrap();
     run_import(&root);
 
-    // Replace the imported manifest with a member-less floor manifest; the committed
-    // `.temper/` surface still carries the globs skill.
+    // Replace the imported manifest with a member-less floor manifest; the harness
+    // still carries the globs skill.
     write_temper_toml(&root, "# a floor manifest declaring no members\n");
 
-    let read_surface = check_in(&root);
+    let read_harness = check_in(&root);
     assert!(
-        !read_surface.ok,
-        "the committed surface's globs member drives the gate red even with a member-less \
-         manifest — the committed artifacts are the corpus, got:\n{}",
-        read_surface.output
+        !read_harness.ok,
+        "the harness's globs member drives the gate red even with a member-less \
+         manifest — the harness is the corpus, got:\n{}",
+        read_harness.output
     );
     assert!(
-        read_surface.output.contains("forbidden_keys"),
-        "the finding names the clause the surface member tripped, got:\n{}",
-        read_surface.output
+        read_harness.output.contains("forbidden_keys"),
+        "the finding names the clause the harness member tripped, got:\n{}",
+        read_harness.output
     );
 
-    // Strip the surface tree too: now nothing declares the member, so the gate has nothing
-    // to judge and passes — proving the committed surface, not a lingering manifest read,
-    // was what fired above.
-    fs::remove_dir_all(root.join(".temper").join("skills")).unwrap();
+    // Strip the harness member too: now nothing declares it, so the gate has nothing
+    // to judge and passes — proving the harness, not a lingering manifest read, was
+    // what fired above.
+    fs::remove_dir_all(root.join(".claude").join("skills")).unwrap();
     let no_members = check_in(&root);
     assert!(
         no_members.ok,
-        "with the surface tree gone and no manifest members the gate reads nothing to \
+        "with the harness member gone and no manifest members the gate reads nothing to \
          check, got:\n{}",
         no_members.output
     );

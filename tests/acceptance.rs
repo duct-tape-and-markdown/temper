@@ -31,7 +31,6 @@ use temper::builtin_kind;
 use temper::check::{self, Diagnostic, Severity};
 use temper::contract::Contract;
 use temper::engine;
-use temper::extract::Features;
 use temper::frontmatter::Member;
 use temper::import;
 use temper::kind::Unit;
@@ -217,8 +216,9 @@ fn acceptance_import_check_then_reimport_is_a_no_diff() {
     // check <tmp> — a well-formed skill trips no contract clause, so it is clean.
     // The gate reads each skill's surface member document through the one generic
     // `Unit` loader (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter").
-    let units = check::surface_units(&into, "skills", "SKILL.md").unwrap();
-    let features: Vec<Features> = units.iter().map(builtin_kind::skill_features).collect();
+    let dir = into.join("skills").join("coordinate");
+    let unit = Unit::from_member_document(&dir, &dir.join("SKILL.md")).unwrap();
+    let features = [builtin_kind::skill_features(&unit)];
     let diagnostics = engine::validate(&builtin_skill_contract(), &features);
     assert!(
         diagnostics.is_empty(),

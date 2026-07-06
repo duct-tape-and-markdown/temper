@@ -11,10 +11,14 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift;
 use temper::import;
+
+/// The binary under test, located by Cargo at compile time.
+const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -252,4 +256,91 @@ fn a_missing_lock_reads_empty() {
     let dir: &Path = &tmpdir("missing-lock");
     let declarations = drift::read_declarations(dir).unwrap();
     assert_eq!(declarations, drift::Declarations::default());
+}
+
+// ---- check resolves members via the lock's governs locus --------------------
+//
+// `specs/architecture/20-surface.md`, "The lock and drift — one vocabulary": the gate
+// walks each kind's `governs` locus off the committed lock's own kind-fact row, read
+// straight off the harness disk — never a copied surface tree — and a harness with no
+// lock at all is still gated by the embedded default program's own locus (the built-in
+// lock), never a silent zero-member skip.
+
+/// A forbidden-key skill under `<root>/.claude/skills/coordinate/SKILL.md`.
+const GOVERNS_WALK_SKILL: &str = "---\n\
+name: coordinate\n\
+description: Use when coordinating agents across axes; not for single-axis work.\n\
+globs: \"**/*.rs\"\n\
+---\n\
+# Coordinate\n\
+\n\
+Drive the team through the playbook.\n";
+
+/// Run `temper check` from `root`, returning `(exit success, combined output)`.
+fn check_in(root: &Path) -> (bool, String) {
+    let out = Command::new(BIN)
+        .current_dir(root)
+        .arg("check")
+        .arg("--reporter")
+        .arg("github")
+        .output()
+        .unwrap();
+    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    output.push_str(&String::from_utf8_lossy(&out.stderr));
+    (out.status.success(), output)
+}
+
+#[test]
+fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default() {
+    // Prove the walk is driven by the lock's own kind-fact row, not `skill`'s embedded
+    // `.claude/skills` default: point the lock's `skill` governs at a nonstandard
+    // locus, place the member only there, and confirm `check` finds and judges it.
+    let root = tmpdir("custom-governs-locus");
+    let skill = root.join("custom-locus").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), GOVERNS_WALK_SKILL).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.kind]]\n\
+         name = \"skill\"\n\
+         provider = \"claude-code\"\n\
+         governs_root = \"custom-locus/skills\"\n\
+         governs_glob = \"*/SKILL.md\"\n",
+    )
+    .unwrap();
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "the member at the lock's declared locus must be found and fire, got:\n{output}"
+    );
+    assert!(
+        output.contains("forbidden_keys"),
+        "the finding names the clause the relocated member tripped, got:\n{output}"
+    );
+}
+
+#[test]
+fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
+    // No `.temper/lock.toml` at all (never imported): `declarations.kinds` is empty, so
+    // `check` falls back to the embedded default program's own `governs` locus (the
+    // built-in lock) to walk the harness — a forbidden-key skill must still fire,
+    // never a silent zero-member skip.
+    let root = tmpdir("no-lock-builtin-fallback");
+    let skill = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), GOVERNS_WALK_SKILL).unwrap();
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a forbidden-key skill must still fire with no committed lock at all, got:\n{output}"
+    );
+    assert!(
+        output.contains("forbidden_keys"),
+        "the finding names the clause the harness member tripped even with no lock, got:\n{output}"
+    );
 }

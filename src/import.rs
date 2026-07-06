@@ -570,7 +570,29 @@ pub(crate) fn discover_builtin(
     harness: &Path,
     kind: &CustomKind,
 ) -> Result<Vec<PathBuf>, ImportError> {
-    let mut files = discover_kind_units(harness, &kind.governs)?;
+    discover_kind_files(harness, kind, &kind.governs)
+}
+
+/// Discover a `kind`'s member source files under `harness`, matching an explicit
+/// `governs` locus — the generalized scan [`discover_kind_units`] runs, plus `skill`'s
+/// bare-root special case (a `<harness>/SKILL.md`, a harness that is itself a skill).
+/// Decoupled from the kind's own [`CustomKind::governs`] so a caller can walk a
+/// *different* declared locus for the same kind — the committed lock's own kind-fact
+/// row (`specs/architecture/20-surface.md`, "The lock and drift") on an adopted
+/// harness, the kind's embedded default otherwise (the built-in lock) — while the
+/// bare-root-skill convention still applies wherever `skill`'s locus is walked from.
+/// [`discover_builtin`] is the thin caller that always walks the kind's own governs.
+///
+/// # Errors
+///
+/// Returns an [`ImportError`] if a directory under `governs.root` cannot be
+/// enumerated.
+pub fn discover_kind_files(
+    harness: &Path,
+    kind: &CustomKind,
+    governs: &Governs,
+) -> Result<Vec<PathBuf>, ImportError> {
+    let mut files = discover_kind_units(harness, governs)?;
     if kind.name == "skill" {
         let bare = harness.join("SKILL.md");
         if bare.is_file() {

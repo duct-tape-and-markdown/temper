@@ -223,6 +223,24 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     )
     .unwrap();
 
+    // The committed landscape file a prior `import` would have discovered — the gate
+    // walks the lock's governs locus straight off the harness (`specs/architecture/20-surface.md`,
+    // "The lock and drift"), so the member must exist here too, not just projected onto
+    // the surface below.
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(
+        rules.join("rust.md"),
+        "---\n\
+         paths:\n\
+         \x20\x20- \"src/**/*.rs\"\n\
+         ---\n\
+         # Rust conventions\n\
+         \n\
+         The engineering bar.\n",
+    )
+    .unwrap();
+
     // The gate reads the assembly's requirements off the lock's declaration rows, not
     // `temper.toml` directly (`specs/architecture/40-composition.md`, "Decision: one
     // authored assembly"), so the fixture stands in for a prior `import` having already

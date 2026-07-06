@@ -435,10 +435,32 @@ fn main() -> miette::Result<ExitCode> {
 fn explain(target: &str) -> miette::Result<String> {
     let workspace = PathBuf::from(DEFAULT_WORKSPACE);
     let layer = load_layer(Path::new(TEMPER_TOML))?;
+    validate_inplace_kinds(layer.as_ref())?;
     let harness_root = Path::new(".");
 
-    let (skill_features, rule_features, inplace_corpus) =
-        skill_rule_corpus(&workspace, layer.as_ref(), harness_root)?;
+    // The assembly's own declared facts, read first: the corpus below walks each
+    // kind's governs locus off *this* (`specs/architecture/20-surface.md`, "The lock and
+    // drift" — mirrors `gate`'s own read, READ-EDGE-UNIFY).
+    let declarations = drift::read_declarations(&workspace)?;
+
+    let skill_kind = builtin_kind::definition("skill")?
+        .ok_or_else(|| miette::miette!("built-in kind `skill` is not embedded in this binary"))?;
+    let rule_kind = builtin_kind::definition("rule")?
+        .ok_or_else(|| miette::miette!("built-in kind `rule` is not embedded in this binary"))?;
+    let skill_features = kind_features(
+        &skill_kind,
+        harness_root,
+        &workspace,
+        layer.as_ref(),
+        &declarations,
+    )?;
+    let rule_features = kind_features(
+        &rule_kind,
+        harness_root,
+        &workspace,
+        layer.as_ref(),
+        &declarations,
+    )?;
     let custom_kinds: Vec<CustomKindEntry> = Vec::new();
     let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
@@ -447,13 +469,14 @@ fn explain(target: &str) -> miette::Result<String> {
     // off `by_kind`. In-place carriage's `temper.toml` `[[member]]` tables carry no
     // rationale (`compose::InPlaceMember::satisfies` is a bare name list), so an
     // in-place skill/rule is synthesized as a rationale-less `CustomMember` straight off
-    // the same `skill_features`/`rule_features` `by_kind` already holds — never
-    // double-counted, since in-place and document/module (surface-tree) carriage are
-    // mutually exclusive per `skill_rule_corpus`. Absent any in-place member, the real
-    // `Workspace` carries the surface tree's members with their authored rationale
-    // intact, and no synthesis is needed.
+    // the same `skill_features`/`rule_features` `by_kind` already holds. Absent any
+    // in-place member, the real `Workspace` carries the surface tree's members with
+    // their authored rationale intact, and no synthesis is needed.
     let ws = Workspace::load(&workspace)?;
-    let custom_members: Vec<read::CustomMember> = if inplace_corpus.is_some() {
+    let any_inplace = layer
+        .as_ref()
+        .is_some_and(|layer| !layer.inplace_members().is_empty());
+    let custom_members: Vec<read::CustomMember> = if any_inplace {
         skill_features
             .iter()
             .map(|features| ("skill", features))
@@ -479,7 +502,6 @@ fn explain(target: &str) -> miette::Result<String> {
         .cloned()
         .collect();
 
-    let declarations = drift::read_declarations(&workspace)?;
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
@@ -500,7 +522,8 @@ fn explain(target: &str) -> miette::Result<String> {
     }
 
     let repo_files = repo_file_set(Path::new("."));
-    let directive_members = collect_directive_members(&workspace)?;
+    let directive_members =
+        collect_directive_members(harness_root, &workspace, layer.as_ref(), &declarations)?;
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
@@ -580,6 +603,7 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // per-kind package bindings/clause overrides layer over the floor per kind below
     // (`specs/architecture/40-composition.md`).
     let layer = load_layer(temper_toml)?;
+    validate_inplace_kinds(layer.as_ref())?;
 
     // The assembly's own declared facts — requirements, edges, and the reachability
     // opt-in — ride the lock's declaration rows (`specs/architecture/40-composition.md`,
@@ -605,12 +629,6 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
 
-    // The member-feature corpus (`specs/architecture/20-surface.md`, "The seam — one
-    // implementation"): shared with `explain` (READ-EDGE-UNIFY) so a read cannot disagree
-    // with the gate about which members exist.
-    let (skill_features, rule_features, inplace_corpus) =
-        skill_rule_corpus(workspace, layer.as_ref(), harness_root)?;
-
     // The embedded std-lib a by-name `package` binding resolves against
     // (`specs/architecture/10-contracts.md`). Packages **compose**: a satisfier is
     // checked by its kind's bound package *and* any package a requirement names.
@@ -620,20 +638,25 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by qualified
     // identity (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
-    // kind's members are dispatched to its floor package (⊕ author layer) and validated,
-    // so a discovered CLAUDE.md/AGENTS.md memory member fires its `memory` clauses exactly
-    // as a skill/rule does — no longer silently skipped by a hardcoded skill/rule pair.
-    // Floors bind by QUALIFIED identity, never the bare name: the two `memory` providers
-    // share the bare `memory` by design (86d5b70), so a bare resolve would be ambiguous.
-    // SCOPE: only this validation path generalizes — the roster/graph tier below stays
-    // skill/rule/custom (no memory member publishes a requirement today; folding more
-    // built-ins into the requirement corpus is the separate `(builtin-workspace-qualified-key)`
-    // fork), so `skill_features`/`rule_features` above are still read there.
+    // kind's members — resolved by [`kind_features`] straight off harness disk, shared
+    // with `explain` (READ-EDGE-UNIFY) so a read cannot disagree with the gate about
+    // which members exist — are dispatched to its floor package (⊕ author layer) and
+    // validated, so a discovered CLAUDE.md/AGENTS.md memory member fires its `memory`
+    // clauses exactly as a skill/rule does — no longer silently skipped by a hardcoded
+    // skill/rule pair. Floors bind by QUALIFIED identity, never the bare name: the two
+    // `memory` providers share the bare `memory` by design (86d5b70), so a bare resolve
+    // would be ambiguous. SCOPE: only this validation path generalizes — the
+    // roster/graph tier below stays skill/rule/custom (no memory member publishes a
+    // requirement today; folding more built-ins into the requirement corpus is the
+    // separate `(builtin-workspace-qualified-key)` fork), so `skill`/`rule` are
+    // captured out of the dispatch below into `skill_features`/`rule_features`.
     let mut diagnostics = Vec::new();
     // Per-kind checked-member counts, keyed by qualified identity — carried out of
     // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
     // so "checked N members" is stated rather than left as bare silence.
     let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut skill_features: Vec<extract::Features> = Vec::new();
+    let mut rule_features: Vec<extract::Features> = Vec::new();
     for kind in builtin_kind::definitions()?.values() {
         let qualified = kind.qualified_name();
         let package = builtin::floor_package(&qualified).ok_or_else(|| {
@@ -643,24 +666,16 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // against the definition before it is trusted to judge — then conformance.
         let contract = compose::effective(layer.as_ref(), &kind.name, builtin_floor(package)?)?;
 
-        // In-place mode keys members by bare kind. Otherwise a discovered surface member routes
-        // to its kind by its source glob — the two `memory` providers share the surface locus
-        // (`./MEMORY.md`), so `owns_source` keeps a `CLAUDE.md` member off `agents-md.memory`
-        // and an `AGENTS.md` off `claude-code.memory`.
-        let features: Vec<extract::Features> = match &inplace_corpus {
-            Some(corpus) => corpus.get(&kind.name).cloned().unwrap_or_default(),
-            None => {
-                check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())?
-                    .iter()
-                    .filter(|unit| kind.owns_source(&unit.source_path))
-                    .map(|unit| builtin_kind::features(kind, unit))
-                    .collect()
-            }
-        };
+        let features = kind_features(kind, harness_root, workspace, layer.as_ref(), &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
         member_counts.insert(qualified, features.len());
+        match kind.name.as_str() {
+            "skill" => skill_features = features,
+            "rule" => rule_features = features,
+            _ => {}
+        }
     }
 
     // The `paths-match` reachability input and the directive backing-set share one repo
@@ -689,13 +704,16 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     // over the member-class edges — stays assembly-gated (WEDGE ruling 2026-07-03: an unbacked
     // import is a pure fact, not a graph-scope opinion like reachability).
     diagnostics.extend(
-        graph::classify_directives(&collect_directive_members(workspace)?, &repo_files)
-            .findings
-            .into_iter()
-            .map(|mut finding| {
-                finding.severity = Severity::Warn;
-                finding
-            }),
+        graph::classify_directives(
+            &collect_directive_members(harness_root, workspace, layer.as_ref(), &declarations)?,
+            &repo_files,
+        )
+        .findings
+        .into_iter()
+        .map(|mut finding| {
+            finding.severity = Severity::Warn;
+            finding
+        }),
     );
 
     // The harness-contract tier: set-scope predicates over the parsed roster, each
@@ -710,19 +728,6 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // for that future SDK path, not hardwired to the empty case.
         let custom_kinds: Vec<CustomKindEntry> = Vec::new();
         let edges = assembly_edges.clone();
-
-        // In-place carriage is built-in-kind only, so a custom kind carries no in-place member;
-        // in that mode its live `.temper/` features would read a copy tree the in-place harness
-        // never wrote, so swap in the (empty) in-place slice to keep one corpus source.
-        let custom_kinds: Vec<CustomKindEntry> = match &inplace_corpus {
-            Some(corpus) => custom_kinds
-                .into_iter()
-                .map(|(name, def, _features)| {
-                    (name, def, corpus.get(name).cloned().unwrap_or_default())
-                })
-                .collect(),
-            None => custom_kinds,
-        };
 
         // The by-kind corpus every set-scope and graph predicate ranges over,
         // assembled through the same helper the read arm uses.
@@ -800,7 +805,8 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         // floor as a non-gating advisory (WEDGE-FACT-FLOOR), so they are not re-extended: an
         // assembly's power over a directive is the graph-scope reachability escalation, not the
         // unbacked fact, which is the same fact with or without an assembly.
-        let directive_members = collect_directive_members(workspace)?;
+        let directive_members =
+            collect_directive_members(harness_root, workspace, Some(layer), &declarations)?;
         let directive_classing = graph::classify_directives(&directive_members, &repo_files);
 
         // `reachable` (`specs/architecture/45-governance.md`, "The world is a node"): a member whose
@@ -931,89 +937,195 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
     Ok(diagnostics)
 }
 
-/// The skill features, rule features, and (when any in-place member exists) the
-/// in-place-extracted corpus [`skill_rule_corpus`] returns — named so the signature
-/// stays legible (`clippy::type_complexity`).
-type SkillRuleCorpus = (
-    Vec<extract::Features>,
-    Vec<extract::Features>,
-    Option<BTreeMap<String, Vec<extract::Features>>>,
-);
-
-/// Build the skill/rule feature corpus a read of the harness ranges over — shared by
-/// `gate` and `explain` (READ-EDGE-UNIFY) so neither can disagree about which members
-/// exist (`specs/architecture/20-surface.md`, "The seam — one implementation"). An
-/// **in-place** member (a `source`-bearing `temper.toml` `[[member]]` table) is
-/// live-extracted from its committed landscape file; document/module carriage reads the
-/// committed `.temper/` surface tree (`surface_units`) instead. Keyed by bare kind name;
-/// the returned map is `None` when no in-place member is declared, so every kind reads
-/// the surface tree — callers needing to know whether skill/rule came from in-place
-/// extraction (`explain`'s `custom_members`) read the returned corpus's presence.
+/// Every in-place member's declared `kind` resolves to a built-in, checked upfront —
+/// in-place carriage is built-in-kind only (a custom kind's units are authored
+/// `.temper/` artifacts), so a member naming an unresolved kind is a hard, loud error,
+/// never a silent drop from every kind's per-kind dispatch below (a member whose
+/// `kind` matches none of `resolve_kind_units`'s per-kind filters would otherwise fall
+/// straight through to that kind's own governs-driven harness walk, unreported —
+/// `.claude/rules/collaboration.md`, "a silent skip reads as done").
 ///
 /// # Errors
 ///
-/// Returns an error if an in-place member's landscape file is unreadable or malformed,
-/// or a surface-tree directory cannot be enumerated.
-fn skill_rule_corpus(
-    workspace: &Path,
-    layer: Option<&compose::AuthorLayer>,
-    harness_root: &Path,
-) -> miette::Result<SkillRuleCorpus> {
-    let inplace_corpus = {
-        let mut corpus: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
-        if let Some(layer) = layer {
-            for member in layer.inplace_members() {
-                corpus
-                    .entry(member.kind.clone())
-                    .or_default()
-                    .push(live_extract_inplace(harness_root, member)?);
-            }
-            // Name-sort each kind's slice for a stable diagnostic set.
-            for slice in corpus.values_mut() {
-                slice.sort_by(|a, b| a.id.cmp(&b.id));
-            }
+/// Returns an error naming the first in-place member whose `kind` resolves to no
+/// built-in.
+fn validate_inplace_kinds(layer: Option<&compose::AuthorLayer>) -> miette::Result<()> {
+    let Some(layer) = layer else {
+        return Ok(());
+    };
+    let builtins = builtin_kind::definitions()?;
+    for member in layer.inplace_members() {
+        if !builtins.values().any(|kind| kind.name == member.kind) {
+            return Err(miette::miette!(
+                "in-place member `{}` names non-built-in kind `{}` (in-place carriage is built-in-kind only)",
+                member.name,
+                member.kind
+            ));
         }
-        (!corpus.is_empty()).then_some(corpus)
-    };
-
-    let skill_features: Vec<extract::Features> = match &inplace_corpus {
-        Some(corpus) => corpus.get("skill").cloned().unwrap_or_default(),
-        None => check::surface_units(workspace, "skills", "SKILL.md")?
-            .iter()
-            .map(builtin_kind::skill_features)
-            .collect(),
-    };
-
-    let rule_features: Vec<extract::Features> = match &inplace_corpus {
-        Some(corpus) => corpus.get("rule").cloned().unwrap_or_default(),
-        None => check::surface_units(workspace, "rules", "RULE.md")?
-            .iter()
-            .map(builtin_kind::rule_features)
-            .collect(),
-    };
-
-    Ok((skill_features, rule_features, inplace_corpus))
+    }
+    Ok(())
 }
 
-/// Live-extract an in-place member's [`Features`](extract::Features) from its committed
-/// landscape file (`specs/architecture/20-surface.md`, "In-place"): read the raw harness file at
-/// `<harness_root>/<source>`, parse its frontmatter + body through the generic adapter, and
-/// run the member's built-in kind extractor — the file is its own committed source, re-read
-/// every check, so it cannot drift. The joins are the manifest's declaration (the harness file
-/// carries no temper annotation), so the member's `satisfies`/published requirements are
-/// grafted from the assembly rather than mined from the file.
-///
-/// In-place carriage is built-in-kind only (a custom kind's units are authored `.temper/`
-/// artifacts), so a member naming a non-built-in kind is a hard error, never a silent skip.
+/// This kind's effective `governs` locus (`specs/architecture/20-surface.md`, "The lock
+/// and drift — one vocabulary"): the committed lock's own kind-fact row when the lock
+/// declares one for it — matched by bare name **and** provider, so the two `memory`
+/// providers sharing the bare name never cross-resolve each other's locus
+/// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider
+/// axis") — or the kind's own embedded `governs` when it doesn't: the **built-in
+/// lock**, the same declaration shape the engine carries compiled-in for an unadopted
+/// harness.
+fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> kind::Governs {
+    let provider = kind
+        .qualified
+        .as_deref()
+        .and_then(|qualified| qualified.rsplit_once('.'))
+        .map(|(provider, _)| provider);
+    declarations
+        .kinds
+        .iter()
+        .find(|row| row.name == kind.name && row.provider.as_deref() == provider)
+        .map(|row| kind::Governs {
+            root: row.governs_root.clone(),
+            glob: row.governs_glob.clone(),
+        })
+        .unwrap_or_else(|| kind.governs.clone())
+}
+
+/// The already-projected surface document's own authored `satisfies`/published
+/// requirements, when one exists at this member's carriage locus
+/// (`<workspace>/<kind's surface subdir>/<id>/<member document>`) — the one home a
+/// document/module-carried member's fill edges are ever authored at, never mined from
+/// the raw harness file (`specs/architecture/20-surface.md`, "The member document").
+/// `None` when the member has never been projected (arrives unrecognized, "install —
+/// the front door").
 ///
 /// # Errors
 ///
-/// Returns an error if the kind is not a built-in, or the landscape file is unreadable or
-/// malformed.
-fn live_extract_inplace(
+/// Returns an error if the surface document exists but is malformed.
+fn surface_overlay(
+    workspace: &Path,
+    kind: &CustomKind,
+    id: &str,
+) -> miette::Result<Option<frontmatter::Member>> {
+    let dir = workspace.join(kind.surface_subdir()).join(id);
+    let doc = kind.member_document();
+    if !dir.join(&doc).is_file() {
+        return Ok(None);
+    }
+    Ok(Some(frontmatter::Member::from_surface(&dir, &doc)?))
+}
+
+/// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
+/// range over (READ-EDGE-UNIFY, `specs/architecture/20-surface.md`, "The lock and
+/// drift"). In-place carriage (a `source`-bearing `temper.toml` `[[member]]` table)
+/// reads its own declared members from their named source, grafting `satisfies`/
+/// published requirements from the assembly's declaration rather than mining them from
+/// the file — the harness format is not temper's to annotate. Otherwise every member
+/// is discovered by walking this kind's [`effective_governs`] locus, read straight off
+/// harness disk so the corpus can never drift from a stale copy; its own `satisfies`/
+/// published requirements — authored only on its projected surface document — are
+/// grafted from [`surface_overlay`] when one exists.
+///
+/// # Errors
+///
+/// Returns an error if a source or surface file is unreadable or malformed, or a
+/// governed directory cannot be enumerated.
+fn resolve_kind_units(
+    kind: &CustomKind,
     harness_root: &Path,
-    member: &compose::InPlaceMember,
-) -> miette::Result<extract::Features> {
+    workspace: &Path,
+    layer: Option<&compose::AuthorLayer>,
+    declarations: &drift::Declarations,
+) -> miette::Result<Vec<Unit>> {
+    let inplace: Vec<&compose::InPlaceMember> = layer
+        .map(|layer| {
+            layer
+                .inplace_members()
+                .iter()
+                .filter(|member| member.kind == kind.name)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut units = if inplace.is_empty() {
+        let governs = effective_governs(kind, declarations);
+        let mut units = Vec::new();
+        for file in import::discover_kind_files(harness_root, kind, &governs)? {
+            let source = frontmatter::Member::from_source_rooted(
+                kind,
+                &file,
+                &harness_root.join(&governs.root),
+            )?;
+            let mut unit = Unit {
+                id: source.id.clone(),
+                frontmatter: source.fields.iter().cloned().collect(),
+                body: source.body.clone(),
+                source_path: source.provenance.source_path.clone(),
+                satisfies: Vec::new(),
+                satisfies_clauses: Vec::new(),
+                published_requirements: Vec::new(),
+            };
+            if let Some(surface) = surface_overlay(workspace, kind, &unit.id)? {
+                unit.satisfies = surface
+                    .satisfies
+                    .iter()
+                    .map(|clause| clause.requirement.clone())
+                    .collect();
+                unit.satisfies_clauses = surface.satisfies;
+                unit.published_requirements = surface.published_requirements;
+            }
+            units.push(unit);
+        }
+        units
+    } else {
+        inplace
+            .into_iter()
+            .map(|member| inplace_unit(harness_root, member))
+            .collect::<miette::Result<Vec<_>>>()?
+    };
+
+    units.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(units)
+}
+
+/// A kind's members' extracted [`Features`](extract::Features) — [`resolve_kind_units`]
+/// run through the kind's own composed extraction.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`].
+fn kind_features(
+    kind: &CustomKind,
+    harness_root: &Path,
+    workspace: &Path,
+    layer: Option<&compose::AuthorLayer>,
+    declarations: &drift::Declarations,
+) -> miette::Result<Vec<extract::Features>> {
+    Ok(
+        resolve_kind_units(kind, harness_root, workspace, layer, declarations)?
+            .iter()
+            .map(|unit| builtin_kind::features(kind, unit))
+            .collect(),
+    )
+}
+
+/// Live-extract an in-place member's raw [`Unit`] from its committed landscape file
+/// (`specs/architecture/20-surface.md`, "In-place"): read the raw harness file at
+/// `<harness_root>/<source>`, parse its frontmatter + body through the generic adapter
+/// — the file is its own committed source, re-read every check, so it cannot drift.
+/// The join edges are the manifest's declaration (the harness file carries no temper
+/// annotation), so the member's `satisfies`/published requirements are grafted from
+/// the assembly rather than mined from the file.
+///
+/// In-place carriage is built-in-kind only (a custom kind's units are authored
+/// `.temper/` artifacts), so a member naming a non-built-in kind is a hard error,
+/// never a silent skip.
+///
+/// # Errors
+///
+/// Returns an error if the kind is not a built-in, or the landscape file is unreadable
+/// or malformed.
+fn inplace_unit(harness_root: &Path, member: &compose::InPlaceMember) -> miette::Result<Unit> {
     let path = harness_root.join(&member.source);
     // Route to the built-in kind by bare name, then by which owns the source glob — so the
     // two `memory` providers (`CLAUDE.md` vs `AGENTS.md`) sharing the bare `memory` resolve to
@@ -1034,20 +1146,16 @@ fn live_extract_inplace(
     let source = frontmatter::Member::from_source(kind, &path)?;
     // The id is the manifest's recorded name (the surface identity), not re-derived; the
     // extractor reads frontmatter/body/placement off the raw harness file.
-    let unit = Unit {
+    Ok(Unit {
         id: member.name.clone(),
         frontmatter: source.fields.iter().cloned().collect(),
         body: source.body.clone(),
         source_path: source.provenance.source_path.clone(),
-        satisfies: Vec::new(),
+        // The join edges are the assembly's declaration, not a fact mined from the file.
+        satisfies: member.satisfies.clone(),
         satisfies_clauses: Vec::new(),
-        published_requirements: Vec::new(),
-    };
-    let mut features = builtin_kind::features(kind, &unit);
-    // The join edges are the assembly's declaration, not a fact mined from the file.
-    features.satisfies = member.satisfies.clone();
-    features.published_requirements = member.published.clone();
-    Ok(features)
+        published_requirements: member.published.clone(),
+    })
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the
@@ -1115,23 +1223,25 @@ fn assemble_by_kind<'a>(
 /// [`builtin_kind::definitions`] — not a hardcoded skill/rule pair — so a discovered
 /// `CLAUDE.md` memory member's `at-import` targets reach [`graph::classify_directives`]
 /// and an unbacked `@path` draws its finding (DIRECTIVE-MEMBERS-ALL-KINDS, the same
-/// generalization CHECK-MEMBERS-ALL-KINDS made for clause dispatch). Each kind loads its
-/// members through the one generic surface loader, filtered by
-/// [`CustomKind::owns_source`] so the two `memory` providers sharing the `./MEMORY.md`
-/// locus route to their own carrier, extracts through [`builtin_kind::features`], and
-/// keys by the bare `kind.name` — the keying `by_kind`/`classify_directives` join on.
-/// Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`)
-/// and contribute no members.
-fn collect_directive_members(workspace: &Path) -> miette::Result<Vec<graph::DirectiveMember>> {
+/// generalization CHECK-MEMBERS-ALL-KINDS made for clause dispatch). Each kind's
+/// members are resolved through [`resolve_kind_units`] — the same live, governs-driven
+/// read the gate's own dispatch uses — and keyed by the bare `kind.name`, the keying
+/// `by_kind`/`classify_directives` join on. Custom kinds retire with the KIND.md file
+/// format (`specs/architecture/15-kinds.md`) and contribute no members.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`].
+fn collect_directive_members(
+    harness_root: &Path,
+    workspace: &Path,
+    layer: Option<&compose::AuthorLayer>,
+    declarations: &drift::Declarations,
+) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
     for kind in builtin_kind::definitions()?.values() {
-        let units =
-            check::surface_units(workspace, kind.surface_subdir(), &kind.member_document())?;
-        for unit in units
-            .iter()
-            .filter(|unit| kind.owns_source(&unit.source_path))
-        {
-            let feature = builtin_kind::features(kind, unit);
+        for unit in resolve_kind_units(kind, harness_root, workspace, layer, declarations)? {
+            let feature = builtin_kind::features(kind, &unit);
             members.push(graph::DirectiveMember {
                 kind: kind.name.clone(),
                 id: feature.id.clone(),
