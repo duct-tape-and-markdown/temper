@@ -21,21 +21,27 @@ are forgotten here. Target under ~60 lines, hard.
 - Public docs voice (John 07-05): natural, no em-dashes or claude-isms, not
   pitchy. `docs/*.md` is the human-curated plain-language layer; the spec
   corpus stays the operational definition (docs defer to specs on conflict).
+- CLEAN SLATE (John 07-06): published pre-1.0 carries NO backward-compat
+  burden — no shims, no aliases, no deprecation ceremony. Break freely
+  until v0.1.
 
-## State of the era (2026-07-05)
+## State of the era (2026-07-06)
 
-- **Front door open, first adopter live**: repo PUBLIC; `@dtmd/temper@0.0.2`
-  on npm with the ratified subpath layout (PR #4 + SDK-RECUT). cascade is
-  the first external harness (kept `check`, reverted `install`); its four
-  field reports routed: `(carriage-aware-placements)` OPEN (needs John:
-  in-place first-class + what carries projection/authored at the guard;
-  session proposal: lock rows carry carriage), three accepted-debt symptoms
-  the demolition dissolves. Finer-grained calls delegated to the session
-  (07-05) — rule, encode, John ratifies by PR merge.
-- **NEXT SESSION FOCUS: the GATE-READ-LOCK-DEMOLITION decomposition
-  ceremony** — serialized chain over ~18 test files + main/import/drift/
-  compose, cascade's DATUM evidence in, the carriage fork as rider.
-  Frame-scale: cooling discipline unless John waives.
+- Repo PUBLIC; `@dtmd/temper@0.0.2` on npm (subpath layout, PR #4). cascade
+  is the first external harness; its field evidence drove the front door.
+  Finer-grained calls delegated to the session — rule, encode, John
+  ratifies by PR merge.
+- **The front door is RATIFIED and the chain is FILED** (PR #6 merged
+  0c11135; cooling waived): install absorbs init behind one question,
+  depth emergent, placements follow the lock, built-in lock = embedded
+  defaults, temper.toml retired as a filename.
+  `(carriage-aware-placements)` resolved. The decomposition ceremony ran
+  in-session; the serialized S1–S7 chain is in the inbox for plan
+  (emit-payload-seam → check-reads-lock → fixtures → scratch/codec retire
+  → install front door → temper.toml zero).
+- **Cascade volunteered as the genre-adoption pilot** — `(genre-fence-
+  format)`'s first consumer, real Decision fixtures, workshop with John
+  next session. Rides emit's fence render (post-S1).
 - Corpus shadow awaiting John's hand: 00-intent's self-hosting finish line +
   90-spec-system's confirmation recipe still narrate the dogfood.
 
