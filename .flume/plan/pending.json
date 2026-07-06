@@ -1,5 +1,29 @@
 [
   {
+    "tag": "KIND-BUILTIN-CONST-RETIRE",
+    "summary": "Retire the dead `kind::BUILTIN_KINDS = [\"skill\",\"rule\"]` const — string-name built-in identity, zero-usage after CODEC-RETIRE deleted its last referencing test",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Decision: built-ins are a module, and identity is an import"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Delete the orphaned `pub const BUILTIN_KINDS: &[&str] = &[\"skill\", \"rule\"]` at kind.rs:24-27 and its three-line doc comment. Verified zero usages across src/ and tests/ this tick (`rg BUILTIN_KINDS src/ tests/` hits only this def plus the unrelated generated `builtin_kind::BUILTIN_KINDS`). It is string-name identity of the built-ins baked into the engine — the exact form 15-kinds retires (identity travels by import). The live enumeration is the generated `builtin_kind::BUILTIN_KINDS` (builtin_kind.rs:27, keyed `<provider>.<name>`, derived from the kinds/ tree) and is untouched. Do not touch the `custom_kinds`-empty path in main.rs — that is a separate foundation gate."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`rg BUILTIN_KINDS src/kind.rs` returns nothing; the only surviving enumeration is the generated `builtin_kind::BUILTIN_KINDS`; cargo build + clippy -D warnings + cargo test all stay green.",
+    "notes": "Bug 2 residue (open-questions bugs list). Its 'retires with the entangled kind.rs demolition' routing is stale — the only entanglement was one compose.rs codec test that CODEC-RETIRE deleted, so the const is now fully dead standalone. Disjoint from PACKAGING-CHANNELS (.github/, package.json) and from the ratified `custom_kinds`-empty SDK-primary foundation gate (main.rs), which stays."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
@@ -8,7 +32,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.2, PR #4); channel 1's SDK foundation shipped"
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.3, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped"
     },
     "dependsOnForks": [],
     "files": {
@@ -29,6 +53,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (50-distribution 'Fail-loud delivery').",
-    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.2 07-06); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. USPTO name screen due before launch."
+    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.3); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. USPTO name screen due before launch."
   }
 ]

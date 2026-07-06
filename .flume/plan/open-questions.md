@@ -441,9 +441,13 @@ sequencing):
    drift's fingerprint map. **SHIPPED** (4b42fe5, DRIFT-KIND-ENUMERATION) —
    drift.rs now enumerates the generated `builtin_kind::BUILTIN_KINDS`
    (`<provider>.<name>`, bare tail). NB the stale `kind::BUILTIN_KINDS =
-   ["skill","rule"]` const survives (kind.rs:30), now used only by one trivial
-   compose.rs test; it retires with the entangled kind.rs demolition, not as a
-   standalone throwaway slice.
+   ["skill","rule"]` const survives (kind.rs:27). **FILED (2026-07-06,
+   KIND-BUILTIN-CONST-RETIRE):** the "retires with the entangled kind.rs
+   demolition" routing is stale — re-verified on disk this tick, the const has
+   **zero** usages across src/ and tests/ (its one referencing compose.rs codec
+   test was deleted by CODEC-RETIRE), so it is now standalone-dead string-name
+   identity, a clean `open` slice cited to 15-kinds "identity is an import".
+   Disjoint from the `custom_kinds`-empty foundation gate.
 3. import.rs:697-704, 1007-1015 — authored-layer carry-forward silently
    degrades to "nothing to carry" on an unreadable prior surface (data-loss
    edge). **HELD** — the ceremony's own note flags it "moot when document

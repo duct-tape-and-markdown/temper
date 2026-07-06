@@ -1,37 +1,34 @@
 # Plan state
 
-- **Phase:** idle reconcile — **nothing shipped since the last plan tick**
-  (6c0105a). The only commits since are two chores: the `@dtmd/temper` 0.0.3
-  release (c768b1f, a one-line version bump in `sdk/package.json`) and a flume
-  prompt tuning (a9cd102). Spec-delta empty (no `specs/` commit since 6c0105a);
-  inbox empty. Intent unmoved.
-- **Last shipped:** TEMPER-TOML-ZERO (build 4d6e813 / chore ed95bcc) — the
-  terminal of the S1→S7 `(inplace-lock-producer)` demolition chain, now fully
-  built out. The lock is the gate's sole declaration source.
-- **This tick:** reconciled c768b1f (SDK 0.0.3, payload-only — version bump only,
-  no corpus gap: the SDK implements no semantics per 20-surface, so this aligns
-  intent, doesn't diverge from it). Re-verified on disk: `rg temper.toml src/` =
-  0, the `References`/`strip_suffix`/`backtick_filename_refs` reference machinery
-  is gone (REFERENCES-RETIRE shipped), `custom_kinds` ratified-empty
-  (main.rs:432,661). **No queue change** — pending, open-questions, inbox
-  unchanged; nothing to file.
-- **In flight:** one entry — **PACKAGING-CHANNELS** (parked on human release
-  creds + the per-platform engine-binary workflow + John's decide-at-release
-  calls; cite 50-distribution "Three channels", verified current). **No `open`
-  pickable entry exists** — the autonomous demolition wave drained everything the
-  loop can reach.
-- **What's next (all human-gated):** PACKAGING-CHANNELS release setup + USPTO
-  name screen; the genre-fence-format workshop (cascade is the pilot); the OPEN
-  forks that need John before they yield pickable work —
+- **Phase:** residue sweep — **nothing shipped since the last plan tick**
+  (544b041). The only commit since is one flume-prompt chore (61d56a2). Spec-delta
+  empty (no `specs/` commit since 544b041); inbox empty. Intent unmoved.
+- **Last shipped:** TEMPER-TOML-ZERO (build 4d6e813 / chore ed95bcc) — terminal
+  of the S1→S7 `(inplace-lock-producer)` demolition chain. Re-verified on disk this
+  tick: `rg temper.toml src/` = 0; `import::run` copy-tree gone (only `write_rollup`,
+  the emit lock-writer, survives); the `[[member]]` codec gone from compose.rs;
+  `compose::effective` composes each kind's contract from the lock's `ClauseRow`.
+- **This tick:** ran the residue sweep (not "delta empty → idle"). Found one named
+  residue with its gate re-tested false: bug 2's stale `kind::BUILTIN_KINDS =
+  ["skill","rule"]` const (kind.rs:27). Its "retires with the entangled kind.rs
+  demolition" routing is stale — the entanglement was one compose.rs codec test,
+  deleted by CODEC-RETIRE, so the const now has **zero** usages across src/ and
+  tests/. **Filed KIND-BUILTIN-CONST-RETIRE** (`open`, this tick's one pickable
+  entry). PACKAGING-CHANNELS unchanged (still parked).
+- **In flight:** two entries — **KIND-BUILTIN-CONST-RETIRE** (`open`, pickable:
+  delete the dead const, cite 15-kinds "identity is an import") and
+  **PACKAGING-CHANNELS** (parked on human release creds + the per-platform
+  engine-binary workflow + John's decide-at-release calls; cite 50-distribution
+  "Three channels"). The two are disjoint (src/kind.rs vs .github/ + package.json).
+- **What's next (all human-gated after this cut):** PACKAGING-CHANNELS release
+  setup + USPTO name screen; the genre-fence-format workshop (cascade is the
+  pilot); the OPEN forks that need John before they yield pickable work —
   `(default-assembly-as-data)`, `(edge-representation-unify)` join→graph,
   `(json-projection-format)`/`(hook-kind-locus)`/`(builtin-workspace-qualified-key)`
-  (SDK-primary foundation); and the kind.rs demolition residue (the stale bare
-  `kind::BUILTIN_KINDS = ["skill","rule"]` const at kind.rs:27 + `custom_kinds`
-  empty), gated behind the SDK-primary front door delivering custom kinds.
+  (SDK-primary foundation); and the `custom_kinds`-empty foundation gate
+  (main.rs:432,661), which stays until the SDK-primary front door delivers custom
+  kinds.
 
-Plan continues: no — spec-delta and inbox both empty, nothing shipped since the
-last tick, the queue is already fully reconciled, and the sole remaining entry is
-parked on humans. No `open` entry is pickable; the queue advances only when a
-human unblocks PACKAGING-CHANNELS, runs the fence workshop, or settles an OPEN
-fork. Re-deriving again would re-emit an identical queue — the failure mode, not
-diligence.
+Plan continues: no — the residue sweep produced one pickable `open` entry
+(KIND-BUILTIN-CONST-RETIRE); spec-delta and inbox are empty and the rest of the
+queue is human-gated. Hand to build; the queue drains by building, not re-planning.
