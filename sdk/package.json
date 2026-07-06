@@ -1,6 +1,6 @@
 {
   "name": "@dtmd/temper",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The temper authoring face — the six-noun model as typed modules: harness(), kind<T>(), clause values, needs, and file()/text/blocks(). Emit compiles to the declaration rows the engine reads, a byte-faithful projection, and the lock.",
   "license": "(MIT OR Apache-2.0)",
   "repository": {
