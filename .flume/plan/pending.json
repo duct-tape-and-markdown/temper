@@ -7,8 +7,7 @@
       "section": "Decision: clause arrays and two quantifiers, not a package noun"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PKG-NOUN-REQ-FACET"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,15 +15,15 @@
       "edit": [
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Delete `RequirementRow.package` (declarations.ts:39). `requirementRows` already emits only name/kind/required/verified_by — the `package?` field is dead type surface, never written. No SEAM_VERSION bump: the wire payload is unchanged (the field was never emitted). Update the RequirementRow TSDoc that lists 'kind/package/required'."
+          "description": "Delete `readonly package?: string;` (declarations.ts:39) from the `RequirementRow` interface. `requirementRows` already maps only name/kind/required/verified_by (declarations.ts:137-141) — the `package?` field is dead type surface, never written, and no `Requirement` in contract.ts carries a `package` to feed it. No SEAM_VERSION bump: the wire payload is unchanged (the field was never emitted). The RequirementRow TSDoc (declarations.ts:35, 'reduced to the scalar facets the lock records') already names no facet list, so it needs no edit — verify it reads true after the cut."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "`rg -n \"package\" sdk/src/declarations.ts` returns nothing requirement-facet-related; `pnpm --dir sdk test` (tsc + node --test) green; tests/emit.rs (real SDK subprocess) still byte-reproduces the lock.",
-    "notes": "Third chain link. Disjoint file (sdk/) but serialized after the Rust facet cut to keep the seam coherent and avoid churning declarations.ts under REACH-DIAL-RETIRE, which follows."
+    "acceptance": "`rg -n \"package\" sdk/src/declarations.ts` returns nothing (only the npm-`package` sense survives elsewhere in sdk/src); `pnpm --dir sdk test` (tsc + node --test) green; tests/emit.rs (real SDK subprocess) still byte-reproduces the lock.",
+    "notes": "Head of the package-noun tail — blocker PKG-NOUN-REQ-FACET shipped (bc393f5). Disjoint slice in sdk/. Serialized ahead of REACH-DIAL-RETIRE, which also edits declarations.ts (assemblyFactRows), to keep the seam coherent."
   },
   {
     "tag": "REACH-DIAL-RETIRE",
@@ -43,15 +42,15 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Delete `reachability_from_declarations` (main.rs:1141) and its call (main.rs:567), and the `if let Some(reachability) = assembly_reachability { … }` opt-in block that builds the activation map and calls `graph::reachable` (main.rs:726-752). 40-composition: reachability is demanded by an ordinary edge-scope clause, not a dedicated field. Keep `pub fn graph::reachable` (a live capability, still exercised by tests/graph.rs) — only its dial-driven opt-in goes. Sweep the dial's narrating comments (main.rs:554,720-726)."
+          "description": "Delete `reachability_from_declarations` (main.rs:1141) and its call (main.rs:567), and the `if let Some(reachability) = assembly_reachability { … }` opt-in block that builds the activation map and calls `graph::reachable` (main.rs:726-747). 40-composition: reachability is demanded by an ordinary edge-scope clause, not a dedicated field. Keep `pub fn graph::reachable` (a live capability, still exercised by tests/graph.rs) — only its dial-driven opt-in goes. Sweep the dial's narrating comments (main.rs:720-726)."
         },
         {
           "path": "sdk/src/assembly.ts",
-          "description": "Delete the `Harness.reachability` field — the `reachability?: Severity` on the assembly value (assembly.ts:35), its doc line (:34), and the init passthrough (:48,:55). The assembly is four fields: members · expect · require · settings. Fix the header TSDoc naming a fifth field (assembly.ts:4)."
+          "description": "Delete the `Harness.reachability` field — `reachability?: Severity` on the assembly value (assembly.ts:35), its init-param twin (:48), and the passthrough (:55). The assembly is four fields: members · expect · require · settings. Fix the header TSDoc naming reachability as a fifth field (assembly.ts:4)."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Delete the `if (harness.reachability !== undefined) facts.push({ fact: \"reachability\", … })` emission in `assemblyFactRows` (declarations.ts:152-154) and the doc line naming 'reachability when the dial is set' (declarations.ts:147). The AssemblyFactRow shape stays (authority + edge facts survive). No SEAM_VERSION bump — dropping an optional fact the Rust reader now ignores."
+          "description": "Delete the `if (harness.reachability !== undefined) facts.push({ fact: \"reachability\", … })` emission in `assemblyFactRows` (declarations.ts:152-154) and the doc line naming 'reachability when the dial is set' (declarations.ts:147); simplify the AssemblyFactRow header comment at :44. The AssemblyFactRow shape stays (authority + edge facts survive). No SEAM_VERSION bump — dropping an optional fact the Rust reader now ignores."
         },
         {
           "path": "tests/reachable_gate.rs",
@@ -70,11 +69,11 @@
       }
     ],
     "acceptance": "`rg -n \"reachability_from_declarations|assembly_reachability|fact.*reachability\" src/ sdk/src` returns nothing; the assembly is four fields; cargo test + `pnpm --dir sdk test` green.",
-    "notes": "Chain tail — shares main.rs with the facet cut's doc-comment sweep and declarations.ts + assembly.ts with PKG-NOUN-SDK-COLUMN, hence serialized. Reachability-as-edge-scope-clause (the corpus replacement, 40-composition) rides the clause-algebra growth downstream of REQUIREMENT-CLAUSES-RECUT — deferred, not this cut."
+    "notes": "Chain tail — shares declarations.ts + assembly.ts with PKG-NOUN-SDK-COLUMN, hence blockedBy it. Reachability-as-edge-scope-clause (the corpus replacement, 40-composition) rides the clause-algebra growth downstream of REQUIREMENT-CLAUSES-RECUT — deferred, not this cut."
   },
   {
     "tag": "REQUIREMENT-CLAUSES-RECUT",
-    "summary": "Recut the requirement to `means·kind·required·clauses?·verifiedBy?` — retire the count/unique/membership/degree facet spelling for a clauses array, across engine + SDK + seam",
+    "summary": "Recut the requirement to `means·kind·required·clauses?·verifiedBy?` — retire count/unique/membership/degree facets for a clauses array, across engine + SDK + seam",
     "per": {
       "path": "specs/architecture/10-contracts.md",
       "section": "Decision: set-scope demands are clauses — no noun enumerates the algebra"
@@ -97,11 +96,11 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A requirement carries set-/edge-scope demands as ordinary clause values (each with its own severity/guidance/cite), not named facet fields; the SDK Requirement type reads `means·kind·required·clauses?·verifiedBy?`; the lock's requirement row carries no facet columns; SEAM_VERSION bumped in lockstep.",
-    "notes": "Parked for a decomposition ceremony — the inbox's 'disjoint sdk entry' framing under-scopes it (the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain). Do not file the naive single entry; the under-scoping is the thing to surface. Downstream of it: reachability-as-edge-scope-clause (the REACH-DIAL replacement)."
+    "notes": "Parked for a decomposition ceremony — the Rust facets in compose/drift/roster + the SEAM bump make it a serialized chain, not a single disjoint slice. Do not file the naive single entry. Downstream of it: reachability-as-edge-scope-clause (the REACH-DIAL replacement)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship the three acquisition channels — SDK npm package, the engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
+    "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
       "path": "specs/architecture/50-distribution.md",
       "section": "Three channels"
