@@ -52,7 +52,7 @@ concepts they derive.
 | **member** | the unit of authorship and the only source: name · prose? · satisfies? · requires? · needs? · typed flat fields; lives at file grain or block grain | `20-surface.md` |
 | **kind** | a class of member: a typed constructor (plain interface, tsc-checked) plus five facts of runtime residue — label, locus, layout, registration, edge fields | `15-kinds.md` |
 | **clause** | the atom of a contract: predicate · severity · guidance · cite — an SDK value that erases to compiled data; every clause decidable | `10-contracts.md` |
-| **requirement** | a named obligation on the harness: means · kind · required · count? · unique? · membership? · degree? · verifiedBy?; filled only by a member's opt-in `satisfies` (the join) | `10-contracts.md` |
+| **requirement** | a named obligation on the harness: means · kind · required · clauses? · verifiedBy? — set-scope demands ride as ordinary clauses; filled only by a member's opt-in `satisfies` (the join) | `10-contracts.md` |
 | **prose** | a typed field, never a wrapper: `file()` \| `` text`…` `` \| `blocks(…)`; the author's words byte-untouched (law 5); carries the two reference intents | `20-surface.md` |
 | genre | a kind at the block locus: members are typed fenced blocks inside host documents — full member surface, cross-kind fills, registration inherited through the host | `15-kinds.md` |
 | `expect` / `require` | the two quantifiers attaching all clause data in the assembly: universal (shape of every member of a kind) and existential (the harness contains a fill) | `40-composition.md` |

@@ -66,8 +66,8 @@ A requirement's set is its **satisfier set** — the members that opt in via
 `satisfies`, kind-typed; there is no name-pattern selector (a name match is
 the contract guessing). A whole-*kind* population demand quantifies over the
 kind's member set instead; an intent *subset* quantifies over its opt-in
-satisfiers. The predicates spell as fields on the requirement
-(`40-composition.md`) and compile to node-set judges:
+satisfiers. The predicates ride the requirement as ordinary clauses
+(`10-contracts.md`, the set-scope Decision) and compile to node-set judges:
 
 - **count** — a *measurement* over the satisfier set:
   `|satisfiers| ∈ [min, max]` ("at most N planners", "exactly one
@@ -76,20 +76,13 @@ satisfiers. The predicates spell as fields on the requirement
 - **membership** — a field of every satisfier takes its value from a declared
   **source set** (a feature over another requirement's satisfiers, or over a
   kind's members): "every agent's `model` is one of the approved set". What
-  the target must *be* is not membership's job — conformance demands ride as
-  inline clauses on the expectation itself (`40-composition.md`).
+  the target must *be* is not membership's job — the source set is a named
+  requirement (or a kind) whose own clauses shape it (`10-contracts.md`, the
+  set-scope Decision).
 
-### Decision: `required` is posture, `count` is measurement
-
-**Chosen:** `required` on a requirement is the **posture declaration** — it
-states what the absence of any satisfier *means*: gate-blocking or advisory
-(`00-intent.md` laws 1 and 4 in one field). `count` is a **predicate** — a
-measurement over the satisfier set. They are different kinds of thing and are
-never merged: one answers "how does the gate treat an unfilled demand", the
-other answers "how many fills are admissible". **Rejected:** folding them —
-`required` as "the `count ≥ 1` shorthand" — which welds an enforcement
-posture to a cardinality and leaves no spelling for "advisory, but if filled,
-exactly once".
+`required` is not a set predicate: it is the posture of absence — what an
+unfilled demand *means* — and the posture-vs-measurement split is
+`10-contracts.md`'s Decision (one home; this scope only consumes it).
 
 ## The edge scope — predicates over the relation graph
 

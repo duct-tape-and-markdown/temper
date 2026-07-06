@@ -113,9 +113,11 @@ kind's population — quantification, not fuzziness):
   standing instance).
 - **membership** — field F of every satisfier of R₁ is drawn from a feature
   over the satisfiers of R₂ ("every agent's `model` is one of the approved
-  set"). Where the target set must itself be shaped, membership carries
-  **inline clauses** qualifying it — the same clause values, attached in
-  place, spreadable from a floor like any other.
+  set"). Shaping R₂'s set is not membership's job: R₂ is a named requirement
+  with clauses of its own — a source set that must itself be shaped is the
+  composite-demand case (the satisfaction-is-total Decision, below),
+  decomposed and named, never a clause smuggled inside another clause's
+  argument.
 
 Judged at the **edge** scope (the one relation graph — `45-governance.md` is
 the detailed home):
@@ -222,7 +224,7 @@ present to fill it.* It is the existential quantifier's payload — the
 interface/trait a concrete member implements. One concept carries every facet:
 
 ```
-Requirement = means · kind · required · count? · unique? · membership? · degree? · verifiedBy?
+Requirement = means · kind · required · clauses? · verifiedBy?
 ```
 
 ```ts
@@ -243,14 +245,19 @@ require("dev-standards", {
   satisfier set measures, not what a member of that kind is. Absent ⇒
   **kind-blind**: any member that opts in fills it.
 - **`required`** — the **posture declaration**: what absence *means* —
-  gate-blocking or advisory. Laws 1 and 4 in one field: the author declares
-  whether an unfilled obligation blocks, and `temper` never invents an
-  obligation the author didn't post. It is never cardinality (Decision below).
-- **`count` / `unique` / `membership` / `degree`** — predicates over the
-  **satisfier set** and its graph neighborhood (the node-set and edge scopes,
-  above). Absent `count`, the fill is plainly existential: at least one
-  satisfier. The governed set is defined by opt-in, kind-typed — never by a
-  name selector.
+  gate-blocking or advisory, the severity of absence spoken in the clause
+  severity vocabulary (one severity concept at every scope). Laws 1 and 4 in
+  one field: the author declares whether an unfilled obligation blocks, and
+  `temper` never invents an obligation the author didn't post. It is never
+  cardinality (Decision below).
+- **`clauses`** — the requirement's set-scope demands: ordinary clause values
+  whose predicates range at the node-set and edge scopes (above) over the
+  satisfier set and its graph neighborhood — `count`, `unique`, `membership`,
+  `degree`. The same four-channel clause as everywhere: each carries its own
+  severity, guidance, and cite, so "advisory, but if filled, exactly once" is
+  sayable per demand. Absent clauses, the fill is plainly existential: at
+  least one satisfier. The governed set is defined by opt-in, kind-typed —
+  never by a name selector.
 - **`verifiedBy`** — wired delegation for the behavioral remainder: `temper`
   guarantees the obligation is filled and the judge is **present and wired**;
   the judge (a test, a CI job, an eval) guarantees the behavior, at runtime.
@@ -282,7 +289,7 @@ require("release-tool", {
   means: "a command that cuts a release",
   kind: command,
   required: true,
-  count: { max: 1 },
+  clauses: [clause(count({ max: 1 }))],
   verifiedBy: "tests/release.test.ts", // temper checks it is wired; CI runs it
 });
 ```
@@ -297,7 +304,33 @@ exactly their useful joints: an *advisory* obligation with an exact count
 ("we'd like exactly one planner, warn otherwise") and a *blocking* obligation
 with no counting at all are both real postures, and neither is sayable when
 one field serves two masters. Posture is law-1/law-4 territory (who declared
-that absence blocks); cardinality is a set predicate like any other.
+that absence blocks); cardinality is a set predicate like any other — and
+with set predicates riding as clauses, each carrying its own severity
+(Decision below), both of the merge's casualties spell directly.
+
+### Decision: set-scope demands are clauses — no noun enumerates the algebra
+
+**Chosen:** a requirement's set- and edge-scope demands ride its `clauses`
+array as ordinary clause values — the one clause type, four channels intact.
+The attachment surfaces (`expect`'s arrays, `require`'s clauses) never
+enumerate the predicate vocabulary: admitting a predicate to the algebra is
+one language change, available wherever clauses attach without reshaping any
+noun. The quantifier names the subject set; the clause's scope says how it
+judges — node-scope clauses judge each member, wider-scope clauses judge the
+set once. **Rejected:** (a) the facet spelling —
+`count?`/`unique?`/`membership?`/`degree?` as named fields on the
+`Requirement` record. It enumerated the algebra in a record shape (every
+admitted predicate becomes a second language change, the noun reshaped in
+lockstep with the vocabulary), and it silently dropped three of the clause's
+four channels: a violated count had no severity of its own, no guidance, no
+cite — the posture of a set-predicate violation was simply unstated. (b)
+Inline clauses on the `membership` predicate — attachment machinery embedded
+inside a predicate's argument; the corpus briefly carried two contradictory
+spellings of it (inline on the predicate here; "on the expectation" in
+`45-governance.md`, citing a `40-composition.md` mechanism that never
+existed) — the tell that the attachment layer and the definition layer had
+blended. Shaping a set is the named requirement's own job (the
+satisfaction-is-total Decision, below).
 
 ### Decision: a requirement's publisher is any authored surface
 

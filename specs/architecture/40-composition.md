@@ -42,10 +42,9 @@ owned by `10-contracts.md` — under two quantifiers:
   keyed by the kind **value** (an import, never a string — identity travels by
   import), and it maps each kind to a clause array.
 - **`require` is existential**: the harness must **contain** a fill. Each
-  entry is a `Requirement` (means · kind · required · count? · unique? ·
-  membership? · degree? · verifiedBy? — the shape and the
-  posture-vs-measurement split of `required`/`count` are `10-contracts.md`'s),
-  keyed by a string the fill's `satisfies` names.
+  entry is a `Requirement` (means · kind · required · clauses? · verifiedBy?
+  — the shape, the set-scope clauses, and the posture-vs-measurement split
+  are `10-contracts.md`'s), keyed by a string the fill's `satisfies` names.
 
 A genre is a kind at the block locus (`15-kinds.md`), so both forms reach
 block-grain members unchanged: `expect` can key a genre; a `require` entry can
