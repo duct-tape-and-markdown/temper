@@ -1,7 +1,7 @@
 //! `temper emit` — the seam's compile (`specs/architecture/20-surface.md`,
 //! "The seam — one implementation"; "Emit — total, byte-reproducible, refusing").
 //!
-//! Two tiers:
+//! Three tiers:
 //!
 //! - **the compiler**, `drift::emit`, driven directly over hand-built [`drift::Payload`]
 //!   values — no `node` involved — proving the properties the entry names: every
@@ -14,16 +14,25 @@
 //!   subprocess running the built SDK against a fixture `harness.ts` — proving
 //!   `emit` actually executes the SDK program and that a second, independent
 //!   process run reproduces the same projections and lock byte-for-byte.
+//! - **the one-shot gate**, `check --harness` / session-start, driven across the real
+//!   process boundary over a raw harness with no lock and no `.temper/` — proving
+//!   the copy-tree scratch import is gone: the discovery walk is the only member
+//!   extractor, straight off harness disk (`specs/architecture/20-surface.md`, "Decision:
+//!   one authored surface, one implementation").
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Once;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::{
     self, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload, PayloadMember,
 };
+
+/// The binary under test, located by Cargo at compile time.
+const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -548,4 +557,59 @@ fn emit_program_refuses_when_no_sdk_program_exists() {
     let (_harness, into) = workspace("no-program");
     let err = drift::emit_program(&into, EmitOptions::default()).unwrap_err();
     assert!(format!("{err}").contains("harness.ts"), "{err}");
+}
+
+// ---------------------------------------------------------------------------
+// The one-shot gate — `check --harness` / session-start over a raw harness with no
+// lock and no `.temper/`: no copy-tree scratch import, the discovery walk
+// (`discover_kind_units`/`discover_builtin`) is the only member extractor.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_harness_and_session_start_gate_the_raw_harness_with_no_scratch_import() {
+    let harness = tmpdir("no-scratch");
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(
+        rules.join("rust.md"),
+        "# Rust conventions\n\nPrefer a clone over a lifetime fight.\n",
+    )
+    .unwrap();
+
+    let harness_output = Command::new(BIN)
+        .arg("check")
+        .arg("--harness")
+        .arg(&harness)
+        .output()
+        .unwrap();
+    assert!(
+        harness_output.status.success(),
+        "a clean harness must gate green over --harness: {}",
+        String::from_utf8_lossy(&harness_output.stdout)
+    );
+
+    let session_start_output = Command::new(BIN)
+        .arg("check")
+        .arg(&harness)
+        .arg("--reporter")
+        .arg("session-start")
+        .output()
+        .unwrap();
+    assert!(
+        session_start_output.status.success(),
+        "session-start is always advisory: {}",
+        String::from_utf8_lossy(&session_start_output.stdout)
+    );
+
+    // Neither gate ever imports: no surface workspace or lock lands beside the harness,
+    // because both read the harness's `skill`/`rule` members straight off disk through
+    // the discovery walk, never a throwaway copy tree.
+    assert!(
+        !harness.join(".temper").exists(),
+        "the one-shot gate must never write a surface workspace beside the harness"
+    );
+    assert!(
+        !harness.join("lock.toml").exists(),
+        "the one-shot gate must never write a lock beside the harness"
+    );
 }

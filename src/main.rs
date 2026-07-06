@@ -6,7 +6,6 @@
 //! library so `tests/` can drive it.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -271,27 +270,20 @@ fn main() -> miette::Result<ExitCode> {
         } => {
             // Session-start is a reporter, not a verb (`specs/architecture/20-surface.md`,
             // "CLI surface"): it reads the path as a *harness root* (surface-present or
-            // scratch-import), emits the payload, and is advisory — always exits zero, so
-            // a failing contract routes through the human, never blocks the session.
+            // gated directly off disk), emits the payload, and is advisory — always exits
+            // zero, so a failing contract routes through the human, never blocks the
+            // session.
             let diagnostics = if reporter == Reporter::SessionStart {
                 let harness_path = harness.or(workspace).unwrap_or_else(|| PathBuf::from("."));
                 session_start_diagnostics(&harness_path)?
             } else {
-                // Two ways into the same gate. `--harness` is the one-shot wedge: import
-                // into a throwaway scratch surface, gate against the harness's own
-                // `temper.toml`, tear the scratch down. Without it, the two-step path
-                // gates an already-imported surface. Same diagnostic shape ⇒ shared render.
+                // Two ways into the same gate. `--harness` is the one-shot wedge: gate the
+                // harness root directly against its own `temper.toml` — the discovery walk
+                // finds members straight off disk, no import step. Without it, the
+                // two-step path gates an already-imported surface. Same diagnostic shape ⇒
+                // shared render.
                 match harness {
-                    Some(harness) => {
-                        let scratch = scratch_surface()?;
-                        import::run(&harness, &scratch)?;
-                        // Members land in the scratch; the harness's own `temper.toml`
-                        // still governs the gate.
-                        let diagnostics = gate(&scratch, &harness.join(TEMPER_TOML))?;
-                        // A leftover scratch dir must never fail the run.
-                        let _ = fs::remove_dir_all(&scratch);
-                        diagnostics
-                    }
+                    Some(harness) => gate(&harness, &harness.join(TEMPER_TOML))?,
                     None => {
                         let workspace =
                             workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
@@ -572,26 +564,20 @@ fn load_layer(temper_toml: &Path) -> miette::Result<Option<compose::AuthorLayer>
 
 /// The session-start reporter's gate over a harness root (`specs/architecture/20-surface.md`,
 /// "CLI surface" — session-start is a reporter of `check`): surface-present ⇒ gate the
-/// authored `.temper/` itself; surfaceless ⇒ import the raw harness into a scratch
-/// surface and gate that.
+/// authored `.temper/` itself; surfaceless ⇒ gate the harness root directly — the
+/// discovery walk finds its members straight off disk, against the kind's embedded
+/// `governs` (the built-in lock).
 ///
 /// The surface-present branch never re-imports: a fresh import discards recognition (the
 /// authored `satisfies` links), so every filled requirement would read unfilled — the
-/// false positive on clean input the surface-present clause forbids (law 3). In the
-/// scratch branch members land in the scratch while the authored layer is read from the
-/// harness itself, not the process CWD.
+/// false positive on clean input the surface-present clause forbids (law 3).
 fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     let authored = harness_path.join(TEMPER_DIR);
     let temper_toml = harness_path.join(TEMPER_TOML);
     if authored.is_dir() && temper_toml.is_file() {
         gate(&authored, &temper_toml)
     } else {
-        let scratch = scratch_surface()?;
-        import::run(harness_path, &scratch)?;
-        let diagnostics = gate(&scratch, &temper_toml)?;
-        // A leftover temp dir must never fail the advisory gate.
-        let _ = fs::remove_dir_all(&scratch);
-        Ok(diagnostics)
+        gate(harness_path, &temper_toml)
     }
 }
 
@@ -1177,17 +1163,6 @@ fn repo_file_set(root: &Path) -> Vec<String> {
     files
 }
 
-/// Create a fresh throwaway surface directory for the one-shot import — a scratch
-/// workspace under the system temp dir, unique to this process. The one-shot gate
-/// never persists a surface (unlike `import --into`), so the caller tears it down.
-fn scratch_surface() -> miette::Result<PathBuf> {
-    let dir = std::env::temp_dir().join(format!("temper-session-start-{}", std::process::id()));
-    // A stale directory from a crashed prior run must not poison this import.
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).into_diagnostic()?;
-    Ok(dir)
-}
-
 /// A registered custom kind as the corpus construction carries it: its name (borrowed
 /// from the assembly layer), its loaded [`CustomKind`] definition, and its computed
 /// member [`Features`](extract::Features). Named so the shared corpus helpers keep a
@@ -1396,6 +1371,7 @@ fn reachability_from_declarations(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     /// The directive-backing set reads **raw disk**, never ignore-filtered: whether an
     /// `@import` target is backed is a fact about the filesystem the harness loads

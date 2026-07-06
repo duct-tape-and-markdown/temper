@@ -309,17 +309,6 @@ impl Member {
         self.fields.iter().any(|(name, _)| name == key)
     }
 
-    /// Carry the authored surface layer (`satisfies` / published
-    /// requirements) from an existing surface member forward onto this freshly-parsed
-    /// source member — **merge rather than clobber** (`specs/architecture/20-surface.md`, "three
-    /// states, never two"): a re-import or drifted-body `re-add` rebuilds the document
-    /// from source, which never carries the authored layer, so the caller loads the
-    /// existing surface and carries it before writing.
-    pub fn carry_representation(&mut self, existing: &Member) {
-        self.satisfies = existing.satisfies.clone();
-        self.published_requirements = existing.published_requirements.clone();
-    }
-
     /// Project the member to its one authored document: a `+++`-fenced header of clause
     /// modules over the byte-faithful body (`specs/architecture/20-surface.md`, "The member
     /// document"). One `[clause.<field>]` module per field in projection order, then the
