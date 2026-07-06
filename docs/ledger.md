@@ -49,9 +49,12 @@ are forgotten here. Target under ~60 lines, hard.
 
 ## Parked (pointers only)
 
-- On John: the rest of PACKAGING-CHANNELS release setup — marketplace/
-  signing creds; the USPTO name screen before launch. (npm DONE 07-05:
-  `@dtmd/temper` published, NPM_TOKEN local in gitignored `.env`.)
+- On John: release remainders — (a) Apple Developer membership IF we
+  notarize the standalone mac binary (decide at release; npm installs dodge
+  Gatekeeper); (b) USPTO name screen. Marketplace needs NO creds (verified
+  2026-07-06, code.claude.com/docs: a marketplace is a git repo +
+  marketplace.json; community-marketplace submission is a free web form +
+  `claude plugin validate`; plugin signing does not exist). npm DONE 07-05.
 - `(local-overrides)` fork — no spelling for personal overrides in the
   one-value assembly model. Blocks nothing.
 - Genre-adoption pilot: needs `(genre-fence-format)` (deferred to the pilot
@@ -82,5 +85,6 @@ are forgotten here. Target under ~60 lines, hard.
 
 Publish is DONE (repo public 07-05, docs layer shipped, awesome-list clock
 running). Remaining is the launch gate per 55-offering: prebuilt binaries on
-three OSes, stranger-proof quickstart, regenerable demo, marketplace/signing
-creds + USPTO screen on John. Weigh every new thread against shipping this.
+three OSes, stranger-proof quickstart, regenerable demo, USPTO screen on
+John (marketplace: no creds needed, verified 07-06; mac notarization a
+decide-at-release cost). Weigh every new thread against shipping this.
