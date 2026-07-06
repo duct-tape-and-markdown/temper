@@ -24,7 +24,7 @@ An AI co-author ports a harness into the SDK; the reviewer opens:
 
 ```ts
 // .temper/skills/reviewer.ts
-import { skill, file } from "@temper/claude-code";
+import { skill, file } from "@dtmd/temper/claude-code";
 
 export const reviewer = skill({
   name: "reviewer",
@@ -67,7 +67,7 @@ prose assets) and **generated** (the projection and the lock).
 
 - **The face** is what a harness author imports: plain nouns — `skill`,
   `rule`, `hook`, `mcpServer`, … one per built-in kind — from
-  `@temper/claude-code` (`50-distribution.md`), plus `harness()`, the floors,
+  `@dtmd/temper/claude-code` (`50-distribution.md`), plus `harness()`, the floors,
   and the prose constructors. Modules are harness-shaped: a file per member, a
   directory per kind if the author likes, ordinary exports. The face is the
   product.

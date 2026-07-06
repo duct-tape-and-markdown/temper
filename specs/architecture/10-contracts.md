@@ -150,7 +150,7 @@ array**. Adoption is an import; extension is a spread; overriding is array
 surgery in the language the author already writes:
 
 ```ts
-import { skill, skillFloor } from "@temper/claude-code";
+import { skill, skillFloor } from "@dtmd/temper/claude-code";
 
 expect(skill, [
   ...skillFloor,                 // adoption is an import
@@ -165,7 +165,7 @@ expect(skill, [
 
 The documented best practices — Anthropic skill mechanics, Pocock's invocation
 axis, the cascade harness-economy model — ship as floors exported from
-`@temper/claude-code`: first-party instances of the same type every project
+`@dtmd/temper/claude-code`: first-party instances of the same type every project
 authors, each clause cited to its source (the `cite` field, above). This is
 law 2 with the machinery removed, and each guarantee got **stronger**:
 

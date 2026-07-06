@@ -264,7 +264,7 @@ the module:
 
 - **Built-in kinds** are the artifact kinds of a known harness — for Claude
   Code: skill, rule, memory, agent, hook, command, MCP, settings — shipped as
-  a published SDK module, **`@temper/claude-code`**, plus a compiled default
+  a published SDK module, **`@dtmd/temper/claude-code`**, plus a compiled default
   program embedded in the engine binary so SDK-less checking works out of the
   box. temper maintains them because the formats are external and evolving: a
   skill's shape is the harness's truth, not the author's to invent. The author
@@ -282,7 +282,7 @@ so collision is impossible and nobody pays a qualification tax (the
 Extending a built-in kind takes no new machinery. Its members' checks are
 clauses attached in the assembly — `expect` and `require`
 (`40-composition.md`); the shared floor is an exported clause array in
-`@temper/claude-code`, adopted by import, overridden by a spread
+`@dtmd/temper/claude-code`, adopted by import, overridden by a spread
 (`10-contracts.md`). And because extraction is generic, a project convention
 on a known artifact — a `team:` key on skills — is already extracted; the
 author only adds a clause over it.
