@@ -239,6 +239,24 @@ New forks from the ceremony:
   composes contracts from lock `ClauseRow`/`KindFactRow`) → **TEMPER-TOML-ZERO**
   (blockedBy, retire the reader + sweep to `rg=0`). Cascade reports 2–4 still
   close with the terminal.
+  DATUM (2026-07-06, the chain has FULLY DRAINED — fork built out): both
+  terminal links shipped — GATE-CONTRACT-FROM-LOCK / S7a (build dd087a5 / chore
+  08173bd) and TEMPER-TOML-ZERO (build 4d6e813 / chore ed95bcc). Verified on
+  disk this tick: `compose::effective(&declarations.clauses, kind, floor)`
+  (compose.rs:247, called from main.rs) composes each kind's contract from the
+  lock's `ClauseRow`, and **zero** `temper.toml` reader refs survive in `src/`
+  (`rg temper.toml src/` = 0; the only surviving refs are the four
+  `tests/requirement_roster.rs` *inertness guarantees* — a stray `temper.toml`
+  gates nothing, the correct end state). The whole S1→S7 demolition (EMIT-
+  PAYLOAD-SEAM → CHECK-READS-LOCK-GOVERNS → FIXTURES-OFF-IMPORT → SCRATCH-RETIRE
+  → CODEC-RETIRE → INSTALL-FRONT-DOOR → GATE-CONTRACT-FROM-LOCK → TEMPER-TOML-
+  ZERO) has landed; sub-questions (a) and (b) are discharged in code and cascade
+  reports 1–4 are all closed. The lock is now the gate's sole declaration source
+  (requirements, edges, reachability, authority, AND per-kind contract clauses).
+  The one residual — `custom_kinds` hardcoded empty (main.rs:432,661) — is the
+  ratified SDK-primary-foundation gate (custom kinds are SDK-authored), not new
+  autonomous work. This fork is fully built out; kept as the decision record, no
+  dependent waits.
   DATUM (2026-07-05, cascade — the first external harness): four field reports
   (inbox, drained this tick) confirm the manifest-era in-place path the current
   `init` writes (root `temper.toml`, no `.temper/`) is what a real adopter hits,
