@@ -128,6 +128,12 @@ wins.
 5. **Open questions** belong in `open-questions.md`, never in pending. If a
    candidate entry can't carry a clean `per` cite, it is an open question. Key
    each with a `(slug)` so entries can declare `dependsOnForks: ["slug"]`.
+   **The file holds OPEN forks only — prune on reconcile:** when a fork
+   resolves, encode the ruling (corpus Decision or your commit body) and
+   DELETE the record; never append reconciliation DATUMs to a resolved
+   record — narrate those in the plan commit body. Git is the archive. The
+   file is inlined whole into your own prompt: its length is your context
+   tax, and a stale record is a latent misroute.
 
 6. **Continuation marker.** End `state.md` with `Plan continues: yes — <reason>`
    ONLY if there is concrete *additional plan work* left this turn (an undrained
