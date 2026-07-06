@@ -1,21 +1,26 @@
 # Plan state
 
-- **Phase:** reconciled the queue after build shipped README-RECONCILE-SURFACE;
-  verified the CLI surface and README/AGENTS on disk against 20-surface's verbs.
+- **Phase:** drained the SDK-front-door-unblock inbox and reconciled the queue
+  against the corpus after the 07-05 publish + `(sdk-package-layout)` ratification.
 - **Last shipped:** README-RECONCILE-SURFACE (build 1656abe / chore 1dd6d60) —
-  README/AGENTS carry the ratified surface; verified on disk: no stale
-  `import`/`diff`/`apply` verb refs, real subcommands are init / check / schema /
-  emit / guard / install / bundle / explain.
-- **This tick:** no change to pending. README-RECONCILE-SURFACE is drained from
-  the queue (build removed it on ship). Inbox empty. No un-gated pickable work —
-  the six-noun demolition core is SDK-front-door-gated and PACKAGING-CHANNELS is
-  parked on human release creds; filing onto that foundation would invent intent.
-- **In flight:** nothing pickable. PACKAGING-CHANNELS stays parked (npm scope in
-  motion — John's @dtmd; marketplace/signing creds).
-- **What's next:** John's hand unblocks the rest — the SDK-primary front door
-  (demolition core, `init` re-shape), the corpus shadow of the dogfood
-  deactivation, and the @dtmd package that un-parks PACKAGING-CHANNELS.
+  README/AGENTS carry the ratified CLI surface (init / check / schema / emit /
+  guard / install / bundle / explain).
+- **This tick:** filed **SDK-RECUT-SUBPATH-LAYOUT** (`open`, TS/`sdk/**`) — recut
+  to the one-package layout, provider face behind the `@dtmd/temper/claude-code`
+  subpath. Filed **GATE-READ-LOCK-DEMOLITION** (`parked`) — the SDK-front-door gate
+  is discharged, so the gate rewrite + carriage demolition is unblocked, but its
+  ~18-test-file blast radius needs a serialized-chain decomposition ceremony before
+  parallel-safe slices are cut. Reconciled PACKAGING-CHANNELS (name resolved to
+  `@dtmd/temper`; still parked on release creds + engine-binary workflow). Inbox
+  drained. `(inplace-lock-producer)` DATUM records the front-door discharge.
+- **In flight:** SDK-RECUT-SUBPATH-LAYOUT is the one pickable `open` entry
+  (disjoint from the parked Rust work — different language, no shared files).
+- **What's next:** build ships the SDK recut; the interactive session runs the
+  demolition decomposition ceremony to cut GATE-READ-LOCK-DEMOLITION into a
+  serialized chain (gate rewrite → carriage retire → `init` re-shape). Human hand
+  still owns the release creds (PACKAGING-CHANNELS) and the USPTO screen.
 
-Plan continues: no — the queue is reconciled and quiescent, the inbox is drained,
-and every remaining thread is human-gated (SDK front door / release creds). There
-is no `open` entry for build to pick and nothing left to re-plan this turn.
+Plan continues: no — the queue is reconciled, the inbox is drained, and one
+disjoint `open` entry (SDK-RECUT-SUBPATH-LAYOUT) is ready for build. The remaining
+gap (the gate/carriage demolition) is filed parked pending a human+session
+decomposition ceremony, not further plan work this turn.

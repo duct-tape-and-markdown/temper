@@ -193,6 +193,21 @@ New forks from the ceremony:
   emit-report renderers `render_field`/`render_emit` survive, zero usages of the
   retired types). The rest of the demolition rides the SDK-primary front door —
   human-gated, not `open`-pickable.
+  DATUM (2026-07-05, front door discharged): the SDK-primary gate that held the
+  demolition is GONE — `@dtmd/temper@0.0.1` is published and `(sdk-package-layout)`
+  is ratified (PR #4, 4a3790d). So sub-question (b)'s blocker is discharged: the
+  gate rewrite (read declarations only from the committed lock + walk each kind's
+  `governs` locus, drop the copy-tree scratch) and the carriage-machinery cuts are
+  no longer front-door-gated. What remains is **decomposition**, not a fork: the
+  scratch drop re-touches ~18 test files (all set up via `import::run`) plus
+  main.rs/import.rs/drift.rs/compose.rs/frontmatter.rs — frame-scale, not a clean
+  autonomously-green single slice. FILED as the **parked** pending entry
+  **GATE-READ-LOCK-DEMOLITION** (per 20-surface "The lock and drift"), held for a
+  serialized-chain decomposition ceremony (John + session) before parallel-safe
+  slices are cut — a blind single filing over 18 shared test files risks the
+  GOV-RANGE/GOV-COUNT merge-conflict loop-spin. `init`'s re-shape to SDK-program
+  scaffolding (no longer name-blocked — the specifier it writes is `@dtmd/temper`)
+  is a downstream slice of that same chain.
 - `(engine-language)` — RESOLVED (John 07-04, inbox): **keep the engine in
   Rust.** No spec delta — the corpus is language-neutral by design ("the
   engine", never a language as normative fact; 50-distribution "The stranger
