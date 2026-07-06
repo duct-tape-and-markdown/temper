@@ -71,8 +71,8 @@ cargo install --path .
 temper check --harness .
 ```
 
-On crates.io it will publish as `temper-cli`, since the `temper` name is
-taken. The installed binary is still `temper`.
+Distribution will be through npm and the Claude Code plugin; a crates.io
+publish is not currently planned.
 
 ## Status
 
