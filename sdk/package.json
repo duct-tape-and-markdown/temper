@@ -20,6 +20,16 @@
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./claude-code": {
+      "types": "./dist/src/claude-code.d.ts",
+      "default": "./dist/src/claude-code.js"
+    }
+  },
   "files": [
     "dist/src",
     "README.md"

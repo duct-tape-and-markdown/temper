@@ -31,20 +31,18 @@ import {
   harness,
   lockRow,
   maxLines,
-  memory,
   placementLines,
   projectBytes,
   projectionPath,
   projectMember,
   required,
-  rule,
   sha256Hex,
-  skill,
   stampLock,
   text,
   writeEmit,
 } from "../src/index.js";
 import type { ProjectionInput } from "../src/index.js";
+import { memory, rule, skill } from "../src/claude-code.js";
 
 // ---------------------------------------------------------------------------
 // Projection byte-parity — the SDK projector compiles a member to its `.claude/**`

@@ -1,12 +1,16 @@
 /**
- * temper's authoring face — the six-noun model as a typed module library
+ * temper's authoring face — the six-noun core as a typed module library
  * (`specs/intent/00-intent.md`, the SDK Decision; `specs/architecture/20-surface.md`).
- * A harness author imports plain nouns — the built-in kinds, `harness()`, the
- * clause and requirement constructors, `needs`, and the three prose constructors —
- * and composes members as typed values. `emit` compiles the whole into the
- * declaration rows the engine reads, a byte-faithful projection, and the lock;
- * every type erases at the seam, and Turing-completeness stays quarantined at
- * authoring time.
+ * A harness author imports plain nouns — `harness()`, the generic `kind`/`genre`
+ * constructors, the clause and requirement constructors, `needs`, and the three
+ * prose constructors — and composes members as typed values. `emit` compiles the
+ * whole into the declaration rows the engine reads, a byte-faithful projection,
+ * and the lock; every type erases at the seam, and Turing-completeness stays
+ * quarantined at authoring time.
+ *
+ * The first-party Claude Code provider face — the built-in `skill`/`rule`/
+ * `memory` kinds — lives at the `./claude-code` subpath, never here
+ * (`specs/architecture/50-distribution.md`, "Decision: one SDK package").
  */
 
 // Prose — three constructors, one field type.
@@ -50,10 +54,6 @@ export type {
   UnitShape,
 } from "./kind.js";
 export { genre, kind } from "./kind.js";
-
-// The face nouns — the built-in Claude Code kinds.
-export type { Memory, Rule, Skill } from "./builtins.js";
-export { memory, rule, skill } from "./builtins.js";
 
 // The assembly — `harness()` and its five fields.
 export type { ExpectBinding, Harness } from "./assembly.js";

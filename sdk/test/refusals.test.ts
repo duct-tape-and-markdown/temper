@@ -14,7 +14,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { emit, harness, rule, skill, text } from "../src/index.js";
+import { emit, harness, text } from "../src/index.js";
+import { rule, skill } from "../src/claude-code.js";
 
 // ---------------------------------------------------------------------------
 // (1) Dangling join — a `satisfies` claim resolving to no declared requirement.

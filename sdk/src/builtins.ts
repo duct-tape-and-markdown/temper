@@ -5,8 +5,9 @@
  * (ownership not privilege). Their five facts are external facts about the Claude
  * Code harness, cited at the point of claim.
  *
- * In the shipped product these live in the published `@temper/claude-code` module
- * (`50-distribution.md`); here they are the SDK's own exports, the first dogfood.
+ * These are the SDK's own provider-face exports, surfaced through the
+ * `@dtmd/temper/claude-code` subpath (`50-distribution.md`, "Decision: one SDK
+ * package — the provider face is a subpath export") — never from the root.
  */
 
 import { kind } from "./kind.js";
