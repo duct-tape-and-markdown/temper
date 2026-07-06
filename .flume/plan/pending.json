@@ -7,8 +7,7 @@
       "section": "The lock and drift — one vocabulary"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CHECK-READS-LOCK-GOVERNS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -101,7 +100,7 @@
       "edit": [
         {
           "path": "src/import.rs",
-          "description": "Delete `run`/`run_with_builtins` (import.rs:143/154), the copy-tree writers `write_member_surface`/`existing_surface_member`/`copy_companion` (621/670/840), `write_rollup` (866 — its transitional-producer job ended in S3), and `emit_manifest` (426). KEEP `discover_kind_units`/`discover_builtin` (691/569) — the discovery walk is the sole extractor. `init`/`lift` (254/337) survive to S5."
+          "description": "Delete `run`/`run_with_builtins` (import.rs:143/154), the copy-tree writers `write_member_surface`/`existing_surface_member`/`copy_companion` (621/670/840), `write_rollup` (866 — its transitional-producer job ended in S3), and `emit_manifest` (426). KEEP `discover_kind_units`/`discover_builtin` (713/569) — the discovery walk is the sole extractor. `init`/`lift` (254/337) survive to S5."
         },
         {
           "path": "src/frontmatter.rs",
@@ -109,7 +108,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "Delete `scratch_surface` (main.rs:1076) and its two call sites (main.rs:287,568) — the `Check --harness` and session-start branches read the lock (S2), no scratch tree."
+          "description": "S2 shipped the lock-read gate but left the `Check --harness` branch (main.rs:286) and `session_start_diagnostics` (main.rs:583,589) on the transitional scratch producer (`scratch_surface` → `import::run` → `gate`). Rewire both to gate the harness root directly — `gate` already walks each built-in kind's embedded `governs` (the built-in lock via `effective_governs`) when no committed lock exists, so no scratch import is needed. Then delete `scratch_surface` (main.rs:1183) and both former call sites."
         }
       ],
       "retire": []
@@ -247,7 +246,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs human release setup — the per-platform engine-binary release workflow, marketplace publish, signing/publish creds — before the mechanical wrappers validate end-to-end; the SDK scope is resolved (`@dtmd/temper` published 0.0.2 on 07-06, subpath layout ratified PR #4), and channel 1's SDK foundation has shipped"
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.2, PR #4); channel 1's SDK foundation shipped"
     },
     "dependsOnForks": [],
     "files": {
