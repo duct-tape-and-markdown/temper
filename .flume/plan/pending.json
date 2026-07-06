@@ -1,58 +1,15 @@
 [
   {
-    "tag": "EMIT-PAYLOAD-SEAM",
-    "summary": "Engine emit executes the SDK program over a node subprocess, receives the JSON payload, and becomes the sole compiler of projections + the whole lock; the SDK stops writing TOML",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The seam — one implementation"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`Command::Emit` (main.rs:367) runs the SDK program as a node subprocess and reads the erased declarations + prose as JSON on the pipe (the seam: 'the SDK implements no semantics; types, constructors, and one JSON pipe to the engine'). No harness re-supply; the payload IS the source."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`emit` (drift.rs:193) compiles EVERYTHING generated from the payload: every projection and the whole lock — all five declaration families (kind/clause/requirement/assembly/satisfies, drift.rs:930-934), closing the SDK's missing-`satisfies` gap. Double-emit byte-check stays (law 5). `render_emit` unchanged in shape."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "Stop writing files: retire `writeEmit`'s `writeFileSync` for lock (emit.ts:252) and projections (emit.ts:256); `emit` returns the payload as JSON on stdout — the SDK's whole output surface. The SDK pins its engine version (the seam)."
-        },
-        {
-          "path": "sdk/src/lock.ts",
-          "description": "Retire the TOML lock writer (`stampLock`, lock.ts:154, and the rollup/declaration TOML serializers) — the engine compiles the lock now. The payload carries the fifth family (`satisfies`) so the engine writes all five."
-        },
-        {
-          "path": "sdk/src/toml.ts",
-          "description": "Retire the SDK's TOML emitter — the byte-parity second writer the seam Decision rejects ('two implementations of one byte-contract drift apart'). No SDK code emits TOML after this slice."
-        },
-        {
-          "path": "sdk/src/project.ts",
-          "description": "Retire the SDK's projection writer (`projectBytes`/`projectMember`, project.ts:152/195) — projections are engine-owned from the payload. Placement-line helpers (`placementLines`) fold into S6's lock-grounded placement, not here."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "tests/emit.rs", "asserts": "emit executes the SDK program and byte-reproduces projections + a five-family lock from the payload; double-emit is stable" }
-    ],
-    "acceptance": "`temper emit` runs the SDK program via node, compiles every projection and the whole lock (five declaration families) from the JSON payload, double-emit verified; no SDK code writes TOML or projections.",
-    "notes": "Chain head. Large but atomic: SDK-side (payload producer) and engine-side (sole compiler) are mutually dependent — the sdk-test + emit round-trip gates only pass together, so they land in one tick. Retires the parallel-writer asymmetry (ledger 'two byte-parity TOML writers'). The schemars/ts-rs interchange retires in S3 with its sole caller. Sole-producer per 20-surface 'The lock and drift'."
-  },
-  {
     "tag": "CHECK-READS-LOCK-GOVERNS",
     "summary": "The gate/explain member corpus becomes lock governs-columns → discovery walk → extraction; no lock falls back to the built-in lock; kill surface_units and live-extract",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
     },
-    "gate": { "kind": "blockedBy", "tag": "EMIT-PAYLOAD-SEAM" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMIT-PAYLOAD-SEAM"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -70,7 +27,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/lock_declaration_rows.rs", "asserts": "check resolves members by walking each lock kind-fact's governs locus; a harness with no lock is gated by the built-in lock, never a silent zero-member skip" }
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "check resolves members by walking each lock kind-fact's governs locus; a harness with no lock is gated by the built-in lock, never a silent zero-member skip"
+      }
     ],
     "acceptance": "`temper check` reads declarations only from the committed lock, walks each kind's governs locus for members, and extracts them; no `surface_units` scratch read remains; no-lock falls back to the embedded default program (fail-loud on incoherence).",
     "notes": "Tests keep `import::run` as the transitional lock producer THIS slice (its `write_rollup` writes a full lock) so fixture churn defers to S3. Shares main.rs/check.rs with the chain — serialized behind S1. governs columns already written (drift.rs:724), just unread."
@@ -82,24 +42,66 @@
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
     },
-    "gate": { "kind": "blockedBy", "tag": "CHECK-READS-LOCK-GOVERNS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CHECK-READS-LOCK-GOVERNS"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
-        { "path": "tests/coverage.rs", "description": "Re-base setup from `import::run` to a golden-lock / SDK-emitted fixture (the gate reads the lock, not a scratch import)." },
-        { "path": "tests/graph.rs", "description": "Same re-base off `import::run` to a committed-lock fixture." },
-        { "path": "tests/reachable_gate.rs", "description": "Same re-base off `import::run`." },
-        { "path": "tests/requirement_roster.rs", "description": "Same re-base off `import::run`." },
-        { "path": "tests/gate_fail_loud.rs", "description": "Same re-base off `import::run`; the no-lock fail-loud path now exercises the built-in-lock fallback." },
-        { "path": "tests/acceptance.rs", "description": "Same re-base off `import::run`." },
-        { "path": "tests/memory_contract.rs", "description": "Same re-base off `import::run`." },
-        { "path": "tests/memory_gate.rs", "description": "Same re-base off `import::run`." },
-        { "path": "tests/reporters.rs", "description": "Same re-base off `import::run`." },
-        { "path": "tests/bundle.rs", "description": "Same re-base off `import::run`." },
-        { "path": "tests/install.rs", "description": "Same re-base off `import::run` (install's own front-door test rewrites in S6; here only the lock-fixture setup)." },
-        { "path": "tests/lock_declaration_rows.rs", "description": "Re-base onto the golden-lock fixture rather than an import round-trip." },
-        { "path": "src/schema.rs", "description": "Drop the `pub mod interchange;` line (src/schema.rs:47) — the schemars/ts-rs byte-parity interchange retires here with its sole caller tests/contract_fixtures.rs (S1 made the engine the sole compiler, dissolving the two-writer byte contract; the module stayed live only because contract_fixtures.rs still called it)." }
+        {
+          "path": "tests/coverage.rs",
+          "description": "Re-base setup from `import::run` to a golden-lock / SDK-emitted fixture (the gate reads the lock, not a scratch import)."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Same re-base off `import::run` to a committed-lock fixture."
+        },
+        {
+          "path": "tests/reachable_gate.rs",
+          "description": "Same re-base off `import::run`."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Same re-base off `import::run`."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Same re-base off `import::run`; the no-lock fail-loud path now exercises the built-in-lock fallback."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "Same re-base off `import::run`."
+        },
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "Same re-base off `import::run`."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "Same re-base off `import::run`."
+        },
+        {
+          "path": "tests/reporters.rs",
+          "description": "Same re-base off `import::run`."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "Same re-base off `import::run`."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Same re-base off `import::run` (install's own front-door test rewrites in S6; here only the lock-fixture setup)."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Re-base onto the golden-lock fixture rather than an import round-trip."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "Drop the `pub mod interchange;` line (src/schema.rs:47) — the schemars/ts-rs byte-parity interchange retires here with its sole caller tests/contract_fixtures.rs (S1 made the engine the sole compiler, dissolving the two-writer byte contract; the module stayed live only because contract_fixtures.rs still called it)."
+        }
       ],
       "retire": [
         "src/schema/interchange.rs",
@@ -110,7 +112,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/coverage.rs", "asserts": "the ported behavior tests exercise the gate over committed-lock fixtures, no import::run scaffolding" }
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "the ported behavior tests exercise the gate over committed-lock fixtures, no import::run scaffolding"
+      }
     ],
     "acceptance": "The ~11 behavior-test files set up via golden-lock/SDK-emitted fixtures instead of `import::run`; the machinery-under-test files (adapter_fidelity, contract_fixtures, manifest_kind_spelling) and the schemars/ts-rs interchange module are deleted; `cargo test` green.",
     "notes": "Isolates fixture churn so S4 can delete `import::run` with no live callers. temper_toml.rs's manifest-emit block + genre_leaf's manifest round-trip are edited in S5 where their codec dies, not here. Shares the test tree — serialized behind S2."
@@ -122,7 +127,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: one authored surface, one implementation"
     },
-    "gate": { "kind": "blockedBy", "tag": "FIXTURES-OFF-IMPORT" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "FIXTURES-OFF-IMPORT"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -144,7 +152,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/emit.rs", "asserts": "emit + check operate with no copy-tree scratch import; the discovery walk is the only member extractor" }
+      {
+        "path": "tests/emit.rs",
+        "asserts": "emit + check operate with no copy-tree scratch import; the discovery walk is the only member extractor"
+      }
     ],
     "acceptance": "`import::run`, the copy-tree surface writers, `write_rollup`, `emit_manifest`, `carry_representation`, and `scratch_surface` are gone; the discovery walk (`discover_kind_units`/`discover_builtin`) survives; `cargo test` green.",
     "notes": "Clean slate (John 07-06): no compat shim. Shares import.rs/frontmatter.rs/main.rs with the chain — serialized behind S3, which removed the last `import::run` test callers. `init`/`lift` deletion waits for S5 (the codec they drive)."
@@ -156,7 +167,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "Decision: install is the front door; the lift is its yes-path; the postures stay equal"
     },
-    "gate": { "kind": "blockedBy", "tag": "SCRATCH-RETIRE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SCRATCH-RETIRE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -180,7 +194,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/genre_leaf.rs", "asserts": "genre leaf addressing survives without the [[member]] manifest round-trip block" }
+      {
+        "path": "tests/genre_leaf.rs",
+        "asserts": "genre leaf addressing survives without the [[member]] manifest round-trip block"
+      }
     ],
     "acceptance": "The `[[member]]` codec (both directions), `AuthorLayer`'s member readers, and the `init`/`lift` verbs are gone; `temper.toml` as a manifest dialect is unreadable; `cargo test` green (tests/temper_toml.rs deleted, genre_leaf's manifest block edited out).",
     "notes": "Clean slate (John 07-06): `init` may be removed before the front door ships — a trunk on-ramp gap is acceptable, green gates the only bar. Shares compose.rs/import.rs/main.rs — serialized behind S4. genre_leaf.rs manifest round-trip block trimmed here."
@@ -192,7 +209,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "install — the front door; the lift, once"
     },
-    "gate": { "kind": "blockedBy", "tag": "CODEC-RETIRE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CODEC-RETIRE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -210,7 +230,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/install.rs", "asserts": "install reports findings, asks once; no-path wires only the session-start reporter; yes-path scaffolds the SDK program, runs first emit, places note/guard only for lock-declared emit-owned paths; an all-in-place member gets no guard claim" }
+      {
+        "path": "tests/install.rs",
+        "asserts": "install reports findings, asks once; no-path wires only the session-start reporter; yes-path scaffolds the SDK program, runs first emit, places note/guard only for lock-declared emit-owned paths; an all-in-place member gets no guard claim"
+      }
     ],
     "acceptance": "`temper install` is the sole on-ramp: report → one question → reporter-alone on no, or scaffold+first-emit+lock-grounded placements on yes; guard/note bind only lock-declared emit-owned paths; a `file()`-own-path member is authored territory (no guard). Cascade's report (1) dissolves.",
     "notes": "Resolves `(carriage-aware-placements)` in code (the lock names a path a projection — 20-surface 'surface authority is a declared posture'). Depends on the built-in lock (S1) + lock-read gate (S2) + codec/init removal (S5). Shares install.rs/main.rs — serialized behind S5."
@@ -222,7 +245,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
     },
-    "gate": { "kind": "blockedBy", "tag": "INSTALL-FRONT-DOOR" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "INSTALL-FRONT-DOOR"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -240,7 +266,10 @@
     },
     "schemaDelta": "none",
     "tests": [
-      { "path": "tests/cli.rs", "asserts": "no verb reads or writes a temper.toml; a file by that name is inert (old temper, never current temper's input)" }
+      {
+        "path": "tests/cli.rs",
+        "asserts": "no verb reads or writes a temper.toml; a file by that name is inert (old temper, never current temper's input)"
+      }
     ],
     "acceptance": "`rg -c 'temper\\.toml' src/ tests/` = 0; the manifest filename is retired entirely (20-surface: 'the name temper.toml retires with the manifest era entirely'). Cascade re-onboards via the new install; its manifest-era artifacts are old temper by definition.",
     "notes": "Chain terminal. Cascade's reports (2)-(4) — the accepted-debt DATUM under `(inplace-lock-producer)` — close with this slice: no manifest-mode coverage remains. Shares compose.rs/main.rs — serialized behind S6."
