@@ -1,31 +1,5 @@
 [
   {
-    "tag": "PKG-NOUN-SDK-COLUMN",
-    "summary": "Drop the dead SDK `RequirementRow.package` field — never populated by `requirementRows`",
-    "per": {
-      "path": "specs/architecture/10-contracts.md",
-      "section": "Decision: clause arrays and two quantifiers, not a package noun"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Delete `readonly package?: string;` (declarations.ts:39) from the `RequirementRow` interface. `requirementRows` already maps only name/kind/required/verified_by (declarations.ts:137-141) — the `package?` field is dead type surface, never written, and no `Requirement` in contract.ts carries a `package` to feed it. No SEAM_VERSION bump: the wire payload is unchanged (the field was never emitted). The RequirementRow TSDoc (declarations.ts:35, 'reduced to the scalar facets the lock records') already names no facet list, so it needs no edit — verify it reads true after the cut."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`rg -n \"package\" sdk/src/declarations.ts` returns nothing (only the npm-`package` sense survives elsewhere in sdk/src); `pnpm --dir sdk test` (tsc + node --test) green; tests/emit.rs (real SDK subprocess) still byte-reproduces the lock.",
-    "notes": "Head of the package-noun tail — blocker PKG-NOUN-REQ-FACET shipped (bc393f5). Disjoint slice in sdk/. Serialized ahead of REACH-DIAL-RETIRE, which also edits declarations.ts (assemblyFactRows), to keep the seam coherent."
-  },
-  {
     "tag": "REACH-DIAL-RETIRE",
     "summary": "Retire the reachability dial — the assembly `reachability` fact and its severity opt-in; 40-composition: there is no fifth field",
     "per": {
