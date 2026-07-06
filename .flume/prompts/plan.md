@@ -17,8 +17,12 @@
 </inbox>
 
 <spec-corpus>
-!`for f in $(ls specs/*.md 2>/dev/null | sort); do echo "===== $f ====="; cat "$f"; echo; done || echo "(no specs)"`
+!`for f in $(find specs -name '*.md' 2>/dev/null | sort); do echo "===== $f ====="; cat "$f"; echo; done || echo "(no specs)"`
 </spec-corpus>
+
+<spec-delta>
+!`ANCHOR=$(git log -1 --format=%h --grep='^plan:' 2>/dev/null); if [ -n "$ANCHOR" ]; then echo "specs/ commits since the last plan tick ($ANCHOR):"; git log --format='%h %s' "$ANCHOR"..HEAD -- specs/; echo; git diff --stat "$ANCHOR"..HEAD -- specs/ | tail -15; else echo "(no prior plan commit — treat the whole corpus as the delta)"; fi`
+</spec-delta>
 
 <src-tree>
 !`find src tests -name '*.rs' 2>/dev/null | sort`
@@ -49,6 +53,30 @@ wins.
    truthful `files` (the partition reads `files.edit[].path` — keep entries small
    and disjoint; a Rust entry that creates a new module should also add its
    `pub mod` line in the foundation entry, not co-edit `lib.rs` from two entries).
+
+   **Walk the spec delta first.** `<spec-delta>` lists every `specs/` commit
+   since the last plan tick. Read each one's diff (`git show <sha> -- specs/`)
+   before reconciling anything else: ratified intent changes there before it
+   changes anywhere, and a delta nobody operationalizes is how residue
+   accumulates unseen. (Real failure: a day of ratified demolitions — the
+   package noun, the reachability dial, the requirement recut — sat un-derived
+   while the queue read as quiescent.)
+
+   **Residue is a gap.** A Decision's rejected alternative, a retired noun, or
+   a residue paragraph that names code still present in `src/`, `tests/`, or
+   `sdk/` — with no pending entry operationalizing the cut — is a fileable gap
+   exactly like missing behavior. Cite the residue text in `per`, name the
+   living symbols in `files[].description`. The corpus naming a demolition is
+   intent; an entry is what makes it work.
+
+   **One entry = one gate-sized commit, comfortably under 200k tokens of build
+   work.** If a scope needs lettered sub-parts, an internal task list, or
+   bundles an implementation with its consumers and a re-target, it is not one
+   entry — it is a `blockedBy` chain. Split until each link is a single idea
+   build can implement, gate, and commit in one contained session. (Real
+   failures: INSTALL-FRONT-DOOR filed whole with (a)(b)(c) sub-slices ran a
+   45-minute tick; TEMPER-TOML-ZERO shipped under-scoped and forced a
+   mid-chain split — file the split up front.)
    Scope `files` to the truthful **blast radius** — include existing tests/snapshots
    a change will break — so build reaches green inside the planned scope instead
    of discovering the ripple mid-tick.
