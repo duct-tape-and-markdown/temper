@@ -110,12 +110,13 @@ at wave end one confirmation pass (rebuild, refresh the dogfood artifacts,
 session builds specs with the human and governs flume — it does not
 hand-execute work the pipeline owns.**
 
-Frame-scale reformulations take a **cooling period**: drafted record → cold
-read → a sleep → the ceremony. And vocabulary is ratification-grade: new
-coinage needs the human, and plain words beat metaphor — the ladder
-vocabulary (rungs, floors, altitude, the adoption gradient) was retired
-2026-07-04 after its connotations were repeatedly mistaken for design
-decisions. (Ruled 2026-07-03/04.)
+Vocabulary is ratification-grade: new coinage needs the human, and plain
+words beat metaphor — the ladder vocabulary (rungs, floors, altitude, the
+adoption gradient) was retired 2026-07-04 after its connotations were
+repeatedly mistaken for design decisions. (Ruled 2026-07-03/04. The
+cooling-period rule that once opened this paragraph was struck 2026-07-06:
+ratification is the human's cold read over the diff, whenever it happens —
+no mandated sleep.)
 
 ## The depth rule — how deep a spec goes
 

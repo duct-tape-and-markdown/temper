@@ -15,9 +15,9 @@ are forgotten here. Target under ~60 lines, hard.
 - The interactive session designs specs with John and governs flume. It does
   not hand-execute pipeline work, even when hands are faster.
 - One focus per session, picked at open; the rest of this board stays parked.
-- Frame-scale changes get a cooling period: draft record → cold read → sleep
-  → ceremony. No same-day ratification of new frames without John's waiver.
 - Plain words over metaphor, in the corpus and here. New coinage needs John.
+  (The cooling-period rule is GONE — John struck it 2026-07-06; rulings
+  land when John rules, same-day.)
 - Public docs voice (John 07-05): natural, no em-dashes or claude-isms, not
   pitchy. `docs/*.md` is the human-curated plain-language layer; the spec
   corpus stays the operational definition (docs defer to specs on conflict).
@@ -41,7 +41,9 @@ are forgotten here. Target under ~60 lines, hard.
   → install front door → temper.toml zero).
 - **Cascade volunteered as the genre-adoption pilot** — `(genre-fence-
   format)`'s first consumer, real Decision fixtures, workshop with John
-  next session. Rides emit's fence render (post-S1).
+  next session. Rides emit's fence render (post-S1). Prep is staged:
+  claude.ai/code/artifact/8fd56c9c-747f-4e53-8cae-e51bbf79a8a7 (4 fixtures,
+  inventory, 7 questions; note: "felt-occupant" is prose, not a Decision).
 - Corpus shadow awaiting John's hand: 00-intent's self-hosting finish line +
   90-spec-system's confirmation recipe still narrate the dogfood.
 
