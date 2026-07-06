@@ -304,9 +304,10 @@ fn main() -> miette::Result<ExitCode> {
         }
         Command::Schema { kind } => {
             // The keystroke placement of the gate (`specs/architecture/50-distribution.md`):
-            // emit the *active* contract per kind — the same floor ⊕ `temper.toml`
-            // layer `check` gates against — as an editor JSON Schema.
-            let layer = load_layer(Path::new(TEMPER_TOML))?;
+            // emit the *active* contract per kind — the same floor ⊕ lock-declared
+            // clause overrides `check` gates against (`specs/architecture/20-surface.md`,
+            // "The lock and drift — one vocabulary") — as an editor JSON Schema.
+            let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE))?;
 
             // Keyed by each kind's **qualified** identity (`claude-code.skill`), the
             // published-binding form (`specs/architecture/15-kinds.md`).
@@ -323,13 +324,13 @@ fn main() -> miette::Result<ExitCode> {
                     let (name, floor) = floor.ok_or_else(|| {
                         miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
                     })?;
-                    let contract = compose::effective(layer.as_ref(), &name, floor)?;
+                    let contract = compose::effective(&declarations.clauses, &name, floor);
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
                     for (name, floor) in floors {
-                        let contract = compose::effective(layer.as_ref(), &name, floor)?;
+                        let contract = compose::effective(&declarations.clauses, &name, floor);
                         map.insert(name, schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -688,7 +689,12 @@ fn gate(workspace: &Path, temper_toml: &Path) -> miette::Result<Vec<check::Diagn
         })?;
         // Two greens (`specs/architecture/10-contracts.md`): admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
-        let contract = compose::effective(layer.as_ref(), &kind.name, builtin_floor(package)?)?;
+        // The per-kind clause overrides source from the lock's declared `clauses`
+        // (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"),
+        // never the `temper.toml` `[kind.*]` layer `load_layer` still parses for the
+        // in-place/custom-kind reads below.
+        let contract =
+            compose::effective(&declarations.clauses, &kind.name, builtin_floor(package)?);
 
         let features = kind_features(kind, harness_root, workspace, layer.as_ref(), &declarations)?;
 

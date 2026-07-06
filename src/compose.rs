@@ -12,6 +12,12 @@
 //! the SDK — there is no kind file format"), so such a registration is inert until
 //! a future SDK path supplies one. [`crate::coverage`], [`crate::roster`], and
 //! [`crate::graph`] consume the parsed requirements and edges.
+//!
+//! [`effective`] no longer sources a kind's per-clause overrides from this layer
+//! — those ride the lock's `ClauseRow` family now (`specs/architecture/20-surface.md`,
+//! "The lock and drift — one vocabulary"). [`AuthorLayer::layer_over`] survives
+//! for the in-place/authority readers `TEMPER-TOML-ZERO` retires, but no longer
+//! feeds any contract.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -22,6 +28,7 @@ use toml_edit::{DocumentMut, Table};
 
 use crate::contract::{self, Clause, Contract, ContractError};
 use crate::document::PublishedRequirement;
+use crate::drift::ClauseRow;
 
 /// The author-declared layer parsed from a project-root `temper.toml`: a per-kind
 /// set of package bindings and clause overrides to apply over the bound package.
@@ -962,18 +969,44 @@ fn fold_clauses(base: &mut Vec<Clause>, overlay: &[Clause]) {
     }
 }
 
-/// The effective contract for `kind` given an *optional* author layer: `floor`
-/// unchanged when there is no layer, else [`AuthorLayer::layer_over`] applied. The
-/// `Option` seam keeps the absent-`temper.toml` path a verbatim pass-through of the
-/// floor.
-pub fn effective(
-    layer: Option<&AuthorLayer>,
-    kind: &str,
-    floor: Contract,
-) -> Result<Contract, ComposeError> {
-    match layer {
-        Some(layer) => layer.layer_over(kind, floor),
-        None => Ok(floor),
+/// The effective contract for `kind`: the embedded `floor` with each clause's
+/// severity overridden by a matching row in the lock's declared `clauses`
+/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary": the
+/// gate's per-kind contract sources its overrides from the lock's `ClauseRow`
+/// family, never a `temper.toml` `[kind.*]` layer). A row overrides the floor
+/// clause sharing its [`same_identity`] (predicate key + targeted field); a row
+/// naming no matching floor clause contributes nothing — a `ClauseRow` carries no
+/// predicate parameter beyond `field`, so it can flip an existing clause's
+/// severity but never declare a wholly new one. A row whose `severity` is outside
+/// the closed vocabulary leaves the floor's own severity untouched, the same
+/// tolerant read the rest of the lock takes over hand-editable state.
+#[must_use]
+pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Contract {
+    // A caller may pass the qualified floor identity (`claude-code.skill`) while a
+    // `ClauseRow.kind` is always the bare name (`sdk/src/kind.ts`, `key: facts.name`)
+    // — resolve to the bare component, the way `AuthorLayer::layer_over` did.
+    let bare = kind.rsplit('.').next().unwrap_or(kind);
+    for clause in &mut floor.clauses {
+        let key = clause.predicate.key();
+        let target = clause.predicate.target();
+        let overriding = clauses
+            .iter()
+            .find(|row| row.kind == bare && row.predicate == key && row.field.as_deref() == target);
+        if let Some(severity) = overriding.and_then(|row| severity_from_label(&row.severity)) {
+            clause.severity = severity;
+        }
+    }
+    floor
+}
+
+/// Parse a lock clause row's `severity` label into the typed [`contract::Severity`]
+/// — the closed `required`/`advisory` vocabulary a bare contract's own clauses
+/// declare. An out-of-vocabulary label is `None`.
+fn severity_from_label(label: &str) -> Option<contract::Severity> {
+    match label {
+        "required" => Some(contract::Severity::Required),
+        "advisory" => Some(contract::Severity::Advisory),
+        _ => None,
     }
 }
 
@@ -1763,11 +1796,84 @@ package = "skill.cursor"
     #[test]
     fn an_empty_temper_toml_and_an_absent_one_both_yield_the_floor() {
         // Present-but-declares-nothing parses to a layer with no kinds, so every
-        // kind falls through to the floor — the same result as `effective(None,..)`.
+        // kind falls through to the floor — `layer_over` itself is unaffected by
+        // this entry (it survives for the readers `TEMPER-TOML-ZERO` retires).
         let layer = AuthorLayer::parse("# nothing here\n", Path::new("temper.toml")).unwrap();
         assert_eq!(layer.layer_over("skill", floor()).unwrap(), floor());
-        assert_eq!(effective(None, "skill", floor()).unwrap(), floor());
-        assert_eq!(effective(Some(&layer), "skill", floor()).unwrap(), floor());
+    }
+
+    // ---- `effective`: sourced from the lock's clause rows, never a layer --------
+
+    #[test]
+    fn effective_with_no_clause_rows_yields_the_floor_unchanged() {
+        assert_eq!(effective(&[], "skill", floor()), floor());
+    }
+
+    #[test]
+    fn effective_overrides_a_floor_clauses_severity_by_matching_identity() {
+        // A row sharing the floor's `forbidden_keys` identity (predicate key, no
+        // targeted field) flips its severity in place — the lock's `ClauseRow`
+        // family is the sole source `effective` composes from now, never a
+        // `temper.toml` `[kind.*]` layer.
+        let row = ClauseRow {
+            kind: "skill".to_string(),
+            predicate: "forbidden_keys".to_string(),
+            field: None,
+            severity: "advisory".to_string(),
+        };
+        let contract = effective(&[row], "skill", floor());
+        assert_eq!(contract.clauses.len(), floor().clauses.len());
+        assert_eq!(contract.clauses[1].severity, Severity::Advisory);
+    }
+
+    #[test]
+    fn effective_ignores_a_row_naming_a_different_kind() {
+        let row = ClauseRow {
+            kind: "rule".to_string(),
+            predicate: "forbidden_keys".to_string(),
+            field: None,
+            severity: "advisory".to_string(),
+        };
+        assert_eq!(effective(&[row], "skill", floor()), floor());
+    }
+
+    #[test]
+    fn effective_ignores_a_row_with_no_matching_floor_clause() {
+        // The row names a predicate/field pair the floor doesn't carry — a
+        // `ClauseRow` carries no predicate parameter beyond `field`, so there is
+        // nothing to reconstruct a wholly new clause from; it contributes nothing.
+        let row = ClauseRow {
+            kind: "skill".to_string(),
+            predicate: "min_len".to_string(),
+            field: Some("name".to_string()),
+            severity: "required".to_string(),
+        };
+        assert_eq!(effective(&[row], "skill", floor()), floor());
+    }
+
+    #[test]
+    fn effective_ignores_a_row_with_an_out_of_vocabulary_severity() {
+        let row = ClauseRow {
+            kind: "skill".to_string(),
+            predicate: "forbidden_keys".to_string(),
+            field: None,
+            severity: "blocking".to_string(),
+        };
+        assert_eq!(effective(&[row], "skill", floor()), floor());
+    }
+
+    #[test]
+    fn effective_resolves_a_qualified_kind_identity_to_its_bare_component() {
+        // A caller may pass the floor's qualified identity (`claude-code.skill`); a
+        // `ClauseRow.kind` is always bare, so the override still applies.
+        let row = ClauseRow {
+            kind: "skill".to_string(),
+            predicate: "forbidden_keys".to_string(),
+            field: None,
+            severity: "advisory".to_string(),
+        };
+        let contract = effective(&[row], "claude-code.skill", floor());
+        assert_eq!(contract.clauses[1].severity, Severity::Advisory);
     }
 
     #[test]

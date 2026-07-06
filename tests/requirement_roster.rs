@@ -27,7 +27,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::drift::{self, Declarations, EmitOptions, MembershipRow, Payload, RequirementRow};
+use temper::drift::{
+    self, ClauseRow, Declarations, EmitOptions, MembershipRow, Payload, RequirementRow,
+};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -200,6 +202,95 @@ fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
         members: Vec::new(),
     };
     drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
+/// `clauses` — the SDK-emitted fixture standing in for an `expect` binding's
+/// erasure (`sdk/src/declarations.ts`): the gate's per-kind contract sources its
+/// clause/severity overrides from the lock's `ClauseRow` family, never a
+/// re-imported `temper.toml` `[kind.*]` layer (`specs/architecture/20-surface.md`,
+/// "The lock and drift — one vocabulary").
+fn write_clauses(root: &Path, clauses: Vec<ClauseRow>) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            clauses,
+            ..Declarations::default()
+        },
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// A skill carrying the Cursor `globs` key — the skill floor's `forbidden_keys`
+/// clause forbids it at `required` severity (`specs/architecture/10-contracts.md`), a
+/// real, otherwise floor-clean violation to flip the verdict on.
+fn skill_with_forbidden_key(name: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         globs: \"**/*.rs\"\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+#[test]
+fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_inert() {
+    let root = tmpdir("clause-override-from-lock");
+    write_skill(
+        &root,
+        "legacy-rule",
+        &skill_with_forbidden_key("legacy-rule"),
+    );
+
+    // The floor's `forbidden_keys` is `required`: the `globs` key fails the run.
+    let floor = check_in(&root);
+    assert!(
+        !floor.ok,
+        "the floor's required forbidden_keys must fail the run over a `globs` key, got:\n{}",
+        floor.output
+    );
+
+    // The identical override, written only in a `temper.toml` `[kind.skill]`
+    // layer, is inert — the gate's per-kind contract no longer sources clause
+    // overrides from it.
+    write_temper_toml(
+        &root,
+        "[kind.skill]\n\
+         [[kind.skill.clause]]\n\
+         severity = \"advisory\"\n\
+         predicate = \"forbidden_keys\"\n\
+         keys = [\"globs\", \"alwaysApply\"]\n",
+    );
+    let toml_only = check_in(&root);
+    assert!(
+        !toml_only.ok,
+        "a temper.toml-only clause override must not change the verdict ⇒ still non-zero, got:\n{}",
+        toml_only.output
+    );
+
+    // The same override declared in the lock's `[[declaration.clause]]` rows
+    // flips the clause's severity to advisory, so the same violation no longer
+    // blocks the run.
+    write_clauses(
+        &root,
+        vec![ClauseRow {
+            kind: "skill".to_string(),
+            predicate: "forbidden_keys".to_string(),
+            field: None,
+            severity: "advisory".to_string(),
+        }],
+    );
+    let lock_override = check_in(&root);
+    assert!(
+        lock_override.ok,
+        "a lock-declared clause severity override must change the verdict ⇒ zero, got:\n{}",
+        lock_override.output
+    );
 }
 
 // ---- conformance: satisfiers validated against the requirement's package ----

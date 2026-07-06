@@ -2,9 +2,9 @@
 //!
 //! Implements `specs/architecture/50-distribution.md` ("The gate at keystroke — the emitted
 //! schema"): `temper schema [--kind]` emits a JSON Schema **from the active
-//! contract** (the by-kind floor ⊕ `temper.toml`, via [`crate::compose::effective`])
-//! so an editor validates a harness artifact's frontmatter at keystroke — the one
-//! gate, shifted as far left as the work allows.
+//! contract** (the by-kind floor ⊕ the lock's declared clause overrides, via
+//! [`crate::compose::effective`]) so an editor validates a harness artifact's
+//! frontmatter at keystroke — the one gate, shifted as far left as the work allows.
 //!
 //! ## Two channels, kept disjoint
 //!
