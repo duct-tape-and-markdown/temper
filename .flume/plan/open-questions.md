@@ -100,19 +100,22 @@ condition arrives, it is the next break. If work touches one, surface it.
   — kept because an external format's mechanics are temper's to implement
   once; the selection is declared. Grows only by deliberate addition.
 - **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived,
-  retirement draining: CURATED-TREES-RETIRE, BUILTIN-KIND-FLATTEN,
-  BUILTIN-FLOOR-LOCK-PROJECTION, and CHECK-LOCK-KIND-ROWS **shipped** — the
-  last cut main.rs's KIND.md/tree comments on contact (grep: zero
-  `kinds/`/`packages/` refs in main.rs). The remaining src refs are
-  comment-only and ride COMMENT-STOCK-SWEEP (open): builtin_kind.rs's
-  `kinds/KIND.md`, bundle.rs's `packages/`, read.rs's `[edge.*]` lines.
-  Not in the sweep: tests/session_start.rs writes `+++`-format
-  `kinds/spec/KIND.md` + `packages/spec/PACKAGE.md` **fixtures** (live test
-  code, asserting stray old-format files are ignored) — a behavioral question,
-  accepted debt for now. Citation trail moves to clause `cite` fields
+  retirement drained the engine: CURATED-TREES-RETIRE, BUILTIN-KIND-FLATTEN,
+  BUILTIN-FLOOR-LOCK-PROJECTION, CHECK-LOCK-KIND-ROWS, and COMMENT-STOCK-SWEEP
+  all **shipped** — the last cut the false tree/edge comments in builtin_kind.rs,
+  bundle.rs, read.rs, builtin.rs. Two residue tails remain, now filed: the live
+  hand-TOML clause parser orphaned by the derived-lock chain
+  (RETIRE-TOML-CONTRACT-PARSER, open) and the package-noun comments the sweep
+  did not cover (PKG-NOUN-COMMENT-SWEEP, open — check.rs, kind.rs, graph.rs,
+  document.rs, builtin.rs). Not filed: tests/session_start.rs writes
+  `+++`-format `kinds/spec/KIND.md` + `packages/spec/PACKAGE.md` **fixtures**
+  (live test code asserting stray old-format files are ignored) — a behavioral
+  question, accepted debt. Citation trail lives on clause `cite` fields
   (`10-contracts.md`). The physical `kinds/`+`packages/` tree deletion is a
-  human `chore(harness):` commit — actionable, out of build's fence. This line
-  dies when the sweep lands.
+  human `chore(harness):` commit — out of build's fence. Also unfiled: the live
+  `activation` type/field is retired vocabulary (15-kinds: registration
+  generalizes activation) — a symbol rename for a later tick. This line dies
+  when the two tails land.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the custom-kind story
   proves end to end.

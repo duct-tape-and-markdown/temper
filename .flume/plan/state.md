@@ -1,31 +1,29 @@
 # Plan state
 
-- **Phase:** derived-lock chain **complete**; the comment-residue sweep opens.
-  Inbox empty; spec delta empty (no `specs/` commits since 4ed47a0 — the last
-  three plan ticks only touched `.flume/`).
-- **Last shipped (53da730):** CHECK-LOCK-KIND-ROWS — main.rs::gate synthesizes
-  custom kinds from the lock's `KindFactRow`s (no more hardcoded
-  `custom_kinds = Vec::new()`); the chain's final link. On contact it cut
-  main.rs's now-false KIND.md/tree comments (grep: zero `kinds/`/`packages/`
-  refs left in main.rs).
-- **This tick:** promoted COMMENT-STOCK-SWEEP to **open** (chain shipped, queue
-  otherwise empty) and re-scoped it off a fresh whole-tree grep. Kept to the
-  four src files whose comments are **false** (retired trees, `[edge.*]`
-  construct, package-era narration). Dropped tests/session_start.rs: its
-  KIND.md/PACKAGE.md lines narrate **live fixture code** (it writes `+++`
-  old-format files to assert session-start ignores stray files) — a behavioral
-  test question, not a comment cut. The tree-wide stale-**form** residue (~286
-  accurate quoted section titles, ~60 dangling shipped-tag refs) is left to
-  rust.md's cut-on-contact exit clause, not a dedicated churn slice.
-- **Queue — 2 entries, 1 open:** COMMENT-STOCK-SWEEP (open, solo).
-  PACKAGING-CHANNELS parked (release creds + engine-binary workflow + USPTO).
-- **What's next:** build picks COMMENT-STOCK-SWEEP. Beyond it, the next engine
-  wave is `(json-projection-format)` — its SDK-primary foundation (the
-  derived-lock chain) has now shipped, so it is unblocked, but the JSON
-  adapter / `layout`-fact spelling is an open fork awaiting John before it can
-  be filed. Accepted debt noted in the commit body: tests/session_start.rs's
-  retired-format fixtures, and the tree-wide cut-on-contact comment residue.
+- **Phase:** derived-lock chain + first comment sweep **shipped**; this tick
+  files the two residue tails that survived them. Inbox empty; spec delta empty
+  (no `specs/` commits since 4ed47a0 — the recent ticks touched only `.flume/`).
+- **Last shipped (f27bbf4):** COMMENT-STOCK-SWEEP — cut false tree/edge comments
+  in builtin_kind.rs, bundle.rs, read.rs, builtin.rs (verified on disk).
+- **This tick:** the residue sweep ran despite the empty delta and found two
+  un-derived tails of the package-noun dissolution. (1) The live hand-TOML
+  clause-table parser (`Contract::parse` + 9 helpers, contract.rs) is reachable
+  **only from tests** — the live gate builds every `Contract` from lock
+  `ClauseRow`s via `compose::effective`; the corpus is emphatic ("no clause
+  document, no TOML clause table"). Filed RETIRE-TOML-CONTRACT-PARSER (open).
+  (2) False package-noun comment narration + dead section-title cites
+  (`Packages`, `Templates`) survive in 5 files the first sweep did not cover.
+  Filed PKG-NOUN-COMMENT-SWEEP (open). The two edit disjoint file sets
+  (contract.rs+2 tests vs. check.rs/kind.rs/graph.rs/document.rs/builtin.rs) —
+  parallel-safe.
+- **Queue — 3 entries, 2 open:** RETIRE-TOML-CONTRACT-PARSER + PKG-NOUN-COMMENT-SWEEP
+  (both open, disjoint). PACKAGING-CHANNELS parked (release creds + engine-binary
+  workflow + USPTO — all human, none shipped this window).
+- **What's next:** build fans out the two open entries. Beyond them: the
+  `activation` → `registration` symbol rename (retired vocabulary, live code —
+  noted in open-questions, unfiled to avoid overlap), then the next engine wave
+  `(json-projection-format)` (open fork, awaits John on the JSON adapter /
+  `layout`-fact spelling).
 
-Plan continues: no — queue reconciled (sweep promoted + re-scoped, open-questions
-asymmetry and json fork updated), inbox empty, delta empty, one pickable open
-entry. Building drains it.
+Plan continues: no — queue reconciled (two disjoint pickable open entries filed
+off the residue sweep), inbox empty, delta empty. Building drains it.
