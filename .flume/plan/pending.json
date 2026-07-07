@@ -1,43 +1,5 @@
 [
   {
-    "tag": "COMMENT-STOCK-SWEEP",
-    "summary": "Cut false comment residue — retired-tree (kinds//packages/) citations, [edge.*] retired-construct refs, package-era narration — per rust.md's exit clause; no behavior change",
-    "per": {
-      "path": ".claude/rules/rust.md",
-      "section": "Style & structure"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin.rs",
-          "description": "Package-era narration the projection left in its own header: `//!` :6 (quotes a spec Decision title + names the retired `hand-written mirror`), :10 (`There is no package noun any more`), and `///` :97 (`the noun retired with the hand-written mirror`). Cut the era phrasing — commit-body/git material per rust.md's exit clause; reduce the spec citations to terse spec-path pointer tags; `//!` header to ~10 lines."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "Retired `kinds/<name>/KIND.md` curated-tree citations (`//!` :7; `///` :26/:60/:89) plus `any more` era narration (:5 `no KIND.md file format any more`, :140 `to resolve through any more`). The `kinds/` tree is slated for physical deletion (a human chore) — drop the retired-tree pointers, citing the spec path only; cut the era phrasing; `//!` header to ~10 lines."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "The `packages/` retired-tree reference (:79) — cite the clause `cite` field / spec path only, drop the retired-tree pointer."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Retired `[edge.<target>]`/`[edge.*]` document-clause references — the construct shipped and retired (`edge-representation-unify`) — at `//!` :23, `///` :65, and comment :391-392, plus `no package noun any more` era narration at :382. Cut the retired-construct mentions and era phrasing; keep the accurate resolved-edge-set rationale, dropping only the dead `[edge.*]` reference. The unrelated READ-EDGE-UNIFY design-rationale tags elsewhere in the file are accurate stale-form, left to rust.md's cut-on-contact exit clause — not this entry."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "No src/ comment cites the retired `kinds/`/`packages/` curated trees or the retired `[edge.*]` document clauses; no package-era narration (`no package noun any more`, `noun retired`, `KIND.md file format any more`) survives in the touched files; spec citations are terse pointer tags, not quoted section titles; module `//!` headers ~10 lines; cargo fmt/clippy/test green — no behavior change.",
-    "notes": "Ceremony item (John 07-06); chain complete (CHECK-LOCK-KIND-ROWS shipped), queue otherwise empty -> promoted to solo open. Scoped to FALSE comments (retired trees/constructs, package-era narration), not a tree-wide quoted-title re-styling: ~286 accurate quoted section titles + ~60 dangling shipped-tag refs (READ-EDGE-UNIFY x18 etc.) are stale-form not false, left to rust.md's cut-on-contact exit clause rather than a dedicated churn slice (the anti-churn rule)."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
