@@ -1,40 +1,5 @@
 [
   {
-    "tag": "PATH-SEP-NORMALIZE",
-    "summary": "on Windows scaffolded modules and lock rows embed backslashes (file(\"../.claude/rules\\\\x.md\"), mixed-sep source_path) — .temper/ is committed and cross-platform; normalize both writes to /",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "The scaffold writer emits host-separator paths in `file(...)` directives (`file(\"../.claude/rules\\\\cls.md\")` on Windows); emit `/`-separated paths regardless of host separator."
-        },
-        {
-          "path": "src/document.rs",
-          "description": "Lock provenance rows record member source paths with the host separator (mixed-sep source_path on Windows); normalize recorded source paths to `/` so the committed .temper/ artifacts are byte-stable across platforms. (If the source-path row is written elsewhere in the emit path, normalize at that writer.)"
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "scaffolded file(...) paths and recorded source paths use `/` on every host"
-      }
-    ],
-    "acceptance": "Scaffolded module paths and lock source_path rows use `/` on every host; committed .temper/ round-trips byte-identically across platforms.",
-    "notes": "Field report 1. .temper/ is committed and must be cross-platform; a `\\`-bearing lock row or scaffold path forks by host. SCAFFOLD-OUTPUT-VALID shipped (^0.0.4 bump); this now unblocks. GUARD-OWNPATH serializes behind it (same install.rs)."
-  },
-  {
     "tag": "GUARD-OWNPATH",
     "summary": "the PreToolUse guard regex-matches any .claude/ file_path without reading the lock; for file()-carried members the .claude/ file IS the authored source, so block denies editing the source of truth",
     "per": {
