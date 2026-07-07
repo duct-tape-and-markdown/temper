@@ -14,24 +14,26 @@ hard.
   pitchy; docs defer to specs on conflict. Candidate home: a `paths:`-scoped
   rule over `docs/**`. Use it for the docs re-cut below.
 
-## State of the era (2026-07-06, evening)
+## State of the era (2026-07-06, night)
 
-- **KERNEL RE-CUT STAGED — awaiting John's ceremony.** The corpus is
-  rewritten in the working tree: 722 lines replace 2,624; eight nouns, two
-  layers; decisions evicted to `specs/decisions/` (ADRs 0001, 0002).
-  Ceremony: `git tag metaphor-era` (pre-state), cold read the diff, one
-  `specs:` commit. Riding for ratification inside it: CLEAN SLATE encoding
-  (`distribution.md`), the `include` rename (was prose "embed"), John's
-  thesis (realized as the kernel itself — 0001).
-- **FLUME FROZEN — do not tick.** `.flume/prompts/*`, `PROTOCOL.md`,
-  `chain.ts`, and every pending entry cite retired spec paths. Leg 3 after
-  the ceremony: re-derive the queue against the new corpus; 0001's
-  consequences section lists the engine work (embedded locus, one edge
-  enumeration, requirement-as-kind, satisfier-set bug, hooks/permissions/
-  MCP kinds); LOCK-CLAUSE-CHANNELS and the kind-flatten survive in spirit.
-- Follow-up hygiene, post-ceremony: docs/README re-cut onto kernel nouns
-  (stale paths in docs/how-it-works, cli, example-config, horizons,
-  README); 37 src/sdk comment cites die on contact (rust.md exit clause).
+- **KERNEL CORPUS LIVE** (PR #7 merged; `metaphor-era` tag = pre-state).
+  Eight nouns in `specs/model/`; decisions in `specs/decisions/`, outside
+  every read path. Ratified inside it: CLEAN SLATE, the `include` rename,
+  enforcement *mode* (cold-read catch), John's thesis as the kernel (0001).
+- **FLUME UNFROZEN — dispatch model live** (6850c35): one tick = one job
+  (inbox → spec delta → ship audit → residue → quiet), per-input cursors in
+  state.md (seeded at 813ca61), planHonestyGate on the marker, decisions/
+  excluded from the corpus inline. The recut derives via the delta window;
+  0001's consequences list is the chain seed; inbox carries the routing
+  notes (kernel-resolved forks, PACKAGING cite move).
+- **Friction channel live** (`.flume/friction/`): agent→human harness
+  feedback, one uniquely-named file per capture, exceptional never ritual
+  (bar in its README). DRAIN AT SESSION OPEN: triage, implement or route
+  (chore(harness) / chore(flume) / inbox), delete the file.
+- Follow-up hygiene: docs/README re-cut onto kernel nouns (stale paths in
+  docs/how-it-works, cli, example-config, horizons, README); src/sdk comment
+  cites to old spec paths die on contact (rust.md exit clause) — now incl.
+  builtins.ts's four cites to the deleted `packages/*/PACKAGE.md`.
 
 ## Parked (pointers only)
 
@@ -49,6 +51,8 @@ hard.
 
 - Wake-then-loop as its own background task; `git status` before any
   restore; never edit tracked files while a tick runs (plan stages -A).
+- Sweep `.flume/friction/` at session open (and at wave end); prune
+  `.flume/sessions/` when it swells (317MB at the 07-06 cutover).
 - Per green tick: verify commit, fence check (`git show <sha> --name-only
   --format= | grep -cE '^(\.claude|docs|specs)/'` = 0), push to origin.
 - flume routes build ticks to Sonnet on the preamble's `Phase: build` line.
