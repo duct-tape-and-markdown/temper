@@ -47,13 +47,26 @@ tax (it hit 1,280 lines / ~38k tokens before the 07-06 drain).
   drift). Spec sanctions it (`45-governance.md`, coupling-is-a-join Decision);
   awaits a human decision to file.
 
-- `(builtin-workspace-qualified-key)` — OPEN, closes with
-  BUILTIN-LOCK-ROW-DRIVEN (the derived-lock chain's consumer link).
-  `check::Workspace` keys built-ins by bare kind name and hardcodes
-  `skills()`/`rules()` accessors (verified 07-06, `src/check.rs:38-105`); two
-  same-bare-name providers collide under one map key. The row-driven rebuild
-  keys the map by the compiled row label, which is this fork's fix — do not
-  file separately.
+- `(builtin-workspace-qualified-key)` — OPEN, closes with BUILTIN-KIND-FLATTEN
+  (the derived-lock chain's kind-flattening link). `check::Workspace` keys
+  built-ins by bare kind name and hardcodes `skills()`/`rules()` accessors
+  (verified 07-06, `src/check.rs:38-105`). The derived built-in lock carries
+  flat, unique row labels — a provider is a module, so two rows under one label
+  is a malformed lock, not a resolution rule (`20-surface.md`, "The lock and
+  drift"); keying by the row label IS keying by a guaranteed-unique identity,
+  which the flattening link makes so. Do not file separately.
+
+- `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
+  hand-written std-lib ships an `agents-md.memory` built-in kind (glob
+  `**/AGENTS.md`), but the SDK module and the derived built-in lock export only
+  the `CLAUDE.md` `memory` kind (`15-kinds.md`: memory locus is `**/CLAUDE.md`;
+  AGENTS.md is foreign/bridged — `30-landscapes.md`, `50-distribution.md`
+  migrate-with-a-fix). BUILTIN-KIND-FLATTEN drops the engine's agents-md.memory
+  to match the lock, removing direct AGENTS.md coverage. Open: should temper
+  ship an AGENTS.md built-in kind — and if so under a **distinct label** (never
+  a provider-qualified `memory`, which the identity-by-import Decision rejects)?
+  A feature addition, not a chain blocker — the chain proceeds on the
+  spec-faithful default (drop it).
 
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the one-value assembly model. Candidates: a

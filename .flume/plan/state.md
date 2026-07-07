@@ -1,41 +1,35 @@
 # Plan state
 
-- **Phase:** derived-lock chain re-scoped. FIRST-PARTY-MODULE-COMPLETE +
-  EMIT-INTO-PATH-DOUBLING shipped (ff937e7); the four floors now export from
-  the SDK (sdk/src/builtins.ts), so the built-in lock can be derived. Empty
-  spec delta; inbox empty.
-- **Last shipped:** FIRST-PARTY-MODULE-COMPLETE (3ad2737) — skill/rule/
-  memoryAnthropic/memoryAgentsMd floors carried into `@dtmd/temper/claude-code`,
-  each clause cited; and EMIT-INTO-PATH-DOUBLING (3804b41) — canonicalize the
-  SDK entry before the node spawn.
-- **Re-scope this tick:** the single D3 (BUILTIN-LOCK-DERIVED) understated its
-  blast radius — retiring builtin.rs/builtin_kind.rs touches ~8 src + ~11 test
-  files (grepped: install/bundle/check/read/frontmatter/import/contract/main +
-  11 tests), well past one gate-sized commit. Split into a foundation
-  (additive: derive + embed + parse the built-in lock) and a row-driven
-  consumer (reimplement the two mirrors as lock *projections*, keeping their
-  APIs so the ~19 consumers stay green — the spec demands no hand-written
-  mirror, not a file deletion). CURATED-TREES-RETIRE promoted open: its dep
-  (FIRST-PARTY-MODULE-COMPLETE) shipped and its files (bundle.rs + test/snap)
-  are disjoint from the whole chain.
-- **Queue — 7 entries, 2 open (disjoint):**
-  (1) BUILTIN-LOCK-DERIVED — **open**, foundation. builtin_lock.toml (from a
-  memberless module emit) + builtin_lock.rs (parse at startup) + lib.rs pub
-  mod. Additive.
-  (2) CURATED-TREES-RETIRE — **open**, disjoint. Drop bundle.rs's
-  CURATED_PACKAGES embeds.
-  Then serialized: BUILTIN-LOCK-ROW-DRIVEN (blockedBy DERIVED; reimplements
-  builtin/builtin_kind as lock projections, row-label identity, closes
-  `(builtin-workspace-qualified-key)`) → {BUILTIN-LOCK-FROZEN-LANE (blockedBy
-  DERIVED, parallel leaf, new test only), CHECK-LOCK-KIND-ROWS (blockedBy
-  ROW-DRIVEN; cascade custom-kind-rows fix)}. COMMENT-STOCK-SWEEP — deferred
-  (whole-tree solo). PACKAGING-CHANNELS — parked (release creds + engine-binary
+- **Phase:** derived-lock chain — foundation shipped, consumer link re-sliced.
+  Inbox empty; spec delta empty (no `specs/` commits since 1a71b06).
+- **Last shipped:** BUILTIN-LOCK-DERIVED + CURATED-TREES-RETIRE (cf0cdac) —
+  `src/builtin_lock.toml` + `builtin_lock.rs` embed and parse the lock derived
+  from the memberless module emit; bundle.rs's `packages/` embeds dropped.
+- **Reconcile this tick — BUILTIN-LOCK-ROW-DRIVEN was stale *and* oversized,
+  so it split:** (1) its test premise (two `memory` providers colliding) is
+  unwritable — the derived lock carries ONE `memory` kind, no provider column,
+  no `agents-md.memory`; (2) a fresh find on disk: the SDK→lock seam **drops
+  clause guidance+cite** (`sdk/src/declarations.ts` `clauseRow` and
+  `drift::ClauseRow` carry neither — drift.rs:990 says so), so a floor
+  projection would lose the teaching channel the offline gate delivers
+  (10-contracts, "The clause"); (3) blast radius (~13 src + ~10 test files) is
+  multi-commit. Re-sliced into LOCK-CLAUSE-CHANNELS (seam+lock carry
+  guidance+cite), BUILTIN-KIND-FLATTEN (flatten kind identity, drop agents-md +
+  the qualified machinery), BUILTIN-FLOOR-LOCK-PROJECTION (floors project the
+  lock). New fork `(agents-md-builtin-kind)` surfaced (dropping engine AGENTS.md
+  coverage to match the module — feature-add question, not a blocker).
+- **Queue — 7 entries, 3 open (disjoint file sets):** LOCK-CLAUSE-CHANNELS
+  (seam+lock: declarations.ts/drift.rs/builtin_lock.toml), BUILTIN-KIND-FLATTEN
+  (builtin_kind/kind/builtin/main/read/compose/install/check + memory tests),
+  BUILTIN-LOCK-FROZEN-LANE (new test file). Then serial:
+  BUILTIN-FLOOR-LOCK-PROJECTION (blockedBy FLATTEN) → CHECK-LOCK-KIND-ROWS
+  (blockedBy PROJECTION; cascade custom-kind-rows fix). COMMENT-STOCK-SWEEP
+  deferred (whole-tree solo). PACKAGING-CHANNELS parked (release creds + engine
   workflow + USPTO screen).
-- **What's next:** build picks BUILTIN-LOCK-DERIVED + CURATED-TREES-RETIRE in
-  parallel; the chain unblocks link by link. Queued **human** chores: the
-  physical packages/** + kinds/** deletion (out of fence) once ROW-DRIVEN +
-  CURATED land; PACKAGING-CHANNELS release setup.
+- **What's next:** build picks the 3 open disjoint entries in parallel; the
+  chain drains link by link. Queued **human** chore: the physical `packages/**`
+  + `kinds/**` deletion (out of fence) once the chain + CURATED land.
 
-Plan continues: no — queue reconciled (D3 re-scoped into a tractable chain,
-CURATED promoted open), inbox empty, two disjoint open entries ready. Building
-is how the chain drains.
+Plan continues: no — queue reconciled (ROW-DRIVEN re-sliced into a tractable
+chain, guidance/cite gap filed as its foundation), inbox empty, three disjoint
+open entries pickable. Building is how the chain drains.
