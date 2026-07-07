@@ -21,8 +21,8 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::{
-    self, AssemblyFactRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, Payload,
-    RequirementRow,
+    self, AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
+    Payload, RequirementRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -151,17 +151,22 @@ fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
     }
 }
 
-/// The `gate` requirement's declaration row, bound to `kind` and carrying `degree` —
-/// the lock row a `[requirement.gate]` table used to project.
+/// The `gate` requirement's declaration row, bound to `kind` and carrying a required
+/// `degree` clause — the lock row a `[requirement.gate]` table used to project.
 fn degree_requirement(kind: &str, degree: DegreeBoundRow) -> RequirementRow {
     RequirementRow {
         name: "gate".to_string(),
         kind: Some(kind.to_string()),
         required: false,
-        count: None,
-        unique: Vec::new(),
-        membership: None,
-        degree: Some(degree),
+        clauses: vec![ClauseRow {
+            kind: None,
+            predicate: "degree".to_string(),
+            field: None,
+            severity: "required".to_string(),
+            count: None,
+            target: None,
+            degree: Some(degree),
+        }],
         verified_by: None,
     }
 }

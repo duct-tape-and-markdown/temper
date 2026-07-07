@@ -95,10 +95,7 @@ fn requirement(name: &str, required: bool) -> RequirementRow {
         name: name.to_string(),
         kind: None,
         required,
-        count: None,
-        unique: Vec::new(),
-        membership: None,
-        degree: None,
+        clauses: Vec::new(),
         verified_by: None,
     }
 }

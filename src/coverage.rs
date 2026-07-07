@@ -167,10 +167,7 @@ mod tests {
             means: means.map(str::to_string),
             kind: None,
             required,
-            count: None,
-            unique: Vec::new(),
-            membership: None,
-            degree: None,
+            clauses: Vec::new(),
             verified_by: None,
         }
     }

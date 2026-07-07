@@ -207,7 +207,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
     let (_harness, into) = workspace("five-families");
     let mut payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
     payload.declarations.clauses.push(drift::ClauseRow {
-        kind: "rule".to_string(),
+        kind: Some("rule".to_string()),
         predicate: "required".to_string(),
         field: Some("paths".to_string()),
         severity: "required".to_string(),
@@ -222,10 +222,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
             name: "dev-standards".to_string(),
             kind: Some("rule".to_string()),
             required: true,
-            count: None,
-            unique: Vec::new(),
-            membership: None,
-            degree: None,
+            clauses: Vec::new(),
             verified_by: None,
         });
     payload.declarations.assembly.push(drift::AssemblyFactRow {
@@ -486,17 +483,89 @@ process.stdout.write(emit(program).seam);
 /// `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the
 /// stand-in for a real consumer's installed dependency.
 fn wire_sdk_harness(label: &str) -> (PathBuf, PathBuf) {
+    wire_sdk_harness_program(label, HARNESS_PROGRAM)
+}
+
+/// [`wire_sdk_harness`], parameterized over the fixture program text — the seam
+/// each real-SDK test drives is the same; only the authored harness differs.
+fn wire_sdk_harness_program(label: &str, program: &str) -> (PathBuf, PathBuf) {
     ensure_sdk_built();
     let harness = tmpdir(label);
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
-    fs::write(into.join("harness.ts"), HARNESS_PROGRAM).unwrap();
+    fs::write(into.join("harness.ts"), program).unwrap();
 
     let node_modules_scope = into.join("node_modules").join("@dtmd");
     fs::create_dir_all(&node_modules_scope).unwrap();
     std::os::unix::fs::symlink(sdk_root(), node_modules_scope.join("temper")).unwrap();
 
     (harness, into)
+}
+
+/// A fixture SDK program declaring a `require`d requirement carrying a `count`
+/// set-scope clause (`specs/architecture/10-contracts.md`, "Decision: set-scope
+/// demands are clauses") — proving the real SDK emits a requirement's demand as
+/// a nested clause row, not a facet field, end to end across the seam.
+const REQUIREMENT_CLAUSES_PROGRAM: &str = r#"
+import { clause, count, emit, harness, requirement, text } from "@dtmd/temper";
+import { skill } from "@dtmd/temper/claude-code";
+
+const program = harness({
+  members: [
+    skill({
+      name: "coordinate",
+      description: "Use when coordinating agents across axes.",
+      satisfies: ["agents"],
+      prose: text`
+        # Coordinate
+
+        Drive the team.
+      `,
+    }),
+  ],
+  require: {
+    agents: requirement({
+      means: "the harness fields a bounded agent roster",
+      kind: skill,
+      clauses: [clause(count({ min: 1, max: 2 }), { severity: "required" })],
+    }),
+  },
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn emit_program_emits_a_requirements_clauses_end_to_end() {
+    let (_harness, into) =
+        wire_sdk_harness_program("requirement-clauses", REQUIREMENT_CLAUSES_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let agents = declarations
+        .requirements
+        .iter()
+        .find(|r| r.name == "agents")
+        .expect("the `agents` requirement is recorded");
+    assert_eq!(agents.kind.as_deref(), Some("skill"));
+
+    let count_clause = agents
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "count")
+        .expect("the requirement's `count` clause round-trips as a clause row, not a facet field");
+    assert_eq!(count_clause.severity, "required");
+    let bound = count_clause.count.expect("the count bound is recorded");
+    assert_eq!((bound.min, bound.max), (1, 2));
+
+    // The lock's requirement row carries no top-level facet columns for the
+    // demand — only the nested clause.
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains("[[declaration.requirement.clauses]]"),
+        "the demand rides a nested clause row: {lock}"
+    );
 }
 
 #[test]

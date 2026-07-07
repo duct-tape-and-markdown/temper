@@ -78,10 +78,7 @@ fn req(name: &str, required: bool) -> Requirement {
         means: None,
         kind: None,
         required,
-        count: None,
-        unique: Vec::new(),
-        membership: None,
-        degree: None,
+        clauses: Vec::new(),
         verified_by: None,
     }
 }

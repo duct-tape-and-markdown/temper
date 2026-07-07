@@ -26,9 +26,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use temper::drift::{
-    self, ClauseRow, Declarations, EmitOptions, MembershipRow, Payload, RequirementRow,
-};
+use temper::drift::{self, ClauseRow, Declarations, EmitOptions, Payload, RequirementRow};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -177,11 +175,30 @@ fn requirement(name: &str, kind: &str) -> RequirementRow {
         name: name.to_string(),
         kind: Some(kind.to_string()),
         required: false,
-        count: None,
-        unique: Vec::new(),
-        membership: None,
-        degree: None,
+        clauses: Vec::new(),
         verified_by: None,
+    }
+}
+
+/// A required-severity `ClauseRow` wrapping one set-scope predicate — the shape
+/// every case below nests on a `RequirementRow`'s `clauses`. `kind` is `None`: a
+/// nested requirement clause names no kind of its own (`specs/architecture/
+/// 10-contracts.md`, "Decision: set-scope demands are clauses").
+fn required_clause_row(
+    predicate: &str,
+    field: Option<&str>,
+    count: Option<temper::drift::CountBoundRow>,
+    target: Option<&str>,
+    degree: Option<temper::drift::DegreeBoundRow>,
+) -> ClauseRow {
+    ClauseRow {
+        kind: None,
+        predicate: predicate.to_string(),
+        field: field.map(str::to_string),
+        severity: "required".to_string(),
+        count,
+        target: target.map(str::to_string),
+        degree,
     }
 }
 
@@ -277,7 +294,7 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
     write_clauses(
         &root,
         vec![ClauseRow {
-            kind: "skill".to_string(),
+            kind: Some("skill".to_string()),
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),
@@ -301,7 +318,13 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
 /// (`count` is its general form). The satisfiers are the skills opting into `agents`.
 fn count_band_requirement(min: usize, max: usize) -> RequirementRow {
     RequirementRow {
-        count: Some(temper::drift::CountBoundRow { min, max }),
+        clauses: vec![required_clause_row(
+            "count",
+            None,
+            Some(temper::drift::CountBoundRow { min, max }),
+            None,
+            None,
+        )],
         ..requirement("agents", "skill")
     }
 }
@@ -380,7 +403,13 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
     write_requirements(
         &root,
         vec![RequirementRow {
-            unique: vec!["model".to_string()],
+            clauses: vec![required_clause_row(
+                "unique",
+                Some("model"),
+                None,
+                None,
+                None,
+            )],
             ..requirement("agents", "skill")
         }],
     );
@@ -494,17 +523,18 @@ fn a_roster_whose_verifiers_all_resolve_passes() {
 /// The `agents` + `approved-model` requirement rows: `agents` constrains each
 /// satisfier's `model` to the `model` feature drawn from the `approved-model`
 /// satisfier set (S₂) — the set-scope `membership` predicate, with a corpus-derived
-/// allowed set. `source` names a *declared* requirement, so the approved skills'
+/// allowed set. `target` names a *declared* requirement, so the approved skills'
 /// `satisfies` link resolves, leaving membership the only gate these cases exercise.
 fn membership_requirements() -> Vec<RequirementRow> {
     vec![
         RequirementRow {
-            membership: Some(MembershipRow {
-                field: "model".to_string(),
-                source: "approved-model".to_string(),
-                source_kind: "skill".to_string(),
-                source_feature: "model".to_string(),
-            }),
+            clauses: vec![required_clause_row(
+                "membership",
+                Some("model"),
+                None,
+                Some("approved-model"),
+                None,
+            )],
             ..requirement("agents", "skill")
         },
         requirement("approved-model", "skill"),

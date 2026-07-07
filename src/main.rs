@@ -17,6 +17,7 @@ use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity, Workspace};
 use temper::compose;
+use temper::contract;
 use temper::contract::Contract;
 use temper::coverage;
 use temper::coverage_note;
@@ -1010,18 +1011,17 @@ fn union_published_requirements(
 
 /// Lift a member-published [`document::PublishedRequirement`] into the shared
 /// [`compose::Requirement`] the roster and coverage passes range over — the four
-/// published facets carried across, the assembly-only set-scope facets defaulted.
-/// The demand is the same concept whichever surface authored it, so it joins one type.
+/// published facets carried across; a published requirement carries no set-scope
+/// `clauses` (`specs/architecture/10-contracts.md`, "role and requirement are one
+/// concept" — a member header publishes only `means`/`kind`/`required`). The demand
+/// is the same concept whichever surface authored it, so it joins one type.
 fn to_requirement(published: &document::PublishedRequirement) -> compose::Requirement {
     compose::Requirement {
         name: published.name.clone(),
         means: published.means.clone(),
         kind: published.kind.clone(),
         required: published.required,
-        count: None,
-        unique: Vec::new(),
-        membership: None,
-        degree: None,
+        clauses: Vec::new(),
         verified_by: None,
     }
 }
@@ -1037,32 +1037,53 @@ fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
         means: None,
         kind: row.kind.clone(),
         required: row.required,
-        count: row.count.map(|count| compose::CountBound {
-            min: count.min,
-            max: count.max,
-        }),
-        unique: row.unique.clone(),
-        membership: row
-            .membership
-            .as_ref()
-            .map(|membership| compose::Membership {
-                field: membership.field.clone(),
-                source: membership.source.clone(),
-                source_kind: membership.source_kind.clone(),
-                source_feature: membership.source_feature.clone(),
-            }),
-        degree: row.degree.as_ref().map(|degree| compose::DegreeBound {
-            incoming: degree.incoming.map(|bound| compose::EdgeBound {
-                min: bound.min,
-                max: bound.max,
-            }),
-            outgoing: degree.outgoing.map(|bound| compose::EdgeBound {
-                min: bound.min,
-                max: bound.max,
-            }),
-        }),
+        clauses: row.clauses.iter().filter_map(clause_from_row).collect(),
         verified_by: row.verified_by.clone(),
     }
+}
+
+/// Lift one of a requirement row's nested [`drift::ClauseRow`]s into a
+/// [`contract::Clause`] — the mirror of [`requirement_from_row`] for the set-/edge-scope
+/// demand it carries. A row naming an unrecognized predicate, or missing the argument
+/// its predicate requires, degrades to absent — the same tolerant read the rest of the
+/// lock takes over hand-editable state (`crate::drift::read_declarations`).
+fn clause_from_row(row: &drift::ClauseRow) -> Option<contract::Clause> {
+    let predicate = match row.predicate.as_str() {
+        "count" => {
+            let bound = row.count?;
+            contract::Predicate::Count {
+                min: bound.min,
+                max: bound.max,
+            }
+        }
+        "unique" => contract::Predicate::Unique {
+            field: row.field.clone()?,
+        },
+        "membership" => contract::Predicate::Membership {
+            field: row.field.clone()?,
+            target: row.target.clone()?,
+        },
+        "degree" => {
+            let bound = row.degree.as_ref()?;
+            contract::Predicate::Degree {
+                incoming: bound.incoming.map(|edge| contract::EdgeBound {
+                    min: edge.min,
+                    max: edge.max,
+                }),
+                outgoing: bound.outgoing.map(|edge| contract::EdgeBound {
+                    min: edge.min,
+                    max: edge.max,
+                }),
+            }
+        }
+        _ => return None,
+    };
+    Some(contract::Clause {
+        severity: compose::severity_from_label(&row.severity)?,
+        predicate,
+        guidance: None,
+        source: None,
+    })
 }
 
 /// The assembly's declared edges off the lock's `assembly` fact family — every

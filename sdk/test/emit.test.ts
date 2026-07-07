@@ -82,7 +82,7 @@ test("emit compiles the projected members and declarations in one pass", () => {
 
   // The JSON pipe carries the same declarations and members, versioned.
   const seam = JSON.parse(result.seam);
-  assert.equal(seam.version, 1);
+  assert.equal(seam.version, 2);
   assert.deepEqual(
     seam.declarations.kinds.map((k: { name: string }) => k.name),
     ["rule", "skill"],
@@ -150,14 +150,31 @@ test("compileDeclarations produces all five families, satisfies included", () =>
     },
   ]);
   assert.deepEqual(declarations.clauses, [
-    { kind: "rule", predicate: "max_lines", field: undefined, severity: "advisory" },
-    { kind: "rule", predicate: "required", field: "paths", severity: "required" },
+    {
+      kind: "rule",
+      predicate: "max_lines",
+      field: undefined,
+      severity: "advisory",
+      count: undefined,
+      target: undefined,
+      degree: undefined,
+    },
+    {
+      kind: "rule",
+      predicate: "required",
+      field: "paths",
+      severity: "required",
+      count: undefined,
+      target: undefined,
+      degree: undefined,
+    },
   ]);
   assert.deepEqual(declarations.requirements, [
     {
       name: "dev-standards",
       kind: "rule",
       required: true,
+      clauses: [],
       verified_by: "tests/dev-standards.test.ts",
     },
   ]);
@@ -167,7 +184,7 @@ test("compileDeclarations produces all five families, satisfies included", () =>
 
 test("the JSON pipe carries the reduced declaration rows and the pinned version", () => {
   const seam = JSON.parse(declarationsToJson(compileDeclarations(fullHarness())));
-  assert.equal(seam.version, 1);
+  assert.equal(seam.version, 2);
   assert.deepEqual(seam.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
 });
 

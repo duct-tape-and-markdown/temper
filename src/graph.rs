@@ -21,7 +21,9 @@ use std::path::{Component, Path, PathBuf};
 use regex::Regex;
 
 use crate::check::{Diagnostic, Severity};
-use crate::compose::{Edge, EdgeBound, Requirement};
+use crate::compose::{Edge, Requirement};
+use crate::contract::{EdgeBound, Predicate};
+use crate::engine;
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Activation;
 use crate::roster;
@@ -207,34 +209,38 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
     Vec::new()
 }
 
-/// Check the graph-scope **`degree`** predicate (`specs/architecture/45-governance.md`, "The graph
-/// scope"; worked example "self-registering vs routed"): for each requirement
-/// declaring a [`DegreeBound`](crate::compose::DegreeBound), return an error-severity
-/// [`Diagnostic`] per satisfier node whose in/out edge count over the resolved arcs
-/// falls outside the bound.
+/// Check the graph-scope **`degree`** predicate (`specs/architecture/10-contracts.md`, "Judged
+/// at the edge scope"; `specs/architecture/45-governance.md`, worked example "self-registering
+/// vs routed"): for each `degree` clause a requirement declares, return a
+/// [`Diagnostic`] — at the clause's own declared severity — per satisfier node whose
+/// in/out edge count over the resolved arcs falls outside the bound.
 ///
-/// Declared at the **set scope** (on a requirement) but ranging over the **edge
-/// graph**, so it lives here: it reuses [`acyclic`]'s [`resolved_arcs`] and the same
-/// opt-in [`roster::is_satisfier`] join the roster scope uses, never a second selector
-/// that could disagree. Only **resolved** arcs count (a dangling reference loads
-/// nothing; an inadmissible edge is skipped), exactly as in [`acyclic`].
+/// Declared on the requirement's [`clauses`](Requirement::clauses) but ranging over
+/// the **edge graph**, so it lives here: it reuses [`acyclic`]'s [`resolved_arcs`] and
+/// the same opt-in [`roster::is_satisfier`] join the roster scope uses, never a second
+/// selector that could disagree. Only **resolved** arcs count (a dangling reference
+/// loads nothing; an inadmissible edge is skipped), exactly as in [`acyclic`].
 ///
 /// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-requirement** — a
-/// roster declaring no bound does no graph work. A node is `(kind, id)`, so a
+/// roster declaring no `degree` clause does no graph work. A node is `(kind, id)`, so a
 /// requirement declaring no `kind` cannot identify its nodes and is skipped.
-/// Requirements iterate in name order over name-sorted candidates, so findings are
-/// stable across runs.
+/// Requirements iterate in name order, each requirement's clauses in declaration
+/// order, over name-sorted candidates, so findings are stable across runs.
 #[must_use]
 pub fn degree(
     requirements: &BTreeMap<String, Requirement>,
     edges: &[Edge],
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
-    // Opt-in: with no requirement declaring a bound, the graph is never assembled.
-    if requirements
-        .values()
-        .all(|requirement| requirement.degree.is_none())
-    {
+    // Opt-in: with no requirement declaring a `degree` clause, the graph is never
+    // assembled.
+    let any_degree_clause = requirements.values().any(|requirement| {
+        requirement
+            .clauses
+            .iter()
+            .any(|clause| matches!(clause.predicate, Predicate::Degree { .. }))
+    });
+    if !any_degree_clause {
         return Vec::new();
     }
 
@@ -250,45 +256,53 @@ pub fn degree(
 
     let mut diagnostics = Vec::new();
     for requirement in requirements.values() {
-        let Some(bound) = &requirement.degree else {
-            continue;
-        };
         // `degree` needs a declared `kind` to range over; a kind-blind requirement
         // can't identify its nodes and is skipped — `temper` never fabricates a gate
         // the author did not fully declare.
         let Some(kind) = &requirement.kind else {
             continue;
         };
-        let candidates = by_kind.get(kind.as_str()).copied().unwrap_or(&[]);
-        for features in candidates {
-            if !roster::is_satisfier(&requirement.name, features) {
+        for clause in &requirement.clauses {
+            let Predicate::Degree {
+                incoming: incoming_bound,
+                outgoing: outgoing_bound,
+            } = &clause.predicate
+            else {
                 continue;
-            }
-            let node = (kind.clone(), features.id.clone());
-            let in_degree = incoming.get(&node).copied().unwrap_or(0);
-            let out_degree = adjacency.get(&node).map_or(0, BTreeSet::len);
+            };
+            let candidates = by_kind.get(kind.as_str()).copied().unwrap_or(&[]);
+            for features in candidates {
+                if !roster::is_satisfier(&requirement.name, features) {
+                    continue;
+                }
+                let node = (kind.clone(), features.id.clone());
+                let in_degree = incoming.get(&node).copied().unwrap_or(0);
+                let out_degree = adjacency.get(&node).map_or(0, BTreeSet::len);
 
-            if let Some(edge_bound) = bound.incoming
-                && !edge_bound.admits(in_degree)
-            {
-                diagnostics.push(out_of_degree(
-                    requirement,
-                    &features.id,
-                    Direction::Incoming,
-                    in_degree,
-                    edge_bound,
-                ));
-            }
-            if let Some(edge_bound) = bound.outgoing
-                && !edge_bound.admits(out_degree)
-            {
-                diagnostics.push(out_of_degree(
-                    requirement,
-                    &features.id,
-                    Direction::Outgoing,
-                    out_degree,
-                    edge_bound,
-                ));
+                if let Some(edge_bound) = incoming_bound
+                    && !edge_bound.admits(in_degree)
+                {
+                    diagnostics.push(out_of_degree(
+                        requirement,
+                        clause,
+                        &features.id,
+                        Direction::Incoming,
+                        in_degree,
+                        *edge_bound,
+                    ));
+                }
+                if let Some(edge_bound) = outgoing_bound
+                    && !edge_bound.admits(out_degree)
+                {
+                    diagnostics.push(out_of_degree(
+                        requirement,
+                        clause,
+                        &features.id,
+                        Direction::Outgoing,
+                        out_degree,
+                        *edge_bound,
+                    ));
+                }
             }
         }
     }
@@ -319,6 +333,7 @@ impl Direction {
 /// the `[min, max]` bound (an open endpoint rendered `∞`).
 fn out_of_degree(
     requirement: &Requirement,
+    clause: &crate::contract::Clause,
     artifact: &str,
     direction: Direction,
     actual: usize,
@@ -327,7 +342,8 @@ fn out_of_degree(
     let min = bound.min.map_or_else(|| "0".to_string(), |n| n.to_string());
     let max = bound.max.map_or_else(|| "∞".to_string(), |n| n.to_string());
     let kind = requirement.kind.as_deref().unwrap_or("any");
-    Diagnostic::error(
+    Diagnostic::new(
+        engine::severity_of(clause.severity),
         GRAPH_DEGREE_RULE,
         artifact,
         format!(
@@ -336,6 +352,7 @@ fn out_of_degree(
             direction.label(),
         ),
     )
+    .with_guidance(clause.guidance.clone())
 }
 
 /// Check the graph-scope **`reachable`** predicate (`specs/architecture/45-governance.md`, "The
@@ -977,7 +994,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::check::Severity;
-    use crate::compose::{DegreeBound, Edge};
+    use crate::compose::Edge;
+    use crate::contract::{Clause, Severity as ClauseSeverity};
     use crate::extract::Kind;
 
     /// A `Features` carrying a name (its `id`) and, optionally, a `routes_to`
@@ -1273,13 +1291,22 @@ mod tests {
         assert!(acyclic(std::slice::from_ref(&edge), &by_kind).is_empty());
     }
 
-    /// A bare `gate` requirement typed to `kind`, declaring `degree` (or none) — the
-    /// typed roster the [`degree`] check reads. The satisfier nodes are the skills
-    /// whose `satisfies` names `gate`.
+    /// A bare `gate` requirement typed to `kind`, declaring a required `degree` clause
+    /// (or none) — the typed roster the [`degree`] check reads. The satisfier nodes
+    /// are the skills whose `satisfies` names `gate`.
     fn gate_requirement(
         kind: &str,
-        degree: Option<DegreeBound>,
+        degree: Option<Predicate>,
     ) -> BTreeMap<String, crate::compose::Requirement> {
+        let clauses = degree
+            .into_iter()
+            .map(|predicate| Clause {
+                severity: ClauseSeverity::Required,
+                predicate,
+                guidance: None,
+                source: None,
+            })
+            .collect();
         BTreeMap::from([(
             "gate".to_string(),
             crate::compose::Requirement {
@@ -1287,10 +1314,7 @@ mod tests {
                 means: None,
                 kind: Some(kind.to_string()),
                 required: false,
-                count: None,
-                unique: Vec::new(),
-                membership: None,
-                degree,
+                clauses,
                 verified_by: None,
             },
         )])
@@ -1310,7 +1334,7 @@ mod tests {
         // zero — inside the bound, clean.
         let requirements = gate_requirement(
             "skill",
-            Some(DegreeBound {
+            Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: None,
                     max: Some(0),
@@ -1333,7 +1357,7 @@ mod tests {
         // reached: an error naming the requirement, the artifact, and the direction.
         let requirements = gate_requirement(
             "skill",
-            Some(DegreeBound {
+            Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: None,
                     max: Some(0),
@@ -1362,7 +1386,7 @@ mod tests {
         // bound, clean.
         let requirements = gate_requirement(
             "skill",
-            Some(DegreeBound {
+            Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: Some(1),
                     max: None,
@@ -1384,7 +1408,7 @@ mod tests {
         // `incoming = { min = 1 }`. A routed artifact must be reachable: an error.
         let requirements = gate_requirement(
             "skill",
-            Some(DegreeBound {
+            Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: Some(1),
                     max: None,
@@ -1411,7 +1435,7 @@ mod tests {
         // `{ max = 0 }`.
         let requirements = gate_requirement(
             "rule",
-            Some(DegreeBound {
+            Some(Predicate::Degree {
                 incoming: None,
                 outgoing: Some(EdgeBound {
                     min: None,
@@ -1481,7 +1505,7 @@ mod tests {
         // degree, exactly as it neither forges nor masks a cycle.
         let requirements = gate_requirement(
             "skill",
-            Some(DegreeBound {
+            Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: Some(1),
                     max: None,

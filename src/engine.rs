@@ -117,7 +117,11 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
 /// meant; and (2) no **held-back** predicate is used as a working clause —
 /// `dependency-exists` names no decidable reference syntax or extractor, so it is
 /// inadmissible until it does (`specs/architecture/10-contracts.md`, "The primitive algebra").
-fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
+///
+/// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate
+/// vacuity rules for a requirement's own `clauses` — one definition of "vacuous",
+/// never a second copy drifting beside it.
+pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
     match predicate {
         // `dependency-exists` is held back — like the full `pattern` primitive.
         // It names no decidable reference syntax or extractor, so the engine

@@ -258,6 +258,16 @@ pub struct EdgeBound {
     pub max: Option<usize>,
 }
 
+impl EdgeBound {
+    /// Whether `degree` lands inside this inclusive bound — `min <= degree <= max`
+    /// with an absent endpoint imposing no limit on that side. The decidable core of
+    /// the graph-scope `degree` check ([`crate::graph::degree`]).
+    #[must_use]
+    pub fn admits(self, degree: usize) -> bool {
+        self.min.is_none_or(|min| degree >= min) && self.max.is_none_or(|max| degree <= max)
+    }
+}
+
 impl Predicate {
     /// This predicate's clause key — the TOML `predicate` discriminator it is
     /// parsed from, reused verbatim as the diagnostic `rule` id a finding reports

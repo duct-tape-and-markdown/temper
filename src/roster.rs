@@ -12,7 +12,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use crate::check::Diagnostic;
-use crate::compose::{CountBound, Membership, Requirement};
+use crate::compose::Requirement;
+use crate::contract::{Clause, Predicate};
+use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
 /// The diagnostic `rule` id every set-scope `count` finding reports under
@@ -81,18 +83,21 @@ fn kind_label(requirement: &Requirement) -> &str {
     requirement.kind.as_deref().unwrap_or("any")
 }
 
-/// Run the set-scope predicates over the parsed roster, returning an error-severity
-/// [`Diagnostic`] per satisfier set that violates a declared `count` / `unique` /
-/// `membership` gate.
+/// Run the set-scope predicates over the parsed roster, returning a [`Diagnostic`] —
+/// at the violating clause's own declared severity — per satisfier set that violates
+/// a `count` / `unique` / `membership` clause (`specs/architecture/10-contracts.md`,
+/// "Decision: set-scope demands are clauses").
 ///
 /// Every predicate quantifies over the requirement's **satisfier set** — the
 /// `kind`-typed artifacts that opt in via `satisfies`; a kind-blind requirement draws
 /// from every modeled kind of `by_kind`. Requirements iterate in name order (the roster
-/// is a [`BTreeMap`]) and each kind's candidates arrive name-sorted, so the finding set
-/// is stable across runs.
+/// is a [`BTreeMap`]), each requirement's clauses in declaration order, and each kind's
+/// candidates arrive name-sorted, so the finding set is stable across runs.
 ///
 /// This pass gates only the predicates the author declared: the ≥1-satisfier presence
-/// of a plain `required` requirement is [`crate::coverage`]'s gate.
+/// of a plain `required` requirement is [`crate::coverage`]'s gate. `degree` ranges
+/// over the edge graph, so [`crate::graph::degree`] reads it off the same
+/// [`clauses`](Requirement::clauses) instead.
 #[must_use]
 pub fn check(
     requirements: &BTreeMap<String, Requirement>,
@@ -102,26 +107,35 @@ pub fn check(
     for requirement in requirements.values() {
         let satisfiers = satisfiers_for(requirement, by_kind);
 
-        // `count` is an author-declared gate — it fires whenever declared, mutually
-        // exclusive with `required` (which coverage gates as ≥1).
-        // specs/architecture/45-governance.md, "The set scope"
-        if let Some(bound) = &requirement.count
-            && !(bound.min..=bound.max).contains(&satisfiers.len())
-        {
-            diagnostics.push(out_of_band(requirement, bound, &satisfiers));
-        }
-
-        // `unique` is orthogonal to `count`, so it fires regardless of it.
-        // specs/architecture/45-governance.md, "The set scope"
-        for field in &requirement.unique {
-            diagnostics.extend(duplicates(requirement, field, &satisfiers));
-        }
-
-        // S₂'s kind may differ from the requirement's own, so the source set is built
-        // off the full `by_kind` map, not `satisfiers`. Orthogonal to `count`/`unique`.
-        // specs/architecture/45-governance.md, "The set scope"
-        if let Some(membership) = &requirement.membership {
-            diagnostics.extend(out_of_set(requirement, membership, &satisfiers, by_kind));
+        for clause in &requirement.clauses {
+            match &clause.predicate {
+                // `count` fires whenever declared — orthogonal to `required` (which
+                // coverage gates as ≥1). specs/architecture/10-contracts.md
+                Predicate::Count { min, max } => {
+                    if !(*min..=*max).contains(&satisfiers.len()) {
+                        diagnostics.push(out_of_band(requirement, clause, *min, *max, &satisfiers));
+                    }
+                }
+                // `unique` is orthogonal to `count`, so it fires regardless of it.
+                Predicate::Unique { field } => {
+                    diagnostics.extend(duplicates(requirement, clause, field, &satisfiers));
+                }
+                // S₂'s kind may differ from the requirement's own, so the source set is
+                // resolved off the full `requirements` roster, not `satisfiers`.
+                Predicate::Membership { field, target } => {
+                    diagnostics.extend(out_of_set(
+                        requirement,
+                        clause,
+                        field,
+                        target,
+                        &satisfiers,
+                        requirements,
+                        by_kind,
+                    ));
+                }
+                // `degree` is graph-scope — `crate::graph::degree` owns it.
+                _ => {}
+            }
         }
     }
     diagnostics
@@ -133,15 +147,17 @@ pub fn check(
 /// roster is used to judge anything; every finding is [`Diagnostic::error`] (an
 /// inadmissible requirement cannot be trusted) and names the requirement it indicts.
 ///
-/// Three decidable clauses over the requirement's *present* facets — an absent facet
-/// imposes no check:
+/// Three decidable clauses:
 ///
 /// - **(a)** a `required` typed requirement's `kind` is one `temper` models, else it
 ///   can never be filled (a kind-blind requirement is filled by opt-in `satisfies`).
 /// - **(b)** any `verified_by` path exists relative to `base_dir` (a dangling verifier
 ///   is the silent no-op `00-intent.md` law 1 forbids).
-/// - **(c)** a declared `count` bound is well-ordered (`min <= max`), mirroring
-///   `range`'s `min > max` rejection (`specs/architecture/45-governance.md`).
+/// - **(c)** every clause in [`clauses`](Requirement::clauses) is itself well-formed —
+///   reusing [`crate::engine::inadmissibilities`], the same vacuous-clause rules a
+///   kind's own floor clauses are checked against (an inverted `count`/`degree` bound,
+///   an empty `membership` target), so a requirement's demands and a kind's clauses
+///   never carry two definitions of "vacuous".
 ///
 /// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `base_dir`
 /// is the harness root a `verified_by` path resolves against.
@@ -182,31 +198,29 @@ pub fn admissibility(
             ));
         }
 
-        // (c) An inverted `count` bound (`min > max`) admits no cardinality —
-        // inadmissible, mirroring `range`'s rejection (`specs/architecture/45-governance.md`).
-        if let Some(bound) = &requirement.count
-            && bound.min > bound.max
-        {
-            diagnostics.push(Diagnostic::error(
-                REQUIREMENT_ADMISSIBILITY_RULE,
-                name,
-                format!(
-                    "requirement `{name}` declares an inverted count bound (min {} greater than max {}), which no satisfier set can satisfy",
-                    bound.min, bound.max
-                ),
-            ));
+        // (c) Every clause's own predicate must be well-formed.
+        for clause in &requirement.clauses {
+            for message in crate::engine::inadmissibilities(&clause.predicate) {
+                diagnostics.push(Diagnostic::error(
+                    REQUIREMENT_ADMISSIBILITY_RULE,
+                    name,
+                    message,
+                ));
+            }
         }
     }
     diagnostics
 }
 
-/// The finding for a requirement whose satisfier-set cardinality falls outside its
-/// declared `count` bound — naming the requirement, the count, the kind, the
-/// satisfiers, and the `[min, max]` bound it missed (`specs/architecture/45-governance.md`, "The set
-/// scope").
+/// The finding for a requirement whose satisfier-set cardinality falls outside a
+/// declared `count` clause's bound — naming the requirement, the count, the kind, the
+/// satisfiers, and the `[min, max]` bound it missed, at the clause's own severity
+/// (`specs/architecture/10-contracts.md`).
 fn out_of_band(
     requirement: &Requirement,
-    bound: &CountBound,
+    clause: &Clause,
+    min: usize,
+    max: usize,
     satisfiers: &[&Features],
 ) -> Diagnostic {
     let listed = if satisfiers.is_empty() {
@@ -221,27 +235,33 @@ fn out_of_band(
                 .join(", ")
         )
     };
-    Diagnostic::error(
+    Diagnostic::new(
+        engine::severity_of(clause.severity),
         REQUIREMENT_COUNT_RULE,
         &requirement.name,
         format!(
-            "requirement `{}` is satisfied by {} `{}` artifact(s){listed}, outside its declared count bound [{}, {}]",
+            "requirement `{}` is satisfied by {} `{}` artifact(s){listed}, outside its declared count bound [{min}, {max}]",
             requirement.name,
             satisfiers.len(),
             kind_label(requirement),
-            bound.min,
-            bound.max
         ),
     )
+    .with_guidance(clause.guidance.clone())
 }
 
 /// The set-scope `unique` findings for one declared `field` over a requirement's
-/// satisfier set (`specs/architecture/45-governance.md`, "The set scope"): group the satisfiers
-/// by the field's extracted scalar value and emit one error per value two or more
-/// satisfiers share. A satisfier missing the field carries no value to collide on, so
-/// it is silently skipped — a missing field is no collision. Values are grouped in a
-/// [`BTreeMap`] so the finding set is stable across runs.
-fn duplicates(requirement: &Requirement, field: &str, satisfiers: &[&Features]) -> Vec<Diagnostic> {
+/// satisfier set (`specs/architecture/10-contracts.md`): group the satisfiers by the
+/// field's extracted scalar value and emit one finding per value two or more
+/// satisfiers share, at the clause's own declared severity. A satisfier missing the
+/// field carries no value to collide on, so it is silently skipped — a missing field
+/// is no collision. Values are grouped in a [`BTreeMap`] so the finding set is stable
+/// across runs.
+fn duplicates(
+    requirement: &Requirement,
+    clause: &Clause,
+    field: &str,
+    satisfiers: &[&Features],
+) -> Vec<Diagnostic> {
     let mut by_value: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for features in satisfiers {
         if let Some(value) = features.field(field).and_then(FeatureValue::as_scalar) {
@@ -254,7 +274,7 @@ fn duplicates(requirement: &Requirement, field: &str, satisfiers: &[&Features]) 
     by_value
         .into_iter()
         .filter(|(_, satisfiers)| satisfiers.len() > 1)
-        .map(|(value, satisfiers)| duplicate(requirement, field, value, &satisfiers))
+        .map(|(value, satisfiers)| duplicate(requirement, clause, field, value, &satisfiers))
         .collect()
 }
 
@@ -262,11 +282,13 @@ fn duplicates(requirement: &Requirement, field: &str, satisfiers: &[&Features]) 
 /// requirement, the field, the shared value, and the colliding satisfiers.
 fn duplicate(
     requirement: &Requirement,
+    clause: &Clause,
     field: &str,
     value: &str,
     satisfiers: &[&str],
 ) -> Diagnostic {
-    Diagnostic::error(
+    Diagnostic::new(
+        engine::severity_of(clause.severity),
         REQUIREMENT_UNIQUE_RULE,
         &requirement.name,
         format!(
@@ -276,61 +298,58 @@ fn duplicate(
             satisfiers.join(", ")
         ),
     )
+    .with_guidance(clause.guidance.clone())
 }
 
 /// The set-scope `membership` findings for one requirement over its satisfier set
-/// (`specs/architecture/45-governance.md`, "The set scope"): build the allowed set from the
-/// source feature `G` extracted over the S₂ satisfier set — the `source_kind`
-/// artifacts opting into the `source` requirement (R₂) — then emit one error per S₁
-/// satisfier whose declared field-`F` scalar is absent from that set. A satisfier
-/// missing `F` carries no value to check, so it is silently skipped — a missing field
-/// is no violation, the way a missing `unique` field is no collision. The allowed set
-/// is corpus-*derived*, so an S₂ with no satisfiers (or whose satisfiers all lack `G`)
-/// yields the empty set, under which every valued satisfier is genuinely a non-member.
+/// (`specs/architecture/10-contracts.md`): build the allowed set from `field` extracted
+/// over the `target` requirement's own satisfier set (S₂) — shaping S₂ is `target`'s
+/// own job, never re-derived here — then emit one finding per S₁ satisfier whose
+/// declared `field` scalar is absent from it, at the clause's own severity. A
+/// satisfier missing `field` carries no value to check, so it is silently skipped —
+/// a missing field is no violation, the way a missing `unique` field is no collision.
+/// The allowed set is corpus-*derived*, so a `target` with no satisfiers (or an
+/// undeclared `target`) yields the empty set, under which every valued satisfier is
+/// genuinely a non-member.
 ///
-/// `by_kind` is the full workspace map — S₂'s `source_kind` may differ from the
-/// requirement's own `kind`, so the source candidates come from the map, not the S₁
-/// `satisfiers`. Findings follow `satisfiers` order, which is name-sorted, so the
-/// set is stable across runs.
+/// `requirements`/`by_kind` are the full roster/workspace maps — `target` may name a
+/// requirement typed to a different kind than this one's own, so its satisfier set is
+/// resolved through the roster, not `satisfiers`. Findings follow `satisfiers` order,
+/// which is name-sorted, so the set is stable across runs.
 fn out_of_set(
     requirement: &Requirement,
-    membership: &Membership,
+    clause: &Clause,
+    field: &str,
+    target: &str,
     satisfiers: &[&Features],
+    requirements: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
-    let source = by_kind
-        .get(membership.source_kind.as_str())
-        .copied()
-        .unwrap_or(&[]);
-    // S₂ is the satisfier set of the named source requirement over `source_kind` — an
-    // opt-in satisfier set, not a name glob (`specs/architecture/45-governance.md`, "each set an
-    // opt-in satisfier set").
-    let matched: Vec<&Features> = source
-        .iter()
-        .filter(|features| is_satisfier(&membership.source, features))
-        .collect();
+    // S₂ is the named target requirement's own satisfier set — an opt-in satisfier
+    // set, not a name glob (`specs/architecture/10-contracts.md`, "each set an opt-in
+    // satisfier set"). An undeclared `target` has no satisfier set at all.
+    let source_satisfiers = requirements
+        .get(target)
+        .map(|target_requirement| satisfiers_for(target_requirement, by_kind))
+        .unwrap_or_default();
 
-    let allowed: BTreeSet<&str> = matched
+    let allowed: BTreeSet<&str> = source_satisfiers
         .iter()
-        .filter_map(|features| {
-            features
-                .field(&membership.source_feature)
-                .and_then(FeatureValue::as_scalar)
-        })
+        .filter_map(|features| features.field(field).and_then(FeatureValue::as_scalar))
         .collect();
 
     satisfiers
         .iter()
         .filter_map(|features| {
-            let value = features
-                .field(&membership.field)
-                .and_then(FeatureValue::as_scalar)?;
+            let value = features.field(field).and_then(FeatureValue::as_scalar)?;
             if allowed.contains(value) {
                 None
             } else {
                 Some(not_member(
                     requirement,
-                    membership,
+                    clause,
+                    field,
+                    target,
                     features.id.as_str(),
                     value,
                 ))
@@ -340,30 +359,27 @@ fn out_of_set(
 }
 
 /// The finding for an S₁ satisfier whose declared field falls outside the S₂-derived
-/// set — naming the requirement, the constrained field, the source feature and kind
-/// the allowed set is drawn from, the offending satisfier, and the value that is not a
+/// set — naming the requirement, the constrained field, the target requirement the
+/// allowed set is drawn from, the offending satisfier, and the value that is not a
 /// member.
 fn not_member(
     requirement: &Requirement,
-    membership: &Membership,
+    clause: &Clause,
+    field: &str,
+    target: &str,
     satisfier: &str,
     value: &str,
 ) -> Diagnostic {
-    Diagnostic::error(
+    Diagnostic::new(
+        engine::severity_of(clause.severity),
         REQUIREMENT_MEMBERSHIP_RULE,
         &requirement.name,
         format!(
-            "requirement `{}` requires `{}` of each satisfier drawn from the `{}` feature of `{}` artifacts satisfying `{}`, but satisfier `{}` declares `{}` = `{}`, which is not in that set",
+            "requirement `{}` requires `{field}` of each satisfier drawn from the `{field}` feature of artifacts satisfying `{target}`, but satisfier `{satisfier}` declares `{field}` = `{value}`, which is not in that set",
             requirement.name,
-            membership.field,
-            membership.source_feature,
-            membership.source_kind,
-            membership.source,
-            satisfier,
-            membership.field,
-            value
         ),
     )
+    .with_guidance(clause.guidance.clone())
 }
 
 #[cfg(test)]
@@ -372,7 +388,19 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::check::Severity;
+    use crate::contract::Severity as ClauseSeverity;
     use crate::extract::Kind;
+
+    /// A required-severity clause wrapping `predicate` — the shape every set-scope
+    /// test case below attaches to a requirement's `clauses`.
+    fn required_clause(predicate: Predicate) -> Clause {
+        Clause {
+            severity: ClauseSeverity::Required,
+            predicate,
+            guidance: None,
+            source: None,
+        }
+    }
 
     /// A `Features` carrying a name (its `id`) and the requirements it opts into via
     /// `satisfies` — the facts the satisfier set is built from.
@@ -401,10 +429,7 @@ mod tests {
             means: None,
             kind: None,
             required: false,
-            count: None,
-            unique: Vec::new(),
-            membership: None,
-            degree: None,
+            clauses: Vec::new(),
             verified_by: None,
         }
     }
@@ -467,7 +492,7 @@ mod tests {
     fn count_band_requirement(min: usize, max: usize) -> Requirement {
         Requirement {
             kind: Some("skill".to_string()),
-            count: Some(CountBound { min, max }),
+            clauses: vec![required_clause(Predicate::Count { min, max })],
             ..requirement("agents")
         }
     }
@@ -517,7 +542,9 @@ mod tests {
     fn unique_model_requirement() -> Requirement {
         Requirement {
             kind: Some("skill".to_string()),
-            unique: vec!["model".to_string()],
+            clauses: vec![required_clause(Predicate::Unique {
+                field: "model".to_string(),
+            })],
             ..requirement("agents")
         }
     }
@@ -605,29 +632,29 @@ mod tests {
         assert!(diags.is_empty());
     }
 
-    /// A requirement declaring `membership` of its satisfiers' `model` field in the
-    /// `model` feature drawn from `source_kind` artifacts satisfying `approved-model` —
-    /// the set-scope membership predicate, with a corpus-derived allowed set.
-    fn membership_requirement(source_kind: &str) -> Requirement {
-        Requirement {
+    /// A two-requirement roster: `agents` declares `membership` of its satisfiers'
+    /// `model` field, drawn from the `model` feature of `source_kind` artifacts
+    /// satisfying the named `approved-model` requirement (R₂) — the set-scope
+    /// membership predicate, with a corpus-derived allowed set. `target` names a
+    /// *declared* requirement now (`10-contracts.md`), so R₂ itself must be in the
+    /// roster for its kind/satisfier set to resolve.
+    fn membership_roster(source_kind: &str) -> BTreeMap<String, Requirement> {
+        let agents = Requirement {
             kind: Some("skill".to_string()),
-            membership: Some(Membership {
+            clauses: vec![required_clause(Predicate::Membership {
                 field: "model".to_string(),
-                source: "approved-model".to_string(),
-                source_kind: source_kind.to_string(),
-                source_feature: "model".to_string(),
-            }),
+                target: "approved-model".to_string(),
+            })],
             ..requirement("agents")
-        }
-    }
-
-    /// Pack a roster of one requirement and a multi-kind candidate map into the shapes
-    /// [`check`] takes — the membership predicate's S₂ may name a different kind, so
-    /// the source artifacts live under their own key.
-    fn run_multi(req: Requirement, by_kind: BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
-        let mut requirements = BTreeMap::new();
-        requirements.insert(req.name.clone(), req);
-        check(&requirements, &by_kind)
+        };
+        let approved = Requirement {
+            kind: Some(source_kind.to_string()),
+            ..requirement("approved-model")
+        };
+        BTreeMap::from([
+            (agents.name.clone(), agents),
+            (approved.name.clone(), approved),
+        ])
     }
 
     #[test]
@@ -635,14 +662,15 @@ mod tests {
         // S₁ (satisfying `agents`) and S₂ (satisfying `approved-model`) are both skills
         // here. The allowed set is { opus, sonnet } (the `model` of the two approved
         // skills); `agent-2`'s `gpt` is outside it, `agent-1`'s `opus` is inside.
-        let req = membership_requirement("skill");
+        let requirements = membership_roster("skill");
         let skills = [
             skill_with_model("agent-1", Some("opus")),
             skill_with_model("agent-2", Some("gpt")),
             skill_satisfying("approved-a", &["approved-model"], Some("opus")),
             skill_satisfying("approved-b", &["approved-model"], Some("sonnet")),
         ];
-        let diags = run(req.clone(), &skills);
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let diags = check(&requirements, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, REQUIREMENT_MEMBERSHIP_RULE);
@@ -658,15 +686,16 @@ mod tests {
             skill_satisfying("approved-a", &["approved-model"], Some("opus")),
             skill_satisfying("approved-b", &["approved-model"], Some("sonnet")),
         ];
-        assert!(run(req, &clean).is_empty());
+        let by_kind_clean: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &clean[..])]);
+        assert!(check(&requirements, &by_kind_clean).is_empty());
     }
 
     #[test]
     fn a_membership_draws_its_set_from_a_second_kind() {
-        // S₂ names `manifest`, a kind other than the requirement's own `skill` — the
-        // allowed set is built off the full by-kind map, so no signature change is
-        // needed.
-        let req = membership_requirement("manifest");
+        // `approved-model` is typed to `manifest`, a kind other than `agents`'s own
+        // `skill` — the allowed set is resolved off the full roster/by-kind map, so
+        // no signature change is needed.
+        let requirements = membership_roster("manifest");
         let skills = [
             skill_with_model("agent-1", Some("opus")),
             skill_with_model("agent-2", Some("gpt")),
@@ -677,12 +706,12 @@ mod tests {
         ];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("skill", &skills[..]), ("manifest", &manifests[..])]);
-        let diags = run_multi(req, by_kind);
+        let diags = check(&requirements, &by_kind);
         // Only `agent-2` (`gpt`) is outside the manifest-derived { opus, sonnet }.
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, REQUIREMENT_MEMBERSHIP_RULE);
         assert!(diags[0].message.contains("agent-2"));
-        assert!(diags[0].message.contains("manifest"));
+        assert!(diags[0].message.contains("approved-model"));
     }
 
     #[test]
@@ -690,13 +719,14 @@ mod tests {
         // `agent-2` declares no `model`, so it carries no value to check — a missing
         // field is no membership violation. `agent-1`'s `opus` is in the set, so the
         // run is clean.
-        let req = membership_requirement("skill");
+        let requirements = membership_roster("skill");
         let skills = [
             skill_with_model("agent-1", Some("opus")),
             skill_with_model("agent-2", None),
             skill_satisfying("approved-a", &["approved-model"], Some("opus")),
         ];
-        assert!(run(req, &skills).is_empty());
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        assert!(check(&requirements, &by_kind).is_empty());
     }
 
     #[test]
@@ -704,14 +734,37 @@ mod tests {
         // S₂ (satisfying `approved-model`) has no members, so the derived set is empty —
         // every satisfier that declares `model` is genuinely a non-member, a true
         // positive over the corpus-derived set.
-        let req = membership_requirement("skill");
+        let requirements = membership_roster("skill");
         let skills = [
             skill_with_model("agent-1", Some("opus")),
             skill_with_model("agent-2", Some("sonnet")),
         ];
-        let diags = run(req, &skills);
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let diags = check(&requirements, &by_kind);
         assert_eq!(diags.len(), 2);
         assert!(diags.iter().all(|d| d.rule == REQUIREMENT_MEMBERSHIP_RULE));
+    }
+
+    #[test]
+    fn a_membership_naming_an_undeclared_target_flags_every_valued_satisfier() {
+        // `approved-model` is not itself in the roster — an undeclared `target` has
+        // no satisfier set at all, so the allowed set is empty exactly as when the
+        // declared target has no satisfiers.
+        let mut requirements = BTreeMap::new();
+        let agents = Requirement {
+            kind: Some("skill".to_string()),
+            clauses: vec![required_clause(Predicate::Membership {
+                field: "model".to_string(),
+                target: "approved-model".to_string(),
+            })],
+            ..requirement("agents")
+        };
+        requirements.insert(agents.name.clone(), agents);
+        let skills = [skill_with_model("agent-1", Some("opus"))];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let diags = check(&requirements, &by_kind);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, REQUIREMENT_MEMBERSHIP_RULE);
     }
 
     // ---- admissibility ----------------------------------------------------
@@ -782,12 +835,12 @@ mod tests {
 
     #[test]
     fn an_inverted_count_bound_is_inadmissible() {
-        // `min > max` admits no cardinality at all — a vacuous bound the author
-        // cannot have meant, so the definition fails admissibility (mirroring
-        // `range`'s `min > max` rejection).
+        // `min > max` admits no cardinality at all — a vacuous clause the author
+        // cannot have meant, so the definition fails admissibility (reusing
+        // `crate::engine::inadmissibilities`' `range`-mirroring `min > max` rule).
         let req = Requirement {
             kind: Some("skill".to_string()),
-            count: Some(CountBound { min: 3, max: 1 }),
+            clauses: vec![required_clause(Predicate::Count { min: 3, max: 1 })],
             ..requirement("agents")
         };
         let diags = run_admissibility(req, Path::new(""));
@@ -795,7 +848,8 @@ mod tests {
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
         assert_eq!(diags[0].artifact, "agents");
-        assert!(diags[0].message.contains("inverted count bound"));
+        assert!(diags[0].message.contains("count"));
+        assert!(diags[0].message.contains("min 3 greater than max 1"));
     }
 
     #[test]
@@ -804,7 +858,7 @@ mod tests {
         // satisfiable bound — nothing for admissibility to reject.
         let req = Requirement {
             kind: Some("skill".to_string()),
-            count: Some(CountBound { min: 1, max: 1 }),
+            clauses: vec![required_clause(Predicate::Count { min: 1, max: 1 })],
             ..requirement("agents")
         };
         assert!(run_admissibility(req, Path::new("")).is_empty());

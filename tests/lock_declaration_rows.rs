@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::{
     self, AssemblyFactRow, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow,
-    EmitOptions, KindFactRow, MembershipRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
+    EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -117,7 +117,7 @@ fn rich_declarations() -> Declarations {
         kinds: vec![rule_kind_facts(), skill_kind_facts()],
         clauses: vec![
             ClauseRow {
-                kind: "skill".to_string(),
+                kind: Some("skill".to_string()),
                 predicate: "required".to_string(),
                 field: Some("description".to_string()),
                 severity: "required".to_string(),
@@ -126,7 +126,7 @@ fn rich_declarations() -> Declarations {
                 degree: None,
             },
             ClauseRow {
-                kind: "rule".to_string(),
+                kind: Some("rule".to_string()),
                 predicate: "required".to_string(),
                 field: Some("paths".to_string()),
                 severity: "advisory".to_string(),
@@ -140,34 +140,60 @@ fn rich_declarations() -> Declarations {
                 name: "review-coverage".to_string(),
                 kind: Some("skill".to_string()),
                 required: true,
-                count: None,
-                unique: Vec::new(),
-                membership: None,
-                degree: None,
+                clauses: Vec::new(),
                 verified_by: None,
             },
             RequirementRow {
                 name: "roster-coverage".to_string(),
                 kind: Some("skill".to_string()),
                 required: false,
-                count: Some(CountBoundRow { min: 1, max: 2 }),
-                unique: vec!["name".to_string()],
-                membership: Some(MembershipRow {
-                    field: "name".to_string(),
-                    source: "review-coverage".to_string(),
-                    source_kind: "skill".to_string(),
-                    source_feature: "name".to_string(),
-                }),
-                degree: Some(DegreeBoundRow {
-                    incoming: Some(EdgeBoundRow {
-                        min: Some(1),
-                        max: None,
-                    }),
-                    outgoing: Some(EdgeBoundRow {
-                        min: None,
-                        max: Some(3),
-                    }),
-                }),
+                clauses: vec![
+                    ClauseRow {
+                        kind: None,
+                        predicate: "count".to_string(),
+                        field: None,
+                        severity: "required".to_string(),
+                        count: Some(CountBoundRow { min: 1, max: 2 }),
+                        target: None,
+                        degree: None,
+                    },
+                    ClauseRow {
+                        kind: None,
+                        predicate: "unique".to_string(),
+                        field: Some("name".to_string()),
+                        severity: "advisory".to_string(),
+                        count: None,
+                        target: None,
+                        degree: None,
+                    },
+                    ClauseRow {
+                        kind: None,
+                        predicate: "membership".to_string(),
+                        field: Some("name".to_string()),
+                        severity: "required".to_string(),
+                        count: None,
+                        target: Some("review-coverage".to_string()),
+                        degree: None,
+                    },
+                    ClauseRow {
+                        kind: None,
+                        predicate: "degree".to_string(),
+                        field: None,
+                        severity: "required".to_string(),
+                        count: None,
+                        target: None,
+                        degree: Some(DegreeBoundRow {
+                            incoming: Some(EdgeBoundRow {
+                                min: Some(1),
+                                max: None,
+                            }),
+                            outgoing: Some(EdgeBoundRow {
+                                min: None,
+                                max: Some(3),
+                            }),
+                        }),
+                    },
+                ],
                 verified_by: None,
             },
         ],
@@ -244,7 +270,10 @@ fn lock_carries_all_four_declaration_families() {
         "the floor clauses are recorded"
     );
     assert!(
-        declarations.clauses.iter().any(|c| c.kind == "skill"),
+        declarations
+            .clauses
+            .iter()
+            .any(|c| c.kind.as_deref() == Some("skill")),
         "skill floor clauses are keyed by kind"
     );
     for clause in &declarations.clauses {
@@ -264,24 +293,40 @@ fn lock_carries_all_four_declaration_families() {
     assert_eq!(requirement.kind.as_deref(), Some("skill"));
     assert!(requirement.required);
 
-    // The set-scope facets: count/unique/membership/degree all carried on the row.
+    // The set-scope demands: count/unique/membership/degree all carried as clause
+    // rows nested on the requirement (`specs/architecture/10-contracts.md`, "Decision:
+    // set-scope demands are clauses").
     let roster = declarations
         .requirements
         .iter()
         .find(|r| r.name == "roster-coverage")
         .expect("the set-scope requirement is recorded");
-    let count = roster.count.expect("count bound is recorded");
+    let count = roster
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "count")
+        .and_then(|c| c.count)
+        .expect("count bound is recorded");
     assert_eq!((count.min, count.max), (1, 2));
-    assert_eq!(roster.unique, vec!["name".to_string()]);
+    let unique = roster
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "unique")
+        .expect("unique clause is recorded");
+    assert_eq!(unique.field.as_deref(), Some("name"));
     let membership = roster
-        .membership
-        .as_ref()
-        .expect("membership predicate is recorded");
-    assert_eq!(membership.field, "name");
-    assert_eq!(membership.source_kind, "skill");
-    assert_eq!(membership.source, "review-coverage");
-    assert_eq!(membership.source_feature, "name");
-    let degree = roster.degree.expect("degree bound is recorded");
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "membership")
+        .expect("membership clause is recorded");
+    assert_eq!(membership.field.as_deref(), Some("name"));
+    assert_eq!(membership.target.as_deref(), Some("review-coverage"));
+    let degree = roster
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "degree")
+        .and_then(|c| c.degree.as_ref())
+        .expect("degree bound is recorded");
     assert_eq!(degree.incoming.expect("incoming bound").min, Some(1));
     assert_eq!(degree.incoming.expect("incoming bound").max, None);
     assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
@@ -337,7 +382,7 @@ fn a_double_emit_is_byte_stable() {
 fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
-        kind: "skill".to_string(),
+        kind: Some("skill".to_string()),
         predicate: "count".to_string(),
         field: None,
         severity: "required".to_string(),
@@ -346,7 +391,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         degree: None,
     });
     declarations.clauses.push(ClauseRow {
-        kind: "skill".to_string(),
+        kind: Some("skill".to_string()),
         predicate: "unique".to_string(),
         field: Some("name".to_string()),
         severity: "advisory".to_string(),
@@ -355,7 +400,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         degree: None,
     });
     declarations.clauses.push(ClauseRow {
-        kind: "skill".to_string(),
+        kind: Some("skill".to_string()),
         predicate: "membership".to_string(),
         field: Some("model".to_string()),
         severity: "required".to_string(),
@@ -364,7 +409,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         degree: None,
     });
     declarations.clauses.push(ClauseRow {
-        kind: "skill".to_string(),
+        kind: Some("skill".to_string()),
         predicate: "degree".to_string(),
         field: None,
         severity: "advisory".to_string(),

@@ -23,9 +23,7 @@ use std::process::Command;
 
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
-use toml_edit::{
-    Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike, Value, value,
-};
+use toml_edit::{ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike, Value, value};
 
 use crate::hash::sha256_hex;
 use crate::import::{RollupEntry, write_rollup};
@@ -243,7 +241,7 @@ pub struct EmitReport {
 /// The engine's pinned seam version — the JSON pipe rides it in lockstep with the
 /// SDK's own `SEAM_VERSION` (`sdk/src/declarations.ts`; `specs/architecture/20-surface.md`,
 /// "The SDK pins its engine version").
-pub const SEAM_VERSION: u32 = 1;
+pub const SEAM_VERSION: u32 = 2;
 
 /// One projected member's erased payload — the SDK's whole output surface for a
 /// member that lives at a path locus (`sdk/src/emit.ts` `PayloadMember`). A genre
@@ -963,8 +961,12 @@ pub struct KindFactRow {
 /// their own optional columns since a plain field/severity pair cannot express them.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ClauseRow {
-    /// The kind whose contract carries the clause.
-    pub kind: String,
+    /// The kind whose contract carries the clause. `None` when this row is nested
+    /// inside a [`RequirementRow`]'s own [`clauses`](RequirementRow::clauses) — a
+    /// requirement's set-scope demand names no kind of its own; it ranges over
+    /// whatever kind the requirement's own row already carries.
+    #[serde(default)]
+    pub kind: Option<String>,
     /// The predicate's clause key (`required`, `max_len`, …).
     pub predicate: String,
     /// The field (or marker) the predicate constrains, when it names one.
@@ -985,10 +987,13 @@ pub struct ClauseRow {
     pub degree: Option<DegreeBoundRow>,
 }
 
-/// One named requirement's declaration row (`specs/architecture/10-contracts.md`), carrying
-/// the scalar facets plus the set-scope bounds — `count`/`unique`/`membership`/`degree`
-/// (`specs/architecture/45-governance.md`) — the roster/graph checks range over: the lock
-/// now carries a requirement's whole shape, not the scalar-only bootstrap slice.
+/// One named requirement's declaration row (`specs/architecture/10-contracts.md`),
+/// carrying the scalar facets plus the requirement's own **clause rows** — the
+/// set-scope demands (`count`/`unique`/`membership`/`degree`,
+/// `specs/architecture/10-contracts.md`, "Decision: set-scope demands are clauses")
+/// the roster/graph checks range over. No facet columns: a demand's severity,
+/// argument, and — for `unique`/`membership` — targeted field ride the nested
+/// [`ClauseRow`], the identical row shape a kind's own floor clauses use.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct RequirementRow {
     /// The requirement's name.
@@ -999,20 +1004,11 @@ pub struct RequirementRow {
     /// Whether an unfilled requirement blocks the gate.
     #[serde(default)]
     pub required: bool,
-    /// The set-scope `count` bound on the satisfier-set size, when declared.
+    /// The requirement's set-/edge-scope demands, in declaration order — a
+    /// `count`/`unique`/`membership`/`degree` [`ClauseRow`] per clause, each
+    /// carrying its own severity. Empty ⇒ no set-scope demand.
     #[serde(default)]
-    pub count: Option<CountBoundRow>,
-    /// The set-scope `unique` field list — each named field's extracted scalar must
-    /// not repeat across the satisfiers. Empty when undeclared.
-    #[serde(default)]
-    pub unique: Vec<String>,
-    /// The set-scope `membership` predicate, when declared.
-    #[serde(default)]
-    pub membership: Option<MembershipRow>,
-    /// The graph-scope `degree` bound on every satisfier's in/out edge count, when
-    /// declared.
-    #[serde(default)]
-    pub degree: Option<DegreeBoundRow>,
+    pub clauses: Vec<ClauseRow>,
     /// The external verifier for the behavioral remainder, when declared.
     #[serde(default)]
     pub verified_by: Option<String>,
@@ -1026,21 +1022,6 @@ pub struct CountBoundRow {
     pub min: usize,
     /// The inclusive upper bound on the satisfier-set size.
     pub max: usize,
-}
-
-/// A requirement row's `membership` predicate — a declared field of every satisfier
-/// (S1) must lie in a corpus-derived set drawn from a second satisfier set (S2)
-/// (`specs/architecture/45-governance.md`).
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct MembershipRow {
-    /// The field on each S1 satisfier checked against the source set.
-    pub field: String,
-    /// The source requirement (R2) whose satisfier set (S2) supplies the allowed values.
-    pub source: String,
-    /// The artifact kind S2 is drawn from.
-    pub source_kind: String,
-    /// The feature whose extracted scalars over S2 form the allowed set.
-    pub source_feature: String,
 }
 
 /// A requirement row's `degree` bound — the in/out edge-count bound every satisfier
@@ -1249,7 +1230,9 @@ impl KindFactRow {
 impl ClauseRow {
     fn to_table(&self) -> Table {
         let mut table = Table::new();
-        table.insert("kind", value(self.kind.clone()));
+        if let Some(kind) = &self.kind {
+            table.insert("kind", value(kind.clone()));
+        }
         table.insert("predicate", value(self.predicate.clone()));
         if let Some(field) = &self.field {
             table.insert("field", value(field.clone()));
@@ -1269,7 +1252,7 @@ impl ClauseRow {
 
     fn from_table(table: &Table) -> Option<Self> {
         Some(Self {
-            kind: str_col(table, "kind")?,
+            kind: str_col(table, "kind"),
             predicate: str_col(table, "predicate")?,
             field: str_col(table, "field"),
             severity: str_col(table, "severity")?,
@@ -1294,17 +1277,12 @@ impl RequirementRow {
             table.insert("kind", value(kind.clone()));
         }
         table.insert("required", value(self.required));
-        if let Some(count) = &self.count {
-            table.insert("count", value(count_bound_table(count)));
-        }
-        if !self.unique.is_empty() {
-            table.insert("unique", value(str_array(&self.unique)));
-        }
-        if let Some(membership) = &self.membership {
-            table.insert("membership", value(membership_table(membership)));
-        }
-        if let Some(degree) = &self.degree {
-            table.insert("degree", value(degree_bound_table(degree)));
+        if !self.clauses.is_empty() {
+            let mut array = ArrayOfTables::new();
+            for clause in &self.clauses {
+                array.push(clause.to_table());
+            }
+            table.insert("clauses", Item::ArrayOfTables(array));
         }
         if let Some(verified_by) = &self.verified_by {
             table.insert("verified_by", value(verified_by.clone()));
@@ -1320,46 +1298,14 @@ impl RequirementRow {
                 .get("required")
                 .and_then(Item::as_bool)
                 .unwrap_or(false),
-            count: table
-                .get("count")
-                .and_then(Item::as_table_like)
-                .and_then(count_bound_from_table),
-            unique: table
-                .get("unique")
-                .and_then(Item::as_array)
-                .map(array_strings)
+            clauses: table
+                .get("clauses")
+                .and_then(Item::as_array_of_tables)
+                .map(|array| array.iter().filter_map(ClauseRow::from_table).collect())
                 .unwrap_or_default(),
-            membership: table
-                .get("membership")
-                .and_then(Item::as_table_like)
-                .and_then(membership_from_table),
-            degree: table
-                .get("degree")
-                .and_then(Item::as_table_like)
-                .and_then(degree_bound_from_table),
             verified_by: str_col(table, "verified_by"),
         })
     }
-}
-
-/// A TOML string [`Array`] over owned strings — the shape a requirement row's `unique`
-/// field list re-emits as (mirrors `compose::str_array`, kept row-local since the
-/// lock's declaration rows are their own flattened vocabulary, not compose's typed
-/// model).
-fn str_array(items: &[String]) -> Array {
-    let mut array = Array::new();
-    for item in items {
-        array.push(item.as_str());
-    }
-    array
-}
-
-/// Read a TOML string array back into owned strings, dropping any non-string element.
-fn array_strings(array: &Array) -> Vec<String> {
-    array
-        .iter()
-        .filter_map(|item| item.as_str().map(str::to_string))
-        .collect()
 }
 
 /// One integer column off an inline table-like as a `usize`. Any miss — absent,
@@ -1369,12 +1315,6 @@ fn usize_col(table: &dyn TableLike, key: &str) -> Option<usize> {
         .get(key)?
         .as_integer()
         .and_then(|n| usize::try_from(n).ok())
-}
-
-/// One required/optional string column off an inline table-like — `None` when absent
-/// (or not a string).
-fn str_col_like(table: &dyn TableLike, key: &str) -> Option<String> {
-    table.get(key)?.as_str().map(str::to_string)
 }
 
 fn count_bound_table(count: &CountBoundRow) -> InlineTable {
@@ -1394,27 +1334,6 @@ fn count_bound_from_table(table: &dyn TableLike) -> Option<CountBoundRow> {
     Some(CountBoundRow {
         min: usize_col(table, "min")?,
         max: usize_col(table, "max")?,
-    })
-}
-
-fn membership_table(membership: &MembershipRow) -> InlineTable {
-    let mut table = InlineTable::new();
-    table.insert("field", Value::from(membership.field.clone()));
-    table.insert("source", Value::from(membership.source.clone()));
-    table.insert("source_kind", Value::from(membership.source_kind.clone()));
-    table.insert(
-        "source_feature",
-        Value::from(membership.source_feature.clone()),
-    );
-    table
-}
-
-fn membership_from_table(table: &dyn TableLike) -> Option<MembershipRow> {
-    Some(MembershipRow {
-        field: str_col_like(table, "field")?,
-        source: str_col_like(table, "source")?,
-        source_kind: str_col_like(table, "source_kind")?,
-        source_feature: str_col_like(table, "source_feature")?,
     })
 }
 

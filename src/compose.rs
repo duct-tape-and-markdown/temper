@@ -1,8 +1,10 @@
-//! The harness assembly's domain types — [`Requirement`], [`Edge`],
-//! [`Authority`], and the set-scope predicate shapes ([`CountBound`], [`DegreeBound`],
-//! [`EdgeBound`], [`Membership`]) — and [`effective`], which composes the lock's
-//! per-clause severity overrides onto the embedded by-kind floor
-//! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+//! The harness assembly's domain types — [`Requirement`], [`Edge`], [`Authority`] —
+//! and [`effective`], which composes the lock's per-clause severity overrides onto
+//! the embedded by-kind floor (`specs/architecture/20-surface.md`, "The lock and drift
+//! — one vocabulary"). A requirement's set-/edge-scope demands ride ordinary
+//! [`contract::Clause`] values (`specs/architecture/10-contracts.md`, "Decision:
+//! set-scope demands are clauses"); their predicate payloads ([`contract::EdgeBound`]
+//! and friends) live in [`crate::contract`], not here.
 //!
 //! There is no reader in this module: every value here is populated from the lock's
 //! declaration rows (`crate::drift::Declarations`), the sole producer since `emit`
@@ -72,102 +74,21 @@ pub struct Requirement {
     pub kind: Option<String>,
     /// Whether an unfilled requirement is a gate-blocking violation. Absent ⇒ `false`
     /// (`temper` never fabricates a gate the author did not declare — `00-intent.md`
-    /// law 4). Mutually exclusive with [`count`](Requirement::count): `required` is
-    /// the ≥1-satisfier shorthand, `count` the general cardinality form.
+    /// law 4). Never cardinality — posture and the set-scope `count` clause in
+    /// [`clauses`](Requirement::clauses) are different kinds of thing.
     pub required: bool,
-    /// The set-scope `count` predicate (`specs/architecture/45-governance.md`): the satisfier-set
-    /// size must land in `[min, max]`. Absent ⇒ `None`. The general form of
-    /// `required`; the two are mutually exclusive.
-    pub count: Option<CountBound>,
-    /// The set-scope `unique` predicate (`specs/architecture/45-governance.md`): each named field's
-    /// extracted scalar must not repeat across the satisfiers. Absent ⇒ empty (no
-    /// uniqueness gate). Checked in [`crate::roster`].
-    pub unique: Vec<String>,
-    /// The set-scope `membership` predicate (`specs/architecture/45-governance.md`): a declared
-    /// field of every satisfier (S₁) must lie in a *corpus-derived* set drawn from a
-    /// second satisfier set (S₂). Absent ⇒ `None`. Checked in [`crate::roster`].
-    pub membership: Option<Membership>,
-    /// The graph-scope `degree` bound (`specs/architecture/45-governance.md`): the in/out edge
-    /// count of every satisfier must land in the declared bound. Declared on the
-    /// requirement but ranging over the *edge* graph, so checked in [`crate::graph`],
-    /// not [`crate::roster`]. Absent ⇒ `None`.
-    pub degree: Option<DegreeBound>,
+    /// The requirement's set-/edge-scope demands — ordinary [`contract::Clause`]
+    /// values whose predicates range over the satisfier set and its graph
+    /// neighborhood (`count`/`unique`/`membership`/`degree`,
+    /// `specs/architecture/10-contracts.md`, "Decision: set-scope demands are
+    /// clauses"). Each carries its own severity/guidance/cite; empty ⇒ no set-scope
+    /// demand at all. `count`/`unique`/`membership` are checked in
+    /// [`crate::roster`]; `degree` ranges over the *edge* graph, so it is checked in
+    /// [`crate::graph`] instead.
+    pub clauses: Vec<contract::Clause>,
     /// An optional external verifier for the behavioral remainder (`verified_by`).
     /// Stored verbatim; whether it *resolves* is an admissibility check.
     pub verified_by: Option<String>,
-}
-
-/// An inclusive `[min, max]` bound on the cardinality of a requirement's satisfier
-/// set — the set-scope `count` predicate (`specs/architecture/45-governance.md`). An inverted
-/// `min > max` bound admits nothing and is rejected as inadmissible
-/// ([`crate::roster`]).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CountBound {
-    /// The inclusive lower bound on the satisfier-set size.
-    pub min: usize,
-    /// The inclusive upper bound on the satisfier-set size.
-    pub max: usize,
-}
-
-/// The graph-scope `degree` predicate — an inclusive bound on the **incoming** and/or
-/// **outgoing** edge count of every satisfier over the harness reference graph
-/// (`specs/architecture/45-governance.md`). At least one direction is present (an empty `degree`
-/// constrains nothing — rejected at parse). Decided against the resolved arcs in
-/// [`crate::graph`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DegreeBound {
-    /// The bound on a satisfier node's incoming edge count (how many nodes point at
-    /// it). Absent ⇒ `None` (incoming degree is unconstrained).
-    pub incoming: Option<EdgeBound>,
-    /// The bound on a satisfier node's outgoing edge count (how many nodes it points
-    /// at). Absent ⇒ `None` (outgoing degree is unconstrained).
-    pub outgoing: Option<EdgeBound>,
-}
-
-/// An inclusive `[min, max]` bound on a node's edge count in one direction, each
-/// endpoint optional so the single-sided cases the worked example needs are
-/// expressible: absent `min` ⇒ no lower bound (0), absent `max` ⇒ unbounded above
-/// (the routed "≥ 1" case). At least one endpoint is present — an endpoint-less
-/// bound admits every degree, and an inverted `min > max` admits none; both are
-/// vacuous clauses the author cannot have meant, so both are rejected at parse.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EdgeBound {
-    /// The inclusive lower bound on the edge count. `None` ⇒ no lower bound.
-    pub min: Option<usize>,
-    /// The inclusive upper bound on the edge count. `None` ⇒ unbounded above.
-    pub max: Option<usize>,
-}
-
-impl EdgeBound {
-    /// Whether `degree` lands inside this inclusive bound — `min <= degree <= max`
-    /// with an absent endpoint imposing no limit on that side. The decidable core of
-    /// the graph-scope `degree` check (`specs/architecture/45-governance.md`).
-    #[must_use]
-    pub fn admits(self, degree: usize) -> bool {
-        self.min.is_none_or(|min| degree >= min) && self.max.is_none_or(|max| degree <= max)
-    }
-}
-
-/// A set-scope `membership` predicate over a requirement's satisfier set (S₁): a
-/// declared field of every satisfier must lie in a *corpus-derived* set, not a static
-/// `enum` (`specs/architecture/45-governance.md`). The allowed set is `source_feature` extracted
-/// over the S₂ satisfier set — the `source_kind` artifacts that opt into the `source`
-/// requirement (R₂). S₂ may name a different kind than the requirement's own, so the
-/// check ranges over the whole by-kind map. Decided in [`crate::roster`].
-#[derive(Debug, Clone, PartialEq)]
-pub struct Membership {
-    /// The field on each S₁ satisfier whose extracted scalar must be a member of the
-    /// source set. A satisfier missing it carries no value to check.
-    pub field: String,
-    /// The source requirement `R₂` whose satisfier set (S₂) supplies the allowed
-    /// values: a `source_kind` artifact enters S₂ when its `satisfies` names this.
-    pub source: String,
-    /// The artifact kind S₂ is drawn from. May differ from the requirement's own
-    /// `kind`, so the allowed set can be drawn from another kind.
-    pub source_kind: String,
-    /// The feature whose extracted scalars over the S₂ satisfiers form the allowed
-    /// set. A source artifact missing it contributes nothing.
-    pub source_feature: String,
 }
 
 /// The effective contract for `kind`: the embedded `floor` with each clause's
@@ -190,9 +111,11 @@ pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Cont
     for clause in &mut floor.clauses {
         let key = clause.predicate.key();
         let target = clause.predicate.target();
-        let overriding = clauses
-            .iter()
-            .find(|row| row.kind == bare && row.predicate == key && row.field.as_deref() == target);
+        let overriding = clauses.iter().find(|row| {
+            row.kind.as_deref() == Some(bare)
+                && row.predicate == key
+                && row.field.as_deref() == target
+        });
         if let Some(severity) = overriding.and_then(|row| severity_from_label(&row.severity)) {
             clause.severity = severity;
         }
@@ -202,8 +125,10 @@ pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Cont
 
 /// Parse a lock clause row's `severity` label into the typed [`contract::Severity`]
 /// — the closed `required`/`advisory` vocabulary a bare contract's own clauses
-/// declare. An out-of-vocabulary label is `None`.
-fn severity_from_label(label: &str) -> Option<contract::Severity> {
+/// declare. An out-of-vocabulary label is `None`. `pub` (not `pub(crate)`) so the
+/// `main` binary's lift of a requirement's own clause rows reuses the identical
+/// parse, never a second copy.
+pub fn severity_from_label(label: &str) -> Option<contract::Severity> {
     match label {
         "required" => Some(contract::Severity::Required),
         "advisory" => Some(contract::Severity::Advisory),
@@ -264,7 +189,7 @@ mod tests {
         // family is the sole source `effective` composes from, never a manifest
         // `[kind.*]` layer.
         let row = ClauseRow {
-            kind: "skill".to_string(),
+            kind: Some("skill".to_string()),
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),
@@ -280,7 +205,7 @@ mod tests {
     #[test]
     fn effective_ignores_a_row_naming_a_different_kind() {
         let row = ClauseRow {
-            kind: "rule".to_string(),
+            kind: Some("rule".to_string()),
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),
@@ -297,7 +222,7 @@ mod tests {
         // `effective` never reconstructs a wholly new clause from a row's own
         // argument columns, so an unmatched row contributes nothing.
         let row = ClauseRow {
-            kind: "skill".to_string(),
+            kind: Some("skill".to_string()),
             predicate: "min_len".to_string(),
             field: Some("name".to_string()),
             severity: "required".to_string(),
@@ -311,7 +236,7 @@ mod tests {
     #[test]
     fn effective_ignores_a_row_with_an_out_of_vocabulary_severity() {
         let row = ClauseRow {
-            kind: "skill".to_string(),
+            kind: Some("skill".to_string()),
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "blocking".to_string(),
@@ -327,7 +252,7 @@ mod tests {
         // A caller may pass the floor's qualified identity (`claude-code.skill`); a
         // `ClauseRow.kind` is always bare, so the override still applies.
         let row = ClauseRow {
-            kind: "skill".to_string(),
+            kind: Some("skill".to_string()),
             predicate: "forbidden_keys".to_string(),
             field: None,
             severity: "advisory".to_string(),

@@ -1,11 +1,11 @@
 /**
  * Contracts — clauses and requirements as typed values (`specs/architecture/10-contracts.md`).
  * A clause is `predicate · severity · guidance · cite`; a requirement is
- * `means · kind · required · count? · unique? · membership? · degree? · verifiedBy?`.
- * Both erase to compiled data at the seam (`20-surface.md`): the author composes
- * typed objects, the engine consumes their rows. The predicate vocabulary is the
- * closed algebra — a clause outside it is a squiggle, not a runtime rejection
- * (`10-contracts.md`, the two walls).
+ * `means · kind · required · clauses? · verifiedBy?`. Both erase to compiled data
+ * at the seam (`20-surface.md`): the author composes typed objects, the engine
+ * consumes their rows. The predicate vocabulary is the closed algebra — a clause
+ * outside it is a squiggle, not a runtime rejection (`10-contracts.md`, the two
+ * walls).
  */
 
 import type { KindDefinition } from "./kind.js";
@@ -14,23 +14,26 @@ import type { KindDefinition } from "./kind.js";
 export type Severity = "required" | "advisory";
 
 /**
- * A member of the closed predicate algebra (`10-contracts.md`). The compiled
- * clause row records only `key`, the targeted `field` (when it names one), and
- * severity — the reduced shape the lock and the JSON pipe both carry; a
- * predicate's scalar bounds (`args`) stay author-side until the fuller
- * interchange lands its consumer (the entry gate, `20-surface.md`).
+ * A member of the closed predicate algebra (`10-contracts.md`). A kind's own
+ * `expect` clauses compile to a reduced row of `key`/`field`/`severity` only —
+ * the node-scope engine reads a floor's per-clause severity overrides, never a
+ * predicate's own bounds. A requirement's `clauses` compile fuller: `args`/
+ * `target` ride the row too, since the roster/graph checks decide `count`/
+ * `unique`/`membership`/`degree` from them directly (`declarations.ts`
+ * `clauseRow`).
  */
 export interface Predicate {
   /** The predicate's clause key (`required`, `max_len`, `max_lines`, …). */
   readonly key: string;
   /** The field (or marker) the predicate constrains, when it names one. */
   readonly field?: string;
-  /** The predicate's scalar bounds — author-side; not yet in the erased row. */
+  /** The predicate's scalar bounds, keyed per predicate (`min`/`max`,
+   * `incoming_min`/`incoming_max`/`outgoing_min`/`outgoing_max`). */
   readonly args?: Readonly<Record<string, number>>;
   /**
-   * `membership`'s target requirement name — author-side, like `args`. A
-   * separate slot from `field` (the checked field) since `membership` names
-   * both (`10-contracts.md`, "Judged at the node-set scope").
+   * `membership`'s target requirement name — a separate slot from `field` (the
+   * checked field) since `membership` names both (`10-contracts.md`, "Judged
+   * at the node-set scope").
    */
   readonly target?: string;
 }
@@ -111,17 +114,18 @@ export function clause(
  * A requirement — a named obligation on the harness (`10-contracts.md`,
  * "Requirements"). `means` is the authored intent, carried never interpreted;
  * `kind` constrains what may fill it **by import** (a value, never a string);
- * `required` is the posture declaration; the set-scope facets measure the
- * satisfier set; `verifiedBy` wires the behavioral remainder.
+ * `required` is the posture declaration; `clauses` are the requirement's own
+ * set-/edge-scope demands — ordinary [`Clause`] values whose predicates range
+ * over the satisfier set (`count`/`unique`/`membership`) or its graph
+ * neighborhood (`degree`), the same four-channel clause as everywhere
+ * (`10-contracts.md`, "Decision: set-scope demands are clauses"); `verifiedBy`
+ * wires the behavioral remainder.
  */
 export interface Requirement {
   readonly means: string;
   readonly kind?: KindDefinition<object>;
   readonly required?: boolean;
-  readonly count?: { readonly min?: number; readonly max?: number };
-  readonly unique?: string;
-  readonly membership?: string;
-  readonly degree?: string;
+  readonly clauses?: readonly Clause[];
   readonly verifiedBy?: string;
 }
 

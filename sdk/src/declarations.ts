@@ -11,7 +11,7 @@
 
 import type { Harness } from "./assembly.js";
 import type { KindFacts, Registration } from "./kind.js";
-import type { Requirement } from "./contract.js";
+import type { Clause, Requirement } from "./contract.js";
 
 /** One kind's declaration row — its identity and declared runtime facts. */
 export interface KindFactRow {
@@ -24,20 +24,82 @@ export interface KindFactRow {
   readonly activation?: string;
 }
 
-/** One clause of a kind's effective contract, reduced to the lock's columns. */
+/**
+ * One clause of a kind's effective contract, or one of a requirement's own
+ * set-/edge-scope demands — the same row shape either way (`src/drift.rs`
+ * `ClauseRow`). `kind` is absent when this row is nested inside a
+ * `RequirementRow`'s own `clauses`: a requirement's demand names no kind of its
+ * own (`10-contracts.md`, "Decision: set-scope demands are clauses").
+ */
 export interface ClauseRow {
-  readonly kind: string;
+  readonly kind?: string;
   readonly predicate: string;
   readonly field?: string;
   readonly severity: string;
+  /** The `count` predicate's satisfier-set-size bound. */
+  readonly count?: { readonly min: number; readonly max: number };
+  /** The `membership` predicate's target requirement name. */
+  readonly target?: string;
+  /** The `degree` predicate's in/out edge-count bound. */
+  readonly degree?: {
+    readonly incoming?: { readonly min?: number; readonly max?: number };
+    readonly outgoing?: { readonly min?: number; readonly max?: number };
+  };
 }
 
-/** One named requirement's declaration row, reduced to the scalar facets the lock records. */
+/**
+ * One named requirement's declaration row — the scalar facets plus its own
+ * `count`/`unique`/`membership`/`degree` clause rows (`10-contracts.md`,
+ * "Decision: set-scope demands are clauses"): the requirement's `clauses` array
+ * is the whole of its set-/edge-scope demand, no facet columns beside it.
+ */
 export interface RequirementRow {
   readonly name: string;
   readonly kind?: string;
   readonly required: boolean;
+  readonly clauses: readonly ClauseRow[];
   readonly verified_by?: string;
+}
+
+/**
+ * Compile one `Clause` into its lock row: the shared `key`/`field`/`severity`
+ * columns, plus — when the predicate carries them — the `count`/`target`/
+ * `degree` argument columns a kind-level override row never needs but a
+ * requirement's own demand always does (`10-contracts.md`, "Judged at the
+ * node-set scope" / "Judged at the edge scope"). `kind` is supplied only for a
+ * kind's own `expect` clause; a requirement's nested clause carries none.
+ */
+function clauseRow(clause: Clause, kind?: string): ClauseRow {
+  const { predicate } = clause;
+  return {
+    kind,
+    predicate: predicate.key,
+    field: predicate.field,
+    severity: clause.severity,
+    count:
+      predicate.key === "count"
+        ? { min: predicate.args?.min ?? 0, max: predicate.args?.max ?? Number.MAX_SAFE_INTEGER }
+        : undefined,
+    target: predicate.key === "membership" ? predicate.target : undefined,
+    degree:
+      predicate.key === "degree"
+        ? {
+            incoming: edgeBoundArgs(predicate.args, "incoming"),
+            outgoing: edgeBoundArgs(predicate.args, "outgoing"),
+          }
+        : undefined,
+  };
+}
+
+/** One `degree` direction's `{min, max}` off its flat `<dir>_min`/`<dir>_max` args
+ * keys — `undefined` when neither is present (that direction is unconstrained). */
+function edgeBoundArgs(
+  args: Readonly<Record<string, number>> | undefined,
+  direction: "incoming" | "outgoing",
+): { readonly min?: number; readonly max?: number } | undefined {
+  const min = args?.[`${direction}_min`];
+  const max = args?.[`${direction}_max`];
+  return min === undefined && max === undefined ? undefined : { min, max };
 }
 
 /** One assembly-scope fact — authority or an edge. */
@@ -136,6 +198,7 @@ function requirementRows(harness: Harness): RequirementRow[] {
       name,
       kind: requirement.kind?.key,
       required: requirement.required ?? false,
+      clauses: (requirement.clauses ?? []).map((clause) => clauseRow(clause)),
       verified_by: requirement.verifiedBy,
     }));
 }
@@ -177,12 +240,7 @@ export function compileDeclarations(harness: Harness): Declarations {
   const clauses: ClauseRow[] = [];
   for (const binding of [...harness.expect].sort((a, b) => (a.kind.key < b.kind.key ? -1 : a.kind.key > b.kind.key ? 1 : 0))) {
     for (const clause of binding.clauses) {
-      clauses.push({
-        kind: binding.kind.key,
-        predicate: clause.predicate.key,
-        field: clause.predicate.field,
-        severity: clause.severity,
-      });
+      clauses.push(clauseRow(clause, binding.kind.key));
     }
   }
   return {
@@ -195,7 +253,7 @@ export function compileDeclarations(harness: Harness): Declarations {
 }
 
 /** The SDK's pinned engine/interchange version — the JSON pipe rides it in lockstep. */
-export const SEAM_VERSION = 1;
+export const SEAM_VERSION = 2;
 
 /**
  * Serialize the declaration rows to the internal versioned JSON pipe
