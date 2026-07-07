@@ -1,5 +1,269 @@
 [
   {
+    "tag": "REQUIREMENT-GATE",
+    "summary": "check never evaluates the lock's requirement/satisfies clause families — the require/satisfies layer enforces only at emit; fold clause evaluation into the gate path",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "requirement — a shipped kind, not a primitive"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/check.rs",
+          "description": "The gate resolves requirement members but the tripwire (~:303-327) only fires when the lock declares requirements and the gate resolved NONE of them; the per-clause families ([[declaration.requirement]] / [[declaration.satisfies]]: count, membership, degree, kind) are never evaluated on `check`. Evaluate them in the gate path, at each clause's declared severity."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Invoke the existing clause evaluator (the `Predicate`/`admits` machinery already run at emit) over the lock's requirement/satisfies declaration rows in the `check` path — so the require/satisfies layer gates, not only refuses at emit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a locked requirement whose satisfier set violates count({max:1}) produces a finding on `check .` and `check --harness .`, at the clause's declared severity"
+      }
+    ],
+    "acceptance": "A locked requirement whose satisfier set violates its cardinality/membership/degree/kind clause produces a finding on `check .` and `check --harness .` at the clause's declared severity — not only a refusal at emit.",
+    "notes": "Field report 2 T1: the testbed lock carried 44 requirement/satisfies rows; a live count({max:1}) probe produced zero findings on check. Named the largest correctness gap on the board. Clause evaluator already exists (runs at emit); this wires it into the gate."
+  },
+  {
+    "tag": "WIN-INSTALL-SPAWN",
+    "summary": "install --yes dies on Windows spawning `npm` (only npm.cmd exists) and half-scaffolds .temper/; spawn npm.cmd under cfg(windows) and assure the dependency before scaffold",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "The npm spawn at Command::new(\"npm\") (:1018) resolves only a `.exe` on Windows, which ships only `npm.cmd`; spawn `npm.cmd` under `cfg!(windows)` (or `cmd /c npm`). The failure currently lands AFTER scaffold, leaving a half-scaffolded `.temper/`; reorder so dependency assurance precedes scaffold — 'no half-scaffolded state'."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "dependency assurance runs before any .temper/ module is written; a failure in assurance leaves no half-scaffolded surface"
+      }
+    ],
+    "acceptance": "On Windows, install --yes assures the SDK dependency (spawning npm.cmd) before writing any .temper/ module; a spawn failure leaves no half-scaffolded surface.",
+    "notes": "Field report 1 (Win11/centercode testbed @18dca38). Rust process spawn resolves `.exe` only; `npm.cmd` is the Windows shim. Verified fix shape: cfg(windows) -> npm.cmd."
+  },
+  {
+    "tag": "WIN-EMIT-PATH",
+    "summary": "emit feeds Node fs::canonicalize's \\\\?\\ verbatim-form entry path to the SDK program (drift.rs:372); Node dies in resolveMainPath — keep the canonicalize, strip the verbatim prefix",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "canonicalize(harness_entry) at :372 yields a `\\\\?\\`-verbatim path on Windows that Node's resolveMainPath rejects. Keep the canonicalize (it fixes a relative ./.temper entry) and strip the verbatim prefix before handing the path to the spawned SDK program — a manual prefix strip keeps the sanctioned crate set unchanged; `dunce::simplified` is the ecosystem-standard alternative if that set is extended."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "the entry path handed to the SDK program carries no `\\\\?\\` verbatim prefix"
+      }
+    ],
+    "acceptance": "On Windows, emit passes the SDK program a non-verbatim entry path; the first emit reproduces the testbed's 16 projections byte-identically.",
+    "notes": "Field report 1. Verified: with the prefix stripped, first emit reproduces 16 projections byte-identically. dunce::simplified is standard but would extend the sanctioned crate set (a human nod); a manual strip avoids the dependency."
+  },
+  {
+    "tag": "BUNDLE-REPORT-SHIPS",
+    "summary": "bundle reports \"surface: 0 skills, 0 rules\" on a 16-member surface — composition is correct (gate-delivery only); the report should name what the bundle ships, not member counts",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "What ships — three channels"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "BundleReport carries `skills`/`rules` counts (:140-148) of the composed-OVER surface; channel 3 ships the operate-the-gate skill + the SessionStart hook (gate-delivery-only), so on a large surface the report reads '0 skills, 0 rules' though the composition is right. Report the artifacts the bundle SHIPS (skill + SessionStart hook), not member counts of the source surface."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "the report names the shipped artifacts (skill + SessionStart hook), not surface member counts"
+      }
+    ],
+    "acceptance": "temper bundle's report names the artifacts it ships (the operate-the-gate skill + SessionStart hook), not member counts of the composed-over surface.",
+    "notes": "Field report 1. Spec reads channel 3 as gate-delivery-only, so the composition is right and the REPORT line is the bug. If plan later reads member delivery as intended, that is a fork — not assumed here."
+  },
+  {
+    "tag": "HELP-TEXT-RECUT",
+    "summary": "guard --help still speaks shared/surface (runtime is note/warn/block) and verbs' help cite the deleted specs/architecture/* paths — user-facing strings, outside CITE-RETAG's comment scope",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "clap help/about strings: `guard --help` still speaks shared/surface, but the runtime migrated to the block/warn/note enforcement vocabulary — recut the help to it. Most verbs' help cite the removed specs/architecture/* layout; retag to the recut specs/** layout. These are user-facing strings, distinct from CITE-RETAG's comment scope."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "no help/about string speaks shared/surface or cites a specs/architecture/* path; guard --help names block/warn/note"
+      }
+    ],
+    "acceptance": "No user-facing help string speaks shared/surface or cites a specs/architecture/* path; guard --help names block/warn/note.",
+    "notes": "Field report 1. Explicitly outside CITE-RETAG (comment/citation scope, already shipped): these are user-facing strings. Runtime already migrated shared/surface -> note/warn/block."
+  },
+  {
+    "tag": "SCAFFOLD-OUTPUT-VALID",
+    "summary": "scaffolded skill modules omit required Skill.description (fails tsc) and install pins SDK ^0.0.2 — caret pins the patch to 0.0.2, which predates the `file` export the scaffold imports",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": { "kind": "blockedBy", "tag": "WIN-INSTALL-SPAWN" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Scaffold template: carry the skill's `description` into scaffolded skill modules — Skill.description is required in the SDK types, so omitting it fails tsc (the advertised keystroke wall) even though the runtime erases types. Bump SDK_VERSION_RANGE off `^0.0.2` (:56) to the seam the binary speaks: caret on 0.0.x pins the PATCH (>=0.0.2 <0.0.3), so fresh installs get 0.0.2, which predates the `file` export the scaffold imports; 0.0.4 (seam v2, has `file`) is published. Scaffold output and version range are one contract."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "scaffolded skill modules include description; the scaffolded module + version range import a seam that exports `file`"
+      }
+    ],
+    "acceptance": "Scaffolded modules typecheck (skill modules carry description) and import an SDK seam that exports `file`; install pins a range that resolves to it.",
+    "notes": "Field reports T6 + finding 3. blockedBy WIN-INSTALL-SPAWN (same file). Supersedes PACKAGING's 'release-owned bump' framing: the range is a live install-correctness bug fixed here; release owns only future re-pins."
+  },
+  {
+    "tag": "EXPLAIN-RESOLVER",
+    "summary": "explain prints not-found (retired `import` verb) then narrates the member anyway, and misreports a locked requirement's fill status — the resolver checks one namespace before it finds the member",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "Read verbs"
+    },
+    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-GATE" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "The member resolver prints the not-found error (suggesting the retired `import` verb) then narrates the member anyway — it checks one namespace before the one the resolver eventually finds it in; resolve before the not-found check and drop the retired-verb suggestion. explain <requirement> reports 'required, and unfilled — which check reports as an error' even with a satisfier locked and check reporting nothing; read the lock's requirement/satisfies declarations so explain narrates fill status over the same resolved edges the gate uses."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "explain <member> resolves without a spurious not-found and never suggests the retired `import` verb; explain <requirement> reports fill status agreeing with the gate"
+      }
+    ],
+    "acceptance": "explain <member> resolves without a spurious not-found; explain <requirement> reports fill status agreeing with the gate; no output suggests the retired `import` verb.",
+    "notes": "Field report 2 T2 + report 1 finding 7. blockedBy REQUIREMENT-GATE so explain's requirement verdict matches what check now evaluates (Read verbs project over the same resolved edges the gate uses)."
+  },
+  {
+    "tag": "PATH-SEP-NORMALIZE",
+    "summary": "on Windows scaffolded modules and lock rows embed backslashes (file(\"../.claude/rules\\\\x.md\"), mixed-sep source_path) — .temper/ is committed and cross-platform; normalize both writes to /",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SCAFFOLD-OUTPUT-VALID" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "The scaffold writer emits host-separator paths in `file(...)` directives (`file(\"../.claude/rules\\\\cls.md\")` on Windows); emit `/`-separated paths regardless of host separator."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "Lock provenance rows record member source paths with the host separator (mixed-sep source_path on Windows); normalize recorded source paths to `/` so the committed .temper/ artifacts are byte-stable across platforms. (If the source-path row is written elsewhere in the emit path, normalize at that writer.)"
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "scaffolded file(...) paths and recorded source paths use `/` on every host"
+      }
+    ],
+    "acceptance": "Scaffolded module paths and lock source_path rows use `/` on every host; committed .temper/ round-trips byte-identically across platforms.",
+    "notes": "Field report 1. .temper/ is committed and must be cross-platform; a `\\`-bearing lock row or scaffold path forks by host. blockedBy SCAFFOLD-OUTPUT-VALID (same install.rs file)."
+  },
+  {
+    "tag": "GUARD-OWNPATH",
+    "summary": "the PreToolUse guard regex-matches any .claude/ file_path without reading the lock; for file()-carried members the .claude/ file IS the authored source, so block denies editing the source of truth",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": { "kind": "blockedBy", "tag": "PATH-SEP-NORMALIZE" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "guard() matches GUARD_PATH_MATCH (:104) against any `.claude/` file_path without consulting the lock. For a file()-carried member the `.claude/` file IS its authored source (install already skips placements on such members; emit adopts their direct edits), so under `block` the guard denies editing the source of truth. Read the lock's owned-source paths so a write to an own_path target passes through, while writes to projected `.claude/` files stay bound."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Read `owns_source` (already present) to identify a member's own authored path when the guard consults the lock — read-only from the guard's side."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "guard passes a write to a file()-carried member's own .claude/ source (own_path) and still binds writes to projected .claude/ files"
+      }
+    ],
+    "acceptance": "The guard passes a write to a file()-carried member's own .claude/ source (own_path) and continues to bind writes to projected .claude/ files, reading the lock rather than a path regex alone.",
+    "notes": "Field report 1. For file()-carried members the .claude/ file is the source of truth, not a projection; the guard must read the lock's owned-source paths. blockedBy PATH-SEP-NORMALIZE (same install.rs file)."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
@@ -8,7 +272,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.4, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest — nothing moved this window."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.4, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest."
     },
     "dependsOnForks": [],
     "files": {
@@ -29,6 +293,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (distribution.md 'Fail-loud invariant').",
-    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.4); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs still pins SDK `^0.0.2` (0.0.4 published) — a release-owned bump, not this sweep."
+    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.4); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs `^0.0.2` range-correctness now owned by SCAFFOLD-OUTPUT-VALID (a live install bug); release owns only future re-pins."
   }
 ]

@@ -3,18 +3,17 @@
 - Spec derived through: 5945405
 - Audited through: 6ef5629
 - Residue swept through: 6ef5629
-- This tick: quiet closing pass. Inbox empty, no spec delta; the one commit
-  past the audit/residue cursors (6ef5629) is a plan commit touching only
-  `.flume/` — no un-audited code, no new residue. Verified the queue on disk:
-  CITE-RETAG live (per "Form rules" resolves; retired-layout cites +
-  `{shared,surface}` posture prose still in src/) and disjoint from
-  PACKAGING-CHANNELS (comments vs package.json/release.yml, no shared path).
-  PACKAGING park reason re-confirmed every clause: only temper.yml in
-  workflows, root package.json still the private flume manifest, sdk@0.0.4,
-  install.rs pins ^0.0.2. Advanced audited + residue cursors to HEAD; spec
-  cursor copied forward verbatim.
-- Queue: 2 — CITE-RETAG (open, pickable), PACKAGING-CHANNELS (parked: release
-  creds + engine-binary workflow).
+- This tick: Inbox — routed both field reports (17 findings) at 18dca38. Filed
+  9 pending entries; serialized the five install.rs findings into a blockedBy
+  chain (WIN-INSTALL-SPAWN→SCAFFOLD-OUTPUT-VALID→PATH-SEP-NORMALIZE→GUARD-OWNPATH)
+  and EXPLAIN-RESOLVER on REQUIREMENT-GATE. Registered 5 open forks
+  (json-write-fidelity, orphaned-projection, file-edge-resolution,
+  emit-eol-policy, surface-vocabulary — folds T4+T8). Drained inbox. Rewrote
+  PACKAGING notes: ^0.0.2 range-correctness now owned by SCAFFOLD-OUTPUT-VALID,
+  not release. Cursors copied verbatim (this was not a spec/audit/residue job).
+- Queue: 10 — 5 open/disjoint (REQUIREMENT-GATE, WIN-INSTALL-SPAWN,
+  WIN-EMIT-PATH, BUNDLE-REPORT-SHIPS, HELP-TEXT-RECUT), 4 blocked (install.rs
+  chain + EXPLAIN-RESOLVER), PACKAGING-CHANNELS parked.
 
-Plan continues: no — all inputs current and cursors at HEAD; one pickable
-entry (CITE-RETAG), build takes over.
+Plan continues: yes — ship audit live: CITE-RETAG shipped (9568c71/2e05ac6) and
+the repo-wide comment strip (dfba26f) sit past the 6ef5629 audit/residue cursors.
