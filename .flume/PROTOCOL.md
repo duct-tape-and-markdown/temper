@@ -35,7 +35,7 @@ This repo carries **two** harnesses with different owners:
    build agents themselves run inside, so it is hand-curated to an exemplary
    standard. The `build` phase never edits it; changes flow through human
    `chore(harness):` commits. (The recursive dogfood — temper gating this
-   repo's own harness — is deactivated; John's ruling, 2026-07-04.)
+   repo's own harness — is deactivated.)
 
 `writablePaths` in `chain.ts` enforces both exclusions mechanically.
 

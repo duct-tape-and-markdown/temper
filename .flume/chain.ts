@@ -71,11 +71,9 @@ const pendingParseGate: Gate = {
  * work, and both conditions are statically checkable, so check them here
  * (same pattern as the entry-fence preflight). The cursor claims ROUTED-ness
  * (every slice derived into entries or registered as a keyed open fork), so
- * fork-parked spec content never pins the marker — see the drained
- * plan-parked-marker-deadlock friction capture (e1e82c4) for the livelock a
- * derived-ness reading caused. Fail OPEN on bookkeeping errors (missing
- * files, unparseable cursor): a degradation is a missed catch, never a
- * wedged loop.
+ * fork-parked spec content never pins the marker. Fail OPEN on bookkeeping
+ * errors (missing files, unparseable cursor): a degradation is a missed
+ * catch, never a wedged loop.
  */
 const planHonestyGate: Gate = {
   name: "continuation marker is honest",
@@ -170,15 +168,13 @@ const testGate = shellGate({
   failHint: "Tests failed — entry reverted, returns to pending.",
 });
 
-// The self-hosting gate is RETIRED (John's ruling, 2026-07-04): the dogfood —
-// temper checking its host repo's own harness per tick — is deactivated as
-// cumbersome (two self-gate reverts, per-wave deactivation ceremony, a stale-
-// binary false-block discipline, finally the (inplace-lock-producer) fork).
-// Validation lives in the test suite's fixtures; a real dogfood returns when
-// the SDK-primary authoring path is the product's own front door.
+// No self-hosting gate: the dogfood — temper checking its host repo's own
+// harness per tick — is deactivated. Validation lives in the test suite's
+// fixtures; a real dogfood returns when the SDK-primary authoring path is
+// the product's own front door.
 
 /**
- * The SDK gate — resolves `(sdk-build-gate)`: `sdk/**` is TypeScript inside a
+ * The SDK gate: `sdk/**` is TypeScript inside a
  * cargo-gated pipeline, so without this a TS slice would pass every gate
  * trivially while its own compiler and tests never run. `pnpm --dir sdk test`
  * runs tsc + node --test; afterMerge (serial, on the trunk, where
@@ -255,11 +251,9 @@ const BUILD_WRITABLE_PATHS = [
 ];
 
 /**
- * Entry-fence preflight. Twice this week plan filed root-doc work whose declared
- * file paths fell outside build's writable globs (LICENSE-MIT, AGENTS.md): build
- * correctly bailed, but only after burning a session discovering statically
- * checkable facts. An entry declares its paths; the fence is declared globs —
- * whether the work fits its fence is decidable at plan time, so decide it here.
+ * Entry-fence preflight. An entry declares its paths; the fence is declared
+ * globs — whether the work fits its fence is decidable at plan time, so
+ * decide it here rather than let build discover it mid-tick.
  * Fails plan's commit with the offending paths; the human either widens the
  * fence (chain.ts is human territory) or plan re-scopes the entry.
  */
@@ -448,9 +442,8 @@ const makeAgent = (model: string) =>
  * runs on Opus; build executes one clearly-dictated entry under the cargo
  * gates and runs on Sonnet. The runtime exposes one shared `agent` export for
  * every phase, so route on the runtime's `<harness>` preamble line `Phase:
- * build` — the preamble precedes the template, so the template's own first
- * heading never reaches startsWith (the original `# ASSIGNED ENTRY` prefix
- * match silently routed every build tick to Opus).
+ * build` — the preamble precedes the template, so a template's own headings
+ * never reach the match.
  */
 const planAgent = makeAgent("claude-opus-4-8");
 const buildAgent = makeAgent("claude-sonnet-5");

@@ -59,12 +59,10 @@ chosen job half-done — the job is the atom.
    changes there before it changes anywhere. Derive one contained slice into
    entries and advance `Spec derived through:` to the last commit you have
    fully **routed**: every slice either derived into entries or registered as
-   a keyed open fork in open-questions. A fork record IS routing, not
-   avoidance — the resolution returns through the inbox, a fresh input that
-   wakes you; fork-parked content must never hold the cursor, or the loop
-   spins re-confirming "still parked" while pickable work starves. The cursor
-   is a claim of routed-ness, not of having looked. A big delta takes several
-   ticks; that is the design.
+   a keyed open fork in open-questions. A fork record IS routing — the
+   resolution returns through the inbox, a fresh input — so fork-parked
+   content never holds the cursor. The cursor is a claim of routed-ness, not
+   of having looked. A big delta takes several ticks; that is the design.
 
 3. **Ship audit** — commits past `Audited through:` touched `src/`, `tests/`,
    or `sdk/`. Verify on disk what shipped (read the files, never the log
@@ -139,8 +137,7 @@ the last `plan:` commit and silently skips past un-derived work.
 The marker is mechanical: `yes` iff an input below the one you serviced is
 still live, `no` otherwise. With `no` and pickable entries, build takes over;
 with `no` and none, the loop hibernates. Never re-emit an unchanged queue
-with `yes` — an identical queue and unmoved cursors is the spin the marker
-exists to kill.
+with unmoved cursors under `yes`.
 
 # FRICTION (optional — most ticks file nothing)
 
