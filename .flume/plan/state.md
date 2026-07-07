@@ -3,19 +3,19 @@
 - Spec derived through: 5945405
 - Audited through: c7595d3
 - Residue swept through: 8aeb64e
-- This tick: Residue sweep 6ef5629→HEAD. Comment-only window (citation strip +
-  CITE-RETAG + fmt); no spec delta, no named retirement. Swept code↔corpus:
-  found sdk/src/emit.ts:108/129 stale specs/architecture cites CITE-RETAG missed
-  (Rust-scoped; line 66 same file was retagged) — pure citation-class (message
-  bodies use current vocab), rides the next emit.ts entry (none pending), never
-  standalone. kind.rs fixture cites ride GUARD-OWNPATH; session_start +++
-  fixtures = tracked debt. `genre` is the retained fence-addressing HOW (value
-  types folded/closed via GENRE-FOLD; code-owned per depth rule), not residue.
-  Nothing to file. Residue cursor → HEAD.
+- This tick: Quiet closing pass. Inbox empty; spec delta empty (cursor at
+  5945405); ship audit c7595d3..HEAD is plan-commits only (no src/tests/sdk),
+  so no entry to drop; residue cursor trails HEAD by its own plan commit
+  (9ee736a, no code). Re-verified: queue disjoint — 5 open entries on disjoint
+  files (check.rs+engine.rs / install.rs / drift.rs / bundle.rs / main.rs); the
+  install.rs chain + EXPLAIN-RESOLVER serialized; PACKAGING park reason still
+  true on disk (only .github/workflows/temper.yml, no release.yml; root
+  package.json still the private temper-flume-harness manifest). All gate
+  reasons hold. Hand off to build.
 - Queue: 10 — 5 open/disjoint (REQUIREMENT-GATE, WIN-INSTALL-SPAWN,
   WIN-EMIT-PATH, BUNDLE-REPORT-SHIPS, HELP-TEXT-RECUT), 4 blocked (install.rs
   chain SCAFFOLD-OUTPUT-VALID→PATH-SEP-NORMALIZE→GUARD-OWNPATH; EXPLAIN-RESOLVER
   on REQUIREMENT-GATE), PACKAGING-CHANNELS parked.
 
-Plan continues: yes — quiet closing pass: inbox/delta/audit/residue now current;
-one closing pass (queue disjoint, gate reasons re-verified) remains.
+Plan continues: no — every input current, queue disjoint with gate reasons
+re-verified on disk; pickable open entries exist, so build takes over.
