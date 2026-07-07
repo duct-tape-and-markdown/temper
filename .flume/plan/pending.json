@@ -3,8 +3,8 @@
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Three channels"
+      "path": "specs/distribution.md",
+      "section": "What ships — three channels"
     },
     "gate": {
       "kind": "parked",
