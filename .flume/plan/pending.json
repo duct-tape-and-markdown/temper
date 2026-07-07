@@ -1,52 +1,5 @@
 [
   {
-    "tag": "BUILTIN-FLOOR-LOCK-PROJECTION",
-    "summary": "Reimplement builtin.rs's floor data as a projection of the built-in lock's clause rows (full predicate payload carried) — no hand-written clause vectors; retire the package noun",
-    "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin.rs",
-          "description": "contract()/contracts() build each kind's floor Contract from the parsed built-in lock's ClauseRows (predicate·bound/charset/keys/values·field·severity·guidance·cite, via builtin_lock::declarations().clauses grouped by kind label) instead of the hand-written skill_anthropic()/rule_anthropic()/memory_anthropic() clause vectors and the *_GUIDANCE consts; drop SKILL_PACKAGE/RULE_PACKAGE/MEMORY_ANTHROPIC_PACKAGE and BUILTIN_PACKAGE_NAMES. Package-level guidance retires with the noun (per-clause guidance rides the rows). Floors keyed by kind row label. Retire the `package std-lib`/PACKAGE.md doc comments and the `packages/<name>/PACKAGE.md` curated-tree citations (rust.md exit clause)."
-        },
-        {
-          "path": "src/builtin_lock.rs",
-          "description": "//! header staleness on contact (rust.md exit clause): builtin.rs now reads declarations() for its floors, so drop the 'nothing yet reads [declarations]' line and the dangling `BUILTIN-LOCK-ROW-DRIVEN` retired-tag reference — the projection is that wiring."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Any residual package-name floor lookup in the check dispatch (BUILTIN_FLOOR_BINDINGS :65-73, builtin_floor/floor_package :575-586) becomes a kind-label lookup over the projection (most already flattened by BUILTIN-KIND-FLATTEN)."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "The `explain` floor-name rendering (bound_package :156-157, :398-400) names the floor by its kind label, not a `<kind>.<source>` package name."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/rule_contract.rs",
-        "asserts": "the rule floor is the lock-projected contract keyed by the `rule` kind; its display name is the kind label, not `rule.anthropic`; declared severities, arguments, and guidance survive the projection"
-      },
-      {
-        "path": "tests/snapshots/read_verbs__why_dev_standards.snap",
-        "asserts": "the governing-floor line names the floor by its kind label (the `.anthropic` package names are gone); why_collaboration/why_lint_runner snapshots update alike"
-      }
-    ],
-    "acceptance": "builtin.rs carries no hand-written clause or guidance data — every built-in floor is a projection of the embedded lock's clause rows (predicate/argument/severity/field/guidance/cite); the package noun and its `<kind>.<source>` names are gone; contract_template.rs/acceptance.rs floor-name assertions update; gates green.",
-    "notes": "Now unblocked — LOCK-CLAUSE-PREDICATE-ARGS shipped (a89279c): the embedded lock's floor rows carry every predicate arg (bound/charset/keys/values) + field/severity/guidance/cite, so builtin_lock::declarations().clauses is a lossless floor source. Project each kind's Contract by grouping its rows by kind label; package-level guidance consts retire with the noun (per-clause guidance survives). Contract-the-Rust-type stays. Closes the derived-lock Decision's `no hand-written mirror`."
-  },
-  {
     "tag": "CHECK-LOCK-KIND-ROWS",
     "summary": "check models only the built-in kinds — read the committed lock's custom kind rows so custom-kind requirements resolve instead of false admissibility failures (cascade field report)",
     "per": {
