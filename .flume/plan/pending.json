@@ -1,40 +1,5 @@
 [
   {
-    "tag": "CHECK-LOCK-KIND-ROWS",
-    "summary": "Synthesize custom kinds from the committed lock's KindFactRows in gate() so a custom-kind requirement resolves instead of a false admissibility failure (cascade field report)",
-    "per": {
-      "path": "specs/architecture/20-surface.md",
-      "section": "The lock and drift — one vocabulary"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "In `gate` (and the read-arm twin at :416) the custom-kind corpus is hardcoded `let custom_kinds: Vec<CustomKindEntry> = Vec::new();` (:631/:416) and the kind-validation loop iterates `builtin_kind::definitions()` only (:571), so `by_kind`'s keys are `{skill,rule}` and a `require` naming a custom kind fails `requirement.admissibility` (\"names kind X, which temper does not model\") at roster.rs:177-184. Build the custom-kind slice from `declarations.kinds` (drift already parses these — verified), EXCLUDING rows whose name matches a built-in (those are the governs-overrides `effective_governs` already consumes at :755-765). Convert each surviving KindFactRow to a `CustomKind` via the new kind.rs ctor, run it through the existing generic `resolve_kind_units`/`kind_features` (:802/:847) and `assemble_by_kind`/`all_features` (:636/:641), and add it to the :571 validation loop so its floor clauses (from `declarations.clauses`, grouped by kind label) judge its members. Result: roster admissibility sees the kind, coverage counts real satisfiers on disk, conformance runs. Cut the now-false comments on contact per rust.md's exit clause: :626-630 (\"no SDK path exists in the engine yet\" / \"no custom kind contributes members or edges\") and the `Custom kinds retire with the KIND.md file format` lines at :398/:421/:888/:918."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "Add a `CustomKind` constructor reconstructing a kind from a `drift::KindFactRow`'s five-fact residue: name→label, `governs_root`+`governs_glob`→`Governs` locus, `format`/`unit_shape`→layout/`member_document` shape, `activation`→registration. Field-level extraction primitives are compile-time-only (`specs/architecture/15-kinds.md`, \"there is no kind file format\") and absent from the row, so the reconstructed kind's extraction stays generic — frontmatter/section reads keyed by each floor clause's `field` column, which the kind-blind engine already does — never a per-kind primitive list. Sits beside the existing `CustomKind::new`/`from_surface_dir` (:190/:549)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/session_start.rs",
-        "asserts": "a harness whose committed lock declares a custom kind AND a requirement naming it does NOT emit a false requirement.admissibility \"does not model\" finding; the requirement resolves against the lock-declared kind, and the kind's members on disk are walked and counted so coverage reports genuine fill status only"
-      }
-    ],
-    "acceptance": "`temper check` (and its session-start reporter) synthesizes custom kinds from the committed lock's KindFactRows, so a `require` naming a custom kind resolves against its declared kind — no false `requirement.admissibility` finding — and the kind's members are walked, counted, and floor-checked; the session-start gate no longer cries wolf on any custom-kind harness.",
-    "notes": "Cascade field report 07-06 — false blockers made cascade disable its SessionStart hook (law 3). Blocker BUILTIN-FLOOR-LOCK-PROJECTION shipped (5f68c8c). Agent trace 07-06: drift.rs already parses declarations.kinds; engine.rs is kind-blind (no edit); gate doesn't route through check.rs's Workspace. The fix is main.rs::gate feeding rows through the existing generic resolve_kind_units/assemble_by_kind + a KindFactRow→CustomKind ctor in kind.rs."
-  },
-  {
     "tag": "COMMENT-STOCK-SWEEP",
     "summary": "Whole-tree comment sweep — prose spec recaps to pointer tags, delete era + compliance narration, retired-tree citations, and dangling pending-tag refs per rust.md's taxonomy; no behavior change",
     "per": {
