@@ -38,8 +38,9 @@ use crate::builtin_kind;
 use crate::check::Diagnostic;
 use crate::compose::EnforcementMode;
 use crate::drift::{self, ApplyOutcome, EmitReport};
+use crate::frontmatter;
 use crate::import;
-use crate::kind::UnitShape;
+use crate::kind::{Registration, UnitShape};
 
 /// The workspace directory a represented project's SDK program lives under, beside
 /// the harness it governs.
@@ -54,8 +55,10 @@ const SDK_PACKAGE: &str = "@dtmd/temper";
 
 /// The dependency range `install` writes when `.temper/package.json` does not
 /// already declare [`SDK_PACKAGE`] — the current published line
-/// (`docs/ledger.md`, "`@dtmd/temper@0.0.2` on npm").
-const SDK_VERSION_RANGE: &str = "^0.0.2";
+/// (`sdk/package.json`, released in `813ca619` "seam v2"; a fresh `^0.0.2`
+/// install would resolve to 0.0.2, which predates the `file()` export the
+/// scaffold imports).
+const SDK_VERSION_RANGE: &str = "^0.0.4";
 
 /// The exec-form command Claude Code runs at session start: the `temper` binary
 /// itself, checking the project root under the advisory session-start reporter.
@@ -854,13 +857,19 @@ fn scaffold(
 ) -> miette::Result<usize> {
     let kinds = builtin_kind::definitions()?;
 
-    let mut lifted: Vec<(String, String, PathBuf)> = Vec::new();
+    let mut lifted: Vec<(String, String, PathBuf, Option<String>)> = Vec::new();
     for (name, files) in &discovery.members {
         let Some(kind) = kinds.get(name) else {
             continue;
         };
         for file in files {
-            lifted.push((name.clone(), member_name(kind, file)?, file.clone()));
+            let description = description_trigger_value(kind, file)?;
+            lifted.push((
+                name.clone(),
+                member_name(kind, file)?,
+                file.clone(),
+                description,
+            ));
         }
     }
     lifted.sort();
@@ -870,14 +879,14 @@ fn scaffold(
     }
 
     let mut scaffolded = Vec::with_capacity(lifted.len());
-    for (kind, name, source) in &lifted {
+    for (kind, name, source, description) in &lifted {
         let ident = member_ident(kind, name);
         let rel_path = relative_to_workspace(root, source)?;
         let import_path = format!("./{}/{name}.ts", member_dir(kind));
         let module_path = temper_dir.join(member_dir(kind)).join(format!("{name}.ts"));
         write_scaffold_file(
             &module_path,
-            &member_module_source(kind, name, &ident, &rel_path),
+            &member_module_source(kind, name, &ident, &rel_path, description.as_deref()),
         )?;
         scaffolded.push(ScaffoldedMember { ident, import_path });
     }
@@ -902,6 +911,29 @@ fn member_name(kind: &crate::kind::CustomKind, file: &Path) -> miette::Result<St
         .and_then(|c| c.to_str())
         .map(str::to_string)
         .ok_or_else(|| miette::miette!("cannot derive a member name from {}", file.display()))
+}
+
+/// A discovered member's description-trigger value, when its kind declares one
+/// (`Registration::DescriptionTrigger`) — a skill's `description` is always in
+/// context, so the SDK's `Skill.description` is a required field; a scaffolded
+/// module that omits it fails `tsc` before a single deepening edit. `None` when
+/// the kind registers by some other mechanism, or `file`'s frontmatter carries
+/// no value for the field.
+///
+/// # Errors
+/// Returns a [`miette::Report`] if `file`'s frontmatter cannot be read.
+fn description_trigger_value(
+    kind: &crate::kind::CustomKind,
+    file: &Path,
+) -> miette::Result<Option<String>> {
+    let Some(Registration::DescriptionTrigger { field }) = &kind.registration else {
+        return Ok(None);
+    };
+    let member = frontmatter::Member::from_source(kind, file)?;
+    Ok(member
+        .field(field)
+        .and_then(JsonValue::as_str)
+        .map(str::to_string))
 }
 
 /// A member module's TS identifier: kind-prefixed so a skill and a rule sharing a
@@ -930,15 +962,27 @@ fn relative_to_workspace(root: &Path, source: &Path) -> miette::Result<String> {
     Ok(format!("../{}", relative.to_string_lossy()))
 }
 
-/// One lifted member's module source — no typed fields at all: the whole original
-/// file (frontmatter included) rides through as the `file()` body verbatim, so the
-/// projection is byte-identical to the source it came from (own-path,
-/// "Drift" — a member whose `file()` source is its own
-/// projected path is authored territory). Depth (`description`, `satisfies`, …)
-/// accrues later, member by member, under the author's own pen — never scaffolded.
-fn member_module_source(kind: &str, name: &str, ident: &str, rel_path: &str) -> String {
+/// One lifted member's module source: the whole original file (frontmatter
+/// included) rides through as the `file()` body verbatim, so the projection is
+/// byte-identical to the source it came from (own-path, "Drift" — a member
+/// whose `file()` source is its own projected path is authored territory).
+/// `description` carries the kind's description-trigger value forward when the
+/// source declares one ([`description_trigger_value`]) — the one field a
+/// scaffolded module cannot omit and still typecheck. Every other field
+/// (`satisfies`, `license`, …) still accrues later, member by member, under the
+/// author's own pen — never scaffolded.
+fn member_module_source(
+    kind: &str,
+    name: &str,
+    ident: &str,
+    rel_path: &str,
+    description: Option<&str>,
+) -> String {
+    let description_field = description
+        .map(|value| format!("  description: {value:?},\n"))
+        .unwrap_or_default();
     format!(
-        "import {{ file, {kind} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {kind}({{\n  name: {name:?},\n  prose: file({rel_path:?}),\n}});\n"
+        "import {{ file, {kind} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {kind}({{\n  name: {name:?},\n{description_field}  prose: file({rel_path:?}),\n}});\n"
     )
 }
 
@@ -1246,4 +1290,113 @@ pub fn render(outcome: &InstallOutcome) -> String {
         "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted\n"
     ));
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    use super::*;
+
+    /// A fresh, empty temp directory unique to this test run.
+    fn tmpdir(label: &str) -> PathBuf {
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "install-scaffold-{}-{}-{}",
+            std::process::id(),
+            id,
+            label
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn member_module_source_carries_a_present_description() {
+        let source = member_module_source(
+            "skill",
+            "coordinate",
+            "skill_coordinate",
+            "../.claude/skills/coordinate/SKILL.md",
+            Some("Use when coordinating agents across axes."),
+        );
+        assert_eq!(
+            source,
+            "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
+             export const skill_coordinate = skill({\n  \
+             name: \"coordinate\",\n  \
+             description: \"Use when coordinating agents across axes.\",\n  \
+             prose: file(\"../.claude/skills/coordinate/SKILL.md\"),\n});\n"
+        );
+    }
+
+    #[test]
+    fn member_module_source_omits_the_field_with_no_description() {
+        let source = member_module_source(
+            "rule",
+            "rust",
+            "rule_rust",
+            "../.claude/rules/rust.md",
+            None,
+        );
+        assert_eq!(
+            source,
+            "import { file, rule } from \"@dtmd/temper/claude-code\";\n\n\
+             export const rule_rust = rule({\n  \
+             name: \"rust\",\n  \
+             prose: file(\"../.claude/rules/rust.md\"),\n});\n"
+        );
+    }
+
+    #[test]
+    fn description_trigger_value_reads_a_skills_description() {
+        let kinds = builtin_kind::definitions().unwrap();
+        let skill = kinds.get("skill").unwrap();
+        let dir = tmpdir("skill-description");
+        let member_dir = dir.join("coordinate");
+        fs::create_dir_all(&member_dir).unwrap();
+        fs::write(
+            member_dir.join("SKILL.md"),
+            "---\nname: coordinate\ndescription: Use when coordinating agents.\n---\n# Coordinate\n",
+        )
+        .unwrap();
+        assert_eq!(
+            description_trigger_value(skill, &member_dir.join("SKILL.md"))
+                .unwrap()
+                .as_deref(),
+            Some("Use when coordinating agents.")
+        );
+    }
+
+    #[test]
+    fn description_trigger_value_is_none_off_a_kind_with_no_description_trigger() {
+        let kinds = builtin_kind::definitions().unwrap();
+        let rule = kinds.get("rule").unwrap();
+        let dir = tmpdir("rule-no-trigger");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("rust.md"),
+            "---\npaths:\n  - \"src/**/*.rs\"\n---\n# Rust\n",
+        )
+        .unwrap();
+        assert_eq!(
+            description_trigger_value(rule, &dir.join("rust.md")).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn ensure_package_json_pins_a_range_past_the_file_export() {
+        let dir = tmpdir("package-json-seam");
+        ensure_package_json(&dir).unwrap();
+        let written: JsonValue =
+            serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
+        assert_eq!(written["dependencies"][SDK_PACKAGE], SDK_VERSION_RANGE);
+        assert_ne!(
+            SDK_VERSION_RANGE, "^0.0.2",
+            "^0.0.2 pins the patch to 0.0.2, which predates the `file` export the scaffold imports"
+        );
+    }
 }

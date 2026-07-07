@@ -283,6 +283,24 @@ fn representing_lifts_every_discovered_member_byte_stable_with_no_guard_claim() 
     assert!(temper_dir.join("rules").join("collaboration.ts").is_file());
     assert!(temper_dir.join("lock.toml").is_file());
 
+    // `Skill.description` is a required SDK field — the scaffolded module must carry
+    // the source's description forward or it fails `tsc` before a single deepening
+    // edit; a rule's module (no description-trigger field) carries no such line.
+    assert!(
+        fs::read_to_string(temper_dir.join("skills").join("coordinate.ts"))
+            .unwrap()
+            .contains(
+                "description: \"Use when coordinating agents across axes; not for single-axis work.\","
+            ),
+        "the scaffolded skill module must carry the source's required description forward"
+    );
+    assert!(
+        !fs::read_to_string(temper_dir.join("rules").join("rust.ts"))
+            .unwrap()
+            .contains("description:"),
+        "a rule has no description-trigger field, so its module carries no description line"
+    );
+
     // Every lifted member's projection is byte-identical to its original source —
     // the lift's own no-op-on-content guarantee.
     let emit = outcome.emit.as_ref().expect("the yes-path ran a real emit");
