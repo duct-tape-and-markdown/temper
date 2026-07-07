@@ -63,6 +63,37 @@
     "notes": "Field ruling 0010 (spec delta f4189c3): EOL is layout, not content — the verbatim invariant guards words, one byte wider than leaf whitespace. Emit-only; the import/read side is unchanged. own_path body (a file()-carried member's own source) also normalizes per 'uniformly, whatever the source's convention.' Shares src/drift.rs emit + tests/emit.rs with EMIT-REAP-ORPHANS → blockedBy it. 0008/0009/0011 unrouted. scoped at d69987f."
   },
   {
+    "tag": "UNCLAIMED-ENTRY-ADVISORY",
+    "summary": "coverage note scans only its curated known-surface list, so a stray ungoverned `.claude/` entry sails through silent — flag any `.claude/` entry no kind or known surface covers as a warn advisory",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The named expansion — what the model reaches next"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/coverage_note.rs",
+          "description": "`check`:103 iterates only the curated `KNOWN_SURFACES`:64 list, so an entry under `.claude/` that is on no built-in/locked kind's locus AND on no known surface (a bogus `.clauignore`, a stray `.claude/notes.md`) is examined by nothing and passes silently. Add a scan of the actual entries directly under `<root>/.claude/`: for each, skip it when a governing kind covers it (the `governs`:202 / `governed_by_any`:192 logic, generalized off `KnownSurface` to an arbitrary relative path, reading the same built-in + locked-kind set `with_locked_kinds`:159 assembles) or a `KNOWN_SURFACES` entry already names it (those keep their richer `UNMODELED_RULE`:28 `coverage.unmodeled-surface` message — never double-report), else emit a new warn `coverage.unclaimed-entry` diagnostic naming the stray path. Honor the repository's ignore rules (a gitignored `.claude/` entry is by declaration not authored here — the `ignore` crate, as discovery does), so a gitignored stray never fires. Warn severity only — never gates, session-start ignores it, exactly as the existing coverage findings. Contained here: `check(root, kinds, member_counts)` already carries `root`; no main.rs:744 call-site change."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/coverage_note.rs",
+        "asserts": "a stray `.claude/` entry no kind governs and no known surface names (a `.clauignore`, a stray file) fires exactly one warn `coverage.unclaimed-entry` finding; a governed locus (`.claude/skills`) and a curated known surface (`.claude/agents`, `.claude/settings.json`) never fire it — no double-report with `coverage.unmodeled-surface`; a gitignored stray fires nothing; the finding is warn severity (never error, never a session-start verdict)"
+      }
+    ],
+    "acceptance": "A `.claude/` entry that no in-scope kind governs and no curated known surface names — a bogus `.clauignore` — is surfaced as a warn `coverage.unclaimed-entry` advisory rather than sailing through silent; governed loci and known surfaces do not double-report, a gitignored stray never fires, and the finding never gates.",
+    "notes": "Field report 2026-07-07 -> decision 0011: vocabulary now covers documented capability, so what remains unclaimed under `.claude/` is a genuine stray, not a vocab gap — the advisory becomes shippable. Distinct rule from `coverage.unmodeled-surface`. Contained to src/coverage_note.rs + in-module tests via the existing check(root,kinds,member_counts) inputs; collision-free. 0011's command/agent kinds + user-invoked value stay derivable-later; f4189c3 not fully routed. scoped at 34dee6e."
+  },
+  {
     "tag": "GUARD-OWNPATH",
     "summary": "the PreToolUse guard regex-matches any .claude/ file_path without reading the lock; for file()-carried members the .claude/ file IS the authored source, so block denies editing the source of truth",
     "per": {
