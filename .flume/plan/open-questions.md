@@ -79,10 +79,11 @@ tax.
   parallel struct? The plain reading is ambiguous: "a nested member is a full
   member with its own kind" reads as a model statement the genre struct
   already satisfies, yet "members all the way down" reads as a structural
-  mandate. Entangled with VACATE-KIND-NOUN's files
-  (extract/kind/read/engine/graph/roster) — the reconciliation serializes
-  after VACATE regardless. Routes the genre + `architecture/*`-cite residue
-  class. Needs John: a keep-mechanism-vs-restructure call, not mechanical.
+  mandate. VACATE-KIND-NOUN shipped (0dab4be), so the files this reconciliation
+  touches (extract/kind/read/engine/graph/roster) are free — it no longer
+  serializes behind anything and awaits only the ruling. Routes the genre +
+  `architecture/*`-cite residue class. Needs John: a keep-mechanism-vs-restructure
+  call, not mechanical.
 
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
