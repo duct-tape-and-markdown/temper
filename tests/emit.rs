@@ -233,7 +233,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
         });
     payload.declarations.assembly.push(drift::AssemblyFactRow {
         fact: "authority".to_string(),
-        value: Some("shared".to_string()),
+        value: Some("warn".to_string()),
         from: None,
         field: None,
         to: None,

@@ -21,13 +21,15 @@ export interface ExpectBinding {
 }
 
 /**
- * The declared enforcement-mode vocabulary — how firmly the harness owns its
- * projections (`specs/decisions/0005-mode-on-root-member.md`). `shared`
- * (default): direct on-disk edits stay first-class, a hand edit surfaces as
- * drift, guards inform and route. `surface`: the author opts into
- * enforcement — the guard hook's write-boundary block.
+ * The declared enforcement-mode vocabulary — how firmly the `PreToolUse` guard
+ * binds a tool call, split by where the finding goes
+ * (`specs/decisions/0005-mode-on-root-member.md`,
+ * `specs/decisions/0006-guard-mode-vocabulary.md`). `block`: denies the call.
+ * `warn` (default): allows the call and surfaces the finding in-band, into the
+ * live context. `note`: allows the call and records the finding out-of-band
+ * only — the next report, never the session.
  */
-export type EnforcementMode = "shared" | "surface";
+export type EnforcementMode = "note" | "warn" | "block";
 
 /** The composed harness — the root member's own fields, erased to rows at the seam. */
 export interface Harness {
@@ -42,7 +44,7 @@ export interface Harness {
   /**
    * The root member's declared enforcement mode — harness-wide, overridable
    * per member (deferred, `specs/decisions/0005-mode-on-root-member.md`
-   * Consequences). Defaults to `shared`: temper fabricates no enforcement the
+   * Consequences). Defaults to `warn`: temper fabricates no enforcement the
    * author did not declare.
    */
   readonly mode: EnforcementMode;
@@ -51,7 +53,7 @@ export interface Harness {
 /**
  * Compose the harness from its five fields — ordinary code, Turing-completeness
  * quarantined at authoring time (`specs/intent.md`, the SDK Decision). Absent
- * fields default empty (`mode` defaults `shared`); the member list is the
+ * fields default empty (`mode` defaults `warn`); the member list is the
  * only required part.
  */
 export function harness(init: {
@@ -66,6 +68,6 @@ export function harness(init: {
     expect: init.expect ?? [],
     require: init.require ?? {},
     settings: init.settings ?? {},
-    mode: init.mode ?? "shared",
+    mode: init.mode ?? "warn",
   };
 }

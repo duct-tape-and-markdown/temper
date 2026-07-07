@@ -435,21 +435,22 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     // enforcement mode declared in the harness's lock (`specs/model/
     // representation.md`, "The root member" — the lock is what names a path a
     // projection, so it is also the sole source for how firmly that projection is
-    // enforced). A `surface` lock blocks a `.claude/` write (exit 2); a
-    // non-projection write is allowed (exit 0).
-    let root = tmpdir("guard-surface");
+    // enforced). A `block` lock blocks a `.claude/` write (exit 2); a
+    // non-projection write is allowed (exit 0). `warn`/`note` both allow a
+    // projection write (`specs/decisions/0006-guard-mode-vocabulary.md`).
+    let root = tmpdir("guard-block");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
         temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"surface\"\n",
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n",
     )
     .unwrap();
 
-    let run = |payload: &str| {
+    let run_in = |root: &std::path::Path, payload: &str| {
         let mut child = Command::new(BIN)
             .arg("guard")
-            .arg(&root)
+            .arg(root)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -463,12 +464,13 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
             .unwrap();
         child.wait_with_output().unwrap()
     };
+    let run = |payload: &str| run_in(&root, payload);
 
     let blocked = run("{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}");
     assert_eq!(
         blocked.status.code(),
         Some(2),
-        "a surface harness blocks a projection write"
+        "a block harness blocks a projection write"
     );
     assert!(
         String::from_utf8_lossy(&blocked.stderr).contains("temper-managed projection"),
@@ -478,6 +480,26 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     let allowed = run("{\"tool_input\":{\"file_path\":\"README.md\"}}");
     assert!(
         allowed.status.success(),
-        "a non-projection write is allowed even under `surface`"
+        "a non-projection write is allowed even under `block`"
     );
+
+    for mode in ["warn", "note"] {
+        let root = tmpdir(&format!("guard-{mode}"));
+        let temper_dir = root.join(".temper");
+        fs::create_dir_all(&temper_dir).unwrap();
+        fs::write(
+            temper_dir.join("lock.toml"),
+            format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n"),
+        )
+        .unwrap();
+
+        let projection_write = run_in(
+            &root,
+            "{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}",
+        );
+        assert!(
+            projection_write.status.success(),
+            "a `{mode}` harness allows a projection write"
+        );
+    }
 }

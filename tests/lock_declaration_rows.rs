@@ -112,7 +112,7 @@ fn skill_and_rule_members() -> Vec<PayloadMember> {
     ]
 }
 
-/// A rich declaration set: a `surface` enforcement mode, a `required` requirement, a
+/// A rich declaration set: a `block` enforcement mode, a `required` requirement, a
 /// second requirement exercising every set-scope facet (`count`/`unique`/`membership`/
 /// `degree`), and a member that opts into both via `satisfies` — so the requirement and
 /// satisfies families carry more than the bare-payload minimum.
@@ -239,7 +239,7 @@ fn rich_declarations() -> Declarations {
         ],
         assembly: vec![AssemblyFactRow {
             fact: "mode".to_string(),
-            value: Some("surface".to_string()),
+            value: Some("block".to_string()),
             from: None,
             field: None,
             to: None,
@@ -388,7 +388,7 @@ fn lock_carries_all_four_declaration_families() {
         .iter()
         .find(|f| f.fact == "mode")
         .expect("the mode fact is recorded");
-    assert_eq!(mode.value.as_deref(), Some("surface"));
+    assert_eq!(mode.value.as_deref(), Some("block"));
 }
 
 #[test]

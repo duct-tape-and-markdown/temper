@@ -14,21 +14,26 @@
 use crate::contract::{self, Contract};
 use crate::drift::ClauseRow;
 
-/// The harness's declared **enforcement mode** — how firmly the surface owns its
-/// projections: a closed vocabulary the author declares on the root member
-/// (`specs/model/representation.md`, "The root member"; `specs/decisions/
-/// 0005-mode-on-root-member.md`), never a stance temper bakes in. Defaults to
-/// [`Shared`](EnforcementMode::Shared).
+/// The harness's declared **enforcement mode** — how firmly the guard binds a tool
+/// call, split by where the finding goes: a closed vocabulary the author declares on
+/// the root member (`specs/model/representation.md`, "The root member";
+/// `specs/decisions/0005-mode-on-root-member.md`), never a stance temper bakes in.
+/// Defaults to [`Warn`](EnforcementMode::Warn) (`specs/distribution.md`, "The
+/// placements and their enforcement modes"; `specs/decisions/
+/// 0006-guard-mode-vocabulary.md`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum EnforcementMode {
-    /// Direct on-disk edits stay first-class — a hand edit surfaces as drift routed to
-    /// the authored source, guards inform and route. The default: enforcement mode is
-    /// author-declared per placement, never assumed (`specs/intent.md` invariant 5).
+    /// Allows the call and records the finding out-of-band only — the next report,
+    /// never the live session. The newly expressible tier; unreachable until an
+    /// author declares it.
+    Note,
+    /// Allows the call and surfaces the finding in-band, into the live context. The
+    /// default: enforcement mode is author-declared per placement, never assumed
+    /// (`specs/intent.md` invariant 5).
     #[default]
-    Shared,
-    /// The author opts into enforcement — the managed-by note and the guard hook's
-    /// write-boundary block (the consumers' concern, not this slice's).
-    Surface,
+    Warn,
+    /// Denies the call.
+    Block,
 }
 
 /// A declared **edge relationship** — a kind capability declared on the owning kind's

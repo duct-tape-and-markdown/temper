@@ -1,7 +1,7 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
 # the three built-in kinds' facts and their floor clauses, plus the unconditional
-# `mode = "shared"` assembly fact — the root member's own enforcement mode
+# `mode = "warn"` assembly fact — the root member's own enforcement mode
 # (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
 # emit-fingerprint rows — nothing was emitted, there are no members.
@@ -173,4 +173,4 @@ keys = ["globs", "alwaysApply"]
 
 [[declaration.assembly]]
 fact = "mode"
-value = "shared"
+value = "warn"

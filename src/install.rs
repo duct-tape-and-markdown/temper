@@ -568,32 +568,40 @@ fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
 
 /// The verdict `temper guard` reaches over a `PreToolUse` payload at the root
 /// member's declared enforcement mode (`specs/model/representation.md`, "The root
-/// member"): whether Claude Code's pending write is allowed, informed-and-routed,
-/// or blocked. temper never escalates past the mode the harness declares.
+/// member"): whether Claude Code's pending write is allowed (silently, in-band, or
+/// deferred out-of-band) or blocked. temper never escalates past the mode the
+/// harness declares.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GuardVerdict {
     /// The write does not target a `.claude/` projection — allow it silently.
     Allow,
-    /// A projection edit under the `shared` mode — inform and route to `emit`, exit 0.
+    /// A projection edit under the `note` mode — allow the call, exit 0, with no
+    /// in-band context injection: the finding is out-of-band only, riding the next
+    /// `check`/report, never the live session.
+    Note,
+    /// A projection edit under the `warn` mode — allow it and surface the finding
+    /// in-band, exit 0.
     Warn,
-    /// A projection edit under the `surface` mode — block the write (exit 2).
+    /// A projection edit under the `block` mode — deny the write (exit 2).
     Block,
 }
 
 /// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `mode`'s
 /// enforcement posture. A write whose `file_path` targets a `.claude/` projection
-/// maps onto the mode vocabulary — `shared` informs and routes
-/// ([`GuardVerdict::Warn`]), `surface` blocks ([`GuardVerdict::Block`]). Any other
-/// write, or a payload naming no `.claude/` `file_path`, is [`GuardVerdict::Allow`]:
-/// the guard binds only projection edits.
+/// maps onto the mode vocabulary, split by where the finding goes: `note` defers it
+/// out-of-band ([`GuardVerdict::Note`]), `warn` surfaces it in-band
+/// ([`GuardVerdict::Warn`]), `block` denies the call ([`GuardVerdict::Block`]). Any
+/// other write, or a payload naming no `.claude/` `file_path`, is
+/// [`GuardVerdict::Allow`]: the guard binds only projection edits.
 #[must_use]
 pub fn guard(payload: &str, mode: EnforcementMode) -> GuardVerdict {
     if !targets_projection(payload) {
         return GuardVerdict::Allow;
     }
     match mode {
-        EnforcementMode::Shared => GuardVerdict::Warn,
-        EnforcementMode::Surface => GuardVerdict::Block,
+        EnforcementMode::Note => GuardVerdict::Note,
+        EnforcementMode::Warn => GuardVerdict::Warn,
+        EnforcementMode::Block => GuardVerdict::Block,
     }
 }
 

@@ -193,7 +193,7 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       verified_by: "tests/dev-standards.test.ts",
     },
   ]);
-  assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "shared" }]);
+  assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
 });
 
@@ -209,13 +209,13 @@ test("compileDeclarations emits no uncoined `authority` fact, and the root membe
   );
   assert.deepEqual(
     defaulted.assembly.find((fact) => fact.fact === "mode"),
-    { fact: "mode", value: "shared" },
+    { fact: "mode", value: "warn" },
   );
 
-  const surfaced = harness({ ...fullHarness(), mode: "surface" });
+  const blocked = harness({ ...fullHarness(), mode: "block" });
   assert.deepEqual(
-    compileDeclarations(surfaced).assembly.find((fact) => fact.fact === "mode"),
-    { fact: "mode", value: "surface" },
+    compileDeclarations(blocked).assembly.find((fact) => fact.fact === "mode"),
+    { fact: "mode", value: "block" },
   );
 });
 

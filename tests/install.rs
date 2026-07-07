@@ -550,36 +550,36 @@ fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
 }
 
 #[test]
-fn guard_reads_the_surface_posture_from_the_lock_not_the_retired_manifest() {
-    let root = tmpdir("lock-posture-surface");
+fn guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest() {
+    let root = tmpdir("lock-posture-block");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
         temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"surface\"\n",
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n",
     )
     .unwrap();
     // A stray retired manifest naming the opposite posture must be ignored entirely —
     // the manifest is never read at all, by this or any other verb.
     fs::write(
         root.join(format!("temper{}toml", '.')),
-        "authority = \"shared\"\n",
+        "authority = \"warn\"\n",
     )
     .unwrap();
 
     let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
-    assert_eq!(code, Some(2), "the lock's `surface` posture must block");
+    assert_eq!(code, Some(2), "the lock's `block` posture must block");
     assert!(stderr.contains("other tools writes are not bound by it"));
 }
 
 #[test]
-fn guard_defaults_to_shared_when_the_lock_is_absent() {
+fn guard_defaults_to_warn_when_the_lock_is_absent() {
     let root = tmpdir("lock-posture-absent");
     let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(
         code,
         Some(0),
-        "no lock ⇒ default shared, warns but never blocks"
+        "no lock ⇒ default warn, warns but never blocks"
     );
     assert!(stderr.contains("temper-managed projection"));
 

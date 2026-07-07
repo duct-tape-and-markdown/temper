@@ -331,18 +331,20 @@ fn main() -> miette::Result<ExitCode> {
         Command::Guard { path } => {
             // The guard at Claude Code's write boundary: read the `PreToolUse` payload
             // from stdin, and — when it targets a `.claude/` projection — act at the
-            // author's declared enforcement mode. `shared` informs and routes (exit 0);
-            // `surface` blocks (exit 2). temper never escalates past the mode the lock
-            // declares — the lock is what names a path a projection, so it is also the
-            // sole source for how firmly that projection is enforced (`specs/model/
-            // representation.md`, "The root member"). An unrepresented harness (no
-            // lock) reads the default `shared`, matching `compose::EnforcementMode`'s
-            // own default.
+            // author's declared enforcement mode, three values split by where the
+            // finding goes: `note` allows and defers out-of-band (exit 0, no in-band
+            // message — the next report, never the session); `warn` allows and surfaces
+            // in-band (exit 0); `block` denies (exit 2). temper never escalates past the
+            // mode the lock declares — the lock is what names a path a projection, so it
+            // is also the sole source for how firmly that projection is enforced
+            // (`specs/model/representation.md`, "The root member"). An unrepresented
+            // harness (no lock) reads the default `warn`, matching
+            // `compose::EnforcementMode`'s own default.
             let mode = mode_from_lock(&path.join(TEMPER_DIR));
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
             Ok(match install::guard(&payload, mode) {
-                install::GuardVerdict::Allow => ExitCode::SUCCESS,
+                install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
                 install::GuardVerdict::Warn => {
                     eprintln!("{}", install::GUARD_MESSAGE);
                     ExitCode::SUCCESS
@@ -497,7 +499,7 @@ fn explain(target: &str) -> miette::Result<String> {
 /// (`specs/model/representation.md`, "The root member"): the root member's `mode`
 /// fact in `<workspace_dir>/lock.toml`'s assembly declaration rows. An unrepresented
 /// harness (no lock, or one predating the field) reads
-/// [`compose::EnforcementMode::default`] — `shared` — matching the lock-less
+/// [`compose::EnforcementMode::default`] — `warn` — matching the lock-less
 /// "nothing to bind" posture everywhere else in this module.
 fn mode_from_lock(workspace_dir: &Path) -> compose::EnforcementMode {
     drift::read_declarations(workspace_dir)
@@ -507,8 +509,9 @@ fn mode_from_lock(workspace_dir: &Path) -> compose::EnforcementMode {
         .find(|row| row.fact == "mode")
         .and_then(|row| row.value.as_deref())
         .and_then(|value| match value {
-            "surface" => Some(compose::EnforcementMode::Surface),
-            "shared" => Some(compose::EnforcementMode::Shared),
+            "note" => Some(compose::EnforcementMode::Note),
+            "warn" => Some(compose::EnforcementMode::Warn),
+            "block" => Some(compose::EnforcementMode::Block),
             _ => None,
         })
         .unwrap_or_default()
