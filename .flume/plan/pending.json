@@ -104,7 +104,7 @@
       }
     ],
     "acceptance": "builtin.rs carries no hand-written clause or guidance data — every built-in floor is a projection of the embedded lock's clause rows (predicate/severity/field/guidance/cite); the package noun and its `<kind>.<source>` names are gone; contract_template.rs/acceptance.rs floor-name assertions update; gates green.",
-    "notes": "Second consumer link. Needs LOCK-CLAUSE-CHANNELS (guidance+cite in the rows) and BUILTIN-KIND-FLATTEN (flat kind labels, package binding removed). Contract-the-Rust-type stays (code owns the type name; a rename is out of scope). Closes the derived-lock Decision's `no hand-written mirror of the SDK's floors`."
+    "notes": "Second consumer link. LOCK-CLAUSE-CHANNELS shipped (eca35e6 — guidance+cite ride the rows); blocked now only by BUILTIN-KIND-FLATTEN (flat labels, package binding removed). Contract-the-Rust-type stays (code owns the type name; rename out of scope). Closes the derived-lock Decision's `no hand-written mirror of the SDK's floors`."
   },
   {
     "tag": "CHECK-LOCK-KIND-ROWS",

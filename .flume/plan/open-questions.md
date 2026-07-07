@@ -107,12 +107,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   — kept because an external format's mechanics are temper's to implement
   once; the selection is declared. Grows only by deliberate addition.
 - **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived,
-  retirement filed: BUILTIN-LOCK-ROW-DRIVEN removes the `kinds/`-tree refs
-  (builtin_kind.rs's KIND.md doc comments) and CURATED-TREES-RETIRE the
-  `packages/`-tree refs (bundle.rs's PACKAGE.md embeds) — citation trail moves
-  to clause `cite` fields per `10-contracts.md`; the physical tree deletion is
-  a human `chore(harness):` commit after (the trees are out of build's fence).
-  This line dies on the reconcile that sees both land.
+  retirement filed: CURATED-TREES-RETIRE **shipped** (911ffb3 — bundle.rs's
+  `packages/`-tree PACKAGE.md embeds gone); BUILTIN-KIND-FLATTEN still removes
+  the `kinds/`-tree refs (builtin_kind.rs's KIND.md doc comments) — citation
+  trail moves to clause `cite` fields per `10-contracts.md`; the physical tree
+  deletion is a human `chore(harness):` commit after (out of build's fence).
+  This line dies on the reconcile that sees FLATTEN land.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the custom-kind story
   proves end to end.
