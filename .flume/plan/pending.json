@@ -1,49 +1,14 @@
 [
   {
-    "tag": "LOCK-CLAUSE-CHANNELS",
-    "summary": "Carry guidance+cite on the compiled clause row across the SDK→lock seam and the embedded built-in lock — today both are dropped, so the offline gate can't teach from a derived floor",
-    "per": {
-      "path": "specs/architecture/10-contracts.md",
-      "section": "The clause — the atom of a contract"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "The `ClauseRow` interface gains `guidance?`/`cite?`; `clauseRow()` (:72) emits them from the `Clause` value — every SDK floor clause already carries `guidance` + `cite`, but the compiled row drops both at the seam today. The four-channel clause (predicate·severity·guidance·cite, 10-contracts) must survive erasure so the gate can quote guidance at a failure."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`ClauseRow` (:972) gains `guidance`/`cite` as `#[serde(default)] Option<String>` columns, round-tripped in the lock's `[[declaration.clause]]` rows exactly like the other optional columns; `parse_declarations`/`read_declarations`/emit carry them through. Removes the `ClauseRow carries no citation column at all today` note (:990)."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Re-derive via the memberless module emit (the file's own header: regenerate, never hand-edit) so every `[[declaration.clause]]` row now carries its module floor clause's guidance + cite verbatim."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a built-in clause row carries the module floor's guidance+cite — e.g. skill `max_lines` advisory carries its progressive-disclosure guidance and agentskills cite through the derived lock"
-      }
-    ],
-    "acceptance": "The compiled clause row carries guidance+cite end to end — the SDK emits them, drift deserializes them, and the embedded built-in lock's clause rows carry them; a stranger-gate finding can quote a derived floor's guidance.",
-    "notes": "Foundation the floor-projection needs: builtin.rs's hand-written floors carry guidance+cite per clause (the gate teaches, 50-distribution), but the seam (declarations.ts clauseRow) and drift::ClauseRow drop both, so a projection would lose the teaching channel. Additive — builtin.rs still backs the gate until BUILTIN-FLOOR-LOCK-PROJECTION. Disjoint from FROZEN-LANE and the flatten link (no shared files)."
-  },
-  {
     "tag": "BUILTIN-KIND-FLATTEN",
     "summary": "Flatten built-in kind identity onto the lock row label — project its 3 kind rows, drop agents-md.memory and the provider-qualified labels; closes (builtin-workspace-qualified-key)",
     "per": {
       "path": "specs/architecture/15-kinds.md",
       "section": "Decision: built-ins are a module, and identity is an import"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -98,42 +63,16 @@
     "notes": "The migration's core, large but one idea (remove the provider axis). Drops engine AGENTS.md coverage (glob **/AGENTS.md) to match the module/lock — 15-kinds memory locus is **/CLAUDE.md; whether temper ships a distinctly-labelled AGENTS.md kind later is (agents-md-builtin-kind), a feature add, not a blocker. Serialize BUILTIN-FLOOR-LOCK-PROJECTION behind it (shared builtin.rs/main.rs/read.rs/compose.rs)."
   },
   {
-    "tag": "BUILTIN-LOCK-FROZEN-LANE",
-    "summary": "Re-derive the built-in lock from the module and byte-compare against the embedded copy — fail-loud on mismatch or absence, the --frozen discipline aimed at temper's own std-lib",
-    "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "Re-derive the built-in lock from `@dtmd/temper/claude-code` (a real node subprocess, as tests/emit.rs drives the SDK) and byte-compare it against the embedded `src/builtin_lock.toml`; fail loud on mismatch or on the module/emit being absent — the `--frozen` discipline aimed at the tool's own std-lib (50-distribution, fail-loud invariant)."
-        }
-      ],
-      "edit": [],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "module-derived built-in lock byte-equals the embedded copy; a drifted or absent copy fails loud"
-      }
-    ],
-    "acceptance": "A test re-derives the built-in lock from the first-party module and byte-compares it against the embedded copy, failing loud on any drift or absence; running it is the CI frozen-lane gate on the tool's own std-lib.",
-    "notes": "Parallel-safe leaf, disjoint new test file — open alongside LOCK-CLAUSE-CHANNELS and BUILTIN-KIND-FLATTEN. Works whether or not the lock rows carry guidance yet: it only asserts module-emit == embedded copy, and LOCK-CLAUSE-CHANNELS moves both together. CI job is a two-line `cargo test` (50-distribution: CI placements are user-authored)."
-  },
-  {
     "tag": "BUILTIN-FLOOR-LOCK-PROJECTION",
     "summary": "Reimplement builtin.rs's floor data as a projection of the built-in lock's clause rows (guidance+cite carried) — no hand-written clause vectors; retire the package noun",
     "per": {
       "path": "specs/architecture/50-distribution.md",
       "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
     },
-    "gate": { "kind": "blockedBy", "tag": "BUILTIN-KIND-FLATTEN" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUILTIN-KIND-FLATTEN"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -174,7 +113,10 @@
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
     },
-    "gate": { "kind": "blockedBy", "tag": "BUILTIN-FLOOR-LOCK-PROJECTION" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUILTIN-FLOOR-LOCK-PROJECTION"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
