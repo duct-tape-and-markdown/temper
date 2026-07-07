@@ -1,47 +1,5 @@
 [
   {
-    "tag": "LOCK-NESTING-TEMPLATES",
-    "summary": "Carry a kind's nesting templates through the lock so a lock-reconstructed kind folds the same embedded (genre) members its live declaration does — the GENRE-FOLD residual",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "Add a `templates` column to `KindFactRow` (a string array of the host kind's child/genre kind names) with `#[serde(default)]` so lockless/template-less kinds round-trip unchanged; serialize it in `KindFactRow::to_table`/`from_table` reusing the existing string-array column helpers (as `ClauseRow.keys`/`values` do). This is the erased template declaration the lock currently drops."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "Populate `templates` in `from_kind_fact_row` from the new row column — one `Template { kind: <child>, leaves: vec![], collections: vec![] }` per recorded child-kind name (leaves/collections stay empty, matching their current inert posture until the nested-member predicate lands; `fold_members` keys only on `Template.kind`). Delete the comment that names the gap as unclosed. Update the `from_kind_fact_row_*` unit tests to cover a templated row."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Emit templates: give `KindFactRow` (the payload interface) a `templates?: readonly string[]` field, and in `kindFactRow`/`kindsInPlay` compute each `at`-locus host kind's template child-kind names from the harness's genre kinds whose `withinHosts` names it. Genres still take no row of their own (the throw-guard stays) — only the host→child link is added."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "lock `kind` rows and the emit payload's KindFactRow gain a `templates` string-array column (child/genre kind names); `#[serde(default)]`/optional so existing rows round-trip byte-identical.",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a host kind declaring a genre template writes its child-kind name(s) into the lock `kind` row and reads back the same templates (round-trip)."
-      },
-      {
-        "path": "tests/nested_member.rs",
-        "asserts": "a kind reconstructed via `from_kind_fact_row` off a templated lock row folds the same embedded members from fenced blocks as its live declaration."
-      }
-    ],
-    "acceptance": "A nesting kind's declared templates (child/genre kind names) round-trip through the lock; a lock-reconstructed kind carries the same templates and folds the same embedded members its live SDK declaration does — the residual gap `from_kind_fact_row` names is closed.",
-    "notes": "Scope = embedded (genre) nesting only; file-nested children (skill ref docs, path-pattern) use a separate mechanism, untouched. leaves/collections stay empty (inert until the nested-member predicate). If no built-in kind nests a genre, builtin_lock_frozen.rs is unchanged; regen only if one does. From the 07-07 GENRE-FOLD friction drain."
-  },
-  {
     "tag": "CITE-RETAG",
     "summary": "One-time mechanical retag: point every code comment/doc citation at its current specs/** home after the kernel recut invalidated the old numbered layout — comment-only, no behavior change",
     "per": {
@@ -52,6 +10,7 @@
       "kind": "blockedBy",
       "tag": "LOCK-NESTING-TEMPLATES"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
