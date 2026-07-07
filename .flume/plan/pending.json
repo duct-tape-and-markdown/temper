@@ -1,5 +1,53 @@
 [
   {
+    "tag": "COMMENT-VERB-CITATION-SWEEP",
+    "summary": "Sweep stale doc-comment residue across seven src files: retired verbs (re-add, apply, init, read) and spec citations quoting renamed or superseded headings",
+    "per": {
+      "path": "specs/process/90-spec-system.md",
+      "section": "Naming consistency — the one hard rule"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "The `Authority::Shared` doc (~line 24) still says `\"`re-add` reconciles, guards inform and route\"`; `re-add` is a RETIRED rejected alternative (`specs/architecture/20-surface.md`, \"Decision: drift routes to the authored source — no reverse parse\"). Reword to the current model: a hand edit is surfaced as drift routed to the authored source; guards inform/route. The \"manifest era's reader\" (~line 13) and \"never a manifest `[kind.*]` layer\" (~lines 98, 214) are faithful contrast-with-retired historical refs — leave them."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "Two categories. (1) Retired verbs: the module doc (~line 6) `\"`import`/`re-add` split the external artifact\"` — `re-add` is retired; the two producing faces are import-from-source and surface reload (see ~line 37's own gloss), reword accordingly; ~line 37 `\"drift/apply consume\"` — `apply` is retired, consumers are drift/check. (2) Stale citation (~lines 167, 451): `\"Registering a custom kind\"` cited to 40-composition.md is no such heading and wrong file — file placement / locus is owned by `specs/architecture/15-kinds.md`, \"Two loci\"; retarget both."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "The per-kind-map doc (~line 31) lists workspace readers as `\"drift/bundle/apply/read\"`; `apply` is retired and the read verb is now `explain` (`specs/architecture/20-surface.md`, \"Decision: one read verb — `explain`\"). Drop `apply`, rename `read`→`explain`."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Three fixes. (~line 792) `\"`init` writes no copy tree, no lock\"` — `init` was absorbed into `install` (`specs/architecture/20-surface.md`, install front door); rename to install. (~line 589) citation `\"Decision: the projection is re-emitted; the surface is patched\"` is a superseded heading — retarget to \"Decision: drift routes to the authored source — no reverse parse\" (same file). (~line 940) citation `\"a kind's runtime residue is its five declaration facts\"` is no heading — retarget to `specs/architecture/15-kinds.md`, \"A kind is a constructor plus five facts\". The `\"`re-add` is retired\"` refs (~lines 4, 200) are faithful — leave them."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Acyclicity doc (~line 183) cites `specs/architecture/45-governance.md`, \"The graph scope\" — no such heading; the scope is \"The edge scope — predicates over the relation graph\". Retarget the citation."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Fenced-primitive doc (~line 491) cites `specs/architecture/15-kinds.md`, \"a fenced block — whose first consumer is the genre fence\" — no such heading; the fenced-block mechanic lives under \"The engine is kind-blind — extraction is generic\". Retarget the citation."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Descriptive comment (~line 701) `\"The graph scope: build the reference graph\"` misnames the scope — the three scopes are node / node-set / edge; this is the edge scope. Reword to \"the edge scope\" for consistency with `specs/architecture/45-governance.md`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "No src doc comment references a retired verb (`re-add`, `apply`, `init`, or `read` as the read verb) as current behavior, and every spec-section citation in the seven files resolves to a live heading in `specs/`. Comment-only; `cargo build`/`clippy`/`test` stay green (no behavior touched).",
+    "notes": "Comment-only sweep — the one surface no cargo gate re-tests. This residue class (retired verbs re-add/apply/init/read, plus five renamed/superseded heading citations) is disjoint from what the two prior sweeps targeted. Single serial commit, disjoint from parked PACKAGING. Leave test-fixture kind names (`genre.manifest`, roster `manifest`) and faithful \"X retired\" contrast refs untouched."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
@@ -8,7 +56,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.3, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped"
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.3, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest — nothing moved this window."
     },
     "dependsOnForks": [],
     "files": {
@@ -29,6 +77,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (50-distribution 'Fail-loud delivery').",
-    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.3); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. USPTO name screen due before launch."
+    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.3); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs still pins SDK `^0.0.2` (0.0.3 published) — a release-owned bump, not this sweep."
   }
 ]
