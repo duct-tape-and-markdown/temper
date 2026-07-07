@@ -1,33 +1,5 @@
 [
   {
-    "tag": "RETIRE-STALE-HEADING-QUOTES",
-    "summary": "Strip the three stale spec-heading quotes the last sweep missed (drift.rs module doc + two SDK-pin cites; document.rs module doc) to the terse pointer-tag form",
-    "per": {
-      "path": ".claude/rules/rust.md",
-      "section": "Style & structure"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "The module `//!` header (line 4) still quotes a non-existent heading `\"Decision: \\`re-add\\` is retired — hand-edits route to the source\"`; COMMENT-VERB-CITATION-SWEEP fixed the body cite at :589 but missed the header. Lines 152 and 244 quote `\"The SDK pins its engine version\"` as a `20-surface.md` heading — it is spec *prose* (`the SDK pins its engine`, 50-distribution.md:262 / 10-contracts.md:430), not a heading. Reduce all three to the terse file-path pointer-tag form (rust.md exit clause: cite the file path only; a quoted section title is a dangling reference waiting for a rename). Also cut the `re-add retired` era-narration parenthetical at :200 (era narration is commit-body material). Leave the live `place()` three-state descriptions (:16, :648, :676) untouched — those describe current code and ride the (place-three-state-retire) fork."
-        },
-        {
-          "path": "src/document.rs",
-          "description": "The module `//!` header (line 2) quotes `\"The member document — the surface language\"` as a `20-surface.md` heading; no such heading exists in the corpus. Reduce to the file-path pointer-tag form (rust.md exit clause). Comment-only; do not touch the still-live `+++`-header doc parser the corpus depends on (90-spec-system.md: migration-era headers)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "No comment in src/drift.rs or src/document.rs quotes a spec section title absent from specs/; the stale heading quotes are file-path pointer tags; cargo build / clippy -D warnings / fmt --check stay green (comment-only, no gate re-tests comment prose — the reason this residue persisted).",
-    "notes": "Fifth and final tail of the comment-citation sweeps: the manifest/verb noun sweeps have bottomed out (remaining `manifest` = real npm/plugin JSON manifests + test-fixture labels; temper.toml/activation/altitude/rung/carriage all clean). Disjoint from PACKAGING-CHANNELS (package.json + release.yml). Live place() three-state descriptions deliberately left — see (place-three-state-retire)."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
