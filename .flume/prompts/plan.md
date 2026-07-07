@@ -101,6 +101,12 @@ chosen job half-done — the job is the atom.
   strings) — is a repo-relative file path; the fence gate glob-matches all
   three. `retire` means "this FILE is deleted"; retiring a symbol within a
   surviving file is an `edit`.
+- **Every surface an entry cites must resolve.** `edit`/`retire` paths exist
+  on disk, `new` paths don't, the `per` section is in its file (all gated).
+  Symbol-level claims in descriptions — a struct, a lock column, a schema
+  surface — either resolve on disk (`rg` before citing) or are written
+  "new `X`"; a mechanism you can neither resolve nor mark is an open
+  question, never a sub-clause of an entry.
 - **Disjoint, or serialized — never both `open` over a shared file.** Build
   fans out pickable entries in parallel worktrees; two `open` entries editing
   the same file conflict at merge and revert the wave. If any path appears in

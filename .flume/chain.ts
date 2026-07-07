@@ -14,7 +14,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -308,6 +308,67 @@ const entryFenceGate: Gate = {
   },
 };
 
+/**
+ * Reference resolution — an entry's declared surfaces must resolve at filing
+ * time, the decidable subset of "cite what exists": `edit` and `retire`
+ * paths exist on disk, `new` paths do not, and the `per` cite's section
+ * text appears in its spec file. Symbol-level claims (a struct, a lock
+ * column) stay a prompt convention — intent is not decidable here.
+ */
+const entryRefsGate: Gate = {
+  name: "entry references resolve",
+  when: "afterCommit",
+  async run(ctx) {
+    let raw: string;
+    try {
+      raw = await readFile(join(ctx.flumeDir, "plan", "pending.json"), "utf8");
+    } catch {
+      return { ok: true, message: "no pending.json to check" };
+    }
+    const result = parsePending(raw);
+    if (!result.ok) return { ok: true, message: "parse gate owns malformed pending" };
+    const repoRoot = resolve(ctx.flumeDir, "..");
+    const offending: string[] = [];
+    for (const entry of result.entries) {
+      const gate = (entry as { gate?: { kind?: string } }).gate?.kind;
+      if (gate !== "open" && gate !== "blockedBy") continue;
+      const tag = (entry as { tag: string }).tag;
+      const files = (entry as {
+        files?: { new?: { path: string }[]; edit?: { path: string }[]; retire?: string[] };
+      }).files;
+      for (const f of files?.edit ?? []) {
+        if (!existsSync(join(repoRoot, f.path))) offending.push(`  [${tag}] edit path missing on disk: ${f.path}`);
+      }
+      for (const p of files?.retire ?? []) {
+        if (!existsSync(join(repoRoot, p))) offending.push(`  [${tag}] retire path missing on disk: ${p}`);
+      }
+      for (const f of files?.new ?? []) {
+        if (existsSync(join(repoRoot, f.path))) offending.push(`  [${tag}] new path already exists: ${f.path}`);
+      }
+      const per = (entry as { per?: { path?: string; section?: string } }).per;
+      if (per?.path) {
+        const specPath = join(repoRoot, per.path);
+        if (!existsSync(specPath)) {
+          offending.push(`  [${tag}] per cite path missing: ${per.path}`);
+        } else if (per.section) {
+          const content = readFileSync(specPath, "utf8");
+          if (!content.toLowerCase().includes(per.section.toLowerCase())) {
+            offending.push(`  [${tag}] per section not found in ${per.path}: "${per.section}"`);
+          }
+        }
+      }
+    }
+    if (offending.length === 0) {
+      return { ok: true, message: "every pickable entry's references resolve" };
+    }
+    return {
+      ok: false,
+      message: `${offending.length} declared reference(s) do not resolve on disk — fix the entry, mark the surface new, or route it as an open question`,
+      details: offending.join("\n"),
+    };
+  },
+};
+
 const plan: Phase = {
   name: "plan",
   description:
@@ -322,7 +383,7 @@ const plan: Phase = {
     ".flume/friction/**",
     // Plan does NOT touch specs/ (human-authored) or src/ (build's territory).
   ],
-  gates: [pendingParseGate, entryFenceGate, planHonestyGate],
+  gates: [pendingParseGate, entryFenceGate, entryRefsGate, planHonestyGate],
   promptArgs() {
     return { PENDING_SCHEMA: renderSchemaForPrompt() };
   },
