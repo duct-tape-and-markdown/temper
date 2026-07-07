@@ -69,9 +69,13 @@ const pendingParseGate: Gate = {
  * re-wake. A tick that declares `no` while an input is plainly live — an
  * undrained inbox, a spec cursor trailing specs/ HEAD — would silently strand
  * work, and both conditions are statically checkable, so check them here
- * (same pattern as the entry-fence preflight). Fail OPEN on bookkeeping
- * errors (missing files, unparseable cursor): a degradation is a missed
- * catch, never a wedged loop.
+ * (same pattern as the entry-fence preflight). The cursor claims ROUTED-ness
+ * (every slice derived into entries or registered as a keyed open fork), so
+ * fork-parked spec content never pins the marker — see the drained
+ * plan-parked-marker-deadlock friction capture (e1e82c4) for the livelock a
+ * derived-ness reading caused. Fail OPEN on bookkeeping errors (missing
+ * files, unparseable cursor): a degradation is a missed catch, never a
+ * wedged loop.
  */
 const planHonestyGate: Gate = {
   name: "continuation marker is honest",

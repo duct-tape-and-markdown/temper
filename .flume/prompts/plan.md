@@ -58,8 +58,13 @@ chosen job half-done — the job is the atom.
    Read each commit's diff (`git show <sha> -- specs/`) — ratified intent
    changes there before it changes anywhere. Derive one contained slice into
    entries and advance `Spec derived through:` to the last commit you have
-   FULLY derived — the cursor is a claim of completeness, not of having
-   looked. A big delta takes several ticks; that is the design.
+   fully **routed**: every slice either derived into entries or registered as
+   a keyed open fork in open-questions. A fork record IS routing, not
+   avoidance — the resolution returns through the inbox, a fresh input that
+   wakes you; fork-parked content must never hold the cursor, or the loop
+   spins re-confirming "still parked" while pickable work starves. The cursor
+   is a claim of routed-ness, not of having looked. A big delta takes several
+   ticks; that is the design.
 
 3. **Ship audit** — commits past `Audited through:` touched `src/`, `tests/`,
    or `sdk/`. Verify on disk what shipped (read the files, never the log
@@ -76,7 +81,9 @@ chosen job half-done — the job is the atom.
    `per`, name the living symbols in `files[].description`. Comment and
    citation staleness is the one exception: it only ever rides whichever
    entry next opens that file — never a standalone entry, never the queue's
-   only new work. Advance the cursor to HEAD when the sweep is complete.
+   only new work. The routing rule from job 2 applies here too: a residue
+   class blocked on an open fork is routed by that fork's record. Advance the
+   cursor to HEAD when every class is filed, riding, or fork-routed.
 
 5. **Quiet** — every input above is current. One closing pass: the queue is
    disjoint, every gate reason still true, `state.md` re-derived. Write
