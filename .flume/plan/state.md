@@ -1,20 +1,22 @@
 # Plan state
 
 - Spec derived through: 5945405
-- Audited through: e3bba3c
-- Residue swept through: 9148eb3
-- This tick: Ship audit d7cd98e..e3bba3c. Verified on disk the three build entries
-  shipped — SCAFFOLD-OUTPUT-VALID (install.rs SDK_VERSION_RANGE=^0.0.4,
-  description_trigger_value), EXPLAIN-RESOLVER (read.rs member/requirement/leaf
-  resolver), MENTION-EDGE-LANDS (graph.rs MENTION_FIELD + declarations.ts/emit.ts);
-  all three already dropped from pending. Reconciled gates: PATH-SEP-NORMALIZE
-  unblocks (blocker SCAFFOLD shipped) — its work is still open on disk
-  (install.rs:958 `.display()`, document.rs raw source_path). GUARD-OWNPATH stays
-  blockedBy PATH-SEP-NORMALIZE (shared install.rs). PACKAGING-CHANNELS notes
-  refreshed: the `^0.0.2` install-bug clause is resolved by SCAFFOLD's ^0.0.4.
-- Queue: 3 — PATH-SEP-NORMALIZE open (install.rs/document.rs), GUARD-OWNPATH
-  blocked on PATH-SEP-NORMALIZE, PACKAGING-CHANNELS parked.
+- Audited through: 2b82ebd
+- Residue swept through: 2b82ebd
+- This tick: Residue sweep 9148eb3..HEAD. Verified the prior sweep's rider landed:
+  e6c7f60 retargeted emit.ts's two stale `specs/architecture/20-surface.md` cites to
+  pipeline.md "Emit" — resolved. New build code (mention edge, explain resolver,
+  scaffold) corpus-consistent. One residue class found, non-routable: drift.rs:262/269
+  docstrings still say "five families" while the mention edge shipped `mentions` as the
+  sixth declaration family (Declarations struct + lock `mention` table + SDK
+  declarations.ts already say "six"). Pure comment staleness — never standalone, never
+  the queue's only new work; no pending entry opens drift.rs, so it awaits the next
+  drift.rs touch (rust.md exit-clause / next sweep). Ship audit quiet: 0fa1cab, 2b82ebd
+  touch no code — audit cursor advanced to HEAD. kind.rs/read.rs `15-kinds`/`20-surface`
+  are fixture source_paths, not cites — left, per prior sweep.
+- Queue: 3 — PATH-SEP-NORMALIZE open (install.rs/document.rs), GUARD-OWNPATH blockedBy
+  PATH-SEP-NORMALIZE (shared install.rs), PACKAGING-CHANNELS parked (human release creds).
 
-Plan continues: yes — residue sweep (swept through 9148eb3 trails HEAD e3bba3c;
-d7cd98e..e6c7f60 landed new src/sdk, and the emit.ts specs/architecture cite
-staleness routed onto MENTION-EDGE-LANDS needs verifying against the shipped diff).
+Plan continues: no — every input current (inbox empty, no spec delta past 5945405,
+ship audit + residue sweep both at HEAD). PATH-SEP-NORMALIZE is open and pickable;
+build takes over.
