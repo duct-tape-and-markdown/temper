@@ -1,36 +1,5 @@
 [
   {
-    "tag": "EMIT-REAP-ORPHANS",
-    "summary": "emit never reaps ownerless projections — a removed member's file stays on disk still loading; reap iff byte-identical to its lock fingerprint, report the drifted orphan, never silent-delete",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`emit` (:436) writes the current members' projections and rewrites the lock whole, but never reads the prior lock — a member dropped from the program leaves its projection on disk with the lock forgetting the path. Before the rewrite, read the prior `lock.toml`'s provenance rows (source_path + emit_hash, the same lock read `config_stale`:806 / `emit_owned_targets`:874 already do), diff against the current `payload.members` projected source_paths, and for each lock-known projection with no current owner: delete it iff the on-disk bytes hash to its recorded `emit_hash` (reap — temper wrote every byte, nothing authored is lost), else leave the file and surface a drift finding (never a silent delete). Extend `EmitReport`/`EmitEntry`/`EmitOutcome` (:436 region) with reaped and orphan-drift outcomes and render them in `render_emit`:636 so 'N unchanged' is no longer the whole story when an owner disappeared. Rider (comment staleness, per the residue-sweep exception): the `Payload`/`declarations` docstrings at :262/:269 still read 'five families'/'five declaration families' — the mention edge shipped `mentions` as the sixth declaration family; cut the stale count on contact (rust.md exit-clause)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "re-emitting after a member is removed deletes its projection when the on-disk file is byte-identical to its lock emit fingerprint (reap); a removed member whose projection was hand-edited is left on disk and reported as an orphan-drift finding (never silent-delete); the emit report distinguishes reaped from drifted-orphan"
-      }
-    ],
-    "acceptance": "Re-emitting after a member is dropped from the program reaps its projection when the on-disk file matches the lock's emit fingerprint, and reports a finding while leaving the file when it has drifted — never a silent delete; the emit report distinguishes reaped from drifted-orphan.",
-    "notes": "Field report 2026-07-07 -> decision 0007. Detection is decidable: a lock-known projection with no current owning member. The hash is the safety line (verbatim invariant's spirit — never delete hand-edited bytes). Prior-lock read mirrors config_stale:806 / emit_owned_targets:874. Now carries the drift.rs 'five families' comment rider (:262/:269 — mention edge is the 6th declaration family; cut on contact). f4189c3 fully routed. scoped at 2efd00b."
-  },
-  {
     "tag": "EMIT-LF-NORMALIZE",
     "summary": "emit writes projection bytes verbatim including a source's CRLF; normalize every emitted projection to LF uniformly so double-emit byte-reproduces across platforms (a CRLF source emits clean)",
     "per": {
@@ -61,76 +30,6 @@
     ],
     "acceptance": "A member body carrying CRLF (or lone CR) emits an LF-only projection; the emit hash and written bytes are the normalized form, so double-emit byte-reproduces on any platform — line endings never reach a projection as content.",
     "notes": "Field ruling 0010 (spec delta f4189c3): EOL is layout, not content — the verbatim invariant guards words, one byte wider than leaf whitespace. Emit-only; the import/read side is unchanged. own_path body (a file()-carried member's own source) also normalizes per 'uniformly, whatever the source's convention.' Shares src/drift.rs emit + tests/emit.rs with EMIT-REAP-ORPHANS → blockedBy it. 0008/0009/0011 unrouted. scoped at d69987f."
-  },
-  {
-    "tag": "UNCLAIMED-ENTRY-ADVISORY",
-    "summary": "coverage note scans only its curated known-surface list, so a stray ungoverned `.claude/` entry sails through silent — flag any `.claude/` entry no kind or known surface covers as a warn advisory",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The named expansion — what the model reaches next"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage_note.rs",
-          "description": "`check`:103 iterates only the curated `KNOWN_SURFACES`:64 list, so an entry under `.claude/` that is on no built-in/locked kind's locus AND on no known surface (a bogus `.clauignore`, a stray `.claude/notes.md`) is examined by nothing and passes silently. Add a scan of the actual entries directly under `<root>/.claude/`: for each, skip it when a governing kind covers it (the `governs`:202 / `governed_by_any`:192 logic, generalized off `KnownSurface` to an arbitrary relative path, reading the same built-in + locked-kind set `with_locked_kinds`:159 assembles) or a `KNOWN_SURFACES` entry already names it (those keep their richer `UNMODELED_RULE`:28 `coverage.unmodeled-surface` message — never double-report), else emit a new warn `coverage.unclaimed-entry` diagnostic naming the stray path. Honor the repository's ignore rules (a gitignored `.claude/` entry is by declaration not authored here — the `ignore` crate, as discovery does), so a gitignored stray never fires. Warn severity only — never gates, session-start ignores it, exactly as the existing coverage findings. Contained here: `check(root, kinds, member_counts)` already carries `root`; no main.rs:744 call-site change."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/coverage_note.rs",
-        "asserts": "a stray `.claude/` entry no kind governs and no known surface names (a `.clauignore`, a stray file) fires exactly one warn `coverage.unclaimed-entry` finding; a governed locus (`.claude/skills`) and a curated known surface (`.claude/agents`, `.claude/settings.json`) never fire it — no double-report with `coverage.unmodeled-surface`; a gitignored stray fires nothing; the finding is warn severity (never error, never a session-start verdict)"
-      }
-    ],
-    "acceptance": "A `.claude/` entry that no in-scope kind governs and no curated known surface names — a bogus `.clauignore` — is surfaced as a warn `coverage.unclaimed-entry` advisory rather than sailing through silent; governed loci and known surfaces do not double-report, a gitignored stray never fires, and the finding never gates.",
-    "notes": "Field report 2026-07-07 -> decision 0011: vocabulary now covers documented capability, so what remains unclaimed under `.claude/` is a genuine stray, not a vocab gap — the advisory becomes shippable. Distinct rule from `coverage.unmodeled-surface`. Contained to src/coverage_note.rs + in-module tests via the existing check(root,kinds,member_counts) inputs; collision-free. 0011's command/agent kinds + user-invoked value stay derivable-later; f4189c3 not fully routed. scoped at 34dee6e."
-  },
-  {
-    "tag": "GUARD-OWNPATH",
-    "summary": "the runtime guard regex-matches any .claude/ file_path without the lock; for a file()-carried member that .claude/ file IS its authored source, so block denies editing the source of truth",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`guard`:594 delegates to `targets_projection`:606, which tests the payload's `file_path` against the `.claude/` regex `GUARD_PATH_MATCH`:109 alone — no lock. So under `block` a write to a file()-carried member's own `.claude/` source (its authored source of truth, which `drift::emit_owned_targets`:874 already excludes from the projection set via `if own_path continue`) is wrongly denied. Widen `guard` to take the lock's emit-owned projection paths (from `drift::emit_owned_targets`, the pub reader install's own placements already bind to) and bind on set membership: a `file_path` naming a lock-declared projection stays bound (block/warn/note per mode), any other `.claude/` write — an own_path source or unmanaged file — returns `GuardVerdict::Allow`:594. Path compare rides the lock's now-`/`-normalized `source_path` (PATH-SEP-NORMALIZE shipped). Retire GUARD_PATH_MATCH or keep it as a cheap pre-filter — build's call."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "The `Command::Guard` handler (:326-341) derives `mode` via `mode_from_lock`:498 but calls `install::guard(&payload, mode)`:341 with no projection set — the runtime guard stays regex-bound while install's placements are already lock-grounded. Read the lock's emit-owned projections (`drift::emit_owned_targets(&path.join(TEMPER_DIR))`, the same lock `mode_from_lock` already consults) and thread them into the widened `install::guard` call, so the per-call guard verdict is lock-grounded too."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "The existing guard tests drive the CLI against a lock via `run_guard`:632 (`guard_reads_the_block_posture...`:656, `guard_defaults_to_warn...`:679), so the widened `install::guard` signature is internal and they keep passing. Add a case that lifts a file()-carried member whose own_path `.claude/` source is written."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "driving via the CLI (run_guard), a write to a file()-carried member's own .claude/ source (own_path — absent from the lock's emit-owned projection set) passes (Allow) under block posture, while a write to a lock-declared projected .claude/ file still binds at the declared mode; the no-lock default-warn and block-posture cases still hold"
-      }
-    ],
-    "acceptance": "The runtime guard passes a write to a file()-carried member's own .claude/ source (own_path) and continues to bind writes to lock-declared projected .claude/ files, reading the lock's projection set (drift::emit_owned_targets) rather than a path regex alone.",
-    "notes": "Field report 1. PATH-SEP-NORMALIZE blocker shipped 402e5cc/2efd00b — this ship audit clears the gate. Mechanism: bind the runtime guard to the existing pub `drift::emit_owned_targets`:874, which already excludes own_path rows — no drift.rs/kind.rs edit, disjoint from the EMIT-* drift.rs chain; own_path .claude/ sources fall through to Allow. SETTINGS-FORMAT-PRESERVING blockedBy it. scoped at 75798a5."
   },
   {
     "tag": "SETTINGS-FORMAT-PRESERVING",
