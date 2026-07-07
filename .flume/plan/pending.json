@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.3, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest — nothing moved this window."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.4, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest — nothing moved this window."
     },
     "dependsOnForks": [],
     "files": {
@@ -29,6 +29,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (distribution.md 'Fail-loud invariant').",
-    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.3); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs still pins SDK `^0.0.2` (0.0.3 published) — a release-owned bump, not this sweep."
+    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.4); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs still pins SDK `^0.0.2` (0.0.4 published) — a release-owned bump, not this sweep."
   }
 ]

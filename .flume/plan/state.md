@@ -1,21 +1,22 @@
 # Plan state
 
 - Spec derived through: 5945405
-- Audited through: 6ce4738
+- Audited through: b26a02d
 - Residue swept through: aa9a2e3
-- This tick: residue sweep 32f0c32→HEAD (the GENRE-FOLD window). No fileable
-  class. All surviving genre residue is comment/citation staleness that rides
-  the next entry per file, never standalone: "genre value" vocab
-  (extract.rs:172); dead `specs/architecture/*` cites (hash.rs, builtin*.rs,
-  bundle.rs, read.rs:104, main.rs:477 — friction-noted). Retained
-  `genre.<kind>` fence syntax + the SDK's standalone `GenreValue`
-  fold-machinery (corpus-permitted, representation.md "nesting") are not
-  residue. Cursor to HEAD. (Only commit past Audited-through is the aa9a2e3
-  plan commit — no src/tests/sdk, so ship audit stayed dark.)
-- Queue: 2 — MODE-VALUE-VOCABULARY (open, pickable), PACKAGING-CHANNELS
-  (parked: still no .github/workflows/release.yml, root package.json still the
-  private `temper-flume-harness` manifest, install.rs still pins SDK `^0.0.2`
-  vs 0.0.4 published). Paths disjoint.
+- This tick: ship audit aa9a2e3→HEAD (the MODE-VALUE-VOCABULARY ship).
+  Confirmed on disk: EnforcementMode recut to {Note,Warn,Block}, default Warn;
+  guard() maps note→Note/warn→Warn/block→Block; GuardVerdict recut; lock
+  declares `value = "warn"` — matches distribution.md "Per tool call". No
+  {Shared,Surface} enforcement residue survives. Entry already drained by build
+  (b26a02d) — nothing to drop. PACKAGING re-tested, park holds (no release.yml,
+  root pkg still private flume manifest, install.rs still pins ^0.0.2);
+  refreshed its stale SDK cite 0.0.3→0.0.4 (published). Audited cursor to HEAD.
+- Queue: 1 — PACKAGING-CHANNELS (parked: no .github/workflows/release.yml, root
+  package.json still the private `temper-flume-harness` manifest, install.rs
+  still pins SDK `^0.0.2` vs 0.0.4 published — the pin bump is release-owned).
 
-Plan continues: no — residue swept to HEAD; inbox/spec-delta/ship-audit all
-current; MODE-VALUE-VOCABULARY is pickable, build takes over.
+Plan continues: yes — residue sweep. Residue-swept-through (aa9a2e3) trails
+HEAD; the MODE recut window (aa9a2e3→HEAD) is unswept. The ship-audit spot-check
+found no stale enforcement vocabulary, but the formal sweep + cursor advance is
+next tick's job.
+</content>
