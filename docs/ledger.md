@@ -29,7 +29,12 @@ hard.
 - **Friction channel live** (`.flume/friction/`): agent→human harness
   feedback, one uniquely-named file per capture, exceptional never ritual
   (bar in its README). DRAIN AT SESSION OPEN: triage, implement or route
-  (chore(harness) / chore(flume) / inbox), delete the file.
+  (chore(harness) / chore(flume) / inbox), delete the file. Day-one yield:
+  a livelock fix, the entry reference-resolution gate, two inbox items.
+- Dogfood evidence (for its return case): pending entries are harness
+  artifacts with dangling-reference failure modes — two build frictions
+  traced to entries citing surfaces that don't exist. Entries-as-members
+  under an edge-resolution clause is the product answering its own pipeline.
 - Follow-up hygiene: docs/README re-cut onto kernel nouns (stale paths in
   docs/how-it-works, cli, example-config, horizons, README); src/sdk comment
   cites to old spec paths die on contact (rust.md exit clause) — now incl.
