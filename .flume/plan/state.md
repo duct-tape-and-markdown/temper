@@ -1,26 +1,34 @@
 # Plan state
 
-- **Phase:** reconcile after RETIRE-MANIFEST-NOUN + REFRESH-STALE-SPEC-CITATIONS
-  shipped (ab5eb5d). Spec delta empty (no `specs/` commits since 3481fe1); inbox
-  empty. This tick's residue sweep found a further doc-comment tail the two
-  shipped sweeps did not target: retired **verbs** used as current behavior
-  (`re-add`, `apply`, `init`→install, `read`→explain) and five spec-section
-  citations quoting renamed/superseded headings ("The graph scope",
-  "Registering a custom kind", the re-emit/patch drift Decision, the
-  five-facts heading, the fenced-block heading).
-- **Last shipped (ab5eb5d):** RETIRE-MANIFEST-NOUN (manifest noun +
-  read-verb diagnostics) and REFRESH-STALE-SPEC-CITATIONS — the noun/citation
-  sweeps over the two file sets.
-- **Queue — 2 entries:** COMMENT-VERB-CITATION-SWEEP (open, comment-only across
-  compose/frontmatter/check/drift/graph/extract/main — one serial commit) and
-  PACKAGING-CHANNELS (parked: engine-binary release workflow + human release
-  creds + USPTO screen — none moved this window; no `release.yml`, root
-  package.json still the private flume manifest).
-- **What's next:** build drains the comment sweep. Beyond it the open product
-  forks await John — nearest engine work `(json-projection-format)` (unblocked)
-  and `(edge-representation-unify)`. Observed, release-owned, NOT filed as a
-  sweep: `src/install.rs` pins the SDK `^0.0.2` while `@dtmd/temper` 0.0.3 is
-  published — a version bump belonging to PACKAGING-CHANNELS.
+- **Phase:** reconcile after COMMENT-VERB-CITATION-SWEEP shipped (6a0878c).
+  Spec delta empty (no `specs/` commits since the last plan tick, 4b24d6a);
+  inbox empty.
+- **Residue sweep this tick:** the manifest/retired-verb noun sweeps have
+  **bottomed out** — remaining `manifest` uses are legitimate (real npm/plugin
+  JSON manifests) or test-fixture labels; `temper.toml`, `activation`,
+  `altitude`/`rung`/`carriage`/`gradient`/`ladder` all clean. One genuine tail
+  the last sweep missed: three **stale** spec-heading quotes (headings absent
+  from the corpus) — `drift.rs` module doc (`re-add` heading it fixed the body
+  cite for but not the header) + two `SDK pins its engine version` cites, and
+  `document.rs` module doc. Filed as RETIRE-STALE-HEADING-QUOTES.
+- **New fork surfaced:** `(place-three-state-retire)` — `drift.rs::place`
+  implements the three-state merge the drift-routing Decision *rejects*; all
+  four real callers pass `None` (Conflicted path dead outside one test); needs
+  John (does the seam collapse now that `install` shipped?).
+- **Last shipped (6a0878c):** COMMENT-VERB-CITATION-SWEEP (retired-verb +
+  stale-citation doc-comment sweep across seven files).
+- **Queue — 2 entries:** RETIRE-STALE-HEADING-QUOTES (open, comment-only,
+  `drift.rs` + `document.rs` — disjoint from PACKAGING) and PACKAGING-CHANNELS
+  (parked: no `release.yml`, root `package.json` still the private flume
+  manifest, needs human release creds + the engine-binary workflow — nothing
+  moved this window).
+- **What's next:** build drains the stale-citation fix. Beyond it the queue is
+  human-gated — PACKAGING parked, all product forks await John (nearest engine
+  work `(json-projection-format)` unblocked, plus the new
+  `(place-three-state-retire)`). Observed, release-owned: `src/install.rs`
+  still pins SDK `^0.0.2` while `@dtmd/temper` 0.0.3 is published — a bump
+  belonging to PACKAGING-CHANNELS, not this sweep.
 
-Plan continues: no — queue reconciled (one pickable comment sweep filed off the
-verb/citation residue), inbox empty, delta empty. Building drains it.
+Plan continues: no — queue reconciled (one pickable entry filed off genuine
+stale-citation residue, one fork surfaced), inbox empty, delta empty. Building
+drains it.

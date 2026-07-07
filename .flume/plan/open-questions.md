@@ -24,6 +24,23 @@ tax (it hit 1,280 lines / ~38k tokens before the 07-06 drain).
   per-path overrides. Needs John. Load-bearing the moment `temper guard`
   blocks per posture; nothing gates today.
 
+- `(place-three-state-retire)` — OPEN (registered 2026-07-06). `src/drift.rs`'s
+  `place()` implements the "three-state merge model (desired / last-applied /
+  real)" with an `ApplyOutcome::Conflicted` branch — the model NAMED in the
+  rejected alternative of "Decision: drift routes to the authored source — no
+  reverse parse" (`20-surface.md`). All four real callers
+  (`install.rs:484/509/533/550`) pass `None` for the baseline, so the
+  `Conflicted`/`last_applied` path is dead outside one unit test; the module
+  doc frames it as the "two-projectors seam" that "stays until `install` rides
+  emit's projection." But `install` has now shipped, and the spec's placement
+  staleness is "content-keyed fingerprint, one staleness mechanism everywhere"
+  (`50-distribution.md`), which rejects "a second staleness mechanism." Does
+  `place()` collapse its three-state merge now — retiring `Conflicted` +
+  `last_applied` for content-keyed idempotent placement — or does the seam
+  stand until emit rides it? Under-specified whether `place()` should adopt
+  content-keyed fingerprinting (it byte-compares today, no fingerprint) or
+  simply drop conflict detection. Related: `(authority-home)`. Needs John.
+
 - `(hook-kind-locus)` — OPEN. Hooks have no standalone file surface — they are
   JSON entries inside `.claude/settings.json`, so no path locus selects one.
   Is a hook a sub-member extracted from the settings member, a distinct locus,
