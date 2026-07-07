@@ -201,6 +201,11 @@ pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
             }
             messages
         }
+        // An empty `kind` names no kind to narrow to — vacuous, like an empty-list
+        // predicate: it can never decide anything over a real satisfier.
+        Predicate::Kind { kind } if kind.is_empty() => {
+            vec!["`kind` clause names an empty kind".to_string()]
+        }
         _ => Vec::new(),
     }
 }
@@ -444,10 +449,31 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         // fields — REQUIREMENT-CLAUSES-RECUT moves that judging onto this same
         // clause spelling; until then this arm stays honestly `Indeterminate`
         // rather than fabricate a scan this engine has no requirement context for.
+        // `kind` joins the same node-set family: an each-grain clause over a
+        // *requirement's* satisfier set, judged by `crate::roster` (which knows
+        // each satisfier's actual kind label) via `kind_violation` below, never
+        // this per-`Features` table.
         Predicate::Count { .. }
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
-        | Predicate::Degree { .. } => Outcome::Indeterminate,
+        | Predicate::Degree { .. }
+        | Predicate::Kind { .. } => Outcome::Indeterminate,
+    }
+}
+
+/// The each-grain `kind` predicate's verdict for one satisfier — `None` when its
+/// actual kind matches the declared `kind`, else the violation message. The same
+/// [`Outcome::check`] decision every other each-grain arm in [`decide`] reaches,
+/// pulled out as its own entry point because a satisfier's *actual* kind is roster
+/// context (`crate::roster`), never a fact [`Features`] itself carries — so this
+/// predicate cannot ride `decide`'s per-`Features` match table.
+#[must_use]
+pub(crate) fn kind_violation(kind: &str, actual: &str) -> Option<String> {
+    match Outcome::check(kind == actual, || {
+        format!("is kind `{actual}`, not the requirement's declared kind `{kind}`")
+    }) {
+        Outcome::Violated(mut messages) => messages.pop(),
+        Outcome::Holds | Outcome::Indeterminate => None,
     }
 }
 

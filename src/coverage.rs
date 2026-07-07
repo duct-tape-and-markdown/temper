@@ -74,8 +74,11 @@ const REQUIREMENT_DANGLING_RULE: &str = "requirement.dangling";
 ///
 /// Both findings are `error` severity: a `required` requirement unfilled, or a
 /// dangling `satisfies`, blocks the gate. `artifacts` is every opt-in-capable
-/// artifact's features (skill ⊕ rule), so a requirement filled by *either* kind is
-/// covered. `means` is never judged — coverage is the whole of the gate.
+/// artifact's features across every modeled kind, already flattened kind-blind by
+/// the caller — the same unified satisfier set [`crate::roster`]/[`crate::graph`]
+/// range over (`specs/model/contract.md`, "selection"), so a requirement filled by
+/// *any* kind is covered regardless of its own `kind` facet. `means` is never
+/// judged — coverage is the whole of the gate.
 #[must_use]
 pub fn check(
     requirements: &BTreeMap<String, Requirement>,

@@ -218,15 +218,17 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
 ///
 /// Declared on the requirement's [`clauses`](Requirement::clauses) but ranging over
 /// the **edge graph**, so it lives here: it reuses [`acyclic`]'s [`resolved_arcs`] and
-/// the same opt-in [`roster::is_satisfier`] join the roster scope uses, never a second
-/// selector that could disagree. Only **resolved** arcs count (a dangling reference
-/// loads nothing; an inadmissible edge is skipped), exactly as in [`acyclic`].
+/// the same kind-blind [`roster::candidates`] stream plus the opt-in
+/// [`roster::is_satisfier`] join the roster scope uses, never a second selector that
+/// could disagree. Only **resolved** arcs count (a dangling reference loads nothing;
+/// an inadmissible edge is skipped), exactly as in [`acyclic`].
 ///
 /// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-requirement** — a
-/// roster declaring no `degree` clause does no graph work. A node is `(kind, id)`, so a
-/// requirement declaring no `kind` cannot identify its nodes and is skipped.
-/// Requirements iterate in name order, each requirement's clauses in declaration
-/// order, over name-sorted candidates, so findings are stable across runs.
+/// roster declaring no `degree` clause does no graph work. A node is `(kind, id)`; a
+/// kind-blind requirement (no [`kind`](Requirement::kind)) ranges over every modeled
+/// kind's opt-in satisfiers, each keyed by its *own* kind label, rather than being
+/// skipped. Requirements iterate in name order, each requirement's clauses in
+/// declaration order, over name-sorted candidates, so findings are stable across runs.
 #[must_use]
 pub fn degree(
     requirements: &BTreeMap<String, Requirement>,
@@ -257,12 +259,6 @@ pub fn degree(
 
     let mut diagnostics = Vec::new();
     for requirement in requirements.values() {
-        // `degree` needs a declared `kind` to range over; a kind-blind requirement
-        // can't identify its nodes and is skipped — `temper` never fabricates a gate
-        // the author did not fully declare.
-        let Some(kind) = &requirement.kind else {
-            continue;
-        };
         for clause in &requirement.clauses {
             let Predicate::Degree {
                 incoming: incoming_bound,
@@ -271,12 +267,15 @@ pub fn degree(
             else {
                 continue;
             };
-            let candidates = by_kind.get(kind.as_str()).copied().unwrap_or(&[]);
-            for features in candidates {
+            // Kind-blind: every modeled kind's opt-in satisfiers, each keyed by its
+            // own kind label — `requirement.kind`, when present, narrows via the
+            // each-grain clause it sources ([`roster::check`]), never a second
+            // selector here (`specs/model/contract.md`, "selection").
+            for (kind, features) in roster::candidates(by_kind) {
                 if !roster::is_satisfier(&requirement.name, features) {
                     continue;
                 }
-                let node = (kind.clone(), features.id.clone());
+                let node = (kind.to_string(), features.id.clone());
                 let in_degree = incoming.get(&node).copied().unwrap_or(0);
                 let out_degree = adjacency.get(&node).map_or(0, BTreeSet::len);
 
@@ -1292,11 +1291,12 @@ mod tests {
         assert!(acyclic(std::slice::from_ref(&edge), &by_kind).is_empty());
     }
 
-    /// A bare `gate` requirement typed to `kind`, declaring a required `degree` clause
-    /// (or none) — the typed roster the [`degree`] check reads. The satisfier nodes
-    /// are the skills whose `satisfies` names `gate`.
+    /// A bare `gate` requirement, optionally typed to `kind`, declaring a required
+    /// `degree` clause (or none) — the roster the [`degree`] check reads. The
+    /// satisfier nodes are whichever candidates' `satisfies` names `gate`; `kind:
+    /// None` is the kind-blind case, ranging over every modeled kind's opt-ins.
     fn gate_requirement(
-        kind: &str,
+        kind: Option<&str>,
         degree: Option<Predicate>,
     ) -> BTreeMap<String, crate::compose::Requirement> {
         let clauses = degree
@@ -1313,7 +1313,7 @@ mod tests {
             crate::compose::Requirement {
                 name: "gate".to_string(),
                 means: None,
-                kind: Some(kind.to_string()),
+                kind: kind.map(str::to_string),
                 required: false,
                 clauses,
                 verified_by: None,
@@ -1334,7 +1334,7 @@ mod tests {
         // rule routes to it (the only rule routes nowhere), so its incoming degree is
         // zero — inside the bound, clean.
         let requirements = gate_requirement(
-            "skill",
+            Some("skill"),
             Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: None,
@@ -1357,7 +1357,7 @@ mod tests {
         // outside `incoming = { max = 0 }`. A self-registering artifact must not be
         // reached: an error naming the requirement, the artifact, and the direction.
         let requirements = gate_requirement(
-            "skill",
+            Some("skill"),
             Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: None,
@@ -1386,7 +1386,7 @@ mod tests {
         // `style` routes to it, so its incoming degree is 1 — inside the open-above
         // bound, clean.
         let requirements = gate_requirement(
-            "skill",
+            Some("skill"),
             Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: Some(1),
@@ -1408,7 +1408,7 @@ mod tests {
         // No rule routes to `standards`, so its incoming degree is zero — outside
         // `incoming = { min = 1 }`. A routed artifact must be reachable: an error.
         let requirements = gate_requirement(
-            "skill",
+            Some("skill"),
             Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: Some(1),
@@ -1430,12 +1430,39 @@ mod tests {
     }
 
     #[test]
+    fn a_kind_blind_requirements_degree_bound_ranges_over_every_modeled_kind() {
+        // No `kind` at all: `gate`'s satisfier is the *rule* `style` (a kind-blind
+        // requirement is filled by opt-ins of any modeled kind), and its incoming
+        // bound must still range over it rather than being skipped.
+        let requirements = gate_requirement(
+            None,
+            Some(Predicate::Degree {
+                incoming: Some(EdgeBound {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            }),
+        );
+        let edges = [routes_to_edge()];
+        let rules = [satisfying(node("style", None), "gate")];
+        let skills = [node("standards", None)];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        let diags = degree(&requirements, &edges, &by_kind);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
+        assert_eq!(diags[0].artifact, "style");
+        assert!(diags[0].message.contains("incoming"));
+    }
+
+    #[test]
     fn an_outgoing_bound_reads_the_satisfier_node_out_degree() {
         // Degree bounds both directions: the rule `style` (a `gate` satisfier under an
         // `outgoing` bound) routes to one skill, so its out-degree is 1 — outside
         // `{ max = 0 }`.
         let requirements = gate_requirement(
-            "rule",
+            Some("rule"),
             Some(Predicate::Degree {
                 incoming: None,
                 outgoing: Some(EdgeBound {
@@ -1460,7 +1487,7 @@ mod tests {
         // `degree` is opt-in, per-requirement: a requirement with no bound is silent over a
         // graph that would violate one — `temper` never fabricates a gate the author
         // did not declare (`00-intent.md` law 4).
-        let requirements = gate_requirement("skill", None);
+        let requirements = gate_requirement(Some("skill"), None);
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];
         let skills = [node("standards", None)];
@@ -1505,7 +1532,7 @@ mod tests {
         // `{ min = 1 }` bound fires. The dangling reference neither forges nor masks a
         // degree, exactly as it neither forges nor masks a cycle.
         let requirements = gate_requirement(
-            "skill",
+            Some("skill"),
             Some(Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: Some(1),

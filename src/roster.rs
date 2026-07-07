@@ -3,14 +3,17 @@
 //! `specs/architecture/45-governance.md`, the node-set scope).
 //!
 //! Two decidable passes read the same parsed requirements: [`check`] gates the
-//! author-declared `count`/`unique`/`membership` predicates over each requirement's
-//! **satisfier set** — the `kind`-typed artifacts opting in via `satisfies`; and
-//! [`admissibility`] checks each requirement's own definition before the roster is
-//! trusted to judge a harness.
+//! author-declared `count`/`unique`/`membership` predicates, plus the each-grain
+//! `kind` clause a typed requirement's `kind` facet sources, over each requirement's
+//! **satisfier set** — every modeled kind's artifacts opting in via `satisfies`,
+//! kind-blind (`specs/model/contract.md`, "selection": narrowing a selection is an
+//! each-grain clause over it, never a second selector); and [`admissibility`] checks
+//! each requirement's own definition before the roster is trusted to judge a harness.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use crate::builtin;
 use crate::check::Diagnostic;
 use crate::compose::Requirement;
 use crate::contract::{Clause, Predicate};
@@ -33,6 +36,10 @@ const REQUIREMENT_UNIQUE_RULE: &str = "requirement.unique";
 /// (`specs/architecture/45-governance.md`, the node-set scope).
 const REQUIREMENT_MEMBERSHIP_RULE: &str = "requirement.membership";
 
+/// The diagnostic `rule` id every each-grain `kind` finding reports under — a
+/// wrong-kind opt-in satisfier (`specs/model/contract.md`, "selection").
+const REQUIREMENT_KIND_RULE: &str = "requirement.kind";
+
 /// Whether an artifact opts into the requirement named `requirement` — its
 /// `satisfies` list carries that name. The decidable join at the heart of the
 /// satisfier set. `pub(crate)` so the graph-scope `degree` check ([`crate::graph`])
@@ -42,38 +49,35 @@ pub(crate) fn is_satisfier(requirement: &str, features: &Features) -> bool {
     features.satisfies.iter().any(|name| name == requirement)
 }
 
-/// The candidate artifacts a requirement ranges over before the opt-in filter: its
-/// `kind` typing narrows them to that kind's workspace [`Features`], and a kind-blind
-/// requirement (no `kind`) draws from every modeled kind. A `kind` the surface does
-/// not model yields no candidates.
-fn candidates_for<'a>(
-    requirement: &Requirement,
-    by_kind: &BTreeMap<&str, &'a [Features]>,
-) -> Vec<&'a Features> {
-    match &requirement.kind {
-        Some(kind) => by_kind
-            .get(kind.as_str())
-            .copied()
-            .unwrap_or(&[])
-            .iter()
-            .collect(),
-        None => by_kind
-            .values()
-            .flat_map(|features| features.iter())
-            .collect(),
-    }
+/// Every candidate artifact any requirement may range over, before the opt-in
+/// filter: every modeled kind's workspace [`Features`], each tagged with its own
+/// kind label — kind-blind (`specs/model/contract.md`, "selection": a selector is
+/// atomic and does not narrow). `pub(crate)` so [`crate::graph::degree`] draws the
+/// identical kind-blind candidate stream, never a second flattening that could
+/// disagree.
+pub(crate) fn candidates<'a>(
+    by_kind: &BTreeMap<&'a str, &'a [Features]>,
+) -> Vec<(&'a str, &'a Features)> {
+    by_kind
+        .iter()
+        .flat_map(|(kind, features)| features.iter().map(move |feature| (*kind, feature)))
+        .collect()
 }
 
-/// The requirement's **satisfier set** — its `kind`-typed candidates that opt in via
-/// `satisfies` (`specs/architecture/45-governance.md`, the node-set scope). The set every set-scope
-/// predicate quantifies over.
+/// The requirement's **satisfier set** — every modeled kind's candidates that opt in
+/// via `satisfies`, each still tagged with its own kind label
+/// (`specs/architecture/45-governance.md`, the node-set scope; `specs/model/contract.md`,
+/// "selection"). The opt-in join is the *only* filter now: a requirement's `kind`
+/// facet no longer narrows this set (that would be a second selector) — instead it
+/// sources an each-grain clause [`check`] evaluates over exactly this kind-blind set,
+/// so a wrong-kind opt-in is a finding here, never excluded before it can be seen.
 fn satisfiers_for<'a>(
     requirement: &Requirement,
-    by_kind: &BTreeMap<&str, &'a [Features]>,
-) -> Vec<&'a Features> {
-    candidates_for(requirement, by_kind)
+    by_kind: &BTreeMap<&'a str, &'a [Features]>,
+) -> Vec<(&'a str, &'a Features)> {
+    candidates(by_kind)
         .into_iter()
-        .filter(|features| is_satisfier(&requirement.name, features))
+        .filter(|(_, features)| is_satisfier(&requirement.name, features))
         .collect()
 }
 
@@ -86,18 +90,24 @@ fn kind_label(requirement: &Requirement) -> &str {
 /// Run the set-scope predicates over the parsed roster, returning a [`Diagnostic`] —
 /// at the violating clause's own declared severity — per satisfier set that violates
 /// a `count` / `unique` / `membership` clause (`specs/architecture/10-contracts.md`,
-/// set-scope demands are clauses).
+/// set-scope demands are clauses), plus the each-grain `kind` narrowing
+/// [`requirement.kind`](Requirement::kind) sources.
 ///
-/// Every predicate quantifies over the requirement's **satisfier set** — the
-/// `kind`-typed artifacts that opt in via `satisfies`; a kind-blind requirement draws
-/// from every modeled kind of `by_kind`. Requirements iterate in name order (the roster
-/// is a [`BTreeMap`]), each requirement's clauses in declaration order, and each kind's
-/// candidates arrive name-sorted, so the finding set is stable across runs.
+/// Every predicate quantifies over the requirement's **satisfier set** — every
+/// modeled kind's opt-in artifacts (`specs/model/contract.md`, "selection"), kind-blind.
+/// A typed requirement's `kind` no longer narrows that set; instead this pass
+/// synthesizes the shipped each-grain "every satisfier is kind K" clause
+/// ([`builtin::kind_narrowing_clause`]) and evaluates it over the same kind-blind
+/// set, so a wrong-kind opt-in is a finding, never a silent exclusion. Requirements
+/// iterate in name order (the roster is a [`BTreeMap`]), each requirement's clauses
+/// in declaration order, and each kind's candidates arrive name-sorted, so the
+/// finding set is stable across runs.
 ///
-/// This pass gates only the predicates the author declared: the ≥1-satisfier presence
-/// of a plain `required` requirement is [`crate::coverage`]'s gate. `degree` ranges
-/// over the edge graph, so [`crate::graph::degree`] reads it off the same
-/// [`clauses`](Requirement::clauses) instead.
+/// This pass gates only the predicates the author declared (plus the sourced `kind`
+/// clause): the ≥1-satisfier presence of a plain `required` requirement is
+/// [`crate::coverage`]'s gate. `degree` ranges over the edge graph, so
+/// [`crate::graph::degree`] reads it off the same [`clauses`](Requirement::clauses)
+/// instead.
 #[must_use]
 pub fn check(
     requirements: &BTreeMap<String, Requirement>,
@@ -106,19 +116,32 @@ pub fn check(
     let mut diagnostics = Vec::new();
     for requirement in requirements.values() {
         let satisfiers = satisfiers_for(requirement, by_kind);
+        let satisfier_features: Vec<&Features> =
+            satisfiers.iter().map(|(_, features)| *features).collect();
+
+        if let Some(kind) = &requirement.kind {
+            let clause = builtin::kind_narrowing_clause(kind);
+            diagnostics.extend(wrong_kind(requirement, &clause, kind, &satisfiers));
+        }
 
         for clause in &requirement.clauses {
             match &clause.predicate {
                 // `count` fires whenever declared — orthogonal to `required` (which
                 // coverage gates as ≥1). specs/architecture/10-contracts.md
                 Predicate::Count { min, max } => {
-                    if !(*min..=*max).contains(&satisfiers.len()) {
-                        diagnostics.push(out_of_band(requirement, clause, *min, *max, &satisfiers));
+                    if !(*min..=*max).contains(&satisfier_features.len()) {
+                        diagnostics.push(out_of_band(
+                            requirement,
+                            clause,
+                            *min,
+                            *max,
+                            &satisfier_features,
+                        ));
                     }
                 }
                 // `unique` is orthogonal to `count`, so it fires regardless of it.
                 Predicate::Unique { field } => {
-                    diagnostics.extend(duplicates(requirement, clause, field, &satisfiers));
+                    diagnostics.extend(duplicates(requirement, clause, field, &satisfier_features));
                 }
                 // S₂'s kind may differ from the requirement's own, so the source set is
                 // resolved off the full `requirements` roster, not `satisfiers`.
@@ -128,7 +151,7 @@ pub fn check(
                         clause,
                         field,
                         target,
-                        &satisfiers,
+                        &satisfier_features,
                         requirements,
                         by_kind,
                     ));
@@ -149,8 +172,11 @@ pub fn check(
 ///
 /// Three decidable clauses:
 ///
-/// - **(a)** a `required` typed requirement's `kind` is one `temper` models, else it
-///   can never be filled (a kind-blind requirement is filled by opt-in `satisfies`).
+/// - **(a)** a typed requirement's `kind` names a kind `temper` models, else the
+///   each-grain clause it sources ([`builtin::kind_narrowing_clause`]) can never hold
+///   for any satisfier — an unfillable selector, regardless of `required` (fillability
+///   itself is kind-blind now: any opt-in artifact, of any modeled kind, satisfies
+///   coverage; naming an unmodeled kind only ever breaks the *narrowing* clause).
 /// - **(b)** any `verified_by` path exists relative to `base_dir` (a dangling verifier
 ///   is the silent no-op `00-intent.md` law 1 forbids).
 /// - **(c)** every clause in [`clauses`](Requirement::clauses) is itself well-formed —
@@ -171,16 +197,16 @@ pub fn admissibility(
     for requirement in requirements.values() {
         let name = requirement.name.as_str();
 
-        // (a) A required requirement typed to an unmodeled kind can never be filled.
-        if requirement.required
-            && let Some(kind) = &requirement.kind
+        // (a) A `kind` narrowing to an unmodeled kind sources a clause that can never
+        // hold — no satisfier is ever of a kind `temper` does not model.
+        if let Some(kind) = &requirement.kind
             && !by_kind.contains_key(kind.as_str())
         {
             diagnostics.push(Diagnostic::error(
                 REQUIREMENT_ADMISSIBILITY_RULE,
                 name,
                 format!(
-                    "required requirement `{name}` names kind `{kind}`, which `temper` does not model — it can never be filled"
+                    "requirement `{name}` narrows its satisfiers to kind `{kind}`, which `temper` does not model — that each-grain clause can never be filled"
                 ),
             ));
         }
@@ -247,6 +273,37 @@ fn out_of_band(
         ),
     )
     .with_guidance(clause.guidance.clone())
+}
+
+/// The each-grain `kind` findings for a requirement's satisfier set — one per
+/// satisfier whose actual kind does not match the declared `kind`
+/// (`specs/model/contract.md`, "selection"): a wrong-kind opt-in is a finding, never
+/// a silent exclusion from the set `count`/`unique`/`membership` range over.
+/// `satisfiers` carries each satisfier's own kind label alongside its `Features`
+/// (`candidates`), the kind-blind stream the narrowing clause judges.
+fn wrong_kind(
+    requirement: &Requirement,
+    clause: &Clause,
+    kind: &str,
+    satisfiers: &[(&str, &Features)],
+) -> Vec<Diagnostic> {
+    satisfiers
+        .iter()
+        .filter_map(|(actual_kind, features)| {
+            engine::kind_violation(kind, actual_kind).map(|message| {
+                Diagnostic::new(
+                    engine::severity_of(clause.severity),
+                    REQUIREMENT_KIND_RULE,
+                    &requirement.name,
+                    format!(
+                        "requirement `{}` narrows its satisfiers to kind `{kind}`, but satisfier `{}` {message}",
+                        requirement.name, features.id
+                    ),
+                )
+                .with_guidance(clause.guidance.clone())
+            })
+        })
+        .collect()
 }
 
 /// The set-scope `unique` findings for one declared `field` over a requirement's
@@ -335,7 +392,7 @@ fn out_of_set(
 
     let allowed: BTreeSet<&str> = source_satisfiers
         .iter()
-        .filter_map(|features| features.field(field).and_then(FeatureValue::as_scalar))
+        .filter_map(|(_, features)| features.field(field).and_then(FeatureValue::as_scalar))
         .collect();
 
     satisfiers
@@ -485,6 +542,51 @@ mod tests {
             )
             .is_empty()
         );
+    }
+
+    /// Pack a roster of one requirement over a multi-kind candidate corpus into the
+    /// shape [`check`] takes — the each-grain `kind` clause tests' way to place
+    /// satisfiers of more than one modeled kind.
+    fn run_multi_kind(req: Requirement, by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
+        let mut requirements = BTreeMap::new();
+        requirements.insert(req.name.clone(), req);
+        check(&requirements, by_kind)
+    }
+
+    #[test]
+    fn a_wrong_kind_opt_in_fires_a_kind_finding_never_a_silent_exclusion() {
+        // `agents` narrows to `skill`, but a `rule` also opts in via `satisfies` — the
+        // kind-blind satisfier set draws it in, and the each-grain `kind` clause
+        // `requirement.kind` sources flags it as a finding instead of silently
+        // dropping it from the set.
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            ..requirement("agents")
+        };
+        let skills = [features("agent-skill", &["agents"])];
+        let rules = [features("agent-rule", &["agents"])];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
+        let diags = run_multi_kind(req, &by_kind);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, REQUIREMENT_KIND_RULE);
+        assert_eq!(diags[0].artifact, "agents");
+        assert!(diags[0].message.contains("agent-rule"));
+        assert!(diags[0].message.contains("skill"));
+    }
+
+    #[test]
+    fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
+        // No `kind` at all: any opt-in artifact, of any modeled kind, satisfies the
+        // requirement, and no narrowing clause attaches — silent regardless of which
+        // kind opted in.
+        let req = requirement("agents");
+        let skills = [features("agent-skill", &["agents"])];
+        let rules = [features("agent-rule", &["agents"])];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
+        assert!(run_multi_kind(req, &by_kind).is_empty());
     }
 
     /// A `count = { min, max }` band requirement over the `skill` kind — the set-scope
@@ -781,8 +883,9 @@ mod tests {
 
     #[test]
     fn a_required_requirement_over_an_unmodeled_kind_is_inadmissible() {
-        // `command` is not a kind `temper` models (only `skill` is in `by_kind`),
-        // so a required requirement over it can never be filled — inadmissible.
+        // `command` is not a kind `temper` models (only `skill` is in `by_kind`), so
+        // the each-grain `kind` clause `command` sources can never be filled by any
+        // real satisfier — inadmissible.
         let req = Requirement {
             kind: Some("command".to_string()),
             required: true,
@@ -865,14 +968,20 @@ mod tests {
     }
 
     #[test]
-    fn a_non_required_requirement_over_an_unmodeled_kind_is_admissible() {
-        // Satisfiability gates on `required`: a non-required requirement over an
-        // unmodeled kind is merely never filled, which the author may have meant — not
-        // an inadmissibility.
+    fn a_non_required_requirement_over_an_unmodeled_kind_is_inadmissible_too() {
+        // Kind-blindness decouples fillability from `kind`: any opt-in artifact of
+        // any modeled kind satisfies coverage regardless of `required`. But the
+        // each-grain `kind` clause an unmodeled `kind` sources can never hold for any
+        // real satisfier either way, so admissibility (a) no longer gates on
+        // `required` — a non-required requirement over an unmodeled kind is
+        // inadmissible exactly like a required one.
         let req = Requirement {
             kind: Some("command".to_string()),
             ..requirement("releaser")
         };
-        assert!(run_admissibility(req, Path::new("")).is_empty());
+        let diags = run_admissibility(req, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
+        assert!(diags[0].message.contains("command"));
     }
 }

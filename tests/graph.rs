@@ -151,12 +151,13 @@ fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
     }
 }
 
-/// The `gate` requirement's declaration row, bound to `kind` and carrying a required
-/// `degree` clause — the lock row a `[requirement.gate]` table used to project.
-fn degree_requirement(kind: &str, degree: DegreeBoundRow) -> RequirementRow {
+/// The `gate` requirement's declaration row, optionally bound to `kind` and carrying
+/// a required `degree` clause — the lock row a `[requirement.gate]` table used to
+/// project. `kind: None` is the kind-blind case.
+fn degree_requirement(kind: Option<&str>, degree: DegreeBoundRow) -> RequirementRow {
     RequirementRow {
         name: "gate".to_string(),
-        kind: Some(kind.to_string()),
+        kind: kind.map(str::to_string),
         required: false,
         clauses: vec![ClauseRow {
             kind: None,
@@ -437,7 +438,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
         Declarations {
             assembly: routes_to_edge(),
             requirements: vec![degree_requirement(
-                "skill",
+                Some("skill"),
                 DegreeBoundRow {
                     incoming: Some(edge_bound(None, Some(0))),
                     outgoing: None,
@@ -482,7 +483,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
         Declarations {
             assembly: routes_to_edge(),
             requirements: vec![degree_requirement(
-                "rule",
+                Some("rule"),
                 DegreeBoundRow {
                     incoming: Some(edge_bound(None, Some(0))),
                     outgoing: None,
@@ -519,7 +520,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
         Declarations {
             assembly: routes_to_edge(),
             requirements: vec![degree_requirement(
-                "skill",
+                Some("skill"),
                 DegreeBoundRow {
                     incoming: Some(edge_bound(Some(1), None)),
                     outgoing: None,
@@ -557,7 +558,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
         Declarations {
             assembly: routes_to_edge(),
             requirements: vec![degree_requirement(
-                "rule",
+                Some("rule"),
                 DegreeBoundRow {
                     incoming: Some(edge_bound(Some(1), None)),
                     outgoing: None,
@@ -578,6 +579,51 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
             && run.output.contains("incoming")
             && run.output.contains("style"),
         "the finding names the degree bound, the direction, and the unreachable artifact, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_skipped() {
+    let root = tmpdir("degree-kind-blind");
+    // `gate` declares no `kind` at all. Its satisfier is the *rule* `style`, which
+    // nothing points at — a kind-blind requirement's `degree` bound must still range
+    // over the opt-in satisfier (whichever modeled kind it is), not be skipped for
+    // lack of a declared `kind`.
+    write_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &clean_skill("standards"),
+    );
+    author_satisfies(&root, "rules", "style", &["gate"]);
+    write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_edge(),
+            requirements: vec![degree_requirement(
+                None,
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(Some(1), None)),
+                    outgoing: None,
+                },
+            )],
+            ..Declarations::default()
+        },
+    );
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a kind-blind requirement's degree bound must still fire ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("degree")
+            && run.output.contains("incoming")
+            && run.output.contains("style"),
+        "the finding names the degree bound, the direction, and the unreachable satisfier, got:\n{}",
         run.output
     );
 }

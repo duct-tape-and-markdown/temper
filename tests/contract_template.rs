@@ -203,3 +203,79 @@ fn the_shipped_built_in_packages_are_admissible() {
         );
     }
 }
+
+// ---- the each-grain `kind` predicate `requirement.kind` sources -------------
+//
+// SATISFIER-KIND-CLAUSE (`specs/model/contract.md`, "selection"): one new predicate
+// in the closed vocabulary expressing "this satisfier is of the declared kind K" —
+// the each-grain clause a typed requirement's `kind` facet sources instead of
+// narrowing the candidate set.
+
+/// The shipped `kind` clause parses/loads: [`temper::builtin::kind_narrowing_clause`]
+/// synthesizes it at `required` severity from a bare kind label, and it carries the
+/// closed-vocabulary `Predicate::Kind` shape with no guidance/cite of its own.
+#[test]
+fn the_kind_narrowing_clause_loads_at_required_severity() {
+    let clause = temper::builtin::kind_narrowing_clause("skill");
+    assert_eq!(clause.severity, Severity::Required);
+    assert_eq!(
+        clause.predicate,
+        Predicate::Kind {
+            kind: "skill".to_string()
+        }
+    );
+    assert_eq!(clause.predicate.key(), "kind");
+}
+
+/// The clause round-trips in a requirement's clause set: attaching it to a
+/// [`temper::compose::Requirement`] and reading it back off `clauses` yields the
+/// identical predicate — the same shape [`temper::roster::check`] evaluates over the
+/// kind-blind satisfier set.
+#[test]
+fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
+    let clause = temper::builtin::kind_narrowing_clause("skill");
+    let requirement = temper::compose::Requirement {
+        name: "planner".to_string(),
+        means: None,
+        kind: Some("skill".to_string()),
+        required: false,
+        clauses: vec![clause.clone()],
+        verified_by: None,
+    };
+    assert_eq!(requirement.clauses, vec![clause]);
+    assert_eq!(
+        requirement.clauses[0].predicate,
+        Predicate::Kind {
+            kind: "skill".to_string()
+        }
+    );
+}
+
+/// A named `kind` clause is admissible; an empty `kind` is vacuous — it names
+/// nothing to match, so it is rejected exactly as an empty `enum`/`deny` list is.
+#[test]
+fn an_empty_kind_clause_is_inadmissible_a_named_one_is_not() {
+    let bare_contract = |predicate: Predicate| Contract {
+        name: "kind-clause-fixture".to_string(),
+        clauses: vec![temper::contract::Clause {
+            severity: Severity::Required,
+            predicate,
+            guidance: None,
+            source: None,
+        }],
+        guidance: None,
+    };
+
+    assert!(
+        engine::admissibility(&bare_contract(Predicate::Kind {
+            kind: "skill".to_string()
+        }))
+        .is_empty()
+    );
+
+    let empty = engine::admissibility(&bare_contract(Predicate::Kind {
+        kind: String::new(),
+    }));
+    assert_eq!(empty.len(), 1);
+    assert!(empty[0].message.contains("kind"));
+}

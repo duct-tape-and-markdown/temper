@@ -94,6 +94,39 @@ fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
 }
 
+/// Write a floor-clean rule directly at its real Claude Code locus
+/// (`<root>/.claude/rules/<name>.md`) — the second modeled kind the each-grain `kind`
+/// clause tests need, so a wrong-kind opt-in has a real other-kind satisfier to be.
+fn write_rule(root: &Path, name: &str) {
+    let dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(
+        dir.join(format!("{name}.md")),
+        format!("# {name}\n\nBody.\n"),
+    )
+    .unwrap();
+}
+
+/// Author a rule's `satisfies` links on its surface overlay
+/// (`<root>/.temper/rules/<name>/RULE.md`) — the mirror of [`author_satisfies`] for the
+/// `rule` kind.
+fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+    let source = root
+        .join(".claude")
+        .join("rules")
+        .join(format!("{name}.md"));
+    let mut rule = temper::frontmatter::Member::from_source(&rule_kind, &source).unwrap();
+    rule.satisfies = requirements
+        .iter()
+        .map(|r| temper::document::Satisfies::new(*r))
+        .collect();
+
+    let dir = root.join(".temper").join("rules").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+}
+
 /// Author the requirements a member **publishes** on its surface overlay — the demand
 /// side of the fill edge, the mirror of [`author_satisfies`], grafted from the same
 /// live off-disk walk.
@@ -381,6 +414,85 @@ fn a_count_band_is_clean_within_bounds() {
     assert!(
         run.ok,
         "a satisfier count inside the band passes ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+// ---- each grain: the `kind` narrowing clause `requirement.kind` sources ----
+
+#[test]
+fn a_wrong_kind_opt_in_fires_a_kind_finding_never_a_silent_exclusion() {
+    let root = tmpdir("kind-wrong");
+    // `agents` narrows to `skill`, but a `rule` also opts in via `satisfies`. The
+    // satisfier set is kind-blind, so the rule is drawn in — and the each-grain
+    // `kind` clause `requirement.kind` sources flags it as a finding rather than
+    // silently excluding it from the set.
+    write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
+    write_rule(&root, "agent-rule");
+    author_satisfies(&root, "agent-skill", &["agents"]);
+    author_rule_satisfies(&root, "agent-rule", &["agents"]);
+    write_requirements(&root, vec![requirement("agents", "skill")]);
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a wrong-kind opt-in must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("agents")
+            && run.output.contains("agent-rule")
+            && run.output.contains("skill"),
+        "the finding names the requirement, the wrong-kind satisfier, and the declared kind, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
+    let root = tmpdir("kind-blind");
+    // No `kind` at all: a skill and a rule both opt in, and neither is a finding —
+    // a kind-blind requirement attaches no narrowing clause.
+    write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
+    write_rule(&root, "agent-rule");
+    author_satisfies(&root, "agent-skill", &["agents"]);
+    author_rule_satisfies(&root, "agent-rule", &["agents"]);
+    write_requirements(
+        &root,
+        vec![RequirementRow {
+            kind: None,
+            ..requirement("agents", "skill")
+        }],
+    );
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "opt-ins of every modeled kind fill a kind-blind requirement ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
+    let root = tmpdir("kind-unmodeled");
+    // A floor-clean skill opts in (coverage is satisfied), but the requirement
+    // narrows to `command` — a kind `temper` does not model — so the each-grain
+    // clause it sources can never hold for any satisfier: an admissibility finding,
+    // never a silent "can never be filled" exclusion.
+    write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
+    author_satisfies(&root, "agent-skill", &["agents"]);
+    write_requirements(&root, vec![requirement("agents", "command")]);
+
+    let run = check_in(&root);
+    assert!(
+        !run.ok,
+        "a kind clause naming an unmodeled kind must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("agents") && run.output.contains("command"),
+        "the finding names the requirement and the unmodeled kind, got:\n{}",
         run.output
     );
 }

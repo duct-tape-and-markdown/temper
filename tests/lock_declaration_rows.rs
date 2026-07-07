@@ -764,6 +764,117 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
     );
 }
 
+// ---- SATISFIER-KIND-CLAUSE: a requirement row's `kind` sources a clause -------
+//
+// `specs/model/contract.md`, "selection": a `RequirementRow`'s `kind` column is a
+// declaration row in the lock, and it now *sources* the shipped each-grain "every
+// satisfier is kind K" clause rather than narrowing which opt-in artifacts are
+// candidates — a wrong-kind opt-in is a `requirement.kind` finding, never a silent
+// exclusion.
+
+/// Author a member's `satisfies` link on its surface overlay — the mirror of
+/// `tests/requirement_roster.rs`'s `author_satisfies`, generalized over `kind_dir`
+/// (`skills` or `rules`) so this file's kind-narrowing case can place a satisfier of
+/// either modeled kind.
+fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
+    let satisfies: Vec<temper::document::Satisfies> = requirements
+        .iter()
+        .map(|r| temper::document::Satisfies::new(*r))
+        .collect();
+    match kind_dir {
+        "skills" => {
+            let kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+            let source = root
+                .join(".claude")
+                .join("skills")
+                .join(name)
+                .join("SKILL.md");
+            let mut skill = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
+            skill.satisfies = satisfies;
+            let dir = root.join(".temper").join("skills").join(name);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+        }
+        "rules" => {
+            let kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+            let source = root
+                .join(".claude")
+                .join("rules")
+                .join(format!("{name}.md"));
+            let mut rule = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
+            rule.satisfies = satisfies;
+            let dir = root.join(".temper").join("rules").join(name);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+        }
+        other => panic!("unknown kind_dir {other}"),
+    }
+}
+
+#[test]
+fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
+    // `gate`'s declaration row in the lock narrows to `skill`. A skill opts in
+    // cleanly; a rule also opts in — the kind-blind satisfier set draws it in, and
+    // the each-grain clause the row's `kind` column sources flags it as a
+    // `requirement.kind` finding rather than silently excluding it.
+    let root = tmpdir("kind-clause-sources-from-row");
+    let skill_dir = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\n\
+         name: coordinate\n\
+         description: Use when coordinating agents across axes; not for single-axis work.\n\
+         ---\n\
+         # Coordinate\n\
+         \n\
+         Body.\n",
+    )
+    .unwrap();
+    let rules_dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    fs::write(rules_dir.join("style.md"), "# Style\n\nBody.\n").unwrap();
+
+    author_satisfies(&root, "skills", "coordinate", &["gate"]);
+    author_satisfies(&root, "rules", "style", &["gate"]);
+
+    write_lock(
+        &root,
+        Declarations {
+            requirements: vec![RequirementRow {
+                name: "gate".to_string(),
+                kind: Some("skill".to_string()),
+                required: false,
+                clauses: Vec::new(),
+                verified_by: None,
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a wrong-kind opt-in the row's `kind` narrows against must fail the run ⇒ non-zero, got:\n{output}"
+    );
+    assert!(
+        output.contains("requirement.kind") && output.contains("style"),
+        "the finding names the sourced kind clause and the wrong-kind satisfier, got:\n{output}"
+    );
+}
+
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
+/// the mirror of this file's own `emitted` helper, minus the harness-members half,
+/// for a case that writes real off-disk members instead of `PayloadMember`s.
+fn write_lock(root: &Path, declarations: Declarations) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations,
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
 // ---- BUILTIN-LOCK-DERIVED: the embedded built-in lock ------------------------
 //
 // `specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived

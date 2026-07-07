@@ -359,3 +359,54 @@ fn a_means_less_required_requirement_still_gates() {
         run.output
     );
 }
+
+/// Write a floor-clean rule directly at its real Claude Code locus
+/// (`<root>/.claude/rules/<name>.md`) — a second modeled kind, so a requirement typed
+/// to `skill` can be filled by an opt-in of a *different* kind.
+fn write_rule(root: &Path, name: &str) {
+    let dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(
+        dir.join(format!("{name}.md")),
+        format!("# {name}\n\nBody.\n"),
+    )
+    .unwrap();
+}
+
+/// Author a rule's `satisfies` links on its surface overlay — the mirror of
+/// [`author_satisfies`] for the `rule` kind.
+fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+    let source = root
+        .join(".claude")
+        .join("rules")
+        .join(format!("{name}.md"));
+    let mut rule = temper::frontmatter::Member::from_source(&rule_kind, &source).unwrap();
+    rule.satisfies = requirements
+        .iter()
+        .map(|r| temper::document::Satisfies::new(*r))
+        .collect();
+
+    let dir = root.join(".temper").join("rules").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+}
+
+#[test]
+fn a_required_requirement_is_covered_by_a_rules_opt_in_same_as_a_skills() {
+    // Coverage draws the satisfier set kind-blind — a member of *any* modeled kind
+    // that opts in via `satisfies` counts toward the requirement, matching the
+    // unified roster/graph satisfier set (`specs/model/contract.md`, "selection").
+    // A `rule`'s opt-in covers `dev-standards` exactly as a skill's would.
+    let root = tmpdir("kind-blind-cover");
+    write_rule(&root, "dev-standards-rule");
+    author_rule_satisfies(&root, "dev-standards-rule", &["dev-standards"]);
+    write_requirements(&root, vec![requirement("dev-standards", true)]);
+
+    let run = check_in(&root);
+    assert!(
+        run.ok,
+        "a rule's opt-in covers a required requirement ⇒ zero, got:\n{}",
+        run.output
+    );
+}

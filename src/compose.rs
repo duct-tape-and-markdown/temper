@@ -69,8 +69,17 @@ pub struct Requirement {
     /// The authored *intent*, stated in meaning not predicates. Carried verbatim and
     /// **never interpreted** (`00-intent.md` law 3).
     pub means: Option<String>,
-    /// The artifact kind that may fill the requirement — the `kind` typing facet.
-    /// Absent ⇒ **kind-blind**: any artifact that opts in fills it.
+    /// The requirement's declared satisfier kind. Unlike the old name-`match`
+    /// selector, this never narrows *which* opt-in artifacts are candidates —
+    /// [`crate::roster`]/[`crate::graph`] draw the satisfier set kind-blind from
+    /// every modeled kind, the opt-in `satisfies` join the sole filter
+    /// (`specs/model/contract.md`, "selection": narrowing a selection is an
+    /// each-grain clause over it, never a second selector). Present, it instead
+    /// *sources* the shipped each-grain "every satisfier is kind K" clause
+    /// [`crate::roster::check`] evaluates over that kind-blind set — a satisfier of
+    /// a different kind is a finding, never a silent exclusion. Absent ⇒
+    /// **kind-blind**: any artifact that opts in fills it, and no narrowing clause
+    /// attaches at all.
     pub kind: Option<String>,
     /// Whether an unfilled requirement is a gate-blocking violation. Absent ⇒ `false`
     /// (`temper` never fabricates a gate the author did not declare — `00-intent.md`

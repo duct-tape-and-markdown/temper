@@ -234,6 +234,17 @@ pub enum Predicate {
         /// The bound on a satisfier's outgoing edge count, when constrained.
         outgoing: Option<EdgeBound>,
     },
+    /// `kind`: the node-set scope, at the **each** grain — every satisfier in the
+    /// selection is of the declared artifact kind (`specs/model/contract.md`,
+    /// "selection": narrowing a selection is an each-grain clause over it, never a
+    /// second selector). A satisfier of a different kind is a finding, never a
+    /// silent exclusion from the set a `count`/`unique`/`membership` clause ranges
+    /// over. An empty `kind` names nothing to match and is rejected at
+    /// admissibility.
+    Kind {
+        /// The kind every satisfier in the selection must be.
+        kind: String,
+    },
 }
 
 /// One direction's inclusive `[min, max]` edge-count bound for [`Predicate::Degree`],
@@ -287,6 +298,7 @@ impl Predicate {
             Predicate::Unique { .. } => "unique",
             Predicate::Membership { .. } => "membership",
             Predicate::Degree { .. } => "degree",
+            Predicate::Kind { .. } => "kind",
         }
     }
 
@@ -324,7 +336,8 @@ impl Predicate {
             | Predicate::UniqueName
             | Predicate::DependencyExists
             | Predicate::Count { .. }
-            | Predicate::Degree { .. } => None,
+            | Predicate::Degree { .. }
+            | Predicate::Kind { .. } => None,
         }
     }
 
@@ -363,7 +376,8 @@ impl Predicate {
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
-            | Predicate::Degree { .. } => None,
+            | Predicate::Degree { .. }
+            | Predicate::Kind { .. } => None,
         }
     }
 }

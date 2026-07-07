@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 use crate::builtin_lock;
 use crate::compose;
-use crate::contract::{Charset, Clause, Contract, Predicate};
+use crate::contract::{Charset, Clause, Contract, Predicate, Severity};
 use crate::drift::{CharsetRow, ClauseRow};
 
 /// Lift one embedded clause row's `charset` column into the typed [`Charset`] —
@@ -104,6 +104,26 @@ fn contract_for_kind(kind: &str) -> Contract {
         name: kind.to_string(),
         clauses,
         guidance: None,
+    }
+}
+
+/// The shipped each-grain clause a typed requirement's `kind` facet sources —
+/// "every satisfier is kind K" at `required` severity (`specs/model/contract.md`,
+/// "selection": narrowing a selection is an each-grain clause over it, never a
+/// second selector). The mechanism — the predicate shape and its `required`
+/// severity — ships fixed with the requirement facet; only `kind` is
+/// per-requirement author data, so [`crate::roster::check`] calls this to
+/// synthesize the clause fresh from [`compose::Requirement::kind`] every run
+/// rather than storing it on the requirement.
+#[must_use]
+pub fn kind_narrowing_clause(kind: &str) -> Clause {
+    Clause {
+        severity: Severity::Required,
+        predicate: Predicate::Kind {
+            kind: kind.to_string(),
+        },
+        guidance: None,
+        source: None,
     }
 }
 

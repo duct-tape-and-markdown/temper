@@ -99,8 +99,8 @@ pub fn emit(contract: &Contract) -> Value {
             // `optional` is documentation, `max_lines`/`require_sections`/
             // `must_define`/`section_contains` are body/structural, the
             // cross-artifact predicates range over the whole corpus, and
-            // `count`/`unique`/`membership`/`degree` range over a node-set or the
-            // edge graph, never a single artifact's frontmatter. None is a
+            // `count`/`unique`/`membership`/`degree`/`kind` range over a node-set or
+            // the edge graph, never a single artifact's frontmatter. None is a
             // per-artifact frontmatter squiggle, so none rides the validation
             // channel here.
             Predicate::Optional { .. }
@@ -114,7 +114,8 @@ pub fn emit(contract: &Contract) -> Value {
             | Predicate::Count { .. }
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
-            | Predicate::Degree { .. } => {}
+            | Predicate::Degree { .. }
+            | Predicate::Kind { .. } => {}
         }
     }
 
