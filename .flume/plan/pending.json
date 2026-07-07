@@ -31,6 +31,37 @@
     "notes": "Field report 1. Explicitly outside CITE-RETAG (comment/citation scope, already shipped): these are user-facing strings. Runtime already migrated shared/surface -> note/warn/block."
   },
   {
+    "tag": "BUNDLE-SKILL-INSTALL-VERB",
+    "summary": "the bundled operate-the-gate skill + plugin description teach the retired `import` verb; the CLI has no Import subcommand — channel 3's skill must name `install`, the single on-ramp",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "What ships — three channels"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "Three shipped strings teach the retired `import` verb: PLUGIN_DESCRIPTION (:52 'import the harness into a typed surface'), the OPERATE_SKILL frontmatter `description` (:72 'importing a harness into the typed surface'), and the OPERATE_SKILL body 'Run the gate' bullet (:83 `temper import <harness-path> --into .temper` — 'scan the harness ... re-importing an unchanged harness is a no-op'). The CLI has no Import subcommand (Install/Check/Emit/Schema/Guard/Bundle/Explain); `install` is the single on-ramp. Recut all three to `temper install`, and rewrite the on-ramp bullet to describe install's behavior (discovery report, one question, lift + first emit + placement; re-running converges) rather than import's scan-into-a-surface framing. Channel 3: the skill teaches when to install / emit / check."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "no shipped bundle string (plugin description, operate-the-gate skill body/frontmatter) speaks `temper import`; the skill's on-ramp bullet names `temper install`"
+      }
+    ],
+    "acceptance": "No shipped bundle string (plugin description or operate-the-gate skill) names the retired `import` verb; the skill's on-ramp bullet names `temper install` and describes install's actual behavior.",
+    "notes": "Residue sweep 8aeb64e..HEAD. `import` verb retired (CLI: Install/Check/Emit/Schema/Guard/Bundle/Explain, no Import); bundle.rs shipped skill+description still teach it. Distinct from EXPLAIN-RESOLVER (read.rs not-found suggestion) and HELP-TEXT-RECUT (main.rs clap help). Not PACKAGING-CHANNELS (parked release infra) — a live shipped-content bug, as SCAFFOLD was carved from PACKAGING. Disjoint over src/bundle.rs + tests/bundle.rs."
+  },
+  {
     "tag": "COVERAGE-KIND-AWARE",
     "summary": "coverage_note false-flags a surface a locked custom kind governs as unmodeled, and says 'built-in kinds' while counting custom members — it consults only built-ins, not the lock's kinds",
     "per": {
