@@ -1,0 +1,134 @@
+# The built-in lock — the compiled default program `temper` embeds for SDK-less
+# checking (specs/architecture/50-distribution.md, "The stranger gate"). Declaration
+# rows only: the four built-in kinds' facts and their floor clauses, plus the
+# unconditional `authority = "shared"` assembly fact every harness carries absent an
+# authored posture. No requirements, no satisfies, no provenance or emit-fingerprint
+# rows — nothing was emitted, there are no members.
+#
+# Derived, never transcribed (specs/architecture/50-distribution.md, "Decision: the
+# built-in lock is derived from the SDK module, never transcribed"): this is the
+# real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
+# declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
+# built-in kinds (`skill`, `rule`, `memory`) and its four floors (`skillFloor`,
+# `ruleFloor`, `memoryAnthropicFloor`, `memoryAgentsMdFloor`) — the identical rows an
+# adopted harness's own emit produces, just with no members to project. Regenerate by
+# re-running that memberless emit and re-embedding the resulting lock's declaration
+# rows verbatim; never hand-edit a row here.
+#
+# `memoryAgentsMdFloor` is guidance-only (zero clauses,
+# `sdk/src/builtins.ts`), so it contributes no clause row; the SDK module exports one
+# `memory` kind (the `CLAUDE.md` locus) and no `provider`-qualified kind values yet,
+# so this lock's three kind facts carry no `provider` column and there is no distinct
+# `agents-md.memory` kind row — a module gap `BUILTIN-LOCK-ROW-DRIVEN` (the consumer
+# link) reconciles, not this one.
+
+[[declaration.kind]]
+name = "memory"
+governs_root = "."
+governs_glob = "**/CLAUDE.md"
+unit_shape = "file"
+activation = "always"
+
+[[declaration.kind]]
+name = "rule"
+governs_root = ".claude/rules"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+activation = "paths-match(paths)"
+
+[[declaration.kind]]
+name = "skill"
+governs_root = ".claude/skills"
+governs_glob = "*/SKILL.md"
+format = "yaml-frontmatter"
+unit_shape = "directory"
+activation = "description-trigger(description)"
+
+[[declaration.clause]]
+kind = "memory"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.clause]]
+kind = "rule"
+predicate = "forbidden_keys"
+severity = "required"
+
+[[declaration.clause]]
+kind = "rule"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "required"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "min_len"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_len"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "deny"
+field = "name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "name-matches-dir"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "required"
+field = "description"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "min_len"
+field = "description"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_len"
+field = "description"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_len"
+field = "compatibility"
+severity = "required"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "max_lines"
+severity = "advisory"
+
+[[declaration.clause]]
+kind = "skill"
+predicate = "forbidden_keys"
+severity = "required"
+
+[[declaration.assembly]]
+fact = "authority"
+value = "shared"

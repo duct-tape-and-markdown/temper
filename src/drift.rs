@@ -1151,9 +1151,26 @@ pub fn read_declarations(workspace_dir: &Path) -> miette::Result<Declarations> {
         }
         Err(source) => return Err(DriftError::LockRead { path, source }.into()),
     };
+    Ok(parse_declarations(&path, &text)?)
+}
+
+/// Parse a lock document's declaration-row family off already-read `text` — the
+/// shared parser [`read_declarations`] and the embedded built-in lock
+/// ([`crate::builtin_lock`]) both delegate to, so a malformed committed lock and a
+/// malformed embed report through the identical [`DriftError::LockParse`]. `path`
+/// labels the diagnostic only; the embedded lock has no on-disk workspace to root
+/// it at, so it passes its own module path as a stand-in.
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockParse`] if `text` is not valid TOML.
+pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, DriftError> {
     let doc = text
         .parse::<DocumentMut>()
-        .map_err(|source| DriftError::LockParse { path, source })?;
+        .map_err(|source| DriftError::LockParse {
+            path: path.to_path_buf(),
+            source,
+        })?;
     Ok(declarations_from_doc(&doc))
 }
 

@@ -17,6 +17,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod builtin;
 pub mod builtin_kind;
+pub mod builtin_lock;
 pub mod bundle;
 pub mod check;
 pub mod compose;

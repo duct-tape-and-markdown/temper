@@ -16,6 +16,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use temper::builtin;
+use temper::builtin_lock;
+use temper::contract::Severity;
 use temper::drift::{
     self, AssemblyFactRow, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow,
     EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
@@ -601,5 +604,134 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
     assert!(
         output.contains("forbidden_keys"),
         "the finding names the clause the harness member tripped even with no lock, got:\n{output}"
+    );
+}
+
+// ---- BUILTIN-LOCK-DERIVED: the embedded built-in lock ------------------------
+//
+// `specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+// from the SDK module, never transcribed": `src/builtin_lock.toml` is the real
+// `[declaration.*]` family a memberless emit of `@dtmd/temper/claude-code`'s built-in
+// kinds + four floors produces. These tests pin it against today's hand-written
+// mirrors (`builtin`/`builtin_kind`) it is not yet wired to replace
+// (`BUILTIN-LOCK-ROW-DRIVEN` does the rewiring) — proving the derived data already
+// agrees with the live default program.
+
+/// The declared `(predicate, field, severity)` triples a hand-written built-in
+/// floor's clauses carry, in declaration order — the shape a `ClauseRow` reduces a
+/// `Clause` to (`temper::drift::ClauseRow`; `Predicate::key`/`Predicate::target`).
+/// Drops `optional` clauses: `rule_anthropic`'s hand-written floor still carries one
+/// over `paths` (asserts nothing decidable — always satisfied), but the SDK's
+/// migrated `ruleFloor` deliberately folded it into TSDoc guidance instead
+/// (`FIRST-PARTY-MODULE-COMPLETE`, "an optional field asserts nothing decidable") —
+/// a real, already-shipped divergence this comparison should not paper over by
+/// asserting the dropped clause still exists.
+fn floor_triples(package: &str) -> Vec<(&'static str, Option<String>, &'static str)> {
+    let contract = builtin::contract(package)
+        .unwrap()
+        .unwrap_or_else(|| panic!("built-in package `{package}` is embedded"));
+    contract
+        .clauses
+        .into_iter()
+        .filter(|clause| clause.predicate.key() != "optional")
+        .map(|clause| {
+            let severity = match clause.severity {
+                Severity::Required => "required",
+                Severity::Advisory => "advisory",
+            };
+            (
+                clause.predicate.key(),
+                clause.predicate.target().map(str::to_string),
+                severity,
+            )
+        })
+        .collect()
+}
+
+/// The embedded built-in lock's own `(predicate, field, severity)` triples for one
+/// kind, in the row order the lock carries them.
+fn lock_triples(kind: &str) -> Vec<(&'static str, Option<String>, &'static str)> {
+    builtin_lock::declarations()
+        .clauses
+        .iter()
+        .filter(|row| row.kind.as_deref() == Some(kind))
+        .map(|row| {
+            (
+                row.predicate.as_str(),
+                row.field.clone(),
+                row.severity.as_str(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
+    let declarations = builtin_lock::declarations();
+
+    let skill = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "skill")
+        .expect("the skill kind fact is embedded");
+    assert_eq!(skill.governs_root, ".claude/skills");
+    assert_eq!(skill.governs_glob, "*/SKILL.md");
+    assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
+    assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
+    assert_eq!(
+        skill.activation.as_deref(),
+        Some("description-trigger(description)")
+    );
+
+    let rule = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the rule kind fact is embedded");
+    assert_eq!(rule.governs_root, ".claude/rules");
+    assert_eq!(rule.governs_glob, "*.md");
+    assert_eq!(rule.format.as_deref(), Some("yaml-frontmatter"));
+    assert_eq!(rule.unit_shape.as_deref(), Some("file"));
+    assert_eq!(rule.activation.as_deref(), Some("paths-match(paths)"));
+
+    let memory = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "memory")
+        .expect("the memory kind fact is embedded");
+    assert_eq!(memory.governs_root, ".");
+    assert_eq!(memory.governs_glob, "**/CLAUDE.md");
+    assert_eq!(memory.format, None);
+    assert_eq!(memory.unit_shape.as_deref(), Some("file"));
+    assert_eq!(memory.activation.as_deref(), Some("always"));
+
+    // The SDK module sets no `provider` on any of its three exported kinds yet, so
+    // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
+    // reconciles (`(builtin-workspace-qualified-key)`), not this link.
+    assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
+    assert_eq!(declarations.kinds.len(), 3);
+    assert!(declarations.requirements.is_empty());
+    assert!(declarations.satisfies.is_empty());
+}
+
+#[test]
+fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
+    assert_eq!(
+        lock_triples("skill"),
+        floor_triples(builtin::SKILL_PACKAGE),
+        "skill's floor clauses round-trip through the derived lock unchanged"
+    );
+    assert_eq!(
+        lock_triples("rule"),
+        floor_triples(builtin::RULE_PACKAGE),
+        "rule's floor clauses round-trip through the derived lock unchanged"
+    );
+    // The memberless emit binds both memory floors to the SDK's one exported
+    // `memory` kind; `memoryAgentsMdFloor` is guidance-only (zero clauses), so only
+    // `memoryAnthropicFloor`'s clause survives under the `memory` kind's rows.
+    assert_eq!(
+        lock_triples("memory"),
+        floor_triples(builtin::MEMORY_ANTHROPIC_PACKAGE),
+        "memory's floor clauses round-trip through the derived lock unchanged"
     );
 }
