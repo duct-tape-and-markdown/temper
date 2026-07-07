@@ -26,6 +26,7 @@ adjacent tiers on one channel blur; the channel split is the distinction.
 ## Consequences
 
 `{Shared, Surface}` recuts to `{note, warn, block}` across its engine
-homes; the shipped default maps `Shared`→`warn`, preserving today's
-behavior. Session start is untouched — it is `check`'s reporter, not the
-guard.
+homes: `Shared`→`warn` and `Surface`→`block`, preserving today's behavior
+at both values; nothing maps to `note` — it is the newly expressible tier,
+unreachable until an author declares it. Session start is untouched — it is
+`check`'s reporter, not the guard.
