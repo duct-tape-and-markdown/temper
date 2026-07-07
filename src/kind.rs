@@ -19,6 +19,7 @@ use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
 use crate::document::{Document, PublishedRequirement};
+use crate::drift::KindFactRow;
 use crate::extract::{self, Features};
 
 /// The file locus a custom kind reads (`specs/architecture/40-composition.md`): the root
@@ -200,6 +201,41 @@ impl CustomKind {
         }
     }
 
+    /// Reconstruct a kind's declared definition from the committed lock's own
+    /// [`KindFactRow`] (`specs/architecture/20-surface.md`, "The lock and drift — one
+    /// vocabulary"): the row's five-fact residue lifts into `governs`/`format`/
+    /// `unit_shape`/`activation` directly, a label this projection cannot parse
+    /// degrading to `None` — the same tolerant read the rest of a hand-editable lock
+    /// takes. A `KIND.md` file format never carried field-level extraction primitives
+    /// either (`specs/architecture/15-kinds.md`, "there is no kind file format"), so the
+    /// reconstructed extractor stays the same generic markdown-structure set every
+    /// built-in composes (`headings`/`sections`/`line_count`/`placement`); a floor
+    /// clause's own `field` column, plus the permissive frontmatter fold every custom
+    /// member's extraction already runs through (`crate::builtin_kind::features`), is
+    /// what actually ranges over a custom member's declared fields — never a per-kind
+    /// `Field` primitive list.
+    #[must_use]
+    pub fn from_kind_fact_row(row: &KindFactRow) -> Self {
+        CustomKind {
+            format: row.format.as_deref().and_then(format_from_label),
+            unit_shape: row.unit_shape.as_deref().and_then(unit_shape_from_label),
+            activation: row.activation.as_deref().and_then(activation_from_label),
+            ..CustomKind::new(
+                row.name.clone(),
+                Governs {
+                    root: row.governs_root.clone(),
+                    glob: row.governs_glob.clone(),
+                },
+                Extraction::new(vec![
+                    Primitive::LineCount,
+                    Primitive::Headings,
+                    Primitive::Sections,
+                    Primitive::Placement,
+                ]),
+            )
+        }
+    }
+
     /// Run the kind's composed extractor over `unit`, then fold its declared genres
     /// (`specs/architecture/20-surface.md`, "Genre values"): each fenced block whose info string
     /// names a declared genre (`genre.<genre> <key>`) has its interior TOML parsed into a
@@ -316,6 +352,44 @@ impl Governs {
     #[must_use]
     pub fn glob_leaf(&self) -> &str {
         self.glob.rsplit('/').next().unwrap_or(&self.glob)
+    }
+}
+
+/// Parse a [`KindFactRow::format`] label into its typed [`Format`] — `None` for any
+/// label outside the closed vocabulary, the tolerant read the rest of a hand-editable
+/// lock takes.
+fn format_from_label(label: &str) -> Option<Format> {
+    match label {
+        "yaml-frontmatter" => Some(Format::YamlFrontmatter),
+        _ => None,
+    }
+}
+
+/// Parse a [`KindFactRow::unit_shape`] label into its typed [`UnitShape`] — `None`
+/// outside the closed vocabulary.
+fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
+    match label {
+        "file" => Some(UnitShape::File),
+        "directory" => Some(UnitShape::Directory),
+        _ => None,
+    }
+}
+
+/// Parse a [`KindFactRow::activation`] label into its typed [`Activation`] — the
+/// closed vocabulary's compact wire form (`always`, or a `<name>(<field>)` call for the
+/// three field-carrying variants). `None` for a bare unrecognized name or a malformed
+/// `(field)` suffix.
+fn activation_from_label(label: &str) -> Option<Activation> {
+    if label == "always" {
+        return Some(Activation::Always);
+    }
+    let (name, field) = label.strip_suffix(')')?.split_once('(')?;
+    let field = field.to_string();
+    match name {
+        "description-trigger" => Some(Activation::DescriptionTrigger { field }),
+        "paths-match" => Some(Activation::PathsMatch { field }),
+        "event" => Some(Activation::Event { field }),
+        _ => None,
     }
 }
 
@@ -1208,5 +1282,82 @@ import_hash = \"deadbeef\"\n\
         // is always its own bare name (`specs/architecture/15-kinds.md`, "Decision:
         // built-ins are a module, and identity is an import").
         assert_eq!(spec_kind().qualified_name(), "spec");
+    }
+
+    #[test]
+    fn from_kind_fact_row_lifts_every_declared_fact() {
+        let row = KindFactRow {
+            name: "spec".to_string(),
+            provider: None,
+            governs_root: "specs".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("directory".to_string()),
+            activation: Some("description-trigger(description)".to_string()),
+        };
+        let kind = CustomKind::from_kind_fact_row(&row);
+
+        assert_eq!(kind.name, "spec");
+        assert_eq!(
+            kind.governs,
+            Governs {
+                root: "specs".to_string(),
+                glob: "*.md".to_string(),
+            }
+        );
+        assert_eq!(kind.format, Some(Format::YamlFrontmatter));
+        assert_eq!(kind.unit_shape, Some(UnitShape::Directory));
+        assert_eq!(
+            kind.activation,
+            Some(Activation::DescriptionTrigger {
+                field: "description".to_string()
+            })
+        );
+        // The generic markdown-structure set every built-in composes — never a
+        // per-kind `Field` primitive, since the row carries no field-level facts.
+        assert_eq!(
+            kind.extraction.primitives(),
+            &[
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]
+        );
+    }
+
+    #[test]
+    fn from_kind_fact_row_degrades_unrecognized_labels_to_absent() {
+        // A hand-editable lock's out-of-vocabulary label degrades to absent rather
+        // than erroring — the same tolerance the rest of the lock's readers take.
+        let row = KindFactRow {
+            name: "spec".to_string(),
+            provider: None,
+            governs_root: "specs".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: Some("xml".to_string()),
+            unit_shape: Some("directory".to_string()),
+            activation: Some("bogus".to_string()),
+        };
+        let kind = CustomKind::from_kind_fact_row(&row);
+        assert_eq!(kind.format, None);
+        assert_eq!(kind.activation, None);
+    }
+
+    #[test]
+    fn from_kind_fact_row_with_no_optional_facts_yields_the_generic_defaults() {
+        let row = KindFactRow {
+            name: "adr".to_string(),
+            provider: None,
+            governs_root: "adr".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: None,
+            unit_shape: None,
+            activation: None,
+        };
+        let kind = CustomKind::from_kind_fact_row(&row);
+        assert_eq!(kind.format, None);
+        assert_eq!(kind.unit_shape, None);
+        assert_eq!(kind.activation, None);
     }
 }

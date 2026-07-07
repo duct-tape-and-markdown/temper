@@ -395,9 +395,7 @@ fn main() -> miette::Result<ExitCode> {
 /// the gate's own predicates range over (READ-EDGE-UNIFY) — over the standard `.temper`
 /// workspace and the harness at the CWD, mirroring `check`'s own two-step corpus
 /// assembly (`gate`) — and dispatch through [`read::explain`]'s target-species
-/// resolution. Custom kinds retire with the `KIND.md` file format
-/// (`specs/architecture/15-kinds.md`), so no custom-kind members or edges are threaded in
-/// yet; the plumbing is ready for the SDK path that replaces it.
+/// resolution.
 fn explain(target: &str) -> miette::Result<String> {
     let workspace = PathBuf::from(DEFAULT_WORKSPACE);
     let harness_root = Path::new(".");
@@ -413,21 +411,43 @@ fn explain(target: &str) -> miette::Result<String> {
         .ok_or_else(|| miette::miette!("built-in kind `rule` is not embedded in this binary"))?;
     let skill_features = kind_features(&skill_kind, harness_root, &workspace, &declarations)?;
     let rule_features = kind_features(&rule_kind, harness_root, &workspace, &declarations)?;
-    let custom_kinds: Vec<CustomKindEntry> = Vec::new();
+
+    // Every lock-declared kind that is not a built-in — the same synthesis `gate` runs
+    // (READ-EDGE-UNIFY), so a read cannot disagree with the gate about which kinds and
+    // members exist.
+    let builtin_defs = builtin_kind::definitions()?;
+    let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
+    let mut custom_members: Vec<read::CustomMember> = Vec::new();
+    for row in &declarations.kinds {
+        if builtin_defs.contains_key(&row.name) {
+            continue;
+        }
+        let custom_kind = CustomKind::from_kind_fact_row(row);
+        let units = resolve_kind_units(&custom_kind, harness_root, &workspace, &declarations)?;
+        let features: Vec<extract::Features> = units
+            .iter()
+            .map(|unit| builtin_kind::features(&custom_kind, unit))
+            .collect();
+        for unit in &units {
+            custom_members.push(read::CustomMember {
+                kind: custom_kind.name.clone(),
+                id: unit.id.clone(),
+                satisfies: unit.satisfies_clauses.clone(),
+            });
+        }
+        custom_kinds.push((custom_kind, features));
+    }
     let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
     // `why`/`requirements` read a member's existence and its authored `satisfies`
     // rationale off a `Workspace` + `custom` members (`crate::read`'s own listing), not
-    // off `by_kind`. Custom kinds retire with the KIND.md file format
-    // (`specs/architecture/15-kinds.md`), so no custom member is threaded in yet; the
-    // real `Workspace` carries the surface tree's built-in members with their
-    // authored rationale intact.
+    // off `by_kind`.
     let ws = Workspace::load(&workspace)?;
-    let custom_members: Vec<read::CustomMember> = Vec::new();
 
     let all_features: Vec<extract::Features> = skill_features
         .iter()
         .chain(rule_features.iter())
+        .chain(custom_kinds.iter().flat_map(|(_, features)| features))
         .cloned()
         .collect();
 
@@ -442,7 +462,6 @@ fn explain(target: &str) -> miette::Result<String> {
 
     // The world's inbound activation edge into each built-in kind — the same derivation
     // the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
-    let builtin_defs = builtin_kind::definitions()?;
     let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
     for def in builtin_defs.values() {
         if let Some(activation) = &def.activation {
@@ -568,7 +587,8 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut skill_features: Vec<extract::Features> = Vec::new();
     let mut rule_features: Vec<extract::Features> = Vec::new();
-    for kind in builtin_kind::definitions()?.values() {
+    let builtin_defs = builtin_kind::definitions()?;
+    for kind in builtin_defs.values() {
         // Two greens (`specs/architecture/10-contracts.md`): admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
         // The per-kind clause overrides source from the lock's declared `clauses`
@@ -589,6 +609,28 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
             "rule" => rule_features = features,
             _ => {}
         }
+    }
+
+    // Every lock-declared kind that is not one of the embedded built-ins
+    // (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"): a
+    // built-in's own row is only the governs-override `effective_governs` already
+    // consumes, never a second kind definition. A custom kind carries no embedded
+    // default — its whole floor is the committed lock's own clause rows naming it
+    // ([`compose::floor_from_rows`]) — but is otherwise dispatched through the
+    // identical two-greens the built-in loop above runs.
+    let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
+    for row in &declarations.kinds {
+        if builtin_defs.contains_key(&row.name) {
+            continue;
+        }
+        let custom_kind = CustomKind::from_kind_fact_row(row);
+        let contract = compose::floor_from_rows(&declarations.clauses, &row.name);
+        let features = kind_features(&custom_kind, harness_root, workspace, &declarations)?;
+
+        diagnostics.extend(engine::admissibility(&contract));
+        diagnostics.extend(engine::validate(&contract, &features));
+        member_counts.insert(row.name.clone(), features.len());
+        custom_kinds.push((custom_kind, features));
     }
 
     // The directive backing-set file-set (`specs/architecture/45-governance.md`, "The world is a
@@ -622,13 +664,6 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // Runs unconditionally — the lock is the sole source of assembly facts now, so an
     // unadopted harness's empty declarations make this tier a no-op rather than a
     // skip.
-    //
-    // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
-    // "Decision: field typing lives in the SDK — there is no kind file format"): a
-    // project's own kind is SDK-authored, and no SDK path exists in the engine yet,
-    // so no custom kind contributes members or edges. The corpus/edge plumbing below
-    // stays generic — ready for that future SDK path, not hardwired to the empty case.
-    let custom_kinds: Vec<CustomKindEntry> = Vec::new();
     let edges = assembly_edges.clone();
 
     // The by-kind corpus every set-scope and graph predicate ranges over,
@@ -641,7 +676,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let all_features: Vec<extract::Features> = skill_features
         .iter()
         .chain(rule_features.iter())
-        .chain(custom_kinds.iter().flat_map(|(_, _, features)| features))
+        .chain(custom_kinds.iter().flat_map(|(_, features)| features))
         .cloned()
         .collect();
 
@@ -877,26 +912,25 @@ fn repo_file_set(root: &Path) -> Vec<String> {
     files
 }
 
-/// A registered custom kind as the corpus construction carries it: its name (borrowed
-/// from the assembly layer), its loaded [`CustomKind`] definition, and its computed
-/// member [`Features`](extract::Features). Named so the shared corpus helpers keep a
-/// legible signature (`clippy::type_complexity`).
-type CustomKindEntry<'a> = (&'a str, CustomKind, Vec<extract::Features>);
+/// A registered custom kind as the corpus construction carries it: its loaded
+/// [`CustomKind`] definition (identity travels on `.name` — no separate borrowed name
+/// column) and its computed member [`Features`](extract::Features). Named so the
+/// shared corpus helpers keep a legible signature (`clippy::type_complexity`).
+type CustomKindEntry = (CustomKind, Vec<extract::Features>);
 
 /// Assemble the by-kind [`Features`](extract::Features) corpus every set-scope and
-/// graph predicate ranges over: the built-in kinds plus each custom kind's features
-/// (empty today — custom kinds retire with the `KIND.md` file format), keyed by kind
-/// name. Borrows every slice, so the caller holds the owned feature vecs for the
-/// map's lifetime.
+/// graph predicate ranges over: the built-in kinds plus each lock-declared custom
+/// kind's features, keyed by kind name. Borrows every slice, so the caller holds the
+/// owned feature vecs for the map's lifetime.
 fn assemble_by_kind<'a>(
     skill_features: &'a [extract::Features],
     rule_features: &'a [extract::Features],
-    custom_kinds: &'a [CustomKindEntry<'a>],
+    custom_kinds: &'a [CustomKindEntry],
 ) -> BTreeMap<&'a str, &'a [extract::Features]> {
     let mut by_kind: BTreeMap<&str, &[extract::Features]> =
         BTreeMap::from([("skill", skill_features), ("rule", rule_features)]);
-    for (name, _custom, features) in custom_kinds {
-        by_kind.insert(*name, features.as_slice());
+    for (kind, features) in custom_kinds {
+        by_kind.insert(kind.name.as_str(), features.as_slice());
     }
     by_kind
 }
@@ -912,11 +946,12 @@ fn assemble_by_kind<'a>(
 /// [`builtin_kind::definitions`] — not a hardcoded skill/rule pair — so a discovered
 /// `CLAUDE.md` memory member's `at-import` targets reach [`graph::classify_directives`]
 /// and an unbacked `@path` draws its finding (DIRECTIVE-MEMBERS-ALL-KINDS, the same
-/// generalization CHECK-MEMBERS-ALL-KINDS made for clause dispatch). Each kind's
-/// members are resolved through [`resolve_kind_units`] — the same live, governs-driven
-/// read the gate's own dispatch uses — and keyed by the bare `kind.name`, the keying
-/// `by_kind`/`classify_directives` join on. Custom kinds retire with the KIND.md file
-/// format (`specs/architecture/15-kinds.md`) and contribute no members.
+/// generalization CHECK-MEMBERS-ALL-KINDS made for clause dispatch), **and** every
+/// lock-declared custom kind's members, the same synthesis `gate`'s own dispatch runs
+/// (CHECK-LOCK-KIND-ROWS). Each kind's members are resolved through
+/// [`resolve_kind_units`] — the same live, governs-driven read the gate's own dispatch
+/// uses — and keyed by the bare `kind.name`, the keying `by_kind`/`classify_directives`
+/// join on.
 ///
 /// # Errors
 ///
@@ -927,11 +962,27 @@ fn collect_directive_members(
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
-    for kind in builtin_kind::definitions()?.values() {
+    let builtin_defs = builtin_kind::definitions()?;
+    for kind in builtin_defs.values() {
         for unit in resolve_kind_units(kind, harness_root, workspace, declarations)? {
             let feature = builtin_kind::features(kind, &unit);
             members.push(graph::DirectiveMember {
                 kind: kind.name.clone(),
+                id: feature.id.clone(),
+                source_path: unit.source_path.clone(),
+                directives: feature.directives.clone(),
+            });
+        }
+    }
+    for row in &declarations.kinds {
+        if builtin_defs.contains_key(&row.name) {
+            continue;
+        }
+        let custom_kind = CustomKind::from_kind_fact_row(row);
+        for unit in resolve_kind_units(&custom_kind, harness_root, workspace, declarations)? {
+            let feature = builtin_kind::features(&custom_kind, &unit);
+            members.push(graph::DirectiveMember {
+                kind: custom_kind.name.clone(),
                 id: feature.id.clone(),
                 source_path: unit.source_path.clone(),
                 directives: feature.directives.clone(),

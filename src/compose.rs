@@ -119,6 +119,35 @@ pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Cont
     floor
 }
 
+/// A custom kind's whole floor [`Contract`], built directly from the clause rows
+/// naming it in the committed lock (`specs/architecture/20-surface.md`, "The lock and
+/// drift — one vocabulary"). Unlike a built-in kind — whose floor is the embedded
+/// default, with the lock's own rows only overriding a clause's severity ([`effective`])
+/// — a custom kind carries no embedded default: its committed rows **are** its floor,
+/// the same lift [`crate::builtin::contract`] runs over the *embedded* lock's own rows,
+/// run here over the *project's own*. Tolerant like the rest of a hand-editable lock's
+/// readers: a row naming an unsupported predicate, an out-of-vocabulary severity, or one
+/// missing its own required argument is skipped rather than trusted.
+#[must_use]
+pub fn floor_from_rows(clauses: &[ClauseRow], kind: &str) -> Contract {
+    Contract {
+        name: kind.to_string(),
+        clauses: clauses
+            .iter()
+            .filter(|row| row.kind.as_deref() == Some(kind))
+            .filter_map(|row| {
+                Some(contract::Clause {
+                    severity: severity_from_label(&row.severity)?,
+                    predicate: crate::builtin::predicate_from_row(row)?,
+                    guidance: row.guidance.clone(),
+                    source: row.cite.clone(),
+                })
+            })
+            .collect(),
+        guidance: None,
+    }
+}
+
 /// Parse a lock clause row's `severity` label into the typed [`contract::Severity`]
 /// — the closed `required`/`advisory` vocabulary a bare contract's own clauses
 /// declare. An out-of-vocabulary label is `None`. `pub` (not `pub(crate)`) so the
@@ -245,6 +274,106 @@ mod tests {
             values: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
+    }
+
+    #[test]
+    fn floor_from_rows_builds_a_custom_kinds_whole_floor() {
+        // Unlike `effective`, a custom kind has no embedded default to override — its
+        // committed rows are its whole floor, so a matching row contributes a brand new
+        // clause rather than only flipping an existing one's severity.
+        let rows = vec![
+            ClauseRow {
+                kind: Some("spec".to_string()),
+                predicate: "max_lines".to_string(),
+                field: None,
+                severity: "advisory".to_string(),
+                guidance: None,
+                cite: None,
+                count: None,
+                target: None,
+                degree: None,
+                bound: Some(crate::drift::BoundRow {
+                    min: None,
+                    max: Some(150),
+                }),
+                charset: None,
+                keys: None,
+                values: None,
+            },
+            ClauseRow {
+                kind: Some("rule".to_string()),
+                predicate: "max_lines".to_string(),
+                field: None,
+                severity: "required".to_string(),
+                guidance: None,
+                cite: None,
+                count: None,
+                target: None,
+                degree: None,
+                bound: Some(crate::drift::BoundRow {
+                    min: None,
+                    max: Some(10),
+                }),
+                charset: None,
+                keys: None,
+                values: None,
+            },
+        ];
+
+        let contract = floor_from_rows(&rows, "spec");
+        assert_eq!(contract.name, "spec");
+        assert_eq!(
+            contract.clauses,
+            vec![Clause {
+                severity: Severity::Advisory,
+                predicate: Predicate::MaxLines { max: 150 },
+                guidance: None,
+                source: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn floor_from_rows_skips_a_row_it_cannot_lift() {
+        // An unsupported predicate and an out-of-vocabulary severity both degrade to
+        // absent, the tolerant read the rest of a hand-editable lock takes.
+        let rows = vec![
+            ClauseRow {
+                kind: Some("spec".to_string()),
+                predicate: "section_contains".to_string(),
+                field: None,
+                severity: "advisory".to_string(),
+                guidance: None,
+                cite: None,
+                count: None,
+                target: None,
+                degree: None,
+                bound: None,
+                charset: None,
+                keys: None,
+                values: None,
+            },
+            ClauseRow {
+                kind: Some("spec".to_string()),
+                predicate: "max_lines".to_string(),
+                field: None,
+                severity: "blocking".to_string(),
+                guidance: None,
+                cite: None,
+                count: None,
+                target: None,
+                degree: None,
+                bound: Some(crate::drift::BoundRow {
+                    min: None,
+                    max: Some(150),
+                }),
+                charset: None,
+                keys: None,
+                values: None,
+            },
+        ];
+
+        assert!(floor_from_rows(&rows, "spec").clauses.is_empty());
     }
 
     #[test]

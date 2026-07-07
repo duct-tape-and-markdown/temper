@@ -271,6 +271,126 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
 }
 
 #[test]
+fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_false_admissibility_finding()
+ {
+    // The cascade field report, repro'd: a harness whose committed lock declares a
+    // custom kind (`spec`) and a `required` requirement naming it must NOT emit the
+    // false `requirement.admissibility` "does not model" finding roster.rs used to
+    // raise when `by_kind` carried only `skill`/`rule` — the custom kind's own row is
+    // synthesized into the same corpus, so the requirement resolves against it, its
+    // member is walked and counted, and the run stays quiet.
+    let harness = tmpdir("custom-kind-lock-src");
+
+    let temper_dir = harness.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.kind]]\n\
+         name = \"spec\"\n\
+         governs_root = \"specs\"\n\
+         governs_glob = \"*.md\"\n\
+         \n\
+         [[declaration.clause]]\n\
+         kind = \"spec\"\n\
+         predicate = \"max_lines\"\n\
+         severity = \"advisory\"\n\
+         bound = { max = 20 }\n\
+         \n\
+         [[declaration.requirement]]\n\
+         name = \"spec-coverage\"\n\
+         kind = \"spec\"\n\
+         required = true\n",
+    )
+    .unwrap();
+
+    // The real member on disk, at the lock-declared `governs` locus — the gate walks
+    // this straight off the harness, exactly as it does a built-in's members.
+    let specs = harness.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
+
+    // The authored surface overlay carrying the `satisfies` fill — the one home a
+    // custom member's opt-in is ever authored at (`specs/architecture/20-surface.md`,
+    // "The member document").
+    let overlay_dir = temper_dir.join("specs").join("00-intent");
+    fs::create_dir_all(&overlay_dir).unwrap();
+    fs::write(
+        overlay_dir.join("SPEC.md"),
+        "+++\n\
+         [satisfies.spec-coverage]\n\
+         rationale = \"the spec that documents the north star\"\n\
+         \n\
+         [provenance]\n\
+         source_path = \"specs/00-intent.md\"\n\
+         source_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
+         +++\n\
+         # Intent\n\
+         \n\
+         The north star.\n",
+    )
+    .unwrap();
+
+    let (ok, payload) = run_session_start(&harness);
+
+    assert!(ok, "the session-start gate must exit zero");
+    let hook = &payload["hookSpecificOutput"];
+    assert_eq!(hook["hookEventName"], "SessionStart");
+    assert!(
+        hook["additionalContext"].is_null(),
+        "a lock-synthesized custom kind's requirement must resolve with no blocking \
+         finding, got: {hook}"
+    );
+}
+
+#[test]
+fn a_custom_kinds_required_floor_clause_blocks_a_violating_member() {
+    // The other half of the fix: a custom kind's floor is no longer a no-op. Its
+    // clause rows now dispatch through the same admissibility/conformance the
+    // built-in loop runs, so a `required` clause the member violates fires a real
+    // blocking finding — proof that conformance runs, not just that resolution does.
+    let harness = tmpdir("custom-kind-floor-src");
+
+    let temper_dir = harness.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.kind]]\n\
+         name = \"spec\"\n\
+         governs_root = \"specs\"\n\
+         governs_glob = \"*.md\"\n\
+         \n\
+         [[declaration.clause]]\n\
+         kind = \"spec\"\n\
+         predicate = \"required\"\n\
+         field = \"owner\"\n\
+         severity = \"required\"\n",
+    )
+    .unwrap();
+
+    // The on-disk member never declares `owner` — a real violation of the lock's own
+    // custom-kind floor clause.
+    let specs = harness.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
+
+    let (ok, payload) = run_session_start(&harness);
+
+    assert!(
+        ok,
+        "the session-start gate must exit zero even on a failure"
+    );
+    let hook = &payload["hookSpecificOutput"];
+    assert_eq!(hook["hookEventName"], "SessionStart");
+    let context = hook["additionalContext"]
+        .as_str()
+        .expect("the violated custom-kind floor clause must carry additionalContext");
+    assert!(
+        context.contains("required") && context.contains("owner"),
+        "the verdict must name the failing custom-kind clause, got:\n{context}"
+    );
+}
+
+#[test]
 fn the_reporter_caps_additional_context_at_10k() {
     // A synthetic flood far larger than the cap — easier to construct directly
     // than to provoke through a harness, and the cap is the reporter's own
