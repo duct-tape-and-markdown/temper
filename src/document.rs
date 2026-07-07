@@ -13,9 +13,9 @@
 //! **verbatim** (never re-rendered), and emit is **deterministic**: `parse` then
 //! `emit` over an untouched document is byte-identical.
 //!
-//! This is foundation only — no pipeline is rewired here. Downstream, the member
-//! and package kinds parse their source into a [`Document`], read the clause tables
-//! out of its header, and patch it back format-preserving.
+//! This is foundation only — no pipeline is rewired here. Downstream, [`kind`](crate::kind)
+//! and [`frontmatter`](crate::frontmatter) parse a member's `+++` header into a
+//! [`Document`] and patch it back format-preserving.
 
 use miette::SourceSpan;
 use serde_json::{Map as JsonMap, Value as JsonValue};

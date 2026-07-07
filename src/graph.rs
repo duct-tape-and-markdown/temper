@@ -381,8 +381,8 @@ fn out_of_degree(
 ///
 /// `severity` is the **assembly's** declaration (`specs/architecture/45-governance.md`, "The world
 /// is a node" — resolved `reachability-gate-mechanism` option b): whether a dead edge
-/// gates, and at what weight, is the assembly's dial like `degree`, never a member's or
-/// a package clause's — a deliberate work-in-progress dead edge stays the author's call.
+/// gates, and at what weight, is the assembly's dial like `degree`, never a member's own
+/// clause — a deliberate work-in-progress dead edge stays the author's call.
 #[must_use]
 pub fn reachable(
     activations: &BTreeMap<&str, Activation>,

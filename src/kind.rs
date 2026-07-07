@@ -46,8 +46,9 @@ pub struct Governs {
 /// (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK —
 /// there is no kind file format").
 ///
-/// A custom kind is purely declare-side — it carries no clauses. Its require-side
-/// is a package bound in the assembly.
+/// A custom kind is purely declare-side — it carries no clauses. Predicates over
+/// its members ride the assembly's `expect`/`require` clauses
+/// (`specs/architecture/10-contracts.md`).
 ///
 /// Not `Eq`: keeping the derive `PartialEq` leaves room for future `f64`-bearing
 /// fields without churn, as it does for [`Clause`](crate::contract::Clause).
@@ -87,7 +88,8 @@ pub struct CustomKind {
     /// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
     /// "Genre values"), parsed from the header's `[[genres]]` array. Extraction folds a
     /// member's genre fences into typed values against this set ([`CustomKind::extract`]);
-    /// the shape is the kind's, the predicates the bound package's. Absent ⇒ empty.
+    /// the shape is the kind's, any predicate over it rides the assembly's
+    /// `expect`/`require` clauses (`specs/architecture/10-contracts.md`). Absent ⇒ empty.
     pub genres: Vec<Genre>,
 }
 
@@ -157,10 +159,10 @@ pub enum Activation {
 /// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
 /// "Genre values — prose that declares its own anatomy"): named fields over prose
 /// **leaves** plus keyed **collections**, serialized whole into the manifest. The shape
-/// is the kind's; any *predicate* over it (a decision names at least one rejected
-/// alternative) is the bound package's, **out of the kind object** — the same ownership
-/// line extraction and contract split on everywhere. So a `Genre` carries the vocabulary,
-/// never a clause.
+/// is the kind's; any *predicate* over it rides the assembly's `expect`/`require`
+/// clauses (`specs/architecture/10-contracts.md`), **out of the kind object** — the
+/// same ownership line extraction and contract split on everywhere. So a `Genre`
+/// carries the vocabulary, never a clause.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Genre {
     /// The genre name — the `genre.<name>` a fence info string carries
@@ -168,8 +170,8 @@ pub struct Genre {
     /// fence against to fold it into a typed [`GenreValue`](crate::extract::GenreValue).
     pub name: String,
     /// The declared **prose-leaf** field names — the genre value's top-level authored
-    /// strings. The declared schema a genre-value predicate (the bound package, out of
-    /// the kind object) ranges over; extraction classifies a fence's interior
+    /// strings. The declared schema a genre-value predicate — the assembly's clauses,
+    /// out of the kind object — ranges over; extraction classifies a fence's interior
     /// structurally (a string is a leaf, a table a collection), so this list is inert
     /// until that predicate lands — the same declared-and-inert posture
     /// [`format`](CustomKind::format)/[`activation`](CustomKind::activation) carry.

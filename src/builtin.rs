@@ -90,8 +90,9 @@ fn clause_from_row(row: &ClauseRow) -> Clause {
 }
 
 /// The floor [`Contract`] for `kind` — every embedded clause row naming it, in
-/// declaration order, projected into typed clauses. No package-level `guidance`:
-/// every clause's own guidance already rides its row.
+/// declaration order, projected into typed clauses. A floor is an exported clause
+/// array (`specs/architecture/10-contracts.md`): the constructed contract's own
+/// `guidance` stays `None` — every clause's guidance already rides its row.
 fn contract_for_kind(kind: &str) -> Contract {
     let clauses = builtin_lock::declarations()
         .clauses

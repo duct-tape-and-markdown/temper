@@ -197,7 +197,8 @@ pub struct Diagnostic {
     /// The human-readable finding, the diagnostic's `Display`.
     pub message: String,
     /// The **colocated guidance** of the clause that produced this finding, if it
-    /// carried any (`specs/architecture/10-contracts.md`, "Packages"): the hover-sized *why*,
+    /// carried any (`specs/architecture/10-contracts.md`, "The clause — the atom of
+    /// a contract"): the hover-sized *why*,
     /// delivered just-in-time on the violation — the failure is the teaching
     /// moment. Advisory-only prose that never gates (it played no part in deciding
     /// this finding, only in explaining it), surfaced on the rendered help line
@@ -242,7 +243,8 @@ impl Diagnostic {
 
     /// Attach a clause's [`guidance`](crate::contract::Clause::guidance) to this
     /// finding — the just-in-time delivery of the hover-sized *why* on the
-    /// violation (`specs/architecture/10-contracts.md`, "Packages"). A builder so the base
+    /// violation (`specs/architecture/10-contracts.md`, "The clause — the atom of
+    /// a contract"). A builder so the base
     /// constructors stay guidance-free (most findings carry none); a `None`
     /// argument is a no-op, leaving the finding unguided.
     #[must_use]
@@ -266,7 +268,8 @@ impl miette::Diagnostic for Diagnostic {
 
     fn help(&self) -> Option<Box<dyn fmt::Display + '_>> {
         // The colocated guidance rides the help line beneath the artifact — the
-        // violation is the teaching moment (`specs/architecture/10-contracts.md`, "Packages").
+        // violation is the teaching moment (`specs/architecture/10-contracts.md`,
+        // "The clause — the atom of a contract").
         Some(Box::new(match &self.guidance {
             Some(guidance) => format!("artifact: {}\n{guidance}", self.artifact),
             None => format!("artifact: {}", self.artifact),
@@ -474,8 +477,9 @@ Prefer a clone.\n";
         // A synthetic third built-in kind — an `agent` under `.claude/agents/<name>/
         // AGENT.md`, the shape the embedded set gains when the next kind ships. Its
         // member document is `AGENT.md`, its surface subdir `agents`, and it extracts a
-        // `model` field — the clause value a bound `agent` package would range over. With
-        // only skill/rule hardwired, this kind's members loaded nowhere.
+        // `model` field — the field a `membership` clause over agents' satisfier set
+        // would range over. With only skill/rule hardwired, this kind's members loaded
+        // nowhere.
         let agent = CustomKind {
             unit_shape: Some(UnitShape::Directory),
             ..CustomKind::new(
@@ -506,7 +510,8 @@ Prefer a clone.\n";
 
         // Load over skill + rule + the third kind: the agent members land under the bare
         // kind name in the generic map, and their reconstructed clause value — what a
-        // bound `agent` package's clauses run over — is present, no longer stranded.
+        // `require` over the `agent` kind's clauses would run over — is present, no
+        // longer stranded.
         let kinds = vec![builtin("skill"), builtin("rule"), agent];
         let loaded = Workspace::load_kinds(&ws, &kinds).unwrap();
 
