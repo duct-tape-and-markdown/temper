@@ -141,8 +141,7 @@
       "section": "edge"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "HELP-TEXT-RECUT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -179,7 +178,7 @@
       }
     ],
     "acceptance": "A mention (`n`) authored in prose lands as a declared edge in the payload, the lock, and the graph; a degree clause can count it and explain narrates its resolved target rather than 'points at no member'.",
-    "notes": "Field report 3 T10. contract.md: a mention is one of four edge loci; every edge resolves into the one enumeration the gate and read verbs share. Obligation-free by default (no shipped clause counts it; a contract may). Model on the satisfies family, which already threads SDK->payload->lock->graph. blockedBy HELP-TEXT-RECUT (shared main.rs)."
+    "notes": "Field report 3 T10. contract.md: a mention is one of four edge loci; every edge resolves into the one enumeration the gate and read verbs share. Obligation-free by default (no shipped clause counts it; a contract may). Model on the satisfies family, which already threads SDK->payload->lock->graph. Unblocked: HELP-TEXT-RECUT (f1c7de5) + COVERAGE-KIND-AWARE (801c62b) cleared main.rs; MENTION is now its sole pending editor."
   },
   {
     "tag": "PACKAGING-CHANNELS",
