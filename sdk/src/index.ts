@@ -77,5 +77,5 @@ export { SEAM_VERSION, compileDeclarations, declarationsToJson } from "./declara
 
 // Emit — the compile to the seam's JSON pipe; the engine is the sole compiler
 // of every projection and the whole lock.
-export type { EmitOptions, EmitResult, PayloadMember, ResolveOptions } from "./emit.js";
+export type { EmitResult, PayloadMember, ResolveOptions } from "./emit.js";
 export { emit } from "./emit.js";

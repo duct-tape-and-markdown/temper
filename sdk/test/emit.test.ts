@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 
 import {
@@ -398,12 +399,15 @@ test("a file() body resolves byte-faithfully", () => {
   try {
     const content = "# Long rule\n\nBody line one.\nBody line two.\n";
     writeFileSync(join(dir, "long.md"), content);
-    const h = harness({ members: [rule({ name: "long", paths: ["src/**"], prose: file("./long.md") })] });
+    const moduleUrl = pathToFileURL(join(dir, "mod.ts")).href;
+    const h = harness({
+      members: [rule({ name: "long", paths: ["src/**"], prose: file(moduleUrl, "./long.md") })],
+    });
 
-    const result = emit(h, { baseDir: dir });
+    const result = emit(h);
     assert.equal(result.members[0].body, content);
     // Byte-deterministic across a second emit over the unchanged asset.
-    assert.equal(result.seam, emit(h, { baseDir: dir }).seam);
+    assert.equal(result.seam, emit(h).seam);
   } finally {
     rmSync(dir, { recursive: true, force: true });
  }
@@ -413,13 +417,14 @@ test("a file() body's payload member carries the resolved source path; text does
   const dir = mkdtempSync(join(tmpdir(), "temper-file-"));
   try {
     writeFileSync(join(dir, "long.md"), "# Long rule\n");
+    const moduleUrl = pathToFileURL(join(dir, "mod.ts")).href;
  const h = harness({
  members: [
-        rule({ name: "long", prose: file("./long.md") }),
+        rule({ name: "long", prose: file(moduleUrl, "./long.md") }),
         rule({ name: "short", prose: text`# Short` }),
  ],
  });
-    const result = emit(h, { baseDir: dir });
+    const result = emit(h);
     assert.equal(result.members.find((m) => m.name === "long")!.source_path, join(dir, "long.md"));
     assert.equal(result.members.find((m) => m.name === "short")!.source_path, undefined);
   } finally {
@@ -428,8 +433,9 @@ test("a file() body's payload member carries the resolved source path; text does
 });
 
 test("a missing file() asset is a loud emit error", () => {
-  const h = harness({ members: [rule({ name: "long", prose: file("./absent.md") })] });
-  assert.throws(() => emit(h, { baseDir: tmpdir() }), /did not resolve/);
+  const moduleUrl = pathToFileURL(join(tmpdir(), "mod.ts")).href;
+  const h = harness({ members: [rule({ name: "long", prose: file(moduleUrl, "./absent.md") })] });
+  assert.throws(() => emit(h), /did not resolve/);
 });
 
 test("a resolved mention renders to its declared value's display form", () => {

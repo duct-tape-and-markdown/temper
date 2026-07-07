@@ -1052,7 +1052,7 @@ fn scaffold(
     let mut scaffolded = Vec::with_capacity(lifted.len());
     for (kind, name, source, description) in &lifted {
         let ident = member_ident(kind, name);
-        let rel_path = relative_to_workspace(root, source)?;
+        let rel_path = relative_to_member_module(root, source)?;
         let import_path = format!("./{}/{name}.ts", member_dir(kind));
         let module_path = temper_dir.join(member_dir(kind)).join(format!("{name}.ts"));
         write_scaffold_file(
@@ -1118,14 +1118,14 @@ fn member_ident(kind: &str, name: &str) -> String {
     ident
 }
 
-/// The `file()` path a scaffolded member module writes, relative to `harness.ts`'s
-/// own directory (`.temper/`, always one level under `root` — the SDK resolves a
-/// `file()` asset against the running program's cwd, which `emit_program` sets to
-/// `harness.ts`'s directory).
+/// The `file()` path a scaffolded member module writes, relative to the member
+/// module's own directory (`.temper/<kind>/<name>.ts`, always two levels under
+/// `root` — `member_dir`) — the SDK resolves a `file()` asset against the
+/// declaring module's own location (`import.meta.url`), never the workspace.
 ///
 /// Always `/`-separated, regardless of host: `.temper/` is committed, and a
 /// `\`-joined segment on Windows would fork the scaffolded module's text by host.
-fn relative_to_workspace(root: &Path, source: &Path) -> miette::Result<String> {
+fn relative_to_member_module(root: &Path, source: &Path) -> miette::Result<String> {
     let relative = source.strip_prefix(root).map_err(|_| {
         miette::miette!(
             "discovered path {} is not under the project root {}",
@@ -1134,7 +1134,7 @@ fn relative_to_workspace(root: &Path, source: &Path) -> miette::Result<String> {
         )
     })?;
     Ok(format!(
-        "../{}",
+        "../../{}",
         relative.to_string_lossy().replace('\\', "/")
     ))
 }
@@ -1159,7 +1159,7 @@ fn member_module_source(
         .map(|value| format!("  description: {value:?},\n"))
         .unwrap_or_default();
     format!(
-        "import {{ file, {kind} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {kind}({{\n  name: {name:?},\n{description_field}  prose: file({rel_path:?}),\n}});\n"
+        "import {{ file, {kind} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {kind}({{\n  name: {name:?},\n{description_field}  prose: file(import.meta.url, {rel_path:?}),\n}});\n"
     )
 }
 
@@ -1491,15 +1491,15 @@ mod tests {
     }
 
     #[test]
-    fn relative_to_workspace_normalizes_a_backslash_joined_source() {
+    fn relative_to_member_module_normalizes_a_backslash_joined_source() {
         // A Windows discovery walk joins path segments with `\`; simulate that
         // shape directly (Unix `Path` never inserts `\`, so a real walk can't
         // reproduce it here) and assert the scaffolded `file()` path still comes
         // out `/`-separated.
         let root = PathBuf::from("/harness");
         let source = PathBuf::from("/harness/.claude\\rules\\cls.md");
-        let rel_path = relative_to_workspace(&root, &source).unwrap();
-        assert_eq!(rel_path, "../.claude/rules/cls.md");
+        let rel_path = relative_to_member_module(&root, &source).unwrap();
+        assert_eq!(rel_path, "../../.claude/rules/cls.md");
     }
 
     #[test]
@@ -1508,7 +1508,7 @@ mod tests {
             "skill",
             "coordinate",
             "skill_coordinate",
-            "../.claude/skills/coordinate/SKILL.md",
+            "../../.claude/skills/coordinate/SKILL.md",
             Some("Use when coordinating agents across axes."),
         );
         assert_eq!(
@@ -1517,7 +1517,7 @@ mod tests {
              export const skill_coordinate = skill({\n  \
              name: \"coordinate\",\n  \
              description: \"Use when coordinating agents across axes.\",\n  \
-             prose: file(\"../.claude/skills/coordinate/SKILL.md\"),\n});\n"
+             prose: file(import.meta.url, \"../../.claude/skills/coordinate/SKILL.md\"),\n});\n"
         );
     }
 
@@ -1527,7 +1527,7 @@ mod tests {
             "rule",
             "rust",
             "rule_rust",
-            "../.claude/rules/rust.md",
+            "../../.claude/rules/rust.md",
             None,
         );
         assert_eq!(
@@ -1535,7 +1535,7 @@ mod tests {
             "import { file, rule } from \"@dtmd/temper/claude-code\";\n\n\
              export const rule_rust = rule({\n  \
              name: \"rust\",\n  \
-             prose: file(\"../.claude/rules/rust.md\"),\n});\n"
+             prose: file(import.meta.url, \"../../.claude/rules/rust.md\"),\n});\n"
         );
     }
 

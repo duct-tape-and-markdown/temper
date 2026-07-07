@@ -555,7 +555,7 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
     fs::write(
         temper_dir.join("skills").join("extra.ts"),
         "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
-         export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(\"./skills/extra.md\"),\n});\n",
+         export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(import.meta.url, \"./extra.md\"),\n});\n",
  )
 .unwrap();
     fs::write(
@@ -679,7 +679,7 @@ fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
     fs::write(
         temper_dir.join("skills").join("extra.ts"),
         "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
-         export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(\"./skills/extra.md\"),\n});\n",
+         export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(import.meta.url, \"./extra.md\"),\n});\n",
     )
     .unwrap();
     fs::write(

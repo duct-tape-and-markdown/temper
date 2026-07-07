@@ -9,7 +9,7 @@
  * run.
  */
 
-import { resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
@@ -19,10 +19,8 @@ import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
 import { SEAM_VERSION, compileDeclarations } from "./declarations.js";
 
-/** How a `file()` asset's module-relative path resolves at emit. */
+/** What a mention may resolve against at emit. */
 export interface ResolveOptions {
-  /** Base dir a `file()` module-relative path resolves against (default: cwd). */
-  readonly baseDir?: string;
   /** The addresses a mention may name — resolution-checked; a mention cannot dangle. */
   readonly mentionable?: ReadonlySet<string>;
 }
@@ -41,7 +39,7 @@ function resolveBody(member: Member, options: ResolveOptions): string {
   const prose = member.prose;
   if (prose === undefined) return "";
   if (prose.kind === "file") {
-    const assetPath = fileSourcePath(member, options)!;
+    const assetPath = fileSourcePath(member)!;
     try {
       return readFileSync(assetPath, "utf8");
     } catch (cause) {
@@ -142,12 +140,15 @@ function isProjected(member: Member): boolean {
  * `text`/`blocks` prose (or no prose) — the lift's own-path detection
  * (drift: the lock is what names a path a
  * projection, so the engine needs each `file()` member's true source path to
- * tell a lifted member's own file apart from a generated one).
+ * tell a lifted member's own file apart from a generated one). Resolves
+ * against the declaring module's own `import.meta.url` (`prose.moduleUrl`),
+ * never the process cwd — the path is the stating module's, not the
+ * workspace's.
  */
-function fileSourcePath(member: Member, options: ResolveOptions): string | undefined {
+function fileSourcePath(member: Member): string | undefined {
   const prose = member.prose;
   if (prose?.kind !== "file") return undefined;
-  return resolvePath(options.baseDir ?? process.cwd(), prose.path);
+  return fileURLToPath(new URL(prose.path, prose.moduleUrl));
 }
 
 /** One projected member's erased payload — the engine derives its locus from the kind's own declaration row. */
@@ -178,14 +179,8 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
       name: member.name,
       fields: member.fields,
       body: resolveBody(member, options),
-      source_path: fileSourcePath(member, options),
+      source_path: fileSourcePath(member),
     }));
-}
-
-/** Emit-time inputs beyond the harness — where a `file()` asset's module-relative path resolves against. */
-export interface EmitOptions {
-  /** Base dir a `file()` asset's module-relative path resolves against (default: cwd). */
-  readonly baseDir?: string;
 }
 
 /**
@@ -219,11 +214,10 @@ export interface EmitResult {
  * against the harness's declared values). Double-emit verified — nondeterministic
  * authoring is a loud failure, never a silent churn.
  */
-export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
+export function emit(harness: Harness): EmitResult {
   refuseBrokenSource(harness);
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),
-    baseDir: options.baseDir,
   };
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);
