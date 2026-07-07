@@ -1,7 +1,7 @@
 //! The wedge's advisory coverage note — silence about an unchecked surface must
 //! never read as "checked".
 //!
-//! specs/architecture/50-distribution.md, "Fail-loud delivery — the invariant". The
+//! specs/distribution.md, "Fail-loud delivery — the invariant". The
 //! gate checks each built-in kind's members and stays silent about everything else,
 //! but silence about a surface temper carries no kind for (a `.claude/agents/` tree,
 //! `settings.json`, an `.mcp.json`) is indistinguishable from "checked and clean".
@@ -91,7 +91,7 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
 /// `warn`-severity diagnostics only (never `error`, never a session-start verdict): a
 /// summary of what was checked, then one finding per known Claude Code surface present
 /// on disk that no in-scope kind governs — so the gate's silence about an unmodeled
-/// surface never reads as "checked" (`specs/architecture/50-distribution.md`).
+/// surface never reads as "checked" (`specs/distribution.md`).
 #[must_use]
 pub fn check(
     root: &Path,

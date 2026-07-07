@@ -29,7 +29,7 @@ One artifact kind per module (`skill.rs`, `rule.rs`). The load-bearing halves:
 scans and `emit` projects, and drift's one-direction, two-freshness-fact
 model), `compose.rs`/`roster.rs`/`coverage.rs`/`graph.rs`
 (the assembly: bindings, requirements, satisfier sets, the relation graph).
-The evergreen intent lives in `specs/` (start at `specs/intent/00-intent.md`) — specs
+The evergreen intent lives in `specs/` (start at `specs/intent.md`) — specs
 are human-authored; do not edit them in a PR.
 
 ## Rules

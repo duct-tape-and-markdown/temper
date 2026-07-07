@@ -1,5 +1,5 @@
-//! Proofs over the unified read verb, `explain` (`specs/architecture/20-surface.md`, "Decision:
-//! one read verb — `explain`"): target-species resolution (member / requirement / leaf
+//! Proofs over the unified read verb, `explain` (`specs/model/contract.md`, "Read
+//! verbs"): target-species resolution (member / requirement / leaf
 //! address), the member-vs-requirement collision error, the qualified-prefix escape
 //! hatch, and coverage disclosure — plus the surviving library-level floor-binding
 //! proofs over `why` (READ-FLOOR-BINDING-DEFAULT), one of the four traversals `explain`
@@ -198,7 +198,7 @@ fn a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage(
     assert!(out.contains("Fallout: none"), "{out}");
     assert!(
         out.contains("Coverage:"),
-        "a leaf-grain answer discloses coverage (law 1): {out}"
+        "a leaf-grain answer discloses coverage (`specs/intent.md`): {out}"
     );
 }
 

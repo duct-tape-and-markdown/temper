@@ -1,7 +1,7 @@
 //! Fixture-driven proof of the `section_contains` structural predicate and its
-//! `## Decision`-block extraction primitive (`specs/architecture/10-contracts.md`, "The
+//! `## Decision`-block extraction primitive (`specs/model/contract.md`, "The
 //! primitive algebra"; the decisions-name-alternatives capability the spec kind's
-//! package awaits, `specs/architecture/15-kinds.md`).
+//! package awaits, `specs/model/representation.md`).
 //!
 //! The predicate is decided end-to-end over the *new* section-body extraction: a
 //! spec-shaped [`Unit`] runs through the composed `sections` primitive
@@ -31,7 +31,7 @@ fn spec_unit(body: &str) -> Unit {
         id: "10-contracts".to_string(),
         frontmatter: BTreeMap::new(),
         body: body.to_string(),
-        source_path: PathBuf::from("specs/architecture/10-contracts.md"),
+        source_path: PathBuf::from("specs/model/contract.md"),
         satisfies: Vec::new(),
         satisfies_clauses: Vec::new(),
         published_requirements: Vec::new(),

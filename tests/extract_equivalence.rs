@@ -1,4 +1,4 @@
-//! The extraction equivalence baseline (`specs/architecture/15-kinds.md`, "The extraction
+//! The extraction equivalence baseline (`specs/model/representation.md`, "The extraction
 //! algebra — the soundness boundary, as data").
 //!
 //! Pins the built-in extractors' output — now the composed generic path,
@@ -109,7 +109,7 @@ fn memory_unit(body: &str) -> Unit {
 /// A `directives` primitive with syntax `at-import` composes over a `Unit` and folds
 /// the body's `@path` occurrences into `Features.directives` in document order — the
 /// end-to-end tie from the closed-vocabulary parse through the composed extractor
-/// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax").
+/// (`specs/model/representation.md`, "Directives — format-executed body syntax").
 #[test]
 fn a_directives_primitive_extracts_at_imports_in_document_order() {
     let extraction = Extraction::new(vec![Primitive::Directives {
@@ -132,7 +132,7 @@ fn a_directives_primitive_extracts_at_imports_in_document_order() {
 
 /// A `fenced` primitive composes over a `Unit` and folds the body's fenced blocks
 /// into `Features.fenced_blocks` in document order, each block's interior content paired
-/// with its info string — surrounding prose skipped (`specs/architecture/15-kinds.md`,
+/// with its info string — surrounding prose skipped (`specs/model/representation.md`,
 /// "a fenced block — whose first consumer is the genre fence"). The end-to-end tie from
 /// the closed-vocabulary parse through the composed extractor.
 #[test]
@@ -174,7 +174,7 @@ name = \"coordinate\"\n\
 }
 
 /// A body with no fenced block yields none — absent, never errored
-/// (`specs/architecture/15-kinds.md`). The default a kind composing `fenced` lands on
+/// (`specs/model/representation.md`). The default a kind composing `fenced` lands on
 /// when a member carries no fence, exactly as `directives` yields none for a body with
 /// no `@import`.
 #[test]
@@ -201,7 +201,7 @@ fn frontmatter_unit(frontmatter: serde_json::Map<String, serde_json::Value>) -> 
 }
 
 /// A key-path `field` primitive walks nested frontmatter tables to the leaf — the
-/// traversal its doc-comment promises (`specs/architecture/15-kinds.md`, "structured
+/// traversal its doc-comment promises (`specs/model/representation.md`, "structured
 /// field — a frontmatter / JSON / TOML value at a key-path"), the settings kind's
 /// nested-key consumer. The leaf preserves its source scalar kind, and an unresolved
 /// path is **absent, never errored** — a missing segment or a scalar met before the

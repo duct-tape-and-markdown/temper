@@ -1,4 +1,4 @@
-//! The `--frozen` lane for temper's own std-lib (`specs/architecture/50-distribution.md`,
+//! The `--frozen` lane for temper's own std-lib (`specs/distribution.md`,
 //! "Decision: the built-in lock is derived from the SDK module, never transcribed"):
 //! re-derive the built-in lock from `@dtmd/temper/claude-code` — a real `node`
 //! subprocess running the built SDK, exactly as `tests/emit.rs` drives the seam — and

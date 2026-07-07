@@ -1,4 +1,4 @@
-//! Acceptance for `temper bundle` (`specs/architecture/50-distribution.md`, "The plugin — the
+//! Acceptance for `temper bundle` (`specs/distribution.md`, "The plugin — the
 //! Claude-Code-native delivery").
 //!
 //! Proves the three properties the entry names:
@@ -136,7 +136,7 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
     );
 
     // 3. No curated clause embeds: `bundle` delivers the gate, never clauses
-    //    (specs/architecture/50-distribution.md, "Three channels").
+    //    (specs/distribution.md, "Three channels").
     assert!(
         !out.join("packages").exists(),
         "the plugin must not carry curated clause embeds"

@@ -1,6 +1,6 @@
 //! Schema emission — project the active contract into an editor JSON Schema.
 //!
-//! Implements `specs/architecture/50-distribution.md` ("The gate at keystroke — the emitted
+//! Implements `specs/distribution.md` ("The gate at keystroke — the emitted
 //! schema"): `temper schema [--kind]` emits a JSON Schema **from the active
 //! contract** (the by-kind floor ⊕ the lock's declared clause overrides, via
 //! [`crate::compose::effective`]) so an editor validates a harness artifact's
@@ -11,8 +11,8 @@
 //! The spec's schema carries two channels, and the split is the on-law guarantee:
 //!
 //! - **validation** (the squiggle) — the *decidable clauses only*, each a true
-//!   positive by construction, so the squiggle never cries wolf (`00-intent.md`
-//!   law 3). These are the JSON-Schema *validation* keywords ([`emit`] below).
+//!   positive by construction, so the squiggle never cries wolf (`specs/distribution.md`,
+//!   "Keystroke"). These are the JSON-Schema *validation* keywords ([`emit`] below).
 //! - **docs** (hover) — the per-field [`guidance`](crate::contract::Clause::guidance)
 //!   prose `10` keeps *out of checks*, projected onto each field's property
 //!   `description` keyword, **strictly alongside** the validation keywords and
@@ -20,7 +20,7 @@
 //!
 //! Taste cannot become a squiggle — the closed algebra has no syntax for it, and
 //! neither does the schema — so it can only ride the docs channel. The medium
-//! enforces law 2: the editor delivers the decidable contract as validation and
+//! enforces `specs/distribution.md`, "Keystroke": the editor delivers the decidable contract as validation and
 //! the guidance as documentation, and cannot confuse the two.
 //!
 //! ## What maps, and what does not
@@ -120,7 +120,7 @@ pub fn emit(contract: &Contract) -> Value {
     }
 
     // The docs (hover) channel, emitted **strictly alongside** the validation
-    // keywords above, never mixed into them (`specs/architecture/50-distribution.md`, "The gate
+    // keywords above, never mixed into them (`specs/distribution.md`, "The gate
     // at keystroke"): a field clause's advisory `guidance` prose rides its JSON
     // Schema property's `description`. This is the on-law guarantee made concrete —
     // taste can only become documentation, never a squiggle. Guidance on a

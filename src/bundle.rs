@@ -1,6 +1,6 @@
 //! `temper bundle` — compose the imported surface into a publishable plugin.
 //!
-//! Implements the `bundle` verb of `specs/architecture/50-distribution.md` ("The plugin — the
+//! Implements the `bundle` verb of `specs/distribution.md` ("The plugin — the
 //! Claude-Code-native delivery"). Distribution is *placing the one gate*; the plugin
 //! is the Claude-Code-native placement, and `bundle` is the verb that produces it.
 //! `temper` ships as a plugin bundling two things:
@@ -15,13 +15,13 @@
 //!
 //! Alongside the plugin tree it emits a `marketplace.json` listing the plugin, the
 //! channel it is distributed through. `bundle` delivers the *gate*, never clauses
-//! (50-distribution.md, "Three channels": clauses publish through the SDK, channel 1).
+//! (`specs/distribution.md`, "What ships": clauses publish through the SDK, channel 1).
 //!
 //! The plugin is a **vendored, generated surface** — itself an instance of what
-//! `temper` projects, so it is **byte-faithful where it carries prose** (`00-intent.md`
-//! law 5): the skill body is copied verbatim from its embedded source, never
-//! re-rendered. The structured manifests (`plugin.json`, `marketplace.json`,
-//! `hooks.json`) are built through `serde_json`, so they are well-formed by
+//! `temper` projects, so it is **byte-faithful where it carries prose**
+//! (`specs/model/pipeline.md`, "Emit"): the skill body is copied verbatim from its
+//! embedded source, never re-rendered. The structured manifests (`plugin.json`,
+//! `marketplace.json`, `hooks.json`) are built through `serde_json`, so they are well-formed by
 //! construction — the binary owns the output contract, no hand-escaping (mirroring
 //! [`crate::reporter`]).
 //!
@@ -49,19 +49,20 @@ use crate::check::Workspace;
 const PLUGIN_NAME: &str = "temper";
 
 /// The plugin/marketplace description — what the gate delivers, not what a good
-/// harness is (law 2: taste lives in the floors, never here).
+/// harness is (`specs/intent.md`, the spine rule: taste lives in the floors, never here).
 const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: import the harness into a typed \
      surface, check it against the active contract, and run the advisory \
      session-start gate — with the std-lib floors embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
 /// itself, checking the project it is installed into under the advisory session-start
-/// reporter (`specs/architecture/20-surface.md`, "session-start is a reporter of `check`, not a
-/// verb"). Matches the wiring `temper install` projects into `.claude/settings.json`, so
-/// the plugin and `install` deliver the same gate.
+/// reporter (`specs/distribution.md`, "Session start"). Matches the wiring `temper
+/// install` projects into `.claude/settings.json`, so the plugin and `install` deliver
+/// the same gate.
 const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
-/// The bundled **operate-the-gate skill**, embedded byte-faithful (law 5). Mechanics
+/// The bundled **operate-the-gate skill**, embedded byte-faithful
+/// (`specs/model/pipeline.md`, "Emit"). Mechanics
 /// only — how to run the checker and when to challenge the contract — never advice on
 /// what a good harness is (the Decision "the skill is mechanics, never taste"). Its
 /// `name` is `temper` and it lands under `skills/temper/`, so `name-matches-dir` holds
@@ -76,7 +77,7 @@ description: Use when operating the temper gate on a Claude Code harness — imp
 `temper` is one gate over a Claude Code harness, placed wherever the harness is
 authored, changed, or used. This skill is how to *operate* that gate. It carries no
 opinion about what a good harness is — that lives in the SDK module
-(`specs/architecture/50-distribution.md`), which you bind, extend, or fork.
+(`specs/distribution.md`), which you bind, extend, or fork.
 
 ## Run the gate
 
@@ -121,7 +122,7 @@ which is wrong, surface it rather than guessing which way to bend.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum BundleError {
     /// A plugin file or directory could not be written. Fail-loud
-    /// (`specs/architecture/50-distribution.md`, "Fail-loud delivery"): a placement that cannot be
+    /// (`specs/distribution.md`, "Fail-loud delivery"): a placement that cannot be
     /// written is a hard error, never a silent skip.
     #[error("failed to write {path}")]
     #[diagnostic(code(temper::bundle::write))]
@@ -177,7 +178,7 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
         &mut files,
     )?;
 
-    // The operate-the-gate skill — embedded prose, byte-faithful (law 5).
+    // The operate-the-gate skill — embedded prose, byte-faithful (`specs/model/pipeline.md`, "Emit").
     write_text(
         out,
         Path::new("skills/temper/SKILL.md"),
@@ -214,7 +215,7 @@ fn plugin_manifest() -> JsonValue {
 }
 
 /// The `marketplace.json` manifest listing this one plugin — the channel `temper` is
-/// distributed through (`specs/architecture/50-distribution.md`, "distributed through a
+/// distributed through (`specs/distribution.md`, "distributed through a
 /// marketplace"). The plugin's `source` is `.`: the marketplace root *is* the plugin
 /// root, so the generated tree is a self-contained, installable bundle.
 fn marketplace_manifest() -> JsonValue {
@@ -270,7 +271,7 @@ fn write_json(
 
 /// Write text bytes verbatim to `<out>/<relative>`, creating parent directories and
 /// recording the relative path in `files`. Byte-faithful: the bytes are written
-/// exactly as given (law 5), never re-rendered.
+/// exactly as given (`specs/model/pipeline.md`, "Emit"), never re-rendered.
 fn write_text(
     out: &Path,
     relative: &Path,

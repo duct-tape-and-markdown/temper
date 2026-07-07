@@ -1,6 +1,6 @@
 //! `emit` — the drift engine.
 //!
-//! specs/architecture/20-surface.md, the seam / drift (a direct edit to emitted
+//! specs/model/pipeline.md, "Drift" (a direct edit to emitted
 //! output is drift routed to the authored source, never merged back).
 //!
 //! [`emit_program`] runs the SDK program (`node <workspace>/harness.ts`) and hands its
@@ -10,7 +10,7 @@
 //! nondeterministic authoring is a loud failure, never a silent churn. A hand-edited
 //! projection is overwritten: it is drift routed to the source, surfaced by
 //! `config.stale`/the guard, not a merge. [`place`] is the whole-file placement merge
-//! for artifacts temper *places* rather than emits (specs/architecture/50-distribution.md,
+//! for artifacts temper *places* rather than emits (specs/distribution.md,
 //! `install`); it keeps its own three-state conflict detection until `install` rides
 //! emit's projection.
 
@@ -91,8 +91,7 @@ pub enum DriftError {
     },
 
     /// No SDK program exists at the harness workspace's entry point — the seam has
-    /// nothing to compile from (`specs/architecture/20-surface.md`, "The seam — one
-    /// implementation").
+    /// nothing to compile from (`specs/model/pipeline.md`, "The SDK").
     #[error("no SDK program at {path} — the represented path requires one (install scaffolds it)")]
     #[diagnostic(code(temper::drift::no_sdk_program))]
     NoSdkProgram {
@@ -111,8 +110,8 @@ pub enum DriftError {
         source: std::io::Error,
     },
 
-    /// The SDK program exited non-zero — a refusal (`20-surface.md`, "Emit refuses
-    /// before it writes") or an authoring error; its stderr carries the reason.
+    /// The SDK program exited non-zero — a refusal (`specs/model/pipeline.md`, "Emit")
+    /// or an authoring error; its stderr carries the reason.
     #[error("the SDK program {path} exited with a failure:\n{stderr}")]
     #[diagnostic(code(temper::drift::sdk_program_failed))]
     SdkProgramFailed {
@@ -123,7 +122,7 @@ pub enum DriftError {
     },
 
     /// The SDK program's stdout was not valid UTF-8 — the JSON pipe is text
-    /// (`20-surface.md`, "The seam").
+    /// (`specs/model/pipeline.md`, "Emit").
     #[error("the SDK program {path} printed non-UTF-8 output")]
     #[diagnostic(code(temper::drift::sdk_program_output))]
     SdkProgramOutput {
@@ -147,7 +146,7 @@ pub enum DriftError {
 
     /// The payload's pinned `version` does not match the engine's — the SDK and the
     /// engine have drifted out of the lockstep the seam requires
-    /// (specs/architecture/50-distribution.md, engine pin).
+    /// (specs/distribution.md, engine pin).
     #[error(
         "the SDK program's payload declares seam version {got}; this engine reads version {SEAM_VERSION}"
     )]
@@ -158,8 +157,8 @@ pub enum DriftError {
     },
 
     /// A projected member's payload names a kind absent from the payload's own
-    /// `declarations.kinds` family — the engine is kind-blind (`15-kinds.md`) and has
-    /// nowhere to read that kind's locus/format/unit-shape from.
+    /// `declarations.kinds` family — the engine is kind-blind (`specs/model/representation.md`,
+    /// "kind") and has nowhere to read that kind's locus/format/unit-shape from.
     #[error(
         "member `{member}` names kind `{kind}`, which the payload's declarations carry no kind fact for"
     )]
@@ -173,7 +172,7 @@ pub enum DriftError {
 }
 
 // ---------------------------------------------------------------------------
-// emit — the write direction (`specs/architecture/20-surface.md`, law 5)
+// emit — the write direction (`specs/model/pipeline.md`, "Emit")
 // ---------------------------------------------------------------------------
 
 /// Options controlling an [`emit`] run.
@@ -182,8 +181,8 @@ pub struct EmitOptions {
     /// When set, compute every projection and report it but write nothing — neither
     /// the re-emitted harness sources nor the updated lock fingerprints.
     pub dry_run: bool,
-    /// Refuse network access — the CI posture (`specs/architecture/20-surface.md`, CLI
-    /// surface). `emit` performs no network I/O today (it compiles a materialized
+    /// Refuse network access — the CI posture (`specs/distribution.md`, "CI").
+    /// `emit` performs no network I/O today (it compiles a materialized
     /// surface), so this changes nothing yet; accepted for CLI-surface / CI parity.
     pub frozen: bool,
 }
@@ -238,7 +237,7 @@ pub struct EmitReport {
 }
 
 /// The engine's pinned seam version — the JSON pipe rides it in lockstep with the
-/// SDK's own `SEAM_VERSION` (`sdk/src/declarations.ts`; specs/architecture/50-distribution.md,
+/// SDK's own `SEAM_VERSION` (`sdk/src/declarations.ts`; specs/distribution.md,
 /// engine pin).
 pub const SEAM_VERSION: u32 = 2;
 
@@ -258,14 +257,14 @@ pub struct PayloadMember {
     /// The resolved `file()` asset's absolute path, when the member's prose is
     /// `file()` — absent for `text`/`blocks` prose or no prose. Lets `emit`
     /// tell a lifted member's own file (source == projection) apart from a
-    /// generated one (`specs/architecture/20-surface.md`, "surface authority is a
-    /// declared posture": "the lock is what names a path a projection").
+    /// generated one (`specs/model/pipeline.md`, "Drift": "the lock is what
+    /// names a path a projection").
     #[serde(default)]
     pub source_path: Option<String>,
 }
 
 /// The whole seam payload the SDK program prints to stdout
-/// (`specs/architecture/20-surface.md`, "The seam — one implementation"): the
+/// (`specs/model/pipeline.md`, "Emit"): the
 /// declaration rows (the lock's five families) and every projected member's erased
 /// payload. The engine is the sole compiler of every projection and the whole lock
 /// from this one value — no harness re-supply, the payload IS the source.
@@ -293,8 +292,7 @@ struct Projection {
     body: String,
     /// Whether this member's `file()` source resolves to the very path it
     /// projects to — a lifted member, authored territory the guard/note never
-    /// claim (`specs/architecture/20-surface.md`, "A member whose `file()` source
-    /// is its own projected path is authored territory").
+    /// claim (`specs/model/pipeline.md`, "Install").
     own_path: bool,
 }
 
@@ -318,7 +316,7 @@ fn resolves_to_own_path(payload_source: Option<&str>, dest: &Path) -> bool {
 
 /// The harness-relative locus a member of `facts` named `name` projects onto — the
 /// Rust port of the retired SDK `projectionPath` (`sdk/src/project.ts`; the engine is
-/// the sole compiler now, `specs/architecture/20-surface.md`): a directory unit lands
+/// the sole compiler now, `specs/model/pipeline.md`, "Emit"): a directory unit lands
 /// its entry file under `<root>/<name>/`; a lone file replaces the glob's `*` with the
 /// name (an any-depth glob, a memory kind's `**/CLAUDE.md`, lands the root `<name>.md`).
 fn member_projection_path(facts: &KindFactRow, name: &str) -> PathBuf {
@@ -341,8 +339,7 @@ fn member_projection_path(facts: &KindFactRow, name: &str) -> PathBuf {
 }
 
 /// Run the SDK program at `<workspace_dir>/harness.ts` and compile its payload in one
-/// call — the whole seam (`specs/architecture/20-surface.md`, "The seam — one
-/// implementation"): `node` executes the authored program, the engine reads the JSON
+/// call — the whole seam (`specs/model/pipeline.md`, "The SDK"): `node` executes the authored program, the engine reads the JSON
 /// pipe it prints on stdout and becomes the sole compiler of every projection and the
 /// whole lock. No harness root is re-supplied — the payload IS the source.
 ///
@@ -404,8 +401,8 @@ fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
 }
 
 /// Compile a seam `payload` into every projection and the whole lock — the sole
-/// compiler (`specs/architecture/20-surface.md`, "The lock and drift — one
-/// vocabulary": "one producer writes all three families"). `workspace_dir` is the
+/// compiler (`specs/model/pipeline.md`, "The lock": "one producer writes all three
+/// families"). `workspace_dir` is the
 /// surface root (`.temper`, carrying `lock.toml`); projections land beside it, at
 /// `workspace_dir`'s parent joined with each member's kind-derived locus. Every
 /// projection is double-emit verified (`emit_one`); the lock is rewritten whole,
@@ -507,10 +504,10 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
     // Read the committed projection first — never to merge authored content, but to
     // tell `Emitted` from the idempotent no-op *and* to carry install's frontmatter
     // placements (the schema modeline, the managed-by note) through the whole-file
-    // re-emit. Those metadata lines ride `install`, never `emit` (law 5 keeps the
-    // projection content-faithful), so a re-emit round-trips the ones already on disk
-    // instead of clobbering them (`specs/architecture/20-surface.md`, the two-projectors
-    // seam). An absent source carries no placements and is not a conflict: emit writes it.
+    // re-emit. Those metadata lines ride `install`, never `emit` (`specs/model/pipeline.md`,
+    // "Emit" keeps the projection content-faithful), so a re-emit round-trips the ones
+    // already on disk instead of clobbering them. An absent source carries no
+    // placements and is not a conflict: emit writes it.
     let current = match fs::read(&projection.source_path) {
         Ok(bytes) => Some(bytes),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
@@ -527,9 +524,8 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
         .unwrap_or_default();
 
     // An own-path member's `file()` source *is* its projected path — the projection
-    // is not derived from typed fields, it is the source (`specs/architecture/
-    // 20-surface.md`, "A member whose `file()` source is its own projected path is
-    // authored territory: ... a hand edit there is an edit to the source"). Deriving
+    // is not derived from typed fields, it is the source (`specs/model/pipeline.md`,
+    // "Install": a hand edit there is an edit to the source). Deriving
     // frontmatter from fields and writing it back over that same file would double
     // up the identity field a directory-shaped kind (`skill`) always carries
     // (`orderedFields`, `sdk/src/kind.ts`) atop the file's own, already-authored
@@ -541,7 +537,7 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
         project_bytes(&projection.fields, &projection.body, &placements)
     };
 
-    // Double-emit determinism (`specs/architecture/20-surface.md`, law 5): a second
+    // Double-emit determinism (`specs/model/pipeline.md`, "Emit"): a second
     // projection over the same surface must be byte-identical. Nondeterministic
     // authoring (a timestamp, an unordered map surfacing into a field) is a loud
     // failure here, never a silent churn the next `emit` would rewrite.
@@ -583,12 +579,12 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
 /// the managed-by note — in on-disk order), then every desired field in order, then
 /// the surface body byte-for-byte.
 ///
-/// The authored content is *generated*, not patched (`specs/architecture/20-surface.md`,
-/// "Decision: drift routes to the authored source — no reverse parse") — a hand-edited
+/// The authored content is *generated*, not patched (`specs/model/pipeline.md`,
+/// "Drift": no reverse parse from projection to source) — a hand-edited
 /// field is not preserved (that is drift, routed to the authored source). Install's
 /// metadata comments are the one exception the caller feeds in: they ride `install`,
-/// never `emit` (law 5), so emit round-trips the ones already on disk rather than
-/// dropping them (the two-projectors seam). An artifact with no fields (a rule that
+/// never `emit` (`specs/model/pipeline.md`, "Emit"), so emit round-trips the ones
+/// already on disk rather than dropping them. An artifact with no fields (a rule that
 /// carries no `paths`/unknown keys) projects to its body alone — no frontmatter block,
 /// and so no place a modeline/note could have been installed.
 fn project_bytes(fields: &[(String, JsonValue)], body: &str, placements: &[String]) -> String {
@@ -640,7 +636,7 @@ pub fn render_emit(report: &EmitReport) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// place — the whole-file direction (`specs/architecture/50-distribution.md`, `install`)
+// place — the whole-file direction (`specs/distribution.md`, `install`)
 // ---------------------------------------------------------------------------
 
 /// One placement's outcome from [`place`] — its own three-state merge, distinct from
@@ -673,7 +669,7 @@ impl ApplyOutcome {
 
 /// Project `desired` onto `path` under a three-state merge — the whole-file
 /// placement direction, for artifacts temper *places* rather than emits
-/// (`specs/architecture/50-distribution.md`, the `install` gate wiring). It carries its own
+/// (`specs/distribution.md`, the `install` gate wiring). It carries its own
 /// [`ApplyOutcome`] and reuses [`DriftError`] so `install` builds on this write-back
 /// direction; unlike [`emit`], which regenerates a projection whole, a placement
 /// merges into a file it shares with the human, so it keeps conflict detection (the
@@ -746,7 +742,7 @@ pub fn place(
 /// Write a placement's bytes to `path`, creating any missing parent directories.
 /// Both failures surface as [`DriftError::Write`] so a placement that cannot be
 /// written **errors loudly** rather than silently skipping
-/// (`specs/architecture/50-distribution.md`, "Fail-loud delivery").
+/// (`specs/distribution.md`, "Fail-loud delivery").
 fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|source| DriftError::Write {
@@ -761,35 +757,36 @@ fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
 }
 
 // ---------------------------------------------------------------------------
-// config.stale — the freshness fact the gate reads (`specs/architecture/20-surface.md`)
+// config.stale — the freshness fact the gate reads (`specs/model/pipeline.md`, "Drift")
 // ---------------------------------------------------------------------------
 
 /// The diagnostic `rule` id every freshness finding reports under
-/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+/// (`specs/model/pipeline.md`, "Drift").
 const CONFIG_STALE_RULE: &str = "config.stale";
 
 /// The `config.stale` freshness findings for a surface `workspace_dir`
-/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"): a
+/// (`specs/model/pipeline.md`, "Drift"): a
 /// committed projection whose bytes no longer match the emit fingerprint the lock
 /// recorded — the authored source changed and `emit` has not run, or the emitted
 /// output was hand-edited. One finding
 /// per drifted row, pointing at the projection that moved.
 ///
-/// **Advisory** (`warn`): under the default `shared` authority the guard warns-and-routes
-/// rather than blocks (`specs/architecture/20-surface.md`, "surface authority is a declared
-/// posture"), and temper fabricates no hard gate the author did not declare
-/// (`00-intent.md` law 4) — a stale projection is a nudge to re-emit.
+/// **Advisory** (`warn`): under the default `warn` enforcement mode the guard warns-and-routes
+/// rather than blocks (`specs/distribution.md`, "Per tool call"), and temper fabricates no
+/// hard gate the author did not declare (`specs/intent.md`) — a stale projection is a
+/// nudge to re-emit.
 ///
 /// Read off `<workspace_dir>/lock.toml` — every `[[<kind>]]` row (built-in and custom):
 /// each row's `source_path` is re-hashed and compared to its `emit_hash`. A row without
 /// an `emit_hash` (a lock predating the fingerprint) or a `source_path` that cannot be
-/// read is **skipped** — law 3's safe direction, since absent evidence must never *forge*
-/// a staleness finding (a removed source is the drift engine's `removed` state, not this
-/// freshness fact). A missing or malformed lock yields no findings for the same reason.
+/// read is **skipped** — the safe direction (`specs/model/contract.md`, "edge"), since
+/// absent evidence must never *forge* a staleness finding (a removed source is the drift
+/// engine's `removed` state, not this freshness fact). A missing or malformed lock
+/// yields no findings for the same reason.
 ///
 /// An in-place member carries **no lock row** (`install` writes no copy tree, no lock — the
 /// landscape file is its own source), so it contributes no freshness fact here: an
-/// in-place member cannot drift (`specs/architecture/20-surface.md`).
+/// in-place member cannot drift (`specs/model/pipeline.md`, "The lock").
 #[must_use]
 pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
     let path = workspace_dir.join("lock.toml");
@@ -836,13 +833,12 @@ pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
 
 // ---------------------------------------------------------------------------
 // emit-owned paths — the lock-grounded basis for `install`'s guard/note/modeline
-// placements (`specs/architecture/20-surface.md`, "surface authority is a declared
-// posture")
+// placements (`specs/distribution.md`, "Per tool call")
 // ---------------------------------------------------------------------------
 
 /// One member the lock declares **emit-owned** — a real projection, not a lifted
-/// member's own authored file (`specs/architecture/20-surface.md`, "the note and the
-/// guard bind only paths the lock declares emit-owned").
+/// member's own authored file (`specs/model/pipeline.md`, "Drift": the note and the
+/// guard bind only paths the lock declares emit-owned).
 pub struct EmitOwnedEntry {
     /// The member's kind (bare name — `"skill"`, `"rule"`, `"memory"`).
     pub kind: String,
@@ -854,8 +850,8 @@ pub struct EmitOwnedEntry {
 
 /// Every path a lock at `workspace_dir` declares **emit-owned** — the constituency
 /// `install`'s guard/note/modeline placements bind to, replacing the raw discovery
-/// walk they once targeted (`specs/architecture/20-surface.md`, "the guard arrives
-/// with its constituency, never before"). A row with no recorded `own_path` (a lock
+/// walk they once targeted (`specs/distribution.md`, "Per tool call": the guard arrives
+/// with its constituency, never before). A row with no recorded `own_path` (a lock
 /// predating the fact, or a member with no `file()` prose) defaults to emit-owned —
 /// the safe direction, since a placement wrongly *placed* is a nudge to remove, but
 /// one wrongly *withheld* is a silent gap in the gate's write-boundary coverage.
@@ -899,14 +895,14 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 
 // ---------------------------------------------------------------------------
 // declaration rows — the program's erased declarations
-// (`specs/architecture/20-surface.md`, "The lock and drift"; `specs/architecture/40-composition.md`)
+// (`specs/model/pipeline.md`, "The lock")
 // ---------------------------------------------------------------------------
 
 /// The lock's **declaration-row family** — the composed program's erased declarations
-/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"), beside the
+/// (`specs/model/pipeline.md`, "The lock"), beside the
 /// per-member provenance and emit-fingerprint rows. Five sub-families: the program's
 /// [kind facts](KindFactRow), its [clauses](ClauseRow), its [requirements](RequirementRow),
-/// its assembly facts ([`AssemblyFactRow`], `specs/architecture/40-composition.md`), and its
+/// its assembly facts ([`AssemblyFactRow`], `specs/model/pipeline.md`, "The lock"), and its
 /// [`satisfies`](SatisfiesRow) fill edges.
 ///
 /// Written into the lock by [`emit`] off the SDK's own payload ([`Declarations::write_into`])
@@ -919,23 +915,23 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 /// wire format — the same rows, whether they arrive off disk or off the seam's JSON pipe.
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Declarations {
-    /// The kind facts — one per kind in the program (`specs/architecture/15-kinds.md`).
+    /// The kind facts — one per kind in the program (`specs/model/representation.md`).
     pub kinds: Vec<KindFactRow>,
-    /// The clauses of every kind's effective contract (`specs/architecture/10-contracts.md`).
+    /// The clauses of every kind's effective contract (`specs/model/contract.md`).
     pub clauses: Vec<ClauseRow>,
-    /// The named requirements the assembly declares (`specs/architecture/10-contracts.md`).
+    /// The named requirements the assembly declares (`specs/model/contract.md`).
     pub requirements: Vec<RequirementRow>,
     /// The assembly-scope facts — the root member's declared enforcement `mode`,
     /// edges (`specs/model/representation.md`, "The root member").
     pub assembly: Vec<AssemblyFactRow>,
     /// The member→requirement fill edges — every imported member's `satisfies` keys
-    /// (`specs/architecture/20-surface.md`, "The lock and drift"), so the roster/coverage
+    /// (`specs/model/pipeline.md`, "The lock"), so the roster/coverage
     /// tiers ride the lock rather than re-importing the harness.
     pub satisfies: Vec<SatisfiesRow>,
 }
 
 /// One kind's declaration row — its identity and declared runtime facts
-/// (`specs/architecture/15-kinds.md`, "A kind is a constructor plus five facts").
+/// (`specs/model/representation.md`, "kind").
 /// The optional facts are omitted from the lock when the kind declares none, so the row
 /// round-trips to exactly what was written.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -969,14 +965,14 @@ pub struct KindFactRow {
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
 /// which kind it governs, the predicate's key, the field it targets (when it names one),
 /// its declared severity, its guidance and cite — the clause's four channels
-/// (`specs/architecture/10-contracts.md`, "The clause — the atom of a contract") —
+/// (`specs/model/contract.md`, "The clause — the atom of a contract") —
 /// and, per predicate, its own argument: the node-set/edge-scope predicates
-/// (`count`/`unique`/`membership`/`degree`, `specs/architecture/10-contracts.md`) carry
+/// (`count`/`unique`/`membership`/`degree`, `specs/model/contract.md`) carry
 /// their bounds/target, and the node-scope predicates that need more than
 /// `field`/`severity` (`min_len`/`max_len`/`max_lines`'s bound, `allowed_chars`'s
 /// charset, `forbidden_keys`'s keys, `deny`'s values) carry theirs too — so a kind's
 /// own floor clause round-trips losslessly, not identity+severity alone
-/// (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+/// (`specs/distribution.md`, "Decision: the built-in lock is derived
 /// from the SDK module, never transcribed"). `unique`'s field rides the shared `field`
 /// column (the same slot `required`/`min_len`/… target); the rest carry their own
 /// optional columns since a plain field/severity pair cannot express them.
@@ -997,11 +993,11 @@ pub struct ClauseRow {
     pub severity: String,
     /// The just-in-time teaching channel — the best-practice prose the predicate
     /// cannot encode, quoted at the point of a failing finding
-    /// (`specs/architecture/10-contracts.md`, "guidance").
+    /// (`specs/model/contract.md`, "guidance").
     #[serde(default)]
     pub guidance: Option<String>,
     /// The external-fact source backing the clause — a doc URL plus retrieved date,
-    /// carried as data (`specs/architecture/10-contracts.md`, "cite").
+    /// carried as data (`specs/model/contract.md`, "cite").
     #[serde(default)]
     pub cite: Option<String>,
     /// The `count` clause's satisfier-set-size bound, when the predicate is `count`.
@@ -1033,7 +1029,7 @@ pub struct ClauseRow {
 
 /// A node-scope clause row's scalar bound — `min_len`'s `min`, `max_len`/`max_lines`'s
 /// `max`, each endpoint optional so the row carries only what the predicate declared
-/// (`specs/architecture/10-contracts.md`, "min_len" / "max_len" / "max_lines").
+/// (`specs/model/contract.md`, "min_len" / "max_len" / "max_lines").
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct BoundRow {
     /// The inclusive lower bound, when the predicate declares one (`min_len`).
@@ -1046,7 +1042,7 @@ pub struct BoundRow {
 
 /// An `allowed_chars` clause row's declared character class — the wire form of
 /// [`crate::contract::Charset`]: inclusive `"<lo>-<hi>"` range specs plus a literal
-/// string of individually permitted characters (`specs/architecture/10-contracts.md`,
+/// string of individually permitted characters (`specs/model/contract.md`,
 /// "allowed_chars").
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct CharsetRow {
@@ -1058,10 +1054,10 @@ pub struct CharsetRow {
     pub chars: Option<String>,
 }
 
-/// One named requirement's declaration row (`specs/architecture/10-contracts.md`),
+/// One named requirement's declaration row (`specs/model/contract.md`),
 /// carrying the scalar facets plus the requirement's own **clause rows** — the
 /// set-scope demands (`count`/`unique`/`membership`/`degree`,
-/// `specs/architecture/10-contracts.md`, "Decision: set-scope demands are clauses")
+/// `specs/model/contract.md`, "Decision: set-scope demands are clauses")
 /// the roster/graph checks range over. No facet columns: a demand's severity,
 /// argument, and — for `unique`/`membership` — targeted field ride the nested
 /// [`ClauseRow`], the identical row shape a kind's own floor clauses use.
@@ -1086,7 +1082,7 @@ pub struct RequirementRow {
 }
 
 /// A requirement row's `count` bound — the satisfier-set size's inclusive `[min, max]`
-/// (`specs/architecture/45-governance.md`).
+/// (`specs/model/contract.md`).
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct CountBoundRow {
     /// The inclusive lower bound on the satisfier-set size.
@@ -1096,7 +1092,7 @@ pub struct CountBoundRow {
 }
 
 /// A requirement row's `degree` bound — the in/out edge-count bound every satisfier
-/// must land in (`specs/architecture/45-governance.md`).
+/// must land in (`specs/model/contract.md`).
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct DegreeBoundRow {
     /// The bound on a satisfier's incoming edge count, when constrained.
@@ -1108,7 +1104,7 @@ pub struct DegreeBoundRow {
 }
 
 /// One direction's inclusive `[min, max]` edge-count bound, each endpoint optional
-/// (`specs/architecture/45-governance.md`).
+/// (`specs/model/contract.md`).
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub struct EdgeBoundRow {
     /// The inclusive lower bound. `None` ⇒ no lower bound.
@@ -1121,7 +1117,7 @@ pub struct EdgeBoundRow {
 
 /// One member→requirement fill edge's declaration row — the `satisfies` join the
 /// roster/coverage tiers need, carried on the lock rather than re-imported
-/// (`specs/architecture/20-surface.md`, "The lock and drift").
+/// (`specs/model/pipeline.md`, "The lock").
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct SatisfiesRow {
     /// The filling member's id.
@@ -1157,7 +1153,7 @@ impl Declarations {
     /// Serialize the declaration families into `doc` under an implicit `[declaration]`
     /// table — `[[declaration.kind]]`, `[[declaration.clause]]`, `[[declaration.requirement]]`,
     /// `[[declaration.assembly]]`, `[[declaration.satisfies]]` — each family in its producer's order so a re-emit is
-    /// byte-identical (law 5). An empty family writes no array (an empty `ArrayOfTables`
+    /// byte-identical (`specs/model/pipeline.md`, "Emit"). An empty family writes no array (an empty `ArrayOfTables`
     /// vanishes on the toml round-trip, so omitting it keeps write and re-parse symmetric),
     /// and an all-empty set writes no `[declaration]` table at all.
     pub(crate) fn write_into(&self, doc: &mut DocumentMut) {
@@ -1197,10 +1193,11 @@ impl Declarations {
 }
 
 /// Read the lock's declaration-row family back into a typed [`Declarations`]
-/// (`specs/architecture/20-surface.md`, "The lock and drift"): the gate's read side over the
+/// (`specs/model/pipeline.md`, "The lock"): the gate's read side over the
 /// rows the extraction wrote. A missing or malformed lock, or one with no `[declaration]`
 /// table (any pre-recut lock), yields an empty set rather than an error — absent evidence
-/// forges no finding (law 3), the same tolerance [`config_stale`] takes.
+/// forges no finding (`specs/model/contract.md`, "edge"), the same tolerance
+/// [`config_stale`] takes.
 ///
 /// # Errors
 ///

@@ -1,8 +1,8 @@
-//! Pins the shipped Anthropic skill built-in floor (`specs/architecture/10-contracts.md`,
+//! Pins the shipped Anthropic skill built-in floor (`specs/model/contract.md`,
 //! "The clause — the atom of a contract").
 //!
 //! The `skill` floor is a projection of the embedded built-in lock's clause rows
-//! (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+//! (`specs/distribution.md`, "Decision: the built-in lock is derived
 //! from the SDK module, never transcribed"). This test loads it through the same
 //! embedded path the shipped `check` uses ([`temper::builtin::contract`]) and pins
 //! the exact decidable clause vector it carries.
@@ -134,7 +134,7 @@ fn skill_builtin_carries_the_decidable_clause_vector() {
 }
 
 /// A built-in package's clauses are *cited* and carry guidance — each pairs a
-/// `source` provenance of taste with the hover-sized why (`specs/architecture/10-contracts.md`,
+/// `source` provenance of taste with the hover-sized why (`specs/model/contract.md`,
 /// "a built-in package's clauses ... it is the expected posture"). Pinning presence
 /// (not text) keeps the update ritual honest — walk the clauses, re-check their
 /// citations — without coupling the build test to product prose.
@@ -159,7 +159,7 @@ fn every_skill_builtin_clause_is_guided_and_cited() {
 /// registry-kill decision: the built-in encodes *only* decidable predicates — every
 /// clause is a true/false fact over the artifact, never a semantic guess
 /// (third-person / has-trigger / companion-refs were undecidable and stay prose
-/// guidance, `specs/architecture/10-contracts.md`).
+/// guidance, `specs/model/contract.md`).
 #[test]
 fn skill_builtin_encodes_only_decidable_clauses() {
     let kinds: BTreeSet<&str> = skill_builtin()
@@ -185,7 +185,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
 }
 
 /// Both shipped built-in packages are themselves admissible — they pass the second
-/// green (`specs/architecture/10-contracts.md`, "Decision: the contract is itself checked —
+/// green (`specs/model/contract.md`, "Decision: the contract is itself checked —
 /// admissibility"). Every embedded package carries only closed-vocabulary clauses
 /// and no vacuous list clause, so `engine::admissibility` returns no findings.
 #[test]

@@ -1,6 +1,6 @@
 //! The read family — one CLI verb, [`explain`], over four traversals of the
 //! requirement↔`satisfies` edge and the graph `check` already carries
-//! (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`").
+//! (`specs/model/pipeline.md`, "Read verbs").
 //!
 //! [`explain`] resolves its one positional target across three namespaces — member,
 //! requirement, leaf-grain address (`(explain-target-disambiguation)`, ruled
@@ -27,7 +27,7 @@
 //! (the read family is not the gate; a reporting verb whose exit code CI trusts is
 //! exactly what the Decision rejects).
 //!
-//! The output is a **teaching surface**, not a table dump (`specs/architecture/50-distribution.md`,
+//! The output is a **teaching surface**, not a table dump (`specs/distribution.md`,
 //! "the gate teaches"): full sentences over the author's own artifacts, in the
 //! corpus's vocabulary. The narration is derived, never persisted.
 //!
@@ -58,7 +58,7 @@ use crate::kind::Registration;
 /// A member as the read family sees it: its kind, its id, and the requirements it opts
 /// into filling (each with its authored rationale). Built off the typed [`Workspace`]
 /// artifacts — the `satisfies` the surface language authors on each member document
-/// (`specs/architecture/20-surface.md`, "The member"), which the decidable
+/// (`specs/model/contract.md`, "edge"), which the decidable
 /// [`crate::extract::Features`] view drops the rationale from but the read family needs
 /// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
 /// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never
@@ -92,7 +92,7 @@ pub struct CustomMember {
 }
 
 /// A declared **citation** — a one-way edge from a member (the citer) to a nested
-/// member's [`MemberAddress`] it names (`specs/architecture/45-governance.md`, "the mention is
+/// member's [`MemberAddress`] it names (`specs/model/contract.md`, "the mention is
 /// the readmitted one-way annotation class"; address grain). **Obligation-free**: the
 /// obligation graph ignores it, coverage never counts it, and `impact` reports it as a
 /// *citation, never fallout* — deleting or rewording the cited leaf is never blocked,
@@ -101,7 +101,7 @@ pub struct CustomMember {
 /// referential guarantee a mention carries.
 ///
 /// The floor carries no producer yet — floor leaves carry no mentions
-/// (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"), so today's
+/// (`specs/model/representation.md`, "A genre is a kind at the block locus"), so today's
 /// caller threads an empty set and the leaf-grain report names zero citers; the mechanism
 /// is proven in unit tests here.
 pub struct Citation {
@@ -209,8 +209,8 @@ fn resolve<'a>(
     }
 }
 
-/// `temper explain <target>` — the one read verb (`specs/architecture/20-surface.md`, "Decision:
-/// one read verb — `explain`"): resolve `target`'s [`Species`] and dispatch to whichever
+/// `temper explain <target>` — the one read verb (`specs/model/pipeline.md`, "Read
+/// verbs"): resolve `target`'s [`Species`] and dispatch to whichever
 /// of the four traversals answer it, so the single verb answers every read question
 /// `why`/`requirements`/`impact`/`context` used to split across four CLI spellings. A
 /// read, never a gate — the caller prints this and exits zero on every input, an
@@ -294,7 +294,7 @@ pub fn explain(
 /// `temper why <member>` — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
 /// own `means`), the floor its kind binds, and its resolved edges in and out
-/// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"). A read, never a
+/// (`specs/model/pipeline.md`, "Read verbs"). A read, never a
 /// gate — the caller prints this and exits zero on every input, including a name no
 /// member bears.
 ///
@@ -308,7 +308,7 @@ pub fn explain(
 ///
 /// The `roster` is the **composed** requirement namespace `check` gates — the assembly
 /// `[requirement.*]` unioned with every member's published `[requirement.*]`
-/// (`specs/architecture/10-contracts.md`, "a requirement's publisher is any authored surface
+/// (`specs/model/contract.md`, "a requirement's publisher is any authored surface
 /// document"; built by the caller through the gate's own `union_published_requirements`,
 /// READ-VERBS-PUBLISHED-DEMANDS). Ranging over it — not the assembly roster alone — is
 /// why a `satisfies` link to a member-published demand narrates as filled, matching a
@@ -363,7 +363,7 @@ fn why_one(
     );
 
     // Forward walk: the requirements this member fills, each with its authored
-    // rationale (the *why*, law 7) and the requirement's own `means`.
+    // rationale (the *why*, `specs/intent.md`, "The honest bound") and the requirement's own `means`.
     if member.satisfies.is_empty() {
         let _ = writeln!(
             out,
@@ -465,28 +465,28 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 }
 
 /// `temper impact <member>` — narrate the deterministic **blast radius** of removing or
-/// renaming `member` (`specs/architecture/20-surface.md`, the `impact` CLI bullet): the graph
-/// payoff `00-intent.md` promises, given a verb. Four strands, each read off the graph
+/// renaming `member` (`specs/model/contract.md`, "Read verbs"): the graph
+/// payoff `specs/intent.md` promises, given a verb. Four strands, each read off the graph
 /// data `check` already carries — no second build, no new engine semantics:
 ///
 /// 1. **Requirements left unfilled** — a requirement `member` satisfies whose *only*
 ///    satisfier is `member`, so removing it drops coverage to zero (an error for a
 ///    `required` one, silent for an advisory).
 /// 2. **`satisfies` left dangling** — a requirement `member` alone **publishes**
-///    (`specs/architecture/10-contracts.md`, a publisher); removing its publisher drops the demand
+///    (`specs/model/contract.md`, a publisher); removing its publisher drops the demand
 ///    from the namespace, so every *other* member's `satisfies` onto it dangles.
 /// 3. **Directive edges left unbacked** — an `@import` from another member that resolves
-///    to `member`'s file (`specs/architecture/15-kinds.md`, "Directives"); removing the file leaves
+///    to `member`'s file (`specs/model/representation.md`, "Directives"); removing the file leaves
 ///    that import backing nothing, the silent-context-loss class made author-time.
 /// 4. **Reachability that dies with it** — a member live now only because `member`
 ///    imports it (its own registration dead); removing `member` unreaches it
 ///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
 ///
-/// The family gains **leaf grain** (`specs/architecture/20-surface.md`, "Decision: one read
-/// verb — `explain`"): a `target` naming a nested member's leaf — the `<member>/<kind>/<key>/<child-path>`
+/// The family gains **leaf grain** (`specs/model/pipeline.md`, "Read
+/// verbs"): a `target` naming a nested member's leaf — the `<member>/<kind>/<key>/<child-path>`
 /// address — dispatches to [`impact_leaf`], which resolves the leaf against the lock's
 /// serialized nested-member leaves and reports its **citations separately from fallout** (a leaf is
-/// obligation-free; `specs/architecture/45-governance.md`, address grain). A `target` with no `/` is
+/// obligation-free; `specs/model/contract.md`, address grain). A `target` with no `/` is
 /// a bare member name and takes the member-grain path below, unchanged.
 ///
 /// A read, never a gate: the caller prints this and exits zero on every input, a name no
@@ -553,8 +553,8 @@ pub fn impact(
 }
 
 /// A parsed **leaf address** — the `<member>/<kind>/<key>/<child-path>` spelling `impact`
-/// accepts to name a single nested member's leaf (`specs/architecture/20-surface.md`, "Decision:
-/// one read verb — `explain`"). The three identity segments are `/`-separated; the child
+/// accepts to name a single nested member's leaf (`specs/model/pipeline.md`, "Read
+/// verbs"). The three identity segments are `/`-separated; the child
 /// path keeps its own dots (`rejected.baked-projection.because`), so it is the whole
 /// remainder after the third slash — `splitn(4, '/')`, never a plain split that would
 /// mangle a dotted collection path.
@@ -613,9 +613,9 @@ fn resolve_leaf<'a>(
 }
 
 /// `temper impact <leaf-address>` — narrate a nested member's leaf at **leaf grain**
-/// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"): resolve the
+/// (`specs/model/pipeline.md`, "Read verbs"): resolve the
 /// leaf against the lock's serialized nested-member leaves, then report its **citations separately
-/// from fallout** (`specs/architecture/45-governance.md`, address grain). A leaf is obligation-free — its
+/// from fallout** (`specs/model/contract.md`, address grain). A leaf is obligation-free — its
 /// citations neither gate nor block a rewrite — so the fallout line states exactly that,
 /// distinct from the citation list a join/reachability member-grain report would carry.
 ///
@@ -660,7 +660,7 @@ fn impact_leaf(
 
     // Citations — the declared one-way edges naming this leaf, resolution-checked (we only
     // reach here for a leaf that resolves) and obligation-free. Reported *separately* from
-    // fallout: a citation is never fallout (`specs/architecture/45-governance.md`). The shared
+    // fallout: a citation is never fallout (`specs/model/contract.md`). The shared
     // helper is reused by `context` at the same grain.
     narrate_citers(&mut out, citations, member, kind, key, child_path);
     out.push('\n');
@@ -675,9 +675,9 @@ fn impact_leaf(
     );
     out.push('\n');
 
-    // Coverage — the leaf-grain answer names what it cannot see (`specs/architecture/20-surface.md`,
-    // "both disclose coverage"): the disclosure ships WITH the found answer, not only in the
-    // not-found error, so an incomplete answer never wears complete clothes (law 1).
+    // Coverage — the leaf-grain answer names what it cannot see (`specs/model/pipeline.md`,
+    // "Read verbs"): the disclosure ships WITH the found answer, not only in the
+    // not-found error, so an incomplete answer never wears complete clothes (`specs/intent.md`).
     disclose_coverage(&mut out, by_kind);
 
     out
@@ -685,7 +685,7 @@ fn impact_leaf(
 
 /// Narrate the **citations** naming a leaf — the declared one-way edges (obligation-free,
 /// resolution-checked) both `impact` and `context` report at leaf grain
-/// (`specs/architecture/45-governance.md`, address grain). Shared so the two verbs cannot disagree on
+/// (`specs/model/contract.md`, address grain). Shared so the two verbs cannot disagree on
 /// what cites a leaf, exactly as the edge walk shares the gate's resolved set (READ-EDGE-UNIFY).
 fn narrate_citers(
     out: &mut String,
@@ -726,12 +726,11 @@ fn narrate_citers(
 }
 
 /// Append the shared **coverage disclosure** every leaf-grain answer closes with
-/// (`specs/architecture/20-surface.md`, "both disclose coverage … every leaf-grain answer names what
-/// it cannot see"): the count of members carrying no serialized nested-member leaves —
+/// (`specs/model/pipeline.md`, "Read verbs"): the count of members carrying no serialized nested-member leaves —
 /// the documents that carry no nested members a leaf-grain read cannot represent. Under
 /// the gradient a mixed-posture corpus is the standing state, not an edge case, so an
 /// answer hiding its blind spot erodes the verb exactly as a false gate-block erodes the
-/// gate (law 1). Shared by `impact`'s and `context`'s leaf-grain answers, so the
+/// gate (`specs/intent.md`). Shared by `impact`'s and `context`'s leaf-grain answers, so the
 /// disclosure is one wording that ships WITH the verb, never after.
 fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
     let leafless = by_kind
@@ -752,7 +751,7 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 }
 
 /// `temper context <address>` — emit the **declared neighborhood** of a member or a
-/// nested member's leaf (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"):
+/// nested member's leaf (`specs/model/pipeline.md`, "Read verbs"):
 /// its nested-member slot, its siblings, the members that cite it, and the requirements
 /// its member satisfies — the pre-edit context bundle for the primary author. Consumes
 /// only the lock's serialized nested-member leaves (`by_kind`) and declared citations:
@@ -761,7 +760,7 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 /// A `/`-bearing `address` is a leaf (`<member>/<kind>/<key>/<child-path>`) reported at leaf grain
 /// ([`context_leaf`]); a bare name is a member reported whole ([`context_member`]). Both are
 /// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-posture corpus
-/// is the standing state, and an answer hiding what it cannot see erodes the verb (law 1).
+/// is the standing state, and an answer hiding what it cannot see erodes the verb (`specs/intent.md`).
 ///
 /// A read, never a gate: an unresolved or ill-formed address is narrated plainly and the caller
 /// still exits zero.
@@ -851,7 +850,7 @@ fn context_leaf(
     narrate_satisfied(&mut out, by_kind, member);
     out.push('\n');
 
-    // Coverage — the leaf-grain answer names what it cannot see (law 1), shipping WITH the verb.
+    // Coverage — the leaf-grain answer names what it cannot see (`specs/intent.md`), shipping WITH the verb.
     disclose_coverage(&mut out, by_kind);
 
     out
@@ -1249,8 +1248,8 @@ fn other_satisfiers(
 /// `temper requirements [<name>]` — narrate the requirement roster. Without a name it
 /// is the forward roster view: each requirement with its satisfier set and coverage
 /// state. With a name it is the reverse walk over that one requirement: its satisfiers
-/// and the blast radius a removal would strand (`specs/architecture/20-surface.md`, "Decision: the
-/// CLI gains a read family"; the traversal payoff of `specs/architecture/30-landscapes.md` law 6).
+/// and the blast radius a removal would strand (`specs/model/contract.md`, the
+/// traversal payoff of the `impact` read verb).
 /// A read, never a gate — the caller prints this and exits zero on every input.
 ///
 /// The `roster` is the **composed** requirement namespace `check` gates (assembly ∪
@@ -1272,7 +1271,7 @@ pub fn requirements(
 }
 
 /// The forward roster view — every requirement, its satisfier set, and its coverage
-/// state, in name order (`specs/architecture/10-contracts.md`, the coverage gate's vocabulary:
+/// state, in name order (`specs/model/contract.md`, the coverage gate's vocabulary:
 /// `required` + unfilled is an error, advisory unfilled never gates).
 fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -> String {
     if roster.is_empty() {
@@ -1312,7 +1311,7 @@ fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -
 /// `satisfies` link would dangle, and, for a `required` requirement resting on a
 /// single satisfier, that removing that one member leaves it unfilled and fails the
 /// gate ("removing a load-bearing entity surfaces its blast radius",
-/// `specs/architecture/30-landscapes.md` law 6).
+/// `specs/model/contract.md`).
 fn requirement_detail(
     members: &[Member],
     roster: &BTreeMap<String, Requirement>,
@@ -1416,7 +1415,7 @@ fn satisfiers_of<'a>(members: &'a [Member], name: &str) -> Vec<(&'a Member, &'a 
 
 /// The coverage-state clause for a requirement given whether it is `required` and how
 /// many members satisfy it — the vocabulary the coverage gate reports in
-/// (`specs/architecture/10-contracts.md`): a `required` requirement with no satisfier is unfilled,
+/// (`specs/model/contract.md`): a `required` requirement with no satisfier is unfilled,
 /// which `check` reports as an error; an advisory one is never a gate.
 fn coverage_state(required: bool, satisfier_count: usize) -> String {
     match (required, satisfier_count) {

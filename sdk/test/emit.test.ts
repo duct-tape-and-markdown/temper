@@ -1,7 +1,6 @@
 /**
  * Emit — the six-noun face compiled to the seam's JSON pipe
- * (`specs/architecture/20-surface.md`, "Emit — total"; "The seam — one
- * implementation"). A harness authored in the face (`harness()`, `kind<T>()`,
+ * (`specs/model/pipeline.md`, "Emit"). A harness authored in the face (`harness()`, `kind<T>()`,
  * clause values, `needs`, `file()`/`text`/`blocks()`) emits the declaration rows
  * (the lock's five families) and every projected member's erased payload — kind,
  * name, ordered fields, resolved body. The engine is the sole compiler of every
@@ -104,7 +103,7 @@ test("emit is byte-stable across a double pass", () => {
 
 // ---------------------------------------------------------------------------
 // Declaration rows — the five families, and the `satisfies` join the roster/
-// coverage tiers need (`specs/architecture/20-surface.md`, "The lock and drift").
+// coverage tiers need (`specs/model/pipeline.md`, "The lock").
 // ---------------------------------------------------------------------------
 
 function fullHarness() {
@@ -223,8 +222,7 @@ test("compileDeclarations emits no uncoined `authority` fact, and the root membe
 test("clauseRow serializes a node-scope predicate's own argument onto the row", () => {
   // A kind's own `expect` clause carries its predicate's bound/charset/keys/values
   // argument, not identity+severity alone — the row a floor Contract must be
-  // reconstructable from (`50-distribution.md`, "Decision: the built-in lock is
-  // derived from the SDK module, never transcribed").
+  // reconstructable from (`specs/distribution.md`, "The engine binary").
   const h = harness({
     members: [],
     expect: [
@@ -326,7 +324,7 @@ test("a host kind's fact row carries its declared genre children as templates", 
 
 // ---------------------------------------------------------------------------
 // Genre values — the generic mechanism survives; no prescribed ontology ships
-// (`specs/architecture/15-kinds.md`, "a genre is a full kind, and genre checks
+// (`specs/model/representation.md`, "a genre is a full kind, and genre checks
 // are data, never engine"). `decision`/`law`/`bound`/`Alternative` are gone —
 // a corpus that wants them declares its own genre with `genreValue()`.
 // ---------------------------------------------------------------------------
@@ -367,7 +365,7 @@ test("the prescribed genre constructors are gone from the SDK's exports", () => 
 
 // ---------------------------------------------------------------------------
 // Body resolution — `file()` assets read in, `text` mentions resolution-checked,
-// `blocks()` refused until the fence format lands (`20-surface.md`, "Prose").
+// `blocks()` refused until the fence format lands (`specs/model/pipeline.md`, "The SDK").
 // ---------------------------------------------------------------------------
 
 test("a file() body resolves byte-faithfully", () => {

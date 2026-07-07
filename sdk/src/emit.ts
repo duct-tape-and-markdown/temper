@@ -1,13 +1,12 @@
 /**
  * Emit — the compile from the six-noun face to the seam's JSON pipe
- * (`specs/architecture/20-surface.md`, "Emit — total, byte-reproducible, refusing";
- * "The seam — one implementation"). The SDK implements **no semantics**: emit
+ * (`specs/model/pipeline.md`, "Emit"). The SDK implements **no semantics**: emit
  * produces plain data — the declaration rows the engine reads and, per projected
  * member, its ordered typed fields and resolved prose body. The engine is the
  * sole compiler of every projection and the whole lock; the SDK writes neither.
  * Emit is total (members are the only source), refuses before it produces a byte
  * on a broken source, and is byte-reproducible — double-emit verified at every
- * run (law 5).
+ * run (`specs/model/pipeline.md`, "Emit").
  */
 
 import { resolve as resolvePath } from "node:path";
@@ -32,7 +31,8 @@ export interface ResolveOptions {
  * Resolve a member's prose to its final body bytes: a `file()` asset is read in
  * byte-for-byte; a `text` body's mentions are resolution-checked (loud on a
  * dangling address) and rendered by the one display rule; a `blocks()` body is
- * refused until the fence format lands. The words are never reworded (law 5).
+ * refused until the fence format lands. The words are never reworded
+ * (`specs/model/pipeline.md`, "Emit").
  *
  * # Throws
  * If a `file()` asset does not resolve, a mention names no declared value, or a
@@ -56,7 +56,7 @@ function resolveBody(member: Member, options: ResolveOptions): string {
   if (prose.kind === "blocks") {
     throw new Error(
       `member \`${member.name}\`: a blocks() body renders through the genre fence format, ` +
-        `deferred until its first consumer lands ((genre-fence-format), specs/architecture/15-kinds.md).`,
+        `deferred until its first consumer lands ((genre-fence-format), specs/model/representation.md).`,
     );
   }
   const mentionable = options.mentionable ?? new Set<string>();
@@ -64,7 +64,7 @@ function resolveBody(member: Member, options: ResolveOptions): string {
     if (!mentionable.has(mention.target.address)) {
       throw new Error(
         `member \`${member.name}\`: mention of \`${mention.target.address}\` resolves to no ` +
-          `declared value — a mention cannot dangle (specs/architecture/45-governance.md).`,
+          `declared value — a mention cannot dangle (specs/model/contract.md).`,
       );
     }
   }
@@ -90,7 +90,7 @@ function declaredAddresses(harness: Harness): Set<string> {
 
 /**
  * The two declare-side refusals emit runs before it produces a byte
- * (`20-surface.md`, "Emit refuses before it writes"): a `satisfies` claim naming
+ * (`specs/model/pipeline.md`, "Emit"): a `satisfies` claim naming
  * no declared requirement (a dangling join), and a `required` requirement no
  * member fills (an unfilled required requirement).
  *
@@ -141,10 +141,9 @@ function isProjected(member: Member): boolean {
 /**
  * The resolved absolute path of a `file()` prose asset, or `undefined` for
  * `text`/`blocks` prose (or no prose) — the lift's own-path detection
- * (`specs/architecture/20-surface.md`, "surface authority is a declared
- * posture": the lock is what names a path a projection, so the engine needs
- * each `file()` member's true source path to tell a lifted member's own file
- * apart from a generated one).
+ * (`specs/model/pipeline.md`, "Drift": the lock is what names a path a
+ * projection, so the engine needs each `file()` member's true source path to
+ * tell a lifted member's own file apart from a generated one).
  */
 function fileSourcePath(member: Member, options: ResolveOptions): string | undefined {
   const prose = member.prose;
@@ -192,7 +191,7 @@ export interface EmitOptions {
 
 /**
  * A full emit's compiled outputs — the whole seam the engine reads
- * (`20-surface.md`, "The seam"). A pure function of the harness, so [`emit`]
+ * (`specs/model/pipeline.md`, "Emit"). A pure function of the harness, so [`emit`]
  * double-verifies it.
  */
 export interface EmitResult {
@@ -207,7 +206,7 @@ export interface EmitResult {
   readonly seam: string;
   /**
    * The derived permission list — the union of every member's `needs`, deduped and
-   * sorted (`20-surface.md`, "The permission list is derived, never authored").
+   * sorted (`specs/model/pipeline.md`, "Emit").
    * Folds into the settings artifact once hook/MCP members land; carried here as
    * data until then.
    */
@@ -219,7 +218,7 @@ export interface EmitResult {
  * rollup and its five families) and every projected member's erased payload.
  * Prose resolves once (`file()` assets read in, mentions resolution-checked
  * against the harness's declared values). Double-emit verified — nondeterministic
- * authoring is a loud failure, never a silent churn (law 5).
+ * authoring is a loud failure, never a silent churn (`specs/model/pipeline.md`, "Emit").
  */
 export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
   refuseBrokenSource(harness);

@@ -1,5 +1,5 @@
 /**
- * The built-in floors (`FIRST-PARTY-MODULE-COMPLETE`, `specs/architecture/10-contracts.md`,
+ * The built-in floors (`FIRST-PARTY-MODULE-COMPLETE`, `specs/model/contract.md`,
  * "A shared clause set — a floor"): every floor exported from `claude-code.ts` is a
  * well-formed clause array, and every clause carries a non-empty `cite` — the
  * auditability guarantee a maintained floor exists to keep.

@@ -1,6 +1,6 @@
 /**
- * Genre values — prose that declares its own anatomy (`specs/architecture/15-kinds.md`,
- * "A genre is a kind at the block locus"; ratified `specs/intent/00-intent.md`, the
+ * Genre values — prose that declares its own anatomy (`specs/model/representation.md`,
+ * "A genre is a kind at the block locus"; ratified `specs/intent.md`, the
  * genre Decision). A genre value's meaning-carrying fields are prose leaves —
  * authored strings, law-5 protected one by one — plus keyed sibling collections.
  * This constructor carries the **shape only**: any predicate over a genre value

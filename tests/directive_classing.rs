@@ -1,4 +1,4 @@
-//! Directive-target classing — the three verdicts (`specs/architecture/15-kinds.md`,
+//! Directive-target classing — the three verdicts (`specs/model/representation.md`,
 //! "Directives — format-executed body syntax").
 //!
 //! A directive occurrence yields an edge as a fact, resolved at check time against

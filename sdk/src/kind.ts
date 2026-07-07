@@ -1,5 +1,5 @@
 /**
- * Kinds — the engine room (`specs/architecture/15-kinds.md`, "A kind is a
+ * Kinds — the engine room (`specs/model/representation.md`, "A kind is a
  * constructor plus five facts"). A kind is a plain typed surface — an interface
  * `T` and a constructor `kind<T>()` — plus five facts of runtime residue: label,
  * locus, layout, registration, and edge fields. `tsc` is the keystroke wall; every

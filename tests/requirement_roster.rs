@@ -1,11 +1,11 @@
 //! End-to-end acceptance over the harness-contract roster — the set-scope
 //! predicates (`count` / `unique` / `membership`), each quantified over a
-//! requirement's **satisfier set** (`specs/architecture/10-contracts.md`, "Requirements — the
-//! harness's named obligations"; `specs/architecture/45-governance.md`, "The set scope").
+//! requirement's **satisfier set** (`specs/model/contract.md`, "Requirements — the
+//! harness's named obligations"; `specs/model/contract.md`, "The set scope").
 //!
 //! Drives the built `temper` binary so the whole path is pinned: a golden lock at the
-//! project root carrying the declared requirements (`specs/architecture/20-surface.md`,
-//! "The lock and drift — one vocabulary" — the gate sources requirements from the lock,
+//! project root carrying the declared requirements (`specs/model/pipeline.md`,
+//! "The lock" — the gate sources requirements from the lock,
 //! never a re-imported manifest), and running the roster over the harness's live
 //! skills and their authored `satisfies` opt-in. The name-`match` selector is
 //! eradicated — opt-in `satisfies` is the sole fill — so a satisfier set is the
@@ -64,7 +64,7 @@ fn clean_skill(name: &str) -> String {
 
 /// Write a one-skill harness member directly at its real Claude Code locus
 /// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
-/// live off harness disk (`specs/architecture/20-surface.md`, "The lock and drift"), no
+/// live off harness disk (`specs/model/pipeline.md`, "The lock"), no
 /// scratch import.
 fn write_skill(root: &Path, name: &str, skill_md: &str) {
     let dir = root.join(".claude").join("skills").join(name);
@@ -74,8 +74,8 @@ fn write_skill(root: &Path, name: &str, skill_md: &str) {
 
 /// Author a member's `satisfies` links on its surface overlay
 /// (`<root>/.temper/skills/<name>/SKILL.md`) — the projected document a live off-disk
-/// walk grafts a member's fill edges from (`specs/architecture/20-surface.md`, "The
-/// lock and drift"); the real harness file itself carries no temper annotation.
+/// walk grafts a member's fill edges from (`specs/model/pipeline.md`, "The
+/// lock"); the real harness file itself carries no temper annotation.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
     let source = root
@@ -188,8 +188,8 @@ fn check_in(root: &Path) -> CheckRun {
 }
 
 /// The retired manifest's filename, spelled by concatenation so the retired token
-/// itself never appears as a literal in this source (`specs/architecture/20-surface.md`,
-/// "the name … retires with the manifest era entirely").
+/// itself never appears as a literal in this source (`specs/model/pipeline.md`,
+/// "The lock").
 fn retired_manifest_name() -> String {
     format!("temper{}toml", '.')
 }
@@ -215,8 +215,8 @@ fn requirement(name: &str, kind: &str) -> RequirementRow {
 
 /// A required-severity `ClauseRow` wrapping one set-scope predicate — the shape
 /// every case below nests on a `RequirementRow`'s `clauses`. `kind` is `None`: a
-/// nested requirement clause names no kind of its own (`specs/architecture/
-/// 10-contracts.md`, "Decision: set-scope demands are clauses").
+/// nested requirement clause names no kind of its own (`specs/model/contract.md`,
+/// "clause").
 fn required_clause_row(
     predicate: &str,
     field: Option<&str>,
@@ -245,7 +245,7 @@ fn required_clause_row(
 /// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
 /// projection of a retired manifest's `[requirement.*]` table: the gate sources
 /// requirements from the lock, never a re-imported assembly
-/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+/// (`specs/model/pipeline.md`, "The lock").
 fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
@@ -262,8 +262,8 @@ fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
 /// `clauses` — the SDK-emitted fixture standing in for an `expect` binding's
 /// erasure (`sdk/src/declarations.ts`): the gate's per-kind contract sources its
 /// clause/severity overrides from the lock's `ClauseRow` family, never a
-/// re-imported manifest `[kind.*]` layer (`specs/architecture/20-surface.md`,
-/// "The lock and drift — one vocabulary").
+/// re-imported manifest `[kind.*]` layer (`specs/model/pipeline.md`,
+/// "The lock").
 fn write_clauses(root: &Path, clauses: Vec<ClauseRow>) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
@@ -277,7 +277,7 @@ fn write_clauses(root: &Path, clauses: Vec<ClauseRow>) {
 }
 
 /// A skill carrying the Cursor `globs` key — the skill floor's `forbidden_keys`
-/// clause forbids it at `required` severity (`specs/architecture/10-contracts.md`), a
+/// clause forbids it at `required` severity (`specs/model/contract.md`), a
 /// real, otherwise floor-clean violation to flip the verdict on.
 fn skill_with_forbidden_key(name: &str) -> String {
     format!(

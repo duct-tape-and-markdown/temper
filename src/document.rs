@@ -1,5 +1,5 @@
 //! The fenced document — the surface language's authored unit
-//! (specs/architecture/20-surface.md, the member).
+//! (`specs/model/representation.md`, the member).
 //!
 //! Every member artifact in the surface is **one authored document**: a
 //! `+++`-fenced TOML header over a markdown body, in a single file (`SKILL.md`,
@@ -8,7 +8,7 @@
 //!
 //! The header is held as a [`toml_edit::DocumentMut`] so a field patch is
 //! **format-preserving**: comments, key order, and whitespace survive, the
-//! co-authorship constraint the TOML-dialect Decision rests on (`specs/architecture/20-surface.md`)
+//! co-authorship constraint the TOML-dialect Decision rests on (`specs/model/pipeline.md`, "Emit")
 //! — the human, the agent, and the tool all write the same file. The body is kept
 //! **verbatim** (never re-rendered), and emit is **deterministic**: `parse` then
 //! `emit` over an untouched document is byte-identical.
@@ -100,7 +100,7 @@ pub enum DocumentError {
 
     /// A `[requirement.<name>]` module published on a member header carries a key
     /// outside its closed facet set (`means`/`kind`/`required`) — the same
-    /// posture as an unknown contract key (`specs/architecture/10-contracts.md`, "unknown keys are
+    /// posture as an unknown contract key (`specs/model/contract.md`, "unknown keys are
     /// rejected"): a typo that would silently drop a published obligation is a hard
     /// load error, not a dropped key.
     #[error("published requirement `{name}` has unknown key `{key}`")]
@@ -206,8 +206,8 @@ impl Document {
         out
     }
 
-    /// The parsed header, read-only. The clause tables (`specs/architecture/20-surface.md`) live
-    /// here as TOML tables a kind reads its typed view out of.
+    /// The parsed header, read-only. The clause tables (`specs/model/contract.md`, the
+    /// clause) live here as TOML tables a kind reads its typed view out of.
     pub fn header(&self) -> &DocumentMut {
         &self.header
     }
@@ -224,10 +224,10 @@ impl Document {
     }
 }
 
-/// A `[satisfies.<requirement>]` clause module (specs/architecture/20-surface.md, the
-/// member): the member opts into filling `requirement`, carrying the optional
+/// A `[satisfies.<requirement>]` clause module (`specs/model/contract.md`, the edge —
+/// a satisfies entry): the member opts into filling `requirement`, carrying the optional
 /// authored `rationale` — the *why*, first-class beside the link rather than
-/// delegated and forgotten (`00-intent.md` law 7). Authored on the surface, never
+/// delegated and forgotten (`specs/intent.md`, "The honest bound"). Authored on the surface, never
 /// imported; the coverage check reads only the requirement name.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Satisfies {
@@ -248,7 +248,7 @@ impl Satisfies {
 }
 
 /// A `[requirement.<name>]` clause module **published** on a member header
-/// (`specs/architecture/10-contracts.md`, "Decision: a requirement's publisher is any authored
+/// (`specs/model/contract.md`, "Decision: a requirement's publisher is any authored
 /// surface document"): the member declares a named obligation — the demand side of
 /// the fill edge, joined to the roster by another member's `satisfies`. It carries
 /// the same facets the assembly roster's `[requirement.<name>]` does (`means`,
@@ -261,7 +261,7 @@ pub struct PublishedRequirement {
     /// The requirement's name — the `[requirement.<name>]` module key.
     pub name: String,
     /// The authored *intent*, the why. Carried verbatim and never interpreted
-    /// (`00-intent.md` law 3).
+    /// (`specs/model/contract.md`, "requirement").
     pub means: Option<String>,
     /// The artifact kind that may fill the requirement. Absent ⇒ kind-blind.
     pub kind: Option<String>,
@@ -322,7 +322,7 @@ pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirem
 }
 
 /// Emit the generated `[provenance]` module — `source_path` + `source_hash`, the
-/// authored-source freshness fact (specs/architecture/20-surface.md, provenance).
+/// authored-source freshness fact (`specs/model/pipeline.md`, "The lock").
 /// Always last, so the authored clauses read first and the generated lock trails
 /// them.
 pub fn add_provenance(header: &mut DocumentMut, source_path: &str, source_hash: &str) {
@@ -364,7 +364,7 @@ pub fn clauses(header: &DocumentMut) -> Vec<(String, &Item)> {
 /// Convert a header [`Item`] to a [`serde_json::Value`] — the inverse of the
 /// built-in adapters' `json_to_toml_value`, so a `[clause.<field>]` `value` read by
 /// [`clauses`] lands in a member's frontmatter the same shape a built-in's hand-
-/// written parser produces (`specs/architecture/20-surface.md`). A JSON-null-unrepresentable item
+/// written parser produces (`specs/model/representation.md`, the member). A JSON-null-unrepresentable item
 /// (`Item::None`, a bare TOML `Datetime` is kept as its string form) yields `None`,
 /// dropped rather than invented. Recurses through tables and arrays so a nested
 /// clause value round-trips.
@@ -435,7 +435,7 @@ pub fn satisfies(header: &DocumentMut) -> Vec<Satisfies> {
 }
 
 /// The `[requirement.<name>]` modules a member **publishes** in its header, in
-/// document order (`specs/architecture/10-contracts.md`, "Decision: a requirement's publisher is
+/// document order (`specs/model/contract.md`, "Decision: a requirement's publisher is
 /// any authored surface document") — the demand-side mirror of [`satisfies`]. A
 /// module with no body is a bare (all-facets-absent) obligation, valid like a bare
 /// assembly `[requirement.<name>]`.
@@ -445,7 +445,7 @@ pub fn satisfies(header: &DocumentMut) -> Vec<Satisfies> {
 /// Rejects a module carrying a key outside the closed facet set
 /// ([`DocumentError::RequirementUnknownKey`]) or a facet of the wrong TOML type
 /// ([`DocumentError::RequirementWrongType`]) — a typo that would silently drop a
-/// published obligation is a hard load error (`specs/architecture/10-contracts.md`, "unknown keys
+/// published obligation is a hard load error (`specs/model/contract.md`, "unknown keys
 /// are rejected").
 pub fn requirements(header: &DocumentMut) -> Result<Vec<PublishedRequirement>, DocumentError> {
     let Some(table) = header.get("requirement").and_then(Item::as_table) else {
@@ -791,7 +791,7 @@ Last line, no newline.";
     #[test]
     fn a_published_requirement_with_an_unknown_key_is_rejected() {
         // A facet outside the closed set (`count` is assembly-only) is a hard load
-        // error, not a silently dropped key (`specs/architecture/10-contracts.md`, unknown keys
+        // error, not a silently dropped key (`specs/model/contract.md`, unknown keys
         // rejected).
         let raw = "+++\n[requirement.x]\ncount = 3\n+++\n# body\n";
         let doc = Document::parse(raw).unwrap();
@@ -828,7 +828,7 @@ Last line, no newline.";
     fn item_to_json_converts_each_clause_value_kind_faithfully() {
         // The inverse of the built-in adapters' `json_to_toml_value`: a `[clause.<field>]`
         // `value` read by `clauses` lands JSON-kind-faithful, so a custom member's
-        // frontmatter matches a built-in's hand-parsed shape (`specs/architecture/20-surface.md`).
+        // frontmatter matches a built-in's hand-parsed shape (`specs/model/representation.md`, the member).
         let raw = "+++\n\
 [clause.name]\nvalue = \"demo\"\n\
 [clause.priority]\nvalue = 7\n\

@@ -94,11 +94,11 @@ policy.
 - **How it works**: [`docs/how-it-works.md`](docs/how-it-works.md), the model
   in plain words.
 - **The command line**: [`docs/cli.md`](docs/cli.md), the eight verbs.
-- **Why it exists**: [`specs/intent/00-intent.md`](specs/intent/00-intent.md),
+- **Why it exists**: [`specs/intent.md`](specs/intent.md),
   the north star.
-- **The contract model**: [`specs/architecture/10-contracts.md`](specs/architecture/10-contracts.md).
-- **The config surface**: [`specs/architecture/20-surface.md`](specs/architecture/20-surface.md).
-- **Distribution and the gate**: [`specs/architecture/50-distribution.md`](specs/architecture/50-distribution.md).
+- **The contract model**: [`specs/model/contract.md`](specs/model/contract.md).
+- **The config surface**: [`specs/model/pipeline.md`](specs/model/pipeline.md).
+- **Distribution and the gate**: [`specs/distribution.md`](specs/distribution.md).
 - **Contributing**: [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) ·
   **Security**: [`.github/SECURITY.md`](.github/SECURITY.md).
 

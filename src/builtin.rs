@@ -3,7 +3,7 @@
 //! Each built-in kind's floor [`Contract`] (`skill`, `rule`, `memory`) is a lossless
 //! projection of the embedded built-in lock's clause rows
 //! (`crate::builtin_lock::declarations`), grouped by kind label — never a
-//! hand-written mirror (`specs/architecture/50-distribution.md`). The lock
+//! hand-written mirror (`specs/distribution.md`). The lock
 //! itself is `@dtmd/temper/claude-code`'s own emit; this module only lifts its
 //! `ClauseRow`s back into the typed [`Contract`] algebra the gate already runs on.
 
@@ -71,7 +71,7 @@ pub(crate) fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
 
 /// Lift one embedded clause row into its typed [`Clause`] — predicate, severity,
 /// guidance, and cite, the clause's full four channels
-/// (`specs/architecture/10-contracts.md`, "The clause — the atom of a contract").
+/// (`specs/model/contract.md`, "The clause — the atom of a contract").
 /// The embedded lock is this crate's own emit, never hand-edited
 /// (`crate::builtin_lock`), so a row this projection cannot lift is a build-time
 /// bug, not a runtime condition — the same invariant `builtin_lock::declarations`
@@ -91,7 +91,7 @@ fn clause_from_row(row: &ClauseRow) -> Clause {
 
 /// The floor [`Contract`] for `kind` — every embedded clause row naming it, in
 /// declaration order, projected into typed clauses. A floor is an exported clause
-/// array (`specs/architecture/10-contracts.md`): the constructed contract's own
+/// array (`specs/model/contract.md`): the constructed contract's own
 /// `guidance` stays `None` — every clause's guidance already rides its row.
 fn contract_for_kind(kind: &str) -> Contract {
     let clauses = builtin_lock::declarations()

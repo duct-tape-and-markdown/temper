@@ -1,6 +1,6 @@
 //! Shared content hashing — the single home for the SHA-256 hex that anchors
-//! provenance and drift (`specs/architecture/20-surface.md`, "Provenance and round-trip
-//! discipline (law 5)"). `source_hash` is the SHA-256 of an artifact's authored
+//! provenance and drift (`specs/model/pipeline.md`, "The lock" and "Emit").
+//! `source_hash` is the SHA-256 of an artifact's authored
 //! source bytes; the drift engine re-hashes on-disk bytes and compares against
 //! that anchor. Both compute the same lowercase hex here, over raw `&[u8]`, so
 //! the hash stays kind-agnostic — no artifact typing is lost by sharing it.

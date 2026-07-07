@@ -1,7 +1,7 @@
 # The demo harness's assembly. The built-in `rule` floor is adopted as-is; this
 # layer only re-authors the `forbidden_keys` clause's guidance so the rendered
 # finding carries the teaching moment (the failure is the teaching moment —
-# specs/architecture/10-contracts.md, "Packages").
+# specs/model/contract.md).
 [kind.rule]
 [[kind.rule.clause]]
 severity = "required"

@@ -1,4 +1,4 @@
-//! The embedded built-in lock (`specs/architecture/50-distribution.md`, "The stranger
+//! The embedded built-in lock (`specs/distribution.md`, "The stranger
 //! gate"; "Decision: the built-in lock is derived from the SDK module, never
 //! transcribed"). `src/builtin_lock.toml` is the real `[declaration.*]` family
 //! `drift::emit` writes for a memberless `Payload` compiled from a memberless
@@ -29,7 +29,7 @@ static BUILTIN_DECLARATIONS: LazyLock<Declarations> = LazyLock::new(|| {
 });
 
 /// The built-in lock, parsed into the `Declarations` IR — the default program's
-/// declaration source (`specs/architecture/50-distribution.md`, "The stranger gate").
+/// declaration source (`specs/distribution.md`, "The stranger gate").
 #[must_use]
 pub fn declarations() -> &'static Declarations {
     &BUILTIN_DECLARATIONS

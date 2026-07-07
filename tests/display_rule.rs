@@ -1,10 +1,11 @@
-//! The nested-member display rule's byte contract (`specs/architecture/20-surface.md`,
-//! "The display rule owns connective tissue").
+//! The nested-member display rule's byte contract (`specs/model/pipeline.md`,
+//! "Emit").
 //!
 //! `render_member` compiles an `EmbeddedMember` (leaves + nested members) to projection
 //! markdown — an anchored heading, capitalized leaf/collection labels, ordered leaves
 //! then nested members, per-leaf anchors — as connective tissue only: every
-//! meaning-carrying word is an authored leaf, rendered verbatim (law 5). The snapshots
+//! meaning-carrying word is an authored leaf, rendered verbatim (`specs/model/pipeline.md`,
+//! "Emit"). The snapshots
 //! below **are** the pinned contract the future custom-kind emit face must reproduce
 //! byte for byte; the double-render and heading-only cases pin the determinism and the
 //! empty-member shape the island guarantees.
@@ -120,8 +121,9 @@ fn an_empty_member_renders_its_heading_with_no_body() {
 
 #[test]
 fn a_double_render_is_byte_identical() {
-    // Determinism is the contract (law 5): the same member renders the same bytes, the
-    // property the emit face's double-emit comparison stands on.
+    // Determinism is the contract (`specs/model/pipeline.md`, "Emit"): the same member
+    // renders the same bytes, the property the emit face's double-emit comparison
+    // stands on.
     let member = decision_member();
     assert_eq!(render_member(&member), render_member(&member));
 }

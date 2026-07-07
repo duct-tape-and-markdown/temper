@@ -1,5 +1,5 @@
-//! `temper emit` — the seam's compile (`specs/architecture/20-surface.md`,
-//! "The seam — one implementation"; "Emit — total, byte-reproducible, refusing").
+//! `temper emit` — the seam's compile (`specs/model/pipeline.md`, "Emit" —
+//! total, byte-reproducible, refusing).
 //!
 //! Three tiers:
 //!
@@ -17,7 +17,7 @@
 //! - **the one-shot gate**, `check --harness` / session-start, driven across the real
 //!   process boundary over a raw harness with no lock and no `.temper/` — proving
 //!   the copy-tree scratch import is gone: the discovery walk is the only member
-//!   extractor, straight off harness disk (`specs/architecture/20-surface.md`, "Decision:
+//!   extractor, straight off harness disk (`specs/model/pipeline.md`, "Decision:
 //!   one authored surface, one implementation").
 
 use std::collections::BTreeMap;
@@ -147,7 +147,7 @@ fn basic_payload(members: Vec<PayloadMember>) -> Payload {
 
 /// A fresh `<harness>/.temper` pair — `drift::emit` derives the projection root
 /// from the workspace dir's parent, matching the seam's own topology
-/// (`specs/architecture/20-surface.md`): `.temper/` sits beside `.claude/`.
+/// (`specs/model/pipeline.md`): `.temper/` sits beside `.claude/`.
 fn workspace(label: &str) -> (PathBuf, PathBuf) {
     let harness = tmpdir(label);
     let into = harness.join(".temper");
@@ -427,8 +427,8 @@ fn an_unsupported_seam_version_is_a_clear_refusal() {
 
 // ---------------------------------------------------------------------------
 // The seam — `drift::emit_program` over a real `node` subprocess running the
-// built SDK against a fixture `harness.ts` (`specs/architecture/20-surface.md`,
-// "The seam — one implementation": "running the authored program produces plain
+// built SDK against a fixture `harness.ts` (`specs/model/pipeline.md`,
+// "The SDK": "running the authored program produces plain
 // data").
 // ---------------------------------------------------------------------------
 
@@ -511,7 +511,7 @@ fn wire_sdk_harness_program(label: &str, program: &str) -> (PathBuf, PathBuf) {
 }
 
 /// A fixture SDK program declaring a `require`d requirement carrying a `count`
-/// set-scope clause (`specs/architecture/10-contracts.md`, "Decision: set-scope
+/// set-scope clause (`specs/model/contract.md`, "Decision: set-scope
 /// demands are clauses") — proving the real SDK emits a requirement's demand as
 /// a nested clause row, not a facet field, end to end across the seam.
 const REQUIREMENT_CLAUSES_PROGRAM: &str = r#"

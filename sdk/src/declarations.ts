@@ -1,7 +1,6 @@
 /**
  * Declaration rows — the composed program's erased declarations
- * (`specs/architecture/20-surface.md`, "The seam — one implementation"; "The lock
- * and drift"). Every type erases at the seam: kinds, clauses, requirements, and
+ * (`specs/model/pipeline.md`, "Emit"; "The lock"). Every type erases at the seam: kinds, clauses, requirements, and
  * assembly facts compile to plain rows the engine reads. The **row shape** matches
  * the Rust lock's `[declaration]` families (`src/drift.rs` `Declarations`) — the
  * byte-parity lockstep two writers keep until single-writer lands
@@ -31,16 +30,16 @@ export interface KindFactRow {
  * set-/edge-scope demands — the same row shape either way (`src/drift.rs`
  * `ClauseRow`). `kind` is absent when this row is nested inside a
  * `RequirementRow`'s own `clauses`: a requirement's demand names no kind of its
- * own (`10-contracts.md`, "Decision: set-scope demands are clauses").
+ * own (`specs/model/contract.md`, "requirement").
  */
 export interface ClauseRow {
   readonly kind?: string;
   readonly predicate: string;
   readonly field?: string;
   readonly severity: string;
-  /** The just-in-time teaching channel the predicate cannot encode (`10-contracts.md`, "guidance"). */
+  /** The just-in-time teaching channel the predicate cannot encode (`specs/model/contract.md`, "clause"). */
   readonly guidance?: string;
-  /** The external-fact source backing the clause — a doc URL plus retrieved date (`10-contracts.md`, "cite"). */
+  /** The external-fact source backing the clause — a doc URL plus retrieved date (`specs/model/contract.md`, "clause"). */
   readonly cite?: string;
   /** The `count` predicate's satisfier-set-size bound. */
   readonly count?: { readonly min: number; readonly max: number };
@@ -63,8 +62,8 @@ export interface ClauseRow {
 
 /**
  * One named requirement's declaration row — the scalar facets plus its own
- * `count`/`unique`/`membership`/`degree` clause rows (`10-contracts.md`,
- * "Decision: set-scope demands are clauses"): the requirement's `clauses` array
+ * `count`/`unique`/`membership`/`degree` clause rows (`specs/model/contract.md`,
+ * "requirement"): the requirement's `clauses` array
  * is the whole of its set-/edge-scope demand, no facet columns beside it.
  */
 export interface RequirementRow {
@@ -78,10 +77,10 @@ export interface RequirementRow {
 /**
  * Compile one `Clause` into its lock row: the shared `key`/`field`/`severity`/
  * `guidance`/`cite` columns — the clause's four channels surviving erasure
- * (`10-contracts.md`, "The clause — the atom of a contract") — plus, when the
+ * (`specs/model/contract.md`, "clause") — plus, when the
  * predicate carries them, the `count`/`target`/`degree` argument columns a
- * requirement's own set-/edge-scope demand needs (`10-contracts.md`, "Judged
- * at the node-set scope" / "Judged at the edge scope"), and the
+ * requirement's own set-/edge-scope demand needs (`specs/model/contract.md`,
+ * "clause"), and the
  * `bound`/`charset`/`keys`/`values` argument columns a kind's own node-scope
  * floor clause needs (`min_len`/`max_len`/`max_lines`'s bound,
  * `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values) — so
@@ -201,8 +200,8 @@ function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonl
 function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFactRow {
   if (facts.locus.kind !== "at") {
     // A genre inherits its world residue through its host; it carries no `at`
-    // locus, so it takes no kind-fact row (`15-kinds.md`). Callers filter these
-    // out before this point.
+    // locus, so it takes no kind-fact row (`specs/model/representation.md`,
+    // "nesting"). Callers filter these out before this point.
     throw new Error(`kind \`${facts.name}\` is a genre — it carries no locus-bearing kind fact.`);
   }
   return {
@@ -239,7 +238,8 @@ function requirementRows(harness: Harness): RequirementRow[] {
     const existing = merged.get(name);
     if (existing !== undefined && existing !== requirement) {
       // One namespace, one fill mechanism; a cross-publisher name collision is an
-      // admissibility finding, never a shadowing rule (`10-contracts.md`).
+      // admissibility finding, never a shadowing rule (`specs/model/contract.md`,
+      // "well-formedness").
       throw new Error(
         `requirement \`${name}\` is published twice (${source} collides with an earlier ` +
           `publisher) — a name collision across publishers is an admissibility finding.`,
@@ -319,9 +319,9 @@ export const SEAM_VERSION = 2;
 
 /**
  * Serialize the declaration rows to the internal versioned JSON pipe
- * (`20-surface.md`, "The seam"). Not a designed IR — a stable public interchange
+ * (`specs/model/pipeline.md`, "Emit"). Not a designed IR — a stable public interchange
  * is admitted only when its consumer lands. Deterministic: insertion-ordered keys
- * and a trailing newline, so a re-emit is byte-identical (law 5).
+ * and a trailing newline, so a re-emit is byte-identical (`specs/model/pipeline.md`, "Emit").
  */
 export function declarationsToJson(declarations: Declarations): string {
   return JSON.stringify({ version: SEAM_VERSION, ...declarations }, null, 2) + "\n";

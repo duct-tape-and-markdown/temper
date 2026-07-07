@@ -1,8 +1,8 @@
-//! Acceptance for the advisory session-start gate (`specs/architecture/50-distribution.md`,
+//! Acceptance for the advisory session-start gate (`specs/distribution.md`,
 //! "Decision: the session-start gate is advisory, not blocking").
 //!
 //! Two surfaces of the same gate. Session-start is a **reporter of `check`, not a
-//! verb** (`specs/architecture/20-surface.md`, "CLI surface"): `temper check <harness>
+//! verb** (`specs/distribution.md`, "Session start"): `temper check <harness>
 //! --reporter session-start` reads the path as a harness root and is driven across the
 //! real process boundary (the exit code and the stdout payload are observable only
 //! there) — a failing contract yields a payload carrying the verdict plus the
@@ -135,7 +135,7 @@ fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
 fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
     // Custom-kind registration retired along with the manifest that once carried it
     // (`TEMPER-TOML-ZERO`) and the `KIND.md` file format retired earlier still
-    // (`specs/architecture/15-kinds.md`, "there is no kind file format") — there is no
+    // (`specs/model/representation.md`, "there is no kind file format") — there is no
     // longer any author-facing way to register one. This pins that a harness carrying
     // such shaped-but-inert fixture files (nothing reads them) alongside a real skill
     // still resolves to a clean, quiet session-start payload.
@@ -202,8 +202,8 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     let harness = tmpdir("authored-surface-src");
 
     // The committed landscape file a prior `import` would have discovered — the gate
-    // walks the lock's governs locus straight off the harness (`specs/architecture/20-surface.md`,
-    // "The lock and drift"), so the member must exist here too, not just projected onto
+    // walks the lock's governs locus straight off the harness (`specs/model/pipeline.md`,
+    // "The lock"), so the member must exist here too, not just projected onto
     // the surface below.
     let rules = harness.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
@@ -220,7 +220,7 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     .unwrap();
 
     // The gate reads the assembly's requirements off the lock's declaration rows
-    // (`specs/architecture/40-composition.md`, "Decision: one authored assembly"), so
+    // (`specs/model/pipeline.md`, "The lock"), so
     // the fixture stands in for a prior `import` having already written this row —
     // session-start itself still never re-imports.
     let temper_dir = harness.join(".temper");
@@ -310,8 +310,8 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
 
     // The authored surface overlay carrying the `satisfies` fill — the one home a
-    // custom member's opt-in is ever authored at (`specs/architecture/20-surface.md`,
-    // "The member document").
+    // custom member's opt-in is ever authored at (`specs/model/contract.md`,
+    // "edge").
     let overlay_dir = temper_dir.join("specs").join("00-intent");
     fs::create_dir_all(&overlay_dir).unwrap();
     fs::write(

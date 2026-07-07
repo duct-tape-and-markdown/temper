@@ -1,5 +1,4 @@
-//! `temper install` — the one on-ramp (`specs/architecture/20-surface.md`, "install —
-//! the front door; the lift, once").
+//! `temper install` — the one on-ramp (`specs/model/pipeline.md`, "Install").
 //!
 //! Drives the library `install::discover` / `install::run` / `install::gate_installed`
 //! (plus the real `temper` binary for the CLI-observable bits — the one-question
@@ -593,7 +592,7 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
 
 // ---------------------------------------------------------------------------
 // emit's own note/modeline discipline — unrelated to install, still exercised
-// directly over a hand-built payload (`specs/architecture/20-surface.md`, the
+// directly over a hand-built payload (`specs/model/pipeline.md`, the
 // two-projectors seam).
 // ---------------------------------------------------------------------------
 

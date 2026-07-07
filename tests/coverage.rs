@@ -1,10 +1,10 @@
 //! End-to-end acceptance over requirement coverage — the referential shadow of the
-//! meaningful contract (`specs/architecture/10-contracts.md`, "Requirements and `satisfies` — the
+//! meaningful contract (`specs/model/contract.md`, "Requirements and `satisfies` — the
 //! meaningful contract").
 //!
 //! Drives the built `temper` binary so the whole path is pinned: a golden lock at the
-//! project root carrying the declared requirements (`specs/architecture/20-surface.md`,
-//! "The lock and drift — one vocabulary" — the gate sources requirements from the lock,
+//! project root carrying the declared requirements (`specs/model/pipeline.md`,
+//! "The lock" — the gate sources requirements from the lock,
 //! never a re-imported assembly), the authored `satisfies` opt-in reconstructed off
 //! each surface artifact, and the coverage gate's exit code. Each case sets the process
 //! working directory to a project root, exactly as a real invocation would.
@@ -58,7 +58,7 @@ Keep the bar high.\n";
 
 /// Write a one-skill harness member directly at its real Claude Code locus
 /// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
-/// live off harness disk (`specs/architecture/20-surface.md`, "The lock and drift"), no
+/// live off harness disk (`specs/model/pipeline.md`, "The lock"), no
 /// scratch import.
 fn write_skill(root: &Path, name: &str, skill_md: &str) {
     let dir = root.join(".claude").join("skills").join(name);
@@ -68,8 +68,8 @@ fn write_skill(root: &Path, name: &str, skill_md: &str) {
 
 /// Author a member's `satisfies` links on its surface overlay
 /// (`<root>/.temper/skills/<name>/SKILL.md`) — the projected document a live off-disk
-/// walk grafts a member's fill edges from (`specs/architecture/20-surface.md`, "The
-/// lock and drift"); the real harness file itself carries no temper annotation.
+/// walk grafts a member's fill edges from (`specs/model/pipeline.md`,
+/// "The lock"); the real harness file itself carries no temper annotation.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
     let source = root
@@ -104,7 +104,7 @@ fn requirement(name: &str, required: bool) -> RequirementRow {
 /// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
 /// projection of the retired manifest's `[requirement.*]` table: the gate sources
 /// requirements from the lock, never a re-imported assembly
-/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+/// (`specs/model/pipeline.md`, "The lock").
 fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
@@ -316,7 +316,7 @@ fn a_non_required_unfilled_requirement_does_not_block() {
 
 #[test]
 fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
-    // Custom kinds retire with the KIND.md file format (`specs/architecture/15-kinds.md`,
+    // Custom kinds retire with the KIND.md file format (`specs/model/representation.md`,
     // "Decision: field typing lives in the SDK — there is no kind file format"), and
     // there is no longer any manifest to register one from at all (the manifest
     // retires entirely) — so a kind-blind `required` requirement contributes no
@@ -341,7 +341,7 @@ fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
 fn a_means_less_required_requirement_still_gates() {
     let root = tmpdir("means-less");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
-    // The unified requirement makes `means` optional (`specs/architecture/10-contracts.md`, "all
+    // The unified requirement makes `means` optional (`specs/model/contract.md`, "all
     // facets optional except its name"), but coverage keys off `required`, not
     // `means`: a `required` requirement with no `means` and nothing opting in still
     // fires UNFILLED and blocks the run.

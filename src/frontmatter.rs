@@ -1,5 +1,5 @@
 //! The generic `yaml-frontmatter` adapter — one declaration-driven projection for
-//! every kind that names it (`specs/architecture/15-kinds.md`, "Decision: the adapter faces are
+//! every kind that names it (`specs/model/representation.md`, "Decision: the adapter faces are
 //! declared — a kind names its projection format").
 //!
 //! Replaces the retired per-kind IRs (`src/skill.rs`, `src/rule.rs`) with one
@@ -39,7 +39,7 @@ use crate::kind::{CustomKind, UnitShape};
 pub struct Member {
     /// The member id — the surface directory name (`directory` shape) or the file
     /// stem (`file` shape). The emit face's locus follows from it
-    /// (`specs/architecture/15-kinds.md`), never a field the member sets.
+    /// (`specs/model/representation.md`), never a field the member sets.
     pub id: String,
     /// The frontmatter fields in projection order: the kind's declared `field`s
     /// present, in declaration order, then the preserved unknown keys sorted. Both
@@ -53,11 +53,11 @@ pub struct Member {
     /// `scripts/**`), relative to the source directory and sorted. Empty for a
     /// file-shaped unit and for a surface reload.
     pub companions: Vec<PathBuf>,
-    /// The requirements this member opts into filling (`specs/architecture/20-surface.md`, the
-    /// `[satisfies.<requirement>]` modules) — authored on the surface, never imported,
+    /// The requirements this member opts into filling (`specs/model/contract.md`,
+    /// "requirement") — authored on the surface, never imported,
     /// so a source parse leaves this empty.
     pub satisfies: Vec<Satisfies>,
-    /// The requirements this member publishes (`specs/architecture/10-contracts.md`) — the header's
+    /// The requirements this member publishes (`specs/model/contract.md`) — the header's
     /// `[requirement.<name>]` modules, authored on the surface, never imported.
     pub published_requirements: Vec<PublishedRequirement>,
     /// Where the member came from and the hash of its original bytes.
@@ -65,8 +65,8 @@ pub struct Member {
 }
 
 /// The import lock for a member: its origin path and a content hash of the original
-/// source bytes. `source_hash` drives source-drift detection (`specs/architecture/20-surface.md`,
-/// "two freshness facts").
+/// source bytes. `source_hash` drives source-drift detection (`specs/model/pipeline.md`,
+/// "Drift").
 #[derive(Debug, Clone, PartialEq)]
 pub struct Provenance {
     /// Absolute or workspace-relative path to the source file.
@@ -146,7 +146,7 @@ impl Member {
     ///
     /// The body is taken byte-faithfully from after the closing frontmatter delimiter;
     /// a source with no frontmatter parses to no fields and a whole-file body — the
-    /// permissive read the built-in adapters shared (`specs/architecture/15-kinds.md`).
+    /// permissive read the built-in adapters shared (`specs/model/representation.md`).
     ///
     /// # Errors
     ///
@@ -163,7 +163,7 @@ impl Member {
 
     /// Import a member as [`from_source`](Member::from_source), but resolve a
     /// file-shaped unit's id against the `governs`-root directory `base`: a unit nested
-    /// below `base` folds its placement into the id (`specs/architecture/15-kinds.md`,
+    /// below `base` folds its placement into the id (`specs/model/representation.md`,
     /// "Two loci" — file placement is an extraction primitive), so two
     /// nested same-named files (`sub/AGENTS.md` and a root `AGENTS.md`) carry distinct
     /// surface ids rather than collapsing to one bare stem. A directory-shaped unit is
@@ -310,8 +310,8 @@ impl Member {
     }
 
     /// Project the member to its one authored document: a `+++`-fenced header of clause
-    /// modules over the byte-faithful body (`specs/architecture/20-surface.md`, "The member
-    /// document"). One `[clause.<field>]` module per field in projection order, then the
+    /// modules over the byte-faithful body (`specs/model/representation.md`, "member").
+    /// One `[clause.<field>]` module per field in projection order, then the
     /// authored `[satisfies.*]` / `[requirement.*]` modules, then the
     /// generated `[provenance]` last.
     #[must_use]
@@ -447,7 +447,7 @@ pub(crate) fn scan_companions(
 }
 
 /// Derive a **file-shaped** unit's surface id, folding the directory placement below
-/// the `governs`-root directory `base` into it (`specs/architecture/15-kinds.md`,
+/// the `governs`-root directory `base` into it (`specs/model/representation.md`,
 /// "Two loci" — file placement is an extraction primitive). A unit
 /// directly under `base` keeps its bare filename stem — the common flat case, unchanged
 /// — while a nested one prefixes its placement path, the placement components and the

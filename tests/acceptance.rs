@@ -1,5 +1,5 @@
-//! Acceptance over the documented round trip (`specs/architecture/20-surface.md`, "CLI
-//! surface"; `specs/architecture/10-contracts.md`, the contract engine).
+//! Acceptance over the documented round trip (`specs/distribution.md`;
+//! `specs/model/contract.md`, the contract engine).
 //!
 //! Pins the whole vertical slice — typed IR, sidecar topology, contract engine,
 //! diagnostics UX — driving the generic `engine::validate` and `drift::emit` directly
@@ -10,9 +10,9 @@
 //!   reduced, decidable-only surviving-clause set;
 //! - the slice acceptance end to end: a well-formed `coordinate` skill checks clean,
 //!   and compiling its seam payload twice (`emit` is the sole producer,
-//!   `specs/architecture/20-surface.md`, "The lock and drift") reproduces the
+//!   `specs/model/pipeline.md`, "The lock") reproduces the
 //!   projection with no diff;
-//! - the custom-kind acceptance (`specs/architecture/15-kinds.md`, "Worked example: `spec`"):
+//! - the custom-kind acceptance (`specs/model/representation.md`):
 //!   over a corpus carrying an authored `spec` kind + package, `temper check`'s
 //!   exit code flips under `--deny-advisories` (the empty-corpus coverage note is
 //!   itself warn-severity) — driving the built binary, since the exit code is
@@ -33,7 +33,7 @@ use temper::kind::Unit;
 
 /// The built-in Anthropic skill contract, resolved from the embedded built-in lock
 /// exactly as the shipped `check` does — so the acceptance path validates against
-/// the same clauses the tool ships (`specs/architecture/50-distribution.md`,
+/// the same clauses the tool ships (`specs/distribution.md`,
 /// "Decision: the built-in lock is derived from the SDK module, never transcribed").
 fn builtin_skill_contract() -> Contract {
     temper::builtin::contract("skill").expect("the skill floor is embedded")
@@ -151,8 +151,8 @@ fn skill_kind_facts() -> KindFactRow {
 
 /// The slice acceptance, end to end: the well-formed `coordinate` fixture skill checks
 /// clean over its projected surface member document, and compiling its seam payload
-/// twice (`emit` is the sole producer, `specs/architecture/20-surface.md`, "The lock and
-/// drift") reproduces the projection with no diff.
+/// twice (`emit` is the sole producer, `specs/model/pipeline.md`, "The lock")
+/// reproduces the projection with no diff.
 #[test]
 fn acceptance_check_then_reemit_is_a_no_diff() {
     let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
@@ -160,7 +160,7 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
 
     // check — a well-formed skill trips no contract clause, so it is clean. The gate
     // reads each skill's surface member document through the one generic `Unit` loader
-    // (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter").
+    // (`specs/model/representation.md`, "A built-in kind is an adapter").
     let unit = skill_surface_unit(&skill);
     let features = [builtin_kind::skill_features(&unit)];
     let diagnostics = engine::validate(&builtin_skill_contract(), &features);
@@ -205,10 +205,10 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
     );
 }
 
-/// The authored `spec` KIND.md definition (`specs/architecture/20-surface.md`, "Decision: a kind
+/// The authored `spec` KIND.md definition (`specs/model/representation.md`, "Decision: a kind
 /// definition is `KIND.md`"): it governs `specs/*.md` and composes the spec extractor
 /// (line count, ATX headings, placement) — markdown structure only, no body-mined
-/// references (`specs/architecture/15-kinds.md`, "Decision: no body-mined references").
+/// references (`specs/model/representation.md`, "Decision: no body-mined references").
 const SPEC_KIND_MD: &str = "+++\n\
 governs = { root = \"specs\", glob = \"*.md\" }\n\
 \n\
@@ -227,8 +227,8 @@ primitive = \"placement\"\n\
 temper's own governing documents.\n";
 
 /// The authored `spec` **package** — the require-side the kind binds
-/// (`specs/architecture/40-composition.md`): one advisory `max_lines` clause. The shipped budget is
-/// ~150 (`90-spec-system.md`); this fixture uses a small one so a short over-length spec
+/// (`specs/model/contract.md`): one advisory `max_lines` clause. The shipped budget is
+/// ~150 (`specs/process/spec-system.md`, budgets); this fixture uses a small one so a short over-length spec
 /// trips it without a 150-line corpus.
 const SPEC_PACKAGE_MD: &str = "+++\n\
 [[clause]]\n\
@@ -276,7 +276,7 @@ fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> bool {
         .success()
 }
 
-/// The custom-kind acceptance (`specs/architecture/15-kinds.md`, "Worked example: `spec`"):
+/// The custom-kind acceptance (`specs/model/representation.md`):
 /// over a corpus carrying an authored `spec` kind + package (no built-in kind's members
 /// resolve here), `--deny-advisories` flips the exit code, since the empty-corpus
 /// coverage note is itself warn-severity — the flag-flip proof pattern this suite's

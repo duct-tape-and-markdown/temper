@@ -37,7 +37,7 @@ pub enum EnforcementMode {
 }
 
 /// A declared **edge relationship** — a kind capability declared on the owning kind's
-/// members (`specs/architecture/15-kinds.md`). The owning kind is the edge *source*
+/// members (`specs/model/representation.md`). The owning kind is the edge *source*
 /// (the implicit `from`); the relationship names its reference `field` and the target
 /// `to` kind. [`crate::graph`] reads the field off each source artifact into edges,
 /// then flags any route that resolves to no artifact of the target kind.
@@ -58,12 +58,12 @@ pub struct Edge {
 
 /// A named **requirement** — the harness's named obligation, declared in the
 /// assembly's `[requirement.<name>]` (or lifted from a member's own published
-/// obligation, `specs/architecture/10-contracts.md`). **Every facet is optional
+/// obligation, `specs/model/contract.md`). **Every facet is optional
 /// except the name.** Fill is by the artifact's opt-in `satisfies` alone — there is
 /// no name-`match` selector.
 ///
 /// `temper` **never interprets `means`** — it is authored intent the surface carries,
-/// never a thing the engine judges (`00-intent.md` law 3). The decidable shadow is
+/// never a thing the engine judges (`specs/model/contract.md`, "requirement"). The decidable shadow is
 /// what `check` gates: [`crate::coverage`] over the `satisfies` edges,
 /// [`crate::roster`]/[`crate::graph`] over the **satisfier set** (the artifacts of
 /// its `kind` that opt in via `satisfies`).
@@ -72,7 +72,7 @@ pub struct Requirement {
     /// The requirement's name.
     pub name: String,
     /// The authored *intent*, stated in meaning not predicates. Carried verbatim and
-    /// **never interpreted** (`00-intent.md` law 3).
+    /// **never interpreted** (`specs/model/contract.md`, "requirement").
     pub means: Option<String>,
     /// The requirement's declared satisfier kind. Unlike the old name-`match`
     /// selector, this never narrows *which* opt-in artifacts are candidates —
@@ -87,14 +87,14 @@ pub struct Requirement {
     /// attaches at all.
     pub kind: Option<String>,
     /// Whether an unfilled requirement is a gate-blocking violation. Absent ⇒ `false`
-    /// (`temper` never fabricates a gate the author did not declare — `00-intent.md`
-    /// law 4). Never cardinality — posture and the set-scope `count` clause in
+    /// (`temper` never fabricates a gate the author did not declare — `specs/intent.md`,
+    /// "Declared, never mined"). Never cardinality — posture and the set-scope `count` clause in
     /// [`clauses`](Requirement::clauses) are different kinds of thing.
     pub required: bool,
     /// The requirement's set-/edge-scope demands — ordinary [`contract::Clause`]
     /// values whose predicates range over the satisfier set and its graph
     /// neighborhood (`count`/`unique`/`membership`/`degree`,
-    /// `specs/architecture/10-contracts.md`, "Decision: set-scope demands are
+    /// `specs/model/contract.md`, "Decision: set-scope demands are
     /// clauses"). Each carries its own severity/guidance/cite; empty ⇒ no set-scope
     /// demand at all. `count`/`unique`/`membership` are checked in
     /// [`crate::roster`]; `degree` ranges over the *edge* graph, so it is checked in
@@ -107,7 +107,7 @@ pub struct Requirement {
 
 /// The effective contract for `kind`: the embedded `floor` with each clause's
 /// severity overridden by a matching row in the lock's declared `clauses`
-/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary": the
+/// (`specs/model/pipeline.md`, "The lock": the
 /// gate's per-kind contract sources its overrides from the lock's `ClauseRow`
 /// family, never a manifest `[kind.*]` layer). A row overrides the floor clause
 /// sharing its identity (predicate key + targeted field); a row naming no matching
@@ -134,9 +134,9 @@ pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Cont
 }
 
 /// A custom kind's whole floor [`Contract`], built directly from the clause rows
-/// naming it in the committed lock (`specs/architecture/20-surface.md`, "The lock and
-/// drift — one vocabulary"). Unlike a built-in kind — whose floor is the embedded
-/// default, with the lock's own rows only overriding a clause's severity ([`effective`])
+/// naming it in the committed lock (`specs/model/pipeline.md`, "The lock"). Unlike a
+/// built-in kind — whose floor is the embedded default, with the lock's own rows only
+/// overriding a clause's severity ([`effective`])
 /// — a custom kind carries no embedded default: its committed rows **are** its floor,
 /// the same lift [`crate::builtin::contract`] runs over the *embedded* lock's own rows,
 /// run here over the *project's own*. Tolerant like the rest of a hand-editable lock's

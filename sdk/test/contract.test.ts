@@ -1,6 +1,6 @@
 /**
  * The node-set/edge-scope clause constructors (`REQUIREMENT-CLAUSES-ALGEBRA`,
- * `specs/architecture/10-contracts.md`, "Judged at the node-set scope" / "Judged
+ * `specs/model/contract.md`, "Judged at the node-set scope" / "Judged
  * at the edge scope"): `count`/`unique`/`membership`/`degree` compose a
  * set-/edge-scope demand as an ordinary `Predicate` value, peers of the
  * node-scope constructors (`required`, `maxLines`, …) already in `contract.ts`.

@@ -1,6 +1,6 @@
 //! Requirement coverage — the referential shadow of the meaningful contract.
 //!
-//! Implements the `check` gate for `specs/architecture/10-contracts.md` (requirements):
+//! Implements the `check` gate for `specs/model/contract.md` (requirements):
 //! a **requirement** declares a semantic
 //! intent (`means`) the harness must fill, and an artifact fills it by *opting in*
 //! from its own representation with a resolving `satisfies` link. `temper` **never
@@ -14,20 +14,20 @@
 //!
 //! - [`REQUIREMENT_UNFILLED_RULE`] — every `required` requirement is satisfied by **≥1
 //!   artifact whose representation declares a resolving `satisfies` link naming it** —
-//!   opt-in `satisfies` is the sole fill (`specs/architecture/10-contracts.md`, the fill facet;
+//!   opt-in `satisfies` is the sole fill (`specs/model/contract.md`, the fill facet;
 //!   there is no name-`match` selector). A `required` requirement no artifact opts into
 //!   is an `error`: the intent has no resolving home. A non-`required` requirement left
 //!   unfilled is *not* a violation — `temper` never fabricates a gate the author did
-//!   not declare (`00-intent.md` law 4).
+//!   not declare (`specs/intent.md`, "Declared, never mined").
 //! - [`REQUIREMENT_DANGLING_RULE`] — every `satisfies` entry on any artifact names a
 //!   **declared** requirement. A `satisfies` resolving to no requirement is an
 //!   `error` on that artifact: a dangling link is a silent no-op, the very failure
-//!   `00-intent.md` law 1 forbids.
+//!   `specs/intent.md`, "Decidable only" forbids.
 //!
-//! This is the **referential** primitive (`specs/architecture/10-contracts.md`, the predicate
+//! This is the **referential** primitive (`specs/model/contract.md`, the predicate
 //! algebra) — decidable coverage, a true positive every time. `temper` NEVER judges
 //! whether the artifact *actually* fulfils `means`; the judged tier is delegated and
-//! advisory (`00-intent.md` tier 2), never this gate.
+//! advisory (`specs/intent.md`, "The honest bound"), never this gate.
 //!
 //! # Kinship with the graph scope — and why coverage stays here
 //!
@@ -56,15 +56,15 @@ use crate::compose::Requirement;
 use crate::extract::Features;
 
 /// A `required` requirement with no artifact opting in to satisfy it — the intent
-/// has no resolving home (`specs/architecture/10-contracts.md`, requirements).
+/// has no resolving home (`specs/model/contract.md`, requirements).
 const REQUIREMENT_UNFILLED_RULE: &str = "requirement.unfilled";
 
 /// A `satisfies` link on an artifact that names no declared requirement — a
-/// dangling reference (`specs/architecture/10-contracts.md`, the referential primitive).
+/// dangling reference (`specs/model/contract.md`, the referential primitive).
 const REQUIREMENT_DANGLING_RULE: &str = "requirement.dangling";
 
 /// Gate referential coverage over the declared requirements and the authored
-/// `satisfies` edges (`specs/architecture/10-contracts.md`, requirements). Two
+/// `satisfies` edges (`specs/model/contract.md`, requirements). Two
 /// decidable checks over the flattened artifact stream:
 ///
 /// 1. **Unfilled** — each `required` requirement must be named by ≥1 artifact's
@@ -94,7 +94,7 @@ pub fn check(
         .collect();
 
     // (1) Unfilled: every `required` requirement needs a resolving `satisfies` home —
-    // opt-in `satisfies` is the sole fill (`specs/architecture/10-contracts.md`, the fill facet;
+    // opt-in `satisfies` is the sole fill (`specs/model/contract.md`, the fill facet;
     // there is no name-`match` selector). Iteration is over the name-sorted `BTreeMap`,
     // so the diagnostic set is stable.
     for (name, requirement) in requirements {

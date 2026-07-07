@@ -1,5 +1,5 @@
 //! The lock's declaration-row family — the composed program's erased declarations
-//! (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
+//! (`specs/model/pipeline.md`, "The lock").
 //!
 //! `emit` is the sole producer of a declaration-row family (kind facts, clauses,
 //! requirements — including the set-scope `count`/`unique`/`membership`/`degree`
@@ -8,7 +8,7 @@
 //! through [`temper::drift::read_declarations`]. These tests drive `emit` directly over
 //! hand-built [`Payload`]s — a golden-lock fixture (`tests/emit.rs`'s pattern), no
 //! scratch import — asserting the family is present and populated, that a double emit is
-//! byte-stable — the round-trip law 5 pins — and that a bare payload (no requirements,
+//! byte-stable — the round-trip `specs/model/pipeline.md` ("Emit") pins — and that a bare payload (no requirements,
 //! no satisfies) still round-trips.
 
 use std::fs;
@@ -351,7 +351,7 @@ fn lock_carries_all_four_declaration_families() {
     assert!(requirement.required);
 
     // The set-scope demands: count/unique/membership/degree all carried as clause
-    // rows nested on the requirement (`specs/architecture/10-contracts.md`, "Decision:
+    // rows nested on the requirement (`specs/model/contract.md`, "Decision:
     // set-scope demands are clauses").
     let roster = declarations
         .requirements
@@ -416,7 +416,7 @@ fn a_double_emit_is_byte_stable() {
     let first = fs::read(&lock).unwrap();
 
     // The declaration rows are a pure function of the same payload, so re-emitting
-    // reproduces the whole lock byte-for-byte (law 5; emit idempotence).
+    // reproduces the whole lock byte-for-byte (`specs/model/pipeline.md`, "Emit"; idempotence).
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let second = fs::read(&lock).unwrap();
     assert_eq!(first, second, "a re-emit must not churn the lock");
@@ -513,7 +513,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     let lock = into.join("lock.toml");
     let first = fs::read(&lock).unwrap();
 
-    // Double-emit byte stability (law 5): re-emitting the same payload reproduces
+    // Double-emit byte stability (`specs/model/pipeline.md`, "Emit"): re-emitting the same payload reproduces
     // the whole lock byte-for-byte.
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let second = fs::read(&lock).unwrap();
@@ -559,7 +559,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
 /// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min_len`/`max_len`/`max_lines`'s bound,
 /// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values — not just
 /// identity+severity, so a floor `Contract` is reconstructable from the rows alone
-/// (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+/// (`specs/distribution.md`, "Decision: the built-in lock is derived
 /// from the SDK module, never transcribed").
 #[test]
 fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
@@ -733,7 +733,7 @@ fn a_missing_lock_reads_empty() {
 
 // ---- check resolves members via the lock's governs locus --------------------
 //
-// `specs/architecture/20-surface.md`, "The lock and drift — one vocabulary": the gate
+// `specs/model/pipeline.md`, "The lock": the gate
 // walks each kind's `governs` locus off the committed lock's own kind-fact row, read
 // straight off the harness disk — never a copied surface tree — and a harness with no
 // lock at all is still gated by the embedded default program's own locus (the built-in
@@ -931,7 +931,7 @@ fn write_lock(root: &Path, declarations: Declarations) {
 
 // ---- BUILTIN-LOCK-DERIVED: the embedded built-in lock ------------------------
 //
-// `specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+// `specs/distribution.md`, "Decision: the built-in lock is derived
 // from the SDK module, never transcribed": `src/builtin_lock.toml` is the real
 // `[declaration.*]` family a memberless emit of `@dtmd/temper/claude-code`'s built-in
 // kinds + four floors produces, and `temper::builtin` projects each kind's floor
