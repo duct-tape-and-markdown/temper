@@ -153,7 +153,7 @@
         },
         {
           "path": "sdk/src/emit.ts",
-          "description": "The `n` targets already resolution-checked here (the `nable` set) also surface into the payload's declaration rows so the edge survives type erasure, not just the loud dangling-mention refusal."
+          "description": "The `n` targets already resolution-checked here (the `nable` set) also surface into the payload's declaration rows so the edge survives type erasure, not just the loud dangling-mention refusal. While this edit opens the file (citation staleness rides it): retarget the two stale cites `(specs/architecture/20-surface.md, \"Emit refuses before it writes\")` at :108/:129 to `specs/model/pipeline.md`, \"Emit\" (the \"Refusing\" bullet) — that spec path retired."
         },
         {
           "path": "src/drift.rs",
