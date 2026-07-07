@@ -1,21 +1,20 @@
 # Plan state
 
 - Spec derived through: f4189c3
-- Audited through: 1e91b44
+- Audited through: 1e5d7ec
 - Residue swept through: 859c2e6
-- This tick: Residue sweep ce6c183..HEAD — clean, nothing fileable. The two
-  code commits ship the corpus faithfully: EMIT-LF-NORMALIZE (76535bd)
-  `normalize_lf` src/drift.rs:647 over both emit passes :709/:719 matches
-  pipeline.md "projections written LF uniformly"; SETTINGS-FORMAT-PRESERVING
-  (e617b4e) the `json_splice` merge install.rs:769-803 matches install
-  "format-preserving". The two surviving `to_string_pretty` are legitimate
-  (install.rs:722 fresh-doc path per its own comment; :1309 package.json,
-  out of scope). drift.rs "six families" comment rider already landed with
-  76535bd. Cursor → 859c2e6 (HEAD).
-- Queue: 2 — MODULE-RELATIVE-PATHS `open` (sdk emit/prose + install.rs + tests;
-  sole pickable, cites reconciled at 859c2e6). PACKAGING-CHANNELS parked (human
-  release creds + engine-binary workflow). Disjoint — no shared file.
+- This tick: Ship audit 1e91b44..HEAD — MODULE-RELATIVE-PATHS shipped (78a48db,
+  chore 1e5d7ec dropped the entry). Verified on disk: `baseDir` fully retired
+  (no ref in sdk/src/tests), emit resolves via `new URL(prose.path,
+  prose.moduleUrl)` sdk/src/emit.ts:151 carrying the declaring module's
+  import.meta.url, install.rs `relative_to_member_module` (:1128) climbs two
+  levels — matches pipeline.md "The SDK": a path reference resolves relative to
+  the module that states it, never the workspace. PACKAGING-CHANNELS parked
+  reason re-tested, still true: no .github/workflows/release.yml (only
+  temper.yml check), root package.json still the private `temper-flume-harness`
+  manifest, sdk `@dtmd/temper` 0.0.4. Cursor → 1e5d7ec (HEAD).
+- Queue: 1 — PACKAGING-CHANNELS parked (human release creds + engine-binary
+  workflow). No pickable entry.
 
-Plan continues: no — every input current (inbox empty, no spec delta, code
-audited through 1e91b44, residue swept to HEAD); MODULE-RELATIVE-PATHS is
-pickable, build takes over.
+Plan continues: yes — residue sweep trails (859c2e6..HEAD covers the
+MODULE-RELATIVE-PATHS code 78a48db; not yet swept against the corpus).
