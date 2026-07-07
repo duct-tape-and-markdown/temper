@@ -1,5 +1,77 @@
 [
   {
+    "tag": "SATISFIER-KIND-CLAUSE",
+    "summary": "Kind-blind satisfier set (roster/coverage/graph); recut requirement.kind into an each-grain 'satisfier is kind K' clause — wrong-kind satisfiers become findings, never silent exclusions",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "selection"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Add one each-grain predicate to the closed `Predicate` vocabulary expressing 'this member is of the declared kind K' (enum variant + serde load — an unknown predicate is still rejected at load). This is the predicate the requirement's kind-narrowing clause evaluates over its (now kind-blind) satisfier set; a deliberate language change per contract.md 'clause' (the closed vocabulary is the authority)."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Evaluate the new each-grain kind predicate at the `each` grain, and give it an admissibility arm (non-vacuous). Reuses the same predicate-eval path every other each-grain clause rides."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Recut `Requirement.kind` (compose.rs:74): it no longer narrows the candidate set (silent exclusion) — it sources the shipped each-grain 'every satisfier is kind K' clause over the requirement's opt-in selection. Update the field doc to the new role; a kind-blind requirement (no `kind`) attaches no narrowing clause."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "`candidates_for`/`satisfiers_for` (roster.rs:44-74) draw kind-blind from every modeled kind — the opt-in `satisfies` join is the only filter. Recut admissibility (a) (roster.rs:174-183): a requirement whose narrowing names an unmodeled kind is a clause finding, never a silent 'can never be filled' exclusion. Check the each-grain kind clause here alongside count/unique/membership; `kind_label`/`any` narration follows."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "The coverage satisfier stream draws kind-blind — a member of any modeled kind that opts in via `satisfies` counts toward the requirement, matching the unified roster/graph satisfier set (coverage.rs's by-kind flattening)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`degree` (graph.rs:260-276) drops the `let Some(kind) = &requirement.kind else { skip }` guard and ranges kind-blind over the satisfier set via the same `roster::is_satisfier` opt-in join — a degree bound no longer silently skips a kind-blind requirement."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "Surface the new each-grain kind predicate in the generated JSON Schema so the prose-authoring keystroke path validates it."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "Where the requirement kind's shipped default contract is constructed, wire the kind-narrowing clause the recut `Requirement.kind` sources (the mechanism ships with the requirement kind; the specific kind K stays per-requirement author data)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "A wrong-kind opt-in satisfier is a diagnostic (the each-grain kind clause fires), not silently excluded; a kind-blind requirement counts opt-ins of every modeled kind; an unmodeled narrowing kind surfaces as a clause finding via admissibility (a)."
+      },
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "Coverage draws the satisfier set kind-blind — an opt-in of any modeled kind fills the requirement."
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "A `degree` bound on a kind-blind requirement ranges over its opt-in satisfiers rather than being skipped."
+      },
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "The new each-grain kind predicate parses/loads and round-trips in a requirement's clause set."
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "The kind-narrowing clause the recut requirement.kind sources appears as a declaration row in the lock."
+      }
+    ],
+    "acceptance": "requirement.kind narrows via a shipped each-grain clause, not a second selector: a satisfier of the wrong kind is a finding, a kind-blind requirement is filled by any opt-in, and roster/coverage/graph.degree read one kind-blind satisfier set (contract.md 'selection', decision 0003).",
+    "notes": "Resolves fork (requirement-satisfier-kind) per decision 0003. Adds one each-grain predicate to the closed vocabulary (a deliberate language change, contract.md 'clause') so 'satisfier is kind K' is expressible; requirement.kind sources that clause instead of narrowing candidates_for/degree. coverage/graph.degree/roster go kind-blind; roster admissibility (a) recut. One slice of d5d1b37; 0004/0005 still un-derived."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {

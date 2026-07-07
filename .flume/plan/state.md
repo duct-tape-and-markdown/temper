@@ -3,23 +3,27 @@
 - Spec derived through: be8e1bf
 - Audited through: c9eeffb
 - Residue swept through: 3373326
-- This tick: residue sweep 079ca3e→HEAD reconciles to quiet. One src commit
-  since (0dab4be, extract::Kind→ValueType) shipped clean — no new residue,
-  ValueType is extract-layer typing, not the kernel `kind` noun. Every retired
-  class routed: genre→(genre-embedded-member), authority/shared/surface→
-  (authority-home), requirement.kind→(requirement-satisfier-kind) (open forks);
-  posture vocab + architecture/* cites are doc-comment citation staleness (ride
-  the next entry opening those files). PACKAGING gate re-tested — install.rs
-  pins ^0.0.2, no release.yml (only temper.yml), root package.json still the
-  private flume manifest. Advanced residue cursor 079ca3e → HEAD.
-- Queue: 1 entry — PACKAGING-CHANNELS (parked on human release creds +
-  engine-binary workflow). No pickable entry.
+- This tick: spec delta — derived one slice of d5d1b37 (decision 0003, atomic
+  selectors) into SATISFIER-KIND-CLAUSE (open, pickable): kind-blind satisfier
+  set across roster/coverage/graph.degree + requirement.kind recut from a
+  candidate-narrowing selector into a shipped each-grain 'satisfier is kind K'
+  clause (one new closed-vocabulary predicate). 0004 (genre fold) and 0005
+  (authority→mode) still un-derived → d5d1b37 NOT fully routed, cursor holds at
+  be8e1bf.
+- Queue: 2 entries — SATISFIER-KIND-CLAUSE (open, pickable, disjoint from
+  PACKAGING), PACKAGING-CHANNELS (parked on human release creds +
+  engine-binary workflow).
 
-Class routing: Kind→VACATE DRAINED (shipped 0dab4be); genre→(genre-embedded-member),
-requirement.kind→(requirement-satisfier-kind), authority→(authority-home) (open
-forks); posture/mode, architecture/* cites, means-as-corpus-word, law-N refs →
-citation staleness, ride the next entry opening their files.
+Delta routing (d5d1b37 rules 0003/0004/0005; the three forks were drained from
+the board by 1b86c66): 0003 derived this tick. Next ticks — derive 0005
+(authority→mode: retire the hardcoded authority emit, add the mode field to the
+root-member kind, guard reads mode from the lock — representation.md 'The root
+member'), then 0004 (genre fold arc: extract/kind/read/engine/graph/roster
+dissolve into nested members + the embedded locus — a blockedBy chain,
+representation.md 'nesting'). NB SATISFIER-KIND-CLAUSE shares roster/coverage/
+graph with the future 0004 chain — serialize (blockedBy) when 0004 is filed.
+architecture/* + posture/means/law-N cites are citation staleness — ride the
+next entry opening their files.
 
-Plan continues: no — every input current: inbox empty, no spec delta past
-be8e1bf, audit window (c9eeffb..HEAD) is one no-src plan commit, residue swept
-to HEAD. Only entry is parked (no pickable work) → loop hibernates.
+Plan continues: yes — spec delta still live (0005, 0004 un-derived from d5d1b37;
+one slice per tick by design).
