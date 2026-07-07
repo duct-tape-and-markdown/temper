@@ -100,8 +100,7 @@
       "section": "Install"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "WIN-INSTALL-SPAWN"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -122,7 +121,7 @@
       }
     ],
     "acceptance": "Scaffolded modules typecheck (skill modules carry description) and import an SDK seam that exports `file`; install pins a range that resolves to it.",
-    "notes": "Field reports T6 + finding 3. blockedBy WIN-INSTALL-SPAWN (same file). Supersedes PACKAGING's 'release-owned bump' framing: the range is a live install-correctness bug fixed here; release owns only future re-pins."
+    "notes": "Field reports T6 + finding 3. WIN-INSTALL-SPAWN (same install.rs) shipped da6b127 — now open, head of the install.rs chain (SCAFFOLD->PATH-SEP-NORMALIZE->GUARD-OWNPATH). Supersedes PACKAGING's 'release-owned bump' framing: the range is a live install-correctness bug fixed here; release owns only future re-pins."
   },
   {
     "tag": "EXPLAIN-RESOLVER",
@@ -132,8 +131,7 @@
       "section": "Read verbs"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REQUIREMENT-GATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -154,7 +152,7 @@
       }
     ],
     "acceptance": "explain <member> resolves without a spurious not-found; explain <requirement> reports fill status agreeing with the gate; no output suggests the retired `import` verb.",
-    "notes": "Field report 2 T2 + report 1 finding 7. blockedBy REQUIREMENT-GATE so explain's requirement verdict matches what check now evaluates (Read verbs project over the same resolved edges the gate uses)."
+    "notes": "Field report 2 T2 + report 1 finding 7. REQUIREMENT-GATE shipped f0e1e74 (harness_diagnostics now reads the lock's requirement/satisfies rows) — now open; explain projects requirement fill over the same resolved edges the gate uses."
   },
   {
     "tag": "PATH-SEP-NORMALIZE",
