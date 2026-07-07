@@ -32,10 +32,10 @@ are flume gates, so a violation reverts the commit.
   `tests/` can drive it.
 - Public items carry `///` docs: **one-line third-person summary first**, then
   `# Errors`/`# Panics` where reachable (RFC 1574; api-guidelines C-FAILURE).
-  Module `//!` headers are an **overview plus the spec pointer, ~10 lines** —
+  Module `//!` headers are an **overview, ~10 lines** —
   "without excessive detail" (RFC 1574); the spec documents itself, the header
   never restates it.
-- **Comment only what code + cited spec can't say** (Ousterhout, *APoSD* ch. 13;
+- **Comment only what the code can't say** (Ousterhout, *APoSD* ch. 13;
   antirez taxonomy, antirez.com/news/124). Keep: the *why* (chosen-over-
   alternative, ordering constraints, workarounds); invariants, units, edge
   behavior (`BTreeMap` for stable output); checklist warnings ("change X → also
@@ -57,9 +57,12 @@ are flume gates, so a violation reverts the commit.
   the anti-churn rule above bounds *rewrites*, never *removals*. Comments are
   the one ungated surface (no gate checks their truth), so their lifecycle is
   editorial: cut on contact, never annotate. Era narration ("no longer X",
-  "renamed from", "shipped in Y") is commit-body material — git owns history;
-  a comment quoting a spec *section title* is a dangling reference waiting
-  for a rename — cite the file path only (the pointer-tag form above).
+  "renamed from", "shipped in Y") is commit-body material — git owns history.
+- **Mechanical repo-wide edits** (`sed`/regex sweeps over many files): scope
+  the match to comment-marked lines (`///`, `//!`, `//`) so string literals
+  and test fixtures stay out of reach, and run the full test suite — not just
+  a build — before calling the pass done; a green build proves nothing about
+  fixture strings.
 
 ## Round-trip discipline (the core invariant)
 
@@ -82,4 +85,4 @@ are flume gates, so a violation reverts the commit.
 - **Harness-input fixtures mirror the real Claude Code layout**
   (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`) — never a layout
   invented for the test's convenience. A fixture shaped by the code's own
-  assumption cannot falsify it (the import-locus bug hid behind exactly this).
+  assumption cannot falsify it.
