@@ -65,8 +65,8 @@ fn write_skill(root: &Path, name: &str, skill_md: &str) {
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
 
-/// Write a repo-root `CLAUDE.md` of `lines` total lines — the `claude-code.memory`
-/// member `import` discovers off its `governs` locus (`root = "."`, `glob = "CLAUDE.md"`).
+/// Write a repo-root `CLAUDE.md` of `lines` total lines — the `memory` member `import`
+/// discovers off its `governs` locus (`root = "."`, `glob = "CLAUDE.md"`).
 fn write_claude_md(root: &Path, lines: usize) {
     let mut body = String::from("# Memory\n");
     // Already one line; pad to the requested total so `max_lines` (a body-line budget)
@@ -106,8 +106,8 @@ fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
 }
 
 /// Write a repo-root `CLAUDE.md` whose body carries the given `@`-import directive on
-/// its own line — the `claude-code.memory` member `import` discovers off its `governs`
-/// locus, its `at-import` target the directive classing resolves against provenance
+/// its own line — the `memory` member `import` discovers off its `governs` locus, its
+/// `at-import` target the directive classing resolves against provenance
 /// (`specs/architecture/15-kinds.md`, "Directives").
 fn write_claude_md_importing(root: &Path, import_line: &str) {
     let body = format!("# Memory\n\nProject guidance.\n\n{import_line}\n");
@@ -291,9 +291,8 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
     let findings = check_harness(&harness);
     let max_lines = findings_for(&findings, "max_lines");
 
-    // Exactly one `max_lines` advisory — the memory member dispatched to memory.anthropic,
-    // not silently skipped, and NOT double-reported by the second `memory` provider
-    // (`agents-md.memory`, whose glob does not own `CLAUDE.md`).
+    // Exactly one `max_lines` advisory — the memory member dispatched to
+    // memory.anthropic, not silently skipped.
     assert_eq!(
         max_lines.len(),
         1,

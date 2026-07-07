@@ -121,7 +121,7 @@ fn an_ungoverned_agents_dir_is_flagged_beside_the_checked_summary() {
         "the checked summary is advisory (warn), got: {summary}"
     );
     assert!(
-        summary.contains("claude-code.skill (2)"),
+        summary.contains("skill (2)"),
         "the summary reports the two checked skills, got: {summary}"
     );
 

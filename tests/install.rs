@@ -172,22 +172,16 @@ fn has_entry(outcome: &InstallOutcome, placement: &str) -> bool {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn discover_reports_member_counts_by_qualified_kind() {
+fn discover_reports_member_counts_by_kind() {
     let root = write_harness("discover", false);
     let report = install::discover(&root).unwrap();
-    assert_eq!(
-        report.members.get("claude-code.skill").map(Vec::len),
-        Some(1)
-    );
-    assert_eq!(
-        report.members.get("claude-code.rule").map(Vec::len),
-        Some(2)
-    );
+    assert_eq!(report.members.get("skill").map(Vec::len), Some(1));
+    assert_eq!(report.members.get("rule").map(Vec::len), Some(2));
     assert_eq!(report.total(), 3);
 
     let rendered = install::render_discovery(&report);
-    assert!(rendered.contains("claude-code.skill"));
-    assert!(rendered.contains("claude-code.rule"));
+    assert!(rendered.contains("skill"));
+    assert!(rendered.contains("rule"));
 }
 
 #[test]

@@ -49,7 +49,6 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use crate::builtin;
-use crate::builtin_kind;
 use crate::check::Workspace;
 use crate::compose::{Edge, Requirement};
 use crate::document::Satisfies;
@@ -147,29 +146,15 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
 }
 
 /// The floor the `kind`'s members are checked against — the kind's real built-in
-/// floor resolved by its **qualified identity** through [`builtin::floor_package`]:
-/// `skill` → `skill.anthropic`, `rule` → `rule.anthropic`, `claude-code.memory`
-/// → `memory.anthropic`. Every embedded kind's floor is named from the one
-/// `QUALIFIED_FLOOR_BINDINGS` table, so a `memory` member is bound to its own
-/// `memory.*` floor rather than mis-narrated as `skill.anthropic`.
-///
-/// `kind` is either already qualified (`claude-code.memory` — the disambiguated built-in
-/// identity a memory member carries, since the bare `memory` collides across two
-/// providers) or a bare name resolving to a unique qualified one (`skill` →
-/// `claude-code.skill`); both are tried, in that order. A kind that genuinely ships no
-/// floor (a custom kind with no binding) falls back to its own name
-/// (`specs/architecture/40-composition.md`, "Binding is implicit — a floor is a
-/// clause array": there is no package-to-kind table, so an unbound kind is named for
-/// itself rather than a fabricated default).
+/// floor resolved by its bare row label through [`builtin::floor_package`]: `skill` →
+/// `skill.anthropic`, `rule` → `rule.anthropic`, `memory` → `memory.anthropic`, so a
+/// `memory` member is bound to its own floor rather than mis-narrated as
+/// `skill.anthropic`. A kind that genuinely ships no floor (a custom kind with no
+/// binding) falls back to its own name (`specs/architecture/40-composition.md`,
+/// "Binding is implicit — a floor is a clause array": there is no package-to-kind
+/// table, so an unbound kind is named for itself rather than a fabricated default).
 fn bound_package(kind: &str) -> String {
-    builtin::floor_package(kind)
-        .or_else(|| {
-            builtin_kind::qualified(kind)
-                .ok()
-                .flatten()
-                .and_then(|qualified| builtin::floor_package(&qualified))
-        })
-        .map_or_else(|| kind.to_string(), str::to_string)
+    builtin::floor_package(kind).map_or_else(|| kind.to_string(), str::to_string)
 }
 
 /// The target species `explain <target>` resolves a positional string into

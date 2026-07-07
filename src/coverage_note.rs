@@ -48,9 +48,9 @@ const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-
 /// The curated known-surface list. Every entry is a documented Claude Code surface
 /// (verified against the settings docs, [`SETTINGS_DOC`]) that **no built-in kind
 /// governs**: skills live under `.claude/skills/` (the `skill` kind), rules under
-/// `.claude/rules/` (the `rule` kind), and memory under `CLAUDE.md`/`AGENTS.md` (the
-/// two `memory` kinds), so those loci are deliberately absent — governance already
-/// covers them. Hooks are **not** a directory: they are configured inside
+/// `.claude/rules/` (the `rule` kind), and memory under `CLAUDE.md` (the `memory`
+/// kind), so those loci are deliberately absent — governance already covers them.
+/// Hooks are **not** a directory: they are configured inside
 /// `settings.json`, so the settings entry covers them and no invented `.claude/hooks/`
 /// locus appears (a false locus would be the exact uncited guess collaboration.md
 /// forbids). A `specs/` corpus is likewise absent: it is not a Claude Code surface,
@@ -86,7 +86,7 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
 /// Compute the wedge's advisory coverage note over the harness at `root`.
 ///
 /// `member_counts` is the per-kind checked-member count the gate already loaded,
-/// keyed by each kind's qualified identity; `kinds` is the in-scope built-in kind
+/// keyed by each kind's bare row label; `kinds` is the in-scope built-in kind
 /// set, consulted only to suppress a known surface a kind actually governs. Returns
 /// `warn`-severity diagnostics only (never `error`, never a session-start verdict): a
 /// summary of what was checked, then one finding per known Claude Code surface present
@@ -178,8 +178,8 @@ fn governs(kind: &CustomKind, surface: &KnownSurface) -> bool {
 }
 
 /// A `governs.root` reduced to a comparable relative path: leading `./` and any
-/// trailing `/` stripped, and a bare `.` (the harness root itself, the two `memory`
-/// kinds' locus) folded to the empty string so it matches a top-level file's parent.
+/// trailing `/` stripped, and a bare `.` (the harness root itself, the `memory`
+/// kind's locus) folded to the empty string so it matches a top-level file's parent.
 fn normalize_root(root: &str) -> &str {
     let root = root.trim_start_matches("./").trim_end_matches('/');
     if root == "." { "" } else { root }
@@ -227,10 +227,7 @@ mod tests {
 
     #[test]
     fn the_checked_summary_reports_each_kind_count_and_is_warn() {
-        let counts = BTreeMap::from([
-            ("claude-code.skill".to_string(), 2usize),
-            ("claude-code.rule".to_string(), 3usize),
-        ]);
+        let counts = BTreeMap::from([("skill".to_string(), 2usize), ("rule".to_string(), 3usize)]);
         let diagnostics = check(
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
@@ -241,8 +238,8 @@ mod tests {
             .find(|d| d.rule == CHECKED_RULE)
             .expect("a checked-summary diagnostic");
         assert_eq!(summary.severity, Severity::Warn);
-        assert!(summary.message.contains("claude-code.skill (2)"));
-        assert!(summary.message.contains("claude-code.rule (3)"));
+        assert!(summary.message.contains("skill (2)"));
+        assert!(summary.message.contains("rule (3)"));
         // The total pluralizes and names both kinds.
         assert!(
             summary
@@ -253,7 +250,7 @@ mod tests {
 
     #[test]
     fn a_single_member_and_kind_do_not_pluralize() {
-        let counts = BTreeMap::from([("claude-code.skill".to_string(), 1usize)]);
+        let counts = BTreeMap::from([("skill".to_string(), 1usize)]);
         let diagnostics = check(
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),

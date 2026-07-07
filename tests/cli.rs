@@ -361,10 +361,9 @@ fn schema_without_kind_maps_every_modeled_kind() {
     assert!(output.status.success(), "temper schema must exit zero");
 
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    // A by-kind map keyed by each kind's qualified identity (`specs/architecture/15-kinds.md`,
-    // "a published package binds a qualified kind name"): each resolves to its own schema.
-    assert_eq!(json["claude-code.skill"]["type"], "object");
-    assert_eq!(json["claude-code.rule"]["type"], "object");
+    // A by-kind map keyed by each kind's bare row label: each resolves to its own schema.
+    assert_eq!(json["skill"]["type"], "object");
+    assert_eq!(json["rule"]["type"], "object");
 }
 
 #[test]

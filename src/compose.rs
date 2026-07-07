@@ -104,15 +104,11 @@ pub struct Requirement {
 /// rest of the lock takes over hand-editable state.
 #[must_use]
 pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Contract {
-    // A caller may pass the qualified floor identity (`claude-code.skill`) while a
-    // `ClauseRow.kind` is always the bare name (`sdk/src/kind.ts`, `key: facts.name`)
-    // — resolve to the bare component, the way a bare kind lookup always has.
-    let bare = kind.rsplit('.').next().unwrap_or(kind);
     for clause in &mut floor.clauses {
         let key = clause.predicate.key();
         let target = clause.predicate.target();
         let overriding = clauses.iter().find(|row| {
-            row.kind.as_deref() == Some(bare)
+            row.kind.as_deref() == Some(kind)
                 && row.predicate == key
                 && row.field.as_deref() == target
         });
@@ -253,24 +249,5 @@ mod tests {
             degree: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
-    }
-
-    #[test]
-    fn effective_resolves_a_qualified_kind_identity_to_its_bare_component() {
-        // A caller may pass the floor's qualified identity (`claude-code.skill`); a
-        // `ClauseRow.kind` is always bare, so the override still applies.
-        let row = ClauseRow {
-            kind: Some("skill".to_string()),
-            predicate: "forbidden_keys".to_string(),
-            field: None,
-            severity: "advisory".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-        };
-        let contract = effective(&[row], "claude-code.skill", floor());
-        assert_eq!(contract.clauses[1].severity, Severity::Advisory);
     }
 }

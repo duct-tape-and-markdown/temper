@@ -87,16 +87,14 @@ pub(crate) struct RollupEntry {
 
 /// Discover a built-in `kind`'s source files, keying off its declared `governs`
 /// locus — the same data-driven scan a custom kind would get, so `skill`/`rule`
-/// are no longer hardwired paths (`specs/architecture/15-kinds.md`, "A built-in kind is
-/// an adapter": the emit face's locus is the read face's scan root). The `skill` locus
-/// (`.claude/skills` + `*/SKILL.md`) resolves through the generalized subdir glob;
-/// `rule`'s (`.claude/rules` + `*.md`) is flat. Yields the member source *files* — for a
-/// skill the `SKILL.md`, not its directory.
+/// are no longer hardwired paths (the emit face's locus is the read face's scan root).
+/// The `skill` locus (`.claude/skills` + `*/SKILL.md`) resolves through the generalized
+/// subdir glob; `rule`'s (`.claude/rules` + `*.md`) is flat. Yields the member source
+/// *files* — for a skill the `SKILL.md`, not its directory.
 ///
 /// The parsed `kind` is threaded in from the caller's `definitions()` set, never
-/// re-resolved by bare `name`: an unrelated scan over a bare name a second provider also
-/// carries must not re-trigger `AmbiguousKind` (`specs/architecture/15-kinds.md`,
-/// "Decision: kind identity carries a provider axis").
+/// re-resolved by bare `name` — the scan reads whatever locus the caller hands it,
+/// independent of the embedded set's own lookup.
 ///
 /// The bare-harness-is-a-skill case — a `<harness>/SKILL.md`, a project root that is
 /// itself a skill — is Claude Code's own convention, outside the `.claude/skills`
@@ -484,27 +482,23 @@ Last line, no newline.";
     #[test]
     fn discover_builtin_scans_the_passed_kind_never_re_resolving_by_name() {
         // Discovery reads the `governs` of the kind it is *handed*, never re-resolving
-        // its bare `name` against the embedded set — so a kind whose bare name a second
-        // provider also carried would still scan without paying the collision
-        // (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider
-        // axis"). Proven with a synthetic `memory` kind: a bare name absent from today's
-        // embedded table, so a by-name re-resolution would find nothing, yet threading
-        // the parsed kind through discovers its member off the kind's own locus.
+        // its bare `name` against the embedded set. Proven with a synthetic `memory`
+        // kind carrying a *different* locus than the real embedded `memory` kind
+        // (`mem/*.md` here vs. `**/CLAUDE.md`): a by-name re-resolution would scan the
+        // embedded locus instead, so finding the member at this kind's own locus proves
+        // the parsed kind is threaded through untouched.
         let harness = tmpdir("threaded-discovery");
         fs::create_dir_all(harness.join("mem")).unwrap();
         fs::write(harness.join("mem").join("CLAUDE.md"), "# root\n").unwrap();
 
-        let memory = CustomKind {
-            qualified: Some("claude-code.memory".to_string()),
-            ..CustomKind::new(
-                "memory",
-                Governs {
-                    root: "mem".to_string(),
-                    glob: "*.md".to_string(),
-                },
-                Extraction::new(Vec::new()),
-            )
-        };
+        let memory = CustomKind::new(
+            "memory",
+            Governs {
+                root: "mem".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        );
 
         let found = discover_builtin(&harness, &memory).unwrap();
         assert_eq!(found, vec![harness.join("mem").join("CLAUDE.md")]);

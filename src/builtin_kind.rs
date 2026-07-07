@@ -1,17 +1,19 @@
 //! The embedded built-in kind std-lib.
 //!
-//! specs/architecture/15-kinds.md, "A built-in kind is an adapter". `temper` ships the
-//! read-side definitions of the known-harness kinds (`skill`, `rule`, the two `memory`
-//! providers) as plain Rust data below — the compiled default program the engine
-//! carries for SDK-less checking. There is no `KIND.md` file format any more
+//! `temper` ships the read-side definitions of the known-harness kinds (`skill`,
+//! `rule`, `memory`) as plain Rust data below — the compiled default program the
+//! engine carries for SDK-less checking. There is no `KIND.md` file format any more
 //! (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK — there
-//! is no kind file format"); the curated `kinds/<provider>/<name>/KIND.md` product
-//! tree (human-maintained, cited product source) is the authoring reference this data
+//! is no kind file format"); the curated `kinds/<name>/KIND.md` product tree
+//! (human-maintained, cited product source) is the authoring reference this data
 //! mirrors.
 //!
 //! A built-in kind's definition is a [`CustomKind`] like any other — assembled with
 //! [`CustomKind::new`] — and validated as any kind is; this module only sources the
-//! five facts from Rust literals instead of a parsed header.
+//! five facts from Rust literals instead of a parsed header. Identity is flat: a
+//! kind's bare name is its whole identity (`specs/architecture/15-kinds.md`, "Decision:
+//! built-ins are a module, and identity is an import"), so the three kinds below never
+//! collide.
 
 use std::collections::BTreeMap;
 
@@ -20,23 +22,11 @@ use crate::kind::{
     Activation, CustomKind, Extraction, Format, Governs, KindError, Primitive, Unit,
 };
 
-/// Every embedded built-in kind's qualified identity, sorted — the compiled default
-/// program's kind roster (`specs/architecture/15-kinds.md`, "Placement mirrors
-/// identity"). Two providers (`claude-code`, `agents-md`) co-embed the bare `memory`
-/// name by design (86d5b70).
-pub const BUILTIN_KINDS: &[&str] = &[
-    "agents-md.memory",
-    "claude-code.memory",
-    "claude-code.rule",
-    "claude-code.skill",
-];
-
 /// Anthropic's documented `.claude/skills/<name>/SKILL.md` kind
 /// (`kinds/claude-code/skill/KIND.md`): a directory whose identity is the `name`
 /// field, activated by its description trigger.
 fn claude_code_skill() -> CustomKind {
     CustomKind {
-        qualified: Some("claude-code.skill".to_string()),
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::Directory),
         activation: Some(Activation::DescriptionTrigger {
@@ -72,7 +62,6 @@ fn claude_code_skill() -> CustomKind {
 /// unconditionally, when absent).
 fn claude_code_rule() -> CustomKind {
     CustomKind {
-        qualified: Some("claude-code.rule".to_string()),
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::File),
         activation: Some(Activation::PathsMatch {
@@ -99,11 +88,9 @@ fn claude_code_rule() -> CustomKind {
 
 /// Anthropic's documented `CLAUDE.md` memory kind (`kinds/claude-code/memory/KIND.md`):
 /// every `CLAUDE.md` in the repository, frontmatter-less (no `format`), loaded
-/// unconditionally at launch. Deliberately shares the bare name `memory` with
-/// [`agents_md_memory`].
+/// unconditionally at launch.
 fn claude_code_memory() -> CustomKind {
     CustomKind {
-        qualified: Some("claude-code.memory".to_string()),
         unit_shape: Some(crate::kind::UnitShape::File),
         activation: Some(Activation::Always),
         ..CustomKind::new(
@@ -125,68 +112,42 @@ fn claude_code_memory() -> CustomKind {
     }
 }
 
-/// The AGENTS.md standard's memory kind (`kinds/agents-md/memory/KIND.md`): every
-/// `AGENTS.md` in the repository, frontmatter-less, loaded unconditionally. Deliberately
-/// shares the bare name `memory` with [`claude_code_memory`].
-fn agents_md_memory() -> CustomKind {
-    CustomKind {
-        qualified: Some("agents-md.memory".to_string()),
-        unit_shape: Some(crate::kind::UnitShape::File),
-        activation: Some(Activation::Always),
-        ..CustomKind::new(
-            "memory",
-            Governs {
-                root: ".".to_string(),
-                glob: "**/AGENTS.md".to_string(),
-            },
-            Extraction::new(vec![
-                Primitive::LineCount,
-                Primitive::Headings,
-                Primitive::Sections,
-                Primitive::Placement,
-            ]),
-        )
-    }
-}
-
 /// Every embedded built-in kind, freshly constructed — the compiled default program's
-/// whole kind set, in no particular order (callers key by [`CustomKind::qualified_name`]).
+/// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
     vec![
         claude_code_skill(),
         claude_code_rule(),
         claude_code_memory(),
-        agents_md_memory(),
     ]
 }
 
-/// Parse the built-in kind a **bare** `name` resolves to, or `None` if none carries it.
-/// Infallible construction, so the only failure is a bare-name collision (the two
-/// `memory` providers).
+/// The built-in kind a bare `name` resolves to, or `None` if none carries it. Bare
+/// name is the whole identity now (`specs/architecture/15-kinds.md`, "Decision:
+/// built-ins are a module, and identity is an import"), so this is a plain lookup.
 ///
 /// # Errors
 ///
-/// Returns [`KindError::AmbiguousKind`] when two providers carry the bare `name`.
+/// Never fails; the `Result` is kept for API stability (every call site already
+/// threads `?` through it).
 pub fn definition(name: &str) -> Result<Option<CustomKind>, KindError> {
-    let kinds = all_kinds();
-    Ok(CustomKind::resolve_bare(name, &kinds)?.cloned())
+    Ok(all_kinds().into_iter().find(|kind| kind.name == name))
 }
 
-/// The **qualified identity** of the built-in kind a bare `name` resolves to, or `None`
-/// if no embedded kind carries the bare name (`specs/architecture/15-kinds.md`, "Decision:
-/// kind identity carries a provider axis").
+/// The built-in kind a bare `name` resolves to, named by its own bare label — kept for
+/// call sites that ask for a kind's identity rather than its full definition. Always
+/// equal to `name` itself when the kind is embedded, since there is no provider axis
+/// to resolve through any more.
 ///
 /// # Errors
 ///
-/// Returns [`KindError::AmbiguousKind`] when two providers carry the bare `name`.
+/// Never fails; the `Result` is kept for API stability.
 pub fn qualified(name: &str) -> Result<Option<String>, KindError> {
-    Ok(definition(name)?.map(|kind| kind.qualified_name()))
+    Ok(definition(name)?.map(|kind| kind.name))
 }
 
-/// Every embedded built-in kind, keyed by its **qualified identity**
-/// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis"):
-/// two providers co-embedding one bare `memory` are distinct entries under distinct
-/// keys, so neither overwrites the other. Infallible — every entry is Rust data.
+/// Every embedded built-in kind, keyed by its bare name — the compiled default
+/// program's kind roster. Infallible — every entry is Rust data.
 ///
 /// # Errors
 ///
@@ -195,7 +156,7 @@ pub fn qualified(name: &str) -> Result<Option<String>, KindError> {
 pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
     Ok(all_kinds()
         .into_iter()
-        .map(|kind| (kind.qualified_name(), kind))
+        .map(|kind| (kind.name.clone(), kind))
         .collect())
 }
 
@@ -227,10 +188,8 @@ pub fn rule_features(unit: &Unit) -> Features {
 /// yielded untouched.
 ///
 /// Takes the resolved [`CustomKind`] rather than a name (the `check` gate holds it from
-/// [`definitions`], and re-resolving by bare name would hit [`KindError::AmbiguousKind`]
-/// for the two `memory` providers that share the bare name), so it is total — the
-/// extraction cannot fail once the definition is in hand. [`skill_features`] /
-/// [`rule_features`] stay the thin callers over the unambiguous built-ins.
+/// [`definitions`]), so it is total — the extraction cannot fail once the definition is
+/// in hand. [`skill_features`]/[`rule_features`] stay the thin callers over `skill`/`rule`.
 #[must_use]
 pub fn features(kind: &CustomKind, unit: &Unit) -> Features {
     let mut features = kind.extract(unit);
@@ -319,85 +278,23 @@ mod tests {
     }
 
     #[test]
-    fn definitions_enumerates_the_embedded_kind_set_by_qualified_identity() {
-        let mut expected = BUILTIN_KINDS.to_vec();
-        expected.sort_unstable();
+    fn definitions_enumerates_the_embedded_kind_set_by_bare_name() {
         let all = definitions().unwrap();
-        assert_eq!(all.keys().map(String::as_str).collect::<Vec<_>>(), expected);
+        assert_eq!(
+            all.keys().map(String::as_str).collect::<Vec<_>>(),
+            vec!["memory", "rule", "skill"]
+        );
     }
 
     #[test]
-    fn resolve_bare_over_a_qualified_set_finds_the_unique_carrier_and_errors_on_collision() {
-        // A synthetic second `skill` provider proves the resolution the built-in
-        // lookups route through finds the qualified kind exactly as it finds today's
-        // sole `claude-code` carrier, and errors on a genuine collision.
-        fn skill_of(provider: &str) -> CustomKind {
-            CustomKind {
-                qualified: Some(format!("{provider}.skill")),
-                ..CustomKind::new(
-                    "skill",
-                    Governs {
-                        root: ".claude/skills".to_string(),
-                        glob: "*/SKILL.md".to_string(),
-                    },
-                    Extraction::new(Vec::new()),
-                )
-            }
+    fn qualified_names_every_embedded_kind_by_its_own_bare_name() {
+        // No provider axis left to resolve through — a bare name's qualified identity
+        // is always itself (`specs/architecture/15-kinds.md`, "Decision: built-ins are
+        // a module, and identity is an import").
+        for bare in ["skill", "rule", "memory"] {
+            assert_eq!(qualified(bare).unwrap().as_deref(), Some(bare));
         }
-
-        // One carrier: a bare `skill` resolves to its unique `claude-code.skill`.
-        let one = vec![skill_of("claude-code")];
-        assert_eq!(
-            CustomKind::resolve_bare("skill", &one)
-                .unwrap()
-                .map(CustomKind::qualified_name)
-                .as_deref(),
-            Some("claude-code.skill")
-        );
-
-        // Two providers meeting under one bare name is a load error naming the
-        // candidates — the collision the Decision requires, never a silent wrong kind.
-        let two = vec![skill_of("claude-code"), skill_of("agent-skills")];
-        let err = CustomKind::resolve_bare("skill", &two).unwrap_err();
-        assert!(matches!(err, KindError::AmbiguousKind { .. }));
-    }
-
-    #[test]
-    fn two_memory_providers_leave_definitions_and_unrelated_lookups_clean() {
-        // `definitions()` succeeds for every caller: keyed by qualified identity, the two
-        // `memory` carriers are distinct entries — the collision costs nobody here.
-        let defs = definitions().unwrap();
-        assert_eq!(
-            defs.keys().collect::<Vec<_>>(),
-            vec![
-                "agents-md.memory",
-                "claude-code.memory",
-                "claude-code.rule",
-                "claude-code.skill",
-            ]
-        );
-
-        // Non-colliding bare lookups stay clean: `skill`/`rule` each resolve to their
-        // unique carrier.
-        for bare in ["skill", "rule"] {
-            assert!(
-                definition(bare)
-                    .unwrap()
-                    .is_some_and(|kind| kind.name == bare)
-            );
-        }
-
-        // Only the ambiguous bare `memory` errors — naming both qualified candidates so
-        // the author knows what to disambiguate against.
-        let err = definition("memory").unwrap_err();
-        match err {
-            KindError::AmbiguousKind { name, candidates } => {
-                assert_eq!(name, "memory");
-                assert!(candidates.contains("claude-code.memory"));
-                assert!(candidates.contains("agents-md.memory"));
-            }
-            other => panic!("expected AmbiguousKind for bare `memory`, got {other:?}"),
-        }
+        assert!(qualified("spec").unwrap().is_none());
     }
 
     /// A fresh, empty temp directory unique to this test run.

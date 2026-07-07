@@ -248,9 +248,8 @@ pub enum Represent {
 /// what was reported, never a re-walked, possibly-differing set.
 #[derive(Debug, Clone, Default)]
 pub struct DiscoveryReport {
-    /// Discovered member source files, keyed by the kind's **qualified** identity
-    /// (`specs/architecture/15-kinds.md`) — every embedded built-in, not just the
-    /// three the SDK's `@dtmd/temper/claude-code` face exports today (`scaffoldable_kind`).
+    /// Discovered member source files, keyed by the kind's bare row label
+    /// (`specs/architecture/15-kinds.md`) — every embedded built-in kind.
     pub members: BTreeMap<String, Vec<PathBuf>>,
 }
 
@@ -272,13 +271,13 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     let mut members = BTreeMap::new();
     for kind in builtin_kind::definitions()?.values() {
         let files = import::discover_builtin(root, kind)?;
-        members.insert(kind.qualified_name(), files);
+        members.insert(kind.name.clone(), files);
     }
     Ok(DiscoveryReport { members })
 }
 
 /// Render the discovery report for the terminal — findings first, ceremony after
-/// (`specs/architecture/20-surface.md`): member counts by qualified kind, or a plain
+/// (`specs/architecture/20-surface.md`): member counts by kind, or a plain
 /// statement that nothing was found.
 #[must_use]
 pub fn render_discovery(report: &DiscoveryReport) -> String {
@@ -821,22 +820,6 @@ fn group_has_command(group: &JsonValue, pred: impl Fn(&str) -> bool) -> bool {
 // (`specs/architecture/20-surface.md`, "install — the front door; the lift, once")
 // ---------------------------------------------------------------------------
 
-/// The bare kind name a qualified discovery key scaffolds as, or `None` when the
-/// SDK's `@dtmd/temper/claude-code` face exports no constructor for it yet. Today's
-/// discovery walk also covers `agents-md.memory` (the compiled default program's
-/// second `memory` provider, `specs/architecture/15-kinds.md`), which the SDK does
-/// not yet expose — those members still surface in the discovery *report* (raw
-/// counts), but the lift skips them rather than fabricate a face the SDK doesn't
-/// carry.
-fn scaffoldable_kind(qualified: &str) -> Option<&'static str> {
-    match qualified {
-        "claude-code.skill" => Some("skill"),
-        "claude-code.rule" => Some("rule"),
-        "claude-code.memory" => Some("memory"),
-        _ => None,
-    }
-}
-
 /// The scaffold subdirectory a bare kind's member modules live under
 /// (`specs/architecture/20-surface.md`, "The port scene": `.temper/skills/reviewer.ts`).
 fn member_dir(kind: &str) -> &'static str {
@@ -872,15 +855,12 @@ fn scaffold(
     let kinds = builtin_kind::definitions()?;
 
     let mut lifted: Vec<(String, String, PathBuf)> = Vec::new();
-    for (qualified, files) in &discovery.members {
-        let Some(bare) = scaffoldable_kind(qualified) else {
-            continue;
-        };
-        let Some(kind) = kinds.get(qualified) else {
+    for (name, files) in &discovery.members {
+        let Some(kind) = kinds.get(name) else {
             continue;
         };
         for file in files {
-            lifted.push((bare.to_string(), member_name(kind, file)?, file.clone()));
+            lifted.push((name.clone(), member_name(kind, file)?, file.clone()));
         }
     }
     lifted.sort();

@@ -59,27 +59,18 @@ fn builtin_floor(name: &str) -> miette::Result<Contract> {
         .ok_or_else(|| miette::miette!("built-in package `{name}` is not embedded in this binary"))
 }
 
-/// temper's own **published** floor bindings (`specs/architecture/15-kinds.md`, "a published package
-/// binds a qualified kind name"): each embedded built-in kind, by the bare name the
-/// author writes, paired with the package name its floor loads from. The bare name
-/// resolves to its qualified identity through the embedded set ([`builtin_floors`]).
+/// temper's own **published** floor bindings: each embedded built-in kind, by its bare
+/// row label, paired with the package name its floor loads from.
 const BUILTIN_FLOOR_BINDINGS: &[(&str, &str)] = &[
     ("skill", builtin::SKILL_PACKAGE),
     ("rule", builtin::RULE_PACKAGE),
 ];
 
-/// The built-in floors keyed by their **qualified** kind identity (`claude-code.skill`),
-/// resolved through the embedded set's provider axis (`specs/architecture/15-kinds.md`, "Decision:
-/// kind identity carries a provider axis"). temper ships each package bound to the
-/// qualified kind name a consumer's assembly can never mistake for another provider's;
-/// a two-provider collision under one bare name would surface as a load error here.
+/// The built-in floors keyed by their bare row label.
 fn builtin_floors() -> miette::Result<Vec<(String, Contract)>> {
     let mut floors = Vec::with_capacity(BUILTIN_FLOOR_BINDINGS.len());
     for (name, package) in BUILTIN_FLOOR_BINDINGS {
-        let id = builtin_kind::qualified(name)?.ok_or_else(|| {
-            miette::miette!("built-in kind `{name}` is not embedded in this binary")
-        })?;
-        floors.push((id, builtin_floor(package)?));
+        floors.push(((*name).to_string(), builtin_floor(package)?));
     }
     Ok(floors)
 }
@@ -298,18 +289,13 @@ fn main() -> miette::Result<ExitCode> {
             // "The lock and drift — one vocabulary") — as an editor JSON Schema.
             let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE))?;
 
-            // Keyed by each kind's **qualified** identity (`claude-code.skill`), the
-            // published-binding form (`specs/architecture/15-kinds.md`).
+            // Keyed by each kind's bare row label.
             let floors = builtin_floors()?;
 
             let json = match kind.as_deref() {
-                // An unknown kind is a hard error, never a silent empty schema. A request
-                // resolves either bare (`skill`) or fully qualified (`claude-code.skill`):
-                // the qualified identity's bare component is its last dotted segment.
+                // An unknown kind is a hard error, never a silent empty schema.
                 Some(requested) => {
-                    let floor = floors.into_iter().find(|(name, _)| {
-                        name == requested || name.rsplit('.').next() == Some(requested)
-                    });
+                    let floor = floors.into_iter().find(|(name, _)| name == requested);
                     let (name, floor) = floor.ok_or_else(|| {
                         miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
                     })?;
@@ -566,31 +552,31 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
 
-    // The generic two-greens over EVERY embedded built-in kind, keyed by qualified
-    // identity (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
+    // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
+    // label (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
     // kind's members — resolved by [`kind_features`] straight off harness disk, shared
     // with `explain` (READ-EDGE-UNIFY) so a read cannot disagree with the gate about
     // which members exist — are dispatched to its floor package and validated, so a
-    // discovered CLAUDE.md/AGENTS.md memory member fires its `memory` clauses exactly
-    // as a skill/rule does — no longer silently skipped by a hardcoded skill/rule
-    // pair. Floors bind by QUALIFIED identity, never the bare name: the two `memory`
-    // providers share the bare `memory` by design (86d5b70), so a bare resolve would
-    // be ambiguous. SCOPE: only this validation path generalizes — the roster/graph
-    // tier below stays skill/rule/custom (no memory member publishes a requirement
-    // today; folding more built-ins into the requirement corpus is the separate
-    // `(builtin-workspace-qualified-key)` fork), so `skill`/`rule` are captured out of
-    // the dispatch below into `skill_features`/`rule_features`.
+    // discovered `CLAUDE.md` memory member fires its `memory` clauses exactly as a
+    // skill/rule does — no longer silently skipped by a hardcoded skill/rule pair.
+    // SCOPE: only this validation path generalizes — the roster/graph tier below
+    // stays skill/rule/custom (no memory member publishes a requirement today;
+    // folding more built-ins into the requirement corpus is a separate scope
+    // question), so `skill`/`rule` are captured out of the dispatch below into
+    // `skill_features`/`rule_features`.
     let mut diagnostics = Vec::new();
-    // Per-kind checked-member counts, keyed by qualified identity — carried out of
+    // Per-kind checked-member counts, keyed by bare row label — carried out of
     // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
     // so "checked N members" is stated rather than left as bare silence.
     let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut skill_features: Vec<extract::Features> = Vec::new();
     let mut rule_features: Vec<extract::Features> = Vec::new();
     for kind in builtin_kind::definitions()?.values() {
-        let qualified = kind.qualified_name();
-        let package = builtin::floor_package(&qualified).ok_or_else(|| {
-            miette::miette!("built-in kind `{qualified}` ships no floor package binding")
+        let package = builtin::floor_package(&kind.name).ok_or_else(|| {
+            miette::miette!(
+                "built-in kind `{}` ships no floor package binding",
+                kind.name
+            )
         })?;
         // Two greens (`specs/architecture/10-contracts.md`): admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
@@ -603,7 +589,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
-        member_counts.insert(qualified, features.len());
+        member_counts.insert(kind.name.clone(), features.len());
         match kind.name.as_str() {
             "skill" => skill_features = features,
             "rule" => rule_features = features,
@@ -767,22 +753,16 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 
 /// This kind's effective `governs` locus (`specs/architecture/20-surface.md`, "The lock
 /// and drift — one vocabulary"): the committed lock's own kind-fact row when the lock
-/// declares one for it — matched by bare name **and** provider, so the two `memory`
-/// providers sharing the bare name never cross-resolve each other's locus
-/// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider
-/// axis") — or the kind's own embedded `governs` when it doesn't: the **built-in
-/// lock**, the same declaration shape the engine carries compiled-in for an unadopted
-/// harness.
+/// declares one for it — matched by bare name, the kind's whole identity
+/// (`specs/architecture/15-kinds.md`, "Decision: built-ins are a module, and identity
+/// is an import") — or the kind's own embedded `governs` when it doesn't: the
+/// **built-in lock**, the same declaration shape the engine carries compiled-in for an
+/// unadopted harness.
 fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> kind::Governs {
-    let provider = kind
-        .qualified
-        .as_deref()
-        .and_then(|qualified| qualified.rsplit_once('.'))
-        .map(|(provider, _)| provider);
     declarations
         .kinds
         .iter()
-        .find(|row| row.name == kind.name && row.provider.as_deref() == provider)
+        .find(|row| row.name == kind.name)
         .map(|row| kind::Governs {
             root: row.governs_root.clone(),
             glob: row.governs_glob.clone(),

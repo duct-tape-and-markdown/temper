@@ -261,12 +261,10 @@ fn an_unrecognized_target_is_a_clean_read_naming_no_namespace() {
 
 /// Floor-binding narration over the read family's public `why` API (READ-FLOOR-BINDING-DEFAULT):
 /// `bound_package` names each embedded kind's *real* floor — resolved through the one
-/// `QUALIFIED_FLOOR_BINDINGS` table — instead of defaulting every non-rule kind to
-/// `skill.anthropic`. A memory member carries the disambiguated qualified identity
-/// (`claude-code.memory`/`agents-md.memory`; the bare `memory` collides across two
-/// providers), so it is threaded as a custom member the way a qualified built-in reaches
-/// the read family. Skills/rules keep their own floors — these exercise the resolution
-/// branches directly.
+/// `FLOOR_BINDINGS` table — instead of defaulting every non-rule kind to
+/// `skill.anthropic`. A memory member is threaded as a custom member the way a
+/// built-in reaches the read family. Skills/rules keep their own floors — these
+/// exercise the resolution branches directly.
 mod floor_binding {
     use std::collections::BTreeMap;
 
@@ -295,30 +293,22 @@ mod floor_binding {
 
     #[test]
     fn a_memory_member_names_its_own_floor_never_the_skill_floor() {
-        // `claude-code.memory` binds `memory.anthropic`; the `agents-md` provider binds
-        // `memory.agents-md`. Neither may be mis-narrated as `skill.anthropic` — the
-        // default-to-skill bug this entry closes.
-        let claude = why_kind("claude-code.memory", "project-memory");
+        // `memory` binds `memory.anthropic` — never mis-narrated as `skill.anthropic`,
+        // the default-to-skill bug this entry closes.
+        let memory = why_kind("memory", "project-memory");
         assert!(
-            claude.contains("binds the `memory.anthropic` floor"),
-            "a claude-code memory member is bound to its own floor: {claude}"
+            memory.contains("binds the `memory.anthropic` floor"),
+            "a memory member is bound to its own floor: {memory}"
         );
         assert!(
-            !claude.contains("skill.anthropic"),
-            "a memory member is never narrated as skill-bound: {claude}"
-        );
-
-        let agents = why_kind("agents-md.memory", "AGENTS");
-        assert!(
-            agents.contains("binds the `memory.agents-md` floor"),
-            "an agents-md memory member is bound to its own floor: {agents}"
+            !memory.contains("skill.anthropic"),
+            "a memory member is never narrated as skill-bound: {memory}"
         );
     }
 
     #[test]
-    fn a_bare_builtin_name_resolves_to_its_qualified_floor() {
-        // `skill`/`rule` reach `bound_package` as bare names; each resolves to its qualified
-        // identity (`claude-code.skill`/`claude-code.rule`) and names its own floor.
+    fn a_builtin_name_resolves_to_its_bound_floor() {
+        // `skill`/`rule` reach `bound_package` as bare names and each names its own floor.
         let skill = why_kind("skill", "reviewer");
         assert!(
             skill.contains("binds the `skill.anthropic` floor"),

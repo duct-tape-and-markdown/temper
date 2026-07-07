@@ -68,7 +68,11 @@ impl Workspace {
     /// exercised without waiting on the embedded set to grow. Each kind's members land
     /// under its bare name, read from `<dir>/<subdir>/*` by the kind's own
     /// [`surface_subdir`](CustomKind::surface_subdir) and
-    /// [`member_document`](CustomKind::member_document).
+    /// [`member_document`](CustomKind::member_document). Two kinds sharing a bare name
+    /// would silently overwrite each other's entry here — the embedded built-in set is
+    /// guaranteed unique (`specs/architecture/15-kinds.md`, "Decision: built-ins are a
+    /// module, and identity is an import"), so a collision is a malformed kind set, not
+    /// a case this loader resolves.
     fn load_kinds<'a>(
         dir: &Path,
         kinds: impl IntoIterator<Item = &'a CustomKind>,

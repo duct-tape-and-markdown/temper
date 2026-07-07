@@ -1,8 +1,8 @@
 //! The embedded built-in package std-lib.
 //!
 //! `temper` ships a set of first-party packages — the curated Anthropic contracts
-//! for the built-in artifact kinds (`skill.anthropic`, `rule.anthropic`, the two
-//! `memory.*` providers). There is no `PACKAGE.md` file format any more
+//! for the built-in artifact kinds (`skill.anthropic`, `rule.anthropic`,
+//! `memory.anthropic`). There is no `PACKAGE.md` file format any more
 //! (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK —
 //! there is no kind file format"; the same Decision retires a package file): each
 //! built-in is authored directly as Rust data below — the compiled default program
@@ -15,60 +15,44 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::contract::{Charset, Clause, Contract, ContractError, Predicate, Severity};
 
-/// The built-in package temper ships as the floor for the `claude-code.skill` kind —
-/// Anthropic's documented skill contract (`specs/architecture/10-contracts.md`, "named for its
-/// source"). temper's own **published** binding names the *qualified* kind identity:
-/// publication is where the consumer's assembly is unknowable, so a bare binding would
-/// be a latent collision. The package's own name stays short — the kind axis it binds is what
-/// qualifies, resolved through the embedded set (`crate::builtin_kind::qualified`).
+/// The built-in package temper ships as the floor for the `skill` kind — Anthropic's
+/// documented skill contract (`specs/architecture/10-contracts.md`, "named for its
+/// source").
 pub const SKILL_PACKAGE: &str = "skill.anthropic";
 
-/// The built-in package temper ships as the floor for the `claude-code.rule` kind —
-/// Anthropic's documented rule contract, bound to the qualified kind identity exactly
-/// as [`SKILL_PACKAGE`] is (`specs/architecture/15-kinds.md`). Renamed from the bare `rule`
-/// (`specs/architecture/10-contracts.md`, "named for its source": the clauses are equally
-/// Anthropic-sourced).
+/// The built-in package temper ships as the floor for the `rule` kind — Anthropic's
+/// documented rule contract (`specs/architecture/10-contracts.md`, "named for its
+/// source": the clauses are equally Anthropic-sourced).
 pub const RULE_PACKAGE: &str = "rule.anthropic";
 
-/// The built-in package temper ships as the floor for the `claude-code.memory` kind —
-/// the documented `CLAUDE.md` contract (`specs/architecture/10-contracts.md`, "named for its
-/// source"). Bound to the **qualified** kind identity in [`QUALIFIED_FLOOR_BINDINGS`]:
-/// the bare `memory` name is ambiguous by design — two providers carry it (86d5b70) —
-/// so unlike skill/rule it can never resolve through the bare→qualified path, and the
-/// floor binds `claude-code.memory` directly.
+/// The built-in package temper ships as the floor for the `memory` kind — the
+/// documented `CLAUDE.md` contract (`specs/architecture/10-contracts.md`, "named for
+/// its source").
 pub const MEMORY_ANTHROPIC_PACKAGE: &str = "memory.anthropic";
 
-/// The built-in package temper ships as the floor for the `agents-md.memory` kind — the
-/// `AGENTS.md` contract, bound to its qualified identity exactly as
-/// [`MEMORY_ANTHROPIC_PACKAGE`] is. The AGENTS.md standard constrains almost nothing, so
-/// this package is guidance-only (zero clauses); the binding still routes a discovered
-/// `AGENTS.md` member here rather than to Anthropic's `CLAUDE.md` floor.
+/// The `AGENTS.md` contract — guidance-only (zero clauses), since the standard
+/// constrains almost nothing. Kept as embedded package data (`by_name`/`contracts`)
+/// though no built-in kind binds it as a floor today: the `agents-md` locus a future
+/// `(agents-md-builtin-kind)` kind would govern is out of the embedded kind set since
+/// BUILTIN-KIND-FLATTEN.
 pub const MEMORY_AGENTS_MD_PACKAGE: &str = "memory.agents-md";
 
-/// Each embedded built-in kind's floor package, keyed by the kind's **qualified**
-/// identity `<provider>.<name>` — the binding the `check` gate's per-kind loop resolves
-/// a discovered member's package through. Qualified, never bare: the two `memory`
-/// providers collide on the bare name by design (86d5b70), so a bare key would be
-/// ambiguous; skill/rule qualify the same way for one uniform table. This is temper's
-/// own **published** binding — it names the qualified kind a consumer's assembly can
-/// never mistake for another provider's.
-pub const QUALIFIED_FLOOR_BINDINGS: &[(&str, &str)] = &[
-    ("claude-code.skill", SKILL_PACKAGE),
-    ("claude-code.rule", RULE_PACKAGE),
-    ("claude-code.memory", MEMORY_ANTHROPIC_PACKAGE),
-    ("agents-md.memory", MEMORY_AGENTS_MD_PACKAGE),
+/// Each embedded built-in kind's floor package, keyed by the kind's bare row label —
+/// the binding the `check` gate's per-kind loop resolves a discovered member's package
+/// through.
+pub const FLOOR_BINDINGS: &[(&str, &str)] = &[
+    ("skill", SKILL_PACKAGE),
+    ("rule", RULE_PACKAGE),
+    ("memory", MEMORY_ANTHROPIC_PACKAGE),
 ];
 
-/// The floor package bound to a built-in kind's **qualified** identity
-/// (`claude-code.memory` → `memory.anthropic`), or `None` if no embedded kind of that
-/// identity ships a floor. The gate's per-kind loop looks each discovered kind's floor
-/// up here by [`qualified_name`](crate::kind::CustomKind::qualified_name)
-/// ([`QUALIFIED_FLOOR_BINDINGS`]).
+/// The floor package bound to a built-in kind's bare row label (`memory` →
+/// `memory.anthropic`), or `None` if no embedded kind of that name ships a floor.
 #[must_use]
-pub fn floor_package(qualified: &str) -> Option<&'static str> {
-    QUALIFIED_FLOOR_BINDINGS
+pub fn floor_package(kind: &str) -> Option<&'static str> {
+    FLOOR_BINDINGS
         .iter()
-        .find(|(id, _)| *id == qualified)
+        .find(|(name, _)| *name == kind)
         .map(|(_, package)| *package)
 }
 
@@ -284,9 +268,8 @@ Treat rules like code: prune them when behavior drifts, and test a change by\n\
 watching whether Claude's behavior actually shifts.";
 
 /// Anthropic's documented contract for a project `CLAUDE.md`, as decidable clauses
-/// (`packages/memory.anthropic/PACKAGE.md`). Binds the qualified kind
-/// `claude-code.memory` — a bare `memory` binding collides with `agents-md.memory`.
-/// All sources retrieved 2026-07-02.
+/// (`packages/memory.anthropic/PACKAGE.md`). Binds the `memory` kind. All sources
+/// retrieved 2026-07-02.
 fn memory_anthropic() -> Contract {
     Contract {
         name: MEMORY_ANTHROPIC_PACKAGE.to_string(),
@@ -331,8 +314,9 @@ directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md`\n\
 
 /// The AGENTS.md standard's contract for a memory file — which is that there is
 /// almost none (`packages/memory.agents-md/PACKAGE.md`). Zero clauses: the
-/// standard defines no schema to gate. Binds the qualified kind
-/// `agents-md.memory`. All sources retrieved 2026-07-02.
+/// standard defines no schema to gate. Not bound as any built-in kind's floor today
+/// (`(agents-md-builtin-kind)`); kept as embedded package data. All sources retrieved
+/// 2026-07-02.
 fn memory_agents_md() -> Contract {
     Contract {
         name: MEMORY_AGENTS_MD_PACKAGE.to_string(),
@@ -397,8 +381,8 @@ pub fn contract(name: &str) -> Result<Option<Contract>, ContractError> {
 }
 
 /// Every embedded built-in package as a `name → Contract` map — the built-in set a
-/// by-name package binding resolves against, keyed the same way
-/// [`QUALIFIED_FLOOR_BINDINGS`] binds a qualified kind to its floor.
+/// by-name package binding resolves against, keyed the same way [`FLOOR_BINDINGS`]
+/// binds a kind's bare row label to its floor.
 ///
 /// # Errors
 ///

@@ -82,16 +82,6 @@ pub struct CustomKind {
     /// built-in kinds declare none). Stored inert — REACHABILITY reads it to decide a
     /// member's declared activation edge is dead; nothing consumes it yet.
     pub activation: Option<Activation>,
-    /// The kind's **qualified identity** — `<provider>.<name>` for a kind that
-    /// mirrors an external format (`specs/architecture/15-kinds.md`, "Decision:
-    /// kind identity carries a provider axis"), authored directly rather than
-    /// computed from a separate provider string: identity is an import, not a
-    /// string resolved at runtime ("built-ins are a module, and identity is an
-    /// import"). Absent ⇒ the kind's bare `name` is its own qualified identity — a
-    /// project's own kind (`spec`) mirrors nothing external and stays bare. Feeds
-    /// [`qualified_name`](CustomKind::qualified_name); the bare→unique-or-collision
-    /// resolution is [`resolve_bare`](CustomKind::resolve_bare).
-    pub qualified: Option<String>,
     /// The kind's declared **genres** — typed shapes for its members' recurring prose
     /// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
     /// "Genre values"), parsed from the header's `[[genres]]` array. Extraction folds a
@@ -206,7 +196,6 @@ impl CustomKind {
             format: None,
             unit_shape: None,
             activation: None,
-            qualified: None,
             genres: Vec::new(),
         }
     }
@@ -254,54 +243,13 @@ impl CustomKind {
         features.genres = genres;
     }
 
-    /// The kind's **qualified identity** — the authored [`qualified`](CustomKind::qualified)
-    /// label when the kind mirrors an external format, the bare `name` otherwise
-    /// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider
-    /// axis"). A project's own kind mirrors nothing and stays bare, paying no
-    /// qualification tax until two providers actually meet under one bare name (see
-    /// [`resolve_bare`](CustomKind::resolve_bare)).
+    /// The kind's **identity** — its bare `name` (`specs/architecture/15-kinds.md`,
+    /// "Decision: built-ins are a module, and identity is an import": identity travels
+    /// by import, never by string, so a bare name is already unique). Kept as its own
+    /// method rather than inlining `.name.clone()` at each call site.
     #[must_use]
     pub fn qualified_name(&self) -> String {
-        self.qualified.clone().unwrap_or_else(|| self.name.clone())
-    }
-
-    /// Resolve a **bare** kind reference against a kind set (`specs/architecture/15-kinds.md`,
-    /// "Decision: kind identity carries a provider axis"): a bare `name` resolves iff
-    /// exactly one kind in `kinds` carries it, returning that unique kind; two
-    /// providers meeting under one bare name is a collision, a
-    /// [`KindError::AmbiguousKind`] naming the qualified candidates so the author
-    /// qualifies the reference. No kind carrying the name resolves to `Ok(None)` — an
-    /// unknown-reference is the consuming binding's concern (BINDING-QUALIFY), not this
-    /// pure identity mechanism's.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`KindError::AmbiguousKind`] when more than one kind in `kinds` carries
-    /// the bare `name`.
-    pub fn resolve_bare<'a>(
-        name: &str,
-        kinds: &'a [CustomKind],
-    ) -> Result<Option<&'a CustomKind>, KindError> {
-        let mut matches = kinds.iter().filter(|kind| kind.name == name);
-        let Some(first) = matches.next() else {
-            return Ok(None);
-        };
-        if matches.next().is_none() {
-            return Ok(Some(first));
-        }
-        // A collision: name the qualified candidates so the author knows what to
-        // disambiguate against. Re-scan for the full set — the message is worth the
-        // second pass over a handful of kinds (this tool is I/O-bound over tiny files).
-        let candidates = kinds
-            .iter()
-            .filter(|kind| kind.name == name)
-            .map(CustomKind::qualified_name)
-            .collect::<Vec<_>>()
-            .join(", ");
-        Err(KindError::AmbiguousKind {
-            name: name.to_string(),
-            candidates,
-        })
+        self.name.clone()
     }
 
     /// The kind's declared frontmatter fields, in declaration order — the `field`
@@ -343,13 +291,12 @@ impl CustomKind {
     }
 
     /// Whether a surface member imported from `source_path` belongs to this kind — its
-    /// source filename matches the kind's `governs` glob leaf. The discriminator for kinds
-    /// that **share a surface locus**: the two `memory` providers both project their member
-    /// to `./MEMORY.md` (`claude-code.memory` from `CLAUDE.md`, `agents-md.memory` from
-    /// `AGENTS.md`), so the projected document alone cannot say which package governs it —
-    /// the provenance source name does (`specs/architecture/20-surface.md`). A kind at a unique locus
-    /// (skill's `SKILL.md`, rule's `*.md`) matches its own members, so the filter is a no-op
-    /// there. A member with no readable source name belongs to nothing rather than
+    /// source filename matches the kind's `governs` glob leaf. The discriminator for two
+    /// kinds that **share a surface locus** (their projected member document lands at the
+    /// same path, so the document alone cannot say which kind governs it — the provenance
+    /// source name does, `specs/architecture/20-surface.md`). A kind at a unique locus
+    /// (skill's `SKILL.md`, rule's `*.md`) matches its own members, so the filter is a
+    /// no-op there. A member with no readable source name belongs to nothing rather than
     /// mis-dispatching.
     #[must_use]
     pub fn owns_source(&self, source_path: &Path) -> bool {
@@ -721,8 +668,7 @@ fn lone_body_file(dir: &Path) -> Result<PathBuf, KindError> {
 }
 
 /// Errors raised while reloading a written surface unit ([`Unit::from_surface_dir`],
-/// [`Unit::from_member_document`]) or resolving a bare kind reference
-/// ([`CustomKind::resolve_bare`]). Hard failures — distinct from a lint finding,
+/// [`Unit::from_member_document`]). Hard failures — distinct from a lint finding,
 /// which the check engine collects rather than throws.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum KindError {
@@ -777,26 +723,6 @@ pub enum KindError {
         dir: PathBuf,
         /// How many `.md` bodies were found (never exactly one).
         found: usize,
-    },
-
-    /// A **bare** kind reference resolves to more than one kind — a provider collision
-    /// (`specs/architecture/15-kinds.md`, "Decision: kind identity carries a provider axis"). A bare
-    /// name resolves iff exactly one kind in the assembly carries it; two providers
-    /// meeting under one bare name is a load error naming the qualified candidates, so
-    /// the author qualifies the reference as `<provider>.<name>`. Nobody pays the
-    /// qualification tax until two providers actually meet. Carries no `path` — the
-    /// collision is over the assembly's whole kind set, not one kind's own
-    /// definition; the consuming binding (BINDING-QUALIFY) adds its own locus.
-    #[error("bare kind reference `{name}` is ambiguous — candidates: {candidates}")]
-    #[diagnostic(
-        code(temper::kind::ambiguous_kind),
-        help("qualify the reference as `<provider>.<name>` to name the kind you mean")
-    )]
-    AmbiguousKind {
-        /// The bare name that resolves to more than one kind.
-        name: String,
-        /// The qualified candidates it collides across, comma-joined for the message.
-        candidates: String,
     },
 }
 
@@ -1252,84 +1178,35 @@ import_hash = \"deadbeef\"\n\
         assert!(matches!(err, KindError::SurfaceBody { found: 2, .. }));
     }
 
-    /// A bare `spec` kind, optionally carrying a directly-authored qualified label —
-    /// the shape a built-in or SDK-authored custom kind constructs
-    /// ([`CustomKind::new`]), no file format involved.
-    fn spec_kind(qualified: Option<&str>) -> CustomKind {
-        CustomKind {
-            qualified: qualified.map(str::to_string),
-            ..CustomKind::new(
-                "spec",
-                Governs {
-                    root: "specs".to_string(),
-                    glob: "*.md".to_string(),
-                },
-                Extraction::new(Vec::new()),
-            )
-        }
+    /// A bare `spec` kind — the shape a built-in or SDK-authored custom kind
+    /// constructs ([`CustomKind::new`]), no file format involved.
+    fn spec_kind() -> CustomKind {
+        CustomKind::new(
+            "spec",
+            Governs {
+                root: "specs".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
     }
 
     #[test]
     fn new_constructs_a_kind_with_every_optional_fact_absent() {
         // The constructor's defaults — nothing invented until the caller sets it.
-        let kind = spec_kind(None);
+        let kind = spec_kind();
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
         assert_eq!(kind.activation, None);
-        assert_eq!(kind.qualified, None);
         assert!(kind.relationships.is_empty());
         assert!(kind.genres.is_empty());
     }
 
     #[test]
-    fn qualified_name_is_the_authored_label_or_the_bare_name() {
-        // A directly-authored `qualified` label wins; absent, identity is the bare
-        // `name` — the qualification tax nobody pays until two providers meet.
-        let qualified = spec_kind(Some("claude-code.spec"));
-        assert_eq!(qualified.qualified_name(), "claude-code.spec");
-
-        let bare = spec_kind(None);
-        assert_eq!(bare.qualified_name(), "spec");
-    }
-
-    #[test]
-    fn resolve_bare_returns_the_unique_match_or_none() {
-        // A bare name resolves iff exactly one kind carries it. The set here holds two
-        // distinct bare names, so `spec` resolves to its lone `claude-code`-qualified kind.
-        let claude_spec = spec_kind(Some("claude-code.spec"));
-        let mut cursor_rule = spec_kind(Some("cursor.rule"));
-        cursor_rule.name = "rule".to_string();
-        let kinds = vec![claude_spec, cursor_rule];
-
-        let resolved = CustomKind::resolve_bare("spec", &kinds).unwrap();
-        assert_eq!(
-            resolved.map(CustomKind::qualified_name).as_deref(),
-            Some("claude-code.spec")
-        );
-
-        // A bare name no kind carries resolves to `None`, not an error — an
-        // unknown-reference is the consuming binding's concern (BINDING-QUALIFY).
-        assert!(CustomKind::resolve_bare("hook", &kinds).unwrap().is_none());
-    }
-
-    #[test]
-    fn resolve_bare_reports_a_collision_naming_the_qualified_candidates() {
-        // Two providers meeting under one bare name is the collision the Decision requires
-        // as a load error — `AmbiguousKind` names the qualified candidates so the author
-        // knows what to qualify against.
-        let claude_skill = spec_kind(Some("claude-code.spec"));
-        let cursor_skill = spec_kind(Some("cursor.spec"));
-        // Both are named `spec` by the shared helper — the collision under test.
-        let kinds = vec![claude_skill, cursor_skill];
-
-        let err = CustomKind::resolve_bare("spec", &kinds).unwrap_err();
-        match err {
-            KindError::AmbiguousKind { name, candidates } => {
-                assert_eq!(name, "spec");
-                assert!(candidates.contains("claude-code.spec"));
-                assert!(candidates.contains("cursor.spec"));
-            }
-            other => panic!("expected AmbiguousKind, got {other:?}"),
-        }
+    fn qualified_name_is_the_bare_name() {
+        // Identity travels by import, never by string — a kind's qualified identity
+        // is always its own bare name (`specs/architecture/15-kinds.md`, "Decision:
+        // built-ins are a module, and identity is an import").
+        assert_eq!(spec_kind().qualified_name(), "spec");
     }
 }
