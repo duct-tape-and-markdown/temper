@@ -62,6 +62,28 @@ tax.
   provider-qualified `memory`; identity travels by import, not string —
   `specs/builtins.md`)? A feature addition, not a chain blocker.
 
+- `(genre-embedded-member)` — OPEN (registered 2026-07-06). The retired
+  vocabulary `genre` — "a kind at the block locus" (`src/extract.rs`
+  `GenreValue`/`Genre`/`GenreCollections`, the `genre.<name> <key>` fence,
+  `genre_leaves`, `LeafAddress`; ~50 refs each in extract/kind/read) — is
+  0001's "genre → nested kind template." The kernel remodels this as an
+  **embedded nested member**: a member of a kind at the embedded locus,
+  addressed per its parent's format (`specs/model/representation.md`,
+  "nesting" / "locus"; the spec-decision-embedded-in-its-document example the
+  section names IS a genre fence). Open: does the machinery reconcile as a
+  **vocabulary rename** — kept as temper's embedded-member implementation,
+  `GenreValue` → an embedded-member type, the retired `architecture/*` cites
+  repointed onto representation.md — or a **structural fold** into the uniform
+  member tree the kernel names ("members all the way down"), where a genre
+  value becomes a full nested member with its own kind rather than a bespoke
+  parallel struct? The plain reading is ambiguous: "a nested member is a full
+  member with its own kind" reads as a model statement the genre struct
+  already satisfies, yet "members all the way down" reads as a structural
+  mandate. Entangled with VACATE-KIND-NOUN's files
+  (extract/kind/read/engine/graph/roster) — the reconciliation serializes
+  after VACATE regardless. Routes the genre + `architecture/*`-cite residue
+  class. Needs John: a keep-mechanism-vs-restructure call, not mechanical.
+
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness
