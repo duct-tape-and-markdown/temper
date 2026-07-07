@@ -1,24 +1,28 @@
 # Plan state
 
 - Spec derived through: 5945405
-- Audited through: 01162ee
-- Residue swept through: b2afc32
-- This tick: ship audit b2afc32→HEAD. LOCK-NESTING-TEMPLATES shipped (0a50f65)
-  and verified on disk: `KindFactRow.templates` column (src/drift.rs), lifted
-  by `from_kind_fact_row` into inert Template shape (src/kind.rs), `templatesFor`
-  SDK emit (sdk/src/declarations.ts); round-trip test green (lock_declaration_
-  rows). Already removed from pending by the flume ship chore (01162ee). Its
-  downstream blocker cleared → flipped CITE-RETAG blockedBy→open (shared
-  drift/kind/declarations no longer contended by any open entry; PACKAGING
-  touches only package.json + release.yml). Re-tested PACKAGING park reason on
-  disk: root package.json still private `temper-flume-harness`, no
-  `.github/workflows/release.yml` (only temper.yml), install.rs still pins
-  `^0.0.2` — nothing moved this window, stays parked. Audited cursor → HEAD;
-  spec + residue cursors copied forward verbatim.
+- Audited through: 4c50193
+- Residue swept through: 4c50193
+- This tick: residue sweep b2afc32→HEAD. Window's one code commit is
+  LOCK-NESTING-TEMPLATES (0a50f65) — its residue is spec-cite comment staleness,
+  rides CITE-RETAG (open, covers every src/sdk/test file). No fileable
+  non-comment residue: `genre` machinery is live (GENRE-FOLD shipped), and the
+  enforcement enum is `{Note,Warn,Block}` on disk — the `Shared`/`Surface` hits
+  in code are ordinary English ("Shared content hashing", "Surface-decidable"),
+  not stale enum symbols. Also surfaced (pre-cursor, comment-only): retired
+  two-value `{shared,surface}` posture prose at src/main.rs:139, src/drift.rs:778,
+  src/install.rs:99 — comment staleness (never a standalone entry), routed by
+  riding CITE-RETAG, which opens those files. Refreshed CITE-RETAG to land the
+  ride: dropped the now-dead "serialized behind LOCK-NESTING-TEMPLATES" note
+  (shipped, gate already open), folded `{shared,surface}`→`{note,warn,block}`
+  into its comment sweep, and corrected its mapping hint for the 20-surface split
+  (lock/drift/install→pipeline.md, guard/enforcement→distribution.md, root mode
+  field→representation.md; acceptance forces per-cite resolution). Advanced
+  audited + residue cursors to HEAD (only 4c50193, a plan commit, sat past
+  them — no un-audited code); spec cursor copied forward verbatim.
 - Queue: 2 — CITE-RETAG (open, pickable), PACKAGING-CHANNELS (parked: release
   creds + engine-binary workflow).
 
-Plan continues: yes — residue sweep still live (Residue swept through b2afc32
-trails HEAD 01162ee; the one intervening code commit is the GENRE-FOLD-residual
-closure — conformant, comment/cite staleness rides CITE-RETAG). One job per
-tick: ship audit taken, residue sweep next.
+Plan continues: yes — quiet closing pass. All inputs current (inbox empty,
+no spec delta, audit + residue at HEAD); next tick verifies the queue is
+disjoint and every gate reason holds, then hands off.

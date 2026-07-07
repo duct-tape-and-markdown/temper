@@ -1,7 +1,7 @@
 [
   {
     "tag": "CITE-RETAG",
-    "summary": "One-time mechanical retag: point every code comment/doc citation at its current specs/** home after the kernel recut invalidated the old numbered layout — comment-only, no behavior change",
+    "summary": "Comment-hygiene sweep after the kernel recut: retag stale spec-layout cites to their current specs/** home and fix retired {shared,surface} mode-value prose — comment-only, no behavior change",
     "per": {
       "path": "specs/process/spec-system.md",
       "section": "Form rules"
@@ -258,8 +258,8 @@
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "No code comment or doc-comment cites the retired layout (specs/architecture/NN-*, the bare n//l/ abbreviations, l.md, specs/intent/00-intent.md, or 'law N' numbering); every cite resolves to a current specs/** section. cargo build/test and emit --frozen are byte-unchanged (comments don't reach output).",
-    "notes": "Authorized once by John (07-07 inbox) as an exception to the ride-only rule — a corpus-wide invalidation. Mapping: 10-contracts→contract.md, 15-kinds→representation.md, 20-surface+40-composition→pipeline.md, 45-governance→contract.md, 50-distribution→distribution.md, 00-intent+'law N'→intent.md invariants. Fix the pointer, keep the claim; leave fixture payload prose. Serialized behind LOCK-NESTING-TEMPLATES."
+    "acceptance": "No code/doc-comment cites the retired layout (specs/architecture/NN-*, l.md, specs/intent/00-intent.md, or 'law N' numbering) and none names the retired two-value {shared,surface} posture; every cite resolves to a current specs/** section and every mode reference uses the current {note,warn,block}. cargo build/test and emit --frozen are byte-unchanged (comments don't reach output).",
+    "notes": "Authorized once by John (07-07 inbox) — corpus-wide-invalidation exception to the ride-only rule. Retag each cite to the current section that holds its claim (acceptance enforces resolution); note 20-surface splits — lock/drift/install→pipeline.md, guard/enforcement→distribution.md, root mode field→representation.md. Also retag retired {shared,surface} posture prose→{note,warn,block}. Fix the pointer, keep the claim; leave fixture payload prose."
   },
   {
     "tag": "PACKAGING-CHANNELS",
