@@ -5,7 +5,7 @@
 //! is the Claude-Code-native placement, and `bundle` is the verb that produces it.
 //! `temper` ships as a plugin bundling two things:
 //!
-//! 1. the **skill** — how to *operate the gate* (`import` / `check`, read a
+//! 1. the **skill** — how to *operate the gate* (`install` / `check`, read a
 //!    diagnostic, and when to challenge the contract versus fix the artifact). It is
 //!    mechanics, never taste (the Decision "the skill is mechanics, never taste"):
 //!    the opinions live in the SDK's floors, never in skill prose;
@@ -49,9 +49,9 @@ const PLUGIN_NAME: &str = "temper";
 
 /// The plugin/marketplace description — what the gate delivers, not what a good
 /// harness is.
-const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: import the harness into a typed \
-     surface, check it against the active contract, and run the advisory \
-     session-start gate — with the std-lib floors embedded.";
+const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: install it, check it against the \
+     active contract, and run the advisory session-start gate — with the std-lib \
+     floors embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
 /// itself, checking the project it is installed into under the advisory session-start
@@ -69,7 +69,7 @@ const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 const OPERATE_SKILL: &str = "\
 ---
 name: temper
-description: Use when operating the temper gate on a Claude Code harness — importing a harness into the typed surface, running `temper check` against the active contract, reading a temper diagnostic, or deciding whether to fix the artifact or challenge the contract.
+description: Use when operating the temper gate on a Claude Code harness — installing the gate, running `temper check` against the active contract, reading a temper diagnostic, or deciding whether to fix the artifact or challenge the contract.
 ---
 # Operating the temper gate
 
@@ -80,9 +80,12 @@ opinion about what a good harness is — that lives in the SDK module
 
 ## Run the gate
 
-- `temper import <harness-path> --into .temper` — scan the harness (skills, rules,
-  and any custom kinds the assembly registers) into the typed surface under
-  `.temper`. Re-importing an unchanged harness is a no-op.
+- `temper install` — the one on-ramp: a discovery report, then one question
+  (represent this project as a temper program? — every answer flag-spelled, e.g.
+  `--yes`, no invisible state). Yes lifts the harness into an SDK program, runs the
+  first `emit`, and places the session-start hook, guard hook, schema modeline, and
+  managed-by notes; no wires the session-start hook alone. Re-running converges: an
+  unchanged harness is a no-op.
 - `temper check .temper` — the gate. It validates two greens: every built-in
   contract is itself admissible, and every artifact conforms to the contract for its
   kind. It exits non-zero on a `required`-severity violation; add `--deny-advisories`

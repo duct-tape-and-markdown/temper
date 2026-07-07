@@ -163,6 +163,39 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
 }
 
 #[test]
+fn shipped_strings_teach_install_not_the_retired_import_verb() {
+    // The CLI has no Import subcommand (Install/Check/Emit/Schema/Guard/Bundle/
+    // Explain) — `install` is the single on-ramp. No shipped bundle string may
+    // still teach the retired `import` verb, and the skill's on-ramp bullet must
+    // name `temper install`.
+    let surface = imported_surface("install-verb");
+    let out = tmpdir("install-verb-out");
+
+    bundle::run(&surface, &out).unwrap();
+
+    let plugin_json = fs::read_to_string(out.join(".claude-plugin").join("plugin.json")).unwrap();
+    let market_json =
+        fs::read_to_string(out.join(".claude-plugin").join("marketplace.json")).unwrap();
+    let skill_md = fs::read_to_string(out.join("skills").join("temper").join("SKILL.md")).unwrap();
+
+    for (label, text) in [
+        ("plugin.json", &plugin_json),
+        ("marketplace.json", &market_json),
+        ("SKILL.md", &skill_md),
+    ] {
+        assert!(
+            !text.contains("temper import") && !text.contains("`import`"),
+            "{label} must not teach the retired `import` verb, got:\n{text}"
+        );
+    }
+
+    assert!(
+        skill_md.contains("temper install"),
+        "the skill's on-ramp bullet must name `temper install`, got:\n{skill_md}"
+    );
+}
+
+#[test]
 fn bundle_report_names_shipped_artifacts_over_an_empty_surface() {
     // The field report: a large surface produced "surface: 0 skills, 0 rules" because
     // the report counted composed-over members instead of naming what channel 3
