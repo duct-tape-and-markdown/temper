@@ -138,7 +138,7 @@ function edgeBoundArgs(
   return min === undefined && max === undefined ? undefined : { min, max };
 }
 
-/** One assembly-scope fact — authority or an edge. */
+/** One assembly-scope fact — the root member's declared enforcement mode, or an edge. */
 export interface AssemblyFactRow {
   readonly fact: string;
   readonly value?: string;
@@ -240,13 +240,13 @@ function requirementRows(harness: Harness): RequirementRow[] {
 }
 
 /**
- * The assembly-scope facts, in a stable order: authority (always declared — the
- * `shared` default anchors every harness until a surface-authority posture is
- * authored), then one edge row per kind edge field (`40-composition.md`;
- * `45-governance.md`).
+ * The assembly-scope facts, in a stable order: the root member's declared
+ * `mode` (always present — `specs/model/representation.md`, "The root
+ * member": harness-wide declarations are root-member fields), then one edge
+ * row per kind edge field.
  */
-function assemblyFactRows(kinds: readonly KindFacts[]): AssemblyFactRow[] {
-  const facts: AssemblyFactRow[] = [{ fact: "authority", value: "shared" }];
+function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): AssemblyFactRow[] {
+  const facts: AssemblyFactRow[] = [{ fact: "mode", value: harness.mode }];
   for (const kind of kinds) {
     for (const edge of kind.edgeFields ?? []) {
       facts.push({ fact: "edge", from: kind.name, field: edge.field, to: edge.to });
@@ -283,7 +283,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     kinds: kinds.map(kindFactRow),
     clauses,
     requirements: requirementRows(harness),
-    assembly: assemblyFactRows(kinds),
+    assembly: assemblyFactRows(harness, kinds),
     satisfies: satisfiesRows(harness),
   };
 }

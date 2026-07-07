@@ -134,12 +134,12 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
     },
-    /// The `PreToolUse` surface-authority guard (`specs/architecture/20-surface.md`, "surface
-    /// authority is a declared posture"): read Claude Code's `PreToolUse` payload from
-    /// stdin and, when the write targets a `.claude/` projection, inform-and-route under
-    /// the `shared` posture (advisory, exit 0) or block under `surface` (exit 2). The
-    /// posture is read live from the harness's lock (`.temper/lock.toml`'s `authority`
-    /// declaration row) — temper never escalates on its own determination, and an
+    /// The `PreToolUse` guard: read Claude Code's `PreToolUse` payload from stdin
+    /// and, when the write targets a `.claude/` projection, inform-and-route under
+    /// the `shared` enforcement mode (advisory, exit 0) or block under `surface`
+    /// (exit 2). The mode is read live from the harness's lock (`.temper/lock.toml`'s
+    /// root-member `mode` declaration row, `specs/model/representation.md`, "The
+    /// root member") — temper never escalates on its own determination, and an
     /// unrepresented harness (no lock) reads the default `shared`. Wired at the write
     /// boundary by `temper install`.
     Guard {
@@ -329,19 +329,19 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Guard { path } => {
-            // The surface-authority guard at Claude Code's write boundary
-            // (`specs/architecture/20-surface.md`): read the `PreToolUse` payload from stdin,
-            // and — when it targets a `.claude/` projection — act at the author's declared
-            // posture. `shared` informs and routes (exit 0); `surface` blocks (exit 2).
-            // temper never escalates past the posture the lock declares — the lock is
-            // what names a path a projection, so it is also the sole authority for how
-            // firmly that projection is enforced (`20-surface.md`, "surface authority is
-            // a declared posture"). An unrepresented harness (no lock) reads the default
-            // `shared`, matching `compose::Authority`'s own default.
-            let authority = authority_from_lock(&path.join(TEMPER_DIR));
+            // The guard at Claude Code's write boundary: read the `PreToolUse` payload
+            // from stdin, and — when it targets a `.claude/` projection — act at the
+            // author's declared enforcement mode. `shared` informs and routes (exit 0);
+            // `surface` blocks (exit 2). temper never escalates past the mode the lock
+            // declares — the lock is what names a path a projection, so it is also the
+            // sole source for how firmly that projection is enforced (`specs/model/
+            // representation.md`, "The root member"). An unrepresented harness (no
+            // lock) reads the default `shared`, matching `compose::EnforcementMode`'s
+            // own default.
+            let mode = mode_from_lock(&path.join(TEMPER_DIR));
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
-            Ok(match install::guard(&payload, authority) {
+            Ok(match install::guard(&payload, mode) {
                 install::GuardVerdict::Allow => ExitCode::SUCCESS,
                 install::GuardVerdict::Warn => {
                     eprintln!("{}", install::GUARD_MESSAGE);
@@ -493,22 +493,22 @@ fn explain(target: &str) -> miette::Result<String> {
     ))
 }
 
-/// Read the `guard`'s posture live off a harness's lock (`specs/architecture/20-surface.md`,
-/// "surface authority is a declared posture"): the `authority` fact in
-/// `<workspace_dir>/lock.toml`'s assembly declaration rows. An unrepresented harness
-/// (no lock, or one predating the fact) reads [`compose::Authority::default`] —
-/// `shared` — matching the lock-less "nothing to bind" posture everywhere else in
-/// this module.
-fn authority_from_lock(workspace_dir: &Path) -> compose::Authority {
+/// Read the `guard`'s enforcement mode live off a harness's lock
+/// (`specs/model/representation.md`, "The root member"): the root member's `mode`
+/// fact in `<workspace_dir>/lock.toml`'s assembly declaration rows. An unrepresented
+/// harness (no lock, or one predating the field) reads
+/// [`compose::EnforcementMode::default`] — `shared` — matching the lock-less
+/// "nothing to bind" posture everywhere else in this module.
+fn mode_from_lock(workspace_dir: &Path) -> compose::EnforcementMode {
     drift::read_declarations(workspace_dir)
         .unwrap_or_default()
         .assembly
         .iter()
-        .find(|row| row.fact == "authority")
+        .find(|row| row.fact == "mode")
         .and_then(|row| row.value.as_deref())
         .and_then(|value| match value {
-            "surface" => Some(compose::Authority::Surface),
-            "shared" => Some(compose::Authority::Shared),
+            "surface" => Some(compose::EnforcementMode::Surface),
+            "shared" => Some(compose::EnforcementMode::Shared),
             _ => None,
         })
         .unwrap_or_default()

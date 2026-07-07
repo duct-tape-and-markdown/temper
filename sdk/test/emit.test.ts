@@ -193,8 +193,30 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       verified_by: "tests/dev-standards.test.ts",
     },
   ]);
-  assert.deepEqual(declarations.assembly, [{ fact: "authority", value: "shared" }]);
+  assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "shared" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
+});
+
+test("compileDeclarations emits no uncoined `authority` fact, and the root member's declared mode round-trips", () => {
+  // The hardcoded `{ fact: "authority", value: "shared" }` the corpus never coined
+  // (MODE-ROOT-MEMBER-FIELD) is retired — the root member's own declared `mode`
+  // field is the sole source of this row now (`specs/model/representation.md`,
+  // "The root member").
+  const defaulted = compileDeclarations(fullHarness());
+  assert.ok(
+    !defaulted.assembly.some((fact) => fact.fact === "authority"),
+    "no uncoined `authority` fact is emitted",
+  );
+  assert.deepEqual(
+    defaulted.assembly.find((fact) => fact.fact === "mode"),
+    { fact: "mode", value: "shared" },
+  );
+
+  const surfaced = harness({ ...fullHarness(), mode: "surface" });
+  assert.deepEqual(
+    compileDeclarations(surfaced).assembly.find((fact) => fact.fact === "mode"),
+    { fact: "mode", value: "surface" },
+  );
 });
 
 test("clauseRow serializes a node-scope predicate's own argument onto the row", () => {

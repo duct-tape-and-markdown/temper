@@ -556,7 +556,7 @@ fn guard_reads_the_surface_posture_from_the_lock_not_the_retired_manifest() {
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
         temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"authority\"\nvalue = \"surface\"\n",
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"surface\"\n",
     )
     .unwrap();
     // A stray retired manifest naming the opposite posture must be ignored entirely —

@@ -36,7 +36,7 @@ use serde_json::{Value as JsonValue, json};
 
 use crate::builtin_kind;
 use crate::check::Diagnostic;
-use crate::compose::Authority;
+use crate::compose::EnforcementMode;
 use crate::drift::{self, ApplyOutcome, EmitReport};
 use crate::import;
 use crate::kind::UnitShape;
@@ -67,7 +67,7 @@ const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 const SESSION_START: &str = "session-start hook";
 /// The placement label for a schema modeline.
 const MODELINE: &str = "schema modeline";
-/// The placement label for the `PreToolUse` surface-authority guard hook.
+/// The placement label for the `PreToolUse` enforcement-mode guard hook.
 const GUARD_HOOK: &str = "guard hook";
 /// The placement label for a managed-by note.
 const NOTE: &str = "managed-by note";
@@ -566,34 +566,34 @@ fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
         .is_file()
 }
 
-/// The verdict `temper guard` reaches over a `PreToolUse` payload at the author's
-/// declared posture (`specs/architecture/20-surface.md`, "surface authority is a declared
-/// posture"): whether Claude Code's pending write is allowed, informed-and-routed, or
-/// blocked. temper never escalates past the posture the harness declares.
+/// The verdict `temper guard` reaches over a `PreToolUse` payload at the root
+/// member's declared enforcement mode (`specs/model/representation.md`, "The root
+/// member"): whether Claude Code's pending write is allowed, informed-and-routed,
+/// or blocked. temper never escalates past the mode the harness declares.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GuardVerdict {
     /// The write does not target a `.claude/` projection — allow it silently.
     Allow,
-    /// A projection edit under the `shared` posture — inform and route to `emit`, exit 0.
+    /// A projection edit under the `shared` mode — inform and route to `emit`, exit 0.
     Warn,
-    /// A projection edit under the `surface` posture — block the write (exit 2).
+    /// A projection edit under the `surface` mode — block the write (exit 2).
     Block,
 }
 
-/// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `authority`'s
-/// posture (`specs/architecture/20-surface.md`, the guard Decision). A write whose `file_path`
-/// targets a `.claude/` projection maps onto the severity vocabulary — `shared` informs
-/// and routes ([`GuardVerdict::Warn`]), `surface` blocks ([`GuardVerdict::Block`]). Any
-/// other write, or a payload naming no `.claude/` `file_path`, is [`GuardVerdict::Allow`]:
+/// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `mode`'s
+/// enforcement posture. A write whose `file_path` targets a `.claude/` projection
+/// maps onto the mode vocabulary — `shared` informs and routes
+/// ([`GuardVerdict::Warn`]), `surface` blocks ([`GuardVerdict::Block`]). Any other
+/// write, or a payload naming no `.claude/` `file_path`, is [`GuardVerdict::Allow`]:
 /// the guard binds only projection edits.
 #[must_use]
-pub fn guard(payload: &str, authority: Authority) -> GuardVerdict {
+pub fn guard(payload: &str, mode: EnforcementMode) -> GuardVerdict {
     if !targets_projection(payload) {
         return GuardVerdict::Allow;
     }
-    match authority {
-        Authority::Shared => GuardVerdict::Warn,
-        Authority::Surface => GuardVerdict::Block,
+    match mode {
+        EnforcementMode::Shared => GuardVerdict::Warn,
+        EnforcementMode::Surface => GuardVerdict::Block,
     }
 }
 

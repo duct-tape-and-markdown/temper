@@ -112,7 +112,7 @@ fn skill_and_rule_members() -> Vec<PayloadMember> {
     ]
 }
 
-/// A rich declaration set: a surface-authority posture, a `required` requirement, a
+/// A rich declaration set: a `surface` enforcement mode, a `required` requirement, a
 /// second requirement exercising every set-scope facet (`count`/`unique`/`membership`/
 /// `degree`), and a member that opts into both via `satisfies` — so the requirement and
 /// satisfies families carry more than the bare-payload minimum.
@@ -238,7 +238,7 @@ fn rich_declarations() -> Declarations {
             },
         ],
         assembly: vec![AssemblyFactRow {
-            fact: "authority".to_string(),
+            fact: "mode".to_string(),
             value: Some("surface".to_string()),
             from: None,
             field: None,
@@ -382,13 +382,13 @@ fn lock_carries_all_four_declaration_families() {
     satisfied.sort_unstable();
     assert_eq!(satisfied, vec!["review-coverage", "roster-coverage"]);
 
-    // Assembly facts: the surface-authority posture the assembly declared.
-    let authority = declarations
+    // Assembly facts: the root member's declared enforcement mode.
+    let mode = declarations
         .assembly
         .iter()
-        .find(|f| f.fact == "authority")
-        .expect("the authority fact is recorded");
-    assert_eq!(authority.value.as_deref(), Some("surface"));
+        .find(|f| f.fact == "mode")
+        .expect("the mode fact is recorded");
+    assert_eq!(mode.value.as_deref(), Some("surface"));
 }
 
 #[test]

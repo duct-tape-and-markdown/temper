@@ -1,12 +1,13 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
-# checking (specs/architecture/50-distribution.md, "The stranger gate"). Declaration
-# rows only: the three built-in kinds' facts and their floor clauses, plus the
-# unconditional `authority = "shared"` assembly fact every harness carries absent an
-# authored posture. No requirements, no satisfies, no provenance or emit-fingerprint
-# rows — nothing was emitted, there are no members.
+# checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
+# the three built-in kinds' facts and their floor clauses, plus the unconditional
+# `mode = "shared"` assembly fact — the root member's own enforcement mode
+# (specs/model/representation.md, "The root member") — every harness carries
+# absent an authored mode. No requirements, no satisfies, no provenance or
+# emit-fingerprint rows — nothing was emitted, there are no members.
 #
-# Derived, never transcribed (specs/architecture/50-distribution.md, "Decision: the
-# built-in lock is derived from the SDK module, never transcribed"): this is the
+# Derived, never transcribed (specs/distribution.md, "Decision: the built-in
+# lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
 # built-in kinds (`skill`, `rule`, `memory`) and its four floors (`skillFloor`,
@@ -171,5 +172,5 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-01)"
 keys = ["globs", "alwaysApply"]
 
 [[declaration.assembly]]
-fact = "authority"
+fact = "mode"
 value = "shared"

@@ -63,7 +63,7 @@ export type {
 export { genre, kind } from "./kind.js";
 
 // The assembly — `harness()` and its five fields.
-export type { ExpectBinding, Harness } from "./assembly.js";
+export type { EnforcementMode, ExpectBinding, Harness } from "./assembly.js";
 export { harness } from "./assembly.js";
 
 // Declaration rows — the erased program the seam carries.

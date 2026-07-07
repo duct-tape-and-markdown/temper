@@ -925,8 +925,8 @@ pub struct Declarations {
     pub clauses: Vec<ClauseRow>,
     /// The named requirements the assembly declares (`specs/architecture/10-contracts.md`).
     pub requirements: Vec<RequirementRow>,
-    /// The assembly-scope facts — authority, edges
-    /// (`specs/architecture/40-composition.md`; `specs/architecture/45-governance.md`).
+    /// The assembly-scope facts — the root member's declared enforcement `mode`,
+    /// edges (`specs/model/representation.md`, "The root member").
     pub assembly: Vec<AssemblyFactRow>,
     /// The member→requirement fill edges — every imported member's `satisfies` keys
     /// (`specs/architecture/20-surface.md`, "The lock and drift"), so the roster/coverage
@@ -1124,15 +1124,16 @@ pub struct SatisfiesRow {
     pub requirement: String,
 }
 
-/// One assembly-scope fact — the graph/assembly declarations the harness binds
-/// (`specs/architecture/40-composition.md`): a `fact` discriminator (`authority`,
-/// `edge`) plus the columns that fact carries. Absent columns are omitted
-/// from the lock, so each row round-trips to exactly what its producer wrote.
+/// One assembly-scope fact — the root member's own declarations plus the
+/// graph edges the harness binds: a `fact` discriminator (`mode`, `edge`)
+/// plus the columns that fact carries. Absent columns are omitted from the
+/// lock, so each row round-trips to exactly what its producer wrote.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct AssemblyFactRow {
-    /// The fact discriminator: `authority` or `edge`.
+    /// The fact discriminator: `mode` or `edge`.
     pub fact: String,
-    /// The scalar value an `authority` fact carries (its posture).
+    /// The scalar value a `mode` fact carries (the root member's declared
+    /// enforcement posture).
     #[serde(default)]
     pub value: Option<String>,
     /// An `edge` fact's source kind.

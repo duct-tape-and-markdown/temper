@@ -1,10 +1,9 @@
-//! The harness assembly's domain types — [`Requirement`], [`Edge`], [`Authority`] —
-//! and [`effective`], which composes the lock's per-clause severity overrides onto
-//! the embedded by-kind floor (`specs/architecture/20-surface.md`, "The lock and drift
-//! — one vocabulary"). A requirement's set-/edge-scope demands ride ordinary
-//! [`contract::Clause`] values (`specs/architecture/10-contracts.md`, "Decision:
-//! set-scope demands are clauses"); their predicate payloads ([`contract::EdgeBound`]
-//! and friends) live in [`crate::contract`], not here.
+//! The harness assembly's domain types — [`Requirement`], [`Edge`], [`EnforcementMode`]
+//! — and [`effective`], which composes the lock's per-clause severity overrides onto
+//! the embedded by-kind floor (`specs/model/pipeline.md`). A requirement's
+//! set-/edge-scope demands ride ordinary [`contract::Clause`] values
+//! (`specs/model/contract.md`); their predicate payloads ([`contract::EdgeBound`] and
+//! friends) live in [`crate::contract`], not here.
 //!
 //! There is no reader in this module: every value here is populated from the lock's
 //! declaration rows (`crate::drift::Declarations`), the sole producer since `emit`
@@ -15,15 +14,16 @@
 use crate::contract::{self, Contract};
 use crate::drift::ClauseRow;
 
-/// The assembly's declared **surface-authority posture** — how firmly the surface owns its
-/// projections (`specs/architecture/20-surface.md`, "surface authority is a declared posture,
-/// never a baked stance"): a closed vocabulary the author declares, never a stance
-/// temper bakes in. Defaults to [`Shared`](Authority::Shared).
+/// The harness's declared **enforcement mode** — how firmly the surface owns its
+/// projections: a closed vocabulary the author declares on the root member
+/// (`specs/model/representation.md`, "The root member"; `specs/decisions/
+/// 0005-mode-on-root-member.md`), never a stance temper bakes in. Defaults to
+/// [`Shared`](EnforcementMode::Shared).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Authority {
+pub enum EnforcementMode {
     /// Direct on-disk edits stay first-class — a hand edit surfaces as drift routed to
-    /// the authored source, guards inform and route. The default: temper fabricates no
-    /// enforcement the author did not ask for (`00-intent.md` law 4).
+    /// the authored source, guards inform and route. The default: enforcement mode is
+    /// author-declared per placement, never assumed (`specs/intent.md` invariant 5).
     #[default]
     Shared,
     /// The author opts into enforcement — the managed-by note and the guard hook's
