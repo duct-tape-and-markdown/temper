@@ -3,10 +3,10 @@
 //! [`render_genre`] compiles a [`GenreValue`] (a genre fence's extracted leaves and
 //! keyed collections) into the markdown a projection carries — a heading, the leaf
 //! labels, deterministic ordering, and per-leaf anchors — as **connective tissue
-//! only** (`specs/architecture/20-surface.md`, "The display rule owns connective
-//! tissue"): every meaning-carrying word is an authored leaf, rendered verbatim
+//! only** (`specs/architecture/20-surface.md`, "Emit — total, byte-reproducible,
+//! refusing"): every meaning-carrying word is an authored leaf, rendered verbatim
 //! (law 5); the heading, labels, and anchors are the value's declared structure in
-//! rendered form — the markdown analogue of the manifest's TOML syntax, never
+//! rendered form — the markdown analogue of the lock's TOML syntax, never
 //! synthesized prose. One rule serves every genre: the labels and heading derive
 //! from the value's own declared genre name and field keys, so it is per-genre by
 //! data, not by a hard-coded genre.

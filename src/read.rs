@@ -58,7 +58,7 @@ use crate::kind::Registration;
 /// A member as the read family sees it: its kind, its id, and the requirements it opts
 /// into filling (each with its authored rationale). Built off the typed [`Workspace`]
 /// artifacts — the `satisfies` the surface language authors on each member document
-/// (`specs/architecture/20-surface.md`, "The member document"), which the decidable
+/// (`specs/architecture/20-surface.md`, "The member"), which the decidable
 /// [`crate::extract::Features`] view drops the rationale from but the read family needs
 /// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
 /// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never
@@ -96,13 +96,14 @@ pub struct CustomMember {
 /// one-way annotation class"; address grain). **Obligation-free**: the obligation graph
 /// ignores it, coverage never counts it, and `impact` reports it as a *citation, never
 /// fallout* — deleting or rewording the cited leaf is never blocked, the citer is told.
-/// **Resolution-checked** against the manifest's serialized genre values: `impact` reports
+/// **Resolution-checked** against the lock's serialized genre values: `impact` reports
 /// a citation only for a leaf that resolves, exactly the referential guarantee a mention
 /// carries.
 ///
 /// The floor carries no producer yet — floor leaves carry no mentions
-/// (`specs/architecture/20-surface.md`, "Genre values"), so today's caller threads an empty
-/// set and the leaf-grain report names zero citers; the mechanism is proven in unit tests here.
+/// (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"), so today's
+/// caller threads an empty set and the leaf-grain report names zero citers; the mechanism
+/// is proven in unit tests here.
 pub struct Citation {
     /// The kind of the citer — part of its node identity, and what the narration prints.
     pub from_kind: String,
@@ -293,7 +294,7 @@ pub fn explain(
 /// `temper why <member>` — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
 /// own `means`), the floor its kind binds, and its resolved edges in and out
-/// (`specs/architecture/20-surface.md`, "Decision: the CLI gains a read family"). A read, never a
+/// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"). A read, never a
 /// gate — the caller prints this and exits zero on every input, including a name no
 /// member bears.
 ///
@@ -481,9 +482,9 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 ///    imports it (its own registration dead); removing `member` unreaches it
 ///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
 ///
-/// The family gains **leaf grain** (`specs/architecture/20-surface.md`, "The family gains leaf
-/// grain"): a `target` naming a genre-value leaf — the `<member>/<genre>/<key>/<field-path>`
-/// address — dispatches to [`impact_leaf`], which resolves the leaf against the manifest's
+/// The family gains **leaf grain** (`specs/architecture/20-surface.md`, "Decision: one read
+/// verb — `explain`"): a `target` naming a genre-value leaf — the `<member>/<genre>/<key>/<field-path>`
+/// address — dispatches to [`impact_leaf`], which resolves the leaf against the lock's
 /// serialized genre values and reports its **citations separately from fallout** (a leaf is
 /// obligation-free; `specs/architecture/45-governance.md`, address grain). A `target` with no `/` is
 /// a bare member name and takes the member-grain path below, unchanged.
@@ -552,8 +553,8 @@ pub fn impact(
 }
 
 /// A parsed **leaf address** — the `<member>/<genre>/<key>/<field-path>` spelling `impact`
-/// accepts to name a single genre-value leaf (`specs/architecture/20-surface.md`, "leaf addresses
-/// are structural and keyed"). The three identity segments are `/`-separated; the field
+/// accepts to name a single genre-value leaf (`specs/architecture/20-surface.md`, "Decision:
+/// one read verb — `explain`"). The three identity segments are `/`-separated; the field
 /// path keeps its own dots (`rejected.baked-projection.because`), so it is the whole
 /// remainder after the third slash — `splitn(4, '/')`, never a plain split that would
 /// mangle a dotted collection path.
@@ -584,7 +585,7 @@ fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
     })
 }
 
-/// Resolve a parsed leaf address against the manifest's **serialized genre values**
+/// Resolve a parsed leaf address against the lock's **serialized genre values**
 /// ([`Features::genre_leaves`]) — the tier-1, offline read the leaf-grain `impact` stands
 /// on. Returns the matched leaf's kind and authored value, or `None` when no member's genre
 /// value carries that `(genre, key, field-path)`. Ranges over every kind's members, since a
@@ -612,9 +613,9 @@ fn resolve_leaf<'a>(
 }
 
 /// `temper impact <leaf-address>` — narrate a genre-value leaf at **leaf grain**
-/// (`specs/architecture/20-surface.md`, "The family gains leaf grain"): resolve the leaf against
-/// the manifest's serialized genre values, then report its **citations separately from
-/// fallout** (`specs/architecture/45-governance.md`, address grain). A leaf is obligation-free — its
+/// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"): resolve the
+/// leaf against the lock's serialized genre values, then report its **citations separately
+/// from fallout** (`specs/architecture/45-governance.md`, address grain). A leaf is obligation-free — its
 /// citations neither gate nor block a rewrite — so the fallout line states exactly that,
 /// distinct from the citation list a join/reachability member-grain report would carry.
 ///
@@ -636,7 +637,7 @@ fn impact_leaf(
     let Some((kind, value)) = resolve_leaf(by_kind, &parsed) else {
         return format!(
             "No leaf `{target}` is in the surface's serialized genre values. `impact` reads \
-             leaf grain off the manifest's `[[member.genre]]` tables — check the member, \
+             leaf grain off the lock's `[[member.genre]]` tables — check the member, \
              genre, key, and field path; a document carrying no genre values is not \
              represented at leaf grain.\n"
         );
@@ -750,11 +751,10 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 }
 
 /// `temper context <address>` — emit the **declared neighborhood** of a member or a genre-value
-/// leaf (`specs/architecture/20-surface.md`, "`context <address>` emits a member's or leaf's declared
-/// neighborhood"): its genre slot, its siblings, the members that cite it, and the requirements its
-/// member satisfies — the pre-edit context bundle for the primary author. Consumes only the
-/// manifest's serialized genre values (`by_kind`) and declared citations: offline, tier-1, no
-/// runtime.
+/// leaf (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"): its genre
+/// slot, its siblings, the members that cite it, and the requirements its member satisfies —
+/// the pre-edit context bundle for the primary author. Consumes only the lock's serialized
+/// genre values (`by_kind`) and declared citations: offline, tier-1, no runtime.
 ///
 /// A `/`-bearing `address` is a leaf (`<member>/<genre>/<key>/<field-path>`) reported at leaf grain
 /// ([`context_leaf`]); a bare name is a member reported whole ([`context_member`]). Both are
@@ -778,7 +778,7 @@ pub fn context(
 
 /// Narrate a genre-value leaf's neighborhood: its genre slot and authored value, its **siblings**
 /// (the other leaves of the same genre value), the members that **cite** it, and the requirements
-/// its member **satisfies** — then the shared coverage disclosure. Resolved against the manifest's
+/// its member **satisfies** — then the shared coverage disclosure. Resolved against the lock's
 /// serialized genre values exactly as [`impact_leaf`] resolves them, so the two verbs agree on what
 /// a leaf's neighborhood is.
 fn context_leaf(
@@ -797,7 +797,7 @@ fn context_leaf(
     let Some((kind, value)) = resolve_leaf(by_kind, &parsed) else {
         return format!(
             "No leaf `{address}` is in the surface's serialized genre values. `context` reads \
-             leaf grain off the manifest's `[[member.genre]]` tables — check the member, genre, \
+             leaf grain off the lock's `[[member.genre]]` tables — check the member, genre, \
              key, and field path; a document carrying no genre values is not represented at leaf \
              grain.\n"
         );
@@ -970,7 +970,7 @@ fn context_member_one(
 }
 
 /// The other leaves of the genre value `(member, genre, key)` — every serialized leaf of that
-/// value except the one at `field_path`, paired with its authored value in the manifest's stable
+/// value except the one at `field_path`, paired with its authored value in the lock's stable
 /// order. The co-resident siblings `context` reports beside an addressed leaf.
 fn sibling_leaves<'a>(
     by_kind: &BTreeMap<&str, &'a [Features]>,
@@ -997,7 +997,7 @@ fn sibling_leaves<'a>(
 }
 
 /// Narrate the requirements the member `member` opts into filling — read off each matching
-/// member's serialized `satisfies` (`Features::satisfies`), the manifest-only view the leaf-grain
+/// member's serialized `satisfies` (`Features::satisfies`), the lock-only view the leaf-grain
 /// read stands on. A member fills only the demands it names, so an empty set is stated plainly.
 fn narrate_satisfied(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>, member: &str) {
     let satisfied: Vec<&str> = by_kind
@@ -1763,7 +1763,7 @@ mod impact_tests {
             "20-surface/decision/surface-authority/chosen",
         );
 
-        // Resolved against the manifest and reported at leaf grain.
+        // Resolved against the lock and reported at leaf grain.
         assert!(
             out.contains("Leaf `20-surface/decision/surface-authority/chosen` (spec)"),
             "{out}"

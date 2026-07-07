@@ -69,9 +69,10 @@ pub struct CustomKind {
     /// Absent ⇒ empty (the default [`CustomKind::new`] leaves it at).
     pub relationships: Vec<Edge>,
     /// The declared projection format — how a member's on-disk artifact is shaped
-    /// (`specs/architecture/15-kinds.md`, "the adapter faces are declared"). A closed vocabulary;
-    /// absent ⇒ `None` (today's built-in kinds declare none). Inert until
-    /// DECLARED-FRONTMATTER-ADAPTER: typed, consumed by nothing yet.
+    /// (`specs/architecture/15-kinds.md`, "Decision: built-ins are a module, and identity
+    /// is an import"). A closed vocabulary; absent ⇒ `None` (today's built-in kinds
+    /// declare none). Inert until DECLARED-FRONTMATTER-ADAPTER: typed, consumed by
+    /// nothing yet.
     pub format: Option<Format>,
     /// The declared unit shape — whether a member is a lone file (id from the stem)
     /// or a directory with companions (id from the directory name)
@@ -85,8 +86,8 @@ pub struct CustomKind {
     /// nothing consumes it yet.
     pub registration: Option<Registration>,
     /// The kind's declared **genres** — typed shapes for its members' recurring prose
-    /// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
-    /// "Genre values"), parsed from the header's `[[genres]]` array. Extraction folds a
+    /// forms (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"),
+    /// parsed from the header's `[[genres]]` array. Extraction folds a
     /// member's genre fences into typed values against this set ([`CustomKind::extract`]);
     /// the shape is the kind's, any predicate over it rides the assembly's
     /// `expect`/`require` clauses (`specs/architecture/10-contracts.md`). Absent ⇒ empty.
@@ -94,9 +95,10 @@ pub struct CustomKind {
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
-/// member's on-disk artifact is shaped (`specs/architecture/15-kinds.md`, "Decision: the adapter
-/// faces are declared"). The engine implements each format once, generically; the
-/// first and only harvested entry is [`YamlFrontmatter`](Format::YamlFrontmatter).
+/// member's on-disk artifact is shaped (`specs/architecture/15-kinds.md`, "Decision:
+/// built-ins are a module, and identity is an import"). The engine implements each
+/// format once, generically; the first and only harvested entry is
+/// [`YamlFrontmatter`](Format::YamlFrontmatter).
 /// Any other value is a load error, the same closed-vocabulary guard the extraction
 /// primitives carry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -155,11 +157,10 @@ pub enum Registration {
 }
 
 /// A **genre** a kind declares — a typed shape for one of its members' recurring prose
-/// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
-/// "Genre values — prose that declares its own anatomy"): named fields over prose
-/// **leaves** plus keyed **collections**, serialized whole into the manifest. The shape
-/// is the kind's; any *predicate* over it rides the assembly's `expect`/`require`
-/// clauses (`specs/architecture/10-contracts.md`), **out of the kind object** — the
+/// forms (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"):
+/// named fields over prose **leaves** plus keyed **collections**, serialized whole into
+/// the lock. The shape is the kind's; any *predicate* over it rides the assembly's
+/// `expect`/`require` clauses (`specs/architecture/10-contracts.md`), **out of the kind object** — the
 /// same ownership line extraction and contract split on everywhere. So a `Genre`
 /// carries the vocabulary, never a clause.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,9 +242,10 @@ impl CustomKind {
     }
 
     /// Run the kind's composed extractor over `unit`, then fold its declared genres
-    /// (`specs/architecture/20-surface.md`, "Genre values"): each fenced block whose info string
-    /// names a declared genre (`genre.<genre> <key>`) has its interior TOML parsed into a
-    /// typed [`GenreValue`](crate::extract::GenreValue) and folded into `Features::genres`,
+    /// (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"): each
+    /// fenced block whose info string names a declared genre (`genre.<genre> <key>`) has
+    /// its interior TOML parsed into a typed [`GenreValue`](crate::extract::GenreValue)
+    /// and folded into `Features::genres`,
     /// beside its raw form in `fenced_blocks`. This composes the `Fenced` primitive with a
     /// TOML parse — the typed genre layer over the raw-block algebra (`specs/architecture/15-kinds.md`).
     /// The single entry point every extract call site routes through, so genre folding
@@ -293,8 +295,9 @@ impl CustomKind {
     }
 
     /// The kind's declared frontmatter fields, in declaration order — the `field`
-    /// extraction primitives' keys (`specs/architecture/15-kinds.md`, "the adapter faces are
-    /// declared"). The generic frontmatter adapter (`crate::frontmatter`) lifts these
+    /// extraction primitives' keys (`specs/architecture/15-kinds.md`, "Decision:
+    /// built-ins are a module, and identity is an import"). The generic frontmatter
+    /// adapter (`crate::frontmatter`) lifts these
     /// into the leading `[clause.<field>]` tables, before the preserved unknown keys.
     #[must_use]
     pub fn declared_fields(&self) -> Vec<&str> {
@@ -591,7 +594,7 @@ pub struct Unit {
     /// when the member authors none.
     pub satisfies: Vec<String>,
     /// The same `[satisfies.<requirement>]` opt-ins **with their authored rationale**
-    /// (`specs/architecture/20-surface.md`, "The member document") — the whole [`Satisfies`] clause,
+    /// (`specs/architecture/20-surface.md`, "The member") — the whole [`Satisfies`] clause,
     /// not just the name coverage reads. The read family (`why`/`requirements`) narrates
     /// the *why* a custom member fills a requirement (READ-CUSTOM-SATISFIERS), so it
     /// needs the rationale the decidable [`satisfies`](Unit::satisfies) name-vec drops.
@@ -637,11 +640,12 @@ impl Unit {
     /// whose surface may carry markdown companions (a skill's `PLAYBOOK.md`) names its
     /// own member document instead — `SKILL.md`, `RULE.md` — so the companion never
     /// confuses the read. Both faces then read the surface through this one path
-    /// (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter"): the `[clause.*]` header
-    /// lifts into `frontmatter`, `[satisfies.*]`/`[requirement.*]` into the edge sets,
+    /// (`specs/architecture/15-kinds.md`, "Decision: built-ins are a module, and identity
+    /// is an import"): the `[clause.*]` header lifts into `frontmatter`,
+    /// `[satisfies.*]`/`[requirement.*]` into the edge sets,
     /// the body byte-faithful. The id is the surface directory name — the member's
-    /// home, never a field it sets (`specs/architecture/15-kinds.md`, "the emit face owns the
-    /// locus").
+    /// home, never a field it sets (`specs/architecture/15-kinds.md`, "A kind is a
+    /// constructor plus five facts").
     ///
     /// # Errors
     ///

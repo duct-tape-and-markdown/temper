@@ -190,13 +190,13 @@ pub struct FencedBlock {
 /// A genre value's **sibling collections** — collection name → (entry key → the entry's
 /// own prose leaves), so a collection leaf addresses as `<collection>.<entry>.<field>`
 /// (`rejected.baked-projection.because`). Keyed at every level, never positional
-/// (`specs/architecture/20-surface.md`, "leaf addresses are structural and keyed"). Named for the
-/// three-deep map the read side and the manifest serializer share.
+/// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"). Named for the
+/// three-deep map the read side and the lock serializer share.
 pub type GenreCollections = BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>;
 
 /// A **genre value** — a kind's recurring prose form given typed shape
-/// (`specs/architecture/20-surface.md`, "Genre values — prose that declares its own
-/// anatomy"), extracted from a genre fence at the floor. It carries the genre it
+/// (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"),
+/// extracted from a genre fence at the floor. It carries the genre it
 /// instantiates (`decision`) and the fence key that names this instance among its
 /// siblings (`surface-authority`), plus its meaning-carrying **prose leaves**:
 /// top-level authored strings, and **sibling collections** — keyed sub-tables
@@ -223,14 +223,14 @@ pub struct GenreValue {
     /// entry's own prose leaves), so a collection leaf addresses as
     /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). Keyed at
     /// every level, never positional — an address that survives insertion and reorder
-    /// (`specs/architecture/20-surface.md`, "leaf addresses are structural and keyed").
+    /// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`").
     pub collections: GenreCollections,
 }
 
 impl GenreValue {
     /// Every leaf's **structural field path** paired with its authored value, in
-    /// stable order (`specs/architecture/20-surface.md`, "leaf addresses are structural and
-    /// keyed"): a top-level leaf's bare field name (`chosen`), a collection leaf's
+    /// stable order (`specs/architecture/20-surface.md`, "Decision: one read verb —
+    /// `explain`"): a top-level leaf's bare field name (`chosen`), a collection leaf's
     /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). The path
     /// rides the structure the author already wrote, so it is stable under content
     /// edits — the property drift routing and `impact` stand on.
@@ -252,7 +252,7 @@ impl GenreValue {
 }
 
 /// The **structural address** of a genre-value leaf (`specs/architecture/20-surface.md`,
-/// "leaf addresses are structural and keyed"): the member it lives in, the genre value's
+/// "Decision: one read verb — `explain`"): the member it lives in, the genre value's
 /// identity (genre name + fence key), and the field path within that value. Keyed at
 /// every level and stable under content edits, so a citation targeting a leaf
 /// (`specs/architecture/45-governance.md`) and `impact` at leaf grain survive rewording —
@@ -313,7 +313,8 @@ pub struct Features {
     pub fenced_blocks: Vec<FencedBlock>,
     /// The body's **genre values**, in document order — each a genre fence
     /// (`genre.<genre> <key>`) whose interior TOML parsed into a typed
-    /// [`GenreValue`] (`specs/architecture/20-surface.md`, "Genre values"). The typed layer
+    /// [`GenreValue`] (`specs/architecture/15-kinds.md`, "A genre is a kind at the block
+    /// locus"). The typed layer
     /// over [`fenced_blocks`](Features::fenced_blocks): a raw block whose info string
     /// names a genre the kind declares is folded here beside its raw form, keyed by the
     /// fence's genre+key; every other fenced block stays raw-only. Empty when the kind
@@ -357,7 +358,8 @@ impl Features {
 
     /// Every genre-value leaf as a fully-qualified [`LeafAddress`] paired with its
     /// authored value — the leaf-grain surface the read family (`impact`, `context`)
-    /// consumes (`specs/architecture/20-surface.md`, "`impact` reports at leaf grain"). Each
+    /// consumes (`specs/architecture/20-surface.md`, "Decision: one read verb —
+    /// `explain`"). Each
     /// address carries this member's id, so a citation resolving to a leaf resolves to a
     /// unique point across the corpus.
     #[must_use]

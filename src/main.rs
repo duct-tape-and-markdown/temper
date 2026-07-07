@@ -474,7 +474,8 @@ fn explain(target: &str) -> miette::Result<String> {
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
-    // producer yet (`specs/architecture/20-surface.md`, "Genre values"), so the set is empty.
+    // producer yet (`specs/architecture/15-kinds.md`, "A genre is a kind at the block
+    // locus"), so the set is empty.
     let citations: Vec<read::Citation> = Vec::new();
 
     Ok(read::explain(
@@ -556,7 +557,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // The assembly's own declared facts — requirements and edges — ride the lock's
     // declaration rows (`specs/architecture/20-surface.md`, "The lock and drift — one
     // vocabulary"): `emit` is the sole producer, this is the gate's one read of it.
-    // Never gated on a manifest's presence — an unadopted harness's lock declares
+    // Never gated on a lock's presence — an unadopted harness's lock declares
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
     let declarations = drift::read_declarations(workspace)?;
@@ -769,11 +770,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         declarations_empty,
     ));
 
-    // The freshness fact (`specs/architecture/20-surface.md`, "Drift — two freshness facts"):
-    // a committed projection whose bytes no longer match the lock's emit fingerprint is
-    // `config.stale`. Read off the surface `workspace`'s lock (where the members were
-    // imported and the fingerprints recorded), advisory so a hand-edited or un-re-emitted
-    // projection is surfaced without failing the run — the `shared`-authority nudge.
+    // The freshness fact (`specs/architecture/20-surface.md`, "The lock and drift — one
+    // vocabulary"): a committed projection whose bytes no longer match the lock's emit
+    // fingerprint is `config.stale`. Read off the surface `workspace`'s lock (where the
+    // members were imported and the fingerprints recorded), advisory so a hand-edited or
+    // un-re-emitted projection is surfaced without failing the run — the `shared`-authority
+    // nudge.
     diagnostics.extend(drift::config_stale(workspace));
 
     Ok(diagnostics)
@@ -802,7 +804,7 @@ fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> k
 /// requirements, when one exists at this member's surface location
 /// (`<workspace>/<kind's surface subdir>/<id>/<member document>`) — the one home a
 /// document/module-carried member's fill edges are ever authored at, never mined from
-/// the raw harness file (`specs/architecture/20-surface.md`, "The member document").
+/// the raw harness file (`specs/architecture/20-surface.md`, "The member").
 /// `None` when the member has never been projected (arrives unrecognized, "install —
 /// the front door").
 ///
@@ -893,7 +895,8 @@ fn kind_features(
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the
-/// `paths-match` reachability input (`specs/architecture/45-governance.md`, "The world is a node").
+/// `paths-match` reachability input (`specs/architecture/45-governance.md`, "The world —
+/// registration's other endpoint").
 /// A superset is sound (a glob matching an extra file only suppresses a finding); a
 /// *missing* file is not (it could forge a dead-edge false positive, law 3), so nothing
 /// is excluded and an unreadable entry is skipped rather than aborting the gate. Paths

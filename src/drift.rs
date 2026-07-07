@@ -767,14 +767,14 @@ fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
 // ---------------------------------------------------------------------------
 
 /// The diagnostic `rule` id every freshness finding reports under
-/// (`specs/architecture/20-surface.md`, "Drift — one direction, two freshness facts").
+/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
 const CONFIG_STALE_RULE: &str = "config.stale";
 
 /// The `config.stale` freshness findings for a surface `workspace_dir`
-/// (`specs/architecture/20-surface.md`, "`config.stale` — the committed manifest/projection does
-/// not match the lock's `source_hash`/`emit_hash` pair"): a committed projection whose
-/// bytes no longer match the emit fingerprint the lock recorded — the authored source
-/// changed and `emit` has not run, or the emitted output was hand-edited. One finding
+/// (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary"): a
+/// committed projection whose bytes no longer match the emit fingerprint the lock
+/// recorded — the authored source changed and `emit` has not run, or the emitted
+/// output was hand-edited. One finding
 /// per drifted row, pointing at the projection that moved.
 ///
 /// **Advisory** (`warn`): under the default `shared` authority the guard warns-and-routes
