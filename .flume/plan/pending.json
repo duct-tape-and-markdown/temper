@@ -1,128 +1,15 @@
 [
   {
-    "tag": "REQUIREMENT-GATE",
-    "summary": "check never evaluates the lock's requirement/satisfies clause families — the require/satisfies layer enforces only at emit; fold clause evaluation into the gate path",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "requirement — a shipped kind, not a primitive"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "The gate resolves requirement members but the tripwire (~:303-327) only fires when the lock declares requirements and the gate resolved NONE of them; the per-clause families ([[declaration.requirement]] / [[declaration.satisfies]]: count, membership, degree, kind) are never evaluated on `check`. Evaluate them in the gate path, at each clause's declared severity."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Invoke the existing clause evaluator (the `Predicate`/`admits` machinery already run at emit) over the lock's requirement/satisfies declaration rows in the `check` path — so the require/satisfies layer gates, not only refuses at emit."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a locked requirement whose satisfier set violates count({max:1}) produces a finding on `check .` and `check --harness .`, at the clause's declared severity"
-      }
-    ],
-    "acceptance": "A locked requirement whose satisfier set violates its cardinality/membership/degree/kind clause produces a finding on `check .` and `check --harness .` at the clause's declared severity — not only a refusal at emit.",
-    "notes": "Field report 2 T1: the testbed lock carried 44 requirement/satisfies rows; a live count({max:1}) probe produced zero findings on check. Named the largest correctness gap on the board. Clause evaluator already exists (runs at emit); this wires it into the gate."
-  },
-  {
-    "tag": "WIN-INSTALL-SPAWN",
-    "summary": "install --yes dies on Windows spawning `npm` (only npm.cmd exists) and half-scaffolds .temper/; spawn npm.cmd under cfg(windows) and assure the dependency before scaffold",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Install"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "The npm spawn at Command::new(\"npm\") (:1018) resolves only a `.exe` on Windows, which ships only `npm.cmd`; spawn `npm.cmd` under `cfg!(windows)` (or `cmd /c npm`). The failure currently lands AFTER scaffold, leaving a half-scaffolded `.temper/`; reorder so dependency assurance precedes scaffold — 'no half-scaffolded state'."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "dependency assurance runs before any .temper/ module is written; a failure in assurance leaves no half-scaffolded surface"
-      }
-    ],
-    "acceptance": "On Windows, install --yes assures the SDK dependency (spawning npm.cmd) before writing any .temper/ module; a spawn failure leaves no half-scaffolded surface.",
-    "notes": "Field report 1 (Win11/centercode testbed @18dca38). Rust process spawn resolves `.exe` only; `npm.cmd` is the Windows shim. Verified fix shape: cfg(windows) -> npm.cmd."
-  },
-  {
-    "tag": "WIN-EMIT-PATH",
-    "summary": "emit feeds Node fs::canonicalize's \\\\?\\ verbatim-form entry path to the SDK program (drift.rs:372); Node dies in resolveMainPath — keep the canonicalize, strip the verbatim prefix",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "canonicalize(harness_entry) at :372 yields a `\\\\?\\`-verbatim path on Windows that Node's resolveMainPath rejects. Keep the canonicalize (it fixes a relative ./.temper entry) and strip the verbatim prefix before handing the path to the spawned SDK program — a manual prefix strip keeps the sanctioned crate set unchanged; `dunce::simplified` is the ecosystem-standard alternative if that set is extended."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "the entry path handed to the SDK program carries no `\\\\?\\` verbatim prefix"
-      }
-    ],
-    "acceptance": "On Windows, emit passes the SDK program a non-verbatim entry path; the first emit reproduces the testbed's 16 projections byte-identically.",
-    "notes": "Field report 1. Verified: with the prefix stripped, first emit reproduces 16 projections byte-identically. dunce::simplified is standard but would extend the sanctioned crate set (a human nod); a manual strip avoids the dependency."
-  },
-  {
-    "tag": "BUNDLE-REPORT-SHIPS",
-    "summary": "bundle reports \"surface: 0 skills, 0 rules\" on a 16-member surface — composition is correct (gate-delivery only); the report should name what the bundle ships, not member counts",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "What ships — three channels"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/bundle.rs",
-          "description": "BundleReport carries `skills`/`rules` counts (:140-148) of the composed-OVER surface; channel 3 ships the operate-the-gate skill + the SessionStart hook (gate-delivery-only), so on a large surface the report reads '0 skills, 0 rules' though the composition is right. Report the artifacts the bundle SHIPS (skill + SessionStart hook), not member counts of the source surface."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/bundle.rs",
-        "asserts": "the report names the shipped artifacts (skill + SessionStart hook), not surface member counts"
-      }
-    ],
-    "acceptance": "temper bundle's report names the artifacts it ships (the operate-the-gate skill + SessionStart hook), not member counts of the composed-over surface.",
-    "notes": "Field report 1. Spec reads channel 3 as gate-delivery-only, so the composition is right and the REPORT line is the bug. If plan later reads member delivery as intended, that is a fork — not assumed here."
-  },
-  {
     "tag": "HELP-TEXT-RECUT",
     "summary": "guard --help still speaks shared/surface (runtime is note/warn/block) and verbs' help cite the deleted specs/architecture/* paths — user-facing strings, outside CITE-RETAG's comment scope",
     "per": {
       "path": "specs/distribution.md",
       "section": "The placements and their enforcement modes"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -150,7 +37,11 @@
       "path": "specs/model/pipeline.md",
       "section": "Install"
     },
-    "gate": { "kind": "blockedBy", "tag": "WIN-INSTALL-SPAWN" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "WIN-INSTALL-SPAWN"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -178,7 +69,11 @@
       "path": "specs/model/contract.md",
       "section": "Read verbs"
     },
-    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-GATE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "REQUIREMENT-GATE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -206,7 +101,11 @@
       "path": "specs/model/pipeline.md",
       "section": "The lock"
     },
-    "gate": { "kind": "blockedBy", "tag": "SCAFFOLD-OUTPUT-VALID" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SCAFFOLD-OUTPUT-VALID"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -238,7 +137,11 @@
       "path": "specs/distribution.md",
       "section": "The placements and their enforcement modes"
     },
-    "gate": { "kind": "blockedBy", "tag": "PATH-SEP-NORMALIZE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "PATH-SEP-NORMALIZE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
