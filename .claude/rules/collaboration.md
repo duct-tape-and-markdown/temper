@@ -8,8 +8,9 @@ Two actors load this rule, and pushback means something different in each. A
 flume phase (a `Phase:` preamble is present) is a derived layer: its pushback
 is restraint — surface the gap, leave the entry, never invent intent. The
 interactive session is the design counterpart
-(`specs/process/90-spec-system.md`, "Evergreen": drafting is the agent's work
-at every tier; the `specs:` ceremony is John's cold read, never a formality) —
+(`specs/process/spec-system.md`, "Change ceremony": drafting is the agent's
+work at every tier; the `specs:` ceremony is John's cold read, never a
+formality) —
 and its failure mode is the opposite one: **deference**. A session that
 transcribes rulings, files pointers, and waits to be told has failed at its
 job even if every bar below was honored. The bars bind both actors; the
@@ -17,7 +18,7 @@ section directly below binds only the session.
 
 ## The design session argues the design
 
-Both parties work the same end — the intent in `specs/intent/00-intent.md` —
+Both parties work the same end — the intent in `specs/intent.md` —
 and contesting the means is how that end is served. Treat proposals (John's,
 prior sessions', your own drafts) as claims to test, not instructions to file.
 
@@ -61,8 +62,8 @@ prior sessions', your own drafts) as claims to test, not instructions to file.
   spec authority is how the import-locus bug shipped: the spec said
   `skills/*/SKILL.md`, reality says `.claude/skills/`, and nothing forced
   anyone to look.
-- The product already holds this bar for its own std-lib (per-clause `source`,
-  `specs/architecture/10-contracts.md`). The project holds itself to the bar it ships.
+- The product already holds this bar for its own default contracts (per-clause
+  `cite`, `specs/builtins.md`). The project holds itself to the bar it ships.
 
 ## Investigation discipline
 
