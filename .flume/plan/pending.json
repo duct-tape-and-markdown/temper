@@ -1,5 +1,36 @@
 [
   {
+    "tag": "EMIT-REAP-ORPHANS",
+    "summary": "emit never reaps ownerless projections — a removed member's file stays on disk still loading; reap iff byte-identical to its lock fingerprint, report the drifted orphan, never silent-delete",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`emit` (:436) writes the current members' projections and rewrites the lock whole, but never reads the prior lock — a member dropped from the program leaves its projection on disk with the lock forgetting the path. Before the rewrite, read the prior `lock.toml`'s provenance rows (source_path + emit_hash, the same lock read `config_stale`:806 / `emit_owned_targets`:874 already do), diff against the current `payload.members` projected source_paths, and for each lock-known projection with no current owner: delete it iff the on-disk bytes hash to its recorded `emit_hash` (reap — temper wrote every byte, nothing authored is lost), else leave the file and surface a drift finding (never a silent delete). Extend `EmitReport`/`EmitEntry`/`EmitOutcome` (:436 region) with reaped and orphan-drift outcomes and render them in `render_emit`:636 so 'N unchanged' is no longer the whole story when an owner disappeared."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "re-emitting after a member is removed deletes its projection when the on-disk file is byte-identical to its lock emit fingerprint (reap); a removed member whose projection was hand-edited is left on disk and reported as an orphan-drift finding (never silent-delete); the emit report distinguishes reaped from drifted-orphan"
+      }
+    ],
+    "acceptance": "Re-emitting after a member is dropped from the program reaps its projection when the on-disk file matches the lock's emit fingerprint, and reports a finding while leaving the file when it has drifted — never a silent delete; the emit report distinguishes reaped from drifted-orphan.",
+    "notes": "Field report 2026-07-07 -> decision 0007. Detection is decidable: a lock-known projection with no current owning member. The hash is the safety line (the verbatim invariant's spirit — never delete hand-edited bytes). The prior-lock read mirrors config_stale:806 / emit_owned_targets:874. First derived slice of spec delta f4189c3; 0008-0011 unrouted. scoped at 2efd00b."
+  },
+  {
     "tag": "GUARD-OWNPATH",
     "summary": "the PreToolUse guard regex-matches any .claude/ file_path without reading the lock; for file()-carried members the .claude/ file IS the authored source, so block denies editing the source of truth",
     "per": {

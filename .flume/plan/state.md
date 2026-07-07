@@ -3,20 +3,17 @@
 - Spec derived through: 5945405
 - Audited through: 2b82ebd
 - Residue swept through: 2b82ebd
-- This tick: Residue sweep 9148eb3..HEAD. Verified the prior sweep's rider landed:
-  e6c7f60 retargeted emit.ts's two stale `specs/architecture/20-surface.md` cites to
-  pipeline.md "Emit" — resolved. New build code (mention edge, explain resolver,
-  scaffold) corpus-consistent. One residue class found, non-routable: drift.rs:262/269
-  docstrings still say "five families" while the mention edge shipped `mentions` as the
-  sixth declaration family (Declarations struct + lock `mention` table + SDK
-  declarations.ts already say "six"). Pure comment staleness — never standalone, never
-  the queue's only new work; no pending entry opens drift.rs, so it awaits the next
-  drift.rs touch (rust.md exit-clause / next sweep). Ship audit quiet: 0fa1cab, 2b82ebd
-  touch no code — audit cursor advanced to HEAD. kind.rs/read.rs `15-kinds`/`20-surface`
-  are fixture source_paths, not cites — left, per prior sweep.
-- Queue: 3 — PATH-SEP-NORMALIZE open (install.rs/document.rs), GUARD-OWNPATH blockedBy
-  PATH-SEP-NORMALIZE (shared install.rs), PACKAGING-CHANNELS parked (human release creds).
+- This tick: Spec delta f4189c3 (field-fork rulings 0007-0011). Derived one contained
+  slice — 0007 orphan-reap-by-fingerprint → EMIT-REAP-ORPHANS (open, src/drift.rs `emit`
+  reads the prior lock, reaps a byte-clean ownerless projection, reports the drifted one).
+  0008-0011 unrouted (settings format-preserving / module-relative paths / LF layout /
+  documented-capability vocabulary), next ticks — so f4189c3 is NOT fully routed and the
+  spec cursor stays at 5945405. Audited/Residue cursors copied forward verbatim (not
+  serviced this tick). Note: the drift.rs:262/269 "five families" comment staleness (prior
+  sweep, non-routable) now rides EMIT-REAP-ORPHANS via the rust.md exit clause.
+- Queue: 3 — EMIT-REAP-ORPHANS open (drift.rs), GUARD-OWNPATH blockedBy PATH-SEP-NORMALIZE
+  (blocker SHIPPED 2efd00b/402e5cc — ship audit next tick unblocks it), PACKAGING-CHANNELS
+  parked (human release creds). Disjoint: drift.rs / install.rs+kind.rs / package.json.
 
-Plan continues: no — every input current (inbox empty, no spec delta past 5945405,
-ship audit + residue sweep both at HEAD). PATH-SEP-NORMALIZE is open and pickable;
-build takes over.
+Plan continues: yes — spec delta still live (f4189c3 rulings 0008-0011 unrouted); ship
+audit also trailing (PATH-SEP-NORMALIZE shipped past Audited-through 2b82ebd).
