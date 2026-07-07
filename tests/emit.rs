@@ -216,6 +216,10 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
         count: None,
         target: None,
         degree: None,
+        bound: None,
+        charset: None,
+        keys: None,
+        values: None,
     });
     payload
         .declarations

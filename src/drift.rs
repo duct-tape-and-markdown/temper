@@ -23,7 +23,9 @@ use std::process::Command;
 
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
-use toml_edit::{ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike, Value, value};
+use toml_edit::{
+    Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike, Value, value,
+};
 
 use crate::hash::sha256_hex;
 use crate::import::{RollupEntry, write_rollup};
@@ -965,11 +967,16 @@ pub struct KindFactRow {
 /// which kind it governs, the predicate's key, the field it targets (when it names one),
 /// its declared severity, its guidance and cite — the clause's four channels
 /// (`specs/architecture/10-contracts.md`, "The clause — the atom of a contract") —
-/// and — for the node-set/edge-scope predicates (`count`/`unique`/`membership`/`degree`,
-/// `specs/architecture/10-contracts.md`) — the argument channel their bounds/target
-/// round-trip through. `unique`'s field rides the shared `field` column (the same slot
-/// `required`/`min_len`/… target); the others carry their own optional columns since a
-/// plain field/severity pair cannot express them.
+/// and, per predicate, its own argument: the node-set/edge-scope predicates
+/// (`count`/`unique`/`membership`/`degree`, `specs/architecture/10-contracts.md`) carry
+/// their bounds/target, and the node-scope predicates that need more than
+/// `field`/`severity` (`min_len`/`max_len`/`max_lines`'s bound, `allowed_chars`'s
+/// charset, `forbidden_keys`'s keys, `deny`'s values) carry theirs too — so a kind's
+/// own floor clause round-trips losslessly, not identity+severity alone
+/// (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+/// from the SDK module, never transcribed"). `unique`'s field rides the shared `field`
+/// column (the same slot `required`/`min_len`/… target); the rest carry their own
+/// optional columns since a plain field/severity pair cannot express them.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ClauseRow {
     /// The kind whose contract carries the clause. `None` when this row is nested
@@ -1004,6 +1011,48 @@ pub struct ClauseRow {
     /// The `degree` clause's in/out edge-count bound, when the predicate is `degree`.
     #[serde(default)]
     pub degree: Option<DegreeBoundRow>,
+    /// The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
+    /// is one of those three.
+    #[serde(default)]
+    pub bound: Option<BoundRow>,
+    /// The `allowed_chars` clause's declared character class, when the predicate is
+    /// `allowed_chars`.
+    #[serde(default)]
+    pub charset: Option<CharsetRow>,
+    /// The `forbidden_keys` clause's forbidden key list, when the predicate is
+    /// `forbidden_keys`.
+    #[serde(default)]
+    pub keys: Option<Vec<String>>,
+    /// The `deny` clause's forbidden value list, when the predicate is `deny`.
+    #[serde(default)]
+    pub values: Option<Vec<String>>,
+}
+
+/// A node-scope clause row's scalar bound — `min_len`'s `min`, `max_len`/`max_lines`'s
+/// `max`, each endpoint optional so the row carries only what the predicate declared
+/// (`specs/architecture/10-contracts.md`, "min_len" / "max_len" / "max_lines").
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+pub struct BoundRow {
+    /// The inclusive lower bound, when the predicate declares one (`min_len`).
+    #[serde(default)]
+    pub min: Option<usize>,
+    /// The inclusive upper bound, when the predicate declares one (`max_len`/`max_lines`).
+    #[serde(default)]
+    pub max: Option<usize>,
+}
+
+/// An `allowed_chars` clause row's declared character class — the wire form of
+/// [`crate::contract::Charset`]: inclusive `"<lo>-<hi>"` range specs plus a literal
+/// string of individually permitted characters (`specs/architecture/10-contracts.md`,
+/// "allowed_chars").
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct CharsetRow {
+    /// The inclusive character ranges, each a two-character `"<lo>-<hi>"` spec.
+    #[serde(default)]
+    pub ranges: Vec<String>,
+    /// The individually permitted characters, when any are declared.
+    #[serde(default)]
+    pub chars: Option<String>,
 }
 
 /// One named requirement's declaration row (`specs/architecture/10-contracts.md`),
@@ -1289,6 +1338,18 @@ impl ClauseRow {
         if let Some(degree) = &self.degree {
             table.insert("degree", value(degree_bound_table(degree)));
         }
+        if let Some(bound) = &self.bound {
+            table.insert("bound", value(bound_table(bound)));
+        }
+        if let Some(charset) = &self.charset {
+            table.insert("charset", value(charset_table(charset)));
+        }
+        if let Some(keys) = &self.keys {
+            table.insert("keys", value(string_array(keys)));
+        }
+        if let Some(values) = &self.values {
+            table.insert("values", value(string_array(values)));
+        }
         table
     }
 
@@ -1309,6 +1370,16 @@ impl ClauseRow {
                 .get("degree")
                 .and_then(Item::as_table_like)
                 .and_then(degree_bound_from_table),
+            bound: table
+                .get("bound")
+                .and_then(Item::as_table_like)
+                .map(bound_from_table),
+            charset: table
+                .get("charset")
+                .and_then(Item::as_table_like)
+                .map(charset_from_table),
+            keys: table.get("keys").and_then(string_array_from_item),
+            values: table.get("values").and_then(string_array_from_item),
         })
     }
 }
@@ -1421,6 +1492,70 @@ fn edge_bound_from_table(table: &dyn TableLike) -> Option<EdgeBoundRow> {
         min: usize_col(table, "min"),
         max: usize_col(table, "max"),
     })
+}
+
+fn bound_table(bound: &BoundRow) -> InlineTable {
+    let mut table = InlineTable::new();
+    if let Some(min) = bound.min {
+        table.insert("min", Value::from(i64::try_from(min).unwrap_or(i64::MAX)));
+    }
+    if let Some(max) = bound.max {
+        table.insert("max", Value::from(i64::try_from(max).unwrap_or(i64::MAX)));
+    }
+    table
+}
+
+fn bound_from_table(table: &dyn TableLike) -> BoundRow {
+    BoundRow {
+        min: usize_col(table, "min"),
+        max: usize_col(table, "max"),
+    }
+}
+
+fn charset_table(charset: &CharsetRow) -> InlineTable {
+    let mut table = InlineTable::new();
+    if !charset.ranges.is_empty() {
+        table.insert("ranges", Value::Array(string_array(&charset.ranges)));
+    }
+    if let Some(chars) = &charset.chars {
+        table.insert("chars", Value::from(chars.clone()));
+    }
+    table
+}
+
+fn charset_from_table(table: &dyn TableLike) -> CharsetRow {
+    CharsetRow {
+        ranges: table
+            .get("ranges")
+            .and_then(string_array_from_item)
+            .unwrap_or_default(),
+        chars: table
+            .get("chars")
+            .and_then(Item::as_str)
+            .map(str::to_string),
+    }
+}
+
+/// Build a TOML array off owned strings — the `keys`/`values`/charset-`ranges`
+/// columns' wire form.
+fn string_array(values: &[String]) -> Array {
+    let mut array = Array::new();
+    for value in values {
+        array.push(value.clone());
+    }
+    array
+}
+
+/// Read a TOML array of strings back off a declaration row column. Any element
+/// that is not a string fails the whole column — the same tolerant-row (not
+/// tolerant-element) degrade the rest of the lock's array columns take.
+fn string_array_from_item(item: &Item) -> Option<Vec<String>> {
+    let array = item.as_array()?;
+    let mut out = Vec::with_capacity(array.len());
+    for value in array.iter() {
+        out.push(value.as_str()?.to_string());
+    }
+    Some(out)
 }
 
 impl AssemblyFactRow {

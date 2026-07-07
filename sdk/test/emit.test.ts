@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import {
+  allowedChars,
   bash,
   blocks,
   clause,
@@ -22,9 +23,11 @@ import {
   declarationsToJson,
   emit,
   file,
+  forbiddenKeys,
   genre,
   genreValue,
   harness,
+  maxLen,
   maxLines,
   required,
   text,
@@ -160,6 +163,10 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       count: undefined,
       target: undefined,
       degree: undefined,
+      bound: { min: undefined, max: 300 },
+      charset: undefined,
+      keys: undefined,
+      values: undefined,
     },
     {
       kind: "rule",
@@ -171,6 +178,10 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       count: undefined,
       target: undefined,
       degree: undefined,
+      bound: undefined,
+      charset: undefined,
+      keys: undefined,
+      values: undefined,
     },
   ]);
   assert.deepEqual(declarations.requirements, [
@@ -184,6 +195,40 @@ test("compileDeclarations produces all five families, satisfies included", () =>
   ]);
   assert.deepEqual(declarations.assembly, [{ fact: "authority", value: "shared" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
+});
+
+test("clauseRow serializes a node-scope predicate's own argument onto the row", () => {
+  // A kind's own `expect` clause carries its predicate's bound/charset/keys/values
+  // argument, not identity+severity alone — the row a floor Contract must be
+  // reconstructable from (`50-distribution.md`, "Decision: the built-in lock is
+  // derived from the SDK module, never transcribed").
+  const h = harness({
+    members: [],
+    expect: [
+      {
+        kind: rule,
+        clauses: [
+          clause(maxLen("name", 64), { severity: "required" }),
+          clause(forbiddenKeys(["globs", "alwaysApply"]), { severity: "required" }),
+          clause(allowedChars("name", { ranges: ["a-z"], chars: "-" }), { severity: "required" }),
+        ],
+      },
+    ],
+  });
+
+  const declarations = compileDeclarations(h);
+  assert.deepEqual(
+    declarations.clauses.map((c) => c.bound),
+    [{ min: undefined, max: 64 }, undefined, undefined],
+  );
+  assert.deepEqual(
+    declarations.clauses.map((c) => c.keys),
+    [undefined, ["globs", "alwaysApply"], undefined],
+  );
+  assert.deepEqual(
+    declarations.clauses.map((c) => c.charset),
+    [undefined, undefined, { ranges: ["a-z"], chars: "-" }],
+  );
 });
 
 test("the JSON pipe carries the reduced declaration rows and the pinned version", () => {

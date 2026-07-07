@@ -168,6 +168,10 @@ fn degree_requirement(kind: &str, degree: DegreeBoundRow) -> RequirementRow {
             count: None,
             target: None,
             degree: Some(degree),
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
         }],
         verified_by: None,
     }

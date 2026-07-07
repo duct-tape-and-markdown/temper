@@ -194,6 +194,10 @@ mod tests {
             count: None,
             target: None,
             degree: None,
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
         };
         let contract = effective(&[row], "skill", floor());
         assert_eq!(contract.clauses.len(), floor().clauses.len());
@@ -212,6 +216,10 @@ mod tests {
             count: None,
             target: None,
             degree: None,
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
     }
@@ -231,6 +239,10 @@ mod tests {
             count: None,
             target: None,
             degree: None,
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
     }
@@ -247,6 +259,10 @@ mod tests {
             count: None,
             target: None,
             degree: None,
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
         };
         assert_eq!(effective(&[row], "skill", floor()), floor());
     }

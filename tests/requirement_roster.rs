@@ -201,6 +201,10 @@ fn required_clause_row(
         count,
         target: target.map(str::to_string),
         degree,
+        bound: None,
+        charset: None,
+        keys: None,
+        values: None,
     }
 }
 
@@ -305,6 +309,10 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
             count: None,
             target: None,
             degree: None,
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
         }],
     );
     let lock_override = check_in(&root);

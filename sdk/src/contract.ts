@@ -14,13 +14,12 @@ import type { KindDefinition } from "./kind.js";
 export type Severity = "required" | "advisory";
 
 /**
- * A member of the closed predicate algebra (`10-contracts.md`). A kind's own
- * `expect` clauses compile to a reduced row of `key`/`field`/`severity` only —
- * the node-scope engine reads a floor's per-clause severity overrides, never a
- * predicate's own bounds. A requirement's `clauses` compile fuller: `args`/
- * `target` ride the row too, since the roster/graph checks decide `count`/
- * `unique`/`membership`/`degree` from them directly (`declarations.ts`
- * `clauseRow`).
+ * A member of the closed predicate algebra (`10-contracts.md`). Both a kind's
+ * own `expect` clauses and a requirement's `clauses` compile to the row's full
+ * `key`/`field`/`severity`/argument shape (`declarations.ts` `clauseRow`): a
+ * floor clause's own `bound`/`charset`/`keys`/`values` ride the row alongside
+ * a requirement's `count`/`target`/`degree`, so the lock encodes the floor
+ * losslessly rather than identity+severity alone.
  */
 export interface Predicate {
   /** The predicate's clause key (`required`, `max_len`, `max_lines`, …). */

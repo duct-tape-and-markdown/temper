@@ -11,7 +11,7 @@
 
 import type { Harness } from "./assembly.js";
 import type { KindFacts, Registration } from "./kind.js";
-import type { Clause, Requirement } from "./contract.js";
+import type { Charset, Clause, Predicate, Requirement } from "./contract.js";
 
 /** One kind's declaration row — its identity and declared runtime facts. */
 export interface KindFactRow {
@@ -49,6 +49,14 @@ export interface ClauseRow {
     readonly incoming?: { readonly min?: number; readonly max?: number };
     readonly outgoing?: { readonly min?: number; readonly max?: number };
   };
+  /** The `min_len`/`max_len`/`max_lines` predicate's scalar bound. */
+  readonly bound?: { readonly min?: number; readonly max?: number };
+  /** The `allowed_chars` predicate's declared character class. */
+  readonly charset?: Charset;
+  /** The `forbidden_keys` predicate's forbidden key list. */
+  readonly keys?: readonly string[];
+  /** The `deny` predicate's forbidden value list. */
+  readonly values?: readonly string[];
 }
 
 /**
@@ -70,10 +78,14 @@ export interface RequirementRow {
  * `guidance`/`cite` columns — the clause's four channels surviving erasure
  * (`10-contracts.md`, "The clause — the atom of a contract") — plus, when the
  * predicate carries them, the `count`/`target`/`degree` argument columns a
- * kind-level override row never needs but a requirement's own demand always
- * does (`10-contracts.md`, "Judged at the node-set scope" / "Judged at the
- * edge scope"). `kind` is supplied only for a kind's own `expect` clause; a
- * requirement's nested clause carries none.
+ * requirement's own set-/edge-scope demand needs (`10-contracts.md`, "Judged
+ * at the node-set scope" / "Judged at the edge scope"), and the
+ * `bound`/`charset`/`keys`/`values` argument columns a kind's own node-scope
+ * floor clause needs (`min_len`/`max_len`/`max_lines`'s bound,
+ * `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values) — so
+ * the lock encodes the floor losslessly, not identity+severity alone. `kind`
+ * is supplied only for a kind's own `expect` clause; a requirement's nested
+ * clause carries none.
  */
 function clauseRow(clause: Clause, kind?: string): ClauseRow {
   const { predicate } = clause;
@@ -96,7 +108,23 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
             outgoing: edgeBoundArgs(predicate.args, "outgoing"),
           }
         : undefined,
+    bound: nodeScopeBoundArgs(predicate),
+    charset: predicate.key === "allowed_chars" ? predicate.charset : undefined,
+    keys: predicate.key === "forbidden_keys" ? predicate.keys : undefined,
+    values: predicate.key === "deny" ? predicate.values : undefined,
   };
+}
+
+/** `min_len`/`max_len`/`max_lines`'s scalar bound off their shared `min`/`max`
+ * args keys — `undefined` for every other predicate, and for these three when
+ * neither endpoint is present. */
+function nodeScopeBoundArgs(predicate: Predicate): { readonly min?: number; readonly max?: number } | undefined {
+  if (predicate.key !== "min_len" && predicate.key !== "max_len" && predicate.key !== "max_lines") {
+    return undefined;
+  }
+  const min = predicate.args?.min;
+  const max = predicate.args?.max;
+  return min === undefined && max === undefined ? undefined : { min, max };
 }
 
 /** One `degree` direction's `{min, max}` off its flat `<dir>_min`/`<dir>_max` args

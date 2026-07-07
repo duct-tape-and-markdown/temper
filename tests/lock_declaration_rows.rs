@@ -20,8 +20,9 @@ use temper::builtin;
 use temper::builtin_lock;
 use temper::contract::Severity;
 use temper::drift::{
-    self, AssemblyFactRow, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow,
-    EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
+    self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CountBoundRow, Declarations,
+    DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow,
+    SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -129,6 +130,10 @@ fn rich_declarations() -> Declarations {
                 count: None,
                 target: None,
                 degree: None,
+                bound: None,
+                charset: None,
+                keys: None,
+                values: None,
             },
             ClauseRow {
                 kind: Some("rule".to_string()),
@@ -140,6 +145,10 @@ fn rich_declarations() -> Declarations {
                 count: None,
                 target: None,
                 degree: None,
+                bound: None,
+                charset: None,
+                keys: None,
+                values: None,
             },
         ],
         requirements: vec![
@@ -165,6 +174,10 @@ fn rich_declarations() -> Declarations {
                         count: Some(CountBoundRow { min: 1, max: 2 }),
                         target: None,
                         degree: None,
+                        bound: None,
+                        charset: None,
+                        keys: None,
+                        values: None,
                     },
                     ClauseRow {
                         kind: None,
@@ -176,6 +189,10 @@ fn rich_declarations() -> Declarations {
                         count: None,
                         target: None,
                         degree: None,
+                        bound: None,
+                        charset: None,
+                        keys: None,
+                        values: None,
                     },
                     ClauseRow {
                         kind: None,
@@ -187,6 +204,10 @@ fn rich_declarations() -> Declarations {
                         count: None,
                         target: Some("review-coverage".to_string()),
                         degree: None,
+                        bound: None,
+                        charset: None,
+                        keys: None,
+                        values: None,
                     },
                     ClauseRow {
                         kind: None,
@@ -207,6 +228,10 @@ fn rich_declarations() -> Declarations {
                                 max: Some(3),
                             }),
                         }),
+                        bound: None,
+                        charset: None,
+                        keys: None,
+                        values: None,
                     },
                 ],
                 verified_by: None,
@@ -406,6 +431,10 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         count: Some(CountBoundRow { min: 1, max: 3 }),
         target: None,
         degree: None,
+        bound: None,
+        charset: None,
+        keys: None,
+        values: None,
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
@@ -417,6 +446,10 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         count: None,
         target: None,
         degree: None,
+        bound: None,
+        charset: None,
+        keys: None,
+        values: None,
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
@@ -428,6 +461,10 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         count: None,
         target: Some("approved-models".to_string()),
         degree: None,
+        bound: None,
+        charset: None,
+        keys: None,
+        values: None,
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
@@ -448,6 +485,10 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
                 max: Some(3),
             }),
         }),
+        bound: None,
+        charset: None,
+        keys: None,
+        values: None,
     });
 
     let payload = golden_payload(declarations);
@@ -495,6 +536,102 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     assert_eq!(degree.incoming.expect("incoming bound").max, None);
     assert_eq!(degree.outgoing.expect("outgoing bound").min, None);
     assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
+}
+
+/// A kind's own floor clause row round-trips its **node-scope predicate argument**
+/// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min_len`/`max_len`/`max_lines`'s bound,
+/// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values — not just
+/// identity+severity, so a floor `Contract` is reconstructable from the rows alone
+/// (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+/// from the SDK module, never transcribed").
+#[test]
+fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        kind: Some("skill".to_string()),
+        predicate: "max_len".to_string(),
+        field: Some("name".to_string()),
+        severity: "required".to_string(),
+        guidance: None,
+        cite: None,
+        count: None,
+        target: None,
+        degree: None,
+        bound: Some(BoundRow {
+            min: None,
+            max: Some(64),
+        }),
+        charset: None,
+        keys: None,
+        values: None,
+    });
+    declarations.clauses.push(ClauseRow {
+        kind: Some("skill".to_string()),
+        predicate: "forbidden_keys".to_string(),
+        field: None,
+        severity: "required".to_string(),
+        guidance: None,
+        cite: None,
+        count: None,
+        target: None,
+        degree: None,
+        bound: None,
+        charset: None,
+        keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
+        values: None,
+    });
+    declarations.clauses.push(ClauseRow {
+        kind: Some("skill".to_string()),
+        predicate: "allowed_chars".to_string(),
+        field: Some("name".to_string()),
+        severity: "required".to_string(),
+        guidance: None,
+        cite: None,
+        count: None,
+        target: None,
+        degree: None,
+        bound: None,
+        charset: Some(CharsetRow {
+            ranges: vec!["a-z".to_string(), "0-9".to_string()],
+            chars: Some("-".to_string()),
+        }),
+        keys: None,
+        values: None,
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("floor-clause-args", &payload);
+    let read_back = drift::read_declarations(&into).unwrap();
+
+    let max_len_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "max_len" && c.field.as_deref() == Some("name"))
+        .expect("the max_len clause row round-trips");
+    let bound = max_len_row.bound.expect("the bound is recorded");
+    assert_eq!((bound.min, bound.max), (None, Some(64)));
+
+    let forbidden_keys_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "forbidden_keys")
+        .expect("the forbidden_keys clause row round-trips");
+    assert_eq!(
+        forbidden_keys_row.keys.as_deref(),
+        Some(["globs".to_string(), "alwaysApply".to_string()].as_slice())
+    );
+
+    let allowed_chars_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "allowed_chars")
+        .expect("the allowed_chars clause row round-trips");
+    let charset = allowed_chars_row
+        .charset
+        .as_ref()
+        .expect("the charset is recorded");
+    assert_eq!(charset.ranges, vec!["a-z".to_string(), "0-9".to_string()]);
+    assert_eq!(charset.chars.as_deref(), Some("-"));
 }
 
 /// A payload with no requirements/satisfies/assembly facts at all still emits and
