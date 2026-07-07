@@ -7,9 +7,5 @@ expression: files
     ".claude-plugin/marketplace.json",
     ".claude-plugin/plugin.json",
     "hooks/hooks.json",
-    "packages/memory.agents-md/PACKAGE.md",
-    "packages/memory.anthropic/PACKAGE.md",
-    "packages/rule.anthropic/PACKAGE.md",
-    "packages/skill.anthropic/PACKAGE.md",
     "skills/temper/SKILL.md",
 ]

@@ -3,34 +3,33 @@
 //! Implements the `bundle` verb of `specs/architecture/50-distribution.md` ("The plugin — the
 //! Claude-Code-native delivery"). Distribution is *placing the one gate*; the plugin
 //! is the Claude-Code-native placement, and `bundle` is the verb that produces it.
-//! `temper` ships as a plugin bundling three things:
+//! `temper` ships as a plugin bundling two things:
 //!
 //! 1. the **skill** — how to *operate the gate* (`import` / `check`, read a
 //!    diagnostic, and when to challenge the contract versus fix the artifact). It is
 //!    mechanics, never taste (the Decision "the skill is mechanics, never taste"):
-//!    the opinions live in the packages, never in skill prose;
+//!    the opinions live in the SDK's floors, never in skill prose;
 //! 2. the **`SessionStart` hook**, in its own `hooks.json` — the advisory
 //!    session-start gate (`temper check . --reporter session-start`, the exec-form
-//!    command Claude Code spawns);
-//! 3. the **shipped built-in packages** — the std-lib, embedded byte-faithful, so
-//!    an installed `temper` has something to check against.
+//!    command Claude Code spawns).
 //!
 //! Alongside the plugin tree it emits a `marketplace.json` listing the plugin, the
-//! channel it is distributed through.
+//! channel it is distributed through. `bundle` delivers the *gate*, never clauses
+//! (50-distribution.md, "Three channels": clauses publish through the SDK, channel 1).
 //!
 //! The plugin is a **vendored, generated surface** — itself an instance of what
 //! `temper` projects, so it is **byte-faithful where it carries prose** (`00-intent.md`
-//! law 5): the skill body and the built-in packages are copied verbatim from their
-//! embedded sources, never re-rendered. The structured manifests (`plugin.json`,
-//! `marketplace.json`, `hooks.json`) are built through `serde_json`, so they are
-//! well-formed by construction — the binary owns the output contract, no
-//! hand-escaping (mirroring [`crate::reporter`]).
+//! law 5): the skill body is copied verbatim from its embedded source, never
+//! re-rendered. The structured manifests (`plugin.json`, `marketplace.json`,
+//! `hooks.json`) are built through `serde_json`, so they are well-formed by
+//! construction — the binary owns the output contract, no hand-escaping (mirroring
+//! [`crate::reporter`]).
 //!
 //! `bundle` **reads the imported surface** it is given (via [`Workspace::load`], an
 //! existing public API — no `compose.rs`/`contract.rs` edits) both to fail loud on a
 //! malformed surface and to report the harness the plugin was composed over. The
-//! three bundled contents are `temper`'s own gate-delivery assets, so `temper bundle`
-//! over `temper`'s own surface self-packages `temper`'s plugin — the dogfood target.
+//! bundled contents are `temper`'s own gate-delivery assets, so `temper bundle` over
+//! `temper`'s own surface self-packages `temper`'s plugin — the dogfood target.
 //!
 //! Determinism: every written byte is a pure function of the embedded assets and the
 //! crate version, so re-running `bundle` reproduces an identical tree — the vendored
@@ -61,30 +60,6 @@ const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: imp
 /// verb"). Matches the wiring `temper install` projects into `.claude/settings.json`, so
 /// the plugin and `install` deliver the same gate.
 const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
-
-/// Every curated built-in package's `PACKAGE.md` product source, `(name, source)`,
-/// embedded byte-faithful for bundling (see [`run`]'s use). The engine itself never
-/// loads these (`crate::builtin` authors the same clauses as plain Rust data,
-/// `specs/architecture/15-kinds.md`); this is the human-readable citation trail
-/// shipped alongside the plugin.
-const CURATED_PACKAGES: &[(&str, &str)] = &[
-    (
-        "memory.agents-md",
-        include_str!("../packages/memory.agents-md/PACKAGE.md"),
-    ),
-    (
-        "memory.anthropic",
-        include_str!("../packages/memory.anthropic/PACKAGE.md"),
-    ),
-    (
-        "rule.anthropic",
-        include_str!("../packages/rule.anthropic/PACKAGE.md"),
-    ),
-    (
-        "skill.anthropic",
-        include_str!("../packages/skill.anthropic/PACKAGE.md"),
-    ),
-];
 
 /// The bundled **operate-the-gate skill**, embedded byte-faithful (law 5). Mechanics
 /// only — how to run the checker and when to challenge the contract — never advice on
@@ -178,9 +153,8 @@ pub struct BundleReport {
 ///
 /// Reads the surface via [`Workspace::load`] (fail-loud on a malformed one), then
 /// emits the plugin: the manifest, the operate-the-gate skill, the `SessionStart`
-/// hook in its own `hooks.json`, the embedded built-in packages, and the
-/// marketplace listing. See the module header for the byte-faithfulness and
-/// determinism guarantees.
+/// hook in its own `hooks.json`, and the marketplace listing. See the module header
+/// for the byte-faithfulness and determinism guarantees.
 pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     // Read the imported surface: fail loud if it is not a valid workspace, and carry
     // its size into the report so `bundle` names what it composed over.
@@ -218,16 +192,6 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
         &hooks_manifest(),
         &mut files,
     )?;
-
-    // The curated `packages/<name>/PACKAGE.md` product source, shipped verbatim as
-    // human-readable reference material beside the plugin — the same cited prose
-    // `crate::builtin`'s Rust data mirrors. Not something the engine loads (there is
-    // no kind/package file format, `specs/architecture/15-kinds.md`): this is
-    // documentation for the plugin's consumer, not a load-bearing artifact.
-    for (name, source) in CURATED_PACKAGES {
-        let relative = PathBuf::from("packages").join(name).join("PACKAGE.md");
-        write_text(out, &relative, source, &mut files)?;
-    }
 
     files.sort();
     Ok(BundleReport {
