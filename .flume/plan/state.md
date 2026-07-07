@@ -1,30 +1,31 @@
 # Plan state
 
-- **Phase:** derived-lock chain draining — final link now open. Inbox empty;
-  spec delta empty (no `specs/` commits this window since 4ed47a0).
-- **Last shipped (5f68c8c):** BUILTIN-FLOOR-LOCK-PROJECTION — builtin.rs's
-  floors now project off the lock's clause rows; the package noun
-  (SKILL_PACKAGE/FLOOR_BINDINGS/`<kind>.<source>` names) retired from code.
-  Residue sweep (grep): package-noun/reachability-dial/role/EdgeClause symbols
-  all zero; the surviving `SDK_PACKAGE` hits are the legitimate npm name.
-- **This tick:** projection shipped, so CHECK-LOCK-KIND-ROWS unblocked →
-  flipped to **open** and rescoped off an agent trace. It is still real
-  (main.rs::gate hardcodes `custom_kinds = Vec::new()` at :631/:416; a `require`
-  naming a custom kind fails `requirement.admissibility`), but narrower than
-  filed: drift.rs already parses `declarations.kinds`, engine.rs is kind-blind
-  (no edit), and gate doesn't route through check.rs's `Workspace`. Scope now =
-  main.rs::gate + a `KindFactRow→CustomKind` ctor in kind.rs; engine.rs/check.rs
-  dropped from the entry.
-- **Queue — 3 entries, 1 open:** CHECK-LOCK-KIND-ROWS (open, next).
-  COMMENT-STOCK-SWEEP deferred (whole-tree solo; `files.edit` expanded to the
-  real residue set — builtin_kind.rs/builtin.rs/bundle.rs/read.rs, incl.
-  read.rs's dangling `READ-EDGE-UNIFY` tag; promoted once the chain ships and
-  the queue is otherwise empty). PACKAGING-CHANNELS parked (release creds +
-  engine workflow + USPTO).
-- **What's next:** build picks CHECK-LOCK-KIND-ROWS — the chain's final link.
-  On contact it cuts main.rs's now-false KIND.md comments; when it ships, plan
-  promotes COMMENT-STOCK-SWEEP to solo open.
+- **Phase:** derived-lock chain **complete**; the comment-residue sweep opens.
+  Inbox empty; spec delta empty (no `specs/` commits since 4ed47a0 — the last
+  three plan ticks only touched `.flume/`).
+- **Last shipped (53da730):** CHECK-LOCK-KIND-ROWS — main.rs::gate synthesizes
+  custom kinds from the lock's `KindFactRow`s (no more hardcoded
+  `custom_kinds = Vec::new()`); the chain's final link. On contact it cut
+  main.rs's now-false KIND.md/tree comments (grep: zero `kinds/`/`packages/`
+  refs left in main.rs).
+- **This tick:** promoted COMMENT-STOCK-SWEEP to **open** (chain shipped, queue
+  otherwise empty) and re-scoped it off a fresh whole-tree grep. Kept to the
+  four src files whose comments are **false** (retired trees, `[edge.*]`
+  construct, package-era narration). Dropped tests/session_start.rs: its
+  KIND.md/PACKAGE.md lines narrate **live fixture code** (it writes `+++`
+  old-format files to assert session-start ignores stray files) — a behavioral
+  test question, not a comment cut. The tree-wide stale-**form** residue (~286
+  accurate quoted section titles, ~60 dangling shipped-tag refs) is left to
+  rust.md's cut-on-contact exit clause, not a dedicated churn slice.
+- **Queue — 2 entries, 1 open:** COMMENT-STOCK-SWEEP (open, solo).
+  PACKAGING-CHANNELS parked (release creds + engine-binary workflow + USPTO).
+- **What's next:** build picks COMMENT-STOCK-SWEEP. Beyond it, the next engine
+  wave is `(json-projection-format)` — its SDK-primary foundation (the
+  derived-lock chain) has now shipped, so it is unblocked, but the JSON
+  adapter / `layout`-fact spelling is an open fork awaiting John before it can
+  be filed. Accepted debt noted in the commit body: tests/session_start.rs's
+  retired-format fixtures, and the tree-wide cut-on-contact comment residue.
 
-Plan continues: no — queue reconciled (projection's cleared successor flipped
-to open and rescoped, sweep files expanded, open-questions asymmetry updated),
-inbox empty, delta empty. Building drains the chain's last link.
+Plan continues: no — queue reconciled (sweep promoted + re-scoped, open-questions
+asymmetry and json fork updated), inbox empty, delta empty, one pickable open
+entry. Building drains it.

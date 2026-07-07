@@ -1,42 +1,41 @@
 [
   {
     "tag": "COMMENT-STOCK-SWEEP",
-    "summary": "Whole-tree comment sweep — prose spec recaps to pointer tags, delete era + compliance narration, retired-tree citations, and dangling pending-tag refs per rust.md's taxonomy; no behavior change",
+    "summary": "Cut false comment residue — retired-tree (kinds//packages/) citations, [edge.*] retired-construct refs, package-era narration — per rust.md's exit clause; no behavior change",
     "per": {
       "path": ".claude/rules/rust.md",
       "section": "Style & structure"
     },
     "gate": {
-      "kind": "deferred",
-      "reason": "Whole-tree sweep — must run solo (a broad src/+tests/ comment edit races any concurrent entry). Promoted to a solo open entry once CHECK-LOCK-KIND-ROWS ships and the queue is otherwise empty; promotion re-greps to finalize the exact residue set (including tests/)."
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
-          "path": "src/builtin_kind.rs",
-          "description": "The `kinds/<name>/KIND.md` curated-tree citations (`//!` :5-7, :26, :60, :89) and the \"any more\" era narration: drop the citations (the tree is slated for physical deletion, a human chore), convert prose spec recaps to terse pointer tags (file path only), delete era narration. Module `//!` header to ~10 lines."
+          "path": "src/builtin.rs",
+          "description": "Package-era narration the projection left in its own header: `//!` :6 (quotes a spec Decision title + names the retired `hand-written mirror`), :10 (`There is no package noun any more`), and `///` :97 (`the noun retired with the hand-written mirror`). Cut the era phrasing — commit-body/git material per rust.md's exit clause; reduce the spec citations to terse spec-path pointer tags; `//!` header to ~10 lines."
         },
         {
-          "path": "src/builtin.rs",
-          "description": "Era narration the projection left in its own header: `//!` :10-11 (\"There is no package noun any more\") and :95 (\"the noun retired with the hand-written mirror\") — commit-body material, cut per rust.md's exit clause. Header to ~10 lines."
+          "path": "src/builtin_kind.rs",
+          "description": "Retired `kinds/<name>/KIND.md` curated-tree citations (`//!` :7; `///` :26/:60/:89) plus `any more` era narration (:5 `no KIND.md file format any more`, :140 `to resolve through any more`). The `kinds/` tree is slated for physical deletion (a human chore) — drop the retired-tree pointers, citing the spec path only; cut the era phrasing; `//!` header to ~10 lines."
         },
         {
           "path": "src/bundle.rs",
-          "description": "The `packages/` curated-tree reference (:79) — cite the clause `cite` field / spec path only, drop the retired-tree pointer."
+          "description": "The `packages/` retired-tree reference (:79) — cite the clause `cite` field / spec path only, drop the retired-tree pointer."
         },
         {
           "path": "src/read.rs",
-          "description": "Retired `[edge.<target>]`/`[edge.*]` document-clause references and the dangling `READ-EDGE-UNIFY` pending tag (`//!` :23, :65, and :391): the `[edge.*]` construct shipped/retired and the tag is not in the queue — delete both per rust.md's exit clause (dangling pending-tag reference + retired-noun comment)."
+          "description": "Retired `[edge.<target>]`/`[edge.*]` document-clause references — the construct shipped and retired (`edge-representation-unify`) — at `//!` :23, `///` :65, and comment :391-392, plus `no package noun any more` era narration at :382. Cut the retired-construct mentions and era phrasing; keep the accurate resolved-edge-set rationale, dropping only the dead `[edge.*]` reference. The unrelated READ-EDGE-UNIFY design-rationale tags elsewhere in the file are accurate stale-form, left to rust.md's cut-on-contact exit clause — not this entry."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "Zero quoted spec section titles in src/ or tests/ comments; zero era vocabulary from 90-spec-system's migration trail; no comment referencing a pending tag that isn't in the queue; no citation of the retired `kinds/`/`packages/` curated trees or `[edge.*]` document clauses; module `//!` headers ~10 lines; cargo gates green — no behavior change.",
-    "notes": "Ceremony item (John 07-06). rust.md's exit clause cuts comments on contact for chain-touched files (builtin.rs by the projection; main.rs's KIND.md comments by CHECK-LOCK-KIND-ROWS); this sweep is the residue in files the chain leaves untouched. Deferred, not blockedBy: a whole-tree edit races every open entry — promoted to solo open once CHECK-LOCK-KIND-ROWS ships and the queue is otherwise empty; promotion re-greps the full residue set (incl. tests/ + any main.rs remainder)."
+    "acceptance": "No src/ comment cites the retired `kinds/`/`packages/` curated trees or the retired `[edge.*]` document clauses; no package-era narration (`no package noun any more`, `noun retired`, `KIND.md file format any more`) survives in the touched files; spec citations are terse pointer tags, not quoted section titles; module `//!` headers ~10 lines; cargo fmt/clippy/test green — no behavior change.",
+    "notes": "Ceremony item (John 07-06); chain complete (CHECK-LOCK-KIND-ROWS shipped), queue otherwise empty -> promoted to solo open. Scoped to FALSE comments (retired trees/constructs, package-era narration), not a tree-wide quoted-title re-styling: ~286 accurate quoted section titles + ~60 dangling shipped-tag refs (READ-EDGE-UNIFY x18 etc.) are stale-form not false, left to rust.md's cut-on-contact exit clause rather than a dedicated churn slice (the anti-churn rule)."
   },
   {
     "tag": "PACKAGING-CHANNELS",

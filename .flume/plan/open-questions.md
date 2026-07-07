@@ -31,12 +31,14 @@ tax (it hit 1,280 lines / ~38k tokens before the 07-06 drain).
   Needs John. Held until the locus model is decided; related:
   `(json-projection-format)`.
 
-- `(json-projection-format)` — OPEN, foundation-gated. The JSON-manifest
-  built-in kinds (settings, MCP, plugin/marketplace) need a generic JSON
-  adapter (a peer to `src/frontmatter.rs`) reading nested-key fields into the
-  generic extraction path; a kind's on-disk shape is the `layout` fact
-  (`15-kinds.md`), declared as an SDK value. Real engine work, gated on the
-  SDK-primary foundation (the derived-lock chain), not on a vocabulary change.
+- `(json-projection-format)` — OPEN. The JSON-manifest built-in kinds
+  (settings, MCP, plugin/marketplace) need a generic JSON adapter (a peer to
+  `src/frontmatter.rs`) reading nested-key fields into the generic extraction
+  path; a kind's on-disk shape is the `layout` fact (`15-kinds.md`), declared
+  as an SDK value. The SDK-primary foundation (the derived-lock chain) has now
+  **shipped**, so this is unblocked engine work — but the adapter and the
+  `layout`-fact spelling are an open design fork needing John before it can be
+  filed as a pending entry.
 
 - `(edge-representation-unify)` — OPEN residual. The gate's graph reads
   `routes_to` as an extracted feature (verified 07-06: live in `src/graph.rs`),
@@ -98,16 +100,19 @@ condition arrives, it is the next break. If work touches one, surface it.
   — kept because an external format's mechanics are temper's to implement
   once; the selection is declared. Grows only by deliberate addition.
 - **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived,
-  retirement draining: CURATED-TREES-RETIRE, BUILTIN-KIND-FLATTEN, and
-  BUILTIN-FLOOR-LOCK-PROJECTION **shipped** — the last cleaned builtin.rs's
-  `packages/PACKAGE.md` citations. The remaining src refs are comment-only:
-  builtin_kind.rs's `kinds/KIND.md`, bundle.rs's `packages/`, main.rs's tree
-  citations, read.rs's `[edge.*]`/dangling-tag lines — all ride
-  COMMENT-STOCK-SWEEP (main.rs's `KIND.md` comments partly cut by
-  CHECK-LOCK-KIND-ROWS on contact). Citation trail moves to clause `cite`
-  fields (`10-contracts.md`). The physical `kinds/`+`packages/` tree deletion
-  is a human `chore(harness):` commit — actionable, out of build's fence. This
-  line dies when the sweep lands.
+  retirement draining: CURATED-TREES-RETIRE, BUILTIN-KIND-FLATTEN,
+  BUILTIN-FLOOR-LOCK-PROJECTION, and CHECK-LOCK-KIND-ROWS **shipped** — the
+  last cut main.rs's KIND.md/tree comments on contact (grep: zero
+  `kinds/`/`packages/` refs in main.rs). The remaining src refs are
+  comment-only and ride COMMENT-STOCK-SWEEP (open): builtin_kind.rs's
+  `kinds/KIND.md`, bundle.rs's `packages/`, read.rs's `[edge.*]` lines.
+  Not in the sweep: tests/session_start.rs writes `+++`-format
+  `kinds/spec/KIND.md` + `packages/spec/PACKAGE.md` **fixtures** (live test
+  code, asserting stray old-format files are ignored) — a behavioral question,
+  accepted debt for now. Citation trail moves to clause `cite` fields
+  (`10-contracts.md`). The physical `kinds/`+`packages/` tree deletion is a
+  human `chore(harness):` commit — actionable, out of build's fence. This line
+  dies when the sweep lands.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the custom-kind story
   proves end to end.
