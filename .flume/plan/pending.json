@@ -1,41 +1,5 @@
 [
   {
-    "tag": "VACATE-KIND-NOUN",
-    "summary": "Rename the scalar value-type lattice `extract::Kind` off the kernel noun — `representation.md` makes `kind` the type of a member; the enum only enumerates field value types (string/number/list/map)",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "The definition site: `pub enum Kind` (line 38) with its `name`/`from_name` impl is the closed scalar/container value-type lattice (String/Integer/Number/Boolean/Null/List/Map). Rename the type off `Kind` (build owns the spelling — equal representation; it must NOT be `kind` and should read as a value type, e.g. `ValueType`). Update the `FeatureValue::kind()` accessor and `number_kind` helper only insofar as they return the renamed type — do not touch `FeatureValue`'s own list/map variant surface beyond the type reference. Refresh ONLY this renamed enum's own doc-comment `cite`s (they point at retired `specs/architecture/10-contracts.md`) onto `specs/model/representation.md` \"kind\" as they ride."
-        },
-        { "path": "src/schema.rs", "description": "~10 call sites of `extract::Kind` (the JSON-Schema `type`-name mapping for the lattice). Retarget the import and every `Kind::` reference to the renamed type." },
-        { "path": "src/engine.rs", "description": "~11 `Kind::` call sites (the `type`-predicate evaluation reads a field's parsed value type). Retarget import + references." },
-        { "path": "src/kind.rs", "description": "~20 `Kind::` references (value-type comparisons in the `Primitive`/`type` machinery — distinct from this file's own `Format`/`UnitShape`/`Registration` enums, which are unaffected). Retarget the value-type references only." },
-        { "path": "src/builtin_kind.rs", "description": "~6 `extract::Kind` references. Retarget." },
-        { "path": "src/contract.rs", "description": "Import + the `type` clause's declared-`Kind` reference (line ~95). Retarget." },
-        { "path": "src/graph.rs", "description": "`extract::Kind` reference. Retarget." },
-        { "path": "src/roster.rs", "description": "`extract::Kind` reference. Retarget." },
-        { "path": "src/read.rs", "description": "`extract::Kind` reference (imported alongside `GenreValue`; leave `GenreValue` untouched — that is separate retired-vocabulary residue). Retarget the value-type reference only." },
-        { "path": "tests/extract_equivalence.rs", "description": "References the renamed type in feature-extraction assertions; retarget. Any `insta` snapshot that renders the type name (extract_equivalence__*.snap) is re-accepted." },
-        { "path": "tests/read_verbs.rs", "description": "Retarget value-type references." },
-        { "path": "tests/graph.rs", "description": "Retarget value-type references." }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "tests/extract_equivalence.rs", "asserts": "field value-type extraction still classifies scalars/containers identically under the renamed type; gates green." }
-    ],
-    "acceptance": "The scalar/container value-type lattice no longer bears the identifier `Kind`; `kind` is free for its kernel meaning (the type of a member, `representation.md`). `cargo build`, `cargo clippy -D warnings`, `cargo test` green.",
-    "notes": "Foundational vacate — pure rename, no behavior. Frees the noun before the requirement/member-kind arc (embedded locus, requirement-as-kind, satisfier-set bug) lands, all un-derived from 0001. The enum derives `JsonSchema`+`TS`, so generated bindings and name-rendering snapshots move too. Broader retired vocab in these files (`genre`/`GenreValue`, `means`, `architecture/*` cites) is NOT this entry — it rides its own future opener."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
