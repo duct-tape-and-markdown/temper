@@ -2,14 +2,16 @@
 
 - Spec derived through: be8e1bf
 - Audited through: c9eeffb
-- Residue swept through: 079ca3e
-- This tick: ship audit — build 0dab4be shipped VACATE-KIND-NOUN (extract::Kind
-  → ValueType across extract/schema/engine/kind/builtin_kind/contract/graph/
-  roster/read + tests). Verified on disk: ValueType everywhere, no residual
-  value-type Kind, build green; entry already drained by build. PACKAGING gate
-  re-tested — every parked fact still true (install.rs pins ^0.0.2, root
-  package.json still the private flume manifest, no release.yml). Advanced the
-  audit cursor 813ca61 → c9eeffb (HEAD).
+- Residue swept through: 3373326
+- This tick: residue sweep 079ca3e→HEAD reconciles to quiet. One src commit
+  since (0dab4be, extract::Kind→ValueType) shipped clean — no new residue,
+  ValueType is extract-layer typing, not the kernel `kind` noun. Every retired
+  class routed: genre→(genre-embedded-member), authority/shared/surface→
+  (authority-home), requirement.kind→(requirement-satisfier-kind) (open forks);
+  posture vocab + architecture/* cites are doc-comment citation staleness (ride
+  the next entry opening those files). PACKAGING gate re-tested — install.rs
+  pins ^0.0.2, no release.yml (only temper.yml), root package.json still the
+  private flume manifest. Advanced residue cursor 079ca3e → HEAD.
 - Queue: 1 entry — PACKAGING-CHANNELS (parked on human release creds +
   engine-binary workflow). No pickable entry.
 
@@ -18,7 +20,6 @@ requirement.kind→(requirement-satisfier-kind), authority→(authority-home) (o
 forks); posture/mode, architecture/* cites, means-as-corpus-word, law-N refs →
 citation staleness, ride the next entry opening their files.
 
-Plan continues: yes — residue sweep. Residue swept through 079ca3e trails HEAD
-c9eeffb; one src commit landed since (0dab4be), so the sweep re-runs 079ca3e→HEAD
-next tick against the kernel corpus. Ship audit was the higher-priority live
-input serviced this tick.
+Plan continues: no — every input current: inbox empty, no spec delta past
+be8e1bf, audit window (c9eeffb..HEAD) is one no-src plan commit, residue swept
+to HEAD. Only entry is parked (no pickable work) → loop hibernates.
