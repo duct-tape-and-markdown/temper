@@ -12,12 +12,12 @@
 
 ## Source of truth
 
-**Read `specs/intent/00-intent.md` (the north star) first**, then the rest of the
-evergreen `specs/` corpus — the source of truth for intent and contract
-(`specs/process/90-spec-system.md` says how specs work). It is not a release line: plan
-reconciles code against the living corpus every tick; build executes one entry
-at a time against its cited spec section. Intent is human-authored, never written
-by a phase.
+**Read `specs/intent.md` first**, then the model (`specs/model/`) — the source
+of truth for intent and contract (`specs/process/spec-system.md` says how the
+corpus works; history lives in `specs/decisions/` and git tags, never in the
+body text). The corpus is evergreen with a stable kernel: plan reconciles code
+against it every tick; build executes one entry at a time against its cited
+spec section. Intent is human-authored, never written by a phase.
 
 ## The two harnesses — read this
 
@@ -45,8 +45,8 @@ door.
 - **Rust**, edition 2024, toolchain 1.96+. `cargo` is the build/test/lint driver.
 - Key crates (sanctioned set; see Cargo.toml): `clap`, `miette` + `thiserror`, `serde`,
   `toml_edit` (format-preserving round-trip keystone), `gray_matter`, `walkdir`,
-  `ignore` (gitignore-honoring discovery walks — `specs/architecture/20-surface.md`,
-  "discovery respects ignore rules"), `sha2`, `regex` (the charset mechanics behind
+  `ignore` (gitignore-honoring discovery walks — `specs/model/pipeline.md`),
+  `sha2`, `regex` (the charset mechanics behind
   `allowed_chars` — no author-facing `pattern` clause), `insta` (snapshot tests).
 - **flume** control plane (`.flume/`) runs on Node via `@dtmd/flume` (pnpm).
 
