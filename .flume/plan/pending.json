@@ -1,5 +1,109 @@
 [
   {
+    "tag": "RETIRE-MANIFEST-NOUN",
+    "summary": "Retire the `manifest` noun (= the committed lock) from doc comments + read-verb diagnostics, and refresh the stale genre/read/drift/adapter section-title citations in the same files",
+    "per": {
+      "path": "specs/process/90-spec-system.md",
+      "section": "Naming consistency — the one hard rule"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Doc comments (99, 486, 587, 616, 756, 781, 973, 1000, 1766) and the two user-facing leaf-not-found diagnostics (639, 800: `\"...off the manifest's [[member.genre]] tables...\"`) name the committed lock as `the manifest` — a retired noun (05-model.md dissolved list; 90-spec-system migration trail: manifest retired, the lock is the committed anchor). Rename to `the lock`. Diagnostics must speak the corpus vocabulary (50-distribution, no synonyms). Also refresh the stale section-title citations: `20-surface.md`, \"The member document\" → \"The member\"; \"Genre values\" → the current genre section; \"Decision: the CLI gains a read family\" and \"The family gains leaf grain\" → \"Decision: one read verb — `explain`\". Rerun `cargo insta accept` if the reworded diagnostics move any read_verbs snapshot."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Line 160 doc comment \"serialized whole into the manifest\" → \"into the lock\". Refresh its stale citations `15-kinds.md`, \"genres (optional)\" and `20-surface.md`, \"Genre values — prose that declares its own anatomy\" → `15-kinds.md`, \"A genre is a kind at the block locus\". Also refresh the stale \"A built-in kind is an adapter\" / \"the adapter faces are declared\" citations to current framing (15-kinds.md: built-ins are declared SDK values in a published module, not per-kind adapters). LEAVE the `genre.manifest` fence-info-string test fixtures (988, 1000) — arbitrary fenced-block labels, not the retired noun."
+        },
+        {
+          "path": "src/display.rs",
+          "description": "Line 9 doc comment \"the manifest's TOML syntax\" → \"the lock's TOML syntax\". Refresh the stale citation `20-surface.md`, \"The display rule owns connective tissue\" to the current emit/display-rule section."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Line 194 doc comment \"the manifest serializer\" → \"the lock serializer\". Refresh stale citations (\"Genre values\", \"`impact` reports at leaf grain\", \"leaf addresses are structural and keyed\") against current headings. LEAVE the `genre.manifest` fence-info fixtures (967, 977)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Line 559 comment \"Never gated on a manifest's presence\" → \"a lock's presence\". Refresh stale citations \"Drift — two freshness facts\" → \"The lock and drift — one vocabulary\"; \"Genre values\"; \"The member document\" → \"The member\"."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Line 774 comment cites `20-surface.md`, \"`config.stale` — the committed manifest/projection does not match...\" (noun + title both stale) and line 770 \"Drift — one direction, two freshness facts\" → both to \"The lock and drift — one vocabulary\"; rename `manifest/projection` → `lock/projection`. Verify the inline paraphrase \"a kind's runtime residue is its five declaration facts\" still resolves."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Blast radius only: if the reworded leaf-not-found diagnostics (read.rs 639/800) are exercised, regenerate the affected `tests/snapshots/read_verbs__*.snap` via `cargo insta accept`. No new assertions."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "No live `manifest` noun naming the committed lock survives in src/read.rs, kind.rs, display.rs, extract.rs, main.rs, drift.rs (doc comments and read-verb diagnostics say `lock`); the only surviving `manifest` uses are real plugin/marketplace/hooks/package.json JSON manifests, the compose.rs 'manifest era' tombstone, and `genre.manifest` test fixtures; every spec-section-title citation in those six files resolves to a current `specs/` heading; `cargo test` green.",
+    "notes": "`manifest` retired 2026-07-04 (05-model.md dissolved list; the lock is the committed anchor). Live residue: read.rs (~10 sites), kind.rs:160, display.rs:9, extract.rs:194, main.rs:559, drift.rs:774. KEEP: real plugin/marketplace/hooks + package.json JSON manifests, the compose.rs 'manifest era' tombstone, and `genre.manifest` fixture info-strings. read.rs:639/800 are user-facing diagnostics — `cargo insta accept` if snapshots move."
+  },
+  {
+    "tag": "REFRESH-STALE-SPEC-CITATIONS",
+    "summary": "Refresh stale spec-section-title citations in engine-side doc comments (predicate algebra, node-set scope, Reporters, retired apply three-states) against current corpus headings — comment-only",
+    "per": {
+      "path": "specs/process/90-spec-system.md",
+      "section": "Naming consistency — the one hard rule"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Refresh cited titles: \"The primitive algebra\" → \"The predicate algebra — closed, decidable, every member decides\"; verify \"Judged at the node-set scope\" resolves (10-contracts.md uses it inline, not as a `##` heading)."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "\"The primitive algebra\" → \"The predicate algebra\". The \"reject min>max\" hit is an inline value quote, not a section title — leave it."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "\"The set scope\" / \"The set scope (the roster)\" → \"The node-set scope — predicates over a matched set\" (45-governance.md); \"Decision: the contract is itself checked — admissibility\" → \"Admissibility — the contract is itself checked, one stage\" (10-contracts.md). LEAVE the arbitrary test kind-name \"manifest\" fixture."
+        },
+        {
+          "path": "src/reporter.rs",
+          "description": "\"Outward seams — Reporters\" → \"Reporters — one diagnostic source, three targets\" (50-distribution.md)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "\"Drift / apply — three states\" → retired (20-surface.md \"Decision: drift routes to the authored source — no reverse parse\": the three-state merge and `re-add`/`apply` are gone). Reconcile the comment to the current disk-vs-lock drift model."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "\"A built-in kind is an adapter\" → current framing (15-kinds.md: built-ins are declared SDK values in a published module, not per-kind adapters). Refresh to the live section/framing."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "\"The extraction algebra\" cites an inline concept, not a heading — reconcile to 05-model.md \"The spine: two algebras, two walls\" or the 15-kinds extraction section, whichever the comment means."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "\"Requirements and `satisfies`\" → the current owning heading (10-contracts.md \"Requirements — the harness's named obligations\" or 45-governance.md node-set scope). Verify and refresh."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "\"The harness is a graph too\" → current 45-governance.md \"One graph\" (or the live heading the comment means). Verify it is a title citation, not inline prose."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "Every `specs/.../*.md`- or `.claude/rules/*.md`-quoted section title in the touched engine-side files resolves to a heading that currently exists in the corpus; comment-only, no behavior change; `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Candidate stale titles (verify each vs specs/ + .claude/rules/; leave paraphrases that still resolve): 'The primitive algebra'→'The predicate algebra'; 'The set scope'→'The node-set scope'; 'Outward seams — Reporters'→'Reporters — one diagnostic source, three targets'; 'Drift/apply — three states'→retired. Comment-only. kind.rs/check-adapter citations belong to RETIRE-MANIFEST-NOUN (kind.rs) — disjoint. install.rs excluded (its `^0.0.2` SDK pin is release-owned, PACKAGING-CHANNELS)."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {

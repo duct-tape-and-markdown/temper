@@ -1,33 +1,29 @@
 # Plan state
 
-- **Phase:** package-noun dissolution's two residue tails **shipped** (45f8692);
-  this tick files the vocabulary residue those tails uncovered but did not
-  cover. Inbox empty; spec delta empty (no `specs/` commits since 4ed47a0).
-- **Last shipped (45f8692):** RETIRE-TOML-CONTRACT-PARSER + PKG-NOUN-COMMENT-SWEEP
-  (verified: the hand-TOML `Contract::parse` is gone; the first sweep's five
-  files are clean).
-- **This tick:** the residue sweep found the retired `activation` vocabulary
-  live across the engine AND a half-done SDK rename — `sdk/src/kind.ts`/
-  `builtins.ts` already carry `Registration`, but `declarations.ts` still emits
-  the lock column as `activation`, and all of src/ (kind/graph/read/drift/main/
-  builtin_kind/builtin_lock.toml) plus the world-edge finding strings still
-  speak it. The corpus retired it (`15-kinds.md`: registration generalizes
-  activation; no-synonyms, `50-distribution.md`). Filed
-  RENAME-ACTIVATION-TO-REGISTRATION (open) — the rename open-questions flagged
-  as "dies when the two tails land," now derivable. A second package/altitude
-  comment tail survives in the three files neither sweep nor rename touches
-  (contract.rs/bundle.rs/extract.rs) — filed PKG-NOUN-COMMENT-SWEEP-II (open),
-  disjoint from the rename.
-- **Queue — 3 entries, 2 open:** RENAME-ACTIVATION-TO-REGISTRATION (open, sole
-  owner of ~14 files incl. sdk/src/declarations.ts) + PKG-NOUN-COMMENT-SWEEP-II
-  (open, contract/bundle/extract — disjoint). PACKAGING-CHANNELS parked (release
-  creds + engine-binary workflow + USPTO — all human, none shipped this window).
-- **What's next:** build fans out the two open entries (the rename runs alone
-  over its files; the comment sweep runs alongside). Beyond them: the open
-  product forks await John — nearest engine work is `(json-projection-format)`
-  (the generic JSON adapter + `layout`-fact spelling) and
-  `(edge-representation-unify)` (join→`routes_to` flattening), both needing a
-  human decision before they file.
+- **Phase:** reconcile after the activation-rename + pkg-noun-II wave shipped
+  (89df4d5). Spec delta empty (no `specs/` commits since 3481fe1); inbox empty.
+  This tick's residue sweep surfaced a THIRD retired noun no sweep had touched —
+  `manifest` (the retired name for the committed lock) — live across doc comments
+  AND two user-facing read-verb diagnostics, plus a widespread stale
+  spec-section-title citation drift across nearly every src file (headings
+  renamed: "primitive"→"predicate algebra", "set scope"→"node-set scope",
+  read-family→`explain`, "Genre values", "The member document", apply-three-states).
+- **Last shipped (89df4d5):** RENAME-ACTIVATION-TO-REGISTRATION +
+  PKG-NOUN-COMMENT-SWEEP-II — verified on disk: no `activation` design
+  vocabulary and no package/altitude comment residue survive in `src/`.
+- **Queue — 3 entries, 2 open + disjoint:** RETIRE-MANIFEST-NOUN
+  (read/kind/display/extract/main/drift + read-verb diagnostics + snapshot regen)
+  and REFRESH-STALE-SPEC-CITATIONS (contract/engine/roster/reporter/import/check/
+  builtin_kind/coverage/graph) — strictly disjoint file sets, parallel-safe.
+  PACKAGING-CHANNELS parked (engine-binary release workflow + release creds +
+  USPTO name screen — all human, none moved this window).
+- **What's next:** build fans out the two disjoint comment/citation-reconcile
+  sweeps (both comment-only bar the read-verb diagnostic rewording). Beyond them
+  the open product forks await John — nearest engine work `(json-projection-format)`
+  and `(edge-representation-unify)`. Observed but NOT filed (mechanism, no spec
+  `per`; release-owned): `src/install.rs` pins the SDK at `^0.0.2` while
+  `@dtmd/temper` 0.0.3 is published — a version bump belonging to
+  PACKAGING-CHANNELS's release work, not a comment sweep.
 
-Plan continues: no — queue reconciled (two disjoint pickable open entries filed
-off the residue sweep), inbox empty, delta empty. Building drains it.
+Plan continues: no — queue reconciled (two disjoint pickable sweeps filed off
+the noun/citation residue), inbox empty, delta empty. Building drains it.

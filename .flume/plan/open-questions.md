@@ -103,9 +103,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   the engine retirement drained (CURATED-TREES-RETIRE, BUILTIN-KIND-FLATTEN,
   BUILTIN-FLOOR-LOCK-PROJECTION, CHECK-LOCK-KIND-ROWS, COMMENT-STOCK-SWEEP,
   RETIRE-TOML-CONTRACT-PARSER, PKG-NOUN-COMMENT-SWEEP — all **shipped**). The
-  last-tick residue sweep is now fully filed: the `activation`→`registration`
-  rename (RENAME-ACTIVATION-TO-REGISTRATION) and the remaining package/altitude
-  comments in the three uncovered files (PKG-NOUN-COMMENT-SWEEP-II). What stays
+  `activation`→`registration` rename and the package/altitude comment tail
+  (PKG-NOUN-COMMENT-SWEEP-II) **shipped** (89df4d5); the current residue tail is
+  a THIRD retired noun (`manifest`, = the committed lock) plus corpus-wide stale
+  spec-section-title citations — filed this tick as RETIRE-MANIFEST-NOUN and
+  REFRESH-STALE-SPEC-CITATIONS. What stays
   a standing asymmetry: tests/session_start.rs writes `+++`-format
   `kinds/spec/KIND.md` + `packages/spec/PACKAGE.md` **fixtures** (live test code
   asserting stray old-format files are ignored) — a behavioral question,
