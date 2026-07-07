@@ -31,6 +31,38 @@
     "notes": "Field report 2026-07-07 -> decision 0007. Detection is decidable: a lock-known projection with no current owning member. The hash is the safety line (the verbatim invariant's spirit — never delete hand-edited bytes). The prior-lock read mirrors config_stale:806 / emit_owned_targets:874. First derived slice of spec delta f4189c3; 0008-0011 unrouted. scoped at 2efd00b."
   },
   {
+    "tag": "EMIT-LF-NORMALIZE",
+    "summary": "emit writes projection bytes verbatim including a source's CRLF; normalize every emitted projection to LF uniformly so double-emit byte-reproduces across platforms (a CRLF source emits clean)",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMIT-REAP-ORPHANS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`emit_one`:516 assembles `desired` (and the `second_pass` determinism check) from either `project_bytes`:607 or, for an own_path member, `projection.body` verbatim — no line-ending normalization, so a member body carrying CRLF (a body authored on Windows) lands CRLF in the projection and the same program emits different bytes on different machines. Normalize `desired`/`second_pass` to LF (CRLF and lone CR → LF) before the double-emit compare, before `sha256_hex`:573, and before `fs::write`:585, so the lock's emit_hash and the written bytes are the LF-normalized form. Both branches normalize — the own_path body (a file()-carried member's own source) too, per pipeline.md's 'projections are written LF uniformly, whatever the source's convention.'"
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a member whose body carries CRLF (and one carrying a lone CR) emits an LF-only projection on disk; the emit_hash and the idempotent Unchanged re-emit both compute over the LF-normalized bytes, so double-emit byte-reproduces regardless of the source's line-ending convention"
+      }
+    ],
+    "acceptance": "A member body carrying CRLF (or lone CR) emits an LF-only projection; the emit hash and written bytes are the normalized form, so double-emit byte-reproduces on any platform — line endings never reach a projection as content.",
+    "notes": "Field ruling 0010 (spec delta f4189c3): EOL is layout, not content — the verbatim invariant guards words, one byte wider than leaf whitespace. Emit-only; the import/read side is unchanged. own_path body (a file()-carried member's own source) also normalizes per 'uniformly, whatever the source's convention.' Shares src/drift.rs emit + tests/emit.rs with EMIT-REAP-ORPHANS → blockedBy it. 0008/0009/0011 unrouted. scoped at d69987f."
+  },
+  {
     "tag": "GUARD-OWNPATH",
     "summary": "the PreToolUse guard regex-matches any .claude/ file_path without reading the lock; for file()-carried members the .claude/ file IS the authored source, so block denies editing the source of truth",
     "per": {
