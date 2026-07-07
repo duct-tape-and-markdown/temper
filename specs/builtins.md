@@ -31,6 +31,11 @@ and MCP servers are embedded members — nested in the model, serialized inside
 their parent's body per the parent's format (`model/representation.md`) — and
 commands and agents are file members of the same harness. The model reaches
 all of them; shipped kinds and default contracts for them are forward work.
+The coverage bar is the surface's own documentation: every capability a
+built-in surface documents as real — a user-invoked command, an event hook,
+a connection — gets its registration value and, where it is an artifact, its
+kind. The vocabulary grows by documented, cited capability, never by
+invention.
 
 ## Default contracts
 

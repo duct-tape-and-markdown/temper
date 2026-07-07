@@ -52,7 +52,11 @@ chosen job half-done — the job is the atom.
 
 1. **Inbox** — `<inbox>` has content. Route each line into pending (with a
    `per` cite), open-questions (no clean cite, or a product fork), or accepted
-   debt (noted in the commit body). Remove drained lines.
+   debt (noted in the commit body). Remove drained lines. A report's claimed
+   gap is re-verified against the current tree before it scopes an entry —
+   grep for the claimed-missing surface, run the report's probe; the gap may
+   have narrowed or moved since filing. Scope to the verified gap, never the
+   reported one.
 
 2. **Spec delta** — `<spec-delta>` lists `specs/` commits past the cursor.
    Read each commit's diff (`git show <sha> -- specs/`) — ratified intent
@@ -106,14 +110,10 @@ chosen job half-done — the job is the atom.
   Symbol-level claims in descriptions — a struct, a lock column, a schema
   surface — either resolve on disk (`rg` before citing) or are written
   "new `X`"; a mechanism you can neither resolve nor mark is an open
-  question, never a sub-clause of an entry. The same bar covers **absence**:
-  an entry premised on "X is missing / never runs" verifies the gap at HEAD
-  (`rg` the mechanism; run the report's probe) before scoping — an inbox
-  finding describes its reporter's snapshot, and the gap may have closed or
-  moved by the time it routes. Stamp `scoped at <short-sha>` (HEAD at
-  scoping) in every routed entry's `notes` — the queue keeps moving after
-  you verify, and the stamp lets build diff that range at pick-up instead of
-  re-deriving the premise.
+  question, never a sub-clause of an entry. Stamp `scoped at <short-sha>`
+  (HEAD at scoping) in every routed entry's `notes` — the queue keeps moving
+  after scoping, and the stamp lets build diff that range at pick-up instead
+  of re-deriving the premise.
 - **Disjoint, or serialized — never both `open` over a shared file.** Build
   fans out pickable entries in parallel worktrees; two `open` entries editing
   the same file conflict at merge and revert the wave. If any path appears in
