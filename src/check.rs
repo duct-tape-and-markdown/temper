@@ -1,13 +1,13 @@
 //! `temper check` — the workspace-load and diagnostic surface.
 //!
-//! Implements the loading half of the `check` gate (`specs/architecture/20-surface.md`, "CLI
-//! surface" — the verb that validates against the active contract): reconstruct
+//! Implements the loading half of the `check` gate (`specs/architecture/20-surface.md`,
+//! CLI surface — the verb that validates against the active contract): reconstruct
 //! the typed config surface into a [`Workspace`] IR, and carry the [`Diagnostic`]
 //! value the generic engine emits. The clauses themselves are validated by the
 //! generic engine over the closed algebra ([`crate::engine`], `specs/architecture/10-contracts.md`,
-//! "The engine is generic; everything is an instance") — there is no per-rule code
-//! here; the heuristic rule registry it replaced is retired ("Decision: kill the
-//! heuristic rule registry").
+//! the engine is generic; everything is an instance) — there is no per-rule code
+//! here; the heuristic rule registry it replaced is retired (kill the heuristic
+//! rule registry).
 //!
 //! A [`Diagnostic`] is a value the engine *collects*, not a thrown error — one
 //! `error`-severity finding drives `check`'s non-zero exit ([`any_error`]), and
@@ -26,7 +26,7 @@ use crate::kind::{CustomKind, KindError};
 
 /// The loaded config surface: every built-in artifact `check` lints. Carries each
 /// built-in kind's members as generic frontmatter [`Member`]s (`specs/architecture/15-kinds.md`,
-/// "A built-in kind is an adapter"), keyed by the kind's bare name in a per-kind map so
+/// built-ins are a module), keyed by the kind's bare name in a per-kind map so
 /// every built-in kind's members — not just skills and rules — reach the readers that
 /// range over the workspace (drift/bundle/apply/read), and a cross-artifact clause can
 /// reach the whole harness at once.
@@ -70,8 +70,8 @@ impl Workspace {
     /// [`surface_subdir`](CustomKind::surface_subdir) and
     /// [`member_document`](CustomKind::member_document). Two kinds sharing a bare name
     /// would silently overwrite each other's entry here — the embedded built-in set is
-    /// guaranteed unique (`specs/architecture/15-kinds.md`, "Decision: built-ins are a
-    /// module, and identity is an import"), so a collision is a malformed kind set, not
+    /// guaranteed unique (`specs/architecture/15-kinds.md`, built-ins are a
+    /// module, and identity is an import), so a collision is a malformed kind set, not
     /// a case this loader resolves.
     fn load_kinds<'a>(
         dir: &Path,
@@ -160,7 +160,7 @@ pub enum WorkspaceError {
     Frontmatter(#[from] FrontmatterError),
 
     /// A built-in kind's surface member document could not be read generically
-    /// (`specs/architecture/15-kinds.md`, "A built-in kind is an adapter") — the check read's
+    /// (`specs/architecture/15-kinds.md`, built-ins are a module) — the check read's
     /// hard failure, distinct from the typed-IR reconstruction faces above.
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -197,8 +197,7 @@ pub struct Diagnostic {
     /// The human-readable finding, the diagnostic's `Display`.
     pub message: String,
     /// The **colocated guidance** of the clause that produced this finding, if it
-    /// carried any (`specs/architecture/10-contracts.md`, "The clause — the atom of
-    /// a contract"): the hover-sized *why*,
+    /// carried any (`specs/architecture/10-contracts.md`, the clause): the hover-sized *why*,
     /// delivered just-in-time on the violation — the failure is the teaching
     /// moment. Advisory-only prose that never gates (it played no part in deciding
     /// this finding, only in explaining it), surfaced on the rendered help line
@@ -243,8 +242,7 @@ impl Diagnostic {
 
     /// Attach a clause's [`guidance`](crate::contract::Clause::guidance) to this
     /// finding — the just-in-time delivery of the hover-sized *why* on the
-    /// violation (`specs/architecture/10-contracts.md`, "The clause — the atom of
-    /// a contract"). A builder so the base
+    /// violation (`specs/architecture/10-contracts.md`, the clause). A builder so the base
     /// constructors stay guidance-free (most findings carry none); a `None`
     /// argument is a no-op, leaving the finding unguided.
     #[must_use]
@@ -269,7 +267,7 @@ impl miette::Diagnostic for Diagnostic {
     fn help(&self) -> Option<Box<dyn fmt::Display + '_>> {
         // The colocated guidance rides the help line beneath the artifact — the
         // violation is the teaching moment (`specs/architecture/10-contracts.md`,
-        // "The clause — the atom of a contract").
+        // the clause).
         Some(Box::new(match &self.guidance {
             Some(guidance) => format!("artifact: {}\n{guidance}", self.artifact),
             None => format!("artifact: {}", self.artifact),
@@ -310,7 +308,7 @@ pub const EMPTY_ASSEMBLY_RULE: &str = "coverage.empty-assembly";
 /// Fail loud when the committed assembly declares requirements but the gate
 /// resolved none of them and the lock carries no declaration rows either — the
 /// silent "checked 0 members … exit 0" class the wave-end confirmation caught
-/// (`specs/architecture/50-distribution.md`, "Fail-loud delivery — the invariant"). Takes
+/// (`specs/architecture/50-distribution.md`, fail-loud delivery). Takes
 /// primitives rather than `Declarations` so the predicate stays a pure, unit-testable
 /// tripwire: `declared` is whether the lock declares ≥1 `[requirement.*]`;
 /// `resolved_members` is the sum of every built-in kind's checked-member count;

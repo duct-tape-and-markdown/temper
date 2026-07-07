@@ -7,8 +7,8 @@
 //! A built-in kind's definition is a [`CustomKind`] like any other — assembled with
 //! [`CustomKind::new`] — and validated as any kind is; this module only sources the
 //! five facts from Rust literals instead of a parsed header. Identity is flat: a
-//! kind's bare name is its whole identity (`specs/architecture/15-kinds.md`, "Decision:
-//! built-ins are a module, and identity is an import"), so the three kinds below never
+//! kind's bare name is its whole identity (`specs/architecture/15-kinds.md`, built-ins
+//! are a module, and identity is an import), so the three kinds below never
 //! collide.
 
 use std::collections::BTreeMap;
@@ -116,8 +116,8 @@ fn all_kinds() -> Vec<CustomKind> {
 }
 
 /// The built-in kind a bare `name` resolves to, or `None` if none carries it. Bare
-/// name is the whole identity now (`specs/architecture/15-kinds.md`, "Decision:
-/// built-ins are a module, and identity is an import"), so this is a plain lookup.
+/// name is the whole identity now (`specs/architecture/15-kinds.md`, built-ins
+/// are a module, and identity is an import), so this is a plain lookup.
 ///
 /// # Errors
 ///
@@ -155,7 +155,7 @@ pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
 
 /// Extract a built-in skill's [`Features`] by running the embedded `skill` kind's
 /// extraction over a generically-loaded surface [`Unit`] — the same composed path
-/// every kind reads (`specs/architecture/15-kinds.md`, "The extraction algebra"), with
+/// every kind reads (`specs/intent/05-model.md`, the extraction algebra), with
 /// **no IR→Unit adapter on the check read**: the caller loads the surface member
 /// document through [`Unit::from_member_document`](crate::kind::Unit::from_member_document),
 /// exactly as any other kind's members load.
@@ -173,12 +173,12 @@ pub fn rule_features(unit: &Unit) -> Features {
 
 /// Run a built-in `kind`'s embedded extraction over `unit`, then fold every preserved
 /// frontmatter key the composed primitives did not name into the feature map — the
-/// built-in adapter's **permissive extraction** (`specs/architecture/15-kinds.md`, "Extending a
-/// built-in kind"): an unknown key on a known artifact is already extracted, so a clause
-/// (a `forbidden_keys`) can range over it. The closed algebra cannot enumerate unknown
-/// keys, so this bulk preservation is the adapter's, while each documented field is the
-/// composed extraction's. `or_insert` leaves each field the composed extractor already
-/// yielded untouched.
+/// built-in adapter's **permissive extraction** (`specs/architecture/15-kinds.md`,
+/// extending a built-in kind): an unknown key on a known artifact is already
+/// extracted, so a clause (a `forbidden_keys`) can range over it. The closed algebra
+/// cannot enumerate unknown keys, so this bulk preservation is the adapter's, while
+/// each documented field is the composed extraction's. `or_insert` leaves each field
+/// the composed extractor already yielded untouched.
 ///
 /// Takes the resolved [`CustomKind`] rather than a name (the `check` gate holds it from
 /// [`definitions`]), so it is total — the extraction cannot fail once the definition is
@@ -282,8 +282,8 @@ mod tests {
     #[test]
     fn qualified_names_every_embedded_kind_by_its_own_bare_name() {
         // No provider axis left to resolve through — a bare name's qualified identity
-        // is always itself (`specs/architecture/15-kinds.md`, "Decision: built-ins are
-        // a module, and identity is an import").
+        // is always itself (`specs/architecture/15-kinds.md`, built-ins are a module,
+        // and identity is an import).
         for bare in ["skill", "rule", "memory"] {
             assert_eq!(qualified(bare).unwrap().as_deref(), Some(bare));
         }
@@ -309,8 +309,8 @@ mod tests {
     /// Write a member's authored surface member document `<dir>/<member_doc>` exactly
     /// as `import`/`emit` project it ([`crate::frontmatter::Member::to_document`]),
     /// then reload it through the generic surface loader `check` reads — the built-in
-    /// kind's member-document read (`specs/architecture/15-kinds.md`, "A built-in kind is an
-    /// adapter"), one generic adapter, no per-kind IR.
+    /// kind's member-document read (`specs/architecture/15-kinds.md`, built-ins are a
+    /// module), one generic adapter, no per-kind IR.
     fn surface_unit(
         member: &crate::frontmatter::Member,
         member_doc: &str,

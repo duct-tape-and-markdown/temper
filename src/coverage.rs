@@ -1,7 +1,7 @@
 //! Requirement coverage — the referential shadow of the meaningful contract.
 //!
-//! Implements the `check` gate for `specs/architecture/10-contracts.md` ("Requirements and
-//! `satisfies` — the meaningful contract"): a **requirement** declares a semantic
+//! Implements the `check` gate for `specs/architecture/10-contracts.md` (requirements):
+//! a **requirement** declares a semantic
 //! intent (`means`) the harness must fill, and an artifact fills it by *opting in*
 //! from its own representation with a resolving `satisfies` link. `temper` **never
 //! interprets `means`** — that is the author's attestation, optionally backed by a
@@ -24,7 +24,7 @@
 //!   `error` on that artifact: a dangling link is a silent no-op, the very failure
 //!   `00-intent.md` law 1 forbids.
 //!
-//! This is the **referential** primitive (`specs/architecture/10-contracts.md`, the primitive
+//! This is the **referential** primitive (`specs/architecture/10-contracts.md`, the predicate
 //! algebra) — decidable coverage, a true positive every time. `temper` NEVER judges
 //! whether the artifact *actually* fulfils `means`; the judged tier is delegated and
 //! advisory (`00-intent.md` tier 2), never this gate.
@@ -56,7 +56,7 @@ use crate::compose::Requirement;
 use crate::extract::Features;
 
 /// A `required` requirement with no artifact opting in to satisfy it — the intent
-/// has no resolving home (`specs/architecture/10-contracts.md`, "Requirements and `satisfies`").
+/// has no resolving home (`specs/architecture/10-contracts.md`, requirements).
 const REQUIREMENT_UNFILLED_RULE: &str = "requirement.unfilled";
 
 /// A `satisfies` link on an artifact that names no declared requirement — a
@@ -64,8 +64,8 @@ const REQUIREMENT_UNFILLED_RULE: &str = "requirement.unfilled";
 const REQUIREMENT_DANGLING_RULE: &str = "requirement.dangling";
 
 /// Gate referential coverage over the declared requirements and the authored
-/// `satisfies` edges (`specs/architecture/10-contracts.md`, "Requirements and `satisfies` — the
-/// meaningful contract"). Two decidable checks over the flattened artifact stream:
+/// `satisfies` edges (`specs/architecture/10-contracts.md`, requirements). Two
+/// decidable checks over the flattened artifact stream:
 ///
 /// 1. **Unfilled** — each `required` requirement must be named by ≥1 artifact's
 ///    resolving `satisfies` link, else the intent has no home ([`REQUIREMENT_UNFILLED_RULE`]).

@@ -1,5 +1,5 @@
 //! The harness reference graph — route resolution over declared edges
-//! (`specs/architecture/45-governance.md`, "The harness is a graph too").
+//! (`specs/architecture/45-governance.md`, one graph).
 //!
 //! The harness is a graph: skills and rules pointing at each other through
 //! **declared** reference fields, read off [`Features`], never grepped from a body
@@ -11,7 +11,7 @@
 //! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
 //! [`reachable`] (a member's inbound registration edge from the distinguished [`world`]
 //! node is live, or a reachable member imports it — closing over the observed directive
-//! edges, `specs/architecture/45-governance.md`, "The world is a node"). The first four
+//! edges, `specs/architecture/45-governance.md`, the world). The first four
 //! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
 //! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 
@@ -48,7 +48,7 @@ const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
 
 /// The reference `field` a directive-produced [`ResolvedEdge`] records — the
 /// `at-import` syntax that observed it, not a frontmatter field (a directive edge is
-/// observed body structure, `specs/architecture/15-kinds.md`, "Directives"). Lets a reader
+/// observed body structure, `specs/architecture/15-kinds.md`, directives). Lets a reader
 /// tell a directive edge from a declared reference edge in the one resolved-edge set.
 const DIRECTIVE_FIELD: &str = "at-import";
 
@@ -70,8 +70,8 @@ const MAX_IMPORT_HOPS: usize = 5;
 pub type Node = (String, String);
 
 /// The distinguished **world** node — the harness runtime and repo `temper` observes
-/// but does not govern (`specs/architecture/45-governance.md`, "The world is a node — reachability
-/// is a predicate"). Registration facts are its edges *into* members; [`reachable`]
+/// but does not govern (`specs/architecture/45-governance.md`, the world). Registration
+/// facts are its edges *into* members; [`reachable`]
 /// decides whether the edge the world would use to reach a given member is live. Keyed
 /// like any [`Node`] under a reserved `world` kind no artifact kind collides with, so a
 /// follow-on gate can place it in the same `(kind, id)` graph the other predicates
@@ -137,7 +137,7 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
 }
 
 /// Validate the declared edges against **the definition** — admissibility
-/// (`specs/architecture/10-contracts.md`, "the contract is itself checked"): each edge earns trust
+/// (`specs/architecture/10-contracts.md`, admissibility): each edge earns trust
 /// *before* the graph judges the harness. Every finding is [`Diagnostic::error`] and
 /// names the edge.
 ///
@@ -209,9 +209,9 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
     Vec::new()
 }
 
-/// Check the graph-scope **`degree`** predicate (`specs/architecture/10-contracts.md`, "Judged
-/// at the edge scope"; `specs/architecture/45-governance.md`, worked example "self-registering
-/// vs routed"): for each `degree` clause a requirement declares, return a
+/// Check the graph-scope **`degree`** predicate (`specs/architecture/10-contracts.md`, the
+/// edge scope; `specs/architecture/45-governance.md`, worked example, self-registering
+/// vs routed): for each `degree` clause a requirement declares, return a
 /// [`Diagnostic`] — at the clause's own declared severity — per satisfier node whose
 /// in/out edge count over the resolved arcs falls outside the bound.
 ///
@@ -355,8 +355,8 @@ fn out_of_degree(
     .with_guidance(clause.guidance.clone())
 }
 
-/// Check the graph-scope **`reachable`** predicate (`specs/architecture/45-governance.md`, "The
-/// world is a node — reachability is a predicate"): a member is reachable when its own
+/// Check the graph-scope **`reachable`** predicate (`specs/architecture/45-governance.md`,
+/// the world): a member is reachable when its own
 /// inbound registration edge from the [`world`] node is live **or a reachable member
 /// imports it** — the closure over the observed directive edges. Return a finding only
 /// for a member whose own registration edge is provably dead — a `description-trigger`
@@ -379,8 +379,8 @@ fn out_of_degree(
 /// inherits the importer's liveness conditionally. Members iterate in the corpus's
 /// candidate order under each name-sorted kind, so findings are stable.
 ///
-/// `severity` is the **assembly's** declaration (`specs/architecture/45-governance.md`, "The world
-/// is a node" — resolved `reachability-gate-mechanism` option b): whether a dead edge
+/// `severity` is the **assembly's** declaration (`specs/architecture/45-governance.md`, the
+/// world — resolved `reachability-gate-mechanism` option b): whether a dead edge
 /// gates, and at what weight, is the assembly's dial like `degree`, never a member's own
 /// clause — a deliberate work-in-progress dead edge stays the author's call.
 #[must_use]
@@ -660,7 +660,7 @@ fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Sever
 
 /// One member the directive classing ranges over: its `(kind, id)` identity, the
 /// provenance `source_path` that is the join key between world paths and members
-/// (`specs/architecture/15-kinds.md`, "Directives"), and its extracted `at-import` target
+/// (`specs/architecture/15-kinds.md`, directives), and its extracted `at-import` target
 /// occurrences in document order. The caller builds it off the units the features were
 /// extracted from — the full path the decidable [`Features`] view drops — carrying
 /// *every* member (a directive may point at a member that itself imports nothing) with
@@ -678,7 +678,7 @@ pub struct DirectiveMember {
 }
 
 /// The outcome of classifying a corpus's directive occurrences
-/// (`specs/architecture/15-kinds.md`, "Directives — format-executed body syntax"): the
+/// (`specs/architecture/15-kinds.md`, directives): the
 /// member→member edges the member-class occurrences resolved to, and the
 /// unbacked-pointer findings for the occurrences that resolved to neither a member nor
 /// a repo file.
@@ -694,7 +694,7 @@ pub struct DirectiveClassing {
 }
 
 /// Classify each member's extracted `at-import` directive occurrences against the
-/// landscape (`specs/architecture/15-kinds.md`, "Directives"): resolve every target
+/// landscape (`specs/architecture/15-kinds.md`, directives): resolve every target
 /// relative to the importing member's file directory (an absolute target as-is;
 /// code.claude.com/docs/en/memory, retrieved 2026-07-02) and sort it into one of three
 /// classes — a **member** (the resolved path is another member's provenance
@@ -754,7 +754,7 @@ pub fn classify_directives(
 
 /// Resolve a directive target against the importing member's file: an absolute target
 /// as authored, a relative one joined onto the importing file's directory
-/// (`specs/architecture/15-kinds.md`, "Directives"), then lexically normalized so `.`/`..`
+/// (`specs/architecture/15-kinds.md`, directives), then lexically normalized so `.`/`..`
 /// segments join the index cleanly.
 fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
     let target = Path::new(target);
@@ -788,7 +788,7 @@ fn normalize_path(path: &Path) -> PathBuf {
 }
 
 /// The finding for an **unbacked pointer** — a directive occurrence resolving to
-/// neither a member nor a repo file (`specs/architecture/15-kinds.md`, "Directives"): the
+/// neither a member nor a repo file (`specs/architecture/15-kinds.md`, directives): the
 /// importing member imports a path that loads nothing, the silent-context-loss failure
 /// class caught at author-time. Mirrors [`dangling`]/[`unreachable`]: an error naming
 /// the importing member and the dead target.

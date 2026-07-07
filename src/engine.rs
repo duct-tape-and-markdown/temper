@@ -1,8 +1,8 @@
 //! The generic contract engine — evaluate a [`Contract`]'s clauses over
 //! extracted [`Features`].
 //!
-//! Implements `specs/architecture/10-contracts.md` ("Decision: kill the heuristic rule
-//! registry"): rules no longer live in a hardcoded `all_rules()` registry with
+//! Implements `specs/architecture/10-contracts.md` (kill the heuristic rule
+//! registry): rules no longer live in a hardcoded `all_rules()` registry with
 //! the tool's opinions buried in `if` statements. Instead an author-declared
 //! contract (a closed set of decidable clauses) is validated by *this* one
 //! generic engine. The engine knows no artifact kind and no rule name — it reads
@@ -15,7 +15,7 @@
 //!
 //! - **severity** is the clause's *declared* weight — `required` ⇒ [`Error`],
 //!   `advisory` ⇒ [`Warn`] — never a tool-baked split (`specs/architecture/10-contracts.md`,
-//!   "Severity is declared, not baked").
+//!   the clause's severity field).
 //! - **rule** is the clause key (the predicate's TOML discriminator, e.g.
 //!   `max_len`), so a finding names the clause that produced it.
 //! - **artifact** is the features' `id`.
@@ -75,9 +75,9 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 
 /// Validate a contract against **the definition** — the closed algebra itself —
 /// returning an error-severity [`Diagnostic`] per inadmissible clause. This is
-/// *admissibility* (`specs/architecture/10-contracts.md`, "Decision: the contract is itself
-/// checked — admissibility"): the contract earns trust the way a harness does,
-/// by passing a check, before it is used to check anything.
+/// *admissibility* (`specs/architecture/10-contracts.md`, admissibility): the
+/// contract earns trust the way a harness does, by passing a check, before it
+/// is used to check anything.
 ///
 /// Admissibility composes *on top* of loading, never re-doing it. Closed-
 /// vocabulary rejection (an unknown predicate) and charset-range validity are
@@ -116,7 +116,7 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
 /// `forbidden_keys` over no keys forbids nothing), which the author cannot have
 /// meant; and (2) no **held-back** predicate is used as a working clause —
 /// `dependency-exists` names no decidable reference syntax or extractor, so it is
-/// inadmissible until it does (`specs/architecture/10-contracts.md`, "The primitive algebra").
+/// inadmissible until it does (`specs/architecture/10-contracts.md`, the predicate algebra).
 ///
 /// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate
 /// vacuity rules for a requirement's own `clauses` — one definition of "vacuous",

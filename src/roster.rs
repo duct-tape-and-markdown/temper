@@ -1,6 +1,6 @@
 //! Roster checks — the set-scope predicates and admissibility pass over a parsed
 //! harness contract's named requirements (`specs/architecture/10-contracts.md`;
-//! `specs/architecture/45-governance.md`, "The set scope").
+//! `specs/architecture/45-governance.md`, the node-set scope).
 //!
 //! Two decidable passes read the same parsed requirements: [`check`] gates the
 //! author-declared `count`/`unique`/`membership` predicates over each requirement's
@@ -18,19 +18,19 @@ use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
 /// The diagnostic `rule` id every set-scope `count` finding reports under
-/// (`specs/architecture/45-governance.md`, "The set scope (the roster)").
+/// (`specs/architecture/45-governance.md`, the node-set scope).
 const REQUIREMENT_COUNT_RULE: &str = "requirement.count";
 
 /// The diagnostic `rule` id every roster-admissibility finding reports under
-/// (`specs/architecture/10-contracts.md`, "Decision: the contract is itself checked — admissibility").
+/// (`specs/architecture/10-contracts.md`, admissibility).
 const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
 
 /// The diagnostic `rule` id every set-scope `unique` finding reports under
-/// (`specs/architecture/45-governance.md`, "The set scope (the roster)").
+/// (`specs/architecture/45-governance.md`, the node-set scope).
 const REQUIREMENT_UNIQUE_RULE: &str = "requirement.unique";
 
 /// The diagnostic `rule` id every set-scope `membership` finding reports under
-/// (`specs/architecture/45-governance.md`, "The set scope (the roster)").
+/// (`specs/architecture/45-governance.md`, the node-set scope).
 const REQUIREMENT_MEMBERSHIP_RULE: &str = "requirement.membership";
 
 /// Whether an artifact opts into the requirement named `requirement` — its
@@ -65,7 +65,7 @@ fn candidates_for<'a>(
 }
 
 /// The requirement's **satisfier set** — its `kind`-typed candidates that opt in via
-/// `satisfies` (`specs/architecture/45-governance.md`, "The set scope"). The set every set-scope
+/// `satisfies` (`specs/architecture/45-governance.md`, the node-set scope). The set every set-scope
 /// predicate quantifies over.
 fn satisfiers_for<'a>(
     requirement: &Requirement,
@@ -86,7 +86,7 @@ fn kind_label(requirement: &Requirement) -> &str {
 /// Run the set-scope predicates over the parsed roster, returning a [`Diagnostic`] —
 /// at the violating clause's own declared severity — per satisfier set that violates
 /// a `count` / `unique` / `membership` clause (`specs/architecture/10-contracts.md`,
-/// "Decision: set-scope demands are clauses").
+/// set-scope demands are clauses).
 ///
 /// Every predicate quantifies over the requirement's **satisfier set** — the
 /// `kind`-typed artifacts that opt in via `satisfies`; a kind-blind requirement draws
@@ -142,10 +142,10 @@ pub fn check(
 }
 
 /// Validate the harness roster against **the definition** — admissibility
-/// (`specs/architecture/10-contracts.md`, "Decision: the contract is itself checked —
-/// admissibility"). Each requirement's own definition must pass a check *before* the
-/// roster is used to judge anything; every finding is [`Diagnostic::error`] (an
-/// inadmissible requirement cannot be trusted) and names the requirement it indicts.
+/// (`specs/architecture/10-contracts.md`, admissibility). Each requirement's own
+/// definition must pass a check *before* the roster is used to judge anything;
+/// every finding is [`Diagnostic::error`] (an inadmissible requirement cannot be
+/// trusted) and names the requirement it indicts.
 ///
 /// Three decidable clauses:
 ///
@@ -326,8 +326,8 @@ fn out_of_set(
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
     // S₂ is the named target requirement's own satisfier set — an opt-in satisfier
-    // set, not a name glob (`specs/architecture/10-contracts.md`, "each set an opt-in
-    // satisfier set"). An undeclared `target` has no satisfier set at all.
+    // set, not a name glob (`specs/architecture/10-contracts.md`, the satisfier set).
+    // An undeclared `target` has no satisfier set at all.
     let source_satisfiers = requirements
         .get(target)
         .map(|target_requirement| satisfiers_for(target_requirement, by_kind))

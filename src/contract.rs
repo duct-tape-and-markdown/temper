@@ -1,5 +1,5 @@
 //! The `Contract` artifact — the decidable artifact-clause algebra
-//! (`specs/architecture/10-contracts.md`, "The clause — the atom of a contract").
+//! (`specs/architecture/10-contracts.md`, the clause).
 //!
 //! A [`Contract`] is a named set of [`Clause`]s over a **closed** vocabulary of
 //! decidable predicates, each carrying an author-declared [`Severity`]. Every live
@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 
 use crate::extract::Kind;
 
-/// A named set of clauses over the decidable primitive algebra — the type a
+/// A named set of clauses over the decidable predicate algebra — the type a
 /// harness (or one artifact in it) is checked against.
 ///
 /// Not `Eq`: the `range` predicate carries `f64` bounds (`specs/architecture/45-governance.md`),
@@ -50,8 +50,8 @@ pub struct Clause {
     /// Optional per-clause **guidance** prose — advisory-only best-practice text
     /// (`specs/architecture/10-contracts.md`) kept *out of checks*: it plays no part
     /// in conformance or admissibility. It rides its JSON Schema property's
-    /// `description` in the emitted schema (`specs/architecture/50-distribution.md`, "The gate at
-    /// keystroke"), never a validation keyword — taste becomes documentation, never a
+    /// `description` in the emitted schema (`specs/architecture/50-distribution.md`, the gate at
+    /// keystroke), never a validation keyword — taste becomes documentation, never a
     /// squiggle. Absent ⇒ the clause documents nothing.
     pub guidance: Option<String>,
     /// Optional **source** citation — the clause's provenance of taste, a URL plus
@@ -65,7 +65,7 @@ pub struct Clause {
 /// The author-declared weight of a clause. Replaces the tool-baked error/warn
 /// split: the default gate blocks on `Required` clauses only, and a strict CI
 /// policy can promote `Advisory` to blocking (`specs/architecture/10-contracts.md`,
-/// "Severity is declared, not baked").
+/// the clause's severity field).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     /// Gate-blocking: a violation fails the run.
@@ -117,8 +117,8 @@ pub enum Predicate {
         max: usize,
     },
     /// `range`: the field's numeric value lies within the inclusive `[min, max]`
-    /// bound over `integer`/`number` fields (`specs/architecture/45-governance.md`, "Also in
-    /// scope"). Bounds are `f64` so a single predicate spans both integer and
+    /// bound over `integer`/`number` fields (`specs/architecture/10-contracts.md`, the predicate
+    /// algebra). Bounds are `f64` so a single predicate spans both integer and
     /// fractional fields; an inverted `min > max` bound is rejected as inadmissible
     /// (`crate::engine`).
     Range {
@@ -177,7 +177,7 @@ pub enum Predicate {
     /// `section_contains`: every body section whose heading *starts with* the
     /// declared `heading` carries the declared `marker` (a substring of the section
     /// body) — e.g. "every `## Decision` section carries a `Rejected` marker"
-    /// (`specs/architecture/10-contracts.md`, "The primitive algebra"; `specs/architecture/15-kinds.md`).
+    /// (`specs/architecture/10-contracts.md`, the predicate algebra; `specs/architecture/15-kinds.md`).
     /// Decidable over the extracted [`sections`](crate::extract::Features::sections).
     SectionContains {
         /// The heading-text prefix that selects the sections this clause governs.
@@ -197,8 +197,8 @@ pub enum Predicate {
     /// ([`crate::engine::admissibility`]) rather than acting as a working clause.
     DependencyExists,
     /// `count`: the node-set scope — the satisfier set's size lies within the
-    /// inclusive `[min, max]` bound (`specs/architecture/10-contracts.md`, "Judged at the
-    /// node-set scope"). An inverted `min > max` bound admits nothing and is
+    /// inclusive `[min, max]` bound (`specs/architecture/10-contracts.md`, the node-set
+    /// scope). An inverted `min > max` bound admits nothing and is
     /// rejected at admissibility.
     Count {
         /// The inclusive lower bound on the set's size.
@@ -215,7 +215,7 @@ pub enum Predicate {
     /// `membership`: the node-set scope — every satisfier's `field` value is drawn
     /// from a feature over the named `target` requirement's own satisfier set.
     /// Shaping that set is the target requirement's own job
-    /// (`specs/architecture/10-contracts.md`, "Judged at the node-set scope"), so this
+    /// (`specs/architecture/10-contracts.md`, the node-set scope), so this
     /// predicate names it, never re-derives it. Its arg key is `target`, not `source`
     /// — the clause's own [`Clause::source`] citation already owns that key.
     Membership {
@@ -225,8 +225,8 @@ pub enum Predicate {
         target: String,
     },
     /// `degree`: the edge scope — the in/out edge-count bound every satisfier must
-    /// land in over the one relation graph (`specs/architecture/10-contracts.md`, "Judged at
-    /// the edge scope"). At least one direction must be bounded — an empty `degree`
+    /// land in over the one relation graph (`specs/architecture/10-contracts.md`, the edge
+    /// scope). At least one direction must be bounded — an empty `degree`
     /// constrains nothing and is rejected at admissibility.
     Degree {
         /// The bound on a satisfier's incoming edge count, when constrained.
@@ -239,7 +239,7 @@ pub enum Predicate {
 /// One direction's inclusive `[min, max]` edge-count bound for [`Predicate::Degree`],
 /// each endpoint optional: absent `min` ⇒ no lower bound, absent `max` ⇒ unbounded
 /// above (the routed "≥ 1" idiom is `min: Some(1), max: None`;
-/// `specs/architecture/10-contracts.md`, "self-registering" / "routed").
+/// `specs/architecture/10-contracts.md`, self-registering / routed).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EdgeBound {
     /// The inclusive lower bound. `None` ⇒ no lower bound.
@@ -330,8 +330,8 @@ impl Predicate {
 
     /// The **frontmatter field** this predicate documents — the property a clause's
     /// [`guidance`](Clause::guidance) rides as a JSON Schema `description` in the
-    /// emitted schema's docs channel (`specs/architecture/50-distribution.md`, "The gate at
-    /// keystroke"). `Some` for the per-field frontmatter predicates whose property
+    /// emitted schema's docs channel (`specs/architecture/50-distribution.md`, the gate at
+    /// keystroke). `Some` for the per-field frontmatter predicates whose property
     /// can carry hover docs; `None` for the body/structural and cross-artifact
     /// predicates that name no frontmatter property. Distinct from
     /// [`Predicate::target`] in one place: a `must_define` marker is a *body*
