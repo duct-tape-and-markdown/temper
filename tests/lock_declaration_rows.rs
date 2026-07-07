@@ -124,6 +124,8 @@ fn rich_declarations() -> Declarations {
                 predicate: "required".to_string(),
                 field: Some("description".to_string()),
                 severity: "required".to_string(),
+                guidance: None,
+                cite: None,
                 count: None,
                 target: None,
                 degree: None,
@@ -133,6 +135,8 @@ fn rich_declarations() -> Declarations {
                 predicate: "required".to_string(),
                 field: Some("paths".to_string()),
                 severity: "advisory".to_string(),
+                guidance: None,
+                cite: None,
                 count: None,
                 target: None,
                 degree: None,
@@ -156,6 +160,8 @@ fn rich_declarations() -> Declarations {
                         predicate: "count".to_string(),
                         field: None,
                         severity: "required".to_string(),
+                        guidance: None,
+                        cite: None,
                         count: Some(CountBoundRow { min: 1, max: 2 }),
                         target: None,
                         degree: None,
@@ -165,6 +171,8 @@ fn rich_declarations() -> Declarations {
                         predicate: "unique".to_string(),
                         field: Some("name".to_string()),
                         severity: "advisory".to_string(),
+                        guidance: None,
+                        cite: None,
                         count: None,
                         target: None,
                         degree: None,
@@ -174,6 +182,8 @@ fn rich_declarations() -> Declarations {
                         predicate: "membership".to_string(),
                         field: Some("name".to_string()),
                         severity: "required".to_string(),
+                        guidance: None,
+                        cite: None,
                         count: None,
                         target: Some("review-coverage".to_string()),
                         degree: None,
@@ -183,6 +193,8 @@ fn rich_declarations() -> Declarations {
                         predicate: "degree".to_string(),
                         field: None,
                         severity: "required".to_string(),
+                        guidance: None,
+                        cite: None,
                         count: None,
                         target: None,
                         degree: Some(DegreeBoundRow {
@@ -389,6 +401,8 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         predicate: "count".to_string(),
         field: None,
         severity: "required".to_string(),
+        guidance: None,
+        cite: None,
         count: Some(CountBoundRow { min: 1, max: 3 }),
         target: None,
         degree: None,
@@ -398,6 +412,8 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         predicate: "unique".to_string(),
         field: Some("name".to_string()),
         severity: "advisory".to_string(),
+        guidance: None,
+        cite: None,
         count: None,
         target: None,
         degree: None,
@@ -407,6 +423,8 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         predicate: "membership".to_string(),
         field: Some("model".to_string()),
         severity: "required".to_string(),
+        guidance: None,
+        cite: None,
         count: None,
         target: Some("approved-models".to_string()),
         degree: None,
@@ -416,6 +434,8 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
         predicate: "degree".to_string(),
         field: None,
         severity: "advisory".to_string(),
+        guidance: None,
+        cite: None,
         count: None,
         target: None,
         degree: Some(DegreeBoundRow {
@@ -734,4 +754,48 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
         floor_triples(builtin::MEMORY_ANTHROPIC_PACKAGE),
         "memory's floor clauses round-trip through the derived lock unchanged"
     );
+}
+
+/// A built-in clause row carries its module floor's guidance and cite through the
+/// derived lock (`LOCK-CLAUSE-CHANNELS`): the seam (`sdk/src/declarations.ts`
+/// `clauseRow`) and `drift::ClauseRow` used to drop both channels, stranding the
+/// gate's teaching prose on the wrong side of the erasure. Skill's `max_lines`
+/// advisory is the worked example: its progressive-disclosure guidance and
+/// agentskills.io cite (`sdk/src/builtins.ts` `skillFloor`, mirrored by
+/// `builtin::SKILL_PACKAGE`) must reach the embedded lock's row unchanged.
+#[test]
+fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
+    let contract = builtin::contract(builtin::SKILL_PACKAGE)
+        .unwrap()
+        .expect("skill's built-in package is embedded");
+    let floor_clause = contract
+        .clauses
+        .iter()
+        .find(|clause| clause.predicate.key() == "max_lines")
+        .expect("skill's floor carries a max_lines clause");
+    let expected_guidance = floor_clause
+        .guidance
+        .as_deref()
+        .expect("the hand-written floor's max_lines clause carries guidance");
+    let expected_cite = floor_clause
+        .source
+        .as_deref()
+        .expect("the hand-written floor's max_lines clause carries a cite");
+    assert!(
+        expected_guidance.contains("Progressive disclosure"),
+        "skill's max_lines advisory carries its progressive-disclosure guidance, got {expected_guidance:?}"
+    );
+    assert!(
+        expected_cite.contains("agentskills.io"),
+        "skill's max_lines advisory cites the agentskills spec, got {expected_cite:?}"
+    );
+
+    let row = builtin_lock::declarations()
+        .clauses
+        .iter()
+        .find(|row| row.kind.as_deref() == Some("skill") && row.predicate == "max_lines")
+        .expect("the derived lock carries skill's max_lines clause row");
+
+    assert_eq!(row.guidance.as_deref(), Some(expected_guidance));
+    assert_eq!(row.cite.as_deref(), Some(expected_cite));
 }

@@ -36,6 +36,10 @@ export interface ClauseRow {
   readonly predicate: string;
   readonly field?: string;
   readonly severity: string;
+  /** The just-in-time teaching channel the predicate cannot encode (`10-contracts.md`, "guidance"). */
+  readonly guidance?: string;
+  /** The external-fact source backing the clause — a doc URL plus retrieved date (`10-contracts.md`, "cite"). */
+  readonly cite?: string;
   /** The `count` predicate's satisfier-set-size bound. */
   readonly count?: { readonly min: number; readonly max: number };
   /** The `membership` predicate's target requirement name. */
@@ -62,12 +66,14 @@ export interface RequirementRow {
 }
 
 /**
- * Compile one `Clause` into its lock row: the shared `key`/`field`/`severity`
- * columns, plus — when the predicate carries them — the `count`/`target`/
- * `degree` argument columns a kind-level override row never needs but a
- * requirement's own demand always does (`10-contracts.md`, "Judged at the
- * node-set scope" / "Judged at the edge scope"). `kind` is supplied only for a
- * kind's own `expect` clause; a requirement's nested clause carries none.
+ * Compile one `Clause` into its lock row: the shared `key`/`field`/`severity`/
+ * `guidance`/`cite` columns — the clause's four channels surviving erasure
+ * (`10-contracts.md`, "The clause — the atom of a contract") — plus, when the
+ * predicate carries them, the `count`/`target`/`degree` argument columns a
+ * kind-level override row never needs but a requirement's own demand always
+ * does (`10-contracts.md`, "Judged at the node-set scope" / "Judged at the
+ * edge scope"). `kind` is supplied only for a kind's own `expect` clause; a
+ * requirement's nested clause carries none.
  */
 function clauseRow(clause: Clause, kind?: string): ClauseRow {
   const { predicate } = clause;
@@ -76,6 +82,8 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
     predicate: predicate.key,
     field: predicate.field,
     severity: clause.severity,
+    guidance: clause.guidance,
+    cite: clause.cite,
     count:
       predicate.key === "count"
         ? { min: predicate.args?.min ?? 0, max: predicate.args?.max ?? Number.MAX_SAFE_INTEGER }

@@ -163,6 +163,8 @@ fn degree_requirement(kind: &str, degree: DegreeBoundRow) -> RequirementRow {
             predicate: "degree".to_string(),
             field: None,
             severity: "required".to_string(),
+            guidance: None,
+            cite: None,
             count: None,
             target: None,
             degree: Some(degree),

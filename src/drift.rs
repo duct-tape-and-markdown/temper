@@ -963,11 +963,13 @@ pub struct KindFactRow {
 
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
 /// which kind it governs, the predicate's key, the field it targets (when it names one),
-/// its declared severity, and — for the node-set/edge-scope predicates
-/// (`count`/`unique`/`membership`/`degree`, `specs/architecture/10-contracts.md`) — the
-/// argument channel their bounds/target round-trip through. `unique`'s field rides the
-/// shared `field` column (the same slot `required`/`min_len`/… target); the others carry
-/// their own optional columns since a plain field/severity pair cannot express them.
+/// its declared severity, its guidance and cite — the clause's four channels
+/// (`specs/architecture/10-contracts.md`, "The clause — the atom of a contract") —
+/// and — for the node-set/edge-scope predicates (`count`/`unique`/`membership`/`degree`,
+/// `specs/architecture/10-contracts.md`) — the argument channel their bounds/target
+/// round-trip through. `unique`'s field rides the shared `field` column (the same slot
+/// `required`/`min_len`/… target); the others carry their own optional columns since a
+/// plain field/severity pair cannot express them.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ClauseRow {
     /// The kind whose contract carries the clause. `None` when this row is nested
@@ -983,12 +985,20 @@ pub struct ClauseRow {
     pub field: Option<String>,
     /// The clause's declared severity (`required` / `advisory`).
     pub severity: String,
+    /// The just-in-time teaching channel — the best-practice prose the predicate
+    /// cannot encode, quoted at the point of a failing finding
+    /// (`specs/architecture/10-contracts.md`, "guidance").
+    #[serde(default)]
+    pub guidance: Option<String>,
+    /// The external-fact source backing the clause — a doc URL plus retrieved date,
+    /// carried as data (`specs/architecture/10-contracts.md`, "cite").
+    #[serde(default)]
+    pub cite: Option<String>,
     /// The `count` clause's satisfier-set-size bound, when the predicate is `count`.
     #[serde(default)]
     pub count: Option<CountBoundRow>,
     /// The `membership` clause's target requirement name, when the predicate is
-    /// `membership`. Distinct from the clause's own citation (`Clause::source`) — a
-    /// `ClauseRow` carries no citation column at all today.
+    /// `membership`.
     #[serde(default)]
     pub target: Option<String>,
     /// The `degree` clause's in/out edge-count bound, when the predicate is `degree`.
@@ -1264,6 +1274,12 @@ impl ClauseRow {
             table.insert("field", value(field.clone()));
         }
         table.insert("severity", value(self.severity.clone()));
+        if let Some(guidance) = &self.guidance {
+            table.insert("guidance", value(guidance.clone()));
+        }
+        if let Some(cite) = &self.cite {
+            table.insert("cite", value(cite.clone()));
+        }
         if let Some(count) = &self.count {
             table.insert("count", value(count_bound_table(count)));
         }
@@ -1282,6 +1298,8 @@ impl ClauseRow {
             predicate: str_col(table, "predicate")?,
             field: str_col(table, "field"),
             severity: str_col(table, "severity")?,
+            guidance: str_col(table, "guidance"),
+            cite: str_col(table, "cite"),
             count: table
                 .get("count")
                 .and_then(Item::as_table_like)
