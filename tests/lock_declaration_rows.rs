@@ -769,28 +769,22 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
 // `specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
 // from the SDK module, never transcribed": `src/builtin_lock.toml` is the real
 // `[declaration.*]` family a memberless emit of `@dtmd/temper/claude-code`'s built-in
-// kinds + four floors produces. These tests pin it against today's hand-written
-// mirrors (`builtin`/`builtin_kind`) it is not yet wired to replace
-// (`BUILTIN-LOCK-ROW-DRIVEN` does the rewiring) — proving the derived data already
-// agrees with the live default program.
+// kinds + four floors produces, and `temper::builtin` projects each kind's floor
+// `Contract` straight off this lock's clause rows — no hand-written mirror any
+// more. These tests pin that projection against the lock's own rows, proving
+// `builtin::contract` round-trips every row's predicate/field/severity losslessly.
+// `builtin_kind`'s kind facts stay a separate hand-written mirror, untouched here.
 
-/// The declared `(predicate, field, severity)` triples a hand-written built-in
-/// floor's clauses carry, in declaration order — the shape a `ClauseRow` reduces a
-/// `Clause` to (`temper::drift::ClauseRow`; `Predicate::key`/`Predicate::target`).
-/// Drops `optional` clauses: `rule_anthropic`'s hand-written floor still carries one
-/// over `paths` (asserts nothing decidable — always satisfied), but the SDK's
-/// migrated `ruleFloor` deliberately folded it into TSDoc guidance instead
-/// (`FIRST-PARTY-MODULE-COMPLETE`, "an optional field asserts nothing decidable") —
-/// a real, already-shipped divergence this comparison should not paper over by
-/// asserting the dropped clause still exists.
-fn floor_triples(package: &str) -> Vec<(&'static str, Option<String>, &'static str)> {
-    let contract = builtin::contract(package)
+/// The declared `(predicate, field, severity)` triples a built-in floor's clauses
+/// carry, in declaration order — the shape a `ClauseRow` reduces a `Clause` to
+/// (`temper::drift::ClauseRow`; `Predicate::key`/`Predicate::target`).
+fn floor_triples(kind: &str) -> Vec<(&'static str, Option<String>, &'static str)> {
+    let contract = builtin::contract(kind)
         .unwrap()
-        .unwrap_or_else(|| panic!("built-in package `{package}` is embedded"));
+        .unwrap_or_else(|| panic!("built-in kind `{kind}` ships an embedded floor"));
     contract
         .clauses
         .into_iter()
-        .filter(|clause| clause.predicate.key() != "optional")
         .map(|clause| {
             let severity = match clause.severity {
                 Severity::Required => "required",
@@ -875,12 +869,12 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
 fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
     assert_eq!(
         lock_triples("skill"),
-        floor_triples(builtin::SKILL_PACKAGE),
+        floor_triples("skill"),
         "skill's floor clauses round-trip through the derived lock unchanged"
     );
     assert_eq!(
         lock_triples("rule"),
-        floor_triples(builtin::RULE_PACKAGE),
+        floor_triples("rule"),
         "rule's floor clauses round-trip through the derived lock unchanged"
     );
     // The memberless emit binds both memory floors to the SDK's one exported
@@ -888,7 +882,7 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
     // `memoryAnthropicFloor`'s clause survives under the `memory` kind's rows.
     assert_eq!(
         lock_triples("memory"),
-        floor_triples(builtin::MEMORY_ANTHROPIC_PACKAGE),
+        floor_triples("memory"),
         "memory's floor clauses round-trip through the derived lock unchanged"
     );
 }
@@ -898,13 +892,13 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
 /// `clauseRow`) and `drift::ClauseRow` used to drop both channels, stranding the
 /// gate's teaching prose on the wrong side of the erasure. Skill's `max_lines`
 /// advisory is the worked example: its progressive-disclosure guidance and
-/// agentskills.io cite (`sdk/src/builtins.ts` `skillFloor`, mirrored by
-/// `builtin::SKILL_PACKAGE`) must reach the embedded lock's row unchanged.
+/// agentskills.io cite (`sdk/src/builtins.ts` `skillFloor`) must reach the embedded
+/// lock's row, and `builtin::contract`'s projection, unchanged.
 #[test]
 fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
-    let contract = builtin::contract(builtin::SKILL_PACKAGE)
+    let contract = builtin::contract("skill")
         .unwrap()
-        .expect("skill's built-in package is embedded");
+        .expect("skill's built-in floor is embedded");
     let floor_clause = contract
         .clauses
         .iter()
@@ -913,11 +907,11 @@ fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
     let expected_guidance = floor_clause
         .guidance
         .as_deref()
-        .expect("the hand-written floor's max_lines clause carries guidance");
+        .expect("the projected floor's max_lines clause carries guidance");
     let expected_cite = floor_clause
         .source
         .as_deref()
-        .expect("the hand-written floor's max_lines clause carries a cite");
+        .expect("the projected floor's max_lines clause carries a cite");
     assert!(
         expected_guidance.contains("Progressive disclosure"),
         "skill's max_lines advisory carries its progressive-disclosure guidance, got {expected_guidance:?}"

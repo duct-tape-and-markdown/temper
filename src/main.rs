@@ -51,26 +51,23 @@ const TEMPER_DIR: &str = ".temper";
 /// tag — a malformed namespace is inadmissible, decided before it judges anything.
 const REQUIREMENT_COLLISION_RULE: &str = "requirement.admissibility";
 
-/// Resolve a built-in package by name into its floor [`Contract`], failing loud
-/// if the build embedded no package of that name (`specs/architecture/10-contracts.md`) — a
+/// Resolve a built-in kind's bare row label into its floor [`Contract`], failing
+/// loud if the build embeds no floor of that name (`specs/architecture/10-contracts.md`) — a
 /// missing floor is a hard error, never a silently empty contract.
-fn builtin_floor(name: &str) -> miette::Result<Contract> {
-    builtin::contract(name)?
-        .ok_or_else(|| miette::miette!("built-in package `{name}` is not embedded in this binary"))
+fn builtin_floor(kind: &str) -> miette::Result<Contract> {
+    builtin::contract(kind)?
+        .ok_or_else(|| miette::miette!("built-in kind `{kind}` ships no embedded floor"))
 }
 
-/// temper's own **published** floor bindings: each embedded built-in kind, by its bare
-/// row label, paired with the package name its floor loads from.
-const BUILTIN_FLOOR_BINDINGS: &[(&str, &str)] = &[
-    ("skill", builtin::SKILL_PACKAGE),
-    ("rule", builtin::RULE_PACKAGE),
-];
+/// The kinds `schema` emits a floor for, by bare row label — unchanged scope from
+/// the prior by-package binding list; widening it to `memory` is a separate question.
+const BUILTIN_FLOOR_KINDS: &[&str] = &["skill", "rule"];
 
 /// The built-in floors keyed by their bare row label.
 fn builtin_floors() -> miette::Result<Vec<(String, Contract)>> {
-    let mut floors = Vec::with_capacity(BUILTIN_FLOOR_BINDINGS.len());
-    for (name, package) in BUILTIN_FLOOR_BINDINGS {
-        floors.push(((*name).to_string(), builtin_floor(package)?));
+    let mut floors = Vec::with_capacity(BUILTIN_FLOOR_KINDS.len());
+    for kind in BUILTIN_FLOOR_KINDS {
+        floors.push(((*kind).to_string(), builtin_floor(kind)?));
     }
     Ok(floors)
 }
@@ -572,18 +569,15 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let mut skill_features: Vec<extract::Features> = Vec::new();
     let mut rule_features: Vec<extract::Features> = Vec::new();
     for kind in builtin_kind::definitions()?.values() {
-        let package = builtin::floor_package(&kind.name).ok_or_else(|| {
-            miette::miette!(
-                "built-in kind `{}` ships no floor package binding",
-                kind.name
-            )
-        })?;
         // Two greens (`specs/architecture/10-contracts.md`): admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
         // The per-kind clause overrides source from the lock's declared `clauses`
         // (`specs/architecture/20-surface.md`, "The lock and drift — one vocabulary").
-        let contract =
-            compose::effective(&declarations.clauses, &kind.name, builtin_floor(package)?);
+        let contract = compose::effective(
+            &declarations.clauses,
+            &kind.name,
+            builtin_floor(&kind.name)?,
+        );
 
         let features = kind_features(kind, harness_root, workspace, &declarations)?;
 

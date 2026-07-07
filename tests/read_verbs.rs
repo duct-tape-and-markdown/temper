@@ -260,11 +260,10 @@ fn an_unrecognized_target_is_a_clean_read_naming_no_namespace() {
 }
 
 /// Floor-binding narration over the read family's public `why` API (READ-FLOOR-BINDING-DEFAULT):
-/// `bound_package` names each embedded kind's *real* floor — resolved through the one
-/// `FLOOR_BINDINGS` table — instead of defaulting every non-rule kind to
-/// `skill.anthropic`. A memory member is threaded as a custom member the way a
-/// built-in reaches the read family. Skills/rules keep their own floors — these
-/// exercise the resolution branches directly.
+/// a floor is named for its kind — never a `<kind>.<source>` package, and never
+/// every non-rule kind defaulting to the skill floor. A memory member is threaded
+/// as a custom member the way a built-in reaches the read family. Skills/rules keep
+/// their own floors — these exercise the resolution branches directly.
 mod floor_binding {
     use std::collections::BTreeMap;
 
@@ -293,29 +292,26 @@ mod floor_binding {
 
     #[test]
     fn a_memory_member_names_its_own_floor_never_the_skill_floor() {
-        // `memory` binds `memory.anthropic` — never mis-narrated as `skill.anthropic`,
+        // `memory` binds the `memory` floor — never mis-narrated as the `skill` floor,
         // the default-to-skill bug this entry closes.
         let memory = why_kind("memory", "project-memory");
         assert!(
-            memory.contains("binds the `memory.anthropic` floor"),
+            memory.contains("binds the `memory` floor"),
             "a memory member is bound to its own floor: {memory}"
         );
         assert!(
-            !memory.contains("skill.anthropic"),
+            !memory.contains("binds the `skill` floor"),
             "a memory member is never narrated as skill-bound: {memory}"
         );
     }
 
     #[test]
     fn a_builtin_name_resolves_to_its_bound_floor() {
-        // `skill`/`rule` reach `bound_package` as bare names and each names its own floor.
+        // `skill`/`rule` each name their own floor — the kind's bare label.
         let skill = why_kind("skill", "reviewer");
-        assert!(
-            skill.contains("binds the `skill.anthropic` floor"),
-            "{skill}"
-        );
+        assert!(skill.contains("binds the `skill` floor"), "{skill}");
         let rule = why_kind("rule", "collaboration");
-        assert!(rule.contains("binds the `rule.anthropic` floor"), "{rule}");
+        assert!(rule.contains("binds the `rule` floor"), "{rule}");
     }
 
     #[test]
@@ -324,6 +320,6 @@ mod floor_binding {
         // not silently mis-bound to the skill floor.
         let out = why_kind("adr", "0001-adopt-temper");
         assert!(out.contains("binds the `adr` floor"), "{out}");
-        assert!(!out.contains("skill.anthropic"), "{out}");
+        assert!(!out.contains("binds the `skill` floor"), "{out}");
     }
 }

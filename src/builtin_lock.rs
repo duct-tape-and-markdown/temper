@@ -6,9 +6,9 @@
 //! as data (`include_str!`) and parsed once here into the [`Declarations`] IR the
 //! gate already reads off a committed lock ([`crate::drift::read_declarations`]).
 //!
-//! Additive: [`crate::builtin`]/[`crate::builtin_kind`] still carry the live default
-//! program this link — nothing yet reads [`declarations`]. Wiring `check` onto this
-//! parsed lock instead of the hand-written mirrors is `BUILTIN-LOCK-ROW-DRIVEN`.
+//! [`crate::builtin`] projects each built-in kind's floor `Contract` straight off
+//! [`declarations`]'s clause rows; [`crate::builtin_kind`] still carries its own
+//! hand-written kind facts.
 
 use std::path::Path;
 use std::sync::LazyLock;

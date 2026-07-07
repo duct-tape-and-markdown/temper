@@ -1,19 +1,18 @@
-//! Pins the shipped Anthropic skill built-in package (`specs/architecture/10-contracts.md`,
+//! Pins the shipped Anthropic skill built-in floor (`specs/architecture/10-contracts.md`,
 //! "Packages — best practices as data").
 //!
-//! `packages/skill.anthropic/PACKAGE.md` is the std-lib skill contract — curated
-//! product source the build *embeds* (`specs/architecture/10-contracts.md`, the `contracts/`
-//! retirement) and resolves by name. This test loads it through the same embedded
-//! path the shipped `check` uses ([`temper::builtin::contract`]) and pins the exact
-//! decidable clause vector it carries.
+//! The `skill` floor is a projection of the embedded built-in lock's clause rows
+//! (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+//! from the SDK module, never transcribed"). This test loads it through the same
+//! embedded path the shipped `check` uses ([`temper::builtin::contract`]) and pins
+//! the exact decidable clause vector it carries.
 //!
 //! Pinning the vector proves both halves of the registry-kill decision at once. The
 //! surviving *decidable* clauses are present at their declared severities, and the
 //! *dropped* heuristics (third-person, has-trigger, companion-refs — semantic or
 //! weak proxies, out of the closed algebra entirely) are absent, because any extra
-//! or missing clause breaks the equality. The built-in carries no internal `name`,
-//! so its display label derives to `skill.anthropic` from the package directory
-//! (`specs/architecture/10-contracts.md`: a package is identified by its binding, not a name).
+//! or missing clause breaks the equality. A floor is named for its kind, not a
+//! package — the built-in's display label is `skill`.
 //! The clause *vocabulary* is pinned; the guidance/citation prose is product
 //! territory, so it is asserted present, not pinned verbatim.
 
@@ -24,12 +23,12 @@ use temper::contract::{Charset, Contract, Predicate, Severity};
 use temper::engine;
 use temper::schema;
 
-/// The built-in skill contract, resolved from the embedded `packages/` std-lib the
-/// same way the shipped tool resolves it.
+/// The built-in skill contract, resolved from the embedded built-in lock the same
+/// way the shipped tool resolves it.
 fn skill_builtin() -> Contract {
-    temper::builtin::contract(temper::builtin::SKILL_PACKAGE)
-        .expect("the embedded skill package should parse")
-        .expect("the skill package is embedded")
+    temper::builtin::contract("skill")
+        .expect("the embedded skill floor should project")
+        .expect("the skill floor is embedded")
 }
 
 /// A contract's decidable `(severity, predicate)` vector, in declaration order —
@@ -130,12 +129,11 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
 }
 
 /// The embedded skill built-in carries exactly the decidable clause vector at its
-/// declared severities, and its display name derives to `skill.anthropic` from the
-/// package directory.
+/// declared severities, and its display name is its bare kind label, `skill`.
 #[test]
 fn skill_builtin_carries_the_decidable_clause_vector() {
     let contract = skill_builtin();
-    assert_eq!(contract.name, "skill.anthropic");
+    assert_eq!(contract.name, "skill");
     assert_eq!(predicate_vector(&contract), expected_skill_clauses());
 }
 

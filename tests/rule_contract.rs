@@ -1,46 +1,40 @@
-//! Pins the shipped rule built-in package (`specs/architecture/10-contracts.md`, "Packages —
+//! Pins the shipped rule built-in floor (`specs/architecture/10-contracts.md`, "Packages —
 //! best practices as data").
 //!
-//! `packages/rule.anthropic/PACKAGE.md` is the std-lib contract for the `rule`
-//! artifact kind (`.claude/rules/*.md`) — curated product source the build *embeds*
-//! (`specs/architecture/10-contracts.md`, the `contracts/` retirement) and resolves by name. This
+//! The `rule` floor is a projection of the embedded built-in lock's clause rows
+//! (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
+//! from the SDK module, never transcribed") — never a hand-written mirror. This
 //! test loads it through the same embedded path the shipped `check` uses
 //! ([`temper::builtin::contract`]) and pins the exact decidable clause vector it
 //! carries, mirroring `tests/contract_template.rs` for the skill built-in.
 //!
-//! Two facts are load-bearing here beyond the skill mirror: the package is now named
-//! `rule.anthropic` (renamed from the bare `rule` — `specs/architecture/10-contracts.md`, "named
-//! for its source"), and its clauses carry `source` citations, the expected posture
-//! for a built-in whose legitimacy is *sourced* opinion. The clause *vocabulary* is
-//! pinned; the guidance/citation prose is product territory, so it is asserted to be
-//! present, not pinned verbatim.
+//! The floor is named for its kind, `rule` — not a `<kind>.<source>` package — and
+//! its clauses carry `source` citations and `guidance`, the full four channels a
+//! clause row projects losslessly. The clause *vocabulary* is pinned; the
+//! guidance/citation prose is product territory, so it is asserted to be present,
+//! not pinned verbatim.
 
 use std::collections::BTreeSet;
 
 use temper::contract::{Contract, Predicate, Severity};
 use temper::engine;
 
-/// The built-in rule contract, resolved from the embedded `packages/` std-lib the
-/// same way the shipped tool resolves it.
+/// The built-in rule contract, resolved from the embedded built-in lock the same
+/// way the shipped tool resolves it.
 fn rule_builtin() -> Contract {
-    temper::builtin::contract(temper::builtin::RULE_PACKAGE)
-        .expect("the embedded rule package should parse")
-        .expect("the rule package is embedded")
+    temper::builtin::contract("rule")
+        .expect("the embedded rule floor should project")
+        .expect("the rule floor is embedded")
 }
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
-/// declaration order — `optional` on `paths` (advisory), the Cursor-key
-/// `forbidden_keys` (required), the lean-rule `max_lines` (advisory). Guidance and
-/// `source` ride each clause but are product prose, so they are excluded from this
-/// structural pin.
+/// declaration order — the Cursor-key `forbidden_keys` (required), the lean-rule
+/// `max_lines` (advisory). Guidance and `source` ride each clause but are product
+/// prose, so they are excluded from this structural pin. No `optional` clause over
+/// `paths`: the SDK floor asserts nothing decidable for an optional field, so the
+/// lock carries no such row and this projection carries none either.
 fn expected_clauses() -> Vec<(Severity, Predicate)> {
     vec![
-        (
-            Severity::Advisory,
-            Predicate::Optional {
-                field: "paths".to_string(),
-            },
-        ),
         (
             Severity::Required,
             Predicate::ForbiddenKeys {
@@ -56,13 +50,13 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
 }
 
 /// The embedded rule built-in carries exactly the decidable clause vector at its
-/// declared severities, and its display name derives to `rule.anthropic` from the
-/// package directory (`specs/architecture/10-contracts.md`, "named for its source": the rename
-/// lands with the embed).
+/// declared severities, and its display name is its bare kind label, `rule` — the
+/// projection's argument payload (the `forbidden_keys` list, the `max_lines` bound)
+/// survives unchanged.
 #[test]
 fn rule_builtin_carries_the_decidable_clause_vector() {
     let contract = rule_builtin();
-    assert_eq!(contract.name, "rule.anthropic");
+    assert_eq!(contract.name, "rule");
 
     let clauses: Vec<(Severity, Predicate)> = contract
         .clauses
@@ -72,13 +66,20 @@ fn rule_builtin_carries_the_decidable_clause_vector() {
     assert_eq!(clauses, expected_clauses());
 }
 
-/// A built-in package's clauses are *cited* — each carries a `source` provenance of
-/// taste (`specs/architecture/10-contracts.md`, "a built-in package's clauses ... it is the
-/// expected posture"). Pinning the presence keeps the update ritual honest (walk the
-/// clauses, re-check their citations) without coupling to the citation text.
+/// A built-in floor's clauses are *guided and cited* — each pairs a `source`
+/// provenance of taste with the hover-sized why (`specs/architecture/10-contracts.md`,
+/// "a built-in package's clauses ... it is the expected posture"). Pinning the
+/// presence keeps the update ritual honest (walk the clauses, re-check their
+/// citations) without coupling to the citation text — and proves both channels
+/// survive the row projection, not just the predicate.
 #[test]
-fn every_rule_builtin_clause_is_cited() {
+fn every_rule_builtin_clause_is_guided_and_cited() {
     for clause in &rule_builtin().clauses {
+        assert!(
+            clause.guidance.is_some(),
+            "a built-in clause must carry its guidance, got: {:?}",
+            clause.predicate,
+        );
         assert!(
             clause.source.is_some(),
             "a built-in clause must carry its source citation, got: {:?}",
@@ -102,7 +103,7 @@ fn rule_builtin_encodes_only_decidable_clauses() {
 
     assert_eq!(
         kinds,
-        BTreeSet::from(["optional", "forbidden_keys", "max_lines"]),
+        BTreeSet::from(["forbidden_keys", "max_lines"]),
         "the rule built-in must carry only its declared decidable predicates",
     );
 }

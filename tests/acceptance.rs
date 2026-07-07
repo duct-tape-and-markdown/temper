@@ -31,14 +31,14 @@ use temper::engine;
 use temper::frontmatter::Member;
 use temper::kind::Unit;
 
-/// The built-in Anthropic skill contract, resolved from the embedded `packages/`
-/// std-lib exactly as the shipped `check` does — so the acceptance path validates
-/// against the same clauses the tool ships (`specs/architecture/10-contracts.md`, the
-/// `contracts/` retirement: the built-in resolves from the embedded set by name).
+/// The built-in Anthropic skill contract, resolved from the embedded built-in lock
+/// exactly as the shipped `check` does — so the acceptance path validates against
+/// the same clauses the tool ships (`specs/architecture/50-distribution.md`,
+/// "Decision: the built-in lock is derived from the SDK module, never transcribed").
 fn builtin_skill_contract() -> Contract {
-    temper::builtin::contract(temper::builtin::SKILL_PACKAGE)
-        .expect("the embedded skill package should parse")
-        .expect("the skill package is embedded")
+    temper::builtin::contract("skill")
+        .expect("the embedded skill floor should project")
+        .expect("the skill floor is embedded")
 }
 
 /// The built `temper` binary, located by Cargo at compile time — the custom-kind

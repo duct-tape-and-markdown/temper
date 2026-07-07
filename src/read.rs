@@ -6,7 +6,7 @@
 //! requirement, leaf-grain address (`(explain-target-disambiguation)`, ruled
 //! 2026-07-04) — and dispatches to whichever of the four traversals below answer that
 //! species: [`why`] walks the edge **forward** (this member → the requirements it
-//! fills, with their authored rationale → the package its kind binds → its resolved
+//! fills, with their authored rationale → the floor its kind binds → its resolved
 //! edges in and out); [`requirements`] walks it in **reverse** (the roster → each
 //! requirement's satisfier set + coverage state, and with a name the blast radius a
 //! removal would strand); [`impact`] narrates the **blast radius of a removal** — what
@@ -48,7 +48,6 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
-use crate::builtin;
 use crate::check::Workspace;
 use crate::compose::{Edge, Requirement};
 use crate::document::Satisfies;
@@ -143,18 +142,6 @@ fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
         });
     }
     members
-}
-
-/// The floor the `kind`'s members are checked against — the kind's real built-in
-/// floor resolved by its bare row label through [`builtin::floor_package`]: `skill` →
-/// `skill.anthropic`, `rule` → `rule.anthropic`, `memory` → `memory.anthropic`, so a
-/// `memory` member is bound to its own floor rather than mis-narrated as
-/// `skill.anthropic`. A kind that genuinely ships no floor (a custom kind with no
-/// binding) falls back to its own name (`specs/architecture/40-composition.md`,
-/// "Binding is implicit — a floor is a clause array": there is no package-to-kind
-/// table, so an unbound kind is named for itself rather than a fabricated default).
-fn bound_package(kind: &str) -> String {
-    builtin::floor_package(kind).map_or_else(|| kind.to_string(), str::to_string)
 }
 
 /// The target species `explain <target>` resolves a positional string into
@@ -392,12 +379,12 @@ fn why_one(
     }
 
     // The floor the member's kind binds — the governing contract its conformance is
-    // checked against.
+    // checked against. A floor is named for its kind (no package noun any more), so
+    // this is always the kind's own bare label.
     let _ = writeln!(
         out,
         "Governing floor: its `{}` kind binds the `{}` floor, whose clauses check it.\n",
-        member.kind,
-        bound_package(&member.kind),
+        member.kind, member.kind,
     );
 
     // The edges in and out — the member's node in the **gate's resolved edge set**
