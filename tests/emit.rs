@@ -1,5 +1,4 @@
-//! `temper emit` — the seam's compile (`specs/model/pipeline.md`, "Emit" —
-//! total, byte-reproducible, refusing).
+//! `temper emit` — the seam's compile.
 //!
 //! Three tiers:
 //!
@@ -17,8 +16,7 @@
 //! - **the one-shot gate**, `check --harness` / session-start, driven across the real
 //!   process boundary over a raw harness with no lock and no `.temper/` — proving
 //!   the copy-tree scratch import is gone: the discovery walk is the only member
-//!   extractor, straight off harness disk (`specs/model/pipeline.md`, "Decision:
-//!   one authored surface, one implementation").
+//!   extractor, straight off harness disk.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -146,8 +144,8 @@ fn basic_payload(members: Vec<PayloadMember>) -> Payload {
 }
 
 /// A fresh `<harness>/.temper` pair — `drift::emit` derives the projection root
-/// from the workspace dir's parent, matching the seam's own topology
-/// (`specs/model/pipeline.md`): `.temper/` sits beside `.claude/`.
+/// from the workspace dir's parent, matching the seam's own topology:
+/// `.temper/` sits beside `.claude/`.
 fn workspace(label: &str) -> (PathBuf, PathBuf) {
     let harness = tmpdir(label);
     let into = harness.join(".temper");
@@ -427,9 +425,7 @@ fn an_unsupported_seam_version_is_a_clear_refusal() {
 
 // ---------------------------------------------------------------------------
 // The seam — `drift::emit_program` over a real `node` subprocess running the
-// built SDK against a fixture `harness.ts` (`specs/model/pipeline.md`,
-// "The SDK": "running the authored program produces plain
-// data").
+// built SDK against a fixture `harness.ts`.
 // ---------------------------------------------------------------------------
 
 /// The repo's `sdk/` directory — the SDK package this crate's worktree carries
@@ -481,7 +477,7 @@ const program = harness({
         Drive the team.
       `,
     }),
-  ],
+ ],
 });
 
 process.stdout.write(emit(program).seam);
@@ -511,8 +507,7 @@ fn wire_sdk_harness_program(label: &str, program: &str) -> (PathBuf, PathBuf) {
 }
 
 /// A fixture SDK program declaring a `require`d requirement carrying a `count`
-/// set-scope clause (`specs/model/contract.md`, "Decision: set-scope
-/// demands are clauses") — proving the real SDK emits a requirement's demand as
+/// set-scope clause — proving the real SDK emits a requirement's demand as
 /// a nested clause row, not a facet field, end to end across the seam.
 const REQUIREMENT_CLAUSES_PROGRAM: &str = r#"
 import { clause, count, emit, harness, requirement, text } from "@dtmd/temper";
@@ -530,14 +525,14 @@ const program = harness({
         Drive the team.
       `,
     }),
-  ],
+ ],
   require: {
     agents: requirement({
       means: "the harness fields a bounded agent roster",
       kind: skill,
       clauses: [clause(count({ min: 1, max: 2 }), { severity: "required" })],
     }),
-  },
+ },
 });
 
 process.stdout.write(emit(program).seam);

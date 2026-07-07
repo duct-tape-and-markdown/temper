@@ -8,8 +8,7 @@
 //! a repo-root frontmatterless `CLAUDE.md`. This pins that gap:
 //!
 //! - a `unit_shape = "file"`, `format`-less `memory` member (a repo-root `CLAUDE.md`)
-//!   compiles from a hand-built seam payload (`tests/emit.rs`'s pattern — `emit` is
-//!   the sole producer, `specs/model/pipeline.md`, "The lock") and
+//!   compiles from a hand-built seam payload and
 //!   **re-emits idempotently** — the emit face projects it to its harness locus with
 //!   no fabricated frontmatter, and a second emit changes not one byte;
 //! - the whole frontmatterless file is the byte-faithful body — the read face lifts no

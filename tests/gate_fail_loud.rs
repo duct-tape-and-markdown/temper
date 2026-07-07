@@ -1,5 +1,4 @@
-//! The fail-loud coherence guard (`specs/distribution.md`, "Fail-loud
-//! delivery — the invariant"): a placement that cannot run the engine must error, never
+//! The fail-loud coherence guard: a placement that cannot run the engine must error, never
 //! silently skip. `temper check .` at a harness root reads no `./lock.toml`/`./skills`
 //! (they live under `.temper/`), so a committed assembly that declares
 //! members/requirements resolves nothing and used to exit 0 — the wave-end confirmation
@@ -10,8 +9,7 @@
 //! Cases mirror the entry's acceptance:
 //! (a) declared-but-nothing-resolved ⇒ an `error` `coverage.empty-assembly` and a
 //!     non-zero exit;
-//! (b) a correctly-rooted check that resolves ≥1 member never fires (`specs/intent.md`:
-//!     no false block on a clean gate), even though the same lock declares a requirement;
+//! (b) a correctly-rooted check that resolves ≥1 member never fires, even though the same lock declares a requirement;
 //! (c) a genuinely empty harness (no declared requirements) never fires — zero members
 //!     is legitimate there.
 
@@ -53,7 +51,7 @@ description: Use when coordinating agents across axes; not for single-axis work.
 Drive the team through the playbook.\n";
 
 /// A bare `RequirementRow` naming `name` — enough to make the committed assembly
-/// `declared` (`specs/distribution.md`).
+/// `declared`.
 fn requirement(name: &str) -> RequirementRow {
     RequirementRow {
         name: name.to_string(),
@@ -67,7 +65,7 @@ fn requirement(name: &str) -> RequirementRow {
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
 /// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
 /// projection: the gate sources requirements from the lock, never a re-imported
-/// assembly (`specs/model/pipeline.md`, "The lock").
+/// assembly.
 fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
@@ -142,8 +140,7 @@ fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
 fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
     // The same requirement-declaring lock, but this time the harness carries a real
     // skill at its committed locus (`.claude/skills/coordinate/SKILL.md`) — `check`
-    // reads built-in kind members live off harness disk (`specs/model/pipeline.md`,
-    // "The lock"), no scratch import required, and the correctly-rooted path
+    // reads built-in kind members live off harness disk, no scratch import required, and the correctly-rooted path
     // resolves ≥1 member, so the guard must not fire even though the assembly still
     // declares a requirement.
     let root = tmpdir("declared-resolved");

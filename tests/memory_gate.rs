@@ -1,4 +1,4 @@
-//! Acceptance for the memory-kind gate (`specs/builtins.md`, "Default contracts"): the
+//! Acceptance for the memory-kind gate: the
 //! `check` gate validates every embedded kind's members against
 //! its floor package, so a discovered `CLAUDE.md` memory member fires its
 //! `memory.anthropic` clauses instead of being silently skipped by a hardcoded skill/rule
@@ -107,8 +107,7 @@ fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
 
 /// Write a repo-root `CLAUDE.md` whose body carries the given `@`-import directive on
 /// its own line — the `memory` member `import` discovers off its `governs` locus, its
-/// `at-import` target the directive classing resolves against provenance
-/// (`specs/model/representation.md`, "Directives").
+/// `at-import` target the directive classing resolves against provenance.
 fn write_claude_md_importing(root: &Path, import_line: &str) {
     let body = format!("# Memory\n\nProject guidance.\n\n{import_line}\n");
     fs::write(root.join("CLAUDE.md"), body).unwrap();
@@ -125,7 +124,7 @@ fn write_sibling(root: &Path, rel: &str, body: &str) {
 
 /// Gate the harness's live surface with cwd = harness root — the TWO-STEP path (a bare
 /// `.temper` workspace argument, no `--harness`): `check` reads built-in kind members
-/// live off harness disk (`specs/model/pipeline.md`, "The lock"), so
+/// live off harness disk, so
 /// no scratch import is needed to populate `.temper` first — the exact route the
 /// `--harness` cases never take. Returns the emitted finding lines.
 fn check_two_step(harness: &Path) -> Vec<String> {

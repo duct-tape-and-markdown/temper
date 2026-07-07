@@ -1,5 +1,4 @@
-//! The reporter family — machine formats over one diagnostic source
-//! (`specs/distribution.md`, "Outward seams — Reporters").
+//! The reporter family — machine formats over one diagnostic source.
 //!
 //! Two layers of proof. First, the library reporters ([`temper::reporter::github`]
 //! / [`temper::reporter::sarif`]) are driven over a hand-built diagnostic set: the
@@ -189,13 +188,12 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
 fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surface() {
     let harness = tmpdir("sarif-src");
     write_harness(&harness, "coordinate", ERROR_SKILL);
-    // An empty workspace: `check` reads built-in kind members live off harness disk
-    // (`specs/model/pipeline.md`, "The lock"), no scratch import
+    // An empty workspace: `check` reads built-in kind members live off harness disk,
+    // no scratch import
     // needed to populate it first.
     let into = tmpdir("sarif-into");
 
-    // CWD is the harness (`specs/model/pipeline.md`, "The lock" —
-    // the gate walks the committed lock's governs locus over the harness at the CWD),
+    // CWD is the harness,
     // carrying no adopted lock either, so an ambient project assembly at the process
     // CWD — e.g. temper's own — can't leak in and abort the load. Mirrors the
     // `schema`/`cli` tests' isolation.

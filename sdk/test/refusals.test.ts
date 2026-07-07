@@ -1,11 +1,11 @@
 /**
  * Declare-side emit refusals — a broken source yields no output, never silent
- * bytes (`specs/model/pipeline.md`, "Emit").
+ * bytes.
  * Two cases the compile must catch before it writes a byte: a `satisfies` claim
  * that names no declared requirement (a dangling join), and a `required`
  * requirement no member fills (an unfilled required requirement). A requirement
  * may be published by the assembly's `require` or a member's own `requires` — one
- * namespace, one fill (`specs/model/contract.md`, "requirement"). A clean harness emits without throwing.
+ * namespace, one fill. A clean harness emits without throwing.
  *
  * Mention refusals live in emit.test.ts ("an unresolved mention is a loud emit
  * error"); this file owns only the two declare-side cases.

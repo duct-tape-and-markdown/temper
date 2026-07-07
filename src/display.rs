@@ -3,7 +3,7 @@
 //! [`render_member`] compiles an [`EmbeddedMember`] (a genre fence's extracted leaves
 //! and nested members) into the markdown a projection carries — a heading, the leaf
 //! labels, deterministic ordering, and per-leaf anchors — as **connective tissue
-//! only** (`specs/model/pipeline.md`, "Emit"): every meaning-carrying word is an
+//! only**: every meaning-carrying word is an
 //! authored leaf, rendered verbatim; the heading, labels, and anchors are the
 //! member's declared structure in rendered form — the markdown analogue of the
 //! lock's TOML syntax, never synthesized prose. One rule serves every child kind: the
@@ -13,18 +13,16 @@
 //! A **standalone formatter island**: the future custom-kind emit face calls it and
 //! must reproduce these exact bytes; it does not wire into `src/drift.rs`'s
 //! skill/rule projection (that projection carries no nested member today). Byte-deterministic
-//! — a double-render of the same member is byte-identical (`specs/model/pipeline.md`,
-//! "Emit"), the property `tests/display_rule.rs` pins as the emit face's contract.
+//! — a double-render of the same member is byte-identical, the property `tests/display_rule.rs` pins as the emit face's contract.
 
 use std::fmt::Write;
 
 use crate::extract::EmbeddedMember;
 
 /// Render an [`EmbeddedMember`] to its projection markdown — the anchored heading, then
-/// its **leaves before its nested members** (`specs/model/pipeline.md`, "Emit"; the
-/// ordering the read family's [`EmbeddedMember::addressed_leaves`] also walks), each in
+/// its **leaves before its nested members**, each in
 /// `BTreeMap` key order so the output is byte-deterministic. Every leaf value is
-/// rendered verbatim (`specs/model/pipeline.md`, "Emit"); the heading, the capitalized
+/// rendered verbatim; the heading, the capitalized
 /// labels, and the anchors are the member's declared structure, not prose. An empty
 /// member renders its heading with no body.
 ///

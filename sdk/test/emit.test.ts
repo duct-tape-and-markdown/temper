@@ -1,6 +1,6 @@
 /**
- * Emit — the six-noun face compiled to the seam's JSON pipe
- * (`specs/model/pipeline.md`, "Emit"). A harness authored in the face (`harness()`, `kind<T>()`,
+ * Emit — the six-noun face compiled to the seam's JSON pipe.
+ * A harness authored in the face (`harness()`, `kind<T>()`,
  * clause values, `needs`, `file()`/`text`/`blocks()`) emits the declaration rows
  * (the lock's five families) and every projected member's erased payload — kind,
  * name, ordered fields, resolved body. The engine is the sole compiler of every
@@ -36,7 +36,7 @@ import { memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
   return harness({
-    members: [
+ members: [
       rule({
         name: "rust",
         paths: ["src/**/*.rs"],
@@ -55,8 +55,8 @@ function projectedHarness() {
           Drive the team.
         `,
       }),
-    ],
-  });
+ ],
+ });
 }
 
 test("emit compiles the projected members and declarations in one pass", () => {
@@ -103,12 +103,12 @@ test("emit is byte-stable across a double pass", () => {
 
 // ---------------------------------------------------------------------------
 // Declaration rows — the five families, and the `satisfies` join the roster/
-// coverage tiers need (`specs/model/pipeline.md`, "The lock").
+// coverage tiers need.
 // ---------------------------------------------------------------------------
 
 function fullHarness() {
   return harness({
-    members: [
+ members: [
       rule({
         name: "rust",
         paths: ["src/**/*.rs"],
@@ -116,32 +116,32 @@ function fullHarness() {
         satisfies: ["dev-standards"],
         prose: text`# Rust`,
       }),
-    ],
+ ],
     expect: [
-      {
+ {
         kind: rule,
         clauses: [
           clause(maxLines(300), { severity: "advisory" }),
           clause(required("paths"), { severity: "required" }),
-        ],
-      },
-    ],
+ ],
+ },
+ ],
     require: {
       "dev-standards": {
         means: "the harness maintains development standards",
         kind: rule,
-        required: true,
+ required: true,
         verifiedBy: "tests/dev-standards.test.ts",
-      },
-    },
-  });
+ },
+ },
+ });
 }
 
 test("compileDeclarations produces all five families, satisfies included", () => {
   const declarations = compileDeclarations(fullHarness());
 
   assert.deepEqual(declarations.kinds, [
-    {
+ {
       name: "rule",
       provider: undefined,
       governs_root: ".claude/rules",
@@ -150,10 +150,10 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       unit_shape: "file",
       registration: "paths-match(paths)",
       templates: undefined,
-    },
+ },
   ]);
   assert.deepEqual(declarations.clauses, [
-    {
+ {
       kind: "rule",
       predicate: "max_lines",
       field: undefined,
@@ -167,8 +167,8 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       charset: undefined,
       keys: undefined,
       values: undefined,
-    },
-    {
+ },
+ {
       kind: "rule",
       predicate: "required",
       field: "paths",
@@ -182,16 +182,16 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       charset: undefined,
       keys: undefined,
       values: undefined,
-    },
+ },
   ]);
   assert.deepEqual(declarations.requirements, [
-    {
+ {
       name: "dev-standards",
       kind: "rule",
-      required: true,
+ required: true,
       clauses: [],
       verified_by: "tests/dev-standards.test.ts",
-    },
+ },
   ]);
   assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
@@ -200,8 +200,7 @@ test("compileDeclarations produces all five families, satisfies included", () =>
 test("compileDeclarations emits no uncoined `authority` fact, and the root member's declared mode round-trips", () => {
   // The hardcoded `{ fact: "authority", value: "shared" }` the corpus never coined
   // (MODE-ROOT-MEMBER-FIELD) is retired — the root member's own declared `mode`
-  // field is the sole source of this row now (`specs/model/representation.md`,
-  // "The root member").
+ // field is the sole source of this row now.
   const defaulted = compileDeclarations(fullHarness());
   assert.ok(
     !defaulted.assembly.some((fact) => fact.fact === "authority"),
@@ -222,20 +221,20 @@ test("compileDeclarations emits no uncoined `authority` fact, and the root membe
 test("clauseRow serializes a node-scope predicate's own argument onto the row", () => {
   // A kind's own `expect` clause carries its predicate's bound/charset/keys/values
   // argument, not identity+severity alone — the row a floor Contract must be
-  // reconstructable from (`specs/distribution.md`, "The engine binary").
-  const h = harness({
+ // reconstructable from.
+ const h = harness({
     members: [],
     expect: [
-      {
+ {
         kind: rule,
         clauses: [
           clause(maxLen("name", 64), { severity: "required" }),
           clause(forbiddenKeys(["globs", "alwaysApply"]), { severity: "required" }),
           clause(allowedChars("name", { ranges: ["a-z"], chars: "-" }), { severity: "required" }),
-        ],
-      },
-    ],
-  });
+ ],
+ },
+ ],
+ });
 
   const declarations = compileDeclarations(h);
   assert.deepEqual(
@@ -264,17 +263,17 @@ test("a member with no satisfies claim contributes no row", () => {
 });
 
 test("satisfies rows are member-then-requirement sorted regardless of authoring order", () => {
-  const h = harness({
-    members: [
+ const h = harness({
+ members: [
       rule({ name: "b", prose: text`# B`, satisfies: ["y", "x"] }),
       rule({ name: "a", prose: text`# A`, satisfies: ["z"] }),
-    ],
+ ],
     require: {
       x: { means: "x" },
       y: { means: "y" },
       z: { means: "z" },
-    },
-  });
+ },
+ });
   assert.deepEqual(compileDeclarations(h).satisfies, [
     { member: "a", requirement: "z" },
     { member: "b", requirement: "x" },
@@ -284,11 +283,11 @@ test("satisfies rows are member-then-requirement sorted regardless of authoring 
 
 test("needs derive the permission union, deduped and sorted, never authored twice", () => {
   const twoNeeds = harness({
-    members: [
+ members: [
       rule({ name: "a", needs: [bash("git status"), bash("git diff")], prose: text`# A` }),
       rule({ name: "b", needs: [bash("git diff")], prose: text`# B` }),
-    ],
-  });
+ ],
+ });
   const result = emit(twoNeeds);
   assert.deepEqual(result.permissions, ["Bash(git diff)", "Bash(git status)"]);
 });
@@ -300,11 +299,11 @@ test("needs derive the permission union, deduped and sorted, never authored twic
 test("a genre member neither projects nor takes a kind-fact row", () => {
   const decisionBlock = genre<Record<never, never>>({ name: "decision-block", withinHosts: ["spec"] });
   const mixed = harness({
-    members: [
+ members: [
       rule({ name: "rust", prose: text`# Rust` }),
       decisionBlock({ name: "surface-authority" }),
-    ],
-  });
+ ],
+ });
   const result = emit(mixed);
   // Only the rule projects — the genre lives inside a host document.
   assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
@@ -316,16 +315,15 @@ test("a host kind's fact row carries its declared genre children as templates", 
   const decisionBlock = genre<Record<never, never>>({ name: "decision", withinHosts: ["rule"] });
   const mixed = harness({
     members: [rule({ name: "rust", prose: text`# Rust` }), decisionBlock({ name: "surface-authority" })],
-  });
+ });
   const declarations = compileDeclarations(mixed);
   const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
   assert.deepEqual(ruleRow.templates, ["decision"]);
 });
 
 // ---------------------------------------------------------------------------
-// Genre values — the generic mechanism survives; no prescribed ontology ships
-// (`specs/model/representation.md`, "a genre is a full kind, and genre checks
-// are data, never engine"). `decision`/`law`/`bound`/`Alternative` are gone —
+// Genre values — the generic mechanism survives; no prescribed ontology ships.
+// `decision`/`law`/`bound`/`Alternative` are gone —
 // a corpus that wants them declares its own genre with `genreValue()`.
 // ---------------------------------------------------------------------------
 
@@ -335,24 +333,24 @@ test("genreValue() composes an author-declared genre, no built-in ontology neede
     key: "unship-prescribed-genres",
     leaves: { statement: "the SDK ships no built-in genre ontology" },
     collections: { bounds: { scope: { claim: "sdk/ only" } } },
-  });
+ });
   assert.deepEqual(value, {
     genre: "ruling",
     key: "unship-prescribed-genres",
     leaves: { statement: "the SDK ships no built-in genre ontology" },
     collections: { bounds: { scope: { claim: "sdk/ only" } } },
-  });
+ });
 });
 
 test("a genreValue() reaches blocks() and still hits the pending fence-format gate", () => {
-  const h = harness({
-    members: [
+ const h = harness({
+ members: [
       memory({
         name: "CLAUDE",
         prose: blocks(genreValue({ genre: "ruling", key: "x", leaves: { statement: "y" } })),
       }),
-    ],
-  });
+ ],
+ });
   assert.throws(() => emit(h), /genre-fence-format/);
 });
 
@@ -360,12 +358,12 @@ test("the prescribed genre constructors are gone from the SDK's exports", () => 
   const exports = sdk as Record<string, unknown>;
   for (const removed of ["decision", "law", "bound"]) {
     assert.equal(exports[removed], undefined, `${removed} should no longer be exported`);
-  }
+ }
 });
 
 // ---------------------------------------------------------------------------
 // Body resolution — `file()` assets read in, `text` mentions resolution-checked,
-// `blocks()` refused until the fence format lands (`specs/model/pipeline.md`, "The SDK").
+// `blocks()` refused until the fence format lands.
 // ---------------------------------------------------------------------------
 
 test("a file() body resolves byte-faithfully", () => {
@@ -381,25 +379,25 @@ test("a file() body resolves byte-faithfully", () => {
     assert.equal(result.seam, emit(h, { baseDir: dir }).seam);
   } finally {
     rmSync(dir, { recursive: true, force: true });
-  }
+ }
 });
 
 test("a file() body's payload member carries the resolved source path; text does not", () => {
   const dir = mkdtempSync(join(tmpdir(), "temper-file-"));
   try {
     writeFileSync(join(dir, "long.md"), "# Long rule\n");
-    const h = harness({
-      members: [
+ const h = harness({
+ members: [
         rule({ name: "long", prose: file("./long.md") }),
         rule({ name: "short", prose: text`# Short` }),
-      ],
-    });
+ ],
+ });
     const result = emit(h, { baseDir: dir });
     assert.equal(result.members.find((m) => m.name === "long")!.source_path, join(dir, "long.md"));
     assert.equal(result.members.find((m) => m.name === "short")!.source_path, undefined);
   } finally {
     rmSync(dir, { recursive: true, force: true });
-  }
+ }
 });
 
 test("a missing file() asset is a loud emit error", () => {
@@ -411,7 +409,7 @@ test("a resolved mention renders to its declared value's display form", () => {
   const citer = rule({
     name: "citations",
     prose: text`A ${{ address: "rule:rust", display: "rust" }} is declared.`,
-  });
+ });
   const h = harness({ members: [rule({ name: "rust", prose: text`# Rust` }), citer] });
 
   const result = emit(h);
@@ -423,20 +421,20 @@ test("an unresolved mention is a loud emit error", () => {
   const citer = rule({
     name: "citations",
     prose: text`A ${{ address: "rule:ghost", display: "ghost" }} is declared.`,
-  });
+ });
   assert.throws(() => emit(harness({ members: [citer] })), /a mention cannot dangle/);
 });
 
 test("a blocks() body is refused until the genre fence format lands", () => {
-  const h = harness({
-    members: [
+ const h = harness({
+ members: [
       memory({
         name: "CLAUDE",
         // A blocks() body composes now; its render awaits (genre-fence-format).
         prose: { kind: "blocks", values: [] },
       }),
-    ],
-  });
+ ],
+ });
   assert.throws(() => emit(h), /genre-fence-format/);
 });
 
@@ -446,8 +444,8 @@ test("a blocks() body is refused until the genre fence format lands", () => {
 
 test("a module-carried memory member carries no frontmatter fields", () => {
   const claudeBody = "# Project\n\nThe house rules Claude reads each session.\n";
-  const h = harness({
-    members: [
+ const h = harness({
+ members: [
       memory({
         name: "CLAUDE",
         prose: text`
@@ -456,8 +454,8 @@ test("a module-carried memory member carries no frontmatter fields", () => {
           The house rules Claude reads each session.
         `,
       }),
-    ],
-  });
+ ],
+ });
 
   const result = emit(h);
   assert.deepEqual(result.members.map((m) => m.name), ["CLAUDE"]);

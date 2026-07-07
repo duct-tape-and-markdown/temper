@@ -1,7 +1,5 @@
 //! Fixture-driven proof of the `section_contains` structural predicate and its
-//! `## Decision`-block extraction primitive (`specs/model/contract.md`, "The
-//! primitive algebra"; the decisions-name-alternatives capability the spec kind's
-//! package awaits, `specs/model/representation.md`).
+//! `## Decision`-block extraction primitive.
 //!
 //! The predicate is decided end-to-end over the *new* section-body extraction: a
 //! spec-shaped [`Unit`] runs through the composed `sections` primitive

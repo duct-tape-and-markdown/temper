@@ -1,6 +1,5 @@
 /**
- * Kinds — the engine room (`specs/model/representation.md`, "A kind is a
- * constructor plus five facts"). A kind is a plain typed surface — an interface
+ * Kinds — the engine room. A kind is a plain typed surface — an interface
  * `T` and a constructor `kind<T>()` — plus five facts of runtime residue: label,
  * locus, layout, registration, and edge fields. `tsc` is the keystroke wall; every
  * type erases at the seam, and what a kind leaves behind is those five facts,
@@ -61,11 +60,11 @@ export interface KindFacts {
   readonly unitShape: UnitShape;
   /** Fact 4, registration — the world edge. */
   readonly registration: Registration;
-  /**
+ /**
    * The frontmatter key the member's name writes under (a skill's `name`), or
    * absent when identity is the file stem (a rule). A layout detail: it shapes
    * the projected frontmatter, never the model.
-   */
+ */
   readonly identityField?: string;
   /** Fact 5, edge fields — the kind's fields that are references to other members. */
   readonly edgeFields?: readonly EdgeField[];
@@ -130,7 +129,7 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
   const typed: Array<readonly [string, unknown]> = [];
   for (const [key, value] of Object.entries(init)) {
     if (!FRAMEWORK_KEYS.has(key)) typed.push([key, value]);
-  }
+ }
   const head: Array<readonly [string, unknown]> =
     facts.identityField !== undefined ? [[facts.identityField, init.name]] : [];
   return [...head, ...typed];

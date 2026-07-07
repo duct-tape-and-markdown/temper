@@ -1,5 +1,4 @@
-//! The genre-fence nested-member fold, end to end (`specs/model/representation.md`,
-//! "member"/"kind"/"locus"/"nesting"; replaces the retired `tests/genre_leaf.rs`).
+//! The genre-fence nested-member fold, end to end.
 //!
 //! A kind declaring an inner-layer `template` extracts each genre fence (info string
 //! `genre.<kind> <key>`, TOML interior with leaf fields and keyed nested members) into

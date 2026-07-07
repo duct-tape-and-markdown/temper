@@ -1,26 +1,26 @@
 //! Schema emission — project the active contract into an editor JSON Schema.
 //!
-//! Implements `specs/distribution.md` ("The gate at keystroke — the emitted
-//! schema"): `temper schema [--kind]` emits a JSON Schema **from the active
+//! The gate at keystroke — the emitted
+//! schema: `temper schema [--kind]` emits a JSON Schema **from the active
 //! contract** (the by-kind floor ⊕ the lock's declared clause overrides, via
 //! [`crate::compose::effective`]) so an editor validates a harness artifact's
 //! frontmatter at keystroke — the one gate, shifted as far left as the work allows.
 //!
 //! ## Two channels, kept disjoint
 //!
-//! The spec's schema carries two channels, and the split is the on-law guarantee:
+//! The spec's schema carries two channels, and the split is the guarantee:
 //!
 //! - **validation** (the squiggle) — the *decidable clauses only*, each a true
-//!   positive by construction, so the squiggle never cries wolf (`specs/distribution.md`,
-//!   "Keystroke"). These are the JSON-Schema *validation* keywords ([`emit`] below).
+//!   positive by construction, so the squiggle never cries wolf. These are the
+//!   JSON-Schema *validation* keywords ([`emit`] below).
 //! - **docs** (hover) — the per-field [`guidance`](crate::contract::Clause::guidance)
-//!   prose `10` keeps *out of checks*, projected onto each field's property
+//!   prose kept *out of checks*, projected onto each field's property
 //!   `description` keyword, **strictly alongside** the validation keywords and
 //!   never mixed into them. Advisory; it never gates.
 //!
 //! Taste cannot become a squiggle — the closed algebra has no syntax for it, and
 //! neither does the schema — so it can only ride the docs channel. The medium
-//! enforces `specs/distribution.md`, "Keystroke": the editor delivers the decidable contract as validation and
+//! enforces the keystroke: the editor delivers the decidable contract as validation and
 //! the guidance as documentation, and cannot confuse the two.
 //!
 //! ## What maps, and what does not
@@ -120,8 +120,7 @@ pub fn emit(contract: &Contract) -> Value {
     }
 
     // The docs (hover) channel, emitted **strictly alongside** the validation
-    // keywords above, never mixed into them (`specs/distribution.md`, "The gate
-    // at keystroke"): a field clause's advisory `guidance` prose rides its JSON
+    // keywords above, never mixed into them: a field clause's advisory `guidance` prose rides its JSON
     // Schema property's `description`. This is the on-law guarantee made concrete —
     // taste can only become documentation, never a squiggle. Guidance on a
     // field-less predicate (`forbidden_keys`, `max_lines`, the cross-artifact ones)
@@ -328,14 +327,14 @@ mod tests {
                 "properties": {
                     "name": {
                         "type": "string",
-                        "maxLength": 64,
+            "maxLength": 64,
                         "not": { "enum": ["anthropic", "claude"] },
                         "pattern": "^[a-z0-9\\-]*$"
-                    },
+            },
                     "description": { "minLength": 1 },
                     "priority": { "minimum": 0.0, "maximum": 9.0 },
                     "status": { "enum": ["draft", "active", "deprecated"] }
-                },
+            },
                 "required": ["name"],
                 "allOf": [
                     { "not": { "required": ["globs"] } },
@@ -500,7 +499,7 @@ mod tests {
         assert_eq!(
             schema["properties"]["name"],
             json!({
-                "maxLength": 64,
+            "maxLength": 64,
                 "description": "keep the skill name short and slug-like"
             })
         );

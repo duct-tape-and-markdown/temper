@@ -1,6 +1,6 @@
 //! The reporter family — the gate's machine-format placements.
 //!
-//! Implements the reporters of `specs/distribution.md` (reporters):
+//! Implements the reporters:
 //! **one reporter family, every placement**. Each member serializes
 //! the same merged `check::Diagnostic` set into a different machine format — it
 //! never re-judges the harness, so the gate's verdict is identical whichever
@@ -18,7 +18,7 @@
 //! construction — the binary owns the output contract, no hand-escaping.
 //!
 //! The gate is **advisory, never blocking**. `SessionStart` cannot block, and a
-//! hostile gate gets disabled (`specs/distribution.md`, "Session start"), so the reporter
+//! hostile gate gets disabled, so the reporter
 //! routes a failing contract through the human rather than denying the session:
 //!
 //! - a **failing contract** (any `error`-severity diagnostic — a `required`
@@ -33,14 +33,14 @@
 //! verdict so it always survives truncation of a long finding list. The payload
 //! is built through `serde_json`, so every message is escaped correctly and the
 //! output is valid JSON by construction — the binary owns the output contract,
-//! no shell wrapper and no hand-escaping (`specs/distribution.md`).
+//! no shell wrapper and no hand-escaping.
 
 use serde_json::json;
 
 use crate::check::{self, Diagnostic, Severity};
 
 /// Claude Code's cap on the `additionalContext` string a `SessionStart` hook may
-/// inject (`specs/distribution.md`). The rendered verdict is truncated to fit.
+/// inject. The rendered verdict is truncated to fit.
 pub const ADDITIONAL_CONTEXT_CAP: usize = 10_000;
 
 /// The `hookEventName` Claude Code expects in a `SessionStart` hook's
@@ -68,7 +68,7 @@ pub fn session_start(diagnostics: &[Diagnostic]) -> String {
             "hookSpecificOutput": {
                 "hookEventName": HOOK_EVENT_NAME,
                 "additionalContext": cap(&verdict(diagnostics)),
-            }
+        }
         })
     } else {
         // Quiet: the hook envelope with no `additionalContext`, so a clean
@@ -76,7 +76,7 @@ pub fn session_start(diagnostics: &[Diagnostic]) -> String {
         json!({
             "hookSpecificOutput": {
                 "hookEventName": HOOK_EVENT_NAME,
-            }
+        }
         })
     };
     payload.to_string()
@@ -122,14 +122,13 @@ fn cap(text: &str) -> String {
     format!("{head}…")
 }
 
-/// The SARIF version this reporter emits (`specs/distribution.md`,
-/// reporters: SARIF for code-scanning). 2.1.0 is the OASIS standard
+/// The SARIF version this reporter emits. 2.1.0 is the OASIS standard
 /// GitHub code-scanning and the wider ecosystem ingest.
 const SARIF_VERSION: &str = "2.1.0";
 
 /// Render the diagnostic set as GitHub Actions workflow-command lines — one
 /// `::error` / `::warning::` annotation per finding, so findings surface inline on
-/// the PR (`specs/distribution.md`, reporters).
+/// the PR.
 ///
 /// Each line carries the rule as the annotation `title=` and the finding message
 /// as the command body; the [`Severity`] picks the command (`error` / `warning`).
@@ -159,8 +158,8 @@ pub fn github(diagnostics: &[Diagnostic]) -> String {
     out
 }
 
-/// Render the diagnostic set as a SARIF 2.1.0 log for code-scanning ingestion
-/// (`specs/distribution.md`, reporters): one run, driver
+/// Render the diagnostic set as a SARIF 2.1.0 log for code-scanning ingestion:
+/// one run, driver
 /// `temper`, one `results` entry per diagnostic.
 ///
 /// Each result maps the rule to `ruleId`, the message to `message.text`, the
@@ -185,8 +184,8 @@ pub fn sarif(diagnostics: &[Diagnostic]) -> String {
                 "locations": [{
                     "physicalLocation": {
                         "artifactLocation": { "uri": diagnostic.artifact }
-                    }
-                }]
+            }
+            }]
             })
         })
         .collect();
@@ -200,10 +199,10 @@ pub fn sarif(diagnostics: &[Diagnostic]) -> String {
                     "name": "temper",
                     "informationUri": "https://github.com/temper",
                     "version": crate::VERSION,
-                }
+    }
             },
             "results": results,
-        }]
+    }]
     });
     log.to_string()
 }

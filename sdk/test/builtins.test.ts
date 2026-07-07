@@ -1,6 +1,5 @@
 /**
- * The built-in floors (`FIRST-PARTY-MODULE-COMPLETE`, `specs/model/contract.md`,
- * "A shared clause set — a floor"): every floor exported from `claude-code.ts` is a
+ * The built-in floors: every floor exported from `claude-code.ts` is a
  * well-formed clause array, and every clause carries a non-empty `cite` — the
  * auditability guarantee a maintained floor exists to keep.
  */
@@ -27,16 +26,16 @@ test("every exported floor is a well-formed clause array", () => {
     for (const entry of floor) {
       assert.ok(entry.predicate && typeof entry.predicate.key === "string" && entry.predicate.key.length > 0);
       assert.ok(entry.severity === "required" || entry.severity === "advisory");
-    }
-  }
+ }
+ }
 });
 
 test("every floor clause carries a non-empty cite", () => {
   for (const floor of FLOORS) {
     for (const entry of floor) {
       assert.ok(typeof entry.cite === "string" && entry.cite.length > 0, `clause \`${entry.predicate.key}\` is uncited`);
-    }
-  }
+ }
+ }
 });
 
 test("skillFloor carries the skill kind's decidable clauses, name-first", () => {

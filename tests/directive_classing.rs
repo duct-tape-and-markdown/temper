@@ -1,5 +1,4 @@
-//! Directive-target classing — the three verdicts (`specs/model/representation.md`,
-//! "Directives — format-executed body syntax").
+//! Directive-target classing — the three verdicts.
 //!
 //! A directive occurrence yields an edge as a fact, resolved at check time against
 //! provenance (`source_path` is the join key). Three classes, three verdicts:

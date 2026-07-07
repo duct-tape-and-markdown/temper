@@ -1,5 +1,4 @@
-//! Acceptance for the wedge's advisory coverage note (`specs/distribution.md`,
-//! "Fail-loud delivery — the invariant"): the `check` gate states which built-in kinds
+//! Acceptance for the wedge's advisory coverage note: the `check` gate states which built-in kinds
 //! checked how many members and names the known Claude Code surfaces present on disk
 //! that no kind governs, so the gate's silence about an unmodeled surface never reads
 //! as "checked".

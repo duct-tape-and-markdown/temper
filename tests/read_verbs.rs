@@ -1,5 +1,4 @@
-//! Proofs over the unified read verb, `explain` (`specs/model/contract.md`, "Read
-//! verbs"): target-species resolution (member / requirement / leaf
+//! Proofs over the unified read verb, `explain`: target-species resolution (member / requirement / leaf
 //! address), the member-vs-requirement collision error, the qualified-prefix escape
 //! hatch, and coverage disclosure — plus the surviving library-level floor-binding
 //! proofs over `why` (READ-FLOOR-BINDING-DEFAULT), one of the four traversals `explain`

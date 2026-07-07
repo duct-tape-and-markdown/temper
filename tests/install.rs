@@ -1,4 +1,4 @@
-//! `temper install` — the one on-ramp (`specs/model/pipeline.md`, "Install").
+//! `temper install` — the one on-ramp.
 //!
 //! Drives the library `install::discover` / `install::run` / `install::gate_installed`
 //! (plus the real `temper` binary for the CLI-observable bits — the one-question
@@ -375,8 +375,8 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
         temper_dir.join("skills").join("extra.ts"),
         "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
          export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(\"./skills/extra.md\"),\n});\n",
-    )
-    .unwrap();
+ )
+.unwrap();
     fs::write(
         temper_dir.join("harness.ts"),
         "import { emit, harness } from \"@dtmd/temper\";\n\
@@ -386,8 +386,8 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
          import { extra } from \"./skills/extra.ts\";\n\n\
          const program = harness({\n  members: [skill_coordinate, rule_rust, rule_collaboration, extra],\n});\n\n\
          process.stdout.write(emit(program).seam);\n",
-    )
-    .unwrap();
+ )
+.unwrap();
 
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(
@@ -592,8 +592,7 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
 
 // ---------------------------------------------------------------------------
 // emit's own note/modeline discipline — unrelated to install, still exercised
-// directly over a hand-built payload (`specs/model/pipeline.md`, the
-// two-projectors seam).
+// directly over a hand-built payload.
 // ---------------------------------------------------------------------------
 
 fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {

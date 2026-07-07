@@ -1,9 +1,7 @@
-//! Pins the shipped rule built-in floor (`specs/model/contract.md`, "Packages —
-//! best practices as data").
+//! Pins the shipped rule built-in floor.
 //!
 //! The `rule` floor is a projection of the embedded built-in lock's clause rows
-//! (`specs/distribution.md`, "Decision: the built-in lock is derived
-//! from the SDK module, never transcribed") — never a hand-written mirror. This
+//! — never a hand-written mirror. This
 //! test loads it through the same embedded path the shipped `check` uses
 //! ([`temper::builtin::contract`]) and pins the exact decidable clause vector it
 //! carries, mirroring `tests/contract_template.rs` for the skill built-in.
@@ -65,8 +63,7 @@ fn rule_builtin_carries_the_decidable_clause_vector() {
 }
 
 /// A built-in floor's clauses are *guided and cited* — each pairs a `source`
-/// provenance of taste with the hover-sized why (`specs/model/contract.md`,
-/// "a built-in package's clauses ... it is the expected posture"). Pinning the
+/// provenance of taste with the hover-sized why. Pinning the
 /// presence keeps the update ritual honest (walk the clauses, re-check their
 /// citations) without coupling to the citation text — and proves both channels
 /// survive the row projection, not just the predicate.
@@ -88,7 +85,7 @@ fn every_rule_builtin_clause_is_guided_and_cited() {
 
 /// No undecidable clause survives. The rule built-in — like the skill one — encodes
 /// *only* decidable predicates: every clause is a true/false fact over the artifact,
-/// never a semantic guess (`specs/model/contract.md`, "best practices as data").
+/// never a semantic guess.
 #[test]
 fn rule_builtin_encodes_only_decidable_clauses() {
     let contract = rule_builtin();
@@ -106,8 +103,8 @@ fn rule_builtin_encodes_only_decidable_clauses() {
     );
 }
 
-/// The rule built-in is itself admissible — it passes the second green
-/// (`specs/model/contract.md`, "Decision: the contract is itself checked"). It carries
+/// The rule built-in is itself admissible — it passes the second green.
+/// It carries
 /// only closed-vocabulary clauses with no vacuous list, so `engine::admissibility`
 /// returns nothing.
 #[test]

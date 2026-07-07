@@ -1,21 +1,19 @@
 //! The generic contract engine — evaluate a [`Contract`]'s clauses over
 //! extracted [`Features`].
 //!
-//! Implements `specs/model/contract.md` (kill the heuristic rule
-//! registry): rules no longer live in a hardcoded `all_rules()` registry with
+//! Kills the heuristic rule
+//! registry: rules no longer live in a hardcoded `all_rules()` registry with
 //! the tool's opinions buried in `if` statements. Instead an author-declared
 //! contract (a closed set of decidable clauses) is validated by *this* one
 //! generic engine. The engine knows no artifact kind and no rule name — it reads
 //! only the declared clauses and the deterministically-extracted features, so
-//! there is nowhere to hardcode an opinion (`specs/intent.md`: one engine, every
-//! layer an instance).
+//! there is nowhere to hardcode an opinion.
 //!
 //! For each artifact's [`Features`], [`validate`] evaluates every clause as a
 //! decidable predicate and, on a false predicate, emits a [`check::Diagnostic`]:
 //!
 //! - **severity** is the clause's *declared* weight — `required` ⇒ [`Error`],
-//!   `advisory` ⇒ [`Warn`] — never a tool-baked split (`specs/model/contract.md`,
-//!   the clause's severity field).
+//!   `advisory` ⇒ [`Warn`] — never a tool-baked split.
 //! - **rule** is the clause key (the predicate's TOML discriminator, e.g.
 //!   `max_len`), so a finding names the clause that produced it.
 //! - **artifact** is the features' `id`.
@@ -25,8 +23,8 @@
 //! One predicate in the vocabulary — `dependency-exists` — is **held back**: it
 //! names no decidable reference syntax or extractor yet (a declared-dependency
 //! model the current [`Features`] projection does not carry), so the engine
-//! could only ever return *indeterminate* for it — a silent no-op `specs/intent.md`
-//! forbids.
+//! could only ever return *indeterminate* for it — a silent no-op the decidable-only
+//! invariant forbids.
 //! Rather than fabricate a pass or degrade to that no-op, [`admissibility`]
 //! **fences it**: a contract carrying a `dependency-exists` clause fails
 //! admissibility, exactly as the full `pattern` primitive is held back, so a
@@ -65,7 +63,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
                         message,
                     )
                     // The clause's colocated guidance rides its own violation — the
-                    // just-in-time teaching moment (`specs/model/contract.md`).
+                    // just-in-time teaching moment.
                     .with_guidance(clause.guidance.clone()),
                 );
             }
@@ -76,7 +74,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 
 /// Validate a contract against **the definition** — the closed algebra itself —
 /// returning an error-severity [`Diagnostic`] per inadmissible clause. This is
-/// *admissibility* (`specs/model/contract.md`, admissibility): the
+/// *admissibility*: the
 /// contract earns trust the way a harness does, by passing a check, before it
 /// is used to check anything.
 ///
@@ -117,7 +115,7 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
 /// `forbidden_keys` over no keys forbids nothing), which the author cannot have
 /// meant; and (2) no **held-back** predicate is used as a working clause —
 /// `dependency-exists` names no decidable reference syntax or extractor, so it is
-/// inadmissible until it does (`specs/model/contract.md`, the predicate algebra).
+/// inadmissible until it does.
 ///
 /// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate
 /// vacuity rules for a requirement's own `clauses` — one definition of "vacuous",
@@ -126,8 +124,7 @@ pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
     match predicate {
         // `dependency-exists` is held back — like the full `pattern` primitive.
         // It names no decidable reference syntax or extractor, so the engine
-        // could only return `Indeterminate` for it (a silent no-op `specs/intent.md`
-        // forbids). A hand-authored clause must therefore fail admissibility, not
+        // could only return `Indeterminate` for it. A hand-authored clause must therefore fail admissibility, not
         // degrade to a working no-op.
         Predicate::DependencyExists => {
             vec![
@@ -159,7 +156,7 @@ pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
         }
         // An inverted bound (`min > max`) admits no value at all — a vacuous
         // clause the author cannot have meant, so the contract carrying it fails
-        // admissibility (`specs/model/contract.md`, "reject min>max").
+        // admissibility.
         Predicate::Range { field, min, max } if min > max => {
             vec![format!(
                 "`range` clause on field `{field}` has min {min} greater than max {max}"
@@ -489,7 +486,7 @@ fn scalar<'a>(features: &'a Features, field: &str) -> Option<&'a str> {
 /// chooses — it only translates what the author declared.
 ///
 /// `pub` so an assembly-scope dial that shares the author's `required`/`advisory`
-/// vocabulary — the reachability severity (`specs/model/contract.md`) — maps through
+/// vocabulary — the reachability severity — maps through
 /// the one translation, never a second copy that could drift.
 #[must_use]
 pub fn severity_of(severity: contract::Severity) -> check::Severity {
@@ -1077,8 +1074,7 @@ mod tests {
     fn dependency_exists_is_inadmissible() {
         // `dependency-exists` is held back — it names no decidable reference
         // syntax or extractor, so a hand-authored clause must fail admissibility
-        // loudly rather than silently decide `Indeterminate` (a no-op `specs/intent.md`
-        // forbids). The fence is mirrored on the full `pattern` primitive.
+        // loudly rather than silently decide `Indeterminate`. The fence is mirrored on the full `pattern` primitive.
         let held = contract(ClauseSeverity::Required, Predicate::DependencyExists);
         let diags = admissibility(&held);
         assert_eq!(diags.len(), 1);

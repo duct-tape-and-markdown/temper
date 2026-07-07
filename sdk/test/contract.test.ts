@@ -1,7 +1,5 @@
 /**
- * The node-set/edge-scope clause constructors (`REQUIREMENT-CLAUSES-ALGEBRA`,
- * `specs/model/contract.md`, "Judged at the node-set scope" / "Judged
- * at the edge scope"): `count`/`unique`/`membership`/`degree` compose a
+ * The node-set/edge-scope clause constructors: `count`/`unique`/`membership`/`degree` compose a
  * set-/edge-scope demand as an ordinary `Predicate` value, peers of the
  * node-scope constructors (`required`, `maxLines`, …) already in `contract.ts`.
  */
@@ -26,21 +24,21 @@ test("membership composes a target-requirement draw as an ordinary predicate", (
     key: "membership",
     field: "model",
     target: "approved-models",
-  });
+ });
 });
 
 test("degree composes an in/out edge-count bound as an ordinary predicate", () => {
   assert.deepEqual(degree({ incoming: { min: 1 }, outgoing: { max: 3 } }), {
     key: "degree",
     args: { incoming_min: 1, outgoing_max: 3 },
-  });
+ });
 });
 
 test("every set-/edge-scope predicate composes into a clause value like any other", () => {
   const demand = clause(count({ min: 1, max: 1 }), {
     severity: "required",
     guidance: "exactly one release-tool",
-  });
+ });
   assert.equal(demand.predicate.key, "count");
   assert.equal(demand.severity, "required");
   assert.equal(demand.guidance, "exactly one release-tool");

@@ -1,17 +1,14 @@
-//! The harness reference graph — route resolution over declared edges
-//! (`specs/model/contract.md`, one graph).
+//! The harness reference graph — route resolution over declared edges.
 //!
 //! The harness is a graph: skills and rules pointing at each other through
-//! **declared** reference fields, read off [`Features`], never grepped from a body
-//! (`specs/model/contract.md`, the referential primitive). Nodes are `(kind, id)`
+//! **declared** reference fields, read off [`Features`], never grepped from a body.
+//! Nodes are `(kind, id)`
 //! across every kind; edges are the [`Edge`] relationships declared on the surface.
 //! Five checks range over it: [`check`] (route resolution — a reference resolves to a
 //! real target), [`admissibility`] (each edge names its field and a modeled target
 //! kind, checked before the graph is trusted), [`acyclic`] (no circular import),
 //! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
-//! [`reachable`] (a member's inbound registration edge from the distinguished [`world`]
-//! node is live, or a reachable member imports it — closing over the observed directive
-//! edges, `specs/model/contract.md`, the world). The first four
+//! [`reachable`]. The first four
 //! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
 //! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
 
@@ -47,8 +44,7 @@ const GRAPH_REACHABLE_RULE: &str = "graph.reachable";
 const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
 
 /// The reference `field` a directive-produced [`ResolvedEdge`] records — the
-/// `at-import` syntax that observed it, not a frontmatter field (a directive edge is
-/// observed body structure, `specs/model/representation.md`, directives). Lets a reader
+/// `at-import` syntax that observed it, not a frontmatter field. Lets a reader
 /// tell a directive edge from a declared reference edge in the one resolved-edge set.
 const DIRECTIVE_FIELD: &str = "at-import";
 
@@ -70,7 +66,7 @@ const MAX_IMPORT_HOPS: usize = 5;
 pub type Node = (String, String);
 
 /// The distinguished **world** node — the harness runtime and repo `temper` observes
-/// but does not govern (`specs/model/contract.md`, the world). Registration
+/// but does not govern. Registration
 /// facts are its edges *into* members; [`reachable`]
 /// decides whether the edge the world would use to reach a given member is live. Keyed
 /// like any [`Node`] under a reserved `world` kind no artifact kind collides with, so a
@@ -97,8 +93,8 @@ pub struct ResolvedEdge {
     pub to: Node,
 }
 
-/// Check **route resolution** over the harness reference graph
-/// (`specs/model/contract.md`): for each declared [`Edge`], read its reference field
+/// Check **route resolution** over the harness reference graph:
+/// for each declared [`Edge`], read its reference field
 /// off every source artifact and return an error-severity [`Diagnostic`] for any
 /// route that resolves to no artifact of the target kind.
 ///
@@ -136,12 +132,12 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
     diagnostics
 }
 
-/// Validate the declared edges against **the definition** — admissibility
-/// (`specs/model/contract.md`, admissibility): each edge earns trust
+/// Validate the declared edges against **the definition** — admissibility:
+/// each edge earns trust
 /// *before* the graph judges the harness. Every finding is [`Diagnostic::error`] and
 /// names the edge.
 ///
-/// Two decidable clauses (`specs/model/contract.md`): **(a)** the reference `field` is
+/// Two decidable clauses: **(a)** the reference `field` is
 /// non-empty — an empty field names no reference syntax; **(b)** the target kind is
 /// one `temper` models — an unmodeled `to` has no artifacts, so every route over the
 /// edge would dangle, making the fault the declaration's, reported once here while
@@ -157,11 +153,11 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
             diagnostics.push(Diagnostic::error(
                 GRAPH_ADMISSIBILITY_RULE,
                 edge_id(edge),
-                format!(
+ format!(
                     "edge from `{}` to `{}` declares an empty reference field, which names no reference syntax",
                     edge.from, edge.to
-                ),
-            ));
+ ),
+ ));
         }
 
         // (b) The target kind is one `temper` models — else no route can resolve.
@@ -169,18 +165,17 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
             diagnostics.push(Diagnostic::error(
                 GRAPH_ADMISSIBILITY_RULE,
                 edge_id(edge),
-                format!(
+ format!(
                     "edge `{}` targets kind `{}`, which `temper` does not model — no route can ever resolve",
-                    edge.field, edge.to
-                ),
-            ));
+ edge.field, edge.to
+ ),
+ ));
         }
     }
     diagnostics
 }
 
-/// Check **acyclicity** over the harness reference graph (`specs/model/contract.md`,
-/// "The edge scope — predicates over the relation graph"): build the artifact-level
+/// Check **acyclicity** over the harness reference graph: build the artifact-level
 /// graph from the same resolved arcs [`check`] uses and return an error-severity
 /// [`Diagnostic`] naming a cycle if one exists. A cycle is a circular import that
 /// loads nothing — a true positive.
@@ -210,9 +205,7 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
     Vec::new()
 }
 
-/// Check the graph-scope **`degree`** predicate (`specs/model/contract.md`, the
-/// edge scope; `specs/model/contract.md`, worked example, self-registering
-/// vs routed): for each `degree` clause a requirement declares, return a
+/// Check the graph-scope **`degree`** predicate: for each `degree` clause a requirement declares, return a
 /// [`Diagnostic`] — at the clause's own declared severity — per satisfier node whose
 /// in/out edge count over the resolved arcs falls outside the bound.
 ///
@@ -270,7 +263,7 @@ pub fn degree(
             // Kind-blind: every modeled kind's opt-in satisfiers, each keyed by its
             // own kind label — `requirement.kind`, when present, narrows via the
             // each-grain clause it sources ([`roster::check`]), never a second
-            // selector here (`specs/model/contract.md`, "selection").
+            // selector here.
             for (kind, features) in roster::candidates(by_kind) {
                 if !roster::is_satisfier(&requirement.name, features) {
                     continue;
@@ -346,17 +339,16 @@ fn out_of_degree(
         engine::severity_of(clause.severity),
         GRAPH_DEGREE_RULE,
         artifact,
-        format!(
+ format!(
             "requirement `{}` bounds `{kind}` {} degree to [{min}, {max}], but `{artifact}` has {actual}",
             requirement.name,
             direction.label(),
-        ),
-    )
+ ),
+ )
     .with_guidance(clause.guidance.clone())
 }
 
-/// Check the graph-scope **`reachable`** predicate (`specs/model/contract.md`,
-/// the world): a member is reachable when its own
+/// Check the graph-scope **`reachable`** predicate: a member is reachable when its own
 /// inbound registration edge from the [`world`] node is live **or a reachable member
 /// imports it** — the closure over the observed directive edges. Return a finding only
 /// for a member whose own registration edge is provably dead — a `description-trigger`
@@ -379,8 +371,7 @@ fn out_of_degree(
 /// inherits the importer's liveness conditionally. Members iterate in the corpus's
 /// candidate order under each name-sorted kind, so findings are stable.
 ///
-/// `severity` is the **assembly's** declaration (`specs/model/contract.md`, the
-/// world — resolved `reachability-gate-mechanism` option b): whether a dead edge
+/// `severity` is the **assembly's** declaration: whether a dead edge
 /// gates, and at what weight, is the assembly's dial like `degree`, never a member's own
 /// clause — a deliberate work-in-progress dead edge stays the author's call.
 #[must_use]
@@ -413,10 +404,10 @@ pub fn reachable(
     diagnostics
 }
 
-/// The members whose reachability **dies** if the node `removed` is deleted or renamed
-/// (`specs/model/contract.md`, `impact`): every member live now that is no longer live
+/// The members whose reachability **dies** if the node `removed` is deleted or renamed:
+/// every member live now that is no longer live
 /// once `removed`, and every directive edge touching it, is excised from the graph. The
-/// blast radius the graph promises (`specs/model/contract.md`), read over the
+/// blast radius the graph promises, read over the
 /// same [`live_members`] closure [`reachable`] stands on so the read agrees with the gate
 /// (READ-EDGE-UNIFY). `removed` itself is excluded — a removed member is trivially gone,
 /// not orphaned. Returned in sorted `(kind, id)` order for a stable narration.
@@ -534,19 +525,19 @@ fn dead_registration(
         Registration::Always | Registration::Event { .. } => None,
         Registration::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
             format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
-        }),
+ }),
         Registration::PathsMatch { field } => {
-            // An absent/blank field is unconditional loading, not a dead edge
-            // (specs/model/representation.md paths-match bullet): only a *present* glob set that
+            // An absent/blank field is unconditional loading, not a dead edge:
+ // only a *present* glob set that
             // matches nothing is provably dead.
             let globs = declared_globs(member, field);
             let dead = !globs.is_empty()
                 && !globs.iter().any(|glob| glob_matches_any(glob, repo_files));
             dead.then(|| {
                 format!("its `{field}` globs match no file in the repository, so the harness activates it never")
-            })
-        }
-    }
+ })
+ }
+ }
 }
 
 /// Whether a member's registration field is **blank** — absent, or a scalar whose text is
@@ -564,8 +555,8 @@ fn field_is_blank(member: &Features, field: &str) -> bool {
 /// The registration globs a member declares on `field`: a scalar names one glob, a list
 /// names each of several, and an absent field or a map (which carries no glob) names
 /// none. Read off [`Features`] — a declared field, never grepped. Declaring none is
-/// *not* a dead edge: an absent/blank `paths` field falls back to unconditional loading
-/// (specs/model/representation.md paths-match bullet), so the caller only tests for the dead edge
+/// *not* a dead edge: an absent/blank `paths` field falls back to unconditional loading,
+/// so the caller only tests for the dead edge
 /// once at least one glob is present.
 fn declared_globs(member: &Features, field: &str) -> Vec<String> {
     match member.field(field) {
@@ -587,7 +578,7 @@ fn declared_globs(member: &Features, field: &str) -> Vec<String> {
 }
 
 /// Whether `glob` matches at least one path in `files`, decided over a regex compiled
-/// from the glob (the sanctioned `regex` crate — `specs/model/contract.md` leaves
+/// from the glob (the sanctioned `regex` crateleaves
 /// zero-match globs to this module). A glob `temper` cannot compile is treated as
 /// matching, so the gate never cries wolf on a pattern it failed to understand — though
 /// [`glob_to_regex`] is total, so that branch is defensive only.
@@ -645,7 +636,7 @@ fn is_regex_meta(c: char) -> bool {
 
 /// The finding for a member whose inbound registration edge from the [`world`] node is
 /// dead — naming the world, the member (kind + id), and the dead-edge reason, at the
-/// assembly-declared `severity` (`specs/model/contract.md`).
+/// assembly-declared `severity`.
 fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Severity) -> Diagnostic {
     Diagnostic::new(
         severity,
@@ -659,8 +650,8 @@ fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Sever
 }
 
 /// One member the directive classing ranges over: its `(kind, id)` identity, the
-/// provenance `source_path` that is the join key between world paths and members
-/// (`specs/model/representation.md`, directives), and its extracted `at-import` target
+/// provenance `source_path` that is the join key between world paths and members,
+/// and its extracted `at-import` target
 /// occurrences in document order. The caller builds it off the units the features were
 /// extracted from — the full path the decidable [`Features`] view drops — carrying
 /// *every* member (a directive may point at a member that itself imports nothing) with
@@ -677,8 +668,8 @@ pub struct DirectiveMember {
     pub directives: Vec<String>,
 }
 
-/// The outcome of classifying a corpus's directive occurrences
-/// (`specs/model/representation.md`, directives): the
+/// The outcome of classifying a corpus's directive occurrences:
+/// the
 /// member→member edges the member-class occurrences resolved to, and the
 /// unbacked-pointer findings for the occurrences that resolved to neither a member nor
 /// a repo file.
@@ -694,7 +685,7 @@ pub struct DirectiveClassing {
 }
 
 /// Classify each member's extracted `at-import` directive occurrences against the
-/// landscape (`specs/model/representation.md`, directives): resolve every target
+/// landscape: resolve every target
 /// relative to the importing member's file directory (an absolute target as-is;
 /// code.claude.com/docs/en/memory, retrieved 2026-07-02) and sort it into one of three
 /// classes — a **member** (the resolved path is another member's provenance
@@ -753,8 +744,8 @@ pub fn classify_directives(
 }
 
 /// Resolve a directive target against the importing member's file: an absolute target
-/// as authored, a relative one joined onto the importing file's directory
-/// (`specs/model/representation.md`, directives), then lexically normalized so `.`/`..`
+/// as authored, a relative one joined onto the importing file's directory,
+/// then lexically normalized so `.`/`..`
 /// segments join the index cleanly.
 fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
     let target = Path::new(target);
@@ -788,7 +779,7 @@ fn normalize_path(path: &Path) -> PathBuf {
 }
 
 /// The finding for an **unbacked pointer** — a directive occurrence resolving to
-/// neither a member nor a repo file (`specs/model/representation.md`, directives): the
+/// neither a member nor a repo file: the
 /// importing member imports a path that loads nothing, the silent-context-loss failure
 /// class caught at author-time. Mirrors [`dangling`]/[`unreachable`]: an error naming
 /// the importing member and the dead target.
@@ -1486,7 +1477,7 @@ mod tests {
     fn a_roster_declaring_no_degree_bound_does_no_graph_work() {
         // `degree` is opt-in, per-requirement: a requirement with no bound is silent over a
         // graph that would violate one — `temper` never fabricates a gate the author
-        // did not declare (`specs/intent.md`).
+        // did not declare.
         let requirements = gate_requirement(Some("skill"), None);
         let edges = [routes_to_edge()];
         let rules = [node("style", Some("standards"))];

@@ -1,6 +1,6 @@
 //! `temper bundle` — compose the imported surface into a publishable plugin.
 //!
-//! Implements the `bundle` verb of `specs/distribution.md` ("The plugin — the
+//! Implements the `bundle` verb ("The plugin — the
 //! Claude-Code-native delivery"). Distribution is *placing the one gate*; the plugin
 //! is the Claude-Code-native placement, and `bundle` is the verb that produces it.
 //! `temper` ships as a plugin bundling two things:
@@ -10,16 +10,15 @@
 //!    mechanics, never taste (the Decision "the skill is mechanics, never taste"):
 //!    the opinions live in the SDK's floors, never in skill prose;
 //! 2. the **`SessionStart` hook**, in its own `hooks.json` — the advisory
-//!    session-start gate (`temper check . --reporter session-start`, the exec-form
-//!    command Claude Code spawns).
+//!    session-start gate (`temper check . --reporter session-start`, the
+//!    exec-form command Claude Code spawns).
 //!
 //! Alongside the plugin tree it emits a `marketplace.json` listing the plugin, the
-//! channel it is distributed through. `bundle` delivers the *gate*, never clauses
-//! (`specs/distribution.md`, "What ships": clauses publish through the SDK, channel 1).
+//! channel it is distributed through. `bundle` delivers the *gate*, never clauses.
 //!
 //! The plugin is a **vendored, generated surface** — itself an instance of what
-//! `temper` projects, so it is **byte-faithful where it carries prose**
-//! (`specs/model/pipeline.md`, "Emit"): the skill body is copied verbatim from its
+//! `temper` projects, so it is **byte-faithful where it carries prose**:
+//! the skill body is copied verbatim from its
 //! embedded source, never re-rendered. The structured manifests (`plugin.json`,
 //! `marketplace.json`, `hooks.json`) are built through `serde_json`, so they are well-formed by
 //! construction — the binary owns the output contract, no hand-escaping (mirroring
@@ -49,20 +48,20 @@ use crate::check::Workspace;
 const PLUGIN_NAME: &str = "temper";
 
 /// The plugin/marketplace description — what the gate delivers, not what a good
-/// harness is (`specs/intent.md`, the spine rule: taste lives in the floors, never here).
+/// harness is.
 const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: import the harness into a typed \
      surface, check it against the active contract, and run the advisory \
      session-start gate — with the std-lib floors embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
 /// itself, checking the project it is installed into under the advisory session-start
-/// reporter (`specs/distribution.md`, "Session start"). Matches the wiring `temper
+/// reporter. Matches the wiring `temper
 /// install` projects into `.claude/settings.json`, so the plugin and `install` deliver
 /// the same gate.
 const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
-/// The bundled **operate-the-gate skill**, embedded byte-faithful
-/// (`specs/model/pipeline.md`, "Emit"). Mechanics
+/// The bundled **operate-the-gate skill**, embedded byte-faithful.
+/// Mechanics
 /// only — how to run the checker and when to challenge the contract — never advice on
 /// what a good harness is (the Decision "the skill is mechanics, never taste"). Its
 /// `name` is `temper` and it lands under `skills/temper/`, so `name-matches-dir` holds
@@ -121,8 +120,8 @@ which is wrong, surface it rather than guessing which way to bend.
 /// this covers the emit half.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum BundleError {
-    /// A plugin file or directory could not be written. Fail-loud
-    /// (`specs/distribution.md`, "Fail-loud delivery"): a placement that cannot be
+    /// A plugin file or directory could not be written. Fail-loud:
+    /// a placement that cannot be
     /// written is a hard error, never a silent skip.
     #[error("failed to write {path}")]
     #[diagnostic(code(temper::bundle::write))]
@@ -178,7 +177,7 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
         &mut files,
     )?;
 
-    // The operate-the-gate skill — embedded prose, byte-faithful (`specs/model/pipeline.md`, "Emit").
+    // The operate-the-gate skill — embedded prose, byte-faithful.
     write_text(
         out,
         Path::new("skills/temper/SKILL.md"),
@@ -207,27 +206,26 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
 /// binary it delivers move together.
 fn plugin_manifest() -> JsonValue {
     json!({
-        "name": PLUGIN_NAME,
+    "name": PLUGIN_NAME,
         "version": crate::VERSION,
-        "description": PLUGIN_DESCRIPTION,
+    "description": PLUGIN_DESCRIPTION,
         "keywords": ["claude", "claude-code", "harness", "linter", "gate"],
     })
 }
 
 /// The `marketplace.json` manifest listing this one plugin — the channel `temper` is
-/// distributed through (`specs/distribution.md`, "distributed through a
-/// marketplace"). The plugin's `source` is `.`: the marketplace root *is* the plugin
+/// distributed through. The plugin's `source` is `.`: the marketplace root *is* the plugin
 /// root, so the generated tree is a self-contained, installable bundle.
 fn marketplace_manifest() -> JsonValue {
     json!({
-        "name": PLUGIN_NAME,
+    "name": PLUGIN_NAME,
         "owner": { "name": PLUGIN_NAME },
         "plugins": [
-            {
-                "name": PLUGIN_NAME,
+    {
+    "name": PLUGIN_NAME,
                 "source": ".",
-                "description": PLUGIN_DESCRIPTION,
-            }
+    "description": PLUGIN_DESCRIPTION,
+    }
         ],
     })
 }
@@ -240,13 +238,13 @@ fn hooks_manifest() -> JsonValue {
     json!({
         "hooks": {
             "SessionStart": [
-                {
+    {
                     "hooks": [
                         { "type": "command", "command": SESSION_START_COMMAND }
-                    ]
-                }
-            ]
-        }
+    ]
+    }
+    ]
+    }
     })
 }
 
@@ -271,7 +269,7 @@ fn write_json(
 
 /// Write text bytes verbatim to `<out>/<relative>`, creating parent directories and
 /// recording the relative path in `files`. Byte-faithful: the bytes are written
-/// exactly as given (`specs/model/pipeline.md`, "Emit"), never re-rendered.
+/// exactly as given, never re-rendered.
 fn write_text(
     out: &Path,
     relative: &Path,

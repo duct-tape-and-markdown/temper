@@ -1,12 +1,12 @@
 /**
- * The built-in Claude Code kinds — the face nouns a harness author imports
- * (`specs/model/representation.md`, "kind"). Each is an
+ * The built-in Claude Code kinds — the face nouns a harness author imports.
+ * Each is an
  * ordinary `kind<T>()` value built with the same constructor every provider uses
  * (ownership not privilege). Their five facts are external facts about the Claude
  * Code harness, cited at the point of claim.
  *
  * These are the SDK's own provider-face exports, surfaced through the
- * `@dtmd/temper/claude-code` subpath (`specs/distribution.md`, "What ships")
+ * `@dtmd/temper/claude-code` subpath
  * — never from the root.
  */
 
@@ -28,10 +28,10 @@ import type { Clause } from "./contract.js";
 
 /** A Claude Code skill — a directory whose entry file is `SKILL.md` with YAML frontmatter. */
 export interface Skill {
-  /**
+ /**
    * The description trigger — always in context; the body loads on invocation
    * (code.claude.com/docs/en/skills, retrieved 2026-07-02).
-   */
+ */
   readonly description: string;
   /** The optional license field the skill spec carries (agentskills.io/specification). */
   readonly license?: string;
@@ -55,10 +55,10 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
 
 /** A Claude Code rule — a flat markdown file with an optional `paths` scope. */
 export interface Rule {
-  /**
+ /**
    * The path scope — a present list matching zero files is a dead edge; an absent
    * one loads unconditionally (code.claude.com/docs/en/memory, retrieved 2026-07-02).
-   */
+ */
   readonly paths?: readonly string[];
   readonly prose?: Prose;
 }
@@ -98,8 +98,7 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
 /**
  * The floor for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
- * validation, and Claude Code's own docs (`packages/skill.anthropic/PACKAGE.md`,
- * the curated authoring reference this migrates verbatim; `specs/model/contract.md`).
+ * validation, and Claude Code's own docs.
  * All sources retrieved 2026-07-01.
  *
  * Checks the strictest documented profile: the spec and upload validation are
@@ -112,7 +111,7 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
  * description actually triggers well or reads third-person (semantic);
  * vagueness/no-op detection (semantic); gerund naming (judgment). Two
  * decidable spec rules are also absent, pending a vocabulary addition (a
- * narrow shape predicate — `specs/model/contract.md` governs additions): the name
+ * narrow shape predicategoverns additions): the name
  * must not start/end with a hyphen or contain consecutive hyphens; likewise
  * the platform's "no XML tags in the description."
  *
@@ -207,7 +206,7 @@ export const skillFloor: readonly Clause[] = [
  * rules load when Claude reads a matching file. Note skills now take a
  * `paths` key too — the two schemas are separate. (Guidance only: an
  * optional field asserts nothing decidable, so it carries no clause of its
- * own — `specs/model/contract.md`, "clause": `required` is the one
+ * own: `required` is the one
  * presence predicate, and its absence is not itself a predicate.)
  * https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-01)
  *
@@ -245,8 +244,7 @@ export const ruleFloor: readonly Clause[] = [
  * markdown with no documented frontmatter and no required fields
  * (code.claude.com/docs/en/memory, retrieved 2026-07-02), so there is no
  * schema to gate — manufacturing a required field or a forbidden-key list
- * would fake a check the format does not carry (`specs/intent.md`,
- * decidable clauses only). The single clause is a context-cost
+ * would fake a check the format does not carry. The single clause is a context-cost
  * budget; everything else the contract could say is guidance.
  *
  * What the clauses cannot carry, as guidance: a `paths:` frontmatter block
@@ -282,7 +280,7 @@ export const memoryAnthropicFloor: readonly Clause[] = [
  * frontmatter (agents.md, retrieved 2026-07-02); the format deliberately
  * constrains nothing. A floor that manufactured a required field, a size
  * gate, or a forbidden-key list would assert a contract the standard
- * disclaims (`specs/intent.md`). Even the tempting size
+ * disclaims. Even the tempting size
  * number is a *tool's* rule, not the format's: agents read the closest
  * `AGENTS.md` in the tree (nested, nearest-wins); Codex concatenates the
  * chain root-to-cwd and stops once combined size hits a byte budget, not a

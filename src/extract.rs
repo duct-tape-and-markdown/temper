@@ -1,7 +1,7 @@
 //! Extraction — an artifact's surface-decidable feature set.
 //!
-//! Extraction is the soundness boundary temper's decidability spine rests on
-//! (`specs/intent.md`): a per-kind extractor projects a parsed artifact into a
+//! Extraction is the soundness boundary temper's decidability spine rests on:
+//! a per-kind extractor projects a parsed artifact into a
 //! [`Features`] map the generic contract engine reads. A contract clause is
 //! sound only because the feature it names is **deterministically
 //! extractable** — so [`Features`]
@@ -28,7 +28,7 @@ use std::path::Path;
 use serde_json::Value as JsonValue;
 
 /// A field's parsed source kind — the closed scalar/container lattice a kind's
-/// field schema ranges over (`specs/model/representation.md`, kind). Taken from the *parsed*
+/// field schema ranges over. Taken from the *parsed*
 /// YAML/JSON value, not its stringified form: a sound `type` check needs the
 /// extractor to preserve the source kind rather than collapse every scalar to a
 /// bare string (the slice-1 shortcut this entry corrects). The five scalar kinds
@@ -70,7 +70,7 @@ impl ValueType {
 
     /// Parse a declared type name into its [`ValueType`], or `None` if it is not one
     /// of the closed lattice's names. This is the single home of the lattice's
-    /// name table (`specs/model/representation.md`, kind); the contract parser maps a
+    /// name table; the contract parser maps a
     /// declared `type` through here rather than duplicating the spelling.
     #[must_use]
     pub fn from_name(name: &str) -> Option<ValueType> {
@@ -148,8 +148,7 @@ impl FeatureValue {
 
 /// One ATX **section** of a markdown body: a heading paired with the body span
 /// beneath it, up to the next heading of the same or a shallower level. The
-/// feature a `section_contains` clause decides over (`specs/model/contract.md`, the
-/// `section_contains` structural primitive) — its [`heading`](Section::heading) is
+/// feature a `section_contains` clause decides over — its [`heading`](Section::heading) is
 /// matched by the clause's declared prefix, its [`body`](Section::body) searched
 /// for the declared marker. Surface-decidable like every other feature: a heading
 /// inside a fenced code block opens no section (the same exclusion
@@ -167,8 +166,7 @@ pub struct Section {
 /// One fenced code block of a markdown body: its **info string** (the text after
 /// the opening fence — `sh`, `toml`, `toml genre.foo` — trimmed) paired with the
 /// block's **interior content** (the lines between the fences, rejoined with `\n`).
-/// The feature a `fenced` primitive yields (`specs/model/representation.md`, "The
-/// engine is kind-blind — extraction is generic"): fenced extraction
+/// The feature a `fenced` primitive yields: fenced extraction
 /// composed with a TOML parse yields a genre value's features, declared data at
 /// body position. Surface-decidable like every other feature — the fence
 /// boundaries are the ones [`body_headings`] already tracks, so a block is never a
@@ -185,8 +183,8 @@ pub struct FencedBlock {
     pub content: String,
 }
 
-/// A **nested member** folded from its parent's body at the **embedded locus**
-/// (`specs/model/representation.md`, "locus"/"nesting"), extracted from a genre fence
+/// A **nested member** folded from its parent's body at the **embedded locus**,
+/// extracted from a genre fence
 /// at the floor. It carries the child kind it instantiates (`decision`) and the fence
 /// key that names this instance among its embedded siblings (`surface-authority`),
 /// plus its own **prose leaves** — top-level authored strings — and its own **nested
@@ -196,7 +194,7 @@ pub struct FencedBlock {
 /// citations survive rewording ([`EmbeddedMember::addressed_leaves`]).
 ///
 /// Floor leaves carry no mentions — interpolation stays deferred until a floor
-/// mention syntax is separately ratified (`specs/model/contract.md`, "edge") — so a
+/// mention syntax is separately ratified — so a
 /// leaf is a plain [`String`], not a mention-bearing span.
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct EmbeddedMember {
@@ -213,20 +211,19 @@ pub struct EmbeddedMember {
     /// This member's own **nested members**, one layer deeper — collection name →
     /// (entry key → the entry's own nested member), so a collection leaf addresses as
     /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). Keyed at
-    /// every level, never positional — an address that survives insertion and reorder
-    /// (`specs/model/contract.md`, "Read verbs").
+    /// every level, never positional — an address that survives insertion and reorder.
     pub members: BTreeMap<String, BTreeMap<String, EmbeddedMember>>,
 }
 
 impl EmbeddedMember {
     /// Every leaf's **structural child path** paired with its authored value, in
-    /// stable order (`specs/model/contract.md`, "Read verbs"): a top-level leaf's
+    /// stable order: a top-level leaf's
     /// bare field name (`chosen`), a nested member's
     /// leaf `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). The
     /// path rides the structure the author already wrote, so it is stable under
     /// content edits — the property drift routing and `impact` stand on. Recurses
-    /// through [`members`](EmbeddedMember::members) to arbitrary depth
-    /// (`specs/model/representation.md`, "nesting"), though today's fold populates one
+    /// through [`members`](EmbeddedMember::members) to arbitrary depth,
+    /// though today's fold populates one
     /// layer.
     #[must_use]
     pub fn addressed_leaves(&self) -> Vec<(String, &str)> {
@@ -245,11 +242,10 @@ impl EmbeddedMember {
     }
 }
 
-/// The **structural address** of a nested member's leaf (`specs/model/contract.md`,
-/// "Read verbs"): the member it lives in, the nested member's
+/// The **structural address** of a nested member's leaf: the member it lives in, the nested member's
 /// identity (child kind + fence key), and the child path within it. Keyed at
 /// every level and stable under content edits, so a citation targeting a leaf
-/// (`specs/model/contract.md`) and `impact` at leaf grain survive rewording —
+/// and `impact` at leaf grain survive rewording —
 /// only a key *rename* breaks it, and then to the resolution check, which tells the citer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MemberAddress {
@@ -282,8 +278,8 @@ pub struct Features {
     /// inside a fenced code block is not a heading.
     pub headings: Vec<String>,
     /// The body's ATX [`Section`]s (heading + the body span beneath it), in
-    /// document order — the feature a `section_contains` clause decides over
-    /// (`specs/model/contract.md`, the `section_contains` structural primitive). A
+    /// document order — the feature a `section_contains` clause decides over.
+    /// A
     /// superset of [`headings`](Features::headings): where `headings` carries only
     /// each heading's text, a section pairs it with its body span so a marker check
     /// has prose to search.
@@ -292,24 +288,21 @@ pub struct Features {
     /// (for `name-matches-dir`). `None` when the source path has no parent.
     pub source_dir: Option<String>,
     /// The body's format-executed directive occurrences, in document order — the
-    /// `at-import` `@path` targets a `directives` primitive extracts
-    /// (`specs/model/representation.md`, "Directives — format-executed body syntax").
+    /// `at-import` `@path` targets a `directives` primitive extracts.
     /// A body-derived feature like [`headings`](Features::headings)/[`sections`](Features::sections):
     /// the raw occurrence strings only, resolution/classing a later slice. Empty
     /// when the kind composes no `directives` primitive.
     pub directives: Vec<String>,
     /// The body's fenced code blocks, in document order — each block's info string
-    /// paired with its interior content, the feature a `fenced` primitive yields
-    /// (`specs/model/representation.md`, "The engine is kind-blind — extraction is
-    /// generic"). A body-derived feature like
+    /// paired with its interior content, the feature a `fenced` primitive yields.
+    /// A body-derived feature like
     /// [`headings`](Features::headings)/[`sections`](Features::sections)/[`directives`](Features::directives):
     /// the same fence boundaries the heading extractor tracks, surfaced whole. Empty
     /// when the kind composes no `fenced` primitive.
     pub fenced_blocks: Vec<FencedBlock>,
     /// The body's **nested members**, in document order — each a genre fence
     /// (`genre.<kind> <key>`) whose interior TOML parsed into a typed
-    /// [`EmbeddedMember`] at the embedded locus (`specs/model/representation.md`,
-    /// "locus"/"nesting"). The typed layer
+    /// [`EmbeddedMember`] at the embedded locus. The typed layer
     /// over [`fenced_blocks`](Features::fenced_blocks): a raw block whose info string
     /// names a child kind the host kind declares is folded here beside its raw form,
     /// keyed by the fence's kind+key; every other fenced block stays raw-only. Empty
@@ -317,8 +310,8 @@ pub struct Features {
     /// per-block, and no check quantifies over its completeness.
     pub nested_members: Vec<EmbeddedMember>,
     /// The requirements this artifact opts into filling — the authored
-    /// `[representation].satisfies` bindings, surfaced for the coverage check
-    /// (`specs/model/representation.md`, "member"). This is a *representation* edge
+    /// `[representation].satisfies` bindings, surfaced for the coverage check.
+    /// This is a *representation* edge
     /// the coverage resolver reads, NOT
     /// a contract-checkable frontmatter field — so it lives here, distinct from
     /// `fields`, and never resolves through [`Features::field`]. The authored
@@ -326,8 +319,7 @@ pub struct Features {
     /// decidable feature.
     pub satisfies: Vec<String>,
     /// The requirements this artifact **publishes** — the authored
-    /// `[requirement.<name>]` header modules (`specs/model/contract.md`,
-    /// "requirement"). The demand side of
+    /// `[requirement.<name>]` header modules. The demand side of
     /// the fill edge, carried beside `satisfies` (the fill side) so the gate gathers
     /// every member's published obligations across every kind and unions them with the
     /// assembly roster into the one requirement namespace. Like `satisfies`, this is a
@@ -353,7 +345,7 @@ impl Features {
 
     /// Every nested member's leaf as a fully-qualified [`MemberAddress`] paired with
     /// its authored value — the leaf-grain surface the read family (`impact`,
-    /// `context`) consumes (`specs/model/contract.md`, "Read verbs"). Each
+    /// `context`) consumes. Each
     /// address carries this member's id, so a citation resolving to a leaf resolves to a
     /// unique point across the corpus.
     #[must_use]
@@ -381,8 +373,7 @@ impl Features {
 /// [`crate::kind`] composer read it the identical way rather than each writing
 /// `body.lines().count()` inline.
 ///
-/// `pub(crate)` so the closed extraction algebra (`specs/model/representation.md`, "The
-/// extraction algebra") composes the *same* deterministic extractor a built-in
+/// `pub(crate)` so the closed extraction algebra composes the *same* deterministic extractor a built-in
 /// kind's engine code uses, never a second implementation that could drift.
 pub(crate) fn body_line_count(body: &str) -> usize {
     body.lines().count()
@@ -396,7 +387,7 @@ pub(crate) fn body_line_count(body: &str) -> usize {
 /// trimmed off.
 ///
 /// `pub(crate)` so the data-driven [`crate::kind`] composer reuses this exact
-/// ATX/fence logic rather than reimplementing it (`specs/model/representation.md`).
+/// ATX/fence logic rather than reimplementing it.
 pub(crate) fn body_headings(body: &str) -> Vec<String> {
     let mut headings = Vec::new();
     // The open fence's char and run length, while inside a fenced code block.
@@ -426,8 +417,7 @@ pub(crate) fn body_headings(body: &str) -> Vec<String> {
 /// Extract the ATX **sections** of a byte-faithful markdown body: each heading
 /// paired with the body span beneath it, up to the next heading of the same or a
 /// shallower level (a deeper subsection stays part of its parent's span). The
-/// feature a `section_contains` clause reads (`specs/model/contract.md`, the
-/// `section_contains` structural primitive). A heading (and any `#` line) inside a
+/// feature a `section_contains` clause reads. A heading (and any `#` line) inside a
 /// fenced code block opens no section — the same exclusion [`body_headings`] makes,
 /// tracked the identical way — so a fenced marker never splits the prose. Heading
 /// text is stripped exactly as [`body_headings`] strips it; the body is the
@@ -435,7 +425,7 @@ pub(crate) fn body_headings(body: &str) -> Vec<String> {
 ///
 /// `pub(crate)` so the data-driven [`crate::kind`] `sections` primitive composes
 /// this exact splitter rather than a second one that could drift from the heading
-/// logic (`specs/model/representation.md`).
+/// logic.
 pub(crate) fn body_sections(body: &str) -> Vec<Section> {
     let lines: Vec<&str> = body.lines().collect();
     // First pass: the heading lines *outside* fenced code, each with its line
@@ -481,8 +471,7 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
 /// Extract the **fenced code blocks** of a byte-faithful markdown body, in document
 /// order: each block's info string (the text after the opening fence, trimmed)
 /// paired with its interior content (the lines between the fences, rejoined with
-/// `\n`). The feature a `fenced` primitive yields (`specs/model/representation.md`,
-/// "The engine is kind-blind — extraction is generic"). A block opens on a
+/// `\n`). The feature a `fenced` primitive yields. A block opens on a
 /// fence marker and closes on the next marker of the **same char and at least the
 /// opening length** — the identical fence tracking [`body_headings`] runs, so a
 /// heading or a shorter/different marker *inside* a block is interior content, never
@@ -492,7 +481,7 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
 ///
 /// `pub(crate)` so the data-driven [`crate::kind`] `fenced` primitive composes this
 /// exact reader rather than a second one that could drift from the heading/section
-/// fence logic (`specs/model/representation.md`).
+/// fence logic.
 pub(crate) fn body_fenced_blocks(body: &str) -> Vec<FencedBlock> {
     let mut blocks = Vec::new();
     // The open fence's char, run length, info string, and the interior lines
@@ -558,8 +547,7 @@ fn fence_info(line: &str, fence_char: char) -> String {
 }
 
 /// Parse a genre fence's **info string** into its `(kind, key)` identity, or `None`
-/// when the block is not a genre fence (`specs/model/representation.md`,
-/// "nesting"): a genre fence's info string is `genre.<kind> <key>`
+/// when the block is not a genre fence: a genre fence's info string is `genre.<kind> <key>`
 /// (`genre.decision surface-authority`) — the `genre.` prefix, the child kind name,
 /// then the fence key. Any other info string (a bare `` ``` ``, a `sh`, a `toml`) is a
 /// plain fenced block, not a nested member — adoption is opt-in per block, so a
@@ -578,12 +566,12 @@ pub(crate) fn parse_embedded_info(info: &str) -> Option<(String, String)> {
 }
 
 /// Parse a genre fence's **interior TOML** into an [`EmbeddedMember`], or `None` when
-/// the interior is not well-formed TOML (`specs/model/representation.md`, "nesting").
+/// the interior is not well-formed TOML.
 /// A top-level string
 /// value is a **prose leaf**; a top-level table is a keyed collection of **nested
 /// members**, one per sub-table, each entry's own string values its own leaves. Any
 /// other TOML type is neither a prose leaf nor a nested member, so it is not surfaced —
-/// leaves are authored strings (`specs/intent.md`), never inferred from a scalar or array.
+/// leaves are authored strings, never inferred from a scalar or array.
 /// Malformed interior TOML yields no nested member; the raw [`FencedBlock`] still
 /// carries the bytes, so nothing is lost, and extraction stays total (no error channel
 /// at this boundary).
@@ -684,7 +672,7 @@ fn atx_heading(line: &str) -> Option<(usize, String)> {
 /// Code discovers it under), off its `provenance.source_path`.
 ///
 /// `pub(crate)` so the data-driven [`crate::kind`] composer reads the file
-/// placement feature the identical way (`specs/model/representation.md`).
+/// placement feature the identical way.
 pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
     source_path
         .parent()
@@ -695,8 +683,7 @@ pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
 
 /// Extract the `at-import` directive occurrences (`@path/to/file`) from a
 /// byte-faithful markdown body, in document order — the raw path strings, one per
-/// occurrence (`specs/model/representation.md`, "Directives — format-executed body
-/// syntax"). An `@` opens an import only at a word boundary (start of line or after
+/// occurrence. An `@` opens an import only at a word boundary (start of line or after
 /// whitespace), so an email `user@host` and a bare `@` in prose yield nothing; the
 /// occurrence is the run of non-whitespace after the `@` (`@path`, absolute allowed;
 /// code.claude.com/docs/en/memory, retrieved 2026-07-02). A `@path` inside a fenced
@@ -796,8 +783,7 @@ fn skip_code_span(chars: &[char], start: usize) -> usize {
 
 /// Resolve a dotted **key-path** (`a.b.c`) against a parsed frontmatter map,
 /// walking nested tables to the leaf value — the traversal the `field` extraction
-/// primitive promises (`specs/model/representation.md`, "structured field — a
-/// frontmatter / JSON / TOML value at a key-path"). The first segment resolves in
+/// primitive promises. The first segment resolves in
 /// the top-level map; each further segment descends into the value's object, so a
 /// settings kind's nested `permissions.defaultMode` reads its leaf. A single-segment
 /// path is an ordinary flat lookup, so the common case is unchanged.
@@ -831,12 +817,11 @@ pub(crate) fn resolve_key_path<'a>(
 /// keeps the kind it parsed as (`string`/`integer`/`number`/`boolean`/`null`)
 /// alongside its text. Stringifying every scalar to a bare string — the slice-1
 /// shortcut — would make a `type` check undecidable; recording the kind here is
-/// the precondition that check needs (`specs/model/contract.md`, the `type`
-/// lattice Decision).
+/// the precondition that check needs.
 ///
 /// `pub(crate)` so the [`crate::kind`] `field` extraction primitive projects a
 /// declared frontmatter value into a [`FeatureValue`] through the same
-/// kind-preserving path, never a second projector (`specs/model/representation.md`).
+/// kind-preserving path, never a second projector.
 pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
     match value {
         JsonValue::Array(items) => {
@@ -1041,7 +1026,7 @@ prose below\n";
     #[test]
     fn re_running_fenced_extraction_is_byte_identical() {
         // A pure function of the body — the property that makes a fenced block a sound
-        // gate input (`specs/model/representation.md`, the soundness boundary).
+        // gate input.
         let body = "```toml\nk = 1\n```\n";
         assert_eq!(body_fenced_blocks(body), body_fenced_blocks(body));
     }

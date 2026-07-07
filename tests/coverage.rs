@@ -1,11 +1,8 @@
 //! End-to-end acceptance over requirement coverage — the referential shadow of the
-//! meaningful contract (`specs/model/contract.md`, "Requirements and `satisfies` — the
-//! meaningful contract").
+//! meaningful contract.
 //!
 //! Drives the built `temper` binary so the whole path is pinned: a golden lock at the
-//! project root carrying the declared requirements (`specs/model/pipeline.md`,
-//! "The lock" — the gate sources requirements from the lock,
-//! never a re-imported assembly), the authored `satisfies` opt-in reconstructed off
+//! project root carrying the declared requirements, the authored `satisfies` opt-in reconstructed off
 //! each surface artifact, and the coverage gate's exit code. Each case sets the process
 //! working directory to a project root, exactly as a real invocation would.
 //!
@@ -58,7 +55,7 @@ Keep the bar high.\n";
 
 /// Write a one-skill harness member directly at its real Claude Code locus
 /// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
-/// live off harness disk (`specs/model/pipeline.md`, "The lock"), no
+/// live off harness disk, no
 /// scratch import.
 fn write_skill(root: &Path, name: &str, skill_md: &str) {
     let dir = root.join(".claude").join("skills").join(name);
@@ -68,8 +65,7 @@ fn write_skill(root: &Path, name: &str, skill_md: &str) {
 
 /// Author a member's `satisfies` links on its surface overlay
 /// (`<root>/.temper/skills/<name>/SKILL.md`) — the projected document a live off-disk
-/// walk grafts a member's fill edges from (`specs/model/pipeline.md`,
-/// "The lock"); the real harness file itself carries no temper annotation.
+/// walk grafts a member's fill edges from; the real harness file itself carries no temper annotation.
 fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
     let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
     let source = root
@@ -103,8 +99,7 @@ fn requirement(name: &str, required: bool) -> RequirementRow {
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
 /// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
 /// projection of the retired manifest's `[requirement.*]` table: the gate sources
-/// requirements from the lock, never a re-imported assembly
-/// (`specs/model/pipeline.md`, "The lock").
+/// requirements from the lock, never a re-imported assembly.
 fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
@@ -316,8 +311,7 @@ fn a_non_required_unfilled_requirement_does_not_block() {
 
 #[test]
 fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
-    // Custom kinds retire with the KIND.md file format (`specs/model/representation.md`,
-    // "Decision: field typing lives in the SDK — there is no kind file format"), and
+    // Custom kinds retire with the KIND.md file format, and
     // there is no longer any manifest to register one from at all (the manifest
     // retires entirely) — so a kind-blind `required` requirement contributes no
     // fabricated coverage; it still fires UNFILLED absent a real satisfier.
@@ -341,8 +335,7 @@ fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
 fn a_means_less_required_requirement_still_gates() {
     let root = tmpdir("means-less");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
-    // The unified requirement makes `means` optional (`specs/model/contract.md`, "all
-    // facets optional except its name"), but coverage keys off `required`, not
+    // The unified requirement makes `means` optional, but coverage keys off `required`, not
     // `means`: a `required` requirement with no `means` and nothing opting in still
     // fires UNFILLED and blocks the run.
     write_requirements(&root, vec![requirement("dev-standards", true)]);
@@ -396,7 +389,7 @@ fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
 fn a_required_requirement_is_covered_by_a_rules_opt_in_same_as_a_skills() {
     // Coverage draws the satisfier set kind-blind — a member of *any* modeled kind
     // that opts in via `satisfies` counts toward the requirement, matching the
-    // unified roster/graph satisfier set (`specs/model/contract.md`, "selection").
+    // unified roster/graph satisfier set.
     // A `rule`'s opt-in covers `dev-standards` exactly as a skill's would.
     let root = tmpdir("kind-blind-cover");
     write_rule(&root, "dev-standards-rule");

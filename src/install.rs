@@ -1,4 +1,4 @@
-//! `temper install` — the one on-ramp (`specs/model/pipeline.md`, "Install").
+//! `temper install` — the one on-ramp.
 //!
 //! `install` opens with a discovery report ([`discover`]/[`render_discovery`]) —
 //! findings first, ceremony after — then asks exactly one question via [`Represent`]:
@@ -18,8 +18,7 @@
 //!
 //! [`gate_installed`] is the read-only shadow `check` folds in: the same placement
 //! evaluation, dry-run, collapsed to one advisory [`Diagnostic`]. It never scaffolds,
-//! installs a dependency, or emits — `install` alone adopts (`specs/distribution.md`,
-//! "The stranger gate").
+//! installs a dependency, or emits — `install` alone adopts.
 //!
 //! **Fail-loud**: a placement, a scaffold write, or a dependency/emit step that
 //! cannot complete is a hard [`InstallError`] / propagated [`miette::Report`], never
@@ -41,11 +40,11 @@ use crate::import;
 use crate::kind::UnitShape;
 
 /// The workspace directory a represented project's SDK program lives under, beside
-/// the harness it governs (`specs/model/pipeline.md`).
+/// the harness it governs.
 const WORKSPACE_DIR: &str = ".temper";
 
 /// The SDK program's entry file — scaffolded once by the lift, run by every
-/// subsequent `emit` (`specs/model/pipeline.md`, "Emit").
+/// subsequent `emit`.
 const HARNESS_ENTRY: &str = "harness.ts";
 
 /// The npm package name the yes-path ensures as a dependency.
@@ -57,8 +56,7 @@ const SDK_PACKAGE: &str = "@dtmd/temper";
 const SDK_VERSION_RANGE: &str = "^0.0.2";
 
 /// The exec-form command Claude Code runs at session start: the `temper` binary
-/// itself, checking the project root under the advisory session-start reporter
-/// (`specs/distribution.md`, "Session start").
+/// itself, checking the project root under the advisory session-start reporter.
 /// The `.` is the harness under the running project.
 const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
@@ -76,13 +74,13 @@ const GATE_RULE: &str = "install.gate-installed";
 
 /// The tool-name matcher the guard hook binds — Claude Code's own write boundary.
 /// The guard binds *this provider's* writes only; the stated, unsolved limit
-/// (`specs/distribution.md`, "Per tool call") is that other consumers of a shared
+/// is that other consumers of a shared
 /// file are not instrumented by it.
 const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 
 /// The exec-form command the `PreToolUse` guard hook runs: the `temper` binary's own
 /// `guard` subcommand, reading the payload from stdin and deciding at the harness's
-/// declared posture (`specs/distribution.md`, "Per tool call"). The `.` roots the
+/// declared posture. The `.` roots the
 /// lock the posture is read from — the project Claude Code runs the hook in.
 const GUARD_COMMAND: &str = "temper guard .";
 
@@ -118,12 +116,11 @@ const MODELINE_MARKER: &str = "# yaml-language-server:";
 
 /// The managed-by note itself: a frontmatter comment stating the file is generated and
 /// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
-/// stamped by `emit` (`specs/model/pipeline.md`, "Emit" — verbatim keeps the
-/// projection content-faithful; the note is install's, not the surface body's).
+/// stamped by `emit`.
 const NOTE_COMMENT: &str = "# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.";
 
-/// The one question `install` asks, exactly once, after the discovery report
-/// (`specs/model/pipeline.md`, "Install"): there is one
+/// The one question `install` asks, exactly once, after the discovery report:
+/// there is one
 /// genuine fork in the world — a harness is represented or it is not.
 pub const REPRESENT_QUESTION: &str = "Represent this project as a temper program? [y/N]";
 
@@ -177,9 +174,7 @@ pub enum InstallError {
         path: PathBuf,
     },
 
-    /// Node.js was not found on `PATH` — the represented (yes) path requires it
-    /// (`specs/model/pipeline.md`, "Install" — checked up front and refused with
-    /// instructions when absent).
+    /// Node.js was not found on `PATH` — the represented (yes) path requires it.
     #[error("Node.js is required to represent this project as a temper program")]
     #[diagnostic(
         code(temper::install::node_missing),
@@ -231,7 +226,7 @@ pub enum InstallError {
     },
 }
 
-/// The one question's answer (`specs/model/pipeline.md`, "Install"): there is one
+/// The one question's answer: there is one
 /// genuine fork in the world, so exactly one boolean fork here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Represent {
@@ -241,14 +236,14 @@ pub enum Represent {
     No,
 }
 
-/// The discovery walk's findings — "what the walk found (members by kind...)"
-/// (`specs/model/pipeline.md`, "Install"), reported before
+/// The discovery walk's findings — "what the walk found (members by kind...)",
+/// reported before
 /// the one question and reused by the yes-path's scaffold so the lift lifts exactly
 /// what was reported, never a re-walked, possibly-differing set.
 #[derive(Debug, Clone, Default)]
 pub struct DiscoveryReport {
     /// Discovered member source files, keyed by the kind's bare row label
-    /// (`specs/model/representation.md`) — every embedded built-in kind.
+    /// — every embedded built-in kind.
     pub members: BTreeMap<String, Vec<PathBuf>>,
 }
 
@@ -275,8 +270,8 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     Ok(DiscoveryReport { members })
 }
 
-/// Render the discovery report for the terminal — findings first, ceremony after
-/// (`specs/model/pipeline.md`, "Install"): member counts by kind, or a plain
+/// Render the discovery report for the terminal — findings first, ceremony after:
+/// member counts by kind, or a plain
 /// statement that nothing was found.
 #[must_use]
 pub fn render_discovery(report: &DiscoveryReport) -> String {
@@ -351,7 +346,7 @@ pub fn run(
 
 /// The yes-path: require Node, scaffold once if unrepresented, ensure the SDK
 /// dependency, run `emit`, then place the guard/note/modeline at the fresh lock's
-/// emit-owned targets (`specs/model/pipeline.md`, "Install").
+/// emit-owned targets.
 fn run_represented(
     root: &Path,
     discovery: &DiscoveryReport,
@@ -405,10 +400,9 @@ fn run_represented(
 }
 
 /// Report whether temper's own gate is installed and undrifted at `root` — the
-/// `check` self-verify (`specs/distribution.md`, "The stranger gate").
+/// `check` self-verify.
 ///
-/// Never scaffolds, installs a dependency, or emits — only [`run`] adopts
-/// (`specs/distribution.md`, "The stranger gate").
+/// Never scaffolds, installs a dependency, or emits — only [`run`] adopts.
 /// Evaluates the placements a *represented* project's current lock justifies, or —
 /// on an unrepresented project (no `.temper/harness.ts`) — the session-start hook
 /// alone, both dry-run, folded into **one advisory** [`Diagnostic`] carrying the
@@ -472,7 +466,7 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
 }
 
 /// Project only the `SessionStart` hook into `.claude/settings.json` — the no-path's
-/// whole write (`specs/model/pipeline.md`, "Install"). No guard, no note, no modeline: those bind
+/// whole write. No guard, no note, no modeline: those bind
 /// only paths a lock declares emit-owned, and an unrepresented project has no lock.
 fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<InstallEntry>> {
     let settings_path = root.join(".claude").join("settings.json");
@@ -490,7 +484,7 @@ fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<Install
 /// targets exist — "the guard arrives with its constituency, never before"), and
 /// each emit-owned target's managed-by note + schema modeline — the represented
 /// project's whole placement set, lock-grounded via [`drift::emit_owned_targets`]
-/// rather than a raw discovery walk (`specs/model/pipeline.md`, "Drift").
+/// rather than a raw discovery walk.
 fn evaluate_placements(
     root: &Path,
     temper_dir: &Path,
@@ -553,7 +547,7 @@ fn evaluate_placements(
 }
 
 /// Whether `<root>/.temper/schema/<kind>.json` exists — the schema modeline's own
-/// target, generated by `temper schema` (`specs/distribution.md`, "Keystroke"). A
+/// target, generated by `temper schema`. A
 /// modeline pointing at nothing is worse than no modeline.
 fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
     root.join(WORKSPACE_DIR)
@@ -563,8 +557,7 @@ fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
 }
 
 /// The verdict `temper guard` reaches over a `PreToolUse` payload at the root
-/// member's declared enforcement mode (`specs/model/representation.md`, "The root
-/// member"): whether Claude Code's pending write is allowed (silently, in-band, or
+/// member's declared enforcement mode: whether Claude Code's pending write is allowed (silently, in-band, or
 /// deferred out-of-band) or blocked. temper never escalates past the mode the
 /// harness declares.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -653,7 +646,7 @@ struct SettingsProjection {
 /// Project the desired `.claude/settings.json` — the existing settings with the
 /// `SessionStart` hook merged in, and the `PreToolUse` guard ([`GUARD_COMMAND`])
 /// merged in too when `include_guard` is set ("the guard arrives with its
-/// constituency, never before" — `specs/distribution.md`, "Per tool call") — or a fresh
+/// constituency, never before") — or a fresh
 /// document when the file is absent or empty. Idempotent: an already-present temper
 /// hook at its desired shape is left alone, so re-merging reproduces the bytes.
 ///
@@ -705,9 +698,9 @@ fn project_settings(
         })?;
     if !hooks_session_start(session_start) {
         session_start.push(json!({
-            "hooks": [
+        "hooks": [
                 { "type": "command", "command": SESSION_START_COMMAND }
-            ]
+        ]
         }));
     }
 
@@ -798,9 +791,9 @@ fn upsert_guard(groups: &mut Vec<JsonValue>, guard: &str) {
     }
     groups.push(json!({
         "matcher": GUARD_MATCHER,
-        "hooks": [
+    "hooks": [
             { "type": "command", "command": guard }
-        ]
+    ]
     }));
 }
 
@@ -821,11 +814,9 @@ fn group_has_command(group: &JsonValue, pred: impl Fn(&str) -> bool) -> bool {
 
 // ---------------------------------------------------------------------------
 // the lift — scaffold the SDK program from the discovery report
-// (`specs/model/pipeline.md`, "Install")
 // ---------------------------------------------------------------------------
 
-/// The scaffold subdirectory a bare kind's member modules live under
-/// (`specs/model/pipeline.md`, "Install": `.temper/skills/reviewer.ts`).
+/// The scaffold subdirectory a bare kind's member modules live under.
 fn member_dir(kind: &str) -> &'static str {
     match kind {
         "skill" => "skills",
@@ -922,7 +913,7 @@ fn member_ident(kind: &str, name: &str) -> String {
 /// The `file()` path a scaffolded member module writes, relative to `harness.ts`'s
 /// own directory (`.temper/`, always one level under `root` — the SDK resolves a
 /// `file()` asset against the running program's cwd, which `emit_program` sets to
-/// `harness.ts`'s directory, `specs/model/pipeline.md` "Emit").
+/// `harness.ts`'s directory).
 fn relative_to_workspace(root: &Path, source: &Path) -> miette::Result<String> {
     let relative = source.strip_prefix(root).map_err(|_| {
         miette::miette!(
@@ -937,7 +928,7 @@ fn relative_to_workspace(root: &Path, source: &Path) -> miette::Result<String> {
 /// One lifted member's module source — no typed fields at all: the whole original
 /// file (frontmatter included) rides through as the `file()` body verbatim, so the
 /// projection is byte-identical to the source it came from (own-path,
-/// `specs/model/pipeline.md`, "Drift" — a member whose `file()` source is its own
+/// "Drift" — a member whose `file()` source is its own
 /// projected path is authored territory). Depth (`description`, `satisfies`, …)
 /// accrues later, member by member, under the author's own pen — never scaffolded.
 fn member_module_source(kind: &str, name: &str, ident: &str, rel_path: &str) -> String {
@@ -948,7 +939,7 @@ fn member_module_source(kind: &str, name: &str, ident: &str, rel_path: &str) -> 
 
 /// The `harness.ts` skeleton: import every scaffolded member, compose them into
 /// `harness({ members: [...] })`, and print `emit`'s seam to stdout — the whole
-/// program `emit_program` (`specs/model/pipeline.md`, "Emit") then runs.
+/// program `emit_program` then runs.
 fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
     let mut out = String::from("import { emit, harness } from \"@dtmd/temper\";\n");
     for member in members {
@@ -982,7 +973,6 @@ fn write_scaffold_file(path: &Path, contents: &str) -> Result<(), InstallError> 
 
 // ---------------------------------------------------------------------------
 // Node + the `@dtmd/temper` dependency — the yes-path's preflight
-// (`specs/model/pipeline.md`, "Install")
 // ---------------------------------------------------------------------------
 
 /// Refuse loud, with instructions, when `node` is not on `PATH` — checked up front
@@ -1134,8 +1124,7 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// has none, and the caller already skips memory besides). Applied *before* the
 /// modeline so the modeline stays the leading line.
 ///
-/// **Content-drift-aware** (`specs/distribution.md`, "drift keeps it
-/// synced"): idempotence keys on the note's *bytes*, not the bare [`NOTE_MARKER`]
+/// **Content-drift-aware**: idempotence keys on the note's *bytes*, not the bare [`NOTE_MARKER`]
 /// prefix. A marked line whose body still matches [`NOTE_COMMENT`] is returned
 /// verbatim (no churn); a marked line carrying a retired wording — the reword that
 /// [`NOTE_COMMENT`] shipped — is *re-placed*, splicing the current [`NOTE_COMMENT`]
@@ -1145,7 +1134,7 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note line is
 /// the only rewritten bytes. The note rides `install`, never `emit` — a YAML comment
 /// is not authored surface content, so the content-faithful projector
-/// (`specs/model/pipeline.md`, "Emit") never re-emits it.
+/// never re-emits it.
 fn project_note(source: &str) -> Option<String> {
     let rest = source.strip_prefix("---\n")?;
     let inner = frontmatter_inner(rest)?;
@@ -1183,7 +1172,7 @@ fn frontmatter_inner(rest: &str) -> Option<&str> {
 /// The install-placed frontmatter comment lines present in `source`, in on-disk order —
 /// the schema modeline and the managed-by note. `emit` round-trips these through its
 /// whole-file re-emit so its content-faithful projection carries install's
-/// metadata instead of dropping it (`specs/model/pipeline.md`, "Emit"): install
+/// metadata instead of dropping it: install
 /// owns *placing and auditing* them, emit only *preserves* what is already
 /// there. Empty when `source` has no frontmatter or carries neither line.
 pub(crate) fn placement_lines(source: &str) -> Vec<String> {

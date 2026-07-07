@@ -2,7 +2,7 @@
 //!
 //! A thin `clap` dispatch over the [`temper`] library: parse args, run the
 //! generic contract engine, map the result to an exit code. Every subcommand
-//! mirrors the pipeline verbs of `specs/model/pipeline.md`; all logic lives in the
+//! mirrors the pipeline verbs; all logic lives in the
 //! library so `tests/` can drive it.
 
 use std::collections::BTreeMap;
@@ -35,24 +35,23 @@ use temper::reporter;
 use temper::roster;
 use temper::schema;
 
-/// The surface workspace default for `--into` / the `check` argument
-/// (`specs/model/pipeline.md`): a `.temper` directory under the cwd.
+/// The surface workspace default for `--into` / the `check` argument:
+/// a `.temper` directory under the cwd.
 const DEFAULT_WORKSPACE: &str = "./.temper";
 
-/// The surface workspace directory beside a harness root (`specs/model/pipeline.md`).
+/// The surface workspace directory beside a harness root.
 /// Session-start's surface-present branch gates this directly; its surfaceless
 /// branch gates the harness root directly instead.
 const TEMPER_DIR: &str = ".temper";
 
 /// The diagnostic `rule` id a cross-publisher requirement-name collision reports
-/// under (`specs/model/contract.md`, "Decision: a requirement's publisher is any
-/// authored surface document"): one namespace, so two surfaces publishing one name
+/// under: one namespace, so two surfaces publishing one name
 /// is an admissibility finding, never a shadow. Shares the roster's admissibility
 /// tag — a malformed namespace is inadmissible, decided before it judges anything.
 const REQUIREMENT_COLLISION_RULE: &str = "requirement.admissibility";
 
 /// Resolve a built-in kind's bare row label into its floor [`Contract`], failing
-/// loud if the build embeds no floor of that name (`specs/model/contract.md`) — a
+/// loud if the build embeds no floor of that name — a
 /// missing floor is a hard error, never a silently empty contract.
 fn builtin_floor(kind: &str) -> miette::Result<Contract> {
     builtin::contract(kind)
@@ -83,8 +82,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Lint the config surface against the active contract. Session-start is a
-    /// **reporter** of this gate, never a verb (`specs/distribution.md`, "Session
-    /// start"): `--reporter session-start` reads the path as a harness root and is
+    /// **reporter** of this gate, never a verb: `--reporter session-start` reads the path as a harness root and is
     /// advisory (always exits zero), so a Claude Code `SessionStart` hook runs
     /// `temper check . --reporter session-start`.
     Check {
@@ -93,21 +91,20 @@ enum Command {
         workspace: Option<PathBuf>,
         /// One-shot mode: lint a raw harness directly — import it internally into
         /// a throwaway surface, run the identical by-kind gate, and write no
-        /// workspace (`specs/model/pipeline.md`). Conflicts with `workspace`.
+        /// workspace. Conflicts with `workspace`.
         #[arg(long, conflicts_with = "workspace")]
         harness: Option<PathBuf>,
         /// Also fail the run on `advisory` (warn-severity) violations, not just
-        /// `required` ones — the strict CI policy (`specs/model/contract.md`).
+        /// `required` ones — the strict CI policy.
         #[arg(long)]
         deny_advisories: bool,
-        /// The machine format for the diagnostic set (`specs/distribution.md`,
-        /// reporters). Presentation only — the exit-code verdict is identical
+        /// The machine format for the diagnostic set. Presentation only — the exit-code verdict is identical
         /// whichever is chosen (session-start excepted: it is always advisory).
         #[arg(long, value_enum, default_value_t = Reporter::Terminal)]
         reporter: Reporter,
     },
     /// Emit the active per-kind contract as an editor JSON Schema (the keystroke
-    /// gate — `specs/distribution.md`, "The gate at keystroke").
+    /// gate).
     Schema {
         /// Emit only this artifact kind's schema (`skill`, `rule`); omitted ⇒ a
         /// JSON object mapping each modeled kind to its schema.
@@ -115,8 +112,8 @@ enum Command {
         kind: Option<String>,
     },
     /// Compile the authoring face: re-emit each projection **whole** from the
-    /// surface, byte-deterministically and double-emit verified
-    /// (`specs/model/pipeline.md`, "Emit"). Each artifact is regenerated full-file —
+    /// surface, byte-deterministically and double-emit verified.
+    /// Each artifact is regenerated full-file —
     /// byte-stable and idempotent — and written back to the source path its provenance
     /// names; a direct edit to the projection is drift routed to the authored source,
     /// never something emit merges around.
@@ -125,7 +122,7 @@ enum Command {
         /// under it carries the emit fingerprints freshness stands on.
         #[arg(long, default_value = DEFAULT_WORKSPACE)]
         into: PathBuf,
-        /// Refuse network access — the CI posture (`specs/distribution.md`, "CI").
+        /// Refuse network access — the CI posture.
         /// `emit` performs no network I/O today, so this is accepted for CI parity.
         #[arg(long)]
         frozen: bool,
@@ -138,8 +135,7 @@ enum Command {
     /// and, when the write targets a `.claude/` projection, inform-and-route under
     /// the declared enforcement mode: `note` allows and defers out-of-band, `warn`
     /// allows and surfaces in-band (exit 0), `block` denies (exit 2). The mode is
-    /// read live from the harness's lock (`.temper/lock.toml`'s root-member `mode`
-    /// declaration row, `specs/model/representation.md`, "The root member") —
+    /// read live from the harness's lock —
     /// temper never escalates on its own determination, and an unrepresented
     /// harness (no lock) reads the default `warn`. Wired at the write boundary by
     /// `temper install`.
@@ -149,7 +145,7 @@ enum Command {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
-    /// `temper install` — the one on-ramp (`specs/model/pipeline.md`, "Install"):
+    /// `temper install` — the one on-ramp:
     /// a discovery report, then one question — represent this
     /// project as a temper program? `--no-represent` wires the `SessionStart`
     /// reporter alone; `--yes` (or an interactive `y`) scaffolds the SDK program
@@ -172,7 +168,7 @@ enum Command {
         dry_run: bool,
     },
     /// Compose the surface into a publishable Claude Code plugin +
-    /// `marketplace.json` (`specs/distribution.md`): the operate-the-gate skill,
+    /// `marketplace.json`: the operate-the-gate skill,
     /// the `SessionStart` hook, and the shipped built-in kinds embedded.
     /// Deterministic and byte-faithful where it carries prose, so re-running
     /// reproduces an identical tree.
@@ -184,7 +180,7 @@ enum Command {
         #[arg(long, default_value = "./plugin")]
         out: PathBuf,
     },
-    /// The one read verb (`specs/model/pipeline.md`, "Read verbs"): resolve
+    /// The one read verb: resolve
     /// `<target>` across the member / requirement / leaf-address
     /// namespaces and narrate whichever the graph `check` already computes answers it —
     /// a member's forward walk, blast radius, and neighborhood; a requirement's
@@ -202,8 +198,8 @@ enum Command {
     },
 }
 
-/// The machine format `check` renders its diagnostic set in
-/// (`specs/distribution.md`, reporters). Every variant reshapes *presentation
+/// The machine format `check` renders its diagnostic set in.
+/// Every variant reshapes *presentation
 /// only*; none re-judges the harness, so the exit-code verdict is identical.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum Reporter {
@@ -215,7 +211,7 @@ enum Reporter {
     /// A SARIF 2.1.0 log for code-scanning ingestion ([`reporter::sarif`]).
     Sarif,
     /// The `claude-session-start` payload ([`reporter::session_start`]) — the advisory
-    /// session-start reporter (`specs/distribution.md`). It reads the path as a
+    /// session-start reporter. It reads the path as a
     /// harness root and always exits zero, so a failing contract routes through the
     /// human via the notify-and-approve verdict rather than blocking the session.
     SessionStart,
@@ -229,8 +225,7 @@ fn main() -> miette::Result<ExitCode> {
             deny_advisories,
             reporter,
         } => {
-            // Session-start is a reporter, not a verb (`specs/distribution.md`,
-            // "Session start"): it reads the path as a *harness root* (surface-present or
+            // Session-start is a reporter, not a verb: it reads the path as a *harness root* (surface-present or
             // gated directly off disk), emits the payload, and is advisory — always exits
             // zero, so a failing contract routes through the human, never blocks the
             // session.
@@ -265,7 +260,7 @@ fn main() -> miette::Result<ExitCode> {
 
             // `--deny-advisories` promotes `advisory` (warn) violations to blocking on top
             // of the always-blocking `required` ones. The session-start reporter is
-            // advisory (`specs/distribution.md`, "Session start"), so it never gates.
+            // advisory, so it never gates.
             let advisory_blocks = deny_advisories
                 && diagnostics
                     .iter()
@@ -281,10 +276,9 @@ fn main() -> miette::Result<ExitCode> {
             )
         }
         Command::Schema { kind } => {
-            // The keystroke placement of the gate (`specs/distribution.md`):
+            // The keystroke placement of the gate:
             // emit the *active* contract per kind — the same floor ⊕ lock-declared
-            // clause overrides `check` gates against (`specs/model/pipeline.md`,
-            // "The lock") — as an editor JSON Schema.
+            // clause overrides `check` gates against — as an editor JSON Schema.
             let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE))?;
 
             // Keyed by each kind's bare row label.
@@ -318,7 +312,7 @@ fn main() -> miette::Result<ExitCode> {
             frozen,
             dry_run,
         } => {
-            // The seam (`specs/model/pipeline.md`, "Emit"):
+            // The seam:
             // `node` runs the SDK program at `<into>/harness.ts`, and the engine becomes the
             // sole compiler of every projection and the whole lock from its JSON payload — no
             // harness root is re-supplied here, the payload IS the source.
@@ -337,8 +331,8 @@ fn main() -> miette::Result<ExitCode> {
             // message — the next report, never the session); `warn` allows and surfaces
             // in-band (exit 0); `block` denies (exit 2). temper never escalates past the
             // mode the lock declares — the lock is what names a path a projection, so it
-            // is also the sole source for how firmly that projection is enforced
-            // (`specs/model/representation.md`, "The root member"). An unrepresented
+            // is also the sole source for how firmly that projection is enforced.
+            // An unrepresented
             // harness (no lock) reads the default `warn`, matching
             // `compose::EnforcementMode`'s own default.
             let mode = mode_from_lock(&path.join(TEMPER_DIR));
@@ -392,8 +386,7 @@ fn main() -> miette::Result<ExitCode> {
     }
 }
 
-/// Narrate `target` through the one read verb (`specs/model/pipeline.md`, "Read
-/// verbs"): assemble the same by-kind feature corpus, composed
+/// Narrate `target` through the one read verb: assemble the same by-kind feature corpus, composed
 /// requirement roster, declared edges, registrations, and directive/reachability inputs
 /// the gate's own predicates range over (READ-EDGE-UNIFY) — over the standard `.temper`
 /// workspace and the harness at the CWD, mirroring `check`'s own two-step corpus
@@ -404,8 +397,7 @@ fn explain(target: &str) -> miette::Result<String> {
     let harness_root = Path::new(".");
 
     // The assembly's own declared facts, read first: the corpus below walks each
-    // kind's governs locus off *this* (`specs/model/pipeline.md`, "The lock" —
-    // mirrors `gate`'s own read, READ-EDGE-UNIFY).
+    // kind's governs locus off *this*.
     let declarations = drift::read_declarations(&workspace)?;
 
     let skill_kind = builtin_kind::definition("skill")?
@@ -477,8 +469,7 @@ fn explain(target: &str) -> miette::Result<String> {
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
-    // producer yet (`specs/model/representation.md`, "A genre is a kind at the block
-    // locus"), so the set is empty.
+    // producer yet, so the set is empty.
     let citations: Vec<read::Citation> = Vec::new();
 
     Ok(read::explain(
@@ -496,8 +487,8 @@ fn explain(target: &str) -> miette::Result<String> {
     ))
 }
 
-/// Read the `guard`'s enforcement mode live off a harness's lock
-/// (`specs/model/representation.md`, "The root member"): the root member's `mode`
+/// Read the `guard`'s enforcement mode live off a harness's lock:
+/// the root member's `mode`
 /// fact in `<workspace_dir>/lock.toml`'s assembly declaration rows. An unrepresented
 /// harness (no lock, or one predating the field) reads
 /// [`compose::EnforcementMode::default`] — `warn` — matching the lock-less
@@ -518,8 +509,7 @@ fn mode_from_lock(workspace_dir: &Path) -> compose::EnforcementMode {
         .unwrap_or_default()
 }
 
-/// Ask `install`'s one question interactively (`specs/model/pipeline.md`,
-/// "Install"): read a line from stdin, `y`/`yes` (case-insensitive)
+/// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)
 /// answering [`install::Represent::Yes`], anything else (including a bare newline)
 /// answering [`install::Represent::No`] — the conservative default for an
 /// unattended terminal, mirroring the printed prompt's `[y/N]`.
@@ -534,15 +524,14 @@ fn ask_represent() -> miette::Result<install::Represent> {
     })
 }
 
-/// The session-start reporter's gate over a harness root (`specs/distribution.md`,
-/// "Session start" — session-start is a reporter of `check`): surface-present ⇒ gate the
+/// The session-start reporter's gate over a harness root: surface-present ⇒ gate the
 /// authored `.temper/` itself; surfaceless ⇒ gate the harness root directly — the
 /// discovery walk finds its members straight off disk, against the kind's embedded
 /// `governs` (the built-in lock).
 ///
 /// The surface-present branch never re-imports: a fresh import discards recognition (the
 /// authored `satisfies` links), so every filled requirement would read unfilled — the
-/// false positive on clean input the surface-present clause forbids (`specs/intent.md`).
+/// false positive on clean input the surface-present clause forbids.
 fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     let authored = harness_path.join(TEMPER_DIR);
     if authored.is_dir() {
@@ -554,12 +543,12 @@ fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::D
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts — the shared gate behind both `check` and the session-start
-/// reporter (`specs/model/contract.md`, both greens). `harness_root` is the
+/// reporter. `harness_root` is the
 /// directory a member's source path and a `verified_by` path resolve against (the
 /// CWD for a two-step `check`, the harness path for the one-shot gate).
 fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     // The assembly's own declared facts — requirements and edges — ride the lock's
-    // declaration rows (`specs/model/pipeline.md`, "The lock"): `emit` is the sole
+    // declaration rows: `emit` is the sole
     // producer, this is the gate's one read of it.
     // Never gated on a lock's presence — an unadopted harness's lock declares
     // nothing, so this tier is a no-op over it rather than skipped (never a
@@ -573,7 +562,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let assembly_edges = edges_from_declarations(&declarations);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
-    // label (`specs/model/representation.md`): each kind's members — resolved by
+    // label: each kind's members — resolved by
     // [`kind_features`] straight off harness disk, shared with `explain`
     // (READ-EDGE-UNIFY) so a read cannot disagree with the gate about which members
     // exist — are dispatched to its floor and validated, so a discovered `CLAUDE.md`
@@ -593,10 +582,9 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let mut rule_features: Vec<extract::Features> = Vec::new();
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
-        // Two greens (`specs/model/contract.md`): admissibility — the contract validated
+        // Two greens: admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
-        // The per-kind clause overrides source from the lock's declared `clauses`
-        // (`specs/model/pipeline.md`, "The lock").
+        // The per-kind clause overrides source from the lock's declared `clauses`.
         let contract = compose::effective(
             &declarations.clauses,
             &kind.name,
@@ -615,8 +603,8 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         }
     }
 
-    // Every lock-declared kind that is not one of the embedded built-ins
-    // (`specs/model/pipeline.md`, "The lock"): a
+    // Every lock-declared kind that is not one of the embedded built-ins:
+    // a
     // built-in's own row is only the governs-override `effective_governs` already
     // consumes, never a second kind definition. A custom kind carries no embedded
     // default — its whole floor is the committed lock's own clause rows naming it
@@ -637,14 +625,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         custom_kinds.push((custom_kind, features));
     }
 
-    // The directive backing-set file-set (`specs/model/contract.md`, the edge
-    // resolution set): every file under the harness root, over-collected so an extra
+    // The directive backing-set file-set: every file under the harness root, over-collected so an extra
     // file can only suppress a finding, never forge one. Computed once on the FLOOR
     // and read by the directive classing below.
     let repo_files = repo_file_set(harness_root);
 
-    // Directive-target classing on the FLOOR tier (`specs/model/representation.md`, "Directives";
-    // WEDGE-FACT-FLOOR): an unbacked `@import` is a **pure fact** about the importing member —
+    // Directive-target classing on the FLOOR tier: an unbacked `@import` is a **pure fact** about the importing member —
     // the silent-context-loss failure class made author-time — so it surfaces with zero
     // config. Over the built-in kinds' members (empty custom slice), the unbacked findings
     // extend as a **non-gating advisory**: the fact is stated, the run never fails on it
@@ -664,7 +650,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     );
 
     // The harness-contract tier: set-scope predicates over the parsed roster, each
-    // quantified over a requirement's satisfier set (`specs/model/contract.md`).
+    // quantified over a requirement's satisfier set.
     // Runs unconditionally — the lock is the sole source of assembly facts now, so an
     // unadopted harness's empty declarations make this tier a no-op rather than a
     // skip.
@@ -684,8 +670,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .cloned()
         .collect();
 
-    // The one requirement namespace (`specs/model/contract.md`, "Decision: a
-    // requirement's publisher is any authored surface document"): the assembly's
+    // The one requirement namespace: the assembly's
     // `[requirement.*]` unioned with every member's published `[requirement.*]`.
     // A name published by two surfaces is one obligation, not a shadow — the
     // collision is an admissibility finding and the first publisher keeps the slot,
@@ -695,51 +680,49 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     diagnostics.extend(collisions);
 
     // Each requirement's own definition is validated before the roster is
-    // trusted to judge the harness (`specs/model/contract.md`).
+    // trusted to judge the harness.
     diagnostics.extend(roster::admissibility(&requirements, &by_kind, harness_root));
 
     // The set-scope predicates: each requirement's `count` / `unique` /
-    // `membership` gate over its satisfier set (`specs/model/contract.md`).
+    // `membership` gate over its satisfier set.
     diagnostics.extend(roster::check(&requirements, &by_kind));
 
-    // The edge scope: build the reference graph over the declared edges (a
-    // reference is a kind capability, `specs/model/representation.md`) and check route
+    // The edge scope: build the reference graph over the declared edges and check route
     // resolution — a declared reference must resolve to a real artifact of the
-    // target kind (`specs/model/contract.md`). Admissibility before conformance:
+    // target kind. Admissibility before conformance:
     // an edge naming no reference field or targeting an unmodeled kind is
     // reported once and skipped by the route check.
     diagnostics.extend(graph::admissibility(&edges, &by_kind));
     diagnostics.extend(graph::check(&edges, &by_kind));
 
-    // `acyclic` (`specs/model/contract.md`): the resolved graph must contain no
+    // `acyclic`: the resolved graph must contain no
     // cycle — a circular import loads nothing, so every finding is a true
     // positive. Always-on over the whole edge set, like route resolution above.
     diagnostics.extend(graph::acyclic(&edges, &by_kind));
 
-    // `degree` (`specs/model/contract.md`): a requirement declares an in/out
+    // `degree`: a requirement declares an in/out
     // edge-count bound every satisfier's degree must fall inside, so it takes
     // the requirements *and* the edges, reusing the arc resolution
     // `acyclic`/`check` assemble. Opt-in per requirement.
     diagnostics.extend(graph::degree(&assembly_requirements, &edges, &by_kind));
 
-    // The requirement-coverage tier (`specs/model/contract.md`): every `required`
+    // The requirement-coverage tier: every `required`
     // requirement must have a resolving home (≥1 artifact opting in via
     // `satisfies`) and every authored `satisfies` must resolve to a declared
     // requirement. Kind-blind: it ranges over every opt-in-capable artifact —
     // built-in kinds *and* each custom kind's members — so temper's own `spec`
-    // corpus can opt in exactly as a skill does (`specs/model/representation.md`). The
+    // corpus can opt in exactly as a skill does. The
     // requirement set is the *unioned* namespace, so a member-published obligation
     // is gated here exactly as an assembly-published one.
     diagnostics.extend(coverage::check(&requirements, &all_features));
 
-    // The install self-verify (`specs/distribution.md`): temper checking its
+    // The install self-verify: temper checking its
     // *own* gate is wired. Advisory (warn) only — a not-yet-installed gate nudges
     // without failing the run, and the session-start reporter ignores warn
     // severity.
     diagnostics.extend(install::gate_installed(harness_root));
 
-    // The wedge's advisory coverage note (`specs/distribution.md`,
-    // "Fail-loud delivery — the invariant"): state which built-in kinds checked how
+    // The wedge's advisory coverage note: state which built-in kinds checked how
     // many members, and name the known Claude Code surfaces present on disk that no
     // kind governs, so the gate's silence about an unmodeled surface never reads as
     // "checked". Warn-only over the embedded built-in kind set — it leaves the run's
@@ -750,8 +733,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         &member_counts,
     ));
 
-    // The fail-loud coherence tripwire (`specs/distribution.md`, "Fail-loud
-    // delivery — the invariant"): the harness was adopted (its own `.temper/lock.toml`
+    // The fail-loud coherence tripwire: the harness was adopted (its own `.temper/lock.toml`
     // declares requirements) but the gate resolved none of them and the workspace it
     // was actually pointed at carries no declaration rows either — the harness-root
     // `temper check .` case the wave-end confirmation caught (checked 0 members, exit
@@ -774,7 +756,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         declarations_empty,
     ));
 
-    // The freshness fact (`specs/model/pipeline.md`, "Drift"): a committed projection
+    // The freshness fact: a committed projection
     // whose bytes no longer match the lock's emit fingerprint is `config.stale`. Read
     // off the surface `workspace`'s lock (where the members were imported and the
     // fingerprints recorded), advisory so a hand-edited or un-re-emitted projection is
@@ -784,11 +766,10 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     Ok(diagnostics)
 }
 
-/// This kind's effective `governs` locus (`specs/model/pipeline.md`, "The lock"): the
+/// This kind's effective `governs` locus: the
 /// committed lock's own kind-fact row when the lock
 /// declares one for it — matched by bare name, the kind's whole identity
-/// (`specs/model/representation.md`, "Decision: built-ins are a module, and identity
-/// is an import") — or the kind's own embedded `governs` when it doesn't: the
+/// — or the kind's own embedded `governs` when it doesn't: the
 /// **built-in lock**, the same declaration shape the engine carries compiled-in for an
 /// unadopted harness.
 fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> kind::Governs {
@@ -807,9 +788,8 @@ fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> k
 /// requirements, when one exists at this member's surface location
 /// (`<workspace>/<kind's surface subdir>/<id>/<member document>`) — the one home a
 /// document/module-carried member's fill edges are ever authored at, never mined from
-/// the raw harness file (`specs/model/representation.md`, "member").
-/// `None` when the member has never been projected (arrives unrecognized,
-/// `specs/model/pipeline.md`, "Install").
+/// the raw harness file.
+/// `None` when the member has never been projected.
 ///
 /// # Errors
 ///
@@ -828,7 +808,7 @@ fn surface_overlay(
 }
 
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
-/// range over (READ-EDGE-UNIFY, `specs/model/pipeline.md`, "The lock"). Every
+/// range over. Every
 /// member is discovered by walking this kind's [`effective_governs`]
 /// locus, read straight off harness disk so the corpus can never drift from a stale
 /// copy; its own `satisfies`/published requirements — authored only on its projected
@@ -898,8 +878,7 @@ fn kind_features(
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the
-/// `paths-match` reachability input (`specs/model/contract.md`, the edge
-/// resolution set).
+/// `paths-match` reachability input.
 /// A superset is sound (a glob matching an extra file only suppresses a finding); a
 /// *missing* file is not (it could forge a dead-edge false positive), so nothing is
 /// excluded and an unreadable entry is skipped rather than aborting the gate. Paths
@@ -940,8 +919,8 @@ fn assemble_by_kind<'a>(
     by_kind
 }
 
-/// Pair each member with the provenance `source_path` the directive classing joins on
-/// (`specs/model/representation.md`, "Directives"): the decidable [`Features`](extract::Features)
+/// Pair each member with the provenance `source_path` the directive classing joins on:
+/// the decidable [`Features`](extract::Features)
 /// view drops the full path, so it is read off the units the features were extracted
 /// from. Every member is carried — a directive may point at a member that imports
 /// nothing — with its `directives` occurrences (empty for a kind composing no
@@ -998,9 +977,8 @@ fn collect_directive_members(
 }
 
 /// Union the assembly's published `[requirement.*]` roster with every member's
-/// published `[requirement.*]` into the single requirement namespace the gate judges
-/// (`specs/model/contract.md`, "Decision: a requirement's publisher is any authored
-/// surface document"). `satisfies` fills whichever surface published the demand, so
+/// published `[requirement.*]` into the single requirement namespace the gate judges.
+/// `satisfies` fills whichever surface published the demand, so
 /// one namespace is the whole point.
 ///
 /// A name published by two surfaces — assembly ⊕ member, or two members — is **one
@@ -1030,7 +1008,7 @@ fn union_published_requirements(
                         "requirement `{}` is published by more than one surface (member `{}` re-declares a name already published); a requirement lives in one namespace and is never shadowed — rename or drop one publisher",
                         published.name, features.id
                     ),
-                ));
+ ));
             } else {
                 requirements.insert(published.name.clone(), to_requirement(published));
             }
@@ -1042,8 +1020,7 @@ fn union_published_requirements(
 /// Lift a member-published [`document::PublishedRequirement`] into the shared
 /// [`compose::Requirement`] the roster and coverage passes range over — the four
 /// published facets carried across; a published requirement carries no set-scope
-/// `clauses` (`specs/model/contract.md`, "role and requirement are one
-/// concept" — a member header publishes only `means`/`kind`/`required`). The demand
+/// `clauses`. The demand
 /// is the same concept whichever surface authored it, so it joins one type.
 fn to_requirement(published: &document::PublishedRequirement) -> compose::Requirement {
     compose::Requirement {
@@ -1057,9 +1034,9 @@ fn to_requirement(published: &document::PublishedRequirement) -> compose::Requir
 }
 
 /// Lift the lock's [`drift::RequirementRow`] — the whole requirement shape `import`
-/// wrote (`specs/model/pipeline.md`, "The lock") — into the [`compose::Requirement`]
+/// wrote — into the [`compose::Requirement`]
 /// the roster/coverage/graph tiers already take, the mirror of `import`'s own
-/// `requirement_row`. The row carries no `means` (`import` never emits it — `specs/intent.md`
+/// `requirement_row`. The row carries no `means` (`import` never emits it
 /// — "`temper` never interprets `means`" — no gate reads it), so it defaults here too.
 fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
     compose::Requirement {
@@ -1141,8 +1118,7 @@ mod tests {
 
     /// The directive-backing set reads **raw disk**, never ignore-filtered: whether an
     /// `@import` target is backed is a fact about the filesystem the harness loads
-    /// regardless of `.gitignore`, and the safe direction (`specs/model/contract.md`,
-    /// the edge resolution set) fixes it — an extra backing file only *suppresses* a
+    /// regardless of `.gitignore`, and the safe direction fixes it — an extra backing file only *suppresses* a
     /// finding, while pruning one could *forge* an unbacked finding on a target that
     /// exists. This is the counterpart to discovery, which *does* prune — two sets,
     /// two rules, never merged.

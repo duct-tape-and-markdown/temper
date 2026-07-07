@@ -1,13 +1,11 @@
 //! Roster checks — the set-scope predicates and admissibility pass over a parsed
-//! harness contract's named requirements (`specs/model/contract.md`;
-//! `specs/model/contract.md`, the node-set scope).
+//! harness contract's named requirements.
 //!
 //! Two decidable passes read the same parsed requirements: [`check`] gates the
 //! author-declared `count`/`unique`/`membership` predicates, plus the each-grain
 //! `kind` clause a typed requirement's `kind` facet sources, over each requirement's
 //! **satisfier set** — every modeled kind's artifacts opting in via `satisfies`,
-//! kind-blind (`specs/model/contract.md`, "selection": narrowing a selection is an
-//! each-grain clause over it, never a second selector); and [`admissibility`] checks
+//! kind-blind; and [`admissibility`] checks
 //! each requirement's own definition before the roster is trusted to judge a harness.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,24 +18,20 @@ use crate::contract::{Clause, Predicate};
 use crate::engine;
 use crate::extract::{FeatureValue, Features};
 
-/// The diagnostic `rule` id every set-scope `count` finding reports under
-/// (`specs/model/contract.md`, the node-set scope).
+/// The diagnostic `rule` id every set-scope `count` finding reports under.
 const REQUIREMENT_COUNT_RULE: &str = "requirement.count";
 
-/// The diagnostic `rule` id every roster-admissibility finding reports under
-/// (`specs/model/contract.md`, admissibility).
+/// The diagnostic `rule` id every roster-admissibility finding reports under.
 const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
 
-/// The diagnostic `rule` id every set-scope `unique` finding reports under
-/// (`specs/model/contract.md`, the node-set scope).
+/// The diagnostic `rule` id every set-scope `unique` finding reports under.
 const REQUIREMENT_UNIQUE_RULE: &str = "requirement.unique";
 
-/// The diagnostic `rule` id every set-scope `membership` finding reports under
-/// (`specs/model/contract.md`, the node-set scope).
+/// The diagnostic `rule` id every set-scope `membership` finding reports under.
 const REQUIREMENT_MEMBERSHIP_RULE: &str = "requirement.membership";
 
 /// The diagnostic `rule` id every each-grain `kind` finding reports under — a
-/// wrong-kind opt-in satisfier (`specs/model/contract.md`, "selection").
+/// wrong-kind opt-in satisfier.
 const REQUIREMENT_KIND_RULE: &str = "requirement.kind";
 
 /// Whether an artifact opts into the requirement named `requirement` — its
@@ -51,8 +45,7 @@ pub(crate) fn is_satisfier(requirement: &str, features: &Features) -> bool {
 
 /// Every candidate artifact any requirement may range over, before the opt-in
 /// filter: every modeled kind's workspace [`Features`], each tagged with its own
-/// kind label — kind-blind (`specs/model/contract.md`, "selection": a selector is
-/// atomic and does not narrow). `pub(crate)` so [`crate::graph::degree`] draws the
+/// kind label — kind-blind. `pub(crate)` so [`crate::graph::degree`] draws the
 /// identical kind-blind candidate stream, never a second flattening that could
 /// disagree.
 pub(crate) fn candidates<'a>(
@@ -65,9 +58,8 @@ pub(crate) fn candidates<'a>(
 }
 
 /// The requirement's **satisfier set** — every modeled kind's candidates that opt in
-/// via `satisfies`, each still tagged with its own kind label
-/// (`specs/model/contract.md`, the node-set scope; `specs/model/contract.md`,
-/// "selection"). The opt-in join is the *only* filter now: a requirement's `kind`
+/// via `satisfies`, each still tagged with its own kind label.
+/// The opt-in join is the *only* filter now: a requirement's `kind`
 /// facet no longer narrows this set (that would be a second selector) — instead it
 /// sources an each-grain clause [`check`] evaluates over exactly this kind-blind set,
 /// so a wrong-kind opt-in is a finding here, never excluded before it can be seen.
@@ -89,12 +81,11 @@ fn kind_label(requirement: &Requirement) -> &str {
 
 /// Run the set-scope predicates over the parsed roster, returning a [`Diagnostic`] —
 /// at the violating clause's own declared severity — per satisfier set that violates
-/// a `count` / `unique` / `membership` clause (`specs/model/contract.md`,
-/// set-scope demands are clauses), plus the each-grain `kind` narrowing
+/// a `count` / `unique` / `membership` clause, plus the each-grain `kind` narrowing
 /// [`requirement.kind`](Requirement::kind) sources.
 ///
 /// Every predicate quantifies over the requirement's **satisfier set** — every
-/// modeled kind's opt-in artifacts (`specs/model/contract.md`, "selection"), kind-blind.
+/// modeled kind's opt-in artifacts, kind-blind.
 /// A typed requirement's `kind` no longer narrows that set; instead this pass
 /// synthesizes the shipped each-grain "every satisfier is kind K" clause
 /// ([`builtin::kind_narrowing_clause`]) and evaluates it over the same kind-blind
@@ -127,7 +118,7 @@ pub fn check(
         for clause in &requirement.clauses {
             match &clause.predicate {
                 // `count` fires whenever declared — orthogonal to `required` (which
-                // coverage gates as ≥1). specs/model/contract.md
+                // coverage gates as ≥1).
                 Predicate::Count { min, max } => {
                     if !(*min..=*max).contains(&satisfier_features.len()) {
                         diagnostics.push(out_of_band(
@@ -164,8 +155,8 @@ pub fn check(
     diagnostics
 }
 
-/// Validate the harness roster against **the definition** — admissibility
-/// (`specs/model/contract.md`, admissibility). Each requirement's own
+/// Validate the harness roster against **the definition** — admissibility.
+/// Each requirement's own
 /// definition must pass a check *before* the roster is used to judge anything;
 /// every finding is [`Diagnostic::error`] (an inadmissible requirement cannot be
 /// trusted) and names the requirement it indicts.
@@ -177,8 +168,7 @@ pub fn check(
 ///   for any satisfier — an unfillable selector, regardless of `required` (fillability
 ///   itself is kind-blind now: any opt-in artifact, of any modeled kind, satisfies
 ///   coverage; naming an unmodeled kind only ever breaks the *narrowing* clause).
-/// - **(b)** any `verified_by` path exists relative to `base_dir` (a dangling verifier
-///   is the silent no-op `specs/intent.md` forbids).
+/// - **(b)** any `verified_by` path exists relative to `base_dir`.
 /// - **(c)** every clause in [`clauses`](Requirement::clauses) is itself well-formed —
 ///   reusing [`crate::engine::inadmissibilities`], the same vacuous-clause rules a
 ///   kind's own floor clauses are checked against (an inverted `count`/`degree` bound,
@@ -203,12 +193,12 @@ pub fn admissibility(
             && !by_kind.contains_key(kind.as_str())
         {
             diagnostics.push(Diagnostic::error(
-                REQUIREMENT_ADMISSIBILITY_RULE,
-                name,
-                format!(
+ REQUIREMENT_ADMISSIBILITY_RULE,
+ name,
+ format!(
                     "requirement `{name}` narrows its satisfiers to kind `{kind}`, which `temper` does not model — that each-grain clause can never be filled"
-                ),
-            ));
+ ),
+ ));
         }
 
         // (b) A `verified_by` path must exist — a dangling verifier is a silent no-op.
@@ -216,12 +206,12 @@ pub fn admissibility(
             && !base_dir.join(verifier).exists()
         {
             diagnostics.push(Diagnostic::error(
-                REQUIREMENT_ADMISSIBILITY_RULE,
-                name,
-                format!(
+ REQUIREMENT_ADMISSIBILITY_RULE,
+ name,
+ format!(
                     "requirement `{name}` names verifier `{verifier}`, which does not resolve to a path under the project — a dangling verifier is a silent no-op"
-                ),
-            ));
+ ),
+ ));
         }
 
         // (c) Every clause's own predicate must be well-formed.
@@ -240,8 +230,7 @@ pub fn admissibility(
 
 /// The finding for a requirement whose satisfier-set cardinality falls outside a
 /// declared `count` clause's bound — naming the requirement, the count, the kind, the
-/// satisfiers, and the `[min, max]` bound it missed, at the clause's own severity
-/// (`specs/model/contract.md`).
+/// satisfiers, and the `[min, max]` bound it missed, at the clause's own severity.
 fn out_of_band(
     requirement: &Requirement,
     clause: &Clause,
@@ -262,22 +251,22 @@ fn out_of_band(
         )
     };
     Diagnostic::new(
-        engine::severity_of(clause.severity),
+ engine::severity_of(clause.severity),
         REQUIREMENT_COUNT_RULE,
-        &requirement.name,
-        format!(
+ &requirement.name,
+ format!(
             "requirement `{}` is satisfied by {} `{}` artifact(s){listed}, outside its declared count bound [{min}, {max}]",
             requirement.name,
             satisfiers.len(),
             kind_label(requirement),
-        ),
-    )
-    .with_guidance(clause.guidance.clone())
+ ),
+ )
+.with_guidance(clause.guidance.clone())
 }
 
 /// The each-grain `kind` findings for a requirement's satisfier set — one per
-/// satisfier whose actual kind does not match the declared `kind`
-/// (`specs/model/contract.md`, "selection"): a wrong-kind opt-in is a finding, never
+/// satisfier whose actual kind does not match the declared `kind`:
+/// a wrong-kind opt-in is a finding, never
 /// a silent exclusion from the set `count`/`unique`/`membership` range over.
 /// `satisfiers` carries each satisfier's own kind label alongside its `Features`
 /// (`candidates`), the kind-blind stream the narrowing clause judges.
@@ -292,22 +281,22 @@ fn wrong_kind(
         .filter_map(|(actual_kind, features)| {
             engine::kind_violation(kind, actual_kind).map(|message| {
                 Diagnostic::new(
-                    engine::severity_of(clause.severity),
+ engine::severity_of(clause.severity),
                     REQUIREMENT_KIND_RULE,
-                    &requirement.name,
-                    format!(
+ &requirement.name,
+ format!(
                         "requirement `{}` narrows its satisfiers to kind `{kind}`, but satisfier `{}` {message}",
                         requirement.name, features.id
-                    ),
-                )
-                .with_guidance(clause.guidance.clone())
+ ),
+ )
+.with_guidance(clause.guidance.clone())
             })
         })
         .collect()
 }
 
 /// The set-scope `unique` findings for one declared `field` over a requirement's
-/// satisfier set (`specs/model/contract.md`): group the satisfiers by the
+/// satisfier set: group the satisfiers by the
 /// field's extracted scalar value and emit one finding per value two or more
 /// satisfiers share, at the clause's own declared severity. A satisfier missing the
 /// field carries no value to collide on, so it is silently skipped — a missing field
@@ -345,21 +334,21 @@ fn duplicate(
     satisfiers: &[&str],
 ) -> Diagnostic {
     Diagnostic::new(
-        engine::severity_of(clause.severity),
+ engine::severity_of(clause.severity),
         REQUIREMENT_UNIQUE_RULE,
-        &requirement.name,
-        format!(
+ &requirement.name,
+ format!(
             "requirement `{}` requires `{field}` unique across its satisfier set, but {} satisfiers share `{field}` = `{value}` ({})",
             requirement.name,
             satisfiers.len(),
             satisfiers.join(", ")
-        ),
-    )
-    .with_guidance(clause.guidance.clone())
+ ),
+ )
+.with_guidance(clause.guidance.clone())
 }
 
-/// The set-scope `membership` findings for one requirement over its satisfier set
-/// (`specs/model/contract.md`): build the allowed set from `field` extracted
+/// The set-scope `membership` findings for one requirement over its satisfier set:
+/// build the allowed set from `field` extracted
 /// over the `target` requirement's own satisfier set (S₂) — shaping S₂ is `target`'s
 /// own job, never re-derived here — then emit one finding per S₁ satisfier whose
 /// declared `field` scalar is absent from it, at the clause's own severity. A
@@ -383,7 +372,7 @@ fn out_of_set(
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
     // S₂ is the named target requirement's own satisfier set — an opt-in satisfier
-    // set, not a name glob (`specs/model/contract.md`, the satisfier set).
+    // set, not a name glob.
     // An undeclared `target` has no satisfier set at all.
     let source_satisfiers = requirements
         .get(target)
@@ -428,15 +417,15 @@ fn not_member(
     value: &str,
 ) -> Diagnostic {
     Diagnostic::new(
-        engine::severity_of(clause.severity),
+ engine::severity_of(clause.severity),
         REQUIREMENT_MEMBERSHIP_RULE,
-        &requirement.name,
-        format!(
+ &requirement.name,
+ format!(
             "requirement `{}` requires `{field}` of each satisfier drawn from the `{field}` feature of artifacts satisfying `{target}`, but satisfier `{satisfier}` declares `{field}` = `{value}`, which is not in that set",
             requirement.name,
-        ),
-    )
-    .with_guidance(clause.guidance.clone())
+ ),
+ )
+.with_guidance(clause.guidance.clone())
 }
 
 #[cfg(test)]

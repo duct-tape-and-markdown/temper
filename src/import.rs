@@ -1,10 +1,10 @@
 //! Harness discovery and the `lock.toml` roll-up writer.
 //!
 //! The discovery walk (`discover_kind_units`/`discover_builtin`) is the sole member
-//! extractor the gate and `emit`'s lock-writer ([`write_rollup`]) both ride
-//! (`specs/model/pipeline.md`, "The lock"). The `init`/`lift` on-ramp verbs that once wrote
+//! extractor the gate and `emit`'s lock-writer ([`write_rollup`]) both ride.
+//! The `init`/`lift` on-ramp verbs that once wrote
 //! an in-place `[[member]]` table over members in place retired with the `[[member]]`
-//! codec (`CODEC-RETIRE`) — `install` (`specs/model/pipeline.md`, "Install") is the
+//! codec (`CODEC-RETIRE`) — `install` is the
 //! on-ramp going forward; a trunk gap between the two is an
 //! accepted clean-slate cost (John, 2026-07-06).
 //!
@@ -53,8 +53,8 @@ pub enum ImportError {
 }
 
 /// One row of the `lock.toml` roll-up index: an artifact's identity, its source
-/// provenance, and its two freshness facts — disk-vs-lock drift's whole comparison
-/// (`specs/model/pipeline.md`, "Drift"). Shared by every kind —
+/// provenance, and its two freshness facts — disk-vs-lock drift's whole comparison.
+/// Shared by every kind —
 /// a `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
 /// five columns.
 ///
@@ -67,8 +67,7 @@ pub(crate) struct RollupEntry {
     /// Path to the original source file, as given relative to the harness arg.
     pub(crate) source_path: String,
     /// SHA-256 of the authored source bytes — the **source freshness fact**, the
-    /// anchor source-drift detection compares against (`specs/model/pipeline.md`,
-    /// "Drift").
+    /// anchor source-drift detection compares against.
     pub(crate) source_hash: String,
     /// SHA-256 of the last emitted projection — the **emit freshness fact**, the
     /// baseline `config.stale` and projection freshness compare a committed output
@@ -78,7 +77,7 @@ pub(crate) struct RollupEntry {
     pub(crate) emit_hash: String,
     /// Whether this member's `file()` source resolves to this very row's
     /// `source_path` — a lifted member, authored territory `install`'s guard/note
-    /// placements skip (`specs/distribution.md`, "Per tool call"). `false` for a
+    /// placements skip. `false` for a
     /// member with no `file()` prose (`text`/
     /// `blocks`, or none) — the safe default, since only a `file()` source can
     /// ever coincide with its own projection.
@@ -101,8 +100,7 @@ pub(crate) struct RollupEntry {
 /// locus the `governs` scan covers, so it is layered on for the `skill` kind only.
 ///
 /// `pub(crate)` so drift re-scans the harness, and install's modeline placement
-/// targets the same set, through the identical discovery `import` used
-/// (`specs/model/pipeline.md`, "Install").
+/// targets the same set, through the identical discovery `import` used.
 pub(crate) fn discover_builtin(
     harness: &Path,
     kind: &CustomKind,
@@ -115,7 +113,7 @@ pub(crate) fn discover_builtin(
 /// bare-root special case (a `<harness>/SKILL.md`, a harness that is itself a skill).
 /// Decoupled from the kind's own [`CustomKind::governs`] so a caller can walk a
 /// *different* declared locus for the same kind — the committed lock's own kind-fact
-/// row (`specs/model/pipeline.md`, "The lock") on an adopted
+/// row on an adopted
 /// harness, the kind's embedded default otherwise (the built-in lock) — while the
 /// bare-root-skill convention still applies wherever `skill`'s locus is walked from.
 /// [`discover_builtin`] is the thin caller that always walks the kind's own governs.
@@ -150,11 +148,11 @@ pub fn discover_kind_files(
 /// `skill`/`rule` loci alike. Non-matching entries are skipped, and a missing root
 /// yields an empty list (a declared kind whose corpus does not exist on this
 /// harness). Data-driven discovery — the locus is the kind's own `governs`
-/// declaration (`specs/model/representation.md`, "kind"), never a hardwired path.
+/// declaration, never a hardwired path.
 ///
 /// `pub(crate)` so the drift engine re-runs the same `governs`-keyed scan against a
 /// live harness — every kind's members classify through the identical discovery
-/// `import` used (`specs/model/pipeline.md`, "Install").
+/// `import` used.
 pub(crate) fn discover_kind_units(
     harness: &Path,
     governs: &Governs,
@@ -166,8 +164,7 @@ pub(crate) fn discover_kind_units(
     let segments: Vec<&str> = governs.glob.split('/').collect();
     // A member is authored content; an ignored file is by declaration not authored
     // here, so discovery sees only what the repo's ignore rules leave in — else a
-    // `**` glob would import a vendored dep's memory file (`specs/model/pipeline.md`,
-    // "Install": discovery respects ignore rules). Resolved off the harness (repo) root so a
+    // `**` glob would import a vendored dep's memory file. Resolved off the harness (repo) root so a
     // root `.gitignore` governs every kind's walk, whatever its `governs.root` depth.
     let discoverable = discoverable_paths(harness);
     let mut files = Vec::new();
@@ -183,8 +180,8 @@ pub(crate) fn discover_kind_units(
 /// matching **files** are collected, otherwise matching **subdirectories** are
 /// descended. A `**` head is the any-depth wildcard — it matches zero or more
 /// directory levels, so a nested nearest-wins hierarchy (the agents.md / `CLAUDE.md`
-/// memory nesting) is discovered at every level, not just the fixed glob depth
-/// (`specs/model/representation.md`, "nesting"). A missing or non-directory `dir`
+/// memory nesting) is discovered at every level, not just the fixed glob depth.
+/// A missing or non-directory `dir`
 /// contributes nothing — a subdir glob whose intermediate level is absent, or a locus
 /// that does not exist on this harness, both resolve to no units rather than an error.
 ///
@@ -245,8 +242,8 @@ fn collect_glob(
 }
 
 /// The set of paths under `harness` that discovery may see — every file and directory
-/// the repo's ignore rules leave in, with `.git/` always excluded
-/// (`specs/model/pipeline.md`, "Install": discovery respects ignore rules). Built with
+/// the repo's ignore rules leave in, with `.git/` always excluded.
+/// Built with
 /// ripgrep's `ignore` engine so nested `.gitignore` files, negation, and precedence are
 /// honored rather than hand-rolled. Only git's own declaration counts: the machine-global
 /// and ripgrep-specific (`.ignore`) sources are off, and parent directories above the
@@ -305,15 +302,15 @@ fn read_entries(dir: &Path) -> Result<Vec<fs::DirEntry>, ImportError> {
 /// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per emitted member —
 /// the built-in kinds first (key-sorted) then the custom kinds (name-sorted) — each with
 /// `name`, `source_path`, `source_hash`, and the `emit_hash` fingerprint. Both maps are
-/// key-sorted, so the emitted order is deterministic. `drift::emit` is the sole caller
-/// (`specs/model/pipeline.md`, "The lock"): a kind with no emitted
+/// key-sorted, so the emitted order is deterministic. `drift::emit` is the sole caller:
+/// a kind with no emitted
 /// member simply has no entry, matching the toml round-trip reality — an empty
 /// `ArrayOfTables` emits nothing, so a written-then-vanished section would break
 /// idempotence against a re-parse that never sees it.
 ///
 /// After the per-member sections come the program's **declaration rows** — kind facts,
-/// clauses, requirements, assembly facts under an implicit `[declaration]` table
-/// (`specs/model/pipeline.md`, "The lock"); the drift/gate side reads them
+/// clauses, requirements, assembly facts under an implicit `[declaration]` table;
+/// the drift/gate side reads them
 /// through [`crate::drift::read_declarations`].
 pub(crate) fn write_rollup(
     into: &Path,

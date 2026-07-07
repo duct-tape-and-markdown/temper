@@ -1,6 +1,6 @@
 /**
- * Declaration rows — the composed program's erased declarations
- * (`specs/model/pipeline.md`, "Emit"; "The lock"). Every type erases at the seam: kinds, clauses, requirements, and
+ * Declaration rows — the composed program's erased declarations.
+ * Every type erases at the seam: kinds, clauses, requirements, and
  * assembly facts compile to plain rows the engine reads. The **row shape** matches
  * the Rust lock's `[declaration]` families (`src/drift.rs` `Declarations`) — the
  * byte-parity lockstep two writers keep until single-writer lands
@@ -30,16 +30,16 @@ export interface KindFactRow {
  * set-/edge-scope demands — the same row shape either way (`src/drift.rs`
  * `ClauseRow`). `kind` is absent when this row is nested inside a
  * `RequirementRow`'s own `clauses`: a requirement's demand names no kind of its
- * own (`specs/model/contract.md`, "requirement").
+ * own.
  */
 export interface ClauseRow {
   readonly kind?: string;
   readonly predicate: string;
   readonly field?: string;
   readonly severity: string;
-  /** The just-in-time teaching channel the predicate cannot encode (`specs/model/contract.md`, "clause"). */
+ /** The just-in-time teaching channel the predicate cannot encode. */
   readonly guidance?: string;
-  /** The external-fact source backing the clause — a doc URL plus retrieved date (`specs/model/contract.md`, "clause"). */
+ /** The external-fact source backing the clause — a doc URL plus retrieved date. */
   readonly cite?: string;
   /** The `count` predicate's satisfier-set-size bound. */
   readonly count?: { readonly min: number; readonly max: number };
@@ -62,8 +62,7 @@ export interface ClauseRow {
 
 /**
  * One named requirement's declaration row — the scalar facets plus its own
- * `count`/`unique`/`membership`/`degree` clause rows (`specs/model/contract.md`,
- * "requirement"): the requirement's `clauses` array
+ * `count`/`unique`/`membership`/`degree` clause rows: the requirement's `clauses` array
  * is the whole of its set-/edge-scope demand, no facet columns beside it.
  */
 export interface RequirementRow {
@@ -77,10 +76,9 @@ export interface RequirementRow {
 /**
  * Compile one `Clause` into its lock row: the shared `key`/`field`/`severity`/
  * `guidance`/`cite` columns — the clause's four channels surviving erasure
- * (`specs/model/contract.md`, "clause") — plus, when the
+ * — plus, when the
  * predicate carries them, the `count`/`target`/`degree` argument columns a
- * requirement's own set-/edge-scope demand needs (`specs/model/contract.md`,
- * "clause"), and the
+ * requirement's own set-/edge-scope demand needs, and the
  * `bound`/`charset`/`keys`/`values` argument columns a kind's own node-scope
  * floor clause needs (`min_len`/`max_len`/`max_lines`'s bound,
  * `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values) — so
@@ -107,7 +105,7 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
         ? {
             incoming: edgeBoundArgs(predicate.args, "incoming"),
             outgoing: edgeBoundArgs(predicate.args, "outgoing"),
-          }
+ }
         : undefined,
     bound: nodeScopeBoundArgs(predicate),
     charset: predicate.key === "allowed_chars" ? predicate.charset : undefined,
@@ -122,7 +120,7 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
 function nodeScopeBoundArgs(predicate: Predicate): { readonly min?: number; readonly max?: number } | undefined {
   if (predicate.key !== "min_len" && predicate.key !== "max_len" && predicate.key !== "max_lines") {
     return undefined;
-  }
+ }
   const min = predicate.args?.min;
   const max = predicate.args?.max;
   return min === undefined && max === undefined ? undefined : { min, max };
@@ -176,13 +174,12 @@ function registrationLabel(registration: Registration): string {
       return `event(${registration.field})`;
     case "connection":
       return "connection";
-  }
+ }
 }
 
 /**
  * A host kind's declared nesting templates — the genre kinds among `allKinds`
- * whose `withinHosts` names it, name-sorted (`specs/model/pipeline.md`, "The
- * lock"). `undefined` when the host nests nothing, so the row omits the column
+ * whose `withinHosts` names it, name-sorted. `undefined` when the host nests nothing, so the row omits the column
  * rather than carrying an empty array.
  */
 function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonly string[] | undefined {
@@ -200,10 +197,9 @@ function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonl
 function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFactRow {
   if (facts.locus.kind !== "at") {
     // A genre inherits its world residue through its host; it carries no `at`
-    // locus, so it takes no kind-fact row (`specs/model/representation.md`,
-    // "nesting"). Callers filter these out before this point.
+ // locus, so it takes no kind-fact row. Callers filter these out before this point.
     throw new Error(`kind \`${facts.name}\` is a genre — it carries no locus-bearing kind fact.`);
-  }
+ }
   return {
     name: facts.name,
     provider: facts.provider,
@@ -238,21 +234,20 @@ function requirementRows(harness: Harness): RequirementRow[] {
     const existing = merged.get(name);
     if (existing !== undefined && existing !== requirement) {
       // One namespace, one fill mechanism; a cross-publisher name collision is an
-      // admissibility finding, never a shadowing rule (`specs/model/contract.md`,
-      // "well-formedness").
+ // admissibility finding, never a shadowing rule.
       throw new Error(
         `requirement \`${name}\` is published twice (${source} collides with an earlier ` +
           `publisher) — a name collision across publishers is an admissibility finding.`,
-      );
-    }
+ );
+ }
     merged.set(name, requirement);
   };
   for (const [name, requirement] of Object.entries(harness.require)) publish(name, requirement, "the assembly");
   for (const member of harness.members) {
     for (const [name, requirement] of Object.entries(member.requires)) {
       publish(name, requirement, `member \`${member.name}\``);
-    }
-  }
+ }
+ }
   return [...merged.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([name, requirement]) => ({
@@ -266,7 +261,7 @@ function requirementRows(harness: Harness): RequirementRow[] {
 
 /**
  * The assembly-scope facts, in a stable order: the root member's declared
- * `mode` (always present — `specs/model/representation.md`, "The root
+ * `mode` (always present"The root
  * member": harness-wide declarations are root-member fields), then one edge
  * row per kind edge field.
  */
@@ -275,8 +270,8 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
   for (const kind of kinds) {
     for (const edge of kind.edgeFields ?? []) {
       facts.push({ fact: "edge", from: kind.name, field: edge.field, to: edge.to });
-    }
-  }
+ }
+ }
   return facts;
 }
 
@@ -286,13 +281,13 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
   for (const member of harness.members) {
     for (const requirement of member.satisfies) {
       rows.push({ member: member.name, requirement });
-    }
-  }
+ }
+ }
   return rows.sort(
     (a, b) =>
       (a.member < b.member ? -1 : a.member > b.member ? 1 : 0) ||
       (a.requirement < b.requirement ? -1 : a.requirement > b.requirement ? 1 : 0),
-  );
+ );
 }
 
 /** Compile a harness into its five declaration families — the erased program. */
@@ -303,8 +298,8 @@ export function compileDeclarations(harness: Harness): Declarations {
   for (const binding of [...harness.expect].sort((a, b) => (a.kind.key < b.kind.key ? -1 : a.kind.key > b.kind.key ? 1 : 0))) {
     for (const clause of binding.clauses) {
       clauses.push(clauseRow(clause, binding.kind.key));
-    }
-  }
+ }
+ }
   return {
     kinds: kinds.map((facts) => kindFactRow(facts, allKinds)),
     clauses,
@@ -318,10 +313,10 @@ export function compileDeclarations(harness: Harness): Declarations {
 export const SEAM_VERSION = 2;
 
 /**
- * Serialize the declaration rows to the internal versioned JSON pipe
- * (`specs/model/pipeline.md`, "Emit"). Not a designed IR — a stable public interchange
+ * Serialize the declaration rows to the internal versioned JSON pipe.
+ * Not a designed IR — a stable public interchange
  * is admitted only when its consumer lands. Deterministic: insertion-ordered keys
- * and a trailing newline, so a re-emit is byte-identical (`specs/model/pipeline.md`, "Emit").
+ * and a trailing newline, so a re-emit is byte-identical.
  */
 export function declarationsToJson(declarations: Declarations): string {
   return JSON.stringify({ version: SEAM_VERSION, ...declarations }, null, 2) + "\n";

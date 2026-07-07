@@ -3,7 +3,7 @@
 //! Each built-in kind's floor [`Contract`] (`skill`, `rule`, `memory`) is a lossless
 //! projection of the embedded built-in lock's clause rows
 //! (`crate::builtin_lock::declarations`), grouped by kind label — never a
-//! hand-written mirror (`specs/distribution.md`). The lock
+//! hand-written mirror. The lock
 //! itself is `@dtmd/temper/claude-code`'s own emit; this module only lifts its
 //! `ClauseRow`s back into the typed [`Contract`] algebra the gate already runs on.
 
@@ -70,8 +70,7 @@ pub(crate) fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
 }
 
 /// Lift one embedded clause row into its typed [`Clause`] — predicate, severity,
-/// guidance, and cite, the clause's full four channels
-/// (`specs/model/contract.md`, "The clause — the atom of a contract").
+/// guidance, and cite, the clause's full four channels.
 /// The embedded lock is this crate's own emit, never hand-edited
 /// (`crate::builtin_lock`), so a row this projection cannot lift is a build-time
 /// bug, not a runtime condition — the same invariant `builtin_lock::declarations`
@@ -91,7 +90,7 @@ fn clause_from_row(row: &ClauseRow) -> Clause {
 
 /// The floor [`Contract`] for `kind` — every embedded clause row naming it, in
 /// declaration order, projected into typed clauses. A floor is an exported clause
-/// array (`specs/model/contract.md`): the constructed contract's own
+/// array: the constructed contract's own
 /// `guidance` stays `None` — every clause's guidance already rides its row.
 fn contract_for_kind(kind: &str) -> Contract {
     let clauses = builtin_lock::declarations()
@@ -108,9 +107,7 @@ fn contract_for_kind(kind: &str) -> Contract {
 }
 
 /// The shipped each-grain clause a typed requirement's `kind` facet sources —
-/// "every satisfier is kind K" at `required` severity (`specs/model/contract.md`,
-/// "selection": narrowing a selection is an each-grain clause over it, never a
-/// second selector). The mechanism — the predicate shape and its `required`
+/// "every satisfier is kind K" at `required` severity. The mechanism — the predicate shape and its `required`
 /// severity — ships fixed with the requirement facet; only `kind` is
 /// per-requirement author data, so [`crate::roster::check`] calls this to
 /// synthesize the clause fresh from [`compose::Requirement::kind`] every run

@@ -1,12 +1,11 @@
-//! End-to-end CLI acceptance over the documented surface (`specs/distribution.md`;
-//! `specs/model/contract.md`, the contract engine `check` runs).
+//! End-to-end CLI acceptance over the documented surface.
 //!
 //! Spawns the built `temper` binary via `CARGO_BIN_EXE_temper` and drives `temper
 //! check --harness <path>` — the one-shot wedge that lints a raw harness directly off
 //! disk, no on-ramp step — asserting the exit semantics: zero on a clean skill,
 //! non-zero once a `required`-severity contract clause is violated. The `init`/`lift`
 //! on-ramp verbs retired with the `[[member]]` manifest codec (`CODEC-RETIRE`); `install`
-//! is the on-ramp going forward (`specs/model/pipeline.md`, "Install"), not yet
+//! is the on-ramp going forward, not yet
 //! shipped. A `--deny-advisories` case pins the strict policy.
 //!
 //! These checks live here (not in a `src` unit test) precisely because the exit
@@ -106,7 +105,7 @@ alwaysApply: true\n\
 This frontmatter loads nothing in Claude Code.\n";
 
 /// Write a one-rule harness at `<root>/.claude/rules/<name>.md` — the location
-/// `init` scans for the rule kind (`specs/model/pipeline.md`, "Install").
+/// `init` scans for the rule kind.
 fn write_rule_harness(root: &Path, name: &str, rule_md: &str) {
     let dir = root.join(".claude").join("rules");
     fs::create_dir_all(&dir).unwrap();
@@ -199,8 +198,7 @@ fn check_dispatches_the_rule_kind_to_the_rule_contract() {
 
 #[test]
 fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
-    // The zero-config wedge (`specs/distribution.md` — `check --harness`
-    // is the one-shot mode): a raw harness is linted directly, no `init` step, and
+    // The zero-config wedge: a raw harness is linted directly, no `init` step, and
     // no surface workspace is written. A forbidden Cursor key trips a `required`
     // clause ⇒ non-zero, and the finding is on stdout.
     let harness = tmpdir("one-shot-src");
@@ -250,7 +248,7 @@ fn check_rejects_a_harness_and_workspace_together() {
 
 #[test]
 fn self_host_check_is_clean_over_tempers_own_surface() {
-    // The bootstrap proof (`specs/intent.md`): `temper check` over temper's
+    // The bootstrap proof: `temper check` over temper's
     // OWN committed surface — its `.temper/` document-carried rules plus its lock-declared
     // assembly (spec kinds, requirements) — lints clean. `CARGO_MANIFEST_DIR` is the
     // crate root; a bare `check` reads the committed surface there, read-only, so the
@@ -313,11 +311,10 @@ fn schema_kind_skill_emits_the_skill_floor_decidable_clauses() {
 
 #[test]
 fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
-    // The docs (hover) channel of the emitted schema (`specs/distribution.md`,
-    // "The gate at keystroke"): a field clause's `guidance` prose rides its JSON
+    // The docs (hover) channel of the emitted schema: a field clause's `guidance` prose rides its JSON
     // Schema property's `description`, strictly alongside the validation keywords.
-    // The embedded `skill.anthropic` built-in now carries guidance on its clauses
-    // (`specs/model/contract.md`, the `contracts/` retirement into product source), so
+    // The embedded `skill.anthropic` built-in now carries guidance on its clauses,
+    // so
     // the pure floor — no clause overrides — already exercises both channels.
     let cwd = tmpdir("schema-guidance");
     let output = Command::new(BIN)
@@ -384,7 +381,7 @@ fn schema_rejects_an_unknown_kind() {
 
 #[test]
 fn the_cli_surface_is_check_emit_install_bundle_schema_guard_explain() {
-    // The collapsed surface (`specs/distribution.md`): five nouns
+    // The collapsed surface: five nouns
     // plus `guard`, plus `explain` — the one read verb (EXPLAIN-UNIFY) — landed once its
     // fork-gate (`explain-target-disambiguation`) resolved. `--help` lists exactly
     // these; the migration-era verbs, and `init`/`lift` (retired into `install`,
@@ -432,12 +429,9 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     use std::io::Write;
 
     // `temper guard` reads the `PreToolUse` payload from stdin and acts at the
-    // enforcement mode declared in the harness's lock (`specs/model/
-    // representation.md`, "The root member" — the lock is what names a path a
-    // projection, so it is also the sole source for how firmly that projection is
-    // enforced). A `block` lock blocks a `.claude/` write (exit 2); a
+    // enforcement mode declared in the harness's lock. A `block` lock blocks a `.claude/` write (exit 2); a
     // non-projection write is allowed (exit 0). `warn`/`note` both allow a
-    // projection write (`specs/decisions/0006-guard-mode-vocabulary.md`).
+    // projection write.
     let root = tmpdir("guard-block");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();

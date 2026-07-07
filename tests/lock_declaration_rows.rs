@@ -1,5 +1,4 @@
-//! The lock's declaration-row family — the composed program's erased declarations
-//! (`specs/model/pipeline.md`, "The lock").
+//! The lock's declaration-row family — the composed program's erased declarations.
 //!
 //! `emit` is the sole producer of a declaration-row family (kind facts, clauses,
 //! requirements — including the set-scope `count`/`unique`/`membership`/`degree`
@@ -8,7 +7,7 @@
 //! through [`temper::drift::read_declarations`]. These tests drive `emit` directly over
 //! hand-built [`Payload`]s — a golden-lock fixture (`tests/emit.rs`'s pattern), no
 //! scratch import — asserting the family is present and populated, that a double emit is
-//! byte-stable — the round-trip `specs/model/pipeline.md` ("Emit") pins — and that a bare payload (no requirements,
+//! byte-stable — the round-trip emit pins — and that a bare payload (no requirements,
 //! no satisfies) still round-trips.
 
 use std::fs;
@@ -351,8 +350,7 @@ fn lock_carries_all_four_declaration_families() {
     assert!(requirement.required);
 
     // The set-scope demands: count/unique/membership/degree all carried as clause
-    // rows nested on the requirement (`specs/model/contract.md`, "Decision:
-    // set-scope demands are clauses").
+    // rows nested on the requirement.
     let roster = declarations
         .requirements
         .iter()
@@ -416,7 +414,7 @@ fn a_double_emit_is_byte_stable() {
     let first = fs::read(&lock).unwrap();
 
     // The declaration rows are a pure function of the same payload, so re-emitting
-    // reproduces the whole lock byte-for-byte (`specs/model/pipeline.md`, "Emit"; idempotence).
+    // reproduces the whole lock byte-for-byte.
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let second = fs::read(&lock).unwrap();
     assert_eq!(first, second, "a re-emit must not churn the lock");
@@ -513,7 +511,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     let lock = into.join("lock.toml");
     let first = fs::read(&lock).unwrap();
 
-    // Double-emit byte stability (`specs/model/pipeline.md`, "Emit"): re-emitting the same payload reproduces
+    // Double-emit byte stability: re-emitting the same payload reproduces
     // the whole lock byte-for-byte.
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let second = fs::read(&lock).unwrap();
@@ -558,9 +556,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
 /// A kind's own floor clause row round-trips its **node-scope predicate argument**
 /// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min_len`/`max_len`/`max_lines`'s bound,
 /// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values — not just
-/// identity+severity, so a floor `Contract` is reconstructable from the rows alone
-/// (`specs/distribution.md`, "Decision: the built-in lock is derived
-/// from the SDK module, never transcribed").
+/// identity+severity, so a floor `Contract` is reconstructable from the rows alone.
 #[test]
 fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     let mut declarations = rich_declarations();
@@ -716,8 +712,8 @@ fn a_lock_without_declarations_reads_empty() {
     fs::write(
         dir.join("lock.toml"),
         "[[skill]]\nname = \"x\"\nsource_path = \"/h/SKILL.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n",
-    )
-    .unwrap();
+ )
+.unwrap();
 
     let declarations = drift::read_declarations(&dir).unwrap();
     assert_eq!(declarations, drift::Declarations::default());
@@ -733,7 +729,7 @@ fn a_missing_lock_reads_empty() {
 
 // ---- check resolves members via the lock's governs locus --------------------
 //
-// `specs/model/pipeline.md`, "The lock": the gate
+// The lock: the gate
 // walks each kind's `governs` locus off the committed lock's own kind-fact row, read
 // straight off the harness disk — never a copied surface tree — and a harness with no
 // lock at all is still gated by the embedded default program's own locus (the built-in
@@ -820,7 +816,7 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
 
 // ---- SATISFIER-KIND-CLAUSE: a requirement row's `kind` sources a clause -------
 //
-// `specs/model/contract.md`, "selection": a `RequirementRow`'s `kind` column is a
+// Selection: a `RequirementRow`'s `kind` column is a
 // declaration row in the lock, and it now *sources* the shipped each-grain "every
 // satisfier is kind K" clause rather than narrowing which opt-in artifacts are
 // candidates — a wrong-kind opt-in is a `requirement.kind` finding, never a silent
@@ -877,11 +873,11 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     fs::write(
         skill_dir.join("SKILL.md"),
         "---\n\
-         name: coordinate\n\
-         description: Use when coordinating agents across axes; not for single-axis work.\n\
-         ---\n\
-         # Coordinate\n\
-         \n\
+ name: coordinate\n\
+ description: Use when coordinating agents across axes; not for single-axis work.\n\
+ ---\n\
+ # Coordinate\n\
+ \n\
          Body.\n",
     )
     .unwrap();
@@ -931,8 +927,8 @@ fn write_lock(root: &Path, declarations: Declarations) {
 
 // ---- BUILTIN-LOCK-DERIVED: the embedded built-in lock ------------------------
 //
-// `specs/distribution.md`, "Decision: the built-in lock is derived
-// from the SDK module, never transcribed": `src/builtin_lock.toml` is the real
+// Decision: the built-in lock is derived
+// from the SDK module, never transcribed: `src/builtin_lock.toml` is the real
 // `[declaration.*]` family a memberless emit of `@dtmd/temper/claude-code`'s built-in
 // kinds + four floors produces, and `temper::builtin` projects each kind's floor
 // `Contract` straight off this lock's clause rows — no hand-written mirror any

@@ -1,8 +1,7 @@
-//! Acceptance for the advisory session-start gate (`specs/distribution.md`,
-//! "Decision: the session-start gate is advisory, not blocking").
+//! Acceptance for the advisory session-start gate.
 //!
 //! Two surfaces of the same gate. Session-start is a **reporter of `check`, not a
-//! verb** (`specs/distribution.md`, "Session start"): `temper check <harness>
+//! verb**: `temper check <harness>
 //! --reporter session-start` reads the path as a harness root and is driven across the
 //! real process boundary (the exit code and the stdout payload are observable only
 //! there) — a failing contract yields a payload carrying the verdict plus the
@@ -135,7 +134,7 @@ fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
 fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
     // Custom-kind registration retired along with the manifest that once carried it
     // (`TEMPER-TOML-ZERO`) and the `KIND.md` file format retired earlier still
-    // (`specs/model/representation.md`, "there is no kind file format") — there is no
+    // — there is no
     // longer any author-facing way to register one. This pins that a harness carrying
     // such shaped-but-inert fixture files (nothing reads them) alongside a real skill
     // still resolves to a clean, quiet session-start payload.
@@ -150,12 +149,12 @@ fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
         kind_dir.join("KIND.md"),
         "+++\n\
          governs = { root = \"specs\", glob = \"*.md\" }\n\
-         \n\
+ \n\
          [[extraction]]\n\
          primitive = \"line_count\"\n\
          +++\n\
          # The spec kind\n\
-         \n\
+ \n\
          temper's own governing documents.\n",
     )
     .unwrap();
@@ -202,8 +201,7 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     let harness = tmpdir("authored-surface-src");
 
     // The committed landscape file a prior `import` would have discovered — the gate
-    // walks the lock's governs locus straight off the harness (`specs/model/pipeline.md`,
-    // "The lock"), so the member must exist here too, not just projected onto
+    // walks the lock's governs locus straight off the harness, so the member must exist here too, not just projected onto
     // the surface below.
     let rules = harness.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
@@ -212,15 +210,15 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
         "---\n\
          paths:\n\
          \x20\x20- \"src/**/*.rs\"\n\
-         ---\n\
+ ---\n\
          # Rust conventions\n\
-         \n\
+ \n\
          The engineering bar.\n",
     )
     .unwrap();
 
-    // The gate reads the assembly's requirements off the lock's declaration rows
-    // (`specs/model/pipeline.md`, "The lock"), so
+    // The gate reads the assembly's requirements off the lock's declaration rows,
+    // so
     // the fixture stands in for a prior `import` having already written this row —
     // session-start itself still never re-imports.
     let temper_dir = harness.join(".temper");
@@ -243,16 +241,16 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
         "+++\n\
          [clause.paths]\n\
          value = [\"src/**/*.rs\"]\n\
-         \n\
+ \n\
          [satisfies.engineering-standards]\n\
          rationale = \"the path-scoped home for the Rust engineering bar\"\n\
-         \n\
+ \n\
          [provenance]\n\
          source_path = \"./.claude/rules/rust.md\"\n\
          source_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
          +++\n\
          # Rust conventions\n\
-         \n\
+ \n\
          The engineering bar.\n",
     )
     .unwrap();
@@ -289,13 +287,13 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
          name = \"spec\"\n\
          governs_root = \"specs\"\n\
          governs_glob = \"*.md\"\n\
-         \n\
+ \n\
          [[declaration.clause]]\n\
          kind = \"spec\"\n\
          predicate = \"max_lines\"\n\
          severity = \"advisory\"\n\
          bound = { max = 20 }\n\
-         \n\
+ \n\
          [[declaration.requirement]]\n\
          name = \"spec-coverage\"\n\
          kind = \"spec\"\n\
@@ -310,8 +308,7 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
 
     // The authored surface overlay carrying the `satisfies` fill — the one home a
-    // custom member's opt-in is ever authored at (`specs/model/contract.md`,
-    // "edge").
+    // custom member's opt-in is ever authored at.
     let overlay_dir = temper_dir.join("specs").join("00-intent");
     fs::create_dir_all(&overlay_dir).unwrap();
     fs::write(
@@ -319,13 +316,13 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
         "+++\n\
          [satisfies.spec-coverage]\n\
          rationale = \"the spec that documents the north star\"\n\
-         \n\
+ \n\
          [provenance]\n\
          source_path = \"specs/00-intent.md\"\n\
          source_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
          +++\n\
          # Intent\n\
-         \n\
+ \n\
          The north star.\n",
     )
     .unwrap();
@@ -358,7 +355,7 @@ fn a_custom_kinds_required_floor_clause_blocks_a_violating_member() {
          name = \"spec\"\n\
          governs_root = \"specs\"\n\
          governs_glob = \"*.md\"\n\
-         \n\
+ \n\
          [[declaration.clause]]\n\
          kind = \"spec\"\n\
          predicate = \"required\"\n\

@@ -1,12 +1,9 @@
 //! End-to-end acceptance over the harness reference graph — route resolution
-//! against a lock-declared edge field (`specs/model/contract.md`, "The
-//! harness is a graph too — and references are declared edges").
+//! against a lock-declared edge field.
 //!
 //! Drives the built `temper` binary so the whole path is pinned: a harness of a rule
 //! (carrying a `routes_to` frontmatter field) and a skill written straight at their real
-//! Claude Code locus, a golden lock declaring the `routes_to` edge
-//! (`specs/model/pipeline.md`, "The lock" — the gate
-//! sources edges from the lock, never a re-imported manifest relationships table),
+//! Claude Code locus, a golden lock declaring the `routes_to` edge,
 //! building the graph over the live corpus, and the exit code.
 //!
 //! The cases mirror the entry's acceptance:
@@ -76,7 +73,7 @@ fn routing_rule(routes_to: &str) -> String {
 /// Write a harness of one rule and one skill straight at their real Claude Code locus
 /// — the rule under `.claude/rules/<rule>.md`, the skill under
 /// `.claude/skills/<skill>/SKILL.md` — no scratch import. `check` reads built-in kind
-/// members live off harness disk (`specs/model/pipeline.md`, "The lock").
+/// members live off harness disk.
 fn write_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str, skill_md: &str) {
     let rules = root.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
@@ -111,8 +108,7 @@ fn check_in(root: &Path) -> CheckRun {
 }
 
 /// The retired manifest's filename, spelled by concatenation so the retired token
-/// itself never appears as a literal in this source (`specs/model/pipeline.md`,
-/// "the name … retires with the manifest era entirely").
+/// itself never appears as a literal in this source.
 fn retired_manifest_name() -> String {
     format!("temper{}toml", '.')
 }
@@ -127,8 +123,7 @@ fn write_retired_manifest(root: &Path, contents: &str) {
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
 /// the SDK-emitted fixture standing in for `import::run`'s scratch projection of a
 /// manifest's `[[kind.<name>.relationships]]`/`[requirement.*]` table: the gate
-/// sources edges and requirements from the lock, never a re-imported assembly
-/// (`specs/model/pipeline.md`, "The lock").
+/// sources edges and requirements from the lock, never a re-imported assembly.
 fn write_lock(root: &Path, declarations: Declarations) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
@@ -139,7 +134,7 @@ fn write_lock(root: &Path, declarations: Declarations) {
 }
 
 /// An `edge` assembly fact — the lock row a `[[kind.<from>.relationships]]` table used
-/// to project (`specs/model/contract.md`, "The harness is a graph too").
+/// to project.
 fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
     AssemblyFactRow {
         fact: "edge".to_string(),
@@ -179,8 +174,7 @@ fn degree_requirement(kind: Option<&str>, degree: DegreeBoundRow) -> Requirement
 
 /// Author a member's `satisfies` links on its surface overlay
 /// (`<root>/.temper/<kind_dir>/<name>/<doc>`) — the projected document a live off-disk
-/// walk grafts a member's fill edges from (`specs/model/pipeline.md`,
-/// "The lock"); the real harness file itself carries no temper annotation. `kind_dir` is
+/// walk grafts a member's fill edges from; the real harness file itself carries no temper annotation. `kind_dir` is
 /// the surface subdirectory (`skills` or `rules`), whose document is `SKILL.md` /
 /// `RULE.md`, and whose real source lives at the harness's own locus.
 fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
@@ -246,7 +240,7 @@ fn mutual_routes_edges() -> Vec<AssemblyFactRow> {
 
 /// The one `routes_to` edge on the `rule` kind (its owning kind the edge source),
 /// targeting skills — the harness reference graph the cases build. A reference is a
-/// kind capability (`specs/model/representation.md`).
+/// kind capability.
 fn routes_to_edge() -> Vec<AssemblyFactRow> {
     vec![edge("rule", "routes_to", "skill")]
 }
@@ -627,12 +621,10 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
     );
 }
 
-/// Library-level fixture proof of the `reachable` predicate (`specs/model/contract.md`,
-/// "The world is a node — reachability is a predicate"): the pure machinery over
+/// Library-level fixture proof of the `reachable` predicate: the pure machinery over
 /// constructed `Features`, including a caller-declared severity threaded into the
-/// finding. The dial that once wired this into the gate retired
-/// (`specs/model/contract.md`, "the reachability dial retires into the clause
-/// algebra"); the predicate itself stays a live capability for a future edge-scope
+/// finding. The dial that once wired this into the gate retired;
+/// the predicate itself stays a live capability for a future edge-scope
 /// clause to call.
 mod reachability {
     use std::collections::BTreeMap;
@@ -725,10 +717,7 @@ mod reachability {
         // whitespace-only — the harness has nothing to load, a dead inbound edge.
         let skills = [member(
             "standards",
-            Some((
-                "description",
-                FeatureValue::scalar(ValueType::String, "   "),
-            )),
+            Some(("description", FeatureValue::scalar(ValueType::String, " "))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::from([("skill", description_trigger("description"))]);
@@ -774,8 +763,8 @@ mod reachability {
     #[test]
     fn an_absent_or_blank_paths_field_is_reachable() {
         // An unscoped rule declares a paths-match registration but carries no `paths` field
-        // (or a whitespace-only one) — the harness falls back to unconditional loading
-        // (specs/model/representation.md paths-match bullet), so the inbound edge is live, not dead.
+        // (or a whitespace-only one) — the harness falls back to unconditional loading,
+        // so the inbound edge is live, not dead.
         let absent = member("global", None);
         let blank = member(
             "blank",
@@ -838,17 +827,11 @@ mod reachability {
         let skills = [
             member(
                 "importer",
-                Some((
-                    "description",
-                    FeatureValue::scalar(ValueType::String, "   "),
-                )),
+                Some(("description", FeatureValue::scalar(ValueType::String, " "))),
             ),
             member(
                 "target",
-                Some((
-                    "description",
-                    FeatureValue::scalar(ValueType::String, "   "),
-                )),
+                Some(("description", FeatureValue::scalar(ValueType::String, " "))),
             ),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);

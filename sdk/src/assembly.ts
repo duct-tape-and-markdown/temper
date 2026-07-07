@@ -22,9 +22,8 @@ export interface ExpectBinding {
 
 /**
  * The declared enforcement-mode vocabulary — how firmly the `PreToolUse` guard
- * binds a tool call, split by where the finding goes
- * (`specs/decisions/0005-mode-on-root-member.md`,
- * `specs/decisions/0006-guard-mode-vocabulary.md`). `block`: denies the call.
+ * binds a tool call, split by where the finding goes.
+ * `block`: denies the call.
  * `warn` (default): allows the call and surfaces the finding in-band, into the
  * live context. `note`: allows the call and records the finding out-of-band
  * only — the next report, never the session.
@@ -41,18 +40,17 @@ export interface Harness {
   readonly require: Readonly<Record<string, Requirement>>;
   /** The residual harness-level settings with no member home (a shrinking list). */
   readonly settings: Readonly<Record<string, unknown>>;
-  /**
+ /**
    * The root member's declared enforcement mode — harness-wide, overridable
-   * per member (deferred, `specs/decisions/0005-mode-on-root-member.md`
-   * Consequences). Defaults to `warn`: temper fabricates no enforcement the
+ * per member. Defaults to `warn`: temper fabricates no enforcement the
    * author did not declare.
-   */
+ */
   readonly mode: EnforcementMode;
 }
 
 /**
  * Compose the harness from its five fields — ordinary code, Turing-completeness
- * quarantined at authoring time (`specs/intent.md`, the SDK Decision). Absent
+ * quarantined at authoring time. Absent
  * fields default empty (`mode` defaults `warn`); the member list is the
  * only required part.
  */

@@ -7,8 +7,8 @@
 //! composes artifacts into publishable bundles, and writes changes back to disk
 //! with drift-aware, dry-runnable `emit`.
 //!
-//! See the evergreen `specs/` corpus for the full design — `specs/intent.md`
-//! is the north star, continuously reconciled against this code (there is no
+//! The evergreen `specs/` corpus is the north star, continuously reconciled
+//! against this code (there is no
 //! frozen release line). This crate is built tick-by-tick by the flume harness
 //! in `.flume/`; modules below are filled in per pending entry.
 

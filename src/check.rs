@@ -1,11 +1,9 @@
 //! `temper check` — the workspace-load and diagnostic surface.
 //!
-//! Implements the loading half of the `check` gate (`specs/distribution.md`,
-//! "The author's terminal" — the verb that validates against the active contract): reconstruct
+//! Implements the loading half of the `check` gate: reconstruct
 //! the typed config surface into a [`Workspace`] IR, and carry the [`Diagnostic`]
 //! value the generic engine emits. The clauses themselves are validated by the
-//! generic engine over the closed algebra ([`crate::engine`], `specs/model/contract.md`,
-//! the engine is generic; everything is an instance) — there is no per-rule code
+//! generic engine over the closed algebra — there is no per-rule code
 //! here; the heuristic rule registry it replaced is retired (kill the heuristic
 //! rule registry).
 //!
@@ -25,8 +23,7 @@ use crate::frontmatter::{FrontmatterError, Member};
 use crate::kind::{CustomKind, KindError};
 
 /// The loaded config surface: every built-in artifact `check` lints. Carries each
-/// built-in kind's members as generic frontmatter [`Member`]s (`specs/model/representation.md`,
-/// built-ins are a module), keyed by the kind's bare name in a per-kind map so
+/// built-in kind's members as generic frontmatter [`Member`]s, keyed by the kind's bare name in a per-kind map so
 /// every built-in kind's members — not just skills and rules — reach the readers that
 /// range over the workspace (drift/bundle/explain), and a cross-artifact clause can
 /// reach the whole harness at once.
@@ -70,8 +67,7 @@ impl Workspace {
     /// [`surface_subdir`](CustomKind::surface_subdir) and
     /// [`member_document`](CustomKind::member_document). Two kinds sharing a bare name
     /// would silently overwrite each other's entry here — the embedded built-in set is
-    /// guaranteed unique (`specs/model/representation.md`, built-ins are a
-    /// module, and identity is an import), so a collision is a malformed kind set, not
+    /// guaranteed unique, so a collision is a malformed kind set, not
     /// a case this loader resolves.
     fn load_kinds<'a>(
         dir: &Path,
@@ -154,13 +150,13 @@ pub enum WorkspaceError {
     },
 
     /// A built-in kind's surface member could not be reconstructed through the
-    /// generic frontmatter adapter (`specs/model/representation.md`).
+    /// generic frontmatter adapter.
     #[error(transparent)]
     #[diagnostic(transparent)]
     Frontmatter(#[from] FrontmatterError),
 
     /// A built-in kind's surface member document could not be read generically
-    /// (`specs/model/representation.md`, built-ins are a module) — the check read's
+    /// — the check read's
     /// hard failure, distinct from the typed-IR reconstruction faces above.
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -197,7 +193,7 @@ pub struct Diagnostic {
     /// The human-readable finding, the diagnostic's `Display`.
     pub message: String,
     /// The **colocated guidance** of the clause that produced this finding, if it
-    /// carried any (`specs/model/contract.md`, the clause): the hover-sized *why*,
+    /// carried any: the hover-sized *why*,
     /// delivered just-in-time on the violation — the failure is the teaching
     /// moment. Advisory-only prose that never gates (it played no part in deciding
     /// this finding, only in explaining it), surfaced on the rendered help line
@@ -242,7 +238,7 @@ impl Diagnostic {
 
     /// Attach a clause's [`guidance`](crate::contract::Clause::guidance) to this
     /// finding — the just-in-time delivery of the hover-sized *why* on the
-    /// violation (`specs/model/contract.md`, the clause). A builder so the base
+    /// violation. A builder so the base
     /// constructors stay guidance-free (most findings carry none); a `None`
     /// argument is a no-op, leaving the finding unguided.
     #[must_use]
@@ -266,8 +262,7 @@ impl miette::Diagnostic for Diagnostic {
 
     fn help(&self) -> Option<Box<dyn fmt::Display + '_>> {
         // The colocated guidance rides the help line beneath the artifact — the
-        // violation is the teaching moment (`specs/model/contract.md`,
-        // the clause).
+        // violation is the teaching moment.
         Some(Box::new(match &self.guidance {
             Some(guidance) => format!("artifact: {}\n{guidance}", self.artifact),
             None => format!("artifact: {}", self.artifact),
@@ -307,15 +302,14 @@ pub const EMPTY_ASSEMBLY_RULE: &str = "coverage.empty-assembly";
 
 /// Fail loud when the committed assembly declares requirements but the gate
 /// resolved none of them and the lock carries no declaration rows either — the
-/// silent "checked 0 members … exit 0" class the wave-end confirmation caught
-/// (`specs/distribution.md`, fail-loud delivery). Takes
+/// silent "checked 0 members … exit 0" class the wave-end confirmation caught.
+/// Takes
 /// primitives rather than `Declarations` so the predicate stays a pure, unit-testable
 /// tripwire: `declared` is whether the lock declares ≥1 `[requirement.*]`;
 /// `resolved_members` is the sum of every built-in kind's checked-member count;
 /// `declarations_empty` is whether the lock's declaration-row family carries nothing.
 ///
-/// A workspace that resolves ≥1 member never fires (no false block on a clean gate —
-/// `specs/intent.md`, "Decidable only"), and neither does a genuinely empty harness
+/// A workspace that resolves ≥1 member never fires, and neither does a genuinely empty harness
 /// (`declared` false) — zero members is legitimate there.
 #[must_use]
 pub fn empty_assembly_incoherence(
@@ -561,7 +555,7 @@ Prefer a clone.\n";
     fn empty_assembly_incoherence_stays_silent_when_members_resolved() {
         // A correctly-rooted workspace that resolves at least one member never fires,
         // even though the lock carries no declaration rows (e.g. the lock predates the
-        // declaration recut) — `specs/intent.md`, "Decidable only": no false block on a clean gate.
+        // declaration recut): no false block on a clean gate.
         let root = Path::new("/harness/root");
         assert!(empty_assembly_incoherence(root, true, 1, true).is_none());
     }

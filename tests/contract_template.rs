@@ -1,9 +1,7 @@
-//! Pins the shipped Anthropic skill built-in floor (`specs/model/contract.md`,
-//! "The clause — the atom of a contract").
+//! Pins the shipped Anthropic skill built-in floor.
 //!
-//! The `skill` floor is a projection of the embedded built-in lock's clause rows
-//! (`specs/distribution.md`, "Decision: the built-in lock is derived
-//! from the SDK module, never transcribed"). This test loads it through the same
+//! The `skill` floor is a projection of the embedded built-in lock's clause rows.
+//! This test loads it through the same
 //! embedded path the shipped `check` uses ([`temper::builtin::contract`]) and pins
 //! the exact decidable clause vector it carries.
 //!
@@ -134,8 +132,7 @@ fn skill_builtin_carries_the_decidable_clause_vector() {
 }
 
 /// A built-in package's clauses are *cited* and carry guidance — each pairs a
-/// `source` provenance of taste with the hover-sized why (`specs/model/contract.md`,
-/// "a built-in package's clauses ... it is the expected posture"). Pinning presence
+/// `source` provenance of taste with the hover-sized why. Pinning presence
 /// (not text) keeps the update ritual honest — walk the clauses, re-check their
 /// citations — without coupling the build test to product prose.
 #[test]
@@ -157,9 +154,7 @@ fn every_skill_builtin_clause_is_guided_and_cited() {
 /// No dropped heuristic survives as a clause. Whole-vector equality above already
 /// implies this, but pinning the predicate kind set explicitly documents the
 /// registry-kill decision: the built-in encodes *only* decidable predicates — every
-/// clause is a true/false fact over the artifact, never a semantic guess
-/// (third-person / has-trigger / companion-refs were undecidable and stay prose
-/// guidance, `specs/model/contract.md`).
+/// clause is a true/false fact over the artifact, never a semantic guess.
 #[test]
 fn skill_builtin_encodes_only_decidable_clauses() {
     let kinds: BTreeSet<&str> = skill_builtin()
@@ -185,8 +180,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
 }
 
 /// Both shipped built-in packages are themselves admissible — they pass the second
-/// green (`specs/model/contract.md`, "Decision: the contract is itself checked —
-/// admissibility"). Every embedded package carries only closed-vocabulary clauses
+/// green. Every embedded package carries only closed-vocabulary clauses
 /// and no vacuous list clause, so `engine::admissibility` returns no findings.
 #[test]
 fn the_shipped_built_in_packages_are_admissible() {
@@ -206,7 +200,7 @@ fn the_shipped_built_in_packages_are_admissible() {
 
 // ---- the each-grain `kind` predicate `requirement.kind` sources -------------
 //
-// SATISFIER-KIND-CLAUSE (`specs/model/contract.md`, "selection"): one new predicate
+// SATISFIER-KIND-CLAUSE: one new predicate
 // in the closed vocabulary expressing "this satisfier is of the declared kind K" —
 // the each-grain clause a typed requirement's `kind` facet sources instead of
 // narrowing the candidate set.

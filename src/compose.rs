@@ -1,8 +1,8 @@
 //! The harness assembly's domain types — [`Requirement`], [`Edge`], [`EnforcementMode`]
 //! — and [`effective`], which composes the lock's per-clause severity overrides onto
-//! the embedded by-kind floor (`specs/model/pipeline.md`). A requirement's
-//! set-/edge-scope demands ride ordinary [`contract::Clause`] values
-//! (`specs/model/contract.md`); their predicate payloads ([`contract::EdgeBound`] and
+//! the embedded by-kind floor. A requirement's
+//! set-/edge-scope demands ride ordinary [`contract::Clause`] values;
+//! their predicate payloads ([`contract::EdgeBound`] and
 //! friends) live in [`crate::contract`], not here.
 //!
 //! There is no reader in this module: every value here is populated from the lock's
@@ -16,11 +16,8 @@ use crate::drift::ClauseRow;
 
 /// The harness's declared **enforcement mode** — how firmly the guard binds a tool
 /// call, split by where the finding goes: a closed vocabulary the author declares on
-/// the root member (`specs/model/representation.md`, "The root member";
-/// `specs/decisions/0005-mode-on-root-member.md`), never a stance temper bakes in.
-/// Defaults to [`Warn`](EnforcementMode::Warn) (`specs/distribution.md`, "The
-/// placements and their enforcement modes"; `specs/decisions/
-/// 0006-guard-mode-vocabulary.md`).
+/// the root member, never a stance temper bakes in.
+/// Defaults to [`Warn`](EnforcementMode::Warn).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum EnforcementMode {
     /// Allows the call and records the finding out-of-band only — the next report,
@@ -28,8 +25,7 @@ pub enum EnforcementMode {
     /// author declares it.
     Note,
     /// Allows the call and surfaces the finding in-band, into the live context. The
-    /// default: enforcement mode is author-declared per placement, never assumed
-    /// (`specs/intent.md` invariant 5).
+    /// default: enforcement mode is author-declared per placement, never assumed.
     #[default]
     Warn,
     /// Denies the call.
@@ -37,7 +33,7 @@ pub enum EnforcementMode {
 }
 
 /// A declared **edge relationship** — a kind capability declared on the owning kind's
-/// members (`specs/model/representation.md`). The owning kind is the edge *source*
+/// members. The owning kind is the edge *source*
 /// (the implicit `from`); the relationship names its reference `field` and the target
 /// `to` kind. [`crate::graph`] reads the field off each source artifact into edges,
 /// then flags any route that resolves to no artifact of the target kind.
@@ -57,13 +53,12 @@ pub struct Edge {
 }
 
 /// A named **requirement** — the harness's named obligation, declared in the
-/// assembly's `[requirement.<name>]` (or lifted from a member's own published
-/// obligation, `specs/model/contract.md`). **Every facet is optional
+/// assembly's `[requirement.<name>]`. **Every facet is optional
 /// except the name.** Fill is by the artifact's opt-in `satisfies` alone — there is
 /// no name-`match` selector.
 ///
 /// `temper` **never interprets `means`** — it is authored intent the surface carries,
-/// never a thing the engine judges (`specs/model/contract.md`, "requirement"). The decidable shadow is
+/// never a thing the engine judges. The decidable shadow is
 /// what `check` gates: [`crate::coverage`] over the `satisfies` edges,
 /// [`crate::roster`]/[`crate::graph`] over the **satisfier set** (the artifacts of
 /// its `kind` that opt in via `satisfies`).
@@ -72,14 +67,13 @@ pub struct Requirement {
     /// The requirement's name.
     pub name: String,
     /// The authored *intent*, stated in meaning not predicates. Carried verbatim and
-    /// **never interpreted** (`specs/model/contract.md`, "requirement").
+    /// **never interpreted**.
     pub means: Option<String>,
     /// The requirement's declared satisfier kind. Unlike the old name-`match`
     /// selector, this never narrows *which* opt-in artifacts are candidates —
     /// [`crate::roster`]/[`crate::graph`] draw the satisfier set kind-blind from
-    /// every modeled kind, the opt-in `satisfies` join the sole filter
-    /// (`specs/model/contract.md`, "selection": narrowing a selection is an
-    /// each-grain clause over it, never a second selector). Present, it instead
+    /// every modeled kind, the opt-in `satisfies` join the sole filter.
+    /// Present, it instead
     /// *sources* the shipped each-grain "every satisfier is kind K" clause
     /// [`crate::roster::check`] evaluates over that kind-blind set — a satisfier of
     /// a different kind is a finding, never a silent exclusion. Absent ⇒
@@ -87,15 +81,13 @@ pub struct Requirement {
     /// attaches at all.
     pub kind: Option<String>,
     /// Whether an unfilled requirement is a gate-blocking violation. Absent ⇒ `false`
-    /// (`temper` never fabricates a gate the author did not declare — `specs/intent.md`,
+    /// (`temper` never fabricates a gate the author did not declare
     /// "Declared, never mined"). Never cardinality — posture and the set-scope `count` clause in
     /// [`clauses`](Requirement::clauses) are different kinds of thing.
     pub required: bool,
     /// The requirement's set-/edge-scope demands — ordinary [`contract::Clause`]
     /// values whose predicates range over the satisfier set and its graph
-    /// neighborhood (`count`/`unique`/`membership`/`degree`,
-    /// `specs/model/contract.md`, "Decision: set-scope demands are
-    /// clauses"). Each carries its own severity/guidance/cite; empty ⇒ no set-scope
+    /// neighborhood. Each carries its own severity/guidance/cite; empty ⇒ no set-scope
     /// demand at all. `count`/`unique`/`membership` are checked in
     /// [`crate::roster`]; `degree` ranges over the *edge* graph, so it is checked in
     /// [`crate::graph`] instead.
@@ -106,10 +98,8 @@ pub struct Requirement {
 }
 
 /// The effective contract for `kind`: the embedded `floor` with each clause's
-/// severity overridden by a matching row in the lock's declared `clauses`
-/// (`specs/model/pipeline.md`, "The lock": the
-/// gate's per-kind contract sources its overrides from the lock's `ClauseRow`
-/// family, never a manifest `[kind.*]` layer). A row overrides the floor clause
+/// severity overridden by a matching row in the lock's declared `clauses`.
+/// A row overrides the floor clause
 /// sharing its identity (predicate key + targeted field); a row naming no matching
 /// floor clause contributes nothing — `effective` only ever flips an existing
 /// clause's severity, never declares a wholly new one from a row's own argument
@@ -134,7 +124,7 @@ pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Cont
 }
 
 /// A custom kind's whole floor [`Contract`], built directly from the clause rows
-/// naming it in the committed lock (`specs/model/pipeline.md`, "The lock"). Unlike a
+/// naming it in the committed lock. Unlike a
 /// built-in kind — whose floor is the embedded default, with the lock's own rows only
 /// overriding a clause's severity ([`effective`])
 /// — a custom kind carries no embedded default: its committed rows **are** its floor,

@@ -1,12 +1,12 @@
 /**
- * Emit — the compile from the six-noun face to the seam's JSON pipe
- * (`specs/model/pipeline.md`, "Emit"). The SDK implements **no semantics**: emit
+ * Emit — the compile from the six-noun face to the seam's JSON pipe.
+ * The SDK implements **no semantics**: emit
  * produces plain data — the declaration rows the engine reads and, per projected
  * member, its ordered typed fields and resolved prose body. The engine is the
  * sole compiler of every projection and the whole lock; the SDK writes neither.
  * Emit is total (members are the only source), refuses before it produces a byte
  * on a broken source, and is byte-reproducible — double-emit verified at every
- * run (`specs/model/pipeline.md`, "Emit").
+ * run.
  */
 
 import { resolve as resolvePath } from "node:path";
@@ -31,8 +31,7 @@ export interface ResolveOptions {
  * Resolve a member's prose to its final body bytes: a `file()` asset is read in
  * byte-for-byte; a `text` body's mentions are resolution-checked (loud on a
  * dangling address) and rendered by the one display rule; a `blocks()` body is
- * refused until the fence format lands. The words are never reworded
- * (`specs/model/pipeline.md`, "Emit").
+ * refused until the fence format lands. The words are never reworded.
  *
  * # Throws
  * If a `file()` asset does not resolve, a mention names no declared value, or a
@@ -89,8 +88,8 @@ function declaredAddresses(harness: Harness): Set<string> {
 }
 
 /**
- * The two declare-side refusals emit runs before it produces a byte
- * (`specs/model/pipeline.md`, "Emit"): a `satisfies` claim naming
+ * The two declare-side refusals emit runs before it produces a byte:
+ * a `satisfies` claim naming
  * no declared requirement (a dangling join), and a `required` requirement no
  * member fills (an unfilled required requirement).
  *
@@ -141,7 +140,7 @@ function isProjected(member: Member): boolean {
 /**
  * The resolved absolute path of a `file()` prose asset, or `undefined` for
  * `text`/`blocks` prose (or no prose) — the lift's own-path detection
- * (`specs/model/pipeline.md`, "Drift": the lock is what names a path a
+ * (drift: the lock is what names a path a
  * projection, so the engine needs each `file()` member's true source path to
  * tell a lifted member's own file apart from a generated one).
  */
@@ -190,8 +189,8 @@ export interface EmitOptions {
 }
 
 /**
- * A full emit's compiled outputs — the whole seam the engine reads
- * (`specs/model/pipeline.md`, "Emit"). A pure function of the harness, so [`emit`]
+ * A full emit's compiled outputs — the whole seam the engine reads.
+ * A pure function of the harness, so [`emit`]
  * double-verifies it.
  */
 export interface EmitResult {
@@ -206,7 +205,7 @@ export interface EmitResult {
   readonly seam: string;
   /**
    * The derived permission list — the union of every member's `needs`, deduped and
-   * sorted (`specs/model/pipeline.md`, "Emit").
+ * sorted.
    * Folds into the settings artifact once hook/MCP members land; carried here as
    * data until then.
    */
@@ -218,7 +217,7 @@ export interface EmitResult {
  * rollup and its five families) and every projected member's erased payload.
  * Prose resolves once (`file()` assets read in, mentions resolution-checked
  * against the harness's declared values). Double-emit verified — nondeterministic
- * authoring is a loud failure, never a silent churn (`specs/model/pipeline.md`, "Emit").
+ * authoring is a loud failure, never a silent churn.
  */
 export function emit(harness: Harness, options: EmitOptions = {}): EmitResult {
   refuseBrokenSource(harness);

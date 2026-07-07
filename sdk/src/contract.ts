@@ -1,5 +1,5 @@
 /**
- * Contracts — clauses and requirements as typed values (`specs/model/contract.md`).
+ * Contracts — clauses and requirements as typed values.
  * A clause is `predicate · severity · guidance · cite`; a requirement is
  * `means · kind · required · clauses? · verifiedBy?`. Both erase to compiled data
  * at the seam (`20-surface.md`): the author composes typed objects, the engine
