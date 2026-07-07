@@ -1,24 +1,22 @@
 # Plan state
 
 - Spec derived through: f4189c3
-- Audited through: 44b4f27
+- Audited through: 1e91b44
 - Residue swept through: ce6c183
-- This tick: Residue sweep caed5cf..HEAD (build commits f8e039b/4049691/6fd37f5
-  + chore 44b4f27). One class found and confirmed on disk: `src/drift.rs:1405`
-  `declarations_from_doc` doc comment reads 'the four declaration families'
-  while the code extracts six (kinds, clauses, requirements, assembly,
-  satisfies, mentions) — it lagged the mentions family EMIT-REAP-ORPHANS added;
-  peers :289/:296/:1057 already read 'six'. Comment-only staleness → the job-4
-  exception (never a standalone entry): routed as a RIDER on EMIT-LF-NORMALIZE
-  (next entry opening drift.rs), in its drift.rs edit description. No retired
-  vocabulary in the build additions (coverage_note/drift/install/main scanned).
-  Cursor → ce6c183. Spec f4189c3 + Audit 44b4f27 copied forward verbatim (inbox
-  empty, no spec delta past f4189c3, no unaudited src past 44b4f27).
-- Queue: 4 — two disjoint open fronts ready for build: EMIT-LF-NORMALIZE
-  (drift.rs+tests/emit.rs, carries the comment rider), SETTINGS-FORMAT-PRESERVING
-  (install.rs+tests/install.rs). MODULE-RELATIVE-PATHS blockedBy SETTINGS
-  (install.rs chain tail; +SDK), PACKAGING-CHANNELS parked.
+- This tick: Ship audit 44b4f27..HEAD. Two entries confirmed shipped on disk:
+  EMIT-LF-NORMALIZE (76535bd — `normalize_lf` src/drift.rs:647, applied over
+  both emit passes :709/:719; the "six families" comment rider landed :289/:296/
+  :1424, no stale "four") and SETTINGS-FORMAT-PRESERVING (e617b4e — new
+  `json_splice` module wired via lib.rs:37, install.rs splices the hooks merge
+  :769-803 instead of re-serializing). Stale gate re-tested: MODULE-RELATIVE-
+  PATHS was blockedBy SETTINGS-FORMAT-PRESERVING → blocker shipped → gate flipped
+  to `open`; install.rs line-cites (warned to drift on that ship, +331/-96)
+  re-verified at HEAD and rewritten (957→1128, 980→1151, 991→1162, doc
+  950-953→1121-1126, tests 1349/1367→1494/1506/1525). emit.ts/prose.ts cites
+  unmoved, re-confirmed. Cursor → 1e91b44.
+- Queue: 2 — MODULE-RELATIVE-PATHS now `open` (sdk emit/prose + install.rs +
+  tests; sole pickable, disjoint from PACKAGING). PACKAGING-CHANNELS parked
+  (human release creds + engine-binary workflow).
 
-Plan continues: no — every input current (inbox empty, spec cursor f4189c3 with
-no delta, audit 44b4f27 with no unaudited src, residue at HEAD). Queue holds two
-pickable `open` entries over disjoint files — build takes over.
+Plan continues: yes — residue sweep trails HEAD (Residue swept through ce6c183;
+76535bd/e617b4e landed past it). Next tick sweeps ce6c183..HEAD.

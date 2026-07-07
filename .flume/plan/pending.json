@@ -7,8 +7,7 @@
       "section": "The SDK"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SETTINGS-FORMAT-PRESERVING"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "sdk/src/emit.ts",
-          "description": "`fileSourcePath`:147 resolves a `file()` asset against `options.baseDir ?? process.cwd()` — one workspace/cwd base for every member, never the module that stated the path. Recut resolution so a `file()` path resolves relative to the module that declared it (the rule every import system teaches). The now-vestigial cwd/`baseDir` default and its carriers (`ResolveOptions.baseDir`:23-25, `EmitOptions.baseDir`:185-188, the `baseDir` thread through `emit`:222/`resolveBody`:40) retire or repurpose as the new mechanism needs — build's call. The member's `source_path`:164 must still end absolute (the engine's true source path). Update the module-relative doc comments (:22, :185) which currently describe a cwd base."
+          "description": "`fileSourcePath`:147 resolves a `file()` asset against `options.baseDir ?? process.cwd()`:150 — one workspace/cwd base for every member, never the module that stated the path. Recut resolution so a `file()` path resolves relative to the module that declared it (the rule every import system teaches). The now-vestigial cwd/`baseDir` default and its carriers (`ResolveOptions.baseDir`:23-25, `EmitOptions.baseDir`:185-188, the `baseDir` thread through `emit`:222/`resolveBody`:40) retire or repurpose as the new mechanism needs — build's call. The member's `source_path`:164 must still end absolute (the engine's true source path). Update the doc comments (:22, :185) which currently claim 'module-relative' but describe a cwd base."
         },
         {
           "path": "sdk/src/prose.ts",
@@ -24,7 +23,7 @@
         },
         {
           "path": "src/install.rs",
-          "description": "`relative_to_workspace`:957 writes the scaffolded `file()` path with one `../` (relative to `.temper/`), but member modules live at `.temper/<kind>/<name>.ts` (:885-886) — two levels under root — so under module-relative resolution the path must recut to the member module's own directory (`../../.claude/...`), and `member_module_source`:980 must emit the new `file(...)` call shape (the `file({rel_path:?})` template at :991). Update the stale doc comment :950-953 ('SDK resolves against cwd, which emit_program sets to harness.ts's directory') — the exit clause covers cutting it. The unit tests at :1349/:1367 assert the old `file(\"../.claude/...\")` shape and move with the change. (install.rs line-cites here will drift when SETTINGS-FORMAT-PRESERVING ships; re-verify at unblock.)"
+          "description": "`relative_to_workspace`:1128 writes the scaffolded `file()` path with one `../` (:1136, relative to `.temper/`), but member modules live at `.temper/<kind>/<name>.ts` (scaffold loop :1057-1058, `member_dir`:999) — two levels under root — so under module-relative resolution the path must recut to the member module's own directory (`../../.claude/...`), and `member_module_source`:1151 must emit the new `file(...)` call shape (the `file({rel_path:?})` template at :1162). Update the stale doc comment :1121-1126 ('the SDK resolves a file() asset against the running program's cwd, which emit_program sets to harness.ts's directory') — the exit clause covers cutting it. The three unit tests at :1494/:1506/:1525 assert the old `file(\"../.claude/...\")` shape and move with the change."
         }
       ],
       "retire": []
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "A file() asset path resolves relative to the module that stated it, never the workspace/cwd; scaffold writes module-relative paths that resolve from the member module's own directory (no longer saved by directory-depth accident); the SDK doc becomes true and emit stays byte-reproducible.",
-    "notes": "Field ruling 0009 (f4189c3): resolution, scaffold, docs 'move together' — split leaves scaffold emitting one shape while resolution expects another, so one commit. ESM forces import.meta.url as the stating-module facility; call spelling is build's. Scope is file() assets (emit's one path-resolved surface). Shares install.rs+tests/install.rs with SETTINGS-FORMAT-PRESERVING → blockedBy it (install.rs chain tail; +SDK). scoped at 4bfa3cd."
+    "notes": "Field ruling 0009 (f4189c3): resolution, scaffold, docs 'move together' — split leaves scaffold emitting one shape while resolution expects another, so one commit. ESM forces import.meta.url as the stating-module facility; call spelling is build's. Scope is file() assets (emit's one path-resolved surface). SETTINGS-FORMAT-PRESERVING shipped (e617b4e) — unblocked; install.rs cites re-verified at HEAD. scoped at 1e91b44."
   },
   {
     "tag": "PACKAGING-CHANNELS",
