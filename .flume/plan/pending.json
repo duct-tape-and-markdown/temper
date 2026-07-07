@@ -7,8 +7,7 @@
       "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCK-CLAUSE-PREDICATE-ARGS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,11 @@
       "edit": [
         {
           "path": "src/builtin.rs",
-          "description": "contract()/contracts() build each kind's floor Contract from the parsed built-in lock's ClauseRows (predicate·argument·field·severity·guidance·cite) instead of the hand-written skill_anthropic()/rule_anthropic()/memory_anthropic() clause vectors and the *_GUIDANCE consts; drop SKILL_PACKAGE/RULE_PACKAGE/MEMORY_ANTHROPIC_PACKAGE and BUILTIN_PACKAGE_NAMES. Floors keyed by kind row label. Retire the `package std-lib`/PACKAGE.md doc comments and the `packages/<name>/PACKAGE.md` curated-tree citations (rust.md exit clause)."
+          "description": "contract()/contracts() build each kind's floor Contract from the parsed built-in lock's ClauseRows (predicate·bound/charset/keys/values·field·severity·guidance·cite, via builtin_lock::declarations().clauses grouped by kind label) instead of the hand-written skill_anthropic()/rule_anthropic()/memory_anthropic() clause vectors and the *_GUIDANCE consts; drop SKILL_PACKAGE/RULE_PACKAGE/MEMORY_ANTHROPIC_PACKAGE and BUILTIN_PACKAGE_NAMES. Package-level guidance retires with the noun (per-clause guidance rides the rows). Floors keyed by kind row label. Retire the `package std-lib`/PACKAGE.md doc comments and the `packages/<name>/PACKAGE.md` curated-tree citations (rust.md exit clause)."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "//! header staleness on contact (rust.md exit clause): builtin.rs now reads declarations() for its floors, so drop the 'nothing yet reads [declarations]' line and the dangling `BUILTIN-LOCK-ROW-DRIVEN` retired-tag reference — the projection is that wiring."
         },
         {
           "path": "src/main.rs",
@@ -41,7 +44,7 @@
       }
     ],
     "acceptance": "builtin.rs carries no hand-written clause or guidance data — every built-in floor is a projection of the embedded lock's clause rows (predicate/argument/severity/field/guidance/cite); the package noun and its `<kind>.<source>` names are gone; contract_template.rs/acceptance.rs floor-name assertions update; gates green.",
-    "notes": "Second consumer link. Blocked now on LOCK-CLAUSE-PREDICATE-ARGS (the floor rows drop the node-scope argument today — contract.ts:18 'reduced row' — so the projection needs the full predicate first). BUILTIN-KIND-FLATTEN shipped (3712d24). Contract-the-Rust-type stays (code owns the type name; rename out of scope). Closes the derived-lock Decision's `no hand-written mirror of the SDK's floors`."
+    "notes": "Now unblocked — LOCK-CLAUSE-PREDICATE-ARGS shipped (a89279c): the embedded lock's floor rows carry every predicate arg (bound/charset/keys/values) + field/severity/guidance/cite, so builtin_lock::declarations().clauses is a lossless floor source. Project each kind's Contract by grouping its rows by kind label; package-level guidance consts retire with the noun (per-clause guidance survives). Contract-the-Rust-type stays. Closes the derived-lock Decision's `no hand-written mirror`."
   },
   {
     "tag": "CHECK-LOCK-KIND-ROWS",
