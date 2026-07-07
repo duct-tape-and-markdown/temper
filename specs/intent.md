@@ -1,0 +1,94 @@
+# Intent
+
+`temper` is a type system for agent harnesses. A harness — the customization
+layer of a coding agent: skills, rules, memory files, hooks, permissions, MCP
+servers, settings — is a codebase, and its primary author is increasingly the
+agent itself. temper treats it as one: a typed model the author composes and
+compiles, with a gate that checks the result against a declared contract.
+
+This file is the why and the cross-cutting invariants. The model is `model/` —
+eight nouns in three files. History lives in `decisions/` and git tags, never
+here.
+
+## The problem
+
+A malformed harness fails silently at runtime: a skill that never triggers, a
+rule that fails to load, a hook command that resolves to nothing, drift nobody
+noticed. The author learns of the failure from the agent's behavior, not from
+an error message. temper moves that failure to author-time, the way a type
+checker does, and earns soundness the same way: it checks the harness against
+a contract its author declared — never against the tool's taste.
+
+## The spine rule
+
+**The engine ships no baked judgment.** Every opinion — every check whose
+severity anyone could want to dial — is a clause in an overridable default
+contract, adopted by import and overridden by composition. The only fixed
+checks are well-formedness: the preconditions of checking at all
+(`model/contract.md`). The rule binds the engine's own checks first.
+
+## Invariants
+
+1. **Declared, never mined.** An entity or relationship exists because an
+   author declared it on a typed surface — a field, an edge, a mention, a
+   syntax the target format itself executes. A check may read authored
+   content; it may never derive model structure from it. The bound runs both
+   ways: declaration is opt-in at every grain, and no check may demand
+   declaration density.
+2. **Decidable only.** A check enters temper iff it is expressible in the
+   closed predicate vocabulary. What cannot be decided is behavior, and
+   behavior is delegated to a wired verifier, never guessed. A gate that
+   guesses produces false positives, and a gate that cries wolf gets disabled.
+3. **Verbatim prose; deterministic compile.** temper never rewords,
+   synthesizes, or drops authored words. `emit` is byte-reproducible and
+   mechanically double-checked; nondeterminism is detected, never trusted.
+4. **Structure, never intent.** temper checks that the harness fills the
+   declared contract. It never decides the harness is missing something
+   nobody declared. Surface gaps; do not fill them.
+5. **Gate, don't lint.** Where blocking is cheap — CI, the author's
+   terminal — a failing contract hard-fails. At session start, where blocking
+   a live session would be hostile, the verdict is surfaced for approval,
+   never silently passed. Enforcement posture is author-declared per
+   placement.
+
+## Positioning
+
+The product is the SDK — the typed surface the harness is composed from — and
+the gate that surface earns: because the model is declared, malformed config
+is caught at author-time, not discovered in the agent's output. The primary
+author of a harness is the agent maintaining its own skills, rules, and
+memory. Agents are demonstrably poor at self-authoring harness artifacts
+unprompted, so the gate catches the structural failures they most commonly
+commit, and each clause's guidance channel delivers best practice at the
+moment of failure — to the author who needs it most and retains it least. The
+human sets the contract; the agent authors under it; temper holds the line
+between them.
+
+`rulesync` makes a harness portable; marketplaces distribute artifacts;
+temper makes a harness correct. A different layer — temper sits downstream of
+both, checking what you installed.
+
+## The honest bound
+
+"Good harness" is not provable, and temper never pretends it is. What is
+provable is conformance to a declared contract, so that is all temper
+asserts. The undecidable remainder — does this skill trigger well, does this
+tool work — is delegated: a requirement's prose carries the intent, its
+verifier edge names the test, and execution (CI, evals) judges it, never
+temper.
+
+## Self-hosting
+
+temper is built by an agentic pipeline reading a harness temper cannot yet
+check. The finish line is two greens on temper's own harness: it conforms to
+the contract its assembly attaches, and that contract is admissible. The
+plugin a stranger installs to gate their harness is the one that gates this
+repo; there is no separate external finish line.
+
+## The corpus
+
+Evergreen with a stable center: the corpus is continuously reconciled against
+code, and the kernel nouns (`model/`) are its stable core — a change to a
+kernel noun is a deliberate ceremony recorded in `decisions/` and tagged,
+never an incidental edit. Structure, budgets, and the change ceremony:
+`process/spec-system.md`.
