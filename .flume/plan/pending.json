@@ -99,6 +99,42 @@
     "notes": "Field report 1. For file()-carried members the .claude/ file is the source of truth, not a projection; the guard must read the lock's owned-source paths. blockedBy PATH-SEP-NORMALIZE (same install.rs file)."
   },
   {
+    "tag": "SETTINGS-FORMAT-PRESERVING",
+    "summary": "install's settings write re-serializes the whole settings.json (keys reordered, EOL churn) — make the hook merge format-preserving so existing keys/order/formatting survive the insertion",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GUARD-OWNPATH"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`project_settings`:665 parses the existing `.claude/settings.json`, grafts the `SessionStart`/`PreToolUse` temper hooks, then re-emits the whole document via `serde_json::to_string_pretty`:733 — so a human's key order, indentation, and EOL are all rewritten, exactly the churn the round-trip discipline forbids for TOML/markdown. Make the write format-preserving: only the temper hook groups it inserts/updates change bytes; every existing key, its order, and the file's formatting survive (a hand-authored settings.json diffs by one hunk after install). Absent/empty file still writes a fresh canonical document. Mechanism is build's decidable call — a JSON CST-editor crate or a surgical splice of just the two hook arrays; lean surgical (dependency-free, subtraction-before-addition). Update the stale comment at :660-664 which currently asserts the gap ('there is no format-preserving JSON editor to round-trip through') — decision 0008 closes it (exit clause: cut on contact). If a crate is adopted, that is an ordinary Cargo.toml dependency add."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "`EXISTING_SETTINGS`:108 is already canonical 2-space pretty JSON, so a whole-file re-serialize is byte-identical to it — the fixture cannot falsify reordering/reformatting. Add a deliberately non-canonical settings fixture (a distinct indentation width and a key order serde would not reproduce) and assert that after install every pre-existing byte outside the grafted temper hook groups is unchanged (one-hunk diff), while the SessionStart/guard placements still land and re-running converges."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "installing into a settings.json with non-canonical formatting (custom indentation, non-serde key order) leaves every existing key's order and formatting byte-intact and diffs by a single hunk — the grafted temper hooks — never re-serializing the whole file; the SessionStart hook and PreToolUse guard still place and install stays idempotent"
+      }
+    ],
+    "acceptance": "Install merges the SessionStart hook (and the guard, with its constituency) into an existing .claude/settings.json without re-serializing it — existing keys, order, and formatting survive, a hand-authored file diffs by one hunk — while an absent file still writes a fresh canonical document and re-running converges.",
+    "notes": "Field ruling 0008 (f4189c3): the JSON peer of the toml_edit round-trip keystone. install.rs:660-664 asserts the gap ('no format-preserving JSON editor') — 0008 closes it; update the comment (exit clause). Mechanism — a JSON CST crate vs. a surgical splice of the two temper hook groups — is build's call; lean surgical, dependency-free. Shares install.rs+tests/install.rs with GUARD-OWNPATH -> blockedBy it. 0009/0011 unrouted. scoped at 52d0316."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
