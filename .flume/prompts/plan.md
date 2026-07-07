@@ -106,7 +106,11 @@ chosen job half-done — the job is the atom.
   Symbol-level claims in descriptions — a struct, a lock column, a schema
   surface — either resolve on disk (`rg` before citing) or are written
   "new `X`"; a mechanism you can neither resolve nor mark is an open
-  question, never a sub-clause of an entry.
+  question, never a sub-clause of an entry. The same bar covers **absence**:
+  an entry premised on "X is missing / never runs" verifies the gap at HEAD
+  (`rg` the mechanism; run the report's probe) before scoping — an inbox
+  finding describes its reporter's snapshot, and the gap may have closed or
+  moved by the time it routes.
 - **Disjoint, or serialized — never both `open` over a shared file.** Build
   fans out pickable entries in parallel worktrees; two `open` entries editing
   the same file conflict at merge and revert the wave. If any path appears in
