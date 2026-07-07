@@ -1,14 +1,13 @@
 [
   {
     "tag": "CHECK-LOCK-KIND-ROWS",
-    "summary": "check models only the built-in kinds — read the committed lock's custom kind rows so custom-kind requirements resolve instead of false admissibility failures (cascade field report)",
+    "summary": "Synthesize custom kinds from the committed lock's KindFactRows in gate() so a custom-kind requirement resolves instead of a false admissibility failure (cascade field report)",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "BUILTIN-FLOOR-LOCK-PROJECTION"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,15 +15,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The gate builds its kind set from the built-in default program only and reads the committed lock (`drift::read_declarations`) for clauses/requirements/satisfies but NOT for kinds — so an adopted harness's `declarations.kinds` (its custom kind rows, written whole by emit — cascade saw 9 spec kinds + 74 members in a fresh lock) are invisible, and a requirement naming a custom kind fails `requirement.admissibility` (\"names kind X, which temper does not model\") with an `unfilled` shadow. Feed the committed lock's `KindFactRow`s into the check kind loop, merged over the built-in default program, so a custom-kind requirement resolves against its declared kind."
+          "description": "In `gate` (and the read-arm twin at :416) the custom-kind corpus is hardcoded `let custom_kinds: Vec<CustomKindEntry> = Vec::new();` (:631/:416) and the kind-validation loop iterates `builtin_kind::definitions()` only (:571), so `by_kind`'s keys are `{skill,rule}` and a `require` naming a custom kind fails `requirement.admissibility` (\"names kind X, which temper does not model\") at roster.rs:177-184. Build the custom-kind slice from `declarations.kinds` (drift already parses these — verified), EXCLUDING rows whose name matches a built-in (those are the governs-overrides `effective_governs` already consumes at :755-765). Convert each surviving KindFactRow to a `CustomKind` via the new kind.rs ctor, run it through the existing generic `resolve_kind_units`/`kind_features` (:802/:847) and `assemble_by_kind`/`all_features` (:636/:641), and add it to the :571 validation loop so its floor clauses (from `declarations.clauses`, grouped by kind label) judge its members. Result: roster admissibility sees the kind, coverage counts real satisfiers on disk, conformance runs. Cut the now-false comments on contact per rust.md's exit clause: :626-630 (\"no SDK path exists in the engine yet\" / \"no custom kind contributes members or edges\") and the `Custom kinds retire with the KIND.md file format` lines at :398/:421/:888/:918."
         },
         {
-          "path": "src/check.rs",
-          "description": "`Workspace::load_kinds` / the members-map keying must load members for the committed lock's custom kind rows (their loci/layout), not only the built-in kind set, so a custom kind's members are conformance-checked (cascade: `check --harness .` checked only the built-ins)."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Kind-blind extraction over the committed lock's custom kind facts (locus, layout, registration) — the same generic path the built-in kinds ride, sourced from the lock rows. Reassess whether any engine.rs edit is needed once the chain lands: extraction may already be fully generic and the fix confined to check.rs/main.rs feeding it the rows."
+          "path": "src/kind.rs",
+          "description": "Add a `CustomKind` constructor reconstructing a kind from a `drift::KindFactRow`'s five-fact residue: name→label, `governs_root`+`governs_glob`→`Governs` locus, `format`/`unit_shape`→layout/`member_document` shape, `activation`→registration. Field-level extraction primitives are compile-time-only (`specs/architecture/15-kinds.md`, \"there is no kind file format\") and absent from the row, so the reconstructed kind's extraction stays generic — frontmatter/section reads keyed by each floor clause's `field` column, which the kind-blind engine already does — never a per-kind primitive list. Sits beside the existing `CustomKind::new`/`from_surface_dir` (:190/:549)."
         }
       ],
       "retire": []
@@ -33,22 +28,22 @@
     "tests": [
       {
         "path": "tests/session_start.rs",
-        "asserts": "a harness whose committed lock declares a custom kind and a requirement naming it does NOT emit a false requirement.admissibility failure; the requirement resolves against the lock-declared kind and reports genuine coverage only"
+        "asserts": "a harness whose committed lock declares a custom kind AND a requirement naming it does NOT emit a false requirement.admissibility \"does not model\" finding; the requirement resolves against the lock-declared kind, and the kind's members on disk are walked and counted so coverage reports genuine fill status only"
       }
     ],
-    "acceptance": "`temper check` (and its session-start reporter) reads custom kind declaration rows from the committed lock, so a custom-kind requirement resolves against its declared kind instead of failing admissibility as unmodeled; the session-start gate no longer cries wolf on any harness with a custom-kind requirement.",
-    "notes": "Cascade field report, 07-06 — the false blockers made cascade disable its SessionStart hook (law-3 'gate that cries wolf gets disabled'). Serialized behind the derived-lock chain: it edits the same check/main kind-resolution code the chain reworks. When the chain ships, plan re-checks whether the row-driven path already reads the committed lock's custom kinds — if so, drop this."
+    "acceptance": "`temper check` (and its session-start reporter) synthesizes custom kinds from the committed lock's KindFactRows, so a `require` naming a custom kind resolves against its declared kind — no false `requirement.admissibility` finding — and the kind's members are walked, counted, and floor-checked; the session-start gate no longer cries wolf on any custom-kind harness.",
+    "notes": "Cascade field report 07-06 — false blockers made cascade disable its SessionStart hook (law 3). Blocker BUILTIN-FLOOR-LOCK-PROJECTION shipped (5f68c8c). Agent trace 07-06: drift.rs already parses declarations.kinds; engine.rs is kind-blind (no edit); gate doesn't route through check.rs's Workspace. The fix is main.rs::gate feeding rows through the existing generic resolve_kind_units/assemble_by_kind + a KindFactRow→CustomKind ctor in kind.rs."
   },
   {
     "tag": "COMMENT-STOCK-SWEEP",
-    "summary": "Whole-tree comment sweep — prose spec recaps to pointer tags, delete era + compliance narration and retired-tree citations per rust.md's taxonomy; no behavior change",
+    "summary": "Whole-tree comment sweep — prose spec recaps to pointer tags, delete era + compliance narration, retired-tree citations, and dangling pending-tag refs per rust.md's taxonomy; no behavior change",
     "per": {
       "path": ".claude/rules/rust.md",
       "section": "Style & structure"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "Whole-tree sweep — must run solo (a broad src/+tests/ comment edit races any concurrent entry). Ride after the derived-lock chain lands: the chain rewrites the two heaviest-commented files (builtin.rs/builtin_kind.rs) on contact, so sweeping them first is throwaway. Plan promotes this to a solo open entry once the chain ships and the queue is otherwise empty."
+      "reason": "Whole-tree sweep — must run solo (a broad src/+tests/ comment edit races any concurrent entry). Promoted to a solo open entry once CHECK-LOCK-KIND-ROWS ships and the queue is otherwise empty; promotion re-greps to finalize the exact residue set (including tests/)."
     },
     "dependsOnForks": [],
     "files": {
@@ -56,19 +51,27 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "Representative anchor for the residue the chain leaves untouched. Per rust.md's taxonomy + exit clause: drop the `kinds/<name>/KIND.md` curated-tree citations (//! header + :26 — the tree is slated for physical deletion, a human chore), convert prose spec recaps to terse pointer tags (file path only), delete era narration ('no longer X', 'any more'), compliance narration, and dangling pending-tag references. Module //! headers to ~10 lines."
+          "description": "The `kinds/<name>/KIND.md` curated-tree citations (`//!` :5-7, :26, :60, :89) and the \"any more\" era narration: drop the citations (the tree is slated for physical deletion, a human chore), convert prose spec recaps to terse pointer tags (file path only), delete era narration. Module `//!` header to ~10 lines."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "Era narration the projection left in its own header: `//!` :10-11 (\"There is no package noun any more\") and :95 (\"the noun retired with the hand-written mirror\") — commit-body material, cut per rust.md's exit clause. Header to ~10 lines."
         },
         {
           "path": "src/bundle.rs",
-          "description": "Representative anchor for the same sweep across the crate's other over-commented modules and their tests — e.g. the `packages/` curated-tree reference (:79) and main.rs's 'Custom kinds retire with the KIND.md file format' comments (:401/:424/:632/:894/:924)."
+          "description": "The `packages/` curated-tree reference (:79) — cite the clause `cite` field / spec path only, drop the retired-tree pointer."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Retired `[edge.<target>]`/`[edge.*]` document-clause references and the dangling `READ-EDGE-UNIFY` pending tag (`//!` :23, :65, and :391): the `[edge.*]` construct shipped/retired and the tag is not in the queue — delete both per rust.md's exit clause (dangling pending-tag reference + retired-noun comment)."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "Zero quoted spec section titles in src/ or tests/ comments; zero era vocabulary from 90-spec-system's migration trail; no comment referencing a pending tag that isn't in the queue; no citation of the retired `kinds/`/`packages/` curated trees; module //! headers ~10 lines; cargo gates green — no behavior change.",
-    "notes": "Ceremony item (John 07-06). rust.md's exit clause cuts comments on contact for files the chain touches (builtin.rs by the projection); this sweep is the residue in the files the chain leaves untouched (builtin_kind.rs/bundle.rs/main.rs KIND.md refs), run once at the end. Deferred (not blockedBy) because a whole-tree edit races every concurrent entry — promoted to a solo open entry after the chain fully lands and the queue is otherwise empty."
+    "acceptance": "Zero quoted spec section titles in src/ or tests/ comments; zero era vocabulary from 90-spec-system's migration trail; no comment referencing a pending tag that isn't in the queue; no citation of the retired `kinds/`/`packages/` curated trees or `[edge.*]` document clauses; module `//!` headers ~10 lines; cargo gates green — no behavior change.",
+    "notes": "Ceremony item (John 07-06). rust.md's exit clause cuts comments on contact for chain-touched files (builtin.rs by the projection; main.rs's KIND.md comments by CHECK-LOCK-KIND-ROWS); this sweep is the residue in files the chain leaves untouched. Deferred, not blockedBy: a whole-tree edit races every open entry — promoted to solo open once CHECK-LOCK-KIND-ROWS ships and the queue is otherwise empty; promotion re-greps the full residue set (incl. tests/ + any main.rs remainder)."
   },
   {
     "tag": "PACKAGING-CHANNELS",

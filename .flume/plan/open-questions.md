@@ -98,14 +98,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   — kept because an external format's mechanics are temper's to implement
   once; the selection is declared. Grows only by deliberate addition.
 - **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived,
-  retirement draining: CURATED-TREES-RETIRE + BUILTIN-KIND-FLATTEN **shipped**.
-  The remaining src refs are comment-only: builtin.rs's `packages/PACKAGE.md`
-  citations ride BUILTIN-FLOOR-LOCK-PROJECTION (which rewrites the file);
-  builtin_kind.rs's `kinds/KIND.md` + main.rs/bundle.rs's tree citations ride
-  COMMENT-STOCK-SWEEP. Citation trail moves to clause `cite` fields
-  (`10-contracts.md`). The physical `kinds/`+`packages/` tree deletion is a
-  human `chore(harness):` commit — now actionable (FLATTEN landed), out of
-  build's fence. This line dies when both the projection and the sweep land.
+  retirement draining: CURATED-TREES-RETIRE, BUILTIN-KIND-FLATTEN, and
+  BUILTIN-FLOOR-LOCK-PROJECTION **shipped** — the last cleaned builtin.rs's
+  `packages/PACKAGE.md` citations. The remaining src refs are comment-only:
+  builtin_kind.rs's `kinds/KIND.md`, bundle.rs's `packages/`, main.rs's tree
+  citations, read.rs's `[edge.*]`/dangling-tag lines — all ride
+  COMMENT-STOCK-SWEEP (main.rs's `KIND.md` comments partly cut by
+  CHECK-LOCK-KIND-ROWS on contact). Citation trail moves to clause `cite`
+  fields (`10-contracts.md`). The physical `kinds/`+`packages/` tree deletion
+  is a human `chore(harness):` commit — actionable, out of build's fence. This
+  line dies when the sweep lands.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the custom-kind story
   proves end to end.
