@@ -424,6 +424,141 @@ fn an_unsupported_seam_version_is_a_clear_refusal() {
 }
 
 // ---------------------------------------------------------------------------
+// Reap — a member dropped from the program leaves its projection stranded in
+// the prior lock; emit reaps it iff untouched, else reports the drift and
+// leaves it in place.
+// ---------------------------------------------------------------------------
+
+fn with_both_members() -> Payload {
+    basic_payload(vec![
+        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        skill_member(
+            "coordinate",
+            "Use when coordinating agents across axes.",
+            COORDINATE_BODY,
+        ),
+    ])
+}
+
+fn coordinate_only() -> Payload {
+    basic_payload(vec![skill_member(
+        "coordinate",
+        "Use when coordinating agents across axes.",
+        COORDINATE_BODY,
+    )])
+}
+
+#[test]
+fn re_emitting_after_a_member_is_removed_reaps_an_untouched_projection() {
+    let (harness, into) = workspace("reap-clean");
+    drift::emit(&with_both_members(), &into, EmitOptions::default()).unwrap();
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    assert!(rule_path.is_file());
+
+    let report = drift::emit(&coordinate_only(), &into, EmitOptions::default()).unwrap();
+
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Reaped);
+    assert!(
+        !rule_path.exists(),
+        "a byte-identical orphan is reaped — temper wrote every one of its bytes"
+    );
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Unchanged);
+
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(
+        !lock.contains("[[rule]]"),
+        "the reaped member's kind carries no current owner and no rollup row: {lock}"
+    );
+}
+
+#[test]
+fn re_emitting_after_a_member_is_removed_leaves_a_hand_edited_projection_and_reports_drift() {
+    let (harness, into) = workspace("reap-drift");
+    drift::emit(&with_both_members(), &into, EmitOptions::default()).unwrap();
+
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    let hand_edited = fs::read_to_string(&rule_path).unwrap() + "\nHand-authored addendum.\n";
+    fs::write(&rule_path, &hand_edited).unwrap();
+
+    let report = drift::emit(&coordinate_only(), &into, EmitOptions::default()).unwrap();
+
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::OrphanDrift);
+    assert_eq!(
+        fs::read_to_string(&rule_path).unwrap(),
+        hand_edited,
+        "a drifted orphan is left on disk, never silently deleted"
+    );
+}
+
+#[test]
+fn dry_run_reports_a_reap_without_deleting_the_orphan() {
+    let (harness, into) = workspace("reap-dry");
+    drift::emit(&with_both_members(), &into, EmitOptions::default()).unwrap();
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+
+    let report = drift::emit(
+        &coordinate_only(),
+        &into,
+        EmitOptions {
+            dry_run: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Reaped);
+    assert!(rule_path.is_file(), "--dry-run must not delete the orphan");
+}
+
+#[test]
+fn an_orphan_already_removed_by_hand_is_neither_reaped_nor_reported() {
+    let (harness, into) = workspace("reap-gone");
+    drift::emit(&with_both_members(), &into, EmitOptions::default()).unwrap();
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    fs::remove_file(&rule_path).unwrap();
+
+    let report = drift::emit(&coordinate_only(), &into, EmitOptions::default()).unwrap();
+
+    assert!(
+        report.entries.iter().all(|e| e.name != "rust"),
+        "nothing is left to reap or report once the file is already gone: {:?}",
+        report.entries
+    );
+}
+
+#[test]
+fn the_emit_report_distinguishes_reaped_from_drifted_orphan() {
+    let (harness, into) = workspace("reap-both");
+    let payload = basic_payload(vec![
+        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        rule_member("go", Some(&["**/*.go"]), "# Go conventions\n"),
+        skill_member(
+            "coordinate",
+            "Use when coordinating agents across axes.",
+            COORDINATE_BODY,
+        ),
+    ]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let go_path = harness.join(".claude").join("rules").join("go.md");
+    let hand_edited = fs::read_to_string(&go_path).unwrap() + "\nHand-authored.\n";
+    fs::write(&go_path, &hand_edited).unwrap();
+
+    let report = drift::emit(&coordinate_only(), &into, EmitOptions::default()).unwrap();
+
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Reaped);
+    assert_eq!(outcome(&report, "go"), EmitOutcome::OrphanDrift);
+
+    let rendered = drift::render_emit(&report);
+    assert!(rendered.contains("reaped"), "{rendered}");
+    assert!(rendered.contains("orphan-drift"), "{rendered}");
+    assert!(
+        rendered.contains("1 reaped, 1 orphan-drift"),
+        "the tally names both outcomes: {rendered}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // The seam — `drift::emit_program` over a real `node` subprocess running the
 // built SDK against a fixture `harness.ts`.
 // ---------------------------------------------------------------------------

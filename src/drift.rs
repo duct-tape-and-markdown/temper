@@ -13,7 +13,7 @@
 //! for artifacts temper *places* rather than emits; it keeps its own three-state conflict detection until `install` rides
 //! emit's projection.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -49,6 +49,18 @@ pub enum DriftError {
     #[diagnostic(code(temper::drift::write))]
     Write {
         /// The destination source path that failed to write.
+        path: PathBuf,
+        /// The underlying I/O error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// A reaped orphan projection — byte-identical to its lock fingerprint, its
+    /// owning member gone — could not be deleted.
+    #[error("failed to remove orphaned projection {path}")]
+    #[diagnostic(code(temper::drift::remove))]
+    Remove {
+        /// The orphaned projection path that failed to delete.
         path: PathBuf,
         /// The underlying I/O error.
         #[source]
@@ -196,6 +208,17 @@ pub enum EmitOutcome {
     /// write. The idempotent no-op — a re-run of a clean emit lands here for every
     /// artifact.
     Unchanged,
+    /// The prior lock named this projection but no current member owns it (its
+    /// member was dropped from the program), and the on-disk bytes still hashed to
+    /// the lock's recorded `emit_hash` — temper wrote every one of those bytes, so
+    /// deleting it (or, under `--dry-run`, reporting that it would be deleted)
+    /// loses nothing authored.
+    Reaped,
+    /// The prior lock named this projection but no current member owns it, and the
+    /// on-disk bytes no longer hash to the lock's recorded `emit_hash` — a hand
+    /// edit, or some other out-of-band change. Left on disk and only reported:
+    /// deleting hand-authored bytes is never the safe default.
+    OrphanDrift,
 }
 
 impl EmitOutcome {
@@ -205,6 +228,8 @@ impl EmitOutcome {
         match self {
             EmitOutcome::Emitted => "emitted",
             EmitOutcome::Unchanged => "unchanged",
+            EmitOutcome::Reaped => "reaped",
+            EmitOutcome::OrphanDrift => "orphan-drift",
         }
     }
 }
@@ -223,12 +248,14 @@ pub struct EmitEntry {
     pub outcome: EmitOutcome,
 }
 
-/// The typed result of an [`emit`]: every artifact's outcome, in the payload's
-/// stable load order (kind-then-name). Renders nothing itself — [`render_emit`]
-/// turns it into text.
+/// The typed result of an [`emit`]: every current artifact's outcome, in the
+/// payload's stable load order (kind-then-name), followed by an entry for every
+/// lock-known projection the payload no longer owns (reaped or drifted-orphan).
+/// Renders nothing itself — [`render_emit`] turns it into text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmitReport {
-    /// Every projected artifact, across every kind the payload names.
+    /// Every projected artifact, across every kind the payload names, plus any
+    /// ownerless projection the prior lock still named.
     pub entries: Vec<EmitEntry>,
 }
 
@@ -259,14 +286,14 @@ pub struct PayloadMember {
 
 /// The whole seam payload the SDK program prints to stdout:
 /// the
-/// declaration rows (the lock's five families) and every projected member's erased
+/// declaration rows (the lock's six families) and every projected member's erased
 /// payload. The engine is the sole compiler of every projection and the whole lock
 /// from this one value — no harness re-supply, the payload IS the source.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct Payload {
     /// The pinned seam version this payload was compiled against.
     pub version: u32,
-    /// The five declaration families.
+    /// The six declaration families.
     pub declarations: Declarations,
     /// Every projected member.
     pub members: Vec<PayloadMember>,
@@ -491,6 +518,24 @@ pub fn emit(
         entries.push(entry);
     }
 
+    // Total runs in reverse too: a member the prior lock knew and the current
+    // payload no longer owns leaves its projection stranded on disk unless emit
+    // reaps it here. The new lock is about to be rewritten whole from `rollups`
+    // alone, so this is the one point where a dropped member's row is still on
+    // hand to compare against.
+    let owned_paths: BTreeSet<String> = projections
+        .iter()
+        .map(|projection| to_lock_path(&projection.source_path))
+        .collect();
+    for row in read_prior_provenance(workspace_dir) {
+        if owned_paths.contains(&row.source_path) {
+            continue;
+        }
+        if let Some(entry) = reap_or_report_orphan(&row, options.dry_run)? {
+            entries.push(entry);
+        }
+    }
+
     if !options.dry_run {
         write_rollup(
             workspace_dir,
@@ -501,6 +546,99 @@ pub fn emit(
     }
 
     Ok(EmitReport { entries })
+}
+
+/// One provenance row read back off a workspace's prior `lock.toml` — the same
+/// `name`/`source_path`/`emit_hash` columns [`config_stale`] and
+/// [`emit_owned_targets`] already read, kept here as owned scalars since this
+/// reader's rows outlive the parsed document (they cross into the next lock's
+/// rewrite).
+struct ProvenanceRow {
+    /// The member's kind (bare name — `"skill"`, `"rule"`, …).
+    kind: String,
+    /// The member's name.
+    name: String,
+    /// The projection's on-disk path, as the lock recorded it.
+    source_path: String,
+    /// The projection's last-emitted fingerprint.
+    emit_hash: String,
+}
+
+/// Every provenance row the prior lock at `workspace_dir` carries, across every
+/// kind (built-in and custom) — the anchor [`emit`]'s reap step diffs the current
+/// payload's owned paths against to find a lock-known projection with no current
+/// owner. A row missing a required column, or a missing/malformed lock, yields no
+/// rows — the same tolerant-read absence [`config_stale`]/[`emit_owned_targets`]
+/// take: nothing to compare against forges no reap, no drift finding.
+fn read_prior_provenance(workspace_dir: &Path) -> Vec<ProvenanceRow> {
+    let path = workspace_dir.join("lock.toml");
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let Ok(doc) = text.parse::<DocumentMut>() else {
+        return Vec::new();
+    };
+
+    let mut rows = Vec::new();
+    for (kind, item) in doc.as_table().iter() {
+        let Some(table_rows) = item.as_array_of_tables() else {
+            continue;
+        };
+        for row in table_rows.iter() {
+            let (Some(name), Some(source_path), Some(emit_hash)) = (
+                row.get("name").and_then(Item::as_str),
+                row.get("source_path").and_then(Item::as_str),
+                row.get("emit_hash").and_then(Item::as_str),
+            ) else {
+                continue;
+            };
+            rows.push(ProvenanceRow {
+                kind: kind.to_string(),
+                name: name.to_string(),
+                source_path: source_path.to_string(),
+                emit_hash: emit_hash.to_string(),
+            });
+        }
+    }
+    rows
+}
+
+/// Reap or report one lock-known projection whose owning member is gone: the
+/// on-disk bytes are hashed and compared against the row's recorded `emit_hash`
+/// — the safety line that keeps a hand-edited file from ever being silently
+/// deleted (temper wrote every byte of a matching file, so removing it, or under
+/// `--dry-run` reporting that it would be removed, loses nothing authored; a
+/// mismatch leaves the file in place and reports the drift instead). A file
+/// already absent is neither reaped nor reported: there is nothing left to act
+/// on, so this returns `None`.
+fn reap_or_report_orphan(
+    row: &ProvenanceRow,
+    dry_run: bool,
+) -> Result<Option<EmitEntry>, DriftError> {
+    let path = PathBuf::from(&row.source_path);
+    let bytes = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(source) => return Err(DriftError::Read { path, source }),
+    };
+
+    let outcome = if sha256_hex(&bytes) == row.emit_hash {
+        if !dry_run {
+            fs::remove_file(&path).map_err(|source| DriftError::Remove {
+                path: path.clone(),
+                source,
+            })?;
+        }
+        EmitOutcome::Reaped
+    } else {
+        EmitOutcome::OrphanDrift
+    };
+    Ok(Some(EmitEntry {
+        kind: row.kind.clone(),
+        name: row.name.clone(),
+        source_path: path,
+        outcome,
+    }))
 }
 
 /// Re-emit one projection whole, returning its [`EmitEntry`] and the SHA-256 of the
@@ -635,11 +773,13 @@ fn render_field(key: &str, value: &JsonValue) -> String {
 #[must_use]
 pub fn render_emit(report: &EmitReport) -> String {
     let mut out = String::new();
-    let (mut emitted, mut unchanged) = (0u32, 0u32);
+    let (mut emitted, mut unchanged, mut reaped, mut orphan_drift) = (0u32, 0u32, 0u32, 0u32);
     for entry in &report.entries {
         match entry.outcome {
             EmitOutcome::Emitted => emitted += 1,
             EmitOutcome::Unchanged => unchanged += 1,
+            EmitOutcome::Reaped => reaped += 1,
+            EmitOutcome::OrphanDrift => orphan_drift += 1,
         }
         out.push_str(&format!(
             "{:<10}  {:<5}  {}\n",
@@ -648,7 +788,9 @@ pub fn render_emit(report: &EmitReport) -> String {
             entry.name
         ));
     }
-    out.push_str(&format!("\n{emitted} emitted, {unchanged} unchanged\n"));
+    out.push_str(&format!(
+        "\n{emitted} emitted, {unchanged} unchanged, {reaped} reaped, {orphan_drift} orphan-drift\n"
+    ));
     out
 }
 
