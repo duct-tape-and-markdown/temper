@@ -135,6 +135,50 @@
     "notes": "Field ruling 0008 (f4189c3): the JSON peer of the toml_edit round-trip keystone. install.rs:660-664 asserts the gap ('no format-preserving JSON editor') — 0008 closes it; update the comment (exit clause). Mechanism — a JSON CST crate vs. a surgical splice of the two temper hook groups — is build's call; lean surgical, dependency-free. Shares install.rs+tests/install.rs with GUARD-OWNPATH -> blockedBy it. 0009/0011 unrouted. scoped at 52d0316."
   },
   {
+    "tag": "MODULE-RELATIVE-PATHS",
+    "summary": "a file() path resolves against one cwd/baseDir, not the module that states it — scaffold works only by directory-depth accident; recut resolution to the stating module, move scaffold + docs with it",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The SDK"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SETTINGS-FORMAT-PRESERVING"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`fileSourcePath`:147 resolves a `file()` asset against `options.baseDir ?? process.cwd()` — one workspace/cwd base for every member, never the module that stated the path. Recut resolution so a `file()` path resolves relative to the module that declared it (the rule every import system teaches). The now-vestigial cwd/`baseDir` default and its carriers (`ResolveOptions.baseDir`:23-25, `EmitOptions.baseDir`:185-188, the `baseDir` thread through `emit`:222/`resolveBody`:40) retire or repurpose as the new mechanism needs — build's call. The member's `source_path`:164 must still end absolute (the engine's true source path). Update the module-relative doc comments (:22, :185) which currently describe a cwd base."
+        },
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "`file(path)`:87 / the `File` interface:38 capture only a path string, so resolution cannot be module-relative. Give the constructor the stating module's location — ESM's only facility is `import.meta.url`, so the call carries it (`file(import.meta.url, relPath)` or `file(new URL(relPath, import.meta.url))` — exact spelling is build's decidable call among equivalents). `File.path`:41 (surfaced in emit's error text) and the `Module-relative path`:40 doc move with it."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "`relative_to_workspace`:957 writes the scaffolded `file()` path with one `../` (relative to `.temper/`), but member modules live at `.temper/<kind>/<name>.ts` (:885-886) — two levels under root — so under module-relative resolution the path must recut to the member module's own directory (`../../.claude/...`), and `member_module_source`:980 must emit the new `file(...)` call shape (the `file({rel_path:?})` template at :991). Update the stale doc comment :950-953 ('SDK resolves against cwd, which emit_program sets to harness.ts's directory') — the exit clause covers cutting it. The unit tests at :1349/:1367 assert the old `file(\"../.claude/...\")` shape and move with the change."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a file() asset resolves relative to the module that stated it (not cwd/baseDir): a member whose file() names a path relative to its own module resolves and reads byte-faithfully regardless of the process cwd, its payload source_path is the absolute stating-module-relative path, and a missing asset is still a loud emit error"
+      },
+      {
+        "path": "tests/install.rs",
+        "asserts": "a scaffolded member module at .temper/<kind>/<name>.ts writes a file() path that resolves module-relative to the source artifact (climbing from the module's own directory, not by cwd accident), and the emitted program's first emit reads that source back byte-identical"
+      }
+    ],
+    "acceptance": "A file() asset path resolves relative to the module that stated it, never the workspace/cwd; scaffold writes module-relative paths that resolve from the member module's own directory (no longer saved by directory-depth accident); the SDK doc becomes true and emit stays byte-reproducible.",
+    "notes": "Field ruling 0009 (f4189c3): resolution, scaffold, docs 'move together' — split leaves scaffold emitting one shape while resolution expects another, so one commit. ESM forces import.meta.url as the stating-module facility; call spelling is build's. Scope is file() assets (emit's one path-resolved surface). Shares install.rs+tests/install.rs with the install chain -> blockedBy SETTINGS-FORMAT-PRESERVING. 0011 unrouted. scoped at 4bfa3cd."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
