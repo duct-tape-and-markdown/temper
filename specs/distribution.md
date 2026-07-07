@@ -56,9 +56,12 @@ toolchain; the plugin a stranger installs is the one that gates this repo
   SDK-emitted, re-run `emit --frozen` and byte-compare — the check that makes
   byte-reproducibility mechanical. SARIF is CI's reporter.
 - **The author's terminal** — **hard**; the author runs `temper check`.
-- **Per tool call** — the `PreToolUse` guard is `temper guard`; whether it
-  blocks follows the author's declared enforcement mode (note / warn /
-  block), default advisory.
+- **Per tool call** — the `PreToolUse` guard is `temper guard`; it follows
+  the author's declared enforcement mode, three values split by where the
+  finding goes: **block** denies the call; **warn** allows it and surfaces
+  the finding in-band, into the live context; **note** allows it and records
+  the finding out-of-band only — the next report, never the session.
+  Default: warn.
 
 `temper install` is the one on-ramp: discovery report, one question, every
 answer flag-spelled (`--yes`), no invisible state — re-running converges.
