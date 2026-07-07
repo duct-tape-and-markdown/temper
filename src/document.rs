@@ -1,5 +1,5 @@
-//! The fenced document — the surface language's authored unit (`specs/architecture/20-surface.md`,
-//! "The member document — the surface language").
+//! The fenced document — the surface language's authored unit
+//! (specs/architecture/20-surface.md, the member).
 //!
 //! Every member artifact in the surface is **one authored document**: a
 //! `+++`-fenced TOML header over a markdown body, in a single file (`SKILL.md`,
@@ -224,8 +224,8 @@ impl Document {
     }
 }
 
-/// A `[satisfies.<requirement>]` clause module (`specs/architecture/20-surface.md`, "The member
-/// document"): the member opts into filling `requirement`, carrying the optional
+/// A `[satisfies.<requirement>]` clause module (specs/architecture/20-surface.md, the
+/// member): the member opts into filling `requirement`, carrying the optional
 /// authored `rationale` — the *why*, first-class beside the link rather than
 /// delegated and forgotten (`00-intent.md` law 7). Authored on the surface, never
 /// imported; the coverage check reads only the requirement name.
@@ -322,9 +322,9 @@ pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirem
 }
 
 /// Emit the generated `[provenance]` module — `source_path` + `source_hash`, the
-/// authored-source freshness fact (`specs/architecture/20-surface.md`, "two freshness
-/// facts"). Always last, so the authored clauses read first and the generated lock
-/// trails them.
+/// authored-source freshness fact (specs/architecture/20-surface.md, provenance).
+/// Always last, so the authored clauses read first and the generated lock trails
+/// them.
 pub fn add_provenance(header: &mut DocumentMut, source_path: &str, source_hash: &str) {
     let mut module = Table::new();
     module.insert(

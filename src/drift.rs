@@ -1,9 +1,7 @@
 //! `emit` — the drift engine.
 //!
-//! specs/architecture/20-surface.md, "The seam — one implementation"; "Content-faithful,
-//! deterministically emitted (law 5)"; "Decision: `re-add` is retired — hand-edits route
-//! to the source" (a direct edit to emitted output is drift routed to the authored
-//! source, never merged back).
+//! specs/architecture/20-surface.md, the seam / drift (a direct edit to emitted
+//! output is drift routed to the authored source, never merged back).
 //!
 //! [`emit_program`] runs the SDK program (`node <workspace>/harness.ts`) and hands its
 //! JSON payload to [`emit`], the sole compiler of every projection and the whole lock —
@@ -148,8 +146,8 @@ pub enum DriftError {
     },
 
     /// The payload's pinned `version` does not match the engine's — the SDK and the
-    /// engine have drifted out of the lockstep the seam requires (`20-surface.md`,
-    /// "The SDK pins its engine version").
+    /// engine have drifted out of the lockstep the seam requires
+    /// (specs/architecture/50-distribution.md, engine pin).
     #[error(
         "the SDK program's payload declares seam version {got}; this engine reads version {SEAM_VERSION}"
     )]
@@ -197,7 +195,7 @@ pub enum EmitOutcome {
     /// `--dry-run`, would have been): its bytes differed from disk, or the source
     /// was absent. Emit regenerates from the authored source, so a hand-edited
     /// projection is overwritten — that edit is drift routed to the source, never a
-    /// merge (`specs/architecture/20-surface.md`, `re-add` retired).
+    /// merge.
     Emitted,
     /// The re-emitted projection already sat on disk byte-for-byte; nothing to
     /// write. The idempotent no-op — a re-run of a clean emit lands here for every
@@ -240,8 +238,8 @@ pub struct EmitReport {
 }
 
 /// The engine's pinned seam version — the JSON pipe rides it in lockstep with the
-/// SDK's own `SEAM_VERSION` (`sdk/src/declarations.ts`; `specs/architecture/20-surface.md`,
-/// "The SDK pins its engine version").
+/// SDK's own `SEAM_VERSION` (`sdk/src/declarations.ts`; specs/architecture/50-distribution.md,
+/// engine pin).
 pub const SEAM_VERSION: u32 = 2;
 
 /// One projected member's erased payload — the SDK's whole output surface for a
