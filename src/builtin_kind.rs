@@ -2,11 +2,7 @@
 //!
 //! `temper` ships the read-side definitions of the known-harness kinds (`skill`,
 //! `rule`, `memory`) as plain Rust data below — the compiled default program the
-//! engine carries for SDK-less checking. There is no `KIND.md` file format any more
-//! (`specs/architecture/15-kinds.md`, "Decision: field typing lives in the SDK — there
-//! is no kind file format"); the curated `kinds/<name>/KIND.md` product tree
-//! (human-maintained, cited product source) is the authoring reference this data
-//! mirrors.
+//! engine carries for SDK-less checking (`specs/architecture/15-kinds.md`).
 //!
 //! A built-in kind's definition is a [`CustomKind`] like any other — assembled with
 //! [`CustomKind::new`] — and validated as any kind is; this module only sources the
@@ -22,9 +18,8 @@ use crate::kind::{
     Activation, CustomKind, Extraction, Format, Governs, KindError, Primitive, Unit,
 };
 
-/// Anthropic's documented `.claude/skills/<name>/SKILL.md` kind
-/// (`kinds/claude-code/skill/KIND.md`): a directory whose identity is the `name`
-/// field, activated by its description trigger.
+/// Anthropic's documented `.claude/skills/<name>/SKILL.md` kind: a directory whose
+/// identity is the `name` field, activated by its description trigger.
 fn claude_code_skill() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -57,9 +52,8 @@ fn claude_code_skill() -> CustomKind {
     }
 }
 
-/// Anthropic's documented `.claude/rules/*.md` kind (`kinds/claude-code/rule/KIND.md`):
-/// a lone file whose identity is the filename stem, activated by its `paths` glob (or
-/// unconditionally, when absent).
+/// Anthropic's documented `.claude/rules/*.md` kind: a lone file whose identity is
+/// the filename stem, activated by its `paths` glob (or unconditionally, when absent).
 fn claude_code_rule() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -86,9 +80,8 @@ fn claude_code_rule() -> CustomKind {
     }
 }
 
-/// Anthropic's documented `CLAUDE.md` memory kind (`kinds/claude-code/memory/KIND.md`):
-/// every `CLAUDE.md` in the repository, frontmatter-less (no `format`), loaded
-/// unconditionally at launch.
+/// Anthropic's documented `CLAUDE.md` memory kind: every `CLAUDE.md` in the
+/// repository, frontmatter-less (no `format`), loaded unconditionally at launch.
 fn claude_code_memory() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
@@ -137,7 +130,7 @@ pub fn definition(name: &str) -> Result<Option<CustomKind>, KindError> {
 /// The built-in kind a bare `name` resolves to, named by its own bare label — kept for
 /// call sites that ask for a kind's identity rather than its full definition. Always
 /// equal to `name` itself when the kind is embedded, since there is no provider axis
-/// to resolve through any more.
+/// to resolve through.
 ///
 /// # Errors
 ///

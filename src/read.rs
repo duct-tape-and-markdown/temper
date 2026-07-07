@@ -20,8 +20,8 @@
 //! data `check` already computes — the opt-in `satisfies` bindings [`crate::coverage`]
 //! gates, and, for the edge walk, the **gate's own resolved edge set**
 //! ([`crate::graph::resolved_edges`], relationships over extracted features), never a
-//! private re-derivation off the `[edge.<target>]` document clauses (READ-EDGE-UNIFY:
-//! one source of truth, so `why`'s edge narration cannot disagree with `graph::check`).
+//! private re-derivation (READ-EDGE-UNIFY: one source of truth, so `why`'s edge
+//! narration cannot disagree with `graph::check`).
 //! None adds engine semantics and none ever gates: `explain` returns narration, and
 //! `main` prints it and exits zero on every input, ambiguous or unknown targets included
 //! (the read family is not the gate; a reporting verb whose exit code CI trusts is
@@ -61,8 +61,8 @@ use crate::kind::Activation;
 /// (`specs/architecture/20-surface.md`, "The member document"), which the decidable
 /// [`crate::extract::Features`] view drops the rationale from but the read family needs
 /// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
-/// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never the
-/// `[edge.<target>]` document clauses (READ-EDGE-UNIFY).
+/// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never
+/// re-derived here (READ-EDGE-UNIFY).
 struct Member {
     /// The artifact kind (`skill`, `rule`, or a custom kind's name) — part of the
     /// identity, since an id is unique only within a kind. Owned rather than
@@ -379,8 +379,8 @@ fn why_one(
     }
 
     // The floor the member's kind binds — the governing contract its conformance is
-    // checked against. A floor is named for its kind (no package noun any more), so
-    // this is always the kind's own bare label.
+    // checked against. A floor is named for its kind, so this is always the kind's
+    // own bare label.
     let _ = writeln!(
         out,
         "Governing floor: its `{}` kind binds the `{}` floor, whose clauses check it.\n",
@@ -388,9 +388,9 @@ fn why_one(
     );
 
     // The edges in and out — the member's node in the **gate's resolved edge set**
-    // (`crate::graph::resolved_edges`), not a re-derivation off the `[edge.*]` document
-    // clauses (READ-EDGE-UNIFY). A dangling reference resolves to no node, so it appears
-    // in neither list — route resolution is the gate's finding to report, not `why`'s.
+    // (`crate::graph::resolved_edges`), not a private re-derivation (READ-EDGE-UNIFY).
+    // A dangling reference resolves to no node, so it appears in neither list — route
+    // resolution is the gate's finding to report, not `why`'s.
     let node: (String, String) = (member.kind.clone(), member.id.clone());
 
     let outgoing: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.from == node).collect();

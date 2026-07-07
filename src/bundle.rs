@@ -75,8 +75,8 @@ description: Use when operating the temper gate on a Claude Code harness — imp
 
 `temper` is one gate over a Claude Code harness, placed wherever the harness is
 authored, changed, or used. This skill is how to *operate* that gate. It carries no
-opinion about what a good harness is — that lives in the packages
-(`packages/`), which are data you bind, extend, or fork.
+opinion about what a good harness is — that lives in the SDK module
+(`specs/architecture/50-distribution.md`), which you bind, extend, or fork.
 
 ## Run the gate
 

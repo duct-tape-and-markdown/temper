@@ -3,12 +3,9 @@
 //! Each built-in kind's floor [`Contract`] (`skill`, `rule`, `memory`) is a lossless
 //! projection of the embedded built-in lock's clause rows
 //! (`crate::builtin_lock::declarations`), grouped by kind label — never a
-//! hand-written mirror (`specs/architecture/50-distribution.md`, "Decision: the
-//! built-in lock is derived from the SDK module, never transcribed"). The lock
+//! hand-written mirror (`specs/architecture/50-distribution.md`). The lock
 //! itself is `@dtmd/temper/claude-code`'s own emit; this module only lifts its
 //! `ClauseRow`s back into the typed [`Contract`] algebra the gate already runs on.
-//! There is no package noun any more: a floor is named for its kind, not a
-//! `<kind>.<source>` package.
 
 use std::collections::BTreeMap;
 
@@ -94,8 +91,7 @@ fn clause_from_row(row: &ClauseRow) -> Clause {
 
 /// The floor [`Contract`] for `kind` — every embedded clause row naming it, in
 /// declaration order, projected into typed clauses. No package-level `guidance`:
-/// the noun retired with the hand-written mirror, and every clause's own guidance
-/// already rides its row.
+/// every clause's own guidance already rides its row.
 fn contract_for_kind(kind: &str) -> Contract {
     let clauses = builtin_lock::declarations()
         .clauses
