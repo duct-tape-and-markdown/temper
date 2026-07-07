@@ -13,33 +13,6 @@ tax.
 
 ## Open forks
 
-- `(requirement-satisfier-kind)` — OPEN (registered 2026-07-06). A requirement's
-  satisfier set is computed two ways: `src/roster.rs` narrows it by
-  `requirement.kind` (kind-typed, via `candidates_for`/`kind_label`),
-  `src/coverage.rs` computes it kind-blind (a flat set over every artifact's
-  `satisfies`). 0001 names the disagreement a live bug. `specs/model/contract.md`
-  ("selection") lists three atomic selectors and makes **by opt-in** kind-blind
-  ("the members whose satisfies edge targets a requirement"), stating no
-  selection composition — so the plain reading retires `requirement.kind` and
-  makes roster/graph kind-blind to match coverage. Open: does a requirement
-  narrow its opt-in selection by kind (keep the capability, let selections
-  compose by-opt-in ∩ by-kind), or is opt-in strictly kind-blind (drop it)?
-  Blocks the whole requirement arc — the `required`→default cardinality clause
-  conversion and the coverage/roster/graph unification both range over this set.
-  Needs John: a capability drop, not a mechanical one.
-
-- `(authority-home)` — OPEN (registered 2026-07-06, refreshed to the kernel
-  corpus). The SDK's `compileDeclarations` emits `{ fact: "authority", value:
-  "shared" }` unconditionally (`sdk/src/declarations.ts:151`), but "shared" is
-  corpus-uncoined: enforcement mode is author-declared per placement as
-  note/warn/block (`specs/distribution.md`, "The placements and their
-  enforcement modes"; `specs/intent.md`, invariant 5), and the root member
-  carries no field to source a mode from. Where does the authored enforcement
-  mode live in the harness assembly (`specs/model/pipeline.md`, "The SDK")?
-  Candidates: a settings-residual field, a per-projection mode on the
-  emit-owned member, or a root default with per-path overrides. Needs John.
-  Load-bearing the moment `temper guard` blocks per mode; nothing gates today.
-
 - `(json-projection-format)` — OPEN. The JSON-manifest built-in kinds
   (settings, MCP, plugin/marketplace) need a generic JSON adapter (a peer to
   `src/frontmatter.rs`) reading nested-key fields into the generic extraction
@@ -61,29 +34,6 @@ tax.
   AGENTS.md built-in kind — and if so under a **distinct label** (never a
   provider-qualified `memory`; identity travels by import, not string —
   `specs/builtins.md`)? A feature addition, not a chain blocker.
-
-- `(genre-embedded-member)` — OPEN (registered 2026-07-06). The retired
-  vocabulary `genre` — "a kind at the block locus" (`src/extract.rs`
-  `GenreValue`/`Genre`/`GenreCollections`, the `genre.<name> <key>` fence,
-  `genre_leaves`, `LeafAddress`; ~50 refs each in extract/kind/read) — is
-  0001's "genre → nested kind template." The kernel remodels this as an
-  **embedded nested member**: a member of a kind at the embedded locus,
-  addressed per its parent's format (`specs/model/representation.md`,
-  "nesting" / "locus"; the spec-decision-embedded-in-its-document example the
-  section names IS a genre fence). Open: does the machinery reconcile as a
-  **vocabulary rename** — kept as temper's embedded-member implementation,
-  `GenreValue` → an embedded-member type, the retired `architecture/*` cites
-  repointed onto representation.md — or a **structural fold** into the uniform
-  member tree the kernel names ("members all the way down"), where a genre
-  value becomes a full nested member with its own kind rather than a bespoke
-  parallel struct? The plain reading is ambiguous: "a nested member is a full
-  member with its own kind" reads as a model statement the genre struct
-  already satisfies, yet "members all the way down" reads as a structural
-  mandate. VACATE-KIND-NOUN shipped (0dab4be), so the files this reconciliation
-  touches (extract/kind/read/engine/graph/roster) are free — it no longer
-  serializes behind anything and awaits only the ruling. Routes the genre +
-  `architecture/*`-cite residue class. Needs John: a keep-mechanism-vs-restructure
-  call, not mechanical.
 
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,

@@ -61,7 +61,10 @@ The set a contract binds to. Selectors are declared, decidable expressions:
 
 A selection picks members or edges, and the set predicates are one algebra
 over selections. There is no separate universal/existential machinery: the
-quantifier is the clause's grain.
+quantifier is the clause's grain. Selectors are atomic and do not compose:
+narrowing a selection — a requirement whose satisfiers must all be skills —
+is an each-grain clause over it, never a second selector. A member outside
+the narrowing is a finding, never a silent exclusion.
 
 ## requirement — a shipped kind, not a primitive
 

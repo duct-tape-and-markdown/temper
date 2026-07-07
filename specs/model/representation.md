@@ -45,7 +45,9 @@ Where a member serializes. Binary:
 ## nesting
 
 A kind may template inner layers of members, to arbitrary depth; a nested
-member is a full member with its own kind. Nesting is **model containment**
+member is a full member with its own kind — one member type in the model;
+nested content never lives in a parallel value shape, whatever machinery
+folds it from the parent's body. Nesting is **model containment**
 and locus is **serialization**, and the two are orthogonal: a skill's bundled
 reference documents are nested in the model yet own their files; a hook is
 nested and embedded in `settings.json`; a spec decision is nested and
@@ -56,8 +58,10 @@ string — is a nested member at the finest grain.
 
 The harness itself is a member — the root of the forest. Its kind's template
 names the top layers (`.claude/`, the memory files, settings), and the
-contract attaches to it the way a contract attaches to any member. There is
-no container above the forest; it is members all the way down.
+contract attaches to it the way a contract attaches to any member. Harness-
+wide declarations are its fields — the enforcement mode among them —
+overridable per member. There is no container above the forest; it is
+members all the way down.
 
 ## Reach
 
