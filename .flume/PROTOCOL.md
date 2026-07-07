@@ -8,11 +8,11 @@ config doesn't encode.
 
 `specs/` (evergreen) → `.flume/plan/` → `src/` (+ `tests/`, `Cargo.toml`, docs) → git log
 
-The `specs/` corpus is the evergreen source of truth (`specs/process/90-spec-system.md`),
+The `specs/` corpus is the evergreen source of truth (`specs/process/spec-system.md`),
 authored only in interactive sessions under explicit direction, never by an
 autonomous phase. It is **not** a release line: plan reconciles code against the
-living corpus every tick — there is no frozen ship target. `specs/intent/00-intent.md`
-is the north star.
+living corpus, one job per tick — there is no frozen ship target. `specs/intent.md`
+is the north star; `specs/decisions/` is history, outside the phases' read path.
 
 | Layer | Author | Phase | Commit prefix  |
 | ----- | ------ | ----- | -------------- |
@@ -27,7 +27,9 @@ Harness-authored commits (post-merge ship) use `chore(flume):`.
 This repo carries **two** harnesses with different owners:
 
 1. **The flume harness** (`.flume/`) — the build pipeline. Authored by humans;
-   never edited by the `build` phase.
+   never edited by the `build` phase, with one deliberate slit:
+   `.flume/friction/**`, the agent→human feedback channel (both phases may
+   file a friction capture there; see `friction/README.md`).
 2. **The Claude Code harness** (`.claude/`, `CLAUDE.md`) — the *product domain*:
    the very artifacts `temper` is built to project, and the environment the
    build agents themselves run inside, so it is hand-curated to an exemplary
@@ -51,12 +53,17 @@ expensive step):
 No `setupWorktree`: cargo shares its registry cache via `~/.cargo`; only `target/`
 is per-worktree (the cold compile kept off the parallel path on purpose).
 
-## Plan continuation marker
+## Plan dispatch + continuation marker
 
-Plan processes the *delta* since the last `plan:` commit. When the delta exceeds
-one good tick, `state.md` ends with `Plan continues: yes — <reason>` and the
-harness re-wakes plan; `Plan continues: no` (or absence) hands to build or
-hibernates. The regex `^Plan continues:\s*yes\b` (in `chain.ts`) is load-bearing.
+Plan is iteratively prompted: one tick = one job, dispatched off its stateful
+records (inbox → spec delta → ship audit → residue → quiet; the job table
+lives in `prompts/plan.md`), with per-input cursors in `state.md`
+(`Spec derived through:` / `Audited through:` / `Residue swept through:`).
+`state.md` ends with `Plan continues: yes — <reason>` while a later input is
+live and the harness re-wakes plan; `Plan continues: no` hands to build or
+hibernates. The regex `^Plan continues:\s*yes\b` (in `chain.ts`) is
+load-bearing, and the marker's honesty is gated (`planHonestyGate`): a `no`
+with an undrained inbox or a trailing spec cursor reverts the tick.
 
 ## Disk vs git log
 

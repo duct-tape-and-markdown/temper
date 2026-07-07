@@ -43,9 +43,19 @@ placeholders, no `todo!()`, no stubbed function bodies.
   I/O-bound — correctness and clarity beat zero-copy).
 - Add tests alongside the code. Prefer `insta` snapshots for parse/lint output.
 - If the entry needs a dependency not in `Cargo.toml`, add it (Cargo.toml is
-  writable) — prefer the crates sanctioned in `SPEC.md §7`.
+  writable) — prefer the crates sanctioned in `CLAUDE.md`, "Tech stack".
 - If the entry's `per` cite is ambiguous or rests on an unsettled decision, do
   NOT guess: leave it and surface the question (the harness will route it).
+
+# FRICTION (optional — most ticks file nothing)
+
+If something in THIS tick cost you disproportionate effort — a pitfall the
+harness could have warned you about, a lengthy process, missing operational
+knowledge — capture it: one new file `.flume/friction/build-<slug>.md`, terse
+(symptom, what it cost this tick, suggested fix), committed with your work.
+Check the directory first; never re-file a filed friction. Humans drain it
+out of band. Never speculative, never a substitute for reaching green — see
+`.flume/friction/README.md`.
 
 # OUTPUT
 

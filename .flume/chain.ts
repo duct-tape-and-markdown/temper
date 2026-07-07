@@ -12,6 +12,7 @@
  * is Rust, so the validation gates are cargo, not pnpm/tsc/vitest.
  */
 
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -59,6 +60,66 @@ const pendingParseGate: Gate = {
         .map((e) => `  [${e.index}] ${e.path}: ${e.message}`)
         .join("\n"),
     };
+  },
+};
+
+/**
+ * Marker honesty (the dispatch model's one decidable lie). Plan self-schedules:
+ * one job per tick off its inputs, with `Plan continues: yes|no` driving the
+ * re-wake. A tick that declares `no` while an input is plainly live — an
+ * undrained inbox, a spec cursor trailing specs/ HEAD — would silently strand
+ * work, and both conditions are statically checkable, so check them here
+ * (same pattern as the entry-fence preflight). Fail OPEN on bookkeeping
+ * errors (missing files, unparseable cursor): a degradation is a missed
+ * catch, never a wedged loop.
+ */
+const planHonestyGate: Gate = {
+  name: "continuation marker is honest",
+  when: "afterCommit",
+  async run(ctx) {
+    let stateText: string;
+    try {
+      stateText = await readFile(join(ctx.flumeDir, "plan", "state.md"), "utf8");
+    } catch {
+      return { ok: true, message: "no state.md to check" };
+    }
+    if (!/^Plan continues:\s*no\b/im.test(stateText)) {
+      return { ok: true, message: "marker is yes/absent — re-wake handles it" };
+    }
+    // Marker says quiet. Live input 1: an undrained inbox.
+    try {
+      const inbox = await readFile(join(ctx.flumeDir, "inbox.md"), "utf8");
+      const stripped = inbox.replace(/<!--[\s\S]*?-->/g, "").trim();
+      if (stripped.length > 0) {
+        return {
+          ok: false,
+          message: "state.md says `Plan continues: no` but .flume/inbox.md is undrained",
+        };
+      }
+    } catch {
+      // no inbox file — nothing undrained
+    }
+    // Live input 2: specs/ commits past the recorded spec cursor.
+    const cursor = /^- Spec derived through:\s*([0-9a-f]{6,40})\b/im.exec(stateText)?.[1];
+    if (cursor) {
+      try {
+        const out = execFileSync(
+          "git",
+          ["log", "--format=%h", `${cursor}..HEAD`, "--", "specs/"],
+          { cwd: resolve(ctx.flumeDir, ".."), encoding: "utf8" },
+        ).trim();
+        if (out.length > 0) {
+          return {
+            ok: false,
+            message: `state.md says \`Plan continues: no\` but ${out.split("\n").length} specs/ commit(s) sit past the spec cursor ${cursor}`,
+            details: out,
+          };
+        }
+      } catch {
+        // bad sha or git unavailable — fail open
+      }
+    }
+    return { ok: true, message: "quiet marker verified against inbox + spec cursor" };
   },
 };
 
@@ -163,33 +224,30 @@ const BUILD_WRITABLE_PATHS = [
   ".github/**",
 
   // Vendored distribution surface — the plugin temper publishes (skill, hooks,
-  // manifest). A generated surface administered via spec, built here (and later
-  // by `temper bundle`), NOT hand-curated like the territories below.
+  // manifest; channel 3, `specs/distribution.md`). A generated surface
+  // administered via spec, built here (and later by `temper bundle`), NOT
+  // hand-curated like the territories below.
   "plugin/**",
 
-  // The SDK (`specs/architecture/20-surface.md`; `specs/architecture/50-distribution.md`,
-  // the npm front door). Product code like src/** — the scaffold was the
-  // delegated human half; every subsequent slice is build's.
+  // The SDK (`specs/model/pipeline.md`; `specs/distribution.md`, channel 1).
+  // Product code like src/** — the scaffold was the delegated human half;
+  // every subsequent slice is build's.
   "sdk/**",
 
-  // The contract directory — golden fixtures + schemas both implementations
-  // test against (`specs/architecture/50-distribution.md`, the contract
-  // fixtures). In-fence, with one discipline: a fixture edit is an interface
-  // version event — plan treats those diffs as contract changes, never
-  // incidental test churn.
-  "contract/**",
+  // The friction channel — the one deliberate slit in the control-plane
+  // fence: agents file agent→human harness feedback here (one uniquely-named
+  // file per capture; `.flume/friction/README.md`). Humans drain it.
+  ".flume/friction/**",
 
-  // NOTE: build does NOT touch .flume/** (the control plane), .claude/** or
-  // CLAUDE.md, specs/**, packages/**, kinds/**, or
-  // docs/**. These are RATIFICATION territory, not "human-authored" — nearly
-  // every byte in them is agent-drafted, but drafted in-session with a human
-  // present, landing via ceremony commits (`specs:`, `chore(harness):`) whose
-  // authority moment is the human's. Build runs with no cold read in its
-  // cycle, so it proposes (leave the entry, surface the question) instead of
-  // writing. Drafting rights may widen per document as the corpus climbs the
-  // genre gradient (the addressable-corpus ruling, pending ratification);
-  // the authority tier never loosens. The harness writes the post-merge ship
-  // commit to pending.json itself.
+  // NOTE: build does NOT touch the rest of .flume/** (the control plane),
+  // .claude/** or CLAUDE.md, specs/**, or docs/**. These are RATIFICATION
+  // territory, not "human-authored" — nearly every byte in them is
+  // agent-drafted, but drafted in-session with a human present, landing via
+  // ceremony commits (`specs:`, `chore(harness):`) whose authority moment is
+  // the human's. Build runs with no cold read in its cycle, so it proposes
+  // (leave the entry, surface the question — or a friction capture) instead
+  // of writing. The harness writes the post-merge ship commit to
+  // pending.json itself.
 ];
 
 /**
@@ -263,9 +321,10 @@ const plan: Phase = {
     ".flume/plan/state.md",
     ".flume/plan/open-questions.md",
     ".flume/inbox.md",
+    ".flume/friction/**",
     // Plan does NOT touch specs/ (human-authored) or src/ (build's territory).
   ],
-  gates: [pendingParseGate, entryFenceGate],
+  gates: [pendingParseGate, entryFenceGate, planHonestyGate],
   promptArgs() {
     return { PENDING_SCHEMA: renderSchemaForPrompt() };
   },
