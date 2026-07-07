@@ -1,5 +1,130 @@
 [
   {
+    "tag": "RENAME-ACTIVATION-TO-REGISTRATION",
+    "summary": "Finish the activation→registration rename: align the retired world-edge vocabulary to the corpus noun across SDK emit, the lock column, engine types, and finding strings",
+    "per": {
+      "path": "specs/architecture/15-kinds.md",
+      "section": "Decision: registration generalizes activation"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "The SDK is mid-rename: `kind.ts`/`builtins.ts` already carry the `Registration` type and the `registration` KindFacts field, but this file still emits the lock column as `activation` and names the retired vocabulary. Rename the IR field `activation?` → `registration?`, `activationLabel` → `registrationLabel`, and the emitted declaration-row key `activation:` → `registration:`. This is the lock's on-disk column name — it MUST change in lockstep with src/builtin_lock.toml and src/drift.rs or tests/builtin_lock_frozen.rs (re-derives the built-in lock from this module and byte-compares) breaks."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "The embedded built-in lock. Rename the kind-row key `activation` → `registration` in all three rows (memory/rule/skill). Must match the SDK's emitted key (declarations.ts) exactly — this file is byte-compared against the SDK re-derivation."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "KindFactRow: rename field `activation: Option<String>` → `registration`, and the two lock-column sites — `table.insert(\"activation\", …)` on serialize and `str_col(table, \"activation\")` on parse — to `\"registration\"`. Also cut the altitude-vocab comment residue in this file (the `frozen` doc-comment's \"altitude's package-fetch step\", ladder-vocab retirement) per the rust.md exit clause."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Rename the `Activation` enum → `Registration` (variants Always/PathsMatch/DescriptionTrigger/Event unchanged), the `CustomKind.activation` field → `registration`, `activation_from_label` → `registration_from_label`, `KindFactRow::activation` reads, and the `#[cfg(test)]` sites. Reduce the dead section-title cites (`\"Activation — a kind's inherent world-edges\"` — now `\"Registration — the kind's world fact\"`) to file-path pointer tags per the rust.md exit clause."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Rename the imported `Activation` → `Registration` and the three `Activation::{DescriptionTrigger,PathsMatch,Always}` constructors in the built-in kind definitions."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Rename the `Activation` type, the `activations: &BTreeMap<&str, …>` params/locals, `dead_activation` → `dead_registration`, `live_members`/`reachability_orphaned` internals, and the user-facing finding string \"the activation edge from the {} node … is dead\" → \"registration edge\" (no-synonyms, specs/architecture/50-distribution.md). Update the in-file `#[cfg(test)]` assertions on that text."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Rename the `Activation` import, the `activations` params threaded through `why`/`explain`, and the orphan finding text (\"its own activation is dead\" → \"registration\") plus the in-file test assertions on it. Also cut the package-noun comment residue here (\"the package its kind binds\", ~296) and the altitude-vocab comment (~104) per the exit clause."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Rename the `activations` BTreeMap built in the dispatch and passed to check/read (~465-488). Cut the package-noun comment residue in this file: the dead cite `\"Artifact kinds & package binding\"` (~572; no such heading — reduce to a file-path pointer tag), \"the prior by-package binding list\" (~63), \"built-in packages embedded\" (~175), \"dispatched to its floor package\" (~575), and the altitude comments (~478 \"until an altitude serializes mentions\", ~803 \"carriage locus\") per the exit clause."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Update the ~31 `Activation`/`activations`/finding-text references to the renamed symbols and strings."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Update the `activations`/finding-text references to the renamed symbols and strings."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Update the ~7 references asserting the lock's `activation` column to the renamed `registration` column."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Update the two `activation`/lock-column references to `registration`."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Update the two `activation` lock-column references to `registration`."
+        },
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "Update the single `activation` reference to `registration`."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "Update the single `activation` reference to `registration`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "The built-in lock re-derived from @dtmd/temper/claude-code still byte-matches src/builtin_lock.toml after the column is renamed to `registration` on both sides — the lockstep proof (no edit needed here; it names no column, but it fails loud if SDK emit and the embedded toml disagree)."
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "Kind rows carry a `registration` label (`always`, `paths-match(paths)`, `description-trigger(description)`), not `activation`."
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "A dead world-edge produces a finding worded \"registration edge … is dead\"; reachability closure over registration edges is unchanged behaviorally."
+      }
+    ],
+    "acceptance": "No `activation`/`Activation` symbol or prose survives in src/ or sdk/src/ (grep clean except legitimate `active` enum values and reporter.rs's `carriage return`); the lock column is `registration` end to end; findings speak \"registration edge\"; `cargo test` green including the frozen re-derivation.",
+    "notes": "Atomic rename — cannot be split (a half-renamed enum won't compile). Sole owner of its files; nothing runs parallel over them. The one hazard is the lock-column lockstep: sdk/src/declarations.ts (emit) + src/builtin_lock.toml (embedded) + src/drift.rs (read/write) must change together or builtin_lock_frozen fails. Finding-string changes are gate-relevant (no-synonyms, 50-distribution), not cosmetic."
+  },
+  {
+    "tag": "PKG-NOUN-COMMENT-SWEEP-II",
+    "summary": "Cut the package-noun and altitude comment residue plus dead section-title cites in the three files the first sweep and the rename entry do not touch (contract.rs, bundle.rs, extract.rs)",
+    "per": {
+      "path": "specs/architecture/10-contracts.md",
+      "section": "Decision: clause arrays and two quantifiers, not a package noun"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Cut the package-noun narration and dead section-title cites on `Contract`/`Clause`: `guidance` doc quoting `\"Packages\"` (~32, no such heading) and \"a package that authors none\" (~36); `Clause::guidance` quoting `\"Templates\"` (~52, no such heading); `Clause::source` quoting `\"Decision: a built-in package is named for its source…\"` (~59, no such heading — the real Decision is the package-noun one this entry cites). Reduce each to a bare file-path pointer tag (rust.md exit clause) or cut where the surrounding sentence already carries the intent."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Cut the package-noun comment residue: \"taste lives in the packages, never here\" (~52 — the concept is floors, not packages) and the PLUGIN_DESCRIPTION prose \"with the std-lib packages embedded\" (~55). The description string is user-facing plugin metadata — align it to the corpus noun (the built-in floors / the default program), not \"packages\"."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Cut the altitude-vocab comment residue: \"interpolation stays an altitude feature until a…\" (~207; the ladder vocabulary — rungs/floors/altitude — was retired, specs/process/90-spec-system.md). Reduce to the plain deferral statement with a file-path pointer tag."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "grep of contract.rs/bundle.rs/extract.rs for `package`/`Packages`/`altitude` and the dead section titles (\"Packages\", \"Templates\", \"a built-in package is named\") is clean (except the legitimate `SDK_PACKAGE`-style npm-package identifiers, which are real); `cargo test` unchanged (comments only, plus one plugin-description string).",
+    "notes": "Comments-only plus one user-facing plugin-description string. Disjoint from RENAME-ACTIVATION-TO-REGISTRATION (that entry owns read/main/drift/graph and folds their package+altitude comments in via the exit clause; this owns the three files it does not touch). reporter.rs's \"carriage return\" is a real CR char, left alone."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
