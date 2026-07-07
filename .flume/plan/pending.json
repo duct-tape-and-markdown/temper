@@ -7,8 +7,7 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMIT-REAP-ORPHANS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`emit_one`:516 assembles `desired` (and the `second_pass` determinism check) from either `project_bytes`:607 or, for an own_path member, `projection.body` verbatim — no line-ending normalization, so a member body carrying CRLF (a body authored on Windows) lands CRLF in the projection and the same program emits different bytes on different machines. Normalize `desired`/`second_pass` to LF (CRLF and lone CR → LF) before the double-emit compare, before `sha256_hex`:573, and before `fs::write`:585, so the lock's emit_hash and the written bytes are the LF-normalized form. Both branches normalize — the own_path body (a file()-carried member's own source) too, per pipeline.md's 'projections are written LF uniformly, whatever the source's convention.'"
+          "description": "`emit_one`:654 assembles `desired`:690 (and the `second_pass`:700 determinism check) from either `project_bytes`:745 or, for an own_path member, `projection.body` verbatim (:691/:701) — no line-ending normalization, so a member body carrying CRLF (a body authored on Windows) lands CRLF in the projection and the same program emits different bytes on different machines. Normalize `desired`/`second_pass` to LF (CRLF and lone CR → LF) before the double-emit compare (:705), before `sha256_hex`:711, and before `fs::write`:723, so the lock's emit_hash and the written bytes are the LF-normalized form. Both branches normalize — the own_path body (a file()-carried member's own source) too, per pipeline.md's 'projections are written LF uniformly, whatever the source's convention.'"
         }
       ],
       "retire": []
@@ -29,7 +28,7 @@
       }
     ],
     "acceptance": "A member body carrying CRLF (or lone CR) emits an LF-only projection; the emit hash and written bytes are the normalized form, so double-emit byte-reproduces on any platform — line endings never reach a projection as content.",
-    "notes": "Field ruling 0010 (spec delta f4189c3): EOL is layout, not content — the verbatim invariant guards words, one byte wider than leaf whitespace. Emit-only; the import/read side is unchanged. own_path body (a file()-carried member's own source) also normalizes per 'uniformly, whatever the source's convention.' Shares src/drift.rs emit + tests/emit.rs with EMIT-REAP-ORPHANS → blockedBy it. 0008/0009/0011 unrouted. scoped at d69987f."
+    "notes": "Field ruling 0010 (spec delta f4189c3): EOL is layout, not content — the verbatim invariant guards words, one byte wider than leaf whitespace. Emit-only; the import/read side is unchanged. own_path body also normalizes per 'uniformly, whatever the source's convention.' EMIT-REAP-ORPHANS shipped (f8e039b) → unblocked; disjoint from SETTINGS-FORMAT-PRESERVING (install.rs). scoped at 44b4f27."
   },
   {
     "tag": "SETTINGS-FORMAT-PRESERVING",
@@ -39,8 +38,7 @@
       "section": "Install"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GUARD-OWNPATH"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -48,7 +46,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "`project_settings`:665 parses the existing `.claude/settings.json`, grafts the `SessionStart`/`PreToolUse` temper hooks, then re-emits the whole document via `serde_json::to_string_pretty`:733 — so a human's key order, indentation, and EOL are all rewritten, exactly the churn the round-trip discipline forbids for TOML/markdown. Make the write format-preserving: only the temper hook groups it inserts/updates change bytes; every existing key, its order, and the file's formatting survive (a hand-authored settings.json diffs by one hunk after install). Absent/empty file still writes a fresh canonical document. Mechanism is build's decidable call — a JSON CST-editor crate or a surgical splice of just the two hook arrays; lean surgical (dependency-free, subtraction-before-addition). Update the stale comment at :660-664 which currently asserts the gap ('there is no format-preserving JSON editor to round-trip through') — decision 0008 closes it (exit clause: cut on contact). If a crate is adopted, that is an ordinary Cargo.toml dependency add."
+          "description": "`project_settings`:697 parses the existing `.claude/settings.json`, grafts the `SessionStart`/`PreToolUse` temper hooks, then re-emits the whole document via `serde_json::to_string_pretty`:765 — so a human's key order, indentation, and EOL are all rewritten, exactly the churn the round-trip discipline forbids for TOML/markdown. Make the write format-preserving: only the temper hook groups it inserts/updates change bytes; every existing key, its order, and the file's formatting survive (a hand-authored settings.json diffs by one hunk after install). Absent/empty file still writes a fresh canonical document. Mechanism is build's decidable call — a JSON CST-editor crate or a surgical splice of just the two hook arrays; lean surgical (dependency-free, subtraction-before-addition). Update the stale comment at :693-696 which currently asserts the gap ('there is no format-preserving JSON editor to round-trip through') — decision 0008 closes it (exit clause: cut on contact). If a crate is adopted, that is an ordinary Cargo.toml dependency add."
         },
         {
           "path": "tests/install.rs",
@@ -65,7 +63,7 @@
       }
     ],
     "acceptance": "Install merges the SessionStart hook (and the guard, with its constituency) into an existing .claude/settings.json without re-serializing it — existing keys, order, and formatting survive, a hand-authored file diffs by one hunk — while an absent file still writes a fresh canonical document and re-running converges.",
-    "notes": "Field ruling 0008 (f4189c3): the JSON peer of the toml_edit round-trip keystone. install.rs:660-664 asserts the gap ('no format-preserving JSON editor') — 0008 closes it; update the comment (exit clause). Mechanism — a JSON CST crate vs. a surgical splice of the two temper hook groups — is build's call; lean surgical, dependency-free. Shares install.rs+tests/install.rs with GUARD-OWNPATH -> blockedBy it. 0009/0011 unrouted. scoped at 52d0316."
+    "notes": "Field ruling 0008 (f4189c3): the JSON peer of the toml_edit round-trip keystone. install.rs:693-696 asserts the gap ('no format-preserving JSON editor') — 0008 closes it; update the comment (exit clause). Mechanism (JSON CST crate vs. surgical splice of the two hook groups) is build's call; lean surgical, dependency-free. GUARD-OWNPATH shipped (6fd37f5) → unblocked. Shares install.rs+tests/install.rs with MODULE-RELATIVE-PATHS → it blockedBy this. scoped at 44b4f27."
   },
   {
     "tag": "MODULE-RELATIVE-PATHS",
@@ -92,7 +90,7 @@
         },
         {
           "path": "src/install.rs",
-          "description": "`relative_to_workspace`:957 writes the scaffolded `file()` path with one `../` (relative to `.temper/`), but member modules live at `.temper/<kind>/<name>.ts` (:885-886) — two levels under root — so under module-relative resolution the path must recut to the member module's own directory (`../../.claude/...`), and `member_module_source`:980 must emit the new `file(...)` call shape (the `file({rel_path:?})` template at :991). Update the stale doc comment :950-953 ('SDK resolves against cwd, which emit_program sets to harness.ts's directory') — the exit clause covers cutting it. The unit tests at :1349/:1367 assert the old `file(\"../.claude/...\")` shape and move with the change."
+          "description": "`relative_to_workspace`:957 writes the scaffolded `file()` path with one `../` (relative to `.temper/`), but member modules live at `.temper/<kind>/<name>.ts` (:885-886) — two levels under root — so under module-relative resolution the path must recut to the member module's own directory (`../../.claude/...`), and `member_module_source`:980 must emit the new `file(...)` call shape (the `file({rel_path:?})` template at :991). Update the stale doc comment :950-953 ('SDK resolves against cwd, which emit_program sets to harness.ts's directory') — the exit clause covers cutting it. The unit tests at :1349/:1367 assert the old `file(\"../.claude/...\")` shape and move with the change. (install.rs line-cites here will drift when SETTINGS-FORMAT-PRESERVING ships; re-verify at unblock.)"
         }
       ],
       "retire": []
@@ -109,7 +107,7 @@
       }
     ],
     "acceptance": "A file() asset path resolves relative to the module that stated it, never the workspace/cwd; scaffold writes module-relative paths that resolve from the member module's own directory (no longer saved by directory-depth accident); the SDK doc becomes true and emit stays byte-reproducible.",
-    "notes": "Field ruling 0009 (f4189c3): resolution, scaffold, docs 'move together' — split leaves scaffold emitting one shape while resolution expects another, so one commit. ESM forces import.meta.url as the stating-module facility; call spelling is build's. Scope is file() assets (emit's one path-resolved surface). Shares install.rs+tests/install.rs with the install chain -> blockedBy SETTINGS-FORMAT-PRESERVING. 0011 unrouted. scoped at 4bfa3cd."
+    "notes": "Field ruling 0009 (f4189c3): resolution, scaffold, docs 'move together' — split leaves scaffold emitting one shape while resolution expects another, so one commit. ESM forces import.meta.url as the stating-module facility; call spelling is build's. Scope is file() assets (emit's one path-resolved surface). Shares install.rs+tests/install.rs with SETTINGS-FORMAT-PRESERVING → blockedBy it (install.rs chain tail; +SDK). scoped at 4bfa3cd."
   },
   {
     "tag": "PACKAGING-CHANNELS",
