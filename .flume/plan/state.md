@@ -3,14 +3,18 @@
 - Spec derived through: 813ca61
 - Audited through: 813ca61
 - Residue swept through: 813ca61
-- This tick: inbox drain — reconciled open-questions to the kernel corpus
-  (pruned 4 resolved forks: hook-kind-locus, place-three-state-retire,
-  edge-representation-unify, genre-fence-format; refreshed the 6 survivors'
-  cites off the retired paths); fixed PACKAGING-CHANNELS' stale `per` cite
-  (→ specs/distribution.md); routed the kernel-recut line to the spec-delta job.
-- Queue: 1 entry — PACKAGING-CHANNELS (parked; body still pre-recut, full
-  rewrite rides its unpark/audit).
+- This tick: spec delta — derived one contained slice from 0001's "Consequences"
+  seed: filed VACATE-KIND-NOUN, the scalar value-type lattice `extract::Kind`
+  renamed off the kernel noun (`representation.md`, "kind" = the type of a
+  member). Foundational vacate, zero behavior; freed before the heavier arc.
+  Cursor HOLDS at 813ca61 — the recut is far from fully derived (embedded
+  locus, one edge enumeration, requirement-as-member-kind + prose-persistence,
+  the satisfier-set bug, required→cardinality clause, kinds for
+  hooks/permissions/MCP still un-derived; be8e1bf posture→enforcement-mode too).
+- Queue: 2 entries — VACATE-KIND-NOUN (open, pickable); PACKAGING-CHANNELS
+  (parked, pre-recut body rides its unpark/audit). Disjoint file sets.
 
-Plan continues: yes — spec delta is live: the kernel recut (e842a32, be8e1bf)
-sits past the spec cursor (813ca61), un-derived. Next tick derives one
-contained slice (start from decisions/0001's "Consequences" seed).
+Plan continues: yes — spec delta still live: only one recut slice derived, the
+rest of 0001/0002 (e842a32) + be8e1bf sit past the cursor (813ca61). Next tick
+derives the next contained slice — likely the requirement arc, watching for the
+member-kind design fork that may need John before it files.
