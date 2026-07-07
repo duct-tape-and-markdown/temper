@@ -47,15 +47,6 @@ tax (it hit 1,280 lines / ~38k tokens before the 07-06 drain).
   drift). Spec sanctions it (`45-governance.md`, coupling-is-a-join Decision);
   awaits a human decision to file.
 
-- `(builtin-workspace-qualified-key)` — OPEN, closes with BUILTIN-KIND-FLATTEN
-  (the derived-lock chain's kind-flattening link). `check::Workspace` keys
-  built-ins by bare kind name and hardcodes `skills()`/`rules()` accessors
-  (verified 07-06, `src/check.rs:38-105`). The derived built-in lock carries
-  flat, unique row labels — a provider is a module, so two rows under one label
-  is a malformed lock, not a resolution rule (`20-surface.md`, "The lock and
-  drift"); keying by the row label IS keying by a guaranteed-unique identity,
-  which the flattening link makes so. Do not file separately.
-
 - `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
   hand-written std-lib ships an `agents-md.memory` built-in kind (glob
   `**/AGENTS.md`), but the SDK module and the derived built-in lock export only
@@ -107,12 +98,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   — kept because an external format's mechanics are temper's to implement
   once; the selection is declared. Grows only by deliberate addition.
 - **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived,
-  retirement filed: CURATED-TREES-RETIRE **shipped** (911ffb3 — bundle.rs's
-  `packages/`-tree PACKAGE.md embeds gone); BUILTIN-KIND-FLATTEN still removes
-  the `kinds/`-tree refs (builtin_kind.rs's KIND.md doc comments) — citation
-  trail moves to clause `cite` fields per `10-contracts.md`; the physical tree
-  deletion is a human `chore(harness):` commit after (out of build's fence).
-  This line dies on the reconcile that sees FLATTEN land.
+  retirement draining: CURATED-TREES-RETIRE + BUILTIN-KIND-FLATTEN **shipped**.
+  The remaining src refs are comment-only: builtin.rs's `packages/PACKAGE.md`
+  citations ride BUILTIN-FLOOR-LOCK-PROJECTION (which rewrites the file);
+  builtin_kind.rs's `kinds/KIND.md` + main.rs/bundle.rs's tree citations ride
+  COMMENT-STOCK-SWEEP. Citation trail moves to clause `cite` fields
+  (`10-contracts.md`). The physical `kinds/`+`packages/` tree deletion is a
+  human `chore(harness):` commit — now actionable (FLATTEN landed), out of
+  build's fence. This line dies when both the projection and the sweep land.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the custom-kind story
   proves end to end.
