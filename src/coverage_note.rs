@@ -6,9 +6,11 @@
 //! but silence about a surface temper carries no kind for (a `.claude/agents/` tree,
 //! `settings.json`, an `.mcp.json`) is indistinguishable from "checked and clean".
 //! This module makes the coverage explicit: one advisory note stating which kinds
-//! checked how many members, plus one finding per known Claude Code surface present
-//! on disk that no in-scope kind governs. Every finding is `warn` — the note narrates
-//! coverage, it never gates, and the session-start reporter ignores it.
+//! checked how many members, one finding per known Claude Code surface present on
+//! disk that no in-scope kind governs, and one finding per stray entry directly under
+//! `.claude/` that neither a kind nor a known surface claims. Every finding is `warn`
+//! — the note narrates coverage, it never gates, and the session-start reporter
+//! ignores it.
 //!
 //! The known-surface list is an **external fact** (.claude/rules/collaboration.md,
 //! "External facts are cited"): each entry carries its Claude Code docs citation at
@@ -16,6 +18,8 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
+
+use ignore::WalkBuilder;
 
 use crate::check::Diagnostic;
 use crate::drift;
@@ -26,6 +30,11 @@ const CHECKED_RULE: &str = "coverage.checked";
 
 /// The advisory rule id for a known surface present on disk that no kind governs.
 const UNMODELED_RULE: &str = "coverage.unmodeled-surface";
+
+/// The advisory rule id for a `.claude/` entry that no in-scope kind governs and no
+/// [`KNOWN_SURFACES`] row already names — a stray this module's own richer
+/// `UNMODELED_RULE` finding never covers.
+const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 
 /// The workspace directory holding the committed lock this module reads its own
 /// custom-kind rows from — mirrors `install.rs`'s own copy of the same literal.
@@ -148,7 +157,55 @@ pub fn check(
         }
     }
 
+    // (3) Name the strays: an entry directly under `.claude/` that no in-scope kind
+    // governs AND no `KNOWN_SURFACES` row already names is examined by nothing —
+    // the known-surface exclusion keeps this disjoint from (2)'s richer, per-surface
+    // `UNMODELED_RULE` message, so neither ever double-reports the same path.
+    for (path, is_dir) in claude_entries(root) {
+        if governed_by_any_path(&governing_kinds, &path, is_dir)
+            || KNOWN_SURFACES.iter().any(|surface| surface.path == path)
+        {
+            continue;
+        }
+        diagnostics.push(Diagnostic::warn(
+            UNCLAIMED_RULE,
+            &path,
+            format!("`{path}` is present under `.claude/` but no kind or known surface covers it"),
+        ));
+    }
+
     diagnostics
+}
+
+/// Every entry directly under `<root>/.claude` (not recursive), as a
+/// (`.claude/`-relative slash path, is-directory) pair — the unclaimed-entry scan's
+/// input. Honors the repository's ignore rules (`.gitignore`, `.git/info/exclude`)
+/// exactly as harness discovery does ([`crate::import`]), so a gitignored stray is by
+/// declaration not authored here and never fires. A missing `.claude/` yields no
+/// entries rather than an error — the same absent-harness tolerance [`present`] takes.
+fn claude_entries(root: &Path) -> Vec<(String, bool)> {
+    let claude_dir = root.join(".claude");
+    if !claude_dir.is_dir() {
+        return Vec::new();
+    }
+    let walk = WalkBuilder::new(&claude_dir)
+        .max_depth(Some(1))
+        .hidden(false) // a dotfile stray (`.clauignore`) must not hide from itself.
+        .parents(false)
+        .ignore(false)
+        .git_global(false)
+        .git_ignore(true)
+        .git_exclude(true)
+        .require_git(false)
+        .build();
+    walk.flatten()
+        .filter(|entry| entry.path() != claude_dir)
+        .filter_map(|entry| {
+            let rel = entry.path().strip_prefix(root).ok()?;
+            let is_dir = entry.file_type().is_some_and(|ft| ft.is_dir());
+            Some((rel.to_string_lossy().replace('\\', "/"), is_dir))
+        })
+        .collect()
 }
 
 /// `kinds` plus every kind `root`'s committed lock declares that is not already in
@@ -190,21 +247,28 @@ fn present(root: &Path, surface: &KnownSurface) -> bool {
 /// Whether any in-scope kind governs `surface` — the suppression that keeps the note
 /// truthful to its inputs: a surface a kind actually covers is checked, not a gap.
 fn governed_by_any(kinds: &BTreeMap<String, CustomKind>, surface: &KnownSurface) -> bool {
-    kinds.values().any(|kind| governs(kind, surface))
+    governed_by_any_path(kinds, surface.path, surface.is_dir)
 }
 
-/// Whether `kind`'s member locus covers `surface`. A directory surface is governed
-/// when the kind roots at or below it (its members live inside); a file surface is
-/// governed when the kind roots at the file's parent and its glob leaf selects the
-/// filename. Roots are normalized (`./` prefix and trailing `/` stripped, a bare `.`
-/// treated as the harness root) so `governs.root = "."` compares against a top-level
-/// file's empty parent.
-fn governs(kind: &CustomKind, surface: &KnownSurface) -> bool {
+/// Whether any in-scope kind governs a harness-relative `path`, generalized off
+/// [`KnownSurface`] so the unclaimed-entry scan reuses the same governance test on an
+/// arbitrary on-disk path — see [`governs`] for the directory/file distinction.
+fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir: bool) -> bool {
+    kinds.values().any(|kind| governs(kind, path, is_dir))
+}
+
+/// Whether `kind`'s member locus covers `path`. A directory path is governed when the
+/// kind roots at or below it (its members live inside); a file path is governed when
+/// the kind roots at the file's parent and its glob leaf selects the filename. Roots
+/// are normalized (`./` prefix and trailing `/` stripped, a bare `.` treated as the
+/// harness root) so `governs.root = "."` compares against a top-level file's empty
+/// parent.
+fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
     let root = normalize_root(&kind.governs.root);
-    if surface.is_dir {
-        root == surface.path || root.starts_with(&format!("{}/", surface.path))
+    if is_dir {
+        root == path || root.starts_with(&format!("{path}/"))
     } else {
-        let (parent, leaf) = split_file(surface.path);
+        let (parent, leaf) = split_file(path);
         root == parent && glob_matches(kind.governs.glob_leaf(), leaf)
     }
 }
@@ -436,6 +500,76 @@ mod tests {
                 .iter()
                 .any(|d| d.rule == UNMODELED_RULE && d.artifact == ".claude/commands"),
             "an ungoverned present surface must still be flagged, got: {diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn a_stray_claude_entry_no_kind_or_surface_covers_fires_unclaimed_entry() {
+        let root = tmpdir("stray-entry");
+        std::fs::create_dir_all(root.join(".claude")).unwrap();
+        std::fs::write(root.join(".claude/.clauignore"), "").unwrap();
+
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new());
+
+        let matches: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.rule == UNCLAIMED_RULE)
+            .collect();
+        assert_eq!(matches.len(), 1, "{diagnostics:#?}");
+        assert_eq!(matches[0].artifact, ".claude/.clauignore");
+        assert_eq!(matches[0].severity, Severity::Warn);
+    }
+
+    #[test]
+    fn a_governed_locus_under_claude_never_fires_unclaimed_entry() {
+        let root = tmpdir("governed-locus");
+        std::fs::create_dir_all(root.join(".claude/skills")).unwrap();
+
+        let diagnostics = check(&root, &builtin_set(), &BTreeMap::new());
+
+        assert!(
+            diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
+            "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn a_known_surface_under_claude_does_not_double_report() {
+        let root = tmpdir("known-surface-no-double");
+        std::fs::create_dir_all(root.join(".claude/agents")).unwrap();
+        std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
+
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new());
+
+        assert!(
+            diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
+            "a known surface must never also fire coverage.unclaimed-entry, got: {diagnostics:#?}"
+        );
+        let unmodeled: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d.rule == UNMODELED_RULE)
+            .collect();
+        assert_eq!(
+            unmodeled.len(),
+            2,
+            "each known surface still fires its own unmodeled-surface finding exactly once: {diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn a_gitignored_stray_under_claude_never_fires() {
+        let root = tmpdir("gitignored-stray");
+        std::fs::create_dir_all(root.join(".claude")).unwrap();
+        std::fs::write(root.join(".claude/.gitignore"), "ignored-stray.md\n").unwrap();
+        std::fs::write(root.join(".claude/ignored-stray.md"), "").unwrap();
+
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new());
+
+        assert!(
+            diagnostics
+                .iter()
+                .all(|d| !(d.rule == UNCLAIMED_RULE && d.artifact == ".claude/ignored-stray.md")),
+            "a gitignored stray must never fire, got: {diagnostics:#?}"
         );
     }
 }
