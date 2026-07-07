@@ -7,8 +7,7 @@
       "section": "The lock"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SCAFFOLD-OUTPUT-VALID"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "Scaffolded module paths and lock source_path rows use `/` on every host; committed .temper/ round-trips byte-identically across platforms.",
-    "notes": "Field report 1. .temper/ is committed and must be cross-platform; a `\\`-bearing lock row or scaffold path forks by host. blockedBy SCAFFOLD-OUTPUT-VALID (same install.rs file)."
+    "notes": "Field report 1. .temper/ is committed and must be cross-platform; a `\\`-bearing lock row or scaffold path forks by host. SCAFFOLD-OUTPUT-VALID shipped (^0.0.4 bump); this now unblocks. GUARD-OWNPATH serializes behind it (same install.rs)."
   },
   {
     "tag": "GUARD-OWNPATH",
@@ -101,6 +100,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (distribution.md 'Fail-loud invariant').",
-    "notes": "Release infra, mostly outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm (`@dtmd/temper`, published 0.0.4); ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs `^0.0.2` range-correctness now owned by SCAFFOLD-OUTPUT-VALID (a live install bug); release owns only future re-pins."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm `@dtmd/temper`; ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs range-correctness shipped in SCAFFOLD-OUTPUT-VALID (^0.0.4); release owns only future re-pins."
   }
 ]

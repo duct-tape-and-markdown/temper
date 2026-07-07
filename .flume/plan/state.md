@@ -1,22 +1,20 @@
 # Plan state
 
 - Spec derived through: 5945405
-- Audited through: 7389876
+- Audited through: e3bba3c
 - Residue swept through: 9148eb3
-- This tick: Residue sweep 45aa0db..HEAD. The four build commits' src work
-  (bundle.rs skill import->install, coverage_note.rs lock-kinds, main.rs
-  help/coverage, import.rs .temper/ skip) is corpus-consistent — no fileable
-  gap. One residue class: production cites to retired `specs/architecture/20-
-  surface.md` at sdk/src/emit.ts:108/129 (locus moved to pipeline.md "Emit"/
-  "Refusing"). Citation staleness -> routed as a rider on MENTION-EDGE-LANDS
-  (next entry opening emit.ts), never standalone. kind.rs:901+ specs/architecture
-  strings are synthetic test fixtures (arbitrary source_path inputs), not cites —
-  left. tests/cli.rs guards help against the retired path — kept.
-- Queue: 6 — 3 open/disjoint (SCAFFOLD-OUTPUT-VALID install.rs, EXPLAIN-RESOLVER
-  read.rs, MENTION-EDGE-LANDS main.rs/graph.rs/drift.rs/sdk +cite rider), 2 blocked
-  (PATH-SEP-NORMALIZE on SCAFFOLD, GUARD-OWNPATH on PATH-SEP — install.rs chain),
-  PACKAGING-CHANNELS parked.
+- This tick: Ship audit d7cd98e..e3bba3c. Verified on disk the three build entries
+  shipped — SCAFFOLD-OUTPUT-VALID (install.rs SDK_VERSION_RANGE=^0.0.4,
+  description_trigger_value), EXPLAIN-RESOLVER (read.rs member/requirement/leaf
+  resolver), MENTION-EDGE-LANDS (graph.rs MENTION_FIELD + declarations.ts/emit.ts);
+  all three already dropped from pending. Reconciled gates: PATH-SEP-NORMALIZE
+  unblocks (blocker SCAFFOLD shipped) — its work is still open on disk
+  (install.rs:958 `.display()`, document.rs raw source_path). GUARD-OWNPATH stays
+  blockedBy PATH-SEP-NORMALIZE (shared install.rs). PACKAGING-CHANNELS notes
+  refreshed: the `^0.0.2` install-bug clause is resolved by SCAFFOLD's ^0.0.4.
+- Queue: 3 — PATH-SEP-NORMALIZE open (install.rs/document.rs), GUARD-OWNPATH
+  blocked on PATH-SEP-NORMALIZE, PACKAGING-CHANNELS parked.
 
-Plan continues: no — every input current (inbox empty, no spec delta past
-5945405, audit through 7389876 = HEAD's last src commit, residue swept to HEAD).
-Three open pickable entries; build takes over.
+Plan continues: yes — residue sweep (swept through 9148eb3 trails HEAD e3bba3c;
+d7cd98e..e6c7f60 landed new src/sdk, and the emit.ts specs/architecture cite
+staleness routed onto MENTION-EDGE-LANDS needs verifying against the shipped diff).
