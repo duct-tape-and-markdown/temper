@@ -586,7 +586,7 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
 /// the surface body byte-for-byte.
 ///
 /// The authored content is *generated*, not patched (`specs/architecture/20-surface.md`,
-/// "Decision: the projection is re-emitted; the surface is patched") — a hand-edited
+/// "Decision: drift routes to the authored source — no reverse parse") — a hand-edited
 /// field is not preserved (that is drift, routed to the authored source). Install's
 /// metadata comments are the one exception the caller feeds in: they ride `install`,
 /// never `emit` (law 5), so emit round-trips the ones already on disk rather than
@@ -789,7 +789,7 @@ const CONFIG_STALE_RULE: &str = "config.stale";
 /// a staleness finding (a removed source is the drift engine's `removed` state, not this
 /// freshness fact). A missing or malformed lock yields no findings for the same reason.
 ///
-/// An in-place member carries **no lock row** (`init` writes no copy tree, no lock — the
+/// An in-place member carries **no lock row** (`install` writes no copy tree, no lock — the
 /// landscape file is its own source), so it contributes no freshness fact here: an
 /// in-place member cannot drift (`specs/architecture/20-surface.md`).
 #[must_use]
@@ -937,7 +937,7 @@ pub struct Declarations {
 }
 
 /// One kind's declaration row — its identity and declared runtime facts
-/// (`specs/architecture/15-kinds.md`, "a kind's runtime residue is its five declaration facts").
+/// (`specs/architecture/15-kinds.md`, "A kind is a constructor plus five facts").
 /// The optional facts are omitted from the lock when the kind declares none, so the row
 /// round-trips to exactly what was written.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]

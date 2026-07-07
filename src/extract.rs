@@ -169,8 +169,8 @@ pub struct Section {
 /// One fenced code block of a markdown body: its **info string** (the text after
 /// the opening fence — `sh`, `toml`, `toml genre.foo` — trimmed) paired with the
 /// block's **interior content** (the lines between the fences, rejoined with `\n`).
-/// The feature a `fenced` primitive yields (`specs/architecture/15-kinds.md`, "a
-/// fenced block — whose first consumer is the genre fence"): fenced extraction
+/// The feature a `fenced` primitive yields (`specs/architecture/15-kinds.md`, "The
+/// engine is kind-blind — extraction is generic"): fenced extraction
 /// composed with a TOML parse yields a genre value's features, declared data at
 /// body position. Surface-decidable like every other feature — the fence
 /// boundaries are the ones [`body_headings`] already tracks, so a block is never a
@@ -305,8 +305,8 @@ pub struct Features {
     pub directives: Vec<String>,
     /// The body's fenced code blocks, in document order — each block's info string
     /// paired with its interior content, the feature a `fenced` primitive yields
-    /// (`specs/architecture/15-kinds.md`, "a fenced block — whose first consumer is
-    /// the genre fence"). A body-derived feature like
+    /// (`specs/architecture/15-kinds.md`, "The engine is kind-blind — extraction is
+    /// generic"). A body-derived feature like
     /// [`headings`](Features::headings)/[`sections`](Features::sections)/[`directives`](Features::directives):
     /// the same fence boundaries the heading extractor tracks, surfaced whole. Empty
     /// when the kind composes no `fenced` primitive.
@@ -488,7 +488,7 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
 /// order: each block's info string (the text after the opening fence, trimmed)
 /// paired with its interior content (the lines between the fences, rejoined with
 /// `\n`). The feature a `fenced` primitive yields (`specs/architecture/15-kinds.md`,
-/// "a fenced block — whose first consumer is the genre fence"). A block opens on a
+/// "The engine is kind-blind — extraction is generic"). A block opens on a
 /// fence marker and closes on the next marker of the **same char and at least the
 /// opening length** — the identical fence tracking [`body_headings`] runs, so a
 /// heading or a shorter/different marker *inside* a block is interior content, never

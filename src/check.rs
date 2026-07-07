@@ -28,7 +28,7 @@ use crate::kind::{CustomKind, KindError};
 /// built-in kind's members as generic frontmatter [`Member`]s (`specs/architecture/15-kinds.md`,
 /// built-ins are a module), keyed by the kind's bare name in a per-kind map so
 /// every built-in kind's members — not just skills and rules — reach the readers that
-/// range over the workspace (drift/bundle/apply/read), and a cross-artifact clause can
+/// range over the workspace (drift/bundle/explain), and a cross-artifact clause can
 /// reach the whole harness at once.
 ///
 /// Custom project kinds (temper's own `spec`, ADRs, …) are not built-ins: they are read

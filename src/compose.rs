@@ -21,9 +21,9 @@ use crate::drift::ClauseRow;
 /// temper bakes in. Defaults to [`Shared`](Authority::Shared).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Authority {
-    /// Direct on-disk edits stay first-class — `re-add` reconciles, guards inform and
-    /// route. The default: temper fabricates no enforcement the author did not ask for
-    /// (`00-intent.md` law 4).
+    /// Direct on-disk edits stay first-class — a hand edit surfaces as drift routed to
+    /// the authored source, guards inform and route. The default: temper fabricates no
+    /// enforcement the author did not ask for (`00-intent.md` law 4).
     #[default]
     Shared,
     /// The author opts into enforcement — the managed-by note and the guard hook's

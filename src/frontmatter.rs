@@ -3,12 +3,12 @@
 //! declared — a kind names its projection format").
 //!
 //! Replaces the retired per-kind IRs (`src/skill.rs`, `src/rule.rs`) with one
-//! [`Member`]: `import`/`re-add` split the external artifact per the kind's declared
-//! [`unit_shape`](crate::kind::UnitShape) and lift its declared `field` extractors
-//! into `[clause.<field>]` header tables; `emit` renders the member document back
-//! byte-deterministically; drift compares the declared fields with no per-kind
-//! serializer. Built-in and custom kinds ride the same adapter — the built-in/custom
-//! split is purely source.
+//! [`Member`]: import-from-source and surface reload split the external artifact per
+//! the kind's declared [`unit_shape`](crate::kind::UnitShape) and lift its declared
+//! `field` extractors into `[clause.<field>]` header tables; `emit` renders the member
+//! document back byte-deterministically; drift compares the declared fields with no
+//! per-kind serializer. Built-in and custom kinds ride the same adapter — the
+//! built-in/custom split is purely source.
 //!
 //! Round-trip discipline (`.claude/rules/rust.md`): the markdown body and every
 //! companion are byte-faithful — never re-rendered. Only the structured header is
@@ -34,7 +34,7 @@ use crate::kind::{CustomKind, UnitShape};
 /// preserved frontmatter fields, a byte-faithful body, the companions that travel
 /// with a directory-shaped unit, the authored surface layer, and the provenance lock
 /// that anchors drift. The one type both faces (`import` from source, surface reload)
-/// produce and drift/apply consume — replacing the per-kind `Skill`/`Rule` IRs.
+/// produce and drift/check consume — replacing the per-kind `Skill`/`Rule` IRs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Member {
     /// The member id — the surface directory name (`directory` shape) or the file
@@ -163,8 +163,8 @@ impl Member {
 
     /// Import a member as [`from_source`](Member::from_source), but resolve a
     /// file-shaped unit's id against the `governs`-root directory `base`: a unit nested
-    /// below `base` folds its placement into the id (`specs/architecture/40-composition.md`,
-    /// "Registering a custom kind" — file placement is an extraction primitive), so two
+    /// below `base` folds its placement into the id (`specs/architecture/15-kinds.md`,
+    /// "Two loci" — file placement is an extraction primitive), so two
     /// nested same-named files (`sub/AGENTS.md` and a root `AGENTS.md`) carry distinct
     /// surface ids rather than collapsing to one bare stem. A directory-shaped unit is
     /// unaffected — its id is its own directory name, already distinct per member.
@@ -447,8 +447,8 @@ pub(crate) fn scan_companions(
 }
 
 /// Derive a **file-shaped** unit's surface id, folding the directory placement below
-/// the `governs`-root directory `base` into it (`specs/architecture/40-composition.md`,
-/// "Registering a custom kind" — file placement is an extraction primitive). A unit
+/// the `governs`-root directory `base` into it (`specs/architecture/15-kinds.md`,
+/// "Two loci" — file placement is an extraction primitive). A unit
 /// directly under `base` keeps its bare filename stem — the common flat case, unchanged
 /// — while a nested one prefixes its placement path, the placement components and the
 /// stem joined with `-` into one surface-directory component. This is what stops a

@@ -180,9 +180,10 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
 }
 
 /// Check **acyclicity** over the harness reference graph (`specs/architecture/45-governance.md`,
-/// "The graph scope"): build the artifact-level graph from the same resolved arcs
-/// [`check`] uses and return an error-severity [`Diagnostic`] naming a cycle if one
-/// exists. A cycle is a circular import that loads nothing — a true positive.
+/// "The edge scope — predicates over the relation graph"): build the artifact-level
+/// graph from the same resolved arcs [`check`] uses and return an error-severity
+/// [`Diagnostic`] naming a cycle if one exists. A cycle is a circular import that
+/// loads nothing — a true positive.
 ///
 /// Only **resolved** arcs enter: an inadmissible edge is skipped and a dangling
 /// reference loads nothing, so neither forges nor masks a cycle (that dangling finding

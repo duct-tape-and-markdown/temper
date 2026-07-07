@@ -698,7 +698,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // `membership` gate over its satisfier set (`specs/architecture/45-governance.md`).
     diagnostics.extend(roster::check(&requirements, &by_kind));
 
-    // The graph scope: build the reference graph over the declared edges (a
+    // The edge scope: build the reference graph over the declared edges (a
     // reference is a kind capability, `specs/architecture/15-kinds.md`) and check route
     // resolution — a declared reference must resolve to a real artifact of the
     // target kind (`specs/architecture/45-governance.md`). Admissibility before conformance:
