@@ -60,19 +60,19 @@ tax.
 - `(enforcement-mode-vocabulary)` — OPEN (registered 2026-07-07).
   `specs/distribution.md`, "The placements and their enforcement modes" names
   the per-tool-call guard's author-declared vocabulary `note / warn / block,
-  default advisory`, but the engine's `Authority` enum (`src/compose.rs:18-32`)
-  is two-valued `{Shared, Surface}` — a different axis ("surface-authority
-  posture") mapping `Shared`→warn, `Surface`→block (`src/install.rs:574-597`).
-  MODE-ROOT-MEMBER-FIELD renames the TYPE to the enforcement-mode concept but
-  scopes the VALUES out. Recutting `{Shared, Surface}` → `{note, warn, block}`
+  default advisory`, but the engine's `EnforcementMode` enum (`src/compose.rs:23-31`,
+  renamed from `Authority` when MODE-ROOT-MEMBER-FIELD shipped) is two-valued
+  `{Shared, Surface}` — a different axis ("surface-authority posture") mapping
+  `Shared`→warn, `Surface`→block (`src/install.rs`, ~line 99). MODE renamed the
+  TYPE to the enforcement-mode concept but scoped the VALUES out (shipped
+  cb0814f). Recutting `{Shared, Surface}` → `{note, warn, block}`
   needs John on two points distribution.md leaves unpinned: (a) the
   `note`-vs-`warn` behavioral split — `block`=deny and `warn`=warn-and-allow are
   clear, but `note` is a third, quieter advisory tier the corpus names without
   defining; (b) which value is the "default advisory" (today `Shared`→warn is
-  the default). The operationalizing entry is `blockedBy MODE-ROOT-MEMBER-FIELD`
-  (shares compose.rs/install.rs/main.rs); it does not gate the current chain —
-  MODE ships the type rename keeping the two values. Session-start stays advisory
-  regardless — it is `check`'s reporter, not the guard.
+  the default). The operationalizing entry (values recut) would share
+  compose.rs/install.rs/main.rs; it does not gate the current chain. Session-start
+  stays advisory regardless — it is `check`'s reporter, not the guard.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 

@@ -7,8 +7,7 @@
       "section": "nesting"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MODE-ROOT-MEMBER-FIELD"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -37,19 +36,19 @@
         },
         {
           "path": "src/main.rs",
-          "description": "The CLI help documenting the `<member>/<genre>/<key>/<field-path>` address form (main.rs:197-199) and the citations wiring (main.rs:479, an empty Vec today, no producer) follow member addressing. Shared with MODE-ROOT-MEMBER-FIELD (hence serialized). Stale architecture cites in this region ride the touch (rust.md exit clause)."
+          "description": "The CLI help documenting the `<member>/<genre>/<key>/<field-path>` address form (main.rs:197-199) and the citations wiring (main.rs:479, an empty Vec today, no producer) follow member addressing. Formerly shared with MODE (now shipped — main.rs free). Stale architecture cites in this region ride the touch (rust.md exit clause)."
         },
         {
           "path": "src/schema.rs",
-          "description": "Surface the nested-member shape in the generated JSON Schema (the prose-authoring keystroke path) where the retired genre value shape was surfaced. Shared with SATISFIER-KIND-CLAUSE (serialized via the blockedBy chain)."
+          "description": "Surface the nested-member shape in the generated JSON Schema (the prose-authoring keystroke path) where the retired genre value shape was surfaced. Formerly shared with SATISFIER-KIND-CLAUSE (now shipped — schema.rs free)."
         },
         {
           "path": "src/engine.rs",
-          "description": "Update the `genres: Vec::new()` test-node stub (engine.rs:505) to the reshaped Features field. Engine stays genre-blind; RequireSections/SectionContains (engine.rs:368-402) are the separate section concern, untouched. Shared with SATISFIER-KIND-CLAUSE (serialized)."
+          "description": "Update the `genres: Vec::new()` test-node stub (engine.rs:505) to the reshaped Features field. Engine stays genre-blind; RequireSections/SectionContains (engine.rs:368-402) are the separate section concern, untouched. Formerly shared with SATISFIER-KIND-CLAUSE (now shipped — engine.rs free)."
         },
         {
           "path": "src/graph.rs",
-          "description": "Update the `genres: Vec::new()` test-node stub (graph.rs:1021) to the reshaped Features field. degree/satisfier/routes_to logic is the separate satisfier-kind concern, untouched. Shared with SATISFIER-KIND-CLAUSE (serialized)."
+          "description": "Update the `genres: Vec::new()` test-node stub (graph.rs:1021) to the reshaped Features field. degree/satisfier/routes_to logic is the separate satisfier-kind concern, untouched. Formerly shared with SATISFIER-KIND-CLAUSE (now shipped — graph.rs free)."
         }
       ],
       "retire": [
@@ -76,7 +75,7 @@
       }
     ],
     "acceptance": "The genre value shape is gone: a kind's inner-layer template extracts nested members at the embedded locus (identity/fields/prose/edges), the contract layer ranges over them as over top-level members, and read verbs address members not leaves — no parallel value shape survives (representation.md 'nesting'/'locus', decision 0004).",
-    "notes": "Derives 0004, the final slice of d5d1b37 (spec cursor advances). ATOMIC, not the predicted chain: clippy -D warnings forbids the transient unused code any stage-split creates (new shape unused pre-consumer, old unused post-abandon), and extract's type change is compile-coupled to kind/read/display. blockedBy MODE (itself blockedBy SATISFIER) — shares schema/engine/graph with SATISFIER, main.rs with MODE. section_contains/Section and satisfier/degree logic are separate concerns, untouched."
+    "notes": "Derives 0004, the final slice of d5d1b37. ATOMIC, not the predicted chain: clippy -D warnings forbids the transient unused code any stage-split creates (new shape unused pre-consumer, old unused post-abandon), and extract's type change is compile-coupled to kind/read/display. Serialization blockers MODE + SATISFIER both shipped; now the sole open entry, disjoint from parked PACKAGING. section_contains/Section and satisfier/degree logic are separate concerns, untouched."
   },
   {
     "tag": "PACKAGING-CHANNELS",
