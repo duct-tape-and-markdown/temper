@@ -497,3 +497,52 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
         );
     }
 }
+
+#[test]
+fn help_text_speaks_the_current_enforcement_vocabulary_and_layout() {
+    // HELP-TEXT-RECUT: no user-facing help/about string may still speak the
+    // retired `shared`/`surface` enforcement-mode pair (EnforcementMode recut to
+    // {note, warn, block}), and none may cite a retired `specs/architecture/*`
+    // path (the layout recut under CITE-RETAG). `guard --help` must name all
+    // three live modes.
+    let mut all_help = String::new();
+    for command in [
+        "check", "schema", "emit", "guard", "install", "bundle", "explain",
+    ] {
+        let out = Command::new(BIN)
+            .arg(command)
+            .arg("--help")
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "`temper {command} --help` must exit zero"
+        );
+        all_help.push_str(&String::from_utf8(out.stdout).unwrap());
+    }
+    let top = Command::new(BIN).arg("--help").output().unwrap();
+    assert!(top.status.success(), "temper --help must exit zero");
+    all_help.push_str(&String::from_utf8(top.stdout).unwrap());
+
+    assert!(
+        !all_help.contains("specs/architecture"),
+        "help text must not cite a retired specs/architecture/* path:\n{all_help}"
+    );
+
+    let guard_help = Command::new(BIN)
+        .arg("guard")
+        .arg("--help")
+        .output()
+        .unwrap();
+    let guard_stdout = String::from_utf8(guard_help.stdout).unwrap();
+    assert!(
+        !guard_stdout.contains("shared") && !guard_stdout.contains("`surface`"),
+        "`temper guard --help` must not speak the retired `shared`/`surface` mode pair, got:\n{guard_stdout}"
+    );
+    for mode in ["note", "warn", "block"] {
+        assert!(
+            guard_stdout.contains(mode),
+            "`temper guard --help` must name the `{mode}` enforcement mode, got:\n{guard_stdout}"
+        );
+    }
+}
