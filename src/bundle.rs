@@ -135,17 +135,20 @@ pub enum BundleError {
 }
 
 /// The typed result of a [`run`]: every file the plugin tree carries (relative to
-/// the output root, sorted), plus the size of the surface it was composed over.
+/// the output root, sorted), plus the identity of what the bundle ships — channel 3
+/// is gate-delivery only (the skill and the hook), never member delivery, so the
+/// report names those shipped artifacts rather than counting the composed-over
+/// surface's members.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BundleReport {
     /// The files written under the output root, as paths relative to it, sorted for
     /// a stable, reviewable report.
     pub files: Vec<PathBuf>,
-    /// How many skills the imported surface carried — reported so `bundle` names the
-    /// harness the plugin was composed over.
-    pub skills: usize,
-    /// How many rules the imported surface carried.
-    pub rules: usize,
+    /// The name of the shipped operate-the-gate skill.
+    pub skill_name: &'static str,
+    /// The hook events the bundle wires, in emit order (currently just
+    /// `SessionStart`).
+    pub hook_events: Vec<&'static str>,
 }
 
 /// Compose the imported surface at `surface` into a publishable plugin tree under
@@ -156,9 +159,10 @@ pub struct BundleReport {
 /// hook in its own `hooks.json`, and the marketplace listing. See the module header
 /// for the byte-faithfulness and determinism guarantees.
 pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
-    // Read the imported surface: fail loud if it is not a valid workspace, and carry
-    // its size into the report so `bundle` names what it composed over.
-    let ws = Workspace::load(surface)?;
+    // Read the imported surface: fail loud if it is not a valid workspace. Channel 3
+    // ships the skill and the hook regardless of the surface's member count, so the
+    // load is a validation gate only — its size never feeds the report.
+    Workspace::load(surface)?;
 
     let mut files = Vec::new();
 
@@ -196,8 +200,8 @@ pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     files.sort();
     Ok(BundleReport {
         files,
-        skills: ws.skills().len(),
-        rules: ws.rules().len(),
+        skill_name: PLUGIN_NAME,
+        hook_events: vec!["SessionStart"],
     })
 }
 
@@ -292,8 +296,10 @@ fn write_text(
 }
 
 /// Render a bundle report for the terminal: one `wrote  <path>` line per file, then a
-/// one-line tally naming the surface it was composed over — mirroring
-/// [`crate::install::render`].
+/// one-line tally naming what the bundle **ships** — the operate-the-gate skill and
+/// the hook events it wires — mirroring [`crate::install::render`]. Channel 3 is
+/// gate-delivery only, so this names shipped artifacts, never the composed-over
+/// surface's member count.
 #[must_use]
 pub fn render(report: &BundleReport) -> String {
     let mut out = String::new();
@@ -301,13 +307,12 @@ pub fn render(report: &BundleReport) -> String {
         out.push_str(&format!("wrote  {}\n", file.display()));
     }
     out.push_str(&format!(
-        "\nbundled {} file{} (surface: {} skill{}, {} rule{})\n",
+        "\nbundled {} file{} (ships: skill `{}`, {} hook{})\n",
         report.files.len(),
         plural(report.files.len()),
-        report.skills,
-        plural(report.skills),
-        report.rules,
-        plural(report.rules),
+        report.skill_name,
+        report.hook_events.join(", "),
+        plural(report.hook_events.len()),
     ));
     out
 }

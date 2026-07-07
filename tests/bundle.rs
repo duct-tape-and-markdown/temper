@@ -154,9 +154,36 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
         serde_json::from_str(&fs::read_to_string(&plugin).unwrap()).unwrap();
     assert_eq!(plugin_json["name"], "temper");
 
-    // The report names the surface it composed over (one skill, one rule).
-    assert_eq!(report.skills, 1);
-    assert_eq!(report.rules, 1);
+    // The report names what the bundle ships — the operate-the-gate skill and the
+    // hook events it wires — never the composed-over surface's member count (the
+    // surface here carries one skill and one rule, and the report says nothing
+    // about either).
+    assert_eq!(report.skill_name, "temper");
+    assert_eq!(report.hook_events, vec!["SessionStart"]);
+}
+
+#[test]
+fn bundle_report_names_shipped_artifacts_over_an_empty_surface() {
+    // The field report: a large surface produced "surface: 0 skills, 0 rules" because
+    // the report counted composed-over members instead of naming what channel 3
+    // actually ships. An empty surface is the sharpest case — the report must still
+    // name the shipped skill and hook, never a member tally.
+    let surface = tmpdir("empty-surface");
+    let out = tmpdir("empty-out");
+
+    let report = bundle::run(&surface, &out).unwrap();
+    assert_eq!(report.skill_name, "temper");
+    assert_eq!(report.hook_events, vec!["SessionStart"]);
+
+    let rendered = bundle::render(&report);
+    assert!(
+        rendered.contains("ships: skill `temper`, SessionStart hook"),
+        "got:\n{rendered}"
+    );
+    assert!(
+        !rendered.contains("0 skill") && !rendered.contains("0 rule"),
+        "the report must never read as a member tally, got:\n{rendered}"
+    );
 }
 
 #[test]
@@ -199,6 +226,10 @@ fn the_cli_bundle_verb_composes_the_plugin() {
     assert!(
         stdout.contains("bundled") && stdout.contains("marketplace.json"),
         "the run must report the composed plugin, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("ships: skill `temper`, SessionStart hook"),
+        "the report must name the shipped artifacts, got:\n{stdout}"
     );
 
     // The plugin tree landed on disk.
