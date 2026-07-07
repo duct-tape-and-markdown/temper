@@ -951,6 +951,9 @@ fn member_ident(kind: &str, name: &str) -> String {
 /// own directory (`.temper/`, always one level under `root` — the SDK resolves a
 /// `file()` asset against the running program's cwd, which `emit_program` sets to
 /// `harness.ts`'s directory).
+///
+/// Always `/`-separated, regardless of host: `.temper/` is committed, and a
+/// `\`-joined segment on Windows would fork the scaffolded module's text by host.
 fn relative_to_workspace(root: &Path, source: &Path) -> miette::Result<String> {
     let relative = source.strip_prefix(root).map_err(|_| {
         miette::miette!(
@@ -959,7 +962,10 @@ fn relative_to_workspace(root: &Path, source: &Path) -> miette::Result<String> {
             root.display()
         )
     })?;
-    Ok(format!("../{}", relative.to_string_lossy()))
+    Ok(format!(
+        "../{}",
+        relative.to_string_lossy().replace('\\', "/")
+    ))
 }
 
 /// One lifted member's module source: the whole original file (frontmatter
@@ -1311,6 +1317,18 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn relative_to_workspace_normalizes_a_backslash_joined_source() {
+        // A Windows discovery walk joins path segments with `\`; simulate that
+        // shape directly (Unix `Path` never inserts `\`, so a real walk can't
+        // reproduce it here) and assert the scaffolded `file()` path still comes
+        // out `/`-separated.
+        let root = PathBuf::from("/harness");
+        let source = PathBuf::from("/harness/.claude\\rules\\cls.md");
+        let rel_path = relative_to_workspace(&root, &source).unwrap();
+        assert_eq!(rel_path, "../.claude/rules/cls.md");
     }
 
     #[test]

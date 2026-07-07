@@ -318,12 +318,13 @@ pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirem
 /// Emit the generated `[provenance]` module — `source_path` + `source_hash`, the
 /// authored-source freshness fact.
 /// Always last, so the authored clauses read first and the generated lock trails
-/// them.
+/// them. `source_path` is normalized to `/` regardless of host separator — this
+/// row is committed under `.temper/`, and a `\`-bearing path forks it by host.
 pub fn add_provenance(header: &mut DocumentMut, source_path: &str, source_hash: &str) {
     let mut module = Table::new();
     module.insert(
         "source_path",
-        Item::Value(Value::from(source_path.to_string())),
+        Item::Value(Value::from(source_path.replace('\\', "/"))),
     );
     module.insert(
         "source_hash",
@@ -722,6 +723,24 @@ Last line, no newline.";
         );
         // Re-emitting a parsed document is byte-identical — deterministic round-trip.
         assert_eq!(parsed.emit(), emitted);
+    }
+
+    #[test]
+    fn add_provenance_normalizes_a_backslash_joined_source_path() {
+        // A Windows-produced `source_path` string carries `\` at its join
+        // boundaries; the written row must still be `/`-separated so the row is
+        // byte-identical to the one a Unix host would commit.
+        let mut header = DocumentMut::new();
+        add_provenance(&mut header, ".claude\\rules\\cls.md", "abc123");
+        let doc = Document::new(header, "# Body\n".to_string());
+        let emitted = doc.emit();
+
+        assert!(emitted.contains("[provenance]\nsource_path = \".claude/rules/cls.md\""));
+        let parsed = Document::parse(&emitted).unwrap();
+        assert_eq!(
+            provenance(parsed.header()),
+            Some((".claude/rules/cls.md".to_string(), "abc123".to_string()))
+        );
     }
 
     #[test]

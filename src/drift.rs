@@ -290,6 +290,14 @@ struct Projection {
     own_path: bool,
 }
 
+/// Render a path for a lock row's `source_path`: always `/`-separated, regardless
+/// of host. `lock.toml` is committed, and `Path::join` inserts the host separator
+/// at each join boundary (backslash on Windows) — left alone, that forks the
+/// byte-committed lock by host.
+fn to_lock_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 /// Whether a member's declared `file()` source (`payload_source`, when present)
 /// resolves to the very path it is about to project to (`dest`) — the lift's
 /// own-path detection. `dest` may not exist yet (a brand-new projection can
@@ -475,7 +483,7 @@ pub fn emit(
             .or_default()
             .push(RollupEntry {
                 name: projection.name.clone(),
-                source_path: projection.source_path.to_string_lossy().into_owned(),
+                source_path: to_lock_path(&projection.source_path),
                 source_hash: hash.clone(),
                 emit_hash: hash,
                 own_path: projection.own_path,
@@ -1666,6 +1674,15 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn to_lock_path_normalizes_a_backslash_joined_path() {
+        // A Windows `Path::join` inserts `\` at the join boundary; simulate that
+        // shape directly (Unix `Path` never inserts `\`, so a real join can't
+        // reproduce it here) and assert the lock row still comes out `/`-separated.
+        let path = PathBuf::from("harness\\dir\\file.md");
+        assert_eq!(to_lock_path(&path), "harness/dir/file.md");
     }
 
     #[test]
