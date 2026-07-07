@@ -1,18 +1,22 @@
 # Plan state
 
 - Spec derived through: d5d1b37
-- Audited through: 2746b11
-- Residue swept through: e3f14b9
-- This tick: ship audit c9eeffb→HEAD. SATISFIER-KIND-CLAUSE shipped (94ac5f1
-  build + 2746b11 chore): `kind_narrowing_clause` on disk (builtin.rs:119,
-  roster.rs), gate green — build already dropped it from pending. Its blockedBy
-  on MODE-ROOT-MEMBER-FIELD is now satisfied → MODE flipped to `open`. Of MODE's
-  files SATISFIER touched only compose.rs; Authority intact at 18-32, MODE
-  anchors (authority_from_lock main.rs:502, guard main.rs:341, assemblyFactRows
-  declarations.ts:248) all present — no rewrite needed. Audit cursor → HEAD.
-- Queue: 3 entries — MODE-ROOT-MEMBER-FIELD (now open, pickable), GENRE-FOLD
-  (blockedBy MODE), PACKAGING-CHANNELS (parked). Only MODE is open — disjoint.
+- Audited through: c349cb2
+- Residue swept through: c349cb2
+- This tick: residue sweep e3f14b9→HEAD (SATISFIER-KIND-CLAUSE ship,
+  94ac5f1+2746b11) reconciles to quiet. The requirement.kind selector→clause
+  recut is complete on disk — Predicate::Kind, builtin::kind_narrowing_clause,
+  engine::kind_violation, admissibility + schema arms all wired; graph::degree/
+  roster/coverage draw the satisfier set kind-blind, no old narrowing survives
+  (graph.rs:400 is the separate reachability-by-kind concern). No fileable
+  residue: known classes routed (enforcement-mode vocab → MODE + fork; genre →
+  GENRE-FOLD; stale architecture/00-intent cites → ride each file's next-opening
+  entry, the job-4 exception — roster.rs/contract.rs cites wait, uncitable
+  standalone). Both trailing cursors → HEAD; only c349cb2 (plan, no code) sat
+  past the audit cursor.
+- Queue: 3 entries — MODE-ROOT-MEMBER-FIELD (open, pickable, disjoint), GENRE-FOLD
+  (blockedBy MODE), PACKAGING-CHANNELS (parked). Only MODE open.
 
-Plan continues: yes — residue sweep is live: Residue swept through (e3f14b9)
-trails HEAD; SATISFIER's src/ ship (94ac5f1) is un-swept against corpus. Next
-tick sweeps c9eeffb→HEAD.
+Plan continues: no — all inputs current (inbox empty, spec cursor d5d1b37 with
+empty delta, audit + residue swept to HEAD). MODE-ROOT-MEMBER-FIELD is open and
+pickable; build takes over.
