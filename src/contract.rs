@@ -29,11 +29,10 @@ pub struct Contract {
     /// The clauses, in declaration order. An empty set is a valid (vacuous)
     /// contract — a named shape that asserts nothing.
     pub clauses: Vec<Clause>,
-    /// Package-level **guidance** (`specs/architecture/10-contracts.md`, "Packages"):
-    /// best-practice prose the clauses cannot encode. Like the per-clause
+    /// Contract-level **guidance** (`specs/architecture/10-contracts.md`): best-practice
+    /// prose the clauses cannot encode. Like the per-clause
     /// [`guidance`](Clause::guidance) channel it *never gates* — the closed algebra
-    /// has no path from prose to a predicate. `None` for a bare TOML contract, or a
-    /// package that authors none.
+    /// has no path from prose to a predicate. `None` when the contract authors none.
     pub guidance: Option<String>,
 }
 
@@ -49,17 +48,17 @@ pub struct Clause {
     /// The decidable predicate this clause asserts over the surface.
     pub predicate: Predicate,
     /// Optional per-clause **guidance** prose — advisory-only best-practice text
-    /// (`specs/architecture/10-contracts.md`, "Templates") kept *out of checks*: it plays no part
+    /// (`specs/architecture/10-contracts.md`) kept *out of checks*: it plays no part
     /// in conformance or admissibility. It rides its JSON Schema property's
     /// `description` in the emitted schema (`specs/architecture/50-distribution.md`, "The gate at
     /// keystroke"), never a validation keyword — taste becomes documentation, never a
     /// squiggle. Absent ⇒ the clause documents nothing.
     pub guidance: Option<String>,
     /// Optional **source** citation — the clause's provenance of taste, a URL plus
-    /// retrieval date (`specs/architecture/10-contracts.md`, "Decision: a built-in package is
-    /// named for its source, and cited to it"). *Preserved metadata*, not a
-    /// predicate: no gate reads its content, so admitting it neither adds nor relaxes
-    /// any check. Absent ⇒ the clause is uncited (every clause on disk today).
+    /// retrieval date (`specs/architecture/10-contracts.md`, the `cite` field).
+    /// *Preserved metadata*, not a predicate: no gate reads its content, so admitting
+    /// it neither adds nor relaxes any check. Absent ⇒ the clause is uncited (every
+    /// clause on disk today).
     pub source: Option<String>,
 }
 

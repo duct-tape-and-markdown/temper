@@ -204,9 +204,9 @@ pub type GenreCollections = BTreeMap<String, BTreeMap<String, BTreeMap<String, S
 /// structurally (member + genre + key + field path) so drift, `impact`, and
 /// citations survive rewording ([`GenreValue::addressed_leaves`]).
 ///
-/// Floor leaves carry no mentions — interpolation stays an altitude feature until a
-/// floor mention syntax is separately ratified (`specs/architecture/20-surface.md`) — so
-/// a leaf is a plain [`String`], not a mention-bearing span.
+/// Floor leaves carry no mentions — interpolation stays deferred until a floor
+/// mention syntax is separately ratified (`specs/architecture/20-surface.md`) — so a
+/// leaf is a plain [`String`], not a mention-bearing span.
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct GenreValue {
     /// The genre this value instantiates — the fence info string's `genre.<genre>`

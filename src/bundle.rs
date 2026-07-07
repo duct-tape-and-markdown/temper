@@ -29,7 +29,7 @@
 //! existing public API — no `compose.rs`/`contract.rs` edits) both to fail loud on a
 //! malformed surface and to report the harness the plugin was composed over. The
 //! bundled contents are `temper`'s own gate-delivery assets, so `temper bundle` over
-//! `temper`'s own surface self-packages `temper`'s plugin — the dogfood target.
+//! `temper`'s own surface produces `temper`'s own plugin — the dogfood target.
 //!
 //! Determinism: every written byte is a pure function of the embedded assets and the
 //! crate version, so re-running `bundle` reproduces an identical tree — the vendored
@@ -49,10 +49,10 @@ use crate::check::Workspace;
 const PLUGIN_NAME: &str = "temper";
 
 /// The plugin/marketplace description — what the gate delivers, not what a good
-/// harness is (law 2: taste lives in the packages, never here).
+/// harness is (law 2: taste lives in the floors, never here).
 const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: import the harness into a typed \
      surface, check it against the active contract, and run the advisory \
-     session-start gate — with the std-lib packages embedded.";
+     session-start gate — with the std-lib floors embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
 /// itself, checking the project it is installed into under the advisory session-start
