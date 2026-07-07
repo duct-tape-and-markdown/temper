@@ -904,10 +904,10 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 
 /// The lock's **declaration-row family** — the composed program's erased declarations,
 /// beside the
-/// per-member provenance and emit-fingerprint rows. Five sub-families: the program's
+/// per-member provenance and emit-fingerprint rows. Six sub-families: the program's
 /// [kind facts](KindFactRow), its [clauses](ClauseRow), its [requirements](RequirementRow),
-/// its assembly facts, and its
-/// [`satisfies`](SatisfiesRow) fill edges.
+/// its assembly facts, its
+/// [`satisfies`](SatisfiesRow) fill edges, and its [`mention`](MentionRow) edges.
 ///
 /// Written into the lock by [`emit`] off the SDK's own payload ([`Declarations::write_into`])
 /// and read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison —
@@ -932,6 +932,10 @@ pub struct Declarations {
     /// so the roster/coverage
     /// tiers ride the lock rather than re-importing the harness.
     pub satisfies: Vec<SatisfiesRow>,
+    /// The authored `n` mention edges — every member's already-resolved prose
+    /// mentions, so the reference graph carries them alongside every other declared
+    /// edge locus.
+    pub mentions: Vec<MentionRow>,
 }
 
 /// One kind's declaration row — its identity and declared runtime facts.
@@ -1121,6 +1125,19 @@ pub struct SatisfiesRow {
     pub requirement: String,
 }
 
+/// One authored `n` mention edge's declaration row — the citing member's own
+/// `kind:name` address and the address its mention names (another member's
+/// `kind:name`, or a bare requirement name), already resolved at emit. Recorded
+/// unconditionally: a dangling mention never reaches the lock (`emit` refuses
+/// first), so this row carries no resolution state of its own.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct MentionRow {
+    /// The citing member's own `kind:name` address.
+    pub member: String,
+    /// The address the mention names.
+    pub target: String,
+}
+
 /// One assembly-scope fact — the root member's own declarations plus the
 /// graph edges the harness binds: a `fact` discriminator (`mode`, `edge`)
 /// plus the columns that fact carries. Absent columns are omitted from the
@@ -1147,7 +1164,8 @@ pub struct AssemblyFactRow {
 impl Declarations {
     /// Serialize the declaration families into `doc` under an implicit `[declaration]`
     /// table — `[[declaration.kind]]`, `[[declaration.clause]]`, `[[declaration.requirement]]`,
-    /// `[[declaration.assembly]]`, `[[declaration.satisfies]]` — each family in its producer's order so a re-emit is
+    /// `[[declaration.assembly]]`, `[[declaration.satisfies]]`, `[[declaration.mention]]` —
+    /// each family in its producer's order so a re-emit is
     /// byte-identical. An empty family writes no array (an empty `ArrayOfTables`
     /// vanishes on the toml round-trip, so omitting it keeps write and re-parse symmetric),
     /// and an all-empty set writes no `[declaration]` table at all.
@@ -1180,6 +1198,11 @@ impl Declarations {
             &mut table,
             "satisfies",
             self.satisfies.iter().map(SatisfiesRow::to_table),
+        );
+        insert_family(
+            &mut table,
+            "mention",
+            self.mentions.iter().map(MentionRow::to_table),
         );
         if !table.is_empty() {
             doc["declaration"] = Item::Table(table);
@@ -1243,6 +1266,7 @@ fn declarations_from_doc(doc: &DocumentMut) -> Declarations {
         requirements: family(table, "requirement", RequirementRow::from_table),
         assembly: family(table, "assembly", AssemblyFactRow::from_table),
         satisfies: family(table, "satisfies", SatisfiesRow::from_table),
+        mentions: family(table, "mention", MentionRow::from_table),
     }
 }
 
@@ -1603,6 +1627,22 @@ impl SatisfiesRow {
         Some(Self {
             member: str_col(table, "member")?,
             requirement: str_col(table, "requirement")?,
+        })
+    }
+}
+
+impl MentionRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("member", value(self.member.clone()));
+        table.insert("target", value(self.target.clone()));
+        table
+    }
+
+    fn from_table(table: &Table) -> Option<Self> {
+        Some(Self {
+            member: str_col(table, "member")?,
+            target: str_col(table, "target")?,
         })
     }
 }

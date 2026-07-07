@@ -48,6 +48,11 @@ const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
 /// tell a directive edge from a declared reference edge in the one resolved-edge set.
 const DIRECTIVE_FIELD: &str = "at-import";
 
+/// The reference `field` a mention-produced [`ResolvedEdge`] records — an authored
+/// `n`, not a frontmatter field. Lets a reader tell a mention edge from a declared
+/// reference edge in the one resolved-edge set.
+const MENTION_FIELD: &str = "mention";
+
 /// The maximum import-recursion depth reachability propagates a live importer's
 /// liveness across — the `at-import` grammar is recursion-capped at five hops
 /// (code.claude.com/docs/en/memory, retrieved 2026-07-02), so an import chain
@@ -84,6 +89,7 @@ pub(crate) fn world() -> Node {
 /// which declared reference produced the edge. Also the type [`classify_directives`]
 /// yields a member-class directive occurrence as, so an observed `@import` edge enters
 /// the same enumeration a declared reference edge does.
+#[derive(Clone)]
 pub struct ResolvedEdge {
     /// The source node `(kind, id)` carrying the reference.
     pub from: Node,
@@ -222,10 +228,16 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
 /// kind's opt-in satisfiers, each keyed by its *own* kind label, rather than being
 /// skipped. Requirements iterate in name order, each requirement's clauses in
 /// declaration order, over name-sorted candidates, so findings are stable across runs.
+///
+/// `mention_edges` folds the already-resolved mention edges into the same adjacency —
+/// a mention is obligation-free by default (no shipped clause counts it,
+/// `specs/model/contract.md`), but an authored `degree` clause may range over it
+/// exactly as it does a declared reference edge.
 #[must_use]
 pub fn degree(
     requirements: &BTreeMap<String, Requirement>,
     edges: &[Edge],
+    mention_edges: &[ResolvedEdge],
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
     // Opt-in: with no requirement declaring a `degree` clause, the graph is never
@@ -240,7 +252,13 @@ pub fn degree(
         return Vec::new();
     }
 
-    let adjacency = resolved_arcs(edges, by_kind);
+    let mut adjacency = resolved_arcs(edges, by_kind);
+    for edge in mention_edges {
+        adjacency
+            .entry(edge.from.clone())
+            .or_default()
+            .insert(edge.to.clone());
+    }
     // Incoming degree per node, built once by inverting the resolved arcs; a node
     // absent from the map has in-degree zero.
     let mut incoming: BTreeMap<&Node, usize> = BTreeMap::new();
@@ -851,6 +869,46 @@ fn resolved_arcs(
     adjacency
 }
 
+/// One authored **mention**, ready to enter the resolved-edge graph — the citing
+/// member's own address and the address its `n` names, both already resolved at
+/// emit (`crate::main`'s conversion off the lock's `mention` declaration rows, the
+/// mirror of [`compose::Edge`]'s own lift off the assembly fact rows).
+pub struct MentionDeclaration {
+    /// The citing member's own `kind:name` address.
+    pub member: String,
+    /// The address the mention names.
+    pub target: String,
+}
+
+/// Parse an address a mention may name into its graph [`Node`]: `kind:name` parses
+/// into that member's node; a bare name (no `:`) addresses a requirement — modeled
+/// under a reserved `requirement` kind, distinct from [`world`] and every artifact
+/// kind, so a requirement-targeted mention still binds a node the degree/explain
+/// traversals can range over.
+fn node_from_address(address: &str) -> Node {
+    match address.split_once(':') {
+        Some((kind, name)) => (kind.to_string(), name.to_string()),
+        None => ("requirement".to_string(), address.to_string()),
+    }
+}
+
+/// Fold the lock's already-resolved `mention` rows into [`ResolvedEdge`]s: no
+/// admissibility or dangling check runs here — a dangling mention never reaches the
+/// lock, `emit` refuses first — just the address parse [`node_from_address`] runs.
+/// Unlike [`resolved_edges`], this never filters: every mention lands, obligation-free
+/// by default (`specs/model/contract.md`) until a `degree` clause opts in to counting it.
+#[must_use]
+pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEdge> {
+    mentions
+        .iter()
+        .map(|mention| ResolvedEdge {
+            from: node_from_address(&mention.member),
+            field: MENTION_FIELD.to_string(),
+            to: node_from_address(&mention.target),
+        })
+        .collect()
+}
+
 /// DFS coloring for cycle detection: `White` unvisited, `Gray` on the current path,
 /// `Black` fully explored (no cycle reachable through it).
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1339,7 +1397,7 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&requirements, &edges, &by_kind).is_empty());
+        assert!(degree(&requirements, &edges, &[], &by_kind).is_empty());
     }
 
     #[test]
@@ -1362,7 +1420,7 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &[], &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
@@ -1391,7 +1449,7 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&requirements, &edges, &by_kind).is_empty());
+        assert!(degree(&requirements, &edges, &[], &by_kind).is_empty());
     }
 
     #[test]
@@ -1413,7 +1471,7 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &[], &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
         assert_eq!(diags[0].artifact, "standards");
@@ -1440,7 +1498,7 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &[], &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
         assert_eq!(diags[0].artifact, "style");
@@ -1467,7 +1525,7 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &[], &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "style");
         assert!(diags[0].message.contains("outgoing"));
@@ -1484,7 +1542,7 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&requirements, &edges, &by_kind).is_empty());
+        assert!(degree(&requirements, &edges, &[], &by_kind).is_empty());
     }
 
     #[test]
@@ -1537,8 +1595,35 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &by_kind);
+        let diags = degree(&requirements, &edges, &[], &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "standards");
+    }
+
+    #[test]
+    fn a_mention_edge_counts_toward_degree() {
+        // No declared-reference edge touches `standards` at all — only a mention
+        // (obligation-free by default) points at it. A `degree` clause is a contract
+        // that opts in to counting it: `incoming = { min = 1 }` is satisfied by the
+        // mention alone.
+        let requirements = gate_requirement(
+            Some("skill"),
+            Some(Predicate::Degree {
+                incoming: Some(EdgeBound {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            }),
+        );
+        let rules = [node("style", None)];
+        let skills = [satisfying(node("standards", None), "gate")];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        let mention_edges = resolved_mention_edges(&[MentionDeclaration {
+            member: "rule:style".to_string(),
+            target: "skill:standards".to_string(),
+        }]);
+        assert!(degree(&requirements, &[], &mention_edges, &by_kind).is_empty());
     }
 }

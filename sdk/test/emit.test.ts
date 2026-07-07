@@ -2,7 +2,7 @@
  * Emit — the six-noun face compiled to the seam's JSON pipe.
  * A harness authored in the face (`harness()`, `kind<T>()`,
  * clause values, `needs`, `file()`/`text`/`blocks()`) emits the declaration rows
- * (the lock's five families) and every projected member's erased payload — kind,
+ * (the lock's six families) and every projected member's erased payload — kind,
  * name, ordered fields, resolved body. The engine is the sole compiler of every
  * projection and the whole lock; the SDK writes neither.
  */
@@ -102,7 +102,7 @@ test("emit is byte-stable across a double pass", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Declaration rows — the five families, and the `satisfies` join the roster/
+// Declaration rows — the six families, and the `satisfies`/`mentions` join the roster/
 // coverage tiers need.
 // ---------------------------------------------------------------------------
 
@@ -114,7 +114,9 @@ function fullHarness() {
         paths: ["src/**/*.rs"],
         needs: [bash("git diff")],
         satisfies: ["dev-standards"],
-        prose: text`# Rust`,
+        prose: text`# Rust
+
+See ${{ address: "dev-standards", display: "dev standards" }}.`,
       }),
  ],
     expect: [
@@ -137,7 +139,7 @@ function fullHarness() {
  });
 }
 
-test("compileDeclarations produces all five families, satisfies included", () => {
+test("compileDeclarations produces all six families, satisfies and mentions included", () => {
   const declarations = compileDeclarations(fullHarness());
 
   assert.deepEqual(declarations.kinds, [
@@ -195,6 +197,7 @@ test("compileDeclarations produces all five families, satisfies included", () =>
   ]);
   assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
+  assert.deepEqual(declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
 });
 
 test("compileDeclarations emits no uncoined `authority` fact, and the root member's declared mode round-trips", () => {
@@ -255,11 +258,35 @@ test("the JSON pipe carries the reduced declaration rows and the pinned version"
   const seam = JSON.parse(declarationsToJson(compileDeclarations(fullHarness())));
   assert.equal(seam.version, 2);
   assert.deepEqual(seam.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
+  assert.deepEqual(seam.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
 });
 
 test("a member with no satisfies claim contributes no row", () => {
   const h = harness({ members: [rule({ name: "rust", prose: text`# Rust` })] });
   assert.deepEqual(compileDeclarations(h).satisfies, []);
+});
+
+test("a member with no mentions in its prose contributes no mention row", () => {
+  const h = harness({ members: [rule({ name: "rust", prose: text`# Rust` })] });
+  assert.deepEqual(compileDeclarations(h).mentions, []);
+});
+
+test("mention rows are member-then-target sorted regardless of authoring order", () => {
+  const h = harness({
+    members: [
+      rule({
+        name: "b",
+        prose: text`See ${{ address: "rule:a", display: "a" }} and ${{ address: "rule:c", display: "c" }}.`,
+      }),
+      rule({ name: "a", prose: text`See ${{ address: "rule:b", display: "b" }}.` }),
+      rule({ name: "c", prose: text`# C` }),
+    ],
+  });
+  assert.deepEqual(compileDeclarations(h).mentions, [
+    { member: "rule:a", target: "rule:b" },
+    { member: "rule:b", target: "rule:a" },
+    { member: "rule:b", target: "rule:c" },
+  ]);
 });
 
 test("satisfies rows are member-then-requirement sorted regardless of authoring order", () => {

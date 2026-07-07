@@ -20,8 +20,8 @@ use temper::builtin_lock;
 use temper::contract::Severity;
 use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CountBoundRow, Declarations,
-    DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow,
-    SatisfiesRow,
+    DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, MentionRow, Payload, PayloadMember,
+    RequirementRow, SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -270,6 +270,10 @@ fn rich_declarations() -> Declarations {
                 requirement: "roster-coverage".to_string(),
             },
         ],
+        mentions: vec![MentionRow {
+            member: "skill:coordinate".to_string(),
+            target: "rule:rust".to_string(),
+        }],
     }
 }
 
@@ -404,6 +408,15 @@ fn lock_carries_all_four_declaration_families() {
         .find(|f| f.fact == "mode")
         .expect("the mode fact is recorded");
     assert_eq!(mode.value.as_deref(), Some("block"));
+
+    // Mentions: the citing member's own address and the address its `n` names.
+    assert_eq!(
+        declarations.mentions,
+        vec![MentionRow {
+            member: "skill:coordinate".to_string(),
+            target: "rule:rust".to_string(),
+        }]
+    );
 }
 
 #[test]
@@ -427,6 +440,7 @@ fn a_double_emit_is_byte_stable() {
     assert!(!declarations.requirements.is_empty());
     assert!(!declarations.assembly.is_empty());
     assert!(!declarations.satisfies.is_empty());
+    assert!(!declarations.mentions.is_empty());
 }
 
 /// A `ClauseRow` carrying the node-set/edge-scope predicates' arguments
@@ -665,6 +679,7 @@ fn a_bare_harness_lock_still_round_trips() {
     assert!(!declarations.clauses.is_empty());
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
+    assert!(declarations.mentions.is_empty());
 }
 
 /// A host kind's declared nesting templates (`LOCK-NESTING-TEMPLATES`) — the
@@ -1023,6 +1038,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(declarations.kinds.len(), 3);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
+    assert!(declarations.mentions.is_empty());
 }
 
 #[test]
@@ -1087,4 +1103,163 @@ fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
 
     assert_eq!(row.guidance.as_deref(), Some(expected_guidance));
     assert_eq!(row.cite.as_deref(), Some(expected_cite));
+}
+
+// ---- MENTION-EDGE-LANDS: an authored mention binds the graph -----------------
+//
+// contract.md, "edge": a mention is one of four edge loci, and every edge resolves
+// into the one enumeration the gate and every read verb share. These prove the whole
+// pipeline past the lock round-trip already proven above: the mention row binds into
+// the reference graph, a `degree` clause can count it, and `explain` narrates its
+// resolved target rather than "points at no member" — with no declared reference
+// field between the two members at all.
+
+/// A floor-clean skill named `name` whose prose cites `target` in words alone (no
+/// declared reference field) — the mention is the only edge this fixture carries.
+fn mentioning_skill(name: &str, target: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         See the {target} rule.\n"
+    )
+}
+
+/// A floor-clean rule with a plain body and no frontmatter at all — the mention's
+/// target, declaring no reference field of its own.
+fn clean_rule(name: &str) -> String {
+    format!("# {name}\n\nBody.\n")
+}
+
+/// Run `temper explain <target>` from `root`, returning its stdout narration.
+fn explain_in(root: &Path, target: &str) -> String {
+    let out = Command::new(BIN)
+        .current_dir(root)
+        .arg("explain")
+        .arg(target)
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+/// The `gate` requirement's declaration row, typed to `rule`, carrying a required
+/// `degree` clause bounding incoming edges to at least one.
+fn incoming_degree_requirement() -> RequirementRow {
+    RequirementRow {
+        name: "gate".to_string(),
+        kind: Some("rule".to_string()),
+        required: false,
+        clauses: vec![ClauseRow {
+            kind: None,
+            predicate: "degree".to_string(),
+            field: None,
+            severity: "required".to_string(),
+            guidance: None,
+            cite: None,
+            count: None,
+            target: None,
+            degree: Some(DegreeBoundRow {
+                incoming: Some(EdgeBoundRow {
+                    min: Some(1),
+                    max: None,
+                }),
+                outgoing: None,
+            }),
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
+        }],
+        verified_by: None,
+    }
+}
+
+#[test]
+fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
+    let root = tmpdir("mention-edge-lands");
+    // A skill `coordinate` and a rule `rust`, on disk, declaring no reference field
+    // between them at all — the only edge is the skill's authored mention of the rule.
+    let skill_dir = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        mentioning_skill("coordinate", "rust"),
+    )
+    .unwrap();
+    let rules_dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    fs::write(rules_dir.join("rust.md"), clean_rule("rust")).unwrap();
+
+    // `why`'s member listing reads the projected surface overlay, not raw harness
+    // disk — author one for `coordinate` too (no `satisfies` claims of its own) so
+    // `explain` resolves it as a member at all.
+    author_satisfies(&root, "skills", "coordinate", &[]);
+    // The rule `rust` opts into `gate`, whose required `degree` clause bounds its
+    // incoming edges to at least one — satisfiable only by the mention, since no
+    // reference field is declared anywhere in this harness.
+    author_satisfies(&root, "rules", "rust", &["gate"]);
+    write_lock(
+        &root,
+        Declarations {
+            requirements: vec![incoming_degree_requirement()],
+            mentions: vec![MentionRow {
+                member: "skill:coordinate".to_string(),
+                target: "rule:rust".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        ok,
+        "the mention alone satisfies the rule's incoming degree bound ⇒ clean, got:\n{output}"
+    );
+
+    let out = explain_in(&root, "coordinate");
+    assert!(
+        out.contains("it points at `rust` (rule) via its `mention` field"),
+        "explain narrates the mention's resolved target rather than \"points at no member\": {out}"
+    );
+    assert!(
+        !out.contains("it points at no member"),
+        "a member whose only outgoing edge is a mention must not read as pointing at nothing: {out}"
+    );
+}
+
+#[test]
+fn a_mention_with_no_clause_ranging_over_it_is_obligation_free() {
+    // No `degree` clause at all: the mention rides the lock and binds the graph, but
+    // no shipped clause counts it — obligation-free by default (contract.md, "edge").
+    let root = tmpdir("mention-obligation-free");
+    let skill_dir = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        mentioning_skill("coordinate", "rust"),
+    )
+    .unwrap();
+    let rules_dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    fs::write(rules_dir.join("rust.md"), clean_rule("rust")).unwrap();
+
+    write_lock(
+        &root,
+        Declarations {
+            mentions: vec![MentionRow {
+                member: "skill:coordinate".to_string(),
+                target: "rule:rust".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        ok,
+        "a mention with no clause ranging over it never gates ⇒ clean, got:\n{output}"
+    );
 }

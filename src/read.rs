@@ -215,7 +215,10 @@ fn resolve<'a>(
 ///
 /// `assembly` and `roster` mirror [`impact`]'s own split (the assembly's own
 /// `[requirement.*]` roster vs. the composed namespace `check` gates); `edges` is the
-/// declared relationship set [`why`]'s edge walk resolves; `registrations`,
+/// declared relationship set [`why`]'s edge walk resolves; `mention_edges` is the
+/// already-resolved mention edge set the same walk folds in, so a member's only
+/// outgoing reference being a mention still narrates rather than reading "it points at
+/// no member"; `registrations`,
 /// `repo_files`, and `directive_edges` are the exact reachability/directive inputs
 /// [`impact`]'s blast radius ranges over; `citations` are the declared one-way edges a
 /// leaf-grain answer reports separately from fallout. Every one is the identical input
@@ -230,6 +233,7 @@ pub fn explain(
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
+    mention_edges: &[ResolvedEdge],
     registrations: &BTreeMap<&str, Registration>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
@@ -238,7 +242,15 @@ pub fn explain(
 ) -> String {
     match resolve(by_kind, roster, target) {
         Species::Member(name) => {
-            let mut out = why(workspace, custom, roster, by_kind, edges, name);
+            let mut out = why(
+                workspace,
+                custom,
+                roster,
+                by_kind,
+                edges,
+                mention_edges,
+                name,
+            );
             out.push('\n');
             out.push_str(&impact(
                 assembly,
@@ -298,7 +310,10 @@ pub fn explain(
 /// The edge walk ranges over the **gate's own resolved edge set** — `by_kind` (the
 /// by-kind [`Features`] corpus) and `edges` (the declared `[[kind.<name>.relationships]]`
 /// set) are the *same* two the `check` arm builds, and `why` runs them through the
-/// identical [`graph::resolved_edges`] the gate's `check`/`acyclic`/`degree` range over.
+/// identical [`graph::resolved_edges`] the gate's `check`/`acyclic`/`degree` range over,
+/// folding in `mention_edges` — the already-resolved mention edges `graph::degree` also
+/// ranges over — so a member whose only outgoing reference is a mention narrates it
+/// rather than reading "it points at no member".
 /// So `why`'s edge narration cannot disagree with the gate (READ-EDGE-UNIFY): a
 /// `routes_to` edge the gate resolves is the exact edge `why` narrates, and a member
 /// with no resolved edge stays silent.
@@ -315,11 +330,14 @@ pub fn why(
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
+    mention_edges: &[ResolvedEdge],
     member: &str,
 ) -> String {
     // The resolved edge set the gate ranges over — computed once, filtered per matched
-    // node below. One source of truth: the exact arcs `graph::check` resolves.
-    let resolved = graph::resolved_edges(edges, by_kind);
+    // node below. One source of truth: the exact arcs `graph::check` resolves, plus the
+    // already-resolved mention edges `graph::degree` also folds in.
+    let mut resolved = graph::resolved_edges(edges, by_kind);
+    resolved.extend(mention_edges.iter().cloned());
 
     // Every `(kind, id)` naming `member`: the rationale-carrying Workspace/custom
     // listing, unioned with `by_kind` — the same decidable corpus the dispatcher's own

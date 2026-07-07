@@ -105,7 +105,7 @@ function refuseBrokenSource(harness: Harness): void {
         throw new Error(
           `member \`${member.name}\`: \`satisfies\` claims requirement \`${name}\`, which no ` +
             `harness-level or member-published requirement declares — a dangling join ` +
-            `(specs/architecture/20-surface.md, "Emit refuses before it writes").`,
+            `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
         );
       }
       filled.add(name);
@@ -126,7 +126,7 @@ function refuseBrokenSource(harness: Harness): void {
       throw new Error(
         `required requirement \`${name}\` (declared by ${source}) is filled by no member's ` +
           `\`satisfies\` — an unfilled required requirement ` +
-          `(specs/architecture/20-surface.md, "Emit refuses before it writes").`,
+          `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
       );
     }
   }
@@ -194,7 +194,7 @@ export interface EmitOptions {
  * double-verifies it.
  */
 export interface EmitResult {
-  /** The declaration rows — the erased program the lock's five families carry. */
+  /** The declaration rows — the erased program the lock's six families carry. */
   readonly declarations: Declarations;
   /** The projected members — the engine's sole input for every projection. */
   readonly members: readonly PayloadMember[];
@@ -214,7 +214,7 @@ export interface EmitResult {
 
 /**
  * Compile the whole face in one deterministic pass: the declaration rows (its
- * rollup and its five families) and every projected member's erased payload.
+ * rollup and its six families) and every projected member's erased payload.
  * Prose resolves once (`file()` assets read in, mentions resolution-checked
  * against the harness's declared values). Double-emit verified — nondeterministic
  * authoring is a loud failure, never a silent churn.

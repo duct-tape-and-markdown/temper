@@ -152,13 +152,26 @@ export interface SatisfiesRow {
   readonly requirement: string;
 }
 
-/** The five declaration families — the whole erased program the lock and pipe carry. */
+/**
+ * One authored `n` mention edge — the citing member's own `kind:name` address and
+ * the address it names (another member's `kind:name`, or a bare requirement name).
+ * Recorded regardless of resolution — a dangling mention is `emit`'s own refusal
+ * (`emit.ts`), never this row's concern, mirroring how a `SatisfiesRow` carries a
+ * claim before `refuseBrokenSource` judges it.
+ */
+export interface MentionRow {
+  readonly member: string;
+  readonly target: string;
+}
+
+/** The six declaration families — the whole erased program the lock and pipe carry. */
 export interface Declarations {
   readonly kinds: readonly KindFactRow[];
   readonly clauses: readonly ClauseRow[];
   readonly requirements: readonly RequirementRow[];
   readonly assembly: readonly AssemblyFactRow[];
   readonly satisfies: readonly SatisfiesRow[];
+  readonly mentions: readonly MentionRow[];
 }
 
 /** The lock label for a kind's declared registration. */
@@ -290,7 +303,29 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
  );
 }
 
-/** Compile a harness into its five declaration families — the erased program. */
+/**
+ * The `mention` rows — every member's authored `n` targets, member-then-target
+ * sorted. Only `text`-kind prose carries mentions (a `file()`/`blocks()` body
+ * names none); recorded off the raw authored address, unconditionally — resolution
+ * is `emit`'s own refusal (`emit.ts`), not this row's concern.
+ */
+function mentionRows(harness: Harness): MentionRow[] {
+  const rows: MentionRow[] = [];
+  for (const member of harness.members) {
+    if (member.prose?.kind !== "text") continue;
+    const address = `${member.kind}:${member.name}`;
+    for (const mention of member.prose.mentions) {
+      rows.push({ member: address, target: mention.target.address });
+ }
+ }
+  return rows.sort(
+    (a, b) =>
+      (a.member < b.member ? -1 : a.member > b.member ? 1 : 0) ||
+      (a.target < b.target ? -1 : a.target > b.target ? 1 : 0),
+ );
+}
+
+/** Compile a harness into its six declaration families — the erased program. */
 export function compileDeclarations(harness: Harness): Declarations {
   const allKinds = kindsInPlay(harness);
   const kinds = atLocusKindsInPlay(allKinds);
@@ -306,6 +341,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     requirements: requirementRows(harness),
     assembly: assemblyFactRows(harness, kinds),
     satisfies: satisfiesRows(harness),
+    mentions: mentionRows(harness),
   };
 }
 

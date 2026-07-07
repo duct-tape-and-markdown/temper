@@ -452,6 +452,7 @@ fn explain(target: &str) -> miette::Result<String> {
         .map(|row| (row.name.clone(), requirement_from_row(row)))
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
+    let mention_edges = mention_edges_from_declarations(&declarations);
 
     let (roster, _collisions) = union_published_requirements(&assembly_requirements, &all_features);
 
@@ -479,6 +480,7 @@ fn explain(target: &str) -> miette::Result<String> {
         &roster,
         &by_kind,
         &assembly_edges,
+        &mention_edges,
         &registrations,
         &repo_files,
         &directive_edges,
@@ -565,6 +567,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .map(|row| (row.name.clone(), requirement_from_row(row)))
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
+    let mention_edges = mention_edges_from_declarations(&declarations);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
@@ -708,8 +711,14 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // `degree`: a requirement declares an in/out
     // edge-count bound every satisfier's degree must fall inside, so it takes
     // the requirements *and* the edges, reusing the arc resolution
-    // `acyclic`/`check` assemble. Opt-in per requirement.
-    diagnostics.extend(graph::degree(&assembly_requirements, &edges, &by_kind));
+    // `acyclic`/`check` assemble, plus the already-resolved mention edges — obligation-free
+    // by default, counted only when a `degree` clause opts in. Opt-in per requirement.
+    diagnostics.extend(graph::degree(
+        &assembly_requirements,
+        &edges,
+        &mention_edges,
+        &by_kind,
+    ));
 
     // The requirement-coverage tier: every `required`
     // requirement must have a resolving home (≥1 artifact opting in via
@@ -1114,6 +1123,22 @@ fn edges_from_declarations(declarations: &drift::Declarations) -> Vec<compose::E
             })
         })
         .collect()
+}
+
+/// The lock's already-resolved `mention` rows, lifted into [`graph::ResolvedEdge`]s —
+/// the mention-family mirror of [`edges_from_declarations`]: no field lookup (a mention
+/// is resolved once, at emit), just the address parse [`graph::resolved_mention_edges`]
+/// runs.
+fn mention_edges_from_declarations(declarations: &drift::Declarations) -> Vec<graph::ResolvedEdge> {
+    let mentions: Vec<graph::MentionDeclaration> = declarations
+        .mentions
+        .iter()
+        .map(|row| graph::MentionDeclaration {
+            member: row.member.clone(),
+            target: row.target.clone(),
+        })
+        .collect();
+    graph::resolved_mention_edges(&mentions)
 }
 
 #[cfg(test)]
