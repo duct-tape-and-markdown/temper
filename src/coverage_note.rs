@@ -18,6 +18,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::check::Diagnostic;
+use crate::drift;
 use crate::kind::{CustomKind, glob_matches};
 
 /// The advisory rule id for the per-kind member-count summary.
@@ -25,6 +26,10 @@ const CHECKED_RULE: &str = "coverage.checked";
 
 /// The advisory rule id for a known surface present on disk that no kind governs.
 const UNMODELED_RULE: &str = "coverage.unmodeled-surface";
+
+/// The workspace directory holding the committed lock this module reads its own
+/// custom-kind rows from — mirrors `install.rs`'s own copy of the same literal.
+const TEMPER_DIR: &str = ".temper";
 
 /// A known Claude Code harness surface temper's built-in kinds do not govern — an
 /// external fact carrying its citation at the point of claim
@@ -86,11 +91,13 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
 /// Compute the wedge's advisory coverage note over the harness at `root`.
 ///
 /// `member_counts` is the per-kind checked-member count the gate already loaded,
-/// keyed by each kind's bare row label; `kinds` is the in-scope built-in kind
-/// set, consulted only to suppress a known surface a kind actually governs. Returns
-/// `warn`-severity diagnostics only (never `error`, never a session-start verdict): a
-/// summary of what was checked, then one finding per known Claude Code surface present
-/// on disk that no in-scope kind governs — so the gate's silence about an unmodeled
+/// keyed by each kind's bare row label; `kinds` is the built-in kind set. The
+/// gap check additionally reads `root`'s own committed lock for any kind it
+/// declares beyond those built-ins, so a locked custom kind's `governs` suppresses
+/// a known surface exactly as a built-in's does. Returns `warn`-severity
+/// diagnostics only (never `error`, never a session-start verdict): a summary of
+/// what was checked, then one finding per known Claude Code surface present on
+/// disk that no in-scope kind governs — so the gate's silence about an unmodeled
 /// surface never reads as "checked".
 #[must_use]
 pub fn check(
@@ -102,7 +109,9 @@ pub fn check(
 
     // (1) State what WAS checked: each kind's member count, so a clean run reads as
     // "checked N members", never bare silence. Iteration is over the name-sorted
-    // `BTreeMap`, so the summary is stable.
+    // `BTreeMap`, so the summary is stable. `member_counts` already folds in every
+    // locked custom kind's members alongside the built-ins, so the message names no
+    // "built-in" qualifier that would misdescribe a custom-kind count.
     let total: usize = member_counts.values().sum();
     let per_kind: Vec<String> = member_counts
         .iter()
@@ -112,7 +121,7 @@ pub fn check(
         CHECKED_RULE,
         "harness",
         format!(
-            "checked {total} member{} across {} built-in kind{}: {}",
+            "checked {total} member{} across {} kind{}: {}",
             plural(total),
             member_counts.len(),
             plural(member_counts.len()),
@@ -122,8 +131,12 @@ pub fn check(
 
     // (2) Name the gaps: a known Claude Code surface present on disk that no in-scope
     // kind governs is checked by nothing — flag it so silence never reads as "checked".
+    // The governing set is the built-ins plus every kind the committed lock declares,
+    // so a locked custom kind (e.g. a `command` kind rooted at `.claude/commands`)
+    // suppresses the surface it governs exactly as a built-in does.
+    let governing_kinds = with_locked_kinds(root, kinds);
     for surface in KNOWN_SURFACES {
-        if present(root, surface) && !governed_by_any(kinds, surface) {
+        if present(root, surface) && !governed_by_any(&governing_kinds, surface) {
             diagnostics.push(Diagnostic::warn(
                 UNMODELED_RULE,
                 surface.path,
@@ -136,6 +149,25 @@ pub fn check(
     }
 
     diagnostics
+}
+
+/// `kinds` plus every kind `root`'s committed lock declares that is not already in
+/// `kinds` — so a locked custom kind's `governs` locus joins the built-ins for the
+/// unmodeled-surface suppression below. A missing or malformed lock degrades to
+/// `kinds` alone, the same absent-evidence-forges-no-finding tolerance
+/// [`drift::read_declarations`] itself takes.
+fn with_locked_kinds(
+    root: &Path,
+    kinds: &BTreeMap<String, CustomKind>,
+) -> BTreeMap<String, CustomKind> {
+    let mut merged = kinds.clone();
+    let locked = drift::read_declarations(&root.join(TEMPER_DIR)).unwrap_or_default();
+    for row in &locked.kinds {
+        merged
+            .entry(row.name.clone())
+            .or_insert_with(|| CustomKind::from_kind_fact_row(row));
+    }
+    merged
 }
 
 /// The plural suffix for a count — `""` for one, `"s"` otherwise.
@@ -240,12 +272,10 @@ mod tests {
         assert_eq!(summary.severity, Severity::Warn);
         assert!(summary.message.contains("skill (2)"));
         assert!(summary.message.contains("rule (3)"));
-        // The total pluralizes and names both kinds.
-        assert!(
-            summary
-                .message
-                .contains("checked 5 members across 2 built-in kinds")
-        );
+        // The total pluralizes and names both kinds, with no "built-in" qualifier —
+        // `member_counts` folds in locked custom-kind members alongside built-ins.
+        assert!(summary.message.contains("checked 5 members across 2 kinds"));
+        assert!(!summary.message.contains("built-in"));
     }
 
     #[test]
@@ -257,11 +287,25 @@ mod tests {
             &counts,
         );
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
-        assert!(
-            summary
-                .message
-                .contains("checked 1 member across 1 built-in kind:")
+        assert!(summary.message.contains("checked 1 member across 1 kind:"));
+    }
+
+    #[test]
+    fn the_checked_summary_names_no_built_in_qualifier_when_a_custom_kind_is_counted() {
+        // A custom kind's members ride the same `member_counts` map as built-ins —
+        // the summary must not misdescribe them as "built-in".
+        let counts = BTreeMap::from([
+            ("skill".to_string(), 1usize),
+            ("command".to_string(), 2usize),
+        ]);
+        let diagnostics = check(
+            Path::new("/nonexistent-harness-root"),
+            &builtin_set(),
+            &counts,
         );
+        let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
+        assert!(summary.message.contains("command (2)"));
+        assert!(!summary.message.contains("built-in"));
     }
 
     #[test]
@@ -315,5 +359,83 @@ mod tests {
             kind_governing("memory", ".", "CLAUDE.md"),
         )]);
         assert!(governed_by_any(&memory, &claude_md));
+    }
+
+    /// A fresh, empty temp directory unique to this test run.
+    fn tmpdir(label: &str) -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "coverage-note-{}-{}-{}",
+            std::process::id(),
+            id,
+            label
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Commit a lock at `<root>/.temper/lock.toml` declaring one `command` kind rooted
+    /// at `.claude/commands` — a locked custom kind the built-in set (`builtin_set`)
+    /// carries no row for.
+    fn lock_command_kind(root: &std::path::Path) {
+        let payload = crate::drift::Payload {
+            version: crate::drift::SEAM_VERSION,
+            declarations: crate::drift::Declarations {
+                kinds: vec![crate::drift::KindFactRow {
+                    name: "command".to_string(),
+                    provider: None,
+                    governs_root: ".claude/commands".to_string(),
+                    governs_glob: "*.md".to_string(),
+                    format: None,
+                    unit_shape: Some("file".to_string()),
+                    registration: None,
+                    templates: Vec::new(),
+                }],
+                ..crate::drift::Declarations::default()
+            },
+            members: Vec::new(),
+        };
+        crate::drift::emit(
+            &payload,
+            &root.join(TEMPER_DIR),
+            crate::drift::EmitOptions::default(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
+        let root = tmpdir("locked-command-kind");
+        lock_command_kind(&root);
+        std::fs::create_dir_all(root.join(".claude/commands")).unwrap();
+
+        let counts = BTreeMap::from([("command".to_string(), 0usize)]);
+        let diagnostics = check(&root, &builtin_set(), &counts);
+
+        assert!(
+            diagnostics
+                .iter()
+                .all(|d| !(d.rule == UNMODELED_RULE && d.artifact == ".claude/commands")),
+            "a locked custom kind governing .claude/commands must suppress the finding, got: {diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn a_present_surface_with_no_locked_or_builtin_governor_is_still_flagged() {
+        let root = tmpdir("no-lock");
+        std::fs::create_dir_all(root.join(".claude/commands")).unwrap();
+
+        let counts = BTreeMap::new();
+        let diagnostics = check(&root, &builtin_set(), &counts);
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.rule == UNMODELED_RULE && d.artifact == ".claude/commands"),
+            "an ungoverned present surface must still be flagged, got: {diagnostics:#?}"
+        );
     }
 }

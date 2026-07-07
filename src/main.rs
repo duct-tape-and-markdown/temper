@@ -727,11 +727,11 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // severity.
     diagnostics.extend(install::gate_installed(harness_root));
 
-    // The wedge's advisory coverage note: state which built-in kinds checked how
-    // many members, and name the known Claude Code surfaces present on disk that no
-    // kind governs, so the gate's silence about an unmodeled surface never reads as
-    // "checked". Warn-only over the embedded built-in kind set — it leaves the run's
-    // exit code and the session-start verdict unchanged.
+    // The wedge's advisory coverage note: state which kinds checked how many members,
+    // and name the known Claude Code surfaces present on disk that no kind — built-in
+    // or locked custom, the note reads the lock for the latter — governs, so the
+    // gate's silence about an unmodeled surface never reads as "checked". Warn-only —
+    // it leaves the run's exit code and the session-start verdict unchanged.
     diagnostics.extend(coverage_note::check(
         harness_root,
         &builtin_kind::definitions()?,

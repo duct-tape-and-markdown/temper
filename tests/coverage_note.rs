@@ -1,20 +1,23 @@
-//! Acceptance for the wedge's advisory coverage note: the `check` gate states which built-in kinds
-//! checked how many members and names the known Claude Code surfaces present on disk
-//! that no kind governs, so the gate's silence about an unmodeled surface never reads
-//! as "checked".
+//! Acceptance for the wedge's advisory coverage note: the `check` gate states which
+//! kinds checked how many members and names the known Claude Code surfaces present on
+//! disk that no kind — built-in or locked custom — governs, so the gate's silence
+//! about an unmodeled surface never reads as "checked".
 //!
 //! Driven across the real process boundary through the one-shot `check --harness` verb
 //! (the route session-start takes), over harness-dir fixtures mirroring the real Claude
 //! Code layout — `.claude/skills/*` plus, for the gap arm, a `.claude/agents/` tree no
-//! built-in kind governs. The GitHub reporter gives a machine-parseable finding set:
-//! each finding is one `::warning title=<rule>::<artifact>: …` line, so the coverage
-//! note's advisories are asserted exactly. Every coverage-note finding is `warning`
-//! (advisory) — it never gates and never injects a session-start verdict.
+//! kind governs, and for the locked-kind arm, a `.claude/commands/` tree a committed
+//! `command` kind row governs. The GitHub reporter gives a machine-parseable finding
+//! set: each finding is one `::warning title=<rule>::<artifact>: …` line, so the
+//! coverage note's advisories are asserted exactly. Every coverage-note finding is
+//! `warning` (advisory) — it never gates and never injects a session-start verdict.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
+
+use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -65,6 +68,37 @@ fn write_agent(root: &Path, name: &str) {
         "---\nname: reviewer\n---\n# Reviewer\n\nA subagent temper models with no kind.\n",
     )
     .unwrap();
+}
+
+/// Commit a lock at `<root>/.temper/lock.toml` declaring a `command` kind rooted at
+/// `.claude/commands` and project its one member — a locked custom kind the coverage
+/// note's built-in set carries no row for, so the gate discovers it only by reading
+/// the lock (`COVERAGE-KIND-AWARE`).
+fn lock_command_kind(root: &Path) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![KindFactRow {
+                name: "command".to_string(),
+                provider: None,
+                governs_root: ".claude/commands".to_string(),
+                governs_glob: "*.md".to_string(),
+                format: None,
+                unit_shape: Some("file".to_string()),
+                registration: None,
+                templates: Vec::new(),
+            }],
+            ..Declarations::default()
+        },
+        members: vec![PayloadMember {
+            kind: "command".to_string(),
+            name: "review".to_string(),
+            fields: Vec::new(),
+            body: "# Review\n\nRun the review workflow.\n".to_string(),
+            source_path: None,
+        }],
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
 /// Run `temper check --harness <dir> --reporter github`, returning `(finding lines,
@@ -186,4 +220,46 @@ fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
         "a fully-modeled harness flags no unmodeled surface, got: {findings:#?}"
     );
     assert!(success, "the clean run exits success, got: {findings:#?}");
+}
+
+#[test]
+fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
+    let harness = tmpdir("locked-command-kind");
+    write_skill(&harness, "coordinate");
+    lock_command_kind(&harness);
+
+    let (findings, success) = check_harness(&harness);
+
+    // `.claude/commands` is present and governed by the locked `command` kind, so it
+    // is never flagged unmodeled.
+    let unmodeled = findings_for(&findings, "coverage.unmodeled-surface");
+    assert!(
+        unmodeled
+            .iter()
+            .all(|line| !line.contains("::.claude/commands:")),
+        "a locked custom kind governing .claude/commands must suppress the finding, got: {unmodeled:#?}"
+    );
+
+    // The checked-count message folds the custom kind's member in beside the
+    // built-ins and carries no "built-in" qualifier that would misdescribe it.
+    let checked = findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    let summary = checked[0];
+    assert!(
+        summary.contains("command (1)"),
+        "the summary counts the locked custom kind's member, got: {summary}"
+    );
+    assert!(
+        !summary.contains("built-in"),
+        "the checked-count message must not say 'built-in' when a custom kind is counted, got: {summary}"
+    );
+
+    assert!(
+        success,
+        "the advisory coverage note must not fail the run, got: {findings:#?}"
+    );
 }
