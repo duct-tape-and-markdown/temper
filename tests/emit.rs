@@ -633,6 +633,66 @@ fn emit_program_refuses_when_no_sdk_program_exists() {
     assert!(format!("{err}").contains("harness.ts"), "{err}");
 }
 
+/// A fixture SDK program that throws before it ever prints the JSON pipe — a
+/// broken program, standing in for the cascade's exit-0 concern (`entry.notes`):
+/// the seam must fail loud, never let a broken program read as a silent pass.
+const BROKEN_HARNESS_PROGRAM: &str = r#"
+throw new Error("the SDK program is broken");
+"#;
+
+#[test]
+fn emit_cli_resolves_the_default_relative_into_without_doubling_the_path() {
+    // `temper emit` with no `--into` uses the CLI's own relative default
+    // (`./.temper`, `DEFAULT_WORKSPACE`) — the exact shape the cascade field
+    // report hit: `current_dir` moves to the entry's parent, so a still-relative
+    // `node` arg re-resolves against the new cwd and doubles the path
+    // (`./.temper/.temper/harness.ts`, MODULE_NOT_FOUND).
+    let (harness, _into) = wire_sdk_harness("relative-into");
+
+    let output = Command::new(BIN)
+        .arg("emit")
+        .current_dir(&harness)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "emit over the default relative --into must resolve <into>/harness.ts without \
+         doubling the path: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !harness.join(".temper").join(".temper").exists(),
+        "the relative --into must never double onto itself"
+    );
+
+    let rule_path = harness.join(".claude").join("rules").join("rust.md");
+    assert!(
+        rule_path.is_file(),
+        "emit should have run the program and projected the rule at {rule_path:?}"
+    );
+}
+
+#[test]
+fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
+    let (harness, _into) = wire_sdk_harness_program("broken-program", BROKEN_HARNESS_PROGRAM);
+
+    let output = Command::new(BIN)
+        .arg("emit")
+        .current_dir(&harness)
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "a broken SDK program must fail loud with a non-zero exit, never a silent pass: \
+         stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 // ---------------------------------------------------------------------------
 // The one-shot gate — `check --harness` / session-start over a raw harness with no
 // lock and no `.temper/`: no copy-tree scratch import, the discovery walk

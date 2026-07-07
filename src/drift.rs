@@ -372,11 +372,20 @@ pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Resul
 /// stdout — the internal versioned JSON pipe. The subprocess's working directory
 /// is the program's own directory, so a bare `@dtmd/temper` import resolves
 /// through the consuming project's `node_modules`, walking up from there exactly
-/// as Node's own resolution would from the program's location.
+/// as Node's own resolution would from the program's location. The `node` arg
+/// itself is canonicalized first: a relative `harness_entry` (the `./.temper`
+/// default) would otherwise be re-resolved by Node against the *new* cwd once
+/// `current_dir` moves under it, doubling the path (`./.temper/.temper/harness.ts`,
+/// cascade field report 07-06) — an absolute arg is unambiguous regardless of cwd.
 fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
     let cwd = harness_entry.parent().unwrap_or_else(|| Path::new("."));
+    let entry_arg =
+        fs::canonicalize(harness_entry).map_err(|source| DriftError::SdkProgramSpawn {
+            path: harness_entry.to_path_buf(),
+            source,
+        })?;
     let output = Command::new("node")
-        .arg(harness_entry)
+        .arg(&entry_arg)
         .current_dir(cwd)
         .output()
         .map_err(|source| DriftError::SdkProgramSpawn {
