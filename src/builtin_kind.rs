@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn skill_features_fold_unknown_keys_and_surface_satisfies_off_the_surface() {
-        use crate::extract::{FeatureValue, Kind};
+        use crate::extract::{FeatureValue, ValueType};
 
         let parent = tmpdir("skill-driver");
         let src = parent.join("demo");
@@ -358,7 +358,7 @@ Body line two.\n",
         // The documented fields come off the composed `field` primitives.
         assert_eq!(
             features.field("name"),
-            Some(&FeatureValue::scalar(Kind::String, "demo"))
+            Some(&FeatureValue::scalar(ValueType::String, "demo"))
         );
         // Permissive extraction: the unknown keys ride into the same feature map, so a
         // `forbidden_keys` clause can range over a project convention on a known artifact.

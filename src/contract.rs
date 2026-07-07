@@ -12,7 +12,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::extract::Kind;
+use crate::extract::ValueType;
 
 /// A named set of clauses over the decidable predicate algebra — the type a
 /// harness (or one artifact in it) is checked against.
@@ -92,7 +92,7 @@ pub enum Predicate {
         /// The field that is permitted.
         field: String,
     },
-    /// `type`: the field's preserved source kind is the declared [`Kind`] over
+    /// `type`: the field's preserved source kind is the declared [`ValueType`] over
     /// the closed scalar/container lattice (`string`/`integer`/`number`/
     /// `boolean`/`list`/`map`/`null`). Unlike `min_len`/`enum`/`pattern`, which
     /// refine *within* a scalar type, `type` only fixes the kind.
@@ -100,7 +100,7 @@ pub enum Predicate {
         /// The field constrained.
         field: String,
         /// The declared source kind the field must carry.
-        kind: Kind,
+        kind: ValueType,
     },
     /// `min_len`: the field's value is at least `min` characters long.
     MinLen {

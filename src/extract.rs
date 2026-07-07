@@ -27,15 +27,14 @@ use std::path::Path;
 
 use serde_json::Value as JsonValue;
 
-/// A field's parsed source kind — the closed scalar/container lattice the `type`
-/// primitive ranges over (`specs/architecture/10-contracts.md`, "Decision: the `type`
-/// vocabulary is a closed scalar/container lattice"). Taken from the *parsed*
+/// A field's parsed source kind — the closed scalar/container lattice a kind's
+/// field schema ranges over (`specs/model/representation.md`, kind). Taken from the *parsed*
 /// YAML/JSON value, not its stringified form: a sound `type` check needs the
 /// extractor to preserve the source kind rather than collapse every scalar to a
 /// bare string (the slice-1 shortcut this entry corrects). The five scalar kinds
 /// answer [`FeatureValue::as_scalar`]; the two container kinds do not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
-pub enum Kind {
+pub enum ValueType {
     /// A textual scalar.
     String,
     /// A whole-number scalar (no fractional part).
@@ -52,45 +51,44 @@ pub enum Kind {
     Map,
 }
 
-impl Kind {
+impl ValueType {
     /// The lattice name of this kind — the declared-type spelling a `type`
     /// clause uses and the form diagnostics render. The inverse of
-    /// [`Kind::from_name`].
+    /// [`ValueType::from_name`].
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
-            Kind::String => "string",
-            Kind::Integer => "integer",
-            Kind::Number => "number",
-            Kind::Boolean => "boolean",
-            Kind::Null => "null",
-            Kind::List => "list",
-            Kind::Map => "map",
+            ValueType::String => "string",
+            ValueType::Integer => "integer",
+            ValueType::Number => "number",
+            ValueType::Boolean => "boolean",
+            ValueType::Null => "null",
+            ValueType::List => "list",
+            ValueType::Map => "map",
         }
     }
 
-    /// Parse a declared type name into its [`Kind`], or `None` if it is not one
+    /// Parse a declared type name into its [`ValueType`], or `None` if it is not one
     /// of the closed lattice's names. This is the single home of the lattice's
-    /// name table (`specs/architecture/10-contracts.md`, "Decision: the `type` vocabulary is
-    /// a closed scalar/container lattice"); the contract parser maps a declared
-    /// `type` through here rather than duplicating the spelling.
+    /// name table (`specs/model/representation.md`, kind); the contract parser maps a
+    /// declared `type` through here rather than duplicating the spelling.
     #[must_use]
-    pub fn from_name(name: &str) -> Option<Kind> {
+    pub fn from_name(name: &str) -> Option<ValueType> {
         match name {
-            "string" => Some(Kind::String),
-            "integer" => Some(Kind::Integer),
-            "number" => Some(Kind::Number),
-            "boolean" => Some(Kind::Boolean),
-            "null" => Some(Kind::Null),
-            "list" => Some(Kind::List),
-            "map" => Some(Kind::Map),
+            "string" => Some(ValueType::String),
+            "integer" => Some(ValueType::Integer),
+            "number" => Some(ValueType::Number),
+            "boolean" => Some(ValueType::Boolean),
+            "null" => Some(ValueType::Null),
+            "list" => Some(ValueType::List),
+            "map" => Some(ValueType::Map),
             _ => None,
         }
     }
 }
 
 /// One extracted feature value: a scalar field (carrying its parsed source
-/// [`Kind`] alongside its comparison text), a list field (e.g. a YAML sequence
+/// [`ValueType`] alongside its comparison text), a list field (e.g. a YAML sequence
 /// like `allowed-tools`), or a map field. Scalar predicates (`min_len`, `enum`,
 /// `deny`, `allowed_chars`) read the scalar text; presence predicates
 /// (`required`, `forbidden_keys`) need only the key; the `type` primitive
@@ -102,7 +100,7 @@ pub enum FeatureValue {
     /// the comparison text the scalar predicates read.
     Scalar {
         /// The parsed source kind of the scalar.
-        kind: Kind,
+        kind: ValueType,
         /// The scalar as text (the YAML/JSON scalar stringified).
         text: String,
     },
@@ -117,7 +115,7 @@ impl FeatureValue {
     /// A scalar feature of the given kind and text — the construction helper the
     /// extractor and tests share.
     #[must_use]
-    pub fn scalar(kind: Kind, text: impl Into<String>) -> Self {
+    pub fn scalar(kind: ValueType, text: impl Into<String>) -> Self {
         FeatureValue::Scalar {
             kind,
             text: text.into(),
@@ -136,14 +134,14 @@ impl FeatureValue {
     }
 
     /// This value's parsed source kind — the fact the `type` primitive decides
-    /// over. A list is always [`Kind::List`] and a map [`Kind::Map`]; a scalar
+    /// over. A list is always [`ValueType::List`] and a map [`ValueType::Map`]; a scalar
     /// reports the kind it was parsed as.
     #[must_use]
-    pub fn kind(&self) -> Kind {
+    pub fn kind(&self) -> ValueType {
         match self {
             FeatureValue::Scalar { kind, .. } => *kind,
-            FeatureValue::List(_) => Kind::List,
-            FeatureValue::Map => Kind::Map,
+            FeatureValue::List(_) => ValueType::List,
+            FeatureValue::Map => ValueType::Map,
         }
     }
 }
@@ -819,7 +817,7 @@ pub(crate) fn resolve_key_path<'a>(
 }
 
 /// Project an `extra` frontmatter value into a [`FeatureValue`], preserving its
-/// parsed source [`Kind`]: arrays become a list, objects a map, and each scalar
+/// parsed source [`ValueType`]: arrays become a list, objects a map, and each scalar
 /// keeps the kind it parsed as (`string`/`integer`/`number`/`boolean`/`null`)
 /// alongside its text. Stringifying every scalar to a bare string — the slice-1
 /// shortcut — would make a `type` check undecidable; recording the kind here is
@@ -835,20 +833,20 @@ pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
             FeatureValue::List(items.iter().map(json_scalar_string).collect())
         }
         JsonValue::Object(_) => FeatureValue::Map,
-        JsonValue::Null => FeatureValue::scalar(Kind::Null, "null"),
-        JsonValue::Bool(b) => FeatureValue::scalar(Kind::Boolean, b.to_string()),
+        JsonValue::Null => FeatureValue::scalar(ValueType::Null, "null"),
+        JsonValue::Bool(b) => FeatureValue::scalar(ValueType::Boolean, b.to_string()),
         JsonValue::Number(n) => FeatureValue::scalar(number_kind(n), n.to_string()),
-        JsonValue::String(s) => FeatureValue::scalar(Kind::String, s.clone()),
+        JsonValue::String(s) => FeatureValue::scalar(ValueType::String, s.clone()),
     }
 }
 
 /// The source kind of a JSON number: `integer` when it parsed as a whole number
 /// (`i64`/`u64`), else `number` (a floating-point value).
-fn number_kind(n: &serde_json::Number) -> Kind {
+fn number_kind(n: &serde_json::Number) -> ValueType {
     if n.is_i64() || n.is_u64() {
-        Kind::Integer
+        ValueType::Integer
     } else {
-        Kind::Number
+        ValueType::Number
     }
 }
 
@@ -1040,27 +1038,27 @@ prose below\n";
 
     #[test]
     fn each_lattice_name_round_trips_and_an_unknown_name_is_rejected() {
-        // Every name in the closed lattice maps to its `Kind` and renders back to
+        // Every name in the closed lattice maps to its `ValueType` and renders back to
         // the same spelling — the single name table a `type` clause goes through.
         for kind in [
-            Kind::String,
-            Kind::Integer,
-            Kind::Number,
-            Kind::Boolean,
-            Kind::Null,
-            Kind::List,
-            Kind::Map,
+            ValueType::String,
+            ValueType::Integer,
+            ValueType::Number,
+            ValueType::Boolean,
+            ValueType::Null,
+            ValueType::List,
+            ValueType::Map,
         ] {
-            assert_eq!(Kind::from_name(kind.name()), Some(kind));
+            assert_eq!(ValueType::from_name(kind.name()), Some(kind));
         }
         // The spellings are exactly the lattice's, nothing more.
-        assert_eq!(Kind::String.name(), "string");
-        assert_eq!(Kind::from_name("map"), Some(Kind::Map));
+        assert_eq!(ValueType::String.name(), "string");
+        assert_eq!(ValueType::from_name("map"), Some(ValueType::Map));
 
         // A name outside the lattice yields `None` (the load-error signal a
         // `type` clause rejects on), never a silent default.
-        assert_eq!(Kind::from_name("array"), None);
-        assert_eq!(Kind::from_name("int"), None);
-        assert_eq!(Kind::from_name(""), None);
+        assert_eq!(ValueType::from_name("array"), None);
+        assert_eq!(ValueType::from_name("int"), None);
+        assert_eq!(ValueType::from_name(""), None);
     }
 }

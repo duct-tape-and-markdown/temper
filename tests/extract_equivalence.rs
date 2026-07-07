@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::builtin_kind;
-use temper::extract::{FeatureValue, Kind};
+use temper::extract::{FeatureValue, ValueType};
 use temper::frontmatter::Member;
 use temper::kind::{DirectiveSyntax, Extraction, Primitive, Unit};
 
@@ -245,19 +245,19 @@ fn a_field_primitive_reads_a_nested_key_path_over_a_units_frontmatter() {
     // preserving its source scalar kind (`string`, not a collapsed container).
     assert_eq!(
         features.field("permissions.defaultMode"),
-        Some(&FeatureValue::scalar(Kind::String, "acceptEdits"))
+        Some(&FeatureValue::scalar(ValueType::String, "acceptEdits"))
     );
     // A nested integer leaf keeps `integer` — the source kind survives the walk.
     assert_eq!(
         features
             .field("permissions.retries")
             .map(FeatureValue::kind),
-        Some(Kind::Integer)
+        Some(ValueType::Integer)
     );
     // A bare key stays the flat lookup — the common case is unchanged.
     assert_eq!(
         features.field("name"),
-        Some(&FeatureValue::scalar(Kind::String, "settings"))
+        Some(&FeatureValue::scalar(ValueType::String, "settings"))
     );
 
     // Absent, never errored: a missing segment past a real table, and a scalar met

@@ -593,7 +593,7 @@ mod reachability {
     use std::collections::BTreeMap;
 
     use temper::check::Severity;
-    use temper::extract::{FeatureValue, Features, Kind};
+    use temper::extract::{FeatureValue, Features, ValueType};
     use temper::graph::{ResolvedEdge, reachable};
     use temper::kind::Registration;
 
@@ -654,12 +654,15 @@ mod reachability {
             "standards",
             Some((
                 "description",
-                FeatureValue::scalar(Kind::String, "Use when styling the code."),
+                FeatureValue::scalar(ValueType::String, "Use when styling the code."),
             )),
         )];
         let rules = [member(
             "style",
-            Some(("paths", FeatureValue::scalar(Kind::String, "src/**/*.rs"))),
+            Some((
+                "paths",
+                FeatureValue::scalar(ValueType::String, "src/**/*.rs"),
+            )),
         )];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
@@ -677,7 +680,10 @@ mod reachability {
         // whitespace-only — the harness has nothing to load, a dead inbound edge.
         let skills = [member(
             "standards",
-            Some(("description", FeatureValue::scalar(Kind::String, "   "))),
+            Some((
+                "description",
+                FeatureValue::scalar(ValueType::String, "   "),
+            )),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::from([("skill", description_trigger("description"))]);
@@ -703,7 +709,10 @@ mod reachability {
         // the supplied repo file-set — the harness activates it never.
         let rules = [member(
             "style",
-            Some(("paths", FeatureValue::scalar(Kind::String, "docs/**/*.md"))),
+            Some((
+                "paths",
+                FeatureValue::scalar(ValueType::String, "docs/**/*.md"),
+            )),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
         let registrations = BTreeMap::from([("rule", paths_match("paths"))]);
@@ -725,7 +734,7 @@ mod reachability {
         let absent = member("global", None);
         let blank = member(
             "blank",
-            Some(("paths", FeatureValue::scalar(Kind::String, "   "))),
+            Some(("paths", FeatureValue::scalar(ValueType::String, "   "))),
         );
         let rules = [absent, blank];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
@@ -743,7 +752,7 @@ mod reachability {
         // so nothing fires. `temper` never invents an edge the kind did not declare.
         let skills = [member(
             "standards",
-            Some(("description", FeatureValue::scalar(Kind::String, ""))),
+            Some(("description", FeatureValue::scalar(ValueType::String, ""))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations: BTreeMap<&str, Registration> = BTreeMap::new();
@@ -763,7 +772,7 @@ mod reachability {
             "scoped",
             Some((
                 "paths",
-                FeatureValue::scalar(Kind::String, "nowhere/**/*.md"),
+                FeatureValue::scalar(ValueType::String, "nowhere/**/*.md"),
             )),
         )];
         let by_kind: BTreeMap<&str, &[Features]> =
@@ -784,11 +793,17 @@ mod reachability {
         let skills = [
             member(
                 "importer",
-                Some(("description", FeatureValue::scalar(Kind::String, "   "))),
+                Some((
+                    "description",
+                    FeatureValue::scalar(ValueType::String, "   "),
+                )),
             ),
             member(
                 "target",
-                Some(("description", FeatureValue::scalar(Kind::String, "   "))),
+                Some((
+                    "description",
+                    FeatureValue::scalar(ValueType::String, "   "),
+                )),
             ),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
@@ -815,7 +830,7 @@ mod reachability {
                     &format!("r{n}"),
                     Some((
                         "paths",
-                        FeatureValue::scalar(Kind::String, "nowhere/**/*.md"),
+                        FeatureValue::scalar(ValueType::String, "nowhere/**/*.md"),
                     )),
                 )
             })

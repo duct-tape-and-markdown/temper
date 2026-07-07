@@ -42,7 +42,7 @@ use std::collections::BTreeSet;
 
 use crate::check::{self, Diagnostic};
 use crate::contract::{self, Contract, EdgeBound, Predicate};
-use crate::extract::{FeatureValue, Features, Kind};
+use crate::extract::{FeatureValue, Features, ValueType};
 
 /// Validate every artifact's [`Features`] against the contract's clauses,
 /// collecting a [`Diagnostic`] per violation at the clause's declared severity.
@@ -303,13 +303,13 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         // on a non-numeric kind (a `type` clause owns that mismatch) so one wrong
         // field yields one finding, not a cascade.
         Predicate::Range { field, min, max } => match features.field(field) {
-            Some(value) if matches!(value.kind(), Kind::Integer | Kind::Number) => {
+            Some(value) if matches!(value.kind(), ValueType::Integer | ValueType::Number) => {
                 match value.as_scalar().and_then(|text| text.parse::<f64>().ok()) {
                     Some(n) => Outcome::check((*min..=*max).contains(&n), || {
                         format!("field `{field}` value {n} is outside the range [{min}, {max}]")
                     }),
-                    // Kind says numeric but the text would not parse — don't
-                    // fabricate a finding over a value we cannot read.
+                    // The value type says numeric but the text would not parse —
+                    // don't fabricate a finding over a value we cannot read.
                     None => Outcome::Holds,
                 }
             }
@@ -479,7 +479,7 @@ mod tests {
 
     use crate::check::{Severity, any_error};
     use crate::contract::{Charset, Clause, Severity as ClauseSeverity};
-    use crate::extract::Kind;
+    use crate::extract::ValueType;
 
     /// Build a `Features` with the given name-keyed scalar fields, body line
     /// count, and source directory.
@@ -519,7 +519,7 @@ mod tests {
     /// A scalar field value (kind `string`; the existing scalar predicates read
     /// only the text, so the kind is incidental to these tests).
     fn scalar(text: &str) -> FeatureValue {
-        FeatureValue::scalar(Kind::String, text)
+        FeatureValue::scalar(ValueType::String, text)
     }
 
     /// A one-clause contract carrying `predicate` at `severity`.
@@ -596,13 +596,13 @@ mod tests {
     fn type_fires_on_a_kind_mismatch_and_is_silent_on_match_and_absence() {
         let predicate = || Predicate::Type {
             field: "count".to_string(),
-            kind: Kind::Integer,
+            kind: ValueType::Integer,
         };
 
         // The field's preserved source kind differs from the declared one: fires.
         let mismatch = features(
             "demo",
-            &[("count", FeatureValue::scalar(Kind::String, "7"))],
+            &[("count", FeatureValue::scalar(ValueType::String, "7"))],
             1,
             None,
         );
@@ -616,7 +616,7 @@ mod tests {
         // The kind matches the declaration: silent.
         let matched = features(
             "demo",
-            &[("count", FeatureValue::scalar(Kind::Integer, "7"))],
+            &[("count", FeatureValue::scalar(ValueType::Integer, "7"))],
             1,
             None,
         );
@@ -630,7 +630,7 @@ mod tests {
         // declared fires.
         let container = Predicate::Type {
             field: "tags".to_string(),
-            kind: Kind::Map,
+            kind: ValueType::Map,
         };
         let as_list = features(
             "demo",
@@ -670,7 +670,7 @@ mod tests {
         // A numeric field past the upper bound fires once, naming the clause.
         let over = features(
             "demo",
-            &[("score", FeatureValue::scalar(Kind::Integer, "150"))],
+            &[("score", FeatureValue::scalar(ValueType::Integer, "150"))],
             1,
             None,
         );
@@ -681,7 +681,7 @@ mod tests {
         // Below the lower bound fires too — a fractional `number` is in scope.
         let under = features(
             "demo",
-            &[("score", FeatureValue::scalar(Kind::Number, "-0.5"))],
+            &[("score", FeatureValue::scalar(ValueType::Number, "-0.5"))],
             1,
             None,
         );
@@ -690,7 +690,7 @@ mod tests {
         // Within the inclusive bound (and exactly on each edge): silent.
         let within = features(
             "demo",
-            &[("score", FeatureValue::scalar(Kind::Integer, "42"))],
+            &[("score", FeatureValue::scalar(ValueType::Integer, "42"))],
             1,
             None,
         );
@@ -698,7 +698,7 @@ mod tests {
         for edge in ["0", "100"] {
             let at_edge = features(
                 "demo",
-                &[("score", FeatureValue::scalar(Kind::Integer, edge))],
+                &[("score", FeatureValue::scalar(ValueType::Integer, edge))],
                 1,
                 None,
             );
@@ -713,7 +713,7 @@ mod tests {
         // rather than fire on a value it does not own — no cascade.
         let non_numeric = features(
             "demo",
-            &[("score", FeatureValue::scalar(Kind::String, "150"))],
+            &[("score", FeatureValue::scalar(ValueType::String, "150"))],
             1,
             None,
         );

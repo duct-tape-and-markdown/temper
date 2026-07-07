@@ -42,7 +42,7 @@
 use serde_json::{Map, Value};
 
 use crate::contract::{Charset, Contract, Predicate};
-use crate::extract::Kind;
+use crate::extract::ValueType;
 
 /// Project `contract` into a JSON Schema [`Value`] over an artifact's frontmatter.
 ///
@@ -158,19 +158,19 @@ pub fn emit(contract: &Contract) -> Value {
     Value::Object(schema)
 }
 
-/// The JSON-Schema `type` name for a lattice [`Kind`]. The scalar kinds share
+/// The JSON-Schema `type` name for a lattice [`ValueType`]. The scalar kinds share
 /// their spelling; the two containers are renamed to JSON Schema's own vocabulary
 /// (`list`→`array`, `map`→`object`), a faithful projection of the same closed
 /// lattice.
-fn json_type(kind: Kind) -> &'static str {
+fn json_type(kind: ValueType) -> &'static str {
     match kind {
-        Kind::String => "string",
-        Kind::Integer => "integer",
-        Kind::Number => "number",
-        Kind::Boolean => "boolean",
-        Kind::Null => "null",
-        Kind::List => "array",
-        Kind::Map => "object",
+        ValueType::String => "string",
+        ValueType::Integer => "integer",
+        ValueType::Number => "number",
+        ValueType::Boolean => "boolean",
+        ValueType::Null => "null",
+        ValueType::List => "array",
+        ValueType::Map => "object",
     }
 }
 
@@ -272,7 +272,7 @@ mod tests {
                 }),
                 clause(Predicate::Type {
                     field: "name".to_string(),
-                    kind: Kind::String,
+                    kind: ValueType::String,
                 }),
                 clause(Predicate::MaxLen {
                     field: "name".to_string(),
@@ -448,11 +448,11 @@ mod tests {
             clauses: vec![
                 clause(Predicate::Type {
                     field: "tags".to_string(),
-                    kind: Kind::List,
+                    kind: ValueType::List,
                 }),
                 clause(Predicate::Type {
                     field: "meta".to_string(),
-                    kind: Kind::Map,
+                    kind: ValueType::Map,
                 }),
             ],
         };

@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use temper::check::Workspace;
 use temper::compose::Requirement;
 use temper::document::PublishedRequirement;
-use temper::extract::{FeatureValue, Features, GenreValue, Kind};
+use temper::extract::{FeatureValue, Features, GenreValue, ValueType};
 use temper::read::{self, CustomMember};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -46,7 +46,7 @@ fn feature(id: &str, satisfies: &[&str], published: &[&str]) -> Features {
     let mut fields = BTreeMap::new();
     fields.insert(
         "description".to_string(),
-        FeatureValue::scalar(Kind::String, "d"),
+        FeatureValue::scalar(ValueType::String, "d"),
     );
     Features {
         id: id.to_string(),

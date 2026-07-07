@@ -1436,7 +1436,7 @@ mod impact_tests {
 
     use super::*;
     use crate::document::PublishedRequirement;
-    use crate::extract::{FeatureValue, GenreValue, Kind};
+    use crate::extract::{FeatureValue, GenreValue, ValueType};
 
     /// A member's [`Features`] as `impact` reads them: its id, the requirements it opts
     /// into, the demands it publishes, and its `description` field (a blank one is a dead
@@ -1452,7 +1452,7 @@ mod impact_tests {
         if let Some(text) = description {
             fields.insert(
                 "description".to_string(),
-                FeatureValue::scalar(Kind::String, text),
+                FeatureValue::scalar(ValueType::String, text),
             );
         }
         Features {

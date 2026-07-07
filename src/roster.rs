@@ -389,7 +389,7 @@ mod tests {
 
     use crate::check::Severity;
     use crate::contract::Severity as ClauseSeverity;
-    use crate::extract::Kind;
+    use crate::extract::ValueType;
 
     /// A required-severity clause wrapping `predicate` — the shape every set-scope
     /// test case below attaches to a requirement's `clauses`.
@@ -562,7 +562,7 @@ mod tests {
         if let Some(model) = model {
             f.fields.insert(
                 "model".to_string(),
-                FeatureValue::scalar(Kind::String, model),
+                FeatureValue::scalar(ValueType::String, model),
             );
         }
         f

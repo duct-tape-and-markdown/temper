@@ -997,7 +997,7 @@ mod tests {
     use crate::check::Severity;
     use crate::compose::Edge;
     use crate::contract::{Clause, Severity as ClauseSeverity};
-    use crate::extract::Kind;
+    use crate::extract::ValueType;
 
     /// A `Features` carrying a name (its `id`) and, optionally, a `routes_to`
     /// reference field — a scalar naming one target.
@@ -1006,7 +1006,7 @@ mod tests {
         if let Some(target) = routes_to {
             fields.insert(
                 "routes_to".to_string(),
-                FeatureValue::scalar(Kind::String, target),
+                FeatureValue::scalar(ValueType::String, target),
             );
         }
         Features {

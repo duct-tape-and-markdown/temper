@@ -864,7 +864,7 @@ impl Extraction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::{FeatureValue, Kind};
+    use crate::extract::{FeatureValue, ValueType};
 
     /// The composed `spec`-shaped extractor the worked example needs
     /// (`specs/architecture/15-kinds.md`): line count, ATX headings, and file placement —
@@ -968,11 +968,11 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // projector: a string stays `string`, an integer keeps `integer`.
         assert_eq!(
             features.field("name"),
-            Some(&FeatureValue::scalar(Kind::String, "demo"))
+            Some(&FeatureValue::scalar(ValueType::String, "demo"))
         );
         assert_eq!(
             features.field("priority").map(FeatureValue::kind),
-            Some(Kind::Integer)
+            Some(ValueType::Integer)
         );
         // The body loci are untouched — this extractor composes only `field`.
         assert_eq!(features.body_lines, 0);
@@ -1180,11 +1180,11 @@ import_hash = \"deadbeef\"\n\
         let features = extraction.extract(&unit);
         assert_eq!(
             features.field("name"),
-            Some(&FeatureValue::scalar(Kind::String, "15-kinds"))
+            Some(&FeatureValue::scalar(ValueType::String, "15-kinds"))
         );
         assert_eq!(
             features.field("priority").map(FeatureValue::kind),
-            Some(Kind::Integer)
+            Some(ValueType::Integer)
         );
     }
 
