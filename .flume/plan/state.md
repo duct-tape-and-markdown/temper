@@ -2,27 +2,22 @@
 
 - Spec derived through: d5d1b37
 - Audited through: c9eeffb
-- Residue swept through: 3373326
-- This tick: spec delta — derived 0004 (final slice of d5d1b37) into GENRE-FOLD
-  (blockedBy MODE-ROOT-MEMBER-FIELD): the genre value shape dissolves into nested
-  members at the embedded locus, leaf addressing becomes member addressing
-  (extract/kind/read/display fold). Filed ATOMIC, not the chain the prior tick
-  predicted — clippy -D warnings forbids the transient unused code any stage-split
-  creates (new shape unused pre-consumer, old shape unused post-abandon), and
-  extract's type change is compile-coupled to kind/read/display. d5d1b37 now fully
-  routed (0003/0004/0005 all derived) → spec cursor advances to it.
-- Queue: 4 entries — SATISFIER-KIND-CLAUSE (open, pickable), MODE-ROOT-MEMBER-FIELD
-  (blockedBy SATISFIER), GENRE-FOLD (blockedBy MODE; shares schema/engine/graph
-  with SATISFIER, main.rs with MODE — the chain serializes both), PACKAGING-CHANNELS
-  (parked on human release creds + engine-binary workflow).
+- Residue swept through: e3f14b9
+- This tick: residue sweep 3373326→HEAD. One unrouted residue class: the
+  enforcement-mode VALUE vocabulary — the engine's two-value `Authority`
+  {Shared,Surface} (compose.rs:18-32, a "surface-authority posture" axis;
+  Shared→warn, Surface→block) vs distribution.md's author-declared note/warn/block.
+  MODE renames the type but scopes the values out; the recut needs John (note-vs-warn
+  split, which value is default advisory) → registered fork (enforcement-mode-vocabulary),
+  which IS the routing. Its future entry is blockedBy MODE but does not gate the chain.
+  architecture/* + posture/means cites are citation staleness → ride the entries
+  opening their files (noted in SATISFIER/MODE/GENRE-FOLD). 0003/0004/0005 residue
+  routed by the three chained entries. Cursor → HEAD.
+- Queue: 4 entries, unchanged — SATISFIER-KIND-CLAUSE (open, pickable),
+  MODE-ROOT-MEMBER-FIELD (blockedBy SATISFIER), GENRE-FOLD (blockedBy MODE),
+  PACKAGING-CHANNELS (parked). No pending edits this tick — the fork lives in
+  open-questions only.
 
-Delta routing (d5d1b37 rules 0003/0004/0005): all three derived — 0003 (SATISFIER),
-0005 (MODE), 0004 (GENRE-FOLD this tick). Spec delta drained. Value vocabulary
-(shared/surface vs distribution.md note/warn/block) is standing residue under
-distribution.md, flagged in MODE's notes, not folded. architecture/* + posture/means
-cites are citation staleness — ride the next entry opening their files.
-
-Plan continues: yes — residue sweep now the live input: Residue swept through
-(3373326) trails HEAD, and the genre residue class is now routed by GENRE-FOLD;
-next tick sweeps 3373326→HEAD and advances the cursor. Ship audit quiet (nothing
-shipped since c9eeffb); spec delta drained.
+Plan continues: no — every input drained: inbox empty, spec delta empty (cursor =
+specs HEAD), ship audit quiet (nothing shipped since c9eeffb), residue swept to HEAD
+(the one live class fork-routed). SATISFIER-KIND-CLAUSE is open/pickable → build takes over.
