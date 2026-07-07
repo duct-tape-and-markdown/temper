@@ -149,7 +149,7 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       governs_glob: "*.md",
       format: "yaml-frontmatter",
       unit_shape: "file",
-      activation: "paths-match(paths)",
+      registration: "paths-match(paths)",
     },
   ]);
   assert.deepEqual(declarations.clauses, [

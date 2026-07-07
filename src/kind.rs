@@ -78,12 +78,12 @@ pub struct CustomKind {
     /// (`specs/architecture/15-kinds.md`). A closed enum; absent ⇒ `None`. Inert alongside
     /// [`format`](CustomKind::format).
     pub unit_shape: Option<UnitShape>,
-    /// The declared activation — the kind's inherent world-edges (`specs/architecture/15-kinds.md`,
-    /// "Activation — a kind's inherent world-edges"): how the harness reaches a member,
-    /// and over which declared field. A closed vocabulary; absent ⇒ `None` (today's
-    /// built-in kinds declare none). Stored inert — REACHABILITY reads it to decide a
-    /// member's declared activation edge is dead; nothing consumes it yet.
-    pub activation: Option<Activation>,
+    /// The declared registration — the kind's world fact (`specs/architecture/15-kinds.md`):
+    /// how the harness reaches a member, and over which declared field. A closed
+    /// vocabulary; absent ⇒ `None` (today's built-in kinds declare none). Stored inert —
+    /// REACHABILITY reads it to decide a member's declared registration edge is dead;
+    /// nothing consumes it yet.
+    pub registration: Option<Registration>,
     /// The kind's declared **genres** — typed shapes for its members' recurring prose
     /// forms (`specs/architecture/15-kinds.md`, "genres (optional)"; `specs/architecture/20-surface.md`,
     /// "Genre values"), parsed from the header's `[[genres]]` array. Extraction folds a
@@ -120,17 +120,16 @@ pub enum UnitShape {
     Directory,
 }
 
-/// A kind's declared **activation** — its inherent world-edges, the inbound
-/// boundary edges of the relation graph (`specs/architecture/15-kinds.md`, "Activation — a
-/// kind's inherent world-edges"): how the harness reaches a member, per-kind
-/// mechanics over per-member data. A closed vocabulary harvested from the kinds
+/// A kind's declared **registration** — the inbound boundary edges of the
+/// relation graph (`specs/architecture/15-kinds.md`): how the harness reaches a
+/// member, per-kind mechanics over per-member data. A closed vocabulary harvested from the kinds
 /// temper ships; any other value is a load error, the same closed-vocabulary guard
 /// [`Format`] and [`UnitShape`] carry. The three field-carrying variants name the
 /// declared frontmatter field they range over, never a value — the glob/description
 /// *values* stay the member's ordinary clauses. Inert until REACHABILITY reads it to
-/// decide a member's declared activation edge is dead.
+/// decide a member's declared registration edge is dead.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Activation {
+pub enum Registration {
     /// `always` — loaded at launch, unconditionally (a rule without `paths`;
     /// `CLAUDE.md` itself). Carries no field: the edge is unconditional.
     Always,
@@ -144,7 +143,7 @@ pub enum Activation {
     /// `paths-match(field)` — the member activates when the agent reads files matching
     /// the named glob field (a path-scoped rule's `paths`).
     PathsMatch {
-        /// The declared frontmatter field carrying the activation glob.
+        /// The declared frontmatter field carrying the registration glob.
         field: String,
     },
     /// `event(field)` — the member executes at a named lifecycle event (carried for the
@@ -174,7 +173,7 @@ pub struct Genre {
     /// out of the kind object — ranges over; extraction classifies a fence's interior
     /// structurally (a string is a leaf, a table a collection), so this list is inert
     /// until that predicate lands — the same declared-and-inert posture
-    /// [`format`](CustomKind::format)/[`activation`](CustomKind::activation) carry.
+    /// [`format`](CustomKind::format)/[`registration`](CustomKind::registration) carry.
     pub leaves: Vec<String>,
     /// The declared **keyed-collection** names — the genre value's sibling collections
     /// (`rejected`). Declared schema like [`leaves`](Genre::leaves), inert until the
@@ -198,7 +197,7 @@ impl CustomKind {
             relationships: Vec::new(),
             format: None,
             unit_shape: None,
-            activation: None,
+            registration: None,
             genres: Vec::new(),
         }
     }
@@ -206,7 +205,7 @@ impl CustomKind {
     /// Reconstruct a kind's declared definition from the committed lock's own
     /// [`KindFactRow`] (`specs/architecture/20-surface.md`, "The lock and drift — one
     /// vocabulary"): the row's five-fact residue lifts into `governs`/`format`/
-    /// `unit_shape`/`activation` directly, a label this projection cannot parse
+    /// `unit_shape`/`registration` directly, a label this projection cannot parse
     /// degrading to `None` — the same tolerant read the rest of a hand-editable lock
     /// takes. A `KIND.md` file format never carried field-level extraction primitives
     /// either (`specs/architecture/15-kinds.md`, "there is no kind file format"), so the
@@ -221,7 +220,10 @@ impl CustomKind {
         CustomKind {
             format: row.format.as_deref().and_then(format_from_label),
             unit_shape: row.unit_shape.as_deref().and_then(unit_shape_from_label),
-            activation: row.activation.as_deref().and_then(activation_from_label),
+            registration: row
+                .registration
+                .as_deref()
+                .and_then(registration_from_label),
             ..CustomKind::new(
                 row.name.clone(),
                 Governs {
@@ -377,20 +379,20 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     }
 }
 
-/// Parse a [`KindFactRow::activation`] label into its typed [`Activation`] — the
+/// Parse a [`KindFactRow::registration`] label into its typed [`Registration`] — the
 /// closed vocabulary's compact wire form (`always`, or a `<name>(<field>)` call for the
 /// three field-carrying variants). `None` for a bare unrecognized name or a malformed
 /// `(field)` suffix.
-fn activation_from_label(label: &str) -> Option<Activation> {
+fn registration_from_label(label: &str) -> Option<Registration> {
     if label == "always" {
-        return Some(Activation::Always);
+        return Some(Registration::Always);
     }
     let (name, field) = label.strip_suffix(')')?.split_once('(')?;
     let field = field.to_string();
     match name {
-        "description-trigger" => Some(Activation::DescriptionTrigger { field }),
-        "paths-match" => Some(Activation::PathsMatch { field }),
-        "event" => Some(Activation::Event { field }),
+        "description-trigger" => Some(Registration::DescriptionTrigger { field }),
+        "paths-match" => Some(Registration::PathsMatch { field }),
+        "event" => Some(Registration::Event { field }),
         _ => None,
     }
 }
@@ -1273,7 +1275,7 @@ import_hash = \"deadbeef\"\n\
         let kind = spec_kind();
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
-        assert_eq!(kind.activation, None);
+        assert_eq!(kind.registration, None);
         assert!(kind.relationships.is_empty());
         assert!(kind.genres.is_empty());
     }
@@ -1295,7 +1297,7 @@ import_hash = \"deadbeef\"\n\
             governs_glob: "*.md".to_string(),
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
-            activation: Some("description-trigger(description)".to_string()),
+            registration: Some("description-trigger(description)".to_string()),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
 
@@ -1310,8 +1312,8 @@ import_hash = \"deadbeef\"\n\
         assert_eq!(kind.format, Some(Format::YamlFrontmatter));
         assert_eq!(kind.unit_shape, Some(UnitShape::Directory));
         assert_eq!(
-            kind.activation,
-            Some(Activation::DescriptionTrigger {
+            kind.registration,
+            Some(Registration::DescriptionTrigger {
                 field: "description".to_string()
             })
         );
@@ -1339,11 +1341,11 @@ import_hash = \"deadbeef\"\n\
             governs_glob: "*.md".to_string(),
             format: Some("xml".to_string()),
             unit_shape: Some("directory".to_string()),
-            activation: Some("bogus".to_string()),
+            registration: Some("bogus".to_string()),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
-        assert_eq!(kind.activation, None);
+        assert_eq!(kind.registration, None);
     }
 
     #[test]
@@ -1355,11 +1357,11 @@ import_hash = \"deadbeef\"\n\
             governs_glob: "*.md".to_string(),
             format: None,
             unit_shape: None,
-            activation: None,
+            registration: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
-        assert_eq!(kind.activation, None);
+        assert_eq!(kind.registration, None);
     }
 }

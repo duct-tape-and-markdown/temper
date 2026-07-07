@@ -9,7 +9,7 @@
 //! real target), [`admissibility`] (each edge names its field and a modeled target
 //! kind, checked before the graph is trusted), [`acyclic`] (no circular import),
 //! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
-//! [`reachable`] (a member's inbound activation edge from the distinguished [`world`]
+//! [`reachable`] (a member's inbound registration edge from the distinguished [`world`]
 //! node is live, or a reachable member imports it — closing over the observed directive
 //! edges, `specs/architecture/45-governance.md`, "The world is a node"). The first four
 //! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
@@ -25,7 +25,7 @@ use crate::compose::{Edge, Requirement};
 use crate::contract::{EdgeBound, Predicate};
 use crate::engine;
 use crate::extract::{FeatureValue, Features};
-use crate::kind::Activation;
+use crate::kind::Registration;
 use crate::roster;
 
 /// The diagnostic `rule` id every route-resolution finding reports under.
@@ -71,7 +71,7 @@ pub type Node = (String, String);
 
 /// The distinguished **world** node — the harness runtime and repo `temper` observes
 /// but does not govern (`specs/architecture/45-governance.md`, "The world is a node — reachability
-/// is a predicate"). Activation facts are its edges *into* members; [`reachable`]
+/// is a predicate"). Registration facts are its edges *into* members; [`reachable`]
 /// decides whether the edge the world would use to reach a given member is live. Keyed
 /// like any [`Node`] under a reserved `world` kind no artifact kind collides with, so a
 /// follow-on gate can place it in the same `(kind, id)` graph the other predicates
@@ -357,20 +357,20 @@ fn out_of_degree(
 
 /// Check the graph-scope **`reachable`** predicate (`specs/architecture/45-governance.md`, "The
 /// world is a node — reachability is a predicate"): a member is reachable when its own
-/// inbound activation edge from the [`world`] node is live **or a reachable member
+/// inbound registration edge from the [`world`] node is live **or a reachable member
 /// imports it** — the closure over the observed directive edges. Return a finding only
-/// for a member whose own activation edge is provably dead — a `description-trigger`
+/// for a member whose own registration edge is provably dead — a `description-trigger`
 /// field that is blank (the harness loads nothing) or a `paths-match` glob set matching
 /// no file in `repo_files` (the harness activates it never) — *and* that no live
 /// importer reaches. Each is an exact fact at check time.
 ///
-/// `activations` maps a kind to the single [`Activation`] its definition declares;
+/// `registrations` maps a kind to the single [`Registration`] its definition declares;
 /// `by_kind` is the same corpus map the other predicates read; `repo_files` is the
 /// repo file-set the `paths-match` globs are tested against; `edges` is the observed
 /// member→member directive edge set ([`classify_directives`]'s `edges`) reachability
 /// closes over. All are **parameters**, not graph dependencies, so the blast radius
 /// stays this module and the predicate is pure and testable. A kind that declares no
-/// activation contributes no entry to `activations` and is not subject to a *finding*,
+/// registration contributes no entry to `registrations` and is not subject to a *finding*,
 /// but its members are unconditionally live and so can carry liveness across an import
 /// edge (a memory member that imports a rule); an `always` edge is unconditionally live
 /// and an `event` edge carries no repo-decidable dead criterion the spec names, so
@@ -385,24 +385,24 @@ fn out_of_degree(
 /// clause — a deliberate work-in-progress dead edge stays the author's call.
 #[must_use]
 pub fn reachable(
-    activations: &BTreeMap<&str, Activation>,
+    registrations: &BTreeMap<&str, Registration>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
     edges: &[ResolvedEdge],
     severity: Severity,
 ) -> Vec<Diagnostic> {
     let world = world();
-    // The reachability closure: every member reachable from the world — own activation
+    // The reachability closure: every member reachable from the world — own registration
     // live, or reached along a directive edge from a live importer within the hop cap.
-    let live = live_members(activations, by_kind, repo_files, edges);
+    let live = live_members(registrations, by_kind, repo_files, edges);
     let mut diagnostics = Vec::new();
-    for (kind, activation) in activations {
+    for (kind, registration) in registrations {
         let members = by_kind.get(kind).copied().unwrap_or(&[]);
         for member in members {
             // Fire only when the own edge is dead *and* no live importer reaches the
             // member — conditional inheritance: a dead-own member imported by a reachable
             // one is live, so it stays silent.
-            if let Some(reason) = dead_activation(activation, member, repo_files) {
+            if let Some(reason) = dead_registration(registration, member, repo_files) {
                 let node = ((*kind).to_string(), member.id.clone());
                 if !live.contains(&node) {
                     diagnostics.push(unreachable(&world, kind, &member.id, &reason, severity));
@@ -421,20 +421,20 @@ pub fn reachable(
 /// (READ-EDGE-UNIFY). `removed` itself is excluded — a removed member is trivially gone,
 /// not orphaned. Returned in sorted `(kind, id)` order for a stable narration.
 ///
-/// A member drops out only through the *import* path: its own activation is dead and its
+/// A member drops out only through the *import* path: its own registration is dead and its
 /// sole live route was a directive edge from `removed` (or a chain through it), so
 /// re-running the closure without `removed` — and without any directive edge into or out
-/// of it — leaves it unreached. A member with a live own activation never drops, so this
+/// of it — leaves it unreached. A member with a live own registration never drops, so this
 /// is silent unless `removed` was carrying another's liveness.
 #[must_use]
 pub(crate) fn reachability_orphaned(
     removed: &Node,
-    activations: &BTreeMap<&str, Activation>,
+    registrations: &BTreeMap<&str, Registration>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
     edges: &[ResolvedEdge],
 ) -> Vec<Node> {
-    let live_before = live_members(activations, by_kind, repo_files, edges);
+    let live_before = live_members(registrations, by_kind, repo_files, edges);
 
     // The graph with `removed` excised: its kind loses the member, and every directive
     // edge touching it (in or out) goes with it. Owned so the reduced corpus outlives
@@ -461,7 +461,7 @@ pub(crate) fn reachability_orphaned(
             to: edge.to.clone(),
         })
         .collect();
-    let live_after = live_members(activations, &reduced_by_kind, repo_files, &reduced_edges);
+    let live_after = live_members(registrations, &reduced_by_kind, repo_files, &reduced_edges);
 
     live_before
         .into_iter()
@@ -470,27 +470,27 @@ pub(crate) fn reachability_orphaned(
 }
 
 /// The set of members reachable from the [`world`] node — the closure the [`reachable`]
-/// predicate consults. Seeds every member whose **own** activation edge is live (its
-/// kind declares no activation ⇒ unconditionally live, or [`dead_activation`] finds the
+/// predicate consults. Seeds every member whose **own** registration edge is live (its
+/// kind declares no registration ⇒ unconditionally live, or [`dead_registration`] finds the
 /// edge live), then propagates liveness along the observed directive `edges` from a live
 /// importer to its target, breadth-first and capped at [`MAX_IMPORT_HOPS`] hops (the
 /// `at-import` recursion depth the format documents) — a target reached within the cap
 /// of a live importer inherits its liveness.
 fn live_members(
-    activations: &BTreeMap<&str, Activation>,
+    registrations: &BTreeMap<&str, Registration>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
     edges: &[ResolvedEdge],
 ) -> BTreeSet<Node> {
-    // Seed: every member whose own world-edge is live. A kind absent from `activations`
-    // declares no activation, so its members load unconditionally and seed the closure —
+    // Seed: every member whose own world-edge is live. A kind absent from `registrations`
+    // declares no registration, so its members load unconditionally and seed the closure —
     // `by_kind` carries every kind, so an always-live importer is in scope.
     let mut live: BTreeSet<Node> = BTreeSet::new();
     for (kind, members) in by_kind {
         for member in *members {
-            let own_live = match activations.get(kind) {
+            let own_live = match registrations.get(kind) {
                 None => true,
-                Some(activation) => dead_activation(activation, member, repo_files).is_none(),
+                Some(registration) => dead_registration(registration, member, repo_files).is_none(),
             };
             if own_live {
                 live.insert(((*kind).to_string(), member.id.clone()));
@@ -519,23 +519,23 @@ fn live_members(
     live
 }
 
-/// Whether a member's declared [`Activation`] edge from the world is **provably dead**,
+/// Whether a member's declared [`Registration`] edge from the world is **provably dead**,
 /// and why — `Some(reason)` names the dead edge for the finding, `None` leaves the
 /// member reachable. Only the two edges the spec makes decidable can die here: a blank
 /// `description-trigger` field and a `paths-match` field whose *present* globs match no
 /// file (an absent/blank `paths` field is unconditional loading, never dead).
 /// `always` (unconditionally live) and `event` (no repo-decidable criterion) never do.
-fn dead_activation(
-    activation: &Activation,
+fn dead_registration(
+    registration: &Registration,
     member: &Features,
     repo_files: &[String],
 ) -> Option<String> {
-    match activation {
-        Activation::Always | Activation::Event { .. } => None,
-        Activation::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
+    match registration {
+        Registration::Always | Registration::Event { .. } => None,
+        Registration::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
             format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
         }),
-        Activation::PathsMatch { field } => {
+        Registration::PathsMatch { field } => {
             // An absent/blank field is unconditional loading, not a dead edge
             // (specs/architecture/15-kinds.md paths-match bullet): only a *present* glob set that
             // matches nothing is provably dead.
@@ -549,7 +549,7 @@ fn dead_activation(
     }
 }
 
-/// Whether a member's activation field is **blank** — absent, or a scalar whose text is
+/// Whether a member's registration field is **blank** — absent, or a scalar whose text is
 /// empty or all whitespace. A blank `description-trigger` field means the harness has
 /// nothing to load, so the edge is dead. A list/map value carries content and is never
 /// blank (a `description` is a scalar; a container there is another finding's to own).
@@ -561,7 +561,7 @@ fn field_is_blank(member: &Features, field: &str) -> bool {
     }
 }
 
-/// The activation globs a member declares on `field`: a scalar names one glob, a list
+/// The registration globs a member declares on `field`: a scalar names one glob, a list
 /// names each of several, and an absent field or a map (which carries no glob) names
 /// none. Read off [`Features`] — a declared field, never grepped. Declaring none is
 /// *not* a dead edge: an absent/blank `paths` field falls back to unconditional loading
@@ -643,7 +643,7 @@ fn is_regex_meta(c: char) -> bool {
     )
 }
 
-/// The finding for a member whose inbound activation edge from the [`world`] node is
+/// The finding for a member whose inbound registration edge from the [`world`] node is
 /// dead — naming the world, the member (kind + id), and the dead-edge reason, at the
 /// assembly-declared `severity` (`specs/architecture/45-governance.md`).
 fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Severity) -> Diagnostic {
@@ -652,7 +652,7 @@ fn unreachable(world: &Node, kind: &str, id: &str, reason: &str, severity: Sever
         GRAPH_REACHABLE_RULE,
         id,
         format!(
-            "the activation edge from the {} node to {kind} `{id}` is dead — {reason}",
+            "the registration edge from the {} node to {kind} `{id}` is dead — {reason}",
             world.0
         ),
     )

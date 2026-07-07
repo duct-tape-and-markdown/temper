@@ -59,8 +59,8 @@ fn builtin_floor(kind: &str) -> miette::Result<Contract> {
         .ok_or_else(|| miette::miette!("built-in kind `{kind}` ships no embedded floor"))
 }
 
-/// The kinds `schema` emits a floor for, by bare row label — unchanged scope from
-/// the prior by-package binding list; widening it to `memory` is a separate question.
+/// The kinds `schema` emits a floor for, by bare row label; widening it to `memory`
+/// is a separate question.
 const BUILTIN_FLOOR_KINDS: &[&str] = &["skill", "rule"];
 
 /// The built-in floors keyed by their bare row label.
@@ -172,7 +172,7 @@ enum Command {
     },
     /// Compose the surface into a publishable Claude Code plugin +
     /// `marketplace.json` (`specs/architecture/50-distribution.md`): the operate-the-gate skill,
-    /// the `SessionStart` hook, and the shipped built-in packages embedded.
+    /// the `SessionStart` hook, and the shipped built-in kinds embedded.
     /// Deterministic and byte-faithful where it carries prose, so re-running
     /// reproduces an identical tree.
     Bundle {
@@ -391,7 +391,7 @@ fn main() -> miette::Result<ExitCode> {
 
 /// Narrate `target` through the one read verb (`specs/architecture/20-surface.md`, "Decision:
 /// one read verb — `explain`"): assemble the same by-kind feature corpus, composed
-/// requirement roster, declared edges, activations, and directive/reachability inputs
+/// requirement roster, declared edges, registrations, and directive/reachability inputs
 /// the gate's own predicates range over (READ-EDGE-UNIFY) — over the standard `.temper`
 /// workspace and the harness at the CWD, mirroring `check`'s own two-step corpus
 /// assembly (`gate`) — and dispatch through [`read::explain`]'s target-species
@@ -460,12 +460,12 @@ fn explain(target: &str) -> miette::Result<String> {
 
     let (roster, _collisions) = union_published_requirements(&assembly_requirements, &all_features);
 
-    // The world's inbound activation edge into each built-in kind — the same derivation
+    // The world's inbound registration edge into each built-in kind — the same derivation
     // the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
-    let mut activations: BTreeMap<&str, kind::Activation> = BTreeMap::new();
+    let mut registrations: BTreeMap<&str, kind::Registration> = BTreeMap::new();
     for def in builtin_defs.values() {
-        if let Some(activation) = &def.activation {
-            activations.insert(def.name.as_str(), activation.clone());
+        if let Some(registration) = &def.registration {
+            registrations.insert(def.name.as_str(), registration.clone());
         }
     }
 
@@ -474,8 +474,7 @@ fn explain(target: &str) -> miette::Result<String> {
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
-    // producer yet (`specs/architecture/20-surface.md`, "Genre values"), so the set is empty
-    // until an altitude serializes mentions.
+    // producer yet (`specs/architecture/20-surface.md`, "Genre values"), so the set is empty.
     let citations: Vec<read::Citation> = Vec::new();
 
     Ok(read::explain(
@@ -485,7 +484,7 @@ fn explain(target: &str) -> miette::Result<String> {
         &roster,
         &by_kind,
         &assembly_edges,
-        &activations,
+        &registrations,
         &repo_files,
         &directive_edges,
         &citations,
@@ -569,12 +568,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let assembly_edges = edges_from_declarations(&declarations);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
-    // label (`specs/architecture/20-surface.md`, "Artifact kinds & package binding"): each
-    // kind's members — resolved by [`kind_features`] straight off harness disk, shared
-    // with `explain` (READ-EDGE-UNIFY) so a read cannot disagree with the gate about
-    // which members exist — are dispatched to its floor package and validated, so a
-    // discovered `CLAUDE.md` memory member fires its `memory` clauses exactly as a
-    // skill/rule does — no longer silently skipped by a hardcoded skill/rule pair.
+    // label (`specs/architecture/20-surface.md`): each kind's members — resolved by
+    // [`kind_features`] straight off harness disk, shared with `explain`
+    // (READ-EDGE-UNIFY) so a read cannot disagree with the gate about which members
+    // exist — are dispatched to its floor and validated, so a discovered `CLAUDE.md`
+    // memory member fires its `memory` clauses exactly as a skill/rule does — no
+    // longer silently skipped by a hardcoded skill/rule pair.
     // SCOPE: only this validation path generalizes — the roster/graph tier below
     // stays skill/rule/custom (no memory member publishes a requirement today;
     // folding more built-ins into the requirement corpus is a separate scope
@@ -800,7 +799,7 @@ fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> k
 }
 
 /// The already-projected surface document's own authored `satisfies`/published
-/// requirements, when one exists at this member's carriage locus
+/// requirements, when one exists at this member's surface location
 /// (`<workspace>/<kind's surface subdir>/<id>/<member document>`) — the one home a
 /// document/module-carried member's fill edges are ever authored at, never mined from
 /// the raw harness file (`specs/architecture/20-surface.md`, "The member document").

@@ -186,8 +186,7 @@ pub struct EmitOptions {
     pub dry_run: bool,
     /// Refuse network access — the CI posture (`specs/architecture/20-surface.md`, CLI
     /// surface). `emit` performs no network I/O today (it compiles a materialized
-    /// surface), so this changes nothing yet; it is accepted for CLI-surface / CI
-    /// parity and reserved for the altitude's package-fetch step.
+    /// surface), so this changes nothing yet; accepted for CLI-surface / CI parity.
     pub frozen: bool,
 }
 
@@ -958,9 +957,9 @@ pub struct KindFactRow {
     /// The declared unit-shape label, when declared.
     #[serde(default)]
     pub unit_shape: Option<String>,
-    /// The declared activation label, when declared.
+    /// The declared registration label, when declared.
     #[serde(default)]
-    pub activation: Option<String>,
+    pub registration: Option<String>,
 }
 
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
@@ -1293,8 +1292,8 @@ impl KindFactRow {
         if let Some(unit_shape) = &self.unit_shape {
             table.insert("unit_shape", value(unit_shape.clone()));
         }
-        if let Some(activation) = &self.activation {
-            table.insert("activation", value(activation.clone()));
+        if let Some(registration) = &self.registration {
+            table.insert("registration", value(registration.clone()));
         }
         table
     }
@@ -1307,7 +1306,7 @@ impl KindFactRow {
             governs_glob: str_col(table, "governs_glob")?,
             format: str_col(table, "format"),
             unit_shape: str_col(table, "unit_shape"),
-            activation: str_col(table, "activation"),
+            registration: str_col(table, "registration"),
         })
     }
 }

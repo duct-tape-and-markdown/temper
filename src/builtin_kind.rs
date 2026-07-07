@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 use crate::extract::{self, Features};
 use crate::kind::{
-    Activation, CustomKind, Extraction, Format, Governs, KindError, Primitive, Unit,
+    CustomKind, Extraction, Format, Governs, KindError, Primitive, Registration, Unit,
 };
 
 /// Anthropic's documented `.claude/skills/<name>/SKILL.md` kind: a directory whose
@@ -24,7 +24,7 @@ fn claude_code_skill() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::Directory),
-        activation: Some(Activation::DescriptionTrigger {
+        registration: Some(Registration::DescriptionTrigger {
             field: "description".to_string(),
         }),
         ..CustomKind::new(
@@ -58,7 +58,7 @@ fn claude_code_rule() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::File),
-        activation: Some(Activation::PathsMatch {
+        registration: Some(Registration::PathsMatch {
             field: "paths".to_string(),
         }),
         ..CustomKind::new(
@@ -85,7 +85,7 @@ fn claude_code_rule() -> CustomKind {
 fn claude_code_memory() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
-        activation: Some(Activation::Always),
+        registration: Some(Registration::Always),
         ..CustomKind::new(
             "memory",
             Governs {

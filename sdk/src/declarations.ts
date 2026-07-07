@@ -21,7 +21,7 @@ export interface KindFactRow {
   readonly governs_glob: string;
   readonly format?: string;
   readonly unit_shape?: string;
-  readonly activation?: string;
+  readonly registration?: string;
 }
 
 /**
@@ -162,8 +162,8 @@ export interface Declarations {
   readonly satisfies: readonly SatisfiesRow[];
 }
 
-/** The lock label for a kind's declared registration — the activation spelling. */
-function activationLabel(registration: Registration): string {
+/** The lock label for a kind's declared registration. */
+function registrationLabel(registration: Registration): string {
   switch (registration.via) {
     case "always":
       return "always";
@@ -193,7 +193,7 @@ function kindFactRow(facts: KindFacts): KindFactRow {
     governs_glob: facts.locus.glob,
     format: facts.format,
     unit_shape: facts.unitShape,
-    activation: activationLabel(facts.registration),
+    registration: registrationLabel(facts.registration),
   };
 }
 

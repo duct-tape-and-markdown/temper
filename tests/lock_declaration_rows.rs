@@ -47,7 +47,7 @@ fn tmpdir(label: &str) -> PathBuf {
 /// The `skill` built-in kind's declaration row — the same facts `builtin_kind`'s
 /// `claude_code_skill` carries, hand-carried here since a golden lock has no live kind
 /// to derive them from (mirrors `tests/emit.rs`'s `skill_kind_facts`, plus the
-/// `activation` label this file's assertions pin).
+/// `registration` label this file's assertions pin).
 fn skill_kind_facts() -> KindFactRow {
     KindFactRow {
         name: "skill".to_string(),
@@ -56,7 +56,7 @@ fn skill_kind_facts() -> KindFactRow {
         governs_glob: "*/SKILL.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
-        activation: Some("description-trigger(description)".to_string()),
+        registration: Some("description-trigger(description)".to_string()),
     }
 }
 
@@ -69,7 +69,7 @@ fn rule_kind_facts() -> KindFactRow {
         governs_glob: "*.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("file".to_string()),
-        activation: Some("paths-match(paths)".to_string()),
+        registration: Some("paths-match(paths)".to_string()),
     }
 }
 
@@ -296,7 +296,7 @@ fn lock_carries_all_four_declaration_families() {
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
-        skill.activation.as_deref(),
+        skill.registration.as_deref(),
         Some("description-trigger(description)")
     );
     assert!(
@@ -829,7 +829,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
-        skill.activation.as_deref(),
+        skill.registration.as_deref(),
         Some("description-trigger(description)")
     );
 
@@ -842,7 +842,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(rule.governs_glob, "*.md");
     assert_eq!(rule.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(rule.unit_shape.as_deref(), Some("file"));
-    assert_eq!(rule.activation.as_deref(), Some("paths-match(paths)"));
+    assert_eq!(rule.registration.as_deref(), Some("paths-match(paths)"));
 
     let memory = declarations
         .kinds
@@ -853,7 +853,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(memory.governs_glob, "**/CLAUDE.md");
     assert_eq!(memory.format, None);
     assert_eq!(memory.unit_shape.as_deref(), Some("file"));
-    assert_eq!(memory.activation.as_deref(), Some("always"));
+    assert_eq!(memory.registration.as_deref(), Some("always"));
 
     // The SDK module sets no `provider` on any of its three exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`

@@ -595,10 +595,10 @@ mod reachability {
     use temper::check::Severity;
     use temper::extract::{FeatureValue, Features, Kind};
     use temper::graph::{ResolvedEdge, reachable};
-    use temper::kind::Activation;
+    use temper::kind::Registration;
 
     /// A member carrying an id and, optionally, one frontmatter field — the only inputs
-    /// the reachability predicate reads (the id for the finding, the named activation
+    /// the reachability predicate reads (the id for the finding, the named registration
     /// field for the edge). Everything else is inert.
     fn member(id: &str, field: Option<(&str, FeatureValue)>) -> Features {
         let mut fields = BTreeMap::new();
@@ -620,16 +620,16 @@ mod reachability {
         }
     }
 
-    /// A `description-trigger` activation over the named field.
-    fn description_trigger(field: &str) -> Activation {
-        Activation::DescriptionTrigger {
+    /// A `description-trigger` registration over the named field.
+    fn description_trigger(field: &str) -> Registration {
+        Registration::DescriptionTrigger {
             field: field.to_string(),
         }
     }
 
-    /// A `paths-match` activation over the named field.
-    fn paths_match(field: &str) -> Activation {
-        Activation::PathsMatch {
+    /// A `paths-match` registration over the named field.
+    fn paths_match(field: &str) -> Registration {
+        Registration::PathsMatch {
             field: field.to_string(),
         }
     }
@@ -646,7 +646,7 @@ mod reachability {
     }
 
     #[test]
-    fn a_live_activation_edge_is_reachable() {
+    fn a_live_registration_edge_is_reachable() {
         // A skill with a non-empty `description` (a live description-trigger) and a rule
         // whose `paths` glob matches a repo file (a live paths-match) each have a live
         // inbound edge from the world — nothing fires.
@@ -663,12 +663,12 @@ mod reachability {
         )];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
-        let activations = BTreeMap::from([
+        let registrations = BTreeMap::from([
             ("skill", description_trigger("description")),
             ("rule", paths_match("paths")),
         ]);
         let files = vec!["src/graph.rs".to_string()];
-        assert!(reachable(&activations, &by_kind, &files, &[], Severity::Error).is_empty());
+        assert!(reachable(&registrations, &by_kind, &files, &[], Severity::Error).is_empty());
     }
 
     #[test]
@@ -680,9 +680,9 @@ mod reachability {
             Some(("description", FeatureValue::scalar(Kind::String, "   "))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let activations = BTreeMap::from([("skill", description_trigger("description"))]);
+        let registrations = BTreeMap::from([("skill", description_trigger("description"))]);
 
-        let diags = reachable(&activations, &by_kind, &[], &[], Severity::Error);
+        let diags = reachable(&registrations, &by_kind, &[], &[], Severity::Error);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, "graph.reachable");
@@ -692,7 +692,7 @@ mod reachability {
 
         // The dial is the assembly's: the same dead edge at `advisory` is a warn, so a
         // required-vs-advisory reachability declaration is honored (REACHABILITY-WIRE).
-        let advisory = reachable(&activations, &by_kind, &[], &[], Severity::Warn);
+        let advisory = reachable(&registrations, &by_kind, &[], &[], Severity::Warn);
         assert_eq!(advisory.len(), 1);
         assert_eq!(advisory[0].severity, Severity::Warn);
     }
@@ -706,10 +706,10 @@ mod reachability {
             Some(("paths", FeatureValue::scalar(Kind::String, "docs/**/*.md"))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
-        let activations = BTreeMap::from([("rule", paths_match("paths"))]);
+        let registrations = BTreeMap::from([("rule", paths_match("paths"))]);
         let files = vec!["src/graph.rs".to_string(), "README.md".to_string()];
 
-        let diags = reachable(&activations, &by_kind, &files, &[], Severity::Error);
+        let diags = reachable(&registrations, &by_kind, &files, &[], Severity::Error);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "graph.reachable");
         assert_eq!(diags[0].artifact, "style");
@@ -719,7 +719,7 @@ mod reachability {
 
     #[test]
     fn an_absent_or_blank_paths_field_is_reachable() {
-        // An unscoped rule declares a paths-match activation but carries no `paths` field
+        // An unscoped rule declares a paths-match registration but carries no `paths` field
         // (or a whitespace-only one) — the harness falls back to unconditional loading
         // (specs/architecture/15-kinds.md paths-match bullet), so the inbound edge is live, not dead.
         let absent = member("global", None);
@@ -729,32 +729,32 @@ mod reachability {
         );
         let rules = [absent, blank];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
-        let activations = BTreeMap::from([("rule", paths_match("paths"))]);
+        let registrations = BTreeMap::from([("rule", paths_match("paths"))]);
         // A non-empty repo file-set the absent/blank field is *not* tested against.
         let files = vec!["src/graph.rs".to_string()];
 
-        assert!(reachable(&activations, &by_kind, &files, &[], Severity::Error).is_empty());
+        assert!(reachable(&registrations, &by_kind, &files, &[], Severity::Error).is_empty());
     }
 
     #[test]
-    fn a_kind_that_declares_no_activation_is_not_subject() {
+    fn a_kind_that_declares_no_registration_is_not_subject() {
         // The corpus holds a skill with a blank `description`, but no kind declares an
-        // activation (the map is empty) — the predicate ranges over declared edges only,
+        // registration (the map is empty) — the predicate ranges over declared edges only,
         // so nothing fires. `temper` never invents an edge the kind did not declare.
         let skills = [member(
             "standards",
             Some(("description", FeatureValue::scalar(Kind::String, ""))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let activations: BTreeMap<&str, Activation> = BTreeMap::new();
+        let registrations: BTreeMap<&str, Registration> = BTreeMap::new();
 
-        assert!(reachable(&activations, &by_kind, &[], &[], Severity::Error).is_empty());
+        assert!(reachable(&registrations, &by_kind, &[], &[], Severity::Error).is_empty());
     }
 
     #[test]
     fn a_dead_own_member_imported_by_a_reachable_member_is_live() {
         // The rule `scoped` has a zero-match `paths` glob — its own world-edge is dead.
-        // But the memory member `root` declares no activation (unconditionally live) and
+        // But the memory member `root` declares no registration (unconditionally live) and
         // imports it, so the closure carries `root`'s liveness across the directive edge:
         // `scoped` is reachable, and no finding fires. This is the false positive the
         // slice fixes.
@@ -768,12 +768,12 @@ mod reachability {
         )];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("memory", &memories[..]), ("rule", &rules[..])]);
-        // Only `rule` declares an activation; `memory` is absent ⇒ always live.
-        let activations = BTreeMap::from([("rule", paths_match("paths"))]);
+        // Only `rule` declares a registration; `memory` is absent ⇒ always live.
+        let registrations = BTreeMap::from([("rule", paths_match("paths"))]);
         let edges = [import_edge(("memory", "root"), ("rule", "scoped"))];
         let files = vec!["src/graph.rs".to_string()];
 
-        assert!(reachable(&activations, &by_kind, &files, &edges, Severity::Error).is_empty());
+        assert!(reachable(&registrations, &by_kind, &files, &edges, Severity::Error).is_empty());
     }
 
     #[test]
@@ -792,10 +792,10 @@ mod reachability {
             ),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let activations = BTreeMap::from([("skill", description_trigger("description"))]);
+        let registrations = BTreeMap::from([("skill", description_trigger("description"))]);
         let edges = [import_edge(("skill", "importer"), ("skill", "target"))];
 
-        let diags = reachable(&activations, &by_kind, &[], &edges, Severity::Error);
+        let diags = reachable(&registrations, &by_kind, &[], &edges, Severity::Error);
         assert_eq!(diags.len(), 2);
         assert!(diags.iter().any(|d| d.artifact == "target"));
         assert!(diags.iter().any(|d| d.artifact == "importer"));
@@ -822,7 +822,7 @@ mod reachability {
             .collect();
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("memory", &memories[..]), ("rule", &rules[..])]);
-        let activations = BTreeMap::from([("rule", paths_match("paths"))]);
+        let registrations = BTreeMap::from([("rule", paths_match("paths"))]);
         let mut edges = vec![import_edge(("memory", "root"), ("rule", "r1"))];
         for n in 1..=5 {
             edges.push(import_edge(
@@ -832,7 +832,7 @@ mod reachability {
         }
         let files = vec!["src/graph.rs".to_string()];
 
-        let diags = reachable(&activations, &by_kind, &files, &edges, Severity::Error);
+        let diags = reachable(&registrations, &by_kind, &files, &edges, Severity::Error);
         assert_eq!(diags.len(), 1, "only the past-cap member stays dead");
         assert_eq!(diags[0].artifact, "r6");
     }

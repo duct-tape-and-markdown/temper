@@ -66,7 +66,7 @@ fn memory_kind_facts() -> KindFactRow {
         governs_glob: "CLAUDE.md".to_string(),
         format: None,
         unit_shape: Some("file".to_string()),
-        activation: None,
+        registration: None,
     }
 }
 

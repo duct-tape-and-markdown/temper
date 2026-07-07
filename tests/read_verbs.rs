@@ -39,7 +39,7 @@ fn tmpdir(label: &str) -> PathBuf {
 
 /// A member's [`Features`] as the read family reads them: its id, the requirements it
 /// opts into, the demands it publishes, and a `description` field (so `impact`'s
-/// reachability strand has a non-panicking activation input). Mirrors `read.rs`'s own
+/// reachability strand has a non-panicking registration input). Mirrors `read.rs`'s own
 /// `impact_tests::feature` helper — duplicated here since this file, being outside the
 /// crate, can only build `Features` through its public fields.
 fn feature(id: &str, satisfies: &[&str], published: &[&str]) -> Features {
@@ -98,7 +98,7 @@ fn explain(
 ) -> String {
     let ws = Workspace::load(&tmpdir("explain")).unwrap();
     let assembly: BTreeMap<String, Requirement> = BTreeMap::new();
-    let activations = BTreeMap::new();
+    let registrations = BTreeMap::new();
     read::explain(
         &ws,
         custom,
@@ -106,7 +106,7 @@ fn explain(
         roster,
         by_kind,
         &[],
-        &activations,
+        &registrations,
         &[],
         &[],
         &[],

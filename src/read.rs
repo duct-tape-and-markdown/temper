@@ -53,7 +53,7 @@ use crate::compose::{Edge, Requirement};
 use crate::document::Satisfies;
 use crate::extract::{Features, LeafAddress};
 use crate::graph::{self, ResolvedEdge};
-use crate::kind::Activation;
+use crate::kind::Registration;
 
 /// A member as the read family sees it: its kind, its id, and the requirements it opts
 /// into filling (each with its authored rationale). Built off the typed [`Workspace`]
@@ -100,10 +100,9 @@ pub struct CustomMember {
 /// a citation only for a leaf that resolves, exactly the referential guarantee a mention
 /// carries.
 ///
-/// The floor carries no producer yet — floor leaves carry no mentions (interpolation stays
-/// an altitude feature, `specs/architecture/20-surface.md`, "Genre values"), so today's caller
-/// threads an empty set and the leaf-grain report names zero citers. The reporting shape is
-/// ready for the altitude's serialized mentions; the mechanism is proven in unit tests here.
+/// The floor carries no producer yet — floor leaves carry no mentions
+/// (`specs/architecture/20-surface.md`, "Genre values"), so today's caller threads an empty
+/// set and the leaf-grain report names zero citers; the mechanism is proven in unit tests here.
 pub struct Citation {
     /// The kind of the citer — part of its node identity, and what the narration prints.
     pub from_kind: String,
@@ -218,7 +217,7 @@ fn resolve<'a>(
 ///
 /// `assembly` and `roster` mirror [`impact`]'s own split (the assembly's own
 /// `[requirement.*]` roster vs. the composed namespace `check` gates); `edges` is the
-/// declared relationship set [`why`]'s edge walk resolves; `activations`,
+/// declared relationship set [`why`]'s edge walk resolves; `registrations`,
 /// `repo_files`, and `directive_edges` are the exact reachability/directive inputs
 /// [`impact`]'s blast radius ranges over; `citations` are the declared one-way edges a
 /// leaf-grain answer reports separately from fallout. Every one is the identical input
@@ -233,7 +232,7 @@ pub fn explain(
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
-    activations: &BTreeMap<&str, Activation>,
+    registrations: &BTreeMap<&str, Registration>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
     citations: &[Citation],
@@ -247,7 +246,7 @@ pub fn explain(
                 assembly,
                 roster,
                 by_kind,
-                activations,
+                registrations,
                 repo_files,
                 directive_edges,
                 citations,
@@ -263,7 +262,7 @@ pub fn explain(
                 assembly,
                 roster,
                 by_kind,
-                activations,
+                registrations,
                 repo_files,
                 directive_edges,
                 citations,
@@ -293,7 +292,7 @@ pub fn explain(
 
 /// `temper why <member>` — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
-/// own `means`), the package its kind binds, and its resolved edges in and out
+/// own `means`), the floor its kind binds, and its resolved edges in and out
 /// (`specs/architecture/20-surface.md`, "Decision: the CLI gains a read family"). A read, never a
 /// gate — the caller prints this and exits zero on every input, including a name no
 /// member bears.
@@ -479,7 +478,7 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 ///    to `member`'s file (`specs/architecture/15-kinds.md`, "Directives"); removing the file leaves
 ///    that import backing nothing, the silent-context-loss class made author-time.
 /// 4. **Reachability that dies with it** — a member live now only because `member`
-///    imports it (its own activation dead); removing `member` unreaches it
+///    imports it (its own registration dead); removing `member` unreaches it
 ///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
 ///
 /// The family gains **leaf grain** (`specs/architecture/20-surface.md`, "The family gains leaf
@@ -492,7 +491,7 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 /// A read, never a gate: the caller prints this and exits zero on every input, a name no
 /// member or leaf bears included. `assembly` is the assembly's own `[requirement.*]` roster
 /// (to tell a demand `member` alone publishes from one the assembly also carries); `roster`
-/// is the **composed** namespace `check` gates; `by_kind`, `activations`, `repo_files`,
+/// is the **composed** namespace `check` gates; `by_kind`, `registrations`, `repo_files`,
 /// and `directive_edges` are the exact graph inputs the gate's predicates range over
 /// (READ-EDGE-UNIFY), so the read cannot disagree with a green `check`. `by_kind` also
 /// carries each member's serialized genre values, the leaf-grain surface; `citations` are
@@ -503,7 +502,7 @@ pub fn impact(
     assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
-    activations: &BTreeMap<&str, Activation>,
+    registrations: &BTreeMap<&str, Registration>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
     citations: &[Citation],
@@ -544,7 +543,7 @@ pub fn impact(
             assembly,
             roster,
             by_kind,
-            activations,
+            registrations,
             repo_files,
             directive_edges,
         );
@@ -1033,7 +1032,7 @@ fn impact_one(
     assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
-    activations: &BTreeMap<&str, Activation>,
+    registrations: &BTreeMap<&str, Registration>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
 ) {
@@ -1157,7 +1156,7 @@ fn impact_one(
     // (4) Members reachable now only because this one carried their liveness across an
     // import — removing it unreaches them.
     let orphaned =
-        graph::reachability_orphaned(&node, activations, by_kind, repo_files, directive_edges);
+        graph::reachability_orphaned(&node, registrations, by_kind, repo_files, directive_edges);
     if orphaned.is_empty() {
         let _ = writeln!(
             out,
@@ -1172,7 +1171,7 @@ fn impact_one(
         for (orphan_kind, orphan_id) in orphaned {
             let _ = writeln!(
                 out,
-                "  • `{orphan_id}` ({orphan_kind}) — its own activation is dead, and removing \
+                "  • `{orphan_id}` ({orphan_kind}) — its own registration is dead, and removing \
                  `{}` leaves no live importer to reach it.",
                 features.id
             );
@@ -1431,7 +1430,7 @@ fn coverage_state(required: bool, satisfier_count: usize) -> String {
 mod impact_tests {
     //! Unit proofs of the four `impact` strands over hand-built graph inputs — the
     //! directive and reachability strands especially, which need an *importer* kind
-    //! (a custom kind composing a `directives` primitive and an activation) the built-in
+    //! (a custom kind composing a `directives` primitive and a registration) the built-in
     //! skill/rule fixtures the e2e drives don't carry. The requirement strands are also
     //! e2e-proven in `tests/read_verbs.rs`.
 
@@ -1442,7 +1441,7 @@ mod impact_tests {
     /// A member's [`Features`] as `impact` reads them: its id, the requirements it opts
     /// into, the demands it publishes, and its `description` field (a blank one is a dead
     /// description-trigger world-edge). Body-derived features are inert here — `impact`
-    /// reads the join, publish, directive, and activation data, all set explicitly.
+    /// reads the join, publish, directive, and registration data, all set explicitly.
     fn feature(
         id: &str,
         satisfies: &[&str],
@@ -1517,13 +1516,13 @@ mod impact_tests {
             feature("pair-b", &["r2"], &[], Some("d")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let activations = BTreeMap::new();
+        let registrations = BTreeMap::new();
 
         let solo = impact(
             &empty,
             &roster,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],
@@ -1540,7 +1539,7 @@ mod impact_tests {
             &empty,
             &roster,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],
@@ -1563,13 +1562,13 @@ mod impact_tests {
             feature("filler", &["p"], &[], Some("d")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let activations = BTreeMap::new();
+        let registrations = BTreeMap::new();
 
         let out = impact(
             &empty_assembly,
             &roster,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],
@@ -1588,7 +1587,7 @@ mod impact_tests {
             &assembly,
             &roster,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],
@@ -1607,14 +1606,14 @@ mod impact_tests {
             feature("leaf", &[], &[], Some("d")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("doc", &docs[..])]);
-        let activations = BTreeMap::new();
+        let registrations = BTreeMap::new();
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
 
         let out = impact(
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &edges,
             &[],
@@ -1631,7 +1630,7 @@ mod impact_tests {
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &edges,
             &[],
@@ -1651,9 +1650,9 @@ mod impact_tests {
             feature("leaf", &[], &[], Some("")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("doc", &docs[..])]);
-        let activations = BTreeMap::from([(
+        let registrations = BTreeMap::from([(
             "doc",
-            Activation::DescriptionTrigger {
+            Registration::DescriptionTrigger {
                 field: "description".to_string(),
             },
         )]);
@@ -1663,7 +1662,7 @@ mod impact_tests {
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &edges,
             &[],
@@ -1671,7 +1670,7 @@ mod impact_tests {
         );
         assert!(out.contains("Reachability that dies with it"), "{out}");
         assert!(
-            out.contains("`leaf` (doc) — its own activation is dead"),
+            out.contains("`leaf` (doc) — its own registration is dead"),
             "{out}"
         );
 
@@ -1680,7 +1679,7 @@ mod impact_tests {
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &edges,
             &[],
@@ -1698,12 +1697,12 @@ mod impact_tests {
         // caller still exits zero (the read family is never a gate).
         let empty = BTreeMap::new();
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
-        let activations = BTreeMap::new();
+        let registrations = BTreeMap::new();
         let out = impact(
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],
@@ -1739,7 +1738,7 @@ mod impact_tests {
         // reports the citing one-way edge under its own heading (never fallout), and states
         // the leaf is obligation-free — deleting or rewording it is never blocked.
         let empty = BTreeMap::new();
-        let activations = BTreeMap::new();
+        let registrations = BTreeMap::new();
         let members = [genre_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
         let citations = [Citation {
@@ -1757,7 +1756,7 @@ mod impact_tests {
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &citations,
@@ -1791,7 +1790,7 @@ mod impact_tests {
         // Absent any citing edge, the leaf still resolves and reports — the citations
         // heading names none, the floor's standing state (floor leaves carry no mentions).
         let empty = BTreeMap::new();
-        let activations = BTreeMap::new();
+        let registrations = BTreeMap::new();
         let members = [genre_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
 
@@ -1799,7 +1798,7 @@ mod impact_tests {
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],
@@ -1814,7 +1813,7 @@ mod impact_tests {
         // Both an address naming no live leaf and an ill-formed one are reads, not gates —
         // narrated plainly so the caller still exits zero.
         let empty = BTreeMap::new();
-        let activations = BTreeMap::new();
+        let registrations = BTreeMap::new();
         let members = [genre_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
 
@@ -1822,7 +1821,7 @@ mod impact_tests {
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],
@@ -1837,7 +1836,7 @@ mod impact_tests {
             &empty,
             &empty,
             &by_kind,
-            &activations,
+            &registrations,
             &[],
             &[],
             &[],

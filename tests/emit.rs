@@ -88,7 +88,7 @@ fn rule_kind_facts() -> KindFactRow {
         governs_glob: "*.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("file".to_string()),
-        activation: None,
+        registration: None,
     }
 }
 
@@ -100,7 +100,7 @@ fn skill_kind_facts() -> KindFactRow {
         governs_glob: "*/SKILL.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
-        activation: None,
+        registration: None,
     }
 }
 

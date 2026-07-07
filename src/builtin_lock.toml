@@ -26,7 +26,7 @@ name = "memory"
 governs_root = "."
 governs_glob = "**/CLAUDE.md"
 unit_shape = "file"
-activation = "always"
+registration = "always"
 
 [[declaration.kind]]
 name = "rule"
@@ -34,7 +34,7 @@ governs_root = ".claude/rules"
 governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
-activation = "paths-match(paths)"
+registration = "paths-match(paths)"
 
 [[declaration.kind]]
 name = "skill"
@@ -42,7 +42,7 @@ governs_root = ".claude/skills"
 governs_glob = "*/SKILL.md"
 format = "yaml-frontmatter"
 unit_shape = "directory"
-activation = "description-trigger(description)"
+registration = "description-trigger(description)"
 
 [[declaration.clause]]
 kind = "memory"
