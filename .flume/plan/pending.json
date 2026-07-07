@@ -95,14 +95,13 @@
   },
   {
     "tag": "GUARD-OWNPATH",
-    "summary": "the PreToolUse guard regex-matches any .claude/ file_path without reading the lock; for file()-carried members the .claude/ file IS the authored source, so block denies editing the source of truth",
+    "summary": "the runtime guard regex-matches any .claude/ file_path without the lock; for a file()-carried member that .claude/ file IS its authored source, so block denies editing the source of truth",
     "per": {
       "path": "specs/distribution.md",
       "section": "The placements and their enforcement modes"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PATH-SEP-NORMALIZE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -110,11 +109,15 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "guard() matches GUARD_PATH_MATCH (:104) against any `.claude/` file_path without consulting the lock. For a file()-carried member the `.claude/` file IS its authored source (install already skips placements on such members; emit adopts their direct edits), so under `block` the guard denies editing the source of truth. Read the lock's owned-source paths so a write to an own_path target passes through, while writes to projected `.claude/` files stay bound."
+          "description": "`guard`:594 delegates to `targets_projection`:606, which tests the payload's `file_path` against the `.claude/` regex `GUARD_PATH_MATCH`:109 alone — no lock. So under `block` a write to a file()-carried member's own `.claude/` source (its authored source of truth, which `drift::emit_owned_targets`:874 already excludes from the projection set via `if own_path continue`) is wrongly denied. Widen `guard` to take the lock's emit-owned projection paths (from `drift::emit_owned_targets`, the pub reader install's own placements already bind to) and bind on set membership: a `file_path` naming a lock-declared projection stays bound (block/warn/note per mode), any other `.claude/` write — an own_path source or unmanaged file — returns `GuardVerdict::Allow`:594. Path compare rides the lock's now-`/`-normalized `source_path` (PATH-SEP-NORMALIZE shipped). Retire GUARD_PATH_MATCH or keep it as a cheap pre-filter — build's call."
         },
         {
-          "path": "src/kind.rs",
-          "description": "Read `owns_source` (already present) to identify a member's own authored path when the guard consults the lock — read-only from the guard's side."
+          "path": "src/main.rs",
+          "description": "The `Command::Guard` handler (:326-341) derives `mode` via `mode_from_lock`:498 but calls `install::guard(&payload, mode)`:341 with no projection set — the runtime guard stays regex-bound while install's placements are already lock-grounded. Read the lock's emit-owned projections (`drift::emit_owned_targets(&path.join(TEMPER_DIR))`, the same lock `mode_from_lock` already consults) and thread them into the widened `install::guard` call, so the per-call guard verdict is lock-grounded too."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "The existing guard tests drive the CLI against a lock via `run_guard`:632 (`guard_reads_the_block_posture...`:656, `guard_defaults_to_warn...`:679), so the widened `install::guard` signature is internal and they keep passing. Add a case that lifts a file()-carried member whose own_path `.claude/` source is written."
         }
       ],
       "retire": []
@@ -123,11 +126,11 @@
     "tests": [
       {
         "path": "tests/install.rs",
-        "asserts": "guard passes a write to a file()-carried member's own .claude/ source (own_path) and still binds writes to projected .claude/ files"
+        "asserts": "driving via the CLI (run_guard), a write to a file()-carried member's own .claude/ source (own_path — absent from the lock's emit-owned projection set) passes (Allow) under block posture, while a write to a lock-declared projected .claude/ file still binds at the declared mode; the no-lock default-warn and block-posture cases still hold"
       }
     ],
-    "acceptance": "The guard passes a write to a file()-carried member's own .claude/ source (own_path) and continues to bind writes to projected .claude/ files, reading the lock rather than a path regex alone.",
-    "notes": "Field report 1. For file()-carried members the .claude/ file is the source of truth, not a projection; the guard must read the lock's owned-source paths. blockedBy PATH-SEP-NORMALIZE (same install.rs file)."
+    "acceptance": "The runtime guard passes a write to a file()-carried member's own .claude/ source (own_path) and continues to bind writes to lock-declared projected .claude/ files, reading the lock's projection set (drift::emit_owned_targets) rather than a path regex alone.",
+    "notes": "Field report 1. PATH-SEP-NORMALIZE blocker shipped 402e5cc/2efd00b — this ship audit clears the gate. Mechanism: bind the runtime guard to the existing pub `drift::emit_owned_targets`:874, which already excludes own_path rows — no drift.rs/kind.rs edit, disjoint from the EMIT-* drift.rs chain; own_path .claude/ sources fall through to Allow. SETTINGS-FORMAT-PRESERVING blockedBy it. scoped at 75798a5."
   },
   {
     "tag": "SETTINGS-FORMAT-PRESERVING",
