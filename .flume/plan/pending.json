@@ -1,26 +1,52 @@
 [
   {
+    "tag": "EMIT-INTO-PATH-DOUBLING",
+    "summary": "Fix emit relative --into path doubling (node cwd=<into> but passed the relative entry path → <into>/<into>/harness.ts, MODULE_NOT_FOUND); emit fails loud on a broken program",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The seam — one implementation"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`run_sdk_program` (:376) sets the node subprocess `current_dir` to `harness_entry.parent()` but passes the *relative* `harness_entry` as the `node` arg, so node re-resolves that relative path against the new cwd — a default `--into ./.temper` becomes `./.temper/.temper/harness.ts`, MODULE_NOT_FOUND (cascade, 07-06). Pass an absolute entry path (canonicalize `harness_entry`, or spawn with just the file name relative to the parent cwd) so the arg is unambiguous regardless of cwd; keep cwd=parent so a bare `@dtmd/temper` import still resolves through the program's own `node_modules`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "emit with a relative --into resolves the SDK program at <into>/harness.ts (no path doubling), and emit against a broken/failing SDK program fails loud with a non-zero exit (fail-loud invariant, never exit 0)"
+      }
+    ],
+    "acceptance": "`temper emit` with a relative `--into` (the `./.temper` default) runs the program at `<into>/harness.ts` without doubling the path; a program that fails to run is a loud non-zero-exit error, never a silent exit-0 pass.",
+    "notes": "Cascade field report, 07-06 (0.1.0 engine). Disjoint from the derived-lock chain and FIRST-PARTY-MODULE-COMPLETE (drift.rs `run_sdk_program` + tests/emit.rs; the chain touches builtin*/check/main/engine, FIRST-PARTY touches sdk/**). The cascade note also flags a `sdk_program_failed` exit-0; the fail-loud test pins the exit code decidably — if already non-zero it passes, else build makes it loud (main.rs contingency, no other open entry touches it)."
+  },
+  {
     "tag": "FIRST-PARTY-MODULE-COMPLETE",
     "summary": "Carry all four built-in kinds + their floors as exported SDK values with per-clause cites in @dtmd/temper/claude-code, migrated from packages/*/PACKAGE.md and builtin.rs",
     "per": {
       "path": "specs/architecture/50-distribution.md",
       "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "REQUIREMENT-CLAUSES-RECUT"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "sdk/src/builtins.ts",
-          "description": "Beside the existing `skill`/`rule`/`memory` kind exports (:35,59,79), export the floor clause arrays — `skillFloor`, `ruleFloor`, `memoryAnthropicFloor`, `memoryAgentsMdFloor` — every clause carrying severity + guidance + a `cite` (URL + retrieved date), the content migrated verbatim from `packages/*/PACKAGE.md` and from builtin.rs's `skill_anthropic()`/`rule_anthropic()`/`memory_*()` (src/builtin.rs:91+). The AGENTS.md floor stays guidance-only (zero clauses), per builtin.rs's note."
+          "description": "Beside the existing `skill`/`rule`/`memory` kind exports (:37,64,86), export the floor clause arrays — `skillFloor`, `ruleFloor`, `memoryAnthropicFloor`, `memoryAgentsMdFloor` — every clause carrying severity + guidance + a `cite` (URL + retrieved date), the content migrated verbatim from `packages/*/PACKAGE.md` and from builtin.rs's `SKILL_PACKAGE`/`RULE_PACKAGE`/`MEMORY_ANTHROPIC_PACKAGE`/`MEMORY_AGENTS_MD_PACKAGE` clause vectors (src/builtin.rs). The AGENTS.md floor stays guidance-only (zero clauses), per builtin.rs's note."
         },
         {
           "path": "sdk/src/claude-code.ts",
-          "description": "Re-export the four floor arrays from the `@dtmd/temper/claude-code` subpath face, beside the kind re-exports (:13-14), so adoption is `import { skill, skillFloor } from \"@dtmd/temper/claude-code\"` (10-contracts, the floor-is-an-import example)."
+          "description": "Re-export the four floor arrays from the `@dtmd/temper/claude-code` subpath face, beside the kind + prose re-exports (:14-19), so adoption is `import { skill, skillFloor } from \"@dtmd/temper/claude-code\"` (10-contracts, the floor-is-an-import example)."
         }
       ],
       "retire": []
@@ -33,7 +59,7 @@
       }
     ],
     "acceptance": "@dtmd/temper/claude-code exports the four built-in kinds and their floors as SDK values; each floor clause carries its cite; the module's clauses/guidance/cites are content-equivalent to builtin.rs's hand-written floors — spelled once, in the module.",
-    "notes": "Ceremony D2. The citation trail is not residue: each floor clause's `cite` homes the source packages/*/PACKAGE.md carried (10-contracts, package-residue paragraph). builtin.rs stays the engine's copy until BUILTIN-LOCK-DERIVED retires it; this only makes the module the authoritative spelling. sdk/** is in fence; packages/*/PACKAGE.md are read as the migration source, never edited (out of fence)."
+    "notes": "Ceremony D2 — unblocked (REQUIREMENT-CLAUSES-RECUT shipped c17332a). The citation trail is not residue: each floor clause's `cite` homes the source packages/*/PACKAGE.md carried (10-contracts, package-residue paragraph). builtin.rs stays the engine's copy until BUILTIN-LOCK-DERIVED retires it; this only makes the module the authoritative spelling. sdk/** is in fence; packages/*/PACKAGE.md are read as the migration source, never edited (out of fence)."
   },
   {
     "tag": "BUILTIN-LOCK-DERIVED",
@@ -65,11 +91,11 @@
         },
         {
           "path": "src/main.rs",
-          "description": "Replace the per-name skill/rule floor dispatch (:572-590, `floor_package`/`qualified_name`) with row-driven resolution off the parsed built-in lock."
+          "description": "Replace the per-name skill/rule floor dispatch (:590-602, `floor_package`/`qualified_name`) and the `builtin_kind::definitions()` kind set with row-driven resolution off the parsed built-in lock."
         },
         {
           "path": "src/check.rs",
-          "description": "Generalize `Workspace::skills()`/`rules()` (:95-105, bare-kind-name accessors) and the members-map keying to row-driven kind identity — closes `(builtin-workspace-qualified-key)`."
+          "description": "Generalize `Workspace::skills()`/`rules()` (:97-105, bare-kind-name accessors) and the members-map keying to row-driven kind identity — closes `(builtin-workspace-qualified-key)`."
         },
         {
           "path": "src/engine.rs",
@@ -108,6 +134,46 @@
     "notes": "Ceremony D3. The migration-era engine grew parallel identity tables + per-name dispatch (50-distribution); this collapses them to one row-driven input. Large — when it unblocks, plan re-checks whether it needs its own split. `(builtin-workspace-qualified-key)` resolves here — do not file separately. builtin_kind.rs references kinds/ (out of fence); deleting the .rs removes the ref — the kinds/ tree is a separate human deletion."
   },
   {
+    "tag": "CHECK-LOCK-KIND-ROWS",
+    "summary": "check models only the built-in kinds — read the committed lock's custom kind rows so custom-kind requirements resolve instead of false admissibility failures (cascade field report)",
+    "per": {
+      "path": "specs/architecture/20-surface.md",
+      "section": "The lock and drift — one vocabulary"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUILTIN-LOCK-DERIVED"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The gate builds its kind set from the built-in default program only (`builtin_kind::definitions()` / row-driven default after D3) and reads the committed lock (`drift::read_declarations`) for clauses/requirements/satisfies but NOT for kinds — so an adopted harness's `declarations.kinds` (its custom kind rows, already written whole by emit — cascade saw 9 spec kinds + 74 members in a fresh lock) are invisible, and a requirement naming a custom kind fails `requirement.admissibility` (\"names kind X, which temper does not model\") with an `unfilled` shadow. Feed the committed lock's `KindFactRow`s into the check kind loop (the five facts are already parsed by drift), merged over the built-in default program, so a custom-kind requirement resolves against its declared kind."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "`Workspace::load_kinds` / the members-map keying must load members for the committed lock's custom kind rows (their loci/layout), not only the built-in kind set, so a custom kind's members are conformance-checked (cascade: `check --harness .` checked only the 4 built-ins)."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Kind-blind extraction over the committed lock's custom kind facts (locus, layout, registration) — the same generic path the built-in kinds ride, sourced from the lock rows."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/session_start.rs",
+        "asserts": "a harness whose committed lock declares a custom kind and a requirement naming it does NOT emit a false requirement.admissibility failure; the requirement resolves against the lock-declared kind and reports genuine coverage only"
+      }
+    ],
+    "acceptance": "`temper check` (and its session-start reporter) reads custom kind declaration rows from the committed lock, so a custom-kind requirement resolves against its declared kind instead of failing admissibility as unmodeled; the session-start gate no longer cries wolf on any harness with a custom-kind requirement.",
+    "notes": "Cascade field report, 07-06 — the false blockers made cascade disable its SessionStart temper hook (the law-3 'gate that cries wolf gets disabled' failure). Serialized behind D3 because it edits the same kind-resolution code (check/main/engine) D3 makes row-driven; parallel would conflict. When D3 unblocks it, plan re-checks whether D3's row-driven rework already reads the committed lock's kinds — if so, drop this."
+  },
+  {
     "tag": "BUILTIN-LOCK-FROZEN-LANE",
     "summary": "Re-derive the built-in lock from the module and byte-compare against the embedded copy — fail-loud on mismatch or absence, the --frozen discipline aimed at temper's own std-lib",
     "per": {
@@ -137,7 +203,7 @@
       }
     ],
     "acceptance": "A test re-derives the built-in lock from the first-party module and byte-compares it against the embedded copy, failing loud on any drift or absence; running it is the CI frozen-lane gate on the tool's own std-lib.",
-    "notes": "Ceremony D4 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from CURATED-TREES-RETIRE). Framed as a cargo test so the gate validates it; the CI job is just `cargo test` (50-distribution: CI placements are user-authored two-line jobs, not generated files)."
+    "notes": "Ceremony D4 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from CURATED-TREES-RETIRE and CHECK-LOCK-KIND-ROWS). Framed as a cargo test so the gate validates it; the CI job is just `cargo test` (50-distribution: CI placements are user-authored two-line jobs, not generated files)."
   },
   {
     "tag": "CURATED-TREES-RETIRE",
@@ -177,7 +243,7 @@
       }
     ],
     "acceptance": "bundle.rs carries no CURATED_PACKAGES embeds; `temper bundle` ships the skill + hook only. Clauses live once, in the SDK module (FIRST-PARTY-MODULE-COMPLETE). After this + BUILTIN-LOCK-DERIVED remove every code reference, the packages/ and kinds/ trees are deletable by a human chore(harness) commit.",
-    "notes": "Ceremony D5 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from BUILTIN-LOCK-FROZEN-LANE). Scoped to in-fence work only: packages/** and kinds/** are OUT of build's fence (ratification territory), so their physical deletion is a human chore after the code refs are gone. The 'curated, fence-excluded' asymmetry in open-questions.md dies on the reconcile that sees this + the trees deleted."
+    "notes": "Ceremony D5 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from BUILTIN-LOCK-FROZEN-LANE and CHECK-LOCK-KIND-ROWS). Scoped to in-fence work only: packages/** and kinds/** are OUT of build's fence (ratification territory), so their physical deletion is a human chore after the code refs are gone. The 'curated, fence-excluded' asymmetry in open-questions.md dies on the reconcile that sees this + the trees deleted."
   },
   {
     "tag": "COMMENT-STOCK-SWEEP",
