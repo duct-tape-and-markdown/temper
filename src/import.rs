@@ -26,6 +26,13 @@ use crate::kind::{CustomKind, Governs};
 /// written at the workspace root.
 const LOCK_FILENAME: &str = "lock.toml";
 
+/// Directory name of the surface workspace (authored modules + lock) that
+/// `install` scaffolds under the harness root. It is committed, not
+/// gitignored, so without an explicit skip a `**` glob (e.g. `memory`'s
+/// `**/CLAUDE.md`) would walk into it and count its contents as harness
+/// members — the surface is categorically not a harness member.
+const TEMPER_DIR: &str = ".temper";
+
 /// Errors raised while discovering or rolling up a harness's members.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ImportError {
@@ -242,7 +249,10 @@ fn collect_glob(
 }
 
 /// The set of paths under `harness` that discovery may see — every file and directory
-/// the repo's ignore rules leave in, with `.git/` always excluded.
+/// the repo's ignore rules leave in, with `.git/` and the surface workspace
+/// (`.temper/`) always excluded — the surface holds temper's own authored
+/// modules and lock, never a harness member, and being committed (not
+/// gitignored) it would otherwise enter the discoverable set on its own.
 /// Built with
 /// ripgrep's `ignore` engine so nested `.gitignore` files, negation, and precedence are
 /// honored rather than hand-rolled. Only git's own declaration counts: the machine-global
@@ -261,7 +271,9 @@ fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
         .git_ignore(true)
         .git_exclude(true)
         .require_git(false)
-        .filter_entry(|entry| entry.file_name() != OsStr::new(".git"))
+        .filter_entry(|entry| {
+            entry.file_name() != OsStr::new(".git") && entry.file_name() != OsStr::new(TEMPER_DIR)
+        })
         .build();
     // A walk error (an unreadable entry) drops that entry rather than aborting
     // discovery — the same tolerance the raw scan takes on `read_dir`.

@@ -193,6 +193,25 @@ fn an_empty_project_reports_no_members_found() {
     assert!(install::render_discovery(&report).contains("no members found"));
 }
 
+/// A `CLAUDE.md` under `.temper/` (the surface workspace: temper's own authored
+/// modules and lock) is never a harness member — it is committed, not
+/// gitignored, so absent an explicit skip it would double-count `memory`
+/// alongside the harness-root and `.claude/` files.
+#[test]
+fn discovery_skips_claude_md_under_the_surface_workspace() {
+    let root = write_harness("discover-surface-skip", false);
+    fs::write(root.join("CLAUDE.md"), "# Root\n").unwrap();
+    fs::create_dir_all(root.join(".claude")).unwrap();
+    fs::write(root.join(".claude").join("CLAUDE.md"), "# Claude dir\n").unwrap();
+    fs::create_dir_all(root.join(".temper")).unwrap();
+    fs::write(root.join(".temper").join("CLAUDE.md"), "# Surface\n").unwrap();
+
+    let report = install::discover(&root).unwrap();
+    assert_eq!(report.members.get("memory").map(Vec::len), Some(2));
+    let memory = report.members.get("memory").unwrap();
+    assert!(!memory.iter().any(|p| p.starts_with(root.join(".temper"))));
+}
+
 // ---------------------------------------------------------------------------
 // the no-path — the session-start reporter alone, Node-free
 // ---------------------------------------------------------------------------
