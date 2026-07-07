@@ -629,6 +629,53 @@ fn emit_program_executes_the_sdk_program_and_byte_reproduces_across_a_second_run
     );
 }
 
+/// A fixture SDK program that records the entry path Node actually received
+/// (`process.argv[1]`) to a sibling file before emitting — the probe for the
+/// `\\?\`-verbatim cascade (field report 1): `run_sdk_program` canonicalizes
+/// the harness entry, which on Windows yields the verbatim form Node's
+/// `resolveMainPath` rejects, so the argv it received must never carry it.
+const ARGV_PROBE_PROGRAM: &str = r#"
+import { emit, harness, text } from "@dtmd/temper";
+import { skill } from "@dtmd/temper/claude-code";
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+writeFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "argv-received.txt"),
+  process.argv[1],
+);
+
+const program = harness({
+  members: [
+    skill({
+      name: "coordinate",
+      description: "Use when coordinating agents across axes.",
+      prose: text`
+        # Coordinate
+
+        Drive the team.
+      `,
+    }),
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn emit_program_hands_node_an_entry_path_with_no_verbatim_prefix() {
+    let (_harness, into) = wire_sdk_harness_program("argv-probe", ARGV_PROBE_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let argv = fs::read_to_string(into.join("argv-received.txt")).unwrap();
+    assert!(
+        !argv.starts_with(r"\\?\"),
+        "the entry path handed to the SDK program must carry no Windows verbatim prefix: {argv}"
+    );
+}
+
 #[test]
 fn emit_program_refuses_when_no_sdk_program_exists() {
     let (_harness, into) = workspace("no-program");

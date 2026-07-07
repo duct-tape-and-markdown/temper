@@ -373,6 +373,7 @@ fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
             path: harness_entry.to_path_buf(),
             source,
         })?;
+    let entry_arg = strip_verbatim_prefix(&entry_arg);
     let output = Command::new("node")
         .arg(&entry_arg)
         .current_dir(cwd)
@@ -391,6 +392,25 @@ fn run_sdk_program(harness_entry: &Path) -> Result<String, DriftError> {
         path: harness_entry.to_path_buf(),
         source,
     })
+}
+
+/// Strip Windows' `\\?\` verbatim-path prefix from a canonicalized path.
+///
+/// `fs::canonicalize` on Windows always returns the verbatim form (plain
+/// `\\?\C:\...` or UNC `\\?\UNC\server\share\...`), which Node's
+/// `resolveMainPath` rejects outright. Elsewhere `canonicalize` never
+/// produces this prefix, so this is a no-op.
+fn strip_verbatim_prefix(path: &Path) -> PathBuf {
+    let Some(raw) = path.to_str() else {
+        return path.to_path_buf();
+    };
+    if let Some(rest) = raw.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{rest}"))
+    } else if let Some(rest) = raw.strip_prefix(r"\\?\") {
+        PathBuf::from(rest)
+    } else {
+        path.to_path_buf()
+    }
 }
 
 /// Compile a seam `payload` into every projection and the whole lock — the sole
@@ -1654,5 +1674,23 @@ mod tests {
         let outcome = place(&target, "temper wants this", None, false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "temper wants this");
+    }
+
+    #[test]
+    fn strip_verbatim_prefix_strips_the_windows_disk_form() {
+        let stripped = strip_verbatim_prefix(Path::new(r"\\?\C:\repo\.temper\harness.ts"));
+        assert_eq!(stripped, PathBuf::from(r"C:\repo\.temper\harness.ts"));
+    }
+
+    #[test]
+    fn strip_verbatim_prefix_strips_the_windows_unc_form() {
+        let stripped = strip_verbatim_prefix(Path::new(r"\\?\UNC\server\share\harness.ts"));
+        assert_eq!(stripped, PathBuf::from(r"\\server\share\harness.ts"));
+    }
+
+    #[test]
+    fn strip_verbatim_prefix_leaves_a_non_verbatim_path_untouched() {
+        let stripped = strip_verbatim_prefix(Path::new("/repo/.temper/harness.ts"));
+        assert_eq!(stripped, PathBuf::from("/repo/.temper/harness.ts"));
     }
 }
