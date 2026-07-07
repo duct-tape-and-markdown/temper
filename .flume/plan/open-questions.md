@@ -57,56 +57,6 @@ tax.
   capability mismatch, which harness is authoritative, whether a lossy
   projection is a verdict or an error. No dependents.
 
-- `(json-write-fidelity)` — OPEN (field report 2026-07-07). install's hook
-  merge into an existing `.claude/settings.json` is semantically correct but
-  re-serializes the whole file (keys reordered, EOL churn). The round-trip
-  discipline the corpus states for TOML/markdown (`toml_edit`, the
-  format-preserving keystone) has no stated JSON equivalent
-  (`specs/model/pipeline.md`, "Install" — the one settings write). Candidate
-  ruling: key-order-preserving insertion. Peer to `(json-projection-format)` —
-  that fork models JSON *kinds*; this is install's write fidelity into a file it
-  does not own. Blocks a clean install footprint on a hand-authored
-  settings.json.
-
-- `(orphaned-projection)` — OPEN (field report 2026-07-07). Deleting a member
-  from the program and re-emitting reports "N unchanged" and leaves the emitted
-  `.claude/` file on disk — unowned, still loading; the lock forgets the path
-  with no removed-state, no reap, no report (`specs/model/pipeline.md`, "Emit":
-  "Total, and write-only" does not say whether a now-ownerless projection is
-  reaped or reported). Detection is decidable (a lock-known projection with no
-  current owner); the remedy — reap the file vs. report it as drift — is the
-  open fork. Live hazard: a stale projection keeps loading into the agent.
-
-- `(file-edge-resolution)` — OPEN (field report 2026-07-07). `file()` edge
-  resolution disagrees between doc and engine: the SDK's `prose.ts` documents
-  module-relative, emit resolves against `baseDir ?? cwd`
-  (workspace-relative). Scaffold's `../.claude` paths work only because
-  `.temper/` sits one directory deep. One of the two must change; scaffold
-  output, resolution, and docs move together in one entry. Fork: which locus is
-  authoritative (module-relative or workspace-relative)?
-  (`specs/model/pipeline.md`, "The SDK" — an include pulls the target's
-  content; the resolution locus is unstated.)
-
-- `(emit-eol-policy)` — OPEN (field report 2026-07-07). On Windows, emitted
-  projections mix LF (emit's connective tissue) with CRLF (a verbatim body
-  copied from a CRLF source), tripping git's LF/CRLF warnings and breaking
-  byte-reproducibility (`specs/intent.md`, invariant 3). A deterministic EOL
-  policy is needed; candidate: always LF. The tension is real — normalizing the
-  body's EOL touches verbatim prose (invariant 3, "never rewords"), so "always
-  LF" is a ruling about whether EOL is meaning-carrying, not a free default.
-  Fork before an entry can encode it.
-
-- `(surface-vocabulary)` — OPEN (field report 2026-07-07, needs John). The
-  remaining Claude Code surfaces need declared vocabulary before they can be
-  modeled or gated: slash commands need a registration value for
-  **user-invoked** (the existing registration vocabulary is always /
-  description-trigger / paths-match / event / connection); hooks and settings
-  need kinds. Until ruled, two coverage advisories stay permanent — including a
-  decidable "an entry in `.claude/` matching no kind's `governs` and no known
-  surface" advisory (a bogus `.clauignore` currently sails through). Joins the
-  `(json-projection-format)` family (`specs/builtins.md`, "The named
-  expansion" — commands/agents/hooks/permissions are forward work).
-
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
