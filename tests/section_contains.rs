@@ -8,14 +8,13 @@
 //! ([`temper::kind`]) into [`Features::sections`], then the `section_contains`
 //! clause is evaluated over it ([`temper::engine`]). This proves the predicate is a
 //! true positive — it fires on a `## Decision` section missing its `Rejected` marker
-//! and stays silent when every matching section carries it — and that the closed
-//! vocabulary still rejects an out-of-vocabulary primitive/predicate at load.
+//! and stays silent when every matching section carries it.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use temper::check::{Diagnostic, Severity as DiagnosticSeverity};
-use temper::contract::{Clause, Contract, ContractError, Predicate, Severity};
+use temper::contract::{Clause, Contract, Predicate, Severity};
 use temper::engine;
 use temper::extract::Features;
 use temper::kind::{Extraction, Primitive, Unit};
@@ -133,21 +132,4 @@ More prose, still no marker.\n";
         check(none).is_empty(),
         "no section matches the `Decision` prefix, so the clause governs nothing"
     );
-}
-
-/// The closed vocabulary holds: an out-of-vocabulary predicate is rejected at
-/// load — `section_contains` is an addition to the vocabulary, not a trapdoor
-/// that opened it (`specs/architecture/10-contracts.md`, "Decision: the contract is
-/// itself checked — admissibility").
-#[test]
-fn an_out_of_vocabulary_predicate_is_still_rejected_at_load() {
-    let predicate_err = Contract::parse(
-        "[[clause]]\nseverity = \"required\"\npredicate = \"section_matches\"\nheading = \"Decision\"\n",
-        Path::new("spec.contract.toml"),
-    )
-    .expect_err("an unknown predicate is a load error");
-    assert!(matches!(
-        predicate_err,
-        ContractError::UnknownPredicate { ref predicate, .. } if predicate == "section_matches"
-    ));
 }

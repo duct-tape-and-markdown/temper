@@ -780,7 +780,6 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
 /// (`temper::drift::ClauseRow`; `Predicate::key`/`Predicate::target`).
 fn floor_triples(kind: &str) -> Vec<(&'static str, Option<String>, &'static str)> {
     let contract = builtin::contract(kind)
-        .unwrap()
         .unwrap_or_else(|| panic!("built-in kind `{kind}` ships an embedded floor"));
     contract
         .clauses
@@ -896,9 +895,7 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
 /// lock's row, and `builtin::contract`'s projection, unchanged.
 #[test]
 fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
-    let contract = builtin::contract("skill")
-        .unwrap()
-        .expect("skill's built-in floor is embedded");
+    let contract = builtin::contract("skill").expect("skill's built-in floor is embedded");
     let floor_clause = contract
         .clauses
         .iter()

@@ -55,7 +55,7 @@ const REQUIREMENT_COLLISION_RULE: &str = "requirement.admissibility";
 /// loud if the build embeds no floor of that name (`specs/architecture/10-contracts.md`) — a
 /// missing floor is a hard error, never a silently empty contract.
 fn builtin_floor(kind: &str) -> miette::Result<Contract> {
-    builtin::contract(kind)?
+    builtin::contract(kind)
         .ok_or_else(|| miette::miette!("built-in kind `{kind}` ships no embedded floor"))
 }
 

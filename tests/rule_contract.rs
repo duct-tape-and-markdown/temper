@@ -22,9 +22,7 @@ use temper::engine;
 /// The built-in rule contract, resolved from the embedded built-in lock the same
 /// way the shipped tool resolves it.
 fn rule_builtin() -> Contract {
-    temper::builtin::contract("rule")
-        .expect("the embedded rule floor should project")
-        .expect("the rule floor is embedded")
+    temper::builtin::contract("rule").expect("the rule floor is embedded")
 }
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in

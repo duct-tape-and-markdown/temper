@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 use crate::builtin_lock;
 use crate::compose;
-use crate::contract::{Charset, Clause, Contract, ContractError, Predicate};
+use crate::contract::{Charset, Clause, Contract, Predicate};
 use crate::drift::{CharsetRow, ClauseRow};
 
 /// Lift one embedded clause row's `charset` column into the typed [`Charset`] —
@@ -108,28 +108,22 @@ fn contract_for_kind(kind: &str) -> Contract {
 
 /// The embedded built-in floor bound to a kind's bare row label, or `None` if no
 /// embedded kind of that name ships one.
-///
-/// # Errors
-///
-/// Never fails; the `Result` is kept for API stability.
-pub fn contract(kind: &str) -> Result<Option<Contract>, ContractError> {
-    Ok(builtin_lock::declarations()
+#[must_use]
+pub fn contract(kind: &str) -> Option<Contract> {
+    builtin_lock::declarations()
         .kinds
         .iter()
         .any(|row| row.name == kind)
-        .then(|| contract_for_kind(kind)))
+        .then(|| contract_for_kind(kind))
 }
 
 /// Every embedded built-in kind's floor, keyed by its bare row label — the
 /// compiled default program's floor roster.
-///
-/// # Errors
-///
-/// Never fails; the `Result` is kept for API stability.
-pub fn contracts() -> Result<BTreeMap<String, Contract>, ContractError> {
-    Ok(builtin_lock::declarations()
+#[must_use]
+pub fn contracts() -> BTreeMap<String, Contract> {
+    builtin_lock::declarations()
         .kinds
         .iter()
         .map(|row| (row.name.clone(), contract_for_kind(&row.name)))
-        .collect())
+        .collect()
 }

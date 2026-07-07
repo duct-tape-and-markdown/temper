@@ -1,5 +1,5 @@
 //! Pins the shipped Anthropic skill built-in floor (`specs/architecture/10-contracts.md`,
-//! "Packages — best practices as data").
+//! "The clause — the atom of a contract").
 //!
 //! The `skill` floor is a projection of the embedded built-in lock's clause rows
 //! (`specs/architecture/50-distribution.md`, "Decision: the built-in lock is derived
@@ -17,18 +17,14 @@
 //! territory, so it is asserted present, not pinned verbatim.
 
 use std::collections::BTreeSet;
-use std::path::Path;
 
 use temper::contract::{Charset, Contract, Predicate, Severity};
 use temper::engine;
-use temper::schema;
 
 /// The built-in skill contract, resolved from the embedded built-in lock the same
 /// way the shipped tool resolves it.
 fn skill_builtin() -> Contract {
-    temper::builtin::contract("skill")
-        .expect("the embedded skill floor should project")
-        .expect("the skill floor is embedded")
+    temper::builtin::contract("skill").expect("the skill floor is embedded")
 }
 
 /// A contract's decidable `(severity, predicate)` vector, in declaration order —
@@ -190,12 +186,11 @@ fn skill_builtin_encodes_only_decidable_clauses() {
 
 /// Both shipped built-in packages are themselves admissible — they pass the second
 /// green (`specs/architecture/10-contracts.md`, "Decision: the contract is itself checked —
-/// admissibility"). Every embedded package parses (closed vocabulary + charset
-/// ranges enforced at load) and carries no vacuous list clause, so
-/// `engine::admissibility` returns no findings.
+/// admissibility"). Every embedded package carries only closed-vocabulary clauses
+/// and no vacuous list clause, so `engine::admissibility` returns no findings.
 #[test]
 fn the_shipped_built_in_packages_are_admissible() {
-    let builtins = temper::builtin::contracts().expect("the embedded packages should parse");
+    let builtins = temper::builtin::contracts();
     assert!(
         !builtins.is_empty(),
         "at least the skill and rule built-ins must be embedded"
@@ -207,177 +202,4 @@ fn the_shipped_built_in_packages_are_admissible() {
             "{name} should be admissible, got: {diagnostics:?}",
         );
     }
-}
-
-/// A contract text carrying `guidance` on a field clause parses it onto the clause
-/// (`specs/architecture/50-distribution.md`, "The gate at keystroke"), and it plays *no part* in
-/// admissibility — it is advisory-only, never a gate input (`00-intent.md` law 3).
-/// The same contract's `guidance` projects to the emitted schema's property
-/// `description`, strictly beside the validation keywords and never mixed into them.
-#[test]
-fn guidance_parses_is_advisory_only_and_projects_to_description() {
-    let toml = r#"
-[[clause]]
-severity = "required"
-predicate = "max_len"
-field = "name"
-max = 64
-guidance = "Keep the name short and slug-like."
-
-[[clause]]
-severity = "required"
-predicate = "min_len"
-field = "description"
-min = 1
-"#;
-    let contract = Contract::parse(toml, Path::new("skill.toml")).unwrap();
-
-    // Parses onto the clause; a clause without a `guidance` key carries `None`.
-    assert_eq!(
-        contract.clauses[0].guidance.as_deref(),
-        Some("Keep the name short and slug-like.")
-    );
-    assert!(contract.clauses[1].guidance.is_none());
-
-    // Advisory-only: guidance is not a gate input, so admissibility is unaffected —
-    // the contract is exactly as admissible as it would be without it.
-    assert!(
-        engine::admissibility(&contract).is_empty(),
-        "guidance must play no part in admissibility",
-    );
-
-    // Projects to the docs channel: `name`'s property carries both its validation
-    // keyword and the `description`; the un-guided `description` field carries none.
-    let json = schema::emit(&contract);
-    assert_eq!(
-        json["properties"]["name"]["description"],
-        "Keep the name short and slug-like."
-    );
-    assert_eq!(json["properties"]["name"]["maxLength"], 64);
-    assert!(
-        json["properties"]["description"]
-            .get("description")
-            .is_none()
-    );
-}
-
-/// Guidance is admitted by the closed-vocabulary parser without widening the gate:
-/// a clause carrying `guidance` alongside an *unknown* predicate still fails to
-/// load, so `guidance` is not an escape hatch — it rides beside the algebra, never
-/// relaxes it.
-#[test]
-fn guidance_does_not_admit_an_unknown_predicate() {
-    let toml = r#"
-[[clause]]
-severity = "required"
-predicate = "word_count"
-field = "description"
-guidance = "should be concise"
-"#;
-    assert!(
-        Contract::parse(toml, Path::new("c.toml")).is_err(),
-        "guidance must not turn an unknown predicate into an admissible clause",
-    );
-}
-
-/// A non-string `guidance` is a load error, mirroring every other mistyped clause
-/// key — the docs channel is prose, never a structured value.
-#[test]
-fn a_non_string_guidance_is_a_load_error() {
-    let toml = r#"
-[[clause]]
-severity = "advisory"
-predicate = "max_lines"
-max = 500
-guidance = 42
-"#;
-    assert!(Contract::parse(toml, Path::new("c.toml")).is_err());
-}
-
-/// A clause may carry a `source` citation beside its `guidance` — the *provenance
-/// of taste* a built-in package's clauses are expected to record (`specs/architecture/10-contracts.md`,
-/// "Decision: a built-in package is named for its source, and cited to it"). The
-/// loader parses and *preserves* it verbatim; a clause without one still loads,
-/// carrying `None`. `source` is preserved metadata, not a predicate — admitting it
-/// leaves admissibility untouched.
-#[test]
-fn source_parses_is_preserved_and_advisory_only() {
-    let toml = r#"
-[[clause]]
-severity = "required"
-predicate = "max_len"
-field = "name"
-max = 64
-guidance = "Keep the name short and slug-like."
-source = "https://docs.claude.com/skills#naming (retrieved 2026-07-01)"
-
-[[clause]]
-severity = "required"
-predicate = "min_len"
-field = "description"
-min = 1
-"#;
-    let contract = Contract::parse(toml, Path::new("skill.toml")).unwrap();
-
-    // Preserved verbatim on the clause that declares it; absent ⇒ `None`.
-    assert_eq!(
-        contract.clauses[0].source.as_deref(),
-        Some("https://docs.claude.com/skills#naming (retrieved 2026-07-01)")
-    );
-    assert!(contract.clauses[1].source.is_none());
-
-    // Preserved metadata, not a gate input: admitting `source` neither adds nor
-    // relaxes any admissibility check.
-    assert!(
-        engine::admissibility(&contract).is_empty(),
-        "source must play no part in admissibility",
-    );
-}
-
-/// `source` rides *beside* the algebra, never widens it: a clause pairing `source`
-/// with a genuinely unknown predicate still fails to load, so a stray key is no
-/// escape hatch. And absent `source` (every clause on disk today) stays admissible.
-#[test]
-fn source_does_not_admit_a_stray_key_or_unknown_predicate() {
-    // `source` is not a blanket "accept any key" — an unrelated stray key still rejects.
-    let stray = r#"
-[[clause]]
-severity = "required"
-predicate = "max_len"
-field = "name"
-max = 64
-source = "https://example.test"
-nonsense = "still rejected"
-"#;
-    assert!(
-        Contract::parse(stray, Path::new("c.toml")).is_err(),
-        "a stray key must still reject even when `source` is present",
-    );
-
-    // Nor does `source` launder an unknown predicate into an admissible clause.
-    let unknown_predicate = r#"
-[[clause]]
-severity = "required"
-predicate = "word_count"
-field = "description"
-source = "https://example.test"
-"#;
-    assert!(
-        Contract::parse(unknown_predicate, Path::new("c.toml")).is_err(),
-        "source must not turn an unknown predicate into an admissible clause",
-    );
-}
-
-/// A non-string `source` is a load error, mirroring `guidance` and every other
-/// mistyped clause key — the citation channel is prose, never a structured value.
-#[test]
-fn a_non_string_source_is_a_load_error() {
-    let toml = r#"
-[[clause]]
-severity = "advisory"
-predicate = "max_lines"
-max = 500
-source = 42
-"#;
-    assert!(Contract::parse(toml, Path::new("c.toml")).is_err());
 }

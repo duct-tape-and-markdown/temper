@@ -36,9 +36,7 @@ use temper::kind::Unit;
 /// the same clauses the tool ships (`specs/architecture/50-distribution.md`,
 /// "Decision: the built-in lock is derived from the SDK module, never transcribed").
 fn builtin_skill_contract() -> Contract {
-    temper::builtin::contract("skill")
-        .expect("the embedded skill floor should project")
-        .expect("the skill floor is embedded")
+    temper::builtin::contract("skill").expect("the skill floor is embedded")
 }
 
 /// The built `temper` binary, located by Cargo at compile time — the custom-kind
