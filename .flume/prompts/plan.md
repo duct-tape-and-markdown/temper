@@ -91,6 +91,13 @@ wins.
    file (`.claude/rules/rust.md`, the exit clause), or the standing
    comment-stock sweep if none does. Comments are the one surface no cargo
    gate re-tests; this sweep is their only reconcile moment.
+   **The stock sweep was ONE entry and it has shipped** — after it, comment
+   and citation staleness only ever rides: fold it into whichever entry next
+   opens the file, and never file a standalone comment/citation entry when it
+   would be the queue's only new work. A reconcile whose every candidate is
+   comment-shaped files none of them and goes quiet. (Real failure: five
+   consecutive sweep entries kept the loop cycling on hygiene after the real
+   work drained.)
 
    **One entry = one gate-sized commit, comfortably under 200k tokens of build
    work.** If a scope needs lettered sub-parts, an internal task list, or
