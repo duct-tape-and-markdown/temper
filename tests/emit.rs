@@ -25,6 +25,7 @@ use std::process::Command;
 use std::sync::Once;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use sha2::{Digest, Sha256};
 use temper::drift::{
     self, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload, PayloadMember,
 };
@@ -395,6 +396,96 @@ fn the_lock_baselines_source_hash_and_emit_hash_equal_for_a_payload_compiled_mem
     let emit_hash = row.get("emit_hash").and_then(|v| v.as_str()).unwrap();
     assert_eq!(source_hash.len(), 64);
     assert_eq!(source_hash, emit_hash);
+}
+
+#[test]
+fn a_crlf_or_lone_cr_body_emits_an_lf_only_projection() {
+    let (harness, into) = workspace("lf-normalize");
+    let crlf_body = "# Windows-authored\r\n\r\nCarries CRLF line endings.\r\n";
+    let lone_cr_body = "# Old-Mac-authored\rCarries lone CR line endings.\r";
+    let payload = basic_payload(vec![
+        rule_member("crlf", Some(&["src/**/*.rs"]), crlf_body),
+        rule_member("lonecr", Some(&["src/**/*.rs"]), lone_cr_body),
+    ]);
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let crlf_path = harness.join(".claude").join("rules").join("crlf.md");
+    let lonecr_path = harness.join(".claude").join("rules").join("lonecr.md");
+    let crlf_bytes = fs::read(&crlf_path).unwrap();
+    let lonecr_bytes = fs::read(&lonecr_path).unwrap();
+    assert!(
+        !crlf_bytes.contains(&b'\r'),
+        "a CRLF source must emit LF-only bytes"
+    );
+    assert!(
+        !lonecr_bytes.contains(&b'\r'),
+        "a lone-CR source must emit LF-only bytes"
+    );
+    assert_eq!(
+        String::from_utf8(crlf_bytes.clone()).unwrap(),
+        "---\npaths: [\"src/**/*.rs\"]\n---\n# Windows-authored\n\nCarries CRLF line endings.\n"
+    );
+    assert_eq!(
+        String::from_utf8(lonecr_bytes.clone()).unwrap(),
+        "---\npaths: [\"src/**/*.rs\"]\n---\n# Old-Mac-authored\nCarries lone CR line endings.\n"
+    );
+
+    // The lock's emit_hash is computed over the same normalized bytes written to disk.
+    let doc = fs::read_to_string(into.join("lock.toml"))
+        .unwrap()
+        .parse::<toml_edit::DocumentMut>()
+        .unwrap();
+    let rows = doc["rule"].as_array_of_tables().unwrap();
+    for (name, bytes) in [("crlf", &crlf_bytes), ("lonecr", &lonecr_bytes)] {
+        let row = rows
+            .iter()
+            .find(|row| row.get("name").and_then(|v| v.as_str()) == Some(name))
+            .unwrap();
+        let emit_hash = row.get("emit_hash").and_then(|v| v.as_str()).unwrap();
+        let mut hasher = Sha256::new();
+        hasher.update(bytes);
+        assert_eq!(emit_hash, format!("{:x}", hasher.finalize()));
+    }
+
+    // Idempotent double-emit: re-emitting the same (CRLF-carrying) payload
+    // byte-reproduces and reports Unchanged, never a nondeterminism refusal.
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "crlf"), EmitOutcome::Unchanged);
+    assert_eq!(outcome(&report, "lonecr"), EmitOutcome::Unchanged);
+    assert_eq!(fs::read(&crlf_path).unwrap(), crlf_bytes);
+    assert_eq!(fs::read(&lonecr_path).unwrap(), lonecr_bytes);
+}
+
+#[test]
+fn an_own_path_members_crlf_body_also_normalizes_to_lf() {
+    let (harness, into) = workspace("lf-normalize-own-path");
+    let rules_dir = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    let own_path = rules_dir.join("lifted.md");
+    let crlf_body = "# Lifted, authored on Windows\r\n\r\nVerbatim body, own path.\r\n";
+    fs::write(&own_path, crlf_body).unwrap();
+
+    let payload = basic_payload(vec![PayloadMember {
+        kind: "rule".to_string(),
+        name: "lifted".to_string(),
+        fields: Vec::new(),
+        body: crlf_body.to_string(),
+        source_path: Some(own_path.to_string_lossy().into_owned()),
+    }]);
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "lifted"), EmitOutcome::Emitted);
+
+    let bytes = fs::read(&own_path).unwrap();
+    assert!(
+        !bytes.contains(&b'\r'),
+        "an own_path member's verbatim body must also normalize to LF"
+    );
+    assert_eq!(
+        String::from_utf8(bytes).unwrap(),
+        "# Lifted, authored on Windows\n\nVerbatim body, own path.\n"
+    );
 }
 
 #[test]

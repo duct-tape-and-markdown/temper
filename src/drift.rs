@@ -641,6 +641,25 @@ fn reap_or_report_orphan(
     }))
 }
 
+/// Normalize line endings to LF: a CRLF pair collapses to one `\n`, and a lone
+/// CR (old Mac style) becomes `\n` too — projections are written LF uniformly
+/// regardless of the source's own convention.
+fn normalize_lf(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\r' {
+            if chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            out.push('\n');
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Re-emit one projection whole, returning its [`EmitEntry`] and the SHA-256 of the
 /// bytes now on disk (or that would be, under `--dry-run`) — the fresh rollup row's
 /// `source_hash`/`emit_hash`, always equal for a payload-compiled member (there is no
@@ -687,21 +706,21 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
     // (`orderedFields`, `sdk/src/kind.ts`) atop the file's own, already-authored
     // frontmatter — so own-path skips field-derived rendering and projects the
     // resolved body (the whole file, byte-faithful) verbatim.
-    let desired = if projection.own_path {
+    let desired = normalize_lf(&if projection.own_path {
         projection.body.clone()
     } else {
         project_bytes(&projection.fields, &projection.body, &placements)
-    };
+    });
 
     // Double-emit determinism: a second
     // projection over the same surface must be byte-identical. Nondeterministic
     // authoring (a timestamp, an unordered map surfacing into a field) is a loud
     // failure here, never a silent churn the next `emit` would rewrite.
-    let second_pass = if projection.own_path {
+    let second_pass = normalize_lf(&if projection.own_path {
         projection.body.clone()
     } else {
         project_bytes(&projection.fields, &projection.body, &placements)
-    };
+    });
     if second_pass != desired {
         return Err(DriftError::Nondeterministic {
             path: projection.source_path.clone(),
@@ -1402,7 +1421,7 @@ pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, Drift
     Ok(declarations_from_doc(&doc))
 }
 
-/// Extract the four declaration families off a parsed lock's `[declaration]` table. A row
+/// Extract the six declaration families off a parsed lock's `[declaration]` table. A row
 /// missing a required column is skipped rather than erroring — a generated section is never
 /// malformed, and a hand-edited broken row degrades to absent, the tolerant read the other
 /// lock readers take.
