@@ -1,67 +1,5 @@
 [
   {
-    "tag": "SCAFFOLD-OUTPUT-VALID",
-    "summary": "scaffolded skill modules omit required Skill.description (fails tsc) and install pins SDK ^0.0.2 — caret pins the patch to 0.0.2, which predates the `file` export the scaffold imports",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Install"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "Scaffold template: carry the skill's `description` into scaffolded skill modules — Skill.description is required in the SDK types, so omitting it fails tsc (the advertised keystroke wall) even though the runtime erases types. Bump SDK_VERSION_RANGE off `^0.0.2` (:56) to the seam the binary speaks: caret on 0.0.x pins the PATCH (>=0.0.2 <0.0.3), so fresh installs get 0.0.2, which predates the `file` export the scaffold imports; 0.0.4 (seam v2, has `file`) is published. Scaffold output and version range are one contract."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "scaffolded skill modules include description; the scaffolded module + version range import a seam that exports `file`"
-      }
-    ],
-    "acceptance": "Scaffolded modules typecheck (skill modules carry description) and import an SDK seam that exports `file`; install pins a range that resolves to it.",
-    "notes": "Field reports T6 + finding 3. WIN-INSTALL-SPAWN (same install.rs) shipped da6b127 — now open, head of the install.rs chain (SCAFFOLD->PATH-SEP-NORMALIZE->GUARD-OWNPATH). Supersedes PACKAGING's 'release-owned bump' framing: the range is a live install-correctness bug fixed here; release owns only future re-pins."
-  },
-  {
-    "tag": "EXPLAIN-RESOLVER",
-    "summary": "explain prints not-found (retired `import` verb) then narrates the member anyway, and misreports a locked requirement's fill status — the resolver checks one namespace before it finds the member",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "Read verbs"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "The member resolver prints the not-found error (suggesting the retired `import` verb) then narrates the member anyway — it checks one namespace before the one the resolver eventually finds it in; resolve before the not-found check and drop the retired-verb suggestion. explain <requirement> reports 'required, and unfilled — which check reports as an error' even with a satisfier locked and check reporting nothing; read the lock's requirement/satisfies declarations so explain narrates fill status over the same resolved edges the gate uses."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain <member> resolves without a spurious not-found and never suggests the retired `import` verb; explain <requirement> reports fill status agreeing with the gate"
-      }
-    ],
-    "acceptance": "explain <member> resolves without a spurious not-found; explain <requirement> reports fill status agreeing with the gate; no output suggests the retired `import` verb.",
-    "notes": "Field report 2 T2 + report 1 finding 7. REQUIREMENT-GATE shipped f0e1e74 (harness_diagnostics now reads the lock's requirement/satisfies rows) — now open; explain projects requirement fill over the same resolved edges the gate uses."
-  },
-  {
     "tag": "PATH-SEP-NORMALIZE",
     "summary": "on Windows scaffolded modules and lock rows embed backslashes (file(\"../.claude/rules\\\\x.md\"), mixed-sep source_path) — .temper/ is committed and cross-platform; normalize both writes to /",
     "per": {
@@ -132,53 +70,6 @@
     ],
     "acceptance": "The guard passes a write to a file()-carried member's own .claude/ source (own_path) and continues to bind writes to projected .claude/ files, reading the lock rather than a path regex alone.",
     "notes": "Field report 1. For file()-carried members the .claude/ file is the source of truth, not a projection; the guard must read the lock's owned-source paths. blockedBy PATH-SEP-NORMALIZE (same install.rs file)."
-  },
-  {
-    "tag": "MENTION-EDGE-LANDS",
-    "summary": "the mention (`n`) edge is resolution-checked at emit but never compiled into the payload/lock/graph — it reaches no shared edge enumeration, so no degree clause or read verb ranges over it",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "edge"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Compile the mention (`n`) family into the emit payload's declaration rows, paralleling the `satisfies` family already carried on member/unit rows — an `n`'s (source member, target address) becomes a declared edge, not merely an emit-time resolution check."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "The `n` targets already resolution-checked here (the `nable` set) also surface into the payload's declaration rows so the edge survives type erasure, not just the loud dangling-mention refusal. While this edit opens the file (citation staleness rides it): retarget the two stale cites `(specs/architecture/20-surface.md, \"Emit refuses before it writes\")` at :108/:129 to `specs/model/pipeline.md`, \"Emit\" (the \"Refusing\" bullet) — that spec path retired."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Add the mention edge's declaration-row family to the lock (read + write), paralleling the `satisfies` rows — emit is the sole producer."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "edges_from_declarations includes the mention rows so assembly_edges carries mentions into the one resolved edge enumeration the gate and read verbs share."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Bind mention edges in the reference graph so `degree` (obligation-free by default — a contract may count them) and explain range over them; explain build's 'it points at no member' resolves once the edge is bound."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a `n` authored on a member's prose leaf compiles to a mention declaration row, rides the lock, and binds in the graph so a degree clause over it evaluates; explain narrates the resolved target"
-      }
-    ],
-    "acceptance": "A mention (`n`) authored in prose lands as a declared edge in the payload, the lock, and the graph; a degree clause can count it and explain narrates its resolved target rather than 'points at no member'.",
-    "notes": "Field report 3 T10. contract.md: a mention is one of four edge loci; every edge resolves into the one enumeration the gate and read verbs share. Obligation-free by default (no shipped clause counts it; a contract may). Model on the satisfies family, which already threads SDK->payload->lock->graph. Unblocked: HELP-TEXT-RECUT (f1c7de5) + COVERAGE-KIND-AWARE (801c62b) cleared main.rs; MENTION is now its sole pending editor."
   },
   {
     "tag": "PACKAGING-CHANNELS",
