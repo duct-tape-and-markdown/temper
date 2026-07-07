@@ -48,7 +48,7 @@ checks are well-formedness: the preconditions of checking at all
 5. **Gate, don't lint.** Where blocking is cheap — CI, the author's
    terminal — a failing contract hard-fails. At session start, where blocking
    a live session would be hostile, the verdict is surfaced for approval,
-   never silently passed. Enforcement posture is author-declared per
+   never silently passed. Enforcement mode is author-declared per
    placement.
 
 ## Positioning
