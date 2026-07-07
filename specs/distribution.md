@@ -37,7 +37,7 @@ against its built-in lock — gates any harness with no Node, no SDK, no
 toolchain; the plugin a stranger installs is the one that gates this repo
 (`intent.md`, self-hosting).
 
-## The placements and their enforcement postures
+## The placements and their enforcement modes
 
 - **Keystroke** — on a fully composed harness the toolchain is the wall:
   the SDK's types deliver the decidable contract as compile-time validation,
@@ -57,7 +57,7 @@ toolchain; the plugin a stranger installs is the one that gates this repo
   byte-reproducibility mechanical. SARIF is CI's reporter.
 - **The author's terminal** — **hard**; the author runs `temper check`.
 - **Per tool call** — the `PreToolUse` guard is `temper guard`; whether it
-  blocks follows the author's declared enforcement posture (note / warn /
+  blocks follows the author's declared enforcement mode (note / warn /
   block), default advisory.
 
 `temper install` is the one on-ramp: discovery report, one question, every
