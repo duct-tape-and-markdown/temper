@@ -5,13 +5,13 @@
  * targets Claude Code imports the built-in kinds from here, never the root:
  * the root carries only the six-noun core, and identity travels by import
  * (`specs/architecture/15-kinds.md`), so a subpath specifier is a full module
- * specifier like any other. The built-in floors (exported clause arrays) join
- * this entry when they are authored in `sdk/src`; today only the three kinds
- * exist.
+ * specifier like any other. The built-in floors (exported clause arrays,
+ * `10-contracts.md`, "A shared clause set — a floor") join the kinds here
+ * too: adoption is `import { skill, skillFloor } from "@dtmd/temper/claude-code"`.
  */
 
 export type { Memory, Rule, Skill } from "./builtins.js";
-export { memory, rule, skill } from "./builtins.js";
+export { memory, memoryAgentsMdFloor, memoryAnthropicFloor, rule, ruleFloor, skill, skillFloor } from "./builtins.js";
 
 // The prose constructors ride along so a harness author targeting Claude Code
 // never reaches back to the root package mid-member (`specs/architecture/20-surface.md`,

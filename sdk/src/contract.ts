@@ -36,6 +36,23 @@ export interface Predicate {
    * at the node-set scope").
    */
   readonly target?: string;
+  /** `allowed_chars`'s declared character class (`10-contracts.md`, "allowed_chars"). */
+  readonly charset?: Charset;
+  /** `forbidden_keys`'s forbidden key list. */
+  readonly keys?: readonly string[];
+  /** `enum`/`deny`'s permitted or forbidden value list. */
+  readonly values?: readonly string[];
+}
+
+/**
+ * The character class `allowed_chars` admits — inclusive ranges plus individual
+ * characters, e.g. `[a-z0-9-]` (`10-contracts.md`, "Decision: `allowed_chars`,
+ * not a general `pattern` clause"). Each range is a `"<lo>-<hi>"` two-character
+ * span (`src/contract.rs` `parse_range`'s wire spelling).
+ */
+export interface Charset {
+  readonly ranges?: readonly string[];
+  readonly chars?: string;
 }
 
 // Node-scope predicates (`10-contracts.md`, "The predicate algebra").
@@ -48,11 +65,21 @@ export const minLen = (field: string, n: number): Predicate => ({ key: "min_len"
 /** The field's value is at most `n` characters. */
 export const maxLen = (field: string, n: number): Predicate => ({ key: "max_len", field, args: { max: n } });
 /** The field's characters are drawn from a declared class (`allowed_chars`). */
-export const allowedChars = (field: string): Predicate => ({ key: "allowed_chars", field });
+export const allowedChars = (field: string, charset: Charset): Predicate => ({
+  key: "allowed_chars",
+  field,
+  charset,
+});
 /** The member's body is at most `n` lines. */
 export const maxLines = (n: number): Predicate => ({ key: "max_lines", args: { max: n } });
 /** The forbidden keys (e.g. the Cursor `globs`/`alwaysApply` keys) are absent. */
-export const forbiddenKeys = (): Predicate => ({ key: "forbidden_keys" });
+export const forbiddenKeys = (keys: readonly string[]): Predicate => ({ key: "forbidden_keys", keys });
+/** The field's value is none of `values` (forbidden values). */
+export const deny = (field: string, values: readonly string[]): Predicate => ({
+  key: "deny",
+  field,
+  values,
+});
 /** The named headings are present. */
 export const requireSections = (): Predicate => ({ key: "require_sections" });
 /** The member's name matches its directory. */
