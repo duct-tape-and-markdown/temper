@@ -40,6 +40,7 @@ use crate::compose::EnforcementMode;
 use crate::drift::{self, ApplyOutcome, EmitReport};
 use crate::frontmatter;
 use crate::import;
+use crate::json_splice::{self, Edit};
 use crate::kind::{Registration, UnitShape};
 
 /// The workspace directory a represented project's SDK program lives under, beside
@@ -686,80 +687,36 @@ struct SettingsProjection {
 /// Project the desired `.claude/settings.json` — the existing settings with the
 /// `SessionStart` hook merged in, and the `PreToolUse` guard ([`GUARD_COMMAND`])
 /// merged in too when `include_guard` is set ("the guard arrives with its
-/// constituency, never before") — or a fresh
-/// document when the file is absent or empty. Idempotent: an already-present temper
-/// hook at its desired shape is left alone, so re-merging reproduces the bytes.
+/// constituency, never before") — or a fresh document when the file is absent or
+/// empty. Idempotent: an already-present temper hook at its desired shape is left
+/// alone, so re-merging reproduces the bytes.
 ///
-/// JSON carries no comments and its object order is not semantically meaningful, so
-/// the merge parses, adds/updates each hook, and re-emits canonical pretty JSON —
-/// there is no format-preserving JSON editor to round-trip through the way
-/// `toml_edit` round-trips the TOML surface.
+/// Format-preserving: an existing document is never re-serialized. Only the two
+/// hook groups' own bytes change — every other key, its order, and the file's
+/// formatting survive (decision 0008, the JSON peer of the `toml_edit` keystone).
 fn project_settings(
     path: &Path,
     existing: Option<&str>,
     include_guard: bool,
 ) -> Result<SettingsProjection, InstallError> {
-    let mut root = match existing {
-        Some(text) if !text.trim().is_empty() => {
-            serde_json::from_str::<JsonValue>(text).map_err(|source| InstallError::Settings {
-                path: path.to_path_buf(),
-                source,
-            })?
-        }
-        _ => json!({}),
-    };
-
-    let object = root
-        .as_object_mut()
-        .ok_or_else(|| InstallError::SettingsShape {
-            path: path.to_path_buf(),
-        })?;
-
-    // Presence *before* the merge — the per-hook outcome install reports.
-    let hook_present = session_start_present(object);
-    let guard_present = include_guard && guard_present(object, GUARD_COMMAND);
-
-    // `hooks` is an object of event-name -> array-of-groups.
-    let hooks = object
-        .entry("hooks")
-        .or_insert_with(|| json!({}))
-        .as_object_mut()
-        .ok_or_else(|| InstallError::SettingsShape {
-            path: path.to_path_buf(),
-        })?;
-
-    // Ensure a `SessionStart` group whose command is the temper binary.
-    let session_start = hooks
-        .entry("SessionStart")
-        .or_insert_with(|| json!([]))
-        .as_array_mut()
-        .ok_or_else(|| InstallError::SettingsShape {
-            path: path.to_path_buf(),
-        })?;
-    if !hooks_session_start(session_start) {
-        session_start.push(json!({
-        "hooks": [
-                { "type": "command", "command": SESSION_START_COMMAND }
-        ]
-        }));
+    match existing {
+        Some(text) if !text.trim().is_empty() => merge_settings(path, text, include_guard),
+        _ => fresh_settings(path, include_guard),
     }
+}
 
-    // Ensure the `PreToolUse` guard — replacing any existing temper guard (identified by
-    // [`GUARD_MARKER`]) rather than appending a second one. Only when this run has a
-    // constituency to place it for.
+/// A fresh canonical `.claude/settings.json` — there is no existing document to
+/// preserve, so a plain pretty re-serialize is exactly the right shape.
+fn fresh_settings(path: &Path, include_guard: bool) -> Result<SettingsProjection, InstallError> {
+    let mut hooks = serde_json::Map::new();
+    hooks.insert("SessionStart".to_string(), json!([session_start_group()]));
     if include_guard {
-        let pre_tool_use = hooks
-            .entry("PreToolUse")
-            .or_insert_with(|| json!([]))
-            .as_array_mut()
-            .ok_or_else(|| InstallError::SettingsShape {
-                path: path.to_path_buf(),
-            })?;
-        upsert_guard(pre_tool_use, GUARD_COMMAND);
+        hooks.insert(
+            "PreToolUse".to_string(),
+            json!([guard_group(GUARD_COMMAND)]),
+        );
     }
-
-    // A trailing newline keeps the file POSIX-clean; pretty JSON is deterministic,
-    // so the whole projection is idempotent.
+    let root = json!({ "hooks": hooks });
     let desired = format!(
         "{}\n",
         serde_json::to_string_pretty(&root).map_err(|source| InstallError::Settings {
@@ -769,8 +726,208 @@ fn project_settings(
     );
     Ok(SettingsProjection {
         desired,
+        hook_present: false,
+        guard_present: false,
+    })
+}
+
+/// Splice the temper hook groups into an existing, non-empty `.claude/settings.json`
+/// document without re-serializing it. Already-present, already-correct hooks are
+/// left untouched, so a no-op merge returns `text` byte-identical.
+fn merge_settings(
+    path: &Path,
+    text: &str,
+    include_guard: bool,
+) -> Result<SettingsProjection, InstallError> {
+    let root: JsonValue = serde_json::from_str(text).map_err(|source| InstallError::Settings {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let object = root
+        .as_object()
+        .ok_or_else(|| InstallError::SettingsShape {
+            path: path.to_path_buf(),
+        })?;
+
+    let hook_present = session_start_present(object);
+    let guard_present = include_guard && guard_present(object, GUARD_COMMAND);
+    let guard_marker_present = include_guard && guard_marker_present(object);
+
+    if hook_present && guard_present == include_guard {
+        return Ok(SettingsProjection {
+            desired: text.to_string(),
+            hook_present,
+            guard_present,
+        });
+    }
+
+    let root_start =
+        text.find(|c: char| !c.is_whitespace())
+            .ok_or_else(|| InstallError::SettingsShape {
+                path: path.to_path_buf(),
+            })?;
+    let root_shape = json_splice::object_shape(text, root_start);
+
+    let mut edits = Vec::new();
+    match root_shape.members.iter().find(|m| m.key == "hooks") {
+        Some(hooks_member) => {
+            let hooks_shape = json_splice::object_shape(text, hooks_member.value_span.0);
+            splice_hooks(
+                text,
+                &hooks_shape,
+                hook_present,
+                include_guard,
+                guard_present,
+                guard_marker_present,
+                &mut edits,
+            );
+        }
+        None => {
+            let mut hooks = serde_json::Map::new();
+            hooks.insert("SessionStart".to_string(), json!([session_start_group()]));
+            if include_guard {
+                hooks.insert(
+                    "PreToolUse".to_string(),
+                    json!([guard_group(GUARD_COMMAND)]),
+                );
+            }
+            edits.push(json_splice::insert_member(
+                &root_shape,
+                "hooks",
+                &json!(hooks),
+                1,
+            ));
+        }
+    }
+
+    let desired = json_splice::apply_edits(text, edits);
+    Ok(SettingsProjection {
+        desired,
         hook_present,
         guard_present,
+    })
+}
+
+/// Add the edits needed to bring an existing `hooks` object up to date: append the
+/// `SessionStart` group when absent (never modifying an existing one — a second
+/// `install` only ever adds its own group, never touches a human's), and either
+/// insert, append, or in-place update the `PreToolUse` guard group depending on
+/// what's already there ("the guard arrives with its constituency, never before").
+fn splice_hooks(
+    text: &str,
+    hooks_shape: &json_splice::ObjectShape,
+    hook_present: bool,
+    include_guard: bool,
+    guard_present: bool,
+    guard_marker_present: bool,
+    edits: &mut Vec<Edit>,
+) {
+    if !hook_present {
+        match hooks_shape.members.iter().find(|m| m.key == "SessionStart") {
+            Some(member) => {
+                let array = json_splice::array_shape(text, member.value_span.0);
+                edits.push(json_splice::append_element(
+                    &array,
+                    &session_start_group(),
+                    3,
+                ));
+            }
+            None => {
+                edits.push(json_splice::insert_member(
+                    hooks_shape,
+                    "SessionStart",
+                    &json!([session_start_group()]),
+                    2,
+                ));
+            }
+        }
+    }
+
+    if include_guard && !guard_present {
+        match hooks_shape.members.iter().find(|m| m.key == "PreToolUse") {
+            Some(member) => {
+                let array = json_splice::array_shape(text, member.value_span.0);
+                if guard_marker_present {
+                    edits.extend(splice_guard_command(text, &array, GUARD_COMMAND));
+                } else {
+                    edits.push(json_splice::append_element(
+                        &array,
+                        &guard_group(GUARD_COMMAND),
+                        3,
+                    ));
+                }
+            }
+            None => {
+                edits.push(json_splice::insert_member(
+                    hooks_shape,
+                    "PreToolUse",
+                    &json!([guard_group(GUARD_COMMAND)]),
+                    2,
+                ));
+            }
+        }
+    }
+}
+
+/// The edits that rewrite just the `command` string of every hook entry, in every
+/// `PreToolUse` group of `array`, whose command already carries [`GUARD_MARKER`] —
+/// the surgical form of replacing a stale temper guard with `new_command` in place,
+/// touching nothing else in the group (its `matcher`, sibling groups, or the rest
+/// of the document).
+fn splice_guard_command(
+    text: &str,
+    array: &json_splice::ArrayShape,
+    new_command: &str,
+) -> Vec<Edit> {
+    let mut edits = Vec::new();
+    for &group_span in &array.elements {
+        let Ok(group_value) = serde_json::from_str::<JsonValue>(&text[group_span.0..group_span.1])
+        else {
+            continue;
+        };
+        if !group_has_command(&group_value, |command| command.contains(GUARD_MARKER)) {
+            continue;
+        }
+        let group_shape = json_splice::object_shape(text, group_span.0);
+        let Some(hooks_member) = group_shape.members.iter().find(|m| m.key == "hooks") else {
+            continue;
+        };
+        let inner = json_splice::array_shape(text, hooks_member.value_span.0);
+        for &hook_span in &inner.elements {
+            let Ok(hook_value) = serde_json::from_str::<JsonValue>(&text[hook_span.0..hook_span.1])
+            else {
+                continue;
+            };
+            let is_guard = hook_value
+                .get("command")
+                .and_then(JsonValue::as_str)
+                .is_some_and(|command| command.contains(GUARD_MARKER));
+            if !is_guard {
+                continue;
+            }
+            let hook_shape = json_splice::object_shape(text, hook_span.0);
+            if let Some(command_member) = hook_shape.members.iter().find(|m| m.key == "command") {
+                edits.push(Edit {
+                    span: command_member.value_span,
+                    replacement: serde_json::to_string(new_command)
+                        .expect("a plain command string serializes infallibly"),
+                });
+            }
+        }
+    }
+    edits
+}
+
+/// The `SessionStart` hook group temper installs: the exec-form command alone.
+fn session_start_group() -> JsonValue {
+    json!({ "hooks": [ { "type": "command", "command": SESSION_START_COMMAND } ] })
+}
+
+/// The `PreToolUse` guard group temper installs, running `command` at [`GUARD_MATCHER`].
+fn guard_group(command: &str) -> JsonValue {
+    json!({
+        "matcher": GUARD_MATCHER,
+        "hooks": [ { "type": "command", "command": command } ]
     })
 }
 
@@ -782,20 +939,16 @@ fn session_start_present(object: &serde_json::Map<String, JsonValue>) -> bool {
         .get("hooks")
         .and_then(|hooks| hooks.get("SessionStart"))
         .and_then(JsonValue::as_array)
-        .is_some_and(|groups| hooks_session_start(groups))
-}
-
-/// See [`session_start_present`] — the same check specialized to the array itself,
-/// used mid-merge where only the `SessionStart` array is in hand.
-fn hooks_session_start(groups: &[JsonValue]) -> bool {
-    groups
-        .iter()
-        .any(|group| group_has_command(group, |command| command == SESSION_START_COMMAND))
+        .is_some_and(|groups| {
+            groups
+                .iter()
+                .any(|group| group_has_command(group, |command| command == SESSION_START_COMMAND))
+        })
 }
 
 /// Whether a `PreToolUse` group carrying *this exact* guard command is already present.
 /// A differing command reads `false`, so the guard reports as (re)applied and
-/// [`upsert_guard`] rewrites it.
+/// [`splice_guard_command`] rewrites it.
 fn guard_present(object: &serde_json::Map<String, JsonValue>, guard: &str) -> bool {
     object
         .get("hooks")
@@ -808,33 +961,19 @@ fn guard_present(object: &serde_json::Map<String, JsonValue>, guard: &str) -> bo
         })
 }
 
-/// Insert or update temper's guard in a `PreToolUse` groups array: an existing temper
-/// guard (identified by [`GUARD_MARKER`]) has its command set to `guard`; absent, a fresh
-/// group is appended. So a re-install never duplicates the guard.
-fn upsert_guard(groups: &mut Vec<JsonValue>, guard: &str) {
-    for group in groups.iter_mut() {
-        if !group_has_command(group, |command| command.contains(GUARD_MARKER)) {
-            continue;
-        }
-        if let Some(hooks) = group.get_mut("hooks").and_then(JsonValue::as_array_mut) {
-            for hook in hooks.iter_mut() {
-                let is_guard = hook
-                    .get("command")
-                    .and_then(JsonValue::as_str)
-                    .is_some_and(|command| command.contains(GUARD_MARKER));
-                if is_guard {
-                    hook["command"] = json!(guard);
-                }
-            }
-        }
-        return;
-    }
-    groups.push(json!({
-        "matcher": GUARD_MATCHER,
-    "hooks": [
-            { "type": "command", "command": guard }
-    ]
-    }));
+/// Whether a `PreToolUse` group carrying *any* temper guard command (identified by
+/// [`GUARD_MARKER`]) is already present, regardless of its exact command — the
+/// "update in place vs. append fresh" fork [`splice_hooks`] reads.
+fn guard_marker_present(object: &serde_json::Map<String, JsonValue>) -> bool {
+    object
+        .get("hooks")
+        .and_then(|hooks| hooks.get("PreToolUse"))
+        .and_then(JsonValue::as_array)
+        .is_some_and(|groups| {
+            groups
+                .iter()
+                .any(|group| group_has_command(group, |command| command.contains(GUARD_MARKER)))
+        })
 }
 
 /// Whether a hook group carries a `command` string satisfying `pred` — the shared

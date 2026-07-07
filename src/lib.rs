@@ -34,6 +34,7 @@ pub mod graph;
 pub(crate) mod hash;
 pub mod import;
 pub mod install;
+pub(crate) mod json_splice;
 pub mod kind;
 pub mod read;
 pub mod reporter;

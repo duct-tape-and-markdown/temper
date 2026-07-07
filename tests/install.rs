@@ -108,6 +108,46 @@ const COLLAB_RULE: &str = "# Collaboration\n\nPushback is the point.\n";
 const EXISTING_SETTINGS: &str =
     "{\n  \"permissions\": {\n    \"allow\": [\"Bash(cargo test:*)\"]\n  }\n}\n";
 
+/// A pre-existing `.claude/settings.json` in a shape a whole-file re-serialize could
+/// never reproduce: 4-space indentation (`serde_json`'s canonical pretty-printer
+/// always uses 2) and `zeta` ordered before `permissions` (a `serde_json::Map`
+/// without `preserve_order` always sorts alphabetically, so a reserialize would flip
+/// them). `EXISTING_SETTINGS` above is already canonical 2-space/alphabetical, so a
+/// whole-file re-serialize is byte-identical to it and cannot falsify the bug this
+/// fixture targets.
+const NON_CANONICAL_SETTINGS: &str = "{\n    \"zeta\": \"first\",\n    \"permissions\": {\n        \"allow\": [\"Bash(cargo test:*)\"]\n    }\n}\n";
+
+/// [`NON_CANONICAL_SETTINGS`], but with the `SessionStart` hook already merged in —
+/// the starting point for a second merge that only has the `PreToolUse` guard left
+/// to graft.
+const NON_CANONICAL_SETTINGS_WITH_HOOK: &str = "{\n    \"zeta\": \"first\",\n    \"hooks\": {\n        \"SessionStart\": [\n            { \"hooks\": [ { \"type\": \"command\", \"command\": \"temper check . --reporter session-start\" } ] }\n        ]\n    }\n}\n";
+
+/// Assert `updated` differs from `original` only inside one contiguous byte range —
+/// a single-hunk diff, provable without depending on where install's own grafted
+/// content happens to land: the longest common prefix and the longest common
+/// suffix between the two texts, taken together, must account for every byte
+/// `original` carries. Anything that fails this check moved or was rewritten
+/// somewhere outside the grafted hunk.
+fn assert_one_hunk_diff(original: &str, updated: &str) {
+    let prefix_len = original
+        .bytes()
+        .zip(updated.bytes())
+        .take_while(|(a, b)| a == b)
+        .count();
+    let suffix_len = original.as_bytes()[prefix_len..]
+        .iter()
+        .rev()
+        .zip(updated.as_bytes()[prefix_len..].iter().rev())
+        .take_while(|(a, b)| a == b)
+        .count();
+    assert_eq!(
+        prefix_len + suffix_len,
+        original.len(),
+        "expected every pre-existing byte to survive as a prefix+suffix around one \
+         grafted hunk; original:\n{original}\nupdated:\n{updated}"
+    );
+}
+
 /// Build a harness with a skill, two rules (one frontmatter-free), and optionally a
 /// pre-existing settings file, and return its root.
 fn write_harness(label: &str, with_settings: bool) -> PathBuf {
@@ -258,6 +298,43 @@ fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir
         )
         .unwrap(),
         SKILL
+    );
+}
+
+#[test]
+fn the_session_start_merge_never_reserializes_a_non_canonical_settings_file() {
+    let root = write_harness("format-preserving", false);
+    let settings_path = root.join(".claude").join("settings.json");
+    fs::write(&settings_path, NON_CANONICAL_SETTINGS).unwrap();
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+
+    let after = fs::read_to_string(&settings_path).unwrap();
+    assert_one_hunk_diff(NON_CANONICAL_SETTINGS, &after);
+
+    let json: serde_json::Value = serde_json::from_str(&after).unwrap();
+    assert_eq!(
+        json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
+        "temper check . --reporter session-start"
+    );
+    assert_eq!(
+        json["zeta"], "first",
+        "the human's non-canonical key survives"
+    );
+    assert_eq!(
+        json["permissions"]["allow"][0], "Bash(cargo test:*)",
+        "the human's non-canonical indentation and order survive outside the graft"
+    );
+
+    // Re-running converges: the hook is already in its desired shape, so the second
+    // merge is a byte-for-byte no-op — never a second graft, never renewed churn.
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(
+        fs::read_to_string(&settings_path).unwrap(),
+        after,
+        "re-running the merge must converge"
     );
 }
 
@@ -580,6 +657,77 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
     .unwrap();
     assert!(extra_md_final.contains("# yaml-language-server:"));
     assert!(extra_md_final.contains("# temper: managed projection"));
+}
+
+#[test]
+fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
+    let root = write_harness("format-preserving-guard", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    vendor_sdk(&temper_dir);
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // Deepen by hand exactly like the emit-owned test above — the guard's
+    // constituency, so this run has one to place a `PreToolUse` group for.
+    fs::write(
+        temper_dir.join("skills").join("extra.md"),
+        "# Extra\n\nDeepened by hand.\n",
+    )
+    .unwrap();
+    fs::write(
+        temper_dir.join("skills").join("extra.ts"),
+        "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
+         export const extra = skill({\n  name: \"extra\",\n  description: \"An extra skill authored by hand.\",\n  prose: file(\"./skills/extra.md\"),\n});\n",
+    )
+    .unwrap();
+    fs::write(
+        temper_dir.join("harness.ts"),
+        "import { emit, harness } from \"@dtmd/temper\";\n\
+         import { skill_coordinate } from \"./skills/coordinate.ts\";\n\
+         import { rule_rust } from \"./rules/rust.ts\";\n\
+         import { rule_collaboration } from \"./rules/collaboration.ts\";\n\
+         import { extra } from \"./skills/extra.ts\";\n\n\
+         const program = harness({\n  members: [skill_coordinate, rule_rust, rule_collaboration, extra],\n});\n\n\
+         process.stdout.write(emit(program).seam);\n",
+    )
+    .unwrap();
+
+    // Replace the settings the first `run` above wrote with a hand-authored,
+    // non-canonical document that already carries the `SessionStart` hook — so
+    // this second run has only the `PreToolUse` guard left to graft.
+    let settings_path = root.join(".claude").join("settings.json");
+    fs::write(&settings_path, NON_CANONICAL_SETTINGS_WITH_HOOK).unwrap();
+
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Applied);
+
+    let after = fs::read_to_string(&settings_path).unwrap();
+    assert_one_hunk_diff(NON_CANONICAL_SETTINGS_WITH_HOOK, &after);
+
+    let json: serde_json::Value = serde_json::from_str(&after).unwrap();
+    assert_eq!(
+        json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
+        "temper guard ."
+    );
+    assert_eq!(
+        json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
+        "temper check . --reporter session-start"
+    );
+    assert_eq!(
+        json["zeta"], "first",
+        "the human's non-canonical key survives"
+    );
+
+    // Re-running converges: both hooks are already in their desired shape.
+    let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(outcome_of(&second, "guard hook"), ApplyOutcome::Unchanged);
+    assert_eq!(
+        fs::read_to_string(&settings_path).unwrap(),
+        after,
+        "re-running the merge must converge"
+    );
 }
 
 // ---------------------------------------------------------------------------
