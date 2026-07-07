@@ -13,6 +13,21 @@ tax.
 
 ## Open forks
 
+- `(requirement-satisfier-kind)` — OPEN (registered 2026-07-06). A requirement's
+  satisfier set is computed two ways: `src/roster.rs` narrows it by
+  `requirement.kind` (kind-typed, via `candidates_for`/`kind_label`),
+  `src/coverage.rs` computes it kind-blind (a flat set over every artifact's
+  `satisfies`). 0001 names the disagreement a live bug. `specs/model/contract.md`
+  ("selection") lists three atomic selectors and makes **by opt-in** kind-blind
+  ("the members whose satisfies edge targets a requirement"), stating no
+  selection composition — so the plain reading retires `requirement.kind` and
+  makes roster/graph kind-blind to match coverage. Open: does a requirement
+  narrow its opt-in selection by kind (keep the capability, let selections
+  compose by-opt-in ∩ by-kind), or is opt-in strictly kind-blind (drop it)?
+  Blocks the whole requirement arc — the `required`→default cardinality clause
+  conversion and the coverage/roster/graph unification both range over this set.
+  Needs John: a capability drop, not a mechanical one.
+
 - `(authority-home)` — OPEN (registered 2026-07-06, refreshed to the kernel
   corpus). The SDK's `compileDeclarations` emits `{ fact: "authority", value:
   "shared" }` unconditionally (`sdk/src/declarations.ts:151`), but "shared" is
