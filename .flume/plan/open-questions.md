@@ -47,11 +47,12 @@ tax (it hit 1,280 lines / ~38k tokens before the 07-06 drain).
   drift). Spec sanctions it (`45-governance.md`, coupling-is-a-join Decision);
   awaits a human decision to file.
 
-- `(builtin-workspace-qualified-key)` — OPEN, closes with the derived-lock
-  chain (D3). `check::Workspace` keys built-ins by bare kind name and
-  hardcodes `skills()`/`rules()` accessors (verified 07-06, `src/check.rs:97`);
-  two same-bare-name providers collide under one map key. The derived-lock
-  rebuild makes the kind map row-driven, which is this fork's fix — do not
+- `(builtin-workspace-qualified-key)` — OPEN, closes with
+  BUILTIN-LOCK-ROW-DRIVEN (the derived-lock chain's consumer link).
+  `check::Workspace` keys built-ins by bare kind name and hardcodes
+  `skills()`/`rules()` accessors (verified 07-06, `src/check.rs:38-105`); two
+  same-bare-name providers collide under one map key. The row-driven rebuild
+  keys the map by the compiled row label, which is this fork's fix — do not
   file separately.
 
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
@@ -93,11 +94,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   — kept because an external format's mechanics are temper's to implement
   once; the selection is declared. Grows only by deliberate addition.
 - **`kinds/` + `packages/` are curated, fence-excluded** — condition arrived,
-  retirement filed: BUILTIN-LOCK-DERIVED + CURATED-TREES-RETIRE remove the
-  code refs (citation trail moves to clause `cite` fields per
-  `10-contracts.md`); the physical tree deletion is a human `chore(harness):`
-  commit after (the trees are out of build's fence). This line dies on the
-  reconcile that sees both land.
+  retirement filed: BUILTIN-LOCK-ROW-DRIVEN removes the `kinds/`-tree refs
+  (builtin_kind.rs's KIND.md doc comments) and CURATED-TREES-RETIRE the
+  `packages/`-tree refs (bundle.rs's PACKAGE.md embeds) — citation trail moves
+  to clause `cite` fields per `10-contracts.md`; the physical tree deletion is
+  a human `chore(harness):` commit after (the trees are out of build's fence).
+  This line dies on the reconcile that sees both land.
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is
   not yet under its gate; a candidate landscape once the custom-kind story
   proves end to end.

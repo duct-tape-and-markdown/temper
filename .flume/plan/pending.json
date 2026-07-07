@@ -1,79 +1,86 @@
 [
   {
     "tag": "BUILTIN-LOCK-DERIVED",
-    "summary": "Derive the embedded default program from the first-party module's own emit — a committed receipt-less built-in lock parsed at startup; retire builtin.rs/builtin_kind.rs hand mirrors",
+    "summary": "Derive the built-in lock from the first-party module's emit — embed the declaration-row toml and parse it at startup as the default program's source; additive, the hand mirrors stay",
     "per": {
       "path": "specs/architecture/50-distribution.md",
       "section": "Decision: the built-in lock is derived from the SDK module, never transcribed"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "FIRST-PARTY-MODULE-COMPLETE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
       "new": [
         {
           "path": "src/builtin_lock.toml",
-          "description": "The committed receipt-less built-in lock — declaration rows only (kind facts, clauses, requirements; no provenance or emit-fingerprint rows, because nothing was emitted), generated from `@dtmd/temper/claude-code`'s own emit and embedded via `include_str!` (20-surface, 'The lock and drift': the built-in lock is one input shape from two sources)."
+          "description": "The committed receipt-less built-in lock — declaration rows only (kind facts + floor clauses; no requirements, no provenance or emit-fingerprint rows, because nothing was emitted), generated from a memberless emit of `@dtmd/temper/claude-code`'s built-in kinds + four floors and embedded via `include_str!` (20-surface, 'The lock and drift': one input shape from two sources)."
         },
         {
           "path": "src/builtin_lock.rs",
-          "description": "Parse the embedded built-in lock at engine startup into the declaration-row IR the gate already consumes, and expose it as the default program (replacing builtin.rs/builtin_kind.rs). Kind identity is the compiled row label; the engine never resolves bare vs qualified names."
+          "description": "Parse the embedded built-in lock at engine startup into the `drift::Declarations` IR the gate already consumes (`read_declarations`'s shape), and expose it as the default program's declaration source. Additive: consumers still call builtin/builtin_kind; the row-driven rewiring is the next link (BUILTIN-LOCK-ROW-DRIVEN)."
         }
       ],
       "edit": [
         {
           "path": "src/lib.rs",
-          "description": "Drop `pub mod builtin;` and `pub mod builtin_kind;`; add `pub mod builtin_lock;`."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Replace the per-name skill/rule floor dispatch (:590-602, `floor_package`/`qualified_name`) and the `builtin_kind::definitions()` kind set with row-driven resolution off the parsed built-in lock."
-        },
-        {
-          "path": "src/check.rs",
-          "description": "Generalize `Workspace::skills()`/`rules()` (:97-105, bare-kind-name accessors) and the members-map keying to row-driven kind identity — closes `(builtin-workspace-qualified-key)`."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Wire the default program from builtin_lock at startup instead of builtin/builtin_kind."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "Pins builtin.rs's clause vector via temper::builtin — recut to load from the derived built-in lock, or retire if the module's own test covers it."
-        },
-        {
-          "path": "tests/rule_contract.rs",
-          "description": "Same builtin-loaded pin — recut to the derived lock."
-        },
-        {
-          "path": "tests/session_start.rs",
-          "description": "References the built-in kind/floor default program — recut against the derived lock."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "Stranger-gate acceptance over the default program — recut against the derived lock."
+          "description": "Add `pub mod builtin_lock;` (the two old `pub mod builtin;`/`pub mod builtin_kind;` stay — they retire in substance under BUILTIN-LOCK-ROW-DRIVEN, which reimplements them as projections, not by deleting the files)."
         }
       ],
-      "retire": [
-        "src/builtin.rs",
-        "src/builtin_kind.rs"
-      ]
+      "retire": []
     },
     "schemaDelta": "none",
     "tests": [
       {
         "path": "tests/lock_declaration_rows.rs",
-        "asserts": "the embedded built-in lock parses to the declaration-row IR and the stranger gate checks against it identically to the retired hand-written program"
+        "asserts": "the embedded built-in lock parses to the `Declarations` IR (kind facts + floor clauses, no requirements) and the stranger gate checks against it identically to today's hand-written default program"
       }
     ],
-    "acceptance": "The stranger gate checks against a built-in lock derived from @dtmd/temper/claude-code's emit, embedded as data and parsed at startup; builtin.rs and builtin_kind.rs are gone; kind identity is the compiled row label; bare/qualified-name resolution and the check::Workspace skills()/rules() accessors are row-driven. `(builtin-workspace-qualified-key)` closes.",
-    "notes": "Ceremony D3. The migration-era engine grew parallel identity tables + per-name dispatch (50-distribution); this collapses them to one row-driven input. Large — when it unblocks, plan re-checks whether it needs its own split. `(builtin-workspace-qualified-key)` resolves here — do not file separately. builtin_kind.rs references kinds/ (out of fence); deleting the .rs removes the ref — the kinds/ tree is a separate human deletion."
+    "acceptance": "A built-in lock derived from a memberless emit of `@dtmd/temper/claude-code` is embedded as data and parsed at startup into the `Declarations` IR the gate consumes; it is available as the default program's declaration source. builtin.rs/builtin_kind.rs are untouched this link (still the live default program) — the rewiring onto the parsed lock is BUILTIN-LOCK-ROW-DRIVEN.",
+    "notes": "Ceremony D3, split into foundation + row-driven consumer (the single-entry D3 understated its blast radius: retiring the mirrors touches ~8 src + ~11 test files, past one gate-sized commit). This link is additive and disjoint. Design gap build resolves: a memberless built-in program the emit path compiles to declaration rows only — the shape tests/emit.rs already drives, no members."
   },
   {
-    "tag": "CHECK-LOCK-KIND-ROWS",
-    "summary": "check models only the built-in kinds — read the committed lock's custom kind rows so custom-kind requirements resolve instead of false admissibility failures (cascade field report)",
+    "tag": "CURATED-TREES-RETIRE",
+    "summary": "Drop bundle.rs's CURATED_PACKAGES embeds — the plugin/bundle ships the skill + hook, never clauses (channel 3); the packages/+kinds/ tree deletion is a human chore",
+    "per": {
+      "path": "specs/architecture/50-distribution.md",
+      "section": "Three channels"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "Remove `CURATED_PACKAGES` (:70) and the four `packages/<name>/PACKAGE.md` `include_str!` embeds (:73-85, :222-228); `temper bundle` ships the skill + SessionStart hook only — the gate into a harness, never clauses (50-distribution: 'bundle delivers the gate, not clauses'). Leave the `builtin_kind::definition` test helper (:388) untouched — it survives the derived-lock rebuild."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "Recut the bundle test + drop the packages/ embed assertions; leave the `builtin_kind::definition` calls (:65-66) as-is."
+        },
+        {
+          "path": "tests/snapshots/bundle__bundle_is_deterministic.snap",
+          "description": "Regenerate: the bundle no longer carries the curated PACKAGE.md embeds."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "the produced bundle contains the skill + hook and no curated clause embeds"
+      }
+    ],
+    "acceptance": "bundle.rs carries no CURATED_PACKAGES embeds; `temper bundle` ships the skill + hook only. Clauses live once, in the SDK module (FIRST-PARTY-MODULE-COMPLETE). After this + BUILTIN-LOCK-ROW-DRIVEN remove every code reference, the packages/ and kinds/ trees are deletable by a human chore(harness) commit.",
+    "notes": "Ceremony D5, now OPEN: its real dependency (FIRST-PARTY-MODULE-COMPLETE, clauses live in the SDK) shipped, and its files (bundle.rs + bundle test/snapshot) are disjoint from the whole derived-lock chain — bundle.rs is the sole packages/-tree code ref. Runs parallel with BUILTIN-LOCK-DERIVED. packages/** deletion is OUT of build's fence (human chore after)."
+  },
+  {
+    "tag": "BUILTIN-LOCK-ROW-DRIVEN",
+    "summary": "Reimplement builtin/builtin_kind as projections of the parsed built-in lock — row-label kind identity, no bare/qualified resolution; closes (builtin-workspace-qualified-key)",
     "per": {
       "path": "specs/architecture/20-surface.md",
       "section": "The lock and drift — one vocabulary"
@@ -87,16 +94,24 @@
       "new": [],
       "edit": [
         {
+          "path": "src/builtin_kind.rs",
+          "description": "Reimplement the kind set as a projection of the parsed built-in lock's `KindFactRow`s — `definitions()`/`qualified()`/`features()` build the CustomKind descriptors from the lock rows, not from hand-written Rust data; drop the `kinds/<provider>/<name>/KIND.md` doc-comment references (rust.md exit clause). Keep the public API so the ~19 downstream consumers (install.rs, frontmatter.rs, import.rs, bundle.rs, and their tests) stay green with no edit."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "Reimplement `contract()`/`contracts()`/the floor bindings as a projection of the parsed built-in lock's `ClauseRow`s — no hand-written clause vectors; keep the API surface the gate and tests call."
+        },
+        {
           "path": "src/main.rs",
-          "description": "The gate builds its kind set from the built-in default program only (`builtin_kind::definitions()` / row-driven default after D3) and reads the committed lock (`drift::read_declarations`) for clauses/requirements/satisfies but NOT for kinds — so an adopted harness's `declarations.kinds` (its custom kind rows, already written whole by emit — cascade saw 9 spec kinds + 74 members in a fresh lock) are invisible, and a requirement naming a custom kind fails `requirement.admissibility` (\"names kind X, which temper does not model\") with an `unfilled` shadow. Feed the committed lock's `KindFactRow`s into the check kind loop (the five facts are already parsed by drift), merged over the built-in default program, so a custom-kind requirement resolves against its declared kind."
+          "description": "Drop the per-name floor dispatch (:56-85 `builtin_floor`/`BUILTIN_FLOOR_BINDINGS`/`builtin_floors`, :590-602 `floor_package`/`qualified_name`) for row-driven resolution off the parsed built-in lock; kind identity is the compiled row label, never resolved bare-vs-qualified."
         },
         {
           "path": "src/check.rs",
-          "description": "`Workspace::load_kinds` / the members-map keying must load members for the committed lock's custom kind rows (their loci/layout), not only the built-in kind set, so a custom kind's members are conformance-checked (cascade: `check --harness .` checked only the 4 built-ins)."
+          "description": "Key `Workspace`'s members map by the compiled row label (qualified identity), not the bare kind name (:38-44); generalize `skills()`/`rules()` (:95-105) off row-driven identity so two same-bare-name providers no longer collide under one key — closes `(builtin-workspace-qualified-key)`."
         },
         {
-          "path": "src/engine.rs",
-          "description": "Kind-blind extraction over the committed lock's custom kind facts (locus, layout, registration) — the same generic path the built-in kinds ride, sourced from the lock rows."
+          "path": "src/read.rs",
+          "description": "Row-driven floor resolution (:150-170) off the parsed built-in lock; drop the `builtin::floor_package` + `builtin_kind::qualified` bare→qualified chaining."
         }
       ],
       "retire": []
@@ -104,12 +119,12 @@
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/session_start.rs",
-        "asserts": "a harness whose committed lock declares a custom kind and a requirement naming it does NOT emit a false requirement.admissibility failure; the requirement resolves against the lock-declared kind and reports genuine coverage only"
+        "path": "tests/memory_contract.rs",
+        "asserts": "kind identity resolves by the compiled row label; the two `memory` providers (claude-code / agents-md) never collide under one map key, and a workspace carrying both checks each against its own floor"
       }
     ],
-    "acceptance": "`temper check` (and its session-start reporter) reads custom kind declaration rows from the committed lock, so a custom-kind requirement resolves against its declared kind instead of failing admissibility as unmodeled; the session-start gate no longer cries wolf on any harness with a custom-kind requirement.",
-    "notes": "Cascade field report, 07-06 — the false blockers made cascade disable its SessionStart temper hook (the law-3 'gate that cries wolf gets disabled' failure). Serialized behind D3 because it edits the same kind-resolution code (check/main/engine) D3 makes row-driven; parallel would conflict. When D3 unblocks it, plan re-checks whether D3's row-driven rework already reads the committed lock's kinds — if so, drop this."
+    "acceptance": "builtin.rs and builtin_kind.rs carry no hand-written kind/clause data — both are projections of the parsed built-in lock; kind identity is the compiled row label; the engine resolves no bare-vs-qualified names; check::Workspace keys members by row label and skills()/rules() are row-driven. `(builtin-workspace-qualified-key)` closes.",
+    "notes": "Row-driven rebuild, blockedBy the foundation. Reimplements the two mirror modules as lock projections rather than deleting them — the ~19 consumers keep the module APIs and stay green, avoiding a whole-tree cascade (code owns the module boundary; the spec demands no hand-written mirror, not a file deletion). Removes builtin_kind.rs's kinds/-tree comment refs. engine.rs is generic — untouched."
   },
   {
     "tag": "BUILTIN-LOCK-FROZEN-LANE",
@@ -127,7 +142,7 @@
       "new": [
         {
           "path": "tests/builtin_lock_frozen.rs",
-          "description": "Re-derive the built-in lock from `@dtmd/temper/claude-code` (a real node subprocess, as tests/emit.rs drives the SDK) and byte-compare it against the embedded copy; fail loud on mismatch or on the module/emit being absent — the `--frozen` discipline aimed at the tool's own std-lib (50-distribution, fail-loud invariant)."
+          "description": "Re-derive the built-in lock from `@dtmd/temper/claude-code` (a real node subprocess, as tests/emit.rs drives the SDK) and byte-compare it against the embedded `src/builtin_lock.toml`; fail loud on mismatch or on the module/emit being absent — the `--frozen` discipline aimed at the tool's own std-lib (50-distribution, fail-loud invariant)."
         }
       ],
       "edit": [],
@@ -141,34 +156,34 @@
       }
     ],
     "acceptance": "A test re-derives the built-in lock from the first-party module and byte-compares it against the embedded copy, failing loud on any drift or absence; running it is the CI frozen-lane gate on the tool's own std-lib.",
-    "notes": "Ceremony D4 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from CURATED-TREES-RETIRE and CHECK-LOCK-KIND-ROWS). Framed as a cargo test so the gate validates it; the CI job is just `cargo test` (50-distribution: CI placements are user-authored two-line jobs, not generated files)."
+    "notes": "Ceremony D4 — parallel-safe leaf behind the foundation only (needs the embedded builtin_lock.toml, which BUILTIN-LOCK-DERIVED produces; runs concurrent with BUILTIN-LOCK-ROW-DRIVEN, which consumes the toml but never regenerates it). New test file, disjoint from every other entry. CI job is a two-line `cargo test` (50-distribution: CI placements are user-authored)."
   },
   {
-    "tag": "CURATED-TREES-RETIRE",
-    "summary": "Drop bundle.rs's CURATED_PACKAGES embeds — the plugin/bundle ships the skill + hook, never clauses (channel 3); the packages/+kinds/ tree deletion is a human chore",
+    "tag": "CHECK-LOCK-KIND-ROWS",
+    "summary": "check models only the built-in kinds — read the committed lock's custom kind rows so custom-kind requirements resolve instead of false admissibility failures (cascade field report)",
     "per": {
-      "path": "specs/architecture/50-distribution.md",
-      "section": "Three channels"
+      "path": "specs/architecture/20-surface.md",
+      "section": "The lock and drift — one vocabulary"
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "BUILTIN-LOCK-DERIVED"
+      "tag": "BUILTIN-LOCK-ROW-DRIVEN"
     },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
-          "path": "src/bundle.rs",
-          "description": "Remove `CURATED_PACKAGES` (:70) and the `packages/<name>/PACKAGE.md` `include_str!` embeds (:73-85, :222-228); `temper bundle` ships the skill + SessionStart hook only — the gate into a harness, never clauses (50-distribution: 'bundle delivers the gate, not clauses')."
+          "path": "src/main.rs",
+          "description": "The gate builds its kind set from the built-in default program only and reads the committed lock (`drift::read_declarations`) for clauses/requirements/satisfies but NOT for kinds — so an adopted harness's `declarations.kinds` (its custom kind rows, already written whole by emit — cascade saw 9 spec kinds + 74 members in a fresh lock) are invisible, and a requirement naming a custom kind fails `requirement.admissibility` (\"names kind X, which temper does not model\") with an `unfilled` shadow. Feed the committed lock's `KindFactRow`s into the check kind loop, merged over the built-in default program, so a custom-kind requirement resolves against its declared kind."
         },
         {
-          "path": "tests/bundle.rs",
-          "description": "Recut the bundle test + its snapshot to the clause-free bundle (drop the packages/ embed assertions)."
+          "path": "src/check.rs",
+          "description": "`Workspace::load_kinds` / the members-map keying must load members for the committed lock's custom kind rows (their loci/layout), not only the built-in kind set, so a custom kind's members are conformance-checked (cascade: `check --harness .` checked only the 4 built-ins)."
         },
         {
-          "path": "tests/snapshots/bundle__bundle_is_deterministic.snap",
-          "description": "Regenerate: the bundle no longer carries the curated PACKAGE.md embeds."
+          "path": "src/engine.rs",
+          "description": "Kind-blind extraction over the committed lock's custom kind facts (locus, layout, registration) — the same generic path the built-in kinds ride, sourced from the lock rows. Reassess whether any engine.rs edit is actually needed once BUILTIN-LOCK-ROW-DRIVEN lands: extraction may already be fully generic and the fix confined to check.rs/main.rs feeding it the rows."
         }
       ],
       "retire": []
@@ -176,12 +191,12 @@
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/bundle.rs",
-        "asserts": "the produced bundle contains the skill + hook and no curated clause embeds"
+        "path": "tests/session_start.rs",
+        "asserts": "a harness whose committed lock declares a custom kind and a requirement naming it does NOT emit a false requirement.admissibility failure; the requirement resolves against the lock-declared kind and reports genuine coverage only"
       }
     ],
-    "acceptance": "bundle.rs carries no CURATED_PACKAGES embeds; `temper bundle` ships the skill + hook only. Clauses live once, in the SDK module (FIRST-PARTY-MODULE-COMPLETE). After this + BUILTIN-LOCK-DERIVED remove every code reference, the packages/ and kinds/ trees are deletable by a human chore(harness) commit.",
-    "notes": "Ceremony D5 — parallel-safe leaf behind BUILTIN-LOCK-DERIVED (disjoint from BUILTIN-LOCK-FROZEN-LANE and CHECK-LOCK-KIND-ROWS). Scoped to in-fence work only: packages/** and kinds/** are OUT of build's fence (ratification territory), so their physical deletion is a human chore after the code refs are gone. The 'curated, fence-excluded' asymmetry in open-questions.md dies on the reconcile that sees this + the trees deleted."
+    "acceptance": "`temper check` (and its session-start reporter) reads custom kind declaration rows from the committed lock, so a custom-kind requirement resolves against its declared kind instead of failing admissibility as unmodeled; the session-start gate no longer cries wolf on any harness with a custom-kind requirement.",
+    "notes": "Cascade field report, 07-06 — the false blockers made cascade disable its SessionStart hook (law-3 'gate that cries wolf gets disabled'). Serialized behind BUILTIN-LOCK-ROW-DRIVEN: it edits the same check/main kind-resolution code the row-driven rebuild reworks. When that ships, plan re-checks whether the row-driven path already reads the committed lock's custom kinds — if so, drop this."
   },
   {
     "tag": "COMMENT-STOCK-SWEEP",
@@ -192,7 +207,7 @@
     },
     "gate": {
       "kind": "deferred",
-      "reason": "Whole-tree sweep — must run solo (a broad src/+tests/ comment edit races any concurrent entry). Ride after the derived-lock chain lands: BUILTIN-LOCK-DERIVED deletes two of the heaviest-commented files (builtin.rs/builtin_kind.rs), so sweeping first is throwaway. Plan promotes this to a solo open entry once the chain ships and the queue is otherwise empty."
+      "reason": "Whole-tree sweep — must run solo (a broad src/+tests/ comment edit races any concurrent entry). Ride after the derived-lock chain lands: BUILTIN-LOCK-ROW-DRIVEN rewrites the two heaviest-commented files (builtin.rs/builtin_kind.rs) on contact, so sweeping them first is throwaway. Plan promotes this to a solo open entry once the chain ships and the queue is otherwise empty."
     },
     "dependsOnForks": [],
     "files": {
@@ -200,7 +215,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "Representative anchor — the true scope is all of src/ and tests/. Per rust.md's taxonomy + exit clause: convert prose spec recaps to terse pointer tags (file path only, no section titles — a quoted section title is a dangling reference), delete era narration ('no longer X', git owns history) and compliance narration ('per §X we…', commit-body material). Module //! headers to ~10 lines (overview + pointer)."
+          "description": "Representative anchor — the true scope is all of src/ and tests/. Per rust.md's taxonomy + exit clause: convert prose spec recaps to terse pointer tags (file path only, no section titles — a quoted section title is a dangling reference), delete era narration ('no longer X', git owns history), compliance narration ('per §X we…'), and dangling pending-tag references (e.g. drift.rs's `GATE-READ-LOCK-DEMOLITION` comment). Module //! headers to ~10 lines (overview + pointer)."
         },
         {
           "path": "src/compose.rs",
@@ -211,8 +226,8 @@
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "Zero quoted spec section titles in src/ or tests/ comments; zero era vocabulary from 90-spec-system's migration trail; module //! headers ~10 lines (overview + pointer tag); cargo gates green — no behavior change.",
-    "notes": "Ceremony item (John 07-06). rust.md's exit clause already cuts comments on contact for files the chain touches; this sweep is the residue in the files the chain leaves untouched, run once at the end. Deferred (not blockedBy) because a whole-tree edit races every concurrent entry — plan promotes it to a solo open entry after the derived-lock chain fully lands and the queue is otherwise empty."
+    "acceptance": "Zero quoted spec section titles in src/ or tests/ comments; zero era vocabulary from 90-spec-system's migration trail; no comment referencing a pending tag that isn't in the queue; module //! headers ~10 lines; cargo gates green — no behavior change.",
+    "notes": "Ceremony item (John 07-06). rust.md's exit clause cuts comments on contact for files the chain touches; this sweep is the residue in the files the chain leaves untouched, run once at the end. Deferred (not blockedBy) because a whole-tree edit races every concurrent entry — plan promotes it to a solo open entry after the derived-lock chain fully lands and the queue is otherwise empty."
   },
   {
     "tag": "PACKAGING-CHANNELS",

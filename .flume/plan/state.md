@@ -1,35 +1,41 @@
 # Plan state
 
-- **Phase:** derived-lock chain head unblocks + cascade field reports routed.
-  REQUIREMENT-CLAUSES-RECUT shipped (c17332a/3e12840): Requirement carries a
-  `clauses` vec, SEAM_VERSION 1→2, so FIRST-PARTY-MODULE-COMPLETE's blockedBy
-  clears → open. Empty spec delta; inbox drained (3 cascade lines routed).
-- **Last shipped:** REQUIREMENT-CLAUSES-RECUT (c17332a) — count/unique/
-  membership/degree recut off requirement facets onto ordinary nested clause
-  rows across compose/drift/roster/graph + SDK; end-to-end emit test added.
-- **In flight — 8 entries, 2 open (parallel-safe, disjoint):**
-  (1) EMIT-INTO-PATH-DOUBLING — **open**. `run_sdk_program` sets node cwd to
-  the entry's parent yet passes the relative entry path → `<into>/<into>/
-  harness.ts`, MODULE_NOT_FOUND on the `./.temper` default; fix + fail-loud
-  test. drift.rs + tests/emit.rs.
-  (2) FIRST-PARTY-MODULE-COMPLETE — **open**. Export the four built-in floors
-  (skill/rule/memoryAnthropic/memoryAgentsMd) from @dtmd/temper/claude-code,
-  each clause cited; sdk/** only.
-  Then the serialized derived-lock chain: BUILTIN-LOCK-DERIVED (D3) →
-  {CHECK-LOCK-KIND-ROWS, BUILTIN-LOCK-FROZEN-LANE, CURATED-TREES-RETIRE}
-  (three parallel-safe leaves behind D3; CHECK-LOCK-KIND-ROWS carries the
-  cascade custom-kind-rows fix, serialized because it edits the same
-  check/main/engine kind-resolution D3 makes row-driven). COMMENT-STOCK-SWEEP
-  — deferred (whole-tree solo). PACKAGING-CHANNELS — parked (release creds +
-  engine-binary workflow + USPTO screen).
-- **What's next:** build picks EMIT-INTO-PATH-DOUBLING + FIRST-PARTY-MODULE-
-  COMPLETE in parallel; the chain unblocks link by link. Cascade DATUM (drained,
-  no entry): the 0.0.3 seam-flow writer handoff is byte-perfect (`0 emitted, 95
-  unchanged`); TEMPER-TOML-ZERO confirmed externally (root temper.toml deleted,
-  membership reads off the lock). Queued **human** chores: the physical
-  packages/** + kinds/** deletion (out of fence) once D3 + CURATED-TREES land;
-  PACKAGING-CHANNELS release setup. Open forks in open-questions.md await John
-  or the SDK-primary foundation.
+- **Phase:** derived-lock chain re-scoped. FIRST-PARTY-MODULE-COMPLETE +
+  EMIT-INTO-PATH-DOUBLING shipped (ff937e7); the four floors now export from
+  the SDK (sdk/src/builtins.ts), so the built-in lock can be derived. Empty
+  spec delta; inbox empty.
+- **Last shipped:** FIRST-PARTY-MODULE-COMPLETE (3ad2737) — skill/rule/
+  memoryAnthropic/memoryAgentsMd floors carried into `@dtmd/temper/claude-code`,
+  each clause cited; and EMIT-INTO-PATH-DOUBLING (3804b41) — canonicalize the
+  SDK entry before the node spawn.
+- **Re-scope this tick:** the single D3 (BUILTIN-LOCK-DERIVED) understated its
+  blast radius — retiring builtin.rs/builtin_kind.rs touches ~8 src + ~11 test
+  files (grepped: install/bundle/check/read/frontmatter/import/contract/main +
+  11 tests), well past one gate-sized commit. Split into a foundation
+  (additive: derive + embed + parse the built-in lock) and a row-driven
+  consumer (reimplement the two mirrors as lock *projections*, keeping their
+  APIs so the ~19 consumers stay green — the spec demands no hand-written
+  mirror, not a file deletion). CURATED-TREES-RETIRE promoted open: its dep
+  (FIRST-PARTY-MODULE-COMPLETE) shipped and its files (bundle.rs + test/snap)
+  are disjoint from the whole chain.
+- **Queue — 7 entries, 2 open (disjoint):**
+  (1) BUILTIN-LOCK-DERIVED — **open**, foundation. builtin_lock.toml (from a
+  memberless module emit) + builtin_lock.rs (parse at startup) + lib.rs pub
+  mod. Additive.
+  (2) CURATED-TREES-RETIRE — **open**, disjoint. Drop bundle.rs's
+  CURATED_PACKAGES embeds.
+  Then serialized: BUILTIN-LOCK-ROW-DRIVEN (blockedBy DERIVED; reimplements
+  builtin/builtin_kind as lock projections, row-label identity, closes
+  `(builtin-workspace-qualified-key)`) → {BUILTIN-LOCK-FROZEN-LANE (blockedBy
+  DERIVED, parallel leaf, new test only), CHECK-LOCK-KIND-ROWS (blockedBy
+  ROW-DRIVEN; cascade custom-kind-rows fix)}. COMMENT-STOCK-SWEEP — deferred
+  (whole-tree solo). PACKAGING-CHANNELS — parked (release creds + engine-binary
+  workflow + USPTO screen).
+- **What's next:** build picks BUILTIN-LOCK-DERIVED + CURATED-TREES-RETIRE in
+  parallel; the chain unblocks link by link. Queued **human** chores: the
+  physical packages/** + kinds/** deletion (out of fence) once ROW-DRIVEN +
+  CURATED land; PACKAGING-CHANNELS release setup.
 
-Plan continues: no — queue reconciled, inbox drained, two disjoint open entries
-ready. Building is how the chain drains; re-planning the same queue would spin.
+Plan continues: no — queue reconciled (D3 re-scoped into a tractable chain,
+CURATED promoted open), inbox empty, two disjoint open entries ready. Building
+is how the chain drains.
