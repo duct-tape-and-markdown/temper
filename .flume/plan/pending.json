@@ -1,5 +1,309 @@
 [
   {
+    "tag": "LOCK-NESTING-TEMPLATES",
+    "summary": "Carry a kind's nesting templates through the lock so a lock-reconstructed kind folds the same embedded (genre) members its live declaration does — the GENRE-FOLD residual",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Add a `templates` column to `KindFactRow` (a string array of the host kind's child/genre kind names) with `#[serde(default)]` so lockless/template-less kinds round-trip unchanged; serialize it in `KindFactRow::to_table`/`from_table` reusing the existing string-array column helpers (as `ClauseRow.keys`/`values` do). This is the erased template declaration the lock currently drops."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Populate `templates` in `from_kind_fact_row` from the new row column — one `Template { kind: <child>, leaves: vec![], collections: vec![] }` per recorded child-kind name (leaves/collections stay empty, matching their current inert posture until the nested-member predicate lands; `fold_members` keys only on `Template.kind`). Delete the comment that names the gap as unclosed. Update the `from_kind_fact_row_*` unit tests to cover a templated row."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Emit templates: give `KindFactRow` (the payload interface) a `templates?: readonly string[]` field, and in `kindFactRow`/`kindsInPlay` compute each `at`-locus host kind's template child-kind names from the harness's genre kinds whose `withinHosts` names it. Genres still take no row of their own (the throw-guard stays) — only the host→child link is added."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "lock `kind` rows and the emit payload's KindFactRow gain a `templates` string-array column (child/genre kind names); `#[serde(default)]`/optional so existing rows round-trip byte-identical.",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a host kind declaring a genre template writes its child-kind name(s) into the lock `kind` row and reads back the same templates (round-trip)."
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "a kind reconstructed via `from_kind_fact_row` off a templated lock row folds the same embedded members from fenced blocks as its live declaration."
+      }
+    ],
+    "acceptance": "A nesting kind's declared templates (child/genre kind names) round-trip through the lock; a lock-reconstructed kind carries the same templates and folds the same embedded members its live SDK declaration does — the residual gap `from_kind_fact_row` names is closed.",
+    "notes": "Scope = embedded (genre) nesting only; file-nested children (skill ref docs, path-pattern) use a separate mechanism, untouched. leaves/collections stay empty (inert until the nested-member predicate). If no built-in kind nests a genre, builtin_lock_frozen.rs is unchanged; regen only if one does. From the 07-07 GENRE-FOLD friction drain."
+  },
+  {
+    "tag": "CITE-RETAG",
+    "summary": "One-time mechanical retag: point every code comment/doc citation at its current specs/** home after the kernel recut invalidated the old numbered layout — comment-only, no behavior change",
+    "per": {
+      "path": "specs/process/spec-system.md",
+      "section": "Form rules"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LOCK-NESTING-TEMPLATES"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/README.md",
+          "description": "Retag stale spec cites in sdk/README.md (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Retag stale spec cites in sdk/src/builtins.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Retag stale spec cites in sdk/src/claude-code.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "Retag stale spec cites in sdk/src/contract.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Retag stale spec cites in sdk/src/declarations.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Retag stale spec cites in sdk/src/emit.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/genres.ts",
+          "description": "Retag stale spec cites in sdk/src/genres.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Retag stale spec cites in sdk/src/index.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Retag stale spec cites in sdk/src/kind.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "sdk/src/needs.ts",
+          "description": "Retag stale spec cites in sdk/src/needs.ts (SDK comments/doc-cites only)."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "Retag stale spec cites in src/builtin.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Retag stale spec cites in src/builtin_kind.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "Retag stale spec cites in src/builtin_lock.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Retag stale spec cites in src/bundle.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Retag stale spec cites in src/check.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Retag stale spec cites in src/compose.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "Retag stale spec cites in src/contract.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "Retag stale spec cites in src/coverage.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "Retag stale spec cites in src/coverage_note.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/display.rs",
+          "description": "Retag stale spec cites in src/display.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "Retag stale spec cites in src/document.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Retag stale spec cites in src/drift.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Retag stale spec cites in src/engine.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Retag stale spec cites in src/extract.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "Retag stale spec cites in src/frontmatter.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Retag stale spec cites in src/graph.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/hash.rs",
+          "description": "Retag stale spec cites in src/hash.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Retag stale spec cites in src/import.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Retag stale spec cites in src/install.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Retag stale spec cites in src/kind.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/lib.rs",
+          "description": "Retag stale spec cites in src/lib.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Retag stale spec cites in src/main.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Retag stale spec cites in src/read.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/reporter.rs",
+          "description": "Retag stale spec cites in src/reporter.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Retag stale spec cites in src/roster.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "Retag stale spec cites in src/schema.rs (engine comments/doc-cites only)."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "Retag stale spec cites in tests/acceptance.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Retag stale spec cites in tests/builtin_lock_frozen.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "Retag stale spec cites in tests/bundle.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Retag stale spec cites in tests/cli.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Retag stale spec cites in tests/contract_template.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Retag stale spec cites in tests/coverage.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "Retag stale spec cites in tests/coverage_note.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/directive_classing.rs",
+          "description": "Retag stale spec cites in tests/directive_classing.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/display_rule.rs",
+          "description": "Retag stale spec cites in tests/display_rule.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Retag stale spec cites in tests/emit.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/extract_equivalence.rs",
+          "description": "Retag stale spec cites in tests/extract_equivalence.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Retag stale spec cites in tests/gate_fail_loud.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Retag stale spec cites in tests/graph.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Retag stale spec cites in tests/install.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Retag stale spec cites in tests/lock_declaration_rows.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "Retag stale spec cites in tests/memory_contract.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "Retag stale spec cites in tests/memory_gate.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Retag stale spec cites in tests/nested_member.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Retag stale spec cites in tests/read_verbs.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/reporters.rs",
+          "description": "Retag stale spec cites in tests/reporters.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Retag stale spec cites in tests/requirement_roster.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/rule_contract.rs",
+          "description": "Retag stale spec cites in tests/rule_contract.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/section_contains.rs",
+          "description": "Retag stale spec cites in tests/section_contains.rs (test comments/doc-cites only)."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Retag stale spec cites in tests/session_start.rs (test comments/doc-cites only)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "No code comment or doc-comment cites the retired layout (specs/architecture/NN-*, the bare n//l/ abbreviations, l.md, specs/intent/00-intent.md, or 'law N' numbering); every cite resolves to a current specs/** section. cargo build/test and emit --frozen are byte-unchanged (comments don't reach output).",
+    "notes": "Authorized once by John (07-07 inbox) as an exception to the ride-only rule — a corpus-wide invalidation. Mapping: 10-contracts→contract.md, 15-kinds→representation.md, 20-surface+40-composition→pipeline.md, 45-governance→contract.md, 50-distribution→distribution.md, 00-intent+'law N'→intent.md invariants. Fix the pointer, keep the claim; leave fixture payload prose. Serialized behind LOCK-NESTING-TEMPLATES."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
