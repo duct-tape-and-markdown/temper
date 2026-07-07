@@ -1,23 +1,18 @@
 # Plan state
 
 - Spec derived through: d5d1b37
-- Audited through: c9eeffb
+- Audited through: 2746b11
 - Residue swept through: e3f14b9
-- This tick: residue sweep 3373326→HEAD. One unrouted residue class: the
-  enforcement-mode VALUE vocabulary — the engine's two-value `Authority`
-  {Shared,Surface} (compose.rs:18-32, a "surface-authority posture" axis;
-  Shared→warn, Surface→block) vs distribution.md's author-declared note/warn/block.
-  MODE renames the type but scopes the values out; the recut needs John (note-vs-warn
-  split, which value is default advisory) → registered fork (enforcement-mode-vocabulary),
-  which IS the routing. Its future entry is blockedBy MODE but does not gate the chain.
-  architecture/* + posture/means cites are citation staleness → ride the entries
-  opening their files (noted in SATISFIER/MODE/GENRE-FOLD). 0003/0004/0005 residue
-  routed by the three chained entries. Cursor → HEAD.
-- Queue: 4 entries, unchanged — SATISFIER-KIND-CLAUSE (open, pickable),
-  MODE-ROOT-MEMBER-FIELD (blockedBy SATISFIER), GENRE-FOLD (blockedBy MODE),
-  PACKAGING-CHANNELS (parked). No pending edits this tick — the fork lives in
-  open-questions only.
+- This tick: ship audit c9eeffb→HEAD. SATISFIER-KIND-CLAUSE shipped (94ac5f1
+  build + 2746b11 chore): `kind_narrowing_clause` on disk (builtin.rs:119,
+  roster.rs), gate green — build already dropped it from pending. Its blockedBy
+  on MODE-ROOT-MEMBER-FIELD is now satisfied → MODE flipped to `open`. Of MODE's
+  files SATISFIER touched only compose.rs; Authority intact at 18-32, MODE
+  anchors (authority_from_lock main.rs:502, guard main.rs:341, assemblyFactRows
+  declarations.ts:248) all present — no rewrite needed. Audit cursor → HEAD.
+- Queue: 3 entries — MODE-ROOT-MEMBER-FIELD (now open, pickable), GENRE-FOLD
+  (blockedBy MODE), PACKAGING-CHANNELS (parked). Only MODE is open — disjoint.
 
-Plan continues: no — every input drained: inbox empty, spec delta empty (cursor =
-specs HEAD), ship audit quiet (nothing shipped since c9eeffb), residue swept to HEAD
-(the one live class fork-routed). SATISFIER-KIND-CLAUSE is open/pickable → build takes over.
+Plan continues: yes — residue sweep is live: Residue swept through (e3f14b9)
+trails HEAD; SATISFIER's src/ ship (94ac5f1) is un-swept against corpus. Next
+tick sweeps c9eeffb→HEAD.

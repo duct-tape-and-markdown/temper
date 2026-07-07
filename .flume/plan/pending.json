@@ -7,8 +7,7 @@
       "section": "The root member"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SATISFIER-KIND-CLAUSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -53,7 +52,7 @@
       }
     ],
     "acceptance": "emit produces no 'authority' assembly fact; enforcement mode is a root-member field declared into the lock; temper guard sources its mode from that field (a lock without it defaults advisory) — representation.md 'The root member', decision 0005.",
-    "notes": "Derives 0005 (a slice of d5d1b37): the home+concept move only. The 'authority'/'surface-authority' naming retires for 'enforcement mode' (one-name-per-concept). blockedBy SATISFIER-KIND-CLAUSE — both edit src/compose.rs. OUT OF SCOPE: the value vocabulary (shared/surface vs distribution.md's note/warn/block) is standing residue under distribution.md, not folded here; per-member mode override is deferred until guard blocks per mode (0005 Consequences). architecture/* cites ride."
+    "notes": "Derives 0005 (a slice of d5d1b37): the home+concept move only. The 'authority'/'surface-authority' naming retires for 'enforcement mode' (one-name-per-concept). SATISFIER shipped — compose.rs Authority intact at 18-32, gate now open. OUT OF SCOPE: the value vocabulary (shared/surface vs distribution.md's note/warn/block) is standing residue under distribution.md; per-member mode override deferred until guard blocks per mode (0005 Consequences). architecture/* cites ride."
   },
   {
     "tag": "GENRE-FOLD",
