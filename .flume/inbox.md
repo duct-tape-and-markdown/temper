@@ -49,3 +49,48 @@ members, at 18dca38). Nine findings; verified fix shapes noted. Route each:
   discipline the corpus states for TOML/markdown has no stated JSON
   equivalent — if no clean cite exists, route as an open question
   (key-order-preserving insertion is the candidate ruling).
+
+Field report 2 (2026-07-07, same testbed, deeper behavior probes at
+18dca38). Route each:
+
+- T1 requirement rows never gated: the lock carries the full
+  [[declaration.requirement]]/[[declaration.satisfies]] families (44 rows on
+  the testbed) but `check` evaluates NONE — a live probe violating
+  count({max:1}) produced zero findings on `check .` and `check --harness .`;
+  the require/satisfies layer enforces only at emit. contract.md
+  (requirement: attached clauses over its opt-in selection, shipped default
+  cardinality clause at error severity) + pipeline.md (the gate reads
+  declarations from the lock) sanction the fold-in. The largest correctness
+  gap on the board.
+- T2 explain ignores lock declarations: with a satisfier locked, `explain
+  <requirement>` reports "required, and unfilled — which check reports as an
+  error" (check reports nothing — doubly wrong per T1); member explain still
+  prints the not-found error (citing the removed `import` verb) then
+  narrates the member anyway. contract.md Read verbs: projections over the
+  same resolved edges the gate uses.
+- T3 removed member orphans its projection: deleting a member from the
+  program and re-emitting reports "16 unchanged" and leaves the emitted
+  .claude/ file on disk — unowned, still-loading. The lock forgets the path;
+  no removed state, no reap, no report. Live hazard. If emit's "Total"
+  (pipeline.md) doesn't decide reap-vs-report, route the remedy as a fork.
+- T4 ungoverned-entry sweep: coverage notes enumerate known-unmodeled
+  surfaces (.claude/commands, settings.json) but a bogus `.clauignore`
+  sails through. A decidable "entry in .claude/ matching no kind's governs
+  and no known surface" advisory is exactly the charter.
+- T5 file() resolution: prose.ts documents module-relative; emit resolves
+  against baseDir ?? cwd (workspace-relative). Scaffold's ../.claude paths
+  work only because .temper/ is one directory deep. One of the two changes;
+  coordinate scaffold + resolution + docs in one entry.
+- T6 scaffold emits type-invalid modules: Skill.description is required in
+  the SDK types; scaffolded skill modules omit it — runtime-fine (types
+  erase) but the program fails tsc, the advertised keystroke wall. Scaffold
+  output must typecheck.
+- T7 emit line endings on Windows: projections normalize to LF, tripping
+  git's LF/CRLF warnings; projected files mix LF frontmatter with CRLF
+  bodies. Byte-reproducibility needs a deterministic EOL policy — candidate:
+  always LF, stated; if the corpus is silent, a small fork.
+- T8 vocabulary for the remaining surfaces (FORK, needs John): slash
+  commands need a registration value for user-invoked (existing vocabulary:
+  always / description-trigger / paths-match / event / connection); hooks
+  and settings need kinds. Until ruled, the two coverage advisories are
+  permanent. Joins the (json-projection-format) family.
