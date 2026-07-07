@@ -61,6 +61,7 @@ use crate::kind::Registration;
 /// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
 /// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never
 /// re-derived here (READ-EDGE-UNIFY).
+#[derive(Clone)]
 struct Member {
     /// The artifact kind (`skill`, `rule`, or a custom kind's name) — part of the
     /// identity, since an id is unique only within a kind. Owned rather than
@@ -253,7 +254,7 @@ pub fn explain(
             out.push_str(&context(by_kind, citations, name));
             out
         }
-        Species::Requirement(name) => requirements(workspace, custom, roster, Some(name)),
+        Species::Requirement(name) => requirements(workspace, custom, roster, by_kind, Some(name)),
         Species::Leaf(address) => {
             let mut out = impact(
                 assembly,
@@ -282,7 +283,7 @@ pub fn explain(
             "No member, requirement, or leaf address named `{name}` is in the surface. \
              `explain` reads the authored surface's members, its requirement roster, and \
              leaf-grain addresses (`<member>/<kind>/<key>/<child-path>`); check the \
-             name, or `import` the harness first.\n"
+             name.\n"
         ),
     }
 }
@@ -316,17 +317,44 @@ pub fn why(
     edges: &[Edge],
     member: &str,
 ) -> String {
-    let members = members(workspace, custom);
     // The resolved edge set the gate ranges over — computed once, filtered per matched
     // node below. One source of truth: the exact arcs `graph::check` resolves.
     let resolved = graph::resolved_edges(edges, by_kind);
 
-    let matches: Vec<&Member> = members.iter().filter(|m| m.id == member).collect();
+    // Every `(kind, id)` naming `member`: the rationale-carrying Workspace/custom
+    // listing, unioned with `by_kind` — the same decidable corpus the dispatcher's own
+    // species resolution (`resolve`) already checked to dispatch here. Existence must
+    // never be decided off the Workspace/custom listing alone: it can lag `by_kind`
+    // (a member resolved live off disk but not yet re-imported), and checking it first
+    // was the not-found-then-narrates-anyway defect (`explain` calls `why` then
+    // `impact`/`context`, and only `why` disagreed with the resolver). A `by_kind`-only
+    // match narrates with no rationale (`Features::satisfies` carries none).
+    let mut matches: Vec<Member> = members(workspace, custom)
+        .into_iter()
+        .filter(|m| m.id == member)
+        .collect();
+    for (&kind, features_slice) in by_kind {
+        for features in *features_slice {
+            if features.id == member && !matches.iter().any(|m| m.kind == kind) {
+                matches.push(Member {
+                    kind: kind.to_string(),
+                    id: member.to_string(),
+                    satisfies: features
+                        .satisfies
+                        .iter()
+                        .cloned()
+                        .map(Satisfies::new)
+                        .collect(),
+                });
+            }
+        }
+    }
+
     if matches.is_empty() {
         return format!(
             "No member named `{member}` is in the surface. `why` reads the authored \
              surface's members — skills, rules, and every custom kind's members; check \
-             the name, or `import` the harness first.\n"
+             the name.\n"
         );
     }
 
@@ -520,7 +548,7 @@ pub fn impact(
         return format!(
             "No member named `{target}` is in the surface. `impact` reads the authored \
              surface's members — skills, rules, and every custom kind's members; check \
-             the name, or `import` the harness first.\n"
+             the name.\n"
         );
     }
 
@@ -865,7 +893,7 @@ fn context_member(
         return format!(
             "No member named `{member}` is in the surface. `context` reads the authored \
              surface's members — skills, rules, and every custom kind's members; check the \
-             name, or `import` the harness first.\n"
+             name.\n"
         );
     }
 
@@ -1244,24 +1272,32 @@ fn other_satisfiers(
 /// The `roster` is the **composed** requirement namespace `check` gates (assembly ∪
 /// member-published, READ-VERBS-PUBLISHED-DEMANDS), built by the caller through the
 /// gate's own union — so `requirements` lists every published obligation, not the
-/// assembly's `[requirement.*]` alone.
+/// assembly's `[requirement.*]` alone. `by_kind` is the same decidable corpus the
+/// gate's own `roster::check` counts satisfiers from (REQUIREMENT-GATE) — fill status
+/// here is read off the union of it and the Workspace/custom listing, so `explain`
+/// cannot report a requirement unfilled that `check` counts as covered.
 #[must_use]
 pub fn requirements(
     workspace: &Workspace,
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
+    by_kind: &BTreeMap<&str, &[Features]>,
     name: Option<&str>,
 ) -> String {
     let members = members(workspace, custom);
     match name {
-        Some(name) => requirement_detail(&members, roster, name),
-        None => roster_overview(&members, roster),
+        Some(name) => requirement_detail(&members, by_kind, roster, name),
+        None => roster_overview(&members, by_kind, roster),
     }
 }
 
 /// The forward roster view — every requirement, its satisfier set, and its coverage
 /// state, in name order.
-fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -> String {
+fn roster_overview(
+    members: &[Member],
+    by_kind: &BTreeMap<&str, &[Features]>,
+    roster: &BTreeMap<String, Requirement>,
+) -> String {
     if roster.is_empty() {
         return "No requirements are published — the roster is empty. Declare one in \
                 the SDK program's `harness()` assembly, or publish one on a member, \
@@ -1277,7 +1313,7 @@ fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -
     };
     let _ = writeln!(out, "The requirement roster ({} {plural}):\n", roster.len());
     for requirement in roster.values() {
-        let satisfiers = satisfiers_of(members, &requirement.name);
+        let satisfiers = satisfiers_of(members, by_kind, &requirement.name);
         let _ = writeln!(
             out,
             "  • `{}` — {}",
@@ -1301,10 +1337,11 @@ fn roster_overview(members: &[Member], roster: &BTreeMap<String, Requirement>) -
 /// gate.
 fn requirement_detail(
     members: &[Member],
+    by_kind: &BTreeMap<&str, &[Features]>,
     roster: &BTreeMap<String, Requirement>,
     name: &str,
 ) -> String {
-    let satisfiers = satisfiers_of(members, name);
+    let satisfiers = satisfiers_of(members, by_kind, name);
 
     let Some(requirement) = roster.get(name) else {
         // An undeclared name is not an error here — it is a read. Narrate that it is
@@ -1341,8 +1378,8 @@ fn requirement_detail(
     }
 
     let _ = writeln!(&mut out, "  Satisfied by:");
-    for (member, satisfies) in &satisfiers {
-        let rationale = satisfies.rationale.as_deref().map_or_else(
+    for (member, rationale) in &satisfiers {
+        let rationale = rationale.as_deref().map_or_else(
             || "no rationale authored".to_string(),
             |r| format!("\"{r}\""),
         );
@@ -1383,21 +1420,50 @@ fn requirement_detail(
 }
 
 /// The satisfier set of the requirement named `name` — every member whose `satisfies`
-/// opts into it, paired with the opt-in link (for its authored rationale). The same
-/// opt-in join [`crate::roster::is_satisfier`] and [`crate::coverage`] use, so the read
-/// agrees with the gate. Members arrive name-sorted (skills then rules), so the set is
-/// stable across runs.
-fn satisfiers_of<'a>(members: &'a [Member], name: &str) -> Vec<(&'a Member, &'a Satisfies)> {
-    members
+/// opts into it, paired with its authored rationale when one is available. The
+/// rationale-carrying Workspace/custom listing (`members`) is unioned with `by_kind` —
+/// the same opt-in join [`crate::roster::is_satisfier`] reads fill status from — so a
+/// satisfier `check` counts toward coverage is never missing here just because the
+/// Workspace/custom listing lags `by_kind` (a `required` requirement with a satisfier
+/// locked on disk narrating as unfilled was exactly that drift, REQUIREMENT-GATE). A
+/// `(kind, id)` the Workspace/custom listing already carries (with its rationale) is
+/// not duplicated from `by_kind`, whose decidable `Features::satisfies` carries none.
+fn satisfiers_of(
+    members: &[Member],
+    by_kind: &BTreeMap<&str, &[Features]>,
+    name: &str,
+) -> Vec<(Member, Option<String>)> {
+    let mut satisfiers: Vec<(Member, Option<String>)> = members
         .iter()
         .filter_map(|member| {
             member
                 .satisfies
                 .iter()
                 .find(|satisfies| satisfies.requirement == name)
-                .map(|satisfies| (member, satisfies))
+                .map(|satisfies| (member.clone(), satisfies.rationale.clone()))
         })
-        .collect()
+        .collect();
+
+    for (&kind, features_slice) in by_kind {
+        for features in *features_slice {
+            if features.satisfies.iter().any(|req| req == name)
+                && !satisfiers
+                    .iter()
+                    .any(|(member, _)| member.kind == kind && member.id == features.id)
+            {
+                satisfiers.push((
+                    Member {
+                        kind: kind.to_string(),
+                        id: features.id.clone(),
+                        satisfies: Vec::new(),
+                    },
+                    None,
+                ));
+            }
+        }
+    }
+
+    satisfiers
 }
 
 /// The coverage-state clause for a requirement given whether it is `required` and how

@@ -118,7 +118,8 @@ fn a_member_target_walks_why_impact_and_context() {
     // `solo` names no requirement, so it resolves unambiguously as a member and its
     // explanation carries all three member-grain traversals: why's forward walk,
     // impact's blast radius, and context's neighborhood. `why`/`requirements` read a
-    // member's existence off `custom` (not `by_kind`), so it is threaded into both.
+    // member's rationale off `custom`, so it is threaded there too (existence alone
+    // would resolve off `by_kind`).
     let custom = [CustomMember {
         kind: "spec".to_string(),
         id: "solo".to_string(),
@@ -147,8 +148,8 @@ fn a_member_target_walks_why_impact_and_context() {
 fn a_requirement_target_walks_the_reverse_roster() {
     // `only-req` names no member, so it resolves unambiguously as a requirement and
     // narrates through `requirements`'s reverse walk (satisfier set, coverage, blast
-    // radius) alone. `filler` satisfies it (`why`/`requirements` read satisfiers off
-    // `custom`, with rationale, never off `by_kind`'s decidable `Features::satisfies`).
+    // radius) alone. `filler` satisfies it via `custom`, so its rationale narrates
+    // (`by_kind`'s decidable `Features::satisfies` carries none).
     let custom = [CustomMember {
         kind: "spec".to_string(),
         id: "filler".to_string(),
@@ -163,6 +164,57 @@ fn a_requirement_target_walks_the_reverse_roster() {
     assert!(out.contains("`filler`"), "{out}");
     // Member-grain traversals never fire for a requirement target.
     assert!(!out.contains("everything that holds it in place"), "{out}");
+}
+
+#[test]
+fn a_member_known_only_to_by_kind_resolves_without_a_spurious_not_found() {
+    // `live` is discovered live off disk (`by_kind`) but never threaded into the
+    // rationale-carrying Workspace/custom listing — the drift `main.rs`'s two-source
+    // wiring can produce (`by_kind`'s features resolve live off the harness root, while
+    // `Workspace::load` reads only the materialized `.temper` surface). `why` must
+    // resolve existence off `by_kind`, the same corpus the dispatcher's own species
+    // resolution already used to dispatch here — never report it not-found and have
+    // `impact`/`context` (called right after, over the same target) narrate it anyway.
+    let members = [feature("live", &[], &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let out = explain(&[], &by_kind, &roster, "live");
+    assert!(
+        !out.contains("No member named `live`"),
+        "a member `by_kind` already resolved is never reported not-found: {out}"
+    );
+    assert!(
+        out.contains("everything that holds it in place"),
+        "it still narrates why's forward walk: {out}"
+    );
+    assert!(
+        !out.contains("`import`"),
+        "no output suggests the retired `import` verb: {out}"
+    );
+}
+
+#[test]
+fn a_requirement_satisfied_only_in_by_kind_reports_filled_agreeing_with_the_gate() {
+    // `locked` satisfies `req` only through `by_kind` — the corpus `roster::check`
+    // (the gate) counts satisfiers from — never threaded into `custom`. `explain` must
+    // report the same fill status the gate reports: filled, never unfilled, even
+    // though the Workspace/custom listing carries no rationale-bearing record of it.
+    let members = [feature("locked", &["req"], &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+    let roster = BTreeMap::from([("req".to_string(), req("req", true))]);
+
+    let out = explain(&[], &by_kind, &roster, "req");
+    assert!(out.contains("Requirement `req`:"), "{out}");
+    assert!(
+        out.contains("required, filled by 1 member(s)"),
+        "the gate counts `locked` as a satisfier, so `explain` must too: {out}"
+    );
+    assert!(
+        !out.contains("required, and unfilled"),
+        "a locked satisfier must never narrate the requirement as unfilled: {out}"
+    );
+    assert!(out.contains("`locked`"), "{out}");
 }
 
 #[test]
