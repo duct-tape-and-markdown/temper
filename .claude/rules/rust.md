@@ -39,10 +39,12 @@ are flume gates, so a violation reverts the commit.
   antirez taxonomy, antirez.com/news/124). Keep: the *why* (chosen-over-
   alternative, ordering constraints, workarounds); invariants, units, edge
   behavior (`BTreeMap` for stable output); checklist warnings ("change X → also
-  Y"); a what-summary only above code genuinely denser than the sentence. Spec
-  citations are **terse pointer tags** (`// specs/model/pipeline.md, drift`), never
-  prose recaps — the DO-178C trace-tag form. Cut: restated spec narrative (a
-  second, unchecked home for intent that drifts), narration of ordinary code,
+  Y"); a what-summary only above code genuinely denser than the sentence.
+  **Spec citations are retired from comments**: provenance lives in the
+  pipeline (the entry's gated `per` cite) and git — a comment pointer is an
+  unchecked cache that rots wholesale. State the constraint, never its
+  source. Cut: spec-path pointers, restated spec narrative (a second,
+  unchecked home for intent that drifts), narration of ordinary code,
   compliance narration ("per §X we…" — commit-message material). Comments are
   paid twice here: every agent reading the module bills for every line.
 - **Comment churn is diff cost.** Never rewrite a comment whose constraint
