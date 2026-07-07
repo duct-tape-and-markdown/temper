@@ -183,6 +183,26 @@ fn check_in(root: &Path) -> CheckRun {
     }
 }
 
+/// Run `temper check --harness <root>` — the one-shot wedge, gating `root` directly
+/// rather than through the two-step `./.temper` default. `root` already carries its own
+/// `.temper/` surface (`write_requirements`/`author_satisfies` project it there), so
+/// this exercises the one-shot gate's surface-present branch: its lock's declared
+/// requirement/satisfies rows must gate exactly as the two-step path's do.
+fn check_harness_in(root: &Path) -> CheckRun {
+    let out = Command::new(BIN)
+        .arg("check")
+        .arg("--harness")
+        .arg(root)
+        .output()
+        .unwrap();
+    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    output.push_str(&String::from_utf8_lossy(&out.stderr));
+    CheckRun {
+        ok: out.status.success(),
+        output,
+    }
+}
+
 /// The retired manifest's filename, spelled by concatenation so the retired token
 /// itself never appears as a literal in this source.
 fn retired_manifest_name() -> String {
@@ -389,6 +409,23 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
             && run.output.contains("[0, 1]"),
         "the finding names the requirement, the satisfiers, and the bound, got:\n{}",
         run.output
+    );
+
+    // The one-shot `check --harness` gate over the identical already-emitted harness
+    // must reach the same finding — a locked `count` clause is not two-step-only.
+    let harness_run = check_harness_in(&root);
+    assert!(
+        !harness_run.ok,
+        "check --harness must also fail the run on the same out-of-band count ⇒ non-zero, got:\n{}",
+        harness_run.output
+    );
+    assert!(
+        harness_run.output.contains("agents")
+            && harness_run.output.contains("agent-one")
+            && harness_run.output.contains("agent-two")
+            && harness_run.output.contains("[0, 1]"),
+        "the one-shot gate's finding names the requirement, the satisfiers, and the bound, got:\n{}",
+        harness_run.output
     );
 }
 

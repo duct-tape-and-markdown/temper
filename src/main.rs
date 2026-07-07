@@ -89,9 +89,10 @@ enum Command {
         /// The surface workspace to lint (defaults to `./.temper`); with `--reporter
         /// session-start` it is read as a *harness root* instead (defaults to `.`).
         workspace: Option<PathBuf>,
-        /// One-shot mode: lint a raw harness directly — import it internally into
-        /// a throwaway surface, run the identical by-kind gate, and write no
-        /// workspace. Conflicts with `workspace`.
+        /// One-shot mode: lint a raw harness directly — its own `.temper/` surface
+        /// gates on its lock when one is already present, else the harness root is
+        /// imported internally into a throwaway surface; either way the identical
+        /// by-kind gate runs and no workspace is written. Conflicts with `workspace`.
         #[arg(long, conflicts_with = "workspace")]
         harness: Option<PathBuf>,
         /// Also fail the run on `advisory` (warn-severity) violations, not just
@@ -231,15 +232,14 @@ fn main() -> miette::Result<ExitCode> {
             // session.
             let diagnostics = if reporter == Reporter::SessionStart {
                 let harness_path = harness.or(workspace).unwrap_or_else(|| PathBuf::from("."));
-                session_start_diagnostics(&harness_path)?
+                harness_diagnostics(&harness_path)?
             } else {
                 // Two ways into the same gate. `--harness` is the one-shot wedge: gate the
-                // harness root directly — the discovery walk finds members straight off
-                // disk, no import step. Without it, the two-step path gates an
+                // harness root directly. Without it, the two-step path gates an
                 // already-imported surface over its harness root (the cwd). Same
                 // diagnostic shape ⇒ shared render.
                 match harness {
-                    Some(harness) => gate(&harness, &harness)?,
+                    Some(harness) => harness_diagnostics(&harness)?,
                     None => {
                         let workspace =
                             workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
@@ -524,15 +524,20 @@ fn ask_represent() -> miette::Result<install::Represent> {
     })
 }
 
-/// The session-start reporter's gate over a harness root: surface-present ⇒ gate the
-/// authored `.temper/` itself; surfaceless ⇒ gate the harness root directly — the
-/// discovery walk finds its members straight off disk, against the kind's embedded
-/// `governs` (the built-in lock).
+/// The one-shot gate over a harness root — shared by `check --harness` and the
+/// session-start reporter: surface-present ⇒ gate the authored `.temper/` itself, so
+/// its lock's declared requirement/satisfies/clause rows are read; surfaceless ⇒ gate
+/// the harness root directly — the discovery walk finds its members straight off
+/// disk, against the kind's embedded `governs` (the built-in lock), with an empty
+/// declaration set (never adopted, nothing to read).
 ///
 /// The surface-present branch never re-imports: a fresh import discards recognition (the
 /// authored `satisfies` links), so every filled requirement would read unfilled — the
-/// false positive on clean input the surface-present clause forbids.
-fn session_start_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
+/// false positive on clean input the surface-present clause forbids. It also supplies
+/// `gate` with the one place a harness's declared requirement/satisfies/clause rows
+/// live: reading `harness_path` alone finds no lock at all, so a harness gated only off
+/// its raw root would evaluate against an empty declaration set.
+fn harness_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     let authored = harness_path.join(TEMPER_DIR);
     if authored.is_dir() {
         gate(&authored, harness_path)
