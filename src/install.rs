@@ -102,11 +102,12 @@ const GUARD_MARKER: &str = "temper guard";
 pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code writes; other tools writes are not bound by it.";
 
 /// The extended-regex `temper guard` greps the `PreToolUse` payload for: a `file_path`
-/// value under a `.claude/` projection locus. Matching the field (not the whole payload)
-/// keeps a write whose *content* merely mentions `.claude/` from tripping the guard. Kept
-/// deliberately conservative — a false negative routes to CI (the backstop wall), a false
-/// positive would block honest work.
-const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"[^"]*\.claude/"#;
+/// value under a `.claude/` locus, captured so the guard can test it for lock-declared
+/// projection-set membership. Matching the field (not the whole payload) keeps a write
+/// whose *content* merely mentions `.claude/` from tripping the guard. Kept deliberately
+/// conservative — a false negative routes to CI (the backstop wall), a false positive
+/// would block honest work.
+const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"([^"]*\.claude/[^"]*)""#;
 
 /// The managed-by note's stable marker — the comment prefix that *locates* an already
 /// placed note (so a second `install` never duplicates it); whether that note is then
@@ -584,15 +585,33 @@ pub enum GuardVerdict {
 }
 
 /// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `mode`'s
-/// enforcement posture. A write whose `file_path` targets a `.claude/` projection
-/// maps onto the mode vocabulary, split by where the finding goes: `note` defers it
-/// out-of-band ([`GuardVerdict::Note`]), `warn` surfaces it in-band
-/// ([`GuardVerdict::Warn`]), `block` denies the call ([`GuardVerdict::Block`]). Any
-/// other write, or a payload naming no `.claude/` `file_path`, is
-/// [`GuardVerdict::Allow`]: the guard binds only projection edits.
+/// enforcement posture, bound to `targets` — the lock's emit-owned projection set
+/// ([`drift::emit_owned_targets`]). That reader already excludes a file()-carried
+/// member's own `file()` source (`own_path`), so a write to that source — the
+/// member's authored source of truth, not a generated projection — never binds,
+/// even under `block`. `targets` is `None` for a harness with no `lock.toml` at
+/// all (never emitted, or the file removed out from under an already-installed
+/// hook): with no declared set to consult, the guard falls back to binding any
+/// `.claude/` `file_path`, matching the pre-lock behavior — absent evidence must
+/// never silently suppress the guard.
+///
+/// A `file_path` naming no `.claude/` locus, or (with `targets` present) naming no
+/// declared projection, is [`GuardVerdict::Allow`]. Otherwise the finding maps
+/// onto the mode vocabulary, split by where it goes: `note` defers it out-of-band
+/// ([`GuardVerdict::Note`]), `warn` surfaces it in-band ([`GuardVerdict::Warn`]),
+/// `block` denies the call ([`GuardVerdict::Block`]).
 #[must_use]
-pub fn guard(payload: &str, mode: EnforcementMode) -> GuardVerdict {
-    if !targets_projection(payload) {
+pub fn guard(
+    payload: &str,
+    mode: EnforcementMode,
+    targets: Option<&[drift::EmitOwnedEntry]>,
+) -> GuardVerdict {
+    let Some(file_path) = claude_file_path(payload) else {
+        return GuardVerdict::Allow;
+    };
+    if let Some(targets) = targets
+        && !matches_projection(&file_path, targets)
+    {
         return GuardVerdict::Allow;
     }
     match mode {
@@ -602,14 +621,27 @@ pub fn guard(payload: &str, mode: EnforcementMode) -> GuardVerdict {
     }
 }
 
-/// Whether `payload` names a `.claude/` projection `file_path` — the conservative,
-/// field-scoped match the guard binds on ([`GUARD_PATH_MATCH`]).
-fn targets_projection(payload: &str) -> bool {
+/// The `.claude/`-rooted `file_path` a `PreToolUse` `payload` names, when present
+/// ([`GUARD_PATH_MATCH`]'s captured value).
+fn claude_file_path(payload: &str) -> Option<String> {
     // A compile-time-constant pattern: the only failure is a malformed literal, a build
     // invariant, so `expect` here can never fire on a real path.
     Regex::new(GUARD_PATH_MATCH)
         .expect("GUARD_PATH_MATCH is a valid regex")
-        .is_match(payload)
+        .captures(payload)
+        .and_then(|captures| captures.get(1))
+        .map(|value| value.as_str().to_string())
+}
+
+/// Whether `file_path` names one of `targets` — a straight suffix compare against each
+/// row's `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`), tolerant of `file_path`
+/// arriving absolute (Claude Code's own convention) against a workspace-relative lock row.
+fn matches_projection(file_path: &str, targets: &[drift::EmitOwnedEntry]) -> bool {
+    let file_path = file_path.replace('\\', "/");
+    targets.iter().any(|target| {
+        let source = target.path.to_string_lossy().replace('\\', "/");
+        file_path.ends_with(source.as_str())
+    })
 }
 
 /// Map "was this placement already in its desired state" onto the settings outcomes.

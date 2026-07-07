@@ -652,6 +652,11 @@ fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
     )
 }
 
+/// A minimal lock row declaring `.claude/skills/x/SKILL.md` (the [`CLAUDE_WRITE_PAYLOAD`]
+/// target) an emit-owned projection — real posture tests bind against a declared
+/// member, never a lock with no member rows at all.
+const CLAUDE_WRITE_LOCK_ROW: &str = "[[skill]]\nname = \"x\"\nsource_path = \".claude/skills/x/SKILL.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n";
+
 #[test]
 fn guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest() {
     let root = tmpdir("lock-posture-block");
@@ -659,7 +664,7 @@ fn guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest() {
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
         temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n",
+        format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n{CLAUDE_WRITE_LOCK_ROW}"),
     )
     .unwrap();
     // A stray retired manifest naming the opposite posture must be ignored entirely —
@@ -675,6 +680,10 @@ fn guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest() {
     assert!(stderr.contains("other tools writes are not bound by it"));
 }
 
+/// With no `lock.toml` at all there is no declared projection set to consult — unlike
+/// a represented harness (below), the guard falls back to binding any `.claude/` write
+/// at the default posture rather than silently allowing everything: absent evidence
+/// must never *suppress* a guard claim, only ever fail to forge one.
 #[test]
 fn guard_defaults_to_warn_when_the_lock_is_absent() {
     let root = tmpdir("lock-posture-absent");
@@ -692,6 +701,45 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
     );
     assert_eq!(allow_code, Some(0));
     assert!(allow_stderr.is_empty());
+}
+
+/// A file()-carried member's own `.claude/` source (`own_path`) is its authored source
+/// of truth, absent from the lock's emit-owned projection set — a write to it must
+/// pass even under `block`, while a genuinely lock-declared projection stays bound.
+#[test]
+fn guard_allows_a_file_carried_members_own_path_source_under_block() {
+    let root = tmpdir("lock-own-path");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[skill]]\nname = \"projected\"\nsource_path = \".claude/skills/projected/SKILL.md\"\nsource_hash = \"a\"\nemit_hash = \"a\"\n\n\
+         [[skill]]\nname = \"lifted\"\nsource_path = \".claude/skills/lifted/SKILL.md\"\nsource_hash = \"b\"\nemit_hash = \"b\"\nown_path = true\n",
+    )
+    .unwrap();
+
+    let (own_path_code, own_path_stderr) = run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/lifted/SKILL.md\"}}",
+    );
+    assert_eq!(
+        own_path_code,
+        Some(0),
+        "a file()-carried member's own .claude/ source is never a guard target"
+    );
+    assert!(own_path_stderr.is_empty());
+
+    let (projected_code, projected_stderr) = run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/projected/SKILL.md\"}}",
+    );
+    assert_eq!(
+        projected_code,
+        Some(2),
+        "a lock-declared projection still binds at the declared mode"
+    );
+    assert!(projected_stderr.contains("other tools writes are not bound by it"));
 }
 
 // ---------------------------------------------------------------------------

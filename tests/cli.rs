@@ -437,7 +437,8 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
         temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n",
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[rule]]\nname = \"rust\"\nsource_path = \".claude/rules/rust.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n",
     )
     .unwrap();
 
@@ -483,7 +484,10 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
         fs::create_dir_all(&temper_dir).unwrap();
         fs::write(
             temper_dir.join("lock.toml"),
-            format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n"),
+            format!(
+                "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n\
+                 [[rule]]\nname = \"rust\"\nsource_path = \".claude/rules/rust.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
+            ),
         )
         .unwrap();
 

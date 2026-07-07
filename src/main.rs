@@ -325,7 +325,8 @@ fn main() -> miette::Result<ExitCode> {
         }
         Command::Guard { path } => {
             // The guard at Claude Code's write boundary: read the `PreToolUse` payload
-            // from stdin, and — when it targets a `.claude/` projection — act at the
+            // from stdin, and — when it names one of the lock's emit-owned projections,
+            // never a file()-carried member's own `own_path` source — act at the
             // author's declared enforcement mode, three values split by where the
             // finding goes: `note` allows and defers out-of-band (exit 0, no in-band
             // message — the next report, never the session); `warn` allows and surfaces
@@ -334,21 +335,27 @@ fn main() -> miette::Result<ExitCode> {
             // is also the sole source for how firmly that projection is enforced.
             // An unrepresented
             // harness (no lock) reads the default `warn`, matching
-            // `compose::EnforcementMode`'s own default.
-            let mode = mode_from_lock(&path.join(TEMPER_DIR));
+            // `compose::EnforcementMode`'s own default, and falls back to binding any
+            // `.claude/` write since there is no declared set to consult.
+            let workspace_dir = path.join(TEMPER_DIR);
+            let mode = mode_from_lock(&workspace_dir);
+            let lock_present = workspace_dir.join("lock.toml").is_file();
+            let targets = drift::emit_owned_targets(&workspace_dir);
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
-            Ok(match install::guard(&payload, mode) {
-                install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
-                install::GuardVerdict::Warn => {
-                    eprintln!("{}", install::GUARD_MESSAGE);
-                    ExitCode::SUCCESS
-                }
-                install::GuardVerdict::Block => {
-                    eprintln!("{}", install::GUARD_MESSAGE);
-                    ExitCode::from(2)
-                }
-            })
+            Ok(
+                match install::guard(&payload, mode, lock_present.then_some(targets.as_slice())) {
+                    install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
+                    install::GuardVerdict::Warn => {
+                        eprintln!("{}", install::GUARD_MESSAGE);
+                        ExitCode::SUCCESS
+                    }
+                    install::GuardVerdict::Block => {
+                        eprintln!("{}", install::GUARD_MESSAGE);
+                        ExitCode::from(2)
+                    }
+                },
+            )
         }
         Command::Install {
             path,
