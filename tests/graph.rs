@@ -660,7 +660,7 @@ mod reachability {
             source_dir: Some(id.to_string()),
             directives: Vec::new(),
             fenced_blocks: Vec::new(),
-            genres: Vec::new(),
+            nested_members: Vec::new(),
             satisfies: Vec::new(),
             published_requirements: Vec::new(),
         }

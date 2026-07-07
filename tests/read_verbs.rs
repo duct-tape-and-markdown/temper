@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use temper::check::Workspace;
 use temper::compose::Requirement;
 use temper::document::PublishedRequirement;
-use temper::extract::{FeatureValue, Features, GenreValue, ValueType};
+use temper::extract::{EmbeddedMember, FeatureValue, Features, ValueType};
 use temper::read::{self, CustomMember};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -57,7 +57,7 @@ fn feature(id: &str, satisfies: &[&str], published: &[&str]) -> Features {
         source_dir: Some(id.to_string()),
         directives: Vec::new(),
         fenced_blocks: Vec::new(),
-        genres: Vec::new(),
+        nested_members: Vec::new(),
         satisfies: satisfies.iter().map(|s| (*s).to_string()).collect(),
         published_requirements: published
             .iter()
@@ -169,11 +169,11 @@ fn a_requirement_target_walks_the_reverse_roster() {
 #[test]
 fn a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage() {
     let mut leafy = feature("20-surface", &[], &[]);
-    leafy.genres = vec![GenreValue {
-        genre: "decision".to_string(),
+    leafy.nested_members = vec![EmbeddedMember {
+        kind: "decision".to_string(),
         key: "surface-authority".to_string(),
         leaves: BTreeMap::from([("chosen".to_string(), "the surface is canonical".to_string())]),
-        collections: BTreeMap::new(),
+        members: BTreeMap::new(),
     }];
     let members = [leafy];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);

@@ -155,7 +155,7 @@ mod tests {
             source_dir: None,
             directives: Vec::new(),
             fenced_blocks: Vec::new(),
-            genres: Vec::new(),
+            nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
             published_requirements: Vec::new(),
         }

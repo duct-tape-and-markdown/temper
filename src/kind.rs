@@ -85,13 +85,14 @@ pub struct CustomKind {
     /// REACHABILITY reads it to decide a member's declared registration edge is dead;
     /// nothing consumes it yet.
     pub registration: Option<Registration>,
-    /// The kind's declared **genres** — typed shapes for its members' recurring prose
-    /// forms (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"),
-    /// parsed from the header's `[[genres]]` array. Extraction folds a
-    /// member's genre fences into typed values against this set ([`CustomKind::extract`]);
-    /// the shape is the kind's, any predicate over it rides the assembly's
-    /// `expect`/`require` clauses (`specs/architecture/10-contracts.md`). Absent ⇒ empty.
-    pub genres: Vec<Genre>,
+    /// The kind's declared **templates** — one per inner layer of nested members it
+    /// hosts at the embedded locus (`specs/model/representation.md`, "kind"/"nesting"):
+    /// the child kind plus its embedded addressing, per genre fence. Extraction folds
+    /// a member's genre fences into typed [`EmbeddedMember`](crate::extract::EmbeddedMember)s
+    /// against this set ([`CustomKind::extract`]); the shape is the kind's, any
+    /// predicate over it rides the assembly's `expect`/`require` clauses
+    /// (`specs/architecture/10-contracts.md`). Absent ⇒ empty.
+    pub templates: Vec<Template>,
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
@@ -156,29 +157,32 @@ pub enum Registration {
     },
 }
 
-/// A **genre** a kind declares — a typed shape for one of its members' recurring prose
-/// forms (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"):
-/// named fields over prose **leaves** plus keyed **collections**, serialized whole into
-/// the lock. The shape is the kind's; any *predicate* over it rides the assembly's
-/// `expect`/`require` clauses (`specs/architecture/10-contracts.md`), **out of the kind object** — the
-/// same ownership line extraction and contract split on everywhere. So a `Genre`
+/// A **template** a kind declares for one inner layer of nested members it hosts at
+/// the embedded locus (`specs/model/representation.md`, "kind"/"nesting"): the child
+/// kind plus the declared vocabulary over its own prose **leaves** and keyed
+/// **nested members**, serialized whole into the lock. The shape is the host kind's;
+/// any *predicate* over it rides the assembly's `expect`/`require` clauses
+/// (`specs/architecture/10-contracts.md`), **out of the kind object** — the same
+/// ownership line extraction and contract split on everywhere. So a `Template`
 /// carries the vocabulary, never a clause.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Genre {
-    /// The genre name — the `genre.<name>` a fence info string carries
-    /// (`genre.decision surface-authority` → `decision`), the token extraction matches a
-    /// fence against to fold it into a typed [`GenreValue`](crate::extract::GenreValue).
-    pub name: String,
-    /// The declared **prose-leaf** field names — the genre value's top-level authored
-    /// strings. The declared schema a genre-value predicate — the assembly's clauses,
-    /// out of the kind object — ranges over; extraction classifies a fence's interior
-    /// structurally (a string is a leaf, a table a collection), so this list is inert
-    /// until that predicate lands — the same declared-and-inert posture
-    /// [`format`](CustomKind::format)/[`registration`](CustomKind::registration) carry.
+pub struct Template {
+    /// The child kind — the `genre.<kind>` a fence info string carries
+    /// (`genre.decision surface-authority` → `decision`), the token extraction matches
+    /// a fence against to fold it into a typed
+    /// [`EmbeddedMember`](crate::extract::EmbeddedMember).
+    pub kind: String,
+    /// The declared **prose-leaf** field names — the nested member's top-level
+    /// authored strings. The declared schema a nested-member predicate — the
+    /// assembly's clauses, out of the kind object — ranges over; extraction classifies
+    /// a fence's interior structurally (a string is a leaf, a table a nested member),
+    /// so this list is inert until that predicate lands — the same declared-and-inert
+    /// posture [`format`](CustomKind::format)/[`registration`](CustomKind::registration)
+    /// carry.
     pub leaves: Vec<String>,
-    /// The declared **keyed-collection** names — the genre value's sibling collections
-    /// (`rejected`). Declared schema like [`leaves`](Genre::leaves), inert until the
-    /// genre-value predicate reads it.
+    /// The declared **keyed-collection** names — the nested member's own nested
+    /// members (`rejected`). Declared schema like [`leaves`](Template::leaves), inert
+    /// until the nested-member predicate reads it.
     pub collections: Vec<String>,
 }
 
@@ -199,7 +203,7 @@ impl CustomKind {
             format: None,
             unit_shape: None,
             registration: None,
-            genres: Vec::new(),
+            templates: Vec::new(),
         }
     }
 
@@ -216,6 +220,14 @@ impl CustomKind {
     /// member's extraction already runs through (`crate::builtin_kind::features`), is
     /// what actually ranges over a custom member's declared fields — never a per-kind
     /// `Field` primitive list.
+    ///
+    /// The reconstructed extraction now includes `Fenced` alongside the generic
+    /// markdown-structure set, so the raw fenced-block substrate a genre fence needs
+    /// is always available — closing that part of the gap this row leaves. A host
+    /// kind's declared `templates` are a *different* fact the row does not carry
+    /// (`KindFactRow` has no template column today), so a lock-reconstructed kind
+    /// still folds no nested members even when its live SDK declaration would; that
+    /// residual gap is unclosed here.
     #[must_use]
     pub fn from_kind_fact_row(row: &KindFactRow) -> Self {
         CustomKind {
@@ -236,53 +248,55 @@ impl CustomKind {
                     Primitive::Headings,
                     Primitive::Sections,
                     Primitive::Placement,
+                    Primitive::Fenced,
                 ]),
             )
         }
     }
 
-    /// Run the kind's composed extractor over `unit`, then fold its declared genres
-    /// (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"): each
-    /// fenced block whose info string names a declared genre (`genre.<genre> <key>`) has
-    /// its interior TOML parsed into a typed [`GenreValue`](crate::extract::GenreValue)
-    /// and folded into `Features::genres`,
+    /// Run the kind's composed extractor over `unit`, then fold its declared templates
+    /// (`specs/model/representation.md`, "kind"/"nesting"): each
+    /// fenced block whose info string names a declared child kind (`genre.<kind> <key>`)
+    /// has its interior TOML parsed into a typed [`EmbeddedMember`](crate::extract::EmbeddedMember)
+    /// and folded into `Features::nested_members`,
     /// beside its raw form in `fenced_blocks`. This composes the `Fenced` primitive with a
-    /// TOML parse — the typed genre layer over the raw-block algebra (`specs/architecture/15-kinds.md`).
-    /// The single entry point every extract call site routes through, so genre folding
-    /// never forks from the primitive extraction. A kind declaring no genres (every
+    /// TOML parse — the typed nested-member layer over the raw-block algebra
+    /// (`specs/architecture/15-kinds.md`).
+    /// The single entry point every extract call site routes through, so member folding
+    /// never forks from the primitive extraction. A kind declaring no templates (every
     /// built-in), or a body with no matching fence, folds nothing.
     #[must_use]
     pub fn extract(&self, unit: &Unit) -> Features {
         let mut features = self.extraction.extract(unit);
-        self.fold_genres(&mut features);
+        self.fold_members(&mut features);
         features
     }
 
-    /// Fold this kind's declared genres out of the already-extracted `fenced_blocks`
+    /// Fold this kind's declared templates out of the already-extracted `fenced_blocks`
     /// (`specs/architecture/20-surface.md`). A block whose info string parses as
-    /// `genre.<genre> <key>` for a **declared** genre and whose interior is well-formed
-    /// TOML becomes a [`GenreValue`](crate::extract::GenreValue); a fence naming an
-    /// undeclared genre, or any non-genre block, stays raw-only — genre adoption is opt-in
-    /// per block. A pure function of `fenced_blocks` and the declared genre set, so
-    /// re-running is byte-identical, the property that keeps a genre value a sound gate
-    /// input.
-    fn fold_genres(&self, features: &mut Features) {
-        if self.genres.is_empty() {
+    /// `genre.<kind> <key>` for a **declared** template and whose interior is well-formed
+    /// TOML becomes an [`EmbeddedMember`](crate::extract::EmbeddedMember); a fence naming
+    /// an undeclared child kind, or any non-genre block, stays raw-only — adoption is
+    /// opt-in per block. A pure function of `fenced_blocks` and the declared template
+    /// set, so re-running is byte-identical, the property that keeps a nested member a
+    /// sound gate input.
+    fn fold_members(&self, features: &mut Features) {
+        if self.templates.is_empty() {
             return;
         }
-        let mut genres = Vec::new();
+        let mut nested_members = Vec::new();
         for block in &features.fenced_blocks {
-            let Some((genre, key)) = extract::parse_genre_info(&block.info) else {
+            let Some((kind, key)) = extract::parse_embedded_info(&block.info) else {
                 continue;
             };
-            if !self.genres.iter().any(|declared| declared.name == genre) {
+            if !self.templates.iter().any(|declared| declared.kind == kind) {
                 continue;
             }
-            if let Some(value) = extract::parse_genre_value(&genre, &key, &block.content) {
-                genres.push(value);
+            if let Some(member) = extract::parse_embedded_member(&kind, &key, &block.content) {
+                nested_members.push(member);
             }
         }
-        features.genres = genres;
+        features.nested_members = nested_members;
     }
 
     /// The kind's **identity** — its bare `name` (`specs/architecture/15-kinds.md`,
@@ -842,10 +856,11 @@ impl Extraction {
             source_dir: None,
             directives: Vec::new(),
             fenced_blocks: Vec::new(),
-            // Genres are folded by [`CustomKind::extract`] after the primitives run — a
-            // typed layer over `fenced_blocks`, needing the kind's declared genre set the
-            // primitive-only `Extraction` does not hold. Empty here on purpose.
-            genres: Vec::new(),
+            // Nested members are folded by [`CustomKind::extract`] after the primitives
+            // run — a typed layer over `fenced_blocks`, needing the kind's declared
+            // template set the primitive-only `Extraction` does not hold. Empty here on
+            // purpose.
+            nested_members: Vec::new(),
             // `satisfies` is a surface edge threaded through unchanged, not a
             // composed primitive, so a custom-kind member joins coverage exactly as
             // a built-in kind's does (`specs/architecture/10-contracts.md`).
@@ -1281,7 +1296,7 @@ import_hash = \"deadbeef\"\n\
         assert_eq!(kind.unit_shape, None);
         assert_eq!(kind.registration, None);
         assert!(kind.relationships.is_empty());
-        assert!(kind.genres.is_empty());
+        assert!(kind.templates.is_empty());
     }
 
     #[test]
@@ -1321,8 +1336,9 @@ import_hash = \"deadbeef\"\n\
                 field: "description".to_string()
             })
         );
-        // The generic markdown-structure set every built-in composes — never a
-        // per-kind `Field` primitive, since the row carries no field-level facts.
+        // The generic markdown-structure set every built-in composes, plus `Fenced` —
+        // never a per-kind `Field` primitive, since the row carries no field-level
+        // facts.
         assert_eq!(
             kind.extraction.primitives(),
             &[
@@ -1330,6 +1346,7 @@ import_hash = \"deadbeef\"\n\
                 Primitive::Headings,
                 Primitive::Sections,
                 Primitive::Placement,
+                Primitive::Fenced,
             ]
         );
     }

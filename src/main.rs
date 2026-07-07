@@ -195,7 +195,7 @@ enum Command {
     /// outright. A read, never a gate: exits zero on every input.
     Explain {
         /// A member id, a requirement name, a leaf address
-        /// (`<member>/<genre>/<key>/<field-path>`), or one qualified as
+        /// (`<member>/<kind>/<key>/<child-path>`), or one qualified as
         /// `member:<name>` / `requirement:<name>` / `address:<leaf-address>`.
         target: String,
     },

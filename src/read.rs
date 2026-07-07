@@ -15,8 +15,8 @@
 //! dangling), the `@import` directive edges that point at it (left unbacked), and the
 //! members whose reachability was carried only through it (gone dead) — or, at leaf
 //! grain, a leaf's citations reported separately from its (nonexistent) fallout;
-//! [`context`] emits the **declared neighborhood** — a member's genre slots or a leaf's
-//! siblings, the citers, and the requirements satisfied. All are *projections* over the
+//! [`context`] emits the **declared neighborhood** — a member's nested members or a
+//! leaf's siblings, the citers, and the requirements satisfied. All are *projections* over the
 //! data `check` already computes — the opt-in `satisfies` bindings [`crate::coverage`]
 //! gates, and, for the edge walk, the **gate's own resolved edge set**
 //! ([`crate::graph::resolved_edges`], relationships over extracted features), never a
@@ -51,7 +51,7 @@ use std::fmt::Write;
 use crate::check::Workspace;
 use crate::compose::{Edge, Requirement};
 use crate::document::Satisfies;
-use crate::extract::{Features, LeafAddress};
+use crate::extract::{Features, MemberAddress};
 use crate::graph::{self, ResolvedEdge};
 use crate::kind::Registration;
 
@@ -91,14 +91,14 @@ pub struct CustomMember {
     pub satisfies: Vec<Satisfies>,
 }
 
-/// A declared **citation** — a one-way edge from a member (the citer) to a genre-value
-/// [`LeafAddress`] it names (`specs/architecture/45-governance.md`, "the mention is the readmitted
-/// one-way annotation class"; address grain). **Obligation-free**: the obligation graph
-/// ignores it, coverage never counts it, and `impact` reports it as a *citation, never
-/// fallout* — deleting or rewording the cited leaf is never blocked, the citer is told.
-/// **Resolution-checked** against the lock's serialized genre values: `impact` reports
-/// a citation only for a leaf that resolves, exactly the referential guarantee a mention
-/// carries.
+/// A declared **citation** — a one-way edge from a member (the citer) to a nested
+/// member's [`MemberAddress`] it names (`specs/architecture/45-governance.md`, "the mention is
+/// the readmitted one-way annotation class"; address grain). **Obligation-free**: the
+/// obligation graph ignores it, coverage never counts it, and `impact` reports it as a
+/// *citation, never fallout* — deleting or rewording the cited leaf is never blocked,
+/// the citer is told. **Resolution-checked** against the lock's serialized nested-member
+/// leaves: `impact` reports a citation only for a leaf that resolves, exactly the
+/// referential guarantee a mention carries.
 ///
 /// The floor carries no producer yet — floor leaves carry no mentions
 /// (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"), so today's
@@ -109,9 +109,9 @@ pub struct Citation {
     pub from_kind: String,
     /// The member id that declares the citation (the citer).
     pub from: String,
-    /// The leaf address the citation targets — resolved against the serialized genre
-    /// values before it is reported.
-    pub target: LeafAddress,
+    /// The leaf address the citation targets — resolved against the serialized
+    /// nested-member leaves before it is reported.
+    pub target: MemberAddress,
 }
 
 /// Project every opt-in artifact into the read family's [`Member`] view — the
@@ -157,7 +157,7 @@ enum Species<'a> {
     /// A requirement name — dispatches to [`requirements`] alone, whose reverse walk
     /// already carries coverage and blast radius.
     Requirement(&'a str),
-    /// A leaf address (`<member>/<genre>/<key>/<field-path>`) — dispatches to
+    /// A leaf address (`<member>/<kind>/<key>/<child-path>`) — dispatches to
     /// [`impact`] and [`context`] at leaf grain (citations vs. fallout, and the leaf's
     /// neighborhood).
     Leaf(&'a str),
@@ -285,7 +285,7 @@ pub fn explain(
         Species::NotFound(name) => format!(
             "No member, requirement, or leaf address named `{name}` is in the surface. \
              `explain` reads the authored surface's members, its requirement roster, and \
-             leaf-grain addresses (`<member>/<genre>/<key>/<field-path>`); check the \
+             leaf-grain addresses (`<member>/<kind>/<key>/<child-path>`); check the \
              name, or `import` the harness first.\n"
         ),
     }
@@ -483,9 +483,9 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 ///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
 ///
 /// The family gains **leaf grain** (`specs/architecture/20-surface.md`, "Decision: one read
-/// verb — `explain`"): a `target` naming a genre-value leaf — the `<member>/<genre>/<key>/<field-path>`
+/// verb — `explain`"): a `target` naming a nested member's leaf — the `<member>/<kind>/<key>/<child-path>`
 /// address — dispatches to [`impact_leaf`], which resolves the leaf against the lock's
-/// serialized genre values and reports its **citations separately from fallout** (a leaf is
+/// serialized nested-member leaves and reports its **citations separately from fallout** (a leaf is
 /// obligation-free; `specs/architecture/45-governance.md`, address grain). A `target` with no `/` is
 /// a bare member name and takes the member-grain path below, unchanged.
 ///
@@ -495,8 +495,8 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 /// is the **composed** namespace `check` gates; `by_kind`, `registrations`, `repo_files`,
 /// and `directive_edges` are the exact graph inputs the gate's predicates range over
 /// (READ-EDGE-UNIFY), so the read cannot disagree with a green `check`. `by_kind` also
-/// carries each member's serialized genre values, the leaf-grain surface; `citations` are
-/// the declared one-way edges naming a leaf.
+/// carries each member's serialized nested-member leaves, the leaf-grain surface;
+/// `citations` are the declared one-way edges naming a leaf.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn impact(
@@ -552,17 +552,17 @@ pub fn impact(
     out
 }
 
-/// A parsed **leaf address** — the `<member>/<genre>/<key>/<field-path>` spelling `impact`
-/// accepts to name a single genre-value leaf (`specs/architecture/20-surface.md`, "Decision:
-/// one read verb — `explain`"). The three identity segments are `/`-separated; the field
+/// A parsed **leaf address** — the `<member>/<kind>/<key>/<child-path>` spelling `impact`
+/// accepts to name a single nested member's leaf (`specs/architecture/20-surface.md`, "Decision:
+/// one read verb — `explain`"). The three identity segments are `/`-separated; the child
 /// path keeps its own dots (`rejected.baked-projection.because`), so it is the whole
 /// remainder after the third slash — `splitn(4, '/')`, never a plain split that would
 /// mangle a dotted collection path.
 struct ParsedLeaf<'a> {
     member: &'a str,
-    genre: &'a str,
+    kind: &'a str,
     key: &'a str,
-    field_path: &'a str,
+    child_path: &'a str,
 }
 
 /// Parse a `/`-bearing `target` into its four leaf-address segments, or `None` when a
@@ -571,40 +571,40 @@ struct ParsedLeaf<'a> {
 fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
     let mut parts = target.splitn(4, '/');
     let member = parts.next()?;
-    let genre = parts.next()?;
+    let kind = parts.next()?;
     let key = parts.next()?;
-    let field_path = parts.next()?;
-    if member.is_empty() || genre.is_empty() || key.is_empty() || field_path.is_empty() {
+    let child_path = parts.next()?;
+    if member.is_empty() || kind.is_empty() || key.is_empty() || child_path.is_empty() {
         return None;
     }
     Some(ParsedLeaf {
         member,
-        genre,
+        kind,
         key,
-        field_path,
+        child_path,
     })
 }
 
-/// Resolve a parsed leaf address against the lock's **serialized genre values**
-/// ([`Features::genre_leaves`]) — the tier-1, offline read the leaf-grain `impact` stands
-/// on. Returns the matched leaf's kind and authored value, or `None` when no member's genre
-/// value carries that `(genre, key, field-path)`. Ranges over every kind's members, since a
-/// leaf may live in any genre-bearing kind.
+/// Resolve a parsed leaf address against the lock's **serialized nested-member leaves**
+/// ([`Features::embedded_leaves`]) — the tier-1, offline read the leaf-grain `impact` stands
+/// on. Returns the matched leaf's outer kind and authored value, or `None` when no
+/// member's nested member carries that `(kind, key, child-path)`. Ranges over every
+/// outer kind's members, since a leaf may live in any nested-member-bearing kind.
 fn resolve_leaf<'a>(
     by_kind: &BTreeMap<&str, &'a [Features]>,
     parsed: &ParsedLeaf<'_>,
 ) -> Option<(String, &'a str)> {
-    for (&kind, members) in by_kind {
+    for (&outer_kind, members) in by_kind {
         for features in *members {
             if features.id != parsed.member {
                 continue;
             }
-            for (address, value) in features.genre_leaves() {
-                if address.genre == parsed.genre
+            for (address, value) in features.embedded_leaves() {
+                if address.kind == parsed.kind
                     && address.key == parsed.key
-                    && address.field_path == parsed.field_path
+                    && address.child_path == parsed.child_path
                 {
-                    return Some((kind.to_string(), value));
+                    return Some((outer_kind.to_string(), value));
                 }
             }
         }
@@ -612,9 +612,9 @@ fn resolve_leaf<'a>(
     None
 }
 
-/// `temper impact <leaf-address>` — narrate a genre-value leaf at **leaf grain**
+/// `temper impact <leaf-address>` — narrate a nested member's leaf at **leaf grain**
 /// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"): resolve the
-/// leaf against the lock's serialized genre values, then report its **citations separately
+/// leaf against the lock's serialized nested-member leaves, then report its **citations separately
 /// from fallout** (`specs/architecture/45-governance.md`, address grain). A leaf is obligation-free — its
 /// citations neither gate nor block a rewrite — so the fallout line states exactly that,
 /// distinct from the citation list a join/reachability member-grain report would carry.
@@ -629,32 +629,32 @@ fn impact_leaf(
     let Some(parsed) = parse_leaf_address(target) else {
         return format!(
             "`{target}` is not a well-formed leaf address. A leaf address is \
-             `<member>/<genre>/<key>/<field-path>` — the member, the genre value's genre and \
-             key, and the field path within it (`chosen`, or `rejected.baked-projection.because`).\n"
+             `<member>/<kind>/<key>/<child-path>` — the member, the nested member's kind and \
+             key, and the child path within it (`chosen`, or `rejected.baked-projection.because`).\n"
         );
     };
 
-    let Some((kind, value)) = resolve_leaf(by_kind, &parsed) else {
+    let Some((outer_kind, value)) = resolve_leaf(by_kind, &parsed) else {
         return format!(
-            "No leaf `{target}` is in the surface's serialized genre values. `impact` reads \
-             leaf grain off the lock's `[[member.genre]]` tables — check the member, \
-             genre, key, and field path; a document carrying no genre values is not \
+            "No leaf `{target}` is in the surface's serialized nested-member leaves. `impact` \
+             reads leaf grain off the lock's serialized nested members — check the member, \
+             kind, key, and child path; a document carrying no nested members is not \
              represented at leaf grain.\n"
         );
     };
 
     let ParsedLeaf {
         member,
-        genre,
+        kind,
         key,
-        field_path,
+        child_path,
     } = parsed;
 
     let mut out = String::new();
-    let _ = writeln!(out, "Leaf `{target}` ({kind}) — leaf grain:\n");
+    let _ = writeln!(out, "Leaf `{target}` ({outer_kind}) — leaf grain:\n");
     let _ = writeln!(
         out,
-        "It is the `{field_path}` leaf of the `{genre}` value `{key}` in member `{member}`.",
+        "It is the `{child_path}` leaf of the `{kind}` member `{key}` in member `{member}`.",
     );
     let _ = writeln!(out, "Authored value: \"{value}\"\n");
 
@@ -662,7 +662,7 @@ fn impact_leaf(
     // reach here for a leaf that resolves) and obligation-free. Reported *separately* from
     // fallout: a citation is never fallout (`specs/architecture/45-governance.md`). The shared
     // helper is reused by `context` at the same grain.
-    narrate_citers(&mut out, citations, member, genre, key, field_path);
+    narrate_citers(&mut out, citations, member, kind, key, child_path);
     out.push('\n');
 
     // Fallout — a leaf carries none: deleting or rewording it is never blocked by its
@@ -691,17 +691,17 @@ fn narrate_citers(
     out: &mut String,
     citations: &[Citation],
     member: &str,
-    genre: &str,
+    kind: &str,
     key: &str,
-    field_path: &str,
+    child_path: &str,
 ) {
     let citers: Vec<&Citation> = citations
         .iter()
         .filter(|citation| {
             citation.target.member == member
-                && citation.target.genre == genre
+                && citation.target.kind == kind
                 && citation.target.key == key
-                && citation.target.field_path == field_path
+                && citation.target.child_path == child_path
         })
         .collect();
     if citers.is_empty() {
@@ -727,16 +727,17 @@ fn narrate_citers(
 
 /// Append the shared **coverage disclosure** every leaf-grain answer closes with
 /// (`specs/architecture/20-surface.md`, "both disclose coverage … every leaf-grain answer names what
-/// it cannot see"): the count of members carrying no serialized genre leaves — the documents that
-/// carry no genre values a leaf-grain read cannot represent. Under the gradient a mixed-posture
-/// corpus is the standing state, not an edge case, so an answer hiding its blind spot erodes the verb
-/// exactly as a false gate-block erodes the gate (law 1). Shared by `impact`'s and `context`'s
-/// leaf-grain answers, so the disclosure is one wording that ships WITH the verb, never after.
+/// it cannot see"): the count of members carrying no serialized nested-member leaves —
+/// the documents that carry no nested members a leaf-grain read cannot represent. Under
+/// the gradient a mixed-posture corpus is the standing state, not an edge case, so an
+/// answer hiding its blind spot erodes the verb exactly as a false gate-block erodes the
+/// gate (law 1). Shared by `impact`'s and `context`'s leaf-grain answers, so the
+/// disclosure is one wording that ships WITH the verb, never after.
 fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
     let leafless = by_kind
         .values()
         .flat_map(|members| members.iter())
-        .filter(|features| features.genre_leaves().is_empty())
+        .filter(|features| features.embedded_leaves().is_empty())
         .count();
     let (noun, verb) = if leafless == 1 {
         ("document", "carries")
@@ -745,18 +746,19 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
     };
     let _ = writeln!(
         out,
-        "Coverage: {leafless} {noun} {verb} no genre values — not represented at leaf grain \
-         (carrying no serialized genre leaves)."
+        "Coverage: {leafless} {noun} {verb} no nested members — not represented at leaf grain \
+         (carrying no serialized nested-member leaves)."
     );
 }
 
-/// `temper context <address>` — emit the **declared neighborhood** of a member or a genre-value
-/// leaf (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"): its genre
-/// slot, its siblings, the members that cite it, and the requirements its member satisfies —
-/// the pre-edit context bundle for the primary author. Consumes only the lock's serialized
-/// genre values (`by_kind`) and declared citations: offline, tier-1, no runtime.
+/// `temper context <address>` — emit the **declared neighborhood** of a member or a
+/// nested member's leaf (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"):
+/// its nested-member slot, its siblings, the members that cite it, and the requirements
+/// its member satisfies — the pre-edit context bundle for the primary author. Consumes
+/// only the lock's serialized nested-member leaves (`by_kind`) and declared citations:
+/// offline, tier-1, no runtime.
 ///
-/// A `/`-bearing `address` is a leaf (`<member>/<genre>/<key>/<field-path>`) reported at leaf grain
+/// A `/`-bearing `address` is a leaf (`<member>/<kind>/<key>/<child-path>`) reported at leaf grain
 /// ([`context_leaf`]); a bare name is a member reported whole ([`context_member`]). Both are
 /// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-posture corpus
 /// is the standing state, and an answer hiding what it cannot see erodes the verb (law 1).
@@ -776,11 +778,12 @@ pub fn context(
     }
 }
 
-/// Narrate a genre-value leaf's neighborhood: its genre slot and authored value, its **siblings**
-/// (the other leaves of the same genre value), the members that **cite** it, and the requirements
-/// its member **satisfies** — then the shared coverage disclosure. Resolved against the lock's
-/// serialized genre values exactly as [`impact_leaf`] resolves them, so the two verbs agree on what
-/// a leaf's neighborhood is.
+/// Narrate a nested member's leaf neighborhood: its nested-member slot and authored
+/// value, its **siblings** (the other leaves of the same nested member), the members
+/// that **cite** it, and the requirements its member **satisfies** — then the shared
+/// coverage disclosure. Resolved against the lock's serialized nested-member leaves
+/// exactly as [`impact_leaf`] resolves them, so the two verbs agree on what a leaf's
+/// neighborhood is.
 fn context_leaf(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
@@ -789,50 +792,50 @@ fn context_leaf(
     let Some(parsed) = parse_leaf_address(address) else {
         return format!(
             "`{address}` is not a well-formed leaf address. A leaf address is \
-             `<member>/<genre>/<key>/<field-path>` — the member, the genre value's genre and \
-             key, and the field path within it (`chosen`, or `rejected.baked-projection.because`).\n"
+             `<member>/<kind>/<key>/<child-path>` — the member, the nested member's kind and \
+             key, and the child path within it (`chosen`, or `rejected.baked-projection.because`).\n"
         );
     };
 
-    let Some((kind, value)) = resolve_leaf(by_kind, &parsed) else {
+    let Some((outer_kind, value)) = resolve_leaf(by_kind, &parsed) else {
         return format!(
-            "No leaf `{address}` is in the surface's serialized genre values. `context` reads \
-             leaf grain off the lock's `[[member.genre]]` tables — check the member, genre, \
-             key, and field path; a document carrying no genre values is not represented at leaf \
-             grain.\n"
+            "No leaf `{address}` is in the surface's serialized nested-member leaves. \
+             `context` reads leaf grain off the lock's serialized nested members — check the \
+             member, kind, key, and child path; a document carrying no nested members is not \
+             represented at leaf grain.\n"
         );
     };
 
     let ParsedLeaf {
         member,
-        genre,
+        kind,
         key,
-        field_path,
+        child_path,
     } = parsed;
 
     let mut out = String::new();
     let _ = writeln!(
         out,
-        "Leaf `{address}` ({kind}) — its declared neighborhood:\n"
+        "Leaf `{address}` ({outer_kind}) — its declared neighborhood:\n"
     );
     let _ = writeln!(
         out,
-        "Genre slot: the `{field_path}` leaf of the `{genre}` value `{key}` in member `{member}`."
+        "Nested-member slot: the `{child_path}` leaf of the `{kind}` member `{key}` in member `{member}`."
     );
     let _ = writeln!(out, "Authored value: \"{value}\"\n");
 
-    // Siblings — the other leaves of the same genre value (same member, genre, key), the
-    // co-resident context an author editing this leaf wants beside it.
-    let siblings = sibling_leaves(by_kind, member, genre, key, field_path);
+    // Siblings — the other leaves of the same nested member (same member, kind, key),
+    // the co-resident context an author editing this leaf wants beside it.
+    let siblings = sibling_leaves(by_kind, member, kind, key, child_path);
     if siblings.is_empty() {
         let _ = writeln!(
             out,
-            "Siblings: none — it is the only leaf of the `{genre}` value `{key}`."
+            "Siblings: none — it is the only leaf of the `{kind}` member `{key}`."
         );
     } else {
         let _ = writeln!(
             out,
-            "Siblings (the other leaves of the `{genre}` value `{key}`):"
+            "Siblings (the other leaves of the `{kind}` member `{key}`):"
         );
         for (sibling_path, sibling_value) in siblings {
             let _ = writeln!(out, "  • `{sibling_path}` — \"{sibling_value}\"");
@@ -841,7 +844,7 @@ fn context_leaf(
     out.push('\n');
 
     // Citers — the same declared one-way edges `impact` reports at leaf grain (shared helper).
-    narrate_citers(&mut out, citations, member, genre, key, field_path);
+    narrate_citers(&mut out, citations, member, kind, key, child_path);
     out.push('\n');
 
     // Satisfied requirements — the demands the member the leaf lives in opts into filling.
@@ -854,10 +857,10 @@ fn context_leaf(
     out
 }
 
-/// Narrate a member's neighborhood: the genre slots it carries (each genre value and its leaf
-/// field paths), the members that cite any of its leaves, and the requirements it satisfies — then
-/// the shared coverage disclosure. A member name bearing no `/` takes this path; every `(kind, id)`
-/// node bearing the name is narrated, each under its own kind.
+/// Narrate a member's neighborhood: the nested members it carries (each nested member and
+/// its leaf child paths), the members that cite any of its leaves, and the requirements it
+/// satisfies — then the shared coverage disclosure. A member name bearing no `/` takes this
+/// path; every `(kind, id)` node bearing the name is narrated, each under its own kind.
 fn context_member(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
@@ -886,14 +889,14 @@ fn context_member(
     }
 
     // Coverage — a member's neighborhood is a leaf-grain answer too (it enumerates the member's
-    // genre slots), so it names what it cannot see, once at the end.
+    // nested members), so it names what it cannot see, once at the end.
     disclose_coverage(&mut out, by_kind);
 
     out
 }
 
-/// Narrate one matched member's neighborhood into `out` — its genre slots, the citations naming
-/// any of its leaves, and the requirements it satisfies.
+/// Narrate one matched member's neighborhood into `out` — its nested members, the citations
+/// naming any of its leaves, and the requirements it satisfies.
 fn context_member_one(
     out: &mut String,
     kind: &str,
@@ -907,26 +910,27 @@ fn context_member_one(
         features.id
     );
 
-    // Genre slots — each genre value the member carries, with its leaf field paths (the leaves
-    // an author addresses under this member at leaf grain).
-    if features.genres.is_empty() {
+    // Nested members — each embedded member the member carries, with its leaf child paths
+    // (the leaves an author addresses under this member at leaf grain).
+    if features.nested_members.is_empty() {
         let _ = writeln!(
             out,
-            "Genre slots: none — it carries no genre value, so it holds no leaf at leaf grain."
+            "Nested members: none — it carries no nested member, so it holds no leaf at leaf \
+             grain."
         );
     } else {
-        let _ = writeln!(out, "Genre slots (the genre values it carries):");
-        for value in &features.genres {
-            let fields: Vec<String> = value
+        let _ = writeln!(out, "Nested members (the embedded members it carries):");
+        for nested in &features.nested_members {
+            let fields: Vec<String> = nested
                 .addressed_leaves()
                 .into_iter()
-                .map(|(field_path, _)| field_path)
+                .map(|(child_path, _)| child_path)
                 .collect();
             let _ = writeln!(
                 out,
-                "  • `{}` value `{}` — leaves: {}",
-                value.genre,
-                value.key,
+                "  • `{}` member `{}` — leaves: {}",
+                nested.kind,
+                nested.key,
                 fields.join(", ")
             );
         }
@@ -957,9 +961,9 @@ fn context_member_one(
                 citation.from,
                 citation.from_kind,
                 target.member,
-                target.genre,
+                target.kind,
                 target.key,
-                target.field_path
+                target.child_path
             );
         }
     }
@@ -969,15 +973,16 @@ fn context_member_one(
     narrate_satisfied(out, by_kind, &features.id);
 }
 
-/// The other leaves of the genre value `(member, genre, key)` — every serialized leaf of that
-/// value except the one at `field_path`, paired with its authored value in the lock's stable
-/// order. The co-resident siblings `context` reports beside an addressed leaf.
+/// The other leaves of the nested member `(member, kind, key)` — every serialized leaf of
+/// that member except the one at `child_path`, paired with its authored value in the
+/// lock's stable order. The co-resident siblings `context` reports beside an addressed
+/// leaf.
 fn sibling_leaves<'a>(
     by_kind: &BTreeMap<&str, &'a [Features]>,
     member: &str,
-    genre: &str,
+    kind: &str,
     key: &str,
-    field_path: &str,
+    child_path: &str,
 ) -> Vec<(String, &'a str)> {
     let mut out = Vec::new();
     for members in by_kind.values() {
@@ -985,10 +990,9 @@ fn sibling_leaves<'a>(
             if features.id != member {
                 continue;
             }
-            for (address, value) in features.genre_leaves() {
-                if address.genre == genre && address.key == key && address.field_path != field_path
-                {
-                    out.push((address.field_path, value));
+            for (address, value) in features.embedded_leaves() {
+                if address.kind == kind && address.key == key && address.child_path != child_path {
+                    out.push((address.child_path, value));
                 }
             }
         }
@@ -1436,7 +1440,7 @@ mod impact_tests {
 
     use super::*;
     use crate::document::PublishedRequirement;
-    use crate::extract::{FeatureValue, GenreValue, ValueType};
+    use crate::extract::{EmbeddedMember, FeatureValue, ValueType};
 
     /// A member's [`Features`] as `impact` reads them: its id, the requirements it opts
     /// into, the demands it publishes, and its `description` field (a blank one is a dead
@@ -1464,7 +1468,7 @@ mod impact_tests {
             source_dir: Some(id.to_string()),
             directives: Vec::new(),
             fenced_blocks: Vec::new(),
-            genres: Vec::new(),
+            nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| (*s).to_string()).collect(),
             published_requirements: published
                 .iter()
@@ -1714,41 +1718,42 @@ mod impact_tests {
         );
     }
 
-    /// A genre-bearing member for the leaf-grain proofs — one `decision` value with a
-    /// `chosen` prose leaf, the serialized shape `impact` reads at leaf grain. The e2e
-    /// drives carry genres only through a custom kind, so the leaf strand is unit-proven
-    /// here beside the directive/reachability strands.
-    fn genre_member(id: &str) -> Features {
+    /// A nested-member-bearing member for the leaf-grain proofs — one `decision`
+    /// member with a `chosen` prose leaf, the serialized shape `impact` reads at leaf
+    /// grain. The e2e drives carry nested members only through a custom kind, so the
+    /// leaf strand is unit-proven here beside the directive/reachability strands.
+    fn nested_member(id: &str) -> Features {
         let mut features = feature(id, &[], &[], Some("d"));
-        features.genres = vec![GenreValue {
-            genre: "decision".to_string(),
+        features.nested_members = vec![EmbeddedMember {
+            kind: "decision".to_string(),
             key: "surface-authority".to_string(),
             leaves: BTreeMap::from([(
                 "chosen".to_string(),
                 "the surface is canonical".to_string(),
             )]),
-            collections: BTreeMap::new(),
+            members: BTreeMap::new(),
         }];
         features
     }
 
     #[test]
     fn a_leaf_address_reports_citations_separately_from_fallout() {
-        // `impact` on a leaf address resolves the leaf against the serialized genre values,
-        // reports the citing one-way edge under its own heading (never fallout), and states
-        // the leaf is obligation-free — deleting or rewording it is never blocked.
+        // `impact` on a leaf address resolves the leaf against the serialized
+        // nested-member leaves, reports the citing one-way edge under its own heading
+        // (never fallout), and states the leaf is obligation-free — deleting or
+        // rewording it is never blocked.
         let empty = BTreeMap::new();
         let registrations = BTreeMap::new();
-        let members = [genre_member("20-surface")];
+        let members = [nested_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
         let citations = [Citation {
             from_kind: "spec".to_string(),
             from: "45-governance".to_string(),
-            target: LeafAddress {
+            target: MemberAddress {
                 member: "20-surface".to_string(),
-                genre: "decision".to_string(),
+                kind: "decision".to_string(),
                 key: "surface-authority".to_string(),
-                field_path: "chosen".to_string(),
+                child_path: "chosen".to_string(),
             },
         }];
 
@@ -1791,7 +1796,7 @@ mod impact_tests {
         // heading names none, the floor's standing state (floor leaves carry no mentions).
         let empty = BTreeMap::new();
         let registrations = BTreeMap::new();
-        let members = [genre_member("20-surface")];
+        let members = [nested_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
 
         let out = impact(
@@ -1814,7 +1819,7 @@ mod impact_tests {
         // narrated plainly so the caller still exits zero.
         let empty = BTreeMap::new();
         let registrations = BTreeMap::new();
-        let members = [genre_member("20-surface")];
+        let members = [nested_member("20-surface")];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
 
         let missing = impact(

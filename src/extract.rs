@@ -185,63 +185,59 @@ pub struct FencedBlock {
     pub content: String,
 }
 
-/// A genre value's **sibling collections** — collection name → (entry key → the entry's
-/// own prose leaves), so a collection leaf addresses as `<collection>.<entry>.<field>`
-/// (`rejected.baked-projection.because`). Keyed at every level, never positional
-/// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`"). Named for the
-/// three-deep map the read side and the lock serializer share.
-pub type GenreCollections = BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>;
-
-/// A **genre value** — a kind's recurring prose form given typed shape
-/// (`specs/architecture/15-kinds.md`, "A genre is a kind at the block locus"),
-/// extracted from a genre fence at the floor. It carries the genre it
-/// instantiates (`decision`) and the fence key that names this instance among its
-/// siblings (`surface-authority`), plus its meaning-carrying **prose leaves**:
-/// top-level authored strings, and **sibling collections** — keyed sub-tables
-/// (`rejected.baked-projection`), never positional. Every leaf is addressed
-/// structurally (member + genre + key + field path) so drift, `impact`, and
-/// citations survive rewording ([`GenreValue::addressed_leaves`]).
+/// A **nested member** folded from its parent's body at the **embedded locus**
+/// (`specs/model/representation.md`, "locus"/"nesting"), extracted from a genre fence
+/// at the floor. It carries the child kind it instantiates (`decision`) and the fence
+/// key that names this instance among its embedded siblings (`surface-authority`),
+/// plus its own **prose leaves** — top-level authored strings — and its own **nested
+/// members**, one layer deeper: a keyed collection's entries, each itself an
+/// [`EmbeddedMember`] (`rejected.baked-projection`), never positional. Every leaf is
+/// addressed structurally (member + kind + key + child path) so drift, `impact`, and
+/// citations survive rewording ([`EmbeddedMember::addressed_leaves`]).
 ///
 /// Floor leaves carry no mentions — interpolation stays deferred until a floor
 /// mention syntax is separately ratified (`specs/architecture/20-surface.md`) — so a
 /// leaf is a plain [`String`], not a mention-bearing span.
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
-pub struct GenreValue {
-    /// The genre this value instantiates — the fence info string's `genre.<genre>`
-    /// (`decision`), one of the kind's declared genres.
-    pub genre: String,
-    /// The fence key naming this instance among its siblings in the same member —
-    /// the info string's second token (`surface-authority`). Part of a leaf's
-    /// address, so it is keyed, never positional.
+pub struct EmbeddedMember {
+    /// The child kind this member instantiates — the fence info string's
+    /// `genre.<kind>` (`decision`), one of the host kind's declared templates.
+    pub kind: String,
+    /// The fence key naming this instance among its embedded siblings in the same
+    /// host member — the info string's second token (`surface-authority`). Part of a
+    /// leaf's address, so it is keyed, never positional.
     pub key: String,
-    /// The value's top-level **prose leaves** — field name → authored string, in
-    /// stable (sorted) key order so serialization is deterministic.
+    /// This member's own top-level **prose leaves** — field name → authored string,
+    /// in stable (sorted) key order so serialization is deterministic.
     pub leaves: BTreeMap<String, String>,
-    /// The value's **sibling collections** — collection name → (entry key → the
-    /// entry's own prose leaves), so a collection leaf addresses as
+    /// This member's own **nested members**, one layer deeper — collection name →
+    /// (entry key → the entry's own nested member), so a collection leaf addresses as
     /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). Keyed at
     /// every level, never positional — an address that survives insertion and reorder
     /// (`specs/architecture/20-surface.md`, "Decision: one read verb — `explain`").
-    pub collections: GenreCollections,
+    pub members: BTreeMap<String, BTreeMap<String, EmbeddedMember>>,
 }
 
-impl GenreValue {
-    /// Every leaf's **structural field path** paired with its authored value, in
+impl EmbeddedMember {
+    /// Every leaf's **structural child path** paired with its authored value, in
     /// stable order (`specs/architecture/20-surface.md`, "Decision: one read verb —
-    /// `explain`"): a top-level leaf's bare field name (`chosen`), a collection leaf's
-    /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). The path
-    /// rides the structure the author already wrote, so it is stable under content
-    /// edits — the property drift routing and `impact` stand on.
+    /// `explain`"): a top-level leaf's bare field name (`chosen`), a nested member's
+    /// leaf `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). The
+    /// path rides the structure the author already wrote, so it is stable under
+    /// content edits — the property drift routing and `impact` stand on. Recurses
+    /// through [`members`](EmbeddedMember::members) to arbitrary depth
+    /// (`specs/model/representation.md`, "nesting"), though today's fold populates one
+    /// layer.
     #[must_use]
     pub fn addressed_leaves(&self) -> Vec<(String, &str)> {
         let mut out = Vec::new();
         for (field, value) in &self.leaves {
             out.push((field.clone(), value.as_str()));
         }
-        for (collection, entries) in &self.collections {
-            for (entry, leaves) in entries {
-                for (field, value) in leaves {
-                    out.push((format!("{collection}.{entry}.{field}"), value.as_str()));
+        for (collection, entries) in &self.members {
+            for (entry, member) in entries {
+                for (path, value) in member.addressed_leaves() {
+                    out.push((format!("{collection}.{entry}.{path}"), value));
                 }
             }
         }
@@ -249,23 +245,24 @@ impl GenreValue {
     }
 }
 
-/// The **structural address** of a genre-value leaf (`specs/architecture/20-surface.md`,
-/// "Decision: one read verb — `explain`"): the member it lives in, the genre value's
-/// identity (genre name + fence key), and the field path within that value. Keyed at
+/// The **structural address** of a nested member's leaf (`specs/architecture/20-surface.md`,
+/// "Decision: one read verb — `explain`"): the member it lives in, the nested member's
+/// identity (child kind + fence key), and the child path within it. Keyed at
 /// every level and stable under content edits, so a citation targeting a leaf
 /// (`specs/architecture/45-governance.md`) and `impact` at leaf grain survive rewording —
 /// only a key *rename* breaks it, and then to the resolution check, which tells the citer.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LeafAddress {
-    /// The member the leaf lives in (`Features::id`).
+pub struct MemberAddress {
+    /// The (outer) member the nested member lives in (`Features::id`).
     pub member: String,
-    /// The genre the value instantiates (`decision`).
-    pub genre: String,
-    /// The fence key naming the value among its siblings (`surface-authority`).
+    /// The child kind the nested member instantiates (`decision`).
+    pub kind: String,
+    /// The fence key naming the nested member among its embedded siblings
+    /// (`surface-authority`).
     pub key: String,
-    /// The field path within the value — a bare leaf name or a
+    /// The child path within the nested member — a bare leaf name or a
     /// `<collection>.<entry>.<field>` path.
-    pub field_path: String,
+    pub child_path: String,
 }
 
 /// An artifact's deterministically-extracted features, keyed for generic clause
@@ -309,16 +306,16 @@ pub struct Features {
     /// the same fence boundaries the heading extractor tracks, surfaced whole. Empty
     /// when the kind composes no `fenced` primitive.
     pub fenced_blocks: Vec<FencedBlock>,
-    /// The body's **genre values**, in document order — each a genre fence
-    /// (`genre.<genre> <key>`) whose interior TOML parsed into a typed
-    /// [`GenreValue`] (`specs/architecture/15-kinds.md`, "A genre is a kind at the block
-    /// locus"). The typed layer
+    /// The body's **nested members**, in document order — each a genre fence
+    /// (`genre.<kind> <key>`) whose interior TOML parsed into a typed
+    /// [`EmbeddedMember`] at the embedded locus (`specs/model/representation.md`,
+    /// "locus"/"nesting"). The typed layer
     /// over [`fenced_blocks`](Features::fenced_blocks): a raw block whose info string
-    /// names a genre the kind declares is folded here beside its raw form, keyed by the
-    /// fence's genre+key; every other fenced block stays raw-only. Empty when the kind
-    /// declares no genres, or no block opts into one — genre adoption is per-block, and
-    /// no check quantifies over its completeness.
-    pub genres: Vec<GenreValue>,
+    /// names a child kind the host kind declares is folded here beside its raw form,
+    /// keyed by the fence's kind+key; every other fenced block stays raw-only. Empty
+    /// when the kind declares no templates, or no block opts into one — adoption is
+    /// per-block, and no check quantifies over its completeness.
+    pub nested_members: Vec<EmbeddedMember>,
     /// The requirements this artifact opts into filling — the authored
     /// `[representation].satisfies` bindings, surfaced for the coverage check
     /// (`specs/architecture/20-surface.md`, "Each artifact directory is a representation, not
@@ -354,23 +351,23 @@ impl Features {
         self.fields.contains_key(name)
     }
 
-    /// Every genre-value leaf as a fully-qualified [`LeafAddress`] paired with its
-    /// authored value — the leaf-grain surface the read family (`impact`, `context`)
-    /// consumes (`specs/architecture/20-surface.md`, "Decision: one read verb —
-    /// `explain`"). Each
+    /// Every nested member's leaf as a fully-qualified [`MemberAddress`] paired with
+    /// its authored value — the leaf-grain surface the read family (`impact`,
+    /// `context`) consumes (`specs/architecture/20-surface.md`, "Decision: one read
+    /// verb — `explain`"). Each
     /// address carries this member's id, so a citation resolving to a leaf resolves to a
     /// unique point across the corpus.
     #[must_use]
-    pub fn genre_leaves(&self) -> Vec<(LeafAddress, &str)> {
+    pub fn embedded_leaves(&self) -> Vec<(MemberAddress, &str)> {
         let mut out = Vec::new();
-        for value in &self.genres {
-            for (field_path, leaf) in value.addressed_leaves() {
+        for member in &self.nested_members {
+            for (child_path, leaf) in member.addressed_leaves() {
                 out.push((
-                    LeafAddress {
+                    MemberAddress {
                         member: self.id.clone(),
-                        genre: value.genre.clone(),
-                        key: value.key.clone(),
-                        field_path,
+                        kind: member.kind.clone(),
+                        key: member.key.clone(),
+                        child_path,
                     },
                     leaf,
                 ));
@@ -561,38 +558,44 @@ fn fence_info(line: &str, fence_char: char) -> String {
         .to_string()
 }
 
-/// Parse a genre fence's **info string** into its `(genre, key)` identity, or `None`
+/// Parse a genre fence's **info string** into its `(kind, key)` identity, or `None`
 /// when the block is not a genre fence (`specs/architecture/20-surface.md`, "the floor
-/// spelling is a genre fence"): a genre fence's info string is `genre.<genre> <key>`
-/// (`genre.decision surface-authority`) — the `genre.` prefix, the genre name, then the
-/// fence key. Any other info string (a bare `` ``` ``, a `sh`, a `toml`) is a plain
-/// fenced block, not a genre value — adoption is opt-in per block, so a non-match is
-/// silently *not* a genre, never an error. Exactly two tokens: a stray third token is a
-/// malformed info string, not a third address level, so it yields `None`.
-pub(crate) fn parse_genre_info(info: &str) -> Option<(String, String)> {
+/// spelling is a genre fence"): a genre fence's info string is `genre.<kind> <key>`
+/// (`genre.decision surface-authority`) — the `genre.` prefix, the child kind name,
+/// then the fence key. Any other info string (a bare `` ``` ``, a `sh`, a `toml`) is a
+/// plain fenced block, not a nested member — adoption is opt-in per block, so a
+/// non-match is silently *not* a nested member, never an error. Exactly two tokens: a
+/// stray third token is a malformed info string, not a third address level, so it
+/// yields `None`.
+pub(crate) fn parse_embedded_info(info: &str) -> Option<(String, String)> {
     let rest = info.strip_prefix("genre.")?;
     let mut tokens = rest.split_whitespace();
-    let genre = tokens.next()?;
+    let kind = tokens.next()?;
     let key = tokens.next()?;
     if tokens.next().is_some() {
         return None;
     }
-    Some((genre.to_string(), key.to_string()))
+    Some((kind.to_string(), key.to_string()))
 }
 
-/// Parse a genre fence's **interior TOML** into a [`GenreValue`], or `None` when the
-/// interior is not well-formed TOML (`specs/architecture/20-surface.md`, "Extraction composes
-/// the algebra's fenced-block primitive with a TOML parse"). A top-level string value is
-/// a **prose leaf**; a top-level table is a **sibling collection** whose sub-tables are
-/// its keyed entries, each entry's string values its own leaves. Any other TOML type is
-/// neither a prose leaf nor a keyed collection, so it is not surfaced — leaves are
-/// authored strings (law 5), never inferred from a scalar or array. Malformed interior
-/// TOML yields no genre value; the raw [`FencedBlock`] still carries the bytes, so
-/// nothing is lost, and extraction stays total (no error channel at this boundary).
-pub(crate) fn parse_genre_value(genre: &str, key: &str, interior: &str) -> Option<GenreValue> {
+/// Parse a genre fence's **interior TOML** into an [`EmbeddedMember`], or `None` when
+/// the interior is not well-formed TOML (`specs/architecture/20-surface.md`, "Extraction
+/// composes the algebra's fenced-block primitive with a TOML parse"). A top-level string
+/// value is a **prose leaf**; a top-level table is a keyed collection of **nested
+/// members**, one per sub-table, each entry's own string values its own leaves. Any
+/// other TOML type is neither a prose leaf nor a nested member, so it is not surfaced —
+/// leaves are authored strings (law 5), never inferred from a scalar or array.
+/// Malformed interior TOML yields no nested member; the raw [`FencedBlock`] still
+/// carries the bytes, so nothing is lost, and extraction stays total (no error channel
+/// at this boundary).
+pub(crate) fn parse_embedded_member(
+    kind: &str,
+    key: &str,
+    interior: &str,
+) -> Option<EmbeddedMember> {
     let doc = interior.parse::<toml_edit::DocumentMut>().ok()?;
     let mut leaves = BTreeMap::new();
-    let mut collections = BTreeMap::new();
+    let mut members = BTreeMap::new();
     for (field, item) in doc.as_table().iter() {
         if let Some(text) = item.as_str() {
             leaves.insert(field.to_string(), text.to_string());
@@ -608,16 +611,24 @@ pub(crate) fn parse_genre_value(genre: &str, key: &str, interior: &str) -> Optio
                         entry_leaves.insert(leaf.to_string(), text.to_string());
                     }
                 }
-                entries.insert(entry_key.to_string(), entry_leaves);
+                entries.insert(
+                    entry_key.to_string(),
+                    EmbeddedMember {
+                        kind: field.to_string(),
+                        key: entry_key.to_string(),
+                        leaves: entry_leaves,
+                        members: BTreeMap::new(),
+                    },
+                );
             }
-            collections.insert(field.to_string(), entries);
+            members.insert(field.to_string(), entries);
         }
     }
-    Some(GenreValue {
-        genre: genre.to_string(),
+    Some(EmbeddedMember {
+        kind: kind.to_string(),
         key: key.to_string(),
         leaves,
-        collections,
+        members,
     })
 }
 
