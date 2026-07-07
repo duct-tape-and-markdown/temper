@@ -14,6 +14,8 @@
 //!   so it claims no guard/note; a separately-authored member's does;
 //! - **idempotence** — re-running converges, never re-scaffolding or duplicating
 //!   the guard;
+//! - **dependency-before-lift** — a spawn failure ensuring the SDK dependency
+//!   leaves no half-scaffolded `.temper/` program behind it;
 //! - **the lock, not the retired manifest, grounds `guard`'s posture**.
 
 use std::collections::BTreeMap;
@@ -326,6 +328,71 @@ fn re_representing_never_re_scaffolds_and_converges() {
         after_first,
         tree_bytes(&root),
         "a re-representation with no authored change is a byte-for-byte no-op"
+    );
+}
+
+/// Serializes the one test below that shadows the process-wide `PATH` — no other
+/// test in this suite spawns a real `npm` (every other yes-path test vendors the
+/// dependency via [`vendor_sdk`], so `dependency_resolves` short-circuits before
+/// ever reaching a spawn), but a shared `PATH` is process state, not per-test.
+static PATH_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[test]
+fn a_dependency_spawn_failure_leaves_no_half_scaffolded_state() {
+    // Force the SDK's own `npm run build` (real `npm`, gated by a `Once`) to finish
+    // first — otherwise a concurrently first-triggered `ensure_sdk_built` elsewhere
+    // could race the shadowed `npm` this test installs below.
+    ensure_sdk_built();
+
+    let root = write_harness("dependency-spawn-failure", false);
+    let temper_dir = root.join(".temper");
+    let discovery = install::discover(&root).unwrap();
+
+    let guard = PATH_MUTEX.lock().unwrap();
+    let original_path = std::env::var_os("PATH").unwrap_or_default();
+
+    // A shadow `npm`/`npm.cmd` on `PATH` ahead of the real one, always failing —
+    // standing in for "only npm.cmd exists and this Windows spawn can't find it"
+    // without actually requiring a Windows host to prove the ordering.
+    let fake_bin = tmpdir("dependency-spawn-failure-fake-npm");
+    let fake_npm = fake_bin.join(if cfg!(windows) { "npm.cmd" } else { "npm" });
+    fs::write(&fake_npm, "#!/bin/sh\nexit 1\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&fake_npm).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&fake_npm, perms).unwrap();
+    }
+    let mut shadowed_path = std::ffi::OsString::from(&fake_bin);
+    shadowed_path.push(if cfg!(windows) { ";" } else { ":" });
+    shadowed_path.push(&original_path);
+    // SAFETY: serialized by `PATH_MUTEX`, and no other test in this binary spawns a
+    // real `npm` (see the mutex doc comment) — no other thread reads/writes `PATH`
+    // concurrently with this block.
+    unsafe { std::env::set_var("PATH", &shadowed_path) };
+
+    let result = install::run(&root, &discovery, Represent::Yes, false);
+
+    // SAFETY: see above.
+    unsafe { std::env::set_var("PATH", &original_path) };
+    drop(guard);
+
+    assert!(
+        result.is_err(),
+        "the shadowed, always-failing npm must fail the install"
+    );
+    assert!(
+        !temper_dir.join("harness.ts").exists(),
+        "dependency assurance must run before harness.ts is scaffolded"
+    );
+    assert!(
+        !temper_dir.join("skills").exists(),
+        "dependency assurance must run before any member module is scaffolded"
+    );
+    assert!(
+        !temper_dir.join("rules").exists(),
+        "dependency assurance must run before any member module is scaffolded"
     );
 }
 

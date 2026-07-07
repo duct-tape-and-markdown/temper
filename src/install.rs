@@ -7,12 +7,14 @@
 //! - **No** wires the `SessionStart` reporter alone ([`place_settings_only`]) and
 //!   stops — the stranger gate at session start, Node-free forever.
 //! - **Yes** requires Node (checked up front, refused loud with instructions when
-//!   absent), scaffolds the SDK program once if none exists yet — the lift
-//!   ([`scaffold`]): a member module per discovered artifact, `file()` over the
-//!   original text, zero file moves, plus a `harness.ts` skeleton — ensures the
-//!   `@dtmd/temper` dependency ([`ensure_dependency`]), runs the first `emit` (the
-//!   adoption moment, [`drift::emit_program`]), and places the guard hook / managed-by
-//!   note / schema modeline only at paths the fresh lock declares **emit-owned**
+//!   absent), ensures the `@dtmd/temper` dependency ([`ensure_dependency`]) —
+//!   before a single file of the lift is written, so a spawn failure never
+//!   leaves a half-scaffolded `.temper/` behind it — then scaffolds the SDK
+//!   program once if none exists yet — the lift ([`scaffold`]): a member module
+//!   per discovered artifact, `file()` over the original text, zero file moves,
+//!   plus a `harness.ts` skeleton — runs the first `emit` (the adoption moment,
+//!   [`drift::emit_program`]), and places the guard hook / managed-by note /
+//!   schema modeline only at paths the fresh lock declares **emit-owned**
 //!   ([`drift::emit_owned_targets`], [`evaluate_placements`]) — a lifted member's own
 //!   `file()` path is authored territory, never a guard claim.
 //!
@@ -204,7 +206,7 @@ pub enum InstallError {
         path: PathBuf,
     },
 
-    /// `npm install` could not be spawned in the scaffolded `.temper/` workspace.
+    /// `npm install` could not be spawned in the `.temper/` workspace.
     #[error("failed to spawn \"npm install\" in {path}")]
     #[diagnostic(code(temper::install::dependency_spawn))]
     DependencySpawn {
@@ -358,15 +360,18 @@ fn run_represented(
     let harness_entry = temper_dir.join(HARNESS_ENTRY);
     let already_scaffolded = harness_entry.is_file();
 
+    // Assured before the lift writes a single member module: "no half-scaffolded
+    // state" — a dependency spawn failure must never leave a partial `.temper/`
+    // program behind it.
+    if !dry_run && !dependency_resolves(&temper_dir) {
+        ensure_dependency(&temper_dir)?;
+    }
+
     let scaffolded = if already_scaffolded {
         0
     } else {
         scaffold(root, &temper_dir, discovery, dry_run)?
     };
-
-    if !dry_run && !dependency_resolves(&temper_dir) {
-        ensure_dependency(&temper_dir)?;
-    }
 
     // A fresh (never-scaffolded) `--dry-run` preview has no `harness.ts` on disk to
     // run `node` over — there is nothing real to emit yet, so the preview stops at
@@ -1009,13 +1014,21 @@ fn dependency_resolves(temper_dir: &Path) -> bool {
     false
 }
 
+/// The npm executable name to spawn: `Command`'s child-process launch does not
+/// consult `PATHEXT`, so it resolves only an exact-match filename. Windows ships
+/// npm as `npm.cmd` (no bare `npm.exe`), so a `windows` spawn must name the shim
+/// explicitly; everywhere else `npm` on `PATH` is the real executable.
+fn npm_program() -> &'static str {
+    if cfg!(windows) { "npm.cmd" } else { "npm" }
+}
+
 /// Ensure the `@dtmd/temper` dependency: declare it in `.temper/package.json`
 /// (creating a minimal manifest when absent) and `npm install` it. Idempotent by
 /// construction — [`run_represented`] only calls this when [`dependency_resolves`]
 /// already reads `false`.
 fn ensure_dependency(temper_dir: &Path) -> Result<(), InstallError> {
     ensure_package_json(temper_dir)?;
-    let output = Command::new("npm")
+    let output = Command::new(npm_program())
         .arg("install")
         .current_dir(temper_dir)
         .output()
