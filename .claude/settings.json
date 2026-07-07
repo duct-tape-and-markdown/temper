@@ -20,5 +20,8 @@
       "Bash(cargo clippy:*)",
       "Bash(cargo fmt:*)"
     ]
+  },
+  "worktree": {
+    "bgIsolation": "none"
   }
 }

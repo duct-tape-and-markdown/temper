@@ -32,13 +32,14 @@ This repo carries **two distinct harnesses**; do not conflate them:
    `temper` lints. Changes flow through human `chore(harness):` commits, never
    `build:` ticks.
 
-The **recursive dogfood** — temper gating its host repo's own harness
-(`.temper/` workspace, `temper.toml` assembly, self-check gate, session-start
-hook) — is **deactivated** (John's ruling, 2026-07-04: cumbersome; it cost two
-self-gate reverts, a per-wave deactivation ceremony, and a producer fork).
-Validation lives in `tests/` fixtures. A real dogfood returns when the
-SDK-primary authoring path (`harness.ts` → emit) is the product's own front
-door.
+The **recursive dogfood** — temper gating its host repo's own harness — is
+**deactivated**. Validation lives in `tests/` fixtures. A real dogfood
+returns when the SDK-primary authoring path (`harness.ts` → emit) is the
+product's own front door.
+
+Maintenance of either harness prefers **subtraction before addition**, and a
+surface states the rule, never the incident that taught it — these files are
+written to be read by you, and originating context is git's to keep.
 
 ## Tech stack
 

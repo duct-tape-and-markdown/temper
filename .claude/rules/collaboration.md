@@ -58,10 +58,7 @@ prior sessions', your own drafts) as claims to test, not instructions to file.
   date) at the point of claim: in the spec section, the pending entry, or the
   comment that encodes it.
 - If you cannot cite it, **verify before encoding it** (fetch the current
-  docs), or mark it `UNVERIFIED` and surface the gap. An uncited guess wearing
-  spec authority is how the import-locus bug shipped: the spec said
-  `skills/*/SKILL.md`, reality says `.claude/skills/`, and nothing forced
-  anyone to look.
+  docs), or mark it `UNVERIFIED` and surface the gap.
 - The product already holds this bar for its own default contracts (per-clause
   `cite`, `specs/builtins.md`). The project holds itself to the bar it ships.
 
