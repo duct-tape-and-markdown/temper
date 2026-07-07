@@ -145,6 +145,7 @@ fn skill_kind_facts() -> KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         registration: Some("description-trigger(description)".to_string()),
+        templates: Vec::new(),
     }
 }
 

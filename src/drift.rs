@@ -958,6 +958,12 @@ pub struct KindFactRow {
     /// The declared registration label, when declared.
     #[serde(default)]
     pub registration: Option<String>,
+    /// The host kind's declared nesting templates — the child/genre kind names it
+    /// folds embedded members of (`specs/model/pipeline.md`, "The lock"). Empty for
+    /// a kind that nests nothing, the tolerant round-trip a lockless/template-less
+    /// kind takes.
+    #[serde(default)]
+    pub templates: Vec<String>,
 }
 
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
@@ -1294,6 +1300,9 @@ impl KindFactRow {
         if let Some(registration) = &self.registration {
             table.insert("registration", value(registration.clone()));
         }
+        if !self.templates.is_empty() {
+            table.insert("templates", value(string_array(&self.templates)));
+        }
         table
     }
 
@@ -1306,6 +1315,10 @@ impl KindFactRow {
             format: str_col(table, "format"),
             unit_shape: str_col(table, "unit_shape"),
             registration: str_col(table, "registration"),
+            templates: table
+                .get("templates")
+                .and_then(string_array_from_item)
+                .unwrap_or_default(),
         })
     }
 }

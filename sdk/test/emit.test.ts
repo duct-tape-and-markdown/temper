@@ -150,6 +150,7 @@ test("compileDeclarations produces all five families, satisfies included", () =>
       format: "yaml-frontmatter",
       unit_shape: "file",
       registration: "paths-match(paths)",
+      templates: undefined,
     },
   ]);
   assert.deepEqual(declarations.clauses, [
@@ -311,6 +312,16 @@ test("a genre member neither projects nor takes a kind-fact row", () => {
   assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
   // The declaration kinds carry the rule, never the genre (residue inherits through the host).
   assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
+});
+
+test("a host kind's fact row carries its declared genre children as templates", () => {
+  const decisionBlock = genre<Record<never, never>>({ name: "decision", withinHosts: ["rule"] });
+  const mixed = harness({
+    members: [rule({ name: "rust", prose: text`# Rust` }), decisionBlock({ name: "surface-authority" })],
+  });
+  const declarations = compileDeclarations(mixed);
+  const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
+  assert.deepEqual(ruleRow.templates, ["decision"]);
 });
 
 // ---------------------------------------------------------------------------

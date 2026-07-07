@@ -22,6 +22,8 @@ export interface KindFactRow {
   readonly format?: string;
   readonly unit_shape?: string;
   readonly registration?: string;
+  /** The host's declared nesting templates — its embedded genre kinds' names. */
+  readonly templates?: readonly string[];
 }
 
 /**
@@ -178,8 +180,25 @@ function registrationLabel(registration: Registration): string {
   }
 }
 
-/** One kind's fact row — the `at` locus supplies `governs_root`/`governs_glob`. */
-function kindFactRow(facts: KindFacts): KindFactRow {
+/**
+ * A host kind's declared nesting templates — the genre kinds among `allKinds`
+ * whose `withinHosts` names it, name-sorted (`specs/model/pipeline.md`, "The
+ * lock"). `undefined` when the host nests nothing, so the row omits the column
+ * rather than carrying an empty array.
+ */
+function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonly string[] | undefined {
+  const names = allKinds
+    .filter((facts) => facts.locus.kind === "genre" && facts.locus.withinHosts.includes(hostName))
+    .map((facts) => facts.name)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return names.length > 0 ? names : undefined;
+}
+
+/**
+ * One kind's fact row — the `at` locus supplies `governs_root`/`governs_glob`,
+ * and `templates` names the genre kinds (among `allKinds`) declared within it.
+ */
+function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFactRow {
   if (facts.locus.kind !== "at") {
     // A genre inherits its world residue through its host; it carries no `at`
     // locus, so it takes no kind-fact row (`15-kinds.md`). Callers filter these
@@ -194,15 +213,21 @@ function kindFactRow(facts: KindFacts): KindFactRow {
     format: facts.format,
     unit_shape: facts.unitShape,
     registration: registrationLabel(facts.registration),
+    templates: templatesFor(facts.name, allKinds),
   };
 }
 
-/** The distinct locus-bearing kinds in play — member kinds ∪ expect kinds, name-sorted. */
+/** Every kind in play, at any locus — member kinds ∪ expect kinds ∪ their genres. */
 function kindsInPlay(harness: Harness): KindFacts[] {
   const byName = new Map<string, KindFacts>();
   for (const member of harness.members) byName.set(member.facts.name, member.facts);
   for (const binding of harness.expect) byName.set(binding.kind.facts.name, binding.kind.facts);
-  return [...byName.values()]
+  return [...byName.values()];
+}
+
+/** The distinct locus-bearing (`at`) kinds in play, name-sorted. */
+function atLocusKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
+  return allKinds
     .filter((facts) => facts.locus.kind === "at")
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
@@ -272,7 +297,8 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
 
 /** Compile a harness into its five declaration families — the erased program. */
 export function compileDeclarations(harness: Harness): Declarations {
-  const kinds = kindsInPlay(harness);
+  const allKinds = kindsInPlay(harness);
+  const kinds = atLocusKindsInPlay(allKinds);
   const clauses: ClauseRow[] = [];
   for (const binding of [...harness.expect].sort((a, b) => (a.kind.key < b.kind.key ? -1 : a.kind.key > b.kind.key ? 1 : 0))) {
     for (const clause of binding.clauses) {
@@ -280,7 +306,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     }
   }
   return {
-    kinds: kinds.map(kindFactRow),
+    kinds: kinds.map((facts) => kindFactRow(facts, allKinds)),
     clauses,
     requirements: requirementRows(harness),
     assembly: assemblyFactRows(harness, kinds),

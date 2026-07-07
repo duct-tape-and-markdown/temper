@@ -607,6 +607,7 @@ fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
             registration: None,
+            templates: Vec::new(),
         },
         temper::drift::KindFactRow {
             name: "skill".to_string(),
@@ -616,6 +617,7 @@ fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: None,
+            templates: Vec::new(),
         },
     ]
 }

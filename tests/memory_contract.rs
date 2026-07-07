@@ -67,6 +67,7 @@ fn memory_kind_facts() -> KindFactRow {
         format: None,
         unit_shape: Some("file".to_string()),
         registration: None,
+        templates: Vec::new(),
     }
 }
 

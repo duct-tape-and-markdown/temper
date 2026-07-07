@@ -89,6 +89,7 @@ fn rule_kind_facts() -> KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("file".to_string()),
         registration: None,
+        templates: Vec::new(),
     }
 }
 
@@ -101,6 +102,7 @@ fn skill_kind_facts() -> KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         registration: None,
+        templates: Vec::new(),
     }
 }
 

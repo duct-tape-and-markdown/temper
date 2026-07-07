@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use temper::drift::KindFactRow;
 use temper::kind::{CustomKind, Extraction, Governs, Primitive, Template, Unit};
 
 /// A custom `decision` kind composing the `fenced` primitive and declaring one
@@ -146,6 +147,36 @@ fn an_unfenced_block_stays_plain_prose_no_nested_member_no_error() {
     let features = decision_kind().extract(&decision_unit(body));
     assert!(features.nested_members.is_empty());
     assert_eq!(features.fenced_blocks.len(), 1);
+}
+
+/// The `decision` kind's declaration row a lock would carry, its `templates`
+/// column recording the same child kind `decision_kind`'s live SDK declaration
+/// composes (`LOCK-NESTING-TEMPLATES`).
+fn decision_kind_fact_row() -> KindFactRow {
+    KindFactRow {
+        name: "decision".to_string(),
+        provider: None,
+        governs_root: "docs/decisions".to_string(),
+        governs_glob: "*.md".to_string(),
+        format: None,
+        unit_shape: None,
+        registration: None,
+        templates: vec!["decision".to_string()],
+    }
+}
+
+#[test]
+fn a_lock_reconstructed_kind_folds_the_same_embedded_members_as_its_live_declaration() {
+    // `from_kind_fact_row` lifts the row's `templates` column into the same
+    // `Template.kind` set `fold_members` keys on — a lock-reconstructed kind must
+    // fold the identical nested members its live SDK declaration does, closing the
+    // residual gap the row used to drop.
+    let live = decision_kind().extract(&decision_unit(decision_body()));
+    let reconstructed = CustomKind::from_kind_fact_row(&decision_kind_fact_row())
+        .extract(&decision_unit(decision_body()));
+
+    assert_eq!(reconstructed.nested_members.len(), 1);
+    assert_eq!(reconstructed.nested_members, live.nested_members);
 }
 
 #[test]

@@ -223,11 +223,11 @@ impl CustomKind {
     ///
     /// The reconstructed extraction now includes `Fenced` alongside the generic
     /// markdown-structure set, so the raw fenced-block substrate a genre fence needs
-    /// is always available — closing that part of the gap this row leaves. A host
-    /// kind's declared `templates` are a *different* fact the row does not carry
-    /// (`KindFactRow` has no template column today), so a lock-reconstructed kind
-    /// still folds no nested members even when its live SDK declaration would; that
-    /// residual gap is unclosed here.
+    /// is always available. The row's `templates` column lifts into one
+    /// [`Template`] per declared child-kind name, `leaves`/`collections` empty until
+    /// the nested-member predicate reads them — the same declared-and-inert posture
+    /// `format`/`registration` carry, so a lock-reconstructed kind folds the same
+    /// embedded members its live SDK declaration does.
     #[must_use]
     pub fn from_kind_fact_row(row: &KindFactRow) -> Self {
         CustomKind {
@@ -237,6 +237,15 @@ impl CustomKind {
                 .registration
                 .as_deref()
                 .and_then(registration_from_label),
+            templates: row
+                .templates
+                .iter()
+                .map(|kind| Template {
+                    kind: kind.clone(),
+                    leaves: Vec::new(),
+                    collections: Vec::new(),
+                })
+                .collect(),
             ..CustomKind::new(
                 row.name.clone(),
                 Governs {
@@ -1317,6 +1326,7 @@ import_hash = \"deadbeef\"\n\
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: Some("description-trigger(description)".to_string()),
+            templates: Vec::new(),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
 
@@ -1363,6 +1373,7 @@ import_hash = \"deadbeef\"\n\
             format: Some("xml".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: Some("bogus".to_string()),
+            templates: Vec::new(),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
@@ -1379,10 +1390,44 @@ import_hash = \"deadbeef\"\n\
             format: None,
             unit_shape: None,
             registration: None,
+            templates: Vec::new(),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
         assert_eq!(kind.registration, None);
+    }
+
+    #[test]
+    fn from_kind_fact_row_lifts_declared_templates_as_inert_shape() {
+        // Each recorded child-kind name lifts into a `Template` whose shape is
+        // inert (empty `leaves`/`collections`) until the nested-member predicate
+        // reads them — `fold_members` keys only on `Template.kind`.
+        let row = KindFactRow {
+            name: "spec".to_string(),
+            provider: None,
+            governs_root: "specs".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: None,
+            unit_shape: None,
+            registration: None,
+            templates: vec!["decision".to_string(), "law".to_string()],
+        };
+        let kind = CustomKind::from_kind_fact_row(&row);
+        assert_eq!(
+            kind.templates,
+            vec![
+                Template {
+                    kind: "decision".to_string(),
+                    leaves: Vec::new(),
+                    collections: Vec::new(),
+                },
+                Template {
+                    kind: "law".to_string(),
+                    leaves: Vec::new(),
+                    collections: Vec::new(),
+                },
+            ]
+        );
     }
 }

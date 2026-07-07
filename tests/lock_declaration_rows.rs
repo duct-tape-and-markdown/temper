@@ -57,6 +57,7 @@ fn skill_kind_facts() -> KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         registration: Some("description-trigger(description)".to_string()),
+        templates: Vec::new(),
     }
 }
 
@@ -70,6 +71,22 @@ fn rule_kind_facts() -> KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("file".to_string()),
         registration: Some("paths-match(paths)".to_string()),
+        templates: Vec::new(),
+    }
+}
+
+/// A host kind declaring one embedded nesting template — the `decision` child kind,
+/// the shape [`tests/nested_member.rs`]'s `decision_kind` declares live.
+fn spec_kind_facts_with_template() -> KindFactRow {
+    KindFactRow {
+        name: "spec".to_string(),
+        provider: None,
+        governs_root: "specs".to_string(),
+        governs_glob: "*.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        registration: None,
+        templates: vec!["decision".to_string()],
     }
 }
 
@@ -652,6 +669,43 @@ fn a_bare_harness_lock_still_round_trips() {
     assert!(!declarations.clauses.is_empty());
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
+}
+
+/// A host kind's declared nesting templates (`LOCK-NESTING-TEMPLATES`) — the
+/// embedded child/genre kind names it folds — round-trip through the lock's `kind`
+/// row unchanged, and a template-less kind (`rule`, `skill` here) still round-trips
+/// with no `templates` column at all (the empty-array-vanishes tolerance the rest of
+/// the declaration-row family already carries).
+#[test]
+fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            rule_kind_facts(),
+            skill_kind_facts(),
+            spec_kind_facts_with_template(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("nesting-templates", &payload);
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    let spec = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "spec")
+        .expect("the templated kind fact is recorded");
+    assert_eq!(spec.templates, vec!["decision".to_string()]);
+
+    let rule = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the template-less kind fact is recorded");
+    assert!(
+        rule.templates.is_empty(),
+        "a kind declaring no templates round-trips with an empty templates column"
+    );
 }
 
 /// A workspace with no `[declaration]` table (any pre-recut lock) reads back an empty
