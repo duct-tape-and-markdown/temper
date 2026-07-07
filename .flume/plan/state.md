@@ -2,25 +2,22 @@
 
 - Spec derived through: be8e1bf
 - Audited through: 813ca61
-- Residue swept through: 813ca61
-- This tick: spec delta — routed the recut's (e842a32) last un-routed slice.
-  The "nesting arc" was held as un-derived rather than routed (the
-  derived-ness-vs-routed-ness confusion John drained in 65c96c6); genre — the
-  retired "kind at the block locus" (GenreValue/Genre, `genre.<name>` fences,
-  ~50 refs each in extract/kind/read) — is 0001's "genre → nested kind
-  template", now the kernel's embedded nested member. Registered it as the
-  `(genre-embedded-member)` fork (rename-vs-structural-fold, needs John;
-  entangled with VACATE's files besides). e842a32 is now fully routed (VACATE
-  derived + 5 forks); be8e1bf (posture→mode) is routed — the code rename is
-  comment/cite staleness riding the next entry to open install/main/import/kind,
-  its concept home the open `(authority-home)` fork. Advanced the spec cursor
-  813ca61 → be8e1bf (HEAD of the spec delta).
-- Queue: 2 entries — VACATE-KIND-NOUN (open, disjoint, unreachable while the
-  marker holds yes); PACKAGING-CHANNELS (parked). Disjoint file sets.
+- Residue swept through: 079ca3e
+- This tick: residue sweep — swept src/tests/sdk against the kernel corpus.
+  Every retired-vocab class is filed, riding, or fork-routed; no unrouted gap.
+  Advanced the residue cursor 813ca61 → 079ca3e (HEAD) — a fork record is
+  routing (John 07-06), so fork-blocked classes no longer hold the cursor.
+- Queue: 2 entries — VACATE-KIND-NOUN (open, disjoint, now pickable by build);
+  PACKAGING-CHANNELS (parked). Disjoint file sets.
 
-Plan continues: yes — spec delta is now current, but the residue-sweep cursor
-(813ca61) trails HEAD, so job 4 is the next live input: sweep code against the
-kernel corpus and advance the cursor when every class is filed, riding, or
-fork-routed (genre now routes via `(genre-embedded-member)`; posture +
-architecture cites ride the next entry to open their files). Ship audit has no
-work (no src/tests/sdk commit since 813ca61). VACATE stays queued until quiet.
+Class routing: Kind→VACATE (filed); genre→(genre-embedded-member),
+requirement.kind→(requirement-satisfier-kind), authority→(authority-home)
+(open forks); posture/mode, architecture/* cites, means-as-corpus-word, law-N
+refs → citation staleness, ride the next entry opening their files. The `means`
+field identifier is code's own non-colliding spelling of the "prose" slot — not
+a mandated rename (unlike `Kind`, which collided with the kernel noun).
+
+Plan continues: no — all inputs current: inbox empty, spec delta drained
+(no specs commit past be8e1bf), ship audit dry (no src/tests/sdk since
+813ca61), residue swept to HEAD. Nothing pickable-and-blocked; VACATE hands
+to build. Forks reopen through the inbox when John rules.
