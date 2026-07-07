@@ -110,7 +110,10 @@ chosen job half-done — the job is the atom.
   an entry premised on "X is missing / never runs" verifies the gap at HEAD
   (`rg` the mechanism; run the report's probe) before scoping — an inbox
   finding describes its reporter's snapshot, and the gap may have closed or
-  moved by the time it routes.
+  moved by the time it routes. Stamp `scoped at <short-sha>` (HEAD at
+  scoping) in every routed entry's `notes` — the queue keeps moving after
+  you verify, and the stamp lets build diff that range at pick-up instead of
+  re-deriving the premise.
 - **Disjoint, or serialized — never both `open` over a shared file.** Build
   fans out pickable entries in parallel worktrees; two `open` entries editing
   the same file conflict at merge and revert the wave. If any path appears in

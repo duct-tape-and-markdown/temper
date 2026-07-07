@@ -37,6 +37,11 @@ placeholders, no `todo!()`, no stubbed function bodies.
 - The acceptance criterion (`entry.acceptance`) must hold.
 - Search before assuming "not implemented" (`rg`, `grep`) — the surface may
   already exist under a different module.
+- The entry's premise describes the tree it was scoped against, and the
+  queue keeps moving: when `notes` carries `scoped at <sha>`, run
+  `git log <sha>..HEAD -- <the entry's files>` before anything else — an
+  already-landed fix narrows the entry to its remainder, or empties it
+  (leave it uncommitted and say so in the report).
 - Follow the project's Rust conventions in `.claude/rules/rust.md`: errors via
   `miette`/`thiserror` (no `unwrap`/`expect`/`panic!` on real paths), clippy is
   clean under `-D warnings`, prefer a `clone` over a lifetime fight (this tool is
