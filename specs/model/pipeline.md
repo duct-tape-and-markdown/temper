@@ -24,7 +24,9 @@ rule may live inline — and either way the words land byte-identical in the
 projection. Prose may declare references, two intents apart: a mention names
 a member and moves no content; an include pulls the target's content into
 the host's emitted bytes, a dependency the lock fingerprints. Both are
-declared edges (`contract.md`); every other word is just a word.
+declared edges (`contract.md`), and a path reference resolves relative to
+the module that states it, never the workspace; every other word is just a
+word.
 
 ## Emit
 
@@ -39,15 +41,20 @@ The deterministic compile of the harness value into artifacts plus the lock.
   regenerated whole. Derived
   facts are computed, never authored twice: the permission list is the union
   of the members' declared capability needs, so a permission no member needs
-  is visible as exactly that.
+  is visible as exactly that. Total runs in reverse too: emit reaps a
+  projection whose owning member is gone when the file is byte-identical to
+  its lock fingerprint — temper wrote every byte, so nothing authored is
+  lost; a drifted ownerless file is a finding, never a silent delete.
 - **Verbatim.** Every meaning-carrying word in an emitted artifact traces to
   an authored prose leaf or a reference's rendered form; connective tissue —
   headings, labels, ordering — is projection formatting, and emit stamps
-  nothing of its own into a projection.
+  nothing of its own into a projection. Line endings are layout, never
+  content: projections are written LF uniformly, whatever the source's
+  convention.
 - **Byte-reproducible, mechanically double-checked.** Same program in, same
   bytes out, verified by double-emit comparison on every run; nondeterminism
   in authoring code is a loud emit failure, never silent churn.
-- **Refusing.** A dangling edge, an unresolvable mention or embed, an
+- **Refusing.** A dangling edge, an unresolvable mention or include, an
   unfilled requirement whose fill clause errors — each refuses before a byte
   is written; the author cannot produce output from a broken source.
 
@@ -102,7 +109,9 @@ question: represent this harness as a typed program? A harness is represented
 or it is not — one genuine fork, so exactly one question.
 
 - **No** — install wires the session-start reporter, with consent for the one
-  settings write, and stops: a footprint of one entry, Node-free forever.
+  settings write, and stops: a footprint of one entry, Node-free forever. The
+  settings write is format-preserving — existing keys, order, and formatting
+  survive the insertion; install never re-serializes a file it does not own.
 - **Yes** — this path requires Node and the workspace, checked up front and
   refused with instructions when absent; no half-scaffolded state. Install
   ensures the SDK dependency, lifts each discovered artifact into a member
