@@ -31,6 +31,68 @@
     "notes": "Field report 1. Explicitly outside CITE-RETAG (comment/citation scope, already shipped): these are user-facing strings. Runtime already migrated shared/surface -> note/warn/block."
   },
   {
+    "tag": "COVERAGE-KIND-AWARE",
+    "summary": "coverage_note false-flags a surface a locked custom kind governs as unmodeled, and says 'built-in kinds' while counting custom members — it consults only built-ins, not the lock's kinds",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/coverage_note.rs",
+          "description": "check(root, kinds, member_counts) receives only builtin_kind::definitions() as `kinds`, so the unmodeled-surface suppression over KNOWN_SURFACES never sees a custom kind's `governs` — `.claude/commands`, governed by a locked `command` kind, is still flagged coverage.unmodeled-surface. Read the lock's kind rows (drift::read_declarations(root/.temper).kinds -> CustomKind) so a known surface a locked kind governs is suppressed; drop 'built-in' from the CHECKED_RULE count message since member_counts already includes custom-kind members. Read the lock internally so main.rs's call site is untouched (stays disjoint from the main.rs chain)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage_note.rs",
+        "asserts": "a locked custom kind governing .claude/commands suppresses the unmodeled-surface finding; the checked-count message carries no 'built-in' qualifier when a custom kind is counted"
+      }
+    ],
+    "acceptance": "A surface a locked custom kind governs is not flagged coverage.unmodeled-surface; the checked-count message does not say 'built-in' when custom-kind members are counted.",
+    "notes": "Field report 3 T9. The gate already runs custom-kind floors and counts them (member_counts), and install places their notes (emit_owned_targets is kind-generic) — those T9 sub-claims shipped with REQUIREMENT-GATE; the sole residue is coverage_note's built-in-only kind set. Scoped to coverage_note.rs (reads the lock internally) to stay disjoint."
+  },
+  {
+    "tag": "DISCOVERY-SKIPS-SURFACE",
+    "summary": "kind discovery ranges into the `.temper/` surface workspace — a CLAUDE.md there is counted as a second `memory` member ('memory (2)'); discovery must skip the surface unconditionally",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "discoverable_paths walks the harness root with WalkBuilder excluding only `.git`; `.temper/` is committed (not gitignored), so a `**/CLAUDE.md` in the surface workspace enters the discoverable set and the `memory` kind counts it as a second member. Skip the surface workspace (TEMPER_DIR) unconditionally in the discovery walk — it holds temper's authored modules + lock, never harness members."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a CLAUDE.md under .temper/ is not discovered as a memory member; harness-root and .claude/ members still discovered"
+      }
+    ],
+    "acceptance": "A file under the `.temper/` surface workspace is never discovered as a harness member; discovery of harness-root and `.claude/` members is unchanged.",
+    "notes": "Field report 3 T12. Renaming the sidecar was the field workaround; the fix is scoping discovery. .temper/ is the surface (authored modules + lock), categorically not a harness member — the surface/harness split runs throughout pipeline.md. Disjoint (import.rs untouched by other entries)."
+  },
+  {
     "tag": "SCAFFOLD-OUTPUT-VALID",
     "summary": "scaffolded skill modules omit required Skill.description (fails tsc) and install pins SDK ^0.0.2 — caret pins the patch to 0.0.2, which predates the `file` export the scaffold imports",
     "per": {
@@ -165,6 +227,54 @@
     ],
     "acceptance": "The guard passes a write to a file()-carried member's own .claude/ source (own_path) and continues to bind writes to projected .claude/ files, reading the lock rather than a path regex alone.",
     "notes": "Field report 1. For file()-carried members the .claude/ file is the source of truth, not a projection; the guard must read the lock's owned-source paths. blockedBy PATH-SEP-NORMALIZE (same install.rs file)."
+  },
+  {
+    "tag": "MENTION-EDGE-LANDS",
+    "summary": "the mention (`n`) edge is resolution-checked at emit but never compiled into the payload/lock/graph — it reaches no shared edge enumeration, so no degree clause or read verb ranges over it",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "HELP-TEXT-RECUT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Compile the mention (`n`) family into the emit payload's declaration rows, paralleling the `satisfies` family already carried on member/unit rows — an `n`'s (source member, target address) becomes a declared edge, not merely an emit-time resolution check."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "The `n` targets already resolution-checked here (the `nable` set) also surface into the payload's declaration rows so the edge survives type erasure, not just the loud dangling-mention refusal."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Add the mention edge's declaration-row family to the lock (read + write), paralleling the `satisfies` rows — emit is the sole producer."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "edges_from_declarations includes the mention rows so assembly_edges carries mentions into the one resolved edge enumeration the gate and read verbs share."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Bind mention edges in the reference graph so `degree` (obligation-free by default — a contract may count them) and explain range over them; explain build's 'it points at no member' resolves once the edge is bound."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a `n` authored on a member's prose leaf compiles to a mention declaration row, rides the lock, and binds in the graph so a degree clause over it evaluates; explain narrates the resolved target"
+      }
+    ],
+    "acceptance": "A mention (`n`) authored in prose lands as a declared edge in the payload, the lock, and the graph; a degree clause can count it and explain narrates its resolved target rather than 'points at no member'.",
+    "notes": "Field report 3 T10. contract.md: a mention is one of four edge loci; every edge resolves into the one enumeration the gate and read verbs share. Obligation-free by default (no shipped clause counts it; a contract may). Model on the satisfies family, which already threads SDK->payload->lock->graph. blockedBy HELP-TEXT-RECUT (shared main.rs)."
   },
   {
     "tag": "PACKAGING-CHANNELS",

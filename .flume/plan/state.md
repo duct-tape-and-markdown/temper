@@ -3,19 +3,26 @@
 - Spec derived through: 5945405
 - Audited through: c7595d3
 - Residue swept through: 8aeb64e
-- This tick: Quiet closing pass. Inbox empty; spec delta empty (cursor at
-  5945405); ship audit c7595d3..HEAD is plan-commits only (no src/tests/sdk),
-  so no entry to drop; residue cursor trails HEAD by its own plan commit
-  (9ee736a, no code). Re-verified: queue disjoint — 5 open entries on disjoint
-  files (check.rs+engine.rs / install.rs / drift.rs / bundle.rs / main.rs); the
-  install.rs chain + EXPLAIN-RESOLVER serialized; PACKAGING park reason still
-  true on disk (only .github/workflows/temper.yml, no release.yml; root
-  package.json still the private temper-flume-harness manifest). All gate
-  reasons hold. Hand off to build.
-- Queue: 10 — 5 open/disjoint (REQUIREMENT-GATE, WIN-INSTALL-SPAWN,
-  WIN-EMIT-PATH, BUNDLE-REPORT-SHIPS, HELP-TEXT-RECUT), 4 blocked (install.rs
+- This tick: Drained inbox — routed field report 3 (T9-T13) against HEAD
+  (f8b3d7f), *after* REQUIREMENT-GATE which the report (18dca38) predates.
+  Verified each on disk: T9 -> new COVERAGE-KIND-AWARE (only coverage_note's
+  built-in-only kind set survives; the gate now runs+counts custom floors and
+  install places their notes via kind-generic emit_owned_targets). T10 -> new
+  MENTION-EDGE-LANDS (`n` resolution-checked at emit.ts but no declaration-row
+  family, so it reaches no lock/graph edge). T12 -> new DISCOVERY-SKIPS-SURFACE
+  (discoverable_paths excludes only .git; .temper/ is committed and walked).
+  T11 reconciled — harness_diagnostics now delegates to gate(), so session-start
+  reads the same lock joins; no entry. T13 -> registered `(genre-fence-format)`
+  fork (write face); its concrete claims are stale (graph.rs nested-empty is
+  test code, from_kind_fact_row has a production caller now, read fold exists in
+  kind.rs). Cursors unmoved — inbox job, not audit.
+- Queue: 9 — 3 open/disjoint (HELP-TEXT-RECUT main.rs, COVERAGE-KIND-AWARE
+  coverage_note.rs, DISCOVERY-SKIPS-SURFACE import.rs), 5 blocked (install.rs
   chain SCAFFOLD-OUTPUT-VALID→PATH-SEP-NORMALIZE→GUARD-OWNPATH; EXPLAIN-RESOLVER
-  on REQUIREMENT-GATE), PACKAGING-CHANNELS parked.
+  on the shipped REQUIREMENT-GATE; MENTION-EDGE-LANDS on HELP-TEXT-RECUT for
+  shared main.rs), PACKAGING-CHANNELS parked.
 
-Plan continues: no — every input current, queue disjoint with gate reasons
-re-verified on disk; pickable open entries exist, so build takes over.
+Plan continues: yes — ship audit is live (c7595d3..HEAD carries the
+REQUIREMENT-GATE + WIN/BUNDLE src+sdk+tests commits): it advances the Audited
+cursor and unblocks SCAFFOLD-OUTPUT-VALID + EXPLAIN-RESOLVER, whose blockers
+(WIN-INSTALL-SPAWN, REQUIREMENT-GATE) shipped this window.
