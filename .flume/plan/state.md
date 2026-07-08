@@ -2,29 +2,18 @@
 
 - Spec derived through: cd7135b
 - Audited through: d7d0912
-- Residue swept through: 2fd1b4d
-- This tick: Residue sweep (job 4). d257e1b..HEAD is plan-only (2fd1b4d
-  touched state.md alone) — no new src/tests/sdk surface to reconcile, so
-  this re-swept the same tree the prior tick did and corrects its scope
-  claim: `posture` clean (the remaining hits — CI network posture, a
-  clause's delivery posture, "mixed-posture corpus" — are unrelated word
-  reuse, never the guard block/warn/note vocabulary
-  RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE retired, confirmed by
-  reading ad109b4's own stated scope). `floor` comment residue is wider
-  than 55386c3/2fd1b4d logged — it spans most of src/ and many tests/, not
-  just src/builtin_lock.rs — plus three test-local identifiers
-  (`floor_triples`, `floor_clause` in tests/lock_declaration_rows.rs, a
-  local `floor` binding in tests/requirement_roster.rs). All internal-only
-  naming with no corpus/API surface (706139a's own scope note names only
-  builtin_floor/floor_from_rows/SDK exports/etc as its target, explicitly
-  leaving attached-identifier residue elsewhere) — disposition unchanged:
-  rides whichever entry next opens each file, not filed. `own_path`
-  remains RETIRE-OWN-PATH-MACHINERY's live subject; re-grepped, its
-  file/line citations still resolve. The session_start.rs `+++`-fixture
-  debt is unchanged, stays parked for the next ship audit. No new
-  fileable gap. Cursor to HEAD.
+- Residue swept through: 3e19f4c
+- This tick: Quiet closing pass (job 5). Inbox empty; spec-delta empty (no
+  commits past cd7135b); no commits past d7d0912 touch src/tests/sdk (only
+  plan commits since); 3e19f4c (the last residue-sweep tick) touched only
+  state.md, so nothing new to sweep — cursor advances to HEAD. Re-verified
+  rather than trusted: `own_path` still resolves in exactly the five files
+  RETIRE-OWN-PATH-MACHINERY cites (drift.rs, import.rs, main.rs,
+  tests/install.rs, tests/emit.rs); the two pending entries touch disjoint
+  file sets; PACKAGING-CHANNELS's parked facts are unchanged (no
+  `.github/workflows/release.yml`, root package.json still the private
+  flume manifest, sdk/package.json still `@dtmd/temper` 0.0.5).
 - Queue: RETIRE-OWN-PATH-MACHINERY open and pickable; PACKAGING-CHANNELS
-  parked.
+  parked on human release creds + engine-binary workflow.
 
-Plan continues: yes — next tick's job 5 (quiet closing pass): confirm the
-queue disjoint and state re-derived, then hand off to build.
+Plan continues: no — every input current, queue disjoint, hand off to build.
