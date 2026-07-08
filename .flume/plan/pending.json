@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PATH-NORMALIZER-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -49,7 +48,7 @@
       }
     ],
     "acceptance": "One `plural` helper (`src/display.rs`, `pub(crate)`); no duplicate definition or inline closure remains in bundle.rs, coverage_note.rs, or install.rs; `cargo test` green.",
-    "notes": "Refactor capture session-plural-helper.md (0ccba8d), re-verified live at d6c37a3 — all four cited line numbers (display.rs absent, bundle.rs:324, coverage_note.rs:221, install.rs:494/498) still accurate. Unblocked: GLOB-ENGINE-CONSOLIDATE shipped. Serialized behind PATH-NORMALIZER-CONSOLIDATE (not GLOB-ENGINE) purely to order the src/ wave one-open-at-a-time; no direct file overlap with it, but both would otherwise race TEST-SCAFFOLDING-CONSOLIDATE. scoped at d6c37a3"
+    "notes": "Refactor capture session-plural-helper.md (0ccba8d), re-verified live at 425968d — all four cited line numbers (display.rs absent, bundle.rs:324, coverage_note.rs:221, install.rs:494/498) still accurate; PATH-NORMALIZER-CONSOLIDATE and CLAUSE-ROW-LIFT-CONSOLIDATE shipped (24f9bbc, ad9f4af), touching graph.rs/import.rs/builtin.rs/compose.rs/main.rs only — no overlap with this entry's files. Unblocked: gate moves blockedBy->open. scoped at 425968d"
   },
   {
     "tag": "TEST-SCAFFOLDING-CONSOLIDATE",
