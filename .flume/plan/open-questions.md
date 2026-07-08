@@ -102,12 +102,17 @@ condition arrives, it is the next break. If work touches one, surface it.
   deliberate addition.
 
 - **`kinds/` + `packages/` curated trees — RETIRED.** The engine retirement
-  drained and the physical trees were deleted (`chore(harness)` 68f187d). One
-  standing behavioral debt survives: `tests/session_start.rs` still writes
-  `+++`-format `.temper/kinds/spec/KIND.md` + `.temper/packages/spec/PACKAGE.md`
-  fixtures — live test code asserting stray old-format files are ignored — to
-  be reconciled when the session-start path is next touched (accepted debt,
-  verify in the next ship audit).
+  drained and the physical trees were deleted (`chore(harness)` 68f187d). Two
+  standing debts survive, both accepted, both riding the next entry that
+  touches their file rather than a standalone one: (1) `tests/session_start.rs`
+  still writes `+++`-format `.temper/kinds/spec/KIND.md` +
+  `.temper/packages/spec/PACKAGE.md` fixtures — live test code asserting stray
+  old-format files are ignored — last touched 0735474 (2026-07-08) without
+  reconciling; (2) `sdk/src/builtins.ts:308,348,385` still doc-comment-cites
+  three deleted `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md`
+  files (a fourth, `skill.anthropic`, was already cut by `dfba26f`) — file
+  touched 6 times since 68f187d (latest `706139a`, 2026-07-07) without cutting
+  the rest. Verify both at the next ship audit.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

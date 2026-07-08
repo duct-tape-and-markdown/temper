@@ -2,25 +2,24 @@
 
 - Spec derived through: f87cc0c
 - Audited through: 1818bb4
-- Residue swept through: 99533af
-- This tick: Ship audit (job 3). Jobs 1-2 confirmed quiet first: inbox empty,
-  no refactor captures; `git log f87cc0c..HEAD -- specs/` empty. Audit range
-  f6ec58f..HEAD touching `src/`/`tests/`/`sdk/` held one commit: 7dc18bf
-  (build: reuse install's `npm_program()` in `tests/common`). Verified live
-  on disk: `src/install.rs:1311` `npm_program()` is now `pub fn`, and
-  `tests/common/mod.rs:58` calls `temper::install::npm_program()` in place
-  of the bare `Command::new("npm")` spawn — WINDOWS-NPM-SPAWN-PUB's work
-  confirmed shipped (already dropped from pending by build's `chore(flume)`
-  1818bb4, alongside GITATTRIBUTES-LF-PIN). Also verified `.gitattributes`
-  exists, pinning `src/builtin_lock.toml`, `tests/snapshots/*.snap`, and
-  `tests/fixtures/**` to `text eol=lf` — GITATTRIBUTES-LF-PIN's work also
-  confirmed shipped; no pending-entry action needed since both were already
-  off the queue. Re-tested PACKAGING-CHANNELS's parked condition: still no
-  `.github/workflows/release.yml` (only `temper.yml`, a check job), root
-  `package.json` still the private flume manifest (`temper-flume-harness`) —
-  unchanged, reason text re-stamped to this sha. Cursor advanced to HEAD.
+- Residue swept through: ec3f6c1
+- This tick: Residue sweep (job 4), range 99533af..ec3f6c1 (jobs 1-3
+  reconfirmed quiet first: inbox empty, no refactor captures, no specs/
+  commits, no src/tests/sdk commits past 1818bb4). Delegated a full sweep of
+  src/, tests/, sdk/ against the corpus for retired vocabulary, duplicate
+  implementations, and hand-rolled mechanics a sanctioned crate should own.
+  Found one previously-unflagged item, verified live on disk:
+  `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
+  `packages/*/PACKAGE.md` files from the kinds/+packages retirement
+  (68f187d) — citation staleness, which per this job's own carve-out rides
+  the next entry touching that file and is never a standalone entry.
+  Folded into open-questions' existing "kinds/+packages RETIRED" bullet
+  alongside the already-known `tests/session_start.rs` fixture debt
+  (re-verified unchanged — last touch 0735474 didn't reconcile it). No
+  duplicate test-builder patterns or hand-rolled matcher/parser mechanics
+  found beyond what prior consolidations already unified; `globset`/`ignore`
+  correctly used throughout. Cursor advanced to HEAD.
 - Queue: PACKAGING-CHANNELS parked, unchanged. No open entries.
 
-Plan continues: yes — jobs 1-3 all quiet as of this tick, and residue-swept
-cursor (99533af) still trails HEAD (same 7dc18bf commit crosses its window
-too); job 4 (residue sweep) is the next live input.
+Plan continues: yes — jobs 1-4 all quiet/current as of this tick; job 5
+(quiet closing pass) is the next live input.
