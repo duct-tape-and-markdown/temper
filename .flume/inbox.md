@@ -17,18 +17,32 @@ routing.
   (`vendor_sdk`), `tests/builtin_lock_frozen.rs:105`
   (`wire_memberless_harness`) — each stands in for `npm install` by
   symlinking `sdk_root()` (a directory) into a scratch `node_modules/@dtmd/`.
-  The Windows counterpart is `std::os::windows::fs::symlink_dir` (a
-  directory target — not `symlink_file`). `tests/install.rs:582`'s
-  `PermissionsExt` use is already correctly `#[cfg(unix)]`-gated; not part
-  of the break. Dates to the 07-06 SDK-integration wave (`911cc45`,
-  `7102391`, `7decfd6` — `BUILTIN-LOCK-FROZEN-LANE` and siblings first added
-  the symlink-vendoring helper), not to any 07-08 work. CI is
-  `ubuntu-latest`-only, so this is currently invisible to every gate — the
-  `cargo test` afterMerge gate cannot run on a Windows box at all until
-  fixed. UNVERIFIED, flag only: creating a directory symlink on Windows has
-  historically needed Developer Mode or `SeCreateSymbolicLinkPrivilege`; a
-  `cfg(windows)` fix may compile clean but still need that privilege at
-  runtime — confirm on the actual CI runner if a Windows lane is ever added.
+  `tests/install.rs:582`'s `PermissionsExt` use is already correctly
+  `#[cfg(unix)]`-gated; not part of the break. Dates to the 07-06
+  SDK-integration wave (`911cc45`, `7102391`, `7decfd6` —
+  `BUILTIN-LOCK-FROZEN-LANE` and siblings first added the symlink-vendoring
+  helper), not to any 07-08 work. CI is `ubuntu-latest`-only, so this is
+  currently invisible to every gate — the `cargo test` afterMerge gate
+  cannot run on a Windows box at all until fixed.
+  **The Windows fix is a junction, not `symlink_dir`** (verified
+  2026-07-08): a true directory symlink on Windows needs
+  `SeCreateSymbolicLinkPrivilege` (admin or Developer Mode); a junction
+  needs neither — nixhacker.com "Understanding and Exploiting Symbolic
+  links in Windows" (retrieved 2026-07-08:
+  https://nixhacker.com/understanding-and-exploiting-symbolic-link-in-windows/),
+  hinchley.net "Junctions and Symbolic Links" (retrieved 2026-07-08:
+  https://hinchley.net/articles/junctions-and-symbolic-links). Confirmed as
+  the load-bearing reason npm itself creates junctions (not symlinks) for
+  local/workspace deps on Windows — npm/cli#5189 (retrieved 2026-07-08:
+  https://github.com/npm/cli/issues/5189) — which is exactly what these
+  three helpers stand in for (this repo's own
+  `.temper/node_modules/@dtmd/temper` resolves via the same mechanism npm
+  itself would use). `std::os::windows::fs::symlink_dir` compiles clean but
+  still hits the privilege wall on a stock (non-elevated,
+  non-Developer-Mode) runner; `std` exposes no junction constructor, so the
+  fix needs a small crate (e.g. `junction`) or a raw
+  `DeviceIoControl`/`FSCTL_SET_REPARSE_POINT` call — bigger than a one-line
+  `cfg(windows)` swap.
   Separately confirmed clean, no action needed: both previously-known
   Windows workarounds are upstream and load-bearing as designed —
   `install.rs`'s `npm_program()` (npm.cmd naming) and `drift.rs`'s
