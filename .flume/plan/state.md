@@ -1,24 +1,24 @@
 # Plan state
 
 - Spec derived through: 474835b
-- Audited through: c44ba6b
+- Audited through: 0594038
 - Residue swept through: 8e09363
-- This tick: Residue sweep (job 4), 886dc64..HEAD. Filed GENRE-SNAPSHOT-RESIDUE
-  — the genre→member recut (0012/EMBEDDED-FENCE) left snapshot residue: one
-  orphan `read_verbs__impact_leaf_grain.snap` (dead — assertion_line 623 >
-  read_verbs.rs's 377 lines, retired 'genre' coverage body, unreferenced; live
-  leaf-grain test asserts via `.contains`), plus 4 `display_rule__*.snap` with
-  stale `render_genre` expression metadata (comment-class, rid here). `git grep
-  genre` in src/sdk/src is clean; live genre strings in nested_member.rs:193 &
-  emit.test.ts:386 are sanctioned retirement guards, kept. 0013 (Format label)
-  / 0015 (manifest machinery) residue stays fork-routed by
-  (format-template-spelling) / (manifest-authoring-surface), unchanged. Cursor
-  886dc64 → 8e09363 (HEAD).
-- Queue: 5 — REGISTRATION-CHANNELS (open) + GENRE-SNAPSHOT-RESIDUE (open,
-  disjoint: tests/snapshots only) both pickable; COMMAND-KIND → AGENT-KIND
-  blocked chain (shared builtin_kind.rs/builtins.ts/builtin_lock.toml);
-  PACKAGING-CHANNELS parked.
+- This tick: Ship audit (job 3), c44ba6b..HEAD. REGISTRATION-CHANNELS shipped
+  (registration recut to a channel set — `Registration::UserInvoked` +
+  `DescriptionTrigger` as a vec, builtin_kind.rs:30; SDK `registration:[{via:
+  "user-invoked"},…]`, builtins.ts:66) → unblocked COMMAND-KIND, gate open.
+  Full-rewrote it: refreshed stale line refs (all_kinds :122, enumeration tests
+  :307-323, lock carries three kind rows), swapped its wrong `lock_declaration_
+  rows.rs` target (golden-row test, blind to the built-in set) for `builtin_lock_
+  frozen.rs` (the real byte-compare), flagged `commandFloor = skillFloor minus
+  nameMatchesDir` (a command is a lone file), re-stamped scoped-at 0594038.
+  GENRE-SNAPSHOT-RESIDUE verified swept (9294a8d deleted the orphan snap +
+  regenerated 4 display_rule snaps). PACKAGING-CHANNELS parked reason holds
+  (diff touched no package.json/.github). AGENT-KIND stays blockedBy COMMAND-KIND
+  (verbatim; line refs re-verify at unblock). Cursor c44ba6b → 0594038 (HEAD).
+- Queue: 3 — COMMAND-KIND (open, pickable) → AGENT-KIND (blockedBy COMMAND-KIND)
+  chain (shared builtin_kind.rs/builtins.ts/builtin_lock.toml); PACKAGING-CHANNELS
+  parked.
 
-Plan continues: no — all cursors current (inbox empty; no spec delta past
-474835b; ship audit c44ba6b..HEAD is plan-only; residue swept to HEAD). Two
-pickable open entries exist — build takes over.
+Plan continues: yes — residue sweep (job 4): residue cursor 8e09363 trails HEAD
+0594038; the registration recut + genre sweep (1076bf3..0594038) are unswept.

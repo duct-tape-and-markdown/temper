@@ -7,8 +7,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REGISTRATION-CHANNELS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,27 +20,27 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "Add `claude_code_command()` — Governs root `.claude/commands`, glob `*.md`, `UnitShape::File` (file-stem identity), `Format::YamlFrontmatter`, the skill's Extraction primitives by reuse, registration = {user-invoked, description-trigger}; add to `all_kinds()` (line 109) and the `definitions`/enumeration tests (lines 271-286)."
+          "description": "Add `claude_code_command()` — Governs root `.claude/commands`, glob `*.md`, `UnitShape::File` (file-stem identity, so no identity field, like `rule`), `Format::YamlFrontmatter`, the skill's `Extraction` primitives by reuse, registration = `vec![Registration::UserInvoked, Registration::DescriptionTrigger{description}]` (both channels); add to `all_kinds()` (:122-128) and update the in-file enumeration tests — `definitions_enumerates_*` (:307, expects `[\"command\",\"memory\",\"rule\",\"skill\"]`) and `qualified_names_*` (:315, add `command`); refresh the module `//!` header's kind list (`skill`, `rule`, `memory` → +`command`; \"three kinds\" → four)."
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "Add the `command` kind reusing the `Skill` field schema (locus `.claude/commands/*.md`, file-stem identity, both channels) + `commandFloor` = the skill's documented recommendations, cited to code.claude.com/docs/en/skills (2026-07-07)."
+          "description": "Add the `command` kind reusing the `Skill` interface/field schema (locus `.claude/commands/*.md`, `unitShape:\"file\"`, no `identityField`, `registration:[{via:\"user-invoked\"},{via:\"description-trigger\",field:\"description\"}]`) + `commandFloor` = `skillFloor`'s clauses minus `nameMatchesDir` (a command is a lone file — no parent directory to match), name-requiredness per the skills doc, cited code.claude.com/docs/en/skills (2026-07-07)."
         },
         {
           "path": "sdk/src/claude-code.ts",
-          "description": "Export `command` and `commandFloor` (lines 11-12)."
+          "description": "Export `command` and `commandFloor` — join the `builtins.js` re-export block (:11-12), alphabetized."
         },
         {
           "path": "src/builtin_lock.toml",
-          "description": "Regenerate — the command kind's declaration + floor rows join the lock (four kinds)."
+          "description": "Regenerate from the memberless emit (never hand-edit) — the command kind's declaration row + its `commandFloor` clause rows join the lock (four kinds); the header's \"three built-in kinds\" narration updates to four."
         },
         {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "Assert the command kind's declaration row re-derives (four kinds)."
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Re-derives byte-clean with the fourth kind row (mechanical, no assertion change). The `four kind facts` count comment (:60) rides this entry — it currently stale-overcounts (the lock carries three) and becomes accurate at four."
         },
         {
           "path": "sdk/test/builtins.test.ts",
-          "description": "Cover the command kind + commandFloor."
+          "description": "Cover the command kind (registration = both channels, `unitShape:\"file\"`, no `identityField`) and `commandFloor` (the `skillFloor` subset — no `nameMatchesDir`); add `command`/`commandFloor` to the imports + `FLOORS` list."
         }
       ],
       "retire": []
@@ -53,8 +52,8 @@
         "asserts": "a `.claude/commands/deploy.md` file folds into a command member with id `deploy` (file stem) and the skill's field schema; the command registers on both invocation channels"
       }
     ],
-    "acceptance": "The command kind ships as the skill surface's second placement: `.claude/commands/*.md` files fold into command members (file-stem identity, skill schema by import, both channels), the built-in lock re-derives byte-clean, and `commandFloor` carries the skill's documented recommendations (builtins.md, 'The shipped kinds').",
-    "notes": "0014, command kind. Second placement of the skill surface, never a second schema (commands merged into skills, code.claude.com/docs/en/skills 2026-07-07 per 0014). File-stem identity already exists (rule); no src/kind.rs change. 0014 leaves unmodeled: subdir namespacing, personal commands dir, name charset. Blocked on REGISTRATION-CHANNELS (needs the two-channel set; shares builtin_kind.rs, builtins.ts, builtin_lock.toml). scoped at 89cd964."
+    "acceptance": "The command kind ships as the skill surface's second placement: `.claude/commands/*.md` files fold into command members (file-stem identity, skill schema by import, both channels), the built-in lock re-derives byte-clean (four kinds), and `commandFloor` carries the skill's documented recommendations minus the directory-name clause (builtins.md, 'The shipped kinds').",
+    "notes": "0014 command kind. Unblocked — REGISTRATION-CHANNELS shipped (both channels live at builtin_kind.rs:30). Second placement of the skill surface, not a second schema (code.claude.com/docs/en/skills 2026-07-07). File-stem identity = no identityField (like rule). commandFloor = skillFloor minus nameMatchesDir (lone file). 0014 defers subdir namespacing, personal dir, name charset. Blocks AGENT-KIND (shared builtin_kind.rs/builtins.ts/builtin_lock.toml). scoped at 0594038."
   },
   {
     "tag": "AGENT-KIND",
