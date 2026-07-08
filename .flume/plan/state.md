@@ -2,24 +2,22 @@
 
 - Spec derived through: f87cc0c
 - Audited through: f6ec58f
-- Residue swept through: ff09cee
-- This tick: Ship audit (job 3), cbce31d..f6ec58f. ca5557d (build) consolidated
-  the 5 raw-Unit-literal builders (spec_unit, decision_unit, memory_unit,
-  frontmatter_unit, unit_from_member) into one tests/common::raw_unit(id,
-  frontmatter, body, source_path) — verified on disk: old builder names gone
-  from tests/agent_kind.rs, tests/extract_equivalence.rs,
-  tests/nested_member.rs, tests/section_contains.rs; raw_unit present in
-  tests/common/mod.rs; full `cargo test` green (agent_kind,
-  extract_equivalence, nested_member, section_contains and the full suite,
-  including session_start). f6ec58f (chore) correctly dropped
-  TEST-HELPER-DUPES-CONSOLIDATE(rawunit) from pending.json now that its work
-  shipped. Re-verified PACKAGING-CHANNELS still parked: still no
-  .github/workflows/release.yml (only temper.yml, a check job), root
-  package.json still the private flume manifest (temper-flume-harness),
-  sdk/package.json unchanged at 0.0.5 — restamped re-verified at f6ec58f.
-- Queue: PACKAGING-CHANNELS parked (unchanged this tick) — no open entries.
+- Residue swept through: 99533af
+- This tick: Residue sweep (job 4), ff09cee..99533af. Checked: (1) test-builder
+  duplication beyond tests/common — remaining per-file write_* helpers
+  (agent_kind, command_kind, coverage_note, memory_gate, graph, install,
+  requirement_roster) differ in signature/content per real kind, not
+  duplicates of one job; (2) stale pre-rename vocabulary (activation→
+  registration, apply→emit) — none found in src/sdk, only unrelated "apply"
+  usages (json_splice, kind::Primitive::apply, guidance prose); (3) engine
+  agents-md.memory kind residue — confirmed dropped by BUILTIN-KIND-FLATTEN
+  (3712d24), matches open question's spec-faithful default, no code residue;
+  (4) kinds/+packages/ retirement — sole survivor is tests/session_start.rs's
+  KIND.md/PACKAGE.md fixtures, already tracked as accepted debt in
+  open-questions.md ("Kept on purpose"), not a fresh finding. No new residue
+  fileable this tick; pending.json and open-questions.md unchanged.
+- Queue: PACKAGING-CHANNELS parked (unchanged) — no open entries.
 
-Plan continues: yes — ship audit now current through HEAD (f6ec58f), but
-residue sweep cursor still trails at ff09cee (untouched since b6c613f) and no
-open entry remains for build to pick; next tick's live input is the residue
-sweep (job 4).
+Plan continues: yes — every input (inbox, spec delta, ship audit, residue
+sweep) is now current through HEAD; next tick's live input is job 5, the
+quiet closing pass.
