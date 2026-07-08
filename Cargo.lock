@@ -789,6 +789,7 @@ name = "temper"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "globset",
  "gray_matter",
  "ignore",
  "insta",

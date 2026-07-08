@@ -30,6 +30,10 @@ walkdir = "2"
 # engine, so nested files/negation/precedence are not hand-rolled.
 ignore = "0.4"
 sha2 = "0.10"
+# The one glob engine (already inside `ignore` transitively; pinned direct here
+# so `governs`/`paths-match` glob matching never hand-rolls a segment matcher or
+# a regex compiler — specs/process/engineering.md, "Libraries before hand-rolls").
+globset = "0.4"
 
 # Contract engine: the `pattern` primitive (adopt the solved mechanic — never
 # hand-roll regex; specs/model/contract.md "bespoke closed algebra" decision).

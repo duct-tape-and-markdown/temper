@@ -351,10 +351,13 @@ impl CustomKind {
     /// mis-dispatching.
     #[must_use]
     pub fn owns_source(&self, source_path: &Path) -> bool {
+        let Some(matcher) = compile_glob(self.governs.glob_leaf()) else {
+            return false;
+        };
         source_path
             .file_name()
             .and_then(|name| name.to_str())
-            .is_some_and(|name| glob_matches(self.governs.glob_leaf(), name))
+            .is_some_and(|name| matcher.is_match(name))
     }
 }
 
@@ -417,46 +420,25 @@ fn registration_from_label(label: &str) -> Option<Registration> {
     }
 }
 
-/// Whether `glob` matches `name`, treating `*` as "any run of characters (including
-/// empty)" and every other character literally — the minimal in-crate wildcard a
-/// `governs` glob segment needs (`*.md`), short of pulling in a glob crate for one
-/// metacharacter. Lives beside [`Governs`], the glob's home, so both `import`'s discovery
-/// scan and a kind's own [`CustomKind::owns_source`] membership test share one matcher
-/// (`.claude/rules/rust.md`). A standard linear matcher with single-star backtracking: on
-/// a mismatch it falls back to the most recent `*`, extending what that star consumed by
-/// one character. Matches one glob *segment*, not a `/`-path — the caller splits a
-/// multi-segment glob and matches each part.
-pub(crate) fn glob_matches(glob: &str, name: &str) -> bool {
-    let pattern: Vec<char> = glob.chars().collect();
-    let text: Vec<char> = name.chars().collect();
-    let mut pi = 0;
-    let mut ti = 0;
-    // The position of the last `*` in `pattern`, and how much of `text` it had
-    // consumed when we matched it — the backtrack point.
-    let mut star: Option<usize> = None;
-    let mut star_ti = 0;
-    while ti < text.len() {
-        if pi < pattern.len() && pattern[pi] == text[ti] {
-            pi += 1;
-            ti += 1;
-        } else if pi < pattern.len() && pattern[pi] == '*' {
-            star = Some(pi);
-            star_ti = ti;
-            pi += 1;
-        } else if let Some(star_pi) = star {
-            // Mismatch under an open `*`: let the star swallow one more character.
-            pi = star_pi + 1;
-            star_ti += 1;
-            ti = star_ti;
-        } else {
-            return false;
-        }
-    }
-    // Trailing `*`s match the empty remainder.
-    while pi < pattern.len() && pattern[pi] == '*' {
-        pi += 1;
-    }
-    pi == pattern.len()
+/// Compile `glob` into a `globset` matcher — the one glob-matching surface every
+/// caller shares, in this module or across the crate (a kind's own
+/// [`CustomKind::owns_source`] membership test, `import`'s per-segment discovery
+/// walk, `coverage_note`'s `governs` leaf test, `graph`'s `paths-match` liveness
+/// test). `literal_separator` is on: `*`/`?` stay within one `/`-separated segment,
+/// `**` crosses segments (a leading `**/` matching zero or more, per `globset`'s
+/// documented three-position grammar) — the one semantics every call site needs,
+/// whether the candidate it tests is a bare filename (no `/` to cross) or a full
+/// repo-relative path. `None` for a glob `globset` cannot compile (a malformed
+/// character class); the caller decides what an uncompilable pattern means for its
+/// own match (`graph`'s liveness test treats it as matching, never a false
+/// negative on a pattern it failed to understand).
+#[must_use]
+pub(crate) fn compile_glob(glob: &str) -> Option<globset::GlobMatcher> {
+    globset::GlobBuilder::new(glob)
+        .literal_separator(true)
+        .build()
+        .ok()
+        .map(|compiled| compiled.compile_matcher())
 }
 
 /// A custom kind's composed extractor: an ordered set of deterministic
@@ -876,6 +858,47 @@ impl Extraction {
 mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
+
+    /// Whether `glob` matches `candidate` through the shared `compile_glob` surface —
+    /// `None` (an uncompilable glob) reported as no match, the polarity every
+    /// segment-level caller (`owns_source`, `import`, `coverage_note`) wants.
+    fn matches(glob: &str, candidate: &str) -> bool {
+        compile_glob(glob).is_some_and(|matcher| matcher.is_match(candidate))
+    }
+
+    #[test]
+    fn compile_glob_matches_common_path_globs_within_and_across_segments() {
+        // `**/` matches any number of leading segments including none, a flat `*`
+        // stays within one segment — the semantics every caller through
+        // `compile_glob` leans on, whether matching a bare filename or a full
+        // repo-relative path.
+        assert!(matches("**/*.rs", "foo.rs"));
+        assert!(matches("**/*.rs", "src/a/foo.rs"));
+        assert!(!matches("**/*.rs", "foo.md"));
+
+        assert!(matches("src/**", "src/graph.rs"));
+        assert!(matches("src/**", "src/a/b.rs"));
+        assert!(!matches("src/**", "tests/graph.rs"));
+
+        // A single `*` does not cross a `/`.
+        assert!(matches("*.md", "README.md"));
+        assert!(!matches("*.md", "docs/README.md"));
+
+        // A `?` matches exactly one character, never a `/`.
+        assert!(matches("SKILL.md", "SKILL.md"));
+        assert!(matches("SKILL.m?", "SKILL.md"));
+        assert!(!matches("SKILL.m?", "SKILL.mkd"));
+        assert!(!matches("*/SKILL.md", "SKILL.md"));
+        assert!(matches("[0-9][0-9]-*.md", "07-kinds.md"));
+        assert!(!matches("[0-9][0-9]-*.md", "ab-kinds.md"));
+    }
+
+    #[test]
+    fn compile_glob_is_none_for_an_uncompilable_pattern() {
+        // An unterminated character class is a `globset` compile error — `None`,
+        // never a panic.
+        assert!(compile_glob("[abc").is_none());
+    }
 
     /// The composed `spec`-shaped extractor the worked example needs:
     /// line count, ATX headings, and file placement —

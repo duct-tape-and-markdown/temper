@@ -23,7 +23,7 @@ use ignore::WalkBuilder;
 
 use crate::check::Diagnostic;
 use crate::drift;
-use crate::kind::{CustomKind, glob_matches};
+use crate::kind::{CustomKind, compile_glob};
 
 /// The advisory rule id for the per-kind member-count summary.
 const CHECKED_RULE: &str = "coverage.checked";
@@ -259,7 +259,8 @@ fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
         root == path || root.starts_with(&format!("{path}/"))
     } else {
         let (parent, leaf) = split_file(path);
-        root == parent && glob_matches(kind.governs.glob_leaf(), leaf)
+        root == parent
+            && compile_glob(kind.governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))
     }
 }
 

@@ -227,7 +227,7 @@ fn collect_glob(
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if !crate::kind::glob_matches(segment, name) {
+        if !crate::kind::compile_glob(segment).is_some_and(|matcher| matcher.is_match(name)) {
             continue;
         }
         if rest.is_empty() {

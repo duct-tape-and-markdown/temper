@@ -15,8 +15,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 
-use regex::Regex;
-
 use crate::check::{Diagnostic, Severity};
 use crate::compose::{Edge, Requirement};
 use crate::contract::{EdgeBound, Predicate};
@@ -576,8 +574,13 @@ fn dead_registration(
  // only a *present* glob set that
             // matches nothing is provably dead.
             let globs = declared_globs(member, field);
+            // A glob `globset` cannot compile is treated as matching, so the gate never
+            // cries wolf on a `paths-match` pattern it failed to understand.
             let dead = !globs.is_empty()
-                && !globs.iter().any(|glob| glob_matches_any(glob, repo_files));
+                && !globs.iter().any(|glob| {
+                    crate::kind::compile_glob(glob)
+                        .is_none_or(|matcher| repo_files.iter().any(|file| matcher.is_match(file)))
+                });
             dead.then(|| {
                 format!("its `{field}` globs match no file in the repository, so the harness activates it never")
  })
@@ -620,63 +623,6 @@ fn declared_globs(member: &Features, field: &str) -> Vec<String> {
             .filter(|glob| !glob.is_empty())
             .collect(),
     }
-}
-
-/// Whether `glob` matches at least one path in `files`, decided over a regex compiled
-/// from the glob (the sanctioned `regex` crateleaves
-/// zero-match globs to this module). A glob `temper` cannot compile is treated as
-/// matching, so the gate never cries wolf on a pattern it failed to understand — though
-/// [`glob_to_regex`] is total, so that branch is defensive only.
-fn glob_matches_any(glob: &str, files: &[String]) -> bool {
-    match Regex::new(&glob_to_regex(glob)) {
-        Ok(regex) => files.iter().any(|file| regex.is_match(file)),
-        Err(_) => true,
-    }
-}
-
-/// Compile a path glob to an anchored regex: `**` crosses directory separators (`**/`
-/// matching any number of leading segments, including none), a single `*` and `?` stay
-/// within one segment, and every other character matches literally (a regex
-/// metacharacter escaped). Total — every input yields a valid pattern.
-fn glob_to_regex(glob: &str) -> String {
-    let chars: Vec<char> = glob.chars().collect();
-    let mut regex = String::from("^");
-    let mut i = 0;
-    while i < chars.len() {
-        match chars[i] {
-            '*' if i + 1 < chars.len() && chars[i + 1] == '*' => {
-                // `**` crosses `/`: `**/` (a segment wildcard) matches any number of
-                // leading path segments, including none; a trailing `**` any suffix.
-                i += 1;
-                if i + 1 < chars.len() && chars[i + 1] == '/' {
-                    regex.push_str("(?:.*/)?");
-                    i += 1;
-                } else {
-                    regex.push_str(".*");
-                }
-            }
-            '*' => regex.push_str("[^/]*"),
-            '?' => regex.push_str("[^/]"),
-            c => {
-                if is_regex_meta(c) {
-                    regex.push('\\');
-                }
-                regex.push(c);
-            }
-        }
-        i += 1;
-    }
-    regex.push('$');
-    regex
-}
-
-/// Whether `c` is a regex metacharacter that must be escaped to match literally. `*`
-/// and `?` are consumed as glob wildcards before this is reached, so they are absent.
-fn is_regex_meta(c: char) -> bool {
-    matches!(
-        c,
-        '.' | '+' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '^' | '$' | '\\'
-    )
 }
 
 /// The finding for a member whose inbound registration edge from the [`world`] node is
@@ -1573,24 +1519,36 @@ mod tests {
     }
 
     #[test]
-    fn glob_to_regex_matches_common_path_globs_within_and_across_segments() {
-        // `**/` matches any number of leading segments including none, `*` stays within
-        // one segment, and a literal `.` is escaped — the semantics `reachable` leans on
-        // to decide a `paths-match` glob dead.
-        let recursive = Regex::new(&glob_to_regex("**/*.rs")).unwrap();
-        assert!(recursive.is_match("foo.rs"));
-        assert!(recursive.is_match("src/a/foo.rs"));
-        assert!(!recursive.is_match("foo.md"));
+    fn a_paths_match_glob_dies_only_when_no_repo_file_matches_it() {
+        // `reachable` leans on `crate::kind::compile_glob` to decide a `paths-match`
+        // glob dead — `**/` crossing segments and a flat `*` staying within one segment
+        // are exercised directly on that shared surface (`kind::tests`), so this proves
+        // only the wiring: `dead_registration` reports dead exactly when every declared
+        // glob matches nothing in `repo_files`.
+        let channel = Registration::PathsMatch {
+            field: "paths".to_string(),
+        };
+        let mut fields = BTreeMap::new();
+        fields.insert(
+            "paths".to_string(),
+            FeatureValue::scalar(ValueType::String, "**/*.rs"),
+        );
+        let member = Features {
+            id: "rust".to_string(),
+            fields,
+            body_lines: 1,
+            headings: Vec::new(),
+            sections: Vec::new(),
+            source_dir: None,
+            directives: Vec::new(),
+            fenced_blocks: Vec::new(),
+            nested_members: Vec::new(),
+            satisfies: Vec::new(),
+            published_requirements: Vec::new(),
+        };
 
-        let subtree = Regex::new(&glob_to_regex("src/**")).unwrap();
-        assert!(subtree.is_match("src/graph.rs"));
-        assert!(subtree.is_match("src/a/b.rs"));
-        assert!(!subtree.is_match("tests/graph.rs"));
-
-        // A single `*` does not cross a `/`.
-        let flat = Regex::new(&glob_to_regex("*.md")).unwrap();
-        assert!(flat.is_match("README.md"));
-        assert!(!flat.is_match("docs/README.md"));
+        assert!(dead_registration(&channel, &member, &["src/a/foo.rs".to_string()]).is_none());
+        assert!(dead_registration(&channel, &member, &["foo.md".to_string()]).is_some());
     }
 
     #[test]
