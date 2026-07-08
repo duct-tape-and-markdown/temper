@@ -1,56 +1,5 @@
 [
   {
-    "tag": "PLURAL-HELPER-CONSOLIDATE",
-    "summary": "Consolidate the byte-identical `plural(n)` suffix helper (and two inline duplicate closures in install.rs) into one home",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/display.rs",
-          "description": "Add `pub(crate) fn plural(n: usize) -> &'static str { if n == 1 { \"\" } else { \"s\" } }` — homed here as the module already devoted to rendering member/report text (its own docs: 'the nested-member display rule'), a fair shared home for a tiny cross-cutting text-rendering helper neither bundle.rs nor coverage_note.rs owns more legitimately than the other."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "Delete the local `fn plural(count: usize) -> &'static str` (line 324); its two call sites in `render` (lines ~308-312) use `crate::display::plural`."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "Delete the local `fn plural(n: usize) -> &'static str` (line 221); its two call sites (lines 124, 126) use `crate::display::plural`."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Two inline byte-identical closures — `let plural = if modelines == 1 { \"\" } else { \"s\" };` (line 494) and the same shape at line 498 for `notes` — same job as the two named duplicates. Replace both with `crate::display::plural(modelines)` / `crate::display::plural(notes)`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/bundle.rs",
-        "asserts": "the bundle report's terminal rendering (`wrote <path>` lines plus the tally line) is byte-identical after the helper moves"
-      },
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "coverage-note prose rendering with 1 vs N members/kinds is unchanged"
-      },
-      {
-        "path": "tests/install.rs",
-        "asserts": "install's discovery-report rendering (modeline/managed-by-note counts) is unchanged for 1 vs N counts"
-      }
-    ],
-    "acceptance": "One `plural` helper (`src/display.rs`, `pub(crate)`); no duplicate definition or inline closure remains in bundle.rs, coverage_note.rs, or install.rs; `cargo test` green.",
-    "notes": "Refactor capture session-plural-helper.md (0ccba8d), re-verified live at 425968d — all four cited line numbers (display.rs absent, bundle.rs:324, coverage_note.rs:221, install.rs:494/498) still accurate; PATH-NORMALIZER-CONSOLIDATE and CLAUSE-ROW-LIFT-CONSOLIDATE shipped (24f9bbc, ad9f4af), touching graph.rs/import.rs/builtin.rs/compose.rs/main.rs only — no overlap with this entry's files. Unblocked: gate moves blockedBy->open. scoped at 425968d"
-  },
-  {
     "tag": "TEST-SCAFFOLDING-CONSOLIDATE",
     "summary": "Consolidate the 28x-copy-pasted tmpdir() builder and 2x-copy-pasted fixture() helper into tests/common, adopting the sanctioned tempfile dev-dependency",
     "per": {
