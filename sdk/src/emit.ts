@@ -17,7 +17,7 @@ import type { EmbeddedMemberValue, Member } from "./kind.js";
 import { renderText } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
-import { SEAM_VERSION, compileDeclarations } from "./declarations.js";
+import { compileDeclarations, encodeSeam } from "./declarations.js";
 
 /** What a mention may resolve against at emit. */
 export interface ResolveOptions {
@@ -290,7 +290,7 @@ export function emit(harness: Harness): EmitResult {
     return {
       declarations,
       members,
-      seam: JSON.stringify({ version: SEAM_VERSION, declarations, members }, null, 2) + "\n",
+      seam: encodeSeam({ declarations, members }),
       permissions: permissionUnion(harness.members.flatMap((member) => [...member.needs])),
     };
   };

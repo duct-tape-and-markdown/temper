@@ -369,11 +369,18 @@ export function compileDeclarations(harness: Harness): Declarations {
 export const SEAM_VERSION = 2;
 
 /**
+ * Serialize a payload to the internal versioned JSON pipe. Deterministic:
+ * insertion-ordered keys and a trailing newline, so a re-emit is byte-identical.
+ */
+export function encodeSeam(payload: object): string {
+  return JSON.stringify({ version: SEAM_VERSION, ...payload }, null, 2) + "\n";
+}
+
+/**
  * Serialize the declaration rows to the internal versioned JSON pipe.
  * Not a designed IR — a stable public interchange
- * is admitted only when its consumer lands. Deterministic: insertion-ordered keys
- * and a trailing newline, so a re-emit is byte-identical.
+ * is admitted only when its consumer lands.
  */
 export function declarationsToJson(declarations: Declarations): string {
-  return JSON.stringify({ version: SEAM_VERSION, ...declarations }, null, 2) + "\n";
+  return encodeSeam(declarations);
 }
