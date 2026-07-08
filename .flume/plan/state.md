@@ -2,31 +2,30 @@
 
 - Spec derived through: cd7135b
 - Audited through: 99337b8
-- Residue swept through: d3c2805
-- This tick: Ship audit (job 3). Two commits past a112dbe touched
-  src/tests/sdk: 2f87229 (SDK-VERSION-LOCKSTEP) and 90aa57b
-  (RETIRE-DEAD-DECLARED-SURFACE); 6df1b76 (CI-DOCUMENTED-TWO-LINE-JOB) and
-  99337b8 (the ship commit dropping all three from pending.json) touched no
-  src/tests/sdk paths but were read too. Verified on disk, not the log alone:
-  install.rs derives `sdk_version_range()` from `include_str!` of
-  sdk/package.json (now 0.0.5), no hand-typed literal remains; grep confirms
-  `import_hash` and `Template.leaves`/`collections` are gone from src/tests;
-  temper.yml runs `check` + `emit --frozen` + `git diff --exit-code`, no
-  `import` verb. cargo test: 225+ passed, 0 failed across the suite. All
-  three shipped entries' acceptance bars hold — pending.json already reflects
-  their removal (99337b8), nothing to drop this tick. Re-tested the stale
-  blockedBy gate this triggers: INSTALL-WHOLE-CONVERSION was blockedBy
-  SDK-VERSION-LOCKSTEP for file disjointness on src/install.rs and
-  tests/install.rs, not a technical dependency; that blocker shipped, so
-  promoted its gate to open — its cited symbols (member_module_source,
-  description_trigger_value, scaffold) still match current install.rs
-  exactly, premise unchanged since e920fa8 scoping. RETIRE-OWN-PATH-MACHINERY
-  stays blockedBy INSTALL-WHOLE-CONVERSION (a real dependency: own_path is
-  still live). PACKAGING-CHANNELS's parked reason re-verified true (no
-  release.yml, root package.json still the private flume manifest, no
-  marketplace/signing creds); refreshed its stale "0.0.4" mention to 0.0.5.
-- Queue: 2 (was 3) — INSTALL-WHOLE-CONVERSION (open, pickable) →
-  RETIRE-OWN-PATH-MACHINERY (blockedBy it); PACKAGING-CHANNELS (parked).
+- Residue swept through: 5264c0f
+- This tick: Residue sweep (job 4). No commits past 99337b8 touch
+  src/tests/sdk (HEAD is 5264c0f, the prior plan commit itself, writable-fence
+  restricted) so job 3 stayed quiet and job 4 took over. Re-verified the
+  standing accepted debt (open-questions.md, "kinds/ + packages/ curated
+  trees — RETIRED"): tests/session_start.rs's stray `.temper/kinds/spec/
+  KIND.md` + `.temper/packages/spec/PACKAGE.md` fixtures are untouched and
+  still honestly named (asserts they're inert) — no entry rides it yet, note
+  stands unchanged. Swept further and found a live gap the note didn't cover:
+  tests/acceptance.rs's `check_dispatches_the_spec_custom_kind_...` and
+  `check_reads_a_custom_kind_rooted_outside_specs` author the same dead
+  KIND.md/PACKAGE.md format, but their `--deny-advisories` assertions are
+  actively misleading, not just inert — confirmed empirically that the flip
+  fires on ANY corpus (a fixture-less control still flips non-zero) via the
+  always-on `coverage.checked`/`install.gate-installed` warn notes, so the
+  tests currently prove nothing about custom-kind dispatch despite their
+  names/docstrings. Filed ACCEPTANCE-CUSTOM-KIND-VIA-LOCK to rewrite both
+  onto lock-declared kinds with diagnostic-content assertions. No other
+  KIND.md/PACKAGE.md or temper.toml residue found (tests/requirement_roster.rs's
+  temper.toml tests correctly assert inertness, not dead-format misuse).
+- Queue: 3 — INSTALL-WHOLE-CONVERSION (open) and
+  ACCEPTANCE-CUSTOM-KIND-VIA-LOCK (open) are both pickable and file-disjoint;
+  RETIRE-OWN-PATH-MACHINERY (blockedBy INSTALL-WHOLE-CONVERSION);
+  PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — residue sweep (job 4) is next; Residue swept through
-(d3c2805) trails HEAD (99337b8) and jobs 1-2 (inbox, spec delta) are quiet.
+Plan continues: yes — quiet closing pass (job 5) is next; inbox, spec delta,
+ship audit, and residue sweep are all current as of this tick.

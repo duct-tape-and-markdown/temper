@@ -33,6 +33,35 @@
     "notes": "scoped at e920fa8, unblocked 2f87229 (SDK-VERSION-LOCKSTEP shipped); 0016 (specs/decisions/0016-install-installs-the-tool.md), specs/model/pipeline.md 'Install'. RETIRE-OWN-PATH-MACHINERY (blockedBy this) deletes the now-dead own_path detection/lock-column/guard-exemption once no live scaffold path emits own_path=true. `.temper/`'s own reconversion is outside build's writable fence (chain.ts) - human/ratification territory, not filed here."
   },
   {
+    "tag": "ACCEPTANCE-CUSTOM-KIND-VIA-LOCK",
+    "summary": "Rewrite acceptance.rs's two custom-kind tests off the dead KIND.md/PACKAGE.md format onto lock-declared kinds; today they pass vacuously via an always-on note, not the custom kind's own clause.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/acceptance.rs",
+          "description": "`check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract` and `check_reads_a_custom_kind_rooted_outside_specs` (plus the `author_custom_kind` helper and `SPEC_KIND_MD`/`SPEC_PACKAGE_MD` consts, lines ~204-342) author a custom kind by writing `.temper/kinds/<name>/KIND.md` + `.temper/packages/<name>/PACKAGE.md` — a file format nothing in src/ parses (grep confirms no `\"kinds\"`/`\"packages\"` path literal anywhere in src/; `kind.rs`'s own doc comment says custom kinds are `CustomKind::new` SDK constructs now, 'no `KIND.md` file format to parse it from'). Rewrite both tests to author their custom kind + advisory `max_lines` clause via a hand-written `.temper/lock.toml` `declaration.kind` + `declaration.clause` row pair instead (the shape `tests/session_start.rs`'s `a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_false_admissibility_finding` already uses), and assert on the emitted diagnostic naming the clause (e.g. contains `max_lines` and the offending member's path) rather than the `--deny-advisories` exit-code flip alone — the flip fires on ANY corpus today (verified: a corpus with no custom kind at all still flips non-zero under `--deny-advisories`, since `coverage.checked` and `install.gate-installed` are always-on warn notes), so it proves nothing about the custom kind's own clause."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/acceptance.rs",
+        "asserts": "a lock-declared custom kind's own advisory clause names itself in the diagnostic output for a violating member and is silent for a clean one, independent of the always-on coverage/gate-installed notes"
+      }
+    ],
+    "acceptance": "tests/acceptance.rs's custom-kind coverage exercises the live lock-declared kind mechanism with no `.temper/kinds`/`.temper/packages` file fixtures remaining anywhere in the suite; cargo test green.",
+    "notes": "Residue sweep (job 4): grep confirms no 'kinds'/'packages' path literal anywhere in src/ - the KIND.md/PACKAGE.md custom-kind authoring format is fully dead (kind.rs: CustomKind is SDK-constructed, no file format). Verified empirically: a corpus with NO custom-kind fixture at all still flips non-zero under --deny-advisories (coverage.checked + install.gate-installed are always-on warn notes) - proving the two tests' current pass is unrelated to any custom-kind clause firing. scoped at 5264c0f."
+  },
+  {
     "tag": "RETIRE-OWN-PATH-MACHINERY",
     "summary": "Delete the own-path detection, lock column, and guard exemption from drift/import/main now that whole conversion makes them structurally unreachable (0016)",
     "per": {
