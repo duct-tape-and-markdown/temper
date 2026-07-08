@@ -1,4 +1,6 @@
-# Managed by `temper install` — the gate on human change (specs/distribution.md).
+# User-authored, not an install placement (specs/distribution.md, "The
+# placements and their enforcement modes": CI is "a documented two-line
+# user-authored job — never an install-managed workflow file").
 name: temper
 
 on:
@@ -11,7 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # This harness is SDK-emitted (`.temper/harness.ts`, `file:../sdk`): the
+      # program `emit` runs needs its dependency built before it can run.
+      - name: Build the SDK program this harness emits from
+        run: |
+          npm --prefix sdk ci
+          npm --prefix sdk run build
+          npm --prefix .temper ci
+      # The two-line gate: `check`, then — since this harness is SDK-emitted —
+      # re-run `emit --frozen` and byte-compare against the committed
+      # projections, the check distribution.md names as making
+      # byte-reproducibility mechanical.
       - name: Run the temper gate
         run: |
-          temper import . --into .temper
-          temper check .temper --reporter github
+          cargo run --quiet -- check --reporter github
+          cargo run --quiet -- emit --frozen
+          git diff --exit-code
