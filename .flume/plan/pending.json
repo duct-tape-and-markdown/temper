@@ -7,8 +7,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "COMMAND-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,27 +20,27 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Add the named-field identity mode — a member's id read from a declared frontmatter field (agent's `name`), the third mode beside file-stem and directory-name (`UnitShape`, lines 106-118)."
+          "description": "Add the named-field identity mode — a member's id read from a declared frontmatter field (agent's `name`), the third mode beside file-stem and directory-name (`UnitShape` enum, lines 111-119; `unit_shape_from_label` line 396 must round-trip the new label)."
         },
         {
           "path": "src/frontmatter.rs",
-          "description": "`Member::from_source` (line 152) derives the id from the named frontmatter field for the named-field mode, not the file stem/directory name; error when the field is absent (the id-absent error variant, lines ~100-110)."
+          "description": "`Member::from_source` (line 152, and `from_source_rooted` line 171 where the id is derived) reads the id from the named frontmatter field for the named-field mode, not the file stem/parent directory; error when the field is absent (extend the `NoId` variant, lines 104-111, or a sibling)."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "Add `claude_code_agent()` — Governs root `.claude/agents`, glob `**/*.md` (recursive, subdirs organizational), named-field identity on `name`, `Format::YamlFrontmatter`, `name`+`description` Field primitives, registration = {description-trigger}; add to `all_kinds()` (line 109) + enumeration tests (five kinds)."
+          "description": "Add `claude_code_agent()` beside `claude_code_command()` (line 86) — Governs root `.claude/agents`, glob `**/*.md` (recursive, subdirs organizational), named-field identity on `name`, `Format::YamlFrontmatter`, `name`+`description` Field primitives, registration = {description-trigger}; add to `all_kinds()` (line 157); module doc (line 10) says 'four kinds' → five."
         },
         {
           "path": "sdk/src/kind.ts",
-          "description": "Spell the named-field identity mode in the `KindFacts`/`UnitShape` surface (the id source, not just `identityField`'s projection detail, lines ~62-66)."
+          "description": "Spell the named-field identity mode in the `KindFacts` surface (interface line 53) — the id source, not just `identityField`'s ordering/projection detail (lines 69-72); `UnitShape` union (line 19) gains the third mode or `identityField` becomes id-bearing."
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "Add the `agent` kind (locus `.claude/agents/**/*.md`, named-field identity, name+description) + `agentFloor`: required fields, `name` charset via `allowed_chars` ('lowercase letters and hyphens'), any closed vocabularies the docs document, per-scope name uniqueness — each cited to code.claude.com/docs/en/sub-agents (2026-07-07)."
+          "description": "Add the `agent` kind (locus `.claude/agents/**/*.md`, named-field identity, name+description) beside `command` (line 77) + `agentFloor`: required fields, `name` charset via `allowed_chars` ('lowercase letters and hyphens'), any closed vocabularies the docs document, per-scope name uniqueness — each cited to code.claude.com/docs/en/sub-agents (2026-07-07)."
         },
         {
           "path": "sdk/src/claude-code.ts",
-          "description": "Export `agent` and `agentFloor` (lines 11-12)."
+          "description": "Export `agent` and `agentFloor` — join the export block (lines 12-25, alphabetical)."
         },
         {
           "path": "src/builtin_lock.toml",
@@ -50,6 +49,10 @@
         {
           "path": "tests/lock_declaration_rows.rs",
           "description": "Assert the agent kind + its floor clauses re-derive (five kinds)."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The frozen-lock byte-compare covers the regenerated five-kind lock."
         },
         {
           "path": "sdk/test/builtins.test.ts",
@@ -66,7 +69,7 @@
       }
     ],
     "acceptance": "The agent kind ships: `.claude/agents/**/*.md` files fold recursively into agent members identified by the frontmatter `name` (the third identity mode), the built-in lock re-derives byte-clean, and `agentFloor` gates required fields, the documented `name` charset, and per-scope name uniqueness — each clause cited to the sub-agents doc (builtins.md, 'The shipped kinds').",
-    "notes": "0014, agent kind + named-field identity — the third mode, real engine work in Member::from_source. Charset 'lowercase + hyphens' + required name/description cited to code.claude.com/docs/en/sub-agents (2026-07-07 per 0014). Closed-vocab/uniqueness clauses encoded only where the doc documents them decidably (else dropped, honest encoding). Plugin-context variants deferred (0014). Blocked on COMMAND-KIND (shares builtin_kind.rs, builtins.ts, builtin_lock.toml). scoped at 89cd964."
+    "notes": "0014, agent kind + named-field identity — the third mode, real engine work in from_source/UnitShape. Charset 'lowercase + hyphens' + required name/description cited to code.claude.com/docs/en/sub-agents (2026-07-07 per 0014). Closed-vocab/uniqueness clauses encoded only where the doc documents them decidably (else dropped, honest encoding). Plugin-context variants deferred (0014). COMMAND-KIND shipped efd6caa (four kinds); this makes five. scoped at 50e7094."
   },
   {
     "tag": "PACKAGING-CHANNELS",
