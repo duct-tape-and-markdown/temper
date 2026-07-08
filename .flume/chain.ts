@@ -233,6 +233,7 @@ const BUILD_WRITABLE_PATHS = [
   "LICENSE.*",
   "LICENSE-*",
   ".gitignore",
+  ".gitattributes",
   ".editorconfig",
 
   // CI
