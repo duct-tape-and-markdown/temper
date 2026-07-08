@@ -1,29 +1,29 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: 63f3c61
+- Audited through: ff09cee
 - Residue swept through: 63f3c61
-- This tick: Residue sweep (job 4). No earlier job was live: spec delta is
-  empty past f87cc0c; the only commit past Audited through (63f3c61) is
-  e24b9dc, a plan-only commit touching none of src/tests/sdk, so nothing new
-  to ship-audit. Filed IN-SRC-TMPDIR-HELPER-CONSOLIDATE(driftcoveragenote):
-  the candidate the last tick's ship audit flagged but deferred —
-  src/drift.rs:1790 and src/coverage_note.rs:416 each still carry their own
-  byte-identical `fn tmpdir(label)`, left unmerged by a9942d4
-  (IN-SRC-TMPDIR-HELPER-CONSOLIDATE, 8-of-10) because drift.rs was then
-  entangled with the open PATH-SEP-NORMALIZE-CONSOLIDATE. That shipped at
-  366e35a; re-verified both copies still present and byte-identical to
-  `src/test_support::tmpdir` at HEAD, and that no other `fn tmpdir(label`
-  copy survives outside test_support.rs and tests/common/mod.rs (the
-  separate integration-test-tier home, a different job). New entry is
-  disjoint from all three standing entries — distinct files, no shared path.
-- Queue: IN-SRC-TMPDIR-HELPER-CONSOLIDATE(driftcoveragenote) open —
-  TEST-HELPER-DUPES-CONSOLIDATE(recordwriters) open — TEST-HELPER-DUPES-
-  CONSOLIDATE(lockunitbuilders) blockedBy recordwriters — PACKAGING-CHANNELS
-  parked (condition re-verified unchanged: no `.github/workflows/
-  release.yml`, root package.json still the private flume manifest).
+- This tick: Ship audit (job 3). Inbox empty, spec delta empty; commits past
+  the old Audited-through (63f3c61) touching src/tests/sdk: 9e6a6fb (in-src
+  tmpdir driftcoveragenote consolidation), ec2dd42 (6-builder recordwriters
+  slice), ff09cee (build's ship commit, pending.json-only). Verified on disk:
+  both tmpdir copies (drift.rs, coverage_note.rs) gone, common::tmpdir used;
+  the 6 recordwriters builders (write_requirements/write_rule/
+  write_retired_manifest/write_lock/retired_manifest_name/clean_skill) live
+  once in tests/common, call sites migrated. Both shipped entries already
+  absent from pending.json (ff09cee). Re-tested the one stale gate this
+  unblocks: TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders) was blockedBy
+  recordwriters — now open. Re-verified all 9 duplicate builders it names
+  (surface_unit, skill_member, rule_member, rule_kind_facts, skill_kind_facts,
+  skill_surface_unit, findings_for, author_rule_satisfies, requirement) plus
+  both check_harness shapes still live at their (ec2dd42-shifted) line
+  numbers; rewrote the entry's file descriptions with current lines rather
+  than patch stale ones. PACKAGING-CHANNELS re-checked: still no
+  `.github/workflows/release.yml`, root package.json still the private flume
+  manifest — parked reason holds unchanged.
+- Queue: TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders) open (unblocked) —
+  PACKAGING-CHANNELS parked (re-verified unchanged).
 
-Plan continues: no — every input is current (inbox empty, spec delta empty,
-ship audit has nothing new past a plan-only commit, residue swept through
-HEAD). Three entries are open/pickable (one newly filed, one blockedBy
-chain); one is parked on human action. Build takes over.
+Plan continues: yes — residue sweep (job 4) is still due: Residue swept
+through (63f3c61) trails Audited through (ff09cee), and 9e6a6fb/ec2dd42 are
+unswept src/tests commits.

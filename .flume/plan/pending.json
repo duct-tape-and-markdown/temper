@@ -6,61 +6,58 @@
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "TEST-HELPER-DUPES-CONSOLIDATE(recordwriters)"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "tests/common/mod.rs",
-          "description": "Extend further (chain continues from the recordwriters slice). Add `pub fn surface_unit(member: &Member, member_doc: &str, dir: &Path) -> Unit` (tests/command_kind.rs:63, tests/agent_kind.rs:62, identical); `pub fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember` (tests/lock_declaration_rows.rs:95, tests/emit.rs:123, identical); `pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMember` — the Option-taking superset (tests/emit.rs:109 today); tests/lock_declaration_rows.rs:108's non-Option 3-arg callers pass `Some(paths)`; `pub fn rule_kind_facts(...) -> KindFactRow` and `pub fn skill_kind_facts(...) -> KindFactRow`, each parameterized by the provider/registration values the 2-3 copies diverge on (tests/lock_declaration_rows.rs:67,50; tests/emit.rs:83,96; tests/acceptance.rs:137); `pub fn skill_surface_unit(skill: &Member, name: Option<&str>) -> Unit` — tests/acceptance.rs:65's no-name 1-arg callers pass `None` and keep deriving from `skill.id`, tests/extract_equivalence.rs:58's name-carrying callers pass `Some(name)`; `pub fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String>` (tests/memory_gate.rs:100, tests/gate_fail_loud.rs:104, tests/coverage_note.rs:123, identical); `pub fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str])` (tests/coverage.rs:371, tests/requirement_roster.rs:109, identical); `pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> RequirementRow` — the union of three shapes (tests/gate_fail_loud.rs:55 passes `false, None`; tests/coverage.rs:89 passes `required, None`; tests/requirement_roster.rs:221 passes `false, Some(kind)`). Fold `check_harness`'s `(Vec<String>, bool)` shape (tests/coverage_note.rs:104) into the `check_in` family TEST-FIXTURE-HELPERS-CONSOLIDATE already added — same job (run `temper check --reporter github`, parse `::`-prefixed lines), not a fifth near-duplicate helper."
+          "description": "Extend further (chain continues from the recordwriters slice, now shipped). Add `pub fn surface_unit(member: &Member, member_doc: &str, dir: &Path) -> Unit` (tests/command_kind.rs:48, tests/agent_kind.rs:47, identical); `pub fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember` (tests/lock_declaration_rows.rs:80, tests/emit.rs:87, identical); `pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMember` — the Option-taking superset (tests/emit.rs:73 today); tests/lock_declaration_rows.rs:93's non-Option 3-arg callers pass `Some(paths)`; `pub fn rule_kind_facts(...) -> KindFactRow` and `pub fn skill_kind_facts(...) -> KindFactRow`, each parameterized by the provider/registration values the 2-3 copies diverge on (tests/lock_declaration_rows.rs:52,35; tests/emit.rs:47,60; tests/acceptance.rs:114); `pub fn skill_surface_unit(skill: &Member, name: Option<&str>) -> Unit` — tests/acceptance.rs:50's no-name 1-arg callers pass `None` and keep deriving from `skill.id`, tests/extract_equivalence.rs:40's name-carrying callers pass `Some(name)`; `pub fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String>` (tests/memory_gate.rs:77, tests/gate_fail_loud.rs:62, tests/coverage_note.rs:106, identical); `pub fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str])` (tests/coverage.rs:252, tests/requirement_roster.rs:35, identical); `pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> RequirementRow` — the union of three shapes (tests/gate_fail_loud.rs:36 passes `false, None`; tests/coverage.rs:39 passes `required, None`; tests/requirement_roster.rs:111 passes `false, Some(kind)`). Fold `check_harness`'s `(Vec<String>, bool)` shape (tests/coverage_note.rs:87) and its `Vec<String>` shape (tests/memory_gate.rs:59) into the existing `check_in`/`CheckRun` family (tests/common/mod.rs:114-134, already added by TEST-FIXTURE-HELPERS-CONSOLIDATE) — same job (run `temper check --reporter github`, parse `::`-prefixed lines), not a third near-duplicate helper."
         },
         {
           "path": "tests/command_kind.rs",
-          "description": "Delete local `surface_unit` (line 63); call sites use `common::surface_unit`."
+          "description": "Delete local `surface_unit` (line 48); call sites use `common::surface_unit`."
         },
         {
           "path": "tests/agent_kind.rs",
-          "description": "Delete local `surface_unit` (line 62); call sites use `common::surface_unit`."
+          "description": "Delete local `surface_unit` (line 47); call sites use `common::surface_unit`."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "Delete local `skill_member` (line 95), `rule_member` (line 108, 3-arg `&[&str]` shape — pass `Some(paths)`), `rule_kind_facts` (line 67), `skill_kind_facts` (line 50); call sites use `common::*`, each supplying its own provider/registration values."
+          "description": "Delete local `skill_member` (line 80), `rule_member` (line 93, 3-arg `&[&str]` shape — pass `Some(paths)`), `rule_kind_facts` (line 52), `skill_kind_facts` (line 35); call sites use `common::*`, each supplying its own provider/registration values."
         },
         {
           "path": "tests/emit.rs",
-          "description": "Delete local `skill_member` (line 123), `rule_member` (line 109, already `Option`-shaped), `rule_kind_facts` (line 83), `skill_kind_facts` (line 96); call sites use `common::*`."
+          "description": "Delete local `skill_member` (line 87), `rule_member` (line 73, already `Option`-shaped), `rule_kind_facts` (line 47), `skill_kind_facts` (line 60); call sites use `common::*`."
         },
         {
           "path": "tests/acceptance.rs",
-          "description": "Delete local `skill_kind_facts` (line 137), `skill_surface_unit` (line 65, no-name 1-arg shape); call sites use `common::*`, passing `None` for the name param."
+          "description": "Delete local `skill_kind_facts` (line 114), `skill_surface_unit` (line 50, no-name 1-arg shape); call sites use `common::*`, passing `None` for the name param."
         },
         {
           "path": "tests/extract_equivalence.rs",
-          "description": "Delete local `skill_surface_unit` (line 58, 2-arg name-carrying shape); call sites use `common::skill_surface_unit`, passing `Some(name)`."
+          "description": "Delete local `skill_surface_unit` (line 40, 2-arg name-carrying shape); call sites use `common::skill_surface_unit`, passing `Some(name)`."
         },
         {
           "path": "tests/memory_gate.rs",
-          "description": "Delete local `findings_for` (line 100) and local `check_harness` (line 82, `Vec<String>` shape); call sites use `common::findings_for` and the shared `check_in` family, adapting to its return shape."
+          "description": "Delete local `findings_for` (line 77) and local `check_harness` (line 59, `Vec<String>` shape); call sites use `common::findings_for` and the shared `check_in`/`CheckRun` family, adapting to its return shape."
         },
         {
           "path": "tests/coverage_note.rs",
-          "description": "Delete local `findings_for` (line 123) and local `check_harness` (line 104, `(Vec<String>, bool)` shape); call sites use `common::findings_for` and the shared `check_in` family."
+          "description": "Delete local `findings_for` (line 106) and local `check_harness` (line 87, `(Vec<String>, bool)` shape); call sites use `common::findings_for` and the shared `check_in`/`CheckRun` family."
         },
         {
           "path": "tests/gate_fail_loud.rs",
-          "description": "Delete local `findings_for` (line 104) and local `requirement` (line 55, 1-arg shape — pass `false, None`); call sites use `common::*`."
+          "description": "Delete local `findings_for` (line 62) and local `requirement` (line 36, 1-arg shape — pass `false, None`); call sites use `common::*`."
         },
         {
           "path": "tests/coverage.rs",
-          "description": "Delete local `author_rule_satisfies` (line 371) and local `requirement` (line 89, 2-arg `required`-carrying shape — pass `required, None`); call sites use `common::*`."
+          "description": "Delete local `author_rule_satisfies` (line 252) and local `requirement` (line 39, 2-arg `required`-carrying shape — pass `required, None`); call sites use `common::*`."
         },
         {
           "path": "tests/requirement_roster.rs",
-          "description": "Delete local `author_rule_satisfies` (line 109) and local `requirement` (line 221, 2-arg `kind`-carrying shape — pass `false, Some(kind)`); call sites use `common::*`."
+          "description": "Delete local `author_rule_satisfies` (line 35) and local `requirement` (line 111, 2-arg `kind`-carrying shape — pass `false, Some(kind)`); call sites use `common::*`."
         }
       ],
       "retire": []
@@ -77,11 +74,11 @@
       },
       {
         "path": "tests/coverage_note.rs",
-        "asserts": "check_harness's success-bool-carrying scenarios are unchanged after folding into the shared check_in family"
+        "asserts": "check_harness's success-bool-carrying scenarios are unchanged after folding into the shared check_in/CheckRun family"
       }
     ],
-    "acceptance": "tests/common exports one surface_unit, skill_member, rule_member, rule_kind_facts, skill_kind_facts, skill_surface_unit, findings_for, author_rule_satisfies, requirement (each parameterized to its callers' full range), and check_harness folds into the existing check_in family; no duplicate or near-duplicate definition of any of these remains in the 11 edited test files; `cargo test` green.",
-    "notes": "Found in job 4's residue sweep at ef72da3, second half of the pair filed with TEST-HELPER-DUPES-CONSOLIDATE(recordwriters). blockedBy it: shares lock_declaration_rows.rs/gate_fail_loud.rs/coverage.rs/requirement_roster.rs/tests/common/mod.rs with it. check_harness (memory_gate.rs:82, coverage_note.rs:104) was missed by TEST-FIXTURE-HELPERS-CONSOLIDATE's check_in scoping — folds in here rather than becoming a fifth near-duplicate. scoped at ef72da3"
+    "acceptance": "tests/common exports one surface_unit, skill_member, rule_member, rule_kind_facts, skill_kind_facts, skill_surface_unit, findings_for, author_rule_satisfies, requirement (each parameterized to its callers' full range), and check_harness folds into the existing check_in/CheckRun family; no duplicate or near-duplicate definition of any of these remains in the 11 edited test files; `cargo test` green.",
+    "notes": "Found in job 4's residue sweep at ef72da3, second half of the pair filed with TEST-HELPER-DUPES-CONSOLIDATE(recordwriters). Blocker shipped at ec2dd42 (6-builder slice) + ff09cee (ship commit) — unblocked this tick; all 9 cited duplicates re-verified present at ff09cee with line numbers refreshed (ec2dd42 shifted every one). check_harness (memory_gate.rs, coverage_note.rs) still folds into check_in/CheckRun rather than becoming a third near-duplicate. scoped at ff09cee"
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -92,7 +89,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, now at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, now at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at ff09cee: still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
