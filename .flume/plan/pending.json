@@ -1,5 +1,31 @@
 [
   {
+    "tag": "BUNDLE-DESCRIPTION-DROPS-FLOOR-VOCAB",
+    "summary": "Reword the bundled plugin/marketplace description off the retired 'floor' term onto default contract, the term Decision 0001 settled",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "`PLUGIN_DESCRIPTION` (~line 47-49) reads '...with the std-lib floors embedded.' — 'floor' is retired vocabulary (RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT, 706139a). Reword to name default contracts instead (e.g. '...with the std-lib default contracts embedded.'), matching specs/builtins.md 'Default contracts'. This is the only live, non-comment 'floor' occurrence remaining in src/ or sdk/src/ after 706139a — every other hit is a doc comment (`///`/`//!`) or a test function name, which 706139a's own commit body explicitly left riding a future real touch to those files."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "src/bundle.rs's PLUGIN_DESCRIPTION no longer contains the retired term 'floor'; `cargo build` and `cargo test --test bundle` stay green; `rg -w floor src sdk/src` shows zero hits outside `///`/`//!` doc comments and test function names.",
+    "notes": "706139a (RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT) renamed live floor identifiers but explicitly left comment-only mentions riding future touches. PLUGIN_DESCRIPTION is not a comment, it is shipped plugin/marketplace description text (channel 3, distribution.md) — the one non-comment straggler this sweep found. Consider extending tests/bundle.rs's shipped_strings_teach_install_not_the_retired_import_verb guard to also forbid 'floor' in plugin.json/marketplace.json/SKILL.md. scoped at a723c3e"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
