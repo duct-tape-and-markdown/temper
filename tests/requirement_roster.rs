@@ -24,7 +24,9 @@ use std::process::Command;
 
 mod common;
 
-use temper::drift::{self, ClauseRow, Declarations, EmitOptions, Payload, RequirementRow};
+use temper::drift::{
+    self, ClauseRow, Declarations, EmitOptions, Payload, RequirementRow, SatisfiesRow,
+};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -780,5 +782,48 @@ fn a_name_published_by_both_the_assembly_and_a_member_collides() {
         run.output.contains("architecture") && run.output.contains("more than one surface"),
         "the finding names the collided requirement and the cross-publisher collision, got:\n{}",
         run.output
+    );
+}
+
+// ---- the lock's own `satisfies` rows fill a requirement directly -----------
+
+#[test]
+fn a_lock_declared_satisfies_row_fills_a_requirement_with_no_surface_overlay_authored() {
+    let root = common::tmpdir("lock-satisfies-direct");
+    // `agent-skill` is written only at its real Claude Code locus — no
+    // `author_satisfies` call, so no `.temper/skills/agent-skill/SKILL.md` surface
+    // overlay is ever authored. The lock's own `declarations.satisfies` row is the
+    // sole source naming it as a filler — the real SDK-emit shape every converted
+    // harness carries, never a projected surface document.
+    common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
+    common::write_lock(
+        &root,
+        Declarations {
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("agents", false, Some("skill"))
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "agent-skill".to_string(),
+                requirement: "agents".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a requirement filled only via a lock-declared satisfies row must pass ⇒ zero, got:\n{}",
+        run.output
+    );
+
+    // The one-shot `check --harness` gate over the identical already-emitted harness
+    // must resolve the same lock-declared row.
+    let harness_run = check_harness_in(&root);
+    assert!(
+        harness_run.ok,
+        "check --harness must also resolve the lock-declared satisfies row ⇒ zero, got:\n{}",
+        harness_run.output
     );
 }
