@@ -60,9 +60,8 @@ hard.
   `.flume/sessions/` when it swells (317MB at the 07-06 cutover).
 - Per green tick: verify commit, fence check (`git show <sha> --name-only
   --format= | grep -cE '^(\.claude|docs|specs)/'` = 0), push to origin.
-- flume routes build ticks to Sonnet on the preamble's `Phase: build` line.
-- `cargo install --path .` after engine waves; `cargo-insta` absent — accept
-  snapshots with `mv .snap.new .snap`.
+- `cargo install --path .` after engine waves; `cargo insta test --accept`
+  for snapshot churn (cargo-insta 1.48 installed 07-07).
 
 ## Goal: v0.1 release (set 2026-07-03; repo PUBLIC 2026-07-05)
 
