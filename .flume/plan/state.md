@@ -2,31 +2,36 @@
 
 - Spec derived through: f87cc0c
 - Audited through: 37a92f0
-- Residue swept through: 37a92f0
-- This tick: Spec delta (job 2). Read `git show f87cc0c -- specs/` in full —
-  the whole new file `specs/process/engineering.md` (32 lines), both
-  sections. Checked each bullet against the current pending queue rather
-  than re-deriving: "One job, one home"'s extend-before-adding priority and
-  its "second implementation is residue" bullet are the `per` cite already
-  carried by WINDOWS-VENDOR-SYMLINK-JUNCTION, PATH-NORMALIZER-CONSOLIDATE,
-  PLURAL-HELPER-CONSOLIDATE, CLAUSE-FROM-ROW-CONSOLIDATE, and
-  SDK-SEAM-ENCODE-CONSOLIDATE; its "test scaffolding is a surface too"
-  bullet is TEST-SCAFFOLDING-CONSOLIDATE's cite; "Libraries before
-  hand-rolls"'s sanctioned-crate bullet is GLOB-ENGINE-CONSOLIDATE's cite.
-  The two remaining bullets (commit-body duty beside a near-duplicate; the
-  pinned-semantics exception) are standing build-phase practice, not
-  residue to file — nothing to derive from them. Every slice of this delta
-  is either an entry's `per` or non-actionable process guidance; no new
-  entry, no fork needed. Cursor advances to f87cc0c (HEAD of the spec
-  tree); `<spec-delta>` is now empty. Queue and pending.json unchanged.
+- Residue swept through: da9245c
+- This tick: Residue sweep (job 4). Inbox empty, no refactor captures, spec
+  delta empty, and `git log 37a92f0..HEAD -- src/ tests/ sdk/` empty — jobs
+  1-3 all quiet, so this tick swept src/tests/sdk against the corpus for
+  vocabulary the corpus no longer sanctions and second implementations of
+  one job, beyond the six already-filed consolidation entries. An Explore
+  agent's findings were independently re-verified line-by-line (not taken on
+  faith): (1) three doc-comment cites to the deleted `packages/*/PACKAGE.md`
+  tree survive in sdk/src/builtins.ts:308,348,385 — this is comment/citation
+  staleness, the one exception job 4 carves out ("rides whichever entry
+  next opens that file, never a standalone entry"); docs/ledger.md already
+  independently tracks it as parked human follow-up hygiene, so nothing
+  filed. (2) Five more copy-pasted integration-test builders confirmed live
+  across the same file set TEST-SCAFFOLDING-CONSOLIDATE already touches —
+  write_harness/write_skill (byte-identical body under two names, 6 sites),
+  CheckRun+check_in (3 exact + 2 near-dup shapes), author_satisfies (two
+  arities, 2 sites each), and tree_bytes (triplicated AND a hand-rolled walk
+  where the sanctioned `walkdir` crate — already a direct Cargo dependency —
+  fits). Filed as TEST-FIXTURE-HELPERS-CONSOLIDATE, `blockedBy:
+  TEST-SCAFFOLDING-CONSOLIDATE` since every file it touches is already in
+  that entry's edit list — two opens on the same files would conflict at
+  merge. No other duplicate helpers, hand-rolled glob/regex/serialization,
+  or retired vocabulary found beyond what's already filed. Cursor advances
+  to HEAD (da9245c).
 - Queue: WINDOWS-VENDOR-SYMLINK-JUNCTION (open) — GLOB-ENGINE-CONSOLIDATE
   (open) — CLAUSE-FROM-ROW-CONSOLIDATE (open) — SDK-SEAM-ENCODE-CONSOLIDATE
   (open) — PATH-NORMALIZER-CONSOLIDATE (blockedBy glob) —
   PLURAL-HELPER-CONSOLIDATE (blockedBy glob) — TEST-SCAFFOLDING-CONSOLIDATE
-  (blockedBy windows-vendor) — PACKAGING-CHANNELS (parked, condition
-  unchanged).
+  (blockedBy windows-vendor) — TEST-FIXTURE-HELPERS-CONSOLIDATE (blockedBy
+  test-scaffolding) — PACKAGING-CHANNELS (parked, condition unchanged).
 
-Plan continues: yes — residue sweep (job 4) is next live: job 3 (ship audit)
-is quiet (`git log 37a92f0..HEAD -- src/ tests/ sdk/` is empty, no commits
-touched those trees), but `Residue swept through` (37a92f0) trails HEAD, so
-job 4 fires next tick.
+Plan continues: no — inbox, spec delta, ship audit, and residue sweep are
+all current; four entries are `open` and pickable now, so build takes over.
