@@ -1,5 +1,38 @@
 [
   {
+    "tag": "INSTALL-FINGERPRINT-SETTLES-FIRST-RUN",
+    "summary": "Fix install's yes-path so one install/emit run leaves the lock's fingerprint rows matching the final, placement-inclusive bytes — no second run needed to converge.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "run_represented's yes-path (fn at ~line 373) calls drift::emit_program (writes lock.toml's emit_hash/source_hash rows from pre-placement bytes) then evaluate_placements (~line 514, mutates each emit-owned target's bytes: managed-by note, schema modeline) with no re-stamp step after — so drift::config_stale reports a fingerprint mismatch on the harness's own first-install output. Fix so a single yes-path run leaves the lock's fingerprints matching final bytes. Verified fix shape: emit_one (src/drift.rs ~line 646) already folds on-disk placement lines into its render+hash, so re-invoking drift::emit_program(dry_run:false) after evaluate_placements finishes (when !dry_run) re-derives correct fingerprints and rewrites the lock via its existing write_rollup path — no drift.rs change strictly required, though build may find a cleaner hook point. Must not regress the dry-run preview (no files exist yet to fingerprint) or emit's double-emit-determinism check."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "re_representing_never_re_scaffolds_and_settles_by_the_second_run (~line 519) asserts after_first != after_second (the tree changes again on run two) and documents the two-run settle as accepted — post-fix the first install::run call must already settle, so replace that assertion with an immediate post-first-run fingerprint-consistency check (e.g. temper::drift::config_stale(&temper_dir) is empty right after the first run) and keep the byte-for-byte-no-op-on-repeat assertion. Trim the module doc's 'idempotence — re-running converges (after the note's one settling emit)' bullet (~line 20) to match: converges on the first run."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "immediately after one install::run(&root, &discovery, Represent::Yes, false) call on a fresh unrepresented harness, temper::drift::config_stale(&temper_dir) is empty and a repeat run is a byte-for-byte no-op — never requiring a second run to settle"
+      }
+    ],
+    "acceptance": "A single `install::run(&root, &discovery, Represent::Yes, false)` (or `temper install --yes`) on a fresh unrepresented harness leaves every emit-owned projection's on-disk bytes matching its lock.toml row's emit_hash/source_hash immediately — drift::config_stale returns no finding and emit --dry-run still reports Unchanged, with no second install/emit invocation required to reach that state.",
+    "notes": "Confirmed on disk, not the inbox claim alone: run_represented calls emit_program (writes lock fingerprints from pre-placement bytes) then evaluate_placements (mutates the same files' notes/modelines), no re-stamp after. emit_one already folds on-disk placement lines into its hash on a later pass — how tests/install.rs's settle test documents today's two-run settle; the inbox finding (dogfood re-conversion, f684b56) supersedes that acceptance. scoped at f684b56."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
