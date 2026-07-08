@@ -89,8 +89,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "TEST-FIXTURE-HELPERS-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -98,27 +97,27 @@
       "edit": [
         {
           "path": "tests/common/mod.rs",
-          "description": "Already exists, extended by every entry ahead of this one in the chain. Add six byte-identical-per-copy helpers this residue sweep found past the four TEST-FIXTURE-HELPERS-CONSOLIDATE already covers: `pub fn write_requirements(root: &Path, requirements: Vec<RequirementRow>)` (3 copies: tests/gate_fail_loud.rs:69, tests/requirement_roster.rs:262, tests/coverage.rs:103); `pub fn write_rule(root: &Path, name: &str)` (tests/coverage.rs:359, tests/requirement_roster.rs:96); `pub fn write_retired_manifest(root: &Path, contents: &str)` (tests/graph.rs:119, tests/requirement_roster.rs:215); `pub fn write_lock(root: &Path, declarations: Declarations)` (tests/graph.rs:127, tests/lock_declaration_rows.rs:940); `pub fn retired_manifest_name() -> String` (tests/requirement_roster.rs:208, tests/graph.rs:112); `pub fn clean_skill(name: &str) -> String` (tests/graph.rs:47, tests/requirement_roster.rs:50)."
+          "description": "Already exists, extended by TEST-FIXTURE-HELPERS-CONSOLIDATE (shipped). Add six byte-identical-per-copy helpers this residue sweep found past its scope: `pub fn write_requirements(root: &Path, requirements: Vec<RequirementRow>)` (3 copies: tests/gate_fail_loud.rs:50, tests/requirement_roster.rs:193, tests/coverage.rs:53); `pub fn write_rule(root: &Path, name: &str)` (tests/coverage.rs:269, tests/requirement_roster.rs:50); `pub fn write_retired_manifest(root: &Path, contents: &str)` (tests/graph.rs:75, tests/requirement_roster.rs:146); `pub fn write_lock(root: &Path, declarations: Declarations)` (tests/graph.rs:83, tests/lock_declaration_rows.rs:879); `pub fn retired_manifest_name() -> String` (tests/requirement_roster.rs:139, tests/graph.rs:68); `pub fn clean_skill(name: &str) -> String` (tests/graph.rs:28, tests/requirement_roster.rs:35)."
         },
         {
           "path": "tests/gate_fail_loud.rs",
-          "description": "Delete the local `write_requirements` (line 69); call sites use `common::write_requirements`."
+          "description": "Delete the local `write_requirements` (line 50); call sites use `common::write_requirements`."
         },
         {
           "path": "tests/requirement_roster.rs",
-          "description": "Delete the local `write_requirements` (line 262), `write_rule` (line 96), `write_retired_manifest` (line 215), `retired_manifest_name` (line 208), `clean_skill` (line 50); call sites use `common::*`."
+          "description": "Delete the local `clean_skill` (line 35), `write_rule` (line 50), `retired_manifest_name` (line 139), `write_retired_manifest` (line 146), `write_requirements` (line 193); call sites use `common::*`."
         },
         {
           "path": "tests/coverage.rs",
-          "description": "Delete the local `write_requirements` (line 103) and `write_rule` (line 359); call sites use `common::*`."
+          "description": "Delete the local `write_requirements` (line 53) and `write_rule` (line 269); call sites use `common::*`."
         },
         {
           "path": "tests/graph.rs",
-          "description": "Delete the local `write_retired_manifest` (line 119), `write_lock` (line 127), `retired_manifest_name` (line 112), `clean_skill` (line 47); call sites use `common::*`."
+          "description": "Delete the local `clean_skill` (line 28), `retired_manifest_name` (line 68), `write_retired_manifest` (line 75), `write_lock` (line 83); call sites use `common::*`."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "Delete the local `write_lock` (line 940); call sites use `common::write_lock`."
+          "description": "Delete the local `write_lock` (line 879); call sites use `common::write_lock`."
         }
       ],
       "retire": []
@@ -135,7 +134,7 @@
       }
     ],
     "acceptance": "tests/common exports one write_requirements, write_rule, write_retired_manifest, write_lock, retired_manifest_name, clean_skill; no duplicate definition remains in gate_fail_loud.rs, requirement_roster.rs, coverage.rs, graph.rs, or lock_declaration_rows.rs; `cargo test` green.",
-    "notes": "Found in job 4's residue sweep at ef72da3 -- six byte-identical helper groups past TEST-FIXTURE-HELPERS-CONSOLIDATE's scope (different symbols: requirement/rule/retired-manifest/lock writers, not write_skill/check_in/author_satisfies/tree_bytes). blockedBy TEST-FIXTURE-HELPERS-CONSOLIDATE: shares graph.rs/coverage.rs/requirement_roster.rs/lock_declaration_rows.rs/gate_fail_loud.rs/tests/common/mod.rs with it. scoped at ef72da3"
+    "notes": "Found in job 4's residue sweep at ef72da3, past TEST-FIXTURE-HELPERS-CONSOLIDATE's scope. That blocker shipped at 01b5205 (0735474); re-verified all six symbols still present byte-identical and re-scoped every cited line number against its post-ship shifts. Now open, pairwise disjoint with PATH-SEP-NORMALIZE-CONSOLIDATE and SDK-SORT-COMPARATOR-CONSOLIDATE. scoped at 01b5205"
   },
   {
     "tag": "TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders)",
