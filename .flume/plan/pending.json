@@ -1,44 +1,16 @@
 [
   {
-    "tag": "SATISFIES-GATE-FROM-LOCK",
-    "summary": "Gate requirement satisfaction from the lock's own declarations.satisfies rows — the sole live source (a dead disk overlay) never fires on any real SDK-composed harness",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "resolve_kind_units (~L846) grafts unit.satisfies solely from surface_overlay (~L822), which reads `<workspace>/<kind's surface subdir>/<id>/<KIND>.md`. Verified (2026-07-08, direct repro) that document has zero production writers in src/ — write_surface/write_surface_skill/write_surface_rule (kind.rs, check.rs) are all `#[cfg(test)]`-only, a pre-0016 own-path-era holdover — so every `require`d requirement reports requirement.unfilled on any harness built the current whole-conversion way, lock rows notwithstanding. Fix: also read declarations.satisfies (Vec<SatisfiesRow{member,requirement}>, drift.rs:1252 — doc comment already says 'the roster/coverage tiers need' this), keyed by unit.id, unioned into unit.satisfies alongside whatever surface_overlay still grafts. Leave unit.satisfies_clauses (explain's rationale narration, document::Satisfies{requirement,rationale}) sourced from surface_overlay unchanged — the lock row carries no rationale text, so explain's richer narration is a separate, narrower concern this entry does not touch."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "Every existing case in this file authors satisfaction via common::author_satisfies/author_rule_satisfies, which hand-writes the exact surface-overlay document production never creates — masking the gap. Add a case that populates declarations.satisfies directly via common::write_lock (a SatisfiesRow naming a skill authored only via common::write_skill, no author_satisfies call at all) and asserts the requirement resolves as filled through both `temper check` and `check --harness` — the production-real path the fix closes. Existing author_satisfies-based cases must keep passing unchanged (their surface-overlay path is now one of two unioned sources, not the only one)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a requirement filled only via a lock-declared satisfies row (no surface-overlay document authored) resolves as filled under both temper check and check --harness"
-      }
-    ],
-    "acceptance": "A require'd requirement whose satisfaction is declared only via the lock's declarations.satisfies rows (the real SDK-emit shape) resolves as filled; check cannot validate requirement satisfaction on any SDK-composed harness was the confirmed status quo (verified 2026-07-08 by direct repro: every roster test currently depends on the test-only surface-overlay writer).",
-    "notes": "Field report T15 (inbox, observed 4b0bb0f), independently re-verified against disk this tick, not taken on the reporter's word. Highest-severity of three T14/T15/T16 findings; T14 (kind-rename-deletes-files) investigated and did NOT reproduce — drift.rs:499-510's owned_paths cross-check already guards that exact scenario (throwaway repro test, not filed, not kept). scoped at 7cdf5ac."
-  },
-  {
     "tag": "KIND-NAME-COLLISION-ADMISSIBILITY",
     "summary": "A custom kind lock-declared with a bare name colliding with a built-in silently loses its members in gate/explain/directive-classing — no diagnostic, no error",
     "per": {
       "path": "specs/model/contract.md",
       "section": "well-formedness"
     },
-    "gate": { "kind": "blockedBy", "tag": "SATISFIES-GATE-FROM-LOCK" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SATISFIES-GATE-FROM-LOCK"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
