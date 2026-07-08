@@ -2,28 +2,32 @@
 
 - Spec derived through: cd7135b
 - Audited through: d8405d7
-- Residue swept through: aea39c3
-- This tick: Inbox. Routed the one line (dogfood re-conversion finding,
-  2026-07-07) into a new pending entry, INSTALL-FINGERPRINT-SETTLES-
-  FIRST-RUN. Re-verified the claimed gap against disk before scoping (per
-  job 1's rule): traced `run_represented` (src/install.rs) — it calls
-  `drift::emit_program` (writes lock.toml's `emit_hash`/`source_hash` rows
-  from pre-placement bytes) then `evaluate_placements` (mutates those same
-  emit-owned files: managed-by note, schema modeline) with no re-stamp
-  after, so `drift::config_stale` genuinely reports a fingerprint mismatch
-  on a fresh install's own output. Also found: `emit_one` (src/drift.rs)
-  already folds on-disk placement lines into its render+hash on a later
-  pass, and tests/install.rs's
-  `re_representing_never_re_scaffolds_and_settles_by_the_second_run`
-  already documents+accepts the two-run settle as by-design — the inbox
-  finding supersedes that acceptance with new intent (first run must
-  settle). Entry cites specs/model/pipeline.md "Install" (the exact
-  emit-then-place sequence), scopes both the install.rs fix and the
-  test's rewrite. Drained the inbox line.
+- Residue swept through: eb88ffe
+- This tick: Residue sweep aea39c3..eb88ffe. Only two commits in range
+  (f684b56 chore(harness) dogfood re-conversion, eb88ffe plan: inbox) and
+  neither touches src/tests/sdk, so re-swept the known retirement classes
+  against the whole tree rather than just the diff. floor: still the
+  established internal name for "default contract" everywhere it appears
+  (src/builtin.rs, src/contract.rs, tests/*) — never corpus vocabulary, so
+  no mismatch to file; BUNDLE-DESCRIPTION-DROPS-FLOOR-VOCAB's own
+  tests/bundle.rs assertion (no "floor" in emitted plugin description
+  text) still passes. posture: remaining hits (src/drift.rs:192,
+  src/main.rs:126/144/508, src/read.rs:767/798, sdk kind.d.ts "posture 3")
+  are the plain-English stance/locus-tier sense, not the retired
+  enforcement-mode posture field — confirmed distinct, same finding as
+  605575a. own_path: remaining hits are historical comments describing the
+  retired lift, no live passthrough. temper.toml: one comment
+  (src/compose.rs:12) noting the retired manifest-era reader, no live
+  parser. kinds/+packages/ fixture debt in tests/session_start.rs remains
+  the one standing accepted debt, unchanged, still riding the next
+  session-start touch per open-questions' "Kept on purpose" note — not a
+  new fileable gap. Nothing new to file; cursor to HEAD.
 - Queue: INSTALL-FINGERPRINT-SETTLES-FIRST-RUN (open, ready) ahead of
-  PACKAGING-CHANNELS (parked, condition unchanged this tick).
+  PACKAGING-CHANNELS (parked, condition unchanged this tick) — confirmed
+  disjoint (install.rs/tests/install.rs vs release.yml/package.json, no
+  shared paths).
 
-Plan continues: yes — residue sweep trails HEAD (aea39c3 vs f684b56); the
-one commit between them (f684b56, chore(harness) dogfood re-conversion)
-touches no src/tests/sdk so a sweep should be quick, but that job was not
-taken this tick (inbox took priority) and needs its own tick.
+Plan continues: yes — job 5 (quiet closing pass) is next: inbox, spec
+delta, and ship audit are all empty/current, and residue is now swept
+through HEAD, but that closing verification wasn't taken this tick to keep
+the sweep its own atom.
