@@ -14,7 +14,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
@@ -211,7 +211,7 @@ fn collect_glob(
         // ignored subdirectory (a vendored tree, `.git/`) is not descended.
         for entry in read_entries(dir)? {
             let path = entry.path();
-            if path.is_dir() && discoverable.contains(&normalize(&path)) {
+            if path.is_dir() && discoverable.contains(&crate::graph::normalize_path(&path)) {
                 collect_glob(&path, segments, discoverable, out)?;
             }
         }
@@ -221,7 +221,7 @@ fn collect_glob(
         let path = entry.path();
         // An ignored entry is not authored here — skip it whether it would be
         // collected as a file or descended as a subdirectory.
-        if !discoverable.contains(&normalize(&path)) {
+        if !discoverable.contains(&crate::graph::normalize_path(&path)) {
             continue;
         }
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
@@ -271,19 +271,9 @@ fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
     // A walk error (an unreadable entry) drops that entry rather than aborting
     // discovery — the same tolerance the raw scan takes on `read_dir`.
     for entry in walk.flatten() {
-        allowed.insert(normalize(entry.path()));
+        allowed.insert(crate::graph::normalize_path(entry.path()));
     }
     allowed
-}
-
-/// `path` with any `.` (current-dir) components dropped, so a walk entry and a
-/// `harness.join(".")`-rooted discovery path denote the same key in the discoverable
-/// set. Only a standalone `.` component is stripped — a dotted name (`.claude`) is a
-/// normal component and survives.
-fn normalize(path: &Path) -> PathBuf {
-    path.components()
-        .filter(|component| !matches!(component, Component::CurDir))
-        .collect()
 }
 
 /// Read `dir`'s entries into a vector, mapping any failure to an

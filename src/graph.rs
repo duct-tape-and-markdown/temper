@@ -755,7 +755,7 @@ fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
 /// check CWD, and both the index keys and a resolved target must normalize the identical
 /// way to join. A leading `..` with nothing to pop is kept, so an out-of-tree target
 /// stays distinct rather than silently rooting.
-fn normalize_path(path: &Path) -> PathBuf {
+pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     let mut out: Vec<Component> = Vec::new();
     for component in path.components() {
         match component {
