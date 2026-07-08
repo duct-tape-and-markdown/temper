@@ -3,17 +3,21 @@
 - Spec derived through: f87cc0c
 - Audited through: 1818bb4
 - Residue swept through: ec3f6c1
-- This tick: Quiet closing pass (job 5). Re-verified jobs 1-4 all current:
-  inbox empty, `.flume/refactor/` holds only README.md (no live captures),
-  no `src/`/`tests/`/`sdk/` commits since 1818bb4 (audit cursor), no
-  `specs/` commits since f87cc0c (derive cursor). Re-checked
-  PACKAGING-CHANNELS's parked reason on disk: `.github/workflows/` still
-  holds only `temper.yml` (no `release.yml`), `package.json` is still the
-  private `temper-flume-harness` manifest — reason unchanged, still parked.
-  Queue is disjoint (single entry). open-questions.md unchanged; its two
-  "verify at next ship audit" debts ride the next ship-audit tick (job 3),
-  not this one.
-- Queue: PACKAGING-CHANNELS parked, unchanged. No open entries.
+- This tick: Inbox (job 1). Routed the T14/T15/T16 field report. Each
+  re-verified against disk before filing, not taken on the reporter's word:
+  T15 (requirements never gate) confirmed exactly as reported — filed
+  SATISFIES-GATE-FROM-LOCK. T16 (kind-name collision silently drops
+  members) confirmed as a real symptom but at a different mechanism than
+  cited (three `continue` sites in main.rs, not check.rs:83's
+  Workspace::load_kinds, which is unreachable for a colliding custom kind)
+  — filed KIND-NAME-COLLISION-ADMISSIBILITY, blockedBy the first (both
+  edit src/main.rs). T14 (kind-rename deletes files) investigated and did
+  NOT reproduce — drift.rs's emit() already cross-checks reap candidates
+  against the current run's owned paths (drift.rs:499-510), confirmed via
+  a throwaway repro test (not committed). Inbox drained.
+- Queue: SATISFIES-GATE-FROM-LOCK open; KIND-NAME-COLLISION-ADMISSIBILITY
+  blockedBy it (same file); PACKAGING-CHANNELS parked, unchanged.
 
-Plan continues: no — every input is current and the sole queue entry is
-correctly parked on human action; nothing left for plan to do this cycle.
+Plan continues: yes — inbox is empty and the spec/audit cursors have no
+live delta, but `Residue swept through` (ec3f6c1) trails HEAD once this
+commit lands; residue sweep (job 4) is next.

@@ -1,5 +1,65 @@
 [
   {
+    "tag": "SATISFIES-GATE-FROM-LOCK",
+    "summary": "Gate requirement satisfaction from the lock's own declarations.satisfies rows — the sole live source (a dead disk overlay) never fires on any real SDK-composed harness",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "resolve_kind_units (~L846) grafts unit.satisfies solely from surface_overlay (~L822), which reads `<workspace>/<kind's surface subdir>/<id>/<KIND>.md`. Verified (2026-07-08, direct repro) that document has zero production writers in src/ — write_surface/write_surface_skill/write_surface_rule (kind.rs, check.rs) are all `#[cfg(test)]`-only, a pre-0016 own-path-era holdover — so every `require`d requirement reports requirement.unfilled on any harness built the current whole-conversion way, lock rows notwithstanding. Fix: also read declarations.satisfies (Vec<SatisfiesRow{member,requirement}>, drift.rs:1252 — doc comment already says 'the roster/coverage tiers need' this), keyed by unit.id, unioned into unit.satisfies alongside whatever surface_overlay still grafts. Leave unit.satisfies_clauses (explain's rationale narration, document::Satisfies{requirement,rationale}) sourced from surface_overlay unchanged — the lock row carries no rationale text, so explain's richer narration is a separate, narrower concern this entry does not touch."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Every existing case in this file authors satisfaction via common::author_satisfies/author_rule_satisfies, which hand-writes the exact surface-overlay document production never creates — masking the gap. Add a case that populates declarations.satisfies directly via common::write_lock (a SatisfiesRow naming a skill authored only via common::write_skill, no author_satisfies call at all) and asserts the requirement resolves as filled through both `temper check` and `check --harness` — the production-real path the fix closes. Existing author_satisfies-based cases must keep passing unchanged (their surface-overlay path is now one of two unioned sources, not the only one)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a requirement filled only via a lock-declared satisfies row (no surface-overlay document authored) resolves as filled under both temper check and check --harness"
+      }
+    ],
+    "acceptance": "A require'd requirement whose satisfaction is declared only via the lock's declarations.satisfies rows (the real SDK-emit shape) resolves as filled; check cannot validate requirement satisfaction on any SDK-composed harness was the confirmed status quo (verified 2026-07-08 by direct repro: every roster test currently depends on the test-only surface-overlay writer).",
+    "notes": "Field report T15 (inbox, observed 4b0bb0f), independently re-verified against disk this tick, not taken on the reporter's word. Highest-severity of three T14/T15/T16 findings; T14 (kind-rename-deletes-files) investigated and did NOT reproduce — drift.rs:499-510's owned_paths cross-check already guards that exact scenario (throwaway repro test, not filed, not kept). scoped at 7cdf5ac."
+  },
+  {
+    "tag": "KIND-NAME-COLLISION-ADMISSIBILITY",
+    "summary": "A custom kind lock-declared with a bare name colliding with a built-in silently loses its members in gate/explain/directive-classing — no diagnostic, no error",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "well-formedness"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SATISFIES-GATE-FROM-LOCK" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Three identical sites — explain (~L428), gate (~L634), collect_directive_members (~L987) — iterate declarations.kinds and `if builtin_defs.contains_key(&row.name) { continue; }`, silently dropping a custom kind row whose bare name matches an embedded built-in's from every corpus (no admissibility check, no diagnostic, member_counts never populated for it). Verified (2026-07-08) this is the real collision mechanism — not check.rs:83's Workspace::load_kinds as the inbox report cited, which is only ever called with the fixed built-in-only definitions() set (main.rs:60) and so cannot actually receive a colliding custom-kind row. Consolidate the three duplicate checks into one shared partition helper (per specs/process/engineering.md, 'One job, one home') and, in gate's path, surface the collision as an admissibility-tier Diagnostic::error (pattern at check.rs:320-323) naming the colliding kind — refusing rather than silently skipping, so member loss is never silent. Rebase onto whatever resolve_kind_units/main.rs shape SATISFIES-GATE-FROM-LOCK leaves — same file, sequenced after it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "a lock-declared custom kind whose name equals a built-in's (e.g. \"rule\") produces an admissibility-tier diagnostic naming the collision, rather than a silent zero-member drop"
+      }
+    ],
+    "acceptance": "A custom kind whose lock-declared name collides with an embedded built-in's is a well-formedness/admissibility finding, never a silent skip, across explain, gate, and directive-classing.",
+    "notes": "Field report T16 (inbox, observed 4b0bb0f). Reporter flagged the exact coverage-summary render site (\"command (0)\") as untraced/unconfirmed and did not verify their cited check.rs:83 mechanism is reachable for this scenario — it is not; re-verification (2026-07-08) found the real mechanism at three sites in main.rs instead. scoped at 7cdf5ac."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
@@ -8,7 +68,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 1818bb4 (ship audit f6ec58f..HEAD): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 7cdf5ac (this tick): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
