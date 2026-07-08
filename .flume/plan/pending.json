@@ -61,6 +61,84 @@
     "notes": "Field report 2026-07-07: install --yes scaffolds two-arg file() but pins a published SDK still shipping one-arg file() — the identical ^0.0.2→^0.0.4 incident install.rs's own comment already records, recurring because nothing ties the hand-typed constant to the SDK's real released surface. Publish 0.0.5 promptly: once this lands, a from-source install writes ^0.0.5, unresolvable until published. Raw-Node-stack-in-emit-failure aside is accepted debt, out of scope."
   },
   {
+    "tag": "INSTALL-WHOLE-CONVERSION",
+    "summary": "Rewrite install's scaffold to hoist every present frontmatter field into typed properties and move prose module-side, replacing the file()-verbatim own-path lift (0016)",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SDK-VERSION-LOCKSTEP" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Rewrite `member_module_source` (and its caller `scaffold`) so a scaffolded member module hoists every field present in the discovered source's frontmatter (`frontmatter::Member::fields`, not just the description-trigger field `description_trigger_value` special-cases today) into its own typed TS property via a new generic JSON-value-to-TS-literal renderer, and moves prose module-side per 0016: a short body inline as a string literal, a document body written to a new scaffold-authored module-adjacent file (never re-pointing `file()` at the original `.claude/` path) referenced via `file(import.meta.url, \"./<name>.md\")`. Update this module's own doc comments (top-of-file, `scaffold`, `member_module_source`) which currently describe the retired own-path/file()-verbatim behavior."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Rewrite `representing_lifts_every_discovered_member_byte_stable_with_no_guard_claim` (its \"file()'s own path — untouched\" / \"no member here is emit-owned\" assertions invert: the first emit now regenerates each governed artifact canonically and IS guard/note/modeline-claimed), `re_representing_never_re_scaffolds_and_converges` (still converges, now via canonical re-emission not own-path no-op), and `a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not` (the own-path/deepened distinction it exercises collapses — every scaffolded member is emit-owned from its first emit) to assert whole-conversion semantics; add coverage for a hoisted non-description field and for the inline-vs-module-adjacent-file prose split."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a freshly scaffolded member module types every present frontmatter field as a TS property, its prose lands module-side (inline or a module-adjacent file, never the original `.claude/` path), and the first emit's projection is guard/note/modeline-claimed rather than an own-path passthrough"
+      }
+    ],
+    "acceptance": "A fresh `install --yes` scaffold's member modules type every present field and carry prose module-side; the first emit's projections are guard-claimed, never own-path passthrough; cargo test green.",
+    "notes": "scoped at e920fa8; 0016 (specs/decisions/0016-install-installs-the-tool.md), specs/model/pipeline.md 'Install'. RETIRE-OWN-PATH-MACHINERY (blockedBy this) deletes the now-dead own_path detection/lock-column/guard-exemption once no live scaffold path emits own_path=true. `.temper/`'s own reconversion is outside build's writable fence (chain.ts) - human/ratification territory, not filed here."
+  },
+  {
+    "tag": "RETIRE-OWN-PATH-MACHINERY",
+    "summary": "Delete the own-path detection, lock column, and guard exemption from drift/import/main now that whole conversion makes them structurally unreachable (0016)",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": { "kind": "blockedBy", "tag": "INSTALL-WHOLE-CONVERSION" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Remove `Projection.own_path`, `resolves_to_own_path()`, and the own-path branch in `emit_one` (`desired`/`second_pass` collapse to always `project_bytes(&projection.fields, &projection.body, &placements)`, never the verbatim-body fallback); drop `own_path` from the `RollupEntry` construction in `emit_program`; `emit_owned_targets` stops reading the lock's `own_path` key — every row it iterates is a target."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Remove `RollupEntry.own_path` and its write in `rollup_tables` (the `table[\"own_path\"]` line) — the rollup's four columns (`name`, `source_path`, `source_hash`, `emit_hash`) are the whole row."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Remove the stale `own_path`-referencing doc comment at the guard call site (~line 329) describing the retired exemption."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Remove `guard_allows_a_file_carried_members_own_path_source_under_block` — it constructs a synthetic `own_path = true` lock row, a shape the lock no longer writes."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Remove `an_own_path_members_crlf_body_also_normalizes_to_lf`, which builds a synthetic own-path payload to exercise the now-deleted verbatim-body branch; if CRLF normalization on the ordinary field-rendered path lacks its own coverage elsewhere in this file, add an equivalent assertion over `project_bytes` instead of dropping the coverage outright."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "lock.toml's per-kind rollup rows drop the `own_path` column",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "CRLF bodies still normalize to LF through the ordinary field-rendered projection path, with no synthetic own-path fixture"
+      }
+    ],
+    "acceptance": "`own_path` is absent from src/drift.rs, src/import.rs, and the emitted lock schema; cargo test green with no synthetic own-path fixtures remaining.",
+    "notes": "scoped at e920fa8; 0016's explicit consequence ('own_path retires from drift, guard, and lock'). On pickup, grep for own_path first - if INSTALL-WHOLE-CONVERSION left any live path still writing own_path=true, hold rather than delete logic a real caller needs; that would mean this entry was scoped too early."
+  },
+  {
     "tag": "RETIRE-DEAD-DECLARED-SURFACE",
     "summary": "Remove Template.leaves/collections (declared, never populated/read, no consumer scoped) and document.rs's dead import_hash provenance fallback",
     "per": {
