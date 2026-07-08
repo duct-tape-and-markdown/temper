@@ -2,26 +2,27 @@
 
 - Spec derived through: cd7135b
 - Audited through: 37a92f0
-- Residue swept through: be1298f
-- This tick: Ship audit (job 3), be1298f..37a92f0. Verified
-  INSTALL-FINGERPRINT-SETTLES-FIRST-RUN on disk, not just the log: 78181e6
-  adds a post-`evaluate_placements` re-invoke of `emit_program` (real writes
-  only) in `run_represented`'s yes-path (src/install.rs:417-434) — placement
-  mutates emit-owned bytes (managed-by note, schema modeline) after the lock
-  was already stamped from pre-placement bytes, so without the re-emit a
-  single yes-path run left its own lock stale until a second run converged
-  it; `emit_one` folds placement-inclusive bytes back in, so the re-emit
-  re-derives correct fingerprints same-run. tests/install.rs updated
-  accordingly. 37a92f0 (chore) removed the pending entry — confirmed
-  pending.json now carries only PACKAGING-CHANNELS. Re-verified
-  PACKAGING-CHANNELS's parked reason against disk: still no
-  `.github/workflows/release.yml` (only `temper.yml`), root package.json
-  still the private `temper-flume-harness` manifest, sdk/package.json still
-  `@dtmd/temper` 0.0.5 — reason holds, no rewrite needed. Audited cursor
-  advanced to HEAD.
+- Residue swept through: 37a92f0
+- This tick: Residue sweep (job 4), be1298f..37a92f0. Range's sole src/tests
+  change since the last sweep is 78181e6 (install.rs lock re-stamp fix,
+  already ship-audited clean last tick). Read its full diff: the fix comment
+  at src/install.rs:420-427 states the constraint only, no era narration, no
+  spec-path pointer (rust.md comment bar); tests/install.rs's docstring and
+  the renamed
+  `re_representing_never_re_scaffolds_and_settles_on_the_first_run` both
+  retired the stale "settles by the second run" framing in lockstep with the
+  behavior change — no dangling "second run" idiom left describing the now-
+  same-run convergence. Grepped src/tests/sdk for "second run"/"settle":
+  the three remaining hits are legitimately unrelated (tests/bundle.rs
+  determinism note; tests/install.rs:832's guard-merge test, a genuinely
+  different second `install::run` call). No retired vocabulary
+  (floor/posture/own_path/temper.toml) reappeared — prior sweeps already
+  confirmed those comment-only/clean through be1298f. Nothing to file.
+  Residue cursor advanced to HEAD; no pending.json or open-questions.md
+  changes needed.
 - Queue: PACKAGING-CHANNELS (parked, condition unchanged) — sole entry, no
   pickable work for build this tick.
 
-Plan continues: yes — residue sweep next (job 4): `Residue swept through`
-(be1298f) trails HEAD (37a92f0) and jobs 1-3 are now quiet (inbox empty,
-spec delta empty since cd7135b, ship audit just closed).
+Plan continues: no — all four inputs current as of HEAD (37a92f0): inbox
+empty, spec delta empty since cd7135b, ship audit cursor at HEAD, residue
+cursor now at HEAD too. Next tick is the quiet closing pass (job 5).
