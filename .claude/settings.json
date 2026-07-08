@@ -11,6 +11,16 @@
         ],
         "matcher": "Edit|Write"
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "temper check . --reporter session-start",
+            "type": "command"
+          }
+        ]
+      }
     ]
   },
   "permissions": {

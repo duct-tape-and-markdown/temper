@@ -1,0 +1,39 @@
+[[memory]]
+name = "CLAUDE"
+source_path = "./CLAUDE.md"
+source_hash = "354721e5a0ca10ce016e3f1d97ec602232e934163699493afcc2bb302d5304b8"
+emit_hash = "354721e5a0ca10ce016e3f1d97ec602232e934163699493afcc2bb302d5304b8"
+own_path = true
+
+[[rule]]
+name = "collaboration"
+source_path = "./.claude/rules/collaboration.md"
+source_hash = "f5012deac2afb06fa7015982dd961b491d016416b413530b1a44376dd9238a9e"
+emit_hash = "f5012deac2afb06fa7015982dd961b491d016416b413530b1a44376dd9238a9e"
+own_path = true
+
+[[rule]]
+name = "rust"
+source_path = "./.claude/rules/rust.md"
+source_hash = "f2c9a03dd943bba0aaa221daf6691e7db2e12351c3dada3cea149215f24f28ed"
+emit_hash = "f2c9a03dd943bba0aaa221daf6691e7db2e12351c3dada3cea149215f24f28ed"
+own_path = true
+
+[[declaration.kind]]
+name = "memory"
+governs_root = "."
+governs_glob = "**/CLAUDE.md"
+unit_shape = "file"
+registration = "always"
+
+[[declaration.kind]]
+name = "rule"
+governs_root = ".claude/rules"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+registration = "paths-match(paths)"
+
+[[declaration.assembly]]
+fact = "mode"
+value = "warn"

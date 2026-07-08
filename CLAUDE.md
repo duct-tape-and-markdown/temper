@@ -32,10 +32,15 @@ This repo carries **two distinct harnesses**; do not conflate them:
    `temper` lints. Changes flow through human `chore(harness):` commits, never
    `build:` ticks.
 
-The **recursive dogfood** — temper gating its host repo's own harness — is
-**deactivated**. Validation lives in `tests/` fixtures. A real dogfood
-returns when the SDK-primary authoring path (`harness.ts` → emit) is the
-product's own front door.
+The **recursive dogfood is live**: this harness is represented at `.temper/`
+(member modules riding the workspace SDK via `file:../sdk`, `harness.ts`,
+the committed `lock.toml`), the `SessionStart` reporter is wired in
+`settings.json`, and the gate is `temper check .temper`. The lifted members
+are own-path — the `.claude/` files stay the authored sources — so editing
+them directly remains correct; `temper emit` re-anchors the lock. A fresh
+clone builds the SDK once (`pnpm -C sdk install && pnpm -C sdk build`)
+before `emit` runs. Friction the dogfood surfaces routes to
+`.flume/inbox.md`, never into hand-patched `src/`.
 
 Maintenance of either harness prefers **subtraction before addition**, and a
 surface states the rule, never the incident that taught it — these files are
