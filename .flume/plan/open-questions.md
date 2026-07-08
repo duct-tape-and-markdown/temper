@@ -35,26 +35,6 @@ tax.
   provider-qualified `memory`; identity travels by import, not string —
   `specs/builtins.md`)? A feature addition, not a chain blocker.
 
-- `(command-agent-kinds)` — OPEN (registered 2026-07-07, f4189c3/0011).
-  `specs/builtins.md` "The named expansion" rules commands and agents are file
-  members and ships their kinds + default contracts as **forward work**; the
-  coverage bar says every documented capability "gets its registration value
-  and, where it is an artifact, its kind." Direction ratified, shape
-  under-specified. Today `.claude/commands` and `.claude/agents` exist only as
-  `KNOWN_SURFACES` coverage placeholders (`src/coverage_note.rs`) — no modeled
-  kind. Deriving them needs John on: the field schema each kind models (which
-  frontmatter fields vs. opaque residue — external facts to cite from Claude
-  Code's command/agent docs), the default-contract stance (which documented
-  rules become clauses, at what severity, per the strictest-profile bar), and
-  the **registration-value** model — command is "user-invoked", skill is a
-  description trigger, rule unconditional; whether the engine grows a
-  first-class registration attribute or keeps it bespoke per kind touches the
-  `kind` noun (`specs/model/representation.md`). A feature addition mirroring
-  `(agents-md-builtin-kind)`; also lands new SDK provider values + a re-derived
-  built-in lock. Embedded peers (hook, MCP server) route via
-  `(json-projection-format)`; this fork is the file-member half of the
-  expansion.
-
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness
