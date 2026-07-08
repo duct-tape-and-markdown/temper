@@ -7,8 +7,7 @@
       "section": "Per tool call"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INSTALL-WHOLE-CONVERSION"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "Reword `GUARD_COMMAND`'s doc comment (~103-109: \"declared posture\", \"the posture is read from\", \"posture-independent\") and the `guard` fn's doc comment (~603: \"enforcement posture\", one stale word amid otherwise-consistent `mode`/`EnforcementMode` wording) to say `enforcement mode`, matching this file's own already-consistent wording at ~116 and ~584."
+          "description": "Reword `GUARD_COMMAND`'s doc comment (~105-111: \"declared posture\", \"the posture is read from\", \"posture-independent\") and the `guard` fn's doc comment (~605: \"enforcement posture\", one stale word amid otherwise-consistent `mode`/`EnforcementMode` wording) to say `enforcement mode`, matching this file's own already-consistent wording nearby."
         },
         {
           "path": "src/drift.rs",
@@ -37,7 +36,7 @@
       }
     ],
     "acceptance": "No `posture` referring to the guard's block/warn/note concept remains in src/install.rs, src/drift.rs, or tests/install.rs; cargo test green.",
-    "notes": "scoped at 77b2eb9, resequenced 4b0122e (job 5). representation.md 'The root member' names this field `enforcement mode`. blockedBy INSTALL-WHOLE-CONVERSION (shared src/install.rs + tests/install.rs). RETIRE-OWN-PATH-MACHINERY is now blockedBy this entry instead, sharing src/drift.rs + tests/install.rs with it. Excludes drift.rs:192/main.rs:126's 'CI posture', read.rs's 'mixed-posture corpus', main.rs:144's lone comment (no live symbol)."
+    "notes": "scoped at 5389103 (ship audit re-verify, job 3): INSTALL-WHOLE-CONVERSION shipped (4ed4027) without touching this posture wording (reverified live) — blocker cleared, gate flipped open. representation.md 'The root member' names this field `enforcement mode`. RETIRE-OWN-PATH-MACHINERY stays blockedBy this entry, sharing src/drift.rs + tests/install.rs. Excludes drift.rs:192/main.rs:126's 'CI posture', read.rs's 'mixed-posture corpus', main.rs:144's lone comment."
   },
   {
     "tag": "RETIRE-OWN-PATH-MACHINERY",
