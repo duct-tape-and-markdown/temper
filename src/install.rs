@@ -417,6 +417,24 @@ fn run_represented(
         Vec::new()
     };
 
+    // `evaluate_placements` just mutated emit-owned targets' bytes (the managed-by
+    // note, the schema modeline) *after* the emit above already stamped the lock's
+    // fingerprints from the pre-placement bytes — so without this, the lock is
+    // stale against its own first-install output until a second run's `emit_one`
+    // folds the placement lines back in. Re-running `emit_program` here (real
+    // writes only — a `--dry-run` preview placed nothing to re-stamp) reads those
+    // placement-inclusive bytes straight back and rewrites the lock to match, so
+    // one yes-path run settles.
+    if !dry_run && emit.is_some() {
+        drift::emit_program(
+            &temper_dir,
+            drift::EmitOptions {
+                dry_run: false,
+                frozen: false,
+            },
+        )?;
+    }
+
     Ok(InstallOutcome {
         represented: true,
         scaffolded,

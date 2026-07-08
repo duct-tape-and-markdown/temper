@@ -17,8 +17,8 @@
 //! - **no own-path** — every scaffolded member is emit-owned from its first
 //!   emit, so the guard/managed-by note claim it immediately — never an
 //!   own-path passthrough;
-//! - **idempotence** — re-running converges (after the note's one settling
-//!   emit), never re-scaffolding or duplicating the guard;
+//! - **idempotence** — converges on the first run, never re-scaffolding or
+//!   duplicating the guard;
 //! - **dependency-before-lift** — a spawn failure ensuring the SDK dependency
 //!   leaves no half-scaffolded `.temper/` program behind it;
 //! - **the lock, not the retired manifest, grounds `guard`'s enforcement mode**.
@@ -516,7 +516,7 @@ fn a_document_body_scaffolds_to_a_module_adjacent_file_never_the_original_path()
 }
 
 #[test]
-fn re_representing_never_re_scaffolds_and_settles_by_the_second_run() {
+fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
     let root = write_harness("re-represent", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -526,13 +526,17 @@ fn re_representing_never_re_scaffolds_and_settles_by_the_second_run() {
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     let after_first = tree_bytes(&root);
 
-    // The first run's canonical `emit` writes each frontmatter-bearing member
-    // before its managed-by note exists yet, so `install`'s own note write
-    // lands *after* the lock's recorded `emit_hash` — a canonical-content
-    // settling the retired own-path lift never had to do (nothing was
-    // emit-owned on a first run before). The second run's `emit` re-reads that
-    // noted file and folds the note back into its own canonical render, so the
-    // tree changes exactly once more here.
+    // `evaluate_placements` writes each emit-owned target's managed-by note
+    // *after* the first `emit` already stamped the lock's fingerprints from
+    // the pre-placement bytes; a re-stamping `emit` inside `install::run`
+    // must fold those placements back in before the run returns, so the lock
+    // already matches this run's own output with no second run required.
+    assert!(
+        temper::drift::config_stale(&temper_dir).is_empty(),
+        "the first install run must leave the lock's fingerprints matching the placement-inclusive bytes"
+    );
+
+    // Re-representing with no authored change converges to a byte-for-byte no-op.
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(second.scaffolded, 0, "the lift never re-scaffolds");
     assert_eq!(
@@ -540,20 +544,10 @@ fn re_representing_never_re_scaffolds_and_settles_by_the_second_run() {
         ApplyOutcome::Unchanged
     );
     assert_eq!(outcome_of(&second, "guard hook"), ApplyOutcome::Unchanged);
-    let after_second = tree_bytes(&root);
-    assert_ne!(
-        after_first, after_second,
-        "the first run's note write settles into the second run's canonical re-emit"
-    );
-
-    // From the second run on, re-representing with no authored change
-    // converges to a byte-for-byte no-op.
-    let third = install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    assert_eq!(third.scaffolded, 0);
     assert_eq!(
-        after_second,
+        after_first,
         tree_bytes(&root),
-        "a re-representation with no authored change is a byte-for-byte no-op once settled"
+        "a re-representation with no authored change is a byte-for-byte no-op once settled on the first run"
     );
 }
 
