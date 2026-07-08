@@ -1,27 +1,23 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: b749f80
-- Residue swept through: b749f80
-- This tick: Ship audit (job 3) was quiet first — the one commit past the
-  old cursor (04b3f20, b749f80's own prior tick) touches only
-  `.flume/plan/state.md`, no src/tests/sdk; cursor advances to HEAD. Residue
-  sweep (job 4) then ran: dispatched a fresh sweep of src/, tests/, sdk/ for
-  duplication not already covered by the 7 queued entries. Confirmed no new
-  test-scaffolding dupes. Found and verified 2 new classes: (1) a `\`->`/`
-  path-normalize mechanic (`drift::to_lock_path`) reimplemented inline at 4
-  more sites (main.rs:918, coverage_note.rs:196, document.rs:327,
-  install.rs:676/678) — filed PATH-SEP-NORMALIZE-CONSOLIDATE for the 2 sites
-  disjoint from open work (document.rs, coverage_note.rs); the main.rs and
-  install.rs sites are deferred, entangled with open TMPDIR-HELPER-
-  CONSOLIDATE(mainrs)/FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE's file scope
-  per disjoint-or-serialize. (2) `sdk/src/declarations.ts`+`emit.ts`'s
-  lexicographic string-comparator `(a,b)=>(a<b?-1:a>b?1:0)` reimplemented
-  inline 7 times — filed SDK-SORT-COMPARATOR-CONSOLIDATE, disjoint (no
-  other entry touches sdk/). One candidate rejected: `builtins.ts`'s 3 doc
-  comments citing deleted `packages/*.PACKAGE.md` paths are comment
-  staleness, riding whichever entry next opens that file per the rule — not
-  a standalone entry. Cursor advances to HEAD.
+- Audited through: f10dd77
+- Residue swept through: f10dd77
+- This tick: Quiet closing pass (job 5). Inbox and refactor-captures empty;
+  spec-delta empty (cursor stays f87cc0c). Ship audit: the one commit past
+  the old audited-through cursor (f10dd77, prior tick's own plan commit)
+  touches only `.flume/plan/*`, no src/tests/sdk — cursor advances to HEAD.
+  Residue sweep: no src/tests/sdk changed since the prior tick's full sweep,
+  so a fresh pass would only re-find what's already queued — cursor advances
+  to HEAD without re-sweeping. Re-verified every open entry's file citations
+  live on disk unchanged (kind.rs:1079 surface_tmpdir, main.rs:1141
+  temper-backing, frontmatter.rs:409 split_frontmatter, install.rs:1463
+  frontmatter_inner, drift.rs:318 to_lock_path, document.rs:327 and
+  coverage_note.rs:196 backslash-replace, declarations.ts:222/285 inline
+  comparator, tests/common/mod.rs present) and confirmed PACKAGING-CHANNELS's
+  parked reason still holds (no .github/workflows/release.yml, root
+  package.json still the private flume manifest, sdk/package.json still
+  0.0.5). Queue re-checked pairwise disjoint on files.edit paths.
 - Queue: TMPDIR-HELPER-CONSOLIDATE(mainrs), TMPDIR-HELPER-CONSOLIDATE
   (kindrs), FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE, TEST-FIXTURE-HELPERS-
   CONSOLIDATE, PATH-SEP-NORMALIZE-CONSOLIDATE, SDK-SORT-COMPARATOR-
@@ -31,5 +27,6 @@
   (blockedBy recordwriters) — PACKAGING-CHANNELS (parked, condition
   unchanged).
 
-Plan continues: yes — every input (inbox, spec delta, ship audit, residue
-sweep) is now current; next tick is the quiet closing pass (job 5).
+Plan continues: no — every input (inbox, spec delta, ship audit, residue
+sweep) is current and the queue is disjoint; nothing left to route this
+tick. Build takes over the six open entries.
