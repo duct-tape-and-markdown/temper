@@ -1,5 +1,113 @@
 [
   {
+    "tag": "EMBEDDED-FENCE-MEMBER-NOUN",
+    "summary": "Embedded-member fence speaks the kernel noun: recut genre.→member. both directions, emit gains the write face (blocks() renders embedded members), genre()/GenreValue/Locus-tag dissolve",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/extract.rs",
+          "description": "Recut the read fold to the kernel noun: `parse_embedded_info` strips `member.` not `genre.` (line ~558) so the fence info string is `member.<kind> <key>`, and recut the `genre fence`/`genre.<kind>`/`EmbeddedMember` doc vocabulary throughout (lines ~167-568)."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Recut the fence-consuming primitive + nesting-template docs to `member.`: the child-kind fence info (`genre.<kind>`→`member.<kind>`, lines ~85-278) and the manifest-leaf fence (`toml genre.manifest`→`toml member.manifest`, lines ~511-512, and its two unit tests at ~994/1006)."
+        },
+        {
+          "path": "src/display.rs",
+          "description": "Recut the render island's doc vocabulary (`genre fence`, `hard-coded genre`→member, lines 3/11); `render_member` already renders `EmbeddedMember` — behavior unchanged."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Recut `KindFactRow` doc vocabulary naming the host's nesting templates (`child/genre kind`→member, lines ~267/1133)."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Implement the write face: `resolveBody`'s `blocks` branch (line ~53) renders each embedded member as a `member.<kind> <key>` TOML fenced block into the host body instead of throwing the `(genre-fence-format)` deferral; recut the `a genre member` comment (line ~133)."
+        },
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "Recut `blocks()` and the `Blocks` prose type (`values`) to consume the re-homed embedded-member value shape (was `GenreValue[]`); recut the `(genre-fence-format)`/`genre value` doc vocabulary."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Recut the `Locus` union tag `\"genre\"`→`\"embedded\"` (line ~47); dissolve the `genre()` constructor (a kind with an embedded locus is built by `kind()`, lines ~158-172); re-home the embedded-member value shape (was genres.ts' `GenreValue`/`genreValue`) recut to the kernel noun; recut the `genre` doc vocabulary (lines ~42/159)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Recut the embedded-locus check `locus.kind === \"genre\"`→`\"embedded\"` (line ~200) and the genre-vocab doc comments (lines ~24/194/208-214/228/308)."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Recut the barrel exports: drop the `genres.ts` re-exports (`GenreValue`/`genreValue`, lines ~20-22), export the re-homed embedded-member value from `kind.ts`; recut the `genre`/`genres` doc vocabulary (lines ~3/49/61)."
+        },
+        {
+          "path": "sdk/README.md",
+          "description": "Recut the 3 `genre` vocabulary refs to the kernel noun."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Recut the `genre.<kind> <key>` fixtures to `member.<kind> <key>` (10 refs) and add write↔fold round-trip coverage."
+        },
+        {
+          "path": "tests/extract_equivalence.rs",
+          "description": "Recut the `genre.` fences (4 refs) to `member.`."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Recut the `genre` vocab ref; assert embedded members still emit no per-member declaration/provenance rows."
+        },
+        {
+          "path": "tests/display_rule.rs",
+          "description": "Recut `genre` fixture vocab; regenerate the four `display_rule__*` snapshots below via `cargo insta`."
+        },
+        {
+          "path": "tests/snapshots/display_rule__decision_value.snap",
+          "description": "Regenerate for the recut render vocabulary."
+        },
+        {
+          "path": "tests/snapshots/display_rule__empty_value.snap",
+          "description": "Regenerate for the recut render vocabulary."
+        },
+        {
+          "path": "tests/snapshots/display_rule__leaves_only_value.snap",
+          "description": "Regenerate for the recut render vocabulary."
+        },
+        {
+          "path": "tests/snapshots/display_rule__collections_only_value.snap",
+          "description": "Regenerate for the recut render vocabulary."
+        },
+        {
+          "path": "tests/snapshots/read_verbs__impact_leaf_grain.snap",
+          "description": "Regenerate if the `genre`→member recut changes the rendered impact vocabulary."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Recut the `genre` fences/vocab (26 refs) and add write-face coverage: a `blocks()` body emits the `member.<kind> <key>` TOML fence, round-tripping through the engine fold to identical embedded members."
+        }
+      ],
+      "retire": ["sdk/src/genres.ts"]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a blocks() body projects the `member.<kind> <key>` TOML fence into the host body; the emitted fence round-trips through the engine fold to identical EmbeddedMembers"
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "the fold reads `member.<kind> <key>` fences (not `genre.`) into typed EmbeddedMembers; a `genre.`-prefixed fence is now a plain block, not a nested member"
+      }
+    ],
+    "acceptance": "An SDK blocks() body emits `member.<kind> <key>` TOML fences the engine fold reads back byte-identically (write↔read round-trip); no `genre` noun survives in src/ or sdk/ (grep clean); `genre()` and genres.ts are gone and embedded members carry no lock rows — every placement speaks the kernel noun (representation.md, 'locus').",
+    "notes": "0012, atomic recut: read fold (parse_embedded_info genre.→member.) and SDK write face (emit.ts resolveBody blocks branch) coupled by the round-trip → one entry despite wide surface (~77 refs/13 files, 5 snapshots, emit.test.ts). GenreValue re-homes to an embedded-member value (name is code's; kernel noun=member). Embedded members already carry no provenance rows (isProjected=at) — not new work. scoped at 4cdd3b2."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
