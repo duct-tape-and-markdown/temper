@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GLOB-ENGINE-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "Make the existing `fn normalize_path(path: &Path) -> PathBuf` (line 812 — drops `Component::CurDir`, collapses `Component::ParentDir` against a preceding `Normal` segment, keeps a leading `..` with nothing to pop) `pub(crate)` — it is the strict superset and stays the one home."
+          "description": "Make the existing `fn normalize_path(path: &Path) -> PathBuf` (line 758 — drops `Component::CurDir`, collapses `Component::ParentDir` against a preceding `Normal` segment, keeps a leading `..` with nothing to pop) `pub(crate)` — it is the strict superset and stays the one home. Its own call sites (graph.rs:704,712,750) are unaffected by the visibility change."
         },
         {
           "path": "src/import.rs",
@@ -29,7 +28,7 @@
     "tests": [
       {
         "path": "tests/graph.rs",
-        "asserts": "path-normalization-dependent resolution (`normalize_path` call sites at graph.rs:758,766,804) is unchanged"
+        "asserts": "path-normalization-dependent resolution (`normalize_path` call sites at graph.rs:704,712,750) is unchanged"
       },
       {
         "path": "tests/acceptance.rs",
@@ -37,7 +36,7 @@
       }
     ],
     "acceptance": "One `normalize_path` (graph.rs, `pub(crate)`); `import::normalize` no longer exists; every caller uses the shared one; `cargo test` green.",
-    "notes": "Refactor capture session-path-normalizers.md (observed at 0ccba8d), re-verified live at HEAD — both functions confirmed present, unchanged since; kept coverage_note.rs's `normalize_root` and drift.rs's `normalize_lf` untouched per the capture (different jobs, name collision only). Serialized behind GLOB-ENGINE-CONSOLIDATE — both entries edit src/import.rs and src/graph.rs; two open entries on the same files conflict at merge. scoped at 390e085"
+    "notes": "Refactor capture session-path-normalizers.md (0ccba8d), re-verified live at d6c37a3 after GLOB-ENGINE-CONSOLIDATE shipped and shifted graph.rs (was line 812, now 758; call sites now 704/712/750, not 758/766/804). Unblocked: GLOB-ENGINE-CONSOLIDATE shipped. Opens first of a 3-entry chain (then PLURAL-HELPER-CONSOLIDATE, then TEST-SCAFFOLDING-CONSOLIDATE) — both later entries share files with each other, so the wave stays one-open-at-a-time. scoped at d6c37a3"
   },
   {
     "tag": "PLURAL-HELPER-CONSOLIDATE",
@@ -48,7 +47,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "GLOB-ENGINE-CONSOLIDATE"
+      "tag": "PATH-NORMALIZER-CONSOLIDATE"
     },
     "dependsOnForks": [],
     "files": {
@@ -68,7 +67,7 @@
         },
         {
           "path": "src/install.rs",
-          "description": "Two inline byte-identical closures — `let plural = if modelines == 1 { \"\" } else { \"s\" };` (line ~494) and the same shape at line ~499 for `notes` — found while re-verifying this capture against HEAD, same job as the two named duplicates. Replace both with `crate::display::plural(modelines)` / `crate::display::plural(notes)`."
+          "description": "Two inline byte-identical closures — `let plural = if modelines == 1 { \"\" } else { \"s\" };` (line 494) and the same shape at line 498 for `notes` — same job as the two named duplicates. Replace both with `crate::display::plural(modelines)` / `crate::display::plural(notes)`."
         }
       ],
       "retire": []
@@ -89,28 +88,27 @@
       }
     ],
     "acceptance": "One `plural` helper (`src/display.rs`, `pub(crate)`); no duplicate definition or inline closure remains in bundle.rs, coverage_note.rs, or install.rs; `cargo test` green.",
-    "notes": "Refactor capture session-plural-helper.md (observed at 0ccba8d) named bundle.rs+coverage_note.rs only; install.rs's two inline closures are the same job, found re-verifying at HEAD — consolidation is the sanctioned expansion (engineering.md), named here rather than left as fresh residue. Serialized behind GLOB-ENGINE-CONSOLIDATE purely to keep the src/ consolidation wave ordered one-open-at-a-time; no direct file overlap between the two. scoped at 390e085"
+    "notes": "Refactor capture session-plural-helper.md (0ccba8d), re-verified live at d6c37a3 — all four cited line numbers (display.rs absent, bundle.rs:324, coverage_note.rs:221, install.rs:494/498) still accurate. Unblocked: GLOB-ENGINE-CONSOLIDATE shipped. Serialized behind PATH-NORMALIZER-CONSOLIDATE (not GLOB-ENGINE) purely to order the src/ wave one-open-at-a-time; no direct file overlap with it, but both would otherwise race TEST-SCAFFOLDING-CONSOLIDATE. scoped at d6c37a3"
   },
   {
     "tag": "TEST-SCAFFOLDING-CONSOLIDATE",
-    "summary": "Consolidate the ~28x-copy-pasted tmpdir() builder and 2x-copy-pasted fixture() helper into tests/common, adopting the sanctioned tempfile dev-dependency",
+    "summary": "Consolidate the 28x-copy-pasted tmpdir() builder and 2x-copy-pasted fixture() helper into tests/common, adopting the sanctioned tempfile dev-dependency",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "WINDOWS-VENDOR-SYMLINK-JUNCTION"
+      "tag": "PLURAL-HELPER-CONSOLIDATE"
     },
     "dependsOnForks": [],
     "files": {
-      "new": [
+      "new": [],
+      "edit": [
         {
           "path": "tests/common/mod.rs",
-          "description": "By the time this entry is picked up, WINDOWS-VENDOR-SYMLINK-JUNCTION has already shipped and created this module for `sdk_root`/`ensure_sdk_built`/`vendor_sdk` — listed here as `new` only because it does not exist on disk at THIS entry's scoping time (blockedBy); the build tick that picks this entry up is extending an existing file, not creating one. Add `pub fn tmpdir(label: &str) -> PathBuf` and `pub fn fixture(rel: &str) -> PathBuf`. `tmpdir` replaces the hand-rolled counter+pid+label scheme (byte-identical across all 20 copies) with the sanctioned `tempfile` crate's RAII builder (`tempfile::Builder::new().prefix(label).tempdir()` or equivalent) — confirm no caller relies on the temp dir surviving past the test process (RAII cleanup is a behavior change from the hand-rolled scheme, which never cleaned up); if any test asserts on a leaked directory, note it in the commit body rather than silently changing the assertion. `fixture` is a straight lift of the byte-identical helper in tests/acceptance.rs:75 and tests/extract_equivalence.rs:33."
-        }
-      ],
-      "edit": [
+          "description": "Already exists — WINDOWS-VENDOR-SYMLINK-JUNCTION shipped it with `sdk_root`/`ensure_sdk_built`/`vendor_sdk`. Extend it with `pub fn tmpdir(label: &str) -> PathBuf` and `pub fn fixture(rel: &str) -> PathBuf`. `tmpdir` replaces the hand-rolled counter+pid+label scheme (byte-identical across all 28 copies) with the sanctioned `tempfile` crate's RAII builder (`tempfile::Builder::new().prefix(label).tempdir()` or equivalent) — confirm no caller relies on the temp dir surviving past the test process (RAII cleanup is a behavior change from the hand-rolled scheme, which never cleaned up); if any test asserts on a leaked directory, note it in the commit body rather than silently changing the assertion. `fixture` is a straight lift of the byte-identical helper in tests/acceptance.rs:75 and tests/extract_equivalence.rs:33."
+        },
         {
           "path": "Cargo.toml",
           "description": "Add `tempfile` to `[dev-dependencies]` — already sanctioned (CLAUDE.md Tech stack: 'tempfile (dev: test temp dirs)') but not yet a declared dependency."
@@ -184,6 +182,18 @@
           "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`."
         },
         {
+          "path": "tests/emit.rs",
+          "description": "Already has `mod common;` (from WINDOWS-VENDOR-SYMLINK-JUNCTION, for `vendor_sdk`) but still carries its own local `tmpdir` (line 40) duplicating the same helper — found re-verifying this entry at HEAD, out of scope for that entry (it only touched sdk_root/vendor_sdk). Delete it; call sites use `common::tmpdir`."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Already has `mod common;` but still carries its own local `tmpdir` (line 43) — same gap as tests/emit.rs. Delete it; call sites use `common::tmpdir`."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Already has `mod common;` but still carries its own local `tmpdir` (line 23) — same gap as tests/emit.rs. Delete it; call sites use `common::tmpdir`."
+        },
+        {
           "path": "src/builtin_kind.rs",
           "description": "In-source `#[cfg(test)] mod tests`'s local `tmpdir` (line 484) switches to the sanctioned `tempfile` crate directly (in-src test modules cannot `mod common` from tests/) — same RAII-vs-hand-rolled consideration as the tests/common version."
         },
@@ -205,7 +215,7 @@
         },
         {
           "path": "src/coverage_note.rs",
-          "description": "In-source test `tmpdir` (line 419) switches to `tempfile` directly."
+          "description": "In-source test `tmpdir` (line 420) switches to `tempfile` directly."
         },
         {
           "path": "src/install.rs",
@@ -230,7 +240,7 @@
       }
     ],
     "acceptance": "`tests/common::tmpdir`/`fixture` are the one home for every integration test; every in-src `#[cfg(test)]` module uses `tempfile` directly; no hand-rolled counter+pid tmpdir scheme remains anywhere in `src/`/`tests/`; `cargo test` green.",
-    "notes": "Capture session-tmpdir-scaffolding.md (observed 0ccba8d), re-verified — 28 tmpdir + 2 fixture copies confirmed present; tests/common absent. fixture() folded in, same job, found re-verifying. Blocked on WINDOWS-VENDOR-SYMLINK-JUNCTION: creates tests/common/mod.rs, edits tests/{emit,install,builtin_lock_frozen}.rs — two open entries on the same files conflict. RAII is a behavior change from the never-cleaned hand-roll — flag in commit body. scoped at 390e085"
+    "notes": "Re-verified at d6c37a3: tests/common/mod.rs now exists (windows-vendor entry shipped it), moved new->edit. Found emit.rs/install.rs/builtin_lock_frozen.rs still carry local tmpdir (that entry only handled sdk_root/vendor_sdk) — added to close the 28-copy count. coverage_note.rs line 419->420 (glob entry shifted it). Serialized behind PLURAL-HELPER-CONSOLIDATE: overlaps it (bundle/coverage_note/install.rs) and PATH-NORMALIZER-CONSOLIDATE (import.rs). scoped at d6c37a3"
   },
   {
     "tag": "TEST-FIXTURE-HELPERS-CONSOLIDATE",
@@ -245,13 +255,12 @@
     },
     "dependsOnForks": [],
     "files": {
-      "new": [
+      "new": [],
+      "edit": [
         {
           "path": "tests/common/mod.rs",
-          "description": "Listed here as `new` only because it does not exist on disk at THIS entry's scoping time (blockedBy TEST-SCAFFOLDING-CONSOLIDATE, which creates it for tmpdir/fixture/vendor_sdk) — the build tick that picks this entry up is extending an existing file, not creating one. Add one shared `write_skill(root: &Path, name: &str, skill_md: &str)` — the byte-identical body duplicated as `write_harness` in tests/cli.rs:80, tests/session_start.rs:62, tests/reporters.rs:181 AND as `write_skill` in tests/coverage.rs:60, tests/memory_gate.rs:62, tests/requirement_roster.rs:66 (same body, two names, 6 sites — one function). Add one `check_in` covering the 3 exact-dup `CheckRun{ok,output}`+`check_in(root)` sites (tests/graph.rs:89,96; tests/coverage.rs:117,124; tests/requirement_roster.rs:165,172 — plain `temper check`) and the 2 near-dup github-reporter shapes (tests/gate_fail_loud.rs:85, `(Vec<String>, bool)` + extra args; tests/lock_declaration_rows.rs:770, `(bool, String)`) — one function parameterized by reporter/args, each caller adapting to its own return shape. Add one `author_satisfies` covering the 3-arg dup (tests/coverage.rs:69, tests/requirement_roster.rs:75) and the 4-arg `kind_dir`-parameterized dup (tests/graph.rs:180, tests/lock_declaration_rows.rs:850) as one function (3-arg callers pass a default `kind_dir`). Add one `tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>>` backed by the sanctioned `walkdir` crate (already a direct Cargo.toml dependency, line 26) replacing the hand-rolled `fs::read_dir` stack walk triplicated at tests/bundle.rs:90, tests/install.rs:180, tests/emit.rs:53."
-        }
-      ],
-      "edit": [
+          "description": "Already exists (WINDOWS-VENDOR-SYMLINK-JUNCTION shipped it; TEST-SCAFFOLDING-CONSOLIDATE, blocking this entry, further extends it with tmpdir/fixture) — extend it further. Add one shared `write_skill(root: &Path, name: &str, skill_md: &str)` — the byte-identical body duplicated as `write_harness` in tests/cli.rs:80, tests/session_start.rs:62, tests/reporters.rs:181 AND as `write_skill` in tests/coverage.rs:60, tests/memory_gate.rs:62, tests/requirement_roster.rs:66 (same body, two names, 6 sites — one function). Add one `check_in` covering the 3 exact-dup `CheckRun{ok,output}`+`check_in(root)` sites (tests/graph.rs:89,96; tests/coverage.rs:117,124; tests/requirement_roster.rs:165,172 — plain `temper check`) and the 2 near-dup github-reporter shapes (tests/gate_fail_loud.rs:85, `(Vec<String>, bool)` + extra args; tests/lock_declaration_rows.rs:770, `(bool, String)`) — one function parameterized by reporter/args, each caller adapting to its own return shape. Add one `author_satisfies` covering the 3-arg dup (tests/coverage.rs:69, tests/requirement_roster.rs:75) and the 4-arg `kind_dir`-parameterized dup (tests/graph.rs:180, tests/lock_declaration_rows.rs:850) as one function (3-arg callers pass a default `kind_dir`). Add one `tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>>` backed by the sanctioned `walkdir` crate (already a direct Cargo.toml dependency, line 26) replacing the hand-rolled `fs::read_dir` stack walk triplicated at tests/bundle.rs:90, tests/install.rs:148, tests/emit.rs:54."
+        },
         {
           "path": "tests/cli.rs",
           "description": "Delete the local `write_harness` (line 80, byte-identical to coverage.rs's `write_skill`); its call sites use `common::write_skill`."
@@ -298,11 +307,11 @@
         },
         {
           "path": "tests/install.rs",
-          "description": "Delete the local `tree_bytes` (line 180); call sites use `common::tree_bytes`."
+          "description": "Delete the local `tree_bytes` (line 148); call sites use `common::tree_bytes`."
         },
         {
           "path": "tests/emit.rs",
-          "description": "Delete the local `tree_bytes` (line 53); call sites use `common::tree_bytes`."
+          "description": "Delete the local `tree_bytes` (line 54); call sites use `common::tree_bytes`."
         }
       ],
       "retire": []
@@ -323,7 +332,7 @@
       }
     ],
     "acceptance": "tests/common exports one write_skill, one check_in (reporter/args-parameterized), one author_satisfies (kind_dir-parameterized), and one walkdir-backed tree_bytes; no duplicate or near-duplicate definition of any of the four remains in the 13 edited test files; `cargo test` green.",
-    "notes": "Found in job 4's residue sweep, same 'test scaffolding is a surface too' class as TEST-SCAFFOLDING-CONSOLIDATE but different symbols -- blockedBy it, same files (avoid two opens on one file). write_harness (cli/session_start/reporters.rs) and write_skill (coverage/memory_gate/requirement_roster.rs) are byte-identical under two names, 6 sites -> 1 fn. tree_bytes is double residue: triplicated AND hand-rolled where walkdir (already a direct Cargo dep) fits. scoped at da9245c"
+    "notes": "Found in job 4's residue sweep, same 'test scaffolding is a surface too' class as TEST-SCAFFOLDING-CONSOLIDATE but different symbols -- blockedBy it, same files (avoid two opens on one file). Re-verified live at d6c37a3: tests/common/mod.rs now exists (moved new->edit here); tests/install.rs's tree_bytes line corrected 180->148 and tests/emit.rs's 53->54 (both shifted by db34aea's sdk_root/vendor_sdk consolidation). All other cited line numbers still accurate. scoped at d6c37a3"
   },
   {
     "tag": "PACKAGING-CHANNELS",

@@ -1,37 +1,47 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: 37a92f0
+- Audited through: d6c37a3
 - Residue swept through: da9245c
-- This tick: Residue sweep (job 4). Inbox empty, no refactor captures, spec
-  delta empty, and `git log 37a92f0..HEAD -- src/ tests/ sdk/` empty — jobs
-  1-3 all quiet, so this tick swept src/tests/sdk against the corpus for
-  vocabulary the corpus no longer sanctions and second implementations of
-  one job, beyond the six already-filed consolidation entries. An Explore
-  agent's findings were independently re-verified line-by-line (not taken on
-  faith): (1) three doc-comment cites to the deleted `packages/*/PACKAGE.md`
-  tree survive in sdk/src/builtins.ts:308,348,385 — this is comment/citation
-  staleness, the one exception job 4 carves out ("rides whichever entry
-  next opens that file, never a standalone entry"); docs/ledger.md already
-  independently tracks it as parked human follow-up hygiene, so nothing
-  filed. (2) Five more copy-pasted integration-test builders confirmed live
-  across the same file set TEST-SCAFFOLDING-CONSOLIDATE already touches —
-  write_harness/write_skill (byte-identical body under two names, 6 sites),
-  CheckRun+check_in (3 exact + 2 near-dup shapes), author_satisfies (two
-  arities, 2 sites each), and tree_bytes (triplicated AND a hand-rolled walk
-  where the sanctioned `walkdir` crate — already a direct Cargo dependency —
-  fits). Filed as TEST-FIXTURE-HELPERS-CONSOLIDATE, `blockedBy:
-  TEST-SCAFFOLDING-CONSOLIDATE` since every file it touches is already in
-  that entry's edit list — two opens on the same files would conflict at
-  merge. No other duplicate helpers, hand-rolled glob/regex/serialization,
-  or retired vocabulary found beyond what's already filed. Cursor advances
-  to HEAD (da9245c).
-- Queue: WINDOWS-VENDOR-SYMLINK-JUNCTION (open) — GLOB-ENGINE-CONSOLIDATE
-  (open) — CLAUSE-FROM-ROW-CONSOLIDATE (open) — SDK-SEAM-ENCODE-CONSOLIDATE
-  (open) — PATH-NORMALIZER-CONSOLIDATE (blockedBy glob) —
-  PLURAL-HELPER-CONSOLIDATE (blockedBy glob) — TEST-SCAFFOLDING-CONSOLIDATE
-  (blockedBy windows-vendor) — TEST-FIXTURE-HELPERS-CONSOLIDATE (blockedBy
+- This tick: Ship audit (job 3). `git log 37a92f0..HEAD -- src/ tests/ sdk/`
+  showed four commits: db34aea (SDK-vendoring scaffolding into
+  tests/common), 4c3e473 (glob engines onto globset), e071af2 (clause-row
+  decoders onto contract::predicate_from_row), 84ed106 (encodeSeam). Verified
+  each on disk (not from the log): `tests/common::vendor_sdk` exists with
+  the cited unix-symlink/Windows-junction split; `kind::compile_glob` exists
+  and every prior caller resolves through it; `contract::predicate_from_row`
+  exists and both call sites (builtin.rs, main.rs) use it; `encodeSeam`
+  exists and backs both declarationsToJson and emit's seam. `cargo
+  test`/`clippy -D warnings`/`fmt --check` all green (229 unit+integration
+  tests). The build's own commit (d6c37a3) had already dropped the four
+  shipped tags from pending.json; re-tested the two stale `blockedBy` gates
+  those shippings named: GLOB-ENGINE-CONSOLIDATE unblocks
+  PATH-NORMALIZER-CONSOLIDATE and PLURAL-HELPER-CONSOLIDATE,
+  WINDOWS-VENDOR-SYMLINK-JUNCTION unblocks TEST-SCAFFOLDING-CONSOLIDATE —
+  all three rewritten with corrected line numbers (glob's consolidation
+  shifted graph.rs/coverage_note.rs; the windows entry shifted
+  tests/install.rs/emit.rs). Discovered the three now-open entries pairwise
+  share files (TEST-SCAFFOLDING-CONSOLIDATE touches import.rs/bundle.rs/
+  coverage_note.rs/install.rs, each also claimed by one of the other two) —
+  serialized into one chain (PATH-NORMALIZER-CONSOLIDATE open ->
+  PLURAL-HELPER-CONSOLIDATE -> TEST-SCAFFOLDING-CONSOLIDATE ->
+  TEST-FIXTURE-HELPERS-CONSOLIDATE, unchanged) since the schema's single
+  `blockedBy` tag can't express "wait for both." Also found
+  tests/common/mod.rs now exists on disk (WINDOWS-VENDOR-SYMLINK-JUNCTION
+  created it) so it moved `new`->`edit` in both TEST-SCAFFOLDING-CONSOLIDATE
+  and TEST-FIXTURE-HELPERS-CONSOLIDATE — left as `new` would fail the fence
+  gate. And found tests/emit.rs, tests/install.rs, tests/builtin_lock_frozen.rs
+  still each carry a local `tmpdir` the windows entry didn't touch (it only
+  handled their sdk_root/vendor_sdk half) — added to TEST-SCAFFOLDING-CONSOLIDATE
+  to close the 28-copy count exactly. PACKAGING-CHANNELS' parked condition
+  re-checked: no `.github/workflows/release.yml`, root package.json still
+  the private flume manifest, sdk still 0.0.5 — unchanged. Cursor advances
+  to HEAD (d6c37a3).
+- Queue: PATH-NORMALIZER-CONSOLIDATE (open) — PLURAL-HELPER-CONSOLIDATE
+  (blockedBy path-normalizer) — TEST-SCAFFOLDING-CONSOLIDATE (blockedBy
+  plural-helper) — TEST-FIXTURE-HELPERS-CONSOLIDATE (blockedBy
   test-scaffolding) — PACKAGING-CHANNELS (parked, condition unchanged).
 
-Plan continues: no — inbox, spec delta, ship audit, and residue sweep are
-all current; four entries are `open` and pickable now, so build takes over.
+Plan continues: yes — residue sweep (job 4) is next: inbox, spec delta, and
+ship audit are all current, but `Residue swept through` (da9245c) still
+trails HEAD.
