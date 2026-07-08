@@ -3,26 +3,26 @@
 - Spec derived through: f87cc0c
 - Audited through: 220e9cd
 - Residue swept through: 38c01c5
-- This tick: Quiet closing pass. Verified all four inputs still current:
-  no specs/ commits past f87cc0c; no src/tests/sdk commits past 220e9cd
-  (only two plan: commits landed since, neither touching gated trees);
-  inbox and refactor-captures both empty. Re-checked the two open
-  entries' file lists programmatically — TEST-SCAFFOLDING-CONSOLIDATE and
-  PLURAL-HELPER-CONSOLIDATE(reporter) share zero paths, confirmed
-  disjoint. Every blockedBy/parked gate reason re-read and still holds
-  (FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE, TEST-FIXTURE-HELPERS-CONSOLIDATE,
-  and the two TEST-HELPER-DUPES-CONSOLIDATE slices all still wait on their
-  cited upstream tag; PACKAGING-CHANNELS's parked condition is unchanged).
-  No open-question fork touched. No content change to pending.json or
-  open-questions.md this tick.
-- Queue: TEST-SCAFFOLDING-CONSOLIDATE (open, pickable) —
-  PLURAL-HELPER-CONSOLIDATE(reporter) (open, pickable, disjoint) —
-  FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE (blockedBy test-scaffolding) —
-  TEST-FIXTURE-HELPERS-CONSOLIDATE (blockedBy test-scaffolding) —
-  TEST-HELPER-DUPES-CONSOLIDATE(recordwriters) (blockedBy
-  test-fixture-helpers) — TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders)
-  (blockedBy recordwriters) — PACKAGING-CHANNELS (parked, condition
-  unchanged).
+- This tick: Inbox job. The harness's refactor-capture probe errored
+  (shell-quoting exec-failed), but `.flume/refactor/` held one live capture
+  the probe missed: `build-main-backing-tmpdir.md` (observed at 96e947d) —
+  src/main.rs's one test hand-rolls a temp dir (`env::temp_dir()` +
+  `process::id()` + manual `remove_dir_all`) instead of the `tempfile`-backed
+  `tmpdir(label)` helper TEST-SCAFFOLDING-CONSOLIDATE gave every other
+  in-src `#[cfg(test)]` module. Re-verified live at HEAD (src/main.rs:1141
+  unchanged since 96e947d); filed TMPDIR-HELPER-CONSOLIDATE(mainrs), open
+  and disjoint (touches only src/main.rs, no other entry does); deleted the
+  capture.
+- Queue: TMPDIR-HELPER-CONSOLIDATE(mainrs) (open, pickable) —
+  FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE (blockedBy test-scaffolding,
+  shipped-but-unaudited) — TEST-FIXTURE-HELPERS-CONSOLIDATE (blockedBy
+  test-scaffolding, shipped-but-unaudited) — TEST-HELPER-DUPES-CONSOLIDATE
+  (recordwriters) (blockedBy test-fixture-helpers) —
+  TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders) (blockedBy recordwriters)
+  — PACKAGING-CHANNELS (parked, condition unchanged).
 
-Plan continues: no — every input is current and the queue is disjoint;
-build takes over the two open, pickable entries.
+Plan continues: yes — ship audit is live next: 1894af9 and 7329585 (both
+`build:` commits shipping TEST-SCAFFOLDING-CONSOLIDATE and
+PLURAL-HELPER-CONSOLIDATE(reporter)) landed past `Audited through: 220e9cd`
+and touch src/tests; the two blockedBy-TEST-SCAFFOLDING-CONSOLIDATE entries
+above need their gate condition re-verified against shipped disk state.

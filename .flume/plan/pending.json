@@ -1,5 +1,36 @@
 [
   {
+    "tag": "TMPDIR-HELPER-CONSOLIDATE(mainrs)",
+    "summary": "Switch src/main.rs's lone hand-rolled test tempdir to the tempfile-backed tmpdir(label) pattern every other in-src test module already carries",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`mod tests` (line 1128) has one test, `repo_file_set_stays_raw_disk_including_gitignored_targets` (line 1140), that hand-rolls its temp dir: `let root = std::env::temp_dir().join(format!(\"temper-backing-{}\", std::process::id()));` (line 1141) plus a pre-emptive `fs::remove_dir_all(&root)` (line 1142) and a trailing `fs::remove_dir_all(&root)` (line 1157). Every other in-src `#[cfg(test)]` module already carries an identical private helper for this (e.g. `src/frontmatter.rs:565`, `src/check.rs:344`, `src/bundle.rs:329`): `fn tmpdir(label: &str) -> PathBuf { tempfile::Builder::new().prefix(label).tempdir().expect(\"failed to create temp dir\").keep() }`. Add that same helper to `main.rs`'s `mod tests`, replace line 1141 with `let root = tmpdir(\"repo-file-set\");`, and drop both `remove_dir_all` calls (lines 1142 and 1157) to match the sibling modules' convention (no manual cleanup — `tempfile` owns uniqueness, `.keep()` is deliberate per the sibling copies)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/main.rs",
+        "asserts": "repo_file_set_stays_raw_disk_including_gitignored_targets still passes unchanged — same gitignored-backing-target assertions, now against a tempfile-backed dir"
+      }
+    ],
+    "acceptance": "main.rs's test module uses the same tmpdir(label) helper every sibling in-src test module carries; no hand-rolled env::temp_dir()+process::id()+manual remove_dir_all construction remains in src/; cargo test green.",
+    "notes": "Drained from .flume/refactor/build-main-backing-tmpdir.md (observed at 96e947d, re-verified live at HEAD — src/main.rs:1141 unchanged since). Found while build verified TEST-SCAFFOLDING-CONSOLIDATE's acceptance bar: main.rs wasn't in that entry's files.edit (its one-off didn't match the counter+pid+label description), so this straggler is its own entry. Disjoint from every other open/blocked entry (none touch src/main.rs). scoped at 33c1f7f"
+  },
+  {
     "tag": "FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE",
     "summary": "Consolidate the byte-identical closing-`---`-delimiter scan loop duplicated in frontmatter.rs's split_frontmatter and install.rs's frontmatter_inner into one home",
     "per": {
