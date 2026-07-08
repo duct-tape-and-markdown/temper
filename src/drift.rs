@@ -1784,16 +1784,7 @@ impl MentionRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
-    /// crate rather than a hand-rolled counter+pid scheme.
-    fn tmpdir(label: &str) -> PathBuf {
-        tempfile::Builder::new()
-            .prefix(label)
-            .tempdir()
-            .expect("failed to create temp dir")
-            .keep()
-    }
+    use crate::test_support::tmpdir;
 
     #[test]
     fn to_lock_path_normalizes_a_backslash_joined_path() {

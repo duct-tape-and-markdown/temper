@@ -278,6 +278,7 @@ mod tests {
     use super::*;
     use crate::check::Severity;
     use crate::kind::{CustomKind, Extraction, Governs};
+    use crate::test_support::tmpdir;
 
     /// A minimal [`CustomKind`] with the given `governs` locus — enough for the
     /// governance-suppression tests, which read only `governs`.
@@ -409,16 +410,6 @@ mod tests {
             kind_governing("memory", ".", "CLAUDE.md"),
         )]);
         assert!(governed_by_any(&memory, &claude_md));
-    }
-
-    /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
-    /// crate rather than a hand-rolled counter+pid scheme.
-    fn tmpdir(label: &str) -> std::path::PathBuf {
-        tempfile::Builder::new()
-            .prefix(label)
-            .tempdir()
-            .expect("failed to create temp dir")
-            .keep()
     }
 
     /// Commit a lock at `<root>/.temper/lock.toml` declaring one `widget` kind
