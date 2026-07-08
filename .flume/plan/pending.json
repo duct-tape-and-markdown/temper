@@ -57,6 +57,18 @@
         {
           "path": "sdk/test/builtins.test.ts",
           "description": "Cover the agent kind + agentFloor (required fields, charset, uniqueness)."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "The `mod tests` built-in-kind assertions gain `agent` (five kinds): the name-list assert (line 53, `vec![\"command\",\"memory\",\"rule\",\"skill\"]`) and the floor-clause match (line 62, `Some(\"command\"|\"skill\"|\"rule\"|\"memory\")`)."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "Agent graduating to a built-in makes `.claude/agents` unconditionally governed, so its `KNOWN_SURFACES` row (lines 75-80) is permanently dead — remove it (parallel to COMMAND-KIND dropping the `command` row, efd6caa). The gap-logic comment (line 139) uses `an agent kind rooted at .claude/agents` as the *locked custom kind* example — retarget to a still-custom surface."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "`a_present_surface_with_no_locked_or_builtin_governor_is_still_flagged` (~line 488) asserts `.claude/agents` under `builtin_set()` is flagged ungoverned — false once agent is a built-in; retarget onto a surface still in `KNOWN_SURFACES` (`.mcp.json`/`.claude/settings.json`). `lock_agent_kind` + `a_locked_custom_kind_suppresses_the_surface_it_governs` (~lines 444-483) use `agent` as a custom-kind stand-in — rewire onto a fresh not-yet-shipped kind name (agent no longer stands in, as command stopped at efd6caa)."
         }
       ],
       "retire": []
@@ -69,7 +81,7 @@
       }
     ],
     "acceptance": "The agent kind ships: `.claude/agents/**/*.md` files fold recursively into agent members identified by the frontmatter `name` (the third identity mode), the built-in lock re-derives byte-clean, and `agentFloor` gates required fields, the documented `name` charset, and per-scope name uniqueness — each clause cited to the sub-agents doc (builtins.md, 'The shipped kinds').",
-    "notes": "0014, agent kind + named-field identity — the third mode, real engine work in from_source/UnitShape. Charset 'lowercase + hyphens' + required name/description cited to code.claude.com/docs/en/sub-agents (2026-07-07 per 0014). Closed-vocab/uniqueness clauses encoded only where the doc documents them decidably (else dropped, honest encoding). Plugin-context variants deferred (0014). COMMAND-KIND shipped efd6caa (four kinds); this makes five. scoped at 50e7094."
+    "notes": "0014: agent kind + named-field identity (third mode), real engine work in from_source/UnitShape. Charset 'lowercase+hyphens', name+description required, cited sub-agents doc 2026-07-07; closed-vocab/uniqueness only where decidable. Ripple added: agent becoming a built-in kills coverage_note's .claude/agents KNOWN_SURFACES row + its still-flagged/lock_agent_kind tests + builtin_lock.rs name/floor asserts (cf COMMAND-KIND efd6caa). Five kinds. scoped 3e666a5."
   },
   {
     "tag": "PACKAGING-CHANNELS",
