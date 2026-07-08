@@ -1,6 +1,6 @@
 ---
 source: tests/display_rule.rs
-expression: render_genre(&decision_value())
+expression: render_member(&decision_member())
 ---
 <a id="decision.surface-authority"></a>
 ### Decision: surface-authority

@@ -1,6 +1,6 @@
 ---
 source: tests/display_rule.rs
-expression: render_genre(&value)
+expression: render_member(&member)
 ---
 <a id="decision.empty"></a>
 ### Decision: empty
