@@ -393,16 +393,7 @@ pub(crate) fn body_headings(body: &str) -> Vec<String> {
     // The open fence's char and run length, while inside a fenced code block.
     let mut fence: Option<(char, usize)> = None;
     for line in body.lines() {
-        if let Some((fence_char, fence_len)) = fence_marker(line) {
-            match fence {
-                // A closing fence matches the opener's char and is at least as
-                // long; anything else inside a fence is just content.
-                Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
-                    fence = None;
-                }
-                Some(_) => {}
-                None => fence = Some((fence_char, fence_len)),
-            }
+        if track_fence(line, &mut fence) {
             continue;
         }
         if fence.is_none()
@@ -433,14 +424,7 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
     let mut heads: Vec<(usize, usize, String)> = Vec::new();
     let mut fence: Option<(char, usize)> = None;
     for (index, line) in lines.iter().enumerate() {
-        if let Some((fence_char, fence_len)) = fence_marker(line) {
-            match fence {
-                Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
-                    fence = None;
-                }
-                Some(_) => {}
-                None => fence = Some((fence_char, fence_len)),
-            }
+        if track_fence(line, &mut fence) {
             continue;
         }
         if fence.is_none()
@@ -635,6 +619,26 @@ fn fence_marker(line: &str) -> Option<(char, usize)> {
     (len >= 3).then_some((fence_char, len))
 }
 
+/// Advance a fence-tracking scan by one `line`, updating `fence` in place;
+/// returns whether `line` was a fence marker, so callers `continue` past it.
+/// A closing fence matches the opener's char and is at least as long;
+/// anything else inside a fence is just content. Shared by [`body_headings`],
+/// [`body_sections`], and [`body_at_imports`], whose fence exclusion is
+/// otherwise a byte-identical match on [`fence_marker`]'s result.
+fn track_fence(line: &str, fence: &mut Option<(char, usize)>) -> bool {
+    let Some((fence_char, fence_len)) = fence_marker(line) else {
+        return false;
+    };
+    match *fence {
+        Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
+            *fence = None;
+        }
+        Some(_) => {}
+        None => *fence = Some((fence_char, fence_len)),
+    }
+    true
+}
+
 /// The **level and text** of an ATX heading on this line, or `None` if it is not
 /// one. A heading is up to three leading spaces, a `#`..`######` run (the level),
 /// then a space/tab (or end of line); the returned text has the markers and an
@@ -698,18 +702,10 @@ pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
 /// this exact reader rather than a second one that could drift.
 pub(crate) fn body_at_imports(body: &str) -> Vec<String> {
     let mut imports = Vec::new();
-    // The open fence's char and run length, while inside a fenced code block — the
-    // identical state `body_headings` tracks, for the identical reason.
+    // The open fence's char and run length, while inside a fenced code block.
     let mut fence: Option<(char, usize)> = None;
     for line in body.lines() {
-        if let Some((fence_char, fence_len)) = fence_marker(line) {
-            match fence {
-                Some((open_char, open_len)) if fence_char == open_char && fence_len >= open_len => {
-                    fence = None;
-                }
-                Some(_) => {}
-                None => fence = Some((fence_char, fence_len)),
-            }
+        if track_fence(line, &mut fence) {
             continue;
         }
         if fence.is_none() {
