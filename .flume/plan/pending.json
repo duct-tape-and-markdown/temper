@@ -151,6 +151,37 @@
     "notes": "PLURAL-HELPER-CONSOLIDATE shipped (220e9cd) — unblocked, now open. Its edit rippled line numbers this entry cites: bundle.rs 336->331, coverage_note.rs 420->415, install.rs 1544->1548; import.rs 382->372 (stale since the earlier PATH-NORMALIZER-CONSOLIDATE ship, caught now). All eight in-src tmpdir refs re-verified against HEAD; 28-copy count still holds. scoped at 220e9cd"
   },
   {
+    "tag": "PLURAL-HELPER-CONSOLIDATE(reporter)",
+    "summary": "Consolidate reporter.rs's inline blocking-finding plural suffix into the shared display::plural helper — missed by the shipped PLURAL-HELPER-CONSOLIDATE",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/reporter.rs",
+          "description": "`verdict()` (line 91) inlines `if blocking.len() == 1 { \"\" } else { \"s\" }` at line 100 for the '{n} blocking finding{s}' session-start message — the same suffix logic PLURAL-HELPER-CONSOLIDATE (4baac1b) extracted to `crate::display::plural` for bundle.rs/coverage_note.rs/install.rs, but that entry's file list never named reporter.rs. Switch the call site to `crate::display::plural(blocking.len())`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/reporter.rs",
+        "asserts": "the in-source `verdict()` tests (asserting the singular/plural '{n} blocking finding{s}' text in the session-start additionalContext payload) are unchanged"
+      }
+    ],
+    "acceptance": "reporter.rs's verdict() calls crate::display::plural; no inline `\"\"`/`\"s\"` suffix ternary remains anywhere in src/; cargo test green.",
+    "notes": "Found sweeping 425968d..HEAD (4baac1b's diff): the shipped PLURAL-HELPER-CONSOLIDATE consolidated four call sites but missed this fifth, same-class inline ternary. grep confirms it is the only remaining copy in src/. scoped at 38c01c5"
+  },
+  {
     "tag": "FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE",
     "summary": "Consolidate the byte-identical closing-`---`-delimiter scan loop duplicated in frontmatter.rs's split_frontmatter and install.rs's frontmatter_inner into one home",
     "per": {

@@ -2,21 +2,19 @@
 
 - Spec derived through: f87cc0c
 - Audited through: 220e9cd
-- Residue swept through: 425968d
-- This tick: Ship audit 425968d..220e9cd. Verified PLURAL-HELPER-CONSOLIDATE
-  shipped clean (4baac1b: src/display.rs owns `plural(n)`, bundle.rs/
-  coverage_note.rs/install.rs all call the shared helper, no duplicate
-  remains; 220e9cd removed it from pending). Unblocked
-  TEST-SCAFFOLDING-CONSOLIDATE (gate blockedBy->open) and re-verified its
-  in-src tmpdir line refs against HEAD: bundle.rs 336->331, coverage_note.rs
-  420->415, install.rs 1544->1548 (rippled by the shipped edit); import.rs
-  382->372 (stale since the earlier PATH-NORMALIZER-CONSOLIDATE ship, caught
-  now). Refreshed FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE's install.rs refs
-  too (still blockedBy TEST-SCAFFOLDING-CONSOLIDATE, unshipped). Re-checked
-  PACKAGING-CHANNELS' parked condition: still true (no
-  .github/workflows/release.yml, package.json still the private flume
-  manifest).
+- Residue swept through: 38c01c5
+- This tick: Residue sweep 425968d..HEAD (38c01c5). Only 4baac1b
+  (PLURAL-HELPER-CONSOLIDATE) touched src/tests/sdk in range, already
+  ship-audited clean last tick. Grepped for the same suffix-ternary class
+  anyway and found src/reporter.rs:100's `verdict()` still inlines
+  `if blocking.len() == 1 { "" } else { "s" }` — the shipped entry's file
+  list covered bundle.rs/coverage_note.rs/install.rs but never named
+  reporter.rs, so this fifth copy survived. Filed
+  PLURAL-HELPER-CONSOLIDATE(reporter), open, disjoint from every other
+  pending entry's files. No other residue found; grep confirms it's the
+  only remaining inline copy in src/.
 - Queue: TEST-SCAFFOLDING-CONSOLIDATE (open, pickable) —
+  PLURAL-HELPER-CONSOLIDATE(reporter) (open, pickable, disjoint) —
   FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE (blockedBy test-scaffolding) —
   TEST-FIXTURE-HELPERS-CONSOLIDATE (blockedBy test-scaffolding) —
   TEST-HELPER-DUPES-CONSOLIDATE(recordwriters) (blockedBy
@@ -24,5 +22,5 @@
   (blockedBy recordwriters) — PACKAGING-CHANNELS (parked, condition
   unchanged).
 
-Plan continues: yes — residue sweep is next: Residue swept through
-(425968d) trails HEAD (220e9cd), and jobs 1-3 are now current.
+Plan continues: yes — quiet closing pass is next: inbox empty, spec delta
+empty, ship audit current (220e9cd), residue swept through HEAD.
