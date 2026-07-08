@@ -81,6 +81,55 @@
     "notes": "Found in job 4's residue sweep at ef72da3, second half of the pair filed with TEST-HELPER-DUPES-CONSOLIDATE(recordwriters). Blocker shipped at ec2dd42 (6-builder slice) + ff09cee (ship commit) — unblocked this tick; all 9 cited duplicates re-verified present at ff09cee with line numbers refreshed (ec2dd42 shifted every one). check_harness (memory_gate.rs, coverage_note.rs) still folds into check_in/CheckRun rather than becoming a third near-duplicate. scoped at ff09cee"
   },
   {
+    "tag": "TEST-HELPER-DUPES-CONSOLIDATE(rawunit)",
+    "summary": "Consolidate 5 near-identical raw-Unit-literal test constructors (5 copies across 4 files) into one parameterized tests/common helper",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "blockedBy", "tag": "TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders)" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "Add `pub fn raw_unit(id: &str, frontmatter: BTreeMap<String, serde_json::Value>, body: &str, source_path: &str) -> Unit`, building `Unit { id: id.to_string(), frontmatter, body: body.to_string(), source_path: PathBuf::from(source_path), satisfies: Vec::new(), satisfies_clauses: Vec::new(), published_requirements: Vec::new() }` — the shape all 5 call sites below share, varying only which of id/frontmatter/body/source_path is fixed vs a parameter."
+        },
+        {
+          "path": "tests/section_contains.rs",
+          "description": "Delete local `spec_unit(body: &str) -> Unit` (line 27, id `\"10-contracts\"`, empty frontmatter, source_path `specs/model/contract.md`); call sites use `common::raw_unit(\"10-contracts\", BTreeMap::new(), body, \"specs/model/contract.md\")`."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Delete local `decision_unit(body: &str) -> Unit` (line 39, id `\"05-surface-authority\"`, empty frontmatter, source_path `docs/decisions/05-surface-authority.md`); call sites use `common::raw_unit`."
+        },
+        {
+          "path": "tests/extract_equivalence.rs",
+          "description": "Delete local `memory_unit(body: &str) -> Unit` (line 78, id `\"CLAUDE\"`, empty frontmatter, source_path `CLAUDE.md`) and local `frontmatter_unit(frontmatter: serde_json::Map<...>) -> Unit` (line 170, id `\"settings\"`, empty body, source_path `settings/settings.md`); all call sites of both (several `#[test]` fns in this file) switch to `common::raw_unit` directly with the same fixed id/source_path constants."
+        },
+        {
+          "path": "tests/agent_kind.rs",
+          "description": "Delete local `unit_from_member(member: &Member) -> Unit` (line 60, the fully-parameterized shape — id/frontmatter/body/source_path all derived from `member`); call site uses `common::raw_unit(&member.id, member.fields.iter().cloned().collect(), &member.body, member.provenance.source_path.to_str().unwrap())`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/extract_equivalence.rs",
+        "asserts": "skill_features/directives/fenced/field-primitive scenarios driven by memory_unit/frontmatter_unit are unchanged after switching to common::raw_unit"
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "the member-fence nested-member fold scenarios driven by decision_unit are unchanged"
+      }
+    ],
+    "acceptance": "tests/common exports one raw_unit(id, frontmatter, body, source_path) -> Unit; the 5 duplicate raw-Unit-literal constructors (spec_unit, decision_unit, memory_unit, frontmatter_unit, unit_from_member) are gone from their 4 files, each call site wrapping common::raw_unit with its own fixed/derived values; cargo test green.",
+    "notes": "Filed in job 4's residue sweep at 18a110a. src/kind.rs:918 carries the same raw-Unit shape (spec_unit) but is the sole in-src copy on the crate-private side of the integration-test boundary (same split as src/test_support::tmpdir vs tests/common::tmpdir) — not residue, left alone. Shares tests/common/mod.rs, tests/agent_kind.rs, tests/extract_equivalence.rs with lockunitbuilders, hence blockedBy not open. scoped at 18a110a"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
