@@ -39,6 +39,53 @@
     "notes": "Refactor capture session-path-normalizers.md (0ccba8d), re-verified live at d6c37a3 after GLOB-ENGINE-CONSOLIDATE shipped and shifted graph.rs (was line 812, now 758; call sites now 704/712/750, not 758/766/804). Unblocked: GLOB-ENGINE-CONSOLIDATE shipped. Opens first of a 3-entry chain (then PLURAL-HELPER-CONSOLIDATE, then TEST-SCAFFOLDING-CONSOLIDATE) — both later entries share files with each other, so the wave stays one-open-at-a-time. scoped at d6c37a3"
   },
   {
+    "tag": "CLAUSE-ROW-LIFT-CONSOLIDATE",
+    "summary": "Consolidate the three near-duplicate ClauseRow-to-Clause lift functions (compose.rs, builtin.rs, main.rs) into one shared tolerant lift",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Extract the tolerant lift inside `default_contract_from_rows`'s `filter_map` closure (lines 143-150 today: `severity_from_label(&row.severity)?`, `contract::predicate_from_row(row)?`, `guidance: row.guidance.clone()`, `source: row.cite.clone()`) into a new `pub(crate) fn clause_from_row(row: &ClauseRow) -> Option<contract::Clause>`. `default_contract_from_rows` (line 137) calls it directly inside its `filter_map`."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "`fn clause_from_row` (lines 24-35 — the embedded-lock lift, `.expect()`-panicking on either invariant) becomes a thin wrapper over `crate::compose::clause_from_row`, keeping its own `.expect(\"...\")` panics on the wrapped call's `None` case: the embedded lock is this crate's own emit, so a row it cannot lift is a build-time bug, not a runtime condition (its own doc comment already states this, unchanged)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`fn clause_from_row` (lines 1082-1089 — the requirement-nested-clause lift, which deliberately sets `guidance`/`source` to `None`) becomes a thin wrapper over `crate::compose::clause_from_row` that overwrites `guidance`/`source` to `None` on the `Some` case. Its own doc comment already states the `None` is deliberate (a requirement-nested row's guidance isn't carried the same way); if implementing this turns up evidence the drop was actually an oversight rather than a documented choice, say so in the commit body rather than silently changing the behavior either way."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/compose.rs",
+        "asserts": "`default_contract_from_rows`'s own unit tests (`default_contract_from_rows_builds_a_custom_kinds_whole_default_contract`, `default_contract_from_rows_skips_a_row_it_cannot_lift`, lines 294 and 351) are unchanged after the closure becomes a named function"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "embedded built-in floor construction (`builtin::contract`, exercised by this suite's lock-declaration-row fixtures) renders the same clauses after builtin.rs wraps the shared lift"
+      },
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "requirement-nested clause construction (main.rs's `clause_from_row` call path) still carries `guidance: None, source: None` after wrapping the shared lift"
+      }
+    ],
+    "acceptance": "One `clause_from_row` tolerant lift (`src/compose.rs`, `pub(crate)`, `Option`-returning); `builtin.rs` and `main.rs` each wrap it instead of reimplementing the severity/predicate/guidance/source construction; `cargo test` green.",
+    "notes": "Found in job 4's residue sweep at ef72da3 — independent of the PATH-NORMALIZER/PLURAL-HELPER/TEST-*/chain (disjoint files: compose.rs, builtin.rs, main.rs never appear in it), so opens directly. compose.rs's own doc comment on `default_contract_from_rows` already says 'the same lift crate::builtin::contract runs' — the duplication was known in prose, never consolidated in code; main.rs's copy is a third, independently-diverging instance. scoped at ef72da3"
+  },
+  {
     "tag": "PLURAL-HELPER-CONSOLIDATE",
     "summary": "Consolidate the byte-identical `plural(n)` suffix helper (and two inline duplicate closures in install.rs) into one home",
     "per": {
@@ -333,6 +380,146 @@
     ],
     "acceptance": "tests/common exports one write_skill, one check_in (reporter/args-parameterized), one author_satisfies (kind_dir-parameterized), and one walkdir-backed tree_bytes; no duplicate or near-duplicate definition of any of the four remains in the 13 edited test files; `cargo test` green.",
     "notes": "Found in job 4's residue sweep, same 'test scaffolding is a surface too' class as TEST-SCAFFOLDING-CONSOLIDATE but different symbols -- blockedBy it, same files (avoid two opens on one file). Re-verified live at d6c37a3: tests/common/mod.rs now exists (moved new->edit here); tests/install.rs's tree_bytes line corrected 180->148 and tests/emit.rs's 53->54 (both shifted by db34aea's sdk_root/vendor_sdk consolidation). All other cited line numbers still accurate. scoped at d6c37a3"
+  },
+  {
+    "tag": "TEST-HELPER-DUPES-CONSOLIDATE(recordwriters)",
+    "summary": "Consolidate 6 more copy-pasted test builders (write_requirements, write_rule, write_retired_manifest, write_lock, retired_manifest_name, clean_skill) into tests/common",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "TEST-FIXTURE-HELPERS-CONSOLIDATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "Already exists, extended by every entry ahead of this one in the chain. Add six byte-identical-per-copy helpers this residue sweep found past the four TEST-FIXTURE-HELPERS-CONSOLIDATE already covers: `pub fn write_requirements(root: &Path, requirements: Vec<RequirementRow>)` (3 copies: tests/gate_fail_loud.rs:69, tests/requirement_roster.rs:262, tests/coverage.rs:103); `pub fn write_rule(root: &Path, name: &str)` (tests/coverage.rs:359, tests/requirement_roster.rs:96); `pub fn write_retired_manifest(root: &Path, contents: &str)` (tests/graph.rs:119, tests/requirement_roster.rs:215); `pub fn write_lock(root: &Path, declarations: Declarations)` (tests/graph.rs:127, tests/lock_declaration_rows.rs:940); `pub fn retired_manifest_name() -> String` (tests/requirement_roster.rs:208, tests/graph.rs:112); `pub fn clean_skill(name: &str) -> String` (tests/graph.rs:47, tests/requirement_roster.rs:50)."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Delete the local `write_requirements` (line 69); call sites use `common::write_requirements`."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Delete the local `write_requirements` (line 262), `write_rule` (line 96), `write_retired_manifest` (line 215), `retired_manifest_name` (line 208), `clean_skill` (line 50); call sites use `common::*`."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Delete the local `write_requirements` (line 103) and `write_rule` (line 359); call sites use `common::*`."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Delete the local `write_retired_manifest` (line 119), `write_lock` (line 127), `retired_manifest_name` (line 112), `clean_skill` (line 47); call sites use `common::*`."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Delete the local `write_lock` (line 940); call sites use `common::write_lock`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "requirement-roster fixtures built from write_requirements/write_rule/write_retired_manifest/retired_manifest_name/clean_skill render unchanged after switching to the shared common helpers"
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "graph resolution tests using write_lock/write_retired_manifest/clean_skill are unchanged"
+      }
+    ],
+    "acceptance": "tests/common exports one write_requirements, write_rule, write_retired_manifest, write_lock, retired_manifest_name, clean_skill; no duplicate definition remains in gate_fail_loud.rs, requirement_roster.rs, coverage.rs, graph.rs, or lock_declaration_rows.rs; `cargo test` green.",
+    "notes": "Found in job 4's residue sweep at ef72da3 -- six byte-identical helper groups past TEST-FIXTURE-HELPERS-CONSOLIDATE's scope (different symbols: requirement/rule/retired-manifest/lock writers, not write_skill/check_in/author_satisfies/tree_bytes). blockedBy TEST-FIXTURE-HELPERS-CONSOLIDATE: shares graph.rs/coverage.rs/requirement_roster.rs/lock_declaration_rows.rs/gate_fail_loud.rs/tests/common/mod.rs with it. scoped at ef72da3"
+  },
+  {
+    "tag": "TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders)",
+    "summary": "Consolidate 9 more copy-pasted/near-duplicate test builders (unit/member/kind-facts/findings/satisfies/requirement helpers) and fold check_harness into check_in",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "TEST-HELPER-DUPES-CONSOLIDATE(recordwriters)"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "Extend further (chain continues from the recordwriters slice). Add `pub fn surface_unit(member: &Member, member_doc: &str, dir: &Path) -> Unit` (tests/command_kind.rs:63, tests/agent_kind.rs:62, identical); `pub fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember` (tests/lock_declaration_rows.rs:95, tests/emit.rs:123, identical); `pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMember` — the Option-taking superset (tests/emit.rs:109 today); tests/lock_declaration_rows.rs:108's non-Option 3-arg callers pass `Some(paths)`; `pub fn rule_kind_facts(...) -> KindFactRow` and `pub fn skill_kind_facts(...) -> KindFactRow`, each parameterized by the provider/registration values the 2-3 copies diverge on (tests/lock_declaration_rows.rs:67,50; tests/emit.rs:83,96; tests/acceptance.rs:137); `pub fn skill_surface_unit(skill: &Member, name: Option<&str>) -> Unit` — tests/acceptance.rs:65's no-name 1-arg callers pass `None` and keep deriving from `skill.id`, tests/extract_equivalence.rs:58's name-carrying callers pass `Some(name)`; `pub fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String>` (tests/memory_gate.rs:100, tests/gate_fail_loud.rs:104, tests/coverage_note.rs:123, identical); `pub fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str])` (tests/coverage.rs:371, tests/requirement_roster.rs:109, identical); `pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> RequirementRow` — the union of three shapes (tests/gate_fail_loud.rs:55 passes `false, None`; tests/coverage.rs:89 passes `required, None`; tests/requirement_roster.rs:221 passes `false, Some(kind)`). Fold `check_harness`'s `(Vec<String>, bool)` shape (tests/coverage_note.rs:104) into the `check_in` family TEST-FIXTURE-HELPERS-CONSOLIDATE already added — same job (run `temper check --reporter github`, parse `::`-prefixed lines), not a fifth near-duplicate helper."
+        },
+        {
+          "path": "tests/command_kind.rs",
+          "description": "Delete local `surface_unit` (line 63); call sites use `common::surface_unit`."
+        },
+        {
+          "path": "tests/agent_kind.rs",
+          "description": "Delete local `surface_unit` (line 62); call sites use `common::surface_unit`."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Delete local `skill_member` (line 95), `rule_member` (line 108, 3-arg `&[&str]` shape — pass `Some(paths)`), `rule_kind_facts` (line 67), `skill_kind_facts` (line 50); call sites use `common::*`, each supplying its own provider/registration values."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Delete local `skill_member` (line 123), `rule_member` (line 109, already `Option`-shaped), `rule_kind_facts` (line 83), `skill_kind_facts` (line 96); call sites use `common::*`."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "Delete local `skill_kind_facts` (line 137), `skill_surface_unit` (line 65, no-name 1-arg shape); call sites use `common::*`, passing `None` for the name param."
+        },
+        {
+          "path": "tests/extract_equivalence.rs",
+          "description": "Delete local `skill_surface_unit` (line 58, 2-arg name-carrying shape); call sites use `common::skill_surface_unit`, passing `Some(name)`."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "Delete local `findings_for` (line 100) and local `check_harness` (line 82, `Vec<String>` shape); call sites use `common::findings_for` and the shared `check_in` family, adapting to its return shape."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "Delete local `findings_for` (line 123) and local `check_harness` (line 104, `(Vec<String>, bool)` shape); call sites use `common::findings_for` and the shared `check_in` family."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Delete local `findings_for` (line 104) and local `requirement` (line 55, 1-arg shape — pass `false, None`); call sites use `common::*`."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Delete local `author_rule_satisfies` (line 371) and local `requirement` (line 89, 2-arg `required`-carrying shape — pass `required, None`); call sites use `common::*`."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Delete local `author_rule_satisfies` (line 109) and local `requirement` (line 221, 2-arg `kind`-carrying shape — pass `false, Some(kind)`); call sites use `common::*`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "lock-row fixtures built from skill_member/rule_member/rule_kind_facts/skill_kind_facts are unchanged after switching to the shared, parameterized common helpers"
+      },
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "author_rule_satisfies-driven and requirement()-driven roster scenarios are unchanged for every (required, kind) combination in use today"
+      },
+      {
+        "path": "tests/coverage_note.rs",
+        "asserts": "check_harness's success-bool-carrying scenarios are unchanged after folding into the shared check_in family"
+      }
+    ],
+    "acceptance": "tests/common exports one surface_unit, skill_member, rule_member, rule_kind_facts, skill_kind_facts, skill_surface_unit, findings_for, author_rule_satisfies, requirement (each parameterized to its callers' full range), and check_harness folds into the existing check_in family; no duplicate or near-duplicate definition of any of these remains in the 11 edited test files; `cargo test` green.",
+    "notes": "Found in job 4's residue sweep at ef72da3, second half of the pair filed with TEST-HELPER-DUPES-CONSOLIDATE(recordwriters). blockedBy it: shares lock_declaration_rows.rs/gate_fail_loud.rs/coverage.rs/requirement_roster.rs/tests/common/mod.rs with it. check_harness (memory_gate.rs:82, coverage_note.rs:104) was missed by TEST-FIXTURE-HELPERS-CONSOLIDATE's check_in scoping — folds in here rather than becoming a fifth near-duplicate. scoped at ef72da3"
   },
   {
     "tag": "PACKAGING-CHANNELS",
