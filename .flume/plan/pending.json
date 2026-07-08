@@ -203,6 +203,46 @@
     "notes": "Re-verified at d6c37a3: tests/common/mod.rs now exists (windows-vendor entry shipped it), moved new->edit. Found emit.rs/install.rs/builtin_lock_frozen.rs still carry local tmpdir (that entry only handled sdk_root/vendor_sdk) — added to close the 28-copy count. coverage_note.rs line 419->420 (glob entry shifted it). Serialized behind PLURAL-HELPER-CONSOLIDATE: overlaps it (bundle/coverage_note/install.rs) and PATH-NORMALIZER-CONSOLIDATE (import.rs). scoped at d6c37a3"
   },
   {
+    "tag": "FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE",
+    "summary": "Consolidate the byte-identical closing-`---`-delimiter scan loop duplicated in frontmatter.rs's split_frontmatter and install.rs's frontmatter_inner into one home",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "TEST-SCAFFOLDING-CONSOLIDATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/frontmatter.rs",
+          "description": "`split_frontmatter` (line 409) inlines the closing-delimiter scan (lines 417-426: `for line in rest.split_inclusive('\\n') { let content = line.strip_suffix('\\n')...; if content.trim_end() == \"---\" { ... } offset += line.len(); }`) after its own opening-delimiter check. Extract the scan into `pub(crate) fn closing_delimiter(rest: &str) -> Option<(&str, &str)>` returning `(matter, body)` slices of `rest`; `split_frontmatter` keeps its opening check (`raw.split_once('\\n')`, `first.trim_end() != \"---\"`) and delegates the rest to it."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Delete `frontmatter_inner` (line 1459) — its own doc comment admits it 'mirrors the delimiter detection the loaders use': a byte-for-byte copy of the same scan loop, returning only the matter half. Its three call sites — `project_modeline` (line 1410), `project_note` (line 1439), `placement_lines` (line 1481), each already holding `rest = source.strip_prefix(\"---\\n\")?` — use `crate::frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "modeline-insertion and managed-by-note projection (project_modeline/project_note/placement_lines-driven discovery-report behavior) is unchanged for frontmatter with and without a closing delimiter"
+      },
+      {
+        "path": "src/frontmatter.rs",
+        "asserts": "the in-source frontmatter split tests (with/without a closing `---`, with a false-positive `---`-looking body line) are unchanged"
+      }
+    ],
+    "acceptance": "One closing-delimiter scanner (`crate::frontmatter::closing_delimiter`, `pub(crate)`); no duplicate scan loop remains in install.rs; `cargo test` green.",
+    "notes": "Found in job 4 residue sweep at 425968d: both functions' own doc comments say they 'mirror' the same delimiter detection — the second author knew of the first, wrote a second copy anyway. gray_matter isn't used directly here since it doesn't preserve raw bytes verbatim (pinned-semantics exception, engineering.md). Shares install.rs+frontmatter.rs with PLURAL-HELPER-CONSOLIDATE/TEST-SCAFFOLDING-CONSOLIDATE (in-src-test-tmpdir edits) — blockedBy TEST-SCAFFOLDING-CONSOLIDATE. scoped at 425968d"
+  },
+  {
     "tag": "TEST-FIXTURE-HELPERS-CONSOLIDATE",
     "summary": "Consolidate 5 more copy-pasted integration-test builders (write_harness/write_skill twins, CheckRun/check_in, author_satisfies, tree_bytes) into tests/common",
     "per": {

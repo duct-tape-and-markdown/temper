@@ -2,32 +2,33 @@
 
 - Spec derived through: f87cc0c
 - Audited through: 425968d
-- Residue swept through: ef72da3
-- This tick: Ship audit d6c37a3..425968d (job 3; jobs 1-2 checked quiet first
-  — inbox/refactor-captures empty, spec-delta empty). Verified on disk:
-  24f9bbc consolidated import.rs's `normalize` into graph.rs's
-  `normalize_path` (import.rs's three callers can't hit the `..` case, no
-  behavior change); ad9f4af extracted `compose::clause_from_row`, wrapped by
-  builtin.rs (kept its `.expect()` panics) and main.rs (kept its
-  guidance/source drop). Both shipped entries (PATH-NORMALIZER-CONSOLIDATE,
-  CLAUSE-ROW-LIFT-CONSOLIDATE) already removed from pending.json by the
-  shipping commit (425968d) — nothing left to drop. Re-tested the one stale
-  gate this unblocks: PLURAL-HELPER-CONSOLIDATE was `blockedBy`
-  PATH-NORMALIZER-CONSOLIDATE (now shipped) — moved to `open`; its cited
-  files (display.rs, bundle.rs:324, coverage_note.rs:221,
-  install.rs:494/498) are untouched by either shipped commit, line numbers
-  still accurate. Re-checked PACKAGING-CHANNELS's parked reason on disk:
-  still no `.github/workflows/release.yml`, root package.json still the
-  private flume manifest, sdk/package.json still 0.0.5 — reason holds
-  unchanged. `cargo check` clean, working tree otherwise clean.
+- Residue swept through: 425968d
+- This tick: Residue sweep ef72da3..425968d (job 4). Verified 24f9bbc/ad9f4af
+  landed clean — import.rs fully switched to `graph::normalize_path`, no
+  leftover `normalize`; builtin.rs/main.rs both wrap
+  `compose::clause_from_row`, no reimplementation left behind; `normalize_lf`
+  (drift.rs) and `normalize_root` (coverage_note.rs) are distinct jobs, not
+  residue. Broader sweep (src/, tests/, sdk/) surfaced one new class: a
+  byte-identical closing-`---`-delimiter scan loop duplicated in
+  `frontmatter.rs::split_frontmatter` and `install.rs::frontmatter_inner` —
+  each function's own doc comment admits it mirrors the other's detection.
+  Filed FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE, blockedBy
+  TEST-SCAFFOLDING-CONSOLIDATE (shares install.rs+frontmatter.rs with it and
+  transitively with PLURAL-HELPER-CONSOLIDATE via their in-src-test-tmpdir
+  edits — kept disjoint per the fan-out rule). Considered and ruled out:
+  same-named `skill_kind()` test fixtures in frontmatter.rs/coverage_note.rs
+  build materially different `CustomKind` shapes for different test
+  purposes — not a real duplicate. No hand-rolled reimplementation of a
+  sanctioned-crate mechanic found; no duplicate top-level symbols in
+  sdk/src or sdk/test. `cargo check` clean.
 - Queue: PLURAL-HELPER-CONSOLIDATE (open, pickable) —
   TEST-SCAFFOLDING-CONSOLIDATE (blockedBy plural-helper) —
+  FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE (blockedBy test-scaffolding) —
   TEST-FIXTURE-HELPERS-CONSOLIDATE (blockedBy test-scaffolding) —
   TEST-HELPER-DUPES-CONSOLIDATE(recordwriters) (blockedBy
   test-fixture-helpers) — TEST-HELPER-DUPES-CONSOLIDATE(lockunitbuilders)
   (blockedBy recordwriters) — PACKAGING-CHANNELS (parked, condition
   unchanged).
 
-Plan continues: yes — residue sweep (job 4) is now live: `Residue swept
-through` (ef72da3) trails the newly advanced audit HEAD (425968d), and
-24f9bbc/ad9f4af touched src/. Next tick sweeps that range.
+Plan continues: yes — quiet pass (job 5) is next: every input (inbox, spec
+delta, ship audit, residue sweep) is now current as of this tick.
