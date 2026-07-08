@@ -13,20 +13,6 @@ tax.
 
 ## Open forks
 
-- `(json-projection-format)` — OPEN. The JSON-manifest built-in kinds
-  (settings, MCP, plugin/marketplace) need a generic JSON adapter (a peer to
-  `src/frontmatter.rs`) reading nested-key fields into the generic extraction
-  path; a kind's on-disk shape is its `format` (`specs/model/representation.md`,
-  "kind"). The kernel now rules hooks/permissions/MCP servers are embedded
-  members with kinds and default contracts (`specs/model/representation.md`,
-  "Reach"), and `specs/builtins.md` names them forward work ("The named
-  expansion") — so the adapter is unblocked engine work, but its shape and the
-  `format`-fact spelling for a JSON kind are an open design fork needing John
-  before it can be filed as a pending entry. Downstream of
-  `(format-template-spelling)`: 0013 rules a structured sublanguage (JSON,
-  frontmatter) a schema-naming slot in the template format, so the JSON adapter
-  is a schema-slot instance once the general template spelling settles.
-
 - `(format-template-spelling)` — OPEN (registered 2026-07-07). 0013 recut
   `format` from a label to declared **template data** — one declaration, two
   independent one-way faces (a write-only projection, a lenient source-read),
