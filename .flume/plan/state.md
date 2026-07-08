@@ -1,19 +1,22 @@
 # Plan state
 
 - Spec derived through: cd7135b
-- Audited through: d7d0912
+- Audited through: d4cd903
 - Residue swept through: 3e19f4c
-- This tick: Quiet closing pass (job 5). Inbox empty; spec-delta empty (no
-  commits past cd7135b); no commits past d7d0912 touch src/tests/sdk (only
-  plan commits since); 3e19f4c (the last residue-sweep tick) touched only
-  state.md, so nothing new to sweep — cursor advances to HEAD. Re-verified
-  rather than trusted: `own_path` still resolves in exactly the five files
-  RETIRE-OWN-PATH-MACHINERY cites (drift.rs, import.rs, main.rs,
-  tests/install.rs, tests/emit.rs); the two pending entries touch disjoint
-  file sets; PACKAGING-CHANNELS's parked facts are unchanged (no
-  `.github/workflows/release.yml`, root package.json still the private
-  flume manifest, sdk/package.json still `@dtmd/temper` 0.0.5).
-- Queue: RETIRE-OWN-PATH-MACHINERY open and pickable; PACKAGING-CHANNELS
-  parked on human release creds + engine-binary workflow.
+- This tick: Ship audit (job 3). Commits past d7d0912 touching src/tests/sdk:
+  1251112 (build: RETIRE-OWN-PATH-MACHINERY) + d4cd903 (chore ship, drops the
+  entry from pending.json). Verified on disk, not trusted: `rg own_path`
+  across src/tests/sdk now resolves only inside historical comments
+  (install.rs, tests/install.rs narrating the retired lift) and
+  `specs/decisions/0016/0017` — no live column/detection/exemption code
+  remains; `cargo build` + `cargo test --lib` (229 passed) + `cargo test
+  --test install --test emit` (19 passed) all green. Re-tested
+  PACKAGING-CHANNELS's parked facts, unchanged: no
+  `.github/workflows/release.yml` (only temper.yml), root package.json still
+  `temper-flume-harness`/private, sdk/package.json still `@dtmd/temper`
+  0.0.5. No open-question rides own-path. Cursor advances to d4cd903 (HEAD).
+- Queue: PACKAGING-CHANNELS parked on human release creds + engine-binary
+  workflow — the only pending entry.
 
-Plan continues: no — every input current, queue disjoint, hand off to build.
+Plan continues: yes — residue sweep cursor (3e19f4c) trails HEAD (d4cd903);
+commits 1251112/d4cd903 are unswept residue-sweep input for the next tick.
