@@ -51,7 +51,7 @@ const PLUGIN_NAME: &str = "temper";
 /// harness is.
 const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: install it, check it against the \
      active contract, and run the advisory session-start gate — with the std-lib \
-     floors embedded.";
+     default contracts embedded.";
 
 /// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
 /// itself, checking the project it is installed into under the advisory session-start

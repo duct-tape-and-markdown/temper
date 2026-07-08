@@ -187,6 +187,10 @@ fn shipped_strings_teach_install_not_the_retired_import_verb() {
             !text.contains("temper import") && !text.contains("`import`"),
             "{label} must not teach the retired `import` verb, got:\n{text}"
         );
+        assert!(
+            !text.contains("floor"),
+            "{label} must not use the retired `floor` vocabulary, got:\n{text}"
+        );
     }
 
     assert!(
