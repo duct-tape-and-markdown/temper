@@ -79,8 +79,8 @@ temper.
 
 ## Self-hosting
 
-temper is built by an agentic pipeline reading a harness temper cannot yet
-check. The finish line is two greens on temper's own harness: it conforms to
+temper is built by an agentic pipeline, and it gates the harness that
+builds it. The bound is two greens on temper's own harness: it conforms to
 the contract its assembly attaches, and that contract is admissible. The
 plugin a stranger installs to gate their harness is the one that gates this
 repo; there is no separate external finish line.

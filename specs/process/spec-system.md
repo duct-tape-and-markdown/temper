@@ -43,6 +43,10 @@ Five, by placement:
   that this must hold.
 - **One name per concept.** The kernel nouns are API. Search before coining;
   new coinage is ratification-tier, and plain words beat metaphor.
+- **No middles.** Body text admits no state defined by its own transition —
+  no "yet", no "until", no residual, no roadmap. A fact that names its own
+  replacement belongs to the queue or the fork board, never the corpus; a
+  verb or noun means its plain reading; two states, never three.
 
 ## Change ceremony
 

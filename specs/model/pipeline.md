@@ -11,10 +11,11 @@ The typed authoring surface: an npm module in which members are typed values
 and composition is an import. The author composes the whole harness as one
 program; `harness()` constructs the root member (`representation.md`) — its
 nested members, its contract bindings (clauses over selections, requirement
-members), and a residual of settings fields with no member home yet, a list
-that only shrinks. Composing is ordinary code, typed at the keystroke: a
-default contract is an exported clause array — adoption is the import,
-overriding is composing the array — and harness families cost nothing.
+members), and its own fields, settings keys among them, the unschematized
+ones opaque and named as such. Composing is ordinary code, typed at the
+keystroke: a default contract is an exported clause array — adoption is the
+import, overriding is composing the array — and harness families cost
+nothing.
 
 The SDK implements no semantics: types, constructors, and one pipe to the
 engine. Turing-completeness is quarantined at authoring time — running the

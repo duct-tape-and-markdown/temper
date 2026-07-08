@@ -39,12 +39,12 @@ toolchain; the plugin a stranger installs is the one that gates this repo
 
 ## The placements and their enforcement modes
 
-- **Keystroke** — on a fully composed harness the toolchain is the wall:
-  the SDK's types deliver the decidable contract as compile-time validation,
-  TSDoc guidance as hover. For prose-authored members, `temper schema`
-  generates a JSON Schema from the compiled clauses, wired via the
-  `yaml-language-server` modeline `install` places. Validation is the
-  decidable predicates only; guidance is advisory — taste cannot squiggle.
+- **Keystroke** — represented, the toolchain is the wall: the SDK's types
+  deliver the decidable contract as compile-time validation, TSDoc guidance
+  as hover. Unrepresented, `temper schema` generates a JSON Schema from the
+  compiled clauses, wired via the `yaml-language-server` modeline `install`
+  places. Validation is the decidable predicates only; guidance is
+  advisory — taste cannot squiggle.
 - **Session start** — **advisory**. The hook is the engine running `check`
   with the session-start reporter: on failure it emits the verdict as
   `additionalContext` (capped to Claude Code's 10k limit) with an instruction
@@ -83,11 +83,9 @@ differentiator (the type checker for the harness, not another linter), one
 hero visual — a real `check` finding rendered by `miette`, guidance attached,
 regenerable from the shipped binary, never a screenshot that drifts — and a
 run-before-install quickstart: the stranger gate itself. Honest status is a
-trust feature: pre-1.0 policy stated plainly, a root CHANGELOG, frequent
-tagged releases; `AGENTS.md` at root, `CLAUDE.md` sourcing it.
-
-> **New encoding — ruled 2026-07-06, rides this ceremony for ratification:**
-> pre-1.0 releases carry no backward-compatibility burden.
+trust feature: pre-1.0 policy stated plainly — pre-1.0 releases carry no
+backward-compatibility burden — a root CHANGELOG, frequent tagged releases;
+`AGENTS.md` at root, `CLAUDE.md` sourcing it.
 
 **License:** MIT OR Apache-2.0, dual (`LICENSE-MIT` + `LICENSE-APACHE`);
 never copyleft — a voluntarily adopted gate cannot carry adoption friction.
