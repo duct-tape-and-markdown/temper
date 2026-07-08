@@ -1,18 +1,20 @@
 # Plan state
 
-- Spec derived through: 9a61c2b
+- Spec derived through: fa7f87c
 - Audited through: 1e5d7ec
 - Residue swept through: 31cd09a
-- This tick: Spec delta (job 2). Routed 0012 (9a61c2b) into
-  EMBEDDED-FENCE-MEMBER-NOUN — one atomic genre→member recut: the read fold
-  (extract.rs `parse_embedded_info`) and the SDK write face (emit.ts
-  `resolveBody` blocks branch, today throwing) are coupled by the round-trip,
-  so a language- or rename-vs-behavior split yields an inconsistent-vocabulary
-  intermediate that breaks emit↔fold — one entry. `(genre-fence-format)`
-  already drained (1b80f94), no open fork. Cursor f4189c3 → 9a61c2b. 0013
-  (fa7f87c, format two one-way faces) left un-derived for the next tick.
-- Queue: 2 — EMBEDDED-FENCE-MEMBER-NOUN open/pickable; PACKAGING-CHANNELS
-  parked (human release creds + engine-binary workflow). Disjoint file sets.
+- This tick: Spec delta (job 2). Fork-routed fa7f87c (0013, format two one-way
+  faces): the ruling fixes the format-layer *semantics* (injective-render
+  admissibility, declared leniency, no-logic bar, schema-slot delegation,
+  total-with-errors) but the `format` fact is today an inert string label
+  (`Format` in sdk/src/kind.ts + src/kind.rs, lock `KindFactRow.format`, consumed
+  by nothing) — recutting it to template data + a composed renderer/extractor
+  needs the SDK/lock/emit-payload spelling John hasn't set. Registered
+  `(format-template-spelling)`; wired `(json-projection-format)` downstream of it.
+  Cursor 9a61c2b → fa7f87c. bdc938d (0014, command+agent kinds) left un-derived.
+- Queue: 2 — EMBEDDED-FENCE-MEMBER-NOUN open/pickable; PACKAGING-CHANNELS parked
+  (human release creds + engine-binary workflow). Disjoint file sets. No new
+  pending entry this tick — 0013 is fork-routed, not build-derivable.
 
-Plan continues: yes — fa7f87c (0013, format two one-way faces) is un-derived
-spec delta, the next live input below job 2.
+Plan continues: yes — bdc938d (0014, command+agent kinds) is un-derived spec
+delta, the next live input below job 2.
