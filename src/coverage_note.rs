@@ -121,9 +121,9 @@ pub fn check(
         "harness",
         format!(
             "checked {total} member{} across {} kind{}: {}",
-            plural(total),
+            crate::display::plural(total),
             member_counts.len(),
-            plural(member_counts.len()),
+            crate::display::plural(member_counts.len()),
             per_kind.join(", "),
         ),
     ));
@@ -215,11 +215,6 @@ fn with_locked_kinds(
             .or_insert_with(|| CustomKind::from_kind_fact_row(row));
     }
     merged
-}
-
-/// The plural suffix for a count — `""` for one, `"s"` otherwise.
-fn plural(n: usize) -> &'static str {
-    if n == 1 { "" } else { "s" }
 }
 
 /// Whether a known surface exists on disk at `root`, probed as its declared shape — a

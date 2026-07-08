@@ -491,12 +491,16 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
         parts.push(GUARD_HOOK.to_string());
     }
     if modelines > 0 {
-        let plural = if modelines == 1 { "" } else { "s" };
-        parts.push(format!("{modelines} schema modeline{plural}"));
+        parts.push(format!(
+            "{modelines} schema modeline{}",
+            crate::display::plural(modelines as usize)
+        ));
     }
     if notes > 0 {
-        let plural = if notes == 1 { "" } else { "s" };
-        parts.push(format!("{notes} managed-by note{plural}"));
+        parts.push(format!(
+            "{notes} managed-by note{}",
+            crate::display::plural(notes as usize)
+        ));
     }
 
     vec![Diagnostic::warn(

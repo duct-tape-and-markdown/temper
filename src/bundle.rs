@@ -312,17 +312,12 @@ pub fn render(report: &BundleReport) -> String {
     out.push_str(&format!(
         "\nbundled {} file{} (ships: skill `{}`, {} hook{})\n",
         report.files.len(),
-        plural(report.files.len()),
+        crate::display::plural(report.files.len()),
         report.skill_name,
         report.hook_events.join(", "),
-        plural(report.hook_events.len()),
+        crate::display::plural(report.hook_events.len()),
     ));
     out
-}
-
-/// The plural suffix for a count — `""` for one, `"s"` otherwise.
-fn plural(count: usize) -> &'static str {
-    if count == 1 { "" } else { "s" }
 }
 
 #[cfg(test)]

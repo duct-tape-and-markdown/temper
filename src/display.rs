@@ -112,3 +112,9 @@ fn capitalize(s: &str) -> String {
         None => String::new(),
     }
 }
+
+/// The plural suffix for a count — `""` for one, `"s"` otherwise.
+#[must_use]
+pub(crate) fn plural(n: usize) -> &'static str {
+    if n == 1 { "" } else { "s" }
+}
