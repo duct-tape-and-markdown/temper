@@ -34,8 +34,10 @@ This repo carries **two** harnesses with different owners:
    the very artifacts `temper` is built to project, and the environment the
    build agents themselves run inside, so it is hand-curated to an exemplary
    standard. The `build` phase never edits it; changes flow through human
-   `chore(harness):` commits. (The recursive dogfood — temper gating this
-   repo's own harness — is deactivated.)
+   `chore(harness):` commits. The recursive dogfood is live: `CLAUDE.md` and
+   the `.claude/` member files are projections of `.temper/` modules — edit
+   the owning module and re-run `temper emit`; a direct edit is drift the
+   guard blocks.
 
 `writablePaths` in `chain.ts` enforces both exclusions mechanically.
 

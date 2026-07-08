@@ -16,7 +16,7 @@ the file below. The rest of the spec is context for intent, not scope.
 # CONTEXT
 
 <src-tree>
-!`find src -name '*.rs' 2>/dev/null | sort`
+!`{ find src tests -name '*.rs'; find sdk/src sdk/test -name '*.ts'; } 2>/dev/null | sort`
 </src-tree>
 
 <recent-commits>
@@ -73,11 +73,14 @@ commit made anywhere but this branch bypasses the gates and is lost to ship
 bookkeeping.
 
 Gates run automatically after your commit: `cargo fmt --check` (afterCommit),
-then `cargo clippy -D warnings` and `cargo test` (afterMerge). A gate failure
-reverts your commit and the entry returns to pending.
+then `cargo clippy -D warnings`, `cargo test`, and `pnpm --dir sdk test`
+(afterMerge). A gate failure reverts your commit and the entry returns to
+pending.
 
 **Iterate to green before you commit — this is the job, not an afterthought.**
 Loop: make the change → `cargo fmt --all && cargo clippy --all-targets -- -D warnings && cargo test`
+— plus `pnpm --dir sdk test` when the entry touches `sdk/**` (it is a gate too;
+cargo says nothing about TypeScript) —
 → if anything is red (including an *existing* test your change broke), fix it and
 run again. Repeat until fully green, then commit. **Never commit red. Never end
 the tick with no commit just because the change rippled into other tests — repair

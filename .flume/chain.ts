@@ -168,10 +168,11 @@ const testGate = shellGate({
   failHint: "Tests failed — entry reverted, returns to pending.",
 });
 
-// No self-hosting gate: the dogfood — temper checking its host repo's own
-// harness per tick — is deactivated. Validation lives in the test suite's
-// fixtures; a real dogfood returns when the SDK-primary authoring path is
-// the product's own front door.
+// No self-hosting gate in the chain: the recursive dogfood is live at the
+// session layer (.claude/settings.json wires temper's SessionStart reporter
+// and guard; the harness is authored in .temper/), and its gate — `temper
+// check .temper` — rides sessions, not ticks. Build never edits the
+// projections, so a per-tick check would only re-verify human territory.
 
 /**
  * The SDK gate: `sdk/**` is TypeScript inside a
@@ -499,12 +500,11 @@ const makeAgent = (model: string) =>
   );
 
 /**
- * Model routing: plan reconciles the queue against the corpus (judgment) and
- * runs on Opus; build executes one clearly-dictated entry under the cargo
- * gates and runs on Sonnet. The runtime exposes one shared `agent` export for
- * every phase, so route on the runtime's `<harness>` preamble line `Phase:
- * build` — the preamble precedes the template, so a template's own headings
- * never reach the match.
+ * Model routing: the runtime exposes one shared `agent` export for every
+ * phase, so per-phase model choice keys on the runtime's `<harness>` preamble
+ * line `Phase: build` — the preamble precedes the template, so a template's
+ * own headings never reach the match. Both phases currently run Sonnet;
+ * change a phase's model here.
  */
 const planAgent = makeAgent("claude-sonnet-5");
 const buildAgent = makeAgent("claude-sonnet-5");

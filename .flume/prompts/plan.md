@@ -25,7 +25,7 @@
 </spec-delta>
 
 <src-tree>
-!`find src tests -name '*.rs' 2>/dev/null | sort`
+!`{ find src tests -name '*.rs'; find sdk/src sdk/test -name '*.ts'; } 2>/dev/null | sort`
 </src-tree>
 
 <cargo-check>
@@ -55,8 +55,9 @@ chosen job half-done — the job is the atom.
    debt (noted in the commit body). Remove drained lines. A report's claimed
    gap is re-verified against the current tree before it scopes an entry —
    grep for the claimed-missing surface, run the report's probe; the gap may
-   have narrowed or moved since filing. Scope to the verified gap, never the
-   reported one.
+   have narrowed or moved since filing. A note stamped `observed at <sha>`
+   narrows the re-verify to `git log <sha>..HEAD` — diff forward from what
+   the reporter saw. Scope to the verified gap, never the reported one.
 
 2. **Spec delta** — `<spec-delta>` lists `specs/` commits past the cursor.
    Read each commit's diff (`git show <sha> -- specs/`) — ratified intent
