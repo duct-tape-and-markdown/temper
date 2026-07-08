@@ -13,7 +13,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -101,7 +101,21 @@ const planHonestyGate: Gate = {
     } catch {
       // no inbox file — nothing undrained
     }
-    // Live input 2: specs/ commits past the recorded spec cursor.
+    // Live input 2: undrained refactor captures (plan-drained, unlike friction).
+    try {
+      const captures = (await readdir(join(ctx.flumeDir, "refactor"))).filter(
+        (f) => f.endsWith(".md") && f !== "README.md",
+      );
+      if (captures.length > 0) {
+        return {
+          ok: false,
+          message: `state.md says \`Plan continues: no\` but ${captures.length} refactor capture(s) sit undrained in .flume/refactor/`,
+        };
+      }
+    } catch {
+      // no refactor directory — nothing undrained
+    }
+    // Live input 3: specs/ commits past the recorded spec cursor.
     const cursor = /^- Spec derived through:\s*([0-9a-f]{6,40})\b/im.exec(stateText)?.[1];
     if (cursor) {
       try {
@@ -235,10 +249,12 @@ const BUILD_WRITABLE_PATHS = [
   // every subsequent slice is build's.
   "sdk/**",
 
-  // The friction channel — the one deliberate slit in the control-plane
-  // fence: agents file agent→human harness feedback here (one uniquely-named
-  // file per capture; `.flume/friction/README.md`). Humans drain it.
+  // The two deliberate slits in the control-plane fence, one file per
+  // uniquely-named capture: friction is agent→human harness feedback
+  // (humans drain it); refactor is agent→plan structural-debt observation
+  // (plan drains it into pending entries). See each directory's README.
   ".flume/friction/**",
+  ".flume/refactor/**",
 
   // NOTE: build does NOT touch the rest of .flume/** (the control plane),
   // .claude/** or CLAUDE.md, specs/**, or docs/**. These are RATIFICATION
@@ -382,6 +398,7 @@ const plan: Phase = {
     ".flume/plan/open-questions.md",
     ".flume/inbox.md",
     ".flume/friction/**",
+    ".flume/refactor/**",
     // Plan does NOT touch specs/ (human-authored) or src/ (build's territory).
   ],
   gates: [pendingParseGate, entryFenceGate, entryRefsGate, planHonestyGate],

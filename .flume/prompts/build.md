@@ -62,6 +62,17 @@ Check the directory first; never re-file a filed friction. Humans drain it
 out of band. Never speculative, never a substitute for reaching green — see
 `.flume/friction/README.md`.
 
+# REFACTOR (optional — same bar, different drain)
+
+Structural debt you touched but cannot take this tick — a surface your work
+duplicates, a hand-roll a sanctioned crate covers, scaffolding copy-pasted
+once more — is a capture: one new file `.flume/refactor/build-<slug>.md`
+(surface with file:line per home, `observed at <sha>`, suggested
+consolidation), committed with your work; plan drains it into a pending
+entry. Consolidation *inside* your entry's own surface needs no capture —
+unifying a duplicate you would otherwise extend is in scope
+(`specs/process/engineering.md`). See `.flume/refactor/README.md`.
+
 # OUTPUT
 
 One commit on this worktree's branch, prefixed `build:`. Imperative subject; the

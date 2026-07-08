@@ -27,9 +27,11 @@ Harness-authored commits (post-merge ship) use `chore(flume):`.
 This repo carries **two** harnesses with different owners:
 
 1. **The flume harness** (`.flume/`) — the build pipeline. Authored by humans;
-   never edited by the `build` phase, with one deliberate slit:
-   `.flume/friction/**`, the agent→human feedback channel (both phases may
-   file a friction capture there; see `friction/README.md`).
+   never edited by the `build` phase, with two deliberate slits:
+   `.flume/friction/**` (agent→human harness feedback, humans drain) and
+   `.flume/refactor/**` (agent→plan structural-debt captures, plan drains
+   into pending entries). Both phases may file into either; see each
+   directory's README.
 2. **The Claude Code harness** (`.claude/`, `CLAUDE.md`) — the *product domain*:
    the very artifacts `temper` is built to project, and the environment the
    build agents themselves run inside, so it is hand-curated to an exemplary

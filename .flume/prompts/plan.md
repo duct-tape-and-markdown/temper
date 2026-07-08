@@ -16,6 +16,10 @@
 !`cat .flume/inbox.md 2>/dev/null || echo "(empty)"`
 </inbox>
 
+<refactor-captures>
+!`found=0; for f in .flume/refactor/*.md; do [ -e "$f" ] || continue; [ "${f##*/}" = "README.md" ] && continue; echo "===== $f ====="; cat "$f"; echo; found=1; done; [ "$found" -eq 0 ] && echo "(none)"`
+</refactor-captures>
+
 <spec-corpus>
 !`for f in $(find specs -name '*.md' ! -path 'specs/decisions/*' 2>/dev/null | sort); do echo "===== $f ====="; cat "$f"; echo; done || echo "(no specs)"`
 </spec-corpus>
@@ -50,9 +54,13 @@ in the order below, do that job completely, update the cursors in `state.md`,
 set the continuation marker. Never take two jobs in one tick; never leave the
 chosen job half-done — the job is the atom.
 
-1. **Inbox** — `<inbox>` has content. Route each line into pending (with a
-   `per` cite), open-questions (no clean cite, or a product fork), or accepted
-   debt (noted in the commit body). Remove drained lines. A report's claimed
+1. **Inbox** — `<inbox>` has content or `<refactor-captures>` holds live
+   captures. Route each inbox line into pending (with a `per` cite),
+   open-questions (no clean cite, or a product fork), or accepted debt
+   (noted in the commit body); remove drained lines. Drain each refactor
+   capture into a pending entry citing `specs/process/engineering.md` and
+   DELETE the capture file — a claim that no longer holds at HEAD is deleted
+   with a note in the commit body (`.flume/refactor/README.md`). A report's claimed
    gap is re-verified against the current tree before it scopes an entry —
    grep for the claimed-missing surface, run the report's probe; the gap may
    have narrowed or moved since filing. A note stamped `observed at <sha>`
@@ -80,7 +88,9 @@ chosen job half-done — the job is the atom.
    HEAD. Sweep code against corpus: a retirement the delta named, body text
    naming a demolition, symbols or vocabulary the corpus no longer sanctions
    still living in `src/`, `tests/`, or `sdk/` — each with no pending entry
-   operationalizing it is a fileable gap. Cite the owning spec section in
+   operationalizing it is a fileable gap. A second implementation of one job
+   is the structural residue class, same rule
+   (`specs/process/engineering.md`, "One job, one home"). Cite the owning spec section in
    `per`, name the living symbols in `files[].description`. Comment and
    citation staleness is the one exception: it only ever rides whichever
    entry next opens that file — never a standalone entry, never the queue's
