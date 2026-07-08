@@ -1076,7 +1076,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
 
     /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
     /// crate rather than a hand-rolled counter+pid scheme.
-    fn surface_tmpdir(label: &str) -> PathBuf {
+    fn tmpdir(label: &str) -> PathBuf {
         tempfile::Builder::new()
             .prefix(label)
             .tempdir()
@@ -1108,7 +1108,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // The root is `docs/adr`, not `specs` — the reader keys on the surface
         // shape, never a hardwired `specs` special case, so a kind rooted anywhere
         // reloads the same way.
-        let root = surface_tmpdir("adr-root").join("docs").join("adr");
+        let root = tmpdir("adr-root").join("docs").join("adr");
         let body = "# ADR 0001\n\nContext refers to `15-kinds.md`.\n";
         let dir = write_surface(
             &root,
@@ -1138,7 +1138,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // The reloaded unit is exactly what a kind's composed extractor reads: the
         // spec-shaped extractor over it yields the same features it would over a
         // freshly-parsed unit — the tie between the generic loader and the check path.
-        let root = surface_tmpdir("feed-root").join("specs");
+        let root = tmpdir("feed-root").join("specs");
         let body = "# Kinds\n\nComposed over the predicate half.\n";
         let dir = write_surface(
             &root,
@@ -1165,7 +1165,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // fields in `frontmatter` — the generic reader that closes the built-in/custom
         // asymmetry: a custom member's declared fields are the
         // `field` primitive's locus, like a built-in's parsed frontmatter.
-        let root = surface_tmpdir("clause-fields").join("specs");
+        let root = tmpdir("clause-fields").join("specs");
         let dir = root.join("15-kinds");
         std::fs::create_dir_all(&dir).unwrap();
         let document = "+++\n\
@@ -1216,7 +1216,7 @@ source_hash = \"deadbeef\"\n\
         // A member document with no `[clause.<field>]` tables (only provenance) reloads
         // with empty frontmatter — the built-in floor's default, unchanged from before
         // this reader existed.
-        let root = surface_tmpdir("no-clauses").join("specs");
+        let root = tmpdir("no-clauses").join("specs");
         let dir = write_surface(
             &root,
             "00-intent",
@@ -1231,7 +1231,7 @@ source_hash = \"deadbeef\"\n\
 
     #[test]
     fn a_surface_missing_its_provenance_is_a_load_error() {
-        let root = surface_tmpdir("no-prov");
+        let root = tmpdir("no-prov");
         let dir = root.join("00-intent");
         std::fs::create_dir_all(&dir).unwrap();
         // A member document whose header carries no `[provenance]` module.
@@ -1249,7 +1249,7 @@ source_hash = \"deadbeef\"\n\
 
     #[test]
     fn a_surface_with_a_malformed_document_is_a_load_error() {
-        let root = surface_tmpdir("bad-doc");
+        let root = tmpdir("bad-doc");
         let dir = root.join("00-intent");
         std::fs::create_dir_all(&dir).unwrap();
         // The lone `.md` is not a `+++`-fenced document — a hard error, never a skip.
@@ -1261,7 +1261,7 @@ source_hash = \"deadbeef\"\n\
 
     #[test]
     fn a_surface_without_a_body_file_is_a_load_error() {
-        let root = surface_tmpdir("no-body");
+        let root = tmpdir("no-body");
         let dir = root.join("00-intent");
         std::fs::create_dir_all(&dir).unwrap();
         // No `.md` member document at all — only a stray non-markdown sibling.
@@ -1273,7 +1273,7 @@ source_hash = \"deadbeef\"\n\
 
     #[test]
     fn a_surface_with_two_body_files_is_ambiguous() {
-        let root = surface_tmpdir("two-body");
+        let root = tmpdir("two-body");
         let dir = root.join("00-intent");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("SPEC.md"), "+++\n+++\n# One\n").unwrap();
