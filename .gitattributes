@@ -1,0 +1,7 @@
+# Byte-fidelity fixtures: checkout must never rewrite these regardless of a
+# clone's core.autocrlf, since tests compare them byte-for-byte (see
+# tests/builtin_lock_frozen.rs, insta snapshot compares, and the
+# extract/rules/coordinate round-trip fixtures).
+src/builtin_lock.toml text eol=lf
+tests/snapshots/*.snap text eol=lf
+tests/fixtures/** text eol=lf
