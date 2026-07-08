@@ -15,10 +15,9 @@ versus a derived union (`model/pipeline.md`).
 A structured config file is a **manifest**: a projection representing a
 controlled segment of a **container member** — the container's own fields,
 its members' **registration facts**, and **derived aggregates** (the
-permission union; never a member — the tension resolves derived). Claude
-Code does registration this way at every level: settings and `.mcp.json`
-are the harness's manifests, `plugin.json`/`hooks.json` a plugin's,
-`marketplace.json` a marketplace's
+permission union — never a member). Claude Code does registration this way
+at every level: settings and `.mcp.json` are the harness's manifests,
+`plugin.json`/`hooks.json` a plugin's, `marketplace.json` a marketplace's
 (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-07).
 
 - A registration member (hook, mcp-server, installed plugin) is a
