@@ -2,37 +2,32 @@
 
 - Spec derived through: cd7135b
 - Audited through: 5389103
-- Residue swept through: 77b2eb9
-- This tick: Ship audit (job 3). Commits past 99337b8 touching src/tests
-  (706139a, 39079e3, 4ed4027) verified on disk: RETIRE-FLOOR-VOCABULARY-FOR-
-  DEFAULT-CONTRACT's rename landed exactly where its own commit body scoped
-  it (main.rs/compose.rs/read.rs identifiers, SDK exports,
-  builtin_lock.toml header), deliberately leaving comment-only `floor`
-  mentions to ride later entries — confirmed no live non-test symbol still
-  named `floor` outside that carve-out; ACCEPTANCE-CUSTOM-KIND-VIA-LOCK
-  rewrote both acceptance.rs custom-kind tests onto lock.toml declaration
-  rows; INSTALL-WHOLE-CONVERSION rewrote install.rs's scaffold to a whole
-  typed conversion. All three already absent from pending.json
-  (auto-shipped). Re-tested stale gates per job 3: RETIRE-POSTURE-
-  VOCABULARY-FOR-ENFORCEMENT-MODE was blockedBy INSTALL-WHOLE-CONVERSION —
-  that shipped without touching src/install.rs's posture wording
-  (reverified live at current line numbers: ~105-111, ~605; drift.rs
-  ~1321; tests/install.rs's guard test names/labels) — blocker cleared,
-  gate flipped to open. RETIRE-OWN-PATH-MACHINERY (blockedBy the posture
-  entry) reverified: own_path is untouched and fully live in
-  drift.rs/import.rs/main.rs/tests, so it stays correctly blocked,
-  unchanged. PACKAGING-CHANNELS' parked reason reverified true (no
-  release.yml, root package.json still the private flume manifest,
-  sdk/package.json at 0.0.5).
-- Queue: 3 — RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE now open and
-  pickable; RETIRE-OWN-PATH-MACHINERY blockedBy it; PACKAGING-CHANNELS
+- Residue swept through: fe0c502
+- This tick: Residue sweep (job 4). Re-verified the prior tick's forecast:
+  every remaining `floor` mention across src/tests/sdk (builtin.rs, kind.rs,
+  contract.rs, extract.rs, read.rs, drift.rs, roster.rs, schema.rs,
+  main.rs, engine.rs, builtin_lock.rs, and test fn/variable names in
+  coverage.rs, rule_contract.rs, contract_template.rs, session_start.rs,
+  cli.rs, graph.rs, lock_declaration_rows.rs, requirement_roster.rs,
+  nested_member.rs, gate_fail_loud.rs, display_rule.rs, memory_gate.rs,
+  agent_kind.rs, acceptance.rs; sdk/src/assembly.ts, contract.ts,
+  declarations.ts) is comment/doc-comment/identifier staleness with no
+  live production symbol attached — 706139a's own commit body already
+  carved these out ("ride whichever entry next opens those files for a
+  real reason"), matching spec-system's comment/citation staleness
+  exception; nothing fileable this class. Checked the other two commits
+  merged since 77b2eb9 for fresh residue: 4ed4027's retired symbols
+  (member_name/description_trigger_value/relative_to_member_module) are
+  fully gone from src/tests/sdk; 39079e3 left no dead custom-kind
+  fixtures — the only surviving .temper/kinds//packages KIND.md/PACKAGE.md
+  authoring is the already-accepted tests/session_start.rs debt recorded
+  in open-questions "Kept on purpose". `cargo clippy --all-targets` is
+  clean (no dead-code signal). Cursor advances to HEAD; pending.json and
+  open-questions.md unchanged.
+- Queue: unchanged — RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE open
+  and pickable; RETIRE-OWN-PATH-MACHINERY blockedBy it; PACKAGING-CHANNELS
   parked.
 
-Plan continues: yes — `Residue swept through` (77b2eb9) trails HEAD
-(5389103); job 4 is next. Note for that tick: RETIRE-FLOOR-VOCABULARY-FOR-
-DEFAULT-CONTRACT's own commit body already carved out the remaining
-`floor` mentions (test fn/variable names in lock_declaration_rows.rs,
-session_start.rs, requirement_roster.rs, cli.rs, builtin_lock.rs; sdk/src
-prose) as comment/identifier staleness riding later entries per
-spec-system's exception — verify that reading still holds before filing
-anything, since it may mean job 4 finds nothing fileable this class.
+Plan continues: yes — job 5 (quiet closing pass) is next: all four prior
+inputs are current (empty inbox, no spec delta, no unaudited src commits,
+residue cursor now at HEAD).
