@@ -10,10 +10,11 @@
 //! adoption is opt-in per block, never an error.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
 use temper::drift::KindFactRow;
-use temper::kind::{CustomKind, Extraction, Governs, Primitive, Template, Unit};
+use temper::kind::{CustomKind, Extraction, Governs, Primitive, Template};
+
+mod common;
 
 /// A custom `decision` kind composing the `fenced` primitive and declaring one
 /// inner-layer template naming its child kind — the predicates over a nested
@@ -31,20 +32,6 @@ fn decision_kind() -> CustomKind {
             },
             Extraction::new(vec![Primitive::Fenced]),
         )
-    }
-}
-
-/// A decision-document unit carrying `body` — a frontmatter-less surface document, the
-/// floor carriage a member fence lives in.
-fn decision_unit(body: &str) -> Unit {
-    Unit {
-        id: "05-surface-authority".to_string(),
-        frontmatter: BTreeMap::new(),
-        body: body.to_string(),
-        source_path: PathBuf::from("docs/decisions/05-surface-authority.md"),
-        satisfies: Vec::new(),
-        satisfies_clauses: Vec::new(),
-        published_requirements: Vec::new(),
     }
 }
 
@@ -75,7 +62,12 @@ Trailing prose.
 
 #[test]
 fn a_member_fence_extracts_a_nested_member_with_its_own_leaves_and_children() {
-    let features = decision_kind().extract(&decision_unit(decision_body()));
+    let features = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        decision_body(),
+        "docs/decisions/05-surface-authority.md",
+    ));
 
     // Exactly one nested member — the `sh` block opted into none (opt-in per block),
     // and both raw blocks still ride `fenced_blocks` beside the typed layer.
@@ -109,7 +101,12 @@ fn a_member_fence_extracts_a_nested_member_with_its_own_leaves_and_children() {
 
 #[test]
 fn leaf_addresses_are_structural_member_kind_key_child_path() {
-    let features = decision_kind().extract(&decision_unit(decision_body()));
+    let features = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        decision_body(),
+        "docs/decisions/05-surface-authority.md",
+    ));
 
     // Every leaf carries a full structural address — the member, the nested member's
     // identity, and the child path — the leaf-grain surface the read family consumes.
@@ -141,7 +138,12 @@ fn an_unfenced_block_stays_plain_prose_no_nested_member_no_error() {
     // yields the raw block and *no* nested member, never an error: adoption is opt-in
     // per block, and no check quantifies over completeness.
     let body = "# Notes\n\nProse.\n\n```sh\ncargo test\n```\n\nMore prose.\n";
-    let features = decision_kind().extract(&decision_unit(body));
+    let features = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        body,
+        "docs/decisions/05-surface-authority.md",
+    ));
     assert!(features.nested_members.is_empty());
     assert_eq!(features.fenced_blocks.len(), 1);
 }
@@ -168,9 +170,19 @@ fn a_lock_reconstructed_kind_folds_the_same_embedded_members_as_its_live_declara
     // `Template.kind` set `fold_members` keys on — a lock-reconstructed kind must
     // fold the identical nested members its live SDK declaration does, closing the
     // residual gap the row used to drop.
-    let live = decision_kind().extract(&decision_unit(decision_body()));
-    let reconstructed = CustomKind::from_kind_fact_row(&decision_kind_fact_row())
-        .extract(&decision_unit(decision_body()));
+    let live = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        decision_body(),
+        "docs/decisions/05-surface-authority.md",
+    ));
+    let reconstructed =
+        CustomKind::from_kind_fact_row(&decision_kind_fact_row()).extract(&common::raw_unit(
+            "05-surface-authority",
+            BTreeMap::new(),
+            decision_body(),
+            "docs/decisions/05-surface-authority.md",
+        ));
 
     assert_eq!(reconstructed.nested_members.len(), 1);
     assert_eq!(reconstructed.nested_members, live.nested_members);
@@ -182,7 +194,12 @@ fn a_fence_naming_an_undeclared_child_kind_stays_raw() {
     // template for is matched by no shape — it stays a raw block, not a typed nested
     // member. The declared template set is the gate on which fences fold.
     let body = "# X\n\n```member.law fearless-refactoring\nstatement = \"law 6\"\n```\n";
-    let features = decision_kind().extract(&decision_unit(body));
+    let features = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        body,
+        "docs/decisions/05-surface-authority.md",
+    ));
     assert!(features.nested_members.is_empty());
     assert_eq!(features.fenced_blocks.len(), 1);
 }
@@ -193,7 +210,12 @@ fn a_genre_prefixed_fence_is_now_a_plain_block_not_a_nested_member() {
     // `genre.` prefix parses as no member at all (`parse_embedded_info` matches only
     // `member.`), so it rides `fenced_blocks` raw, never `nested_members`.
     let body = "# X\n\n```genre.decision surface-authority\nchosen = \"x\"\n```\n";
-    let features = decision_kind().extract(&decision_unit(body));
+    let features = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        body,
+        "docs/decisions/05-surface-authority.md",
+    ));
     assert!(features.nested_members.is_empty());
     assert_eq!(features.fenced_blocks.len(), 1);
     assert_eq!(
@@ -217,8 +239,18 @@ because = \"law 7 needs an authored surface\"\n\
 [rejected.baked-projection]\n\
 because = \"a stamping projector breaks law 5\"\n\
 ```\n";
-    let written = decision_kind().extract(&decision_unit(written_body));
-    let authored = decision_kind().extract(&decision_unit(decision_body()));
+    let written = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        written_body,
+        "docs/decisions/05-surface-authority.md",
+    ));
+    let authored = decision_kind().extract(&common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        decision_body(),
+        "docs/decisions/05-surface-authority.md",
+    ));
 
     assert_eq!(written.nested_members.len(), 1);
     assert_eq!(written.nested_members, authored.nested_members);

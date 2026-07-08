@@ -61,21 +61,6 @@ fn skill_features_over_a_real_skill_fixture() {
     insta::assert_debug_snapshot!("skill_features_coordinate", features);
 }
 
-/// A raw memory-shaped `Unit` — no frontmatter, its whole body the byte-faithful
-/// markdown a `CLAUDE.md` carries — over an arbitrary `source_path`, for driving a
-/// composed `directives` extractor without touching disk.
-fn memory_unit(body: &str) -> Unit {
-    Unit {
-        id: "CLAUDE".to_string(),
-        frontmatter: std::collections::BTreeMap::new(),
-        body: body.to_string(),
-        source_path: PathBuf::from("CLAUDE.md"),
-        satisfies: Vec::new(),
-        satisfies_clauses: Vec::new(),
-        published_requirements: Vec::new(),
-    }
-}
-
 /// A `directives` primitive with syntax `at-import` composes over a `Unit` and folds
 /// the body's `@path` occurrences into `Features.directives` in document order — the
 /// end-to-end tie from the closed-vocabulary parse through the composed extractor.
@@ -86,8 +71,11 @@ fn a_directives_primitive_extracts_at_imports_in_document_order() {
     }]);
 
     // Two real imports (relative then absolute); a bare `@` in prose is not an edge.
-    let unit = memory_unit(
+    let unit = common::raw_unit(
+        "CLAUDE",
+        std::collections::BTreeMap::new(),
         "# Project memory\n\nLoad @docs/style.md and @/abs/policy.md here; ping me @ noon.\n",
+        "CLAUDE.md",
     );
     let features = extraction.extract(&unit);
     assert_eq!(
@@ -109,7 +97,9 @@ fn a_fenced_primitive_extracts_block_interiors_with_info_strings_in_order() {
 
     // Prose around two fenced blocks — a shell block and a keyed `toml member.manifest`
     // block, the shape the member fence composes with a TOML parse.
-    let unit = memory_unit(
+    let unit = common::raw_unit(
+        "CLAUDE",
+        std::collections::BTreeMap::new(),
         "# Kinds\n\
 \n\
 Surrounding prose is not captured.\n\
@@ -123,6 +113,7 @@ More prose between the fences.\n\
 ```toml member.manifest\n\
 name = \"coordinate\"\n\
 ```\n",
+        "CLAUDE.md",
     );
     let features = extraction.extract(&unit);
 
@@ -148,24 +139,13 @@ name = \"coordinate\"\n\
 #[test]
 fn a_fenced_primitive_over_a_body_with_no_fence_yields_none() {
     let extraction = Extraction::new(vec![Primitive::Fenced]);
-    let unit = memory_unit("# Kinds\n\nJust prose, no fenced block at all.\n");
+    let unit = common::raw_unit(
+        "CLAUDE",
+        std::collections::BTreeMap::new(),
+        "# Kinds\n\nJust prose, no fenced block at all.\n",
+        "CLAUDE.md",
+    );
     assert!(extraction.extract(&unit).fenced_blocks.is_empty());
-}
-
-/// A `Unit` carrying the given parsed frontmatter (the nested shape the
-/// yaml-frontmatter adapter yields from a nested YAML map / a JSON-manifest settings
-/// kind), for driving a composed `field` extractor over a key-path without touching
-/// disk. The body is empty — the key-path case exercises the frontmatter locus only.
-fn frontmatter_unit(frontmatter: serde_json::Map<String, serde_json::Value>) -> Unit {
-    Unit {
-        id: "settings".to_string(),
-        frontmatter: frontmatter.into_iter().collect(),
-        body: String::new(),
-        source_path: PathBuf::from("settings/settings.md"),
-        satisfies: Vec::new(),
-        satisfies_clauses: Vec::new(),
-        published_requirements: Vec::new(),
-    }
 }
 
 /// A key-path `field` primitive walks nested frontmatter tables to the leaf — the
@@ -204,7 +184,12 @@ fn a_field_primitive_reads_a_nested_key_path_over_a_units_frontmatter() {
     }) else {
         unreachable!("the fixture is a JSON object")
     };
-    let unit = frontmatter_unit(frontmatter);
+    let unit = common::raw_unit(
+        "settings",
+        frontmatter.into_iter().collect(),
+        "",
+        "settings/settings.md",
+    );
 
     let features = extraction.extract(&unit);
 

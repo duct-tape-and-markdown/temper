@@ -252,6 +252,26 @@ pub fn write_lock(root: &Path, declarations: Declarations) {
     drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
+/// A raw `Unit` built straight from its parts, no disk round-trip — the shape
+/// every caller driving a composed extractor over an arbitrary id/frontmatter/
+/// body/source_path converges on, whichever of the four varies.
+pub fn raw_unit(
+    id: &str,
+    frontmatter: BTreeMap<String, serde_json::Value>,
+    body: &str,
+    source_path: &str,
+) -> Unit {
+    Unit {
+        id: id.to_string(),
+        frontmatter,
+        body: body.to_string(),
+        source_path: PathBuf::from(source_path),
+        satisfies: Vec::new(),
+        satisfies_clauses: Vec::new(),
+        published_requirements: Vec::new(),
+    }
+}
+
 /// Snapshot every file under `dir` as a sorted map of relative path -> bytes,
 /// via the sanctioned `walkdir` crate — replaces the hand-rolled `fs::read_dir`
 /// stack walk every caller carried before this consolidation.

@@ -21,7 +21,7 @@ use temper::contract::{Charset, Predicate};
 use temper::engine;
 use temper::frontmatter::Member;
 use temper::import;
-use temper::kind::{Registration, Unit, UnitShape};
+use temper::kind::{Registration, UnitShape};
 
 /// An agent file in the real Claude Code shape: YAML frontmatter carrying `name`
 /// then `description` over a markdown system-prompt body.
@@ -38,24 +38,6 @@ fn write_agent(root: &std::path::Path, relative: &str, name: &str) -> PathBuf {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(&path, agent_source(name)).unwrap();
     path
-}
-
-/// A raw `Unit` straight off an imported `Member` — the same shape
-/// `resolve_kind_units` (`src/main.rs`) builds for the live `check` gate, skipping
-/// the surface round-trip: two independently-imported same-named members would
-/// project to the *same* surface directory (a real collision the import pipeline
-/// handles elsewhere), so exercising `engine::validate` directly over two `Unit`s
-/// sharing an `id` is how the uniqueness clause's per-artifact scope is driven here.
-fn unit_from_member(member: &Member) -> Unit {
-    Unit {
-        id: member.id.clone(),
-        frontmatter: member.fields.iter().cloned().collect(),
-        body: member.body.clone(),
-        source_path: member.provenance.source_path.clone(),
-        satisfies: Vec::new(),
-        satisfies_clauses: Vec::new(),
-        published_requirements: Vec::new(),
-    }
 }
 
 fn agent_kind() -> temper::kind::CustomKind {
@@ -246,13 +228,35 @@ fn two_agents_sharing_a_name_in_one_scope_trip_the_uniqueness_clause() {
     let harness = common::tmpdir("duplicate-name");
     let kind = agent_kind();
 
+    // A raw `Unit` straight off each imported `Member`, skipping the surface
+    // round-trip: two independently-imported same-named members would project to
+    // the *same* surface directory (a real collision the import pipeline handles
+    // elsewhere), so exercising `engine::validate` directly over two `Unit`s
+    // sharing an `id` is how the uniqueness clause's per-artifact scope is driven
+    // here.
     let first_source = write_agent(&harness, "one.md", "reviewer");
     let first_member = Member::from_source(&kind, &first_source).unwrap();
-    let first_features = builtin_kind::features(&kind, &unit_from_member(&first_member));
+    let first_features = builtin_kind::features(
+        &kind,
+        &common::raw_unit(
+            &first_member.id,
+            first_member.fields.iter().cloned().collect(),
+            &first_member.body,
+            first_member.provenance.source_path.to_str().unwrap(),
+        ),
+    );
 
     let second_source = write_agent(&harness, "review/two.md", "reviewer");
     let second_member = Member::from_source(&kind, &second_source).unwrap();
-    let second_features = builtin_kind::features(&kind, &unit_from_member(&second_member));
+    let second_features = builtin_kind::features(
+        &kind,
+        &common::raw_unit(
+            &second_member.id,
+            second_member.fields.iter().cloned().collect(),
+            &second_member.body,
+            second_member.provenance.source_path.to_str().unwrap(),
+        ),
+    );
 
     let contract = builtin::contract("agent").unwrap();
     let diagnostics = engine::validate(&contract, &[first_features, second_features]);
@@ -276,11 +280,27 @@ fn two_agents_with_distinct_names_trip_no_uniqueness_clause() {
 
     let first_source = write_agent(&harness, "one.md", "reviewer");
     let first_member = Member::from_source(&kind, &first_source).unwrap();
-    let first_features = builtin_kind::features(&kind, &unit_from_member(&first_member));
+    let first_features = builtin_kind::features(
+        &kind,
+        &common::raw_unit(
+            &first_member.id,
+            first_member.fields.iter().cloned().collect(),
+            &first_member.body,
+            first_member.provenance.source_path.to_str().unwrap(),
+        ),
+    );
 
     let second_source = write_agent(&harness, "two.md", "planner");
     let second_member = Member::from_source(&kind, &second_source).unwrap();
-    let second_features = builtin_kind::features(&kind, &unit_from_member(&second_member));
+    let second_features = builtin_kind::features(
+        &kind,
+        &common::raw_unit(
+            &second_member.id,
+            second_member.fields.iter().cloned().collect(),
+            &second_member.body,
+            second_member.provenance.source_path.to_str().unwrap(),
+        ),
+    );
 
     let contract = builtin::contract("agent").unwrap();
     let diagnostics = engine::validate(&contract, &[first_features, second_features]);

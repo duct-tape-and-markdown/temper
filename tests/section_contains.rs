@@ -9,31 +9,19 @@
 //! and stays silent when every matching section carries it.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
 use temper::check::{Diagnostic, Severity as DiagnosticSeverity};
 use temper::contract::{Clause, Contract, Predicate, Severity};
 use temper::engine;
 use temper::extract::Features;
-use temper::kind::{Extraction, Primitive, Unit};
+use temper::kind::{Extraction, Primitive};
+
+mod common;
 
 /// The composed `sections` extractor — the one primitive the `section_contains`
 /// predicate reads.
 fn sections_extraction() -> Extraction {
     Extraction::new(vec![Primitive::Sections])
-}
-
-/// A spec-shaped raw unit (no frontmatter; the whole file is body) carrying `body`.
-fn spec_unit(body: &str) -> Unit {
-    Unit {
-        id: "10-contracts".to_string(),
-        frontmatter: BTreeMap::new(),
-        body: body.to_string(),
-        source_path: PathBuf::from("specs/model/contract.md"),
-        satisfies: Vec::new(),
-        satisfies_clauses: Vec::new(),
-        published_requirements: Vec::new(),
-    }
 }
 
 /// The `section_contains { heading = "Decision", marker = "Rejected" }` contract —
@@ -58,7 +46,13 @@ fn decision_contract() -> Contract {
 /// Extract a spec body's sections and validate the decision contract over them —
 /// the full path a `check` run takes for the `spec` kind.
 fn check(body: &str) -> Vec<Diagnostic> {
-    let features: Features = sections_extraction().extract(&spec_unit(body));
+    let unit = common::raw_unit(
+        "10-contracts",
+        BTreeMap::new(),
+        body,
+        "specs/model/contract.md",
+    );
+    let features: Features = sections_extraction().extract(&unit);
     engine::validate(&decision_contract(), std::slice::from_ref(&features))
 }
 
