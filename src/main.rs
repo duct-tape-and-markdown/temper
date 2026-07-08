@@ -1130,6 +1130,14 @@ mod tests {
     use super::*;
     use std::fs;
 
+    fn tmpdir(label: &str) -> PathBuf {
+        tempfile::Builder::new()
+            .prefix(label)
+            .tempdir()
+            .expect("failed to create temp dir")
+            .keep()
+    }
+
     /// The directive-backing set reads **raw disk**, never ignore-filtered: whether an
     /// `@import` target is backed is a fact about the filesystem the harness loads
     /// regardless of `.gitignore`, and the safe direction fixes it — an extra backing file only *suppresses* a
@@ -1138,8 +1146,7 @@ mod tests {
     /// two rules, never merged.
     #[test]
     fn repo_file_set_stays_raw_disk_including_gitignored_targets() {
-        let root = std::env::temp_dir().join(format!("temper-backing-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        let root = tmpdir("repo-file-set");
         let dep = root.join("node_modules").join("dep");
         fs::create_dir_all(&dep).unwrap();
         fs::write(root.join(".gitignore"), "node_modules/\n").unwrap();
@@ -1153,7 +1160,5 @@ mod tests {
             "the gitignored backing target must still be seen (raw disk): {files:?}"
         );
         assert!(files.iter().any(|f| f == "CLAUDE.md"));
-
-        let _ = fs::remove_dir_all(&root);
     }
 }
