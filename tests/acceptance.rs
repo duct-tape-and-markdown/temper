@@ -11,10 +11,11 @@
 //!   and compiling its seam payload twice reproduces the
 //!   projection with no diff;
 //! - the custom-kind acceptance:
-//!   over a corpus carrying an authored `spec` kind + package, `temper check`'s
-//!   exit code flips under `--deny-advisories` (the empty-corpus coverage note is
-//!   itself warn-severity) — driving the built binary, since the exit code is
-//!   observable only across a real process boundary.
+//!   over a corpus whose lock declares a custom kind and an advisory `max_lines`
+//!   clause naming it, `temper check` names that clause and the offending member
+//!   in its diagnostic output (and flips the exit code under `--deny-advisories`)
+//!   — driving the built binary, since both the rendered diagnostics and the exit
+//!   code are observable only across a real process boundary.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -201,142 +202,137 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
     );
 }
 
-/// The authored `spec` KIND.md definition: it governs `specs/*.md` and composes the spec extractor
-/// (line count, ATX headings, placement) — markdown structure only, no body-mined
-/// references.
-const SPEC_KIND_MD: &str = "+++\n\
-governs = { root = \"specs\", glob = \"*.md\" }\n\
-\n\
-[[extraction]]\n\
-primitive = \"line_count\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"headings\"\n\
-\n\
-[[extraction]]\n\
-primitive = \"placement\"\n\
-+++\n\
-\n\
-# The spec kind\n\
-\n\
-temper's own governing documents.\n";
-
-/// The authored `spec` **package** — the require-side the kind binds:
-/// one advisory `max_lines` clause. The shipped budget is
-/// ~150; this fixture uses a small one so a short over-length spec
-/// trips it without a 150-line corpus.
-const SPEC_PACKAGE_MD: &str = "+++\n\
-[[clause]]\n\
-severity = \"advisory\"\n\
-predicate = \"max_lines\"\n\
-max = 10\n\
-+++\n\
-\n\
-# The spec package\n\
-\n\
-The require-side of the spec kind.\n";
-
-/// Author a custom kind's definition + package under `<corpus>/.temper/` — the
-/// authored half of the assembly `import` and `check` read.
-fn author_custom_kind(corpus: &Path, name: &str, kind_md: &str, package_md: &str) {
+/// Author a custom kind's `lock.toml` declaration row pair — one
+/// `[[declaration.kind]]` naming its `governs` root/glob, one
+/// `[[declaration.clause]]` binding an advisory `max_lines` budget to it — the
+/// live authoring surface (`tests/session_start.rs`'s
+/// `a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_false_admissibility_finding`
+/// uses the identical shape). `max_lines` is the fixture's small 10-line budget so a
+/// short over-length body trips it without a real spec-sized corpus.
+fn author_custom_kind_lock(corpus: &Path, name: &str, governs_root: &str) {
     let temper = corpus.join(".temper");
-    let kind_dir = temper.join("kinds").join(name);
-    fs::create_dir_all(&kind_dir).unwrap();
-    fs::write(kind_dir.join("KIND.md"), kind_md).unwrap();
-    let pkg_dir = temper.join("packages").join(name);
-    fs::create_dir_all(&pkg_dir).unwrap();
-    fs::write(pkg_dir.join("PACKAGE.md"), package_md).unwrap();
+    fs::create_dir_all(&temper).unwrap();
+    fs::write(
+        temper.join("lock.toml"),
+        format!(
+            "[[declaration.kind]]\n\
+             name = \"{name}\"\n\
+             governs_root = \"{governs_root}\"\n\
+             governs_glob = \"*.md\"\n\
+             \n\
+             [[declaration.clause]]\n\
+             kind = \"{name}\"\n\
+             predicate = \"max_lines\"\n\
+             severity = \"advisory\"\n\
+             bound = {{ max = 10 }}\n"
+        ),
+    )
+    .unwrap();
 }
 
-/// A spec body over the fixture's 10-line `max_lines` budget — used to prove the
-/// advisory fires (and, under `--deny-advisories`, blocks).
-fn over_length_spec() -> String {
+/// A body over the fixture's 10-line `max_lines` budget — used to prove the
+/// advisory fires (and, under `--deny-advisories`, blocks), naming itself in the
+/// diagnostic.
+fn over_length_body() -> String {
     let mut body = String::from("# Kinds\n");
     for line in 1..=40 {
-        body.push_str(&format!("Line {line} of an over-budget spec body.\n"));
+        body.push_str(&format!("Line {line} of an over-budget body.\n"));
     }
     body
 }
 
 /// Run the built binary `temper check <workspace> [extra…]` from `cwd` and return
-/// whether it exited zero.
-fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> bool {
-    Command::new(BIN)
+/// whether it exited zero, plus the rendered diagnostic set on stdout.
+fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> (bool, String) {
+    let output = Command::new(BIN)
         .current_dir(cwd)
         .arg("check")
         .arg(workspace)
         .args(extra)
-        .status()
-        .unwrap()
-        .success()
+        .output()
+        .unwrap();
+    (
+        output.status.success(),
+        String::from_utf8(output.stdout).unwrap(),
+    )
 }
 
 /// The custom-kind acceptance:
-/// over a corpus carrying an authored `spec` kind + package (no built-in kind's members
-/// resolve here), `--deny-advisories` flips the exit code, since the empty-corpus
-/// coverage note is itself warn-severity — the flag-flip proof pattern this suite's
-/// other custom-kind case also drives.
+/// over a corpus whose lock declares a `spec` kind + an advisory `max_lines`
+/// clause naming it, `check` names that clause and the offending member in its
+/// diagnostic output for the over-length spec, and stays silent about `max_lines`
+/// for the clean one — proof the custom kind's own clause fires, not just the
+/// always-on coverage/gate-installed notes every corpus carries.
 #[test]
 fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
     let corpus = tmpdir("spec-corpus");
-    author_custom_kind(&corpus, "spec", SPEC_KIND_MD, SPEC_PACKAGE_MD);
+    author_custom_kind_lock(&corpus, "spec", "specs");
     let specs = corpus.join("specs");
     fs::create_dir_all(&specs).unwrap();
     // A short spec (clean) beside an over-length one (trips the advisory budget).
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
-    fs::write(specs.join("15-kinds.md"), over_length_spec()).unwrap();
+    fs::write(specs.join("15-kinds.md"), over_length_body()).unwrap();
 
     let into = corpus.join(".temper");
 
+    let (ok, output) = check_from(&corpus, &into, &[]);
     assert!(
-        check_from(&corpus, &into, &[]),
+        ok,
         "an advisory-only spec violation must exit zero without --deny-advisories"
     );
     assert!(
-        !check_from(&corpus, &into, &["--deny-advisories"]),
+        output.contains("max_lines") && output.contains("15-kinds"),
+        "the over-length spec's own max_lines clause must name itself and the \
+         offending member, got:\n{output}"
+    );
+    assert!(
+        !output.contains("00-intent"),
+        "the clean spec must trip no max_lines finding, got:\n{output}"
+    );
+
+    let (ok, output) = check_from(&corpus, &into, &["--deny-advisories"]);
+    assert!(
+        !ok,
         "the over-length spec must exit non-zero under --deny-advisories"
     );
+    assert!(output.contains("max_lines") && output.contains("15-kinds"));
 }
 
 /// A custom kind authored **outside** `specs/` (`adr/*.md`), the same shape as the
-/// `spec` case above and driven for the same reason: `--deny-advisories` flips the
-/// exit code over the empty-corpus coverage note's warn severity.
+/// `spec` case above and driven for the same reason: its own lock-declared
+/// `max_lines` clause names itself and the offending ADR in the diagnostic output,
+/// independent of the always-on coverage/gate-installed notes.
 #[test]
 fn check_reads_a_custom_kind_rooted_outside_specs() {
     let corpus = tmpdir("adr-corpus");
-    let adr_kind_md = "+++\n\
-governs = { root = \"adr\", glob = \"*.md\" }\n\
-\n\
-[[extraction]]\n\
-primitive = \"line_count\"\n\
-+++\n\
-\n\
-# The adr kind\n\
-\n\
-Architecture decision records.\n";
-    let adr_package_md = "+++\n\
-[[clause]]\n\
-severity = \"advisory\"\n\
-predicate = \"max_lines\"\n\
-max = 10\n\
-+++\n\
-\n\
-# The adr package\n";
-    author_custom_kind(&corpus, "adr", adr_kind_md, adr_package_md);
+    author_custom_kind_lock(&corpus, "adr", "adr");
     let adrs = corpus.join("adr");
     fs::create_dir_all(&adrs).unwrap();
     // A short ADR (clean) beside an over-length one (trips the advisory budget).
     fs::write(adrs.join("0001-short.md"), "# ADR 1\n\nDecided.\n").unwrap();
-    fs::write(adrs.join("0002-long.md"), over_length_spec()).unwrap();
+    fs::write(adrs.join("0002-long.md"), over_length_body()).unwrap();
 
     let into = corpus.join(".temper");
 
+    let (ok, output) = check_from(&corpus, &into, &[]);
     assert!(
-        check_from(&corpus, &into, &[]),
+        ok,
         "an advisory-only ADR violation must exit zero without --deny-advisories"
     );
     assert!(
-        !check_from(&corpus, &into, &["--deny-advisories"]),
+        output.contains("max_lines") && output.contains("0002-long"),
+        "the over-length ADR's own max_lines clause must name itself and the \
+         offending member, got:\n{output}"
+    );
+    assert!(
+        !output.contains("0001-short"),
+        "the clean ADR must trip no max_lines finding, got:\n{output}"
+    );
+
+    let (ok, output) = check_from(&corpus, &into, &["--deny-advisories"]);
+    assert!(
+        !ok,
         "the over-length ADR must exit non-zero under --deny-advisories"
     );
+    assert!(output.contains("max_lines") && output.contains("0002-long"));
 }
