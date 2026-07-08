@@ -1,5 +1,45 @@
 [
   {
+    "tag": "WINDOWS-VENDOR-SYMLINK-JUNCTION",
+    "summary": "Fix cargo test's Windows compile break — consolidate the triplicated SDK-vendoring test helper into tests/common, using a junction (not a Unix symlink) for the npm-install stand-in",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "New shared test-support module hoisting the byte-identical `sdk_root()`/`ensure_sdk_built()` today triplicated verbatim (tests/emit.rs:628-641, tests/install.rs:57-70, tests/builtin_lock_frozen.rs:37-50), plus a new `vendor_sdk(node_modules_scope: &Path)`: ensures the `@dtmd` scope dir exists, is idempotent (skip if the link/junction already exists — install.rs's existing guard, generalized), calls `ensure_sdk_built()`, then links `sdk_root()` into it as the stand-in for a real `npm install`'s local-dependency resolution. `#[cfg(unix)]` keeps `std::os::unix::fs::symlink(target, link)`; `#[cfg(windows)]` shells `cmd /C mklink /J <link> <target>` — note mklink's arg order is Link-then-Target, reversed vs symlink's (original, link), and quote paths since CARGO_MANIFEST_DIR may contain spaces. A junction (never `std::os::windows::fs::symlink_dir`) needs no SeCreateSymbolicLinkPrivilege/Developer Mode, matching how npm itself links local/workspace deps on Windows — cite npm/cli#5189, nixhacker.com 'Understanding and Exploiting Symbolic links in Windows', hinchley.net 'Junctions and Symbolic Links', all retrieved 2026-07-08, into the code comment (rust.md comment bar)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "tests/emit.rs",
+          "description": "Add `mod common;`; delete the local `sdk_root`/`ensure_sdk_built` (lines 628-641); in `wire_sdk_harness_program` (line 699) replace the unconditional `std::os::unix::fs::symlink(sdk_root(), node_modules_scope.join(\"temper\"))` with `common::vendor_sdk(&node_modules_scope)`."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Add `mod common;`; delete the local `sdk_root`/`ensure_sdk_built` (lines 57-70) and the local `vendor_sdk` (lines 76-86, unconditional symlink at line 84) — its one caller uses `common::vendor_sdk` instead."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Add `mod common;`; delete the local `sdk_root`/`ensure_sdk_built` (lines 37-50); in `wire_memberless_harness` (line 105) replace the unconditional `std::os::unix::fs::symlink(...)` with `common::vendor_sdk(&node_modules_scope)`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/emit.rs", "asserts": "the real-SDK harness tests (e.g. `wire_sdk_harness`) still pass unchanged on unix after the extraction — same symlink behavior via the shared helper" },
+      { "path": "tests/install.rs", "asserts": "install's real-SDK-vendored tests still pass unchanged after `vendor_sdk` moves to tests/common" },
+      { "path": "tests/builtin_lock_frozen.rs", "asserts": "the frozen-lock byte-compare test against the memberless harness still passes after `wire_memberless_harness` uses the shared helper" }
+    ],
+    "acceptance": "`cargo test` compiles and the full suite runs to completion on Windows — no unconditional unix-only symlink call remains in tests/; on unix, `vendor_sdk`'s behavior and the full suite (229/229 per the field report) are unchanged.",
+    "notes": "Windows field report observed at baac085; junction-not-symlink_dir fix verified 2026-07-08 (nixhacker.com, hinchley.net, npm/cli#5189 — carry cites into the code comment, rust.md). No new crate: shell `cmd /C mklink /J <link> <target>` (arg order reversed vs std::os::unix::fs::symlink's (original, link)). CI is ubuntu-only — build can't execute the Windows path itself; say so in the commit body. scoped at 16f844b"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
