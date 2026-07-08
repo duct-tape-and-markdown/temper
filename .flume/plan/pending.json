@@ -62,6 +62,107 @@
     "notes": "Residue sweep (job 4): grep confirms no 'kinds'/'packages' path literal anywhere in src/ - the KIND.md/PACKAGE.md custom-kind authoring format is fully dead (kind.rs: CustomKind is SDK-constructed, no file format). Verified empirically: a corpus with NO custom-kind fixture at all still flips non-zero under --deny-advisories (coverage.checked + install.gate-installed are always-on warn notes) - proving the two tests' current pass is unrelated to any custom-kind clause firing. scoped at 5264c0f."
   },
   {
+    "tag": "RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT",
+    "summary": "Rename the retired `floor` vocabulary (0001) to `default contract` across builtin-contract resolution, SDK exports, and the `why` verb's pinned narration",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Rename `builtin_floor`/`builtin_floors`/`BUILTIN_FLOOR_KINDS` (~lines 53-71) and their call sites (~280-300, 606, 634) to `default contract` naming (e.g. `builtin_default_contract`/`builtin_default_contracts`/`BUILTIN_DEFAULT_CONTRACT_KINDS`); reword the surrounding doc comments that say `floor`."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Rename `floor_from_rows` and the `floor: Contract` parameter of `effective` to `default contract` naming; rename the private test helper `floor()` and the test fns `effective_with_no_clause_rows_yields_the_floor_unchanged`, `effective_overrides_a_floor_clauses_severity_by_matching_identity`, `effective_ignores_a_row_with_no_matching_floor_clause`, `floor_from_rows_builds_a_custom_kinds_whole_floor`, `floor_from_rows_skips_a_row_it_cannot_lift`."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Reword the `why` verb's user-facing line (~424) `\"Governing floor: its `{}` kind binds the `{}` floor, whose clauses check it.\\n\"` and its doc comment to say `default contract` instead of `floor`."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Rename the six exported clause arrays `skillFloor`/`commandFloor`/`agentFloor`/`ruleFloor`/`memoryAnthropicFloor`/`memoryAgentsMdFloor` and their `\"The floor for `X`\"` doc-comment headers to `default contract` naming."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Update the re-exported names and the adoption-example doc comment (`skillFloor`, ~line 8) to the renamed exports."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Update every import, assertion, and test description string referencing the six renamed exports."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Rename `mod floor_binding` and its test fns `a_memory_member_names_its_own_floor_never_the_skill_floor`, `a_builtin_name_resolves_to_its_bound_floor`, `a_floorless_kind_falls_back_to_its_own_name`; update the assertion substrings and the `READ-FLOOR-BINDING-DEFAULT`-tagged doc comments (~lines 3-4, 314-375) to match the new output wording."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Update the embedded `MEMBERLESS_BUILTIN_PROGRAM` TS fixture's imports/keys (`agentFloor` etc., ~lines 65-86) and the surrounding doc comments to the renamed SDK exports."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Update the header comment's named SDK exports (`agentFloor` etc., ~lines 13-20) to match the rename; the `[[declaration.*]]` rows below are unaffected data, re-derived/re-embedded per the file's own regen instructions."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`why`'s governing-contract narration says `default contract`, never `floor`, for a builtin-bound, custom-kind, and floorless-fallback member"
+      }
+    ],
+    "acceptance": "No live `floor`/`Floor` identifier, user-facing string, or test name for this concept remains in src/, tests/, or sdk/; the 5 pinned `read_verbs__why_*` snapshots regenerate to the new wording; cargo test and sdk test green.",
+    "notes": "scoped at 77b2eb9 (residue sweep, job 4); 0001 retired `floor` for `default contract` (specs/builtins.md 'Default contracts' uses only the latter; corpus never says `floor`). Comment-only `floor` mentions elsewhere (builtin.rs, kind.rs, roster.rs, extract.rs, contract.rs, schema.rs, engine.rs's unrelated 'defensive floor', bundle.rs) are out of scope — no live identifier there, so they ride whichever entry next opens those files for a real reason."
+  },
+  {
+    "tag": "RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE",
+    "summary": "Rename the stale `posture` naming for the guard's block/warn/note behavior to `enforcement mode`, matching the settled term used elsewhere in the same files",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "Per tool call"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "INSTALL-WHOLE-CONVERSION"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Reword `GUARD_COMMAND`'s doc comment (~103-109: \"declared posture\", \"the posture is read from\", \"posture-independent\") and the `guard` fn's doc comment (~603: \"enforcement posture\", one stale word amid otherwise-consistent `mode`/`EnforcementMode` wording) to say `enforcement mode`, matching this file's own already-consistent wording at ~116 and ~584."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Reword `AssemblyFactRow.value`'s doc comment (~1321: \"the root member's declared enforcement posture\") to \"declared enforcement mode\"."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Rename `guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest` and reword its doc comment plus the assertion message \"the lock's `block` posture must block\"; reword the neighboring `guard_defaults_to_warn_when_the_lock_is_absent`'s \"default posture\" doc comment; rename the `tmpdir(\"lock-posture-block\")`/`tmpdir(\"lock-posture-absent\")` labels — all to `mode` wording."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "the guard's block/warn tests and their names/labels read `mode`, never `posture`, consistent with `enforcement mode` used elsewhere in this file"
+      }
+    ],
+    "acceptance": "No `posture` referring to the guard's block/warn/note concept remains in src/install.rs, src/drift.rs, or tests/install.rs; cargo test green.",
+    "notes": "scoped at 77b2eb9 (residue sweep, job 4); representation.md 'The root member' names this field `enforcement mode`; distribution.md 'Per tool call' spells its three values. blockedBy INSTALL-WHOLE-CONVERSION: both edit src/install.rs + tests/install.rs (disjoint-file rule). Excludes drift.rs:192/main.rs:126's unrelated 'CI posture' (network-refuse stance), read.rs's 'mixed-posture corpus' (unrelated sense), and main.rs:144's lone comment (rides along later, no live symbol there)."
+  },
+  {
     "tag": "RETIRE-OWN-PATH-MACHINERY",
     "summary": "Delete the own-path detection, lock column, and guard exemption from drift/import/main now that whole conversion makes them structurally unreachable (0016)",
     "per": {

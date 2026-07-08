@@ -2,30 +2,36 @@
 
 - Spec derived through: cd7135b
 - Audited through: 99337b8
-- Residue swept through: 5264c0f
-- This tick: Residue sweep (job 4). No commits past 99337b8 touch
-  src/tests/sdk (HEAD is 5264c0f, the prior plan commit itself, writable-fence
-  restricted) so job 3 stayed quiet and job 4 took over. Re-verified the
-  standing accepted debt (open-questions.md, "kinds/ + packages/ curated
-  trees — RETIRED"): tests/session_start.rs's stray `.temper/kinds/spec/
-  KIND.md` + `.temper/packages/spec/PACKAGE.md` fixtures are untouched and
-  still honestly named (asserts they're inert) — no entry rides it yet, note
-  stands unchanged. Swept further and found a live gap the note didn't cover:
-  tests/acceptance.rs's `check_dispatches_the_spec_custom_kind_...` and
-  `check_reads_a_custom_kind_rooted_outside_specs` author the same dead
-  KIND.md/PACKAGE.md format, but their `--deny-advisories` assertions are
-  actively misleading, not just inert — confirmed empirically that the flip
-  fires on ANY corpus (a fixture-less control still flips non-zero) via the
-  always-on `coverage.checked`/`install.gate-installed` warn notes, so the
-  tests currently prove nothing about custom-kind dispatch despite their
-  names/docstrings. Filed ACCEPTANCE-CUSTOM-KIND-VIA-LOCK to rewrite both
-  onto lock-declared kinds with diagnostic-content assertions. No other
-  KIND.md/PACKAGE.md or temper.toml residue found (tests/requirement_roster.rs's
-  temper.toml tests correctly assert inertness, not dead-format misuse).
-- Queue: 3 — INSTALL-WHOLE-CONVERSION (open) and
-  ACCEPTANCE-CUSTOM-KIND-VIA-LOCK (open) are both pickable and file-disjoint;
-  RETIRE-OWN-PATH-MACHINERY (blockedBy INSTALL-WHOLE-CONVERSION);
-  PACKAGING-CHANNELS (parked).
+- Residue swept through: 77b2eb9
+- This tick: Residue sweep (job 4), continued. Inbox/spec-delta/ship-audit
+  stayed quiet (no src/tests/sdk commits past 99337b8 — only prior plan
+  commits touch the tree). Swept vocabulary: decision 0001 retired
+  `floor`→`default contract` and `blast radius`→`impact`; a separate,
+  later-settled term is `enforcement mode` (representation.md/distribution.md),
+  displacing an older `posture` naming. Verified against current corpus body
+  (builtins.md never says `floor`; contract.md's `impact` never says `blast
+  radius`; representation.md/distribution.md say `enforcement mode`, never
+  `posture`). `floor` is live in real identifiers/user-facing text/test names
+  (main.rs, compose.rs, read.rs's pinned `why` narration, 6 SDK-exported
+  clause arrays, their sdk test, tests/read_verbs.rs, tests/builtin_lock_frozen.rs's
+  embedded fixture, builtin_lock.toml's header) — filed
+  RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT. `posture` (enforcement-mode
+  sense) is live in one test fn name plus doc comments in install.rs/drift.rs —
+  filed RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE, blockedBy
+  INSTALL-WHOLE-CONVERSION (both touch install.rs + tests/install.rs).
+  `blast radius` stayed unfiled — it's read.rs's own internal description of
+  what `impact` computes (depth rule: exact narration wording is code's HOW,
+  not a modeled-noun collision like `floor`/`posture` are). Comment-only stray
+  mentions of `floor`/`posture` (builtin.rs, kind.rs, roster.rs, extract.rs,
+  contract.rs, schema.rs, engine.rs, bundle.rs, sdk/kind.ts's nesting-depth
+  "posture 3", sdk/contract.ts's severity-flavored "posture") ride whichever
+  entry next opens those files for a real reason, per the comment-staleness
+  exception.
+- Queue: 6 — INSTALL-WHOLE-CONVERSION, ACCEPTANCE-CUSTOM-KIND-VIA-LOCK,
+  RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT are three pickable,
+  file-disjoint open entries; RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE
+  and RETIRE-OWN-PATH-MACHINERY are both blockedBy INSTALL-WHOLE-CONVERSION;
+  PACKAGING-CHANNELS is parked.
 
 Plan continues: yes — quiet closing pass (job 5) is next; inbox, spec delta,
 ship audit, and residue sweep are all current as of this tick.
