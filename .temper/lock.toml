@@ -1,8 +1,8 @@
 [[memory]]
 name = "CLAUDE"
 source_path = "./CLAUDE.md"
-source_hash = "354721e5a0ca10ce016e3f1d97ec602232e934163699493afcc2bb302d5304b8"
-emit_hash = "354721e5a0ca10ce016e3f1d97ec602232e934163699493afcc2bb302d5304b8"
+source_hash = "5fb34b5f04a01d143b22111c985e4ec0e9cbe5973167369761d184799ecbb3ed"
+emit_hash = "5fb34b5f04a01d143b22111c985e4ec0e9cbe5973167369761d184799ecbb3ed"
 own_path = true
 
 [[rule]]
@@ -24,7 +24,7 @@ name = "memory"
 governs_root = "."
 governs_glob = "**/CLAUDE.md"
 unit_shape = "file"
-registration = "always"
+registration = ["always"]
 
 [[declaration.kind]]
 name = "rule"
@@ -32,7 +32,7 @@ governs_root = ".claude/rules"
 governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
-registration = "paths-match(paths)"
+registration = ["paths-match(paths)"]
 
 [[declaration.assembly]]
 fact = "mode"
