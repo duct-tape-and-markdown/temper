@@ -22,13 +22,14 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Once;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use sha2::{Digest, Sha256};
 use temper::drift::{
     self, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload, PayloadMember,
 };
+
+mod common;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -623,27 +624,6 @@ fn the_emit_report_distinguishes_reaped_from_drifted_orphan() {
 // built SDK against a fixture `harness.ts`.
 // ---------------------------------------------------------------------------
 
-/// The repo's `sdk/` directory — the SDK package this crate's worktree carries
-/// beside `Cargo.toml`.
-fn sdk_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sdk")
-}
-
-/// Build the SDK's `dist/` once per test binary run — the compiled package a
-/// fixture harness program's bare `@dtmd/temper` import resolves to, exactly as
-/// an installed npm dependency would.
-fn ensure_sdk_built() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let status = std::process::Command::new("npm")
-            .args(["run", "build"])
-            .current_dir(sdk_root())
-            .status()
-            .expect("failed to run `npm run build` in sdk/ — is npm on PATH?");
-        assert!(status.success(), "sdk build failed");
-    });
-}
-
 /// A fixture SDK program: a single file with no relative imports (so it runs
 /// directly under Node's native TypeScript support with no build step of its
 /// own), importing only the bare `@dtmd/temper`/`@dtmd/temper/claude-code`
@@ -688,15 +668,13 @@ fn wire_sdk_harness(label: &str) -> (PathBuf, PathBuf) {
 /// [`wire_sdk_harness`], parameterized over the fixture program text — the seam
 /// each real-SDK test drives is the same; only the authored harness differs.
 fn wire_sdk_harness_program(label: &str, program: &str) -> (PathBuf, PathBuf) {
-    ensure_sdk_built();
     let harness = tmpdir(label);
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     fs::write(into.join("harness.ts"), program).unwrap();
 
     let node_modules_scope = into.join("node_modules").join("@dtmd");
-    fs::create_dir_all(&node_modules_scope).unwrap();
-    std::os::unix::fs::symlink(sdk_root(), node_modules_scope.join("temper")).unwrap();
+    common::vendor_sdk(&node_modules_scope);
 
     (harness, into)
 }

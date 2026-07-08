@@ -11,10 +11,11 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Once;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::{self, EmitOptions};
+
+mod common;
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -30,29 +31,6 @@ fn tmpdir(label: &str) -> PathBuf {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
-}
-
-/// The repo's `sdk/` directory — the SDK package this crate's worktree carries
-/// beside `Cargo.toml` (`tests/emit.rs`'s `sdk_root`).
-fn sdk_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sdk")
-}
-
-/// Build the SDK's `dist/` once per test binary run (`tests/emit.rs`'s
-/// `ensure_sdk_built`) — the compiled package a fixture harness program's bare
-/// `@dtmd/temper` import resolves to, exactly as an installed npm dependency would.
-/// A build failure panics loudly: the module being unbuildable is the "absence" half
-/// of this lane's fail-loud contract, never a silently skipped test.
-fn ensure_sdk_built() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let status = std::process::Command::new("npm")
-            .args(["run", "build"])
-            .current_dir(sdk_root())
-            .status()
-            .expect("failed to run `npm run build` in sdk/ — is npm on PATH?");
-        assert!(status.success(), "sdk build failed");
-    });
 }
 
 /// A memberless harness binding every built-in kind to every built-in default contract via
@@ -94,15 +72,13 @@ process.stdout.write(emit(program).seam);
 /// `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the stand-in
 /// for a real consumer's installed dependency (`tests/emit.rs`'s `wire_sdk_harness`).
 fn wire_memberless_harness() -> (PathBuf, PathBuf) {
-    ensure_sdk_built();
     let harness = tmpdir("memberless");
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     fs::write(into.join("harness.ts"), MEMBERLESS_BUILTIN_PROGRAM).unwrap();
 
     let node_modules_scope = into.join("node_modules").join("@dtmd");
-    fs::create_dir_all(&node_modules_scope).unwrap();
-    std::os::unix::fs::symlink(sdk_root(), node_modules_scope.join("temper")).unwrap();
+    common::vendor_sdk(&node_modules_scope);
 
     (harness, into)
 }

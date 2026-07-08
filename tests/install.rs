@@ -27,11 +27,12 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Once;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::ApplyOutcome;
 use temper::install::{self, InstallOutcome, Represent};
+
+mod common;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -50,39 +51,6 @@ fn tmpdir(label: &str) -> PathBuf {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
-}
-
-/// The repo's `sdk/` directory — the SDK package this crate's worktree carries
-/// beside `Cargo.toml` (mirrors `tests/emit.rs`'s own fixture).
-fn sdk_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sdk")
-}
-
-/// Build the SDK's `dist/` once per test binary run.
-fn ensure_sdk_built() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        let status = std::process::Command::new("npm")
-            .args(["run", "build"])
-            .current_dir(sdk_root())
-            .status()
-            .expect("failed to run `npm run build` in sdk/ — is npm on PATH?");
-        assert!(status.success(), "sdk build failed");
-    });
-}
-
-/// Vendor `@dtmd/temper` into `temper_dir/node_modules` via a symlink to the repo's
-/// own built SDK — the stand-in for a real `npm install`, so `install::run`'s
-/// dependency-ensure step finds it already resolved and never spawns real `npm`
-/// (no network needed in this suite).
-fn vendor_sdk(temper_dir: &Path) {
-    ensure_sdk_built();
-    let scope = temper_dir.join("node_modules").join("@dtmd");
-    fs::create_dir_all(&scope).unwrap();
-    let link = scope.join("temper");
-    if !link.exists() {
-        std::os::unix::fs::symlink(sdk_root(), &link).unwrap();
-    }
 }
 
 /// A skill with frontmatter — a full, realistic pre-existing artifact the lift
@@ -352,7 +320,7 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     let root = write_harness("represent", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    vendor_sdk(&temper_dir);
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
     let discovery = install::discover(&root).unwrap();
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -489,7 +457,7 @@ fn a_document_body_scaffolds_to_a_module_adjacent_file_never_the_original_path()
 
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    vendor_sdk(&temper_dir);
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -520,7 +488,7 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
     let root = write_harness("re-represent", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    vendor_sdk(&temper_dir);
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -553,7 +521,7 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
 
 /// Serializes the one test below that shadows the process-wide `PATH` — no other
 /// test in this suite spawns a real `npm` (every other yes-path test vendors the
-/// dependency via [`vendor_sdk`], so `dependency_resolves` short-circuits before
+/// dependency via [`common::vendor_sdk`], so `dependency_resolves` short-circuits before
 /// ever reaching a spawn), but a shared `PATH` is process state, not per-test.
 static PATH_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -562,7 +530,7 @@ fn a_dependency_spawn_failure_leaves_no_half_scaffolded_state() {
     // Force the SDK's own `npm run build` (real `npm`, gated by a `Once`) to finish
     // first — otherwise a concurrently first-triggered `ensure_sdk_built` elsewhere
     // could race the shadowed `npm` this test installs below.
-    ensure_sdk_built();
+    common::ensure_sdk_built();
 
     let root = write_harness("dependency-spawn-failure", false);
     let temper_dir = root.join(".temper");
@@ -646,7 +614,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     let root = write_harness("deepen", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    vendor_sdk(&temper_dir);
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
     let discovery = install::discover(&root).unwrap();
     let first = install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -797,7 +765,7 @@ fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
     let root = write_harness("format-preserving-guard", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    vendor_sdk(&temper_dir);
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
@@ -890,7 +858,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     // targets to nudge for a pure lift).
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    vendor_sdk(&temper_dir);
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert!(
         install::gate_installed(&root).is_empty(),
@@ -1138,7 +1106,7 @@ fn the_cli_install_verb_represents_on_yes_and_dry_runs_a_re_represent() {
     let root = write_harness("cli-yes", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
-    vendor_sdk(&temper_dir);
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
 
     let status = Command::new(BIN)
         .arg("install")
