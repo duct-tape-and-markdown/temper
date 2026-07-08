@@ -2,22 +2,23 @@
 
 - Spec derived through: 474835b
 - Audited through: c44ba6b
-- Residue swept through: 886dc64
-- This tick: Ship audit (job 3), 1e5d7ec..HEAD. EMBEDDED-FENCE-MEMBER-NOUN
-  shipped (build 7532aa9, drain 9155011) confirmed on disk: `sdk/src/genres.ts`
-  deleted, zero `genre` vocabulary in src/sdk, `member.<kind>` fence read fold +
-  `EmbeddedMemberValue` live, emit write face landed. Re-gated
-  REGISTRATION-CHANNELS blockedBy→open — the blocker discharged and every cited
-  surface re-verified intact at its stated line despite EMBEDDED-FENCE touching
-  the shared files (kind.rs enum 129 / registration_from_label 399, drift.rs
-  KindFactRow.registration 1130, declarations.ts registrationLabel 178,
-  kind.ts Registration 26, install.rs DescriptionTrigger 1100, builtins.ts
-  skill 52/skillFloor 125). No entry dropped (EMBEDDED-FENCE already drained).
-  Cursor 1e5d7ec → c44ba6b.
-- Queue: 4 — REGISTRATION-CHANNELS now open → COMMAND-KIND → AGENT-KIND
-  (serialized chain, shared builtin_kind.rs/builtins.ts/builtin_lock.toml);
+- Residue swept through: 8e09363
+- This tick: Residue sweep (job 4), 886dc64..HEAD. Filed GENRE-SNAPSHOT-RESIDUE
+  — the genre→member recut (0012/EMBEDDED-FENCE) left snapshot residue: one
+  orphan `read_verbs__impact_leaf_grain.snap` (dead — assertion_line 623 >
+  read_verbs.rs's 377 lines, retired 'genre' coverage body, unreferenced; live
+  leaf-grain test asserts via `.contains`), plus 4 `display_rule__*.snap` with
+  stale `render_genre` expression metadata (comment-class, rid here). `git grep
+  genre` in src/sdk/src is clean; live genre strings in nested_member.rs:193 &
+  emit.test.ts:386 are sanctioned retirement guards, kept. 0013 (Format label)
+  / 0015 (manifest machinery) residue stays fork-routed by
+  (format-template-spelling) / (manifest-authoring-surface), unchanged. Cursor
+  886dc64 → 8e09363 (HEAD).
+- Queue: 5 — REGISTRATION-CHANNELS (open) + GENRE-SNAPSHOT-RESIDUE (open,
+  disjoint: tests/snapshots only) both pickable; COMMAND-KIND → AGENT-KIND
+  blocked chain (shared builtin_kind.rs/builtins.ts/builtin_lock.toml);
   PACKAGING-CHANNELS parked.
 
-Plan continues: yes — residue sweep: Residue swept through 886dc64 trails HEAD
-(c44ba6b); sweep 886dc64..HEAD (the 0012/0013/0015 spec range + EMBEDDED-FENCE
-ship) next tick.
+Plan continues: no — all cursors current (inbox empty; no spec delta past
+474835b; ship audit c44ba6b..HEAD is plan-only; residue swept to HEAD). Two
+pickable open entries exist — build takes over.

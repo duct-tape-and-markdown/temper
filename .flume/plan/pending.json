@@ -99,6 +99,55 @@
     "notes": "0014, registration recut. `Registration` scalar→channel set ripples to every consumer (declarations.ts registrationLabel = SDK lock-column producer, graph reachability, main's map, install's seed, read fixtures). Modulating booleans→declared fields, cited code.claude.com/docs/en/skills (2026-07-07 per 0014). Skill re-verify rides here. Unblocked: EMBEDDED-FENCE shipped 7532aa9, cited surfaces re-verified intact at ship audit. scoped 89cd964; declarations.ts added by residue sweep."
   },
   {
+    "tag": "GENRE-SNAPSHOT-RESIDUE",
+    "summary": "Sweep genre→member snapshot residue: retire the orphan read_verbs leaf-grain snapshot (dead 'genre' body); refresh 4 display_rule snapshots' stale render_genre expression metadata",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "nesting"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/snapshots/display_rule__decision_value.snap",
+          "description": "Force-refresh the stale `expression: render_genre(&decision_value())` metadata line to the current `render_member(...)` call. Snapshot body is byte-unchanged (render_member reproduces the old render_genre output); regenerate via delete + `cargo insta test --test display_rule --accept`, then confirm the body did not move."
+        },
+        {
+          "path": "tests/snapshots/display_rule__leaves_only_value.snap",
+          "description": "Same metadata refresh: `render_genre(&value)` → `render_member(...)`; body byte-unchanged."
+        },
+        {
+          "path": "tests/snapshots/display_rule__collections_only_value.snap",
+          "description": "Same metadata refresh: `render_genre(&value)` → `render_member(...)`; body byte-unchanged."
+        },
+        {
+          "path": "tests/snapshots/display_rule__empty_value.snap",
+          "description": "Same metadata refresh: `render_genre(&value)` → `render_member(...)`; body byte-unchanged."
+        }
+      ],
+      "retire": [
+        "tests/snapshots/read_verbs__impact_leaf_grain.snap"
+      ]
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/display_rule.rs",
+        "asserts": "the 4 display_rule snapshots regenerate with `render_member` expression metadata and byte-identical bodies; the suite stays green"
+      },
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "the suite stays green with the orphan leaf-grain snapshot removed (the live leaf-grain test at ~line 222 asserts via `.contains`, not a snapshot)"
+      }
+    ],
+    "acceptance": "The genre→member recut leaves no snapshot residue: `read_verbs__impact_leaf_grain.snap` is deleted, the 4 display_rule snapshots carry `render_member` (not `render_genre`) expression metadata with unchanged bodies, `git grep genre -- tests/snapshots/` is clean, and `cargo test` stays green (representation.md, 'nesting').",
+    "notes": "0012/EMBEDDED-FENCE residue (886dc64..HEAD): `genre` retired to `member` (representation.md nesting). Orphan: assertion_line 623 > read_verbs.rs's 377 lines + retired 'genre' body, unreferenced (live test read_verbs.rs:222 uses `.contains`). display_rule metadata is comment-class staleness rid here. genre strings in nested_member.rs/emit.test.ts are sanctioned retirement guards, kept. Disjoint from REGISTRATION-CHANNELS (snapshots only). scoped at 8e09363."
+  },
+  {
     "tag": "COMMAND-KIND",
     "summary": "Ship the command built-in kind — the skill surface's legacy file placement: a lone `.claude/commands/*.md` file, the skill's field schema by import, file-stem identity, both channels",
     "per": {
