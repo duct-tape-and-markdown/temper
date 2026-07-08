@@ -3,35 +3,28 @@
 - Spec derived through: cd7135b
 - Audited through: 99337b8
 - Residue swept through: 77b2eb9
-- This tick: Residue sweep (job 4), continued. Inbox/spec-delta/ship-audit
-  stayed quiet (no src/tests/sdk commits past 99337b8 — only prior plan
-  commits touch the tree). Swept vocabulary: decision 0001 retired
-  `floor`→`default contract` and `blast radius`→`impact`; a separate,
-  later-settled term is `enforcement mode` (representation.md/distribution.md),
-  displacing an older `posture` naming. Verified against current corpus body
-  (builtins.md never says `floor`; contract.md's `impact` never says `blast
-  radius`; representation.md/distribution.md say `enforcement mode`, never
-  `posture`). `floor` is live in real identifiers/user-facing text/test names
-  (main.rs, compose.rs, read.rs's pinned `why` narration, 6 SDK-exported
-  clause arrays, their sdk test, tests/read_verbs.rs, tests/builtin_lock_frozen.rs's
-  embedded fixture, builtin_lock.toml's header) — filed
-  RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT. `posture` (enforcement-mode
-  sense) is live in one test fn name plus doc comments in install.rs/drift.rs —
-  filed RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE, blockedBy
-  INSTALL-WHOLE-CONVERSION (both touch install.rs + tests/install.rs).
-  `blast radius` stayed unfiled — it's read.rs's own internal description of
-  what `impact` computes (depth rule: exact narration wording is code's HOW,
-  not a modeled-noun collision like `floor`/`posture` are). Comment-only stray
-  mentions of `floor`/`posture` (builtin.rs, kind.rs, roster.rs, extract.rs,
-  contract.rs, schema.rs, engine.rs, bundle.rs, sdk/kind.ts's nesting-depth
-  "posture 3", sdk/contract.ts's severity-flavored "posture") ride whichever
-  entry next opens those files for a real reason, per the comment-staleness
-  exception.
-- Queue: 6 — INSTALL-WHOLE-CONVERSION, ACCEPTANCE-CUSTOM-KIND-VIA-LOCK,
-  RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT are three pickable,
-  file-disjoint open entries; RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE
-  and RETIRE-OWN-PATH-MACHINERY are both blockedBy INSTALL-WHOLE-CONVERSION;
-  PACKAGING-CHANNELS is parked.
+- This tick: Quiet closing pass (job 5). Reverified all four earlier inputs:
+  no specs/ commits past cd7135b (empty spec-delta), no src/tests/sdk commits
+  past 99337b8 or 77b2eb9 (only plan commits since), inbox empty. Reverified
+  PACKAGING-CHANNELS' parked reason still true (no .github/workflows/release.yml,
+  root package.json still the private flume manifest, sdk/package.json at
+  0.0.5). Disjointness check over the queue found a real gap: both
+  RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE and RETIRE-OWN-PATH-MACHINERY
+  were blockedBy INSTALL-WHOLE-CONVERSION only (not each other) yet both edit
+  src/drift.rs + tests/install.rs — once INSTALL-WHOLE-CONVERSION ships they'd
+  become open simultaneously and conflict in parallel worktrees. Fixed by
+  resequencing RETIRE-OWN-PATH-MACHINERY to blockedBy
+  RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE instead (transitively still
+  gated behind INSTALL-WHOLE-CONVERSION); both entries' notes updated in place.
+  The three open entries (INSTALL-WHOLE-CONVERSION, ACCEPTANCE-CUSTOM-KIND-VIA-LOCK,
+  RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT) remain file-disjoint from each
+  other and from the blocked pair.
+- Queue: 6 — three pickable, file-disjoint open entries (INSTALL-WHOLE-CONVERSION,
+  ACCEPTANCE-CUSTOM-KIND-VIA-LOCK, RETIRE-FLOOR-VOCABULARY-FOR-DEFAULT-CONTRACT);
+  RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE blockedBy INSTALL-WHOLE-CONVERSION;
+  RETIRE-OWN-PATH-MACHINERY now blockedBy RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE
+  (serialized behind it, shared files); PACKAGING-CHANNELS parked.
 
-Plan continues: yes — quiet closing pass (job 5) is next; inbox, spec delta,
-ship audit, and residue sweep are all current as of this tick.
+Plan continues: no — every input is current, the queue is verified disjoint
+(one gap found and fixed this tick), gate reasons reconfirmed true; hand off
+to build.

@@ -160,7 +160,7 @@
       }
     ],
     "acceptance": "No `posture` referring to the guard's block/warn/note concept remains in src/install.rs, src/drift.rs, or tests/install.rs; cargo test green.",
-    "notes": "scoped at 77b2eb9 (residue sweep, job 4); representation.md 'The root member' names this field `enforcement mode`; distribution.md 'Per tool call' spells its three values. blockedBy INSTALL-WHOLE-CONVERSION: both edit src/install.rs + tests/install.rs (disjoint-file rule). Excludes drift.rs:192/main.rs:126's unrelated 'CI posture' (network-refuse stance), read.rs's 'mixed-posture corpus' (unrelated sense), and main.rs:144's lone comment (rides along later, no live symbol there)."
+    "notes": "scoped at 77b2eb9, resequenced 4b0122e (job 5). representation.md 'The root member' names this field `enforcement mode`. blockedBy INSTALL-WHOLE-CONVERSION (shared src/install.rs + tests/install.rs). RETIRE-OWN-PATH-MACHINERY is now blockedBy this entry instead, sharing src/drift.rs + tests/install.rs with it. Excludes drift.rs:192/main.rs:126's 'CI posture', read.rs's 'mixed-posture corpus', main.rs:144's lone comment (no live symbol)."
   },
   {
     "tag": "RETIRE-OWN-PATH-MACHINERY",
@@ -171,7 +171,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "INSTALL-WHOLE-CONVERSION"
+      "tag": "RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE"
     },
     "dependsOnForks": [],
     "files": {
@@ -208,7 +208,7 @@
       }
     ],
     "acceptance": "`own_path` is absent from src/drift.rs, src/import.rs, and the emitted lock schema; cargo test green with no synthetic own-path fixtures remaining.",
-    "notes": "scoped at e920fa8; 0016's explicit consequence ('own_path retires from drift, guard, and lock'). On pickup, grep for own_path first - if INSTALL-WHOLE-CONVERSION left any live path still writing own_path=true, hold rather than delete logic a real caller needs; that would mean this entry was scoped too early."
+    "notes": "scoped at e920fa8, resequenced 4b0122e (job 5): blockedBy changed from INSTALL-WHOLE-CONVERSION to RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE — both share src/drift.rs + tests/install.rs, so posture's rename must land first. 0016's explicit consequence ('own_path retires from drift, guard, and lock'). On pickup, grep for own_path first - if INSTALL-WHOLE-CONVERSION left a live path still writing own_path=true, hold rather than delete logic a real caller needs."
   },
   {
     "tag": "PACKAGING-CHANNELS",
