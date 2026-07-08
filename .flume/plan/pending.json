@@ -1,5 +1,99 @@
 [
   {
+    "tag": "CI-DOCUMENTED-TWO-LINE-JOB",
+    "summary": "Rewrite .github/workflows/temper.yml off the retired `import` verb onto current check/emit verbs — distribution.md's documented two-line CI gate",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": ".github/workflows/temper.yml",
+          "description": "Replace the dead `temper import . --into .temper` step (the `import` subcommand no longer exists — absent from `Command` in src/main.rs, confirmed by grep) with the documented two-line job: `temper check` against the committed `.temper/` surface, plus — since this harness is SDK-emitted — a `temper emit --frozen` re-run byte-compared against the committed projections (e.g. `git diff --exit-code` after emit), the check distribution.md names as making byte-reproducibility mechanical."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "temper.yml runs only currently-existing `temper` subcommands, matches distribution.md's two-line CI description, and actually goes green on the PR that ships it (self-hosting, specs/intent.md).",
+    "notes": "PR #15 flagged this drift (.flume/inbox.md 0017 sweep); live-verified 2026-07-07 — `import` is absent from src/main.rs's Command enum, so CI currently invokes a nonexistent subcommand on every PR. distribution.md names the intent (check + emit --frozen byte-compare) but not the literal shell line; pick whichever combination actually proves byte-reproducibility against this repo's own .temper/."
+  },
+  {
+    "tag": "SDK-VERSION-LOCKSTEP",
+    "summary": "Derive install's pinned @dtmd/temper version range from sdk/package.json itself so scaffold-vs-published API skew (moduleUrl file()) can't silently recur",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Replace the hand-typed `SDK_VERSION_RANGE` constant with a value derived from sdk/package.json's own `version` field (e.g. `include_str!(\"../sdk/package.json\")` parsed once) so `ensure_package_json`'s written range can never independently drift from the workspace SDK's real version. Root cause of the reported skew: scaffold emits two-arg `file(import.meta.url, path)` (0009 module-relative, landed in 78a48db after the 0.0.4 publish) while the pinned `^0.0.4` still ships the published one-arg `file(path)` (verified via `npm pack @dtmd/temper@0.0.4`)."
+        },
+        {
+          "path": "sdk/package.json",
+          "description": "Bump `version` to the next patch (0.0.5) to reflect 78a48db's already-landed moduleUrl API change — the concrete fix for the currently-reported skew once a human publishes it; npm creds already exist (PACKAGING-CHANNELS notes, 07-05)."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Update `ensure_package_json_pins_a_range_past_the_file_export` to assert the written range equals the derived value instead of a second hardcoded literal, so the test tracks the derivation rather than duplicating it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a fresh .temper/package.json's SDK dependency range is textually derived from sdk/package.json's version — no independently hand-typed literal to fall out of sync"
+      }
+    ],
+    "acceptance": "install.rs's SDK version pin is structurally derived from sdk/package.json (no hardcoded duplicate literal); cargo test proves it; sdk/package.json is bumped to 0.0.5, ready for a human npm publish to close the loop for real installs.",
+    "notes": "Field report 2026-07-07: install --yes scaffolds two-arg file() but pins a published SDK still shipping one-arg file() — the identical ^0.0.2→^0.0.4 incident install.rs's own comment already records, recurring because nothing ties the hand-typed constant to the SDK's real released surface. Publish 0.0.5 promptly: once this lands, a from-source install writes ^0.0.5, unresolvable until published. Raw-Node-stack-in-emit-failure aside is accepted debt, out of scope."
+  },
+  {
+    "tag": "RETIRE-DEAD-DECLARED-SURFACE",
+    "summary": "Remove Template.leaves/collections (declared, never populated/read, no consumer scoped) and document.rs's dead import_hash provenance fallback",
+    "per": {
+      "path": "specs/process/spec-system.md",
+      "section": "Form rules"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Remove `Template.leaves`/`Template.collections` (src/kind.rs:187-198): always constructed `Vec::new()`, never serialized to the lock, never read — declared-and-inert with no nested-member-predicate consumer scoped anywhere in the corpus, so subtraction is the honest move (0017 no-middles sweep). Update `from_kind_fact_row_lifts_declared_templates_as_inert_shape` and the `Template` doc comments; while here, correct the stale claim (~line 191-193) that `registration` shares this inert posture — it's actively read (graph.rs, install.rs, main.rs, drift.rs). Also switch `from_surface_dir_lifts_clause_fields_into_frontmatter`'s fixture (~line 1166) from the legacy `import_hash` key to `source_hash`, since it exists only to exercise the fallback removed below."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "Remove the `.or_else(|| table.get(\"import_hash\"))` legacy-key fallback in `provenance()` (~lines 500-516) — verified dead: `grep -rn import_hash .temper/` hits nothing in the live committed surface (only archive/dogfood/, out of scope), confirming the PR #15/#16 dogfood re-emit already dropped the old key. Update the doc comment; a provenance table carrying only the old key now correctly reads as malformed."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "the clause-fields fixture and the inert-template test both reflect the removals — source_hash-only provenance, no leaves/collections fields"
+      }
+    ],
+    "acceptance": "Template has no leaves/collections fields; provenance() reads only source_hash; cargo test green; import_hash absent from src/ outside git history.",
+    "notes": "Routed from the 0017 no-middles sweep (.flume/inbox.md, chore 4c256d9): both facts re-verified on disk this tick — Template.leaves/collections have zero non-Vec::new() writers and zero readers repo-wide; import_hash is absent from the live .temper/ tree (present only in archive/dogfood/ and the fallback code). No corpus section names a 'nested-member predicate' to wire instead, so removal — never invented scope — is the honest routing."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
