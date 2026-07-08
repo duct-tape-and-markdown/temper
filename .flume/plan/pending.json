@@ -1,52 +1,5 @@
 [
   {
-    "tag": "RETIRE-OWN-PATH-MACHINERY",
-    "summary": "Delete the own-path detection, lock column, and guard exemption from drift/import/main now that whole conversion makes them structurally unreachable (0016)",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Install"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "Remove `Projection.own_path`, `resolves_to_own_path()`, and the own-path branch in `emit_one` (`desired`/`second_pass` collapse to always `project_bytes(&projection.fields, &projection.body, &placements)`, never the verbatim-body fallback); drop `own_path` from the `RollupEntry` construction in `emit_program`; `emit_owned_targets` stops reading the lock's `own_path` key — every row it iterates is a target."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Remove `RollupEntry.own_path` and its write in `rollup_tables` (the `table[\"own_path\"]` line) — the rollup's four columns (`name`, `source_path`, `source_hash`, `emit_hash`) are the whole row."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Remove the stale `own_path`-referencing doc comment at the guard call site (~line 329) describing the retired exemption."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Remove `guard_allows_a_file_carried_members_own_path_source_under_block` — it constructs a synthetic `own_path = true` lock row, a shape the lock no longer writes."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "Remove `an_own_path_members_crlf_body_also_normalizes_to_lf`, which builds a synthetic own-path payload to exercise the now-deleted verbatim-body branch; if CRLF normalization on the ordinary field-rendered path lacks its own coverage elsewhere in this file, add an equivalent assertion over `project_bytes` instead of dropping the coverage outright."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "lock.toml's per-kind rollup rows drop the `own_path` column",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "CRLF bodies still normalize to LF through the ordinary field-rendered projection path, with no synthetic own-path fixture"
-      }
-    ],
-    "acceptance": "`own_path` is absent from src/drift.rs, src/import.rs, and the emitted lock schema; cargo test green with no synthetic own-path fixtures remaining.",
-    "notes": "scoped at e920fa8, unblocked at HEAD=d7d0912 (ship audit, job 3): blocker shipped (ad109b4), touching only doc-comment wording, none overlapping this entry's own_path lines — gate flipped open. Reconfirmed 4ed4027 makes scaffold never emit own_path=true and pipeline.md Install names no lifted-but-untyped state, so 0016's premise holds; own_path remains live across all five cited files exactly."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
