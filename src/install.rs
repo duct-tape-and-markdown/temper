@@ -30,6 +30,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::LazyLock;
 
 use regex::Regex;
 use serde_json::{Value as JsonValue, json};
@@ -54,12 +55,25 @@ const HARNESS_ENTRY: &str = "harness.ts";
 /// The npm package name the yes-path ensures as a dependency.
 const SDK_PACKAGE: &str = "@dtmd/temper";
 
+/// `sdk/package.json`'s own text, embedded at compile time so the dependency
+/// range `install` writes can never independently drift from the workspace
+/// SDK's real released version.
+const SDK_PACKAGE_JSON: &str = include_str!("../sdk/package.json");
+
 /// The dependency range `install` writes when `.temper/package.json` does not
-/// already declare [`SDK_PACKAGE`] — the current published line
-/// (`sdk/package.json`, released in `813ca619` "seam v2"; a fresh `^0.0.2`
-/// install would resolve to 0.0.2, which predates the `file()` export the
-/// scaffold imports).
-const SDK_VERSION_RANGE: &str = "^0.0.4";
+/// already declare [`SDK_PACKAGE`] — derived from [`SDK_PACKAGE_JSON`]'s own
+/// `version` field, parsed once.
+fn sdk_version_range() -> &'static str {
+    static RANGE: LazyLock<String> = LazyLock::new(|| {
+        let manifest: JsonValue = serde_json::from_str(SDK_PACKAGE_JSON)
+            .expect("sdk/package.json is a committed, well-formed manifest");
+        let version = manifest["version"]
+            .as_str()
+            .expect("sdk/package.json declares a string `version` field");
+        format!("^{version}")
+    });
+    &RANGE
+}
 
 /// The exec-form command Claude Code runs at session start: the `temper` binary
 /// itself, checking the project root under the advisory session-start reporter.
@@ -1314,7 +1328,7 @@ fn ensure_package_json(temper_dir: &Path) -> Result<(), InstallError> {
         .ok_or_else(|| InstallError::PackageJsonShape { path: path.clone() })?;
     dependencies
         .entry(SDK_PACKAGE)
-        .or_insert_with(|| json!(SDK_VERSION_RANGE));
+        .or_insert_with(|| json!(sdk_version_range()));
 
     let desired = format!(
         "{}\n",
@@ -1594,10 +1608,6 @@ mod tests {
         ensure_package_json(&dir).unwrap();
         let written: JsonValue =
             serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
-        assert_eq!(written["dependencies"][SDK_PACKAGE], SDK_VERSION_RANGE);
-        assert_ne!(
-            SDK_VERSION_RANGE, "^0.0.2",
-            "^0.0.2 pins the patch to 0.0.2, which predates the `file` export the scaffold imports"
-        );
+        assert_eq!(written["dependencies"][SDK_PACKAGE], sdk_version_range());
     }
 }
