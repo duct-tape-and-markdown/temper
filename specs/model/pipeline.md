@@ -114,18 +114,19 @@ or it is not — one genuine fork, so exactly one question.
   survive the insertion; install never re-serializes a file it does not own.
 - **Yes** — this path requires Node and the workspace, checked up front and
   refused with instructions when absent; no half-scaffolded state. Install
-  ensures the SDK dependency, lifts each discovered artifact into a member
-  module whose prose stays in its original file — zero rewording, byte-stable
-  on content — runs the first emit (the adoption moment, producing the lock),
-  and places what that lock justifies.
+  installs the tool whole: it ensures the SDK dependency and converts each
+  discovered artifact into a member module — every schema-declared field a
+  typed property, prose module-side and byte-faithful (inline for short
+  bodies, a module-adjacent file for documents) — then runs the first emit
+  (the adoption moment: the lock, plus each artifact regenerated as a
+  canonical projection, the one reviewable adoption diff), and places what
+  that lock justifies.
 
-The lift writes no lock and compiles nothing: adoption is the first emit.
-Members arrive shallow and fully functional; deepening accrues member by
-member under the author's own requirement coverage failing, never under
-on-ramp ceremony. Depth is emergent, never declared — no depth selector, no
-recorded preference: re-running install converges on whatever the program has
-become, placements following the lock's current contents. The verbs target
-one project's harness at an explicit path.
+The conversion writes no lock and compiles nothing: adoption is the first
+emit. There is no intermediate depth — unrepresented, every artifact is a
+source; represented, every governed artifact is a projection. Re-running
+install converges, placements following the lock's current contents. The
+verbs target one project's harness at an explicit path.
 
 ## Read verbs
 
