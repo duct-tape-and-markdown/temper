@@ -315,7 +315,7 @@ struct Projection {
 /// of host. `lock.toml` is committed, and `Path::join` inserts the host separator
 /// at each join boundary (backslash on Windows) — left alone, that forks the
 /// byte-committed lock by host.
-fn to_lock_path(path: &Path) -> String {
+pub(crate) fn to_lock_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 

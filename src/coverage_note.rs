@@ -193,7 +193,7 @@ fn claude_entries(root: &Path) -> Vec<(String, bool)> {
         .filter_map(|entry| {
             let rel = entry.path().strip_prefix(root).ok()?;
             let is_dir = entry.file_type().is_some_and(|ft| ft.is_dir());
-            Some((rel.to_string_lossy().replace('\\', "/"), is_dir))
+            Some((drift::to_lock_path(rel), is_dir))
         })
         .collect()
 }

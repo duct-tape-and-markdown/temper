@@ -16,9 +16,13 @@
 //! and [`frontmatter`](crate::frontmatter) parse a member's `+++` header into a
 //! [`Document`] and patch it back format-preserving.
 
+use std::path::Path;
+
 use miette::SourceSpan;
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use toml_edit::{DocumentMut, Item, Table, Value};
+
+use crate::drift;
 
 /// The literal fence line that opens and closes a surface header. A line is a
 /// fence when its content (trailing whitespace stripped) is exactly this.
@@ -324,7 +328,7 @@ pub fn add_provenance(header: &mut DocumentMut, source_path: &str, source_hash: 
     let mut module = Table::new();
     module.insert(
         "source_path",
-        Item::Value(Value::from(source_path.replace('\\', "/"))),
+        Item::Value(Value::from(drift::to_lock_path(Path::new(source_path)))),
     );
     module.insert(
         "source_hash",
