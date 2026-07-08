@@ -1076,15 +1076,18 @@ fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
 
 /// Lift one of a requirement row's nested [`drift::ClauseRow`]s into a
 /// [`contract::Clause`] — the mirror of [`requirement_from_row`] for the set-/edge-scope
-/// demand it carries. A row naming an unrecognized predicate, or missing the argument
-/// its predicate requires, degrades to absent — the same tolerant read the rest of the
-/// lock takes over hand-editable state (`crate::drift::read_declarations`).
+/// demand it carries, via the shared [`compose::clause_from_row`] lift. A
+/// requirement-nested row's guidance/source isn't carried the same way as a
+/// kind-level clause's, so both are overwritten to `None` on the `Some` case
+/// rather than passed through. A row naming an unrecognized predicate, or missing
+/// the argument its predicate requires, degrades to absent — the same tolerant
+/// read the rest of the lock takes over hand-editable state
+/// (`crate::drift::read_declarations`).
 fn clause_from_row(row: &drift::ClauseRow) -> Option<contract::Clause> {
-    Some(contract::Clause {
-        severity: compose::severity_from_label(&row.severity)?,
-        predicate: contract::predicate_from_row(row)?,
+    compose::clause_from_row(row).map(|clause| contract::Clause {
         guidance: None,
         source: None,
+        ..clause
     })
 }
 

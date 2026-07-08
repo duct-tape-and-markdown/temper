@@ -12,26 +12,21 @@ use std::collections::BTreeMap;
 
 use crate::builtin_lock;
 use crate::compose;
-use crate::contract::{self, Clause, Contract, Predicate, Severity};
+use crate::contract::{Clause, Contract, Predicate, Severity};
 use crate::drift::ClauseRow;
 
 /// Lift one embedded clause row into its typed [`Clause`] — predicate, severity,
-/// guidance, and cite, the clause's full four channels.
+/// guidance, and cite, the clause's full four channels, via the shared
+/// [`compose::clause_from_row`] lift.
 /// The embedded lock is this crate's own emit, never hand-edited
-/// (`crate::builtin_lock`), so a row this projection cannot lift is a build-time
+/// (`crate::builtin_lock`), so a row the shared lift cannot lift is a build-time
 /// bug, not a runtime condition — the same invariant `builtin_lock::declarations`
 /// leans on for the embedded bytes themselves.
 fn clause_from_row(row: &ClauseRow) -> Clause {
-    Clause {
-        severity: compose::severity_from_label(&row.severity)
-            .expect("the embedded built-in lock declares only required/advisory severities"),
-        predicate: contract::predicate_from_row(row).expect(
-            "the embedded built-in lock's rows encode only this projection's supported \
-             predicates, each carrying its required argument",
-        ),
-        guidance: row.guidance.clone(),
-        source: row.cite.clone(),
-    }
+    compose::clause_from_row(row).expect(
+        "the embedded built-in lock declares only required/advisory severities and \
+         this projection's supported predicates, each carrying its required argument",
+    )
 }
 
 /// The floor [`Contract`] for `kind` — every embedded clause row naming it, in

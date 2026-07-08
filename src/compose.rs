@@ -140,17 +140,28 @@ pub fn default_contract_from_rows(clauses: &[ClauseRow], kind: &str) -> Contract
         clauses: clauses
             .iter()
             .filter(|row| row.kind.as_deref() == Some(kind))
-            .filter_map(|row| {
-                Some(contract::Clause {
-                    severity: severity_from_label(&row.severity)?,
-                    predicate: contract::predicate_from_row(row)?,
-                    guidance: row.guidance.clone(),
-                    source: row.cite.clone(),
-                })
-            })
+            .filter_map(clause_from_row)
             .collect(),
         guidance: None,
     }
+}
+
+/// Lift one clause row into its typed [`contract::Clause`] — predicate, severity,
+/// guidance, and cite, the clause's full four channels. A row naming an unsupported
+/// predicate, an out-of-vocabulary severity, or one missing its own required argument
+/// yields `None` — the same tolerant read the rest of a hand-editable lock takes.
+/// `pub` (not `pub(crate)`, same reasoning as [`severity_from_label`]): the `main`
+/// binary is a separate crate from this library, so its requirement-nested lift
+/// needs this visible across the crate boundary to wrap it, as `crate::builtin`'s
+/// embedded-lock lift also does.
+#[must_use]
+pub fn clause_from_row(row: &ClauseRow) -> Option<contract::Clause> {
+    Some(contract::Clause {
+        severity: severity_from_label(&row.severity)?,
+        predicate: contract::predicate_from_row(row)?,
+        guidance: row.guidance.clone(),
+        source: row.cite.clone(),
+    })
 }
 
 /// Parse a lock clause row's `severity` label into the typed [`contract::Severity`]
