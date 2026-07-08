@@ -151,6 +151,10 @@
           "description": "Recut the `Registration` type (line ~26) to a channel set and add `user-invoked`."
         },
         {
+          "path": "sdk/src/declarations.ts",
+          "description": "Recut `registrationLabel` (line ~178) — the SDK emit-side producer of the lock's registration column — from the single-variant `registration.via` switch to the channel-set encoding, the SDK mirror of `drift.rs`'s `KindFactRow.registration`."
+        },
+        {
           "path": "sdk/src/builtins.ts",
           "description": "skill/rule/memory registration to the set shape; the `Skill` type + skill kind gain `disableModelInvocation`/`userInvocable`; re-verify `skillFloor` against the 2026-07-07 fetch (lines 47-125)."
         },
@@ -197,7 +201,7 @@
       }
     ],
     "acceptance": "Registration is a set of documented channels: skill carries {user-invoked, description-trigger} with `disable-model-invocation`/`user-invocable` as declared fields, rule/memory carry singleton sets, the built-in lock re-derives byte-clean, and reachability evaluates the set (builtins.md, 'The shipped kinds').",
-    "notes": "0014, registration recut. `Registration` scalar→channel set ripples to every consumer (graph reachability, main's map, install's seed, read fixtures). Modulating booleans become declared fields, cited to code.claude.com/docs/en/skills (2026-07-07 per 0014). Skill profile re-verify rides here since skill's fields change. Blocked on EMBEDDED-FENCE-MEMBER-NOUN (shares src/kind.rs, sdk/src/kind.ts, src/drift.rs). scoped at 89cd964."
+    "notes": "0014, registration recut. `Registration` scalar→channel set ripples to every consumer (declarations.ts registrationLabel = SDK lock-column producer, graph reachability, main's map, install's seed, read fixtures). Modulating booleans→declared fields, cited code.claude.com/docs/en/skills (2026-07-07 per 0014). Skill re-verify rides here. Blocked on EMBEDDED-FENCE-MEMBER-NOUN (shares kind.rs/kind.ts/drift.rs/declarations.ts). scoped 89cd964; declarations.ts added by residue sweep."
   },
   {
     "tag": "COMMAND-KIND",
