@@ -44,37 +44,6 @@ fn clean_skill(name: &str) -> String {
     )
 }
 
-/// Write a one-skill harness member directly at its real Claude Code locus
-/// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
-/// live off harness disk, no
-/// scratch import.
-fn write_skill(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join(".claude").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
-}
-
-/// Author a member's `satisfies` links on its surface overlay
-/// (`<root>/.temper/skills/<name>/SKILL.md`) — the projected document a live off-disk
-/// walk grafts a member's fill edges from; the real harness file itself carries no temper annotation.
-fn author_satisfies(root: &Path, name: &str, requirements: &[&str]) {
-    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-    let source = root
-        .join(".claude")
-        .join("skills")
-        .join(name)
-        .join("SKILL.md");
-    let mut skill = temper::frontmatter::Member::from_source(&skill_kind, &source).unwrap();
-    skill.satisfies = requirements
-        .iter()
-        .map(|r| temper::document::Satisfies::new(*r))
-        .collect();
-
-    let dir = root.join(".temper").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
-}
-
 /// Write a floor-clean rule directly at its real Claude Code locus
 /// (`<root>/.claude/rules/<name>.md`) — the second modeled kind the each-grain `kind`
 /// clause tests need, so a wrong-kind opt-in has a real other-kind satisfier to be.
@@ -145,35 +114,12 @@ fn published(
     }
 }
 
-/// The outcome of a `check` run: whether it exited zero and its combined
-/// stdout+stderr (diagnostics render to stdout, a load error to stderr).
-struct CheckRun {
-    ok: bool,
-    output: String,
-}
-
-/// Run `temper check` from `root` against the default `./.temper` workspace,
-/// capturing the result.
-fn check_in(root: &Path) -> CheckRun {
-    let out = Command::new(BIN)
-        .current_dir(root)
-        .arg("check")
-        .output()
-        .unwrap();
-    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
-    output.push_str(&String::from_utf8_lossy(&out.stderr));
-    CheckRun {
-        ok: out.status.success(),
-        output,
-    }
-}
-
 /// Run `temper check --harness <root>` — the one-shot wedge, gating `root` directly
 /// rather than through the two-step `./.temper` default. `root` already carries its own
 /// `.temper/` surface (`write_requirements`/`author_satisfies` project it there), so
 /// this exercises the one-shot gate's surface-present branch: its lock's declared
 /// requirement/satisfies rows must gate exactly as the two-step path's do.
-fn check_harness_in(root: &Path) -> CheckRun {
+fn check_harness_in(root: &Path) -> common::CheckRun {
     let out = Command::new(BIN)
         .arg("check")
         .arg("--harness")
@@ -182,7 +128,7 @@ fn check_harness_in(root: &Path) -> CheckRun {
         .unwrap();
     let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
     output.push_str(&String::from_utf8_lossy(&out.stderr));
-    CheckRun {
+    common::CheckRun {
         ok: out.status.success(),
         output,
     }
@@ -292,14 +238,14 @@ fn skill_with_forbidden_key(name: &str) -> String {
 #[test]
 fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_inert() {
     let root = common::tmpdir("clause-override-from-lock");
-    write_skill(
+    common::write_skill(
         &root,
         "legacy-rule",
         &skill_with_forbidden_key("legacy-rule"),
     );
 
     // The floor's `forbidden_keys` is `required`: the `globs` key fails the run.
-    let floor = check_in(&root);
+    let floor = common::check_in(&root, &[], None);
     assert!(
         !floor.ok,
         "the floor's required forbidden_keys must fail the run over a `globs` key, got:\n{}",
@@ -317,7 +263,7 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
          predicate = \"forbidden_keys\"\n\
          keys = [\"globs\", \"alwaysApply\"]\n",
     );
-    let toml_only = check_in(&root);
+    let toml_only = common::check_in(&root, &[], None);
     assert!(
         !toml_only.ok,
         "a manifest-only clause override must not change the verdict ⇒ still non-zero, got:\n{}",
@@ -345,7 +291,7 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
             values: None,
         }],
     );
-    let lock_override = check_in(&root);
+    let lock_override = common::check_in(&root, &[], None);
     assert!(
         lock_override.ok,
         "a lock-declared clause severity override must change the verdict ⇒ zero, got:\n{}",
@@ -376,13 +322,13 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
     let root = common::tmpdir("count-over");
     // Two skills opt into `agents`; the band caps the satisfier count at one, so two
     // is out of band.
-    write_skill(&root, "agent-one", &clean_skill("agent-one"));
-    write_skill(&root, "agent-two", &clean_skill("agent-two"));
-    author_satisfies(&root, "agent-one", &["agents"]);
-    author_satisfies(&root, "agent-two", &["agents"]);
+    common::write_skill(&root, "agent-one", &clean_skill("agent-one"));
+    common::write_skill(&root, "agent-two", &clean_skill("agent-two"));
+    common::author_satisfies(&root, "skills", "agent-one", &["agents"]);
+    common::author_satisfies(&root, "skills", "agent-two", &["agents"]);
     write_requirements(&root, vec![count_band_requirement(0, 1)]);
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a satisfier count outside the declared band must fail the run ⇒ non-zero"
@@ -418,13 +364,13 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
 fn a_count_band_is_clean_within_bounds() {
     let root = common::tmpdir("count-ok");
     // Two skills opt into `agents`, inside a `[1, 2]` band — clean.
-    write_skill(&root, "agent-one", &clean_skill("agent-one"));
-    write_skill(&root, "agent-two", &clean_skill("agent-two"));
-    author_satisfies(&root, "agent-one", &["agents"]);
-    author_satisfies(&root, "agent-two", &["agents"]);
+    common::write_skill(&root, "agent-one", &clean_skill("agent-one"));
+    common::write_skill(&root, "agent-two", &clean_skill("agent-two"));
+    common::author_satisfies(&root, "skills", "agent-one", &["agents"]);
+    common::author_satisfies(&root, "skills", "agent-two", &["agents"]);
     write_requirements(&root, vec![count_band_requirement(1, 2)]);
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a satisfier count inside the band passes ⇒ zero, got:\n{}",
@@ -441,13 +387,13 @@ fn a_wrong_kind_opt_in_fires_a_kind_finding_never_a_silent_exclusion() {
     // satisfier set is kind-blind, so the rule is drawn in — and the each-grain
     // `kind` clause `requirement.kind` sources flags it as a finding rather than
     // silently excluding it from the set.
-    write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
+    common::write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
     write_rule(&root, "agent-rule");
-    author_satisfies(&root, "agent-skill", &["agents"]);
+    common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
     author_rule_satisfies(&root, "agent-rule", &["agents"]);
     write_requirements(&root, vec![requirement("agents", "skill")]);
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a wrong-kind opt-in must fail the run ⇒ non-zero, got:\n{}",
@@ -467,9 +413,9 @@ fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
     let root = common::tmpdir("kind-blind");
     // No `kind` at all: a skill and a rule both opt in, and neither is a finding —
     // a kind-blind requirement attaches no narrowing clause.
-    write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
+    common::write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
     write_rule(&root, "agent-rule");
-    author_satisfies(&root, "agent-skill", &["agents"]);
+    common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
     author_rule_satisfies(&root, "agent-rule", &["agents"]);
     write_requirements(
         &root,
@@ -479,7 +425,7 @@ fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
         }],
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "opt-ins of every modeled kind fill a kind-blind requirement ⇒ zero, got:\n{}",
@@ -494,11 +440,11 @@ fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
     // narrows to `command` — a kind `temper` does not model — so the each-grain
     // clause it sources can never hold for any satisfier: an admissibility finding,
     // never a silent "can never be filled" exclusion.
-    write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
-    author_satisfies(&root, "agent-skill", &["agents"]);
+    common::write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
+    common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
     write_requirements(&root, vec![requirement("agents", "command")]);
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a kind clause naming an unmodeled kind must fail the run ⇒ non-zero, got:\n{}",
@@ -534,10 +480,10 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
     let root = common::tmpdir("unique-bad");
     // Two `agents` satisfiers share `model = opus`; `unique = ["model"]` requires each
     // distinct across the satisfier set.
-    write_skill(&root, "agent-a", &model_skill("agent-a", "opus"));
-    write_skill(&root, "agent-b", &model_skill("agent-b", "opus"));
-    author_satisfies(&root, "agent-a", &["agents"]);
-    author_satisfies(&root, "agent-b", &["agents"]);
+    common::write_skill(&root, "agent-a", &model_skill("agent-a", "opus"));
+    common::write_skill(&root, "agent-b", &model_skill("agent-b", "opus"));
+    common::author_satisfies(&root, "skills", "agent-a", &["agents"]);
+    common::author_satisfies(&root, "skills", "agent-b", &["agents"]);
     write_requirements(
         &root,
         vec![RequirementRow {
@@ -552,7 +498,7 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
         }],
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "two satisfiers sharing a `unique` field must fail the run ⇒ non-zero"
@@ -576,8 +522,8 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
     // A floor-clean skill opts into the requirement (so coverage is satisfied), but the
     // requirement is typed to `command` — a kind `temper` does not model — so a
     // required requirement over it can never be filled.
-    write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
-    author_satisfies(&root, "lint-rust", &["releaser"]);
+    common::write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
+    common::author_satisfies(&root, "skills", "lint-rust", &["releaser"]);
     write_requirements(
         &root,
         vec![RequirementRow {
@@ -586,7 +532,7 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
         }],
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a required requirement over an unmodeled kind must fail the run ⇒ non-zero"
@@ -605,8 +551,8 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
     let root = common::tmpdir("admit-dangling-verifier");
     // Coverage is clean (a satisfier opts in); the sole fault is `verified_by`
     // naming a path that does not exist under the root.
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
-    author_satisfies(&root, "plan-tasks", &["planner"]);
+    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
     write_requirements(
         &root,
         vec![RequirementRow {
@@ -616,7 +562,7 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
         }],
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a requirement with a dangling `verified_by` must fail the run ⇒ non-zero"
@@ -633,8 +579,8 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
 #[test]
 fn a_roster_whose_verifiers_all_resolve_passes() {
     let root = common::tmpdir("admit-clean");
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
-    author_satisfies(&root, "plan-tasks", &["planner"]);
+    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
 
     // A `verified_by` path that exists under the root — nothing else for
     // admissibility to reject.
@@ -648,7 +594,7 @@ fn a_roster_whose_verifiers_all_resolve_passes() {
         }],
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a fully-resolving roster passes admissibility ⇒ zero, got:\n{}",
@@ -684,17 +630,17 @@ fn a_membership_requirement_fires_when_a_satisfier_is_outside_the_derived_set() 
     let root = common::tmpdir("membership-bad");
     // The approved set draws `{ opus }` from the lone `approved-model` satisfier; the
     // `agent-gpt` satisfier declares `gpt`, which is not in it.
-    write_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
-    write_skill(
+    common::write_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
+    common::write_skill(
         &root,
         "approved-opus",
         &model_skill("approved-opus", "opus"),
     );
-    author_satisfies(&root, "agent-gpt", &["agents"]);
-    author_satisfies(&root, "approved-opus", &["approved-model"]);
+    common::author_satisfies(&root, "skills", "agent-gpt", &["agents"]);
+    common::author_satisfies(&root, "skills", "approved-opus", &["approved-model"]);
     write_requirements(&root, membership_requirements());
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a satisfier whose field falls outside the S₂-derived set must fail the run ⇒ non-zero"
@@ -713,17 +659,17 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
     let root = common::tmpdir("membership-ok");
     // The `agent-opus` satisfier's `model` is drawn from the approved set `{ opus }`,
     // so membership is satisfied and the whole run is clean.
-    write_skill(&root, "agent-opus", &model_skill("agent-opus", "opus"));
-    write_skill(
+    common::write_skill(&root, "agent-opus", &model_skill("agent-opus", "opus"));
+    common::write_skill(
         &root,
         "approved-opus",
         &model_skill("approved-opus", "opus"),
     );
-    author_satisfies(&root, "agent-opus", &["agents"]);
-    author_satisfies(&root, "approved-opus", &["approved-model"]);
+    common::author_satisfies(&root, "skills", "agent-opus", &["agents"]);
+    common::author_satisfies(&root, "skills", "approved-opus", &["approved-model"]);
     write_requirements(&root, membership_requirements());
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "every satisfier drawn from the derived set passes ⇒ zero, got:\n{}",
@@ -736,7 +682,7 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
 #[test]
 fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
     let root = common::tmpdir("match-unknown-key");
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
     // The name-`match` selector was gone even before this — fill is opt-in `satisfies`
     // alone. Now the whole file is: the manifest is never read at all, so this
@@ -749,7 +695,7 @@ fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
          required = true\n",
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a stray manifest, whatever it carries, is never read ⇒ the clean skill still passes, got:\n{}",
@@ -760,10 +706,10 @@ fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
 #[test]
 fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     let root = common::tmpdir("no-roster");
-    write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
+    common::write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
 
     // Absent the retired manifest: the floor runs, the clean skill passes.
-    let absent = check_in(&root);
+    let absent = common::check_in(&root, &[], None);
     assert!(absent.ok, "the clean skill passes the floor ⇒ zero");
 
     // A retired manifest present on disk at all — never read, so it declares nothing —
@@ -773,7 +719,7 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
         "[kind.skill]\n\
          package = \"skill.anthropic\"\n",
     );
-    let no_roster = check_in(&root);
+    let no_roster = common::check_in(&root, &[], None);
     assert!(
         no_roster.ok,
         "an unread manifest changes nothing ⇒ still zero"
@@ -787,7 +733,7 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
 #[test]
 fn a_retired_role_table_in_a_stray_temper_toml_is_inert() {
     let root = common::tmpdir("retired-role");
-    write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
     // The `[role.*]` surface was hard-cut into `[requirement.*]` by the consolidation,
     // and used to be rejected loudly at load. Now the manifest is never read at all,
@@ -799,7 +745,7 @@ fn a_retired_role_table_in_a_stray_temper_toml_is_inert() {
          required = true\n",
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a stray manifest, whatever it carries, is never read ⇒ the clean skill still passes, got:\n{}",
@@ -816,16 +762,16 @@ fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean()
     // `arch-impl` fills it by opting in via `satisfies`. One namespace, the demand
     // published on one surface and the fill claimed on another — coverage resolves the
     // join green, exactly as it does for an assembly-published requirement.
-    write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
-    write_skill(&root, "arch-impl", &clean_skill("arch-impl"));
+    common::write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    common::write_skill(&root, "arch-impl", &clean_skill("arch-impl"));
     author_published(
         &root,
         "arch-spec",
         vec![published("architecture", Some("skill"), true)],
     );
-    author_satisfies(&root, "arch-impl", &["architecture"]);
+    common::author_satisfies(&root, "skills", "arch-impl", &["architecture"]);
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a member-published requirement filled by another member's `satisfies` passes ⇒ zero, got:\n{}",
@@ -839,14 +785,14 @@ fn an_unfilled_required_member_published_requirement_fires() {
     // `arch-spec` publishes a required `[requirement.architecture]`, but no member
     // opts in — the published obligation has no resolving home, so the coverage gate
     // fires exactly as for an unfilled assembly requirement.
-    write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    common::write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
     author_published(
         &root,
         "arch-spec",
         vec![published("architecture", Some("skill"), true)],
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "an unfilled required member-published requirement must fail the run ⇒ non-zero"
@@ -864,8 +810,8 @@ fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
     // Two members publish the same requirement name. A requirement lives in one
     // namespace, so the second publisher is a collision — an admissibility finding,
     // never a silent shadow that would let one member quietly redefine another's.
-    write_skill(&root, "spec-a", &clean_skill("spec-a"));
-    write_skill(&root, "spec-b", &clean_skill("spec-b"));
+    common::write_skill(&root, "spec-a", &clean_skill("spec-a"));
+    common::write_skill(&root, "spec-b", &clean_skill("spec-b"));
     author_published(
         &root,
         "spec-a",
@@ -877,7 +823,7 @@ fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
         vec![published("shared", Some("skill"), false)],
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a name published by two members must fail the run ⇒ non-zero, got:\n{}",
@@ -896,7 +842,7 @@ fn a_name_published_by_both_the_assembly_and_a_member_collides() {
     // The assembly *and* a member both publish `architecture`. Same namespace, so the
     // member's re-declaration collides with the assembly's — the assembly ⊕ member
     // half of the one-namespace rule.
-    write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    common::write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
     author_published(
         &root,
         "arch-spec",
@@ -904,7 +850,7 @@ fn a_name_published_by_both_the_assembly_and_a_member_collides() {
     );
     write_requirements(&root, vec![requirement("architecture", "skill")]);
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a name published by both the assembly and a member must fail the run ⇒ non-zero, got:\n{}",

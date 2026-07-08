@@ -31,8 +31,6 @@ const BIN: &str = env!("CARGO_BIN_EXE_temper");
 /// The `name` matches its directory and the chars are lowercase, so the skill trips no
 /// `error`-severity clause and the coverage note is not masked by an unrelated failure.
 fn write_skill(root: &Path, name: &str) {
-    let dir = root.join(".claude").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
     let skill_md = format!(
         "---\n\
 name: {name}\n\
@@ -42,7 +40,7 @@ description: Use when exercising the {name} path across axes; not for single-axi
 \n\
 Drive the team through the playbook.\n"
     );
-    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
+    common::write_skill(root, name, &skill_md);
 }
 
 /// Write a bare `.mcp.json` — a real Claude Code surface (code.claude.com/docs/en/settings)

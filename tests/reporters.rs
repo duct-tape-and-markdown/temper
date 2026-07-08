@@ -13,8 +13,6 @@
 //! surface prints SARIF and *still exits non-zero* — a reporter reshapes
 //! presentation, never the gate's exit code.
 
-use std::fs;
-use std::path::Path;
 use std::process::Command;
 
 mod common;
@@ -162,17 +160,10 @@ description: Use when coordinating agents across axes; not for single-axis work.
 \n\
 Drive the team through the playbook.\n";
 
-/// Write a one-skill harness at `<root>/skills/<name>/SKILL.md`.
-fn write_harness(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join(".claude").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
-}
-
 #[test]
 fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surface() {
     let harness = common::tmpdir("sarif-src");
-    write_harness(&harness, "coordinate", ERROR_SKILL);
+    common::write_skill(&harness, "coordinate", ERROR_SKILL);
     // An empty workspace: `check` reads built-in kind members live off harness disk,
     // no scratch import
     // needed to populate it first.

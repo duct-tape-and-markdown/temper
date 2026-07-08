@@ -18,9 +18,8 @@
 //!   the copy-tree scratch import is gone: the discovery walk is the only member
 //!   extractor, straight off harness disk.
 
-use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 use sha2::{Digest, Sha256};
@@ -32,24 +31,6 @@ mod common;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-/// Snapshot every file under `dir` as a sorted map of relative path -> bytes.
-fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
-    let mut out = BTreeMap::new();
-    let mut stack = vec![dir.to_path_buf()];
-    while let Some(current) = stack.pop() {
-        for entry in fs::read_dir(&current).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                stack.push(path);
-            } else {
-                let rel = path.strip_prefix(dir).unwrap().to_path_buf();
-                out.insert(rel, fs::read(&path).unwrap());
-            }
-        }
-    }
-    out
-}
 
 /// The outcome `emit` reported for `name` in `report`, asserting it is unique.
 fn outcome(report: &drift::EmitReport, name: &str) -> EmitOutcome {
@@ -248,14 +229,14 @@ fn emit_is_idempotent_over_an_unchanged_payload() {
     let payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
-    let after_first = tree_bytes(&harness);
+    let after_first = common::tree_bytes(&harness);
     let lock_after_first = fs::read(into.join("lock.toml")).unwrap();
 
     let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert_eq!(outcome(&report, "rust"), EmitOutcome::Unchanged);
     assert_eq!(
         after_first,
-        tree_bytes(&harness),
+        common::tree_bytes(&harness),
         "a second emit over the same payload changes not a byte"
     );
     assert_eq!(
@@ -320,7 +301,7 @@ fn dry_run_reports_the_outcome_but_writes_nothing() {
     let first = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
     drift::emit(&first, &into, EmitOptions::default()).unwrap();
 
-    let before_harness = tree_bytes(&harness);
+    let before_harness = common::tree_bytes(&harness);
     let before_lock = fs::read(into.join("lock.toml")).unwrap();
 
     let second = basic_payload(vec![rule_member(
@@ -340,7 +321,7 @@ fn dry_run_reports_the_outcome_but_writes_nothing() {
     assert_eq!(outcome(&report, "rust"), EmitOutcome::Emitted);
     assert_eq!(
         before_harness,
-        tree_bytes(&harness),
+        common::tree_bytes(&harness),
         "--dry-run must not touch the harness sources"
     );
     assert_eq!(
@@ -767,7 +748,7 @@ fn emit_program_executes_the_sdk_program_and_byte_reproduces_across_a_second_run
     // A second, independent `node` run over the identical program reproduces every
     // projection and the lock byte-for-byte — double-emit verified across real
     // process boundaries, not just within one SDK invocation.
-    let harness_after_first = tree_bytes(&harness);
+    let harness_after_first = common::tree_bytes(&harness);
     let lock_after_first = fs::read(into.join("lock.toml")).unwrap();
 
     let second = drift::emit_program(&into, EmitOptions::default()).unwrap();
@@ -775,7 +756,7 @@ fn emit_program_executes_the_sdk_program_and_byte_reproduces_across_a_second_run
     assert_eq!(outcome(&second, "coordinate"), EmitOutcome::Unchanged);
     assert_eq!(
         harness_after_first,
-        tree_bytes(&harness),
+        common::tree_bytes(&harness),
         "a second, independent node run reproduces the projection byte-for-byte"
     );
     assert_eq!(

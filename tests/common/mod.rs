@@ -9,7 +9,10 @@
 //! positive rather than each caller re-deriving it.
 #![allow(dead_code)]
 
+use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Once;
 
 /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
@@ -95,4 +98,95 @@ pub fn vendor_sdk(node_modules_scope: &Path) {
             .expect("failed to run `mklink /J` — is cmd on PATH?");
         assert!(status.success(), "mklink /J failed");
     }
+}
+
+/// Write a one-skill harness member directly at its real Claude Code locus
+/// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
+/// live off harness disk, no scratch import.
+pub fn write_skill(root: &Path, name: &str, skill_md: &str) {
+    let dir = root.join(".claude").join("skills").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
+}
+
+/// The outcome of a `check` run: whether it exited zero and its combined
+/// stdout+stderr (diagnostics render to stdout, a load error to stderr).
+pub struct CheckRun {
+    pub ok: bool,
+    pub output: String,
+}
+
+/// Run `temper check <args…>` from `root`, optionally selecting `reporter`
+/// (e.g. `"github"`), capturing the result. Callers that need a different
+/// return shape (a `(bool, String)` pair, a parsed `Vec<String>` of
+/// `::`-prefixed finding lines) adapt from [`CheckRun`] at the call site.
+pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
+    cmd.current_dir(root).arg("check").args(args);
+    if let Some(reporter) = reporter {
+        cmd.arg("--reporter").arg(reporter);
+    }
+    let out = cmd.output().unwrap();
+    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    output.push_str(&String::from_utf8_lossy(&out.stderr));
+    CheckRun {
+        ok: out.status.success(),
+        output,
+    }
+}
+
+/// Author a member's `satisfies` links on its surface overlay
+/// (`<root>/.temper/<kind_dir>/<name>/<doc>`) — the projected document a live
+/// off-disk walk grafts a member's fill edges from; the real harness file itself
+/// carries no temper annotation. `kind_dir` is the surface subdirectory (`skills`
+/// or `rules`), whose document is `SKILL.md` / `RULE.md`, and whose real source
+/// lives at the harness's own locus.
+pub fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
+    let satisfies: Vec<temper::document::Satisfies> = requirements
+        .iter()
+        .map(|r| temper::document::Satisfies::new(*r))
+        .collect();
+    match kind_dir {
+        "skills" => {
+            let kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+            let source = root
+                .join(".claude")
+                .join("skills")
+                .join(name)
+                .join("SKILL.md");
+            let mut skill = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
+            skill.satisfies = satisfies;
+            let dir = root.join(".temper").join("skills").join(name);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
+        }
+        "rules" => {
+            let kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+            let source = root
+                .join(".claude")
+                .join("rules")
+                .join(format!("{name}.md"));
+            let mut rule = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
+            rule.satisfies = satisfies;
+            let dir = root.join(".temper").join("rules").join(name);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+        }
+        other => panic!("unknown kind_dir {other}"),
+    }
+}
+
+/// Snapshot every file under `dir` as a sorted map of relative path -> bytes,
+/// via the sanctioned `walkdir` crate — replaces the hand-rolled `fs::read_dir`
+/// stack walk every caller carried before this consolidation.
+pub fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+    walkdir::WalkDir::new(dir)
+        .into_iter()
+        .map(|entry| entry.unwrap())
+        .filter(|entry| entry.file_type().is_file())
+        .map(|entry| {
+            let rel = entry.path().strip_prefix(dir).unwrap().to_path_buf();
+            (rel, fs::read(entry.path()).unwrap())
+        })
+        .collect()
 }

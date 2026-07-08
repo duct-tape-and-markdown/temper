@@ -23,7 +23,6 @@
 //!   leaves no half-scaffolded `.temper/` program behind it;
 //! - **the lock, not the retired manifest, grounds `guard`'s enforcement mode**.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -125,24 +124,6 @@ fn write_harness(label: &str, with_settings: bool) -> PathBuf {
         .unwrap();
     }
     root
-}
-
-/// Snapshot every file under `dir` as a sorted map of relative path -> bytes.
-fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
-    let mut out = BTreeMap::new();
-    let mut stack = vec![dir.to_path_buf()];
-    while let Some(current) = stack.pop() {
-        for entry in fs::read_dir(&current).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                stack.push(path);
-            } else {
-                let rel = path.strip_prefix(dir).unwrap().to_path_buf();
-                out.insert(rel, fs::read(&path).unwrap());
-            }
-        }
-    }
-    out
 }
 
 /// The outcome `install` reported for the placement labeled `placement`, asserting it
@@ -475,7 +456,7 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
 
     let discovery = install::discover(&root).unwrap();
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    let after_first = tree_bytes(&root);
+    let after_first = common::tree_bytes(&root);
 
     // `evaluate_placements` writes each emit-owned target's managed-by note
     // *after* the first `emit` already stamped the lock's fingerprints from
@@ -497,7 +478,7 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
     assert_eq!(outcome_of(&second, "guard hook"), ApplyOutcome::Unchanged);
     assert_eq!(
         after_first,
-        tree_bytes(&root),
+        common::tree_bytes(&root),
         "a re-representation with no authored change is a byte-for-byte no-op once settled on the first run"
     );
 }
@@ -573,7 +554,7 @@ fn a_fresh_dry_run_scaffolds_and_writes_nothing() {
     // must never touch disk, so it needs neither the dependency nor a real emit.
     let root = write_harness("dry-fresh", true);
     let discovery = install::discover(&root).unwrap();
-    let before = tree_bytes(&root);
+    let before = common::tree_bytes(&root);
 
     let outcome = install::run(&root, &discovery, Represent::Yes, true).unwrap();
     assert_eq!(
@@ -588,7 +569,11 @@ fn a_fresh_dry_run_scaffolds_and_writes_nothing() {
         outcome.entries.is_empty(),
         "no lock yet to ground placements against"
     );
-    assert_eq!(before, tree_bytes(&root), "--dry-run must write nothing");
+    assert_eq!(
+        before,
+        common::tree_bytes(&root),
+        "--dry-run must write nothing"
+    );
     assert!(!root.join(".temper").exists());
 }
 
@@ -1101,7 +1086,7 @@ fn the_cli_install_verb_represents_on_yes_and_dry_runs_a_re_represent() {
     assert!(temper_dir.join("harness.ts").is_file());
     assert!(temper_dir.join("lock.toml").is_file());
 
-    let before = tree_bytes(&root);
+    let before = common::tree_bytes(&root);
     let output = Command::new(BIN)
         .arg("install")
         .arg(&root)
@@ -1114,7 +1099,7 @@ fn the_cli_install_verb_represents_on_yes_and_dry_runs_a_re_represent() {
     assert!(stdout.contains("dry run"));
     assert_eq!(
         before,
-        tree_bytes(&root),
+        common::tree_bytes(&root),
         "a re-represent dry run writes nothing"
     );
 }

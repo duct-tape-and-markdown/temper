@@ -43,13 +43,6 @@ description: Use when coordinating agents across axes; not for single-axis work.
 \n\
 Drive the team through the playbook.\n";
 
-/// Write a one-skill harness at `<root>/skills/<name>/SKILL.md`.
-fn write_harness(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join(".claude").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
-}
-
 /// Run `temper check <harness> --reporter session-start` and return `(exit-zero, parsed
 /// payload)`. The session-start reporter reads the positional path as a harness root.
 fn run_session_start(harness: &Path) -> (bool, serde_json::Value) {
@@ -70,7 +63,7 @@ fn run_session_start(harness: &Path) -> (bool, serde_json::Value) {
 #[test]
 fn a_failing_harness_emits_the_verdict_and_exits_zero() {
     let harness = common::tmpdir("failing-src");
-    write_harness(&harness, "coordinate", ERROR_SKILL);
+    common::write_skill(&harness, "coordinate", ERROR_SKILL);
 
     let (ok, payload) = run_session_start(&harness);
 
@@ -101,7 +94,7 @@ fn a_failing_harness_emits_the_verdict_and_exits_zero() {
 #[test]
 fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
     let harness = common::tmpdir("clean-src");
-    write_harness(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
 
     let (ok, payload) = run_session_start(&harness);
 
@@ -159,7 +152,7 @@ fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
     let specs = harness.join("specs");
     fs::create_dir_all(&specs).unwrap();
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
-    write_harness(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
 
     let (ok, payload) = run_session_start(&harness);
 

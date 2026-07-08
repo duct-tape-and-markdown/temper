@@ -42,14 +42,6 @@ description: Use when coordinating agents across axes; not for single-axis work.
 \n\
 Drive the team through the playbook.\n";
 
-/// Write a one-skill harness at `<root>/.claude/skills/<name>/SKILL.md` — the real
-/// Claude Code locus, never a layout invented for the test (`.claude/rules/rust.md`).
-fn write_skill(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join(".claude").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
-}
-
 /// Write a repo-root `CLAUDE.md` of `lines` total lines — the `memory` member `import`
 /// discovers off its `governs` locus (`root = "."`, `glob = "CLAUDE.md"`).
 fn write_claude_md(root: &Path, lines: usize) {
@@ -137,7 +129,7 @@ fn the_two_step_check_path_backs_a_real_repo_root_import() {
     // past fix, the harness root resolved to the EMPTY path, so `repo_file_set` walked
     // nothing and EVERY real import read unbacked. The backing set is the whole repo,
     // so the resolving edge must fire no finding.
-    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_sibling(&harness, "docs/ledger.md", "# Ledger\n\nShared state.\n");
     write_claude_md_importing(&harness, "@docs/ledger.md");
 
@@ -172,7 +164,7 @@ fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
     // no member and no repo file — an unbacked pointer. Before the collection generalized
     // over every kind (DIRECTIVE-MEMBERS-ALL-KINDS), the hardcoded skill/rule pair never
     // reached the memory member's directives, so this drew no finding (exit 0).
-    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@docs/missing.md");
 
     let findings = check_harness(&harness);
@@ -202,7 +194,7 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
     // The CLAUDE.md imports the coordinate skill member by its provenance locus — a
     // resolving member→member edge, not an unbacked pointer. The wedge collects the
     // directive and classes it as backed, so nothing fires.
-    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
 
     let findings = check_harness(&harness);
@@ -220,7 +212,7 @@ fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
     // `@import`. Directive classing runs on the floor, so the unbacked pointer surfaces
     // with zero config authored anywhere. It is a non-gating advisory: the pure fact is
     // stated, never escalated.
-    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@docs/missing.md");
 
     let findings = check_harness(&harness);
@@ -253,7 +245,7 @@ fn a_backed_at_import_fires_nothing_with_zero_config() {
     // The floor tier states only the fact: a CLAUDE.md whose `@path` resolves to a real repo
     // file (the coordinate skill's on-disk member) is a backed boundary edge, not an unbacked
     // pointer — so it draws no finding even with zero config. Pairs the fired case above.
-    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
 
     let findings = check_harness(&harness);
@@ -269,7 +261,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
     let harness = common::tmpdir("over-length");
     // A clean skill so the run is not empty, and a 251-line CLAUDE.md over the
     // memory.anthropic 200-line budget.
-    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md(&harness, 251);
 
     let findings = check_harness(&harness);
@@ -307,7 +299,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
 #[test]
 fn an_under_length_claude_md_fires_no_memory_advisory() {
     let harness = common::tmpdir("under-length");
-    write_skill(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     // A short CLAUDE.md, well under the 200-line budget.
     write_claude_md(&harness, 10);
 
@@ -326,7 +318,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
     let harness = common::tmpdir("no-regression");
     // A failing skill (uppercase name) beside an over-length CLAUDE.md: both the skill's
     // existing finding and the new memory advisory must fire, unaffected by each other.
-    write_skill(&harness, "coordinate", ERROR_SKILL);
+    common::write_skill(&harness, "coordinate", ERROR_SKILL);
     write_claude_md(&harness, 251);
 
     let findings = check_harness(&harness);

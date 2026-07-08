@@ -751,18 +751,11 @@ globs: \"**/*.rs\"\n\
 \n\
 Drive the team through the playbook.\n";
 
-/// Run `temper check` from `root`, returning `(exit success, combined output)`.
+/// Run `temper check --reporter github` from `root`, returning `(exit success, combined
+/// output)` — the shape this file's assertions destructure.
 fn check_in(root: &Path) -> (bool, String) {
-    let out = Command::new(BIN)
-        .current_dir(root)
-        .arg("check")
-        .arg("--reporter")
-        .arg("github")
-        .output()
-        .unwrap();
-    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
-    output.push_str(&String::from_utf8_lossy(&out.stderr));
-    (out.status.success(), output)
+    let run = common::check_in(root, &[], Some("github"));
+    (run.ok, run.output)
 }
 
 #[test]
@@ -828,45 +821,6 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
 // candidates — a wrong-kind opt-in is a `requirement.kind` finding, never a silent
 // exclusion.
 
-/// Author a member's `satisfies` link on its surface overlay — the mirror of
-/// `tests/requirement_roster.rs`'s `author_satisfies`, generalized over `kind_dir`
-/// (`skills` or `rules`) so this file's kind-narrowing case can place a satisfier of
-/// either modeled kind.
-fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
-    let satisfies: Vec<temper::document::Satisfies> = requirements
-        .iter()
-        .map(|r| temper::document::Satisfies::new(*r))
-        .collect();
-    match kind_dir {
-        "skills" => {
-            let kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-            let source = root
-                .join(".claude")
-                .join("skills")
-                .join(name)
-                .join("SKILL.md");
-            let mut skill = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
-            skill.satisfies = satisfies;
-            let dir = root.join(".temper").join("skills").join(name);
-            fs::create_dir_all(&dir).unwrap();
-            fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
-        }
-        "rules" => {
-            let kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
-            let source = root
-                .join(".claude")
-                .join("rules")
-                .join(format!("{name}.md"));
-            let mut rule = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
-            rule.satisfies = satisfies;
-            let dir = root.join(".temper").join("rules").join(name);
-            fs::create_dir_all(&dir).unwrap();
-            fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
-        }
-        other => panic!("unknown kind_dir {other}"),
-    }
-}
-
 #[test]
 fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     // `gate`'s declaration row in the lock narrows to `skill`. A skill opts in
@@ -891,8 +845,8 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     fs::create_dir_all(&rules_dir).unwrap();
     fs::write(rules_dir.join("style.md"), "# Style\n\nBody.\n").unwrap();
 
-    author_satisfies(&root, "skills", "coordinate", &["gate"]);
-    author_satisfies(&root, "rules", "style", &["gate"]);
+    common::author_satisfies(&root, "skills", "coordinate", &["gate"]);
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
 
     write_lock(
         &root,
@@ -1232,11 +1186,11 @@ fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
     // `why`'s member listing reads the projected surface overlay, not raw harness
     // disk — author one for `coordinate` too (no `satisfies` claims of its own) so
     // `explain` resolves it as a member at all.
-    author_satisfies(&root, "skills", "coordinate", &[]);
+    common::author_satisfies(&root, "skills", "coordinate", &[]);
     // The rule `rust` opts into `gate`, whose required `degree` clause bounds its
     // incoming edges to at least one — satisfiable only by the mention, since no
     // reference field is declared anywhere in this harness.
-    author_satisfies(&root, "rules", "rust", &["gate"]);
+    common::author_satisfies(&root, "rules", "rust", &["gate"]);
     write_lock(
         &root,
         Declarations {

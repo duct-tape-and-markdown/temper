@@ -14,7 +14,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 mod common;
 
@@ -22,9 +21,6 @@ use temper::drift::{
     self, AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
     Payload, RequirementRow,
 };
-
-/// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 /// A floor-clean skill named `name` (matching its directory, a lowercase slug, a
 /// present description). Clean against the floor, so the only finding a case can
@@ -64,32 +60,7 @@ fn write_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str, 
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join(format!("{rule_name}.md")), rule_md).unwrap();
 
-    let skill_dir = root.join(".claude").join("skills").join(skill_name);
-    fs::create_dir_all(&skill_dir).unwrap();
-    fs::write(skill_dir.join("SKILL.md"), skill_md).unwrap();
-}
-
-/// The outcome of a `check` run: whether it exited zero and its combined
-/// stdout+stderr (diagnostics render to stdout, a load error to stderr).
-struct CheckRun {
-    ok: bool,
-    output: String,
-}
-
-/// Run `temper check` from `root` against the default `./.temper` workspace,
-/// capturing the result.
-fn check_in(root: &Path) -> CheckRun {
-    let out = Command::new(BIN)
-        .current_dir(root)
-        .arg("check")
-        .output()
-        .unwrap();
-    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
-    output.push_str(&String::from_utf8_lossy(&out.stderr));
-    CheckRun {
-        ok: out.status.success(),
-        output,
-    }
+    common::write_skill(root, skill_name, skill_md);
 }
 
 /// The retired manifest's filename, spelled by concatenation so the retired token
@@ -157,46 +128,6 @@ fn degree_requirement(kind: Option<&str>, degree: DegreeBoundRow) -> Requirement
     }
 }
 
-/// Author a member's `satisfies` links on its surface overlay
-/// (`<root>/.temper/<kind_dir>/<name>/<doc>`) — the projected document a live off-disk
-/// walk grafts a member's fill edges from; the real harness file itself carries no temper annotation. `kind_dir` is
-/// the surface subdirectory (`skills` or `rules`), whose document is `SKILL.md` /
-/// `RULE.md`, and whose real source lives at the harness's own locus.
-fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
-    let satisfies: Vec<temper::document::Satisfies> = requirements
-        .iter()
-        .map(|r| temper::document::Satisfies::new(*r))
-        .collect();
-    match kind_dir {
-        "skills" => {
-            let kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-            let source = root
-                .join(".claude")
-                .join("skills")
-                .join(name)
-                .join("SKILL.md");
-            let mut skill = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
-            skill.satisfies = satisfies;
-            let dir = root.join(".temper").join("skills").join(name);
-            fs::create_dir_all(&dir).unwrap();
-            fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
-        }
-        "rules" => {
-            let kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
-            let source = root
-                .join(".claude")
-                .join("rules")
-                .join(format!("{name}.md"));
-            let mut rule = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
-            rule.satisfies = satisfies;
-            let dir = root.join(".temper").join("rules").join(name);
-            fs::create_dir_all(&dir).unwrap();
-            fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
-        }
-        other => panic!("unknown kind_dir {other}"),
-    }
-}
-
 /// A floor-clean skill carrying a `routes_to` reference field. A skill preserves
 /// unknown frontmatter keys under `extra`, so `routes_to` rides along as a declared
 /// edge — the skill→rule return arc a cycle needs — without tripping the floor.
@@ -250,7 +181,7 @@ fn a_resolving_route_is_clean() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a declared route that resolves to a real skill passes ⇒ zero, got:\n{}",
@@ -278,7 +209,7 @@ fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a declared route that resolves to no artifact must fail the run ⇒ non-zero"
@@ -307,7 +238,7 @@ fn an_unadopted_harness_runs_no_graph() {
         &clean_skill("standards"),
     );
 
-    let absent = check_in(&root);
+    let absent = common::check_in(&root, &[], None);
     assert!(
         absent.ok,
         "with no declared edge the graph does not run ⇒ zero, got:\n{}",
@@ -317,7 +248,7 @@ fn an_unadopted_harness_runs_no_graph() {
     // A stray retired manifest carrying a `[kind]` layer — never read, so it declares
     // no lock edge either — runs no graph: the outcome is byte-for-byte the floor's.
     write_retired_manifest(&root, "[kind.skill]\npackage = \"skill.anthropic\"\n");
-    let no_edge = check_in(&root);
+    let no_edge = common::check_in(&root, &[], None);
     assert!(no_edge.ok, "an empty graph changes nothing ⇒ still zero");
     assert_eq!(
         absent.output, no_edge.output,
@@ -345,7 +276,7 @@ fn an_acyclic_reference_graph_passes() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "an acyclic reference graph passes ⇒ zero, got:\n{}",
@@ -374,7 +305,7 @@ fn a_cyclic_reference_graph_fails_the_run() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a cycle in the reference graph must fail the run ⇒ non-zero, got:\n{}",
@@ -410,7 +341,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     );
     // The skill `standards` opts into `gate`, placing it in the degree bound's
     // satisfier set.
-    author_satisfies(&root, "skills", "standards", &["gate"]);
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
     write_lock(
         &root,
         Declarations {
@@ -426,7 +357,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a self-registering skill that is pointed at must fail the run ⇒ non-zero, got:\n{}",
@@ -455,7 +386,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
         &clean_skill("standards"),
     );
     // The rule `style` opts into `gate`, so the bound ranges over it.
-    author_satisfies(&root, "rules", "style", &["gate"]);
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
     write_lock(
         &root,
         Declarations {
@@ -471,7 +402,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a self-registering rule that nothing points at passes ⇒ zero, got:\n{}",
@@ -492,7 +423,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
         &clean_skill("standards"),
     );
     // The skill `standards` opts into `gate`, so the routed bound ranges over it.
-    author_satisfies(&root, "skills", "standards", &["gate"]);
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
     write_lock(
         &root,
         Declarations {
@@ -508,7 +439,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
         "a routed skill that a rule reaches passes ⇒ zero, got:\n{}",
@@ -530,7 +461,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
         &clean_skill("standards"),
     );
     // The rule `style` opts into `gate`, so the routed bound ranges over it.
-    author_satisfies(&root, "rules", "style", &["gate"]);
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
     write_lock(
         &root,
         Declarations {
@@ -546,7 +477,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a routed rule nothing reaches must fail the run ⇒ non-zero, got:\n{}",
@@ -575,7 +506,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
         "standards",
         &clean_skill("standards"),
     );
-    author_satisfies(&root, "rules", "style", &["gate"]);
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
     write_lock(
         &root,
         Declarations {
@@ -591,7 +522,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
         },
     );
 
-    let run = check_in(&root);
+    let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
         "a kind-blind requirement's degree bound must still fire ⇒ non-zero, got:\n{}",

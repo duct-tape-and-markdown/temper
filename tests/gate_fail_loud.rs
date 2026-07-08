@@ -15,14 +15,10 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 mod common;
 
 use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
-
-/// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 /// A skill clean against the floor (lowercase `name` matching its directory, a present
 /// short description) — the real Claude Code locus (`.claude/skills/<name>/SKILL.md`),
@@ -68,21 +64,14 @@ fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
 /// (`tests/coverage_note.rs`) so a rule id is asserted exactly rather than scraped out of
 /// miette's graphical rendering.
 fn check_in(root: &Path, args: &[&str]) -> (Vec<String>, bool) {
-    let output = Command::new(BIN)
-        .current_dir(root)
-        .arg("check")
-        .args(args)
-        .arg("--reporter")
-        .arg("github")
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let findings = stdout
+    let run = common::check_in(root, args, Some("github"));
+    let findings = run
+        .output
         .lines()
         .filter(|line| line.starts_with("::"))
         .map(str::to_string)
         .collect();
-    (findings, output.status.success())
+    (findings, run.ok)
 }
 
 /// The findings whose rule (the `title=<rule>` property) equals `rule`.

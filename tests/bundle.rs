@@ -12,9 +12,8 @@
 //! - **CLI** — the real `temper bundle` binary composes the plugin across the process
 //!   boundary (where `main`'s dispatch and the default `--out` are observable).
 
-use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 mod common;
@@ -69,24 +68,6 @@ fn imported_surface(label: &str) -> PathBuf {
     fs::write(rule_dir.join("RULE.md"), rule.to_document().emit()).unwrap();
 
     surface
-}
-
-/// Snapshot every file under `dir` as a sorted map of relative path -> bytes.
-fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
-    let mut out = BTreeMap::new();
-    let mut stack = vec![dir.to_path_buf()];
-    while let Some(current) = stack.pop() {
-        for entry in fs::read_dir(&current).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                stack.push(path);
-            } else {
-                let rel = path.strip_prefix(dir).unwrap().to_path_buf();
-                out.insert(rel, fs::read(&path).unwrap());
-            }
-        }
-    }
-    out
 }
 
 #[test]
@@ -216,10 +197,10 @@ fn bundle_is_deterministic() {
     let out = common::tmpdir("determinism-out");
 
     bundle::run(&surface, &out).unwrap();
-    let first = tree_bytes(&out);
+    let first = common::tree_bytes(&out);
 
     bundle::run(&surface, &out).unwrap();
-    let second = tree_bytes(&out);
+    let second = common::tree_bytes(&out);
 
     assert_eq!(first, second, "re-running bundle must be byte-identical");
 

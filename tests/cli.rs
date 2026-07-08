@@ -61,13 +61,6 @@ description: Use when coordinating agents across axes; not for single-axis work.
     )
 }
 
-/// Write a one-skill harness at `<root>/.claude/skills/<name>/SKILL.md`.
-fn write_harness(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join(".claude").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
-}
-
 /// A rule that trips no `required` clause: `paths:`-only frontmatter (Claude
 /// Code's real scoping key) and a short body — the clean shape of `rust.md`.
 const CLEAN_RULE: &str = "---\n\
@@ -121,7 +114,7 @@ fn check_harness_succeeds(harness: &Path) -> bool {
 #[test]
 fn check_is_clean_for_a_well_formed_skill() {
     let harness = common::tmpdir("clean-src");
-    write_harness(&harness, "coordinate", CLEAN_SKILL);
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
 
     assert!(
         check_harness_succeeds(&harness),
@@ -134,7 +127,7 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
     let harness = common::tmpdir("error-src");
     // Directory `coordinate` but `name: Coordinate` — trips name-format and
     // name-matches-dir, both error severity.
-    write_harness(&harness, "coordinate", ERROR_SKILL);
+    common::write_skill(&harness, "coordinate", ERROR_SKILL);
 
     assert!(
         !check_harness_succeeds(&harness),
@@ -146,7 +139,7 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
 fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
     let harness = common::tmpdir("advisory-src");
     // The only clause this skill violates is the advisory `max_lines` budget.
-    write_harness(&harness, "coordinate", &advisory_only_skill());
+    common::write_skill(&harness, "coordinate", &advisory_only_skill());
 
     // Default policy: an advisory-only run is clean — warn does not gate.
     assert!(
