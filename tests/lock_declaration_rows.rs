@@ -848,7 +848,7 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     common::author_satisfies(&root, "skills", "coordinate", &["gate"]);
     common::author_satisfies(&root, "rules", "style", &["gate"]);
 
-    write_lock(
+    common::write_lock(
         &root,
         Declarations {
             requirements: vec![RequirementRow {
@@ -871,18 +871,6 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
         output.contains("requirement.kind") && output.contains("style"),
         "the finding names the sourced kind clause and the wrong-kind satisfier, got:\n{output}"
     );
-}
-
-/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
-/// the mirror of this file's own `emitted` helper, minus the harness-members half,
-/// for a case that writes real off-disk members instead of `PayloadMember`s.
-fn write_lock(root: &Path, declarations: Declarations) {
-    let payload = Payload {
-        version: drift::SEAM_VERSION,
-        declarations,
-        members: Vec::new(),
-    };
-    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
 // ---- BUILTIN-LOCK-DERIVED: the embedded built-in lock ------------------------
@@ -1191,7 +1179,7 @@ fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
     // incoming edges to at least one — satisfiable only by the mention, since no
     // reference field is declared anywhere in this harness.
     common::author_satisfies(&root, "rules", "rust", &["gate"]);
-    write_lock(
+    common::write_lock(
         &root,
         Declarations {
             requirements: vec![incoming_degree_requirement()],
@@ -1236,7 +1224,7 @@ fn a_mention_with_no_clause_ranging_over_it_is_obligation_free() {
     fs::create_dir_all(&rules_dir).unwrap();
     fs::write(rules_dir.join("rust.md"), clean_rule("rust")).unwrap();
 
-    write_lock(
+    common::write_lock(
         &root,
         Declarations {
             mentions: vec![MentionRow {

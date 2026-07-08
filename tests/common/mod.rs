@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Once;
 
+use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
+
 /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
 /// crate — replaces the hand-rolled counter+pid+label naming scheme every
 /// caller carried before this consolidation. Persisted with `.keep()`: like
@@ -174,6 +176,76 @@ pub fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &
         }
         other => panic!("unknown kind_dir {other}"),
     }
+}
+
+/// A floor-clean skill named `name` (matching its directory, a lowercase slug, a
+/// present description). Clean against the floor, so the only finding a case can
+/// produce is the one under test.
+pub fn clean_skill(name: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// Write a floor-clean rule directly at its real Claude Code locus
+/// (`<root>/.claude/rules/<name>.md`) — a second modeled kind, so a requirement or
+/// edge typed to `rule` has a real satisfier/endpoint to be.
+pub fn write_rule(root: &Path, name: &str) {
+    let dir = root.join(".claude").join("rules");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(
+        dir.join(format!("{name}.md")),
+        format!("# {name}\n\nBody.\n"),
+    )
+    .unwrap();
+}
+
+/// The retired manifest's filename, spelled by concatenation so the retired token
+/// itself never appears as a literal in this source.
+pub fn retired_manifest_name() -> String {
+    format!("temper{}toml", '.')
+}
+
+/// Write the retired manifest verbatim at the project root — the filename is inert
+/// (never read by any verb), so every case using this proves exactly that: the file
+/// changes nothing, whatever it carries.
+pub fn write_retired_manifest(root: &Path, contents: &str) {
+    fs::write(root.join(retired_manifest_name()), contents).unwrap();
+}
+
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
+/// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
+/// projection of the retired manifest's `[requirement.*]` table: the gate sources
+/// requirements from the lock, never a re-imported assembly.
+pub fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            requirements,
+            ..Declarations::default()
+        },
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
+/// the SDK-emitted fixture standing in for `import::run`'s scratch projection of a
+/// manifest's `[[kind.<name>.relationships]]`/`[requirement.*]` table: the gate
+/// sources edges and requirements from the lock, never a re-imported assembly.
+pub fn write_lock(root: &Path, declarations: Declarations) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations,
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
 /// Snapshot every file under `dir` as a sorted map of relative path -> bytes,

@@ -18,7 +18,7 @@ use std::path::Path;
 
 mod common;
 
-use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
+use temper::drift::RequirementRow;
 
 /// A skill clean against the floor (lowercase `name` matching its directory, a present
 /// short description) — the real Claude Code locus (`.claude/skills/<name>/SKILL.md`),
@@ -41,22 +41,6 @@ fn requirement(name: &str) -> RequirementRow {
         clauses: Vec::new(),
         verified_by: None,
     }
-}
-
-/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
-/// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
-/// projection: the gate sources requirements from the lock, never a re-imported
-/// assembly.
-fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
-    let payload = Payload {
-        version: drift::SEAM_VERSION,
-        declarations: Declarations {
-            requirements,
-            ..Declarations::default()
-        },
-        members: Vec::new(),
-    };
-    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
 /// Run `temper check <args...>` from `root`, returning `(github-format finding lines,
@@ -89,7 +73,7 @@ fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
     // committed lock declares a requirement, but nothing was ever imported — no
     // surface tree at the workspace `check` reads.
     let root = common::tmpdir("declared-empty");
-    write_requirements(&root, vec![requirement("docs")]);
+    common::write_requirements(&root, vec![requirement("docs")]);
 
     let (findings, success) = check_in(&root, &["."]);
 
@@ -121,7 +105,7 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
     let harness = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&harness).unwrap();
     fs::write(harness.join("SKILL.md"), CLEAN_SKILL).unwrap();
-    write_requirements(&root, vec![requirement("docs")]);
+    common::write_requirements(&root, vec![requirement("docs")]);
 
     let (findings, success) = check_in(&root, &[]);
 

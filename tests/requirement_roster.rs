@@ -29,34 +29,6 @@ use temper::drift::{self, ClauseRow, Declarations, EmitOptions, Payload, Require
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// A floor-clean skill named `name` (matching its directory, a lowercase slug, a
-/// present description). Clean against the floor, so the only finding a case can
-/// produce is a roster one.
-fn clean_skill(name: &str) -> String {
-    format!(
-        "---\n\
-         name: {name}\n\
-         description: Use when {name} is the task at hand; not for anything else.\n\
-         ---\n\
-         # {name}\n\
-         \n\
-         Body.\n"
-    )
-}
-
-/// Write a floor-clean rule directly at its real Claude Code locus
-/// (`<root>/.claude/rules/<name>.md`) — the second modeled kind the each-grain `kind`
-/// clause tests need, so a wrong-kind opt-in has a real other-kind satisfier to be.
-fn write_rule(root: &Path, name: &str) {
-    let dir = root.join(".claude").join("rules");
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(
-        dir.join(format!("{name}.md")),
-        format!("# {name}\n\nBody.\n"),
-    )
-    .unwrap();
-}
-
 /// Author a rule's `satisfies` links on its surface overlay
 /// (`<root>/.temper/rules/<name>/RULE.md`) — the mirror of [`author_satisfies`] for the
 /// `rule` kind.
@@ -134,19 +106,6 @@ fn check_harness_in(root: &Path) -> common::CheckRun {
     }
 }
 
-/// The retired manifest's filename, spelled by concatenation so the retired token
-/// itself never appears as a literal in this source.
-fn retired_manifest_name() -> String {
-    format!("temper{}toml", '.')
-}
-
-/// Write the retired manifest verbatim at the project root — the filename is inert
-/// (never read by any verb), so every case using this proves exactly that: the file
-/// changes nothing, whatever it carries.
-fn write_retired_manifest(root: &Path, contents: &str) {
-    fs::write(root.join(retired_manifest_name()), contents).unwrap();
-}
-
 /// A bare `RequirementRow` naming `name` and typed to `kind`, otherwise empty — the
 /// starting point each case's builder customizes.
 fn requirement(name: &str, kind: &str) -> RequirementRow {
@@ -184,22 +143,6 @@ fn required_clause_row(
         keys: None,
         values: None,
     }
-}
-
-/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
-/// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
-/// projection of a retired manifest's `[requirement.*]` table: the gate sources
-/// requirements from the lock, never a re-imported assembly.
-fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
-    let payload = Payload {
-        version: drift::SEAM_VERSION,
-        declarations: Declarations {
-            requirements,
-            ..Declarations::default()
-        },
-        members: Vec::new(),
-    };
-    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
 }
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
@@ -255,7 +198,7 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
     // The identical override, written only in a retired-manifest `[kind.skill]`
     // layer, is inert — the manifest is never read at all any more (`TEMPER-TOML-ZERO`),
     // so a stray one carrying a clause override changes nothing.
-    write_retired_manifest(
+    common::write_retired_manifest(
         &root,
         "[kind.skill]\n\
          [[kind.skill.clause]]\n\
@@ -322,11 +265,11 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
     let root = common::tmpdir("count-over");
     // Two skills opt into `agents`; the band caps the satisfier count at one, so two
     // is out of band.
-    common::write_skill(&root, "agent-one", &clean_skill("agent-one"));
-    common::write_skill(&root, "agent-two", &clean_skill("agent-two"));
+    common::write_skill(&root, "agent-one", &common::clean_skill("agent-one"));
+    common::write_skill(&root, "agent-two", &common::clean_skill("agent-two"));
     common::author_satisfies(&root, "skills", "agent-one", &["agents"]);
     common::author_satisfies(&root, "skills", "agent-two", &["agents"]);
-    write_requirements(&root, vec![count_band_requirement(0, 1)]);
+    common::write_requirements(&root, vec![count_band_requirement(0, 1)]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -364,11 +307,11 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
 fn a_count_band_is_clean_within_bounds() {
     let root = common::tmpdir("count-ok");
     // Two skills opt into `agents`, inside a `[1, 2]` band — clean.
-    common::write_skill(&root, "agent-one", &clean_skill("agent-one"));
-    common::write_skill(&root, "agent-two", &clean_skill("agent-two"));
+    common::write_skill(&root, "agent-one", &common::clean_skill("agent-one"));
+    common::write_skill(&root, "agent-two", &common::clean_skill("agent-two"));
     common::author_satisfies(&root, "skills", "agent-one", &["agents"]);
     common::author_satisfies(&root, "skills", "agent-two", &["agents"]);
-    write_requirements(&root, vec![count_band_requirement(1, 2)]);
+    common::write_requirements(&root, vec![count_band_requirement(1, 2)]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -387,11 +330,11 @@ fn a_wrong_kind_opt_in_fires_a_kind_finding_never_a_silent_exclusion() {
     // satisfier set is kind-blind, so the rule is drawn in — and the each-grain
     // `kind` clause `requirement.kind` sources flags it as a finding rather than
     // silently excluding it from the set.
-    common::write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
-    write_rule(&root, "agent-rule");
+    common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
+    common::write_rule(&root, "agent-rule");
     common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
     author_rule_satisfies(&root, "agent-rule", &["agents"]);
-    write_requirements(&root, vec![requirement("agents", "skill")]);
+    common::write_requirements(&root, vec![requirement("agents", "skill")]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -413,11 +356,11 @@ fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
     let root = common::tmpdir("kind-blind");
     // No `kind` at all: a skill and a rule both opt in, and neither is a finding —
     // a kind-blind requirement attaches no narrowing clause.
-    common::write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
-    write_rule(&root, "agent-rule");
+    common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
+    common::write_rule(&root, "agent-rule");
     common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
     author_rule_satisfies(&root, "agent-rule", &["agents"]);
-    write_requirements(
+    common::write_requirements(
         &root,
         vec![RequirementRow {
             kind: None,
@@ -440,9 +383,9 @@ fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
     // narrows to `command` — a kind `temper` does not model — so the each-grain
     // clause it sources can never hold for any satisfier: an admissibility finding,
     // never a silent "can never be filled" exclusion.
-    common::write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
+    common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
     common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
-    write_requirements(&root, vec![requirement("agents", "command")]);
+    common::write_requirements(&root, vec![requirement("agents", "command")]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -484,7 +427,7 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
     common::write_skill(&root, "agent-b", &model_skill("agent-b", "opus"));
     common::author_satisfies(&root, "skills", "agent-a", &["agents"]);
     common::author_satisfies(&root, "skills", "agent-b", &["agents"]);
-    write_requirements(
+    common::write_requirements(
         &root,
         vec![RequirementRow {
             clauses: vec![required_clause_row(
@@ -522,9 +465,9 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
     // A floor-clean skill opts into the requirement (so coverage is satisfied), but the
     // requirement is typed to `command` — a kind `temper` does not model — so a
     // required requirement over it can never be filled.
-    common::write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
+    common::write_skill(&root, "lint-rust", &common::clean_skill("lint-rust"));
     common::author_satisfies(&root, "skills", "lint-rust", &["releaser"]);
-    write_requirements(
+    common::write_requirements(
         &root,
         vec![RequirementRow {
             required: true,
@@ -551,9 +494,9 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
     let root = common::tmpdir("admit-dangling-verifier");
     // Coverage is clean (a satisfier opts in); the sole fault is `verified_by`
     // naming a path that does not exist under the root.
-    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
     common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
-    write_requirements(
+    common::write_requirements(
         &root,
         vec![RequirementRow {
             required: true,
@@ -579,13 +522,13 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
 #[test]
 fn a_roster_whose_verifiers_all_resolve_passes() {
     let root = common::tmpdir("admit-clean");
-    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
     common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
 
     // A `verified_by` path that exists under the root — nothing else for
     // admissibility to reject.
     fs::write(root.join("plan.rs"), "// a present verifier\n").unwrap();
-    write_requirements(
+    common::write_requirements(
         &root,
         vec![RequirementRow {
             required: true,
@@ -638,7 +581,7 @@ fn a_membership_requirement_fires_when_a_satisfier_is_outside_the_derived_set() 
     );
     common::author_satisfies(&root, "skills", "agent-gpt", &["agents"]);
     common::author_satisfies(&root, "skills", "approved-opus", &["approved-model"]);
-    write_requirements(&root, membership_requirements());
+    common::write_requirements(&root, membership_requirements());
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -667,7 +610,7 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
     );
     common::author_satisfies(&root, "skills", "agent-opus", &["agents"]);
     common::author_satisfies(&root, "skills", "approved-opus", &["approved-model"]);
-    write_requirements(&root, membership_requirements());
+    common::write_requirements(&root, membership_requirements());
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -682,12 +625,12 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
 #[test]
 fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
     let root = common::tmpdir("match-unknown-key");
-    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
 
     // The name-`match` selector was gone even before this — fill is opt-in `satisfies`
     // alone. Now the whole file is: the manifest is never read at all, so this
     // once-rejected syntax changes nothing rather than failing to load.
-    write_retired_manifest(
+    common::write_retired_manifest(
         &root,
         "[requirement.planner]\n\
          kind = \"skill\"\n\
@@ -706,7 +649,7 @@ fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
 #[test]
 fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
     let root = common::tmpdir("no-roster");
-    common::write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
+    common::write_skill(&root, "lint-rust", &common::clean_skill("lint-rust"));
 
     // Absent the retired manifest: the floor runs, the clean skill passes.
     let absent = common::check_in(&root, &[], None);
@@ -714,7 +657,7 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
 
     // A retired manifest present on disk at all — never read, so it declares nothing —
     // leaves the outcome byte-for-byte the floor's.
-    write_retired_manifest(
+    common::write_retired_manifest(
         &root,
         "[kind.skill]\n\
          package = \"skill.anthropic\"\n",
@@ -733,12 +676,12 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
 #[test]
 fn a_retired_role_table_in_a_stray_temper_toml_is_inert() {
     let root = common::tmpdir("retired-role");
-    common::write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
+    common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
 
     // The `[role.*]` surface was hard-cut into `[requirement.*]` by the consolidation,
     // and used to be rejected loudly at load. Now the manifest is never read at all,
     // so this once-rejected root changes nothing rather than failing to load.
-    write_retired_manifest(
+    common::write_retired_manifest(
         &root,
         "[role.planner]\n\
          artifact = \"skill\"\n\
@@ -762,8 +705,8 @@ fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean()
     // `arch-impl` fills it by opting in via `satisfies`. One namespace, the demand
     // published on one surface and the fill claimed on another — coverage resolves the
     // join green, exactly as it does for an assembly-published requirement.
-    common::write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
-    common::write_skill(&root, "arch-impl", &clean_skill("arch-impl"));
+    common::write_skill(&root, "arch-spec", &common::clean_skill("arch-spec"));
+    common::write_skill(&root, "arch-impl", &common::clean_skill("arch-impl"));
     author_published(
         &root,
         "arch-spec",
@@ -785,7 +728,7 @@ fn an_unfilled_required_member_published_requirement_fires() {
     // `arch-spec` publishes a required `[requirement.architecture]`, but no member
     // opts in — the published obligation has no resolving home, so the coverage gate
     // fires exactly as for an unfilled assembly requirement.
-    common::write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    common::write_skill(&root, "arch-spec", &common::clean_skill("arch-spec"));
     author_published(
         &root,
         "arch-spec",
@@ -810,8 +753,8 @@ fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
     // Two members publish the same requirement name. A requirement lives in one
     // namespace, so the second publisher is a collision — an admissibility finding,
     // never a silent shadow that would let one member quietly redefine another's.
-    common::write_skill(&root, "spec-a", &clean_skill("spec-a"));
-    common::write_skill(&root, "spec-b", &clean_skill("spec-b"));
+    common::write_skill(&root, "spec-a", &common::clean_skill("spec-a"));
+    common::write_skill(&root, "spec-b", &common::clean_skill("spec-b"));
     author_published(
         &root,
         "spec-a",
@@ -842,13 +785,13 @@ fn a_name_published_by_both_the_assembly_and_a_member_collides() {
     // The assembly *and* a member both publish `architecture`. Same namespace, so the
     // member's re-declaration collides with the assembly's — the assembly ⊕ member
     // half of the one-namespace rule.
-    common::write_skill(&root, "arch-spec", &clean_skill("arch-spec"));
+    common::write_skill(&root, "arch-spec", &common::clean_skill("arch-spec"));
     author_published(
         &root,
         "arch-spec",
         vec![published("architecture", Some("skill"), false)],
     );
-    write_requirements(&root, vec![requirement("architecture", "skill")]);
+    common::write_requirements(&root, vec![requirement("architecture", "skill")]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
