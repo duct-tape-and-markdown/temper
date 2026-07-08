@@ -1,7 +1,7 @@
 /**
- * The built-in floors: every floor exported from `claude-code.ts` is a
+ * The built-in default contracts: every default contract exported from `claude-code.ts` is a
  * well-formed clause array, and every clause carries a non-empty `cite` — the
- * auditability guarantee a maintained floor exists to keep.
+ * auditability guarantee a maintained default contract exists to keep.
  */
 
 import assert from "node:assert/strict";
@@ -10,51 +10,51 @@ import { test } from "node:test";
 import type { Clause } from "../src/index.js";
 import {
   agent,
-  agentFloor,
+  agentDefaultContract,
   command,
-  commandFloor,
+  commandDefaultContract,
   memory,
-  memoryAgentsMdFloor,
-  memoryAnthropicFloor,
+  memoryAgentsMdDefaultContract,
+  memoryAnthropicDefaultContract,
   rule,
-  ruleFloor,
+  ruleDefaultContract,
   skill,
-  skillFloor,
+  skillDefaultContract,
 } from "../src/claude-code.js";
 
-const FLOORS: ReadonlyArray<readonly Clause[]> = [
-  agentFloor,
-  skillFloor,
-  commandFloor,
-  ruleFloor,
-  memoryAnthropicFloor,
-  memoryAgentsMdFloor,
+const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
+  agentDefaultContract,
+  skillDefaultContract,
+  commandDefaultContract,
+  ruleDefaultContract,
+  memoryAnthropicDefaultContract,
+  memoryAgentsMdDefaultContract,
 ];
 
-test("every exported floor is a well-formed clause array", () => {
-  for (const floor of FLOORS) {
-    assert.ok(Array.isArray(floor));
-    for (const entry of floor) {
+test("every exported default contract is a well-formed clause array", () => {
+  for (const defaultContract of DEFAULT_CONTRACTS) {
+    assert.ok(Array.isArray(defaultContract));
+    for (const entry of defaultContract) {
       assert.ok(entry.predicate && typeof entry.predicate.key === "string" && entry.predicate.key.length > 0);
       assert.ok(entry.severity === "required" || entry.severity === "advisory");
  }
  }
 });
 
-test("every floor clause carries a non-empty cite", () => {
-  for (const floor of FLOORS) {
-    for (const entry of floor) {
+test("every default contract clause carries a non-empty cite", () => {
+  for (const defaultContract of DEFAULT_CONTRACTS) {
+    for (const entry of defaultContract) {
       assert.ok(typeof entry.cite === "string" && entry.cite.length > 0, `clause \`${entry.predicate.key}\` is uncited`);
  }
  }
 });
 
-test("skillFloor carries the skill kind's decidable clauses, name-first", () => {
-  assert.equal(skillFloor.length, 12);
-  assert.equal(skillFloor[0].predicate.key, "required");
-  assert.equal(skillFloor[0].predicate.field, "name");
+test("skillDefaultContract carries the skill kind's decidable clauses, name-first", () => {
+  assert.equal(skillDefaultContract.length, 12);
+  assert.equal(skillDefaultContract[0].predicate.key, "required");
+  assert.equal(skillDefaultContract[0].predicate.field, "name");
   assert.deepEqual(
-    skillFloor.map((c) => c.predicate.key),
+    skillDefaultContract.map((c) => c.predicate.key),
     [
       "required",
       "min_len",
@@ -72,13 +72,13 @@ test("skillFloor carries the skill kind's decidable clauses, name-first", () => 
   );
 });
 
-test("commandFloor is skillFloor minus the directory-name clause", () => {
+test("commandDefaultContract is skillDefaultContract minus the directory-name clause", () => {
   assert.deepEqual(
-    commandFloor.map((c) => c.predicate.key),
-    skillFloor.map((c) => c.predicate.key).filter((key) => key !== "name-matches-dir"),
+    commandDefaultContract.map((c) => c.predicate.key),
+    skillDefaultContract.map((c) => c.predicate.key).filter((key) => key !== "name-matches-dir"),
   );
   assert.equal(
-    commandFloor.some((c) => c.predicate.key === "name-matches-dir"),
+    commandDefaultContract.some((c) => c.predicate.key === "name-matches-dir"),
     false,
     "a command is a lone file — no parent directory to match",
   );
@@ -86,29 +86,29 @@ test("commandFloor is skillFloor minus the directory-name clause", () => {
   // field for identity (file-stem, like `rule`), but the skill schema's own
   // `required`/`min_len`/`allowed_chars`/`max_len`/`deny` clauses over `name` still
   // apply by import.
-  assert.equal(commandFloor[0].predicate.key, "required");
-  assert.equal(commandFloor[0].predicate.field, "name");
+  assert.equal(commandDefaultContract[0].predicate.key, "required");
+  assert.equal(commandDefaultContract[0].predicate.field, "name");
 });
 
-test("ruleFloor forbids Cursor keys and budgets body size", () => {
+test("ruleDefaultContract forbids Cursor keys and budgets body size", () => {
   assert.deepEqual(
-    ruleFloor.map((c) => c.predicate.key),
+    ruleDefaultContract.map((c) => c.predicate.key),
     ["forbidden_keys", "max_lines"],
   );
-  assert.deepEqual(ruleFloor[0].predicate.keys, ["description", "globs", "alwaysApply"]);
+  assert.deepEqual(ruleDefaultContract[0].predicate.keys, ["description", "globs", "alwaysApply"]);
 });
 
-test("memoryAnthropicFloor is a single advisory size budget", () => {
-  assert.equal(memoryAnthropicFloor.length, 1);
-  assert.equal(memoryAnthropicFloor[0].predicate.key, "max_lines");
-  assert.equal(memoryAnthropicFloor[0].severity, "advisory");
+test("memoryAnthropicDefaultContract is a single advisory size budget", () => {
+  assert.equal(memoryAnthropicDefaultContract.length, 1);
+  assert.equal(memoryAnthropicDefaultContract[0].predicate.key, "max_lines");
+  assert.equal(memoryAnthropicDefaultContract[0].severity, "advisory");
 });
 
-test("memoryAgentsMdFloor is guidance-only — zero clauses", () => {
-  assert.deepEqual(memoryAgentsMdFloor, []);
+test("memoryAgentsMdDefaultContract is guidance-only — zero clauses", () => {
+  assert.deepEqual(memoryAgentsMdDefaultContract, []);
 });
 
-test("the floors ride alongside their kinds through the claude-code subpath", () => {
+test("the default contracts ride alongside their kinds through the claude-code subpath", () => {
   assert.equal(typeof agent, "function");
   assert.equal(typeof skill, "function");
   assert.equal(typeof command, "function");
@@ -144,16 +144,16 @@ test("skill/command register on both documented invocation channels; agent/rule/
   assert.deepEqual(memory.facts.registration, [{ via: "always" }]);
 });
 
-test("agentFloor requires name and description, gates the lowercase-hyphen charset, and pins per-scope uniqueness", () => {
+test("agentDefaultContract requires name and description, gates the lowercase-hyphen charset, and pins per-scope uniqueness", () => {
   assert.deepEqual(
-    agentFloor.map((c) => c.predicate.key),
+    agentDefaultContract.map((c) => c.predicate.key),
     ["required", "allowed_chars", "unique-name", "required"],
   );
   assert.deepEqual(
-    agentFloor.map((c) => c.predicate.field),
+    agentDefaultContract.map((c) => c.predicate.field),
     ["name", "name", undefined, "description"],
   );
-  const charset = agentFloor[1].predicate.charset;
+  const charset = agentDefaultContract[1].predicate.charset;
   assert.deepEqual(charset, { ranges: ["a-z"], chars: "-" });
 });
 

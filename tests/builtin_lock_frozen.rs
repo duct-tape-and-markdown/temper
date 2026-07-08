@@ -3,7 +3,7 @@
 //! subprocess running the built SDK, exactly as `tests/emit.rs` drives the seam — and
 //! byte-compare its declaration rows against the embedded `src/builtin_lock.toml`.
 //!
-//! A memberless harness binds every built-in kind to every built-in floor via
+//! A memberless harness binds every built-in kind to every built-in default contract via
 //! `expect` (`sdk/src/assembly.ts`: `expect` keys clauses to a kind value with no
 //! member needed), the identical construction `src/builtin_lock.toml`'s own header
 //! says produced it. Agreement is mechanical: this test is the CI job the fail-loud
@@ -55,35 +55,35 @@ fn ensure_sdk_built() {
     });
 }
 
-/// A memberless harness binding every built-in kind to every built-in floor via
+/// A memberless harness binding every built-in kind to every built-in default contract via
 /// `expect` — no members, so `compileDeclarations` (`sdk/src/declarations.ts`) emits
-/// only the five kind facts and their floor clauses, exactly the family
-/// `src/builtin_lock.toml` embeds (`sdk/src/builtins.ts`, the built-in kinds/floors).
+/// only the five kind facts and their default contract clauses, exactly the family
+/// `src/builtin_lock.toml` embeds (`sdk/src/builtins.ts`, the built-in kinds/default contracts).
 const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { emit, harness } from "@dtmd/temper";
 import {
   agent,
-  agentFloor,
+  agentDefaultContract,
   command,
-  commandFloor,
+  commandDefaultContract,
   memory,
-  memoryAgentsMdFloor,
-  memoryAnthropicFloor,
+  memoryAgentsMdDefaultContract,
+  memoryAnthropicDefaultContract,
   rule,
-  ruleFloor,
+  ruleDefaultContract,
   skill,
-  skillFloor,
+  skillDefaultContract,
 } from "@dtmd/temper/claude-code";
 
 const program = harness({
   members: [],
   expect: [
-    { kind: agent, clauses: agentFloor },
-    { kind: command, clauses: commandFloor },
-    { kind: memory, clauses: memoryAnthropicFloor },
-    { kind: memory, clauses: memoryAgentsMdFloor },
-    { kind: rule, clauses: ruleFloor },
-    { kind: skill, clauses: skillFloor },
+    { kind: agent, clauses: agentDefaultContract },
+    { kind: command, clauses: commandDefaultContract },
+    { kind: memory, clauses: memoryAnthropicDefaultContract },
+    { kind: memory, clauses: memoryAgentsMdDefaultContract },
+    { kind: rule, clauses: ruleDefaultContract },
+    { kind: skill, clauses: skillDefaultContract },
   ],
 });
 

@@ -1,6 +1,6 @@
 //! The harness assembly's domain types — [`Requirement`], [`Edge`], [`EnforcementMode`]
 //! — and [`effective`], which composes the lock's per-clause severity overrides onto
-//! the embedded by-kind floor. A requirement's
+//! the embedded by-kind default contract. A requirement's
 //! set-/edge-scope demands ride ordinary [`contract::Clause`] values;
 //! their predicate payloads ([`contract::EdgeBound`] and
 //! friends) live in [`crate::contract`], not here.
@@ -97,18 +97,18 @@ pub struct Requirement {
     pub verified_by: Option<String>,
 }
 
-/// The effective contract for `kind`: the embedded `floor` with each clause's
-/// severity overridden by a matching row in the lock's declared `clauses`.
-/// A row overrides the floor clause
+/// The effective contract for `kind`: the embedded default contract with each
+/// clause's severity overridden by a matching row in the lock's declared `clauses`.
+/// A row overrides the default contract's clause
 /// sharing its identity (predicate key + targeted field); a row naming no matching
-/// floor clause contributes nothing — `effective` only ever flips an existing
-/// clause's severity, never declares a wholly new one from a row's own argument
-/// columns (`count`/`target`/`degree`). A row whose `severity` is outside the closed
-/// vocabulary leaves the floor's own severity untouched, the same tolerant read the
-/// rest of the lock takes over hand-editable state.
+/// default contract clause contributes nothing — `effective` only ever flips an
+/// existing clause's severity, never declares a wholly new one from a row's own
+/// argument columns (`count`/`target`/`degree`). A row whose `severity` is outside
+/// the closed vocabulary leaves the default contract's own severity untouched, the
+/// same tolerant read the rest of the lock takes over hand-editable state.
 #[must_use]
-pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Contract {
-    for clause in &mut floor.clauses {
+pub fn effective(clauses: &[ClauseRow], kind: &str, mut default_contract: Contract) -> Contract {
+    for clause in &mut default_contract.clauses {
         let key = clause.predicate.key();
         let target = clause.predicate.target();
         let overriding = clauses.iter().find(|row| {
@@ -120,20 +120,21 @@ pub fn effective(clauses: &[ClauseRow], kind: &str, mut floor: Contract) -> Cont
             clause.severity = severity;
         }
     }
-    floor
+    default_contract
 }
 
-/// A custom kind's whole floor [`Contract`], built directly from the clause rows
+/// A custom kind's whole default [`Contract`], built directly from the clause rows
 /// naming it in the committed lock. Unlike a
-/// built-in kind — whose floor is the embedded default, with the lock's own rows only
-/// overriding a clause's severity ([`effective`])
-/// — a custom kind carries no embedded default: its committed rows **are** its floor,
-/// the same lift [`crate::builtin::contract`] runs over the *embedded* lock's own rows,
-/// run here over the *project's own*. Tolerant like the rest of a hand-editable lock's
-/// readers: a row naming an unsupported predicate, an out-of-vocabulary severity, or one
-/// missing its own required argument is skipped rather than trusted.
+/// built-in kind — whose default contract is the embedded one, with the lock's own
+/// rows only overriding a clause's severity ([`effective`])
+/// — a custom kind carries no embedded default: its committed rows **are** its
+/// default contract, the same lift [`crate::builtin::contract`] runs over the
+/// *embedded* lock's own rows, run here over the *project's own*. Tolerant like the
+/// rest of a hand-editable lock's readers: a row naming an unsupported predicate, an
+/// out-of-vocabulary severity, or one missing its own required argument is skipped
+/// rather than trusted.
 #[must_use]
-pub fn floor_from_rows(clauses: &[ClauseRow], kind: &str) -> Contract {
+pub fn default_contract_from_rows(clauses: &[ClauseRow], kind: &str) -> Contract {
     Contract {
         name: kind.to_string(),
         clauses: clauses
@@ -171,10 +172,10 @@ mod tests {
 
     use crate::contract::{Clause, Predicate, Severity};
 
-    /// A small skill-shaped floor: a required `max_len` on `name`, a required
+    /// A small skill-shaped default contract: a required `max_len` on `name`, a required
     /// `forbidden_keys`, and an advisory `max_lines`. Enough distinct identities to
     /// exercise override-vs-extend.
-    fn floor() -> Contract {
+    fn default_contract() -> Contract {
         Contract {
             name: "skill.anthropic".to_string(),
             guidance: None,
@@ -207,13 +208,16 @@ mod tests {
     }
 
     #[test]
-    fn effective_with_no_clause_rows_yields_the_floor_unchanged() {
-        assert_eq!(effective(&[], "skill", floor()), floor());
+    fn effective_with_no_clause_rows_yields_the_default_contract_unchanged() {
+        assert_eq!(
+            effective(&[], "skill", default_contract()),
+            default_contract()
+        );
     }
 
     #[test]
-    fn effective_overrides_a_floor_clauses_severity_by_matching_identity() {
-        // A row sharing the floor's `forbidden_keys` identity (predicate key, no
+    fn effective_overrides_a_default_contracts_clause_severity_by_matching_identity() {
+        // A row sharing the default contract's `forbidden_keys` identity (predicate key, no
         // targeted field) flips its severity in place — the lock's `ClauseRow`
         // family is the sole source `effective` composes from, never a manifest
         // `[kind.*]` layer.
@@ -232,8 +236,8 @@ mod tests {
             keys: None,
             values: None,
         };
-        let contract = effective(&[row], "skill", floor());
-        assert_eq!(contract.clauses.len(), floor().clauses.len());
+        let contract = effective(&[row], "skill", default_contract());
+        assert_eq!(contract.clauses.len(), default_contract().clauses.len());
         assert_eq!(contract.clauses[1].severity, Severity::Advisory);
     }
 
@@ -254,12 +258,15 @@ mod tests {
             keys: None,
             values: None,
         };
-        assert_eq!(effective(&[row], "skill", floor()), floor());
+        assert_eq!(
+            effective(&[row], "skill", default_contract()),
+            default_contract()
+        );
     }
 
     #[test]
-    fn effective_ignores_a_row_with_no_matching_floor_clause() {
-        // The row names a predicate/field pair the floor doesn't carry —
+    fn effective_ignores_a_row_with_no_matching_default_contract_clause() {
+        // The row names a predicate/field pair the default contract doesn't carry —
         // `effective` never reconstructs a wholly new clause from a row's own
         // argument columns, so an unmatched row contributes nothing.
         let row = ClauseRow {
@@ -277,13 +284,16 @@ mod tests {
             keys: None,
             values: None,
         };
-        assert_eq!(effective(&[row], "skill", floor()), floor());
+        assert_eq!(
+            effective(&[row], "skill", default_contract()),
+            default_contract()
+        );
     }
 
     #[test]
-    fn floor_from_rows_builds_a_custom_kinds_whole_floor() {
+    fn default_contract_from_rows_builds_a_custom_kinds_whole_default_contract() {
         // Unlike `effective`, a custom kind has no embedded default to override — its
-        // committed rows are its whole floor, so a matching row contributes a brand new
+        // committed rows are its whole default contract, so a matching row contributes a brand new
         // clause rather than only flipping an existing one's severity.
         let rows = vec![
             ClauseRow {
@@ -324,7 +334,7 @@ mod tests {
             },
         ];
 
-        let contract = floor_from_rows(&rows, "spec");
+        let contract = default_contract_from_rows(&rows, "spec");
         assert_eq!(contract.name, "spec");
         assert_eq!(
             contract.clauses,
@@ -338,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn floor_from_rows_skips_a_row_it_cannot_lift() {
+    fn default_contract_from_rows_skips_a_row_it_cannot_lift() {
         // An unsupported predicate and an out-of-vocabulary severity both degrade to
         // absent, the tolerant read the rest of a hand-editable lock takes.
         let rows = vec![
@@ -377,7 +387,7 @@ mod tests {
             },
         ];
 
-        assert!(floor_from_rows(&rows, "spec").clauses.is_empty());
+        assert!(default_contract_from_rows(&rows, "spec").clauses.is_empty());
     }
 
     #[test]
@@ -397,6 +407,9 @@ mod tests {
             keys: None,
             values: None,
         };
-        assert_eq!(effective(&[row], "skill", floor()), floor());
+        assert_eq!(
+            effective(&[row], "skill", default_contract()),
+            default_contract()
+        );
     }
 }

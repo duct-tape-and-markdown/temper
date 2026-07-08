@@ -1,8 +1,8 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the five built-in kinds' facts and their floor clauses, plus the unconditional
-# `mode = "warn"` assembly fact — the root member's own enforcement mode
-# (specs/model/representation.md, "The root member") — every harness carries
+# the five built-in kinds' facts and their default contract clauses, plus the
+# unconditional `mode = "warn"` assembly fact — the root member's own enforcement
+# mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
 # emit-fingerprint rows — nothing was emitted, there are no members.
 #
@@ -10,14 +10,15 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`agent`, `command`, `skill`, `rule`, `memory`) and its six floors
-# (`agentFloor`, `commandFloor`, `skillFloor`, `ruleFloor`, `memoryAnthropicFloor`,
-# `memoryAgentsMdFloor`) — the identical rows an
+# built-in kinds (`agent`, `command`, `skill`, `rule`, `memory`) and its six default
+# contracts (`agentDefaultContract`, `commandDefaultContract`, `skillDefaultContract`,
+# `ruleDefaultContract`, `memoryAnthropicDefaultContract`,
+# `memoryAgentsMdDefaultContract`) — the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration
 # rows verbatim; never hand-edit a row here.
 #
-# `memoryAgentsMdFloor` is guidance-only (zero clauses,
+# `memoryAgentsMdDefaultContract` is guidance-only (zero clauses,
 # `sdk/src/builtins.ts`), so it contributes no clause row; the SDK module exports one
 # `memory` kind (the `CLAUDE.md` locus) and no `provider`-qualified kind values yet,
 # so this lock's five kind facts carry no `provider` column and there is no distinct

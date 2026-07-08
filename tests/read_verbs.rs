@@ -1,6 +1,6 @@
 //! Proofs over the unified read verb, `explain`: target-species resolution (member / requirement / leaf
 //! address), the member-vs-requirement collision error, the qualified-prefix escape
-//! hatch, and coverage disclosure — plus the surviving library-level floor-binding
+//! hatch, and coverage disclosure — plus the surviving library-level default-contract-binding
 //! proofs over `why` (READ-FLOOR-BINDING-DEFAULT), one of the four traversals `explain`
 //! re-homes.
 //!
@@ -311,12 +311,13 @@ fn an_unrecognized_target_is_a_clean_read_naming_no_namespace() {
     );
 }
 
-/// Floor-binding narration over the read family's public `why` API (READ-FLOOR-BINDING-DEFAULT):
-/// a floor is named for its kind — never a `<kind>.<source>` package, and never
-/// every non-rule kind defaulting to the skill floor. A memory member is threaded
-/// as a custom member the way a built-in reaches the read family. Skills/rules keep
-/// their own floors — these exercise the resolution branches directly.
-mod floor_binding {
+/// Default-contract-binding narration over the read family's public `why` API
+/// (READ-FLOOR-BINDING-DEFAULT): a default contract is named for its kind — never a
+/// `<kind>.<source>` package, and never every non-rule kind defaulting to the skill
+/// default contract. A memory member is threaded as a custom member the way a
+/// built-in reaches the read family. Skills/rules keep their own default contracts —
+/// these exercise the resolution branches directly.
+mod default_contract_binding {
     use std::collections::BTreeMap;
 
     use temper::check::Workspace;
@@ -328,10 +329,10 @@ mod floor_binding {
 
     /// Narrate one custom member (its `kind` and `id`) through `why` over an otherwise-empty
     /// surface, returning the stdout narration. The workspace loads an empty temp dir (no
-    /// skills/rules) and the roster/edge inputs are empty, so the governing-floor line is
-    /// all this exercises.
+    /// skills/rules) and the roster/edge inputs are empty, so the governing-default-contract
+    /// line is all this exercises.
     fn why_kind(kind: &str, id: &str) -> String {
-        let ws = Workspace::load(&tmpdir("floor-binding")).unwrap();
+        let ws = Workspace::load(&tmpdir("default-contract-binding")).unwrap();
         let custom = [CustomMember {
             kind: kind.to_string(),
             id: id.to_string(),
@@ -343,35 +344,38 @@ mod floor_binding {
     }
 
     #[test]
-    fn a_memory_member_names_its_own_floor_never_the_skill_floor() {
-        // `memory` binds the `memory` floor — never mis-narrated as the `skill` floor,
-        // the default-to-skill bug this entry closes.
+    fn a_memory_member_names_its_own_default_contract_never_the_skill_default_contract() {
+        // `memory` binds the `memory` default contract — never mis-narrated as the
+        // `skill` default contract, the default-to-skill bug this entry closes.
         let memory = why_kind("memory", "project-memory");
         assert!(
-            memory.contains("binds the `memory` floor"),
-            "a memory member is bound to its own floor: {memory}"
+            memory.contains("binds the `memory` default contract"),
+            "a memory member is bound to its own default contract: {memory}"
         );
         assert!(
-            !memory.contains("binds the `skill` floor"),
+            !memory.contains("binds the `skill` default contract"),
             "a memory member is never narrated as skill-bound: {memory}"
         );
     }
 
     #[test]
-    fn a_builtin_name_resolves_to_its_bound_floor() {
-        // `skill`/`rule` each name their own floor — the kind's bare label.
+    fn a_builtin_name_resolves_to_its_bound_default_contract() {
+        // `skill`/`rule` each name their own default contract — the kind's bare label.
         let skill = why_kind("skill", "reviewer");
-        assert!(skill.contains("binds the `skill` floor"), "{skill}");
+        assert!(
+            skill.contains("binds the `skill` default contract"),
+            "{skill}"
+        );
         let rule = why_kind("rule", "collaboration");
-        assert!(rule.contains("binds the `rule` floor"), "{rule}");
+        assert!(rule.contains("binds the `rule` default contract"), "{rule}");
     }
 
     #[test]
-    fn a_floorless_kind_falls_back_to_its_own_name() {
-        // A kind with no author binding and no embedded floor is named by its own kind name,
-        // not silently mis-bound to the skill floor.
+    fn a_kind_with_no_default_contract_falls_back_to_its_own_name() {
+        // A kind with no author binding and no embedded default contract is named by
+        // its own kind name, not silently mis-bound to the skill default contract.
         let out = why_kind("adr", "0001-adopt-temper");
-        assert!(out.contains("binds the `adr` floor"), "{out}");
-        assert!(!out.contains("binds the `skill` floor"), "{out}");
+        assert!(out.contains("binds the `adr` default contract"), "{out}");
+        assert!(!out.contains("binds the `skill` default contract"), "{out}");
     }
 }

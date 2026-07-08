@@ -5,7 +5,7 @@
 //! requirement, leaf-grain address (`(explain-target-disambiguation)`, ruled
 //! 2026-07-04) — and dispatches to whichever of the four traversals below answer that
 //! species: [`why`] walks the edge **forward** (this member → the requirements it
-//! fills, with their authored rationale → the floor its kind binds → its resolved
+//! fills, with their authored rationale → the default contract its kind binds → its resolved
 //! edges in and out); [`requirements`] walks it in **reverse** (the roster → each
 //! requirement's satisfier set + coverage state, and with a name the blast radius a
 //! removal would strand); [`impact`] narrates the **blast radius of a removal** — what
@@ -302,7 +302,7 @@ pub fn explain(
 
 /// `temper why <member>` — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
-/// own `means`), the floor its kind binds, and its resolved edges in and out.
+/// own `means`), the default contract its kind binds, and its resolved edges in and out.
 /// A read, never a
 /// gate — the caller prints this and exits zero on every input, including a name no
 /// member bears.
@@ -408,7 +408,7 @@ fn why_one(
         let _ = writeln!(
             out,
             "It fills no requirements — it opts into no `satisfies` link, so it is \
-             governed by its kind's floor alone.\n"
+             governed by its kind's default contract alone.\n"
         );
     } else {
         let _ = writeln!(out, "Requirements it satisfies:");
@@ -418,12 +418,12 @@ fn why_one(
         out.push('\n');
     }
 
-    // The floor the member's kind binds — the governing contract its conformance is
-    // checked against. A floor is named for its kind, so this is always the kind's
-    // own bare label.
+    // The default contract the member's kind binds — the governing contract its
+    // conformance is checked against. A default contract is named for its kind, so
+    // this is always the kind's own bare label.
     let _ = writeln!(
         out,
-        "Governing floor: its `{}` kind binds the `{}` floor, whose clauses check it.\n",
+        "Governing default contract: its `{}` kind binds the `{}` default contract, whose clauses check it.\n",
         member.kind, member.kind,
     );
 

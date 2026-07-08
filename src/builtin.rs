@@ -32,7 +32,7 @@ fn charset_from_row(row: &CharsetRow) -> Option<Charset> {
 /// Lift one clause row's predicate — the full argument payload
 /// (`bound`/`charset`/`keys`/`values`) alongside `field` — into the typed
 /// [`Predicate`]. `None` for a predicate key or argument shape this projection
-/// carries no column for. `pub(crate)` so [`crate::compose::floor_from_rows`] reuses
+/// carries no column for. `pub(crate)` so [`crate::compose::default_contract_from_rows`] reuses
 /// the identical lift over a custom kind's own committed-lock rows, never a second
 /// copy of the predicate vocabulary.
 pub(crate) fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {

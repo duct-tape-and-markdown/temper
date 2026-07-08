@@ -4,23 +4,23 @@
  * targets Claude Code imports the built-in kinds from here, never the root:
  * the root carries only the six-noun core, and identity travels by import,
  * so a subpath specifier is a full module
- * specifier like any other. The built-in floors join the kinds here
- * too: adoption is `import { skill, skillFloor } from "@dtmd/temper/claude-code"`.
+ * specifier like any other. The built-in default contracts join the kinds here
+ * too: adoption is `import { skill, skillDefaultContract } from "@dtmd/temper/claude-code"`.
  */
 
 export type { Agent, Memory, Rule, Skill } from "./builtins.js";
 export {
   agent,
-  agentFloor,
+  agentDefaultContract,
   command,
-  commandFloor,
+  commandDefaultContract,
   memory,
-  memoryAgentsMdFloor,
-  memoryAnthropicFloor,
+  memoryAgentsMdDefaultContract,
+  memoryAnthropicDefaultContract,
   rule,
-  ruleFloor,
+  ruleDefaultContract,
   skill,
-  skillFloor,
+  skillDefaultContract,
 } from "./builtins.js";
 
 // The prose constructors ride along so a harness author targeting Claude Code

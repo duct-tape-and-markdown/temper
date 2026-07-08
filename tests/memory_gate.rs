@@ -1,6 +1,6 @@
 //! Acceptance for the memory-kind gate: the
 //! `check` gate validates every embedded kind's members against
-//! its floor package, so a discovered `CLAUDE.md` memory member fires its
+//! its default contract, so a discovered `CLAUDE.md` memory member fires its
 //! `memory.anthropic` clauses instead of being silently skipped by a hardcoded skill/rule
 //! pair.
 //!

@@ -50,25 +50,25 @@ const TEMPER_DIR: &str = ".temper";
 /// tag — a malformed namespace is inadmissible, decided before it judges anything.
 const REQUIREMENT_COLLISION_RULE: &str = "requirement.admissibility";
 
-/// Resolve a built-in kind's bare row label into its floor [`Contract`], failing
-/// loud if the build embeds no floor of that name — a
-/// missing floor is a hard error, never a silently empty contract.
-fn builtin_floor(kind: &str) -> miette::Result<Contract> {
+/// Resolve a built-in kind's bare row label into its default [`Contract`], failing
+/// loud if the build embeds no default contract of that name — a
+/// missing default contract is a hard error, never a silently empty contract.
+fn builtin_default_contract(kind: &str) -> miette::Result<Contract> {
     builtin::contract(kind)
-        .ok_or_else(|| miette::miette!("built-in kind `{kind}` ships no embedded floor"))
+        .ok_or_else(|| miette::miette!("built-in kind `{kind}` ships no embedded default contract"))
 }
 
-/// The kinds `schema` emits a floor for, by bare row label; widening it to `memory`
-/// is a separate question.
-const BUILTIN_FLOOR_KINDS: &[&str] = &["skill", "rule"];
+/// The kinds `schema` emits a default contract for, by bare row label; widening it
+/// to `memory` is a separate question.
+const BUILTIN_DEFAULT_CONTRACT_KINDS: &[&str] = &["skill", "rule"];
 
-/// The built-in floors keyed by their bare row label.
-fn builtin_floors() -> miette::Result<Vec<(String, Contract)>> {
-    let mut floors = Vec::with_capacity(BUILTIN_FLOOR_KINDS.len());
-    for kind in BUILTIN_FLOOR_KINDS {
-        floors.push(((*kind).to_string(), builtin_floor(kind)?));
+/// The built-in default contracts keyed by their bare row label.
+fn builtin_default_contracts() -> miette::Result<Vec<(String, Contract)>> {
+    let mut contracts = Vec::with_capacity(BUILTIN_DEFAULT_CONTRACT_KINDS.len());
+    for kind in BUILTIN_DEFAULT_CONTRACT_KINDS {
+        contracts.push(((*kind).to_string(), builtin_default_contract(kind)?));
     }
-    Ok(floors)
+    Ok(contracts)
 }
 
 /// A typed maintenance surface for the Claude Code harness.
@@ -277,27 +277,32 @@ fn main() -> miette::Result<ExitCode> {
         }
         Command::Schema { kind } => {
             // The keystroke placement of the gate:
-            // emit the *active* contract per kind — the same floor ⊕ lock-declared
-            // clause overrides `check` gates against — as an editor JSON Schema.
+            // emit the *active* contract per kind — the same default contract ⊕
+            // lock-declared clause overrides `check` gates against — as an editor
+            // JSON Schema.
             let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE))?;
 
             // Keyed by each kind's bare row label.
-            let floors = builtin_floors()?;
+            let default_contracts = builtin_default_contracts()?;
 
             let json = match kind.as_deref() {
                 // An unknown kind is a hard error, never a silent empty schema.
                 Some(requested) => {
-                    let floor = floors.into_iter().find(|(name, _)| name == requested);
-                    let (name, floor) = floor.ok_or_else(|| {
+                    let default_contract = default_contracts
+                        .into_iter()
+                        .find(|(name, _)| name == requested);
+                    let (name, default_contract) = default_contract.ok_or_else(|| {
                         miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
                     })?;
-                    let contract = compose::effective(&declarations.clauses, &name, floor);
+                    let contract =
+                        compose::effective(&declarations.clauses, &name, default_contract);
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
-                    for (name, floor) in floors {
-                        let contract = compose::effective(&declarations.clauses, &name, floor);
+                    for (name, default_contract) in default_contracts {
+                        let contract =
+                            compose::effective(&declarations.clauses, &name, default_contract);
                         map.insert(name, schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -580,7 +585,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // label: each kind's members — resolved by
     // [`kind_features`] straight off harness disk, shared with `explain`
     // (READ-EDGE-UNIFY) so a read cannot disagree with the gate about which members
-    // exist — are dispatched to its floor and validated, so a discovered `CLAUDE.md`
+    // exist — are dispatched to its default contract and validated, so a discovered `CLAUDE.md`
     // memory member fires its `memory` clauses exactly as a skill/rule does — no
     // longer silently skipped by a hardcoded skill/rule pair.
     // SCOPE: only this validation path generalizes — the roster/graph tier below
@@ -603,7 +608,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         let contract = compose::effective(
             &declarations.clauses,
             &kind.name,
-            builtin_floor(&kind.name)?,
+            builtin_default_contract(&kind.name)?,
         );
 
         let features = kind_features(kind, harness_root, workspace, &declarations)?;
@@ -622,16 +627,16 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // a
     // built-in's own row is only the governs-override `effective_governs` already
     // consumes, never a second kind definition. A custom kind carries no embedded
-    // default — its whole floor is the committed lock's own clause rows naming it
-    // ([`compose::floor_from_rows`]) — but is otherwise dispatched through the
-    // identical two-greens the built-in loop above runs.
+    // default — its whole default contract is the committed lock's own clause rows
+    // naming it ([`compose::default_contract_from_rows`]) — but is otherwise
+    // dispatched through the identical two-greens the built-in loop above runs.
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
     for row in &declarations.kinds {
         if builtin_defs.contains_key(&row.name) {
             continue;
         }
         let custom_kind = CustomKind::from_kind_fact_row(row);
-        let contract = compose::floor_from_rows(&declarations.clauses, &row.name);
+        let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name);
         let features = kind_features(&custom_kind, harness_root, workspace, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract));

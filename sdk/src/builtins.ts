@@ -153,7 +153,7 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
 });
 
 /**
- * The floor for `skill` — Anthropic's documented skill contract: the Agent
+ * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.
  * All sources retrieved 2026-07-01.
@@ -179,7 +179,7 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
  * that is not a command; `metadata` is the sanctioned home for versioning —
  * there is no top-level `version` field.
  */
-export const skillFloor: readonly Clause[] = [
+export const skillDefaultContract: readonly Clause[] = [
   clause(required("name"), {
     severity: "required",
     guidance:
@@ -252,30 +252,30 @@ export const skillFloor: readonly Clause[] = [
 ];
 
 /**
- * The floor for `command` — `skillFloor`'s clauses minus `nameMatchesDir`: a
+ * The default contract for `command` — `skillDefaultContract`'s clauses minus `nameMatchesDir`: a
  * command is a lone file with no parent directory to match, so the one clause
  * that ranges over the directory relationship does not apply; every other
  * documented skill-schema recommendation, name-requiredness included, still
  * governs a command by the same import (code.claude.com/docs/en/skills,
  * retrieved 2026-07-07).
  */
-export const commandFloor: readonly Clause[] = skillFloor.filter(
+export const commandDefaultContract: readonly Clause[] = skillDefaultContract.filter(
   (entry) => entry.predicate.key !== "name-matches-dir",
 );
 
 /**
- * The floor for `agent` — Anthropic's documented subagent contract
+ * The default contract for `agent` — Anthropic's documented subagent contract
  * (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07): `name` and
  * `description` are the only required fields, `name` is a "unique identifier
  * using lowercase letters and hyphens" (no digits, unlike a skill's `name`), and
  * "keep `name` values unique across the whole tree" — a same-scope collision
  * loads only one definition.
  *
- * Deliberately narrow, like `ruleFloor`: undecidable properties (whether the
+ * Deliberately narrow, like `ruleDefaultContract`: undecidable properties (whether the
  * description triggers well, model/permissionMode's semi-open vocabularies) stay
  * out of the gate — the format documents little else that is decidable.
  */
-export const agentFloor: readonly Clause[] = [
+export const agentDefaultContract: readonly Clause[] = [
   clause(required("name"), {
     severity: "required",
     guidance:
@@ -303,7 +303,7 @@ export const agentFloor: readonly Clause[] = [
 ];
 
 /**
- * The floor for `rule` — Anthropic's documented contract for a Claude Code
+ * The default contract for `rule` — Anthropic's documented contract for a Claude Code
  * rules file, sourced from the memory docs (`.claude/rules/` landed in
  * v2.0.64; `packages/rule.anthropic/PACKAGE.md`, the curated authoring
  * reference this migrates verbatim). All sources retrieved 2026-07-01.
@@ -328,7 +328,7 @@ export const agentFloor: readonly Clause[] = [
  * behavior drifts, and test a change by watching whether Claude's behavior
  * actually shifts.
  */
-export const ruleFloor: readonly Clause[] = [
+export const ruleDefaultContract: readonly Clause[] = [
   clause(forbiddenKeys(["description", "globs", "alwaysApply"]), {
     severity: "required",
     guidance:
@@ -344,7 +344,7 @@ export const ruleFloor: readonly Clause[] = [
 ];
 
 /**
- * The floor for the qualified `claude-code.memory` kind — Anthropic's
+ * The default contract for the qualified `claude-code.memory` kind — Anthropic's
  * documented contract for a project `CLAUDE.md` (`packages/memory.anthropic/PACKAGE.md`,
  * the curated authoring reference this migrates verbatim). Retrieved 2026-07-02.
  *
@@ -370,7 +370,7 @@ export const ruleFloor: readonly Clause[] = [
  * directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md`
  * (gitignored), appended after `CLAUDE.md` at its level.
  */
-export const memoryAnthropicFloor: readonly Clause[] = [
+export const memoryAnthropicDefaultContract: readonly Clause[] = [
   clause(maxLines(200), {
     severity: "advisory",
     guidance:
@@ -380,13 +380,13 @@ export const memoryAnthropicFloor: readonly Clause[] = [
 ];
 
 /**
- * The floor for the qualified `agents-md.memory` kind — the AGENTS.md
+ * The default contract for the qualified `agents-md.memory` kind — the AGENTS.md
  * standard's contract for a memory file, which is that there is almost none
  * (`packages/memory.agents-md/PACKAGE.md`, the curated authoring reference
  * this migrates). Guidance-only, and that is the honest encoding: `AGENTS.md`
  * "is just standard Markdown" with no required fields, no sections, and no
  * frontmatter (agents.md, retrieved 2026-07-02); the format deliberately
- * constrains nothing. A floor that manufactured a required field, a size
+ * constrains nothing. A default contract that manufactured a required field, a size
  * gate, or a forbidden-key list would assert a contract the standard
  * disclaims. Even the tempting size
  * number is a *tool's* rule, not the format's: agents read the closest
@@ -397,4 +397,4 @@ export const memoryAnthropicFloor: readonly Clause[] = [
  * `AGENTS.md` natively — bridge it with a `CLAUDE.md` that
  * `@AGENTS.md`-imports it. All retrieved 2026-07-02.
  */
-export const memoryAgentsMdFloor: readonly Clause[] = [];
+export const memoryAgentsMdDefaultContract: readonly Clause[] = [];

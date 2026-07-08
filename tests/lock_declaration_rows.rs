@@ -1094,9 +1094,9 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
         floor_triples("rule"),
         "rule's floor clauses round-trip through the derived lock unchanged"
     );
-    // The memberless emit binds both memory floors to the SDK's one exported
-    // `memory` kind; `memoryAgentsMdFloor` is guidance-only (zero clauses), so only
-    // `memoryAnthropicFloor`'s clause survives under the `memory` kind's rows.
+    // The memberless emit binds both memory default contracts to the SDK's one exported
+    // `memory` kind; `memoryAgentsMdDefaultContract` is guidance-only (zero clauses), so only
+    // `memoryAnthropicDefaultContract`'s clause survives under the `memory` kind's rows.
     assert_eq!(
         lock_triples("memory"),
         floor_triples("memory"),
@@ -1119,7 +1119,7 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
 /// `clauseRow`) and `drift::ClauseRow` used to drop both channels, stranding the
 /// gate's teaching prose on the wrong side of the erasure. Skill's `max_lines`
 /// advisory is the worked example: its progressive-disclosure guidance and
-/// agentskills.io cite (`sdk/src/builtins.ts` `skillFloor`) must reach the embedded
+/// agentskills.io cite (`sdk/src/builtins.ts` `skillDefaultContract`) must reach the embedded
 /// lock's row, and `builtin::contract`'s projection, unchanged.
 #[test]
 fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
