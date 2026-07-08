@@ -18,14 +18,21 @@ use crate::kind::{
 };
 
 /// Anthropic's documented `.claude/skills/<name>/SKILL.md` kind: a directory whose
-/// identity is the `name` field, activated by its description trigger.
+/// identity is the `name` field, registered on both documented invocation channels —
+/// user-invoked (`/name`) and description-trigger — modulated per member by the
+/// `disable-model-invocation`/`user-invocable` fields
+/// (code.claude.com/docs/en/skills, "Control who invokes a skill", retrieved
+/// 2026-07-07).
 fn claude_code_skill() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::Directory),
-        registration: Some(Registration::DescriptionTrigger {
-            field: "description".to_string(),
-        }),
+        registration: vec![
+            Registration::UserInvoked,
+            Registration::DescriptionTrigger {
+                field: "description".to_string(),
+            },
+        ],
         ..CustomKind::new(
             "skill",
             Governs {
@@ -42,6 +49,12 @@ fn claude_code_skill() -> CustomKind {
                 Primitive::Field {
                     key: "license".to_string(),
                 },
+                Primitive::Field {
+                    key: "disable-model-invocation".to_string(),
+                },
+                Primitive::Field {
+                    key: "user-invocable".to_string(),
+                },
                 Primitive::LineCount,
                 Primitive::Headings,
                 Primitive::Sections,
@@ -57,9 +70,9 @@ fn claude_code_rule() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::File),
-        registration: Some(Registration::PathsMatch {
+        registration: vec![Registration::PathsMatch {
             field: "paths".to_string(),
-        }),
+        }],
         ..CustomKind::new(
             "rule",
             Governs {
@@ -84,7 +97,7 @@ fn claude_code_rule() -> CustomKind {
 fn claude_code_memory() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
-        registration: Some(Registration::Always),
+        registration: vec![Registration::Always],
         ..CustomKind::new(
             "memory",
             Governs {
@@ -210,7 +223,7 @@ mod tests {
                 glob: "*/SKILL.md".to_string(),
             }
         );
-        // The composed extractor: the three documented frontmatter fields (`version` is
+        // The composed extractor: the documented frontmatter fields (`version` is
         // in neither the agentskills.io spec nor Claude Code's table — dropped), then the
         // markdown-structure primitives, in order.
         assert_eq!(
@@ -225,6 +238,12 @@ mod tests {
                 Primitive::Field {
                     key: "license".to_string()
                 },
+                Primitive::Field {
+                    key: "disable-model-invocation".to_string()
+                },
+                Primitive::Field {
+                    key: "user-invocable".to_string()
+                },
                 Primitive::LineCount,
                 Primitive::Headings,
                 Primitive::Sections,
@@ -233,6 +252,16 @@ mod tests {
         );
         // The built-in `skill` kind declares no relationships.
         assert_eq!(skill.relationships, Vec::<Edge>::new());
+        // Registers on both documented invocation channels — a set, not a scalar.
+        assert_eq!(
+            skill.registration,
+            vec![
+                Registration::UserInvoked,
+                Registration::DescriptionTrigger {
+                    field: "description".to_string()
+                },
+            ]
+        );
     }
 
     #[test]
@@ -260,6 +289,13 @@ mod tests {
             ]
         );
         assert_eq!(rule.relationships, Vec::<Edge>::new());
+        // A singleton channel set.
+        assert_eq!(
+            rule.registration,
+            vec![Registration::PathsMatch {
+                field: "paths".to_string()
+            }]
+        );
     }
 
     #[test]
@@ -373,6 +409,39 @@ Body line two.\n",
         assert_eq!(features.satisfies, vec!["req.one"]);
         assert!(!features.has_field("satisfies"));
         assert!(!features.has_field("rationale"));
+    }
+
+    #[test]
+    fn skill_features_extract_the_invocation_modulating_fields() {
+        use crate::extract::{FeatureValue, ValueType};
+
+        let parent = tmpdir("skill-modulators");
+        let src = parent.join("deploy");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(
+            src.join("SKILL.md"),
+            "---\n\
+name: deploy\n\
+description: Deploy the application to production.\n\
+disable-model-invocation: true\n\
+---\n\
+# Deploy\n",
+        )
+        .unwrap();
+        let skill = definition("skill").unwrap().unwrap();
+        let member =
+            crate::frontmatter::Member::from_source(&skill, &src.join("SKILL.md")).unwrap();
+        let unit = surface_unit(&member, "SKILL.md", &parent.join("surface-deploy"));
+        let features = skill_features(&unit);
+
+        // `disable-model-invocation`/`user-invocable` are ordinary declared fields — a
+        // clause can range over them exactly like `name`/`description`.
+        assert_eq!(
+            features.field("disable-model-invocation"),
+            Some(&FeatureValue::scalar(ValueType::Boolean, "true"))
+        );
+        // Absent when the author never sets it — never a phantom default.
+        assert!(!features.has_field("user-invocable"));
     }
 
     #[test]

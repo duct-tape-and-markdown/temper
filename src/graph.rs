@@ -368,33 +368,37 @@ fn out_of_degree(
 
 /// Check the graph-scope **`reachable`** predicate: a member is reachable when its own
 /// inbound registration edge from the [`world`] node is live **or a reachable member
-/// imports it** — the closure over the observed directive edges. Return a finding only
-/// for a member whose own registration edge is provably dead — a `description-trigger`
-/// field that is blank (the harness loads nothing) or a `paths-match` glob set matching
-/// no file in `repo_files` (the harness activates it never) — *and* that no live
-/// importer reaches. Each is an exact fact at check time.
+/// imports it** — the closure over the observed directive edges. A member's own edge is
+/// live iff **any one channel** of its kind's declared registration set is live — user
+/// invocation and description trigger are channels, not rivals (`builtins.md`, "The
+/// shipped kinds"). Return a finding only when *every* channel is provably dead — a
+/// `description-trigger` field that is blank (the harness loads nothing) or a
+/// `paths-match` glob set matching no file in `repo_files` (the harness activates it
+/// never) — *and* no live importer reaches the member. Each channel's dead criterion is
+/// an exact fact at check time.
 ///
-/// `registrations` maps a kind to the single [`Registration`] its definition declares;
-/// `by_kind` is the same corpus map the other predicates read; `repo_files` is the
-/// repo file-set the `paths-match` globs are tested against; `edges` is the observed
+/// `registrations` maps a kind to the declared [`Registration`] **set** its definition
+/// carries; `by_kind` is the same corpus map the other predicates read; `repo_files` is
+/// the repo file-set the `paths-match` globs are tested against; `edges` is the observed
 /// member→member directive edge set ([`classify_directives`]'s `edges`) reachability
 /// closes over. All are **parameters**, not graph dependencies, so the blast radius
 /// stays this module and the predicate is pure and testable. A kind that declares no
 /// registration contributes no entry to `registrations` and is not subject to a *finding*,
 /// but its members are unconditionally live and so can carry liveness across an import
-/// edge (a memory member that imports a rule); an `always` edge is unconditionally live
-/// and an `event` edge carries no repo-decidable dead criterion the spec names, so
-/// neither fires. Liveness propagates along a directive edge from a live importer to
-/// its target, hop-capped at [`MAX_IMPORT_HOPS`] as the format documents, so the target
-/// inherits the importer's liveness conditionally. Members iterate in the corpus's
-/// candidate order under each name-sorted kind, so findings are stable.
+/// edge (a memory member that imports a rule); an `always`/`user-invoked` channel is
+/// unconditionally live and an `event` channel carries no repo-decidable dead criterion
+/// the spec names, so neither ever contributes a dead reason. Liveness propagates along a
+/// directive edge from a live importer to its target, hop-capped at [`MAX_IMPORT_HOPS`]
+/// as the format documents, so the target inherits the importer's liveness
+/// conditionally. Members iterate in the corpus's candidate order under each name-sorted
+/// kind, so findings are stable.
 ///
 /// `severity` is the **assembly's** declaration: whether a dead edge
 /// gates, and at what weight, is the assembly's dial like `degree`, never a member's own
 /// clause — a deliberate work-in-progress dead edge stays the author's call.
 #[must_use]
 pub fn reachable(
-    registrations: &BTreeMap<&str, Registration>,
+    registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
     edges: &[ResolvedEdge],
@@ -405,13 +409,13 @@ pub fn reachable(
     // live, or reached along a directive edge from a live importer within the hop cap.
     let live = live_members(registrations, by_kind, repo_files, edges);
     let mut diagnostics = Vec::new();
-    for (kind, registration) in registrations {
+    for (kind, channels) in registrations {
         let members = by_kind.get(kind).copied().unwrap_or(&[]);
         for member in members {
-            // Fire only when the own edge is dead *and* no live importer reaches the
+            // Fire only when every channel is dead *and* no live importer reaches the
             // member — conditional inheritance: a dead-own member imported by a reachable
             // one is live, so it stays silent.
-            if let Some(reason) = dead_registration(registration, member, repo_files) {
+            if let Some(reason) = dead_channel_set(channels, member, repo_files) {
                 let node = ((*kind).to_string(), member.id.clone());
                 if !live.contains(&node) {
                     diagnostics.push(unreachable(&world, kind, &member.id, &reason, severity));
@@ -438,7 +442,7 @@ pub fn reachable(
 #[must_use]
 pub(crate) fn reachability_orphaned(
     removed: &Node,
-    registrations: &BTreeMap<&str, Registration>,
+    registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
     edges: &[ResolvedEdge],
@@ -480,13 +484,14 @@ pub(crate) fn reachability_orphaned(
 
 /// The set of members reachable from the [`world`] node — the closure the [`reachable`]
 /// predicate consults. Seeds every member whose **own** registration edge is live (its
-/// kind declares no registration ⇒ unconditionally live, or [`dead_registration`] finds the
-/// edge live), then propagates liveness along the observed directive `edges` from a live
+/// kind declares no registration ⇒ unconditionally live, or [`dead_channel_set`] finds at
+/// least one channel of its declared set live), then propagates liveness along the
+/// observed directive `edges` from a live
 /// importer to its target, breadth-first and capped at [`MAX_IMPORT_HOPS`] hops (the
 /// `at-import` recursion depth the format documents) — a target reached within the cap
 /// of a live importer inherits its liveness.
 fn live_members(
-    registrations: &BTreeMap<&str, Registration>,
+    registrations: &BTreeMap<&str, Vec<Registration>>,
     by_kind: &BTreeMap<&str, &[Features]>,
     repo_files: &[String],
     edges: &[ResolvedEdge],
@@ -499,7 +504,7 @@ fn live_members(
         for member in *members {
             let own_live = match registrations.get(kind) {
                 None => true,
-                Some(registration) => dead_registration(registration, member, repo_files).is_none(),
+                Some(channels) => dead_channel_set(channels, member, repo_files).is_none(),
             };
             if own_live {
                 live.insert(((*kind).to_string(), member.id.clone()));
@@ -528,19 +533,41 @@ fn live_members(
     live
 }
 
-/// Whether a member's declared [`Registration`] edge from the world is **provably dead**,
-/// and why — `Some(reason)` names the dead edge for the finding, `None` leaves the
-/// member reachable. Only the two edges the spec makes decidable can die here: a blank
+/// Whether every channel of a member's declared [`Registration`] **set** is provably
+/// dead, and why — `Some(reason)` joins each dead channel's own reason for the finding,
+/// `None` leaves the member reachable because at least one channel is live (or the set
+/// is empty — nothing to evaluate, the caller's job to treat as unconditionally live).
+/// The member's world edge is live iff any one channel is, so this only fires when
+/// [`dead_registration`] finds every channel in `channels` dead.
+fn dead_channel_set(
+    channels: &[Registration],
+    member: &Features,
+    repo_files: &[String],
+) -> Option<String> {
+    if channels.is_empty() {
+        return None;
+    }
+    let reasons: Vec<String> = channels
+        .iter()
+        .filter_map(|channel| dead_registration(channel, member, repo_files))
+        .collect();
+    (reasons.len() == channels.len()).then(|| reasons.join("; "))
+}
+
+/// Whether one declared registration **channel** is **provably dead** on its own, and
+/// why — `Some(reason)` names the dead channel for the finding, `None` leaves it live.
+/// Only two channels the spec makes decidable can die here: a blank
 /// `description-trigger` field and a `paths-match` field whose *present* globs match no
 /// file (an absent/blank `paths` field is unconditional loading, never dead).
-/// `always` (unconditionally live) and `event` (no repo-decidable criterion) never do.
+/// `always`/`user-invoked` (unconditionally live) and `event` (no repo-decidable
+/// criterion) never do.
 fn dead_registration(
     registration: &Registration,
     member: &Features,
     repo_files: &[String],
 ) -> Option<String> {
     match registration {
-        Registration::Always | Registration::Event { .. } => None,
+        Registration::Always | Registration::UserInvoked | Registration::Event { .. } => None,
         Registration::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
             format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
  }),

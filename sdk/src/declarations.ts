@@ -20,7 +20,8 @@ export interface KindFactRow {
   readonly governs_glob: string;
   readonly format?: string;
   readonly unit_shape?: string;
-  readonly registration?: string;
+  /** The declared registration channel set's wire labels, in declaration order. */
+  readonly registration?: readonly string[];
   /** The host's declared nesting templates — its embedded child kinds' names. */
   readonly templates?: readonly string[];
 }
@@ -174,11 +175,13 @@ export interface Declarations {
   readonly mentions: readonly MentionRow[];
 }
 
-/** The lock label for a kind's declared registration. */
+/** The lock label for one declared registration channel. */
 function registrationLabel(registration: Registration): string {
   switch (registration.via) {
     case "always":
       return "always";
+    case "user-invoked":
+      return "user-invoked";
     case "description-trigger":
       return `description-trigger(${registration.field})`;
     case "paths-match":
@@ -188,6 +191,12 @@ function registrationLabel(registration: Registration): string {
     case "connection":
       return "connection";
  }
+}
+
+/** The lock labels for a kind's declared registration **set**, in declaration order —
+ * `undefined` for an empty set, the same omit-the-column tolerance `templatesFor` takes. */
+function registrationLabels(registration: readonly Registration[]): readonly string[] | undefined {
+  return registration.length > 0 ? registration.map(registrationLabel) : undefined;
 }
 
 /**
@@ -220,7 +229,7 @@ function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFact
     governs_glob: facts.locus.glob,
     format: facts.format,
     unit_shape: facts.unitShape,
-    registration: registrationLabel(facts.registration),
+    registration: registrationLabels(facts.registration),
     templates: templatesFor(facts.name, allKinds),
   };
 }

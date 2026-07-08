@@ -84,3 +84,27 @@ test("the floors ride alongside their kinds through the claude-code subpath", ()
   assert.equal(typeof rule, "function");
   assert.equal(typeof memory, "function");
 });
+
+test("skill registers on both documented invocation channels; rule/memory carry a singleton set", () => {
+  assert.deepEqual(skill.facts.registration, [
+    { via: "user-invoked" },
+    { via: "description-trigger", field: "description" },
+  ]);
+  assert.deepEqual(rule.facts.registration, [{ via: "paths-match", field: "paths" }]);
+  assert.deepEqual(memory.facts.registration, [{ via: "always" }]);
+});
+
+test("disable-model-invocation/user-invocable are ordinary declared fields on a skill member", () => {
+  const member = skill({
+    name: "demo",
+    description: "Use when demonstrating a skill's modulating fields.",
+    "disable-model-invocation": true,
+    "user-invocable": false,
+  });
+  assert.deepEqual(member.fields, [
+    ["name", "demo"],
+    ["description", "Use when demonstrating a skill's modulating fields."],
+    ["disable-model-invocation", true],
+    ["user-invocable", false],
+  ]);
+});

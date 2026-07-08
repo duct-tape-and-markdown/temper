@@ -151,7 +151,7 @@ test("compileDeclarations produces all six families, satisfies and mentions incl
       governs_glob: "*.md",
       format: "yaml-frontmatter",
       unit_shape: "file",
-      registration: "paths-match(paths)",
+      registration: ["paths-match(paths)"],
       templates: undefined,
  },
   ]);
@@ -331,7 +331,7 @@ function embeddedKind<T extends object>(name: string, withinHosts: readonly stri
     name,
     locus: { kind: "embedded", withinHosts },
     unitShape: "file",
-    registration: { via: "always" },
+    registration: [{ via: "always" }],
   });
 }
 

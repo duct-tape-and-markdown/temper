@@ -234,7 +234,7 @@ pub fn explain(
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
     mention_edges: &[ResolvedEdge],
-    registrations: &BTreeMap<&str, Registration>,
+    registrations: &BTreeMap<&str, Vec<Registration>>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
     citations: &[Citation],
@@ -541,7 +541,7 @@ pub fn impact(
     assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
-    registrations: &BTreeMap<&str, Registration>,
+    registrations: &BTreeMap<&str, Vec<Registration>>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
     citations: &[Citation],
@@ -1071,7 +1071,7 @@ fn impact_one(
     assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
-    registrations: &BTreeMap<&str, Registration>,
+    registrations: &BTreeMap<&str, Vec<Registration>>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
 ) {
@@ -1726,9 +1726,9 @@ mod impact_tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("doc", &docs[..])]);
         let registrations = BTreeMap::from([(
             "doc",
-            Registration::DescriptionTrigger {
+            vec![Registration::DescriptionTrigger {
                 field: "description".to_string(),
-            },
+            }],
         )]);
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
 

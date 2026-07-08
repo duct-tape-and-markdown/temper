@@ -463,12 +463,12 @@ fn explain(target: &str) -> miette::Result<String> {
 
     let (roster, _collisions) = union_published_requirements(&assembly_requirements, &all_features);
 
-    // The world's inbound registration edge into each built-in kind — the same derivation
-    // the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
-    let mut registrations: BTreeMap<&str, kind::Registration> = BTreeMap::new();
+    // The world's inbound registration channel set into each built-in kind — the same
+    // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
+    let mut registrations: BTreeMap<&str, Vec<kind::Registration>> = BTreeMap::new();
     for def in builtin_defs.values() {
-        if let Some(registration) = &def.registration {
-            registrations.insert(def.name.as_str(), registration.clone());
+        if !def.registration.is_empty() {
+            registrations.insert(def.name.as_str(), def.registration.clone());
         }
     }
 

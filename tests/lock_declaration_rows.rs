@@ -55,7 +55,10 @@ fn skill_kind_facts() -> KindFactRow {
         governs_glob: "*/SKILL.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
-        registration: Some("description-trigger(description)".to_string()),
+        registration: vec![
+            "user-invoked".to_string(),
+            "description-trigger(description)".to_string(),
+        ],
         templates: Vec::new(),
     }
 }
@@ -69,7 +72,7 @@ fn rule_kind_facts() -> KindFactRow {
         governs_glob: "*.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("file".to_string()),
-        registration: Some("paths-match(paths)".to_string()),
+        registration: vec!["paths-match(paths)".to_string()],
         templates: Vec::new(),
     }
 }
@@ -84,7 +87,7 @@ fn spec_kind_facts_with_template() -> KindFactRow {
         governs_glob: "*.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
-        registration: None,
+        registration: Vec::new(),
         templates: vec!["decision".to_string()],
     }
 }
@@ -316,8 +319,11 @@ fn lock_carries_all_four_declaration_families() {
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
-        skill.registration.as_deref(),
-        Some("description-trigger(description)")
+        skill.registration,
+        vec![
+            "user-invoked".to_string(),
+            "description-trigger(description)".to_string()
+        ]
     );
     assert!(
         declarations.kinds.iter().any(|k| k.name == "rule"),
@@ -1005,8 +1011,11 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
-        skill.registration.as_deref(),
-        Some("description-trigger(description)")
+        skill.registration,
+        vec![
+            "user-invoked".to_string(),
+            "description-trigger(description)".to_string()
+        ]
     );
 
     let rule = declarations
@@ -1018,7 +1027,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(rule.governs_glob, "*.md");
     assert_eq!(rule.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(rule.unit_shape.as_deref(), Some("file"));
-    assert_eq!(rule.registration.as_deref(), Some("paths-match(paths)"));
+    assert_eq!(rule.registration, vec!["paths-match(paths)".to_string()]);
 
     let memory = declarations
         .kinds
@@ -1029,7 +1038,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(memory.governs_glob, "**/CLAUDE.md");
     assert_eq!(memory.format, None);
     assert_eq!(memory.unit_shape.as_deref(), Some("file"));
-    assert_eq!(memory.registration.as_deref(), Some("always"));
+    assert_eq!(memory.registration, vec!["always".to_string()]);
 
     // The SDK module sets no `provider` on any of its three exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`

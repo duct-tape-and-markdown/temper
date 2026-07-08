@@ -19,12 +19,15 @@ export type Format = "yaml-frontmatter";
 export type UnitShape = "file" | "directory";
 
 /**
- * A kind's **registration** — the declared edge between a member and the world
- * (fact 4, `15-kinds.md`, "Registration"). Reachability is graph reachability
- * from the world node over these edges.
+ * One **channel** a kind's registration declares — a documented way a member
+ * reaches the world (fact 4, `builtins.md`, "The shipped kinds": "user
+ * invocation and description trigger are channels, not rivals"). Reachability
+ * is graph reachability from the world node, OR'd across a member's declared
+ * channel set — live on any one channel is live.
  */
 export type Registration =
   | { readonly via: "always" }
+  | { readonly via: "user-invoked" }
   | { readonly via: "description-trigger"; readonly field: string }
   | { readonly via: "paths-match"; readonly field: string }
   | { readonly via: "event"; readonly field: string }
@@ -58,8 +61,9 @@ export interface KindFacts {
   readonly format?: Format;
   /** Fact 3b, layout — the on-disk unit shape. */
   readonly unitShape: UnitShape;
-  /** Fact 4, registration — the world edge. */
-  readonly registration: Registration;
+  /** Fact 4, registration — the declared channel set naming every documented way
+   * the world reaches a member (never rivals — a member is live if any one is). */
+  readonly registration: readonly Registration[];
  /**
    * The frontmatter key the member's name writes under (a skill's `name`), or
    * absent when identity is the file stem (a rule). A layout detail: it shapes

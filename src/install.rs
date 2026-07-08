@@ -1084,12 +1084,12 @@ fn member_name(kind: &crate::kind::CustomKind, file: &Path) -> miette::Result<St
         .ok_or_else(|| miette::miette!("cannot derive a member name from {}", file.display()))
 }
 
-/// A discovered member's description-trigger value, when its kind declares one
-/// (`Registration::DescriptionTrigger`) — a skill's `description` is always in
-/// context, so the SDK's `Skill.description` is a required field; a scaffolded
-/// module that omits it fails `tsc` before a single deepening edit. `None` when
-/// the kind registers by some other mechanism, or `file`'s frontmatter carries
-/// no value for the field.
+/// A discovered member's description-trigger value, when its kind's registration set
+/// carries that channel (`Registration::DescriptionTrigger`) — a skill's `description`
+/// is always in context, so the SDK's `Skill.description` is a required field; a
+/// scaffolded module that omits it fails `tsc` before a single deepening edit. `None`
+/// when the kind's set carries no description-trigger channel, or `file`'s frontmatter
+/// carries no value for the field.
 ///
 /// # Errors
 /// Returns a [`miette::Report`] if `file`'s frontmatter cannot be read.
@@ -1097,7 +1097,10 @@ fn description_trigger_value(
     kind: &crate::kind::CustomKind,
     file: &Path,
 ) -> miette::Result<Option<String>> {
-    let Some(Registration::DescriptionTrigger { field }) = &kind.registration else {
+    let Some(field) = kind.registration.iter().find_map(|channel| match channel {
+        Registration::DescriptionTrigger { field } => Some(field),
+        _ => None,
+    }) else {
         return Ok(None);
     };
     let member = frontmatter::Member::from_source(kind, file)?;

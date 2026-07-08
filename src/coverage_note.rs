@@ -455,7 +455,7 @@ mod tests {
                     governs_glob: "*.md".to_string(),
                     format: None,
                     unit_shape: Some("file".to_string()),
-                    registration: None,
+                    registration: Vec::new(),
                     templates: Vec::new(),
                 }],
                 ..crate::drift::Declarations::default()

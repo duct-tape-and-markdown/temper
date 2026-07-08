@@ -74,12 +74,13 @@ pub struct CustomKind {
     /// A closed enum; absent ⇒ `None`. Inert alongside
     /// [`format`](CustomKind::format).
     pub unit_shape: Option<UnitShape>,
-    /// The declared registration — the kind's world fact:
-    /// how the harness reaches a member, and over which declared field. A closed
-    /// vocabulary; absent ⇒ `None` (today's built-in kinds declare none). Stored inert —
-    /// REACHABILITY reads it to decide a member's declared registration edge is dead;
-    /// nothing consumes it yet.
-    pub registration: Option<Registration>,
+    /// The declared registration — the kind's world fact: the **set** of documented
+    /// channels a member reaches the world over (user invocation and description
+    /// trigger are channels, not rivals; `builtins.md`, "The shipped kinds"). A closed
+    /// per-channel vocabulary; empty ⇒ no declared registration (today's built-in kinds
+    /// each declare at least one). Stored inert — REACHABILITY reads it to decide a
+    /// member's world edge is live iff any one channel is; nothing else consumes it yet.
+    pub registration: Vec<Registration>,
     /// The kind's declared **templates** — one per inner layer of nested members it
     /// hosts at the embedded locus:
     /// the child kind plus its embedded addressing, per member fence. Extraction folds
@@ -117,19 +118,26 @@ pub enum UnitShape {
     Directory,
 }
 
-/// A kind's declared **registration** — the inbound boundary edges of the
-/// relation graph: how the harness reaches a
+/// A kind's declared registration — one **channel** among the inbound boundary edges
+/// of the relation graph: one documented way the harness reaches a
 /// member, per-kind mechanics over per-member data. A closed vocabulary harvested from the kinds
 /// temper ships; any other value is a load error, the same closed-vocabulary guard
 /// [`Format`] and [`UnitShape`] carry. The three field-carrying variants name the
 /// declared frontmatter field they range over, never a value — the glob/description
-/// *values* stay the member's ordinary clauses. Inert until REACHABILITY reads it to
-/// decide a member's declared registration edge is dead.
+/// *values* stay the member's ordinary clauses. A kind declares a **set** of these
+/// ([`CustomKind::registration`]) — user invocation and description trigger are
+/// channels, not rivals (`builtins.md`, "The shipped kinds"). Inert until REACHABILITY
+/// reads the set to decide a member's world edge is live iff any one channel is.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Registration {
     /// `always` — loaded at launch, unconditionally (a rule without `paths`;
     /// `CLAUDE.md` itself). Carries no field: the edge is unconditional.
     Always,
+    /// `user-invoked` — the member is directly invocable by name (a skill's `/name`).
+    /// Carries no field: no repo-decidable criterion names this channel dead, mirroring
+    /// [`Always`](Registration::Always) — a member's `user-invocable` modulating field
+    /// is an ordinary declared field, not part of this channel's identity.
+    UserInvoked,
     /// `description-trigger(field)` — the named field is always in context, the body
     /// loading on invocation (a skill's `description`). The field names the declared
     /// frontmatter field the trigger ranges over.
@@ -195,7 +203,7 @@ impl CustomKind {
             relationships: Vec::new(),
             format: None,
             unit_shape: None,
-            registration: None,
+            registration: Vec::new(),
             templates: Vec::new(),
         }
     }
@@ -203,10 +211,10 @@ impl CustomKind {
     /// Reconstruct a kind's declared definition from the committed lock's own
     /// [`KindFactRow`]: the row's five-fact
     /// residue lifts into `governs`/`format`/
-    /// `unit_shape`/`registration` directly, a label this projection cannot parse
-    /// degrading to `None` — the same tolerant read the rest of a hand-editable lock
-    /// takes. A `KIND.md` file format never carried field-level extraction primitives
-    /// either, so the
+    /// `unit_shape`/`registration` directly, each channel label this projection cannot
+    /// parse dropped from the reconstructed set — the same tolerant read the rest of a
+    /// hand-editable lock takes. A `KIND.md` file format never carried field-level
+    /// extraction primitives either, so the
     /// reconstructed extractor stays the same generic markdown-structure set every
     /// built-in composes (`headings`/`sections`/`line_count`/`placement`); a floor
     /// clause's own `field` column, plus the permissive frontmatter fold every custom
@@ -228,8 +236,9 @@ impl CustomKind {
             unit_shape: row.unit_shape.as_deref().and_then(unit_shape_from_label),
             registration: row
                 .registration
-                .as_deref()
-                .and_then(registration_from_label),
+                .iter()
+                .filter_map(|label| registration_from_label(label))
+                .collect(),
             templates: row
                 .templates
                 .iter()
@@ -392,13 +401,16 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     }
 }
 
-/// Parse a [`KindFactRow::registration`] label into its typed [`Registration`] — the
-/// closed vocabulary's compact wire form (`always`, or a `<name>(<field>)` call for the
-/// three field-carrying variants). `None` for a bare unrecognized name or a malformed
-/// `(field)` suffix.
+/// Parse one [`KindFactRow::registration`] wire label into its typed [`Registration`]
+/// channel — the closed vocabulary's compact wire form (`always`/`user-invoked`, or a
+/// `<name>(<field>)` call for the three field-carrying variants). `None` for a bare
+/// unrecognized name or a malformed `(field)` suffix. The row carries one label per
+/// declared channel; the caller folds each label of the set through this.
 fn registration_from_label(label: &str) -> Option<Registration> {
-    if label == "always" {
-        return Some(Registration::Always);
+    match label {
+        "always" => return Some(Registration::Always),
+        "user-invoked" => return Some(Registration::UserInvoked),
+        _ => {}
     }
     let (name, field) = label.strip_suffix(')')?.split_once('(')?;
     let field = field.to_string();
@@ -1281,7 +1293,7 @@ import_hash = \"deadbeef\"\n\
         let kind = spec_kind();
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
-        assert_eq!(kind.registration, None);
+        assert!(kind.registration.is_empty());
         assert!(kind.relationships.is_empty());
         assert!(kind.templates.is_empty());
     }
@@ -1302,7 +1314,7 @@ import_hash = \"deadbeef\"\n\
             governs_glob: "*.md".to_string(),
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
-            registration: Some("description-trigger(description)".to_string()),
+            registration: vec!["description-trigger(description)".to_string()],
             templates: Vec::new(),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
@@ -1319,9 +1331,9 @@ import_hash = \"deadbeef\"\n\
         assert_eq!(kind.unit_shape, Some(UnitShape::Directory));
         assert_eq!(
             kind.registration,
-            Some(Registration::DescriptionTrigger {
+            vec![Registration::DescriptionTrigger {
                 field: "description".to_string()
-            })
+            }]
         );
         // The generic markdown-structure set every built-in composes, plus `Fenced` —
         // never a per-kind `Field` primitive, since the row carries no field-level
@@ -1349,12 +1361,59 @@ import_hash = \"deadbeef\"\n\
             governs_glob: "*.md".to_string(),
             format: Some("xml".to_string()),
             unit_shape: Some("directory".to_string()),
-            registration: Some("bogus".to_string()),
+            registration: vec!["bogus".to_string()],
             templates: Vec::new(),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
-        assert_eq!(kind.registration, None);
+        assert!(kind.registration.is_empty());
+    }
+
+    #[test]
+    fn from_kind_fact_row_drops_only_the_unrecognized_channel_from_a_mixed_set() {
+        // A set carrying one recognized and one bogus label lifts the recognized
+        // channel and silently drops the other — per-channel tolerance, not a
+        // whole-set failure.
+        let row = KindFactRow {
+            name: "spec".to_string(),
+            provider: None,
+            governs_root: "specs".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: None,
+            unit_shape: None,
+            registration: vec!["user-invoked".to_string(), "bogus".to_string()],
+            templates: Vec::new(),
+        };
+        let kind = CustomKind::from_kind_fact_row(&row);
+        assert_eq!(kind.registration, vec![Registration::UserInvoked]);
+    }
+
+    #[test]
+    fn from_kind_fact_row_lifts_a_multi_channel_registration_set_in_order() {
+        // `skill`'s own two-channel set — both labels lift, order preserved.
+        let row = KindFactRow {
+            name: "skill".to_string(),
+            provider: None,
+            governs_root: ".claude/skills".to_string(),
+            governs_glob: "*/SKILL.md".to_string(),
+            format: None,
+            unit_shape: None,
+            registration: vec![
+                "user-invoked".to_string(),
+                "description-trigger(description)".to_string(),
+            ],
+            templates: Vec::new(),
+        };
+        let kind = CustomKind::from_kind_fact_row(&row);
+        assert_eq!(
+            kind.registration,
+            vec![
+                Registration::UserInvoked,
+                Registration::DescriptionTrigger {
+                    field: "description".to_string()
+                },
+            ]
+        );
     }
 
     #[test]
@@ -1366,13 +1425,13 @@ import_hash = \"deadbeef\"\n\
             governs_glob: "*.md".to_string(),
             format: None,
             unit_shape: None,
-            registration: None,
+            registration: Vec::new(),
             templates: Vec::new(),
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
-        assert_eq!(kind.registration, None);
+        assert!(kind.registration.is_empty());
     }
 
     #[test]
@@ -1387,7 +1446,7 @@ import_hash = \"deadbeef\"\n\
             governs_glob: "*.md".to_string(),
             format: None,
             unit_shape: None,
-            registration: None,
+            registration: Vec::new(),
             templates: vec!["decision".to_string(), "law".to_string()],
         };
         let kind = CustomKind::from_kind_fact_row(&row);

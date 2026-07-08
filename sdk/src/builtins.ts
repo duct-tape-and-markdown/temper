@@ -35,21 +35,35 @@ export interface Skill {
   readonly description: string;
   /** The optional license field the skill spec carries (agentskills.io/specification). */
   readonly license?: string;
+  /**
+   * Set `true` to prevent Claude from automatically loading this skill — only
+   * the user-invoked channel stays live (code.claude.com/docs/en/skills,
+   * "Control who invokes a skill", retrieved 2026-07-07). Default: `false`.
+   */
+  readonly "disable-model-invocation"?: boolean;
+  /**
+   * Set `false` to hide the skill from the `/` menu — only the
+   * description-trigger channel stays live (code.claude.com/docs/en/skills,
+   * "Control who invokes a skill", retrieved 2026-07-07). Default: `true`.
+   */
+  readonly "user-invocable"?: boolean;
   readonly prose?: Prose;
 }
 
 /**
  * `skill` — `.claude/skills/<name>/SKILL.md`, a directory unit, YAML frontmatter
- * carrying `name` then `description`; registers a description trigger
+ * carrying `name` then `description`; registers on both documented invocation
+ * channels — user-invoked (`/name`) and description-trigger — modulated per
+ * member by the `disable-model-invocation`/`user-invocable` fields
  * (code.claude.com/docs/en/skills, agentskills.io/specification, retrieved
- * 2026-07-02).
+ * 2026-07-07).
  */
 export const skill: KindDefinition<Skill> = kind<Skill>({
   name: "skill",
   locus: { kind: "at", root: ".claude/skills", glob: "*/SKILL.md" },
   format: "yaml-frontmatter",
   unitShape: "directory",
-  registration: { via: "description-trigger", field: "description" },
+  registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
   identityField: "name",
 });
 
@@ -73,7 +87,7 @@ export const rule: KindDefinition<Rule> = kind<Rule>({
   locus: { kind: "at", root: ".claude/rules", glob: "*.md" },
   format: "yaml-frontmatter",
   unitShape: "file",
-  registration: { via: "paths-match", field: "paths" },
+  registration: [{ via: "paths-match", field: "paths" }],
 });
 
 /** A Claude Code memory file — `CLAUDE.md`, loaded in full at launch, no frontmatter. */
@@ -92,7 +106,7 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
   name: "memory",
   locus: { kind: "at", root: ".", glob: "**/CLAUDE.md" },
   unitShape: "file",
-  registration: { via: "always" },
+  registration: [{ via: "always" }],
 });
 
 /**

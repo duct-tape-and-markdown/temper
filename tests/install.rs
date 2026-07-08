@@ -904,7 +904,7 @@ fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
             governs_glob: "*.md".to_string(),
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("file".to_string()),
-            registration: None,
+            registration: Vec::new(),
             templates: Vec::new(),
         },
         temper::drift::KindFactRow {
@@ -914,7 +914,7 @@ fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
             governs_glob: "*/SKILL.md".to_string(),
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
-            registration: None,
+            registration: Vec::new(),
             templates: Vec::new(),
         },
     ]

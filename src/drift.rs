@@ -1127,9 +1127,11 @@ pub struct KindFactRow {
     /// The declared unit-shape label, when declared.
     #[serde(default)]
     pub unit_shape: Option<String>,
-    /// The declared registration label, when declared.
+    /// The declared registration channel set's wire labels, in declaration order.
+    /// Empty for a kind that declares none, the same tolerant round-trip
+    /// [`templates`](KindFactRow::templates) takes.
     #[serde(default)]
-    pub registration: Option<String>,
+    pub registration: Vec<String>,
     /// The host kind's declared nesting templates — the embedded child kind names it
     /// folds embedded members of. Empty for
     /// a kind that nests nothing, the tolerant round-trip a lockless/template-less
@@ -1482,8 +1484,8 @@ impl KindFactRow {
         if let Some(unit_shape) = &self.unit_shape {
             table.insert("unit_shape", value(unit_shape.clone()));
         }
-        if let Some(registration) = &self.registration {
-            table.insert("registration", value(registration.clone()));
+        if !self.registration.is_empty() {
+            table.insert("registration", value(string_array(&self.registration)));
         }
         if !self.templates.is_empty() {
             table.insert("templates", value(string_array(&self.templates)));
@@ -1499,7 +1501,10 @@ impl KindFactRow {
             governs_glob: str_col(table, "governs_glob")?,
             format: str_col(table, "format"),
             unit_shape: str_col(table, "unit_shape"),
-            registration: str_col(table, "registration"),
+            registration: table
+                .get("registration")
+                .and_then(string_array_from_item)
+                .unwrap_or_default(),
             templates: table
                 .get("templates")
                 .and_then(string_array_from_item)

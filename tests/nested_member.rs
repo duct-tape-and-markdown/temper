@@ -159,7 +159,7 @@ fn decision_kind_fact_row() -> KindFactRow {
         governs_glob: "*.md".to_string(),
         format: None,
         unit_shape: None,
-        registration: None,
+        registration: Vec::new(),
         templates: vec!["decision".to_string()],
     }
 }
