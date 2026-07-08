@@ -11,15 +11,27 @@ collision is impossible and no name-qualification scheme exists.
 
 ## The shipped kinds
 
-Three kinds ship today, each a file member:
+Five kinds ship, each a file member:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
-  from its directory's name; registers a description trigger. Its bundled
-  reference documents are nested file members of the same skill.
+  from its directory's name; registers on both invocation channels. Its
+  bundled reference documents are nested file members of the same skill.
+- **command** — the skill surface's legacy file placement (Claude Code
+  merged commands into skills; code.claude.com/docs/en/skills, retrieved
+  2026-07-07): a lone markdown file, the skill's field schema by import,
+  identity from the file stem, the same two channels.
+- **agent** — a subagent definition; identity from its frontmatter `name`
+  field, never the filename; registers by description delegation
+  (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07).
 - **rule** — a lone markdown file with an optional path scope; a rule with no
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
   frontmatter: the entire file is prose.
+
+A kind's registration names the set of documented channels a member reaches
+the world over — user invocation and description trigger are channels, not
+rivals — and the documented fields that modulate them per member are
+ordinary declared fields.
 
 Each kind's format facts are external facts about the harness, cited at the
 point of claim in the kind's own source.
@@ -28,14 +40,13 @@ point of claim in the kind's own source.
 
 The structured config trees are not an untyped residue. Hooks, permissions,
 and MCP servers are embedded members — nested in the model, serialized inside
-their parent's body per the parent's format (`model/representation.md`) — and
-commands and agents are file members of the same harness. The model reaches
-all of them; shipped kinds and default contracts for them are forward work.
-The coverage bar is the surface's own documentation: every capability a
-built-in surface documents as real — a user-invoked command, an event hook,
-a connection — gets its registration value and, where it is an artifact, its
-kind. The vocabulary grows by documented, cited capability, never by
-invention.
+their parent's body per the parent's format (`model/representation.md`). The
+model reaches all of them; shipped kinds and default contracts for them are
+forward work. The coverage bar is the surface's own documentation: every
+capability a built-in surface documents as real — a user-invoked command, an
+event hook, a connection — gets its registration value and, where it is an
+artifact, its kind. The vocabulary grows by documented, cited capability,
+never by invention.
 
 ## Default contracts
 
