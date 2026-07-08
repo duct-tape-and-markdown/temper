@@ -54,8 +54,10 @@ written to be read by you, and originating context is git's to keep.
 - Key crates (sanctioned set; see Cargo.toml): `clap`, `miette` + `thiserror`, `serde`,
   `toml_edit` (format-preserving round-trip keystone), `gray_matter`, `walkdir`,
   `ignore` (gitignore-honoring discovery walks — `specs/model/pipeline.md`),
-  `sha2`, `regex` (the charset mechanics behind
-  `allowed_chars` — no author-facing `pattern` clause), `insta` (snapshot tests).
+  `globset` (the one glob engine — already inside `ignore`; never hand-roll
+  matching), `sha2`, `regex` (the charset mechanics behind
+  `allowed_chars` — no author-facing `pattern` clause), `insta` (snapshot tests),
+  `tempfile` (dev: test temp dirs).
 - **flume** control plane (`.flume/`) runs on Node via `@dtmd/flume` (pnpm).
 
 Conventions live in `.claude/rules/*.md`, auto-loaded by Claude Code at launch

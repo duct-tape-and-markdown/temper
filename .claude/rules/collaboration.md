@@ -73,5 +73,10 @@ prior sessions', your own drafts) as claims to test, not instructions to file.
 ## Scope honesty
 
 - Don't quietly expand scope past the assigned entry to "improve" adjacent code.
+- Consolidation is the one sanctioned expansion: when your change would add
+  or extend a duplicate of an existing surface, unifying them is the entry,
+  not creep (`specs/process/engineering.md`) — name the unification in the
+  commit body. Structural debt you can't take this tick is a
+  `.flume/refactor/` capture, never silence.
 - If you cut a corner (a `// TODO`, a deferred case, a weaker check), say so
   out loud in the commit body or the response — a silent gap reads as done.

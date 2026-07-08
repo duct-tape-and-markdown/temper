@@ -22,6 +22,13 @@ are flume gates, so a violation reverts the commit.
 - Prefer a `clone` or an owned `String`/`PathBuf` over a lifetime fight. This
   tool is I/O-bound over kilobyte files; zero-copy buys nothing and costs
   readability. Optimize only with a measured reason.
+- **One job, one home — extend before adding**
+  (`specs/process/engineering.md`). Before a new fn/module/helper, `rg` for
+  the existing surface; prefer delete/subsume > extend > generalize the
+  near-duplicate > add new — and a new surface beside a near-duplicate names,
+  in the commit body, what you considered and why it didn't fit. A sanctioned
+  crate (direct or transitive) beats a hand-roll of the same mechanic; shared
+  test scaffolding lives in `tests/common`, never per-file copies.
 - One artifact kind per module (`skill`, later `hook`, `agent`, …). The `Rule`
   trait takes the whole workspace, never a single artifact — cross-artifact rules
   must slot in without a signature change.
