@@ -210,6 +210,11 @@ function registrationLabels(registration: readonly Registration[]): readonly str
   return registration.length > 0 ? registration.map(registrationLabel) : undefined;
 }
 
+/** The stable-sort ordering every declaration row family shares. */
+export function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /**
  * A host kind's declared nesting templates — the embedded kinds among `allKinds`
  * whose `withinHosts` names it, name-sorted. `undefined` when the host nests nothing, so the row omits the column
@@ -219,7 +224,7 @@ function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonl
   const names = allKinds
     .filter((facts) => facts.locus.kind === "embedded" && facts.locus.withinHosts.includes(hostName))
     .map((facts) => facts.name)
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    .sort(compareStrings);
   return names.length > 0 ? names : undefined;
 }
 
@@ -257,7 +262,7 @@ function kindsInPlay(harness: Harness): KindFacts[] {
 function atLocusKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
   return allKinds
     .filter((facts) => facts.locus.kind === "at")
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    .sort((a, b) => compareStrings(a.name, b.name));
 }
 
 /** The requirement rows — assembly `require` and every member's `requires`, one namespace. */
@@ -282,7 +287,7 @@ function requirementRows(harness: Harness): RequirementRow[] {
  }
  }
   return [...merged.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .sort(([a], [b]) => compareStrings(a, b))
     .map(([name, requirement]) => ({
       name,
       kind: requirement.kind?.key,
@@ -316,11 +321,7 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
       rows.push({ member: member.name, requirement });
  }
  }
-  return rows.sort(
-    (a, b) =>
-      (a.member < b.member ? -1 : a.member > b.member ? 1 : 0) ||
-      (a.requirement < b.requirement ? -1 : a.requirement > b.requirement ? 1 : 0),
- );
+  return rows.sort((a, b) => compareStrings(a.member, b.member) || compareStrings(a.requirement, b.requirement));
 }
 
 /**
@@ -338,11 +339,7 @@ function mentionRows(harness: Harness): MentionRow[] {
       rows.push({ member: address, target: mention.target.address });
  }
  }
-  return rows.sort(
-    (a, b) =>
-      (a.member < b.member ? -1 : a.member > b.member ? 1 : 0) ||
-      (a.target < b.target ? -1 : a.target > b.target ? 1 : 0),
- );
+  return rows.sort((a, b) => compareStrings(a.member, b.member) || compareStrings(a.target, b.target));
 }
 
 /** Compile a harness into its six declaration families — the erased program. */
@@ -350,7 +347,7 @@ export function compileDeclarations(harness: Harness): Declarations {
   const allKinds = kindsInPlay(harness);
   const kinds = atLocusKindsInPlay(allKinds);
   const clauses: ClauseRow[] = [];
-  for (const binding of [...harness.expect].sort((a, b) => (a.kind.key < b.kind.key ? -1 : a.kind.key > b.kind.key ? 1 : 0))) {
+  for (const binding of [...harness.expect].sort((a, b) => compareStrings(a.kind.key, b.kind.key))) {
     for (const clause of binding.clauses) {
       clauses.push(clauseRow(clause, binding.kind.key));
  }

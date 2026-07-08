@@ -17,7 +17,7 @@ import type { EmbeddedMemberValue, Member } from "./kind.js";
 import { renderText } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
-import { compileDeclarations, encodeSeam } from "./declarations.js";
+import { compareStrings, compileDeclarations, encodeSeam } from "./declarations.js";
 
 /** What a mention may resolve against at emit. */
 export interface ResolveOptions {
@@ -234,11 +234,7 @@ export interface PayloadMember {
 function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMember[] {
   return [...harness.members]
     .filter(isProjected)
-    .sort(
-      (a, b) =>
-        (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) ||
-        (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
-    )
+    .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.name, b.name))
     .map((member) => ({
       kind: member.kind,
       name: member.name,
