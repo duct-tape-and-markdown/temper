@@ -97,7 +97,7 @@ fn verdict(diagnostics: &[Diagnostic]) -> String {
     let mut out = format!(
         "temper session-start gate — the harness contract is failing ({} blocking finding{}).\n\n",
         blocking.len(),
-        if blocking.len() == 1 { "" } else { "s" },
+        crate::display::plural(blocking.len()),
     );
     out.push_str(NOTIFY_INSTRUCTION);
     out.push_str("\n\nBlocking findings:\n");
