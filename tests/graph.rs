@@ -13,9 +13,10 @@
 //! - no declared edge at all, no graph runs (the floor-only outcome is unchanged).
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::drift::{
     self, AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
@@ -24,22 +25,6 @@ use temper::drift::{
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-graph-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A floor-clean skill named `name` (matching its directory, a lowercase slug, a
 /// present description). Clean against the floor, so the only finding a case can
@@ -247,7 +232,7 @@ fn routes_to_edge() -> Vec<AssemblyFactRow> {
 
 #[test]
 fn a_resolving_route_is_clean() {
-    let root = tmpdir("resolves");
+    let root = common::tmpdir("resolves");
     // The rule routes to `standards`, which the skill provides — the route resolves,
     // so the whole run is clean.
     write_harness(
@@ -275,7 +260,7 @@ fn a_resolving_route_is_clean() {
 
 #[test]
 fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
-    let root = tmpdir("dangling");
+    let root = common::tmpdir("dangling");
     // The rule routes to `absent`, but the only skill is `standards` — the route
     // resolves to no artifact, a dangling route that fails the run.
     write_harness(
@@ -309,7 +294,7 @@ fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
 
 #[test]
 fn an_unadopted_harness_runs_no_graph() {
-    let root = tmpdir("no-edge");
+    let root = common::tmpdir("no-edge");
     // The same corpus with a dangling `routes_to`, but no declared edge at all: no
     // graph runs and the (floor-clean) corpus passes. The reference is a declared
     // *contract*, never inferred — with none declared, temper says nothing about the
@@ -342,7 +327,7 @@ fn an_unadopted_harness_runs_no_graph() {
 
 #[test]
 fn an_acyclic_reference_graph_passes() {
-    let root = tmpdir("acyclic");
+    let root = common::tmpdir("acyclic");
     // `rule style → skill standards`, but the skill routes nowhere — even with both
     // edge kinds declared, the graph is a DAG, so `acyclic` is clean.
     write_harness(
@@ -370,7 +355,7 @@ fn an_acyclic_reference_graph_passes() {
 
 #[test]
 fn a_cyclic_reference_graph_fails_the_run() {
-    let root = tmpdir("cyclic");
+    let root = common::tmpdir("cyclic");
     // `rule style → skill standards → rule style`: the rule routes to the skill and
     // the skill routes back to the rule. Both routes resolve, so the only finding is
     // the cycle — which must fail the run.
@@ -412,7 +397,7 @@ fn edge_bound(min: Option<usize>, max: Option<usize>) -> EdgeBoundRow {
 
 #[test]
 fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
-    let root = tmpdir("degree-self-reg-fires");
+    let root = common::tmpdir("degree-self-reg-fires");
     // The rule `style` routes to the skill `standards`, so `standards` has incoming
     // degree 1. A requirement declaring the skill self-registering (`incoming = { max = 0 }`,
     // "must not be pointed at") is violated — the run fails on the degree finding.
@@ -458,7 +443,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
 
 #[test]
 fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
-    let root = tmpdir("degree-self-reg-passes");
+    let root = common::tmpdir("degree-self-reg-passes");
     // Same edge and harness, but the bound ranges over the *rule* `style`: nothing
     // points at the rule (the only edge is rule → skill), so its incoming degree is
     // zero — inside `incoming = { max = 0 }`, and the run is clean.
@@ -496,7 +481,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
 
 #[test]
 fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
-    let root = tmpdir("degree-routed-passes");
+    let root = common::tmpdir("degree-routed-passes");
     // The rule routes to `standards`, so the skill has incoming degree 1 — inside the
     // open-above routed bound `incoming = { min = 1 }` ("must be reachable"). Clean.
     write_harness(
@@ -533,7 +518,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
 
 #[test]
 fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
-    let root = tmpdir("degree-routed-fires");
+    let root = common::tmpdir("degree-routed-fires");
     // The bound ranges over the *rule* `style` and requires it reachable (`incoming =
     // { min = 1 }`), but nothing points at the rule (the only edge is rule → skill),
     // so its incoming degree is zero — outside the bound. The run fails on degree.
@@ -578,7 +563,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
 
 #[test]
 fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_skipped() {
-    let root = tmpdir("degree-kind-blind");
+    let root = common::tmpdir("degree-kind-blind");
     // `gate` declares no `kind` at all. Its satisfier is the *rule* `style`, which
     // nothing points at — a kind-blind requirement's `degree` bound must still range
     // over the opt-in satisfier (whichever modeled kind it is), not be skipped for

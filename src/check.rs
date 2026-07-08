@@ -338,22 +338,15 @@ pub fn empty_assembly_incoherence(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
 
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-    /// A fresh, empty temp directory unique to this test run.
+    /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
+    /// crate rather than a hand-rolled counter+pid scheme.
     fn tmpdir(label: &str) -> PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "author-check-{}-{}-{}",
-            std::process::id(),
-            id,
-            label
-        ));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dir
+        tempfile::Builder::new()
+            .prefix(label)
+            .tempdir()
+            .expect("failed to create temp dir")
+            .keep()
     }
 
     const DEMO: &str = "---\n\

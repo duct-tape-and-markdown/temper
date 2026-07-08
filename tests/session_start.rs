@@ -12,31 +12,16 @@
 //! to construct than to provoke through a harness.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::check::Diagnostic;
 use temper::reporter::{self, ADDITIONAL_CONTEXT_CAP};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-session-start-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A skill that trips no `error`-severity clause: lowercase `name` matching its
 /// directory, a present short description, a short body.
@@ -84,7 +69,7 @@ fn run_session_start(harness: &Path) -> (bool, serde_json::Value) {
 
 #[test]
 fn a_failing_harness_emits_the_verdict_and_exits_zero() {
-    let harness = tmpdir("failing-src");
+    let harness = common::tmpdir("failing-src");
     write_harness(&harness, "coordinate", ERROR_SKILL);
 
     let (ok, payload) = run_session_start(&harness);
@@ -115,7 +100,7 @@ fn a_failing_harness_emits_the_verdict_and_exits_zero() {
 
 #[test]
 fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
-    let harness = tmpdir("clean-src");
+    let harness = common::tmpdir("clean-src");
     write_harness(&harness, "coordinate", CLEAN_SKILL);
 
     let (ok, payload) = run_session_start(&harness);
@@ -138,7 +123,7 @@ fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
     // longer any author-facing way to register one. This pins that a harness carrying
     // such shaped-but-inert fixture files (nothing reads them) alongside a real skill
     // still resolves to a clean, quiet session-start payload.
-    let harness = tmpdir("custom-kind-src");
+    let harness = common::tmpdir("custom-kind-src");
 
     // The authored kind definition under `.temper/kinds/spec/KIND.md`: a member is a
     // `specs/*.md` file, extracting a line count (a decidable, trivially-satisfied
@@ -198,7 +183,7 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     // resolves the fill; a fresh import would discard the authored `satisfies`
     // recognition and report the requirement unfilled — the law-3 false positive the
     // spec's surface-present clause forbids.
-    let harness = tmpdir("authored-surface-src");
+    let harness = common::tmpdir("authored-surface-src");
 
     // The committed landscape file a prior `import` would have discovered — the gate
     // walks the lock's governs locus straight off the harness, so the member must exist here too, not just projected onto
@@ -277,7 +262,7 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
     // raise when `by_kind` carried only `skill`/`rule` — the custom kind's own row is
     // synthesized into the same corpus, so the requirement resolves against it, its
     // member is walked and counted, and the run stays quiet.
-    let harness = tmpdir("custom-kind-lock-src");
+    let harness = common::tmpdir("custom-kind-lock-src");
 
     let temper_dir = harness.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -345,7 +330,7 @@ fn a_custom_kinds_required_floor_clause_blocks_a_violating_member() {
     // clause rows now dispatch through the same admissibility/conformance the
     // built-in loop runs, so a `required` clause the member violates fires a real
     // blocking finding — proof that conformance runs, not just that resolution does.
-    let harness = tmpdir("custom-kind-floor-src");
+    let harness = common::tmpdir("custom-kind-floor-src");
 
     let temper_dir = harness.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();

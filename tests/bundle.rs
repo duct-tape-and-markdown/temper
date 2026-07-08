@@ -16,28 +16,13 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::bundle;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-bundle-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A skill with frontmatter — a real harness artifact for the surface `bundle` reads.
 const SKILL: &str = "---\n\
@@ -65,7 +50,7 @@ fn imported_surface(label: &str) -> PathBuf {
     let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
     let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
 
-    let src = tmpdir(&format!("{label}-src"));
+    let src = common::tmpdir(&format!("{label}-src"));
     let skill_src = src.join("SKILL.md");
     fs::write(&skill_src, SKILL).unwrap();
     let skill = temper::frontmatter::Member::from_source(&skill_kind, &skill_src).unwrap();
@@ -74,7 +59,7 @@ fn imported_surface(label: &str) -> PathBuf {
     fs::write(&rule_src, RULE).unwrap();
     let rule = temper::frontmatter::Member::from_source(&rule_kind, &rule_src).unwrap();
 
-    let surface = tmpdir(&format!("{label}-surface"));
+    let surface = common::tmpdir(&format!("{label}-surface"));
     let skill_dir = surface.join("skills").join("coordinate");
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(skill_dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
@@ -107,7 +92,7 @@ fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 #[test]
 fn bundle_emits_the_plugin_tree_and_marketplace() {
     let surface = imported_surface("tree");
-    let out = tmpdir("tree-out");
+    let out = common::tmpdir("tree-out");
 
     let report = bundle::run(&surface, &out).unwrap();
 
@@ -169,7 +154,7 @@ fn shipped_strings_teach_install_not_the_retired_import_verb() {
     // still teach the retired `import` verb, and the skill's on-ramp bullet must
     // name `temper install`.
     let surface = imported_surface("install-verb");
-    let out = tmpdir("install-verb-out");
+    let out = common::tmpdir("install-verb-out");
 
     bundle::run(&surface, &out).unwrap();
 
@@ -205,8 +190,8 @@ fn bundle_report_names_shipped_artifacts_over_an_empty_surface() {
     // the report counted composed-over members instead of naming what channel 3
     // actually ships. An empty surface is the sharpest case — the report must still
     // name the shipped skill and hook, never a member tally.
-    let surface = tmpdir("empty-surface");
-    let out = tmpdir("empty-out");
+    let surface = common::tmpdir("empty-surface");
+    let out = common::tmpdir("empty-out");
 
     let report = bundle::run(&surface, &out).unwrap();
     assert_eq!(report.skill_name, "temper");
@@ -228,7 +213,7 @@ fn bundle_is_deterministic() {
     // Two runs into the same output tree must not change a single byte — the vendored
     // plugin is diff-stable.
     let surface = imported_surface("determinism");
-    let out = tmpdir("determinism-out");
+    let out = common::tmpdir("determinism-out");
 
     bundle::run(&surface, &out).unwrap();
     let first = tree_bytes(&out);
@@ -249,7 +234,7 @@ fn bundle_is_deterministic() {
 #[test]
 fn the_cli_bundle_verb_composes_the_plugin() {
     let surface = imported_surface("cli");
-    let out = tmpdir("cli-out");
+    let out = common::tmpdir("cli-out");
 
     let output = Command::new(BIN)
         .arg("bundle")

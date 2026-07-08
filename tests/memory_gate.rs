@@ -12,28 +12,13 @@
 //! line, so a `max_lines` advisory on the `CLAUDE` member is counted exactly.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-memory-gate-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A skill that trips no `error`-severity clause: lowercase `name` matching its
 /// directory, a present description, a short body — so the memory finding is not masked
@@ -146,7 +131,7 @@ fn check_two_step(harness: &Path) -> Vec<String> {
 
 #[test]
 fn the_two_step_check_path_backs_a_real_repo_root_import() {
-    let harness = tmpdir("two-step-backed");
+    let harness = common::tmpdir("two-step-backed");
     // The TWO-STEP path (import to `.temper/`, then gate the bare workspace relative
     // to the harness root): a CLAUDE.md `@import`ing a real repo-root sibling. Before a
     // past fix, the harness root resolved to the EMPTY path, so `repo_file_set` walked
@@ -182,7 +167,7 @@ fn the_two_step_check_path_backs_a_real_repo_root_import() {
 
 #[test]
 fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
-    let harness = tmpdir("unbacked-import");
+    let harness = common::tmpdir("unbacked-import");
     // A clean skill so the run is not empty, and a CLAUDE.md importing a path that backs
     // no member and no repo file — an unbacked pointer. Before the collection generalized
     // over every kind (DIRECTIVE-MEMBERS-ALL-KINDS), the hardcoded skill/rule pair never
@@ -213,7 +198,7 @@ fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
 
 #[test]
 fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
-    let harness = tmpdir("backed-import");
+    let harness = common::tmpdir("backed-import");
     // The CLAUDE.md imports the coordinate skill member by its provenance locus — a
     // resolving member→member edge, not an unbacked pointer. The wedge collects the
     // directive and classes it as backed, so nothing fires.
@@ -230,7 +215,7 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
 
 #[test]
 fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
-    let harness = tmpdir("floor-unbacked-import");
+    let harness = common::tmpdir("floor-unbacked-import");
     // The FLOOR-tier wedge (WEDGE-FACT-FLOOR): a discovered CLAUDE.md carrying an unbacked
     // `@import`. Directive classing runs on the floor, so the unbacked pointer surfaces
     // with zero config authored anywhere. It is a non-gating advisory: the pure fact is
@@ -264,7 +249,7 @@ fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
 
 #[test]
 fn a_backed_at_import_fires_nothing_with_zero_config() {
-    let harness = tmpdir("floor-backed-import");
+    let harness = common::tmpdir("floor-backed-import");
     // The floor tier states only the fact: a CLAUDE.md whose `@path` resolves to a real repo
     // file (the coordinate skill's on-disk member) is a backed boundary edge, not an unbacked
     // pointer — so it draws no finding even with zero config. Pairs the fired case above.
@@ -281,7 +266,7 @@ fn a_backed_at_import_fires_nothing_with_zero_config() {
 
 #[test]
 fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
-    let harness = tmpdir("over-length");
+    let harness = common::tmpdir("over-length");
     // A clean skill so the run is not empty, and a 251-line CLAUDE.md over the
     // memory.anthropic 200-line budget.
     write_skill(&harness, "coordinate", CLEAN_SKILL);
@@ -321,7 +306,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
 
 #[test]
 fn an_under_length_claude_md_fires_no_memory_advisory() {
-    let harness = tmpdir("under-length");
+    let harness = common::tmpdir("under-length");
     write_skill(&harness, "coordinate", CLEAN_SKILL);
     // A short CLAUDE.md, well under the 200-line budget.
     write_claude_md(&harness, 10);
@@ -338,7 +323,7 @@ fn an_under_length_claude_md_fires_no_memory_advisory() {
 
 #[test]
 fn the_memory_dispatch_leaves_skill_findings_unchanged() {
-    let harness = tmpdir("no-regression");
+    let harness = common::tmpdir("no-regression");
     // A failing skill (uppercase name) beside an over-length CLAUDE.md: both the skill's
     // existing finding and the new memory advisory must fire, unaffected by each other.
     write_skill(&harness, "coordinate", ERROR_SKILL);

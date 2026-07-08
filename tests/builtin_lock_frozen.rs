@@ -11,27 +11,10 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::{self, EmitOptions};
 
 mod common;
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "builtin-lock-frozen-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A memberless harness binding every built-in kind to every built-in default contract via
 /// `expect` — no members, so `compileDeclarations` (`sdk/src/declarations.ts`) emits
@@ -72,7 +55,7 @@ process.stdout.write(emit(program).seam);
 /// `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the stand-in
 /// for a real consumer's installed dependency (`tests/emit.rs`'s `wire_sdk_harness`).
 fn wire_memberless_harness() -> (PathBuf, PathBuf) {
-    let harness = tmpdir("memberless");
+    let harness = common::tmpdir("memberless");
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     fs::write(into.join("harness.ts"), MEMBERLESS_BUILTIN_PROGRAM).unwrap();

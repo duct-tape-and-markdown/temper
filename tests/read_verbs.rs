@@ -10,31 +10,14 @@
 //! this file exercises the read library directly rather than spawning the binary.
 
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::check::Workspace;
 use temper::compose::Requirement;
 use temper::document::PublishedRequirement;
 use temper::extract::{EmbeddedMember, FeatureValue, Features, ValueType};
 use temper::read::{self, CustomMember};
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-read-verbs-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A member's [`Features`] as the read family reads them: its id, the requirements it
 /// opts into, the demands it publishes, and a `description` field (so `impact`'s
@@ -95,7 +78,7 @@ fn explain(
     roster: &BTreeMap<String, Requirement>,
     target: &str,
 ) -> String {
-    let ws = Workspace::load(&tmpdir("explain")).unwrap();
+    let ws = Workspace::load(&common::tmpdir("explain")).unwrap();
     let assembly: BTreeMap<String, Requirement> = BTreeMap::new();
     let registrations = BTreeMap::new();
     read::explain(
@@ -325,14 +308,14 @@ mod default_contract_binding {
     use temper::extract::Features;
     use temper::read::{self, CustomMember};
 
-    use super::tmpdir;
+    use super::common;
 
     /// Narrate one custom member (its `kind` and `id`) through `why` over an otherwise-empty
     /// surface, returning the stdout narration. The workspace loads an empty temp dir (no
     /// skills/rules) and the roster/edge inputs are empty, so the governing-default-contract
     /// line is all this exercises.
     fn why_kind(kind: &str, id: &str) -> String {
-        let ws = Workspace::load(&tmpdir("default-contract-binding")).unwrap();
+        let ws = Workspace::load(&common::tmpdir("default-contract-binding")).unwrap();
         let custom = [CustomMember {
             kind: kind.to_string(),
             id: id.to_string(),

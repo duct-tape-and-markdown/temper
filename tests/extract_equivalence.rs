@@ -18,45 +18,27 @@
 //! stripped), the nested sections, and the source directory — never the contract
 //! engine that ranges over them.
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::path::PathBuf;
+
+mod common;
 
 use temper::builtin_kind;
 use temper::extract::{FeatureValue, ValueType};
 use temper::frontmatter::Member;
 use temper::kind::{DirectiveSyntax, Extraction, Primitive, Unit};
 
-/// Path to a fixture under `tests/fixtures/extract_equivalence`, resolved from the
-/// manifest so the test is independent of the process working directory. The tree
-/// mirrors the real harness layout under a frozen `.claude/` root, so the pinned
-/// output is not coupled to the live dogfood files (which change tick to tick).
+/// Path to a fixture under the frozen `tests/fixtures/extract_equivalence/.claude`
+/// root, mirroring the real harness layout — so the pinned output is not coupled to
+/// the live dogfood files (which change tick to tick).
 fn fixture(rel: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/extract_equivalence/.claude")
-        .join(rel)
-}
-
-/// A fresh, empty temp directory unique to this test run — the surface the imported
-/// fixture is projected into before it is read back generically.
-fn tmpdir(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "extract-equivalence-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+    common::fixture(&format!("extract_equivalence/.claude/{rel}"))
 }
 
 /// Write an imported skill's authored surface member document `<name>/SKILL.md`
 /// (`Member::to_document`) and reload it through the generic `Unit` loader `check`
 /// reads — the built-in kind's member-document read, no IR→Unit adapter.
 fn skill_surface_unit(member: &Member, name: &str) -> Unit {
-    let dir = tmpdir(name).join(name);
+    let dir = common::tmpdir(name).join(name);
     std::fs::create_dir_all(&dir).unwrap();
     let doc_path = dir.join("SKILL.md");
     std::fs::write(&doc_path, member.to_document().emit()).unwrap();
@@ -67,7 +49,7 @@ fn skill_surface_unit(member: &Member, name: &str) -> Unit {
 /// `<name>/RULE.md` surface document (`Member::to_document`) and reload it as a
 /// generic `Unit`.
 fn rule_surface_unit(member: &Member, name: &str) -> Unit {
-    let dir = tmpdir(name).join(name);
+    let dir = common::tmpdir(name).join(name);
     std::fs::create_dir_all(&dir).unwrap();
     let doc_path = dir.join("RULE.md");
     std::fs::write(&doc_path, member.to_document().emit()).unwrap();

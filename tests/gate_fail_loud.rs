@@ -14,30 +14,15 @@
 //!     is legitimate there.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-gate-fail-loud-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A skill clean against the floor (lowercase `name` matching its directory, a present
 /// short description) — the real Claude Code locus (`.claude/skills/<name>/SKILL.md`),
@@ -114,7 +99,7 @@ fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
     // The harness-root `temper check .` case the wave-end confirmation caught: a
     // committed lock declares a requirement, but nothing was ever imported — no
     // surface tree at the workspace `check` reads.
-    let root = tmpdir("declared-empty");
+    let root = common::tmpdir("declared-empty");
     write_requirements(&root, vec![requirement("docs")]);
 
     let (findings, success) = check_in(&root, &["."]);
@@ -143,7 +128,7 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
     // reads built-in kind members live off harness disk, no scratch import required, and the correctly-rooted path
     // resolves ≥1 member, so the guard must not fire even though the assembly still
     // declares a requirement.
-    let root = tmpdir("declared-resolved");
+    let root = common::tmpdir("declared-resolved");
     let harness = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&harness).unwrap();
     fs::write(harness.join("SKILL.md"), CLEAN_SKILL).unwrap();
@@ -165,7 +150,7 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
 fn a_genuinely_empty_harness_stays_silent() {
     // No declared requirements at all: the assembly declares nothing, so zero resolved
     // members is legitimate and the guard must never fire.
-    let root = tmpdir("genuinely-empty");
+    let root = common::tmpdir("genuinely-empty");
 
     let (findings, success) = check_in(&root, &[]);
 

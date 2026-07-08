@@ -13,7 +13,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::builtin;
 use temper::builtin_lock;
@@ -26,22 +27,6 @@ use temper::drift::{
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "lock-declaration-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// The `skill` built-in kind's declaration row — the same facts `builtin_kind`'s
 /// `claude_code_skill` carries, hand-carried here since a golden lock has no live kind
@@ -293,7 +278,7 @@ fn golden_payload(declarations: Declarations) -> Payload {
 /// pair (`tests/emit.rs`'s `workspace` pattern) — the golden-lock fixture standing in for
 /// `import::run`, the retired scratch-copy producer.
 fn emitted(label: &str, payload: &Payload) -> (PathBuf, PathBuf) {
-    let harness = tmpdir(&format!("{label}-src"));
+    let harness = common::tmpdir(&format!("{label}-src"));
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     drift::emit(payload, &into, EmitOptions::default()).unwrap();
@@ -729,7 +714,7 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
 /// declaration set rather than erroring — absent evidence forges no finding.
 #[test]
 fn a_lock_without_declarations_reads_empty() {
-    let dir = tmpdir("no-declarations");
+    let dir = common::tmpdir("no-declarations");
     fs::write(
         dir.join("lock.toml"),
         "[[skill]]\nname = \"x\"\nsource_path = \"/h/SKILL.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n",
@@ -743,7 +728,7 @@ fn a_lock_without_declarations_reads_empty() {
 /// A missing lock is the pre-import state, not an error.
 #[test]
 fn a_missing_lock_reads_empty() {
-    let dir: &Path = &tmpdir("missing-lock");
+    let dir: &Path = &common::tmpdir("missing-lock");
     let declarations = drift::read_declarations(dir).unwrap();
     assert_eq!(declarations, drift::Declarations::default());
 }
@@ -785,7 +770,7 @@ fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default()
     // Prove the walk is driven by the lock's own kind-fact row, not `skill`'s embedded
     // `.claude/skills` default: point the lock's `skill` governs at a nonstandard
     // locus, place the member only there, and confirm `check` finds and judges it.
-    let root = tmpdir("custom-governs-locus");
+    let root = common::tmpdir("custom-governs-locus");
     let skill = root.join("custom-locus").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), GOVERNS_WALK_SKILL).unwrap();
@@ -819,7 +804,7 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
     // `check` falls back to the embedded default program's own `governs` locus (the
     // built-in lock) to walk the harness — a forbidden-key skill must still fire,
     // never a silent zero-member skip.
-    let root = tmpdir("no-lock-builtin-fallback");
+    let root = common::tmpdir("no-lock-builtin-fallback");
     let skill = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), GOVERNS_WALK_SKILL).unwrap();
@@ -888,7 +873,7 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     // cleanly; a rule also opts in — the kind-blind satisfier set draws it in, and
     // the each-grain clause the row's `kind` column sources flags it as a
     // `requirement.kind` finding rather than silently excluding it.
-    let root = tmpdir("kind-clause-sources-from-row");
+    let root = common::tmpdir("kind-clause-sources-from-row");
     let skill_dir = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(
@@ -1230,7 +1215,7 @@ fn incoming_degree_requirement() -> RequirementRow {
 
 #[test]
 fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
-    let root = tmpdir("mention-edge-lands");
+    let root = common::tmpdir("mention-edge-lands");
     // A skill `coordinate` and a rule `rust`, on disk, declaring no reference field
     // between them at all — the only edge is the skill's authored mention of the rule.
     let skill_dir = root.join(".claude").join("skills").join("coordinate");
@@ -1285,7 +1270,7 @@ fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
 fn a_mention_with_no_clause_ranging_over_it_is_obligation_free() {
     // No `degree` clause at all: the mention rides the lock and binds the graph, but
     // no shipped clause counts it — obligation-free by default (contract.md, "edge").
-    let root = tmpdir("mention-obligation-free");
+    let root = common::tmpdir("mention-obligation-free");
     let skill_dir = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(

@@ -18,28 +18,12 @@
 //! across the real `check --harness` process boundary.
 
 use std::fs;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::builtin_kind;
 use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 use temper::frontmatter::Member;
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "memory-contract-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A repo-root `CLAUDE.md` in exactly the `memory` kind's shape: **no YAML
 /// frontmatter** (plain markdown Claude Code reads at session start), headings and a
@@ -77,7 +61,7 @@ fn memory_kind_facts() -> KindFactRow {
 /// over the shape `adapter_fidelity.rs` never covered.
 #[test]
 fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
-    let harness = tmpdir("roundtrip");
+    let harness = common::tmpdir("roundtrip");
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
 

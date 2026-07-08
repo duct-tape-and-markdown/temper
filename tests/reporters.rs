@@ -14,31 +14,16 @@
 //! presentation, never the gate's exit code.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::check::Diagnostic;
 use temper::reporter;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-reporters-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A mixed diagnostic set — one blocking error and one advisory warn — so a single
 /// render exercises both severity mappings.
@@ -186,12 +171,12 @@ fn write_harness(root: &Path, name: &str, skill_md: &str) {
 
 #[test]
 fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surface() {
-    let harness = tmpdir("sarif-src");
+    let harness = common::tmpdir("sarif-src");
     write_harness(&harness, "coordinate", ERROR_SKILL);
     // An empty workspace: `check` reads built-in kind members live off harness disk,
     // no scratch import
     // needed to populate it first.
-    let into = tmpdir("sarif-into");
+    let into = common::tmpdir("sarif-into");
 
     // CWD is the harness,
     // carrying no adopted lock either, so an ambient project assembly at the process

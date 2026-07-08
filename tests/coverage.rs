@@ -18,30 +18,15 @@
 //! - a non-`required` requirement left unfilled does not block (⇒ zero).
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-coverage-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A clean skill that trips no floor clause — the isolated subject for the coverage
 /// gate, so the only findings a case sees are coverage ones.
@@ -156,7 +141,7 @@ fn check_github(root: &Path) -> CheckRun {
 
 #[test]
 fn a_required_requirement_with_a_resolving_satisfies_stays_silent() {
-    let root = tmpdir("covered");
+    let root = common::tmpdir("covered");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The skill opts into the requirement, so its intent has a resolving home.
     author_satisfies(&root, "dev-standards", &["dev-standards"]);
@@ -172,7 +157,7 @@ fn a_required_requirement_with_a_resolving_satisfies_stays_silent() {
 
 #[test]
 fn a_required_requirement_with_no_satisfying_artifact_fires_unfilled() {
-    let root = tmpdir("unfilled");
+    let root = common::tmpdir("unfilled");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // No `satisfies` authored: nothing opts into the requirement.
     write_requirements(&root, vec![requirement("dev-standards", true)]);
@@ -192,7 +177,7 @@ fn a_required_requirement_with_no_satisfying_artifact_fires_unfilled() {
 
 #[test]
 fn a_satisfies_naming_no_requirement_fires_dangling() {
-    let root = tmpdir("dangling");
+    let root = common::tmpdir("dangling");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The skill opts into the required requirement (so no UNFILLED) *and* a second,
     // undeclared one — the link that dangles.
@@ -223,7 +208,7 @@ fn a_satisfies_naming_no_requirement_fires_dangling() {
 
 #[test]
 fn a_typo_in_a_satisfies_link_yields_paired_unfilled_and_dangling() {
-    let root = tmpdir("typo");
+    let root = common::tmpdir("typo");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The link misspells the requirement name. `satisfies` is exact-string matched,
     // never folded, so the real requirement goes UNFILLED (nothing resolves to it)
@@ -258,7 +243,7 @@ fn a_typo_in_a_satisfies_link_yields_paired_unfilled_and_dangling() {
 
 #[test]
 fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
-    let root = tmpdir("dup");
+    let root = common::tmpdir("dup");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The skill covers the declared requirement (so no UNFILLED) and repeats the same
     // undeclared link. The coverage check dedups each artifact's `satisfies` before
@@ -295,7 +280,7 @@ fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
 
 #[test]
 fn a_non_required_unfilled_requirement_does_not_block() {
-    let root = tmpdir("advisory");
+    let root = common::tmpdir("advisory");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // Nothing opts into it, but the requirement is advisory intent (no `required`),
     // so `temper` never fabricates a gate the author did not declare.
@@ -315,7 +300,7 @@ fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
     // there is no longer any manifest to register one from at all (the manifest
     // retires entirely) — so a kind-blind `required` requirement contributes no
     // fabricated coverage; it still fires UNFILLED absent a real satisfier.
-    let root = tmpdir("custom-unfilled");
+    let root = common::tmpdir("custom-unfilled");
     write_requirements(&root, vec![requirement("domain-model", true)]);
 
     let run = check_in(&root);
@@ -333,7 +318,7 @@ fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
 
 #[test]
 fn a_means_less_required_requirement_still_gates() {
-    let root = tmpdir("means-less");
+    let root = common::tmpdir("means-less");
     write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The unified requirement makes `means` optional, but coverage keys off `required`, not
     // `means`: a `required` requirement with no `means` and nothing opting in still
@@ -391,7 +376,7 @@ fn a_required_requirement_is_covered_by_a_rules_opt_in_same_as_a_skills() {
     // that opts in via `satisfies` counts toward the requirement, matching the
     // unified roster/graph satisfier set.
     // A `rule`'s opt-in covers `dev-standards` exactly as a skill's would.
-    let root = tmpdir("kind-blind-cover");
+    let root = common::tmpdir("kind-blind-cover");
     write_rule(&root, "dev-standards-rule");
     author_rule_satisfies(&root, "dev-standards-rule", &["dev-standards"]);
     write_requirements(&root, vec![requirement("dev-standards", true)]);

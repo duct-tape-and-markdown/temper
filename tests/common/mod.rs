@@ -1,10 +1,38 @@
-//! Shared fixtures for tests that drive a real `node` subprocess against the
-//! repo's own built SDK (`tests/emit.rs`, `tests/install.rs`,
-//! `tests/builtin_lock_frozen.rs`) — one home for scaffolding those suites
-//! were each carrying a byte-identical copy of.
+//! Shared fixtures for the integration test suites under `tests/` — one home
+//! for scaffolding (temp dirs, fixture paths, the SDK vendoring used by tests
+//! that drive a real `node` subprocess) every suite was carrying its own copy
+//! of.
+//!
+//! Cargo compiles this module fresh into every integration test binary that
+//! `mod common`s it, so an item only some binaries call reads as dead code in
+//! the rest — `allow(dead_code)` blanket-suppresses that structural false
+//! positive rather than each caller re-deriving it.
+#![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
 use std::sync::Once;
+
+/// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
+/// crate — replaces the hand-rolled counter+pid+label naming scheme every
+/// caller carried before this consolidation. Persisted with `.keep()`: like
+/// the hand-rolled scheme it replaces, nothing here auto-deletes, since
+/// callers hand the path across process boundaries (a built binary, a
+/// vendored `node` subprocess) that outlive the `TempDir` guard's scope.
+pub fn tmpdir(label: &str) -> PathBuf {
+    tempfile::Builder::new()
+        .prefix(label)
+        .tempdir()
+        .expect("failed to create temp dir")
+        .keep()
+}
+
+/// Path to a directory under `tests/fixtures`, resolved from the manifest so
+/// the test is independent of the process working directory.
+pub fn fixture(rel: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures")
+        .join(rel)
+}
 
 /// The repo's `sdk/` directory — the SDK package this crate's worktree carries
 /// beside `Cargo.toml`.

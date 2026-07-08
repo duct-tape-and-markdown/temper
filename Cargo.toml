@@ -53,3 +53,6 @@ insta = { version = "1", features = ["filters"] }
 # Build a nested-frontmatter `Unit` in the extraction-equivalence test's key-path
 # case — the same parsed shape the yaml-frontmatter adapter yields.
 serde_json = "1"
+# Test temp dirs (CLAUDE.md, "Tech stack") — the RAII builder behind
+# tests/common::tmpdir and every in-src `#[cfg(test)]` module's own temp dir.
+tempfile = "3"

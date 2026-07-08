@@ -19,30 +19,15 @@
 //! - a stray retired manifest declaring no roster leaves the floor outcome unchanged.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::drift::{self, ClauseRow, Declarations, EmitOptions, Payload, RequirementRow};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-requirement-roster-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A floor-clean skill named `name` (matching its directory, a lowercase slug, a
 /// present description). Clean against the floor, so the only finding a case can
@@ -306,7 +291,7 @@ fn skill_with_forbidden_key(name: &str) -> String {
 
 #[test]
 fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_inert() {
-    let root = tmpdir("clause-override-from-lock");
+    let root = common::tmpdir("clause-override-from-lock");
     write_skill(
         &root,
         "legacy-rule",
@@ -388,7 +373,7 @@ fn count_band_requirement(min: usize, max: usize) -> RequirementRow {
 
 #[test]
 fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
-    let root = tmpdir("count-over");
+    let root = common::tmpdir("count-over");
     // Two skills opt into `agents`; the band caps the satisfier count at one, so two
     // is out of band.
     write_skill(&root, "agent-one", &clean_skill("agent-one"));
@@ -431,7 +416,7 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
 
 #[test]
 fn a_count_band_is_clean_within_bounds() {
-    let root = tmpdir("count-ok");
+    let root = common::tmpdir("count-ok");
     // Two skills opt into `agents`, inside a `[1, 2]` band — clean.
     write_skill(&root, "agent-one", &clean_skill("agent-one"));
     write_skill(&root, "agent-two", &clean_skill("agent-two"));
@@ -451,7 +436,7 @@ fn a_count_band_is_clean_within_bounds() {
 
 #[test]
 fn a_wrong_kind_opt_in_fires_a_kind_finding_never_a_silent_exclusion() {
-    let root = tmpdir("kind-wrong");
+    let root = common::tmpdir("kind-wrong");
     // `agents` narrows to `skill`, but a `rule` also opts in via `satisfies`. The
     // satisfier set is kind-blind, so the rule is drawn in — and the each-grain
     // `kind` clause `requirement.kind` sources flags it as a finding rather than
@@ -479,7 +464,7 @@ fn a_wrong_kind_opt_in_fires_a_kind_finding_never_a_silent_exclusion() {
 
 #[test]
 fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
-    let root = tmpdir("kind-blind");
+    let root = common::tmpdir("kind-blind");
     // No `kind` at all: a skill and a rule both opt in, and neither is a finding —
     // a kind-blind requirement attaches no narrowing clause.
     write_skill(&root, "agent-skill", &clean_skill("agent-skill"));
@@ -504,7 +489,7 @@ fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
 
 #[test]
 fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
-    let root = tmpdir("kind-unmodeled");
+    let root = common::tmpdir("kind-unmodeled");
     // A floor-clean skill opts in (coverage is satisfied), but the requirement
     // narrows to `command` — a kind `temper` does not model — so the each-grain
     // clause it sources can never hold for any satisfier: an admissibility finding,
@@ -546,7 +531,7 @@ fn model_skill(name: &str, model: &str) -> String {
 
 #[test]
 fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
-    let root = tmpdir("unique-bad");
+    let root = common::tmpdir("unique-bad");
     // Two `agents` satisfiers share `model = opus`; `unique = ["model"]` requires each
     // distinct across the satisfier set.
     write_skill(&root, "agent-a", &model_skill("agent-a", "opus"));
@@ -587,7 +572,7 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
 
 #[test]
 fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
-    let root = tmpdir("admit-unknown-kind");
+    let root = common::tmpdir("admit-unknown-kind");
     // A floor-clean skill opts into the requirement (so coverage is satisfied), but the
     // requirement is typed to `command` — a kind `temper` does not model — so a
     // required requirement over it can never be filled.
@@ -617,7 +602,7 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
 
 #[test]
 fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
-    let root = tmpdir("admit-dangling-verifier");
+    let root = common::tmpdir("admit-dangling-verifier");
     // Coverage is clean (a satisfier opts in); the sole fault is `verified_by`
     // naming a path that does not exist under the root.
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
@@ -647,7 +632,7 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
 
 #[test]
 fn a_roster_whose_verifiers_all_resolve_passes() {
-    let root = tmpdir("admit-clean");
+    let root = common::tmpdir("admit-clean");
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
     author_satisfies(&root, "plan-tasks", &["planner"]);
 
@@ -696,7 +681,7 @@ fn membership_requirements() -> Vec<RequirementRow> {
 
 #[test]
 fn a_membership_requirement_fires_when_a_satisfier_is_outside_the_derived_set() {
-    let root = tmpdir("membership-bad");
+    let root = common::tmpdir("membership-bad");
     // The approved set draws `{ opus }` from the lone `approved-model` satisfier; the
     // `agent-gpt` satisfier declares `gpt`, which is not in it.
     write_skill(&root, "agent-gpt", &model_skill("agent-gpt", "gpt"));
@@ -725,7 +710,7 @@ fn a_membership_requirement_fires_when_a_satisfier_is_outside_the_derived_set() 
 
 #[test]
 fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
-    let root = tmpdir("membership-ok");
+    let root = common::tmpdir("membership-ok");
     // The `agent-opus` satisfier's `model` is drawn from the approved set `{ opus }`,
     // so membership is satisfied and the whole run is clean.
     write_skill(&root, "agent-opus", &model_skill("agent-opus", "opus"));
@@ -750,7 +735,7 @@ fn a_membership_requirement_is_clean_when_every_satisfier_is_a_member() {
 
 #[test]
 fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
-    let root = tmpdir("match-unknown-key");
+    let root = common::tmpdir("match-unknown-key");
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
     // The name-`match` selector was gone even before this — fill is opt-in `satisfies`
@@ -774,7 +759,7 @@ fn a_retired_match_key_in_a_stray_temper_toml_is_inert() {
 
 #[test]
 fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
-    let root = tmpdir("no-roster");
+    let root = common::tmpdir("no-roster");
     write_skill(&root, "lint-rust", &clean_skill("lint-rust"));
 
     // Absent the retired manifest: the floor runs, the clean skill passes.
@@ -801,7 +786,7 @@ fn a_temper_toml_declaring_no_roster_leaves_the_floor_outcome_unchanged() {
 
 #[test]
 fn a_retired_role_table_in_a_stray_temper_toml_is_inert() {
-    let root = tmpdir("retired-role");
+    let root = common::tmpdir("retired-role");
     write_skill(&root, "plan-tasks", &clean_skill("plan-tasks"));
 
     // The `[role.*]` surface was hard-cut into `[requirement.*]` by the consolidation,
@@ -826,7 +811,7 @@ fn a_retired_role_table_in_a_stray_temper_toml_is_inert() {
 
 #[test]
 fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean() {
-    let root = tmpdir("member-published-filled");
+    let root = common::tmpdir("member-published-filled");
     // `arch-spec` publishes a required `[requirement.architecture]` in its own header;
     // `arch-impl` fills it by opting in via `satisfies`. One namespace, the demand
     // published on one surface and the fill claimed on another — coverage resolves the
@@ -850,7 +835,7 @@ fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean()
 
 #[test]
 fn an_unfilled_required_member_published_requirement_fires() {
-    let root = tmpdir("member-published-unfilled");
+    let root = common::tmpdir("member-published-unfilled");
     // `arch-spec` publishes a required `[requirement.architecture]`, but no member
     // opts in — the published obligation has no resolving home, so the coverage gate
     // fires exactly as for an unfilled assembly requirement.
@@ -875,7 +860,7 @@ fn an_unfilled_required_member_published_requirement_fires() {
 
 #[test]
 fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
-    let root = tmpdir("member-published-collision");
+    let root = common::tmpdir("member-published-collision");
     // Two members publish the same requirement name. A requirement lives in one
     // namespace, so the second publisher is a collision — an admissibility finding,
     // never a silent shadow that would let one member quietly redefine another's.
@@ -907,7 +892,7 @@ fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
 
 #[test]
 fn a_name_published_by_both_the_assembly_and_a_member_collides() {
-    let root = tmpdir("member-published-assembly-collision");
+    let root = common::tmpdir("member-published-assembly-collision");
     // The assembly *and* a member both publish `architecture`. Same namespace, so the
     // member's re-declaration collides with the assembly's — the assembly ⊕ member
     // half of the one-namespace rule.

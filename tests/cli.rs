@@ -13,28 +13,13 @@
 //! is surfaced by `main`, not returned by the library.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-cli-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A skill that trips no `error`-severity rule: the `name` is valid and matches
 /// its directory, the description is present and short, and the body references
@@ -135,7 +120,7 @@ fn check_harness_succeeds(harness: &Path) -> bool {
 
 #[test]
 fn check_is_clean_for_a_well_formed_skill() {
-    let harness = tmpdir("clean-src");
+    let harness = common::tmpdir("clean-src");
     write_harness(&harness, "coordinate", CLEAN_SKILL);
 
     assert!(
@@ -146,7 +131,7 @@ fn check_is_clean_for_a_well_formed_skill() {
 
 #[test]
 fn check_exits_non_zero_when_an_error_rule_fires() {
-    let harness = tmpdir("error-src");
+    let harness = common::tmpdir("error-src");
     // Directory `coordinate` but `name: Coordinate` — trips name-format and
     // name-matches-dir, both error severity.
     write_harness(&harness, "coordinate", ERROR_SKILL);
@@ -159,7 +144,7 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
 
 #[test]
 fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
-    let harness = tmpdir("advisory-src");
+    let harness = common::tmpdir("advisory-src");
     // The only clause this skill violates is the advisory `max_lines` budget.
     write_harness(&harness, "coordinate", &advisory_only_skill());
 
@@ -178,7 +163,7 @@ fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
 #[test]
 fn check_dispatches_the_rule_kind_to_the_rule_contract() {
     // A clean rule (`paths:`-only) trips no `required` clause ⇒ check is zero.
-    let clean = tmpdir("rule-clean-src");
+    let clean = common::tmpdir("rule-clean-src");
     write_rule_harness(&clean, "rust", CLEAN_RULE);
     assert!(
         check_harness_succeeds(&clean),
@@ -188,7 +173,7 @@ fn check_dispatches_the_rule_kind_to_the_rule_contract() {
     // A forbidden Cursor key (`globs`/`alwaysApply`) trips the `forbidden_keys`
     // clause, which is `required` ⇒ check is non-zero. This proves `check`
     // dispatches the rule kind to the rule contract, not the skill one.
-    let forbidden = tmpdir("rule-forbidden-src");
+    let forbidden = common::tmpdir("rule-forbidden-src");
     write_rule_harness(&forbidden, "rust", FORBIDDEN_KEY_RULE);
     assert!(
         !check_harness_succeeds(&forbidden),
@@ -201,7 +186,7 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     // The zero-config wedge: a raw harness is linted directly, no `init` step, and
     // no surface workspace is written. A forbidden Cursor key trips a `required`
     // clause ⇒ non-zero, and the finding is on stdout.
-    let harness = tmpdir("one-shot-src");
+    let harness = common::tmpdir("one-shot-src");
     write_rule_harness(&harness, "rust", FORBIDDEN_KEY_RULE);
 
     let (ok, stdout) = run_check_harness(&harness, &[]);
@@ -221,7 +206,7 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     );
 
     // A clean harness over the same one-shot path exits zero.
-    let clean = tmpdir("one-shot-clean");
+    let clean = common::tmpdir("one-shot-clean");
     write_rule_harness(&clean, "rust", CLEAN_RULE);
     let (ok, _) = run_check_harness(&clean, &[]);
     assert!(ok, "check --harness over a clean harness must exit zero");
@@ -231,8 +216,8 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
 fn check_rejects_a_harness_and_workspace_together() {
     // `--harness` and the positional workspace are the two mutually-exclusive routes
     // into the gate; supplying both is a usage error, not a silent precedence pick.
-    let ws = tmpdir("conflict-ws");
-    let harness = tmpdir("conflict-harness");
+    let ws = common::tmpdir("conflict-ws");
+    let harness = common::tmpdir("conflict-harness");
     let status = Command::new(BIN)
         .arg("check")
         .arg(&ws)
@@ -269,7 +254,7 @@ fn self_host_check_is_clean_over_tempers_own_surface() {
 fn schema_kind_skill_emits_the_skill_floor_decidable_clauses() {
     // Run in a fresh CWD with no adopted lock, so the emitted schema is the pure
     // skill floor (no clause overrides) and the assertions are deterministic.
-    let cwd = tmpdir("schema-skill");
+    let cwd = common::tmpdir("schema-skill");
     let output = Command::new(BIN)
         .current_dir(&cwd)
         .arg("schema")
@@ -316,7 +301,7 @@ fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
     // The embedded `skill.anthropic` built-in now carries guidance on its clauses,
     // so
     // the pure floor — no clause overrides — already exercises both channels.
-    let cwd = tmpdir("schema-guidance");
+    let cwd = common::tmpdir("schema-guidance");
     let output = Command::new(BIN)
         .current_dir(&cwd)
         .arg("schema")
@@ -349,7 +334,7 @@ fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
 
 #[test]
 fn schema_without_kind_maps_every_modeled_kind() {
-    let cwd = tmpdir("schema-all");
+    let cwd = common::tmpdir("schema-all");
     let output = Command::new(BIN)
         .current_dir(&cwd)
         .arg("schema")
@@ -365,7 +350,7 @@ fn schema_without_kind_maps_every_modeled_kind() {
 
 #[test]
 fn schema_rejects_an_unknown_kind() {
-    let cwd = tmpdir("schema-unknown");
+    let cwd = common::tmpdir("schema-unknown");
     let status = Command::new(BIN)
         .current_dir(&cwd)
         .arg("schema")
@@ -432,7 +417,7 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     // enforcement mode declared in the harness's lock. A `block` lock blocks a `.claude/` write (exit 2); a
     // non-projection write is allowed (exit 0). `warn`/`note` both allow a
     // projection write.
-    let root = tmpdir("guard-block");
+    let root = common::tmpdir("guard-block");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
@@ -479,7 +464,7 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
     );
 
     for mode in ["warn", "note"] {
-        let root = tmpdir(&format!("guard-{mode}"));
+        let root = common::tmpdir(&format!("guard-{mode}"));
         let temper_dir = root.join(".temper");
         fs::create_dir_all(&temper_dir).unwrap();
         fs::write(

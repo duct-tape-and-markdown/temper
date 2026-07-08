@@ -27,7 +27,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use temper::drift::ApplyOutcome;
 use temper::install::{self, InstallOutcome, Represent};
@@ -36,22 +35,6 @@ mod common;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-install-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A skill with frontmatter — a full, realistic pre-existing artifact the lift
 /// scaffolds over.
@@ -124,7 +107,7 @@ fn assert_one_hunk_diff(original: &str, updated: &str) {
 /// Build a harness with a skill, two rules (one frontmatter-free), and optionally a
 /// pre-existing settings file, and return its root.
 fn write_harness(label: &str, with_settings: bool) -> PathBuf {
-    let root = tmpdir(label);
+    let root = common::tmpdir(label);
     let skill = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), SKILL).unwrap();
@@ -200,7 +183,7 @@ fn discover_reports_member_counts_by_kind() {
 
 #[test]
 fn an_empty_project_reports_no_members_found() {
-    let root = tmpdir("discover-empty");
+    let root = common::tmpdir("discover-empty");
     let report = install::discover(&root).unwrap();
     assert_eq!(report.total(), 0);
     assert!(install::render_discovery(&report).contains("no members found"));
@@ -450,7 +433,7 @@ A third paragraph keeps it safely past the three-line threshold.\n";
 
 #[test]
 fn a_document_body_scaffolds_to_a_module_adjacent_file_never_the_original_path() {
-    let root = tmpdir("document-prose");
+    let root = common::tmpdir("document-prose");
     let skill = root.join(".claude").join("skills").join("deepdive");
     fs::create_dir_all(&skill).unwrap();
     fs::write(skill.join("SKILL.md"), DOCUMENT_SKILL).unwrap();
@@ -542,7 +525,7 @@ fn a_dependency_spawn_failure_leaves_no_half_scaffolded_state() {
     // A shadow `npm`/`npm.cmd` on `PATH` ahead of the real one, always failing —
     // standing in for "only npm.cmd exists and this Windows spawn can't find it"
     // without actually requiring a Windows host to prove the ordering.
-    let fake_bin = tmpdir("dependency-spawn-failure-fake-npm");
+    let fake_bin = common::tmpdir("dependency-spawn-failure-fake-npm");
     let fake_npm = fake_bin.join(if cfg!(windows) { "npm.cmd" } else { "npm" });
     fs::write(&fake_npm, "#!/bin/sh\nexit 1\n").unwrap();
     #[cfg(unix)]
@@ -908,7 +891,7 @@ const CLAUDE_WRITE_LOCK_ROW: &str = "[[skill]]\nname = \"x\"\nsource_path = \".c
 
 #[test]
 fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
-    let root = tmpdir("lock-mode-block");
+    let root = common::tmpdir("lock-mode-block");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
@@ -935,7 +918,7 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
 /// must never *suppress* a guard claim, only ever fail to forge one.
 #[test]
 fn guard_defaults_to_warn_when_the_lock_is_absent() {
-    let root = tmpdir("lock-mode-absent");
+    let root = common::tmpdir("lock-mode-absent");
     let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(
         code,

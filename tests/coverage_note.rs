@@ -16,30 +16,15 @@
 //! `warning` (advisory) — it never gates and never injects a session-start verdict.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-coverage-note-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// Write a clean one-skill surface at `<root>/.claude/skills/<name>/SKILL.md` — the
 /// real Claude Code locus, never a layout invented for the test (`.claude/rules/rust.md`).
@@ -130,7 +115,7 @@ fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
 
 #[test]
 fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
-    let harness = tmpdir("with-mcp-json");
+    let harness = common::tmpdir("with-mcp-json");
     // Two clean skills the gate checks, plus an ungoverned `.mcp.json`.
     write_skill(&harness, "coordinate");
     write_skill(&harness, "review");
@@ -199,7 +184,7 @@ fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
 
 #[test]
 fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
-    let harness = tmpdir("all-modeled");
+    let harness = common::tmpdir("all-modeled");
     // Only a `.claude/skills/` surface — modeled by the `skill` kind. No
     // settings.json, no .mcp.json, so no known ungoverned surface is present.
     write_skill(&harness, "coordinate");
@@ -222,7 +207,7 @@ fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
 
 #[test]
 fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
-    let harness = tmpdir("locked-widget-kind");
+    let harness = common::tmpdir("locked-widget-kind");
     write_skill(&harness, "coordinate");
     fs::create_dir_all(harness.join(".claude")).unwrap();
     fs::write(harness.join(".claude/settings.json"), "{}").unwrap();

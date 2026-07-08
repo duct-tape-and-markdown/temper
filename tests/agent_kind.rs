@@ -12,7 +12,8 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::builtin;
 use temper::builtin_kind;
@@ -21,22 +22,6 @@ use temper::engine;
 use temper::frontmatter::Member;
 use temper::import;
 use temper::kind::{Registration, Unit, UnitShape};
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "agent-kind-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// An agent file in the real Claude Code shape: YAML frontmatter carrying `name`
 /// then `description` over a markdown system-prompt body.
@@ -92,7 +77,7 @@ fn agent_kind() -> temper::kind::CustomKind {
 
 #[test]
 fn discovery_over_the_embedded_governs_finds_nested_agent_files() {
-    let harness = tmpdir("discover");
+    let harness = common::tmpdir("discover");
     write_agent(&harness, "coordinate.md", "coordinate");
     // A subdirectory is purely organizational — still discovered, per the docs'
     // own `agents/review/`, `agents/research/` example.
@@ -112,7 +97,7 @@ fn discovery_over_the_embedded_governs_finds_nested_agent_files() {
 
 #[test]
 fn an_agents_id_is_its_frontmatter_name_not_the_filename() {
-    let harness = tmpdir("named-field-id");
+    let harness = common::tmpdir("named-field-id");
     // The filename (`foo.md`) deliberately differs from the frontmatter `name`
     // (`my-agent`) — identity travels on the declared field, never the path.
     let source = write_agent(&harness, "foo.md", "my-agent");
@@ -124,7 +109,7 @@ fn an_agents_id_is_its_frontmatter_name_not_the_filename() {
 
 #[test]
 fn a_nested_agents_id_is_still_its_frontmatter_name() {
-    let harness = tmpdir("nested-named-field-id");
+    let harness = common::tmpdir("nested-named-field-id");
     let source = write_agent(&harness, "review/security.md", "security-reviewer");
 
     let member = Member::from_source(&agent_kind(), &source).unwrap();
@@ -156,7 +141,7 @@ fn an_agent_member_registers_on_the_description_trigger_channel_only() {
 
 #[test]
 fn an_agent_member_extracts_its_declared_field_schema() {
-    let harness = tmpdir("field-schema");
+    let harness = common::tmpdir("field-schema");
     let source = write_agent(&harness, "reviewer.md", "reviewer");
 
     let kind = agent_kind();
@@ -231,7 +216,7 @@ fn the_agent_builtin_is_admissible() {
 
 #[test]
 fn an_uppercase_name_trips_the_charset_clause() {
-    let harness = tmpdir("bad-charset");
+    let harness = common::tmpdir("bad-charset");
     let source = write_agent(&harness, "reviewer.md", "Reviewer");
 
     let kind = agent_kind();
@@ -250,7 +235,7 @@ fn an_uppercase_name_trips_the_charset_clause() {
 
 #[test]
 fn a_lowercase_hyphenated_name_trips_no_charset_clause() {
-    let harness = tmpdir("good-charset");
+    let harness = common::tmpdir("good-charset");
     let source = write_agent(&harness, "code-reviewer.md", "code-reviewer");
 
     let kind = agent_kind();
@@ -269,7 +254,7 @@ fn a_lowercase_hyphenated_name_trips_no_charset_clause() {
 
 #[test]
 fn two_agents_sharing_a_name_in_one_scope_trip_the_uniqueness_clause() {
-    let harness = tmpdir("duplicate-name");
+    let harness = common::tmpdir("duplicate-name");
     let kind = agent_kind();
 
     let first_source = write_agent(&harness, "one.md", "reviewer");
@@ -297,7 +282,7 @@ fn two_agents_sharing_a_name_in_one_scope_trip_the_uniqueness_clause() {
 
 #[test]
 fn two_agents_with_distinct_names_trip_no_uniqueness_clause() {
-    let harness = tmpdir("distinct-names");
+    let harness = common::tmpdir("distinct-names");
     let kind = agent_kind();
 
     let first_source = write_agent(&harness, "one.md", "reviewer");
@@ -319,7 +304,7 @@ fn two_agents_with_distinct_names_trip_no_uniqueness_clause() {
 
 #[test]
 fn a_source_missing_the_name_field_is_a_load_error() {
-    let harness = tmpdir("no-name");
+    let harness = common::tmpdir("no-name");
     let dir = harness.join(".claude").join("agents");
     fs::create_dir_all(&dir).unwrap();
     let path = dir.join("nameless.md");

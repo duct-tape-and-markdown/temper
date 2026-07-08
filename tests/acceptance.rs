@@ -20,7 +20,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::builtin_kind;
 use temper::check::{self, Diagnostic, Severity};
@@ -41,41 +42,17 @@ fn builtin_skill_contract() -> Contract {
 /// acceptance drives it to observe the process exit code.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-acceptance-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 /// Project an imported skill to its authored surface member document
 /// `<skill.id>/SKILL.md` (`Member::to_document`) and reload it through the generic
 /// `Unit` loader `check` reads. The surface directory is named for the skill so the
 /// generic id matches the imported member; `placement` reads the imported source
 /// directory off the preserved provenance, not this scratch directory.
 fn skill_surface_unit(skill: &Member) -> Unit {
-    let dir = tmpdir(&format!("surface-{}", skill.id)).join(&skill.id);
+    let dir = common::tmpdir(&format!("surface-{}", skill.id)).join(&skill.id);
     fs::create_dir_all(&dir).unwrap();
     let doc_path = dir.join("SKILL.md");
     fs::write(&doc_path, skill.to_document().emit()).unwrap();
     Unit::from_member_document(&dir, &doc_path).unwrap()
-}
-
-/// Path to a directory under `tests/fixtures`, resolved from the manifest so the
-/// test is independent of the process working directory.
-fn fixture(rel: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures")
-        .join(rel)
 }
 
 /// Render a diagnostic set as one stable line per finding (`<severity> <rule>:
@@ -104,7 +81,7 @@ fn render_diagnostics(diagnostics: &[Diagnostic]) -> String {
 /// `clean` control silent.
 #[test]
 fn check_reproduces_the_expected_diagnostic_set() {
-    let rules_root = fixture("rules");
+    let rules_root = common::fixture("rules");
     let mut fixtures: Vec<PathBuf> = fs::read_dir(&rules_root)
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -154,7 +131,8 @@ fn skill_kind_facts() -> KindFactRow {
 #[test]
 fn acceptance_check_then_reemit_is_a_no_diff() {
     let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-    let skill = Member::from_source(&skill_kind, &fixture("coordinate").join("SKILL.md")).unwrap();
+    let skill =
+        Member::from_source(&skill_kind, &common::fixture("coordinate").join("SKILL.md")).unwrap();
 
     // check — a well-formed skill trips no contract clause, so it is clean. The gate
     // reads each skill's surface member document through the one generic `Unit` loader.
@@ -169,7 +147,7 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
 
     // emit — a hand-built seam payload over the same fixture skill, compiled twice: the
     // second compile reproduces the harness projection byte-for-byte.
-    let harness = tmpdir("acceptance-harness");
+    let harness = common::tmpdir("acceptance-harness");
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     let payload = Payload {
@@ -265,7 +243,7 @@ fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> (bool, String) {
 /// always-on coverage/gate-installed notes every corpus carries.
 #[test]
 fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
-    let corpus = tmpdir("spec-corpus");
+    let corpus = common::tmpdir("spec-corpus");
     author_custom_kind_lock(&corpus, "spec", "specs");
     let specs = corpus.join("specs");
     fs::create_dir_all(&specs).unwrap();
@@ -304,7 +282,7 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
 /// independent of the always-on coverage/gate-installed notes.
 #[test]
 fn check_reads_a_custom_kind_rooted_outside_specs() {
-    let corpus = tmpdir("adr-corpus");
+    let corpus = common::tmpdir("adr-corpus");
     author_custom_kind_lock(&corpus, "adr", "adr");
     let adrs = corpus.join("adr");
     fs::create_dir_all(&adrs).unwrap();

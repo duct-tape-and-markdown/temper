@@ -22,7 +22,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use sha2::{Digest, Sha256};
 use temper::drift::{
@@ -33,22 +32,6 @@ mod common;
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "author-emit-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// Snapshot every file under `dir` as a sorted map of relative path -> bytes.
 fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -149,7 +132,7 @@ fn basic_payload(members: Vec<PayloadMember>) -> Payload {
 /// from the workspace dir's parent, matching the seam's own topology:
 /// `.temper/` sits beside `.claude/`.
 fn workspace(label: &str) -> (PathBuf, PathBuf) {
-    let harness = tmpdir(label);
+    let harness = common::tmpdir(label);
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     (harness, into)
@@ -668,7 +651,7 @@ fn wire_sdk_harness(label: &str) -> (PathBuf, PathBuf) {
 /// [`wire_sdk_harness`], parameterized over the fixture program text — the seam
 /// each real-SDK test drives is the same; only the authored harness differs.
 fn wire_sdk_harness_program(label: &str, program: &str) -> (PathBuf, PathBuf) {
-    let harness = tmpdir(label);
+    let harness = common::tmpdir(label);
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
     fs::write(into.join("harness.ts"), program).unwrap();
@@ -924,7 +907,7 @@ fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
 
 #[test]
 fn check_harness_and_session_start_gate_the_raw_harness_with_no_scratch_import() {
-    let harness = tmpdir("no-scratch");
+    let harness = common::tmpdir("no-scratch");
     let rules = harness.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(

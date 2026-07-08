@@ -12,29 +12,14 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
+
+mod common;
 
 use temper::builtin_kind;
 use temper::extract::{FeatureValue, ValueType};
 use temper::frontmatter::Member;
 use temper::import;
 use temper::kind::{Registration, Unit};
-
-static COUNTER: AtomicU32 = AtomicU32::new(0);
-
-/// A fresh, empty temp directory unique to this test run.
-fn tmpdir(label: &str) -> PathBuf {
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "command-kind-{}-{}-{}",
-        std::process::id(),
-        id,
-        label
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    dir
-}
 
 /// A command file in the real Claude Code shape: YAML frontmatter over a markdown
 /// body, the same schema a skill's `SKILL.md` carries.
@@ -69,7 +54,7 @@ fn surface_unit(member: &Member, member_doc: &str, dir: &std::path::Path) -> Uni
 
 #[test]
 fn discovery_over_the_embedded_governs_finds_the_command_file() {
-    let harness = tmpdir("discover");
+    let harness = common::tmpdir("discover");
     write_command(&harness, "coordinate", DEPLOY_COMMAND);
     write_command(&harness, "deploy", DEPLOY_COMMAND);
 
@@ -90,7 +75,7 @@ fn discovery_over_the_embedded_governs_finds_the_command_file() {
 
 #[test]
 fn a_command_file_folds_into_a_member_with_file_stem_identity() {
-    let harness = tmpdir("deploy");
+    let harness = common::tmpdir("deploy");
     let source = write_command(&harness, "deploy", DEPLOY_COMMAND);
 
     let command_kind = builtin_kind::definition("command")
@@ -122,7 +107,7 @@ fn a_command_member_registers_on_both_documented_invocation_channels() {
 
 #[test]
 fn a_command_member_extracts_the_skills_declared_field_schema() {
-    let harness = tmpdir("deploy-schema");
+    let harness = common::tmpdir("deploy-schema");
     let source = write_command(&harness, "deploy", DEPLOY_COMMAND);
 
     let command_kind = builtin_kind::definition("command")
