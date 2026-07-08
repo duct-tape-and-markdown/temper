@@ -3,17 +3,16 @@
 - Spec derived through: 474835b
 - Audited through: a112dbe
 - Residue swept through: 91fb466
-- This tick: Residue sweep 7ff3f03..HEAD (job 4) — clean. Only substantive
-  commit is 81b6ab4 (AGENT-KIND); it was self-contained: dead `.claude/agents`
-  `KNOWN_SURFACES` row removed (rows now settings.json/.mcp.json only), both
-  `coverage_note` test doubles rewired to a `widget` kind, `declarations.ts`
-  `identityField` loss fixed + byte-verified (builtin_lock_frozen). `genre` hits
-  in nested_member.rs / sdk emit tests are removal-assertion guards, not living
-  residue. Session-start `+++` kinds/packages fixture debt unchanged (path
-  untouched this range) — kept-asymmetry record stays accurate. Cursor → HEAD.
+- This tick: Quiet closing pass (job 5). All four upstream inputs re-verified
+  current — inbox empty; spec delta empty (cursor 474835b); no commit past
+  a112dbe touches src/tests/sdk (ship audit current); residue clean through
+  91fb466 (5fd916f is a plan commit, no code). Gate reason re-tested on disk:
+  `.github/workflows/` holds only `temper.yml` (no `release.yml`); root
+  package.json still `temper-flume-harness`/`private:true`; sdk is
+  `@dtmd/temper` 0.0.4 — all three claims hold. Queue disjoint (one entry).
 - Queue: 1 — PACKAGING-CHANNELS (parked on human release creds + engine-binary
-  workflow). Unchanged this tick.
+  workflow; not pickable). Unchanged this tick.
 
-Plan continues: yes — quiet closing pass (all four jobs above now current; one
-closing pass owed before hand-off: queue disjoint, gate reason re-tested,
-state re-derived).
+Plan continues: no — every input current, the sole entry is parked (needs human
+release creds + the engine-binary release workflow). No pickable work; loop
+hibernates until the park clears via the inbox.
