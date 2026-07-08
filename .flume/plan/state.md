@@ -1,24 +1,27 @@
 # Plan state
 
 - Spec derived through: cd7135b
-- Audited through: be1298f
+- Audited through: 37a92f0
 - Residue swept through: be1298f
-- This tick: Quiet closing pass (job 5). Inbox empty. Spec delta empty (no
-  commits past cd7135b touch specs/). Ship audit: no commits since d8405d7
-  touch src/tests/sdk (`git log d8405d7..HEAD -- src/ tests/ sdk/` empty;
-  f684b56 only touches .claude/.temper/CLAUDE.md/.flume) — cursor to HEAD.
-  Residue: no commits since eb88ffe touch src/tests/sdk/specs either —
-  cursor to HEAD. Re-verified both pending entries' gate reasons on disk:
-  INSTALL-FINGERPRINT-SETTLES-FIRST-RUN's cited lines still match
-  (run_represented src/install.rs:373, evaluate_placements:514, the settle
-  test tests/install.rs:519, module doc bullet ~line 20). PACKAGING-CHANNELS
-  parked reason still true — no .github/workflows/release.yml (only
-  temper.yml), root package.json still the private temper-flume-harness
-  manifest, sdk/package.json still @dtmd/temper 0.0.5. Queue confirmed
-  disjoint (install.rs/tests/install.rs vs release.yml/package.json, no
-  shared paths). No pending.json changes needed.
-- Queue: INSTALL-FINGERPRINT-SETTLES-FIRST-RUN (open, ready) ahead of
-  PACKAGING-CHANNELS (parked, condition unchanged).
+- This tick: Ship audit (job 3), be1298f..37a92f0. Verified
+  INSTALL-FINGERPRINT-SETTLES-FIRST-RUN on disk, not just the log: 78181e6
+  adds a post-`evaluate_placements` re-invoke of `emit_program` (real writes
+  only) in `run_represented`'s yes-path (src/install.rs:417-434) — placement
+  mutates emit-owned bytes (managed-by note, schema modeline) after the lock
+  was already stamped from pre-placement bytes, so without the re-emit a
+  single yes-path run left its own lock stale until a second run converged
+  it; `emit_one` folds placement-inclusive bytes back in, so the re-emit
+  re-derives correct fingerprints same-run. tests/install.rs updated
+  accordingly. 37a92f0 (chore) removed the pending entry — confirmed
+  pending.json now carries only PACKAGING-CHANNELS. Re-verified
+  PACKAGING-CHANNELS's parked reason against disk: still no
+  `.github/workflows/release.yml` (only `temper.yml`), root package.json
+  still the private `temper-flume-harness` manifest, sdk/package.json still
+  `@dtmd/temper` 0.0.5 — reason holds, no rewrite needed. Audited cursor
+  advanced to HEAD.
+- Queue: PACKAGING-CHANNELS (parked, condition unchanged) — sole entry, no
+  pickable work for build this tick.
 
-Plan continues: no — every input is current and the queue is disjoint with
-one pickable entry; handing off to build.
+Plan continues: yes — residue sweep next (job 4): `Residue swept through`
+(be1298f) trails HEAD (37a92f0) and jobs 1-3 are now quiet (inbox empty,
+spec delta empty since cd7135b, ship audit just closed).
