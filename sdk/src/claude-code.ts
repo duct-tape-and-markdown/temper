@@ -8,8 +8,10 @@
  * too: adoption is `import { skill, skillFloor } from "@dtmd/temper/claude-code"`.
  */
 
-export type { Memory, Rule, Skill } from "./builtins.js";
+export type { Agent, Memory, Rule, Skill } from "./builtins.js";
 export {
+  agent,
+  agentFloor,
   command,
   commandFloor,
   memory,

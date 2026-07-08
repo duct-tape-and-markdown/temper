@@ -40,6 +40,7 @@ export {
   requirement,
   type,
   unique,
+  uniqueName,
 } from "./contract.js";
 
 // The engine room — kinds as typed constructors, plus the embedded-member value

@@ -9,6 +9,8 @@ import { test } from "node:test";
 
 import type { Clause } from "../src/index.js";
 import {
+  agent,
+  agentFloor,
   command,
   commandFloor,
   memory,
@@ -21,6 +23,7 @@ import {
 } from "../src/claude-code.js";
 
 const FLOORS: ReadonlyArray<readonly Clause[]> = [
+  agentFloor,
   skillFloor,
   commandFloor,
   ruleFloor,
@@ -106,6 +109,7 @@ test("memoryAgentsMdFloor is guidance-only — zero clauses", () => {
 });
 
 test("the floors ride alongside their kinds through the claude-code subpath", () => {
+  assert.equal(typeof agent, "function");
   assert.equal(typeof skill, "function");
   assert.equal(typeof command, "function");
   assert.equal(typeof rule, "function");
@@ -119,7 +123,14 @@ test("command is a file-shaped unit with no identityField, unlike the directory-
   assert.equal(skill.facts.identityField, "name");
 });
 
-test("skill/command register on both documented invocation channels; rule/memory carry a singleton set", () => {
+test("agent is a named-field unit whose identity comes from its own name field", () => {
+  assert.equal(agent.facts.unitShape, "named-field");
+  assert.equal(agent.facts.identityField, "name");
+  assert.equal(agent.facts.format, "yaml-frontmatter");
+  assert.deepEqual(agent.facts.locus, { kind: "at", root: ".claude/agents", glob: "**/*.md" });
+});
+
+test("skill/command register on both documented invocation channels; agent/rule/memory carry a singleton set", () => {
   assert.deepEqual(skill.facts.registration, [
     { via: "user-invoked" },
     { via: "description-trigger", field: "description" },
@@ -128,8 +139,33 @@ test("skill/command register on both documented invocation channels; rule/memory
     { via: "user-invoked" },
     { via: "description-trigger", field: "description" },
   ]);
+  assert.deepEqual(agent.facts.registration, [{ via: "description-trigger", field: "description" }]);
   assert.deepEqual(rule.facts.registration, [{ via: "paths-match", field: "paths" }]);
   assert.deepEqual(memory.facts.registration, [{ via: "always" }]);
+});
+
+test("agentFloor requires name and description, gates the lowercase-hyphen charset, and pins per-scope uniqueness", () => {
+  assert.deepEqual(
+    agentFloor.map((c) => c.predicate.key),
+    ["required", "allowed_chars", "unique-name", "required"],
+  );
+  assert.deepEqual(
+    agentFloor.map((c) => c.predicate.field),
+    ["name", "name", undefined, "description"],
+  );
+  const charset = agentFloor[1].predicate.charset;
+  assert.deepEqual(charset, { ranges: ["a-z"], chars: "-" });
+});
+
+test("an agent member's identity field writes name first, then the typed description", () => {
+  const member = agent({
+    name: "code-reviewer",
+    description: "Use when reviewing a pull request for correctness.",
+  });
+  assert.deepEqual(member.fields, [
+    ["name", "code-reviewer"],
+    ["description", "Use when reviewing a pull request for correctness."],
+  ]);
 });
 
 test("disable-model-invocation/user-invocable are ordinary declared fields on a skill member", () => {

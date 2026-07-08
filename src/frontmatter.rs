@@ -110,6 +110,19 @@ pub enum FrontmatterError {
         shape: &'static str,
     },
 
+    /// A `named-field`-shaped source carries no value for its declared identity
+    /// field (an agent with no `name`) — the third unit-shape mode's own id source,
+    /// absent where `NoId`'s fixed `file`/`directory` shape labels don't fit a
+    /// dynamic field name.
+    #[error("{path} has no `{field}` frontmatter field to name it")]
+    #[diagnostic(code(temper::frontmatter::no_named_field_id))]
+    NoNamedFieldId {
+        /// The path missing the declared identity field.
+        path: PathBuf,
+        /// The frontmatter field the id was to be read from.
+        field: String,
+    },
+
     /// The surface member document is not a well-formed `+++`-fenced document.
     #[error("{path}: {source}")]
     #[diagnostic(code(temper::frontmatter::bad_document))]
@@ -135,11 +148,12 @@ pub enum FrontmatterError {
 
 impl Member {
     /// Import a member from its source file, driven by the kind's declared unit shape
-    /// and `field` extractors: split the YAML frontmatter, derive the id (file stem or
-    /// parent directory name), lift the declared fields then the preserved unknown keys
-    /// into the projection order, scan companions (directory shape), and hash the
-    /// original bytes for provenance. The authored surface layer (`satisfies`/
-    /// published requirements) is never in the source, so it starts empty.
+    /// and `field` extractors: split the YAML frontmatter, derive the id (file stem,
+    /// parent directory name, or a declared frontmatter field's value), lift the
+    /// declared fields then the preserved unknown keys into the projection order, scan
+    /// companions (directory shape), and hash the original bytes for provenance. The
+    /// authored surface layer (`satisfies`/published requirements) is never in the
+    /// source, so it starts empty.
     ///
     /// The body is taken byte-faithfully from after the closing frontmatter delimiter;
     /// a source with no frontmatter parses to no fields and a whole-file body — the
@@ -183,7 +197,9 @@ impl Member {
             source,
         })?;
 
-        let (id, companions) = match kind.unit_shape {
+        let parsed = parse_frontmatter(&raw);
+
+        let (id, companions) = match &kind.unit_shape {
             Some(UnitShape::Directory) => {
                 let dir = source_file
                     .parent()
@@ -203,11 +219,21 @@ impl Member {
                 let name = source_file.file_name().unwrap_or(OsStr::new(""));
                 (id, scan_companions(dir, name)?)
             }
+            Some(UnitShape::NamedField { field }) => {
+                let id = parsed
+                    .get(field)
+                    .and_then(JsonValue::as_str)
+                    .map(str::to_string)
+                    .ok_or_else(|| FrontmatterError::NoNamedFieldId {
+                        path: source_file.to_path_buf(),
+                        field: field.clone(),
+                    })?;
+                (id, Vec::new())
+            }
             // `file` shape, or an undeclared shape defaulting to a lone file.
             Some(UnitShape::File) | None => (fold_file_id(base, source_file)?, Vec::new()),
         };
 
-        let parsed = parse_frontmatter(&raw);
         let fields = order_fields(&kind.declared_fields(), parsed);
 
         Ok(Self {

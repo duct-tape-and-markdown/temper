@@ -57,11 +57,13 @@ fn ensure_sdk_built() {
 
 /// A memberless harness binding every built-in kind to every built-in floor via
 /// `expect` — no members, so `compileDeclarations` (`sdk/src/declarations.ts`) emits
-/// only the four kind facts and their floor clauses, exactly the family
+/// only the five kind facts and their floor clauses, exactly the family
 /// `src/builtin_lock.toml` embeds (`sdk/src/builtins.ts`, the built-in kinds/floors).
 const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { emit, harness } from "@dtmd/temper";
 import {
+  agent,
+  agentFloor,
   command,
   commandFloor,
   memory,
@@ -76,6 +78,7 @@ import {
 const program = harness({
   members: [],
   expect: [
+    { kind: agent, clauses: agentFloor },
     { kind: command, clauses: commandFloor },
     { kind: memory, clauses: memoryAnthropicFloor },
     { kind: memory, clauses: memoryAgentsMdFloor },

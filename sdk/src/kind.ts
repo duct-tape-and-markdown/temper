@@ -15,8 +15,13 @@ import type { Requirement } from "./contract.js";
 /** The shape of the on-disk artifact a member projects to (fact 3, layout). */
 export type Format = "yaml-frontmatter";
 
-/** Whether a member is a lone file (identity from the stem) or a directory with an entry file. */
-export type UnitShape = "file" | "directory";
+/**
+ * Whether a member is a lone file (identity from the stem), a directory with an
+ * entry file (identity from the directory name), or a lone file whose identity is
+ * read from a declared frontmatter field (`identityField`) instead of derived from
+ * the path (an agent's `name`).
+ */
+export type UnitShape = "file" | "directory" | "named-field";
 
 /**
  * One **channel** a kind's registration declares — a documented way a member
@@ -65,9 +70,12 @@ export interface KindFacts {
    * the world reaches a member (never rivals — a member is live if any one is). */
   readonly registration: readonly Registration[];
  /**
-   * The frontmatter key the member's name writes under (a skill's `name`), or
-   * absent when identity is the file stem (a rule). A layout detail: it shapes
-   * the projected frontmatter, never the model.
+   * The frontmatter key the member's name writes under. For `unitShape:
+   * "named-field"` this is the id **source** — the declared field a member's
+   * identity is read from (an agent's `name`), never the filename or directory.
+   * For `"directory"` it is a projection-order detail only (a skill's `name`
+   * still writes into frontmatter, but identity is the directory name); absent
+   * when identity is the file stem and no field carries it (a rule).
  */
   readonly identityField?: string;
   /** Fact 5, edge fields — the kind's fields that are references to other members. */

@@ -1,13 +1,13 @@
 //! The embedded built-in kind std-lib.
 //!
-//! `temper` ships the read-side definitions of the known-harness kinds (`command`,
-//! `skill`, `rule`, `memory`) as plain Rust data below — the compiled default
-//! program the engine carries for SDK-less checking.
+//! `temper` ships the read-side definitions of the known-harness kinds (`agent`,
+//! `command`, `skill`, `rule`, `memory`) as plain Rust data below — the compiled
+//! default program the engine carries for SDK-less checking.
 //!
 //! A built-in kind's definition is a [`CustomKind`] like any other — assembled with
 //! [`CustomKind::new`] — and validated as any kind is; this module only sources the
 //! five facts from Rust literals instead of a parsed header. Identity is flat: a
-//! kind's bare name is its whole identity, so the four kinds below never
+//! kind's bare name is its whole identity, so the five kinds below never
 //! collide.
 
 use std::collections::BTreeMap;
@@ -99,6 +99,43 @@ fn claude_code_command() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `.claude/agents/**/*.md` kind: a subagent definition,
+/// identity from its frontmatter `name` field (never the filename), discovered
+/// recursively — any containing subdirectory is purely organizational, per the docs'
+/// own `agents/review/`, `agents/research/` example — registering only on the
+/// description-trigger channel (code.claude.com/docs/en/sub-agents, retrieved
+/// 2026-07-07).
+fn claude_code_agent() -> CustomKind {
+    CustomKind {
+        format: Some(Format::YamlFrontmatter),
+        unit_shape: Some(crate::kind::UnitShape::NamedField {
+            field: "name".to_string(),
+        }),
+        registration: vec![Registration::DescriptionTrigger {
+            field: "description".to_string(),
+        }],
+        ..CustomKind::new(
+            "agent",
+            Governs {
+                root: ".claude/agents".to_string(),
+                glob: "**/*.md".to_string(),
+            },
+            Extraction::new(vec![
+                Primitive::Field {
+                    key: "name".to_string(),
+                },
+                Primitive::Field {
+                    key: "description".to_string(),
+                },
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]),
+        )
+    }
+}
+
 /// Anthropic's documented `.claude/rules/*.md` kind: a lone file whose identity is
 /// the filename stem, activated by its `paths` glob (or unconditionally, when absent).
 fn claude_code_rule() -> CustomKind {
@@ -156,6 +193,7 @@ fn claude_code_memory() -> CustomKind {
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
     vec![
+        claude_code_agent(),
         claude_code_command(),
         claude_code_skill(),
         claude_code_rule(),
@@ -344,7 +382,7 @@ mod tests {
         let all = definitions().unwrap();
         assert_eq!(
             all.keys().map(String::as_str).collect::<Vec<_>>(),
-            vec!["command", "memory", "rule", "skill"]
+            vec!["agent", "command", "memory", "rule", "skill"]
         );
     }
 
@@ -352,10 +390,56 @@ mod tests {
     fn qualified_names_every_embedded_kind_by_its_own_bare_name() {
         // No provider axis left to resolve through — a bare name's qualified identity
         // is always itself.
-        for bare in ["command", "skill", "rule", "memory"] {
+        for bare in ["agent", "command", "skill", "rule", "memory"] {
             assert_eq!(qualified(bare).unwrap().as_deref(), Some(bare));
         }
         assert!(qualified("spec").unwrap().is_none());
+    }
+
+    #[test]
+    fn agent_definition_matches_the_hand_authored_kind() {
+        let agent = definition("agent").unwrap().expect("agent is embedded");
+
+        assert_eq!(agent.name, "agent");
+        assert_eq!(
+            agent.governs,
+            Governs {
+                root: ".claude/agents".to_string(),
+                glob: "**/*.md".to_string(),
+            }
+        );
+        assert_eq!(
+            agent.extraction.primitives(),
+            &[
+                Primitive::Field {
+                    key: "name".to_string()
+                },
+                Primitive::Field {
+                    key: "description".to_string()
+                },
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]
+        );
+        assert_eq!(agent.relationships, Vec::<Edge>::new());
+        // Named-field identity — the third mode, distinct from `skill`'s directory
+        // shape and `rule`/`command`'s file-stem shape.
+        assert_eq!(
+            agent.unit_shape,
+            Some(crate::kind::UnitShape::NamedField {
+                field: "name".to_string()
+            })
+        );
+        // Registers on the description-trigger channel only — no user-invoked slash
+        // command, unlike `skill`/`command`.
+        assert_eq!(
+            agent.registration,
+            vec![Registration::DescriptionTrigger {
+                field: "description".to_string()
+            }]
+        );
     }
 
     #[test]

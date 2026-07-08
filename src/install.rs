@@ -1072,8 +1072,17 @@ fn scaffold(
 
 /// Derive a discovered artifact's member name: a directory-unit kind's (`skill`)
 /// name is its entry file's parent directory; a lone-file kind's (`rule`, `memory`)
-/// is the file stem.
+/// is the file stem; a named-field kind's (`agent`) is its declared frontmatter
+/// field's value, never the path.
 fn member_name(kind: &crate::kind::CustomKind, file: &Path) -> miette::Result<String> {
+    if let Some(UnitShape::NamedField { field }) = &kind.unit_shape {
+        let member = frontmatter::Member::from_source(kind, file)?;
+        return member
+            .field(field)
+            .and_then(JsonValue::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| miette::miette!("cannot derive a member name from {}", file.display()));
+    }
     let component = match kind.unit_shape {
         Some(UnitShape::Directory) => file.parent().and_then(Path::file_name),
         _ => file.file_stem(),

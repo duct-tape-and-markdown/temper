@@ -42,15 +42,15 @@ mod tests {
         let declarations = declarations();
 
         // Kind facts: the built-in kinds the memberless emit's `expect` bindings
-        // named (`command`, `skill`, `rule`, `memory` — no `provider` column, since
-        // the SDK module exports none today).
+        // named (`agent`, `command`, `skill`, `rule`, `memory` — no `provider`
+        // column, since the SDK module exports none today).
         let mut names: Vec<&str> = declarations
             .kinds
             .iter()
             .map(|row| row.name.as_str())
             .collect();
         names.sort_unstable();
-        assert_eq!(names, vec!["command", "memory", "rule", "skill"]);
+        assert_eq!(names, vec!["agent", "command", "memory", "rule", "skill"]);
         assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
 
         // Floor clauses: every row names one of the built-in kinds, and carries a
@@ -60,7 +60,7 @@ mod tests {
         for clause in &declarations.clauses {
             assert!(matches!(
                 clause.kind.as_deref(),
-                Some("command" | "skill" | "rule" | "memory")
+                Some("agent" | "command" | "skill" | "rule" | "memory")
             ));
             assert!(matches!(clause.severity.as_str(), "required" | "advisory"));
         }

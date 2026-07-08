@@ -83,6 +83,8 @@ export const deny = (field: string, values: readonly string[]): Predicate => ({
 export const requireSections = (): Predicate => ({ key: "require_sections" });
 /** The member's name matches its directory. */
 export const nameMatchesDir = (): Predicate => ({ key: "name-matches-dir" });
+/** Names are unique within the artifact kind (a scope-wide identity collision). */
+export const uniqueName = (): Predicate => ({ key: "unique-name" });
 
 // Node-set/edge-scope predicates (`10-contracts.md`, "Judged at the node-set
 // scope" / "Judged at the edge scope") — a requirement's set-scope demands ride

@@ -5,10 +5,11 @@
 //!
 //! Driven across the real process boundary through the one-shot `check --harness` verb
 //! (the route session-start takes), over harness-dir fixtures mirroring the real Claude
-//! Code layout — `.claude/skills/*` plus, for the gap arm, a `.claude/agents/` tree no
-//! kind governs, and for the locked-kind arm, a *different* `.claude/agents/` tree a
-//! committed `agent` kind row governs (`.claude/commands` no longer fits this arm: the
-//! `command` built-in now governs it unconditionally, so it is never an available gap).
+//! Code layout — `.claude/skills/*` plus, for the gap arm, a bare `.mcp.json` no kind
+//! governs, and for the locked-kind arm, a `.claude/settings.json` a committed
+//! `widget` kind row governs (`.claude/agents` no longer fits either arm: the `agent`
+//! built-in now governs it unconditionally, so it is never an available gap —
+//! mirroring `.claude/commands`'s own graduation off this fixture).
 //! The GitHub reporter gives a machine-parseable finding
 //! set: each finding is one `::warning title=<rule>::<artifact>: …` line, so the
 //! coverage note's advisories are asserted exactly. Every coverage-note finding is
@@ -59,35 +60,27 @@ Drive the team through the playbook.\n"
     fs::write(dir.join("SKILL.md"), skill_md).unwrap();
 }
 
-/// Write a `.claude/agents/<name>.md` subagent — a real Claude Code surface
-/// (code.claude.com/docs/en/settings) that **no built-in kind governs**, so the
-/// coverage note must flag it.
-fn write_agent(root: &Path, name: &str) {
-    let dir = root.join(".claude").join("agents");
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(
-        dir.join(format!("{name}.md")),
-        "---\nname: reviewer\n---\n# Reviewer\n\nA subagent temper models with no kind.\n",
-    )
-    .unwrap();
+/// Write a bare `.mcp.json` — a real Claude Code surface (code.claude.com/docs/en/settings)
+/// that **no built-in kind governs**, so the coverage note must flag it.
+fn write_mcp_json(root: &Path) {
+    fs::write(root.join(".mcp.json"), "{}").unwrap();
 }
 
-/// Commit a lock at `<root>/.temper/lock.toml` declaring an `agent` kind rooted at
-/// `.claude/agents` and project its one member — a locked custom kind the coverage
-/// note's built-in set carries no row for, so the gate discovers it only by reading
-/// the lock (`COVERAGE-KIND-AWARE`). `agent` (not `command`) stands in for the
-/// not-yet-shipped custom kind here: `command` graduated to a real built-in
-/// (COMMAND-KIND), so a lock row named `command` would now be shadowed rather than
-/// exercise the locked-custom-kind path this test means to cover.
-fn lock_agent_kind(root: &Path) {
+/// Commit a lock at `<root>/.temper/lock.toml` declaring a `widget` kind rooted at
+/// `.claude` selecting `settings.json`, and project its one member — a locked custom
+/// kind the coverage note's built-in set carries no row for, so the gate discovers it
+/// only by reading the lock (`COVERAGE-KIND-AWARE`). `widget` stands in for the
+/// not-yet-shipped custom kind here: `agent` no longer fits (AGENT-KIND graduated it
+/// to a real built-in), mirroring `command`'s own earlier graduation off this fixture.
+fn lock_widget_kind(root: &Path) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![KindFactRow {
-                name: "agent".to_string(),
+                name: "widget".to_string(),
                 provider: None,
-                governs_root: ".claude/agents".to_string(),
-                governs_glob: "*.md".to_string(),
+                governs_root: ".claude".to_string(),
+                governs_glob: "settings.json".to_string(),
                 format: None,
                 unit_shape: Some("file".to_string()),
                 registration: Vec::new(),
@@ -96,10 +89,10 @@ fn lock_agent_kind(root: &Path) {
             ..Declarations::default()
         },
         members: vec![PayloadMember {
-            kind: "agent".to_string(),
-            name: "review".to_string(),
+            kind: "widget".to_string(),
+            name: "settings".to_string(),
             fields: Vec::new(),
-            body: "# Review\n\nRun the review workflow.\n".to_string(),
+            body: "# Settings\n\nProject settings.\n".to_string(),
             source_path: None,
         }],
     };
@@ -136,12 +129,12 @@ fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
 }
 
 #[test]
-fn an_ungoverned_agents_dir_is_flagged_beside_the_checked_summary() {
-    let harness = tmpdir("with-agents");
-    // Two clean skills the gate checks, plus an ungoverned `.claude/agents/` tree.
+fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
+    let harness = tmpdir("with-mcp-json");
+    // Two clean skills the gate checks, plus an ungoverned `.mcp.json`.
     write_skill(&harness, "coordinate");
     write_skill(&harness, "review");
-    write_agent(&harness, "reviewer");
+    write_mcp_json(&harness);
 
     let (findings, success) = check_harness(&harness);
 
@@ -163,19 +156,19 @@ fn an_ungoverned_agents_dir_is_flagged_beside_the_checked_summary() {
         "the summary reports the two checked skills, got: {summary}"
     );
 
-    // (2) The ungoverned `.claude/agents/` surface is flagged — exactly once, `warning`,
+    // (2) The ungoverned `.mcp.json` surface is flagged — exactly once, `warning`,
     // naming the surface and carrying its Claude Code docs citation at the point of claim.
     let unmodeled = findings_for(&findings, "coverage.unmodeled-surface");
-    let agents: Vec<&&String> = unmodeled
+    let mcp: Vec<&&String> = unmodeled
         .iter()
-        .filter(|line| line.contains("::.claude/agents:"))
+        .filter(|line| line.contains("::.mcp.json:"))
         .collect();
     assert_eq!(
-        agents.len(),
+        mcp.len(),
         1,
-        "expected exactly one flag on .claude/agents, got: {unmodeled:#?}"
+        "expected exactly one flag on .mcp.json, got: {unmodeled:#?}"
     );
-    let finding = agents[0];
+    let finding = mcp[0];
     assert!(
         finding.starts_with("::warning "),
         "the unmodeled-surface flag is advisory (warn), got: {finding}"
@@ -207,8 +200,8 @@ fn an_ungoverned_agents_dir_is_flagged_beside_the_checked_summary() {
 #[test]
 fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
     let harness = tmpdir("all-modeled");
-    // Only a `.claude/skills/` surface — modeled by the `skill` kind. No agents dir,
-    // no settings.json, no .mcp.json, so no known ungoverned surface is present.
+    // Only a `.claude/skills/` surface — modeled by the `skill` kind. No
+    // settings.json, no .mcp.json, so no known ungoverned surface is present.
     write_skill(&harness, "coordinate");
 
     let (findings, success) = check_harness(&harness);
@@ -229,20 +222,22 @@ fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
 
 #[test]
 fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
-    let harness = tmpdir("locked-agent-kind");
+    let harness = tmpdir("locked-widget-kind");
     write_skill(&harness, "coordinate");
-    lock_agent_kind(&harness);
+    fs::create_dir_all(harness.join(".claude")).unwrap();
+    fs::write(harness.join(".claude/settings.json"), "{}").unwrap();
+    lock_widget_kind(&harness);
 
     let (findings, success) = check_harness(&harness);
 
-    // `.claude/agents` is present and governed by the locked `agent` kind, so it is
-    // never flagged unmodeled.
+    // `.claude/settings.json` is present and governed by the locked `widget` kind,
+    // so it is never flagged unmodeled.
     let unmodeled = findings_for(&findings, "coverage.unmodeled-surface");
     assert!(
         unmodeled
             .iter()
-            .all(|line| !line.contains("::.claude/agents:")),
-        "a locked custom kind governing .claude/agents must suppress the finding, got: {unmodeled:#?}"
+            .all(|line| !line.contains("::.claude/settings.json:")),
+        "a locked custom kind governing .claude/settings.json must suppress the finding, got: {unmodeled:#?}"
     );
 
     // The checked-count message folds the custom kind's member in beside the
@@ -255,7 +250,7 @@ fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
     );
     let summary = checked[0];
     assert!(
-        summary.contains("agent (1)"),
+        summary.contains("widget (1)"),
         "the summary counts the locked custom kind's member, got: {summary}"
     );
     assert!(

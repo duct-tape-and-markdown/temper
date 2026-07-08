@@ -1057,11 +1057,26 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         ]
     );
 
-    // The SDK module sets no `provider` on any of its four exported kinds yet, so
+    let agent = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "agent")
+        .expect("the agent kind fact is embedded");
+    assert_eq!(agent.governs_root, ".claude/agents");
+    assert_eq!(agent.governs_glob, "**/*.md");
+    assert_eq!(agent.format.as_deref(), Some("yaml-frontmatter"));
+    // Named-field identity — the third mode, wire-spelled `named-field(<field>)`.
+    assert_eq!(agent.unit_shape.as_deref(), Some("named-field(name)"));
+    assert_eq!(
+        agent.registration,
+        vec!["description-trigger(description)".to_string()]
+    );
+
+    // The SDK module sets no `provider` on any of its five exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
     // reconciles (`(builtin-workspace-qualified-key)`), not this link.
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 4);
+    assert_eq!(declarations.kinds.len(), 5);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());
@@ -1091,6 +1106,11 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
         lock_triples("command"),
         floor_triples("command"),
         "command's floor clauses round-trip through the derived lock unchanged"
+    );
+    assert_eq!(
+        lock_triples("agent"),
+        floor_triples("agent"),
+        "agent's floor clauses round-trip through the derived lock unchanged"
     );
 }
 

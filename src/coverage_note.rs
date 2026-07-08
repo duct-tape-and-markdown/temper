@@ -3,8 +3,8 @@
 //!
 //! Fail-loud delivery — the invariant. The
 //! gate checks each built-in kind's members and stays silent about everything else,
-//! but silence about a surface temper carries no kind for (a `.claude/agents/` tree,
-//! `settings.json`, an `.mcp.json`) is indistinguishable from "checked and clean".
+//! but silence about a surface temper carries no kind for (`settings.json`, an
+//! `.mcp.json`) is indistinguishable from "checked and clean".
 //! This module makes the coverage explicit: one advisory note stating which kinds
 //! checked how many members, one finding per known Claude Code surface present on
 //! disk that no in-scope kind governs, and one finding per stray entry directly under
@@ -62,9 +62,10 @@ const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-
 /// The curated known-surface list. Every entry is a documented Claude Code surface
 /// (verified against the settings docs, [`SETTINGS_DOC`]) that **no built-in kind
 /// governs**: skills live under `.claude/skills/` (the `skill` kind), commands under
-/// `.claude/commands/` (the `command` kind), rules under `.claude/rules/` (the `rule`
-/// kind), and memory under `CLAUDE.md` (the `memory` kind), so those loci are
-/// deliberately absent — governance already covers them.
+/// `.claude/commands/` (the `command` kind), subagents under `.claude/agents/` (the
+/// `agent` kind), rules under `.claude/rules/` (the `rule` kind), and memory under
+/// `CLAUDE.md` (the `memory` kind), so those loci are deliberately absent —
+/// governance already covers them.
 /// Hooks are **not** a directory: they are configured inside
 /// `settings.json`, so the settings entry covers them and no invented `.claude/hooks/`
 /// locus appears (a false locus would be the exact uncited guess collaboration.md
@@ -72,12 +73,6 @@ const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-
 /// and temper models it with *custom* kinds (`intent`/`architecture`/`process`), so
 /// hardcoding it as ungoverned would fire a false positive on temper's own harness.
 const KNOWN_SURFACES: &[KnownSurface] = &[
-    KnownSurface {
-        path: ".claude/agents",
-        is_dir: true,
-        holds: "Claude Code subagent definitions",
-        source: SETTINGS_DOC,
-    },
     KnownSurface {
         path: ".claude/settings.json",
         is_dir: false,
@@ -136,8 +131,8 @@ pub fn check(
     // (2) Name the gaps: a known Claude Code surface present on disk that no in-scope
     // kind governs is checked by nothing — flag it so silence never reads as "checked".
     // The governing set is the built-ins plus every kind the committed lock declares,
-    // so a locked custom kind (e.g. an `agent` kind rooted at `.claude/agents`)
-    // suppresses the surface it governs exactly as a built-in does.
+    // so a locked custom kind (e.g. a `widget` kind rooted at `.claude`, selecting
+    // `settings.json`) suppresses the surface it governs exactly as a built-in does.
     let governing_kinds = with_locked_kinds(root, kinds);
     for surface in KNOWN_SURFACES {
         if present(root, surface) && !governed_by_any(&governing_kinds, surface) {
@@ -436,20 +431,21 @@ mod tests {
         dir
     }
 
-    /// Commit a lock at `<root>/.temper/lock.toml` declaring one `agent` kind rooted
-    /// at `.claude/agents` — a locked custom kind the built-in set (`builtin_set`)
-    /// carries no row for. `agent` stands in for "some not-yet-shipped custom kind"
-    /// here: `command` no longer fits (COMMAND-KIND graduated it to a real built-in,
-    /// so `.claude/commands` is unconditionally governed and off [`KNOWN_SURFACES`]).
-    fn lock_agent_kind(root: &std::path::Path) {
+    /// Commit a lock at `<root>/.temper/lock.toml` declaring one `widget` kind
+    /// rooted at `.claude` selecting `settings.json` — a locked custom kind the
+    /// built-in set (`builtin_set`) carries no row for. `widget` stands in for "some
+    /// not-yet-shipped custom kind" here: `agent` no longer fits (AGENT-KIND
+    /// graduated it to a real built-in, so `.claude/agents` is unconditionally
+    /// governed and off [`KNOWN_SURFACES`], mirroring `command`'s own graduation).
+    fn lock_widget_kind(root: &std::path::Path) {
         let payload = crate::drift::Payload {
             version: crate::drift::SEAM_VERSION,
             declarations: crate::drift::Declarations {
                 kinds: vec![crate::drift::KindFactRow {
-                    name: "agent".to_string(),
+                    name: "widget".to_string(),
                     provider: None,
-                    governs_root: ".claude/agents".to_string(),
-                    governs_glob: "*.md".to_string(),
+                    governs_root: ".claude".to_string(),
+                    governs_glob: "settings.json".to_string(),
                     format: None,
                     unit_shape: Some("file".to_string()),
                     registration: Vec::new(),
@@ -469,25 +465,26 @@ mod tests {
 
     #[test]
     fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
-        let root = tmpdir("locked-agent-kind");
-        lock_agent_kind(&root);
-        std::fs::create_dir_all(root.join(".claude/agents")).unwrap();
+        let root = tmpdir("locked-widget-kind");
+        lock_widget_kind(&root);
+        std::fs::create_dir_all(root.join(".claude")).unwrap();
+        std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
 
-        let counts = BTreeMap::from([("agent".to_string(), 0usize)]);
+        let counts = BTreeMap::from([("widget".to_string(), 0usize)]);
         let diagnostics = check(&root, &builtin_set(), &counts);
 
         assert!(
             diagnostics
                 .iter()
-                .all(|d| !(d.rule == UNMODELED_RULE && d.artifact == ".claude/agents")),
-            "a locked custom kind governing .claude/agents must suppress the finding, got: {diagnostics:#?}"
+                .all(|d| !(d.rule == UNMODELED_RULE && d.artifact == ".claude/settings.json")),
+            "a locked custom kind governing .claude/settings.json must suppress the finding, got: {diagnostics:#?}"
         );
     }
 
     #[test]
     fn a_present_surface_with_no_locked_or_builtin_governor_is_still_flagged() {
         let root = tmpdir("no-lock");
-        std::fs::create_dir_all(root.join(".claude/agents")).unwrap();
+        std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
         let counts = BTreeMap::new();
         let diagnostics = check(&root, &builtin_set(), &counts);
@@ -495,7 +492,7 @@ mod tests {
         assert!(
             diagnostics
                 .iter()
-                .any(|d| d.rule == UNMODELED_RULE && d.artifact == ".claude/agents"),
+                .any(|d| d.rule == UNMODELED_RULE && d.artifact == ".mcp.json"),
             "an ungoverned present surface must still be flagged, got: {diagnostics:#?}"
         );
     }
@@ -533,8 +530,9 @@ mod tests {
     #[test]
     fn a_known_surface_under_claude_does_not_double_report() {
         let root = tmpdir("known-surface-no-double");
-        std::fs::create_dir_all(root.join(".claude/agents")).unwrap();
+        std::fs::create_dir_all(root.join(".claude")).unwrap();
         std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
+        std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
         let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new());
 

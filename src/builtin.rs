@@ -1,6 +1,7 @@
 //! The embedded built-in floor projection.
 //!
-//! Each built-in kind's floor [`Contract`] (`skill`, `rule`, `memory`) is a lossless
+//! Each built-in kind's floor [`Contract`] (`agent`, `command`, `skill`, `rule`,
+//! `memory`) is a lossless
 //! projection of the embedded built-in lock's clause rows
 //! (`crate::builtin_lock::declarations`), grouped by kind label — never a
 //! hand-written mirror. The lock
@@ -65,6 +66,7 @@ pub(crate) fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             values: row.values.clone()?,
         },
         "name-matches-dir" => Predicate::NameMatchesDir,
+        "unique-name" => Predicate::UniqueName,
         _ => return None,
     })
 }

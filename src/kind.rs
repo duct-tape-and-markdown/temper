@@ -69,8 +69,9 @@ pub struct CustomKind {
     /// declare none). Inert until DECLARED-FRONTMATTER-ADAPTER: typed, consumed by
     /// nothing yet.
     pub format: Option<Format>,
-    /// The declared unit shape — whether a member is a lone file (id from the stem)
-    /// or a directory with companions (id from the directory name).
+    /// The declared unit shape — whether a member is a lone file (id from the stem),
+    /// a directory with companions (id from the directory name), or a lone file whose
+    /// id is read from a declared frontmatter field (an agent's `name`).
     /// A closed enum; absent ⇒ `None`. Inert alongside
     /// [`format`](CustomKind::format).
     pub unit_shape: Option<UnitShape>,
@@ -106,9 +107,11 @@ pub enum Format {
 
 /// A kind's declared **unit shape** — the format fact that varies per kind:
 /// whether a member's on-disk artifact is a lone file, its
-/// identity the filename stem, or a directory with companions, its identity the
-/// directory name. A closed enum; any other value is a load error.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// identity the filename stem; a directory with companions, its identity the
+/// directory name; or a lone file whose identity is read from a declared
+/// frontmatter field rather than derived from the path. A closed enum; any other
+/// value is a load error.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnitShape {
     /// `file` — a lone file; the member's id is its filename stem (a rule's
     /// `.claude/rules/rust.md`).
@@ -116,6 +119,13 @@ pub enum UnitShape {
     /// `directory` — a directory with companions; the member's id is the directory
     /// name (a skill's `.claude/skills/<name>/SKILL.md`).
     Directory,
+    /// `named-field` — a lone file whose id is read from a declared frontmatter
+    /// field, not the filename (an agent's `name`; any containing subdirectory is
+    /// purely organizational).
+    NamedField {
+        /// The frontmatter field the id is read from.
+        field: String,
+    },
 }
 
 /// A kind's declared registration — one **channel** among the inbound boundary edges
@@ -392,13 +402,19 @@ fn format_from_label(label: &str) -> Option<Format> {
 }
 
 /// Parse a [`KindFactRow::unit_shape`] label into its typed [`UnitShape`] — `None`
-/// outside the closed vocabulary.
+/// outside the closed vocabulary. `named-field(<field>)` is the third mode's wire
+/// form, the same `<name>(<field>)` call syntax [`registration_from_label`]'s
+/// field-carrying variants use.
 fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     match label {
-        "file" => Some(UnitShape::File),
-        "directory" => Some(UnitShape::Directory),
-        _ => None,
+        "file" => return Some(UnitShape::File),
+        "directory" => return Some(UnitShape::Directory),
+        _ => {}
     }
+    let (name, field) = label.strip_suffix(')')?.split_once('(')?;
+    (name == "named-field").then(|| UnitShape::NamedField {
+        field: field.to_string(),
+    })
 }
 
 /// Parse one [`KindFactRow::registration`] wire label into its typed [`Registration`]

@@ -23,6 +23,7 @@ import {
   minLen,
   nameMatchesDir,
   required,
+  uniqueName,
 } from "./contract.js";
 import type { Clause } from "./contract.js";
 
@@ -80,6 +81,33 @@ export const command: KindDefinition<Skill> = kind<Skill>({
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
+});
+
+/** A Claude Code subagent definition. */
+export interface Agent {
+ /**
+   * When Claude should delegate to this subagent — the sole registration
+   * channel (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07).
+ */
+  readonly description: string;
+  readonly prose?: Prose;
+}
+
+/**
+ * `agent` — every markdown file under `.claude/agents`, discovered recursively (a
+ * containing subdirectory is purely organizational), YAML frontmatter carrying
+ * `name` then `description`; identity is the `name` field (never the filename),
+ * the named-field mode; registers on the description-trigger channel only — no
+ * user-invoked slash command (code.claude.com/docs/en/sub-agents, retrieved
+ * 2026-07-07).
+ */
+export const agent: KindDefinition<Agent> = kind<Agent>({
+  name: "agent",
+  locus: { kind: "at", root: ".claude/agents", glob: "**/*.md" },
+  format: "yaml-frontmatter",
+  unitShape: "named-field",
+  registration: [{ via: "description-trigger", field: "description" }],
+  identityField: "name",
 });
 
 /** A Claude Code rule — a flat markdown file with an optional `paths` scope. */
@@ -234,6 +262,45 @@ export const skillFloor: readonly Clause[] = [
 export const commandFloor: readonly Clause[] = skillFloor.filter(
   (entry) => entry.predicate.key !== "name-matches-dir",
 );
+
+/**
+ * The floor for `agent` — Anthropic's documented subagent contract
+ * (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07): `name` and
+ * `description` are the only required fields, `name` is a "unique identifier
+ * using lowercase letters and hyphens" (no digits, unlike a skill's `name`), and
+ * "keep `name` values unique across the whole tree" — a same-scope collision
+ * loads only one definition.
+ *
+ * Deliberately narrow, like `ruleFloor`: undecidable properties (whether the
+ * description triggers well, model/permissionMode's semi-open vocabularies) stay
+ * out of the gate — the format documents little else that is decidable.
+ */
+export const agentFloor: readonly Clause[] = [
+  clause(required("name"), {
+    severity: "required",
+    guidance:
+      "Every subagent declares a `name` — its unique identifier. Claude Code binds identity to this field alone, never the filename, so a nameless subagent cannot be delegated to.",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)",
+  }),
+  clause(allowedChars("name", { ranges: ["a-z"], chars: "-" }), {
+    severity: "required",
+    guidance:
+      "Lowercase letters and hyphens only — no digits, unlike a skill's `[a-z0-9-]` name. Hooks receive this value as `agent_type`.",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)",
+  }),
+  clause(uniqueName(), {
+    severity: "required",
+    guidance:
+      "Keep `name` values unique across the whole tree — when two files in one scope declare the same name, Claude Code loads only one of them, silently shadowing the other.",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)",
+  }),
+  clause(required("description"), {
+    severity: "required",
+    guidance:
+      "The description is how Claude decides when to delegate to this subagent — write it so the trigger is unambiguous.",
+    cite: "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)",
+  }),
+];
 
 /**
  * The floor for `rule` — Anthropic's documented contract for a Claude Code

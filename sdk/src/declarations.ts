@@ -175,6 +175,17 @@ export interface Declarations {
   readonly mentions: readonly MentionRow[];
 }
 
+/**
+ * The lock label for a kind's declared unit shape: `file`/`directory` verbatim,
+ * or `named-field(<identityField>)` for the third mode — the same `<name>(<field>)`
+ * call syntax [`registrationLabel`] uses, so the id source round-trips through the
+ * row rather than degrading to a bare, unreconstructable `"named-field"`.
+ */
+function unitShapeLabel(facts: KindFacts): string | undefined {
+  if (facts.unitShape !== "named-field") return facts.unitShape;
+  return `named-field(${facts.identityField})`;
+}
+
 /** The lock label for one declared registration channel. */
 function registrationLabel(registration: Registration): string {
   switch (registration.via) {
@@ -228,7 +239,7 @@ function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFact
     governs_root: facts.locus.root,
     governs_glob: facts.locus.glob,
     format: facts.format,
-    unit_shape: facts.unitShape,
+    unit_shape: unitShapeLabel(facts),
     registration: registrationLabels(facts.registration),
     templates: templatesFor(facts.name, allKinds),
   };

@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the four built-in kinds' facts and their floor clauses, plus the unconditional
+# the five built-in kinds' facts and their floor clauses, plus the unconditional
 # `mode = "warn"` assembly fact — the root member's own enforcement mode
 # (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,8 +10,9 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`command`, `skill`, `rule`, `memory`) and its five floors (`commandFloor`,
-# `skillFloor`, `ruleFloor`, `memoryAnthropicFloor`, `memoryAgentsMdFloor`) — the identical rows an
+# built-in kinds (`agent`, `command`, `skill`, `rule`, `memory`) and its six floors
+# (`agentFloor`, `commandFloor`, `skillFloor`, `ruleFloor`, `memoryAnthropicFloor`,
+# `memoryAgentsMdFloor`) — the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration
 # rows verbatim; never hand-edit a row here.
@@ -19,8 +20,16 @@
 # `memoryAgentsMdFloor` is guidance-only (zero clauses,
 # `sdk/src/builtins.ts`), so it contributes no clause row; the SDK module exports one
 # `memory` kind (the `CLAUDE.md` locus) and no `provider`-qualified kind values yet,
-# so this lock's four kind facts carry no `provider` column and there is no distinct
+# so this lock's five kind facts carry no `provider` column and there is no distinct
 # `agents-md.memory` kind row.
+
+[[declaration.kind]]
+name = "agent"
+governs_root = ".claude/agents"
+governs_glob = "**/*.md"
+format = "yaml-frontmatter"
+unit_shape = "named-field(name)"
+registration = ["description-trigger(description)"]
 
 [[declaration.kind]]
 name = "command"
@@ -52,6 +61,38 @@ governs_glob = "*/SKILL.md"
 format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
+
+[[declaration.clause]]
+kind = "agent"
+predicate = "required"
+field = "name"
+severity = "required"
+guidance = "Every subagent declares a `name` — its unique identifier. Claude Code binds identity to this field alone, never the filename, so a nameless subagent cannot be delegated to."
+cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)"
+
+[[declaration.clause]]
+kind = "agent"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+guidance = "Lowercase letters and hyphens only — no digits, unlike a skill's `[a-z0-9-]` name. Hooks receive this value as `agent_type`."
+cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)"
+charset = { ranges = ["a-z"], chars = "-" }
+
+[[declaration.clause]]
+kind = "agent"
+predicate = "unique-name"
+severity = "required"
+guidance = "Keep `name` values unique across the whole tree — when two files in one scope declare the same name, Claude Code loads only one of them, silently shadowing the other."
+cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)"
+
+[[declaration.clause]]
+kind = "agent"
+predicate = "required"
+field = "description"
+severity = "required"
+guidance = "The description is how Claude decides when to delegate to this subagent — write it so the trigger is unambiguous."
+cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-07)"
 
 [[declaration.clause]]
 kind = "command"
