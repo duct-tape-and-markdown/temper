@@ -59,8 +59,8 @@ written to be read by you, and originating context is git's to keep.
 - **flume** control plane (`.flume/`) runs on Node via `@dtmd/flume` (pnpm).
 
 Conventions live in `.claude/rules/*.md`, auto-loaded by Claude Code at launch
-(no import needed): `rust.md` is `paths:`-scoped to Rust files; `collaboration.md`
-loads unconditionally.
+(no import needed): `rust.md` and `sdk.md` are `paths:`-scoped to their trees;
+`collaboration.md` loads unconditionally.
 
 ## Workflow: flume drives the build
 
@@ -76,6 +76,8 @@ trunk one validated commit at a time. State is on disk; each tick is a fresh
 - `cargo test` — tests (prefer `insta` snapshots for parse/lint output).
 - `cargo clippy --all-targets -- -D warnings` — the lint bar (afterMerge gate).
 - `cargo fmt --all --check` — formatting (afterCommit gate); `cargo fmt --all` to fix.
+- `pnpm --dir sdk test` — SDK gate: strict `tsc` + `node --test` (afterMerge gate;
+  run it whenever a change touches `sdk/**`).
 - `pnpm exec flume status` — baton state.
 - `pnpm exec flume render plan` — preview the next plan prompt (no agent call).
 - `pnpm exec flume tick` / `loop` — run the pipeline.

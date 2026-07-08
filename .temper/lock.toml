@@ -1,8 +1,8 @@
 [[memory]]
 name = "CLAUDE"
 source_path = "./CLAUDE.md"
-source_hash = "455f22a78215b327087e032a513f4af9b6be5a8736cda54225100c3eef5a111b"
-emit_hash = "455f22a78215b327087e032a513f4af9b6be5a8736cda54225100c3eef5a111b"
+source_hash = "7cd42d2b1e45254d81243d39e561f7f2ebd34a97349640a57dc1c6a59afbd4f1"
+emit_hash = "7cd42d2b1e45254d81243d39e561f7f2ebd34a97349640a57dc1c6a59afbd4f1"
 
 [[rule]]
 name = "collaboration"
@@ -15,6 +15,12 @@ name = "rust"
 source_path = "./.claude/rules/rust.md"
 source_hash = "ac8b329b530ef4c8a82447cc2fde4801a4a6998b2b471165e9c0636a5f73db31"
 emit_hash = "ac8b329b530ef4c8a82447cc2fde4801a4a6998b2b471165e9c0636a5f73db31"
+
+[[rule]]
+name = "sdk"
+source_path = "./.claude/rules/sdk.md"
+source_hash = "9013a6dd577ebbf72254852cfdb2612ff954fe1b9f7c6eaf9a06a265faf1cc92"
+emit_hash = "9013a6dd577ebbf72254852cfdb2612ff954fe1b9f7c6eaf9a06a265faf1cc92"
 
 [[declaration.kind]]
 name = "memory"
