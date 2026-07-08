@@ -27,6 +27,13 @@ The type of a member. A kind declares
 - a **format** — a template literal rendering the member's values into its
   artifact: constant text around interpolated fields, prose, and child
   layers. The kind's format is the default; a member may dictate its own.
+  One declaration derives two one-way faces — the canonical writer for
+  projections, the lenient reader for sources — never a round trip. A
+  format is admissible only when unambiguous (adjacent slots split by
+  constant text neither can absorb; the prose slot terminal or fenced),
+  holds no logic and no derived values, and declares the leniency its
+  source-reads forgive; a structured sublanguage is a slot naming a
+  schema, never syntax spelled as constant text.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
 
