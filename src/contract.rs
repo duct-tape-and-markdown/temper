@@ -11,6 +11,7 @@
 
 use std::collections::BTreeSet;
 
+use crate::drift::{CharsetRow, ClauseRow};
 use crate::extract::ValueType;
 
 /// A named set of clauses over the decidable predicate algebra — the type a
@@ -236,6 +237,92 @@ pub enum Predicate {
         /// The kind every satisfier in the selection must be.
         kind: String,
     },
+}
+
+/// Lift one clause row's `charset` column into the typed [`Charset`] — `None`
+/// when a range spec is not the `<lo>-<hi>` shape `emit` always writes.
+fn charset_from_row(row: &CharsetRow) -> Option<Charset> {
+    let mut ranges = Vec::with_capacity(row.ranges.len());
+    for spec in &row.ranges {
+        match spec.chars().collect::<Vec<char>>().as_slice() {
+            [lo, '-', hi] => ranges.push((*lo, *hi)),
+            _ => return None,
+        }
+    }
+    let chars = row.chars.as_deref().unwrap_or_default().chars().collect();
+    Some(Charset { ranges, chars })
+}
+
+/// Lift one lock `ClauseRow` — whichever family sourced it (a kind's own floor
+/// row, `crate::builtin`; a requirement's nested set-/edge-scope row,
+/// `crate::main`) — into its typed [`Predicate`], the full argument payload
+/// (`bound`/`charset`/`keys`/`values`/`count`/`target`/`degree`) alongside
+/// `field`. `None` for a predicate key or argument shape this projection
+/// carries no column for. Decodes only the predicate: severity, guidance, and
+/// cite are each call site's own assembly, not this function's job. `pub`
+/// (not `pub(crate)`) so the `main` binary's lift of a requirement's own
+/// clause rows reuses the identical decoder, never a second copy.
+pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
+    Some(match row.predicate.as_str() {
+        "required" => Predicate::Required {
+            field: row.field.clone()?,
+        },
+        "optional" => Predicate::Optional {
+            field: row.field.clone()?,
+        },
+        "min_len" => Predicate::MinLen {
+            field: row.field.clone()?,
+            min: row.bound?.min?,
+        },
+        "max_len" => Predicate::MaxLen {
+            field: row.field.clone()?,
+            max: row.bound?.max?,
+        },
+        "max_lines" => Predicate::MaxLines {
+            max: row.bound?.max?,
+        },
+        "allowed_chars" => Predicate::AllowedChars {
+            field: row.field.clone()?,
+            charset: charset_from_row(row.charset.as_ref()?)?,
+        },
+        "forbidden_keys" => Predicate::ForbiddenKeys {
+            keys: row.keys.clone()?,
+        },
+        "deny" => Predicate::Deny {
+            field: row.field.clone()?,
+            values: row.values.clone()?,
+        },
+        "name-matches-dir" => Predicate::NameMatchesDir,
+        "unique-name" => Predicate::UniqueName,
+        "count" => {
+            let bound = row.count?;
+            Predicate::Count {
+                min: bound.min,
+                max: bound.max,
+            }
+        }
+        "unique" => Predicate::Unique {
+            field: row.field.clone()?,
+        },
+        "membership" => Predicate::Membership {
+            field: row.field.clone()?,
+            target: row.target.clone()?,
+        },
+        "degree" => {
+            let bound = row.degree.as_ref()?;
+            Predicate::Degree {
+                incoming: bound.incoming.map(|edge| EdgeBound {
+                    min: edge.min,
+                    max: edge.max,
+                }),
+                outgoing: bound.outgoing.map(|edge| EdgeBound {
+                    min: edge.min,
+                    max: edge.max,
+                }),
+            }
+        }
+        _ => return None,
+    })
 }
 
 /// One direction's inclusive `[min, max]` edge-count bound for [`Predicate::Degree`],

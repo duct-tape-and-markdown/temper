@@ -143,7 +143,7 @@ pub fn default_contract_from_rows(clauses: &[ClauseRow], kind: &str) -> Contract
             .filter_map(|row| {
                 Some(contract::Clause {
                     severity: severity_from_label(&row.severity)?,
-                    predicate: crate::builtin::predicate_from_row(row)?,
+                    predicate: contract::predicate_from_row(row)?,
                     guidance: row.guidance.clone(),
                     source: row.cite.clone(),
                 })

@@ -1080,39 +1080,9 @@ fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
 /// its predicate requires, degrades to absent — the same tolerant read the rest of the
 /// lock takes over hand-editable state (`crate::drift::read_declarations`).
 fn clause_from_row(row: &drift::ClauseRow) -> Option<contract::Clause> {
-    let predicate = match row.predicate.as_str() {
-        "count" => {
-            let bound = row.count?;
-            contract::Predicate::Count {
-                min: bound.min,
-                max: bound.max,
-            }
-        }
-        "unique" => contract::Predicate::Unique {
-            field: row.field.clone()?,
-        },
-        "membership" => contract::Predicate::Membership {
-            field: row.field.clone()?,
-            target: row.target.clone()?,
-        },
-        "degree" => {
-            let bound = row.degree.as_ref()?;
-            contract::Predicate::Degree {
-                incoming: bound.incoming.map(|edge| contract::EdgeBound {
-                    min: edge.min,
-                    max: edge.max,
-                }),
-                outgoing: bound.outgoing.map(|edge| contract::EdgeBound {
-                    min: edge.min,
-                    max: edge.max,
-                }),
-            }
-        }
-        _ => return None,
-    };
     Some(contract::Clause {
         severity: compose::severity_from_label(&row.severity)?,
-        predicate,
+        predicate: contract::predicate_from_row(row)?,
         guidance: None,
         source: None,
     })

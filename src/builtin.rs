@@ -12,64 +12,8 @@ use std::collections::BTreeMap;
 
 use crate::builtin_lock;
 use crate::compose;
-use crate::contract::{Charset, Clause, Contract, Predicate, Severity};
-use crate::drift::{CharsetRow, ClauseRow};
-
-/// Lift one embedded clause row's `charset` column into the typed [`Charset`] —
-/// `None` when a range spec is not the `<lo>-<hi>` shape `emit` always writes.
-fn charset_from_row(row: &CharsetRow) -> Option<Charset> {
-    let mut ranges = Vec::with_capacity(row.ranges.len());
-    for spec in &row.ranges {
-        match spec.chars().collect::<Vec<char>>().as_slice() {
-            [lo, '-', hi] => ranges.push((*lo, *hi)),
-            _ => return None,
-        }
-    }
-    let chars = row.chars.as_deref().unwrap_or_default().chars().collect();
-    Some(Charset { ranges, chars })
-}
-
-/// Lift one clause row's predicate — the full argument payload
-/// (`bound`/`charset`/`keys`/`values`) alongside `field` — into the typed
-/// [`Predicate`]. `None` for a predicate key or argument shape this projection
-/// carries no column for. `pub(crate)` so [`crate::compose::default_contract_from_rows`] reuses
-/// the identical lift over a custom kind's own committed-lock rows, never a second
-/// copy of the predicate vocabulary.
-pub(crate) fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
-    Some(match row.predicate.as_str() {
-        "required" => Predicate::Required {
-            field: row.field.clone()?,
-        },
-        "optional" => Predicate::Optional {
-            field: row.field.clone()?,
-        },
-        "min_len" => Predicate::MinLen {
-            field: row.field.clone()?,
-            min: row.bound?.min?,
-        },
-        "max_len" => Predicate::MaxLen {
-            field: row.field.clone()?,
-            max: row.bound?.max?,
-        },
-        "max_lines" => Predicate::MaxLines {
-            max: row.bound?.max?,
-        },
-        "allowed_chars" => Predicate::AllowedChars {
-            field: row.field.clone()?,
-            charset: charset_from_row(row.charset.as_ref()?)?,
-        },
-        "forbidden_keys" => Predicate::ForbiddenKeys {
-            keys: row.keys.clone()?,
-        },
-        "deny" => Predicate::Deny {
-            field: row.field.clone()?,
-            values: row.values.clone()?,
-        },
-        "name-matches-dir" => Predicate::NameMatchesDir,
-        "unique-name" => Predicate::UniqueName,
-        _ => return None,
-    })
-}
+use crate::contract::{self, Clause, Contract, Predicate, Severity};
+use crate::drift::ClauseRow;
 
 /// Lift one embedded clause row into its typed [`Clause`] — predicate, severity,
 /// guidance, and cite, the clause's full four channels.
@@ -81,7 +25,7 @@ fn clause_from_row(row: &ClauseRow) -> Clause {
     Clause {
         severity: compose::severity_from_label(&row.severity)
             .expect("the embedded built-in lock declares only required/advisory severities"),
-        predicate: predicate_from_row(row).expect(
+        predicate: contract::predicate_from_row(row).expect(
             "the embedded built-in lock's rows encode only this projection's supported \
              predicates, each carrying its required argument",
         ),
