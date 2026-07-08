@@ -1,26 +1,26 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: f6ec58f
+- Audited through: 1818bb4
 - Residue swept through: 99533af
-- This tick: Inbox (job 1). The two Windows field-report findings (filed by
-  human 352477d, reverted once at 884a008 for a fence violation, fence
-  widened to `.gitattributes` by human d7e35f6) re-verified live on disk
-  before scoping: `src/install.rs:1311` `npm_program()` still private,
-  `tests/common/mod.rs:58` still spawns bare `Command::new("npm")`; no
-  `.gitattributes` exists; 20 `.snap` files and 11 `tests/fixtures/**` files
-  confirmed (counts unchanged from the reverted attempt). Filed
-  WINDOWS-NPM-SPAWN-PUB (per `specs/process/engineering.md`, "One job, one
-  home") and GITATTRIBUTES-LF-PIN (per `specs/model/pipeline.md`, "Emit"),
-  both open, disjoint from each other and from PACKAGING-CHANNELS. Inbox
-  drained. Re-verified PACKAGING-CHANNELS's parked reason still holds at
-  d7e35f6 (no release.yml, package.json still private flume manifest). Jobs
-  2-4 confirmed quiet this tick: `git log f87cc0c..HEAD -- specs/`,
-  `git log f6ec58f..HEAD -- src/ tests/ sdk/`, and
-  `git log 99533af..HEAD -- src/ tests/ sdk/` all empty.
-- Queue: WINDOWS-NPM-SPAWN-PUB open, GITATTRIBUTES-LF-PIN open, both
-  disjoint from PACKAGING-CHANNELS (parked, unchanged).
+- This tick: Ship audit (job 3). Jobs 1-2 confirmed quiet first: inbox empty,
+  no refactor captures; `git log f87cc0c..HEAD -- specs/` empty. Audit range
+  f6ec58f..HEAD touching `src/`/`tests/`/`sdk/` held one commit: 7dc18bf
+  (build: reuse install's `npm_program()` in `tests/common`). Verified live
+  on disk: `src/install.rs:1311` `npm_program()` is now `pub fn`, and
+  `tests/common/mod.rs:58` calls `temper::install::npm_program()` in place
+  of the bare `Command::new("npm")` spawn — WINDOWS-NPM-SPAWN-PUB's work
+  confirmed shipped (already dropped from pending by build's `chore(flume)`
+  1818bb4, alongside GITATTRIBUTES-LF-PIN). Also verified `.gitattributes`
+  exists, pinning `src/builtin_lock.toml`, `tests/snapshots/*.snap`, and
+  `tests/fixtures/**` to `text eol=lf` — GITATTRIBUTES-LF-PIN's work also
+  confirmed shipped; no pending-entry action needed since both were already
+  off the queue. Re-tested PACKAGING-CHANNELS's parked condition: still no
+  `.github/workflows/release.yml` (only `temper.yml`, a check job), root
+  `package.json` still the private flume manifest (`temper-flume-harness`) —
+  unchanged, reason text re-stamped to this sha. Cursor advanced to HEAD.
+- Queue: PACKAGING-CHANNELS parked, unchanged. No open entries.
 
-Plan continues: no — inbox now empty; jobs 2-4 (spec delta, ship audit,
-residue sweep) all confirmed quiet this tick. Build takes over the two open
-entries.
+Plan continues: yes — jobs 1-3 all quiet as of this tick, and residue-swept
+cursor (99533af) still trails HEAD (same 7dc18bf commit crosses its window
+too); job 4 (residue sweep) is the next live input.
