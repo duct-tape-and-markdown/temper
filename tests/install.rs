@@ -7,13 +7,18 @@
 //! - **discovery** — the report counts members by kind before anything is written;
 //! - **no-path** — declining wires the `SessionStart` reporter alone, Node-free,
 //!   never creating `.temper/`;
-//! - **yes-path** — the lift scaffolds a member module per discovered artifact
-//!   (`file()` over the original text, zero file moves) plus `harness.ts`, and the
-//!   first real `emit` (over the built SDK, `node` and all) produces a lock;
-//! - **own-path** — a lifted member's projection is byte-identical to its source,
-//!   so it claims no guard/note; a separately-authored member's does;
-//! - **idempotence** — re-running converges, never re-scaffolding or duplicating
-//!   the guard;
+//! - **yes-path** — the lift scaffolds a member module per discovered artifact, a
+//!   **whole conversion** (0016): every present frontmatter field hoists into a
+//!   typed property and prose moves module-side (inline or a module-adjacent
+//!   file, never a `file()` back-reference to the original `.claude/` path),
+//!   plus `harness.ts`, and the first real `emit` (over the built SDK, `node` and
+//!   all) regenerates every governed artifact as a canonical projection and
+//!   produces a lock;
+//! - **no own-path** — every scaffolded member is emit-owned from its first
+//!   emit, so the guard/managed-by note claim it immediately — never an
+//!   own-path passthrough;
+//! - **idempotence** — re-running converges (after the note's one settling
+//!   emit), never re-scaffolding or duplicating the guard;
 //! - **dependency-before-lift** — a spawn failure ensuring the SDK dependency
 //!   leaves no half-scaffolded `.temper/` program behind it;
 //! - **the lock, not the retired manifest, grounds `guard`'s posture**.
@@ -343,7 +348,7 @@ fn the_session_start_merge_never_reserializes_a_non_canonical_settings_file() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn representing_lifts_every_discovered_member_byte_stable_with_no_guard_claim() {
+fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claimed_projection() {
     let root = write_harness("represent", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -360,69 +365,158 @@ fn representing_lifts_every_discovered_member_byte_stable_with_no_guard_claim() 
     assert!(temper_dir.join("rules").join("collaboration.ts").is_file());
     assert!(temper_dir.join("lock.toml").is_file());
 
-    // `Skill.description` is a required SDK field — the scaffolded module must carry
-    // the source's description forward or it fails `tsc` before a single deepening
-    // edit; a rule's module (no description-trigger field) carries no such line.
+    // Every present field hoists into a typed property (0016, whole
+    // conversion) — `description` (a skill's required field) and `paths` (a
+    // hoisted non-description field on a rule); a rule carries no description
+    // line, since its source declares none.
     assert!(
         fs::read_to_string(temper_dir.join("skills").join("coordinate.ts"))
             .unwrap()
             .contains(
                 "description: \"Use when coordinating agents across axes; not for single-axis work.\","
             ),
-        "the scaffolded skill module must carry the source's required description forward"
+        "the scaffolded skill module must hoist the source's required description forward"
+    );
+    let rust_module = fs::read_to_string(temper_dir.join("rules").join("rust.ts")).unwrap();
+    assert!(
+        rust_module.contains("paths: [\"src/**/*.rs\"],"),
+        "a hoisted non-description field, got:\n{rust_module}"
     );
     assert!(
-        !fs::read_to_string(temper_dir.join("rules").join("rust.ts"))
-            .unwrap()
-            .contains("description:"),
+        !rust_module.contains("description:"),
         "a rule has no description-trigger field, so its module carries no description line"
     );
 
-    // Every lifted member's projection is byte-identical to its original source —
-    // the lift's own no-op-on-content guarantee.
+    // Every fixture body here is at or under the SDK's three-line inline
+    // threshold, so prose moves module-side as an inline `text` literal —
+    // never a `file()` back-reference to the original `.claude/` path, and no
+    // module-adjacent document either (a separate test covers that split).
+    for rel in [
+        "skills/coordinate.ts",
+        "rules/rust.ts",
+        "rules/collaboration.ts",
+    ] {
+        let module = fs::read_to_string(temper_dir.join(rel)).unwrap();
+        assert!(module.contains("prose: text`"), "got:\n{module}");
+        assert!(!module.contains(".claude/"), "got:\n{module}");
+    }
+    assert!(!temper_dir.join("skills").join("coordinate.md").exists());
+    assert!(!temper_dir.join("rules").join("rust.md").exists());
+
+    // The first emit regenerates every governed artifact as a canonical
+    // projection — never an own-path passthrough. `collaboration` carries no
+    // frontmatter fields at all, so its canonical projection is its
+    // byte-faithful body alone, already matching its hand-authored source;
+    // `rust`/`coordinate` declare fields, so their frontmatter is rewritten
+    // into canonical form and the projection changes.
     let emit = outcome.emit.as_ref().expect("the yes-path ran a real emit");
-    assert!(
+    let outcome_for = |name: &str| {
         emit.entries
             .iter()
-            .all(|e| e.outcome == temper::drift::EmitOutcome::Unchanged),
-        "a lifted member's first emit must be a byte-stable no-op, got: {:?}",
-        emit.entries
-    );
+            .find(|e| e.name == name)
+            .unwrap_or_else(|| panic!("no emit entry for {name}"))
+            .outcome
+    };
     assert_eq!(
-        fs::read_to_string(
-            root.join(".claude")
-                .join("skills")
-                .join("coordinate")
-                .join("SKILL.md")
-        )
-        .unwrap(),
-        SKILL,
-        "a lifted member's file() source is its own projected path — untouched"
+        outcome_for("collaboration"),
+        temper::drift::EmitOutcome::Unchanged
     );
+    assert_eq!(outcome_for("rust"), temper::drift::EmitOutcome::Emitted);
     assert_eq!(
-        fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap(),
-        RULE
+        outcome_for("coordinate"),
+        temper::drift::EmitOutcome::Emitted
     );
 
-    // No member here is emit-owned (every one is own-path), so the guard has no
-    // constituency yet — "the guard arrives with its constituency, never before".
-    assert!(!has_entry(&outcome, "guard hook"));
-    assert!(!has_entry(&outcome, "managed-by note"));
-    assert!(!has_entry(&outcome, "schema modeline"));
+    // Every scaffolded member is emit-owned from its first emit — the guard
+    // and the frontmatter-bearing members' managed-by notes claim it
+    // immediately, never waiting on a hand-deepened member.
+    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Applied);
     assert_eq!(
         outcome_of(&outcome, "session-start hook"),
         ApplyOutcome::Applied
     );
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
-    assert!(
-        json["hooks"].get("PreToolUse").is_none(),
-        "no guard hook without an emit-owned constituency, got: {settings}"
+    assert_eq!(
+        json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
+        "temper guard ."
     );
+    assert!(
+        !has_entry(&outcome, "schema modeline"),
+        "no schema artifact exists yet"
+    );
+
+    let coordinate_md = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    assert!(
+        coordinate_md.contains("# temper: managed projection"),
+        "a scaffolded member's own frontmatter-bearing projection is note-claimed, got:\n{coordinate_md}"
+    );
+    let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
+    assert!(rust_md.contains("# temper: managed projection"));
+    // `collaboration` has no frontmatter to carry a note in.
+    let collaboration_md =
+        fs::read_to_string(root.join(".claude").join("rules").join("collaboration.md")).unwrap();
+    assert!(!collaboration_md.contains("# temper: managed projection"));
+}
+
+/// A skill whose body is a document — well past the SDK's three-line inline
+/// threshold (`sdk/src/prose.ts`) — the lift's other prose placement: a
+/// module-adjacent file, never a `file()` back-reference to the original
+/// `.claude/` path (0016).
+const DOCUMENT_SKILL: &str = "---\n\
+name: deepdive\n\
+description: Use for a documented multi-paragraph walkthrough.\n\
+---\n\
+# Deepdive\n\
+\n\
+This member's body is long enough that it must live in a module-adjacent\n\
+document rather than inline in the module source.\n\
+\n\
+A third paragraph keeps it safely past the three-line threshold.\n";
+
+#[test]
+fn a_document_body_scaffolds_to_a_module_adjacent_file_never_the_original_path() {
+    let root = tmpdir("document-prose");
+    let skill = root.join(".claude").join("skills").join("deepdive");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), DOCUMENT_SKILL).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    vendor_sdk(&temper_dir);
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    let module = fs::read_to_string(temper_dir.join("skills").join("deepdive.ts")).unwrap();
+    assert!(
+        module.contains("prose: file(import.meta.url, \"./deepdive.md\"),"),
+        "got:\n{module}"
+    );
+    assert!(!module.contains("text`"));
+    assert!(!module.contains(".claude/"));
+
+    let expected_body = "# Deepdive\n\nThis member's body is long enough that it must live in a module-adjacent\ndocument rather than inline in the module source.\n\nA third paragraph keeps it safely past the three-line threshold.\n";
+    assert_eq!(
+        fs::read_to_string(temper_dir.join("skills").join("deepdive.md")).unwrap(),
+        expected_body,
+        "the document body is copied module-adjacent, byte-faithfully"
+    );
+
+    // The first emit still resolves the module-adjacent document back into
+    // the canonical projection's body, byte-faithfully.
+    let projected = fs::read_to_string(skill.join("SKILL.md")).unwrap();
+    assert!(projected.ends_with(expected_body), "got:\n{projected}");
 }
 
 #[test]
-fn re_representing_never_re_scaffolds_and_converges() {
+fn re_representing_never_re_scaffolds_and_settles_by_the_second_run() {
     let root = write_harness("re-represent", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -432,16 +526,34 @@ fn re_representing_never_re_scaffolds_and_converges() {
     install::run(&root, &discovery, Represent::Yes, false).unwrap();
     let after_first = tree_bytes(&root);
 
+    // The first run's canonical `emit` writes each frontmatter-bearing member
+    // before its managed-by note exists yet, so `install`'s own note write
+    // lands *after* the lock's recorded `emit_hash` — a canonical-content
+    // settling the retired own-path lift never had to do (nothing was
+    // emit-owned on a first run before). The second run's `emit` re-reads that
+    // noted file and folds the note back into its own canonical render, so the
+    // tree changes exactly once more here.
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(second.scaffolded, 0, "the lift never re-scaffolds");
     assert_eq!(
         outcome_of(&second, "session-start hook"),
         ApplyOutcome::Unchanged
     );
+    assert_eq!(outcome_of(&second, "guard hook"), ApplyOutcome::Unchanged);
+    let after_second = tree_bytes(&root);
+    assert_ne!(
+        after_first, after_second,
+        "the first run's note write settles into the second run's canonical re-emit"
+    );
+
+    // From the second run on, re-representing with no authored change
+    // converges to a byte-for-byte no-op.
+    let third = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(third.scaffolded, 0);
     assert_eq!(
-        after_first,
+        after_second,
         tree_bytes(&root),
-        "a re-representation with no authored change is a byte-for-byte no-op"
+        "a re-representation with no authored change is a byte-for-byte no-op once settled"
     );
 }
 
@@ -536,17 +648,21 @@ fn a_fresh_dry_run_scaffolds_and_writes_nothing() {
 }
 
 #[test]
-fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() {
+fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     let root = write_harness("deepen", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     vendor_sdk(&temper_dir);
 
     let discovery = install::discover(&root).unwrap();
-    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    let first = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    // Every scaffolded member is emit-owned from its first emit (0016, whole
+    // conversion) — the guard already has a constituency before any hand
+    // deepening happens; the lifted/deepened distinction the retired own-path
+    // lift drew has collapsed.
+    assert_eq!(outcome_of(&first, "guard hook"), ApplyOutcome::Applied);
 
-    // Deepen by hand: a brand-new member with its own separate asset — never a
-    // lift, so its `file()` source differs from its projected path.
+    // Deepen by hand: a brand-new member with its own separate asset.
     fs::write(
         temper_dir.join("skills").join("extra.md"),
         "# Extra\n\nDeepened by hand.\n",
@@ -576,8 +692,9 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
         "an already-represented project is never re-lifted"
     );
 
-    // The guard now has a constituency: the freshly authored `extra` skill.
-    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Applied);
+    // The guard was already applied on the first run — a new emit-owned
+    // constituent changes nothing about its own placement.
+    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Unchanged);
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
@@ -599,9 +716,10 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
         "the emit-owned extra skill gets the managed-by note, got:\n{extra_md}"
     );
 
-    // The lifted members stay own-path — no note claim, byte-untouched.
+    // The scaffolded (lifted) `coordinate` member is note-claimed exactly like
+    // the hand-deepened `extra` one — no own-path exemption survives.
     assert!(
-        !fs::read_to_string(
+        fs::read_to_string(
             root.join(".claude")
                 .join("skills")
                 .join("coordinate")
@@ -609,7 +727,7 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
         )
         .unwrap()
         .contains("# temper: managed projection"),
-        "a lifted member's own file must carry no note claim"
+        "a scaffolded member's projection is note-claimed exactly like a hand-deepened one"
     );
 
     // No `.temper/schema/skill.json` exists yet, so no modeline is placed even on
@@ -617,11 +735,19 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
     assert!(!extra_md.contains("# yaml-language-server:"));
     assert!(!has_entry(&outcome, "schema modeline"));
 
-    // Once the schema artifact exists, a re-run places the modeline too.
+    // Once the schema artifact exists, a re-run places the modeline on every
+    // frontmatter-bearing `skill` target — the hand-deepened one and the
+    // scaffolded one alike.
     fs::create_dir_all(temper_dir.join("schema")).unwrap();
     fs::write(temper_dir.join("schema").join("skill.json"), "{}").unwrap();
     let third = install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    assert_eq!(outcome_of(&third, "schema modeline"), ApplyOutcome::Applied);
+    let modeline_targets: Vec<&PathBuf> = third
+        .entries
+        .iter()
+        .filter(|e| e.placement == "schema modeline")
+        .map(|e| &e.path)
+        .collect();
+    assert_eq!(modeline_targets.len(), 2, "got: {modeline_targets:?}");
     let extra_md_after = fs::read_to_string(
         root.join(".claude")
             .join("skills")
@@ -634,6 +760,19 @@ fn a_deepened_member_with_its_own_asset_is_emit_owned_and_a_lifted_one_is_not() 
             "---\n# yaml-language-server: $schema=../../../.temper/schema/skill.json\n"
         ),
         "got:\n{extra_md_after}"
+    );
+    let coordinate_md_after = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    assert!(
+        coordinate_md_after.starts_with(
+            "---\n# yaml-language-server: $schema=../../../.temper/schema/skill.json\n"
+        ),
+        "got:\n{coordinate_md_after}"
     );
 
     // A subsequent real `emit` (over the modified `harness.ts`) preserves both

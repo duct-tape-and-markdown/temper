@@ -10,13 +10,16 @@
 //!   absent), ensures the `@dtmd/temper` dependency ([`ensure_dependency`]) —
 //!   before a single file of the lift is written, so a spawn failure never
 //!   leaves a half-scaffolded `.temper/` behind it — then scaffolds the SDK
-//!   program once if none exists yet — the lift ([`scaffold`]): a member module
-//!   per discovered artifact, `file()` over the original text, zero file moves,
-//!   plus a `harness.ts` skeleton — runs the first `emit` (the adoption moment,
-//!   [`drift::emit_program`]), and places the guard hook / managed-by note /
-//!   schema modeline only at paths the fresh lock declares **emit-owned**
-//!   ([`drift::emit_owned_targets`], [`evaluate_placements`]) — a lifted member's own
-//!   `file()` path is authored territory, never a guard claim.
+//!   program once if none exists yet — the lift ([`scaffold`]): a whole
+//!   conversion (0016), never an intermediate state — every present frontmatter
+//!   field hoists into a typed property and prose moves module-side (inline for
+//!   a short body, a module-adjacent file for a document) — plus a `harness.ts`
+//!   skeleton — runs the first `emit` (the adoption moment,
+//!   [`drift::emit_program`]), which regenerates every governed artifact as a
+//!   canonical projection, and places the guard hook / managed-by note /
+//!   schema modeline at every path the fresh lock declares **emit-owned**
+//!   ([`drift::emit_owned_targets`], [`evaluate_placements`]) — the first emit's
+//!   diff is the one reviewable adoption diff, never an own-path passthrough.
 //!
 //! [`gate_installed`] is the read-only shadow `check` folds in: the same placement
 //! evaluation, dry-run, collapsed to one advisory [`Diagnostic`]. It never scaffolds,
@@ -42,7 +45,6 @@ use crate::drift::{self, ApplyOutcome, EmitReport};
 use crate::frontmatter;
 use crate::import;
 use crate::json_splice::{self, Edit};
-use crate::kind::{Registration, UnitShape};
 
 /// The workspace directory a represented project's SDK program lives under, beside
 /// the harness it governs.
@@ -389,7 +391,7 @@ fn run_represented(
     let scaffolded = if already_scaffolded {
         0
     } else {
-        scaffold(root, &temper_dir, discovery, dry_run)?
+        scaffold(&temper_dir, discovery, dry_run)?
     };
 
     // A fresh (never-scaffolded) `--dry-run` preview has no `harness.ts` on disk to
@@ -1025,55 +1027,58 @@ struct ScaffoldedMember {
     import_path: String,
 }
 
-/// Scaffold the SDK program from `discovery`'s findings — the lift's whole output:
-/// a member module per discovered artifact, `file()` over the original text at its
-/// original path (zero rewording, zero file moves — "recognition of the port scene
-/// is the acceptance test"), and a `harness.ts` skeleton importing them all. Writes
-/// nothing under `dry_run`, returning only the count a real run would scaffold.
+/// The SDK's own inline-prose threshold (`sdk/src/prose.ts`, "the three-line
+/// rule"): a body at or under this many lines lives inline as a `text` template
+/// literal; a longer one is a document, written to a module-adjacent file.
+const INLINE_PROSE_LINE_LIMIT: usize = 3;
+
+/// Scaffold the SDK program from `discovery`'s findings — the lift's whole
+/// output, a **whole conversion** (0016), never an intermediate state: a member
+/// module per discovered artifact hoisting every present frontmatter field into
+/// a typed property ([`member_module_source`]) and moving its prose
+/// module-side, plus a `harness.ts` skeleton importing them all. Writes nothing
+/// under `dry_run`, returning only the count a real run would scaffold.
 ///
 /// # Errors
-/// Returns a [`miette::Report`] if a member's name cannot be derived from its
-/// discovered path, the path escapes `root`, or a scaffold file cannot be written.
+/// Returns a [`miette::Report`] if a member's source cannot be parsed or a
+/// scaffold file cannot be written.
 fn scaffold(
-    root: &Path,
     temper_dir: &Path,
     discovery: &DiscoveryReport,
     dry_run: bool,
 ) -> miette::Result<usize> {
     let kinds = builtin_kind::definitions()?;
 
-    let mut lifted: Vec<(String, String, PathBuf, Option<String>)> = Vec::new();
+    let mut lifted: Vec<(String, frontmatter::Member)> = Vec::new();
     for (name, files) in &discovery.members {
         let Some(kind) = kinds.get(name) else {
             continue;
         };
         for file in files {
-            let description = description_trigger_value(kind, file)?;
-            lifted.push((
-                name.clone(),
-                member_name(kind, file)?,
-                file.clone(),
-                description,
-            ));
+            lifted.push((name.clone(), frontmatter::Member::from_source(kind, file)?));
         }
     }
-    lifted.sort();
+    lifted.sort_by(|(a_kind, a), (b_kind, b)| (a_kind, &a.id).cmp(&(b_kind, &b.id)));
 
     if dry_run {
         return Ok(lifted.len());
     }
 
     let mut scaffolded = Vec::with_capacity(lifted.len());
-    for (kind, name, source, description) in &lifted {
-        let ident = member_ident(kind, name);
-        let rel_path = relative_to_member_module(root, source)?;
-        let import_path = format!("./{}/{name}.ts", member_dir(kind));
-        let module_path = temper_dir.join(member_dir(kind)).join(format!("{name}.ts"));
+    for (kind, member) in &lifted {
+        let ident = member_ident(kind, &member.id);
+        let dir = temper_dir.join(member_dir(kind));
         write_scaffold_file(
-            &module_path,
-            &member_module_source(kind, name, &ident, &rel_path, description.as_deref()),
+            &dir.join(format!("{}.ts", member.id)),
+            &member_module_source(kind, &member.id, &ident, &member.fields, &member.body),
         )?;
-        scaffolded.push(ScaffoldedMember { ident, import_path });
+        if !fits_inline(&member.body) {
+            write_scaffold_file(&dir.join(format!("{}.md", member.id)), &member.body)?;
+        }
+        scaffolded.push(ScaffoldedMember {
+            ident,
+            import_path: format!("./{}/{}.ts", member_dir(kind), member.id),
+        });
     }
 
     write_scaffold_file(
@@ -1082,55 +1087,6 @@ fn scaffold(
     )?;
 
     Ok(lifted.len())
-}
-
-/// Derive a discovered artifact's member name: a directory-unit kind's (`skill`)
-/// name is its entry file's parent directory; a lone-file kind's (`rule`, `memory`)
-/// is the file stem; a named-field kind's (`agent`) is its declared frontmatter
-/// field's value, never the path.
-fn member_name(kind: &crate::kind::CustomKind, file: &Path) -> miette::Result<String> {
-    if let Some(UnitShape::NamedField { field }) = &kind.unit_shape {
-        let member = frontmatter::Member::from_source(kind, file)?;
-        return member
-            .field(field)
-            .and_then(JsonValue::as_str)
-            .map(str::to_string)
-            .ok_or_else(|| miette::miette!("cannot derive a member name from {}", file.display()));
-    }
-    let component = match kind.unit_shape {
-        Some(UnitShape::Directory) => file.parent().and_then(Path::file_name),
-        _ => file.file_stem(),
-    };
-    component
-        .and_then(|c| c.to_str())
-        .map(str::to_string)
-        .ok_or_else(|| miette::miette!("cannot derive a member name from {}", file.display()))
-}
-
-/// A discovered member's description-trigger value, when its kind's registration set
-/// carries that channel (`Registration::DescriptionTrigger`) — a skill's `description`
-/// is always in context, so the SDK's `Skill.description` is a required field; a
-/// scaffolded module that omits it fails `tsc` before a single deepening edit. `None`
-/// when the kind's set carries no description-trigger channel, or `file`'s frontmatter
-/// carries no value for the field.
-///
-/// # Errors
-/// Returns a [`miette::Report`] if `file`'s frontmatter cannot be read.
-fn description_trigger_value(
-    kind: &crate::kind::CustomKind,
-    file: &Path,
-) -> miette::Result<Option<String>> {
-    let Some(field) = kind.registration.iter().find_map(|channel| match channel {
-        Registration::DescriptionTrigger { field } => Some(field),
-        _ => None,
-    }) else {
-        return Ok(None);
-    };
-    let member = frontmatter::Member::from_source(kind, file)?;
-    Ok(member
-        .field(field)
-        .and_then(JsonValue::as_str)
-        .map(str::to_string))
 }
 
 /// A member module's TS identifier: kind-prefixed so a skill and a rule sharing a
@@ -1144,49 +1100,117 @@ fn member_ident(kind: &str, name: &str) -> String {
     ident
 }
 
-/// The `file()` path a scaffolded member module writes, relative to the member
-/// module's own directory (`.temper/<kind>/<name>.ts`, always two levels under
-/// `root` — `member_dir`) — the SDK resolves a `file()` asset against the
-/// declaring module's own location (`import.meta.url`), never the workspace.
-///
-/// Always `/`-separated, regardless of host: `.temper/` is committed, and a
-/// `\`-joined segment on Windows would fork the scaffolded module's text by host.
-fn relative_to_member_module(root: &Path, source: &Path) -> miette::Result<String> {
-    let relative = source.strip_prefix(root).map_err(|_| {
-        miette::miette!(
-            "discovered path {} is not under the project root {}",
-            source.display(),
-            root.display()
-        )
-    })?;
-    Ok(format!(
-        "../../{}",
-        relative.to_string_lossy().replace('\\', "/")
-    ))
+/// Whether `body` lives inline as a `` text`…` `` template literal rather than a
+/// module-adjacent file: at or under [`INLINE_PROSE_LINE_LIMIT`] lines, and
+/// carrying at least one line already flush left. The template's `dedent`
+/// (`sdk/src/prose.ts`) strips the *minimum* indentation across its non-blank
+/// lines; a body with no flush-left line would have real leading whitespace
+/// stripped by that pass, so such a body stays a document instead.
+fn fits_inline(body: &str) -> bool {
+    if body.is_empty() {
+        return true;
+    }
+    body.lines().count() <= INLINE_PROSE_LINE_LIMIT
+        && body
+            .lines()
+            .any(|line| line.chars().next().is_some_and(|c| !c.is_whitespace()))
 }
 
-/// One lifted member's module source: the whole original file (frontmatter
-/// included) rides through as the `file()` body verbatim, so the projection is
-/// byte-identical to the source it came from (own-path, "Drift" — a member
-/// whose `file()` source is its own projected path is authored territory).
-/// `description` carries the kind's description-trigger value forward when the
-/// source declares one ([`description_trigger_value`]) — the one field a
-/// scaffolded module cannot omit and still typecheck. Every other field
-/// (`satisfies`, `license`, …) still accrues later, member by member, under the
-/// author's own pen — never scaffolded.
+/// One lifted member's module source (0016, whole conversion): every present
+/// frontmatter field but `name` (already the object literal's identity
+/// property) hoists into its own typed TS property via [`json_to_ts_literal`],
+/// in the same order [`frontmatter::Member::fields`] carries them; `body`
+/// moves module-side — inline as a `` text`…` `` literal ([`fits_inline`]) or,
+/// for a document, a `file()` reference to the module-adjacent `<name>.md`
+/// [`scaffold`] writes beside this module. Replaces the retired own-path lift:
+/// the projected artifact is never this module's own `file()` source.
 fn member_module_source(
     kind: &str,
     name: &str,
     ident: &str,
-    rel_path: &str,
-    description: Option<&str>,
+    fields: &[(String, JsonValue)],
+    body: &str,
 ) -> String {
-    let description_field = description
-        .map(|value| format!("  description: {value:?},\n"))
-        .unwrap_or_default();
+    let mut fields_src = String::new();
+    for (key, value) in fields {
+        if key == "name" {
+            continue;
+        }
+        fields_src.push_str(&format!(
+            "  {}: {},\n",
+            ts_property_key(key),
+            json_to_ts_literal(value)
+        ));
+    }
+
+    let prose_src = if fits_inline(body) {
+        format!("  prose: {},\n", inline_prose_literal(body))
+    } else {
+        format!("  prose: file(import.meta.url, \"./{name}.md\"),\n")
+    };
+
     format!(
-        "import {{ file, {kind} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {kind}({{\n  name: {name:?},\n{description_field}  prose: file(import.meta.url, {rel_path:?}),\n}});\n"
+        "import {{ file, text, {kind} }} from \"@dtmd/temper/claude-code\";\n\nexport const {ident} = {kind}({{\n  name: {name:?},\n{fields_src}{prose_src}}});\n"
     )
+}
+
+/// A frontmatter field key rendered as a TS object-literal property key: a bare
+/// identifier when the key already is one (`description`), else a quoted string
+/// literal (`"disable-model-invocation"`) — mirroring how the SDK's own kind
+/// interfaces spell a hyphenated field (`sdk/src/builtins.ts`).
+fn ts_property_key(key: &str) -> String {
+    let is_identifier = key.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_' || c == '$')
+        && key
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+    if is_identifier {
+        key.to_string()
+    } else {
+        format!("{key:?}")
+    }
+}
+
+/// Render a JSON frontmatter value as a TS literal. JSON's grammar is a
+/// syntactic subset of TS/JS object- and array-literal syntax, so serializing
+/// the value as JSON already renders it as a TS literal — one renderer generic
+/// over every JSON shape a scaffolded field carries (string, number, bool,
+/// array, object), replacing the description-only special case the lift used
+/// to carry.
+fn json_to_ts_literal(value: &JsonValue) -> String {
+    serde_json::to_string(value).expect("a JSON value serializes infallibly")
+}
+
+/// Render `body` as a `` text`…` `` tagged-template literal, byte-faithful
+/// through the SDK's `dedent` (`sdk/src/prose.ts`): every line lands flush left
+/// in the generated source (never re-indented to match the surrounding object
+/// literal), so `dedent`'s strip — computed off [`fits_inline`]'s guaranteed
+/// flush-left line — is a no-op and `body` round-trips exactly, trailing
+/// newline included or not.
+fn inline_prose_literal(body: &str) -> String {
+    if body.is_empty() {
+        return "text``".to_string();
+    }
+    let trailing_newline = body.ends_with('\n');
+    let content = body.strip_suffix('\n').unwrap_or(body);
+    let mut out = String::from("text`\n");
+    for line in content.split('\n') {
+        out.push_str(&escape_template_literal(line));
+        out.push('\n');
+    }
+    if !trailing_newline {
+        out.pop();
+    }
+    out.push('`');
+    out
+}
+
+/// Escape a template-literal line so its authored text survives verbatim as TS
+/// source: a backslash, a backtick, or a `${` would otherwise end the literal
+/// early or open an interpolation.
+fn escape_template_literal(line: &str) -> String {
+    line.replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${")
 }
 
 /// The `harness.ts` skeleton: import every scaffolded member, compose them into
@@ -1517,88 +1541,114 @@ mod tests {
     }
 
     #[test]
-    fn relative_to_member_module_normalizes_a_backslash_joined_source() {
-        // A Windows discovery walk joins path segments with `\`; simulate that
-        // shape directly (Unix `Path` never inserts `\`, so a real walk can't
-        // reproduce it here) and assert the scaffolded `file()` path still comes
-        // out `/`-separated.
-        let root = PathBuf::from("/harness");
-        let source = PathBuf::from("/harness/.claude\\rules\\cls.md");
-        let rel_path = relative_to_member_module(&root, &source).unwrap();
-        assert_eq!(rel_path, "../../.claude/rules/cls.md");
-    }
-
-    #[test]
-    fn member_module_source_carries_a_present_description() {
-        let source = member_module_source(
-            "skill",
-            "coordinate",
-            "skill_coordinate",
-            "../../.claude/skills/coordinate/SKILL.md",
-            Some("Use when coordinating agents across axes."),
-        );
+    fn member_module_source_hoists_every_present_field_bar_name() {
+        // A document body (over the inline threshold) so the field-hoisting
+        // shape is exercised independent of the prose split — `file()`
+        // referencing the module-adjacent doc `scaffold` writes beside it.
+        let fields = vec![
+            ("name".to_string(), serde_json::json!("coordinate")),
+            (
+                "description".to_string(),
+                serde_json::json!("Use when coordinating agents across axes."),
+            ),
+            ("license".to_string(), serde_json::json!("MIT")),
+            (
+                "disable-model-invocation".to_string(),
+                serde_json::json!(true),
+            ),
+        ];
+        let body =
+            "# Coordinate\n\nDrive the team through the playbook.\n\nMore than three lines.\n";
+        let source = member_module_source("skill", "coordinate", "skill_coordinate", &fields, body);
         assert_eq!(
             source,
-            "import { file, skill } from \"@dtmd/temper/claude-code\";\n\n\
+            "import { file, text, skill } from \"@dtmd/temper/claude-code\";\n\n\
              export const skill_coordinate = skill({\n  \
              name: \"coordinate\",\n  \
              description: \"Use when coordinating agents across axes.\",\n  \
-             prose: file(import.meta.url, \"../../.claude/skills/coordinate/SKILL.md\"),\n});\n"
+             license: \"MIT\",\n  \
+             \"disable-model-invocation\": true,\n  \
+             prose: file(import.meta.url, \"./coordinate.md\"),\n});\n"
         );
     }
 
     #[test]
-    fn member_module_source_omits_the_field_with_no_description() {
-        let source = member_module_source(
-            "rule",
-            "rust",
-            "rule_rust",
-            "../../.claude/rules/rust.md",
-            None,
-        );
+    fn member_module_source_carries_a_hoisted_array_field_and_no_description() {
+        let fields = vec![("paths".to_string(), serde_json::json!(["src/**/*.rs"]))];
+        let source = member_module_source("rule", "rust", "rule_rust", &fields, "# Rust\n");
         assert_eq!(
             source,
-            "import { file, rule } from \"@dtmd/temper/claude-code\";\n\n\
+            "import { file, text, rule } from \"@dtmd/temper/claude-code\";\n\n\
              export const rule_rust = rule({\n  \
              name: \"rust\",\n  \
-             prose: file(import.meta.url, \"../../.claude/rules/rust.md\"),\n});\n"
+             paths: [\"src/**/*.rs\"],\n  \
+             prose: text`\n# Rust\n`,\n});\n"
         );
     }
 
     #[test]
-    fn description_trigger_value_reads_a_skills_description() {
-        let kinds = builtin_kind::definitions().unwrap();
-        let skill = kinds.get("skill").unwrap();
-        let dir = tmpdir("skill-description");
-        let member_dir = dir.join("coordinate");
-        fs::create_dir_all(&member_dir).unwrap();
-        fs::write(
-            member_dir.join("SKILL.md"),
-            "---\nname: coordinate\ndescription: Use when coordinating agents.\n---\n# Coordinate\n",
-        )
-        .unwrap();
+    fn member_module_source_skips_the_name_field_to_avoid_a_duplicate_key() {
+        // `name` rides the object literal's top-level identity property
+        // ([`member_module_source`]); a kind whose frontmatter also declares a
+        // `name` field (an agent's identity source) must not get a second one.
+        let fields = vec![
+            ("name".to_string(), serde_json::json!("reviewer")),
+            (
+                "description".to_string(),
+                serde_json::json!("Reviews pull requests."),
+            ),
+        ];
+        let source = member_module_source("agent", "reviewer", "agent_reviewer", &fields, "");
+        assert_eq!(source.matches("name:").count(), 1);
+    }
+
+    #[test]
+    fn fits_inline_holds_for_an_empty_or_short_flush_left_body() {
+        assert!(fits_inline(""));
+        assert!(fits_inline("Pushback is the point.\n"));
+        assert!(fits_inline("# Collaboration\n\nPushback is the point.\n"));
+    }
+
+    #[test]
+    fn fits_inline_fails_past_the_line_limit_or_with_no_flush_left_line() {
+        assert!(!fits_inline("one\ntwo\nthree\nfour\n"));
+        // Every non-blank line indented — dedent would strip real content.
+        assert!(!fits_inline("    indented one\n    indented two\n"));
+    }
+
+    #[test]
+    fn inline_prose_literal_preserves_a_missing_trailing_newline() {
         assert_eq!(
-            description_trigger_value(skill, &member_dir.join("SKILL.md"))
-                .unwrap()
-                .as_deref(),
-            Some("Use when coordinating agents.")
+            inline_prose_literal("Last line, no newline."),
+            "text`\nLast line, no newline.`"
         );
     }
 
     #[test]
-    fn description_trigger_value_is_none_off_a_kind_with_no_description_trigger() {
-        let kinds = builtin_kind::definitions().unwrap();
-        let rule = kinds.get("rule").unwrap();
-        let dir = tmpdir("rule-no-trigger");
-        fs::create_dir_all(&dir).unwrap();
-        fs::write(
-            dir.join("rust.md"),
-            "---\npaths:\n  - \"src/**/*.rs\"\n---\n# Rust\n",
-        )
-        .unwrap();
+    fn inline_prose_literal_escapes_backticks_and_interpolation_markers() {
         assert_eq!(
-            description_trigger_value(rule, &dir.join("rust.md")).unwrap(),
-            None
+            inline_prose_literal("a `code` span and a ${literal}\n"),
+            "text`\na \\`code\\` span and a \\${literal}\n`"
+        );
+    }
+
+    #[test]
+    fn ts_property_key_quotes_a_hyphenated_key_and_bares_a_plain_one() {
+        assert_eq!(ts_property_key("description"), "description");
+        assert_eq!(
+            ts_property_key("disable-model-invocation"),
+            "\"disable-model-invocation\""
+        );
+    }
+
+    #[test]
+    fn json_to_ts_literal_renders_every_json_shape_as_valid_ts() {
+        assert_eq!(json_to_ts_literal(&serde_json::json!("x")), "\"x\"");
+        assert_eq!(json_to_ts_literal(&serde_json::json!(true)), "true");
+        assert_eq!(json_to_ts_literal(&serde_json::json!(7)), "7");
+        assert_eq!(
+            json_to_ts_literal(&serde_json::json!(["a", "b"])),
+            "[\"a\",\"b\"]"
         );
     }
 
