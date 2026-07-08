@@ -1318,7 +1318,7 @@ pub struct AssemblyFactRow {
     /// The fact discriminator: `mode` or `edge`.
     pub fact: String,
     /// The scalar value a `mode` fact carries (the root member's declared
-    /// enforcement posture).
+    /// enforcement mode).
     #[serde(default)]
     pub value: Option<String>,
     /// An `edge` fact's source kind.

@@ -2,7 +2,7 @@
 //!
 //! Drives the library `install::discover` / `install::run` / `install::gate_installed`
 //! (plus the real `temper` binary for the CLI-observable bits — the one-question
-//! prompt, `--yes`/`--no-represent`, and `guard`'s lock-grounded posture) and proves:
+//! prompt, `--yes`/`--no-represent`, and `guard`'s lock-grounded enforcement mode) and proves:
 //!
 //! - **discovery** — the report counts members by kind before anything is written;
 //! - **no-path** — declining wires the `SessionStart` reporter alone, Node-free,
@@ -21,7 +21,7 @@
 //!   emit), never re-scaffolding or duplicating the guard;
 //! - **dependency-before-lift** — a spawn failure ensuring the SDK dependency
 //!   leaves no half-scaffolded `.temper/` program behind it;
-//! - **the lock, not the retired manifest, grounds `guard`'s posture**.
+//! - **the lock, not the retired manifest, grounds `guard`'s enforcement mode**.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -906,7 +906,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
 }
 
 // ---------------------------------------------------------------------------
-// guard — the lock, not the retired manifest, grounds the posture
+// guard — the lock, not the retired manifest, grounds the enforcement mode
 // ---------------------------------------------------------------------------
 
 /// A `PreToolUse` payload naming a `.claude/` projection `file_path` — the write the
@@ -940,13 +940,13 @@ fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
 }
 
 /// A minimal lock row declaring `.claude/skills/x/SKILL.md` (the [`CLAUDE_WRITE_PAYLOAD`]
-/// target) an emit-owned projection — real posture tests bind against a declared
+/// target) an emit-owned projection — real enforcement-mode tests bind against a declared
 /// member, never a lock with no member rows at all.
 const CLAUDE_WRITE_LOCK_ROW: &str = "[[skill]]\nname = \"x\"\nsource_path = \".claude/skills/x/SKILL.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n";
 
 #[test]
-fn guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest() {
-    let root = tmpdir("lock-posture-block");
+fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
+    let root = tmpdir("lock-mode-block");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
@@ -954,7 +954,7 @@ fn guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest() {
         format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n{CLAUDE_WRITE_LOCK_ROW}"),
     )
     .unwrap();
-    // A stray retired manifest naming the opposite posture must be ignored entirely —
+    // A stray retired manifest naming the opposite enforcement mode must be ignored entirely —
     // the manifest is never read at all, by this or any other verb.
     fs::write(
         root.join(format!("temper{}toml", '.')),
@@ -963,17 +963,17 @@ fn guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest() {
     .unwrap();
 
     let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
-    assert_eq!(code, Some(2), "the lock's `block` posture must block");
+    assert_eq!(code, Some(2), "the lock's `block` mode must block");
     assert!(stderr.contains("other tools writes are not bound by it"));
 }
 
 /// With no `lock.toml` at all there is no declared projection set to consult — unlike
 /// a represented harness (below), the guard falls back to binding any `.claude/` write
-/// at the default posture rather than silently allowing everything: absent evidence
+/// at the default enforcement mode rather than silently allowing everything: absent evidence
 /// must never *suppress* a guard claim, only ever fail to forge one.
 #[test]
 fn guard_defaults_to_warn_when_the_lock_is_absent() {
-    let root = tmpdir("lock-posture-absent");
+    let root = tmpdir("lock-mode-absent");
     let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(
         code,

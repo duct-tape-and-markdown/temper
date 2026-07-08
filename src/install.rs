@@ -102,13 +102,13 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 
 /// The exec-form command the `PreToolUse` guard hook runs: the `temper` binary's own
 /// `guard` subcommand, reading the payload from stdin and deciding at the harness's
-/// declared posture. The `.` roots the
-/// lock the posture is read from — the project Claude Code runs the hook in.
+/// declared enforcement mode. The `.` roots the
+/// lock the enforcement mode is read from — the project Claude Code runs the hook in.
 const GUARD_COMMAND: &str = "temper guard .";
 
 /// The stable token the guard command carries so a re-install *replaces* the existing
 /// temper guard in place rather than appending a second one. The command is
-/// posture-independent (the subcommand reads the posture live), so this is simply the
+/// mode-independent (the subcommand reads the enforcement mode live), so this is simply the
 /// subcommand invocation.
 const GUARD_MARKER: &str = "temper guard";
 
@@ -602,7 +602,7 @@ pub enum GuardVerdict {
 }
 
 /// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `mode`'s
-/// enforcement posture, bound to `targets` — the lock's emit-owned projection set
+/// enforcement mode, bound to `targets` — the lock's emit-owned projection set
 /// ([`drift::emit_owned_targets`]). That reader already excludes a file()-carried
 /// member's own `file()` source (`own_path`), so a write to that source — the
 /// member's authored source of truth, not a generated projection — never binds,
