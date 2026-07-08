@@ -1308,7 +1308,7 @@ fn dependency_resolves(temper_dir: &Path) -> bool {
 /// consult `PATHEXT`, so it resolves only an exact-match filename. Windows ships
 /// npm as `npm.cmd` (no bare `npm.exe`), so a `windows` spawn must name the shim
 /// explicitly; everywhere else `npm` on `PATH` is the real executable.
-fn npm_program() -> &'static str {
+pub fn npm_program() -> &'static str {
     if cfg!(windows) { "npm.cmd" } else { "npm" }
 }
 

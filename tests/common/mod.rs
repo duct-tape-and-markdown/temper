@@ -55,7 +55,7 @@ pub fn sdk_root() -> PathBuf {
 pub fn ensure_sdk_built() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        let status = std::process::Command::new("npm")
+        let status = std::process::Command::new(temper::install::npm_program())
             .args(["run", "build"])
             .current_dir(sdk_root())
             .status()
