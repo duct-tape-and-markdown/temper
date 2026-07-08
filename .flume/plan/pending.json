@@ -38,8 +38,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "TEST-SCAFFOLDING-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -68,7 +67,7 @@
       }
     ],
     "acceptance": "One closing-delimiter scanner (`crate::frontmatter::closing_delimiter`, `pub(crate)`); no duplicate scan loop remains in install.rs; `cargo test` green.",
-    "notes": "Job 4 residue sweep at 425968d: both functions' doc comments admit they 'mirror' the same scan. gray_matter unused here — doesn't preserve raw bytes (pinned-semantics exception). blockedBy TEST-SCAFFOLDING-CONSOLIDATE (shares install.rs, now open, unshipped). install.rs refs re-verified at 220e9cd post plural-helper edit: frontmatter_inner->1463, project_modeline->1412, project_note->1441, placement_lines unchanged 1481. scoped at 220e9cd"
+    "notes": "Job 4 residue sweep at 425968d: both functions' doc comments admit they 'mirror' the same scan. gray_matter unused here (pinned-semantics exception). Blocker TEST-SCAFFOLDING-CONSOLIDATE shipped at 1894af9; unblocked to open. Re-verified at HEAD: touches only frontmatter.rs/install.rs, untouched by that ship — cited lines unchanged (split_frontmatter 409, frontmatter_inner 1463, project_modeline 1412, project_note 1441, placement_lines 1481). Disjoint from other open entries. scoped at 95689ae"
   },
   {
     "tag": "TEST-FIXTURE-HELPERS-CONSOLIDATE",
@@ -78,8 +77,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "TEST-SCAFFOLDING-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -87,59 +85,59 @@
       "edit": [
         {
           "path": "tests/common/mod.rs",
-          "description": "Already exists (WINDOWS-VENDOR-SYMLINK-JUNCTION shipped it; TEST-SCAFFOLDING-CONSOLIDATE, blocking this entry, further extends it with tmpdir/fixture) — extend it further. Add one shared `write_skill(root: &Path, name: &str, skill_md: &str)` — the byte-identical body duplicated as `write_harness` in tests/cli.rs:80, tests/session_start.rs:62, tests/reporters.rs:181 AND as `write_skill` in tests/coverage.rs:60, tests/memory_gate.rs:62, tests/requirement_roster.rs:66 (same body, two names, 6 sites — one function). Add one `check_in` covering the 3 exact-dup `CheckRun{ok,output}`+`check_in(root)` sites (tests/graph.rs:89,96; tests/coverage.rs:117,124; tests/requirement_roster.rs:165,172 — plain `temper check`) and the 2 near-dup github-reporter shapes (tests/gate_fail_loud.rs:85, `(Vec<String>, bool)` + extra args; tests/lock_declaration_rows.rs:770, `(bool, String)`) — one function parameterized by reporter/args, each caller adapting to its own return shape. Add one `author_satisfies` covering the 3-arg dup (tests/coverage.rs:69, tests/requirement_roster.rs:75) and the 4-arg `kind_dir`-parameterized dup (tests/graph.rs:180, tests/lock_declaration_rows.rs:850) as one function (3-arg callers pass a default `kind_dir`). Add one `tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>>` backed by the sanctioned `walkdir` crate (already a direct Cargo.toml dependency, line 26) replacing the hand-rolled `fs::read_dir` stack walk triplicated at tests/bundle.rs:90, tests/install.rs:148, tests/emit.rs:54."
+          "description": "Already exists (WINDOWS-VENDOR-SYMLINK-JUNCTION shipped it; TEST-SCAFFOLDING-CONSOLIDATE further extended it with tmpdir/fixture) — extend it further. Add one shared `write_skill(root: &Path, name: &str, skill_md: &str)` — the byte-identical body duplicated as `write_harness` in tests/cli.rs:65, tests/session_start.rs:47, tests/reporters.rs:166 AND as `write_skill` in tests/coverage.rs:45, tests/memory_gate.rs:47, tests/requirement_roster.rs:51 (same body, two names, 6 sites — one function). Add one `check_in` covering the 3 exact-dup `CheckRun{ok,output}`+`check_in(root)` sites (tests/graph.rs:74,81; tests/coverage.rs:102,109; tests/requirement_roster.rs:150,157 — plain `temper check`) and the 2 near-dup github-reporter shapes (tests/gate_fail_loud.rs:70, `(Vec<String>, bool)` + extra args; tests/lock_declaration_rows.rs:755, `(bool, String)`) — one function parameterized by reporter/args, each caller adapting to its own return shape. Add one `author_satisfies` covering the 3-arg dup (tests/coverage.rs:54, tests/requirement_roster.rs:60) and the 4-arg `kind_dir`-parameterized dup (tests/graph.rs:165, tests/lock_declaration_rows.rs:835) as one function (3-arg callers pass a default `kind_dir`). Add one `tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>>` backed by the sanctioned `walkdir` crate (already a direct Cargo.toml dependency) replacing the hand-rolled `fs::read_dir` stack walk triplicated at tests/bundle.rs:75, tests/install.rs:131, tests/emit.rs:37."
         },
         {
           "path": "tests/cli.rs",
-          "description": "Delete the local `write_harness` (line 80, byte-identical to coverage.rs's `write_skill`); its call sites use `common::write_skill`."
+          "description": "Delete the local `write_harness` (line 65, byte-identical to coverage.rs's `write_skill`); its call sites use `common::write_skill`."
         },
         {
           "path": "tests/session_start.rs",
-          "description": "Delete the local `write_harness` (line 62); call sites use `common::write_skill`."
+          "description": "Delete the local `write_harness` (line 47); call sites use `common::write_skill`."
         },
         {
           "path": "tests/reporters.rs",
-          "description": "Delete the local `write_harness` (line 181); call sites use `common::write_skill`."
+          "description": "Delete the local `write_harness` (line 166); call sites use `common::write_skill`."
         },
         {
           "path": "tests/graph.rs",
-          "description": "Delete the local `write_harness` (line 77, 5-arg rule+skill variant) — keep its 2-line rule-write inline, delegate the skill half to `common::write_skill`; delete the local `CheckRun`/`check_in` (lines 89, 96); delete the local 4-arg `author_satisfies` (line 180); all three switch to `common`."
+          "description": "Delete the local `write_harness` (line 62, 5-arg rule+skill variant) — keep its 2-line rule-write inline, delegate the skill half to `common::write_skill`; delete the local `CheckRun`/`check_in` (lines 74, 81); delete the local 4-arg `author_satisfies` (line 165); all three switch to `common`."
         },
         {
           "path": "tests/coverage.rs",
-          "description": "Delete the local `write_skill` (line 60); delete the local `CheckRun`/`check_in` (lines 117, 124); delete the local 3-arg `author_satisfies` (line 69); switch to `common`."
+          "description": "Delete the local `write_skill` (line 45); delete the local `CheckRun`/`check_in` (lines 102, 109); delete the local 3-arg `author_satisfies` (line 54); switch to `common`."
         },
         {
           "path": "tests/requirement_roster.rs",
-          "description": "Delete the local `write_skill` (line 66); delete the local `CheckRun`/`check_in` (lines 165, 172); delete the local 3-arg `author_satisfies` (line 75); switch to `common`."
+          "description": "Delete the local `write_skill` (line 51); delete the local `CheckRun`/`check_in` (lines 150, 157); delete the local 3-arg `author_satisfies` (line 60); switch to `common`."
         },
         {
           "path": "tests/memory_gate.rs",
-          "description": "Delete the local `write_skill` (line 62); call sites use `common::write_skill`."
+          "description": "Delete the local `write_skill` (line 47); call sites use `common::write_skill`."
         },
         {
           "path": "tests/coverage_note.rs",
-          "description": "Delete the local `write_skill` (line 48, generates its own name-derived skill_md body) — its caller builds the skill_md string itself, then calls `common::write_skill`, preserving today's generated frontmatter/body exactly."
+          "description": "Delete the local `write_skill` (line 33, generates its own name-derived skill_md body) — its caller builds the skill_md string itself, then calls `common::write_skill`, preserving today's generated frontmatter/body exactly."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "Delete the local `check_in` (line 770, github-reporter tuple shape) and the local 4-arg `author_satisfies` (line 850); switch to `common`."
+          "description": "Delete the local `check_in` (line 755, github-reporter tuple shape) and the local 4-arg `author_satisfies` (line 835); switch to `common`."
         },
         {
           "path": "tests/gate_fail_loud.rs",
-          "description": "Delete the local `check_in` (line 85, github-reporter + args tuple shape); switch to `common`, keeping each call site's existing `::`-line finding-count parsing."
+          "description": "Delete the local `check_in` (line 70, github-reporter + args tuple shape); switch to `common`, keeping each call site's existing `::`-line finding-count parsing."
         },
         {
           "path": "tests/bundle.rs",
-          "description": "Delete the local `tree_bytes` (line 90, hand-rolled `fs::read_dir` stack walk); call sites use `common::tree_bytes`."
+          "description": "Delete the local `tree_bytes` (line 75, hand-rolled `fs::read_dir` stack walk); call sites use `common::tree_bytes`."
         },
         {
           "path": "tests/install.rs",
-          "description": "Delete the local `tree_bytes` (line 148); call sites use `common::tree_bytes`."
+          "description": "Delete the local `tree_bytes` (line 131); call sites use `common::tree_bytes`."
         },
         {
           "path": "tests/emit.rs",
-          "description": "Delete the local `tree_bytes` (line 54); call sites use `common::tree_bytes`."
+          "description": "Delete the local `tree_bytes` (line 37); call sites use `common::tree_bytes`."
         }
       ],
       "retire": []
@@ -160,7 +158,7 @@
       }
     ],
     "acceptance": "tests/common exports one write_skill, one check_in (reporter/args-parameterized), one author_satisfies (kind_dir-parameterized), and one walkdir-backed tree_bytes; no duplicate or near-duplicate definition of any of the four remains in the 13 edited test files; `cargo test` green.",
-    "notes": "Found in job 4's residue sweep, same 'test scaffolding is a surface too' class as TEST-SCAFFOLDING-CONSOLIDATE but different symbols -- blockedBy it, same files (avoid two opens on one file). Re-verified live at d6c37a3: tests/common/mod.rs now exists (moved new->edit here); tests/install.rs's tree_bytes line corrected 180->148 and tests/emit.rs's 53->54 (both shifted by db34aea's sdk_root/vendor_sdk consolidation). All other cited line numbers still accurate. scoped at d6c37a3"
+    "notes": "Job 4 residue sweep, same 'test scaffolding is a surface too' class as TEST-SCAFFOLDING-CONSOLIDATE, different symbols. Blocker shipped at 1894af9, unblocked to open; that ship's tmpdir-helper removal shifted every cited line in this entry's 13 test files by -15 (most) or -17 (install.rs, emit.rs) — re-derived each via `rg` at HEAD, entry rewritten whole. Disjoint from FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE (src/ only). scoped at 95689ae"
   },
   {
     "tag": "TEST-HELPER-DUPES-CONSOLIDATE(recordwriters)",
