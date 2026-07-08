@@ -1411,7 +1411,7 @@ fn schema_ref(root: &Path, source: &Path, kind: &str) -> String {
 /// exactly (`.claude/rules/rust.md`, round-trip discipline).
 fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
     let rest = source.strip_prefix("---\n")?;
-    let inner = frontmatter_inner(rest)?;
+    let inner = frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)?;
     if inner
         .lines()
         .any(|line| line.trim_start().starts_with(MODELINE_MARKER))
@@ -1440,7 +1440,7 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// never re-emits it.
 fn project_note(source: &str) -> Option<String> {
     let rest = source.strip_prefix("---\n")?;
-    let inner = frontmatter_inner(rest)?;
+    let inner = frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)?;
     if let Some(existing) = inner
         .lines()
         .find(|line| line.trim_start().starts_with(NOTE_MARKER))
@@ -1456,22 +1456,6 @@ fn project_note(source: &str) -> Option<String> {
     Some(format!("---\n{NOTE_COMMENT}\n{rest}"))
 }
 
-/// The frontmatter text between the delimiters of `rest` — everything after the
-/// opening `---\n` (the caller's `rest`) up to the closing `---` line — or `None`
-/// when there is no closing delimiter (an opening `---` that is really prose, not a
-/// frontmatter block). Mirrors the delimiter detection the loaders use.
-fn frontmatter_inner(rest: &str) -> Option<&str> {
-    let mut offset = 0;
-    for line in rest.split_inclusive('\n') {
-        let content = line.strip_suffix('\n').unwrap_or(line);
-        if content.trim_end() == "---" {
-            return Some(&rest[..offset]);
-        }
-        offset += line.len();
-    }
-    None
-}
-
 /// The install-placed frontmatter comment lines present in `source`, in on-disk order —
 /// the schema modeline and the managed-by note. `emit` round-trips these through its
 /// whole-file re-emit so its content-faithful projection carries install's
@@ -1482,7 +1466,7 @@ pub(crate) fn placement_lines(source: &str) -> Vec<String> {
     let Some(rest) = source.strip_prefix("---\n") else {
         return Vec::new();
     };
-    let Some(inner) = frontmatter_inner(rest) else {
+    let Some((inner, _)) = frontmatter::closing_delimiter(rest) else {
         return Vec::new();
     };
     inner

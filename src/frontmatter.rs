@@ -413,20 +413,33 @@ fn split_frontmatter(raw: &str) -> (Option<&str>, &str) {
     if first.trim_end() != "---" {
         return (None, raw);
     }
+    match closing_delimiter(rest) {
+        Some((matter, body)) => (Some(matter), body),
+        // Opening delimiter but no close — not a frontmatter block.
+        None => (None, raw),
+    }
+}
 
+/// Scan `rest` — the text after an opening `---\n` line — for the closing `---`
+/// delimiter line, returning the frontmatter matter and the byte-faithful body split
+/// around it. `None` when no line is a bare `---` (an opening delimiter with no
+/// close, so not a frontmatter block after all).
+///
+/// `pub(crate)` so `src/install.rs`'s modeline/note projectors and
+/// `placement_lines` share the same closing-delimiter scan the loaders use,
+/// rather than a second implementation that could drift.
+pub(crate) fn closing_delimiter(rest: &str) -> Option<(&str, &str)> {
     let mut offset = 0;
     for line in rest.split_inclusive('\n') {
         let content = line.strip_suffix('\n').unwrap_or(line);
         if content.trim_end() == "---" {
             let matter = &rest[..offset];
             let body = &rest[offset + line.len()..];
-            return (Some(matter), body);
+            return Some((matter, body));
         }
         offset += line.len();
     }
-
-    // Opening delimiter but no close — not a frontmatter block.
-    (None, raw)
+    None
 }
 
 /// Walk a directory-shaped unit's source directory and collect its companion files —
