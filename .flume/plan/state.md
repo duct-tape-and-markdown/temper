@@ -2,20 +2,18 @@
 
 - Spec derived through: 474835b
 - Audited through: a112dbe
-- Residue swept through: 7ff3f03
-- This tick: Ship audit 50e7094..HEAD (job 3). AGENT-KIND shipped (81b6ab4) —
-  verified on disk: `claude_code_agent()` in builtin_kind.rs (root
-  `.claude/agents`, description-trigger channel), named-field identity
-  (`NoId`/`NoNamedFieldId`, `from_source_rooted`) in frontmatter.rs, sdk `agent`
-  kind; known-kinds set now complete at agent/command/memory/rule/skill (all
-  five spec'd built-ins ship). Tests green. Entry already absent from pending
-  (build dropped it) — drop is a no-op. Re-tested PACKAGING park: still true (no
-  release.yml, root package.json = private temper-flume-harness, sdk
-  @dtmd/temper 0.0.4). No fork rides AGENT-KIND; agents-md fork (memory kind) is
-  distinct from the shipped `agent` subagent kind, stays open. Audit cursor →
-  a112dbe.
+- Residue swept through: 91fb466
+- This tick: Residue sweep 7ff3f03..HEAD (job 4) — clean. Only substantive
+  commit is 81b6ab4 (AGENT-KIND); it was self-contained: dead `.claude/agents`
+  `KNOWN_SURFACES` row removed (rows now settings.json/.mcp.json only), both
+  `coverage_note` test doubles rewired to a `widget` kind, `declarations.ts`
+  `identityField` loss fixed + byte-verified (builtin_lock_frozen). `genre` hits
+  in nested_member.rs / sdk emit tests are removal-assertion guards, not living
+  residue. Session-start `+++` kinds/packages fixture debt unchanged (path
+  untouched this range) — kept-asymmetry record stays accurate. Cursor → HEAD.
 - Queue: 1 — PACKAGING-CHANNELS (parked on human release creds + engine-binary
-  workflow). AGENT-KIND shipped & dropped.
+  workflow). Unchanged this tick.
 
-Plan continues: yes — residue sweep (cursor 7ff3f03 trails HEAD a112dbe;
-81b6ab4/a112dbe not yet swept).
+Plan continues: yes — quiet closing pass (all four jobs above now current; one
+closing pass owed before hand-off: queue disjoint, gate reason re-tested,
+state re-derived).
