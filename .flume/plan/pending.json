@@ -7,8 +7,7 @@
       "section": "Install"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -45,7 +44,7 @@
       }
     ],
     "acceptance": "`own_path` is absent from src/drift.rs, src/import.rs, and the emitted lock schema; cargo test green with no synthetic own-path fixtures remaining.",
-    "notes": "scoped at e920fa8, resequenced 4b0122e (job 5): blockedBy changed from INSTALL-WHOLE-CONVERSION to RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE — both share src/drift.rs + tests/install.rs, so posture's rename must land first. 0016's explicit consequence ('own_path retires from drift, guard, and lock'). On pickup, grep for own_path first - if INSTALL-WHOLE-CONVERSION left a live path still writing own_path=true, hold rather than delete logic a real caller needs."
+    "notes": "scoped at e920fa8, unblocked at HEAD=d7d0912 (ship audit, job 3): blocker shipped (ad109b4), touching only doc-comment wording, none overlapping this entry's own_path lines — gate flipped open. Reconfirmed 4ed4027 makes scaffold never emit own_path=true and pipeline.md Install names no lifted-but-untyped state, so 0016's premise holds; own_path remains live across all five cited files exactly."
   },
   {
     "tag": "PACKAGING-CHANNELS",
