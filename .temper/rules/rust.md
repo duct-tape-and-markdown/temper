@@ -1,7 +1,3 @@
----
-# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
-paths: ["src/**/*.rs","tests/**/*.rs","benches/**/*.rs"]
----
 
 # Rust conventions — author
 

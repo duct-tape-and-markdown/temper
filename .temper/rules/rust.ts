@@ -1,6 +1,7 @@
-import { file, rule } from "@dtmd/temper/claude-code";
+import { file, text, rule } from "@dtmd/temper/claude-code";
 
 export const rule_rust = rule({
   name: "rust",
-  prose: file(import.meta.url, "../../.claude/rules/rust.md"),
+  paths: ["src/**/*.rs","tests/**/*.rs","benches/**/*.rs"],
+  prose: file(import.meta.url, "./rust.md"),
 });

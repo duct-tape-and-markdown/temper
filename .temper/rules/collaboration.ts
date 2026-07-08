@@ -1,6 +1,6 @@
-import { file, rule } from "@dtmd/temper/claude-code";
+import { file, text, rule } from "@dtmd/temper/claude-code";
 
 export const rule_collaboration = rule({
   name: "collaboration",
-  prose: file(import.meta.url, "../../.claude/rules/collaboration.md"),
+  prose: file(import.meta.url, "./collaboration.md"),
 });
