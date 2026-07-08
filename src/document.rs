@@ -500,18 +500,10 @@ fn requirement_bool(value: &Item, name: &str) -> Result<bool, DocumentError> {
 /// The generated `[provenance]` module's `(source_path, source_hash)`, or `None`
 /// when it is absent or missing either key — a surface missing what the tool always
 /// writes is malformed, and the caller turns that `None` into a precise error.
-///
-/// The hash reads `source_hash` (the current spelling — LOCK-FRESHNESS-FACTS), falling
-/// back to the pre-rename `import_hash`: the committed `.temper/` dogfood still carries
-/// the old key, and a document a phase cannot re-emit (a human `chore(harness):` owns
-/// that migration) must still read as a well-formed member.
 pub fn provenance(header: &DocumentMut) -> Option<(String, String)> {
     let table = header.get("provenance").and_then(Item::as_table)?;
     let source_path = table.get("source_path").and_then(Item::as_str)?;
-    let source_hash = table
-        .get("source_hash")
-        .or_else(|| table.get("import_hash"))
-        .and_then(Item::as_str)?;
+    let source_hash = table.get("source_hash").and_then(Item::as_str)?;
     Some((source_path.to_string(), source_hash.to_string()))
 }
 

@@ -16,14 +16,12 @@ use temper::drift::KindFactRow;
 use temper::kind::{CustomKind, Extraction, Governs, Primitive, Template, Unit};
 
 /// A custom `decision` kind composing the `fenced` primitive and declaring one
-/// inner-layer template — the shape (leaf fields, nested-member collections) is the
-/// kind's, the predicates over it are the bound package's, out of this definition.
+/// inner-layer template naming its child kind — the predicates over a nested
+/// member's interior are the bound package's, out of this definition.
 fn decision_kind() -> CustomKind {
     CustomKind {
         templates: vec![Template {
             kind: "decision".to_string(),
-            leaves: vec!["chosen".to_string(), "because".to_string()],
-            collections: vec!["rejected".to_string()],
         }],
         ..CustomKind::new(
             "decision",

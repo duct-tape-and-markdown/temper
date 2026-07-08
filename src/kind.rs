@@ -170,13 +170,10 @@ pub enum Registration {
 }
 
 /// A **template** a kind declares for one inner layer of nested members it hosts at
-/// the embedded locus: the child
-/// kind plus the declared vocabulary over its own prose **leaves** and keyed
-/// **nested members**, serialized whole into the lock. The shape is the host kind's;
-/// any *predicate* over it rides the assembly's `expect`/`require` clauses,
-/// **out of the kind object** — the same
-/// ownership line extraction and contract split on everywhere. So a `Template`
-/// carries the vocabulary, never a clause.
+/// the embedded locus: the child kind a fence info string names, serialized whole
+/// into the lock. Any *predicate* over a nested member's interior rides the
+/// assembly's `expect`/`require` clauses, **out of the kind object** — the same
+/// ownership line extraction and contract split on everywhere.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Template {
     /// The child kind — the `member.<kind>` a fence info string carries
@@ -184,18 +181,6 @@ pub struct Template {
     /// a fence against to fold it into a typed
     /// [`EmbeddedMember`](crate::extract::EmbeddedMember).
     pub kind: String,
-    /// The declared **prose-leaf** field names — the nested member's top-level
-    /// authored strings. The declared schema a nested-member predicate — the
-    /// assembly's clauses, out of the kind object — ranges over; extraction classifies
-    /// a fence's interior structurally (a string is a leaf, a table a nested member),
-    /// so this list is inert until that predicate lands — the same declared-and-inert
-    /// posture [`format`](CustomKind::format)/[`registration`](CustomKind::registration)
-    /// carry.
-    pub leaves: Vec<String>,
-    /// The declared **keyed-collection** names — the nested member's own nested
-    /// members (`rejected`). Declared schema like [`leaves`](Template::leaves), inert
-    /// until the nested-member predicate reads it.
-    pub collections: Vec<String>,
 }
 
 impl CustomKind {
@@ -235,10 +220,8 @@ impl CustomKind {
     /// The reconstructed extraction now includes `Fenced` alongside the generic
     /// markdown-structure set, so the raw fenced-block substrate a member fence needs
     /// is always available. The row's `templates` column lifts into one
-    /// [`Template`] per declared child-kind name, `leaves`/`collections` empty until
-    /// the nested-member predicate reads them — the same declared-and-inert posture
-    /// `format`/`registration` carry, so a lock-reconstructed kind folds the same
-    /// embedded members its live SDK declaration does.
+    /// [`Template`] per declared child-kind name, so a lock-reconstructed kind folds
+    /// the same embedded members its live SDK declaration does.
     #[must_use]
     pub fn from_kind_fact_row(row: &KindFactRow) -> Self {
         CustomKind {
@@ -252,11 +235,7 @@ impl CustomKind {
             templates: row
                 .templates
                 .iter()
-                .map(|kind| Template {
-                    kind: kind.clone(),
-                    leaves: Vec::new(),
-                    collections: Vec::new(),
-                })
+                .map(|kind| Template { kind: kind.clone() })
                 .collect(),
             ..CustomKind::new(
                 row.name.clone(),
@@ -1179,12 +1158,9 @@ value = \"15-kinds\"\n\
 value = 7\n\
 [provenance]\n\
 source_path = \"specs/architecture/15-kinds.md\"\n\
-import_hash = \"deadbeef\"\n\
+source_hash = \"deadbeef\"\n\
 +++\n\
 # Kinds\n\nBody.\n";
-        // The pre-rename `import_hash` key is deliberate: it exercises the provenance
-        // reader's legacy-key fallback (LOCK-FRESHNESS-FACTS), the path the committed
-        // `.temper/` dogfood still travels until a human `chore(harness):` re-emits it.
         std::fs::write(dir.join("SPEC.md"), document).unwrap();
 
         let unit = Unit::from_surface_dir(&dir).unwrap();
@@ -1451,10 +1427,9 @@ import_hash = \"deadbeef\"\n\
     }
 
     #[test]
-    fn from_kind_fact_row_lifts_declared_templates_as_inert_shape() {
-        // Each recorded child-kind name lifts into a `Template` whose shape is
-        // inert (empty `leaves`/`collections`) until the nested-member predicate
-        // reads them — `fold_members` keys only on `Template.kind`.
+    fn from_kind_fact_row_lifts_declared_templates_by_child_kind() {
+        // Each recorded child-kind name lifts into a `Template` — `fold_members`
+        // keys only on `Template.kind`.
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
@@ -1471,13 +1446,9 @@ import_hash = \"deadbeef\"\n\
             vec![
                 Template {
                     kind: "decision".to_string(),
-                    leaves: Vec::new(),
-                    collections: Vec::new(),
                 },
                 Template {
                     kind: "law".to_string(),
-                    leaves: Vec::new(),
-                    collections: Vec::new(),
                 },
             ]
         );
