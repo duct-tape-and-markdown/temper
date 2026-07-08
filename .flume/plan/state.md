@@ -1,21 +1,21 @@
 # Plan state
 
-- Spec derived through: bdc938d
+- Spec derived through: 474835b
 - Audited through: 1e5d7ec
 - Residue swept through: 886dc64
-- This tick: Residue sweep (job 4), 31cd09a..HEAD. Corpus moved (0012/0014
-  shipped, 0013 fork-routed) while code held still. Three residue classes: genre
-  noun → fully filed (EMBEDDED-FENCE-MEMBER-NOUN covers every authored genre
-  file + retires genres.ts); Format label → fork-routed by
-  `(format-template-spelling)`; registration scalar → filed
-  (REGISTRATION-CHANNELS) but one file orphaned — `sdk/src/declarations.ts`
-  `registrationLabel` (the SDK emit-side lock-column producer, coupled to
-  `registration.via`) was absent from its fence. Added it; serialized under the
-  shared-declarations.ts blockedBy chain. Cursor 31cd09a → 886dc64 (HEAD).
-- Queue: 5 — EMBEDDED-FENCE-MEMBER-NOUN open/pickable; REGISTRATION-CHANNELS→
-  COMMAND-KIND→AGENT-KIND serialized behind it; PACKAGING-CHANNELS parked. One
-  open entry, fence disjoint.
+- This tick: Spec delta (job 2), 0015 (b2b725d..474835b). Structured config →
+  manifests; the permission member-vs-union tension resolves derived — already
+  shipped (`sdk/src/needs.ts` `permissionUnion`). All forward work (JSON
+  manifest adapter, fields-only kind shape, collection-address fact,
+  hook/mcp-server/plugin kinds, canonical manifest write) is net-new
+  architecture, ABSENT on disk, whose SDK/engine spelling is unsettled and
+  blocked behind the 0014 chain besides. Registered
+  `(manifest-authoring-surface)` fork (rests on `(format-template-spelling)`
+  for the adapter format); both 0015 commits routed via it — 474835b is a
+  doc-budget trim only. Cursor bdc938d → 474835b.
+- Queue: 4 — REGISTRATION-CHANNELS→COMMAND-KIND→AGENT-KIND behind
+  EMBEDDED-FENCE-MEMBER-NOUN (shipped 7532aa9/9155011 — re-gate next tick);
+  PACKAGING-CHANNELS parked. Unchanged this tick.
 
-Plan continues: no — inbox empty, spec cursor covers all specs commits (none
-past bdc938d), no code shipped since the audit cursor, residue swept to HEAD.
-Build takes over: EMBEDDED-FENCE-MEMBER-NOUN is pickable.
+Plan continues: yes — ship audit: EMBEDDED-FENCE-MEMBER-NOUN shipped
+(7532aa9/9155011) past the audit cursor 1e5d7ec; re-gate REGISTRATION-CHANNELS.
