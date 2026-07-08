@@ -40,3 +40,5 @@ pub mod read;
 pub mod reporter;
 pub mod roster;
 pub mod schema;
+#[cfg(test)]
+pub(crate) mod test_support;

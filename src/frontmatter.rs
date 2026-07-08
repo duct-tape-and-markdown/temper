@@ -572,16 +572,7 @@ fn json_to_toml_value(json: &JsonValue) -> Option<Value> {
 mod tests {
     use super::*;
     use crate::builtin_kind;
-
-    /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
-    /// crate rather than a hand-rolled counter+pid scheme.
-    fn tmpdir(label: &str) -> PathBuf {
-        tempfile::Builder::new()
-            .prefix(label)
-            .tempdir()
-            .expect("failed to create temp dir")
-            .keep()
-    }
+    use crate::test_support::tmpdir;
 
     fn skill_kind() -> CustomKind {
         builtin_kind::definition("skill").unwrap().unwrap()

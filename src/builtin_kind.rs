@@ -284,6 +284,7 @@ mod tests {
     use super::*;
     use crate::compose::Edge;
     use crate::kind::Governs;
+    use crate::test_support::tmpdir;
 
     #[test]
     fn skill_definition_matches_the_hand_authored_kind() {
@@ -478,16 +479,6 @@ mod tests {
                 },
             ]
         );
-    }
-
-    /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
-    /// crate rather than a hand-rolled counter+pid scheme.
-    fn tmpdir(label: &str) -> std::path::PathBuf {
-        tempfile::Builder::new()
-            .prefix(label)
-            .tempdir()
-            .expect("failed to create temp dir")
-            .keep()
     }
 
     /// Write a member's authored surface member document `<dir>/<member_doc>` exactly

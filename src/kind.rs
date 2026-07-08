@@ -858,6 +858,7 @@ impl Extraction {
 mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
+    use crate::test_support::tmpdir;
 
     /// Whether `glob` matches `candidate` through the shared `compile_glob` surface —
     /// `None` (an uncompilable glob) reported as no match, the polarity every
@@ -1072,16 +1073,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         assert!(features.headings.is_empty());
         assert!(features.source_dir.is_none());
         assert!(features.fields.is_empty());
-    }
-
-    /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
-    /// crate rather than a hand-rolled counter+pid scheme.
-    fn tmpdir(label: &str) -> PathBuf {
-        tempfile::Builder::new()
-            .prefix(label)
-            .tempdir()
-            .expect("failed to create temp dir")
-            .keep()
     }
 
     /// Write a `<root>/<name>/<BODY>.md` surface exactly as `import` projects a

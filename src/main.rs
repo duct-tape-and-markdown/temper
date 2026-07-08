@@ -1126,17 +1126,13 @@ fn mention_edges_from_declarations(declarations: &drift::Declarations) -> Vec<gr
 }
 
 #[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::tmpdir;
     use std::fs;
-
-    fn tmpdir(label: &str) -> PathBuf {
-        tempfile::Builder::new()
-            .prefix(label)
-            .tempdir()
-            .expect("failed to create temp dir")
-            .keep()
-    }
 
     /// The directive-backing set reads **raw disk**, never ignore-filtered: whether an
     /// `@import` target is backed is a fact about the filesystem the harness loads
