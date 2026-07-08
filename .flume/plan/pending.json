@@ -1,44 +1,5 @@
 [
   {
-    "tag": "RETIRE-POSTURE-VOCABULARY-FOR-ENFORCEMENT-MODE",
-    "summary": "Rename the stale `posture` naming for the guard's block/warn/note behavior to `enforcement mode`, matching the settled term used elsewhere in the same files",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "Per tool call"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "Reword `GUARD_COMMAND`'s doc comment (~105-111: \"declared posture\", \"the posture is read from\", \"posture-independent\") and the `guard` fn's doc comment (~605: \"enforcement posture\", one stale word amid otherwise-consistent `mode`/`EnforcementMode` wording) to say `enforcement mode`, matching this file's own already-consistent wording nearby."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Reword `AssemblyFactRow.value`'s doc comment (~1321: \"the root member's declared enforcement posture\") to \"declared enforcement mode\"."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Rename `guard_reads_the_block_posture_from_the_lock_not_the_retired_manifest` and reword its doc comment plus the assertion message \"the lock's `block` posture must block\"; reword the neighboring `guard_defaults_to_warn_when_the_lock_is_absent`'s \"default posture\" doc comment; rename the `tmpdir(\"lock-posture-block\")`/`tmpdir(\"lock-posture-absent\")` labels — all to `mode` wording."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "the guard's block/warn tests and their names/labels read `mode`, never `posture`, consistent with `enforcement mode` used elsewhere in this file"
-      }
-    ],
-    "acceptance": "No `posture` referring to the guard's block/warn/note concept remains in src/install.rs, src/drift.rs, or tests/install.rs; cargo test green.",
-    "notes": "scoped at 5389103 (ship audit re-verify, job 3): INSTALL-WHOLE-CONVERSION shipped (4ed4027) without touching this posture wording (reverified live) — blocker cleared, gate flipped open. representation.md 'The root member' names this field `enforcement mode`. RETIRE-OWN-PATH-MACHINERY stays blockedBy this entry, sharing src/drift.rs + tests/install.rs. Excludes drift.rs:192/main.rs:126's 'CI posture', read.rs's 'mixed-posture corpus', main.rs:144's lone comment."
-  },
-  {
     "tag": "RETIRE-OWN-PATH-MACHINERY",
     "summary": "Delete the own-path detection, lock column, and guard exemption from drift/import/main now that whole conversion makes them structurally unreachable (0016)",
     "per": {
