@@ -108,6 +108,216 @@
     "notes": "0012, atomic recut: read fold (parse_embedded_info genre.→member.) and SDK write face (emit.ts resolveBody blocks branch) coupled by the round-trip → one entry despite wide surface (~77 refs/13 files, 5 snapshots, emit.test.ts). GenreValue re-homes to an embedded-member value (name is code's; kernel noun=member). Embedded members already carry no provenance rows (isProjected=at) — not new work. scoped at 4cdd3b2."
   },
   {
+    "tag": "REGISTRATION-CHANNELS",
+    "summary": "Recut registration to a set of documented channels — add `user-invoked` beside `description-trigger`, skill sits on both modulated by declared fields; re-verify skill's documented profile",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": { "kind": "blockedBy", "tag": "EMBEDDED-FENCE-MEMBER-NOUN" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Recut `Registration` (enum, line ~129) from one scalar variant per member to a set of channels; add the `user-invoked` channel beside `description-trigger`; recut `registration_from_label` (line ~399) to parse the set wire form."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`dead_registration`/`live_members`/`reachability_orphaned` (lines ~397-561) evaluate a channel set — a member's world edge is live iff any channel is live; the `registrations` map value becomes the set."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Build the per-kind registrations map from each kind's channel set (lines ~466-491)."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Thread the channel-set registration through the reachability params and their fixtures (`registrations: BTreeMap<&str, ...>`, lines ~237-585, tests ~1727)."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Locate the `description-trigger` channel within the set to seed the session-start reporter (was a direct `Registration::DescriptionTrigger` match, line ~1100)."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "skill registration = {user-invoked, description-trigger} and gains the documented `disable-model-invocation`/`user-invocable` fields as `Primitive::Field`s; rule = {paths-match}, memory = {always}; re-verify skill's documented field profile against the 2026-07-07 skills fetch (lines 22-105, tests)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`KindFactRow.registration` (line ~1130) encodes the channel set (was a single label)."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Recut the `Registration` type (line ~26) to a channel set and add `user-invoked`."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "skill/rule/memory registration to the set shape; the `Skill` type + skill kind gain `disableModelInvocation`/`userInvocable`; re-verify `skillFloor` against the 2026-07-07 fetch (lines 47-125)."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerate — the registration column re-derives to the channel-set encoding."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Update registration fixtures to the channel-set shape."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Update reachability fixtures to the channel-set registration."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Assert the lock's registration column carries the channel set and the skill row carries the modulating fields."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Update skill/rule/memory registration expectations + the new skill fields."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Update registration payload expectations to the set shape."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Re-derive byte-compares the new registration encoding (regenerate the fixture only if strings shift)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "the built-in lock's registration column carries the channel set (skill = user-invoked + description-trigger), and the skill row carries the modulating fields"
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a member whose only channel is dead is world-unreachable; a member live on any channel of its set is reachable"
+      }
+    ],
+    "acceptance": "Registration is a set of documented channels: skill carries {user-invoked, description-trigger} with `disable-model-invocation`/`user-invocable` as declared fields, rule/memory carry singleton sets, the built-in lock re-derives byte-clean, and reachability evaluates the set (builtins.md, 'The shipped kinds').",
+    "notes": "0014, registration recut. `Registration` scalar→channel set ripples to every consumer (graph reachability, main's map, install's seed, read fixtures). Modulating booleans become declared fields, cited to code.claude.com/docs/en/skills (2026-07-07 per 0014). Skill profile re-verify rides here since skill's fields change. Blocked on EMBEDDED-FENCE-MEMBER-NOUN (shares src/kind.rs, sdk/src/kind.ts, src/drift.rs). scoped at 89cd964."
+  },
+  {
+    "tag": "COMMAND-KIND",
+    "summary": "Ship the command built-in kind — the skill surface's legacy file placement: a lone `.claude/commands/*.md` file, the skill's field schema by import, file-stem identity, both channels",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": { "kind": "blockedBy", "tag": "REGISTRATION-CHANNELS" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/command_kind.rs",
+          "description": "Discovery folds `.claude/commands/*.md` into command members with file-stem identity and the skill's field schema; a command sits on both invocation channels."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Add `claude_code_command()` — Governs root `.claude/commands`, glob `*.md`, `UnitShape::File` (file-stem identity), `Format::YamlFrontmatter`, the skill's Extraction primitives by reuse, registration = {user-invoked, description-trigger}; add to `all_kinds()` (line 109) and the `definitions`/enumeration tests (lines 271-286)."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add the `command` kind reusing the `Skill` field schema (locus `.claude/commands/*.md`, file-stem identity, both channels) + `commandFloor` = the skill's documented recommendations, cited to code.claude.com/docs/en/skills (2026-07-07)."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Export `command` and `commandFloor` (lines 11-12)."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerate — the command kind's declaration + floor rows join the lock (four kinds)."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Assert the command kind's declaration row re-derives (four kinds)."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Cover the command kind + commandFloor."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/command_kind.rs",
+        "asserts": "a `.claude/commands/deploy.md` file folds into a command member with id `deploy` (file stem) and the skill's field schema; the command registers on both invocation channels"
+      }
+    ],
+    "acceptance": "The command kind ships as the skill surface's second placement: `.claude/commands/*.md` files fold into command members (file-stem identity, skill schema by import, both channels), the built-in lock re-derives byte-clean, and `commandFloor` carries the skill's documented recommendations (builtins.md, 'The shipped kinds').",
+    "notes": "0014, command kind. Second placement of the skill surface, never a second schema (commands merged into skills, code.claude.com/docs/en/skills 2026-07-07 per 0014). File-stem identity already exists (rule); no src/kind.rs change. 0014 leaves unmodeled: subdir namespacing, personal commands dir, name charset. Blocked on REGISTRATION-CHANNELS (needs the two-channel set; shares builtin_kind.rs, builtins.ts, builtin_lock.toml). scoped at 89cd964."
+  },
+  {
+    "tag": "AGENT-KIND",
+    "summary": "Ship the agent built-in kind + named-field identity (the third mode): `.claude/agents/**/*.md`, id from the frontmatter `name` field, name+description required, the docs' name charset",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": { "kind": "blockedBy", "tag": "COMMAND-KIND" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/agent_kind.rs",
+          "description": "Discovery folds `.claude/agents/**/*.md` (recursively) into agent members whose id is the frontmatter `name`, not the filename; the charset clause fires on an out-of-charset `name`; two agents sharing a `name` in one scope trip the uniqueness clause."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Add the named-field identity mode — a member's id read from a declared frontmatter field (agent's `name`), the third mode beside file-stem and directory-name (`UnitShape`, lines 106-118)."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "`Member::from_source` (line 152) derives the id from the named frontmatter field for the named-field mode, not the file stem/directory name; error when the field is absent (the id-absent error variant, lines ~100-110)."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Add `claude_code_agent()` — Governs root `.claude/agents`, glob `**/*.md` (recursive, subdirs organizational), named-field identity on `name`, `Format::YamlFrontmatter`, `name`+`description` Field primitives, registration = {description-trigger}; add to `all_kinds()` (line 109) + enumeration tests (five kinds)."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Spell the named-field identity mode in the `KindFacts`/`UnitShape` surface (the id source, not just `identityField`'s projection detail, lines ~62-66)."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add the `agent` kind (locus `.claude/agents/**/*.md`, named-field identity, name+description) + `agentFloor`: required fields, `name` charset via `allowed_chars` ('lowercase letters and hyphens'), any closed vocabularies the docs document, per-scope name uniqueness — each cited to code.claude.com/docs/en/sub-agents (2026-07-07)."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Export `agent` and `agentFloor` (lines 11-12)."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerate — the agent kind's declaration + floor rows join the lock (five kinds)."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Assert the agent kind + its floor clauses re-derive (five kinds)."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Cover the agent kind + agentFloor (required fields, charset, uniqueness)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/agent_kind.rs",
+        "asserts": "an agent's id is its frontmatter `name` (a file `foo.md` with `name: my-agent` → id `my-agent`); a subdirectory is organizational; an uppercase `name` trips the charset clause; duplicate `name`s in one scope trip uniqueness"
+      }
+    ],
+    "acceptance": "The agent kind ships: `.claude/agents/**/*.md` files fold recursively into agent members identified by the frontmatter `name` (the third identity mode), the built-in lock re-derives byte-clean, and `agentFloor` gates required fields, the documented `name` charset, and per-scope name uniqueness — each clause cited to the sub-agents doc (builtins.md, 'The shipped kinds').",
+    "notes": "0014, agent kind + named-field identity — the third mode, real engine work in Member::from_source. Charset 'lowercase + hyphens' + required name/description cited to code.claude.com/docs/en/sub-agents (2026-07-07 per 0014). Closed-vocab/uniqueness clauses encoded only where the doc documents them decidably (else dropped, honest encoding). Plugin-context variants deferred (0014). Blocked on COMMAND-KIND (shares builtin_kind.rs, builtins.ts, builtin_lock.toml). scoped at 89cd964."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
