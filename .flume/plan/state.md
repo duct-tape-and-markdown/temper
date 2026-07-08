@@ -1,21 +1,23 @@
 # Plan state
 
 - Spec derived through: 474835b
-- Audited through: 1e5d7ec
+- Audited through: c44ba6b
 - Residue swept through: 886dc64
-- This tick: Spec delta (job 2), 0015 (b2b725d..474835b). Structured config →
-  manifests; the permission member-vs-union tension resolves derived — already
-  shipped (`sdk/src/needs.ts` `permissionUnion`). All forward work (JSON
-  manifest adapter, fields-only kind shape, collection-address fact,
-  hook/mcp-server/plugin kinds, canonical manifest write) is net-new
-  architecture, ABSENT on disk, whose SDK/engine spelling is unsettled and
-  blocked behind the 0014 chain besides. Registered
-  `(manifest-authoring-surface)` fork (rests on `(format-template-spelling)`
-  for the adapter format); both 0015 commits routed via it — 474835b is a
-  doc-budget trim only. Cursor bdc938d → 474835b.
-- Queue: 4 — REGISTRATION-CHANNELS→COMMAND-KIND→AGENT-KIND behind
-  EMBEDDED-FENCE-MEMBER-NOUN (shipped 7532aa9/9155011 — re-gate next tick);
-  PACKAGING-CHANNELS parked. Unchanged this tick.
+- This tick: Ship audit (job 3), 1e5d7ec..HEAD. EMBEDDED-FENCE-MEMBER-NOUN
+  shipped (build 7532aa9, drain 9155011) confirmed on disk: `sdk/src/genres.ts`
+  deleted, zero `genre` vocabulary in src/sdk, `member.<kind>` fence read fold +
+  `EmbeddedMemberValue` live, emit write face landed. Re-gated
+  REGISTRATION-CHANNELS blockedBy→open — the blocker discharged and every cited
+  surface re-verified intact at its stated line despite EMBEDDED-FENCE touching
+  the shared files (kind.rs enum 129 / registration_from_label 399, drift.rs
+  KindFactRow.registration 1130, declarations.ts registrationLabel 178,
+  kind.ts Registration 26, install.rs DescriptionTrigger 1100, builtins.ts
+  skill 52/skillFloor 125). No entry dropped (EMBEDDED-FENCE already drained).
+  Cursor 1e5d7ec → c44ba6b.
+- Queue: 4 — REGISTRATION-CHANNELS now open → COMMAND-KIND → AGENT-KIND
+  (serialized chain, shared builtin_kind.rs/builtins.ts/builtin_lock.toml);
+  PACKAGING-CHANNELS parked.
 
-Plan continues: yes — ship audit: EMBEDDED-FENCE-MEMBER-NOUN shipped
-(7532aa9/9155011) past the audit cursor 1e5d7ec; re-gate REGISTRATION-CHANNELS.
+Plan continues: yes — residue sweep: Residue swept through 886dc64 trails HEAD
+(c44ba6b); sweep 886dc64..HEAD (the 0012/0013/0015 spec range + EMBEDDED-FENCE
+ship) next tick.

@@ -7,8 +7,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBEDDED-FENCE-MEMBER-NOUN"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -97,7 +96,7 @@
       }
     ],
     "acceptance": "Registration is a set of documented channels: skill carries {user-invoked, description-trigger} with `disable-model-invocation`/`user-invocable` as declared fields, rule/memory carry singleton sets, the built-in lock re-derives byte-clean, and reachability evaluates the set (builtins.md, 'The shipped kinds').",
-    "notes": "0014, registration recut. `Registration` scalar→channel set ripples to every consumer (declarations.ts registrationLabel = SDK lock-column producer, graph reachability, main's map, install's seed, read fixtures). Modulating booleans→declared fields, cited code.claude.com/docs/en/skills (2026-07-07 per 0014). Skill re-verify rides here. Blocked on EMBEDDED-FENCE-MEMBER-NOUN (shares kind.rs/kind.ts/drift.rs/declarations.ts). scoped 89cd964; declarations.ts added by residue sweep."
+    "notes": "0014, registration recut. `Registration` scalar→channel set ripples to every consumer (declarations.ts registrationLabel = SDK lock-column producer, graph reachability, main's map, install's seed, read fixtures). Modulating booleans→declared fields, cited code.claude.com/docs/en/skills (2026-07-07 per 0014). Skill re-verify rides here. Unblocked: EMBEDDED-FENCE shipped 7532aa9, cited surfaces re-verified intact at ship audit. scoped 89cd964; declarations.ts added by residue sweep."
   },
   {
     "tag": "COMMAND-KIND",
