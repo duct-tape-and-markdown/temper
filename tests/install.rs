@@ -990,45 +990,6 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
     assert!(allow_stderr.is_empty());
 }
 
-/// A file()-carried member's own `.claude/` source (`own_path`) is its authored source
-/// of truth, absent from the lock's emit-owned projection set — a write to it must
-/// pass even under `block`, while a genuinely lock-declared projection stays bound.
-#[test]
-fn guard_allows_a_file_carried_members_own_path_source_under_block() {
-    let root = tmpdir("lock-own-path");
-    let temper_dir = root.join(".temper");
-    fs::create_dir_all(&temper_dir).unwrap();
-    fs::write(
-        temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
-         [[skill]]\nname = \"projected\"\nsource_path = \".claude/skills/projected/SKILL.md\"\nsource_hash = \"a\"\nemit_hash = \"a\"\n\n\
-         [[skill]]\nname = \"lifted\"\nsource_path = \".claude/skills/lifted/SKILL.md\"\nsource_hash = \"b\"\nemit_hash = \"b\"\nown_path = true\n",
-    )
-    .unwrap();
-
-    let (own_path_code, own_path_stderr) = run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/lifted/SKILL.md\"}}",
-    );
-    assert_eq!(
-        own_path_code,
-        Some(0),
-        "a file()-carried member's own .claude/ source is never a guard target"
-    );
-    assert!(own_path_stderr.is_empty());
-
-    let (projected_code, projected_stderr) = run_guard(
-        &root,
-        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/projected/SKILL.md\"}}",
-    );
-    assert_eq!(
-        projected_code,
-        Some(2),
-        "a lock-declared projection still binds at the declared mode"
-    );
-    assert!(projected_stderr.contains("other tools writes are not bound by it"));
-}
-
 // ---------------------------------------------------------------------------
 // emit's own note/modeline discipline — unrelated to install, still exercised
 // directly over a hand-built payload.

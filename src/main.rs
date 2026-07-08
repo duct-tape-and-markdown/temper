@@ -330,9 +330,8 @@ fn main() -> miette::Result<ExitCode> {
         }
         Command::Guard { path } => {
             // The guard at Claude Code's write boundary: read the `PreToolUse` payload
-            // from stdin, and — when it names one of the lock's emit-owned projections,
-            // never a file()-carried member's own `own_path` source — act at the
-            // author's declared enforcement mode, three values split by where the
+            // from stdin, and — when it names one of the lock's emit-owned projections —
+            // act at the author's declared enforcement mode, three values split by where the
             // finding goes: `note` allows and defers out-of-band (exit 0, no in-band
             // message — the next report, never the session); `warn` allows and surfaces
             // in-band (exit 0); `block` denies (exit 2). temper never escalates past the

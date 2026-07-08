@@ -458,37 +458,6 @@ fn a_crlf_or_lone_cr_body_emits_an_lf_only_projection() {
 }
 
 #[test]
-fn an_own_path_members_crlf_body_also_normalizes_to_lf() {
-    let (harness, into) = workspace("lf-normalize-own-path");
-    let rules_dir = harness.join(".claude").join("rules");
-    fs::create_dir_all(&rules_dir).unwrap();
-    let own_path = rules_dir.join("lifted.md");
-    let crlf_body = "# Lifted, authored on Windows\r\n\r\nVerbatim body, own path.\r\n";
-    fs::write(&own_path, crlf_body).unwrap();
-
-    let payload = basic_payload(vec![PayloadMember {
-        kind: "rule".to_string(),
-        name: "lifted".to_string(),
-        fields: Vec::new(),
-        body: crlf_body.to_string(),
-        source_path: Some(own_path.to_string_lossy().into_owned()),
-    }]);
-
-    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
-    assert_eq!(outcome(&report, "lifted"), EmitOutcome::Emitted);
-
-    let bytes = fs::read(&own_path).unwrap();
-    assert!(
-        !bytes.contains(&b'\r'),
-        "an own_path member's verbatim body must also normalize to LF"
-    );
-    assert_eq!(
-        String::from_utf8(bytes).unwrap(),
-        "# Lifted, authored on Windows\n\nVerbatim body, own path.\n"
-    );
-}
-
-#[test]
 fn a_member_naming_an_undeclared_kind_is_a_clear_refusal() {
     let (_harness, into) = workspace("unknown-kind");
     let mut payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);

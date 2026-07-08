@@ -63,7 +63,7 @@ pub enum ImportError {
 /// provenance, and its two freshness facts — disk-vs-lock drift's whole comparison.
 /// Shared by every kind —
 /// a `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
-/// five columns.
+/// four columns.
 ///
 /// `pub(crate)` so `emit` ([`crate::drift`]) can build the row for a freshly
 /// projected member and hand it to this module's single round-trip write path
@@ -82,13 +82,6 @@ pub(crate) struct RollupEntry {
     /// yet, so the last thing projected onto the source is the source as imported
     /// (`emit` advances it once it lands).
     pub(crate) emit_hash: String,
-    /// Whether this member's `file()` source resolves to this very row's
-    /// `source_path` — a lifted member, authored territory `install`'s guard/note
-    /// placements skip. `false` for a
-    /// member with no `file()` prose (`text`/
-    /// `blocks`, or none) — the safe default, since only a `file()` source can
-    /// ever coincide with its own projection.
-    pub(crate) own_path: bool,
 }
 
 /// Discover a built-in `kind`'s source files, keying off its declared `governs`
@@ -354,7 +347,6 @@ fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
         table["source_path"] = value(entry.source_path.clone());
         table["source_hash"] = value(entry.source_hash.clone());
         table["emit_hash"] = value(entry.emit_hash.clone());
-        table["own_path"] = value(entry.own_path);
         tables.push(table);
     }
     tables

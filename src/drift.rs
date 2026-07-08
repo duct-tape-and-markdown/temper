@@ -277,9 +277,7 @@ pub struct PayloadMember {
     /// The resolved prose body, byte-faithful.
     pub body: String,
     /// The resolved `file()` asset's absolute path, when the member's prose is
-    /// `file()` — absent for `text`/`blocks` prose or no prose. Lets `emit`
-    /// tell a lifted member's own file (source == projection) apart from a
-    /// generated one.
+    /// `file()` — absent for `text`/`blocks` prose or no prose.
     #[serde(default)]
     pub source_path: Option<String>,
 }
@@ -311,10 +309,6 @@ struct Projection {
     fields: Vec<(String, JsonValue)>,
     /// The desired body — the surface body, projected byte-faithfully.
     body: String,
-    /// Whether this member's `file()` source resolves to the very path it
-    /// projects to — a lifted member, authored territory the guard/note never
-    /// claim.
-    own_path: bool,
 }
 
 /// Render a path for a lock row's `source_path`: always `/`-separated, regardless
@@ -323,24 +317,6 @@ struct Projection {
 /// byte-committed lock by host.
 fn to_lock_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
-}
-
-/// Whether a member's declared `file()` source (`payload_source`, when present)
-/// resolves to the very path it is about to project to (`dest`) — the lift's
-/// own-path detection. `dest` may not exist yet (a brand-new projection can
-/// never coincide with an existing source), so a failed canonicalize on either
-/// side reads as "not the same path" rather than an error: absent evidence must
-/// never *forge* a guard claim, but it must never *suppress* one either, so the
-/// safe default on any doubt is `false` (emit-owned, guarded).
-fn resolves_to_own_path(payload_source: Option<&str>, dest: &Path) -> bool {
-    let Some(source) = payload_source else {
-        return false;
-    };
-    let (Ok(source_real), Ok(dest_real)) = (fs::canonicalize(source), fs::canonicalize(dest))
-    else {
-        return false;
-    };
-    source_real == dest_real
 }
 
 /// The harness-relative locus a member of `facts` named `name` projects onto — the
@@ -490,14 +466,12 @@ pub fn emit(
                     member: member.name.clone(),
                 })?;
         let source_path = harness_root.join(member_projection_path(facts, &member.name));
-        let own_path = resolves_to_own_path(member.source_path.as_deref(), &source_path);
         projections.push(Projection {
             kind: member.kind.clone(),
             name: member.name.clone(),
             source_path,
             fields: member.fields.clone(),
             body: member.body.clone(),
-            own_path,
         });
     }
 
@@ -513,7 +487,6 @@ pub fn emit(
                 source_path: to_lock_path(&projection.source_path),
                 source_hash: hash.clone(),
                 emit_hash: hash,
-                own_path: projection.own_path,
             });
         entries.push(entry);
     }
@@ -699,28 +672,21 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
         .map(|bytes| install::placement_lines(&String::from_utf8_lossy(bytes)))
         .unwrap_or_default();
 
-    // An own-path member's `file()` source *is* its projected path — the projection
-    // is not derived from typed fields, it is the source. Deriving
-    // frontmatter from fields and writing it back over that same file would double
-    // up the identity field a directory-shaped kind (`skill`) always carries
-    // (`orderedFields`, `sdk/src/kind.ts`) atop the file's own, already-authored
-    // frontmatter — so own-path skips field-derived rendering and projects the
-    // resolved body (the whole file, byte-faithful) verbatim.
-    let desired = normalize_lf(&if projection.own_path {
-        projection.body.clone()
-    } else {
-        project_bytes(&projection.fields, &projection.body, &placements)
-    });
+    let desired = normalize_lf(&project_bytes(
+        &projection.fields,
+        &projection.body,
+        &placements,
+    ));
 
     // Double-emit determinism: a second
     // projection over the same surface must be byte-identical. Nondeterministic
     // authoring (a timestamp, an unordered map surfacing into a field) is a loud
     // failure here, never a silent churn the next `emit` would rewrite.
-    let second_pass = normalize_lf(&if projection.own_path {
-        projection.body.clone()
-    } else {
-        project_bytes(&projection.fields, &projection.body, &placements)
-    });
+    let second_pass = normalize_lf(&project_bytes(
+        &projection.fields,
+        &projection.body,
+        &placements,
+    ));
     if second_pass != desired {
         return Err(DriftError::Nondeterministic {
             path: projection.source_path.clone(),
@@ -1025,10 +991,8 @@ pub struct EmitOwnedEntry {
 
 /// Every path a lock at `workspace_dir` declares **emit-owned** — the constituency
 /// `install`'s guard/note/modeline placements bind to, replacing the raw discovery
-/// walk they once targeted. A row with no recorded `own_path` (a lock
-/// predating the fact, or a member with no `file()` prose) defaults to emit-owned —
-/// the safe direction, since a placement wrongly *placed* is a nudge to remove, but
-/// one wrongly *withheld* is a silent gap in the gate's write-boundary coverage.
+/// walk they once targeted. Every row the lock carries is emit-owned — whole
+/// conversion means there is no other kind of row.
 /// A missing or malformed lock yields no targets — the same "no lock, nothing to
 /// bind" absence [`config_stale`] treats identically.
 #[must_use]
@@ -1053,10 +1017,6 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
             ) else {
                 continue;
             };
-            let own_path = row.get("own_path").and_then(Item::as_bool).unwrap_or(false);
-            if own_path {
-                continue;
-            }
             targets.push(EmitOwnedEntry {
                 kind: kind.to_string(),
                 name: name.to_string(),

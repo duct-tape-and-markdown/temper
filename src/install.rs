@@ -603,14 +603,11 @@ pub enum GuardVerdict {
 
 /// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `mode`'s
 /// enforcement mode, bound to `targets` — the lock's emit-owned projection set
-/// ([`drift::emit_owned_targets`]). That reader already excludes a file()-carried
-/// member's own `file()` source (`own_path`), so a write to that source — the
-/// member's authored source of truth, not a generated projection — never binds,
-/// even under `block`. `targets` is `None` for a harness with no `lock.toml` at
-/// all (never emitted, or the file removed out from under an already-installed
-/// hook): with no declared set to consult, the guard falls back to binding any
-/// `.claude/` `file_path`, matching the pre-lock behavior — absent evidence must
-/// never silently suppress the guard.
+/// ([`drift::emit_owned_targets`]). `targets` is `None` for a harness with no
+/// `lock.toml` at all (never emitted, or the file removed out from under an
+/// already-installed hook): with no declared set to consult, the guard falls
+/// back to binding any `.claude/` `file_path`, matching the pre-lock behavior —
+/// absent evidence must never silently suppress the guard.
 ///
 /// A `file_path` naming no `.claude/` locus, or (with `targets` present) naming no
 /// declared projection, is [`GuardVerdict::Allow`]. Otherwise the finding maps
