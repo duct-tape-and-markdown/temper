@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the three built-in kinds' facts and their floor clauses, plus the unconditional
+# the four built-in kinds' facts and their floor clauses, plus the unconditional
 # `mode = "warn"` assembly fact — the root member's own enforcement mode
 # (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,8 +10,8 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`skill`, `rule`, `memory`) and its four floors (`skillFloor`,
-# `ruleFloor`, `memoryAnthropicFloor`, `memoryAgentsMdFloor`) — the identical rows an
+# built-in kinds (`command`, `skill`, `rule`, `memory`) and its five floors (`commandFloor`,
+# `skillFloor`, `ruleFloor`, `memoryAnthropicFloor`, `memoryAgentsMdFloor`) — the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration
 # rows verbatim; never hand-edit a row here.
@@ -19,8 +19,16 @@
 # `memoryAgentsMdFloor` is guidance-only (zero clauses,
 # `sdk/src/builtins.ts`), so it contributes no clause row; the SDK module exports one
 # `memory` kind (the `CLAUDE.md` locus) and no `provider`-qualified kind values yet,
-# so this lock's three kind facts carry no `provider` column and there is no distinct
+# so this lock's four kind facts carry no `provider` column and there is no distinct
 # `agents-md.memory` kind row.
+
+[[declaration.kind]]
+name = "command"
+governs_root = ".claude/commands"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+registration = ["user-invoked", "description-trigger(description)"]
 
 [[declaration.kind]]
 name = "memory"
@@ -44,6 +52,101 @@ governs_glob = "*/SKILL.md"
 format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
+
+[[declaration.clause]]
+kind = "command"
+predicate = "required"
+field = "name"
+severity = "required"
+guidance = "Every skill declares a `name` — the slug the harness binds to. Claude Code alone would default it from the directory name, but a nameless skill is not portable: the spec and Anthropic's upload validation both require it."
+cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-01)"
+
+[[declaration.clause]]
+kind = "command"
+predicate = "min_len"
+field = "name"
+severity = "required"
+guidance = "A present-but-empty name fails the spec's 1-64 character bound."
+cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-01)"
+bound = { min = 1 }
+
+[[declaration.clause]]
+kind = "command"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+guidance = "Lowercase letters, digits, and hyphens only — `PDF-Processing` is the spec's own counter-example. The charset also keeps XML out of the name, which Anthropic's upload validation separately forbids."
+cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-01)"
+charset = { ranges = ["a-z", "0-9"], chars = "-" }
+
+[[declaration.clause]]
+kind = "command"
+predicate = "max_len"
+field = "name"
+severity = "required"
+guidance = "Keep the name short and slug-like; it becomes a directory and an id."
+cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-01)"
+bound = { max = 64 }
+
+[[declaration.clause]]
+kind = "command"
+predicate = "deny"
+field = "name"
+severity = "required"
+guidance = "Reserved words, enforced by Anthropic's platform upload validation (not by the open spec, and not by Claude Code's runtime — which itself ships a `claude-api` skill). Keep them out if the skill will ever travel through the API or claude.ai."
+cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#skill-structure (retrieved 2026-07-01)"
+values = ["anthropic", "claude"]
+
+[[declaration.clause]]
+kind = "command"
+predicate = "required"
+field = "description"
+severity = "required"
+guidance = "The description is how the model chooses this skill from potentially 100+ available — it is the skill's API. Claude Code would fall back to the body's first paragraph; the spec and upload validation require it declared."
+cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-01)"
+
+[[declaration.clause]]
+kind = "command"
+predicate = "min_len"
+field = "description"
+severity = "required"
+guidance = "Say both what the skill does and when to use it, with the keywords a user would naturally say. Write in third person — the text is injected into the system prompt, and inconsistent point-of-view causes discovery problems."
+cite = "https://agentskills.io/specification#description-field (retrieved 2026-07-01)"
+bound = { min = 1 }
+
+[[declaration.clause]]
+kind = "command"
+predicate = "max_len"
+field = "description"
+severity = "required"
+guidance = "The spec's cap. Claude Code additionally truncates the skill listing at 1,536 combined characters (description + when_to_use) — truncation, not rejection, but text past the fold cannot help the model choose."
+cite = "https://agentskills.io/specification#description-field (retrieved 2026-07-01)"
+bound = { max = 1024 }
+
+[[declaration.clause]]
+kind = "command"
+predicate = "max_len"
+field = "compatibility"
+severity = "required"
+guidance = "Optional field; when present the spec caps it at 500 characters. Most skills do not need it."
+cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-01)"
+bound = { max = 500 }
+
+[[declaration.clause]]
+kind = "command"
+predicate = "max_lines"
+severity = "advisory"
+guidance = "Progressive disclosure: keep SKILL.md under 500 lines and move detailed reference material to separate files, one level deep. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good."
+cite = "https://agentskills.io/specification#progressive-disclosure (retrieved 2026-07-01)"
+bound = { max = 500 }
+
+[[declaration.clause]]
+kind = "command"
+predicate = "forbidden_keys"
+severity = "required"
+guidance = "Cursor `.mdc` keys. Nothing in the Agent Skills spec or Claude Code's documented frontmatter accepts them — a skill authored with them is carrying dead configuration that another tool's semantics silently fail to apply."
+cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-01)"
+keys = ["globs", "alwaysApply"]
 
 [[declaration.clause]]
 kind = "memory"

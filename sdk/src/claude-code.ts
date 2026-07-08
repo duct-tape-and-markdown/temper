@@ -9,7 +9,17 @@
  */
 
 export type { Memory, Rule, Skill } from "./builtins.js";
-export { memory, memoryAgentsMdFloor, memoryAnthropicFloor, rule, ruleFloor, skill, skillFloor } from "./builtins.js";
+export {
+  command,
+  commandFloor,
+  memory,
+  memoryAgentsMdFloor,
+  memoryAnthropicFloor,
+  rule,
+  ruleFloor,
+  skill,
+  skillFloor,
+} from "./builtins.js";
 
 // The prose constructors ride along so a harness author targeting Claude Code
 // never reaches back to the root package mid-member.

@@ -6,8 +6,10 @@
 //! Driven across the real process boundary through the one-shot `check --harness` verb
 //! (the route session-start takes), over harness-dir fixtures mirroring the real Claude
 //! Code layout — `.claude/skills/*` plus, for the gap arm, a `.claude/agents/` tree no
-//! kind governs, and for the locked-kind arm, a `.claude/commands/` tree a committed
-//! `command` kind row governs. The GitHub reporter gives a machine-parseable finding
+//! kind governs, and for the locked-kind arm, a *different* `.claude/agents/` tree a
+//! committed `agent` kind row governs (`.claude/commands` no longer fits this arm: the
+//! `command` built-in now governs it unconditionally, so it is never an available gap).
+//! The GitHub reporter gives a machine-parseable finding
 //! set: each finding is one `::warning title=<rule>::<artifact>: …` line, so the
 //! coverage note's advisories are asserted exactly. Every coverage-note finding is
 //! `warning` (advisory) — it never gates and never injects a session-start verdict.
@@ -70,18 +72,21 @@ fn write_agent(root: &Path, name: &str) {
     .unwrap();
 }
 
-/// Commit a lock at `<root>/.temper/lock.toml` declaring a `command` kind rooted at
-/// `.claude/commands` and project its one member — a locked custom kind the coverage
+/// Commit a lock at `<root>/.temper/lock.toml` declaring an `agent` kind rooted at
+/// `.claude/agents` and project its one member — a locked custom kind the coverage
 /// note's built-in set carries no row for, so the gate discovers it only by reading
-/// the lock (`COVERAGE-KIND-AWARE`).
-fn lock_command_kind(root: &Path) {
+/// the lock (`COVERAGE-KIND-AWARE`). `agent` (not `command`) stands in for the
+/// not-yet-shipped custom kind here: `command` graduated to a real built-in
+/// (COMMAND-KIND), so a lock row named `command` would now be shadowed rather than
+/// exercise the locked-custom-kind path this test means to cover.
+fn lock_agent_kind(root: &Path) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![KindFactRow {
-                name: "command".to_string(),
+                name: "agent".to_string(),
                 provider: None,
-                governs_root: ".claude/commands".to_string(),
+                governs_root: ".claude/agents".to_string(),
                 governs_glob: "*.md".to_string(),
                 format: None,
                 unit_shape: Some("file".to_string()),
@@ -91,7 +96,7 @@ fn lock_command_kind(root: &Path) {
             ..Declarations::default()
         },
         members: vec![PayloadMember {
-            kind: "command".to_string(),
+            kind: "agent".to_string(),
             name: "review".to_string(),
             fields: Vec::new(),
             body: "# Review\n\nRun the review workflow.\n".to_string(),
@@ -224,20 +229,20 @@ fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
 
 #[test]
 fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
-    let harness = tmpdir("locked-command-kind");
+    let harness = tmpdir("locked-agent-kind");
     write_skill(&harness, "coordinate");
-    lock_command_kind(&harness);
+    lock_agent_kind(&harness);
 
     let (findings, success) = check_harness(&harness);
 
-    // `.claude/commands` is present and governed by the locked `command` kind, so it
-    // is never flagged unmodeled.
+    // `.claude/agents` is present and governed by the locked `agent` kind, so it is
+    // never flagged unmodeled.
     let unmodeled = findings_for(&findings, "coverage.unmodeled-surface");
     assert!(
         unmodeled
             .iter()
-            .all(|line| !line.contains("::.claude/commands:")),
-        "a locked custom kind governing .claude/commands must suppress the finding, got: {unmodeled:#?}"
+            .all(|line| !line.contains("::.claude/agents:")),
+        "a locked custom kind governing .claude/agents must suppress the finding, got: {unmodeled:#?}"
     );
 
     // The checked-count message folds the custom kind's member in beside the
@@ -250,7 +255,7 @@ fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
     );
     let summary = checked[0];
     assert!(
-        summary.contains("command (1)"),
+        summary.contains("agent (1)"),
         "the summary counts the locked custom kind's member, got: {summary}"
     );
     assert!(

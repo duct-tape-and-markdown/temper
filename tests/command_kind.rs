@@ -1,0 +1,144 @@
+//! The `command` built-in kind: the skill surface's legacy file placement
+//! (`specs/builtins.md`, "The shipped kinds").
+//!
+//! Discovery folds a lone `.claude/commands/*.md` file into a `command` member with
+//! file-stem identity (like `rule` — no `name` field required for identity) and the
+//! skill's field schema (imported, not re-derived): both invocation channels, the
+//! same declared fields `skill` extracts. Driven at the crate-public API a real
+//! `import`/`check` read takes — `import::discover_kind_files`, `Member::from_source`,
+//! and the generic surface loader `builtin_kind::features` — over a fixture
+//! mirroring the real Claude Code layout (`.claude/rules/rust.md`, "Harness-input
+//! fixtures mirror the real Claude Code layout").
+
+use std::fs;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
+
+use temper::builtin_kind;
+use temper::extract::{FeatureValue, ValueType};
+use temper::frontmatter::Member;
+use temper::import;
+use temper::kind::{Registration, Unit};
+
+static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+/// A fresh, empty temp directory unique to this test run.
+fn tmpdir(label: &str) -> PathBuf {
+    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "command-kind-{}-{}-{}",
+        std::process::id(),
+        id,
+        label
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// A command file in the real Claude Code shape: YAML frontmatter over a markdown
+/// body, the same schema a skill's `SKILL.md` carries.
+const DEPLOY_COMMAND: &str = "---\n\
+description: Deploy the application to production.\n\
+---\n\
+# Deploy\n\
+\n\
+Run the release pipeline.\n";
+
+/// Write a command member at `<root>/.claude/commands/<stem>.md` — the real Claude
+/// Code locus (`.claude/commands/*.md`), never a layout invented for the test.
+fn write_command(root: &std::path::Path, stem: &str, body: &str) -> PathBuf {
+    let dir = root.join(".claude").join("commands");
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("{stem}.md"));
+    fs::write(&path, body).unwrap();
+    path
+}
+
+/// Write a member's authored surface document `<dir>/<member_doc>` exactly as
+/// `import`/`emit` project it (`crate::frontmatter::Member::to_document`), then
+/// reload it through the generic surface loader `check` reads
+/// (`builtin_kind.rs`'s own `surface_unit` driver) — one generic adapter, no
+/// per-kind IR.
+fn surface_unit(member: &Member, member_doc: &str, dir: &std::path::Path) -> Unit {
+    fs::create_dir_all(dir).unwrap();
+    let doc_path = dir.join(member_doc);
+    fs::write(&doc_path, member.to_document().emit()).unwrap();
+    Unit::from_member_document(dir, &doc_path).unwrap()
+}
+
+#[test]
+fn discovery_over_the_embedded_governs_finds_the_command_file() {
+    let harness = tmpdir("discover");
+    write_command(&harness, "coordinate", DEPLOY_COMMAND);
+    write_command(&harness, "deploy", DEPLOY_COMMAND);
+
+    let command_kind = builtin_kind::definition("command")
+        .unwrap()
+        .expect("command is embedded");
+    let found =
+        import::discover_kind_files(&harness, &command_kind, &command_kind.governs).unwrap();
+
+    assert_eq!(
+        found,
+        vec![
+            harness.join(".claude/commands/coordinate.md"),
+            harness.join(".claude/commands/deploy.md"),
+        ]
+    );
+}
+
+#[test]
+fn a_command_file_folds_into_a_member_with_file_stem_identity() {
+    let harness = tmpdir("deploy");
+    let source = write_command(&harness, "deploy", DEPLOY_COMMAND);
+
+    let command_kind = builtin_kind::definition("command")
+        .unwrap()
+        .expect("command is embedded");
+    let member = Member::from_source(&command_kind, &source).unwrap();
+
+    // File-stem identity — like `rule`, not the `name`-field identity a directory-
+    // shaped `skill` carries.
+    assert_eq!(member.id, "deploy");
+}
+
+#[test]
+fn a_command_member_registers_on_both_documented_invocation_channels() {
+    let command_kind = builtin_kind::definition("command")
+        .unwrap()
+        .expect("command is embedded");
+
+    assert_eq!(
+        command_kind.registration,
+        vec![
+            Registration::UserInvoked,
+            Registration::DescriptionTrigger {
+                field: "description".to_string()
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_command_member_extracts_the_skills_declared_field_schema() {
+    let harness = tmpdir("deploy-schema");
+    let source = write_command(&harness, "deploy", DEPLOY_COMMAND);
+
+    let command_kind = builtin_kind::definition("command")
+        .unwrap()
+        .expect("command is embedded");
+    let member = Member::from_source(&command_kind, &source).unwrap();
+    let unit = surface_unit(&member, "COMMAND.md", &harness.join("surface"));
+    let features = builtin_kind::features(&command_kind, &unit);
+
+    // The skill's field schema by import: `description` extracts exactly as it does
+    // off a `SKILL.md`.
+    assert_eq!(
+        features.field("description"),
+        Some(&FeatureValue::scalar(
+            ValueType::String,
+            "Deploy the application to production."
+        ))
+    );
+}

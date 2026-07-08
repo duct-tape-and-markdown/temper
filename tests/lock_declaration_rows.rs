@@ -1040,11 +1040,28 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(memory.unit_shape.as_deref(), Some("file"));
     assert_eq!(memory.registration, vec!["always".to_string()]);
 
-    // The SDK module sets no `provider` on any of its three exported kinds yet, so
+    let command = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "command")
+        .expect("the command kind fact is embedded");
+    assert_eq!(command.governs_root, ".claude/commands");
+    assert_eq!(command.governs_glob, "*.md");
+    assert_eq!(command.format.as_deref(), Some("yaml-frontmatter"));
+    assert_eq!(command.unit_shape.as_deref(), Some("file"));
+    assert_eq!(
+        command.registration,
+        vec![
+            "user-invoked".to_string(),
+            "description-trigger(description)".to_string()
+        ]
+    );
+
+    // The SDK module sets no `provider` on any of its four exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
     // reconciles (`(builtin-workspace-qualified-key)`), not this link.
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 3);
+    assert_eq!(declarations.kinds.len(), 4);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());
@@ -1069,6 +1086,11 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
         lock_triples("memory"),
         floor_triples("memory"),
         "memory's floor clauses round-trip through the derived lock unchanged"
+    );
+    assert_eq!(
+        lock_triples("command"),
+        floor_triples("command"),
+        "command's floor clauses round-trip through the derived lock unchanged"
     );
 }
 

@@ -62,6 +62,8 @@ fn ensure_sdk_built() {
 const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { emit, harness } from "@dtmd/temper";
 import {
+  command,
+  commandFloor,
   memory,
   memoryAgentsMdFloor,
   memoryAnthropicFloor,
@@ -74,6 +76,7 @@ import {
 const program = harness({
   members: [],
   expect: [
+    { kind: command, clauses: commandFloor },
     { kind: memory, clauses: memoryAnthropicFloor },
     { kind: memory, clauses: memoryAgentsMdFloor },
     { kind: rule, clauses: ruleFloor },

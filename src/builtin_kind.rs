@@ -1,13 +1,13 @@
 //! The embedded built-in kind std-lib.
 //!
-//! `temper` ships the read-side definitions of the known-harness kinds (`skill`,
-//! `rule`, `memory`) as plain Rust data below — the compiled default program the
-//! engine carries for SDK-less checking.
+//! `temper` ships the read-side definitions of the known-harness kinds (`command`,
+//! `skill`, `rule`, `memory`) as plain Rust data below — the compiled default
+//! program the engine carries for SDK-less checking.
 //!
 //! A built-in kind's definition is a [`CustomKind`] like any other — assembled with
 //! [`CustomKind::new`] — and validated as any kind is; this module only sources the
 //! five facts from Rust literals instead of a parsed header. Identity is flat: a
-//! kind's bare name is its whole identity, so the three kinds below never
+//! kind's bare name is its whole identity, so the four kinds below never
 //! collide.
 
 use std::collections::BTreeMap;
@@ -16,6 +16,45 @@ use crate::extract::{self, Features};
 use crate::kind::{
     CustomKind, Extraction, Format, Governs, KindError, Primitive, Registration, Unit,
 };
+
+/// The skill surface's field schema — the documented frontmatter fields plus the
+/// markdown-structure primitives, shared verbatim by `skill` and `command`
+/// (`specs/builtins.md`, "The shipped kinds": command is a second placement of the
+/// skill surface, not a second schema).
+fn skill_extraction() -> Extraction {
+    Extraction::new(vec![
+        Primitive::Field {
+            key: "name".to_string(),
+        },
+        Primitive::Field {
+            key: "description".to_string(),
+        },
+        Primitive::Field {
+            key: "license".to_string(),
+        },
+        Primitive::Field {
+            key: "disable-model-invocation".to_string(),
+        },
+        Primitive::Field {
+            key: "user-invocable".to_string(),
+        },
+        Primitive::LineCount,
+        Primitive::Headings,
+        Primitive::Sections,
+        Primitive::Placement,
+    ])
+}
+
+/// Both `skill` and `command` register on both documented invocation channels —
+/// user-invoked (`/name`) and description-trigger.
+fn skill_surface_registration() -> Vec<Registration> {
+    vec![
+        Registration::UserInvoked,
+        Registration::DescriptionTrigger {
+            field: "description".to_string(),
+        },
+    ]
+}
 
 /// Anthropic's documented `.claude/skills/<name>/SKILL.md` kind: a directory whose
 /// identity is the `name` field, registered on both documented invocation channels —
@@ -27,39 +66,35 @@ fn claude_code_skill() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::Directory),
-        registration: vec![
-            Registration::UserInvoked,
-            Registration::DescriptionTrigger {
-                field: "description".to_string(),
-            },
-        ],
+        registration: skill_surface_registration(),
         ..CustomKind::new(
             "skill",
             Governs {
                 root: ".claude/skills".to_string(),
                 glob: "*/SKILL.md".to_string(),
             },
-            Extraction::new(vec![
-                Primitive::Field {
-                    key: "name".to_string(),
-                },
-                Primitive::Field {
-                    key: "description".to_string(),
-                },
-                Primitive::Field {
-                    key: "license".to_string(),
-                },
-                Primitive::Field {
-                    key: "disable-model-invocation".to_string(),
-                },
-                Primitive::Field {
-                    key: "user-invocable".to_string(),
-                },
-                Primitive::LineCount,
-                Primitive::Headings,
-                Primitive::Sections,
-                Primitive::Placement,
-            ]),
+            skill_extraction(),
+        )
+    }
+}
+
+/// Anthropic's documented `.claude/commands/*.md` kind: the skill surface's legacy
+/// file placement (Claude Code merged commands into skills), a lone file whose
+/// identity is the filename stem, the skill's field schema by import, registered on
+/// the same two documented invocation channels as `skill`
+/// (code.claude.com/docs/en/skills, retrieved 2026-07-07).
+fn claude_code_command() -> CustomKind {
+    CustomKind {
+        format: Some(Format::YamlFrontmatter),
+        unit_shape: Some(crate::kind::UnitShape::File),
+        registration: skill_surface_registration(),
+        ..CustomKind::new(
+            "command",
+            Governs {
+                root: ".claude/commands".to_string(),
+                glob: "*.md".to_string(),
+            },
+            skill_extraction(),
         )
     }
 }
@@ -121,6 +156,7 @@ fn claude_code_memory() -> CustomKind {
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
     vec![
+        claude_code_command(),
         claude_code_skill(),
         claude_code_rule(),
         claude_code_memory(),
@@ -308,7 +344,7 @@ mod tests {
         let all = definitions().unwrap();
         assert_eq!(
             all.keys().map(String::as_str).collect::<Vec<_>>(),
-            vec!["memory", "rule", "skill"]
+            vec!["command", "memory", "rule", "skill"]
         );
     }
 
@@ -316,10 +352,48 @@ mod tests {
     fn qualified_names_every_embedded_kind_by_its_own_bare_name() {
         // No provider axis left to resolve through — a bare name's qualified identity
         // is always itself.
-        for bare in ["skill", "rule", "memory"] {
+        for bare in ["command", "skill", "rule", "memory"] {
             assert_eq!(qualified(bare).unwrap().as_deref(), Some(bare));
         }
         assert!(qualified("spec").unwrap().is_none());
+    }
+
+    #[test]
+    fn command_definition_matches_the_hand_authored_kind() {
+        let command = definition("command").unwrap().expect("command is embedded");
+
+        assert_eq!(command.name, "command");
+        assert_eq!(
+            command.governs,
+            Governs {
+                root: ".claude/commands".to_string(),
+                glob: "*.md".to_string(),
+            }
+        );
+        // The skill's field schema, reused verbatim — command is a second placement of
+        // the skill surface, not a second schema.
+        assert_eq!(
+            command.extraction.primitives(),
+            definition("skill")
+                .unwrap()
+                .unwrap()
+                .extraction
+                .primitives()
+        );
+        assert_eq!(command.relationships, Vec::<Edge>::new());
+        // File-shaped, like `rule` — identity is the filename stem, no `name` field
+        // required for identity.
+        assert_eq!(command.unit_shape, Some(crate::kind::UnitShape::File));
+        // Registers on both documented invocation channels, exactly like `skill`.
+        assert_eq!(
+            command.registration,
+            vec![
+                Registration::UserInvoked,
+                Registration::DescriptionTrigger {
+                    field: "description".to_string()
+                },
+            ]
+        );
     }
 
     /// A fresh, empty temp directory unique to this test run.

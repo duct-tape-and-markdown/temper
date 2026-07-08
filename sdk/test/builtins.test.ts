@@ -9,6 +9,8 @@ import { test } from "node:test";
 
 import type { Clause } from "../src/index.js";
 import {
+  command,
+  commandFloor,
   memory,
   memoryAgentsMdFloor,
   memoryAnthropicFloor,
@@ -18,7 +20,13 @@ import {
   skillFloor,
 } from "../src/claude-code.js";
 
-const FLOORS: ReadonlyArray<readonly Clause[]> = [skillFloor, ruleFloor, memoryAnthropicFloor, memoryAgentsMdFloor];
+const FLOORS: ReadonlyArray<readonly Clause[]> = [
+  skillFloor,
+  commandFloor,
+  ruleFloor,
+  memoryAnthropicFloor,
+  memoryAgentsMdFloor,
+];
 
 test("every exported floor is a well-formed clause array", () => {
   for (const floor of FLOORS) {
@@ -61,6 +69,24 @@ test("skillFloor carries the skill kind's decidable clauses, name-first", () => 
   );
 });
 
+test("commandFloor is skillFloor minus the directory-name clause", () => {
+  assert.deepEqual(
+    commandFloor.map((c) => c.predicate.key),
+    skillFloor.map((c) => c.predicate.key).filter((key) => key !== "name-matches-dir"),
+  );
+  assert.equal(
+    commandFloor.some((c) => c.predicate.key === "name-matches-dir"),
+    false,
+    "a command is a lone file — no parent directory to match",
+  );
+  // `name` requiredness rides over unchanged: a command still declares no `name`
+  // field for identity (file-stem, like `rule`), but the skill schema's own
+  // `required`/`min_len`/`allowed_chars`/`max_len`/`deny` clauses over `name` still
+  // apply by import.
+  assert.equal(commandFloor[0].predicate.key, "required");
+  assert.equal(commandFloor[0].predicate.field, "name");
+});
+
 test("ruleFloor forbids Cursor keys and budgets body size", () => {
   assert.deepEqual(
     ruleFloor.map((c) => c.predicate.key),
@@ -81,12 +107,24 @@ test("memoryAgentsMdFloor is guidance-only — zero clauses", () => {
 
 test("the floors ride alongside their kinds through the claude-code subpath", () => {
   assert.equal(typeof skill, "function");
+  assert.equal(typeof command, "function");
   assert.equal(typeof rule, "function");
   assert.equal(typeof memory, "function");
 });
 
-test("skill registers on both documented invocation channels; rule/memory carry a singleton set", () => {
+test("command is a file-shaped unit with no identityField, unlike the directory-shaped skill", () => {
+  assert.equal(command.facts.unitShape, "file");
+  assert.equal(command.facts.identityField, undefined);
+  assert.equal(skill.facts.unitShape, "directory");
+  assert.equal(skill.facts.identityField, "name");
+});
+
+test("skill/command register on both documented invocation channels; rule/memory carry a singleton set", () => {
   assert.deepEqual(skill.facts.registration, [
+    { via: "user-invoked" },
+    { via: "description-trigger", field: "description" },
+  ]);
+  assert.deepEqual(command.facts.registration, [
     { via: "user-invoked" },
     { via: "description-trigger", field: "description" },
   ]);

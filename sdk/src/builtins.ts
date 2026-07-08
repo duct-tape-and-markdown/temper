@@ -67,6 +67,21 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
   identityField: "name",
 });
 
+/**
+ * `command` — `.claude/commands/*.md`, the skill surface's legacy file placement
+ * (Claude Code merged commands into skills; code.claude.com/docs/en/skills,
+ * retrieved 2026-07-07): a lone file (identity from the stem, so no
+ * `identityField` — like `rule`), the skill's field schema by import, registering
+ * on the same two documented invocation channels as `skill`.
+ */
+export const command: KindDefinition<Skill> = kind<Skill>({
+  name: "command",
+  locus: { kind: "at", root: ".claude/commands", glob: "*.md" },
+  format: "yaml-frontmatter",
+  unitShape: "file",
+  registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
+});
+
 /** A Claude Code rule — a flat markdown file with an optional `paths` scope. */
 export interface Rule {
  /**
@@ -207,6 +222,18 @@ export const skillFloor: readonly Clause[] = [
     cite: "https://agentskills.io/specification#frontmatter (retrieved 2026-07-01)",
   }),
 ];
+
+/**
+ * The floor for `command` — `skillFloor`'s clauses minus `nameMatchesDir`: a
+ * command is a lone file with no parent directory to match, so the one clause
+ * that ranges over the directory relationship does not apply; every other
+ * documented skill-schema recommendation, name-requiredness included, still
+ * governs a command by the same import (code.claude.com/docs/en/skills,
+ * retrieved 2026-07-07).
+ */
+export const commandFloor: readonly Clause[] = skillFloor.filter(
+  (entry) => entry.predicate.key !== "name-matches-dir",
+);
 
 /**
  * The floor for `rule` — Anthropic's documented contract for a Claude Code
