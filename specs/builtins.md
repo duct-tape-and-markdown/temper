@@ -38,11 +38,11 @@ point of claim in the kind's own source.
 
 ## The named expansion — what the model reaches next
 
-The structured config trees are not an untyped residue. Hooks, permissions,
-and MCP servers are embedded members — nested in the model, serialized inside
-their parent's body per the parent's format (`model/representation.md`). The
-model reaches all of them; shipped kinds and default contracts for them are
-forward work. The coverage bar is the surface's own documentation: every
+The structured config trees are not an untyped residue. Hooks, MCP servers,
+and installed plugins are registration members surfacing in the harness's
+manifests (`model/representation.md`); the permission list is a derived
+aggregate (`model/pipeline.md`). The model reaches all of them; shipped
+kinds and default contracts for them are forward work. The coverage bar is the surface's own documentation: every
 capability a built-in surface documents as real — a user-invoked command, an
 event hook, a connection — gets its registration value and, where it is an
 artifact, its kind. The vocabulary grows by documented, cited capability,

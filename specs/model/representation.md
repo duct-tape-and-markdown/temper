@@ -72,10 +72,18 @@ members all the way down.
 
 ## Reach
 
-- Structured config trees (`settings.json`, `.mcp.json`) are not an untyped
-  residue: hooks, permissions, and MCP servers are embedded members with
-  kinds and default contracts. A small residue of genuinely unschematized
-  keys remains as opaque fields, named as such.
+- Structured config trees (`settings.json`, `.mcp.json`, a plugin's
+  manifests) are **manifests**: projections representing a controlled
+  segment of their container member — its fields, its members' registration
+  facts, and derived aggregates like the permission list. A registration
+  member (a hook, an MCP server, an installed plugin) is a fields-only kind
+  surfacing at its declared collection address; a small residue of genuinely
+  unschematized keys remains as opaque fields, named as such.
+- Claude Code's artifact levels — user, project, project-local, enterprise —
+  are peer forests of one shape, merged at runtime by the surface per
+  documented, cited per-kind precedence. temper governs the project forest;
+  an ignored local file is by declaration not authored here; another level
+  is another target path, never a model change.
 - The engine is corpus-generic — any corpus of authored artifacts can be
   modeled as members and gated — but exactly one governed corpus ships: the
   harness. A second corpus is a feature, never a founding assumption.
