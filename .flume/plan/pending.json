@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PLURAL-HELPER-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -108,7 +107,7 @@
         },
         {
           "path": "src/bundle.rs",
-          "description": "In-source test `tmpdir` (line 336) switches to `tempfile` directly."
+          "description": "In-source test `tmpdir` (line 331) switches to `tempfile` directly."
         },
         {
           "path": "src/frontmatter.rs",
@@ -120,15 +119,15 @@
         },
         {
           "path": "src/import.rs",
-          "description": "In-source test `tmpdir` (line 382) switches to `tempfile` directly."
+          "description": "In-source test `tmpdir` (line 372) switches to `tempfile` directly."
         },
         {
           "path": "src/coverage_note.rs",
-          "description": "In-source test `tmpdir` (line 420) switches to `tempfile` directly."
+          "description": "In-source test `tmpdir` (line 415) switches to `tempfile` directly."
         },
         {
           "path": "src/install.rs",
-          "description": "In-source test `tmpdir` (line 1544) switches to `tempfile` directly."
+          "description": "In-source test `tmpdir` (line 1548) switches to `tempfile` directly."
         },
         {
           "path": "src/drift.rs",
@@ -149,7 +148,7 @@
       }
     ],
     "acceptance": "`tests/common::tmpdir`/`fixture` are the one home for every integration test; every in-src `#[cfg(test)]` module uses `tempfile` directly; no hand-rolled counter+pid tmpdir scheme remains anywhere in `src/`/`tests/`; `cargo test` green.",
-    "notes": "Re-verified at d6c37a3: tests/common/mod.rs now exists (windows-vendor entry shipped it), moved new->edit. Found emit.rs/install.rs/builtin_lock_frozen.rs still carry local tmpdir (that entry only handled sdk_root/vendor_sdk) — added to close the 28-copy count. coverage_note.rs line 419->420 (glob entry shifted it). Serialized behind PLURAL-HELPER-CONSOLIDATE: overlaps it (bundle/coverage_note/install.rs) and PATH-NORMALIZER-CONSOLIDATE (import.rs). scoped at d6c37a3"
+    "notes": "PLURAL-HELPER-CONSOLIDATE shipped (220e9cd) — unblocked, now open. Its edit rippled line numbers this entry cites: bundle.rs 336->331, coverage_note.rs 420->415, install.rs 1544->1548; import.rs 382->372 (stale since the earlier PATH-NORMALIZER-CONSOLIDATE ship, caught now). All eight in-src tmpdir refs re-verified against HEAD; 28-copy count still holds. scoped at 220e9cd"
   },
   {
     "tag": "FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE",
@@ -172,7 +171,7 @@
         },
         {
           "path": "src/install.rs",
-          "description": "Delete `frontmatter_inner` (line 1459) — its own doc comment admits it 'mirrors the delimiter detection the loaders use': a byte-for-byte copy of the same scan loop, returning only the matter half. Its three call sites — `project_modeline` (line 1410), `project_note` (line 1439), `placement_lines` (line 1481), each already holding `rest = source.strip_prefix(\"---\\n\")?` — use `crate::frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)`."
+          "description": "Delete `frontmatter_inner` (line 1463) — its own doc comment admits it 'mirrors the delimiter detection the loaders use': a byte-for-byte copy of the same scan loop, returning only the matter half. Its three call sites — `project_modeline` (line 1412), `project_note` (line 1441), `placement_lines` (line 1481), each already holding `rest = source.strip_prefix(\"---\\n\")?` — use `crate::frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)`."
         }
       ],
       "retire": []
@@ -189,7 +188,7 @@
       }
     ],
     "acceptance": "One closing-delimiter scanner (`crate::frontmatter::closing_delimiter`, `pub(crate)`); no duplicate scan loop remains in install.rs; `cargo test` green.",
-    "notes": "Found in job 4 residue sweep at 425968d: both functions' own doc comments say they 'mirror' the same delimiter detection — the second author knew of the first, wrote a second copy anyway. gray_matter isn't used directly here since it doesn't preserve raw bytes verbatim (pinned-semantics exception, engineering.md). Shares install.rs+frontmatter.rs with PLURAL-HELPER-CONSOLIDATE/TEST-SCAFFOLDING-CONSOLIDATE (in-src-test-tmpdir edits) — blockedBy TEST-SCAFFOLDING-CONSOLIDATE. scoped at 425968d"
+    "notes": "Job 4 residue sweep at 425968d: both functions' doc comments admit they 'mirror' the same scan. gray_matter unused here — doesn't preserve raw bytes (pinned-semantics exception). blockedBy TEST-SCAFFOLDING-CONSOLIDATE (shares install.rs, now open, unshipped). install.rs refs re-verified at 220e9cd post plural-helper edit: frontmatter_inner->1463, project_modeline->1412, project_note->1441, placement_lines unchanged 1481. scoped at 220e9cd"
   },
   {
     "tag": "TEST-FIXTURE-HELPERS-CONSOLIDATE",
