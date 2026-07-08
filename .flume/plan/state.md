@@ -1,26 +1,25 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: cbce31d
+- Audited through: f6ec58f
 - Residue swept through: ff09cee
-- This tick: Ship audit (job 3), ff09cee..cbce31d. 878fb2d (build)
-  consolidated 9 other copy-pasted test builders (surface_unit, skill_member,
-  rule_member, rule_kind_facts, skill_kind_facts, skill_surface_unit,
-  findings_for, author_rule_satisfies, requirement) into tests/common — a
-  disjoint set from rawunit's 5 named raw-Unit-literal constructors,
-  confirmed unchanged on disk (spec_unit, decision_unit, memory_unit,
-  frontmatter_unit, unit_from_member all still present, same shapes, only
-  shifted line numbers in extract_equivalence.rs/agent_kind.rs, since 878fb2d
-  trimmed earlier lines in those two files). cbce31d shipped lockunitbuilders
-  (pending.json-only commit). Unblocked TEST-HELPER-DUPES-CONSOLIDATE(rawunit)
-  from blockedBy lockunitbuilders to open, refreshed its line numbers.
-  Re-verified PACKAGING-CHANNELS still parked: no
-  .github/workflows/release.yml, package.json still the private flume
-  manifest — restamped re-verified at cbce31d.
-- Queue: TEST-HELPER-DUPES-CONSOLIDATE(rawunit) open (pickable) —
-  PACKAGING-CHANNELS parked (unchanged this tick).
+- This tick: Ship audit (job 3), cbce31d..f6ec58f. ca5557d (build) consolidated
+  the 5 raw-Unit-literal builders (spec_unit, decision_unit, memory_unit,
+  frontmatter_unit, unit_from_member) into one tests/common::raw_unit(id,
+  frontmatter, body, source_path) — verified on disk: old builder names gone
+  from tests/agent_kind.rs, tests/extract_equivalence.rs,
+  tests/nested_member.rs, tests/section_contains.rs; raw_unit present in
+  tests/common/mod.rs; full `cargo test` green (agent_kind,
+  extract_equivalence, nested_member, section_contains and the full suite,
+  including session_start). f6ec58f (chore) correctly dropped
+  TEST-HELPER-DUPES-CONSOLIDATE(rawunit) from pending.json now that its work
+  shipped. Re-verified PACKAGING-CHANNELS still parked: still no
+  .github/workflows/release.yml (only temper.yml, a check job), root
+  package.json still the private flume manifest (temper-flume-harness),
+  sdk/package.json unchanged at 0.0.5 — restamped re-verified at f6ec58f.
+- Queue: PACKAGING-CHANNELS parked (unchanged this tick) — no open entries.
 
-Plan continues: no — inbox empty, spec delta empty past f87cc0c, ship audit
-now current through HEAD (cbce31d). Residue sweep cursor still trails at
-ff09cee (untouched this tick, carried forward) but no live job precedes it
-next tick beyond resuming there. One open entry pickable; build takes over.
+Plan continues: yes — ship audit now current through HEAD (f6ec58f), but
+residue sweep cursor still trails at ff09cee (untouched since b6c613f) and no
+open entry remains for build to pick; next tick's live input is the residue
+sweep (job 4).
