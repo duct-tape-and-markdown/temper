@@ -31,6 +31,37 @@
     "notes": "Drained from .flume/refactor/build-main-backing-tmpdir.md (observed at 96e947d, re-verified live at HEAD — src/main.rs:1141 unchanged since). Found while build verified TEST-SCAFFOLDING-CONSOLIDATE's acceptance bar: main.rs wasn't in that entry's files.edit (its one-off didn't match the counter+pid+label description), so this straggler is its own entry. Disjoint from every other open/blocked entry (none touch src/main.rs). scoped at 33c1f7f"
   },
   {
+    "tag": "TMPDIR-HELPER-CONSOLIDATE(kindrs)",
+    "summary": "Rename src/kind.rs's surface_tmpdir to tmpdir to match the identical helper's name in every other in-src test module",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "`fn surface_tmpdir(label: &str) -> PathBuf` (line 1079) is byte-identical in body and doc comment to every sibling in-src test module's `fn tmpdir(label: &str) -> PathBuf` (e.g. `src/bundle.rs:329`, `src/check.rs:344`) — `tempfile::Builder::new().prefix(label).tempdir().expect(\"failed to create temp dir\").keep()` — just named differently. Rename the function to `tmpdir` and update its 8 call sites (lines 1111, 1141, 1168, 1219, 1234, 1252, 1264, 1276, all `surface_tmpdir(\"...\")`) to `tmpdir(\"...\")`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "kind.rs's in-src surface-construction tests (adr-root, feed-root, clause-fields, no-clauses, no-prov, bad-doc, no-body, two-body fixtures) still pass unchanged, now calling the renamed tmpdir helper"
+      }
+    ],
+    "acceptance": "src/kind.rs's helper is named tmpdir(label) like every sibling in-src test module (builtin_kind.rs, bundle.rs, check.rs, coverage_note.rs, drift.rs, frontmatter.rs, import.rs, install.rs); no surface_tmpdir symbol remains in src/; cargo test green.",
+    "notes": "Found via 1894af9's own commit body: \"src/kind.rs's identically-shaped surface_tmpdir, missed by this entry's grep for `fn tmpdir` — same scheme, different name.\" Byte-identical body (tempfile::Builder prefix+tempdir+keep) and doc comment to every sibling copy, just a different symbol name — same job, two names. Disjoint from TMPDIR-HELPER-CONSOLIDATE(mainrs) (main.rs only) and every other open entry. scoped at 3a2bed1"
+  },
+  {
     "tag": "FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE",
     "summary": "Consolidate the byte-identical closing-`---`-delimiter scan loop duplicated in frontmatter.rs's split_frontmatter and install.rs's frontmatter_inner into one home",
     "per": {
