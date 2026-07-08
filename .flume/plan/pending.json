@@ -7,8 +7,7 @@
       "section": "well-formedness"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SATISFIES-GATE-FROM-LOCK"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Three identical sites — explain (~L428), gate (~L634), collect_directive_members (~L987) — iterate declarations.kinds and `if builtin_defs.contains_key(&row.name) { continue; }`, silently dropping a custom kind row whose bare name matches an embedded built-in's from every corpus (no admissibility check, no diagnostic, member_counts never populated for it). Verified (2026-07-08) this is the real collision mechanism — not check.rs:83's Workspace::load_kinds as the inbox report cited, which is only ever called with the fixed built-in-only definitions() set (main.rs:60) and so cannot actually receive a colliding custom-kind row. Consolidate the three duplicate checks into one shared partition helper (per specs/process/engineering.md, 'One job, one home') and, in gate's path, surface the collision as an admissibility-tier Diagnostic::error (pattern at check.rs:320-323) naming the colliding kind — refusing rather than silently skipping, so member loss is never silent. Rebase onto whatever resolve_kind_units/main.rs shape SATISFIES-GATE-FROM-LOCK leaves — same file, sequenced after it."
+          "description": "Three identical sites — explain (L428), gate (L634), collect_directive_members (L997) — iterate declarations.kinds and `if builtin_defs.contains_key(&row.name) { continue; }`, silently dropping a custom kind row whose bare name matches an embedded built-in's from every corpus (no admissibility check, no diagnostic, member_counts never populated for it). Verified (2026-07-08) this is the real collision mechanism — not check.rs:83's Workspace::load_kinds as the inbox report cited, which is only ever called with the fixed built-in-only definitions() set (main.rs:60) and so cannot actually receive a colliding custom-kind row. Consolidate the three duplicate checks into one shared partition helper (per specs/process/engineering.md, 'One job, one home') and, in gate's path, surface the collision as an admissibility-tier Diagnostic::error (pattern at check.rs:320-323) naming the colliding kind — refusing rather than silently skipping, so member loss is never silent."
         }
       ],
       "retire": []
@@ -29,7 +28,7 @@
       }
     ],
     "acceptance": "A custom kind whose lock-declared name collides with an embedded built-in's is a well-formedness/admissibility finding, never a silent skip, across explain, gate, and directive-classing.",
-    "notes": "Field report T16 (inbox, observed 4b0bb0f). Reporter flagged the exact coverage-summary render site (\"command (0)\") as untraced/unconfirmed and did not verify their cited check.rs:83 mechanism is reachable for this scenario — it is not; re-verification (2026-07-08) found the real mechanism at three sites in main.rs instead. scoped at 7cdf5ac."
+    "notes": "Field report T16 (inbox, observed 4b0bb0f). check.rs:83's Workspace::load_kinds, the inbox report's cited mechanism, is unreachable for this scenario; the real one is three main.rs sites. SATISFIES-GATE-FROM-LOCK shipped (fe2b22c/7904498), adding a declarations.satisfies union to resolve_kind_units just above these sites — re-verified 2026-07-08 all three still match verbatim at shifted line numbers (was ~428/634/987, now 428/634/997). Unblocked. scoped at 7904498."
   },
   {
     "tag": "PACKAGING-CHANNELS",
