@@ -2,25 +2,21 @@
 
 - Spec derived through: cd7135b
 - Audited through: d7d0912
-- Residue swept through: fe0c502
-- This tick: Ship audit (job 3). One commit past the prior cursor touched
-  src/tests/sdk: ad109b4 (build: retire posture vocabulary for enforcement
-  mode). Verified on disk — the rename landed exactly in its three scoped
-  files (src/install.rs, src/drift.rs, tests/install.rs); remaining
-  `posture` hits repo-wide are the entry's own documented exclusions (CI
-  posture, mixed-posture corpus, SDK's unrelated "delivery posture") —
-  cargo test green. Its shipment cleared RETIRE-OWN-PATH-MACHINERY's
-  blockedBy: reconfirmed 4ed4027 (INSTALL-WHOLE-CONVERSION) makes scaffold
-  structurally incapable of emitting own_path=true, and current
-  pipeline.md Install text names no lifted-but-untyped state, so 0016's
-  premise still holds; own_path remains live verbatim across all five
-  files the entry cites. Flipped its gate blockedBy → open. Re-checked
-  PACKAGING-CHANNELS' parked reason: unchanged (only temper.yml exists,
-  root package.json still the private flume manifest, sdk/package.json
-  still 0.0.5) — reason holds verbatim.
-- Queue: RETIRE-OWN-PATH-MACHINERY now open and pickable; PACKAGING-CHANNELS
+- Residue swept through: d257e1b
+- This tick: Residue sweep (job 4). Only ad109b4 touched src/tests/sdk
+  since fe0c502, already reconciled by the prior ship audit. Swept
+  repo-wide for corpus-retired vocabulary still living as code (not just
+  comments): `posture` — clean, prior audit's documented exclusions hold;
+  `floor` — no live identifiers remain outside src/builtin_lock.rs (two
+  doc-comments + one test fn name), a file 706139a explicitly didn't touch
+  and whose mentions are comment/name-only — rides whichever entry next
+  opens that file, per the comment-staleness exception, not filed;
+  `own_path` — already the live subject of RETIRE-OWN-PATH-MACHINERY;
+  the `.temper/kinds|packages/spec` `+++`-fixture debt in
+  tests/session_start.rs is unchanged and stays parked for the next ship
+  audit per its standing note. No new fileable gap found. Cursor to HEAD.
+- Queue: RETIRE-OWN-PATH-MACHINERY open and pickable; PACKAGING-CHANNELS
   parked.
 
-Plan continues: yes — residue cursor (fe0c502) trails HEAD (d7d0912): the
-next tick's job 4 sweeps src/tests/sdk for corpus-retired vocabulary since
-that commit before handoff.
+Plan continues: yes — next tick's job 5 (quiet closing pass): confirm the
+queue disjoint and state re-derived, then hand off to build.
