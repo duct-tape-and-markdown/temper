@@ -77,23 +77,6 @@ tax.
   capability mismatch, which harness is authoritative, whether a lossy
   projection is a verdict or an error. No dependents.
 
-- `(genre-fence-format)` — OPEN (field report 3, 2026-07-07). The nested-member
-  **write face** is unbuilt: `blocks()` rendering nested members into their
-  host's body at emit, so an authored genre value (the centercode `directive`
-  genre, one git revert away) projects into its host artifact. The **read** fold
-  already exists — `kind_features` (`src/kind.rs`) folds ```genre.<kind> <key>`
-  TOML from the host body into `Features::nested_members`, and the read verbs
-  project over it (`src/read.rs`). Open fork: the emit render format, and whether
-  an embedded nested member needs any lock representation beyond its host artifact
-  (`specs/model/representation.md`, "nesting"/"locus": an embedded member
-  serializes into its parent's artifact, and the read-back re-folds from those
-  bytes — so a separate lock row may be redundant, which is exactly what field
-  report 3's "serialize-to-lock middle" framing puts in question). Field report
-  3's concrete claims are stale against HEAD (`graph.rs`'s nested-empty is
-  test-helper code; `from_kind_fact_row` now has a production caller in the
-  custom-kind gate loop, `src/main.rs`) — a fresh probe against HEAD scopes the
-  real remainder before an entry encodes it.
-
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
