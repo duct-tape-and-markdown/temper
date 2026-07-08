@@ -3,24 +3,15 @@
 - Spec derived through: f87cc0c
 - Audited through: 425968d
 - Residue swept through: 425968d
-- This tick: Residue sweep ef72da3..425968d (job 4). Verified 24f9bbc/ad9f4af
-  landed clean — import.rs fully switched to `graph::normalize_path`, no
-  leftover `normalize`; builtin.rs/main.rs both wrap
-  `compose::clause_from_row`, no reimplementation left behind; `normalize_lf`
-  (drift.rs) and `normalize_root` (coverage_note.rs) are distinct jobs, not
-  residue. Broader sweep (src/, tests/, sdk/) surfaced one new class: a
-  byte-identical closing-`---`-delimiter scan loop duplicated in
-  `frontmatter.rs::split_frontmatter` and `install.rs::frontmatter_inner` —
-  each function's own doc comment admits it mirrors the other's detection.
-  Filed FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE, blockedBy
-  TEST-SCAFFOLDING-CONSOLIDATE (shares install.rs+frontmatter.rs with it and
-  transitively with PLURAL-HELPER-CONSOLIDATE via their in-src-test-tmpdir
-  edits — kept disjoint per the fan-out rule). Considered and ruled out:
-  same-named `skill_kind()` test fixtures in frontmatter.rs/coverage_note.rs
-  build materially different `CustomKind` shapes for different test
-  purposes — not a real duplicate. No hand-rolled reimplementation of a
-  sanctioned-crate mechanic found; no duplicate top-level symbols in
-  sdk/src or sdk/test. `cargo check` clean.
+- This tick: Quiet closing pass. Verified all four inputs current: no specs/
+  commits past f87cc0c; inbox and refactor-captures both empty; no commit
+  since 425968d touched src/tests/sdk (git log 425968d..HEAD -- src/ tests/
+  sdk/ is empty); PACKAGING-CHANNELS' parked condition re-checked and still
+  true (no .github/workflows/release.yml, package.json still the private
+  flume manifest). Queue is disjoint: exactly one entry is open
+  (PLURAL-HELPER-CONSOLIDATE), the rest form one serialized blockedBy chain
+  sharing files with it/each other by design, and PACKAGING-CHANNELS parked
+  shares no files with the chain.
 - Queue: PLURAL-HELPER-CONSOLIDATE (open, pickable) —
   TEST-SCAFFOLDING-CONSOLIDATE (blockedBy plural-helper) —
   FRONTMATTER-DELIMITER-SCAN-CONSOLIDATE (blockedBy test-scaffolding) —
@@ -30,5 +21,5 @@
   (blockedBy recordwriters) — PACKAGING-CHANNELS (parked, condition
   unchanged).
 
-Plan continues: yes — quiet pass (job 5) is next: every input (inbox, spec
-delta, ship audit, residue sweep) is now current as of this tick.
+Plan continues: no — every input is current and the queue is disjoint;
+build takes over with PLURAL-HELPER-CONSOLIDATE.
