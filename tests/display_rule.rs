@@ -25,7 +25,7 @@ fn rejected_entry(key: &str, because: &str) -> EmbeddedMember {
 }
 
 /// A `decision`-kind nested member with two ordered leaves (`chosen`, then a second
-/// leaf) and a keyed `rejected` collection — the shape the floor's genre fence
+/// leaf) and a keyed `rejected` collection — the shape the floor's member fence
 /// extracts, the one the emit face renders back into the projection.
 fn decision_member() -> EmbeddedMember {
     let leaves = BTreeMap::from([

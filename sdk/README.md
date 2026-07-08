@@ -12,10 +12,11 @@ consumes only declared data, offline, no Node.
 
 - **`harness()`** — the assembly as one typed value: `members · expect ·
   require · settings` (`specs/model/pipeline.md`, "The SDK").
-- **`kind<T>()` / `genre<T>()`** — the engine room: a kind is a typed
+- **`kind<T>()`** — the engine room: a kind is a typed
   constructor plus five facts of runtime residue (label, locus, layout,
   registration, edge fields — `specs/model/representation.md`). The built-in
-  Claude Code kinds `rule` / `skill` / `memory` are ordinary `kind<T>()` values.
+  Claude Code kinds `rule` / `skill` / `memory` are ordinary `kind<T>()` values;
+  an embedded child kind is the same constructor at the `embedded` locus.
 - **Clause values** — `clause(predicate, { severity, guidance, cite })` over the
   closed predicate algebra (`required`, `maxLines`, …); a floor is an exported
   clause array, adopted by spread in `expect` (`specs/model/contract.md`).
@@ -44,9 +45,6 @@ projection on disk; the JSON pipe is in-flight, not a committed artifact.
 
 ## Stated bounds — each a named follow-on, never silently faked
 
-- **`blocks()` composes now, renders later** — the shared genre fence format is
-  `(genre-fence-format)`, deferred until its first consumer; emit refuses to
-  project a `blocks()` body until then.
 - **The permission union is carried as data** — the fold into the settings
   artifact lands with the hook/MCP kinds it folds many-to-one.
 - **Publish name/scope** pending the PACKAGING-CHANNELS ruling; `private: true`.

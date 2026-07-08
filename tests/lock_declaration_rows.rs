@@ -682,8 +682,8 @@ fn a_bare_harness_lock_still_round_trips() {
     assert!(declarations.mentions.is_empty());
 }
 
-/// A host kind's declared nesting templates (`LOCK-NESTING-TEMPLATES`) — the
-/// embedded child/genre kind names it folds — round-trip through the lock's `kind`
+/// A host kind's declared nesting templates — the embedded child kind names it
+/// folds — round-trip through the lock's `kind`
 /// row unchanged, and a template-less kind (`rule`, `skill` here) still round-trips
 /// with no `templates` column at all (the empty-array-vanishes tolerance the rest of
 /// the declaration-row family already carries).

@@ -164,19 +164,19 @@ pub struct Section {
 }
 
 /// One fenced code block of a markdown body: its **info string** (the text after
-/// the opening fence — `sh`, `toml`, `toml genre.foo` — trimmed) paired with the
+/// the opening fence — `sh`, `toml`, `toml member.foo` — trimmed) paired with the
 /// block's **interior content** (the lines between the fences, rejoined with `\n`).
 /// The feature a `fenced` primitive yields: fenced extraction
-/// composed with a TOML parse yields a genre value's features, declared data at
-/// body position. Surface-decidable like every other feature — the fence
+/// composed with a TOML parse yields an embedded member's features, declared data
+/// at body position. Surface-decidable like every other feature — the fence
 /// boundaries are the ones [`body_headings`] already tracks, so a block is never a
-/// guess. The info string is available so the genre consumer can key on
-/// `genre.<name>`; this generic primitive yields the raw blocks only, the TOML
+/// guess. The info string is available so the embedded-member consumer can key on
+/// `member.<name>`; this generic primitive yields the raw blocks only, the TOML
 /// composition a later slice.
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct FencedBlock {
     /// The opening fence's info string, trimmed — `sh`, `toml`, or empty for a bare
-    /// fence. The declared kind the genre consumer keys on.
+    /// fence. The declared kind the embedded-member consumer keys on.
     pub info: String,
     /// The block's interior content — the lines between the fences, rejoined with
     /// `\n`, byte-faithful to the body span exactly as a [`Section`]'s body is.
@@ -184,7 +184,7 @@ pub struct FencedBlock {
 }
 
 /// A **nested member** folded from its parent's body at the **embedded locus**,
-/// extracted from a genre fence
+/// extracted from a member fence
 /// at the floor. It carries the child kind it instantiates (`decision`) and the fence
 /// key that names this instance among its embedded siblings (`surface-authority`),
 /// plus its own **prose leaves** — top-level authored strings — and its own **nested
@@ -199,7 +199,7 @@ pub struct FencedBlock {
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct EmbeddedMember {
     /// The child kind this member instantiates — the fence info string's
-    /// `genre.<kind>` (`decision`), one of the host kind's declared templates.
+    /// `member.<kind>` (`decision`), one of the host kind's declared templates.
     pub kind: String,
     /// The fence key naming this instance among its embedded siblings in the same
     /// host member — the info string's second token (`surface-authority`). Part of a
@@ -300,8 +300,8 @@ pub struct Features {
     /// the same fence boundaries the heading extractor tracks, surfaced whole. Empty
     /// when the kind composes no `fenced` primitive.
     pub fenced_blocks: Vec<FencedBlock>,
-    /// The body's **nested members**, in document order — each a genre fence
-    /// (`genre.<kind> <key>`) whose interior TOML parsed into a typed
+    /// The body's **nested members**, in document order — each a member fence
+    /// (`member.<kind> <key>`) whose interior TOML parsed into a typed
     /// [`EmbeddedMember`] at the embedded locus. The typed layer
     /// over [`fenced_blocks`](Features::fenced_blocks): a raw block whose info string
     /// names a child kind the host kind declares is folded here beside its raw form,
@@ -538,7 +538,8 @@ pub(crate) fn body_fenced_blocks(body: &str) -> Vec<FencedBlock> {
 /// character run, trimmed (`` ```sh `` → `sh`, a bare `` ``` `` → empty). The
 /// caller has already confirmed via [`fence_marker`] that `line` (leading spaces
 /// aside) opens with a run of `fence_char`, so trimming that run then the
-/// surrounding whitespace leaves the declared kind the genre consumer keys on.
+/// surrounding whitespace leaves the declared kind the embedded-member consumer
+/// keys on.
 fn fence_info(line: &str, fence_char: char) -> String {
     line.trim_start_matches(' ')
         .trim_start_matches(fence_char)
@@ -546,16 +547,16 @@ fn fence_info(line: &str, fence_char: char) -> String {
         .to_string()
 }
 
-/// Parse a genre fence's **info string** into its `(kind, key)` identity, or `None`
-/// when the block is not a genre fence: a genre fence's info string is `genre.<kind> <key>`
-/// (`genre.decision surface-authority`) — the `genre.` prefix, the child kind name,
+/// Parse a member fence's **info string** into its `(kind, key)` identity, or `None`
+/// when the block is not a member fence: a member fence's info string is `member.<kind> <key>`
+/// (`member.decision surface-authority`) — the `member.` prefix, the child kind name,
 /// then the fence key. Any other info string (a bare `` ``` ``, a `sh`, a `toml`) is a
 /// plain fenced block, not a nested member — adoption is opt-in per block, so a
 /// non-match is silently *not* a nested member, never an error. Exactly two tokens: a
 /// stray third token is a malformed info string, not a third address level, so it
 /// yields `None`.
 pub(crate) fn parse_embedded_info(info: &str) -> Option<(String, String)> {
-    let rest = info.strip_prefix("genre.")?;
+    let rest = info.strip_prefix("member.")?;
     let mut tokens = rest.split_whitespace();
     let kind = tokens.next()?;
     let key = tokens.next()?;
@@ -565,7 +566,7 @@ pub(crate) fn parse_embedded_info(info: &str) -> Option<(String, String)> {
     Some((kind.to_string(), key.to_string()))
 }
 
-/// Parse a genre fence's **interior TOML** into an [`EmbeddedMember`], or `None` when
+/// Parse a member fence's **interior TOML** into an [`EmbeddedMember`], or `None` when
 /// the interior is not well-formed TOML.
 /// A top-level string
 /// value is a **prose leaf**; a top-level table is a keyed collection of **nested
@@ -959,7 +960,7 @@ cargo test\n\
 \n\
 prose between\n\
 \n\
-```toml genre.manifest\n\
+```toml member.manifest\n\
 name = \"x\"\n\
 count = 2\n\
 ```\n\
@@ -969,7 +970,7 @@ prose below\n";
         assert_eq!(blocks.len(), 2);
         assert_eq!(blocks[0].info, "sh");
         assert_eq!(blocks[0].content, "cargo test");
-        assert_eq!(blocks[1].info, "toml genre.manifest");
+        assert_eq!(blocks[1].info, "toml member.manifest");
         assert_eq!(blocks[1].content, "name = \"x\"\ncount = 2");
     }
 

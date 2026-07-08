@@ -1,6 +1,6 @@
 //! The nested-member **display rule** — an [`EmbeddedMember`]'s projection markdown.
 //!
-//! [`render_member`] compiles an [`EmbeddedMember`] (a genre fence's extracted leaves
+//! [`render_member`] compiles an [`EmbeddedMember`] (a member fence's extracted leaves
 //! and nested members) into the markdown a projection carries — a heading, the leaf
 //! labels, deterministic ordering, and per-leaf anchors — as **connective tissue
 //! only**: every meaning-carrying word is an
@@ -8,7 +8,7 @@
 //! member's declared structure in rendered form — the markdown analogue of the
 //! lock's TOML syntax, never synthesized prose. One rule serves every child kind: the
 //! labels and heading derive from the member's own declared kind and field keys, so
-//! it is per-kind by data, not by a hard-coded genre.
+//! it is per-kind by data, not a single hard-coded kind name.
 //!
 //! A **standalone formatter island**: the future custom-kind emit face calls it and
 //! must reproduce these exact bytes; it does not wire into `src/drift.rs`'s

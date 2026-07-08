@@ -1,7 +1,7 @@
-//! The genre-fence nested-member fold, end to end.
+//! The member-fence nested-member fold, end to end.
 //!
-//! A kind declaring an inner-layer `template` extracts each genre fence (info string
-//! `genre.<kind> <key>`, TOML interior with leaf fields and keyed nested members) into
+//! A kind declaring an inner-layer `template` extracts each member fence (info string
+//! `member.<kind> <key>`, TOML interior with leaf fields and keyed nested members) into
 //! a typed [`EmbeddedMember`] at the embedded locus: its own identity (child kind +
 //! key), its own prose leaves, and its own nested members one layer deeper — one
 //! member shape, whatever locus it lives at. Every leaf is addressed **structurally**
@@ -37,7 +37,7 @@ fn decision_kind() -> CustomKind {
 }
 
 /// A decision-document unit carrying `body` — a frontmatter-less surface document, the
-/// floor carriage a genre fence lives in.
+/// floor carriage a member fence lives in.
 fn decision_unit(body: &str) -> Unit {
     Unit {
         id: "05-surface-authority".to_string(),
@@ -50,14 +50,14 @@ fn decision_unit(body: &str) -> Unit {
     }
 }
 
-/// A body with one genre fence (leaf fields + a keyed nested-member collection) and one
+/// A body with one member fence (leaf fields + a keyed nested-member collection) and one
 /// plain `sh` block that opts into no nested member.
 fn decision_body() -> &'static str {
     r#"# Decision: the surface is the source of truth
 
 Leading prose that is only prose.
 
-```genre.decision surface-authority
+```member.decision surface-authority
 chosen = """the composition surface is canonical"""
 because = "law 7 needs an authored surface"
 
@@ -76,7 +76,7 @@ Trailing prose.
 }
 
 #[test]
-fn a_genre_fence_extracts_a_nested_member_with_its_own_leaves_and_children() {
+fn a_member_fence_extracts_a_nested_member_with_its_own_leaves_and_children() {
     let features = decision_kind().extract(&decision_unit(decision_body()));
 
     // Exactly one nested member — the `sh` block opted into none (opt-in per block),
@@ -139,7 +139,7 @@ fn leaf_addresses_are_structural_member_kind_key_child_path() {
 
 #[test]
 fn an_unfenced_block_stays_plain_prose_no_nested_member_no_error() {
-    // A body whose only fence is a plain code block — no genre fence at all. Extraction
+    // A body whose only fence is a plain code block — no member fence at all. Extraction
     // yields the raw block and *no* nested member, never an error: adoption is opt-in
     // per block, and no check quantifies over completeness.
     let body = "# Notes\n\nProse.\n\n```sh\ncargo test\n```\n\nMore prose.\n";
@@ -180,11 +180,48 @@ fn a_lock_reconstructed_kind_folds_the_same_embedded_members_as_its_live_declara
 
 #[test]
 fn a_fence_naming_an_undeclared_child_kind_stays_raw() {
-    // A `genre.`-prefixed fence whose child kind the host kind does not declare a
+    // A `member.`-prefixed fence whose child kind the host kind does not declare a
     // template for is matched by no shape — it stays a raw block, not a typed nested
     // member. The declared template set is the gate on which fences fold.
-    let body = "# X\n\n```genre.law fearless-refactoring\nstatement = \"law 6\"\n```\n";
+    let body = "# X\n\n```member.law fearless-refactoring\nstatement = \"law 6\"\n```\n";
     let features = decision_kind().extract(&decision_unit(body));
     assert!(features.nested_members.is_empty());
     assert_eq!(features.fenced_blocks.len(), 1);
+}
+
+#[test]
+fn a_genre_prefixed_fence_is_now_a_plain_block_not_a_nested_member() {
+    // The read fold speaks the kernel noun: a fence still carrying the retired
+    // `genre.` prefix parses as no member at all (`parse_embedded_info` matches only
+    // `member.`), so it rides `fenced_blocks` raw, never `nested_members`.
+    let body = "# X\n\n```genre.decision surface-authority\nchosen = \"x\"\n```\n";
+    let features = decision_kind().extract(&decision_unit(body));
+    assert!(features.nested_members.is_empty());
+    assert_eq!(features.fenced_blocks.len(), 1);
+    assert_eq!(
+        features.fenced_blocks[0].info,
+        "genre.decision surface-authority"
+    );
+}
+
+#[test]
+fn a_blocks_body_the_sdk_writes_folds_back_to_an_identical_embedded_member() {
+    // The write↔read round trip: the exact bytes `sdk/src/emit.ts`'s `resolveBody`
+    // renders for a `blocks()` value (`member.<kind> <key>` fence, leaves as quoted
+    // TOML strings, a keyed collection as its own `[collection.entry]` table) fold
+    // back through this same kind's extractor to the identical `EmbeddedMember` the
+    // authored-fence fixture above (`decision_body`) yields.
+    let written_body = "# Decision: the surface is the source of truth\n\n\
+```member.decision surface-authority\n\
+chosen = \"the composition surface is canonical\"\n\
+because = \"law 7 needs an authored surface\"\n\
+\n\
+[rejected.baked-projection]\n\
+because = \"a stamping projector breaks law 5\"\n\
+```\n";
+    let written = decision_kind().extract(&decision_unit(written_body));
+    let authored = decision_kind().extract(&decision_unit(decision_body()));
+
+    assert_eq!(written.nested_members.len(), 1);
+    assert_eq!(written.nested_members, authored.nested_members);
 }

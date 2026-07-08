@@ -136,8 +136,8 @@ fn a_directives_primitive_extracts_at_imports_in_document_order() {
 fn a_fenced_primitive_extracts_block_interiors_with_info_strings_in_order() {
     let extraction = Extraction::new(vec![Primitive::Fenced]);
 
-    // Prose around two fenced blocks — a shell block and a keyed `toml genre.manifest`
-    // block, the shape the genre fence composes with a TOML parse.
+    // Prose around two fenced blocks — a shell block and a keyed `toml member.manifest`
+    // block, the shape the member fence composes with a TOML parse.
     let unit = memory_unit(
         "# Kinds\n\
 \n\
@@ -149,7 +149,7 @@ cargo test\n\
 \n\
 More prose between the fences.\n\
 \n\
-```toml genre.manifest\n\
+```toml member.manifest\n\
 name = \"coordinate\"\n\
 ```\n",
     );
@@ -160,7 +160,7 @@ name = \"coordinate\"\n\
     assert_eq!(features.fenced_blocks.len(), 2);
     assert_eq!(features.fenced_blocks[0].info, "sh");
     assert_eq!(features.fenced_blocks[0].content, "cargo test");
-    assert_eq!(features.fenced_blocks[1].info, "toml genre.manifest");
+    assert_eq!(features.fenced_blocks[1].info, "toml member.manifest");
     assert_eq!(features.fenced_blocks[1].content, "name = \"coordinate\"");
 
     // Order-stable across re-extraction — a pure function of the body.

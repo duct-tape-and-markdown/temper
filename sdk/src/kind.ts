@@ -39,12 +39,12 @@ export interface EdgeField {
 
 /**
  * A kind's **locus** (fact 2): members live at path globs (`at`) or as typed
- * fenced blocks inside host documents (`genre`). An `at` locus is split root +
+ * fenced blocks inside host documents (`embedded`). An `at` locus is split root +
  * glob so the kind fact row carries `governs_root`/`governs_glob` directly.
  */
 export type Locus =
   | { readonly kind: "at"; readonly root: string; readonly glob: string }
-  | { readonly kind: "genre"; readonly withinHosts: readonly string[] };
+  | { readonly kind: "embedded"; readonly withinHosts: readonly string[] };
 
 /** The five facts of a kind's runtime residue (`15-kinds.md`). */
 export interface KindFacts {
@@ -155,23 +155,39 @@ export function kind<T extends object>(facts: KindFacts): KindDefinition<T> {
 }
 
 /**
- * Define a **genre** — a kind whose locus is `genre(within hosts)`: its members
- * live as typed fenced blocks inside host documents instead of at their own
- * paths (`15-kinds.md`, "A genre is a kind at the block locus"). Registration
- * inherits through the host, so a genre carries no world edge of its own.
+ * An **embedded member's** composed value (posture 3, passed to `blocks()`):
+ * leaves are authored strings keyed by field name; sibling collections are keyed
+ * at every level (`rejected."baked-projection"`), never positional — leaf
+ * addresses are structural and keyed (`20-surface.md`, the leaf-address
+ * Decision). Read back byte-identically by the engine's `parse_embedded_member`
+ * fold off the `member.<kind> <key>` fence `blocks()` renders (`src/extract.rs`).
+ * There is no prescribed child-kind ontology — a corpus that wants one declares
+ * its own child kind with the same machinery.
  */
-export function genre<T extends object>(facts: {
-  name: string;
-  provider?: string;
-  withinHosts: readonly string[];
-  edgeFields?: readonly EdgeField[];
-}): KindDefinition<T> {
-  return kind<T>({
-    name: facts.name,
-    provider: facts.provider,
-    locus: { kind: "genre", withinHosts: facts.withinHosts },
-    unitShape: "file",
-    registration: { via: "always" },
-    edgeFields: facts.edgeFields,
-  });
+export interface EmbeddedMemberValue {
+  /** The child kind this value instantiates — the fence info string's `member.<kind>`. */
+  readonly kind: string;
+  /** The value's key — the identity a leaf address carries (`surface-authority`). */
+  readonly key: string;
+  /** Prose leaves: authored strings, law-5 protected one by one. */
+  readonly leaves: Readonly<Record<string, string>>;
+  /** Keyed sibling collections: collection → entry key → field → authored string. */
+  readonly collections: Readonly<
+    Record<string, Readonly<Record<string, Readonly<Record<string, string>>>>>
+  >;
+}
+
+/** Compose an embedded member's value for `blocks()` — the shape any project's own child kind uses. */
+export function embeddedMemberValue(init: {
+  kind: string;
+  key: string;
+  leaves: Readonly<Record<string, string>>;
+  collections?: EmbeddedMemberValue["collections"];
+}): EmbeddedMemberValue {
+  return {
+    kind: init.kind,
+    key: init.key,
+    leaves: init.leaves,
+    collections: init.collections ?? {},
+  };
 }

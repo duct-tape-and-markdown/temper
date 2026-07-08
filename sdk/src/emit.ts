@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
-import type { Member } from "./kind.js";
+import type { EmbeddedMemberValue, Member } from "./kind.js";
 import { renderText } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
@@ -26,14 +26,82 @@ export interface ResolveOptions {
 }
 
 /**
+ * TOML-quote a leaf's authored text into a basic-string literal — the escapes
+ * `toml_edit`'s parser reads back (backslash, quote, and the C0 control set),
+ * so a leaf survives the write↔read round trip byte-identically.
+ */
+function tomlString(text: string): string {
+  let out = '"';
+  for (const char of text) {
+    switch (char) {
+      case "\\":
+        out += "\\\\";
+        break;
+      case '"':
+        out += '\\"';
+        break;
+      case "\b":
+        out += "\\b";
+        break;
+      case "\t":
+        out += "\\t";
+        break;
+      case "\n":
+        out += "\\n";
+        break;
+      case "\f":
+        out += "\\f";
+        break;
+      case "\r":
+        out += "\\r";
+        break;
+      default:
+        out += char.charCodeAt(0) < 0x20 ? `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}` : char;
+    }
+  }
+  return out + '"';
+}
+
+/**
+ * Render one embedded member's interior TOML: its top-level leaves, then each
+ * keyed collection entry as its own `[collection.entry]` table — the exact shape
+ * `parse_embedded_member` (`src/extract.rs`) folds back into leaves/members.
+ */
+function renderMemberToml(value: EmbeddedMemberValue): string {
+  const lines: string[] = [];
+  for (const [key, text] of Object.entries(value.leaves)) {
+    lines.push(`${key} = ${tomlString(text)}`);
+  }
+  for (const [collection, entries] of Object.entries(value.collections)) {
+    for (const [entryKey, leaves] of Object.entries(entries)) {
+      if (lines.length > 0) lines.push("");
+      lines.push(`[${collection}.${entryKey}]`);
+      for (const [leaf, text] of Object.entries(leaves)) {
+        lines.push(`${leaf} = ${tomlString(text)}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Render one embedded member's value to its `member.<kind> <key>` fenced block —
+ * the write face `parse_embedded_info`/`parse_embedded_member` (`src/extract.rs`)
+ * fold back into an identical `EmbeddedMember`.
+ */
+function renderMemberFence(value: EmbeddedMemberValue): string {
+  return `\`\`\`member.${value.kind} ${value.key}\n${renderMemberToml(value)}\n\`\`\``;
+}
+
+/**
  * Resolve a member's prose to its final body bytes: a `file()` asset is read in
  * byte-for-byte; a `text` body's mentions are resolution-checked (loud on a
- * dangling address) and rendered by the one display rule; a `blocks()` body is
- * refused until the fence format lands. The words are never reworded.
+ * dangling address) and rendered by the one display rule; a `blocks()` body
+ * renders each embedded member as a `member.<kind> <key>` TOML fence. The words
+ * are never reworded.
  *
  * # Throws
- * If a `file()` asset does not resolve, a mention names no declared value, or a
- * `blocks()` body is projected before `(genre-fence-format)` lands.
+ * If a `file()` asset does not resolve, or a mention names no declared value.
  */
 function resolveBody(member: Member, options: ResolveOptions): string {
   const prose = member.prose;
@@ -51,10 +119,7 @@ function resolveBody(member: Member, options: ResolveOptions): string {
     }
   }
   if (prose.kind === "blocks") {
-    throw new Error(
-      `member \`${member.name}\`: a blocks() body renders through the genre fence format, ` +
-        `deferred until its first consumer lands ((genre-fence-format), specs/model/representation.md).`,
-    );
+    return prose.values.map(renderMemberFence).join("\n\n") + "\n";
   }
   const mentionable = options.mentionable ?? new Set<string>();
   for (const mention of prose.mentions) {
@@ -130,7 +195,7 @@ function refuseBrokenSource(harness: Harness): void {
   }
 }
 
-/** A member is projected iff its kind lives at a path locus (a genre member is not). */
+/** A member is projected iff its kind lives at a path locus (an embedded member is not). */
 function isProjected(member: Member): boolean {
   return member.facts.locus.kind === "at";
 }

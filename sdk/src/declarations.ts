@@ -21,7 +21,7 @@ export interface KindFactRow {
   readonly format?: string;
   readonly unit_shape?: string;
   readonly registration?: string;
-  /** The host's declared nesting templates — its embedded genre kinds' names. */
+  /** The host's declared nesting templates — its embedded child kinds' names. */
   readonly templates?: readonly string[];
 }
 
@@ -191,13 +191,13 @@ function registrationLabel(registration: Registration): string {
 }
 
 /**
- * A host kind's declared nesting templates — the genre kinds among `allKinds`
+ * A host kind's declared nesting templates — the embedded kinds among `allKinds`
  * whose `withinHosts` names it, name-sorted. `undefined` when the host nests nothing, so the row omits the column
  * rather than carrying an empty array.
  */
 function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonly string[] | undefined {
   const names = allKinds
-    .filter((facts) => facts.locus.kind === "genre" && facts.locus.withinHosts.includes(hostName))
+    .filter((facts) => facts.locus.kind === "embedded" && facts.locus.withinHosts.includes(hostName))
     .map((facts) => facts.name)
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   return names.length > 0 ? names : undefined;
@@ -205,13 +205,13 @@ function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonl
 
 /**
  * One kind's fact row — the `at` locus supplies `governs_root`/`governs_glob`,
- * and `templates` names the genre kinds (among `allKinds`) declared within it.
+ * and `templates` names the embedded kinds (among `allKinds`) declared within it.
  */
 function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFactRow {
   if (facts.locus.kind !== "at") {
-    // A genre inherits its world residue through its host; it carries no `at`
- // locus, so it takes no kind-fact row. Callers filter these out before this point.
-    throw new Error(`kind \`${facts.name}\` is a genre — it carries no locus-bearing kind fact.`);
+    // An embedded kind inherits its world residue through its host; it carries no
+ // `at` locus, so it takes no kind-fact row. Callers filter these out before this point.
+    throw new Error(`kind \`${facts.name}\` is embedded — it carries no locus-bearing kind fact.`);
  }
   return {
     name: facts.name,
@@ -225,7 +225,7 @@ function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFact
   };
 }
 
-/** Every kind in play, at any locus — member kinds ∪ expect kinds ∪ their genres. */
+/** Every kind in play, at any locus — member kinds ∪ expect kinds ∪ their embedded children. */
 function kindsInPlay(harness: Harness): KindFacts[] {
   const byName = new Map<string, KindFacts>();
   for (const member of harness.members) byName.set(member.facts.name, member.facts);

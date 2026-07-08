@@ -264,8 +264,8 @@ pub struct EmitReport {
 pub const SEAM_VERSION: u32 = 2;
 
 /// One projected member's erased payload — the SDK's whole output surface for a
-/// member that lives at a path locus (`sdk/src/emit.ts` `PayloadMember`). A genre
-/// member never appears here (it carries no standalone projection).
+/// member that lives at a path locus (`sdk/src/emit.ts` `PayloadMember`). An
+/// embedded member never appears here (it carries no standalone projection).
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct PayloadMember {
     /// The kind's bare name — joins this payload's own `declarations.kinds` family.
@@ -1130,7 +1130,7 @@ pub struct KindFactRow {
     /// The declared registration label, when declared.
     #[serde(default)]
     pub registration: Option<String>,
-    /// The host kind's declared nesting templates — the child/genre kind names it
+    /// The host kind's declared nesting templates — the embedded child kind names it
     /// folds embedded members of. Empty for
     /// a kind that nests nothing, the tolerant round-trip a lockless/template-less
     /// kind takes.

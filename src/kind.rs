@@ -82,8 +82,8 @@ pub struct CustomKind {
     pub registration: Option<Registration>,
     /// The kind's declared **templates** — one per inner layer of nested members it
     /// hosts at the embedded locus:
-    /// the child kind plus its embedded addressing, per genre fence. Extraction folds
-    /// a member's genre fences into typed [`EmbeddedMember`](crate::extract::EmbeddedMember)s
+    /// the child kind plus its embedded addressing, per member fence. Extraction folds
+    /// a member's embedded fences into typed [`EmbeddedMember`](crate::extract::EmbeddedMember)s
     /// against this set ([`CustomKind::extract`]); the shape is the kind's, any
     /// predicate over it rides the assembly's `expect`/`require` clauses.
     /// Absent ⇒ empty.
@@ -161,8 +161,8 @@ pub enum Registration {
 /// carries the vocabulary, never a clause.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Template {
-    /// The child kind — the `genre.<kind>` a fence info string carries
-    /// (`genre.decision surface-authority` → `decision`), the token extraction matches
+    /// The child kind — the `member.<kind>` a fence info string carries
+    /// (`member.decision surface-authority` → `decision`), the token extraction matches
     /// a fence against to fold it into a typed
     /// [`EmbeddedMember`](crate::extract::EmbeddedMember).
     pub kind: String,
@@ -215,7 +215,7 @@ impl CustomKind {
     /// `Field` primitive list.
     ///
     /// The reconstructed extraction now includes `Fenced` alongside the generic
-    /// markdown-structure set, so the raw fenced-block substrate a genre fence needs
+    /// markdown-structure set, so the raw fenced-block substrate a member fence needs
     /// is always available. The row's `templates` column lifts into one
     /// [`Template`] per declared child-kind name, `leaves`/`collections` empty until
     /// the nested-member predicate reads them — the same declared-and-inert posture
@@ -258,7 +258,7 @@ impl CustomKind {
 
     /// Run the kind's composed extractor over `unit`, then fold its declared templates:
     /// each
-    /// fenced block whose info string names a declared child kind (`genre.<kind> <key>`)
+    /// fenced block whose info string names a declared child kind (`member.<kind> <key>`)
     /// has its interior TOML parsed into a typed [`EmbeddedMember`](crate::extract::EmbeddedMember)
     /// and folded into `Features::nested_members`,
     /// beside its raw form in `fenced_blocks`. This composes the `Fenced` primitive with a
@@ -275,9 +275,9 @@ impl CustomKind {
 
     /// Fold this kind's declared templates out of the already-extracted `fenced_blocks`.
     /// A block whose info string parses as
-    /// `genre.<kind> <key>` for a **declared** template and whose interior is well-formed
+    /// `member.<kind> <key>` for a **declared** template and whose interior is well-formed
     /// TOML becomes an [`EmbeddedMember`](crate::extract::EmbeddedMember); a fence naming
-    /// an undeclared child kind, or any non-genre block, stays raw-only — adoption is
+    /// an undeclared child kind, or any non-member block, stays raw-only — adoption is
     /// opt-in per block. A pure function of `fenced_blocks` and the declared template
     /// set, so re-running is byte-identical, the property that keeps a nested member a
     /// sound gate input.
@@ -508,8 +508,8 @@ pub enum Primitive {
     /// document order, each block's info string paired with its interior content.
     /// Markdown structure, deterministically extractable like
     /// `headings`/`sections`: the same fence boundaries, surfaced whole. Its first
-    /// consumer is the genre fence — fenced extraction composed with a TOML parse
-    /// (GENRE-MANIFEST-LEAF); this primitive yields the raw blocks only.
+    /// consumer is the member fence — fenced extraction composed with a TOML parse;
+    /// this primitive yields the raw blocks only.
     Fenced,
 }
 
@@ -991,7 +991,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let extraction = Extraction::new(vec![Primitive::Fenced]);
         assert_eq!(extraction.primitives(), &[Primitive::Fenced]);
 
-        let body = "# Doc\n\nprose\n\n```toml genre.manifest\nname = \"x\"\n```\n";
+        let body = "# Doc\n\nprose\n\n```toml member.manifest\nname = \"x\"\n```\n";
         let unit = Unit {
             id: "doc".to_string(),
             frontmatter: BTreeMap::new(),
@@ -1003,7 +1003,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         };
         let features = extraction.extract(&unit);
         assert_eq!(features.fenced_blocks.len(), 1);
-        assert_eq!(features.fenced_blocks[0].info, "toml genre.manifest");
+        assert_eq!(features.fenced_blocks[0].info, "toml member.manifest");
         assert_eq!(features.fenced_blocks[0].content, "name = \"x\"");
         // This extractor composes only `fenced` — every other locus stays at its
         // default (no headings extracted, no fields), the vacuous-composition floor.

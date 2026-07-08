@@ -21,12 +21,12 @@ import {
   clause,
   compileDeclarations,
   declarationsToJson,
+  embeddedMemberValue,
   emit,
   file,
   forbiddenKeys,
-  genre,
-  genreValue,
   harness,
+  kind,
   maxLen,
   maxLines,
   required,
@@ -321,11 +321,22 @@ test("needs derive the permission union, deduped and sorted, never authored twic
 });
 
 // ---------------------------------------------------------------------------
-// Kinds in play — a genre carries no locus-bearing kind fact and no projection.
+// Kinds in play — an embedded kind carries no locus-bearing kind fact and no
+// standalone projection.
 // ---------------------------------------------------------------------------
 
-test("a genre member neither projects nor takes a kind-fact row", () => {
-  const decisionBlock = genre<Record<never, never>>({ name: "decision-block", withinHosts: ["spec"] });
+/** An embedded-locus kind, built via `kind()` directly. */
+function embeddedKind<T extends object>(name: string, withinHosts: readonly string[]) {
+  return kind<T>({
+    name,
+    locus: { kind: "embedded", withinHosts },
+    unitShape: "file",
+    registration: { via: "always" },
+  });
+}
+
+test("an embedded member neither projects nor takes a kind-fact row", () => {
+  const decisionBlock = embeddedKind<Record<never, never>>("decision-block", ["spec"]);
   const mixed = harness({
  members: [
       rule({ name: "rust", prose: text`# Rust` }),
@@ -333,14 +344,14 @@ test("a genre member neither projects nor takes a kind-fact row", () => {
  ],
  });
   const result = emit(mixed);
-  // Only the rule projects — the genre lives inside a host document.
+  // Only the rule projects — the embedded kind lives inside a host document.
   assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
-  // The declaration kinds carry the rule, never the genre (residue inherits through the host).
+  // The declaration kinds carry the rule, never the embedded kind (residue inherits through the host).
   assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
 });
 
-test("a host kind's fact row carries its declared genre children as templates", () => {
-  const decisionBlock = genre<Record<never, never>>({ name: "decision", withinHosts: ["rule"] });
+test("a host kind's fact row carries its declared embedded children as templates", () => {
+  const decisionBlock = embeddedKind<Record<never, never>>("decision", ["rule"]);
   const mixed = harness({
     members: [rule({ name: "rust", prose: text`# Rust` }), decisionBlock({ name: "surface-authority" })],
  });
@@ -350,41 +361,29 @@ test("a host kind's fact row carries its declared genre children as templates", 
 });
 
 // ---------------------------------------------------------------------------
-// Genre values — the generic mechanism survives; no prescribed ontology ships.
-// `decision`/`law`/`bound`/`Alternative` are gone —
-// a corpus that wants them declares its own genre with `genreValue()`.
+// Embedded-member values — the generic mechanism survives; no prescribed
+// ontology ships. `decision`/`law`/`bound`/`Alternative` are gone —
+// a corpus that wants them declares its own child kind with `embeddedMemberValue()`.
 // ---------------------------------------------------------------------------
 
-test("genreValue() composes an author-declared genre, no built-in ontology needed", () => {
-  const value = genreValue({
-    genre: "ruling",
-    key: "unship-prescribed-genres",
-    leaves: { statement: "the SDK ships no built-in genre ontology" },
+test("embeddedMemberValue() composes an author-declared child kind, no built-in ontology needed", () => {
+  const value = embeddedMemberValue({
+    kind: "ruling",
+    key: "unship-prescribed-child-kinds",
+    leaves: { statement: "the SDK ships no built-in child-kind ontology" },
     collections: { bounds: { scope: { claim: "sdk/ only" } } },
  });
   assert.deepEqual(value, {
-    genre: "ruling",
-    key: "unship-prescribed-genres",
-    leaves: { statement: "the SDK ships no built-in genre ontology" },
+    kind: "ruling",
+    key: "unship-prescribed-child-kinds",
+    leaves: { statement: "the SDK ships no built-in child-kind ontology" },
     collections: { bounds: { scope: { claim: "sdk/ only" } } },
  });
 });
 
-test("a genreValue() reaches blocks() and still hits the pending fence-format gate", () => {
- const h = harness({
- members: [
-      memory({
-        name: "CLAUDE",
-        prose: blocks(genreValue({ genre: "ruling", key: "x", leaves: { statement: "y" } })),
-      }),
- ],
- });
-  assert.throws(() => emit(h), /genre-fence-format/);
-});
-
-test("the prescribed genre constructors are gone from the SDK's exports", () => {
+test("the prescribed child-kind constructors are gone from the SDK's exports", () => {
   const exports = sdk as Record<string, unknown>;
-  for (const removed of ["decision", "law", "bound"]) {
+  for (const removed of ["decision", "law", "bound", "genre", "genreValue"]) {
     assert.equal(exports[removed], undefined, `${removed} should no longer be exported`);
  }
 });
@@ -458,17 +457,96 @@ test("an unresolved mention is a loud emit error", () => {
   assert.throws(() => emit(harness({ members: [citer] })), /a mention cannot dangle/);
 });
 
-test("a blocks() body is refused until the genre fence format lands", () => {
- const h = harness({
- members: [
+test("a blocks() body renders an embedded member as a member.<kind> <key> TOML fence", () => {
+  const h = harness({
+    members: [
       memory({
         name: "CLAUDE",
-        // A blocks() body composes now; its render awaits (genre-fence-format).
-        prose: { kind: "blocks", values: [] },
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "surface-authority",
+            leaves: { chosen: "the composition surface is canonical" },
+          }),
+        ),
       }),
- ],
- });
-  assert.throws(() => emit(h), /genre-fence-format/);
+    ],
+  });
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "CLAUDE")!;
+  // The exact shape `src/extract.rs`'s `parse_embedded_info`/`parse_embedded_member`
+  // fold back into an identical `EmbeddedMember` (pinned in `tests/nested_member.rs`).
+  assert.equal(
+    member.body,
+    '```member.decision surface-authority\nchosen = "the composition surface is canonical"\n```\n',
+  );
+});
+
+test("a blocks() body renders a keyed collection entry as its own [collection.entry] table", () => {
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "surface-authority",
+            leaves: { chosen: "the composition surface is canonical" },
+            collections: { rejected: { "baked-projection": { because: "a stamping projector breaks law 5" } } },
+          }),
+        ),
+      }),
+    ],
+  });
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "CLAUDE")!;
+  assert.equal(
+    member.body,
+    '```member.decision surface-authority\n' +
+      'chosen = "the composition surface is canonical"\n' +
+      "\n" +
+      "[rejected.baked-projection]\n" +
+      'because = "a stamping projector breaks law 5"\n' +
+      "```\n",
+  );
+});
+
+test("multiple blocks() values render as sibling fences, and a leaf's quotes/newlines TOML-escape", () => {
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "one",
+            leaves: { chosen: 'a "quoted" word\nand a new line' },
+          }),
+          embeddedMemberValue({ kind: "decision", key: "two", leaves: { chosen: "second" } }),
+        ),
+      }),
+    ],
+  });
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "CLAUDE")!;
+  assert.equal(
+    member.body,
+    "```member.decision one\n" +
+      'chosen = "a \\"quoted\\" word\\nand a new line"\n' +
+      "```\n" +
+      "\n" +
+      "```member.decision two\n" +
+      'chosen = "second"\n' +
+      "```\n",
+  );
+});
+
+test("an empty blocks() body renders no fences", () => {
+  const h = harness({
+    members: [memory({ name: "CLAUDE", prose: blocks() })],
+  });
+  const result = emit(h);
+  assert.equal(result.members.find((m) => m.name === "CLAUDE")!.body, "\n");
 });
 
 // ---------------------------------------------------------------------------

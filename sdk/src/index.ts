@@ -1,7 +1,7 @@
 /**
  * temper's authoring face — the six-noun core as a typed module library.
- * A harness author imports plain nouns — `harness()`, the generic `kind`/`genre`
- * constructors, the clause and requirement constructors, `needs`, and the three
+ * A harness author imports plain nouns — `harness()`, the generic `kind`
+ * constructor, the clause and requirement constructors, `needs`, and the three
  * prose constructors — and composes members as typed values. `emit` compiles the
  * whole into the declaration rows and the projected members' erased payload —
  * the JSON pipe printed to stdout; the engine is the sole compiler of every
@@ -16,10 +16,6 @@
 // Prose — three constructors, one field type.
 export type { Blocks, File, Mention, Mentionable, Prose, Text } from "./prose.js";
 export { blocks, file, renderText, text } from "./prose.js";
-
-// Genre values — posture-3 composed values for `blocks()`.
-export type { GenreValue } from "./genres.js";
-export { genreValue } from "./genres.js";
 
 // Needs — the derived permission union's source.
 export type { Capability } from "./needs.js";
@@ -46,9 +42,11 @@ export {
   unique,
 } from "./contract.js";
 
-// The engine room — kinds and genres as typed constructors.
+// The engine room — kinds as typed constructors, plus the embedded-member value
+// shape `blocks()` composes.
 export type {
   EdgeField,
+  EmbeddedMemberValue,
   Format,
   KindDefinition,
   KindFacts,
@@ -58,7 +56,7 @@ export type {
   Registration,
   UnitShape,
 } from "./kind.js";
-export { genre, kind } from "./kind.js";
+export { embeddedMemberValue, kind } from "./kind.js";
 
 // The assembly — `harness()` and its five fields.
 export type { EnforcementMode, ExpectBinding, Harness } from "./assembly.js";
