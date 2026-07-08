@@ -506,7 +506,7 @@ const makeAgent = (model: string) =>
  * build` — the preamble precedes the template, so a template's own headings
  * never reach the match.
  */
-const planAgent = makeAgent("claude-opus-4-8");
+const planAgent = makeAgent("claude-sonnet-5");
 const buildAgent = makeAgent("claude-sonnet-5");
 
 export const agent: Agent = {
