@@ -6,10 +6,7 @@
       "path": "specs/model/pipeline.md",
       "section": "Install"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "SDK-VERSION-LOCKSTEP"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -33,7 +30,7 @@
       }
     ],
     "acceptance": "A fresh `install --yes` scaffold's member modules type every present field and carry prose module-side; the first emit's projections are guard-claimed, never own-path passthrough; cargo test green.",
-    "notes": "scoped at e920fa8; 0016 (specs/decisions/0016-install-installs-the-tool.md), specs/model/pipeline.md 'Install'. RETIRE-OWN-PATH-MACHINERY (blockedBy this) deletes the now-dead own_path detection/lock-column/guard-exemption once no live scaffold path emits own_path=true. `.temper/`'s own reconversion is outside build's writable fence (chain.ts) - human/ratification territory, not filed here."
+    "notes": "scoped at e920fa8, unblocked 2f87229 (SDK-VERSION-LOCKSTEP shipped); 0016 (specs/decisions/0016-install-installs-the-tool.md), specs/model/pipeline.md 'Install'. RETIRE-OWN-PATH-MACHINERY (blockedBy this) deletes the now-dead own_path detection/lock-column/guard-exemption once no live scaffold path emits own_path=true. `.temper/`'s own reconversion is outside build's writable fence (chain.ts) - human/ratification territory, not filed here."
   },
   {
     "tag": "RETIRE-OWN-PATH-MACHINERY",
@@ -92,7 +89,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper` 0.0.4, single package, `(sdk-package-layout)`); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, now at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. No `.github/workflows/release.yml` exists (only the `temper.yml` check job); root package.json is still the private flume manifest."
     },
     "dependsOnForks": [],
     "files": {
