@@ -1,5 +1,57 @@
 [
   {
+    "tag": "WINDOWS-NPM-SPAWN-PUB",
+    "summary": "tests/common/mod.rs:58 spawns bare `npm` (NotFound on Windows); reuse install.rs's npm_program() instead of re-duplicating the Windows/npm.cmd conditional",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Make `npm_program() -> &'static str` (line 1311, already picks `npm.cmd` on Windows / `npm` elsewhere) `pub` — `install` is already a `pub mod` in lib.rs, so this is the only visibility change needed."
+        },
+        {
+          "path": "tests/common/mod.rs",
+          "description": "`ensure_sdk_built()` (line 58) calls `std::process::Command::new(\"npm\")` directly — `Command`'s launch doesn't consult PATHEXT, so this is `NotFound` on every Windows box. Replace the literal with `std::process::Command::new(temper::install::npm_program())`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "tests/common/mod.rs no longer spawns a bare `\"npm\"` literal; it calls the now-`pub` `temper::install::npm_program()`; `cargo test` still builds and runs the SDK build step unchanged on non-Windows (npm_program() returns \"npm\" there, so behavior is byte-identical off Windows).",
+    "notes": "Windows field report (chore 352477d, observed at 2285821). Confirmed on disk: src/install.rs:1311 npm_program() is private; tests/common/mod.rs:58 is the only bare Command::new(\"npm\") in src/ or tests/ (grep-verified). Zero behavior change on non-Windows. Re-verified live at d7e35f6. scoped at d7e35f6"
+  },
+  {
+    "tag": "GITATTRIBUTES-LF-PIN",
+    "summary": "Add .gitattributes pinning byte-fidelity fixtures (builtin_lock.toml, .snap files, tests/fixtures/**) to LF so Windows autocrlf clones don't false-fail strict byte-equality tests",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": ".gitattributes",
+          "description": "Pin the byte-fidelity fixture set to `text eol=lf` so checkout never rewrites them regardless of a clone's `core.autocrlf`: `src/builtin_lock.toml` (the embedded built-in lock, byte-compared in tests/builtin_lock_frozen.rs against a fresh SDK emit), `tests/snapshots/*.snap` (20 insta snapshots), and `tests/fixtures/**` (the rules/extract_equivalence/coordinate fixture trees consumed by strict-equality round-trip tests — all confirmed plain text, none binary)."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`.gitattributes` exists at repo root; `git check-attr eol -- src/builtin_lock.toml tests/snapshots/<any>.snap tests/fixtures/rules/clean` each report `eol: lf`; the byte-fidelity fixture set is no longer subject to checkout-time EOL conversion on any clone.",
+    "notes": "Windows field report (chore 352477d, observed at 2285821). Confirmed: no .gitattributes exists; 20 tests/snapshots/*.snap and 11 tests/fixtures/** files, all plain text, counts re-verified unchanged. Fence widened to .gitattributes at d7e35f6 (was the sole revert cause). Broader byte-fidelity audit beyond this listed set is optional follow-on, not this entry's scope. scoped at d7e35f6"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
@@ -8,7 +60,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at f6ec58f: still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at d7e35f6: still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {

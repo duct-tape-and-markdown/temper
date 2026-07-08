@@ -3,18 +3,24 @@
 - Spec derived through: f87cc0c
 - Audited through: f6ec58f
 - Residue swept through: 99533af
-- This tick: Quiet closing pass (job 5). Re-verified all four inputs current:
-  inbox empty, no refactor captures; `git log f87cc0c..HEAD -- specs/` empty
-  (no new spec commits); `git log f6ec58f..HEAD -- src/ tests/ sdk/` empty
-  (no ship-audit work); `git log 99533af..HEAD -- src/ tests/ sdk/` empty
-  (no residue-sweep work) — HEAD's own commit (4935525) is the prior
-  residue-sweep tick itself, touching only .flume/. Re-checked
-  PACKAGING-CHANNELS's parked reason on disk: still no
-  `.github/workflows/release.yml` (only `temper.yml`), root `package.json`
-  is still `temper-flume-harness`/`private: true` — reason holds. Queue is
-  disjoint (one entry, no file overlap). `cargo build` green. pending.json
-  and open-questions.md unchanged.
-- Queue: PACKAGING-CHANNELS parked (unchanged) — no open entries.
+- This tick: Inbox (job 1). The two Windows field-report findings (filed by
+  human 352477d, reverted once at 884a008 for a fence violation, fence
+  widened to `.gitattributes` by human d7e35f6) re-verified live on disk
+  before scoping: `src/install.rs:1311` `npm_program()` still private,
+  `tests/common/mod.rs:58` still spawns bare `Command::new("npm")`; no
+  `.gitattributes` exists; 20 `.snap` files and 11 `tests/fixtures/**` files
+  confirmed (counts unchanged from the reverted attempt). Filed
+  WINDOWS-NPM-SPAWN-PUB (per `specs/process/engineering.md`, "One job, one
+  home") and GITATTRIBUTES-LF-PIN (per `specs/model/pipeline.md`, "Emit"),
+  both open, disjoint from each other and from PACKAGING-CHANNELS. Inbox
+  drained. Re-verified PACKAGING-CHANNELS's parked reason still holds at
+  d7e35f6 (no release.yml, package.json still private flume manifest). Jobs
+  2-4 confirmed quiet this tick: `git log f87cc0c..HEAD -- specs/`,
+  `git log f6ec58f..HEAD -- src/ tests/ sdk/`, and
+  `git log 99533af..HEAD -- src/ tests/ sdk/` all empty.
+- Queue: WINDOWS-NPM-SPAWN-PUB open, GITATTRIBUTES-LF-PIN open, both
+  disjoint from PACKAGING-CHANNELS (parked, unchanged).
 
-Plan continues: no — every input (inbox, spec delta, ship audit, residue
-sweep) is current and quiet; queue holds no pickable entry. Loop hibernates.
+Plan continues: no — inbox now empty; jobs 2-4 (spec delta, ship audit,
+residue sweep) all confirmed quiet this tick. Build takes over the two open
+entries.
