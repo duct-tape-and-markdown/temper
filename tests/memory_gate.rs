@@ -57,28 +57,15 @@ fn write_claude_md(root: &Path, lines: usize) {
 /// Run `temper check --harness <dir> --reporter github` and return the emitted finding
 /// lines (`::error`/`::warning …`), one per finding.
 fn check_harness(harness: &Path) -> Vec<String> {
-    let output = Command::new(BIN)
-        .arg("check")
-        .arg("--harness")
-        .arg(harness)
-        .arg("--reporter")
-        .arg("github")
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    stdout
+    let run = common::check_in(
+        harness,
+        &["--harness", harness.to_str().unwrap()],
+        Some("github"),
+    );
+    run.output
         .lines()
         .filter(|line| line.starts_with("::"))
         .map(str::to_string)
-        .collect()
-}
-
-/// The findings whose rule (the `title=<rule>` property) equals `rule`.
-fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
-    let needle = format!("title={rule}::");
-    findings
-        .iter()
-        .filter(|line| line.contains(&needle))
         .collect()
 }
 
@@ -134,7 +121,7 @@ fn the_two_step_check_path_backs_a_real_repo_root_import() {
     write_claude_md_importing(&harness, "@docs/ledger.md");
 
     assert!(
-        findings_for(&check_two_step(&harness), "graph.directive-unbacked").is_empty(),
+        common::findings_for(&check_two_step(&harness), "graph.directive-unbacked").is_empty(),
         "the two-step path must enumerate the whole repo and back a real sibling, got: {:#?}",
         check_two_step(&harness)
     );
@@ -144,7 +131,7 @@ fn the_two_step_check_path_backs_a_real_repo_root_import() {
     // so no re-import is needed; the backing set is re-walked from disk each gate).
     fs::remove_file(harness.join("docs/ledger.md")).unwrap();
     let findings = check_two_step(&harness);
-    let unbacked = findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
     assert_eq!(
         unbacked.len(),
         1,
@@ -168,7 +155,7 @@ fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
     write_claude_md_importing(&harness, "@docs/missing.md");
 
     let findings = check_harness(&harness);
-    let unbacked = findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
 
     // Exactly one unbacked-pointer finding, on the memory member — the wedge path now
     // collects the CLAUDE.md's `at-import` targets and classes them.
@@ -200,7 +187,7 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
     let findings = check_harness(&harness);
 
     assert!(
-        findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
         "a directive resolving to a real member must fire no unbacked-pointer finding, got: {findings:#?}"
     );
 }
@@ -216,7 +203,7 @@ fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
     write_claude_md_importing(&harness, "@docs/missing.md");
 
     let findings = check_harness(&harness);
-    let unbacked = findings_for(&findings, "graph.directive-unbacked");
+    let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
 
     // Exactly one unbacked-pointer finding, on the memory member, drawn with zero config.
     assert_eq!(
@@ -251,7 +238,7 @@ fn a_backed_at_import_fires_nothing_with_zero_config() {
     let findings = check_harness(&harness);
 
     assert!(
-        findings_for(&findings, "graph.directive-unbacked").is_empty(),
+        common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
         "a backed `@import` fires no unbacked-pointer finding on the floor, got: {findings:#?}"
     );
 }
@@ -265,7 +252,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
     write_claude_md(&harness, 251);
 
     let findings = check_harness(&harness);
-    let max_lines = findings_for(&findings, "max_lines");
+    let max_lines = common::findings_for(&findings, "max_lines");
 
     // Exactly one `max_lines` advisory — the memory member dispatched to
     // memory.anthropic, not silently skipped.
@@ -291,7 +278,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
 
     // No regression: the clean skill still trips no finding under its own kind.
     assert!(
-        findings_for(&findings, "allowed_chars").is_empty(),
+        common::findings_for(&findings, "allowed_chars").is_empty(),
         "the clean skill must not trip allowed_chars, got: {findings:#?}"
     );
 }
@@ -308,7 +295,7 @@ fn an_under_length_claude_md_fires_no_memory_advisory() {
     // The memory member is still dispatched to memory.anthropic — it simply conforms, so
     // the body-size budget fires nothing.
     assert!(
-        findings_for(&findings, "max_lines").is_empty(),
+        common::findings_for(&findings, "max_lines").is_empty(),
         "an under-length CLAUDE.md must fire no max_lines advisory, got: {findings:#?}"
     );
 }
@@ -324,7 +311,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
     let findings = check_harness(&harness);
 
     // The skill finding still fires, exactly as before the gate generalized.
-    let allowed_chars = findings_for(&findings, "allowed_chars");
+    let allowed_chars = common::findings_for(&findings, "allowed_chars");
     assert_eq!(
         allowed_chars.len(),
         1,
@@ -338,7 +325,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
 
     // And the memory advisory fires beside it — the two kinds are judged in one run.
     assert_eq!(
-        findings_for(&findings, "max_lines").len(),
+        common::findings_for(&findings, "max_lines").len(),
         1,
         "the memory advisory fires beside the skill finding, got: {findings:#?}"
     );

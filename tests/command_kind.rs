@@ -19,7 +19,7 @@ use temper::builtin_kind;
 use temper::extract::{FeatureValue, ValueType};
 use temper::frontmatter::Member;
 use temper::import;
-use temper::kind::{Registration, Unit};
+use temper::kind::Registration;
 
 /// A command file in the real Claude Code shape: YAML frontmatter over a markdown
 /// body, the same schema a skill's `SKILL.md` carries.
@@ -38,18 +38,6 @@ fn write_command(root: &std::path::Path, stem: &str, body: &str) -> PathBuf {
     let path = dir.join(format!("{stem}.md"));
     fs::write(&path, body).unwrap();
     path
-}
-
-/// Write a member's authored surface document `<dir>/<member_doc>` exactly as
-/// `import`/`emit` project it (`crate::frontmatter::Member::to_document`), then
-/// reload it through the generic surface loader `check` reads
-/// (`builtin_kind.rs`'s own `surface_unit` driver) — one generic adapter, no
-/// per-kind IR.
-fn surface_unit(member: &Member, member_doc: &str, dir: &std::path::Path) -> Unit {
-    fs::create_dir_all(dir).unwrap();
-    let doc_path = dir.join(member_doc);
-    fs::write(&doc_path, member.to_document().emit()).unwrap();
-    Unit::from_member_document(dir, &doc_path).unwrap()
 }
 
 #[test]
@@ -114,7 +102,7 @@ fn a_command_member_extracts_the_skills_declared_field_schema() {
         .unwrap()
         .expect("command is embedded");
     let member = Member::from_source(&command_kind, &source).unwrap();
-    let unit = surface_unit(&member, "COMMAND.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member, "COMMAND.md", &harness.join("surface"));
     let features = builtin_kind::features(&command_kind, &unit);
 
     // The skill's field schema by import: `description` extracts exactly as it does

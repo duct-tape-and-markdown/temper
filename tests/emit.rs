@@ -23,9 +23,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use sha2::{Digest, Sha256};
-use temper::drift::{
-    self, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload, PayloadMember,
-};
+use temper::drift::{self, Declarations, EmitOptions, EmitOutcome, Payload, PayloadMember};
 
 mod common;
 
@@ -44,65 +42,15 @@ fn outcome(report: &drift::EmitReport, name: &str) -> EmitOutcome {
 // The compiler — `drift::emit` over hand-built payloads, no `node` involved.
 // ---------------------------------------------------------------------------
 
-fn rule_kind_facts() -> KindFactRow {
-    KindFactRow {
-        name: "rule".to_string(),
-        provider: None,
-        governs_root: ".claude/rules".to_string(),
-        governs_glob: "*.md".to_string(),
-        format: Some("yaml-frontmatter".to_string()),
-        unit_shape: Some("file".to_string()),
-        registration: Vec::new(),
-        templates: Vec::new(),
-    }
-}
-
-fn skill_kind_facts() -> KindFactRow {
-    KindFactRow {
-        name: "skill".to_string(),
-        provider: None,
-        governs_root: ".claude/skills".to_string(),
-        governs_glob: "*/SKILL.md".to_string(),
-        format: Some("yaml-frontmatter".to_string()),
-        unit_shape: Some("directory".to_string()),
-        registration: Vec::new(),
-        templates: Vec::new(),
-    }
-}
-
-fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMember {
-    let mut fields = Vec::new();
-    if let Some(paths) = paths {
-        fields.push(("paths".to_string(), serde_json::json!(paths)));
-    }
-    PayloadMember {
-        kind: "rule".to_string(),
-        name: name.to_string(),
-        fields,
-        body: body.to_string(),
-        source_path: None,
-    }
-}
-
-fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember {
-    PayloadMember {
-        kind: "skill".to_string(),
-        name: name.to_string(),
-        fields: vec![
-            ("name".to_string(), serde_json::json!(name)),
-            ("description".to_string(), serde_json::json!(description)),
-        ],
-        body: body.to_string(),
-        source_path: None,
-    }
-}
-
 /// A rule + skill payload, declarations carrying just their kind facts.
 fn basic_payload(members: Vec<PayloadMember>) -> Payload {
     Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![rule_kind_facts(), skill_kind_facts()],
+            kinds: vec![
+                common::rule_kind_facts(None, &[]),
+                common::skill_kind_facts(None, &[]),
+            ],
             ..Default::default()
         },
         members,
@@ -127,8 +75,8 @@ const COORDINATE_BODY: &str = "# Coordinate\n\nDrive the team.\n";
 fn emit_compiles_every_projection_and_the_whole_lock_from_the_payload() {
     let (harness, into) = workspace("compile");
     let payload = basic_payload(vec![
-        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
-        skill_member(
+        common::rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        common::skill_member(
             "coordinate",
             "Use when coordinating agents across axes.",
             COORDINATE_BODY,
@@ -171,7 +119,11 @@ fn emit_compiles_every_projection_and_the_whole_lock_from_the_payload() {
 #[test]
 fn emit_writes_all_five_declaration_families_the_payload_carries() {
     let (_harness, into) = workspace("five-families");
-    let mut payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    let mut payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
     payload.declarations.clauses.push(drift::ClauseRow {
         kind: Some("rule".to_string()),
         predicate: "required".to_string(),
@@ -226,7 +178,11 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
 #[test]
 fn emit_is_idempotent_over_an_unchanged_payload() {
     let (harness, into) = workspace("idem");
-    let payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    let payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let after_first = common::tree_bytes(&harness);
@@ -249,10 +205,14 @@ fn emit_is_idempotent_over_an_unchanged_payload() {
 #[test]
 fn a_changed_payload_field_re_emits_the_projection() {
     let (harness, into) = workspace("reemit");
-    let first = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    let first = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
     drift::emit(&first, &into, EmitOptions::default()).unwrap();
 
-    let second = basic_payload(vec![rule_member(
+    let second = basic_payload(vec![common::rule_member(
         "rust",
         Some(&["src/**/*.rs", "tests/**/*.rs"]),
         RUST_BODY,
@@ -269,8 +229,8 @@ fn a_changed_payload_field_re_emits_the_projection() {
 fn a_hand_edited_projection_is_overwritten_not_conflicted() {
     let (harness, into) = workspace("hand-edit");
     let payload = basic_payload(vec![
-        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
-        skill_member(
+        common::rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        common::skill_member(
             "coordinate",
             "Use when coordinating agents across axes.",
             COORDINATE_BODY,
@@ -298,13 +258,17 @@ fn a_hand_edited_projection_is_overwritten_not_conflicted() {
 #[test]
 fn dry_run_reports_the_outcome_but_writes_nothing() {
     let (harness, into) = workspace("dry");
-    let first = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    let first = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
     drift::emit(&first, &into, EmitOptions::default()).unwrap();
 
     let before_harness = common::tree_bytes(&harness);
     let before_lock = fs::read(into.join("lock.toml")).unwrap();
 
-    let second = basic_payload(vec![rule_member(
+    let second = basic_payload(vec![common::rule_member(
         "rust",
         Some(&["src/**/*.rs", "tests/**/*.rs"]),
         RUST_BODY,
@@ -344,7 +308,11 @@ fn dry_run_reports_the_outcome_but_writes_nothing() {
 #[test]
 fn the_lock_baselines_source_hash_and_emit_hash_equal_for_a_payload_compiled_member() {
     let (_harness, into) = workspace("hash-baseline");
-    let payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    let payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
     let doc = fs::read_to_string(into.join("lock.toml"))
@@ -369,8 +337,8 @@ fn a_crlf_or_lone_cr_body_emits_an_lf_only_projection() {
     let crlf_body = "# Windows-authored\r\n\r\nCarries CRLF line endings.\r\n";
     let lone_cr_body = "# Old-Mac-authored\rCarries lone CR line endings.\r";
     let payload = basic_payload(vec![
-        rule_member("crlf", Some(&["src/**/*.rs"]), crlf_body),
-        rule_member("lonecr", Some(&["src/**/*.rs"]), lone_cr_body),
+        common::rule_member("crlf", Some(&["src/**/*.rs"]), crlf_body),
+        common::rule_member("lonecr", Some(&["src/**/*.rs"]), lone_cr_body),
     ]);
 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
@@ -425,7 +393,11 @@ fn a_crlf_or_lone_cr_body_emits_an_lf_only_projection() {
 #[test]
 fn a_member_naming_an_undeclared_kind_is_a_clear_refusal() {
     let (_harness, into) = workspace("unknown-kind");
-    let mut payload = basic_payload(vec![rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY)]);
+    let mut payload = basic_payload(vec![common::rule_member(
+        "rust",
+        Some(&["src/**/*.rs"]),
+        RUST_BODY,
+    )]);
     payload.members.push(PayloadMember {
         kind: "ghost".to_string(),
         name: "phantom".to_string(),
@@ -456,8 +428,8 @@ fn an_unsupported_seam_version_is_a_clear_refusal() {
 
 fn with_both_members() -> Payload {
     basic_payload(vec![
-        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
-        skill_member(
+        common::rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        common::skill_member(
             "coordinate",
             "Use when coordinating agents across axes.",
             COORDINATE_BODY,
@@ -466,7 +438,7 @@ fn with_both_members() -> Payload {
 }
 
 fn coordinate_only() -> Payload {
-    basic_payload(vec![skill_member(
+    basic_payload(vec![common::skill_member(
         "coordinate",
         "Use when coordinating agents across axes.",
         COORDINATE_BODY,
@@ -555,9 +527,9 @@ fn an_orphan_already_removed_by_hand_is_neither_reaped_nor_reported() {
 fn the_emit_report_distinguishes_reaped_from_drifted_orphan() {
     let (harness, into) = workspace("reap-both");
     let payload = basic_payload(vec![
-        rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
-        rule_member("go", Some(&["**/*.go"]), "# Go conventions\n"),
-        skill_member(
+        common::rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        common::rule_member("go", Some(&["**/*.go"]), "# Go conventions\n"),
+        common::skill_member(
             "coordinate",
             "Use when coordinating agents across axes.",
             COORDINATE_BODY,

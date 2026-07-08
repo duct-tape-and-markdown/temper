@@ -17,14 +17,10 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 mod common;
 
 use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
-
-/// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 /// Write a clean one-skill surface at `<root>/.claude/skills/<name>/SKILL.md` — the
 /// real Claude Code locus, never a layout invented for the test (`.claude/rules/rust.md`).
@@ -85,30 +81,18 @@ fn lock_widget_kind(root: &Path) {
 /// Run `temper check --harness <dir> --reporter github`, returning `(finding lines,
 /// exit success)`. Each finding is one `::error`/`::warning …` line.
 fn check_harness(harness: &Path) -> (Vec<String>, bool) {
-    let output = Command::new(BIN)
-        .arg("check")
-        .arg("--harness")
-        .arg(harness)
-        .arg("--reporter")
-        .arg("github")
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let findings = stdout
+    let run = common::check_in(
+        harness,
+        &["--harness", harness.to_str().unwrap()],
+        Some("github"),
+    );
+    let findings = run
+        .output
         .lines()
         .filter(|line| line.starts_with("::"))
         .map(str::to_string)
         .collect();
-    (findings, output.status.success())
-}
-
-/// The findings whose rule (the `title=<rule>` property) equals `rule`.
-fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
-    let needle = format!("title={rule}::");
-    findings
-        .iter()
-        .filter(|line| line.contains(&needle))
-        .collect()
+    (findings, run.ok)
 }
 
 #[test]
@@ -123,7 +107,7 @@ fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
 
     // (1) The checked-summary names each kind's member count — silence never reads as
     // "checked". Exactly one summary, `warning`, reporting the two skills checked.
-    let checked = findings_for(&findings, "coverage.checked");
+    let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
         checked.len(),
         1,
@@ -141,7 +125,7 @@ fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
 
     // (2) The ungoverned `.mcp.json` surface is flagged — exactly once, `warning`,
     // naming the surface and carrying its Claude Code docs citation at the point of claim.
-    let unmodeled = findings_for(&findings, "coverage.unmodeled-surface");
+    let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
     let mcp: Vec<&&String> = unmodeled
         .iter()
         .filter(|line| line.contains("::.mcp.json:"))
@@ -168,9 +152,9 @@ fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
     // The note never gates: no coverage finding is an `::error`, and the clean run
     // still exits success.
     assert!(
-        findings_for(&findings, "coverage.checked")
+        common::findings_for(&findings, "coverage.checked")
             .iter()
-            .chain(findings_for(&findings, "coverage.unmodeled-surface").iter())
+            .chain(common::findings_for(&findings, "coverage.unmodeled-surface").iter())
             .all(|line| line.starts_with("::warning ")),
         "every coverage-note finding is advisory, got: {findings:#?}"
     );
@@ -191,13 +175,13 @@ fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
 
     // The checked summary still fires — the gate states what it checked.
     assert_eq!(
-        findings_for(&findings, "coverage.checked").len(),
+        common::findings_for(&findings, "coverage.checked").len(),
         1,
         "the checked summary fires even with no gaps, got: {findings:#?}"
     );
     // But nothing is flagged unmodeled: every present surface is governed.
     assert!(
-        findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
+        common::findings_for(&findings, "coverage.unmodeled-surface").is_empty(),
         "a fully-modeled harness flags no unmodeled surface, got: {findings:#?}"
     );
     assert!(success, "the clean run exits success, got: {findings:#?}");
@@ -215,7 +199,7 @@ fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
 
     // `.claude/settings.json` is present and governed by the locked `widget` kind,
     // so it is never flagged unmodeled.
-    let unmodeled = findings_for(&findings, "coverage.unmodeled-surface");
+    let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
     assert!(
         unmodeled
             .iter()
@@ -225,7 +209,7 @@ fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
 
     // The checked-count message folds the custom kind's member in beside the
     // built-ins and carries no "built-in" qualifier that would misdescribe it.
-    let checked = findings_for(&findings, "coverage.checked");
+    let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
         checked.len(),
         1,

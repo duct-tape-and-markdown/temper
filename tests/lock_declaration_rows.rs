@@ -28,40 +28,6 @@ use temper::drift::{
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// The `skill` built-in kind's declaration row — the same facts `builtin_kind`'s
-/// `claude_code_skill` carries, hand-carried here since a golden lock has no live kind
-/// to derive them from (mirrors `tests/emit.rs`'s `skill_kind_facts`, plus the
-/// `registration` label this file's assertions pin).
-fn skill_kind_facts() -> KindFactRow {
-    KindFactRow {
-        name: "skill".to_string(),
-        provider: Some("claude-code".to_string()),
-        governs_root: ".claude/skills".to_string(),
-        governs_glob: "*/SKILL.md".to_string(),
-        format: Some("yaml-frontmatter".to_string()),
-        unit_shape: Some("directory".to_string()),
-        registration: vec![
-            "user-invoked".to_string(),
-            "description-trigger(description)".to_string(),
-        ],
-        templates: Vec::new(),
-    }
-}
-
-/// The `rule` built-in kind's declaration row (`builtin_kind::claude_code_rule`).
-fn rule_kind_facts() -> KindFactRow {
-    KindFactRow {
-        name: "rule".to_string(),
-        provider: Some("claude-code".to_string()),
-        governs_root: ".claude/rules".to_string(),
-        governs_glob: "*.md".to_string(),
-        format: Some("yaml-frontmatter".to_string()),
-        unit_shape: Some("file".to_string()),
-        registration: vec!["paths-match(paths)".to_string()],
-        templates: Vec::new(),
-    }
-}
-
 /// A host kind declaring one embedded nesting template — the `decision` child kind,
 /// the shape [`tests/nested_member.rs`]'s `decision_kind` declares live.
 fn spec_kind_facts_with_template() -> KindFactRow {
@@ -77,40 +43,17 @@ fn spec_kind_facts_with_template() -> KindFactRow {
     }
 }
 
-fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember {
-    PayloadMember {
-        kind: "skill".to_string(),
-        name: name.to_string(),
-        fields: vec![
-            ("name".to_string(), serde_json::json!(name)),
-            ("description".to_string(), serde_json::json!(description)),
-        ],
-        body: body.to_string(),
-        source_path: None,
-    }
-}
-
-fn rule_member(name: &str, paths: &[&str], body: &str) -> PayloadMember {
-    PayloadMember {
-        kind: "rule".to_string(),
-        name: name.to_string(),
-        fields: vec![("paths".to_string(), serde_json::json!(paths))],
-        body: body.to_string(),
-        source_path: None,
-    }
-}
-
 /// The one skill + one rule this file's payloads project.
 fn skill_and_rule_members() -> Vec<PayloadMember> {
     vec![
-        skill_member(
+        common::skill_member(
             "coordinate",
             "Use when coordinating agents across axes; not for single-axis work.",
             "# Coordinate\n\nDrive the team through the playbook.\n",
         ),
-        rule_member(
+        common::rule_member(
             "rust",
-            &["src/**/*.rs"],
+            Some(&["src/**/*.rs"]),
             "# Rust conventions\n\nPrefer a clone over a lifetime fight.\n",
         ),
     ]
@@ -122,7 +65,13 @@ fn skill_and_rule_members() -> Vec<PayloadMember> {
 /// satisfies families carry more than the bare-payload minimum.
 fn rich_declarations() -> Declarations {
     Declarations {
-        kinds: vec![rule_kind_facts(), skill_kind_facts()],
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
         clauses: vec![
             ClauseRow {
                 kind: Some("skill".to_string()),
@@ -659,7 +608,13 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
 #[test]
 fn a_bare_harness_lock_still_round_trips() {
     let payload = golden_payload(Declarations {
-        kinds: vec![rule_kind_facts(), skill_kind_facts()],
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
         clauses: rich_declarations().clauses,
         ..Declarations::default()
     });
@@ -682,8 +637,11 @@ fn a_bare_harness_lock_still_round_trips() {
 fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
     let payload = golden_payload(Declarations {
         kinds: vec![
-            rule_kind_facts(),
-            skill_kind_facts(),
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
             spec_kind_facts_with_template(),
         ],
         clauses: rich_declarations().clauses,

@@ -29,26 +29,6 @@ use temper::drift::{self, ClauseRow, Declarations, EmitOptions, Payload, Require
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// Author a rule's `satisfies` links on its surface overlay
-/// (`<root>/.temper/rules/<name>/RULE.md`) — the mirror of [`author_satisfies`] for the
-/// `rule` kind.
-fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
-    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
-    let source = root
-        .join(".claude")
-        .join("rules")
-        .join(format!("{name}.md"));
-    let mut rule = temper::frontmatter::Member::from_source(&rule_kind, &source).unwrap();
-    rule.satisfies = requirements
-        .iter()
-        .map(|r| temper::document::Satisfies::new(*r))
-        .collect();
-
-    let dir = root.join(".temper").join("rules").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
-}
-
 /// Author the requirements a member **publishes** on its surface overlay — the demand
 /// side of the fill edge, the mirror of [`author_satisfies`], grafted from the same
 /// live off-disk walk.
@@ -103,18 +83,6 @@ fn check_harness_in(root: &Path) -> common::CheckRun {
     common::CheckRun {
         ok: out.status.success(),
         output,
-    }
-}
-
-/// A bare `RequirementRow` naming `name` and typed to `kind`, otherwise empty — the
-/// starting point each case's builder customizes.
-fn requirement(name: &str, kind: &str) -> RequirementRow {
-    RequirementRow {
-        name: name.to_string(),
-        kind: Some(kind.to_string()),
-        required: false,
-        clauses: Vec::new(),
-        verified_by: None,
     }
 }
 
@@ -256,7 +224,7 @@ fn count_band_requirement(min: usize, max: usize) -> RequirementRow {
             None,
             None,
         )],
-        ..requirement("agents", "skill")
+        ..common::requirement("agents", false, Some("skill"))
     }
 }
 
@@ -333,8 +301,11 @@ fn a_wrong_kind_opt_in_fires_a_kind_finding_never_a_silent_exclusion() {
     common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
     common::write_rule(&root, "agent-rule");
     common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
-    author_rule_satisfies(&root, "agent-rule", &["agents"]);
-    common::write_requirements(&root, vec![requirement("agents", "skill")]);
+    common::author_rule_satisfies(&root, "agent-rule", &["agents"]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("agents", false, Some("skill"))],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -359,12 +330,12 @@ fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
     common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
     common::write_rule(&root, "agent-rule");
     common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
-    author_rule_satisfies(&root, "agent-rule", &["agents"]);
+    common::author_rule_satisfies(&root, "agent-rule", &["agents"]);
     common::write_requirements(
         &root,
         vec![RequirementRow {
             kind: None,
-            ..requirement("agents", "skill")
+            ..common::requirement("agents", false, Some("skill"))
         }],
     );
 
@@ -385,7 +356,10 @@ fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
     // never a silent "can never be filled" exclusion.
     common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
     common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
-    common::write_requirements(&root, vec![requirement("agents", "command")]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("agents", false, Some("command"))],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -437,7 +411,7 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
                 None,
                 None,
             )],
-            ..requirement("agents", "skill")
+            ..common::requirement("agents", false, Some("skill"))
         }],
     );
 
@@ -471,7 +445,7 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
         &root,
         vec![RequirementRow {
             required: true,
-            ..requirement("releaser", "command")
+            ..common::requirement("releaser", false, Some("command"))
         }],
     );
 
@@ -501,7 +475,7 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
         vec![RequirementRow {
             required: true,
             verified_by: Some("tests/does-not-exist.rs".to_string()),
-            ..requirement("planner", "skill")
+            ..common::requirement("planner", false, Some("skill"))
         }],
     );
 
@@ -533,7 +507,7 @@ fn a_roster_whose_verifiers_all_resolve_passes() {
         vec![RequirementRow {
             required: true,
             verified_by: Some("plan.rs".to_string()),
-            ..requirement("planner", "skill")
+            ..common::requirement("planner", false, Some("skill"))
         }],
     );
 
@@ -562,9 +536,9 @@ fn membership_requirements() -> Vec<RequirementRow> {
                 Some("approved-model"),
                 None,
             )],
-            ..requirement("agents", "skill")
+            ..common::requirement("agents", false, Some("skill"))
         },
-        requirement("approved-model", "skill"),
+        common::requirement("approved-model", false, Some("skill")),
     ]
 }
 
@@ -791,7 +765,10 @@ fn a_name_published_by_both_the_assembly_and_a_member_collides() {
         "arch-spec",
         vec![published("architecture", Some("skill"), false)],
     );
-    common::write_requirements(&root, vec![requirement("architecture", "skill")]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("architecture", false, Some("skill"))],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(

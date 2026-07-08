@@ -34,18 +34,7 @@ fn fixture(rel: &str) -> PathBuf {
     common::fixture(&format!("extract_equivalence/.claude/{rel}"))
 }
 
-/// Write an imported skill's authored surface member document `<name>/SKILL.md`
-/// (`Member::to_document`) and reload it through the generic `Unit` loader `check`
-/// reads — the built-in kind's member-document read, no IR→Unit adapter.
-fn skill_surface_unit(member: &Member, name: &str) -> Unit {
-    let dir = common::tmpdir(name).join(name);
-    std::fs::create_dir_all(&dir).unwrap();
-    let doc_path = dir.join("SKILL.md");
-    std::fs::write(&doc_path, member.to_document().emit()).unwrap();
-    Unit::from_member_document(&dir, &doc_path).unwrap()
-}
-
-/// The rule counterpart to [`skill_surface_unit`]: project the imported rule to its
+/// The rule counterpart to [`common::skill_surface_unit`]: project the imported rule to its
 /// `<name>/RULE.md` surface document (`Member::to_document`) and reload it as a
 /// generic `Unit`.
 fn rule_surface_unit(member: &Member, name: &str) -> Unit {
@@ -67,7 +56,7 @@ fn skill_features_over_a_real_skill_fixture() {
     let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
     let skill = Member::from_source(&skill_kind, &fixture("skills/coordinate").join("SKILL.md"))
         .expect("the coordinate skill fixture should parse");
-    let unit = skill_surface_unit(&skill, "coordinate");
+    let unit = common::skill_surface_unit(&skill, Some("coordinate"));
     let features = builtin_kind::skill_features(&unit);
     insta::assert_debug_snapshot!("skill_features_coordinate", features);
 }

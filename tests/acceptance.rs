@@ -26,10 +26,9 @@ mod common;
 use temper::builtin_kind;
 use temper::check::{self, Diagnostic, Severity};
 use temper::contract::Contract;
-use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
+use temper::drift::{self, Declarations, EmitOptions, Payload, PayloadMember};
 use temper::engine;
 use temper::frontmatter::Member;
-use temper::kind::Unit;
 
 /// The built-in Anthropic skill contract, resolved from the embedded built-in lock
 /// exactly as the shipped `check` does — so the acceptance path validates against
@@ -41,19 +40,6 @@ fn builtin_skill_contract() -> Contract {
 /// The built `temper` binary, located by Cargo at compile time — the custom-kind
 /// acceptance drives it to observe the process exit code.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
-
-/// Project an imported skill to its authored surface member document
-/// `<skill.id>/SKILL.md` (`Member::to_document`) and reload it through the generic
-/// `Unit` loader `check` reads. The surface directory is named for the skill so the
-/// generic id matches the imported member; `placement` reads the imported source
-/// directory off the preserved provenance, not this scratch directory.
-fn skill_surface_unit(skill: &Member) -> Unit {
-    let dir = common::tmpdir(&format!("surface-{}", skill.id)).join(&skill.id);
-    fs::create_dir_all(&dir).unwrap();
-    let doc_path = dir.join("SKILL.md");
-    fs::write(&doc_path, skill.to_document().emit()).unwrap();
-    Unit::from_member_document(&dir, &doc_path).unwrap()
-}
 
 /// Render a diagnostic set as one stable line per finding (`<severity> <rule>:
 /// <message>`), in the order the engine collects them.
@@ -99,7 +85,7 @@ fn check_reproduces_the_expected_diagnostic_set() {
         // Read features off the projected surface member document through the generic
         // `Unit` loader `check` uses — no IR→Unit adapter. `placement` still reads the
         // imported source directory off provenance, so `name-matches-dir` is unchanged.
-        let unit = skill_surface_unit(&skill);
+        let unit = common::skill_surface_unit(&skill, None);
         let features = builtin_kind::skill_features(&unit);
         let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
         report.push_str(&format!("## {name}\n"));
@@ -108,20 +94,6 @@ fn check_reproduces_the_expected_diagnostic_set() {
     }
 
     insta::assert_snapshot!("rules_check_diagnostics", report);
-}
-
-/// The `skill` built-in kind's declaration row this fixture's emit payload carries.
-fn skill_kind_facts() -> KindFactRow {
-    KindFactRow {
-        name: "skill".to_string(),
-        provider: Some("claude-code".to_string()),
-        governs_root: ".claude/skills".to_string(),
-        governs_glob: "*/SKILL.md".to_string(),
-        format: Some("yaml-frontmatter".to_string()),
-        unit_shape: Some("directory".to_string()),
-        registration: vec!["description-trigger(description)".to_string()],
-        templates: Vec::new(),
-    }
 }
 
 /// The slice acceptance, end to end: the well-formed `coordinate` fixture skill checks
@@ -136,7 +108,7 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
 
     // check — a well-formed skill trips no contract clause, so it is clean. The gate
     // reads each skill's surface member document through the one generic `Unit` loader.
-    let unit = skill_surface_unit(&skill);
+    let unit = common::skill_surface_unit(&skill, None);
     let features = [builtin_kind::skill_features(&unit)];
     let diagnostics = engine::validate(&builtin_skill_contract(), &features);
     assert!(
@@ -153,7 +125,10 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
     let payload = Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
-            kinds: vec![skill_kind_facts()],
+            kinds: vec![common::skill_kind_facts(
+                Some("claude-code"),
+                &["description-trigger(description)"],
+            )],
             ..Declarations::default()
         },
         members: vec![PayloadMember {

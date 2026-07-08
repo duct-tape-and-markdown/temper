@@ -17,12 +17,7 @@
 //!   per artifact (⇒ non-zero, one finding);
 //! - a non-`required` requirement left unfilled does not block (⇒ zero).
 
-use std::fs;
-use std::path::Path;
-
 mod common;
-
-use temper::drift::RequirementRow;
 
 /// A clean skill that trips no floor clause — the isolated subject for the coverage
 /// gate, so the only findings a case sees are coverage ones.
@@ -34,25 +29,16 @@ description: Use when maintaining development standards across the harness.\n\
 \n\
 Keep the bar high.\n";
 
-/// A `RequirementRow` naming `name`, `required` otherwise bare — the shape these cases
-/// need.
-fn requirement(name: &str, required: bool) -> RequirementRow {
-    RequirementRow {
-        name: name.to_string(),
-        kind: None,
-        required,
-        clauses: Vec::new(),
-        verified_by: None,
-    }
-}
-
 #[test]
 fn a_required_requirement_with_a_resolving_satisfies_stays_silent() {
     let root = common::tmpdir("covered");
     common::write_skill(&root, "dev-standards", CLEAN_SKILL);
     // The skill opts into the requirement, so its intent has a resolving home.
     common::author_satisfies(&root, "skills", "dev-standards", &["dev-standards"]);
-    common::write_requirements(&root, vec![requirement("dev-standards", true)]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("dev-standards", true, None)],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -67,7 +53,10 @@ fn a_required_requirement_with_no_satisfying_artifact_fires_unfilled() {
     let root = common::tmpdir("unfilled");
     common::write_skill(&root, "dev-standards", CLEAN_SKILL);
     // No `satisfies` authored: nothing opts into the requirement.
-    common::write_requirements(&root, vec![requirement("dev-standards", true)]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("dev-standards", true, None)],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -94,7 +83,10 @@ fn a_satisfies_naming_no_requirement_fires_dangling() {
         "dev-standards",
         &["dev-standards", "ghost-requirement"],
     );
-    common::write_requirements(&root, vec![requirement("dev-standards", true)]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("dev-standards", true, None)],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -124,7 +116,10 @@ fn a_typo_in_a_satisfies_link_yields_paired_unfilled_and_dangling() {
     // positives — the pair is what pins exact-match precision, not one masking the
     // other.
     common::author_satisfies(&root, "skills", "dev-standards", &["dev-standatds"]);
-    common::write_requirements(&root, vec![requirement("dev-standards", true)]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("dev-standards", true, None)],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -163,7 +158,10 @@ fn a_duplicated_satisfies_entry_emits_exactly_one_dangling() {
         "dev-standards",
         &["dev-standards", "ghost-requirement", "ghost-requirement"],
     );
-    common::write_requirements(&root, vec![requirement("dev-standards", true)]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("dev-standards", true, None)],
+    );
 
     // The github reporter renders one `::error` line per diagnostic, a stable count.
     let run = common::check_in(&root, &[], Some("github"));
@@ -193,7 +191,10 @@ fn a_non_required_unfilled_requirement_does_not_block() {
     common::write_skill(&root, "dev-standards", CLEAN_SKILL);
     // Nothing opts into it, but the requirement is advisory intent (no `required`),
     // so `temper` never fabricates a gate the author did not declare.
-    common::write_requirements(&root, vec![requirement("nice-to-have", false)]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("nice-to-have", false, None)],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -210,7 +211,7 @@ fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
     // retires entirely) — so a kind-blind `required` requirement contributes no
     // fabricated coverage; it still fires UNFILLED absent a real satisfier.
     let root = common::tmpdir("custom-unfilled");
-    common::write_requirements(&root, vec![requirement("domain-model", true)]);
+    common::write_requirements(&root, vec![common::requirement("domain-model", true, None)]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -232,7 +233,10 @@ fn a_means_less_required_requirement_still_gates() {
     // The unified requirement makes `means` optional, but coverage keys off `required`, not
     // `means`: a `required` requirement with no `means` and nothing opting in still
     // fires UNFILLED and blocks the run.
-    common::write_requirements(&root, vec![requirement("dev-standards", true)]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("dev-standards", true, None)],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -247,25 +251,6 @@ fn a_means_less_required_requirement_still_gates() {
     );
 }
 
-/// Author a rule's `satisfies` links on its surface overlay — the mirror of
-/// [`author_satisfies`] for the `rule` kind.
-fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
-    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
-    let source = root
-        .join(".claude")
-        .join("rules")
-        .join(format!("{name}.md"));
-    let mut rule = temper::frontmatter::Member::from_source(&rule_kind, &source).unwrap();
-    rule.satisfies = requirements
-        .iter()
-        .map(|r| temper::document::Satisfies::new(*r))
-        .collect();
-
-    let dir = root.join(".temper").join("rules").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
-}
-
 #[test]
 fn a_required_requirement_is_covered_by_a_rules_opt_in_same_as_a_skills() {
     // Coverage draws the satisfier set kind-blind — a member of *any* modeled kind
@@ -274,8 +259,11 @@ fn a_required_requirement_is_covered_by_a_rules_opt_in_same_as_a_skills() {
     // A `rule`'s opt-in covers `dev-standards` exactly as a skill's would.
     let root = common::tmpdir("kind-blind-cover");
     common::write_rule(&root, "dev-standards-rule");
-    author_rule_satisfies(&root, "dev-standards-rule", &["dev-standards"]);
-    common::write_requirements(&root, vec![requirement("dev-standards", true)]);
+    common::author_rule_satisfies(&root, "dev-standards-rule", &["dev-standards"]);
+    common::write_requirements(
+        &root,
+        vec![common::requirement("dev-standards", true, None)],
+    );
 
     let run = common::check_in(&root, &[], None);
     assert!(

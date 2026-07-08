@@ -40,17 +40,6 @@ fn write_agent(root: &std::path::Path, relative: &str, name: &str) -> PathBuf {
     path
 }
 
-/// Write a member's authored surface document `<dir>/<member_doc>` exactly as
-/// `import`/`emit` project it (`crate::frontmatter::Member::to_document`), then
-/// reload it through the generic surface loader `check` reads — one generic
-/// adapter, no per-kind IR.
-fn surface_unit(member: &Member, member_doc: &str, dir: &std::path::Path) -> Unit {
-    fs::create_dir_all(dir).unwrap();
-    let doc_path = dir.join(member_doc);
-    fs::write(&doc_path, member.to_document().emit()).unwrap();
-    Unit::from_member_document(dir, &doc_path).unwrap()
-}
-
 /// A raw `Unit` straight off an imported `Member` — the same shape
 /// `resolve_kind_units` (`src/main.rs`) builds for the live `check` gate, skipping
 /// the surface round-trip: two independently-imported same-named members would
@@ -146,7 +135,7 @@ fn an_agent_member_extracts_its_declared_field_schema() {
 
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
-    let unit = surface_unit(&member, "AGENT.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member, "AGENT.md", &harness.join("surface"));
     let features = builtin_kind::features(&kind, &unit);
 
     assert_eq!(
@@ -221,7 +210,7 @@ fn an_uppercase_name_trips_the_charset_clause() {
 
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
-    let unit = surface_unit(&member, "AGENT.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member, "AGENT.md", &harness.join("surface"));
     let features = builtin_kind::features(&kind, &unit);
 
     let contract = builtin::contract("agent").unwrap();
@@ -240,7 +229,7 @@ fn a_lowercase_hyphenated_name_trips_no_charset_clause() {
 
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
-    let unit = surface_unit(&member, "AGENT.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member, "AGENT.md", &harness.join("surface"));
     let features = builtin_kind::features(&kind, &unit);
 
     let contract = builtin::contract("agent").unwrap();

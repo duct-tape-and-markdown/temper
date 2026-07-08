@@ -15,7 +15,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Once;
 
-use temper::drift::{self, Declarations, EmitOptions, Payload, RequirementRow};
+use temper::drift::{
+    self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow,
+};
+use temper::frontmatter::Member;
+use temper::kind::Unit;
 
 /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
 /// crate — replaces the hand-rolled counter+pid+label naming scheme every
@@ -261,4 +265,127 @@ pub fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
             (rel, fs::read(entry.path()).unwrap())
         })
         .collect()
+}
+
+/// Write a member's authored surface document `<dir>/<member_doc>` exactly as
+/// `import`/`emit` project it (`Member::to_document`), then reload it through
+/// the generic surface loader `check` reads — one generic adapter, no per-kind IR.
+pub fn surface_unit(member: &Member, member_doc: &str, dir: &Path) -> Unit {
+    fs::create_dir_all(dir).unwrap();
+    let doc_path = dir.join(member_doc);
+    fs::write(&doc_path, member.to_document().emit()).unwrap();
+    Unit::from_member_document(dir, &doc_path).unwrap()
+}
+
+/// Project an imported skill to its authored surface member document
+/// `SKILL.md` and reload it through the generic `Unit` loader `check` reads.
+/// `name` names the surface directory (and the temp-dir label); `None` derives
+/// it from `skill.id`, matching the imported member's own identity.
+pub fn skill_surface_unit(skill: &Member, name: Option<&str>) -> Unit {
+    let name = name.unwrap_or(&skill.id);
+    let dir = tmpdir(&format!("surface-{name}")).join(name);
+    surface_unit(skill, "SKILL.md", &dir)
+}
+
+/// A hand-built `skill` `PayloadMember` carrying `name`/`description` fields.
+pub fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember {
+    PayloadMember {
+        kind: "skill".to_string(),
+        name: name.to_string(),
+        fields: vec![
+            ("name".to_string(), serde_json::json!(name)),
+            ("description".to_string(), serde_json::json!(description)),
+        ],
+        body: body.to_string(),
+        source_path: None,
+    }
+}
+
+/// A hand-built `rule` `PayloadMember`, optionally carrying a `paths` field —
+/// `None` omits the field entirely, matching a `rule` with no declared `paths`.
+pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMember {
+    let mut fields = Vec::new();
+    if let Some(paths) = paths {
+        fields.push(("paths".to_string(), serde_json::json!(paths)));
+    }
+    PayloadMember {
+        kind: "rule".to_string(),
+        name: name.to_string(),
+        fields,
+        body: body.to_string(),
+        source_path: None,
+    }
+}
+
+/// The `skill` built-in kind's declaration row, parameterized by the
+/// `provider`/`registration` values callers diverge on — the rest of the row
+/// (`governs`, `format`, `unit_shape`) is the kind's fixed shape.
+pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFactRow {
+    KindFactRow {
+        name: "skill".to_string(),
+        provider: provider.map(str::to_string),
+        governs_root: ".claude/skills".to_string(),
+        governs_glob: "*/SKILL.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        registration: registration.iter().map(|r| r.to_string()).collect(),
+        templates: Vec::new(),
+    }
+}
+
+/// The `rule` built-in kind's declaration row, parameterized by the
+/// `provider`/`registration` values callers diverge on.
+pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFactRow {
+    KindFactRow {
+        name: "rule".to_string(),
+        provider: provider.map(str::to_string),
+        governs_root: ".claude/rules".to_string(),
+        governs_glob: "*.md".to_string(),
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("file".to_string()),
+        registration: registration.iter().map(|r| r.to_string()).collect(),
+        templates: Vec::new(),
+    }
+}
+
+/// The findings whose rule (the `title=<rule>` property) equals `rule` — the
+/// GitHub reporter's per-finding lines this suite's cases scrape for a count.
+pub fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
+    let needle = format!("title={rule}::");
+    findings
+        .iter()
+        .filter(|line| line.contains(&needle))
+        .collect()
+}
+
+/// Author a rule's `satisfies` links on its surface overlay
+/// (`<root>/.temper/rules/<name>/RULE.md`) — the mirror of [`author_satisfies`]
+/// for the `rule` kind.
+pub fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+    let source = root
+        .join(".claude")
+        .join("rules")
+        .join(format!("{name}.md"));
+    let mut rule = Member::from_source(&rule_kind, &source).unwrap();
+    rule.satisfies = requirements
+        .iter()
+        .map(|r| temper::document::Satisfies::new(*r))
+        .collect();
+
+    let dir = root.join(".temper").join("rules").join(name);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+}
+
+/// A bare `RequirementRow` naming `name`, otherwise the union of the shapes
+/// callers need: `required` and an optional `kind` narrowing.
+pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> RequirementRow {
+    RequirementRow {
+        name: name.to_string(),
+        kind: kind.map(str::to_string),
+        required,
+        clauses: Vec::new(),
+        verified_by: None,
+    }
 }

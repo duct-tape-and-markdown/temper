@@ -18,8 +18,6 @@ use std::path::Path;
 
 mod common;
 
-use temper::drift::RequirementRow;
-
 /// A skill clean against the floor (lowercase `name` matching its directory, a present
 /// short description) — the real Claude Code locus (`.claude/skills/<name>/SKILL.md`),
 /// never a layout invented for the test.
@@ -30,18 +28,6 @@ description: Use when coordinating agents across axes; not for single-axis work.
 # Coordinate\n\
 \n\
 Drive the team through the playbook.\n";
-
-/// A bare `RequirementRow` naming `name` — enough to make the committed assembly
-/// `declared`.
-fn requirement(name: &str) -> RequirementRow {
-    RequirementRow {
-        name: name.to_string(),
-        kind: None,
-        required: false,
-        clauses: Vec::new(),
-        verified_by: None,
-    }
-}
 
 /// Run `temper check <args...>` from `root`, returning `(github-format finding lines,
 /// exit success)` — the machine format used elsewhere in this suite
@@ -58,26 +44,17 @@ fn check_in(root: &Path, args: &[&str]) -> (Vec<String>, bool) {
     (findings, run.ok)
 }
 
-/// The findings whose rule (the `title=<rule>` property) equals `rule`.
-fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
-    let needle = format!("title={rule}::");
-    findings
-        .iter()
-        .filter(|line| line.contains(&needle))
-        .collect()
-}
-
 #[test]
 fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
     // The harness-root `temper check .` case the wave-end confirmation caught: a
     // committed lock declares a requirement, but nothing was ever imported — no
     // surface tree at the workspace `check` reads.
     let root = common::tmpdir("declared-empty");
-    common::write_requirements(&root, vec![requirement("docs")]);
+    common::write_requirements(&root, vec![common::requirement("docs", false, None)]);
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let fired = findings_for(&findings, "coverage.empty-assembly");
+    let fired = common::findings_for(&findings, "coverage.empty-assembly");
     assert_eq!(
         fired.len(),
         1,
@@ -105,12 +82,12 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
     let harness = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&harness).unwrap();
     fs::write(harness.join("SKILL.md"), CLEAN_SKILL).unwrap();
-    common::write_requirements(&root, vec![requirement("docs")]);
+    common::write_requirements(&root, vec![common::requirement("docs", false, None)]);
 
     let (findings, success) = check_in(&root, &[]);
 
     assert!(
-        findings_for(&findings, "coverage.empty-assembly").is_empty(),
+        common::findings_for(&findings, "coverage.empty-assembly").is_empty(),
         "a resolving workspace must not trip the empty-assembly guard, got: {findings:#?}"
     );
     assert!(
@@ -128,7 +105,7 @@ fn a_genuinely_empty_harness_stays_silent() {
     let (findings, success) = check_in(&root, &[]);
 
     assert!(
-        findings_for(&findings, "coverage.empty-assembly").is_empty(),
+        common::findings_for(&findings, "coverage.empty-assembly").is_empty(),
         "a genuinely empty harness must not trip the empty-assembly guard, got: {findings:#?}"
     );
     assert!(
