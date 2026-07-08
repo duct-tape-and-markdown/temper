@@ -40,6 +40,227 @@
     "notes": "Windows field report observed at baac085; junction-not-symlink_dir fix verified 2026-07-08 (nixhacker.com, hinchley.net, npm/cli#5189 — carry cites into the code comment, rust.md). No new crate: shell `cmd /C mklink /J <link> <target>` (arg order reversed vs std::os::unix::fs::symlink's (original, link)). CI is ubuntu-only — build can't execute the Windows path itself; say so in the commit body. scoped at 16f844b"
   },
   {
+    "tag": "GLOB-ENGINE-CONSOLIDATE",
+    "summary": "Consolidate the two independent glob engines (kind.rs's hand-rolled segment matcher, graph.rs's hand-rolled regex compiler) onto the sanctioned globset crate",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Libraries before hand-rolls"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "edit": [
+        {
+          "path": "Cargo.toml",
+          "description": "Add `globset` as a direct dependency — already sanctioned (CLAUDE.md Tech stack: 'already inside `ignore`; never hand-roll matching') and already in the dependency tree transitively via `ignore = \"0.4\"`, so this pins the version rather than widening the sanctioned set."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Delete the hand-rolled `pub(crate) fn glob_matches(glob: &str, name: &str) -> bool` (lines 429-456, single-star backtracking, one path segment only). Replace its one in-module caller (line 357, `self.governs.glob_leaf()` against a filename) and its two cross-module callers (src/import.rs:230, src/coverage_note.rs:262, both matching one path segment/filename) with a `globset::Glob` compiled from the same leaf pattern — globset matches a bare segment (no `/`) as today's matcher does, so this is a like-for-like swap, not a semantics change."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Delete `glob_matches_any` (line 630), `glob_to_regex` (line 641, hand-rolled `**`/`*`/`?` to anchored-regex compiler), and `is_regex_meta` (its escaping helper) — replace the one caller with a `globset::GlobBuilder` compiled once per glob and tested against each candidate path, preserving the same semantics: `**` crosses `/` (including a bare leading `**/` matching zero segments), `*`/`?` stay within one segment, a glob globset cannot compile still degrades to 'matches' (never a false negative on an unparseable pattern — the existing defensive fallback, preserved as a `.ok()`-style guard around the compile)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "`collect_glob`'s per-segment walk (lines ~195-235) currently calls `crate::kind::glob_matches(segment, name)` per directory-tree level — this still needs to walk the tree level by level (globset does not enumerate a filesystem), but the per-segment test at line 230 switches to the shared `globset`-backed matcher from kind.rs instead of the hand-rolled one."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "`governs` (line 255) calls `glob_matches(kind.governs.glob_leaf(), leaf)` on a single filename — switch to the shared `globset`-backed matcher."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/graph.rs", "asserts": "`glob_to_regex_matches_common_path_globs_within_and_across_segments` (line 1576) and every `**`/`*`/`?` case it covers still pass against the globset-backed matcher" },
+      { "path": "tests/coverage_note.rs", "asserts": "custom-kind `governs` glob-leaf matching over on-disk fixtures is unchanged" },
+      { "path": "tests/cli.rs", "asserts": "any end-to-end discovery/check run touching a `**`-governed custom kind still finds the same members" }
+    ],
+    "acceptance": "One glob-matching surface backed by `globset`; `kind::glob_matches`, `graph::glob_to_regex`, `graph::glob_matches_any`, and `graph::is_regex_meta` no longer exist; every caller (kind.rs, import.rs, coverage_note.rs, graph.rs) resolves through it; `cargo test` green.",
+    "notes": "Refactor capture session-two-glob-engines.md (observed at 0ccba8d), re-verified live at HEAD — both engines and all four caller sites confirmed present, unchanged since. kind.rs's own comment admits the hand-roll was 'short of pulling in a glob crate for one metacharacter' — globset is now the sanctioned answer. import.rs's directory walk stays (globset can't enumerate a filesystem); only its per-segment test call changes. scoped at 390e085"
+  },
+  {
+    "tag": "PATH-NORMALIZER-CONSOLIDATE",
+    "summary": "Consolidate the two lexical path normalizers (import.rs drops only `.`, graph.rs's is the strict `.`+`..`-collapsing superset) into one home",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "blockedBy", "tag": "GLOB-ENGINE-CONSOLIDATE" },
+    "files": {
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "Make the existing `fn normalize_path(path: &Path) -> PathBuf` (line 812 — drops `Component::CurDir`, collapses `Component::ParentDir` against a preceding `Normal` segment, keeps a leading `..` with nothing to pop) `pub(crate)` — it is the strict superset and stays the one home."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Delete the local `fn normalize(path: &Path) -> PathBuf` (lines 283-287, drops only `Component::CurDir`). Its three callers (lines 214, 224, 274, all comparing a walk entry's path against the `discoverable` set built the same way) switch to `crate::graph::normalize_path` — confirm no caller's path ever carries a `..` segment that the narrower normalizer was relying on NOT collapsing (a walk entry under a fixed root should not), and note this in the commit body if any behavior-relevant case is found."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/graph.rs", "asserts": "path-normalization-dependent resolution (`normalize_path` call sites at graph.rs:758,766,804) is unchanged" },
+      { "path": "tests/acceptance.rs", "asserts": "discovery over a harness tree (import.rs's `discoverable`/`collect_glob` machinery) still finds the same members after switching normalizers" }
+    ],
+    "acceptance": "One `normalize_path` (graph.rs, `pub(crate)`); `import::normalize` no longer exists; every caller uses the shared one; `cargo test` green.",
+    "notes": "Refactor capture session-path-normalizers.md (observed at 0ccba8d), re-verified live at HEAD — both functions confirmed present, unchanged since; kept coverage_note.rs's `normalize_root` and drift.rs's `normalize_lf` untouched per the capture (different jobs, name collision only). Serialized behind GLOB-ENGINE-CONSOLIDATE — both entries edit src/import.rs and src/graph.rs; two open entries on the same files conflict at merge. scoped at 390e085"
+  },
+  {
+    "tag": "PLURAL-HELPER-CONSOLIDATE",
+    "summary": "Consolidate the byte-identical `plural(n)` suffix helper (and two inline duplicate closures in install.rs) into one home",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "blockedBy", "tag": "GLOB-ENGINE-CONSOLIDATE" },
+    "files": {
+      "edit": [
+        {
+          "path": "src/display.rs",
+          "description": "Add `pub(crate) fn plural(n: usize) -> &'static str { if n == 1 { \"\" } else { \"s\" } }` — homed here as the module already devoted to rendering member/report text (its own docs: 'the nested-member display rule'), a fair shared home for a tiny cross-cutting text-rendering helper neither bundle.rs nor coverage_note.rs owns more legitimately than the other."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Delete the local `fn plural(count: usize) -> &'static str` (line 324); its two call sites in `render` (lines ~308-312) use `crate::display::plural`."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "Delete the local `fn plural(n: usize) -> &'static str` (line 221); its two call sites (lines 124, 126) use `crate::display::plural`."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Two inline byte-identical closures — `let plural = if modelines == 1 { \"\" } else { \"s\" };` (line ~494) and the same shape at line ~499 for `notes` — found while re-verifying this capture against HEAD, same job as the two named duplicates. Replace both with `crate::display::plural(modelines)` / `crate::display::plural(notes)`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/bundle.rs", "asserts": "the bundle report's terminal rendering (`wrote <path>` lines plus the tally line) is byte-identical after the helper moves" },
+      { "path": "tests/coverage_note.rs", "asserts": "coverage-note prose rendering with 1 vs N members/kinds is unchanged" },
+      { "path": "tests/install.rs", "asserts": "install's discovery-report rendering (modeline/managed-by-note counts) is unchanged for 1 vs N counts" }
+    ],
+    "acceptance": "One `plural` helper (`src/display.rs`, `pub(crate)`); no duplicate definition or inline closure remains in bundle.rs, coverage_note.rs, or install.rs; `cargo test` green.",
+    "notes": "Refactor capture session-plural-helper.md (observed at 0ccba8d) named bundle.rs+coverage_note.rs only; install.rs's two inline closures are the same job, found re-verifying at HEAD — consolidation is the sanctioned expansion (engineering.md), named here rather than left as fresh residue. Serialized behind GLOB-ENGINE-CONSOLIDATE purely to keep the src/ consolidation wave ordered one-open-at-a-time; no direct file overlap between the two. scoped at 390e085"
+  },
+  {
+    "tag": "CLAUSE-FROM-ROW-CONSOLIDATE",
+    "summary": "Consolidate the two lock-row predicate decoders (builtin.rs's member-clause set, main.rs's requirement-clause set) beside the Predicate enum, one match arm set for the whole vocabulary",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Add a `pub(crate) fn predicate_from_row(row: &drift::ClauseRow) -> Option<Predicate>` covering the FULL `Predicate` enum's row decoding — today split across `src/builtin.rs`'s `predicate_from_row` (required/optional/min_len/max_len/max_lines/allowed_chars/forbidden_keys/deny/name-matches-dir/unique-name) and `src/main.rs`'s inline match in `clause_from_row` (count/unique/membership/degree). Homed beside `enum Predicate` (line 80) — the vocabulary authority the capture names. Decodes ONLY the predicate — not severity/guidance/cite — so each call site's existing strict-vs-tolerant severity handling and guidance/cite handling are preserved as thin call-site logic, not folded in (see notes: main.rs today silently drops guidance/cite for requirement clauses while builtin.rs keeps them — this entry preserves that existing behavior verbatim; deciding whether that drop is a bug is not this entry's job)."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "Delete `predicate_from_row` (lines 38-71); `clause_from_row` (line 80) calls `contract::predicate_from_row` instead, keeping its own `.expect(...)` strict-severity behavior and its guidance/cite population unchanged."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`clause_from_row` (line 1082) replaces its inline match with a call to `contract::predicate_from_row`, keeping its own tolerant `?` severity handling and `guidance: None, source: None` unchanged (see contract.rs entry note on preserving existing behavior)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/rule_contract.rs", "asserts": "member-clause (required/min_len/allowed_chars/etc.) decoding off the built-in lock is unchanged" },
+      { "path": "tests/lock_declaration_rows.rs", "asserts": "round-trip of clause rows through the shared decoder is unchanged" },
+      { "path": "tests/requirement_roster.rs", "asserts": "requirement-clause (count/unique/membership/degree) decoding off a committed lock is unchanged" }
+    ],
+    "acceptance": "One predicate-decoding match (`contract::predicate_from_row`) covering the full `Predicate` enum; `src/builtin.rs` and `src/main.rs` each delegate to it, keeping only their own severity/guidance/cite assembly; `cargo test` green.",
+    "notes": "Capture session-clause-from-row-twins.md (observed 0ccba8d), re-verified live at HEAD. Close read found the two decoders cover DISJOINT predicate subsets (member vs requirement scope), not overlapping duplicates as the capture implied — still two hand-maintained match arms over one closed enum, the 'two check paths' risk engineering.md names. main.rs's guidance/cite drop looks possibly unintentional; fixing it is out of scope — flag in commit body. scoped at 390e085"
+  },
+  {
+    "tag": "SDK-SEAM-ENCODE-CONSOLIDATE",
+    "summary": "Extract the SDK's version-stamped seam-encoding convention (hand-inlined twice) into one encodeSeam helper",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Add `export function encodeSeam(payload: object): string { return JSON.stringify({ version: SEAM_VERSION, ...payload }, null, 2) + \"\\n\"; }` beside `SEAM_VERSION` (line 369). Rewrite `declarationsToJson` (line 377) to `return encodeSeam(declarations);` — same payload shape (`{version, ...declarations}`), byte-identical output."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "In `emit`'s `compile` closure (line ~293), replace `JSON.stringify({ version: SEAM_VERSION, declarations, members }, null, 2) + \"\\n\"` with `encodeSeam({ declarations, members })`, importing `encodeSeam` alongside the existing `SEAM_VERSION, compileDeclarations` import (line 20). Same payload shape, byte-identical output — the double-emit byte-compare (`first.seam !== second.seam`) is the existing determinism guard and stays unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "sdk/test/emit.test.ts", "asserts": "line 259's `JSON.parse(declarationsToJson(compileDeclarations(fullHarness())))` still round-trips identically through the shared helper" }
+    ],
+    "acceptance": "One `encodeSeam(payload)` helper in `sdk/src/declarations.ts`; both `declarationsToJson` and `emit`'s seam construction call it; `pnpm --dir sdk test` green (strict tsc + node --test).",
+    "notes": "Refactor capture session-seam-encode-twin.md (observed at 0ccba8d), re-verified live at HEAD — both inline encodings confirmed present, unchanged since, same version-stamp+trailing-newline convention over different payload shapes (declarations-only vs declarations+members), which `encodeSeam(payload: object)` accommodates without loss. scoped at 390e085"
+  },
+  {
+    "tag": "TEST-SCAFFOLDING-CONSOLIDATE",
+    "summary": "Consolidate the ~28x-copy-pasted tmpdir() builder and 2x-copy-pasted fixture() helper into tests/common, adopting the sanctioned tempfile dev-dependency",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "blockedBy", "tag": "WINDOWS-VENDOR-SYMLINK-JUNCTION" },
+    "files": {
+      "new": [
+        { "path": "tests/common/mod.rs", "description": "By the time this entry is picked up, WINDOWS-VENDOR-SYMLINK-JUNCTION has already shipped and created this module for `sdk_root`/`ensure_sdk_built`/`vendor_sdk` — listed here as `new` only because it does not exist on disk at THIS entry's scoping time (blockedBy); the build tick that picks this entry up is extending an existing file, not creating one. Add `pub fn tmpdir(label: &str) -> PathBuf` and `pub fn fixture(rel: &str) -> PathBuf`. `tmpdir` replaces the hand-rolled counter+pid+label scheme (byte-identical across all 20 copies) with the sanctioned `tempfile` crate's RAII builder (`tempfile::Builder::new().prefix(label).tempdir()` or equivalent) — confirm no caller relies on the temp dir surviving past the test process (RAII cleanup is a behavior change from the hand-rolled scheme, which never cleaned up); if any test asserts on a leaked directory, note it in the commit body rather than silently changing the assertion. `fixture` is a straight lift of the byte-identical helper in tests/acceptance.rs:75 and tests/extract_equivalence.rs:33." }
+      ],
+      "edit": [
+        { "path": "Cargo.toml", "description": "Add `tempfile` to `[dev-dependencies]` — already sanctioned (CLAUDE.md Tech stack: 'tempfile (dev: test temp dirs)') but not yet a declared dependency." },
+        { "path": "tests/acceptance.rs", "description": "Add `mod common;`; delete the local `tmpdir`/`fixture`; all call sites use `common::tmpdir`/`common::fixture`." },
+        { "path": "tests/agent_kind.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/bundle.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/cli.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/command_kind.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/coverage.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/coverage_note.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/extract_equivalence.rs", "description": "Add `mod common;`; delete the local `tmpdir`/`fixture`; call sites use `common::tmpdir`/`common::fixture`." },
+        { "path": "tests/gate_fail_loud.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/graph.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/lock_declaration_rows.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/memory_contract.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/memory_gate.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/read_verbs.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/reporters.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/requirement_roster.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "tests/session_start.rs", "description": "Add `mod common;`; delete the local `tmpdir`; call sites use `common::tmpdir`." },
+        { "path": "src/builtin_kind.rs", "description": "In-source `#[cfg(test)] mod tests`'s local `tmpdir` (line 484) switches to the sanctioned `tempfile` crate directly (in-src test modules cannot `mod common` from tests/) — same RAII-vs-hand-rolled consideration as the tests/common version." },
+        { "path": "src/bundle.rs", "description": "In-source test `tmpdir` (line 336) switches to `tempfile` directly." },
+        { "path": "src/frontmatter.rs", "description": "In-source test `tmpdir` (line 567) switches to `tempfile` directly." },
+        { "path": "src/check.rs", "description": "In-source test `tmpdir` (line 346) switches to `tempfile` directly." },
+        { "path": "src/import.rs", "description": "In-source test `tmpdir` (line 382) switches to `tempfile` directly." },
+        { "path": "src/coverage_note.rs", "description": "In-source test `tmpdir` (line 419) switches to `tempfile` directly." },
+        { "path": "src/install.rs", "description": "In-source test `tmpdir` (line 1544) switches to `tempfile` directly." },
+        { "path": "src/drift.rs", "description": "In-source test `tmpdir` (line 1792) switches to `tempfile` directly." }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      { "path": "tests/common/mod.rs", "asserts": "the shared `tmpdir`/`fixture` builders behave identically to every deleted copy for every caller's usage pattern" },
+      { "path": "tests/acceptance.rs", "asserts": "the full integration suite (229/229 per the field report) passes unchanged after every `tmpdir`/`fixture` call site switches to the shared helper" }
+    ],
+    "acceptance": "`tests/common::tmpdir`/`fixture` are the one home for every integration test; every in-src `#[cfg(test)]` module uses `tempfile` directly; no hand-rolled counter+pid tmpdir scheme remains anywhere in `src/`/`tests/`; `cargo test` green.",
+    "notes": "Capture session-tmpdir-scaffolding.md (observed 0ccba8d), re-verified — 28 tmpdir + 2 fixture copies confirmed present; tests/common absent. fixture() folded in, same job, found re-verifying. Blocked on WINDOWS-VENDOR-SYMLINK-JUNCTION: creates tests/common/mod.rs, edits tests/{emit,install,builtin_lock_frozen}.rs — two open entries on the same files conflict. RAII is a behavior change from the never-cleaned hand-roll — flag in commit body. scoped at 390e085"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
