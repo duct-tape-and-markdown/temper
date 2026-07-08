@@ -1,5 +1,44 @@
 [
   {
+    "tag": "IN-SRC-TMPDIR-HELPER-CONSOLIDATE(driftcoveragenote)",
+    "summary": "Consolidate src/drift.rs's and src/coverage_note.rs's own in-src tmpdir(label) test helpers into the shared src/test_support::tmpdir",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Delete the local `fn tmpdir(label: &str) -> PathBuf` (line 1790, byte-identical to `src/test_support::tmpdir`) in the `#[cfg(test)] mod tests` block; add `use crate::test_support::tmpdir;` alongside its existing `use super::*;` (line 1786). Call sites (`tmpdir(\"place-absent\")` etc., lines 1809/1820/1838) are unchanged."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "Delete the local `fn tmpdir(label: &str) -> std::path::PathBuf` (line 416, byte-identical to `src/test_support::tmpdir`) in the `#[cfg(test)] mod tests` block; add `use crate::test_support::tmpdir;` alongside its existing `use super::*;` (line 278). Call sites (lines 458/476/492/509/522/546) are unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/drift.rs",
+        "asserts": "the three to_lock_path placement tests (place-absent, place-idem, place-conflict) still build and pass calling the shared test_support::tmpdir"
+      },
+      {
+        "path": "src/coverage_note.rs",
+        "asserts": "the six coverage-note lock-surface tests still build and pass calling the shared test_support::tmpdir"
+      }
+    ],
+    "acceptance": "No `fn tmpdir(label` definition remains in src/drift.rs or src/coverage_note.rs; both call `crate::test_support::tmpdir` like the other 8 in-src callers; `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "IN-SRC-TMPDIR-HELPER-CONSOLIDATE (a9942d4) merged 8 of 10 in-src tmpdir(label) copies into src/test_support; these 2 were left unmerged, entangled with the then-open PATH-SEP-NORMALIZE-CONSOLIDATE (drift.rs's to_lock_path). That shipped at 366e35a, unblocking this residue. Re-verified both copies byte-identical to test_support::tmpdir at HEAD. Disjoint from every open entry. scoped at e24b9dc"
+  },
+  {
     "tag": "TEST-HELPER-DUPES-CONSOLIDATE(recordwriters)",
     "summary": "Consolidate 6 more copy-pasted test builders (write_requirements, write_rule, write_retired_manifest, write_lock, retired_manifest_name, clean_skill) into tests/common",
     "per": {
