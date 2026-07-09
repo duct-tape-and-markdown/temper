@@ -76,6 +76,13 @@ chosen job half-done — the job is the atom.
    resolution returns through the inbox, a fresh input — so fork-parked
    content never holds the cursor. The cursor is a claim of routed-ness, not
    of having looked. A big delta takes several ticks; that is the design.
+   **A ratified Decision's own Consequences section is the derivation
+   checklist**: enumerate every bullet by name in the plan commit body — each
+   one resolves to a filed entry (name the tag), a verified-already-moot
+   claim (say what you checked on disk), or a registered open fork — before
+   the decision counts as routed. A bullet with none of the three is not
+   routed; "derived into N entries" is not itself a completeness argument,
+   and the cursor does not advance past an incompletely-checked decision.
 
 3. **Ship audit** — commits past `Audited through:` touched `src/`, `tests/`,
    or `sdk/`. Verify on disk what shipped (read the files, never the log
@@ -125,6 +132,13 @@ chosen job half-done — the job is the atom.
   (HEAD at scoping) in every routed entry's `notes` — the queue keeps moving
   after scoping, and the stamp lets build diff that range at pick-up instead
   of re-deriving the premise.
+- **A "retire mechanism X" entry's blast radius is symbol scope, not path
+  scope.** `rg` the retired function/type names across `tests/**`, not just
+  `src/**`/`sdk/**` — a shared test helper (`tests/common/*.rs`) that
+  round-trips through the retired API fans the edit out to every file
+  importing that helper, invisibly to a source-only grep. Include those
+  fan-out files in `files.edit` up front rather than letting build discover
+  them one `cargo test` failure at a time.
 - **Disjoint, or serialized — never both `open` over a shared file.** Build
   fans out pickable entries in parallel worktrees; two `open` entries editing
   the same file conflict at merge and revert the wave. If any path appears in
