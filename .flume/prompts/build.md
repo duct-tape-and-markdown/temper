@@ -52,26 +52,12 @@ placeholders, no `todo!()`, no stubbed function bodies.
 - If the entry's `per` cite is ambiguous or rests on an unsettled decision, do
   NOT guess: leave it and surface the question (the harness will route it).
 
-# FRICTION (optional — most ticks file nothing)
+# FRICTION / REFACTOR (optional — most ticks file nothing)
 
-If something in THIS tick cost you disproportionate effort — a pitfall the
-harness could have warned you about, a lengthy process, missing operational
-knowledge — capture it: one new file `.flume/friction/build-<slug>.md`, terse
-(symptom, what it cost this tick, suggested fix), committed with your work.
-Check the directory first; never re-file a filed friction. Humans drain it
-out of band. Never speculative, never a substitute for reaching green — see
-`.flume/friction/README.md`.
-
-# REFACTOR (optional — same bar, different drain)
-
-Structural debt you touched but cannot take this tick — a surface your work
-duplicates, a hand-roll a sanctioned crate covers, scaffolding copy-pasted
-once more — is a capture: one new file `.flume/refactor/build-<slug>.md`
-(surface with file:line per home, `observed at <sha>`, suggested
-consolidation), committed with your work; plan drains it into a pending
-entry. Consolidation *inside* your entry's own surface needs no capture —
-unifying a duplicate you would otherwise extend is in scope
-(`specs/process/engineering.md`). See `.flume/refactor/README.md`.
+Hit real friction this tick, or touched structural debt you can't fix now?
+Use the `capture-friction` skill — filenames `build-<slug>.md`, committed
+with your work; target directory per capture type (its own trigger condition
+covers when to reach for it).
 
 # OUTPUT
 
@@ -89,12 +75,12 @@ then `cargo clippy -D warnings`, `cargo test`, and `pnpm --dir sdk test`
 pending.
 
 **Iterate to green before you commit — this is the job, not an afterthought.**
-Loop: make the change → `cargo fmt --all && cargo clippy --all-targets -- -D warnings && cargo test`
-— plus `pnpm --dir sdk test` when the entry touches `sdk/**` (it is a gate too;
-cargo says nothing about TypeScript) —
-→ if anything is red (including an *existing* test your change broke), fix it and
-run again. Repeat until fully green, then commit. **Never commit red. Never end
-the tick with no commit just because the change rippled into other tests — repair
+Loop: make the change → run the gate commands (`CLAUDE.md`, "Common commands":
+the cargo fmt/clippy/test trio, plus `pnpm --dir sdk test` when the entry
+touches `sdk/**` — cargo says nothing about TypeScript) → if anything is red
+(including an *existing* test your change broke), fix it and run again.
+Repeat until fully green, then commit. **Never commit red. Never end the tick
+with no commit just because the change rippled into other tests — repair
 them; that ripple is part of the entry.** If you genuinely cannot reach green
 (a real blocker, not just more work), do NOT bail silently: state in your final
 message exactly what blocked you and what you tried, so plan can re-scope or a

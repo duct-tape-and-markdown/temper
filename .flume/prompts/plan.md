@@ -109,45 +109,9 @@ chosen job half-done — the job is the atom.
    disjoint, every gate reason still true, `state.md` re-derived. Write
    `Plan continues: no` and hand off.
 
-**Entry discipline** (binds every job that files or rewrites entries):
-
-- A stale entry gets a full rewrite, never a patch. Every entry carries a
-  truthful `per` cite into the spec section that owns the intent and truthful
-  `files` (the partition reads `files.edit[].path`).
-- **One entry = one gate-sized commit, comfortably under 200k tokens of build
-  work.** Lettered sub-parts or an internal task list mean it is not one
-  entry — it is a `blockedBy` chain; file the split up front. Scope `files`
-  to the honest ripple — include existing tests/snapshots the change will
-  break.
-- Every path in `files` — `new[].path`, `edit[].path`, `retire` (bare
-  strings) — is a repo-relative file path; the fence gate glob-matches all
-  three. `retire` means "this FILE is deleted"; retiring a symbol within a
-  surviving file is an `edit`.
-- **Every surface an entry cites must resolve.** `edit`/`retire` paths exist
-  on disk, `new` paths don't, the `per` section is in its file (all gated).
-  Symbol-level claims in descriptions — a struct, a lock column, a schema
-  surface — either resolve on disk (`rg` before citing) or are written
-  "new `X`"; a mechanism you can neither resolve nor mark is an open
-  question, never a sub-clause of an entry. Stamp `scoped at <short-sha>`
-  (HEAD at scoping) in every routed entry's `notes` — the queue keeps moving
-  after scoping, and the stamp lets build diff that range at pick-up instead
-  of re-deriving the premise.
-- **A "retire mechanism X" entry's blast radius is symbol scope, not path
-  scope.** `rg` the retired function/type names across `tests/**`, not just
-  `src/**`/`sdk/**` — a shared test helper (`tests/common/*.rs`) that
-  round-trips through the retired API fans the edit out to every file
-  importing that helper, invisibly to a source-only grep. Include those
-  fan-out files in `files.edit` up front rather than letting build discover
-  them one `cargo test` failure at a time.
-- **Disjoint, or serialized — never both `open` over a shared file.** Build
-  fans out pickable entries in parallel worktrees; two `open` entries editing
-  the same file conflict at merge and revert the wave. If any path appears in
-  two entries, serialize with `gate: { kind: "blockedBy", tag: "FIRST-TAG" }`.
-- Honor the invariants in `specs/intent.md`: only decidable contract clauses
-  become checks; behavior is delegated, never guessed. A derived layer never
-  invents intent absent from its source.
-- Keep `summary` a terse one-liner — the *what*; mechanics live in
-  `files[].description`, `acceptance`, `tests[].asserts`, `notes`.
+**Entry discipline** binds every job that files or rewrites entries — the
+rule scoped to `.flume/plan/pending.json` (`.claude/rules/pending-entry.md`)
+loads automatically the moment you touch that file; it is not repeated here.
 
 **Open questions** live in `open-questions.md`, never in pending; key each
 `(slug)` so entries can declare `dependsOnForks: ["slug"]`. The file holds
@@ -177,28 +141,20 @@ still live, `no` otherwise. With `no` and pickable entries, build takes over;
 with `no` and none, the loop hibernates. Never re-emit an unchanged queue
 with unmoved cursors under `yes`.
 
-# FRICTION (optional — most ticks file nothing)
+# FRICTION / REFACTOR (optional — most ticks file nothing)
 
-If something in THIS tick cost you disproportionate effort — a pitfall the
-harness could have warned you about, a lengthy process, missing operational
-knowledge — capture it: one new file `.flume/friction/plan-<slug>.md`, terse
-(symptom, what it cost this tick, suggested fix). Check the directory first;
-never re-file a filed friction. Humans drain it out of band. Never
-speculative, never a substitute for the job — see `.flume/friction/README.md`.
+Hit real friction, or touched structural debt you can't fix this tick? Use
+the `capture-friction` skill — filenames `plan-<slug>.md`, target directory
+per capture type (its own trigger condition covers when to reach for it).
 
 # OUTPUT
 
 One commit prefixed `plan:`. Write `.flume/plan/{pending.json,state.md,open-questions.md}`
 and drain `.flume/inbox.md` when inbox is the job. The harness rejects the
 commit if `pending.json` doesn't parse or you modify anything outside the
-phase's writable paths.
-
-**Field-length footgun — this reverts the whole tick.** Two fields have a hard
-upper bound, enforced *after* you commit: **`summary` ≤200 chars** and **`notes`
-≤500 chars**. If **any** entry violates either, the gate reverts the **entire**
-commit — every cursor advance and reconciliation this tick is lost. Before you
-finish, re-read every `summary` and `notes` and confirm each is under its cap;
-a field near its limit is a smell — push detail into the unbounded fields.
+phase's writable paths. `pending.json` entries carry the field-length footgun
+named in the `pending-entry` rule — re-read every `summary`/`notes` before
+finishing; a violation on any entry reverts the whole tick.
 
 <schema>
 {{PENDING_SCHEMA}}
