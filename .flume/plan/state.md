@@ -2,22 +2,22 @@
 
 - Spec derived through: f87cc0c
 - Audited through: dd7517a
-- Residue swept through: 8dfceee
-- This tick: Job 1 (refactor capture). `.flume/refactor/` held one live
-  capture beyond the README template:
-  `session-install-append-to-existing-untested.md` (observed a32a45f),
-  claiming `json_splice::append_element`'s populated-array arm (append a
-  hook into an array that already holds a sibling tool's entry) is untested.
-  Reverified at HEAD cb18a56: no commits touched install.rs, json_splice.rs,
-  or tests/install.rs since a32a45f, and read both files plus every
-  tests/install.rs fixture directly — the claim holds, every fixture either
-  starts hookless (insert_member's fresh path) or already matches temper's
-  own entry (skips the append). Filed INSTALL-HOOK-APPEND-COVERAGE (open,
-  per specs/process/engineering.md "One job, one home") and deleted the
-  capture file.
+- Residue swept through: 2f1c259
+- This tick: Residue sweep (job 4). `git diff --stat 8dfceee..HEAD` (six
+  commits: 09fee9f, 8a2459f, a32a45f, 942d28a, cb18a56, 2f1c259) touches only
+  `.flume/**`, `.temper/lock.toml`, `.temper/memory/CLAUDE.md`, `CLAUDE.md` —
+  zero changes to src/, tests/, or sdk/ since the prior sweep, so no new
+  residue can exist there. Both standing accepted debts reread and
+  reconfirmed live verbatim: tests/session_start.rs:121-146 still writes
+  `+++`-format `.temper/kinds/spec/KIND.md` + `.temper/packages/spec/PACKAGE.md`
+  fixtures; sdk/src/builtins.ts:295-395 still doc-comment-cites the deleted
+  `packages/{rule,memory}.anthropic/PACKAGE.md` files (agents-md.memory's own
+  citation rides the still-open `(agents-md-builtin-kind)` fork, not this
+  debt). Grepped `published_requirements` (no hits) and `skill.anthropic`
+  (only its legitimate shipped-kind-label uses) — no other retired
+  vocabulary found live. No new fileable gap; pending.json unchanged.
 - Queue: INSTALL-HOOK-APPEND-COVERAGE (open, next), PACKAGING-CHANNELS
-  (parked). Disjoint — new entry touches only tests/install.rs.
+  (parked). Disjoint — open entry touches only tests/install.rs.
 
-Plan continues: yes — residue sweep (job 4) trails HEAD: cursor 8dfceee vs
-HEAD cb18a56, with .flume/PROTOCOL.md, chain.ts, and projection commits in
-between still unswept.
+Plan continues: yes — quiet closing pass (job 5) is next; residue cursor now
+at HEAD, all four prior inputs current.
