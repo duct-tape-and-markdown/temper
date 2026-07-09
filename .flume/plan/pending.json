@@ -1,36 +1,5 @@
 [
   {
-    "tag": "KIND-NAME-COLLISION-ADMISSIBILITY",
-    "summary": "A custom kind lock-declared with a bare name colliding with a built-in silently loses its members in gate/explain/directive-classing — no diagnostic, no error",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "well-formedness"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Three identical sites — explain (L428), gate (L634), collect_directive_members (L997) — iterate declarations.kinds and `if builtin_defs.contains_key(&row.name) { continue; }`, silently dropping a custom kind row whose bare name matches an embedded built-in's from every corpus (no admissibility check, no diagnostic, member_counts never populated for it). Verified (2026-07-08) this is the real collision mechanism — not check.rs:83's Workspace::load_kinds as the inbox report cited, which is only ever called with the fixed built-in-only definitions() set (main.rs:60) and so cannot actually receive a colliding custom-kind row. Consolidate the three duplicate checks into one shared partition helper (per specs/process/engineering.md, 'One job, one home') and, in gate's path, surface the collision as an admissibility-tier Diagnostic::error (pattern at check.rs:320-323) naming the colliding kind — refusing rather than silently skipping, so member loss is never silent."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage.rs",
-        "asserts": "a lock-declared custom kind whose name equals a built-in's (e.g. \"rule\") produces an admissibility-tier diagnostic naming the collision, rather than a silent zero-member drop"
-      }
-    ],
-    "acceptance": "A custom kind whose lock-declared name collides with an embedded built-in's is a well-formedness/admissibility finding, never a silent skip, across explain, gate, and directive-classing.",
-    "notes": "Field report T16 (inbox, observed 4b0bb0f). check.rs:83's Workspace::load_kinds, the inbox report's cited mechanism, is unreachable for this scenario; the real one is three main.rs sites. SATISFIES-GATE-FROM-LOCK shipped (fe2b22c/7904498), adding a declarations.satisfies union to resolve_kind_units just above these sites — re-verified 2026-07-08 all three still match verbatim at shifted line numbers (was ~428/634/987, now 428/634/997). Unblocked. scoped at 7904498."
-  },
-  {
     "tag": "SATISFIES-CLAUSES-RATIONALE-FROM-LOCK",
     "summary": "explain's satisfies rationale narration (satisfies_clauses) still ignores lock-declared fills — fe2b22c fixed gate's pass/fail but explicitly scoped this half out",
     "per": {
