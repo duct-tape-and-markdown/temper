@@ -1,25 +1,25 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: dd7517a
+- Audited through: 69ba0fe
 - Residue swept through: 2f1c259
-- This tick: Quiet closing pass (job 5). Inbox empty, `.flume/refactor/`
-  holds only its README template — no live captures. No specs/ commits past
-  f87cc0c. `git diff --stat dd7517a..HEAD -- src tests sdk` is empty — the
-  six commits since (09fee9f, 8a2459f, a32a45f, 942d28a, cb18a56, 2f1c259,
-  b87e3c5) are all plan/flume bookkeeping, so audit and residue cursors hold
-  unchanged. Re-verified on disk: INSTALL-HOOK-APPEND-COVERAGE's cited lines
-  still resolve exactly (src/install.rs:862/883 `Some(member) =>` arms,
-  src/json_splice.rs:224-227 `append_element`'s populated-array arm) and
-  tests/install.rs still exists as the edit target. PACKAGING-CHANNELS's
-  parked reason still holds: `.github/workflows/` has only `temper.yml` (a
-  check job), no `release.yml`; root `package.json` is still the private
-  `temper-flume-harness` manifest; `sdk/package.json` `@dtmd/temper` still at
-  0.0.5. `cargo check --all-targets` green. pending.json and
-  open-questions.md unchanged.
-- Queue: INSTALL-HOOK-APPEND-COVERAGE (open, next, touches only
-  tests/install.rs), PACKAGING-CHANNELS (parked, touches package.json + a
-  new release.yml). Disjoint.
+- This tick: Ship audit (job 3). `git diff --stat dd7517a..HEAD -- src tests
+  sdk` showed exactly one change since the prior audit: a0a3280 added
+  `tests/install.rs::the_session_start_merge_appends_after_a_sibling_tools_existing_hook`
+  — the populated-array `append_element` branch coverage
+  INSTALL-HOOK-APPEND-COVERAGE scoped. Verified on disk: the test exists,
+  asserts the sibling entry survives untouched, temper's group lands after
+  it, and a second run converges; `cargo test --test install` — 20 passed,
+  0 failed. 69ba0fe (the paired chore commit) already removed the entry
+  from pending.json — reconciliation is done, nothing left for plan to
+  drop. Re-verified PACKAGING-CHANNELS's parked reason still holds:
+  `.github/workflows/` has only `temper.yml` (a check job), root
+  `package.json` is still the private `temper-flume-harness` manifest,
+  `sdk/package.json` still `0.0.5`. `cargo check --all-targets` green.
+  pending.json, open-questions.md, inbox unchanged.
+- Queue: PACKAGING-CHANNELS (parked, touches package.json + a new
+  release.yml) — the only pending entry.
 
-Plan continues: no — all four inputs current, queue disjoint and pickable,
-both gate reasons reconfirmed; build takes over.
+Plan continues: yes — residue sweep (job 4) is next: `Residue swept
+through: 2f1c259` trails HEAD (69ba0fe); b87e3c5/945d0f2/a0a3280/69ba0fe
+landed since and want a sweep pass.
