@@ -2,44 +2,38 @@
 
 - Spec derived through: 048f31f
 - Audited through: 5f88258
-- Residue swept through: 37c2411
-- This tick: Ship audit (job 3). `git log a641e03..HEAD -- src/ tests/ sdk/`
-  surfaced two commits: cb17438 (RENDER-HOOK-LEAF-RESOLUTION — resolves
-  embedded-kind leaves once via a new `resolveMemberLeaves`/
-  `ResolvedEmbeddedMemberValue` before either the default TOML view or a
-  kind's own `render()` hook sees them, closing the dangling-mention gap
-  read against the raw `EmbeddedMemberValue`; `sdk/src/emit.ts`,
-  `sdk/src/kind.ts`, test added) and 5f88258 (EXPECT-BINDING-KIND-SDK-TYPE
-  — retypes `ExpectBinding.kind` from `KindDefinition<object>` to
-  `KindDefinition<never>` in `sdk/src/assembly.ts`, the same contravariance
-  fix a620938 applied to `Requirement.kind`; test added). Both verified
-  shipped by reading the diffs directly, not the ship commit's claim alone;
-  `pnpm --dir sdk test` green (59/59); `cargo run -- check .` clean. Both
-  pending entries were already removed from pending.json by e4712ed
-  (`chore(flume): ship ...`) — no further entry action needed this tick.
-  Re-tested PACKAGING-CHANNELS's stale gate live against disk:
-  `.github/workflows/` still holds only `temper.yml`; root `package.json`
-  is still `temper-flume-harness`/`private: true`; no `marketplace.json`
-  anywhere in the tree — parked reason still holds. Neither commit's diff
-  left residue (both self-contained, doc comments updated in step); formal
-  residue-class re-check over these same two commits deferred to the next
-  residue-sweep tick per one-job discipline. Aside: this tick's SessionStart
-  hook reported the same 2 blocking `requirement.unfilled` findings
-  (friction-capture-procedure, pending-entry-discipline) that the prior
-  tick's note called a stale install — correcting that record: cb17438
-  filed `.flume/friction/build-temper-self-rep-unfilled-requirements.md`
-  against these exact two findings on `.temper`'s own self-representation,
-  confirming they're real and persistent, not a stale global binary; a
-  fresh `cargo run -- check .` on the project harness (not `.temper`) is
-  separately clean, consistent with both readings. The friction capture is
-  live, undrained, and out of scope for plan (needs a human
-  `chore(harness):` session touching `.temper/`, outside plan's writable
-  paths and outside jobs 1-5) — left for the session-open sweep per
-  `.flume/friction/README.md`.
+- Residue swept through: 5f88258
+- This tick: Residue sweep (job 4). `git log 37c2411..HEAD -- src/ tests/
+  sdk/` turns up exactly the two commits already covered by the ship-audit
+  cursor — cb17438 (RENDER-HOOK-LEAF-RESOLUTION: `sdk/src/emit.ts`,
+  `sdk/src/kind.ts`, `sdk/test/emit.test.ts`) and 5f88258
+  (EXPECT-BINDING-KIND-SDK-TYPE: `sdk/src/assembly.ts`,
+  `sdk/test/refusals.test.ts`) — no code-bearing commit the residue class
+  list hasn't seen. Read both diffs directly: cb17438 unifies leaf
+  resolution behind one `resolveMemberLeaves` call shared by the default
+  TOML view and a kind's `render` hook — no duplicate resolution logic
+  introduced, no new residue; 5f88258 is a single-line type retype plus a
+  test, same shape as a620938. Re-verified every "kept on purpose" debt
+  bullet in open-questions.md against the same 37c2411..HEAD window:
+  neither commit touched `tests/session_start.rs`, `sdk/src/builtins.ts`,
+  or `tests/coverage.rs` — those three debts stand unchanged. The
+  `sdk/src/kind.ts` spec-path-citation debt got a live test this tick:
+  cb17438 did open `kind.ts` (new `ResolvedEmbeddedMemberValue`/
+  `ResolvedEmbeddedMemberCollectionEntry` interfaces, retyped the `render`
+  hook) but never touched any of its 8 citation lines
+  (7,57,86,98,125,166,189,206 — the shift on the last three is pure
+  line-insertion offset, re-verified against disk), so the exit clause
+  still did not fire — third falsification of that prediction.
+  `sdk/src/contract.ts` untouched by either commit, debt there unchanged.
+  No new residue filed; cursor advances to 5f88258, converging with the
+  ship-audit cursor.
 - Queue: PACKAGING-CHANNELS (parked on human release creds + the
-  engine-binary workflow). Live friction: 1
-  (build-temper-self-rep-unfilled-requirements.md, awaiting human drain).
+  engine-binary workflow, unchanged this tick). Live friction: 1
+  (build-temper-self-rep-unfilled-requirements.md, awaiting human drain —
+  out of scope for plan, `.temper/**` isn't a writable path here).
 
-Plan continues: yes — residue sweep is live (`Residue swept through:`
-37c2411 trails HEAD 5f88258; the same two commits, cb17438 and 5f88258, are
-the un-swept delta) and unaddressed this tick per one-job discipline.
+Plan continues: yes — quiet pass is next (all four numbered inputs are now
+current: inbox empty, spec delta cursor at HEAD's last routed commit, ship
+audit and residue sweep cursors both caught up to HEAD 5f88258; job 5's own
+closing pass — queue disjointness, gate-reason re-check — has not run this
+tick).
