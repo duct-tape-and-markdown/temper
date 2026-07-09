@@ -3,24 +3,28 @@
 - Spec derived through: f87cc0c
 - Audited through: 6c89f92
 - Residue swept through: e120e66
-- This tick: Ship audit 85fdffd..6c89f92 (job 3). SATISFIES-CLAUSES-RATIONALE-
-  FROM-LOCK shipped clean at 1b5dd23/6c89f92: `resolve_kind_units` now unions
-  `declarations.satisfies` into `unit.satisfies_clauses` too (verified on
-  disk, src/main.rs L885-897), tests/requirement_roster.rs green (21/21).
-  This unblocks RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY: its blockedBy tag
-  shipped, and surface_overlay's own doc comment now confirms no production
-  writer remains, so satisfies_clauses no longer depends on it — gate
-  flipped blockedBy -> open, main.rs file citation refreshed for the
-  17-line shift (surface_overlay ~L820-830, its call ~L876-884,
-  union_published_requirements ~L1036-1059), other files' citations
-  unchanged (untouched by 1b5dd23). PACKAGING-CHANNELS re-checked: parked
-  reason still holds verbatim (no `.github/workflows/release.yml`, root
-  package.json still `temper-flume-harness`, sdk still `@dtmd/temper`@0.0.5).
-- Queue: RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY open (sole pickable entry);
-  PACKAGING-CHANNELS parked, unchanged. Queue is disjoint (single open
-  entry).
+- This tick: Inbox (job 1). Routed the field report's two findings, both
+  re-verified live at HEAD 967b0e6: (a) `row_relocates_builtin`'s templates
+  equality check collapses to "declared templates must be empty" for every
+  built-in (its own `templates` is always `Vec::new()`), hard-failing a
+  legitimate templates-extension of a built-in host — filed
+  TEMPLATES-RELOCATION-COLLISION-REGRESSION (open); (b) `assemble_by_kind`
+  hardcodes skill/rule params and `gate()`/`explain()` independently
+  re-derive the same corpus shape, so a memory member's `satisfies` never
+  reaches roster/graph/coverage — filed MEMORY-ENTERS-REQUIREMENT-CORPUS,
+  blockedBy the first (both edit src/main.rs, so serialized). The
+  not-filed T14-refuted note needed no routing (already resolved,
+  informational only). Also drained the one live `.flume/refactor/`
+  capture (published_requirements permanently dead post-RETIRE-DEAD-OWN-
+  PATH-SURFACE-OVERLAY, re-verified: extract.rs:328/kind.rs:652 confirmed,
+  main.rs has zero references) into RETIRE-DEAD-PUBLISHED-REQUIREMENTS-
+  SURFACE (open, disjoint files) and deleted the capture file. Inbox
+  drained to the empty template.
+- Queue: TEMPLATES-RELOCATION-COLLISION-REGRESSION open (next);
+  MEMORY-ENTERS-REQUIREMENT-CORPUS blockedBy it (shared file, serialized);
+  RETIRE-DEAD-PUBLISHED-REQUIREMENTS-SURFACE open (disjoint files, can run
+  alongside); PACKAGING-CHANNELS parked, unchanged (not re-audited this
+  tick — ship audit is job 3, not serviced).
 
-Plan continues: no — spec delta empty, inbox/refactor-captures empty,
-residue cursor trails HEAD only by plan-only commits since e120e66 (no new
-code to sweep). Build owns the next move (RETIRE-DEAD-OWN-PATH-SURFACE-
-OVERLAY is pickable). Hibernate.
+Plan continues: yes — ship audit is live (664a522 touched src/ past
+`Audited through: 6c89f92`).
